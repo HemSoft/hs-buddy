@@ -1,0 +1,11 @@
+dist
+dist-electron
+node_modules
+release
+*.local
+.env
+.env.local
+.env.*.local
+*.log*
+.DS_Store
+Thumbs.db

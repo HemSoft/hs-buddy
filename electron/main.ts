@@ -87,9 +87,33 @@ function createMenu() {
         { role: 'forceReload' as const },
         { role: 'toggleDevTools' as const },
         { type: 'separator' as const },
-        { role: 'resetZoom' as const },
-        { role: 'zoomIn' as const },
-        { role: 'zoomOut' as const },
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+numadd',
+          click: () => {
+            if (win) {
+              const currentZoom = win.webContents.getZoomFactor()
+              win.webContents.setZoomFactor(Math.min(currentZoom + 0.1, 3.0))
+            }
+          }
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+numsub',
+          click: () => {
+            if (win) {
+              const currentZoom = win.webContents.getZoomFactor()
+              win.webContents.setZoomFactor(Math.max(currentZoom - 0.1, 0.5))
+            }
+          }
+        },
+        {
+          label: 'Reset Zoom',
+          accelerator: 'CmdOrCtrl+num0',
+          click: () => {
+            win?.webContents.setZoomFactor(1.0)
+          }
+        },
         { type: 'separator' as const },
         { role: 'togglefullscreen' as const }
       ]

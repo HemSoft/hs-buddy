@@ -1,6 +1,8 @@
 import { app, BrowserWindow, Menu, MenuItemConstructorOptions, globalShortcut } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import windowStateKeeper from 'electron-window-state'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -23,6 +25,36 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+
+// Zoom persistence
+let zoomConfigPath: string
+let currentZoomFactor = 1.0
+
+async function loadZoomFactor(): Promise<number> {
+  try {
+    if (existsSync(zoomConfigPath)) {
+      const data = await readFile(zoomConfigPath, 'utf-8')
+      const config = JSON.parse(data)
+      return config.zoomFactor || 1.0
+    }
+  } catch (err) {
+    console.error('Failed to load zoom factor:', err)
+  }
+  return 1.0
+}
+
+async function saveZoomFactor(zoomFactor: number): Promise<void> {
+  try {
+    const configDir = path.dirname(zoomConfigPath)
+    if (!existsSync(configDir)) {
+      await mkdir(configDir, { recursive: true })
+    }
+    await writeFile(zoomConfigPath, JSON.stringify({ zoomFactor }, null, 2))
+    currentZoomFactor = zoomFactor
+  } catch (err) {
+    console.error('Failed to save zoom factor:', err)
+  }
+}
 
 function createMenu() {
   const isMac = process.platform === 'darwin'
@@ -92,8 +124,9 @@ function createMenu() {
           accelerator: 'CmdOrCtrl+numadd',
           click: () => {
             if (win) {
-              const currentZoom = win.webContents.getZoomFactor()
-              win.webContents.setZoomFactor(Math.min(currentZoom + 0.1, 3.0))
+              const newZoom = Math.min(currentZoomFactor + 0.1, 3.0)
+              win.webContents.setZoomFactor(newZoom)
+              saveZoomFactor(newZoom)
             }
           }
         },
@@ -102,8 +135,9 @@ function createMenu() {
           accelerator: 'CmdOrCtrl+numsub',
           click: () => {
             if (win) {
-              const currentZoom = win.webContents.getZoomFactor()
-              win.webContents.setZoomFactor(Math.max(currentZoom - 0.1, 0.5))
+              const newZoom = Math.max(currentZoomFactor - 0.1, 0.5)
+              win.webContents.setZoomFactor(newZoom)
+              saveZoomFactor(newZoom)
             }
           }
         },
@@ -111,7 +145,10 @@ function createMenu() {
           label: 'Reset Zoom',
           accelerator: 'CmdOrCtrl+num0',
           click: () => {
-            win?.webContents.setZoomFactor(1.0)
+            if (win) {
+              win.webContents.setZoomFactor(1.0)
+              saveZoomFactor(1.0)
+            }
           }
         },
         { type: 'separator' as const },
@@ -140,7 +177,10 @@ function createMenu() {
   Menu.setApplicationMenu(menu)
 }
 
-function createWindow() {
+async function createWindow() {
+  // Load zoom factor
+  currentZoomFactor = await loadZoomFactor()
+
   // Load window state (position, size, etc.)
   const mainWindowState = windowStateKeeper({
     defaultWidth: 1400,
@@ -166,20 +206,18 @@ function createWindow() {
   // Let window state manager track window state
   mainWindowState.manage(win)
 
-  // Test active push message to Renderer-process.
+  // Apply saved zoom factor
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date()).toLocaleString())
+    if (win && currentZoomFactor !== 1.0) {
+      win.webContents.setZoomFactor(currentZoomFactor)
+    }
   })
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
-  }
-
-  // Open DevTools in development
-  if (VITE_DEV_SERVER_URL) {
-    win.webContents.openDevTools({ mode: 'right' })
   }
 }
 
@@ -200,6 +238,9 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
+  // Set zoom config path
+  zoomConfigPath = path.join(app.getPath('userData'), 'zoom-config.json')
+
   createMenu()
   createWindow()
 

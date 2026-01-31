@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, MenuItemConstructorOptions, globalShortcut } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
@@ -56,127 +56,6 @@ async function saveZoomFactor(zoomFactor: number): Promise<void> {
   }
 }
 
-function createMenu() {
-  const isMac = process.platform === 'darwin'
-
-  const template: MenuItemConstructorOptions[] = [
-    // App menu (macOS only)
-    ...(isMac ? [{
-      label: app.name,
-      submenu: [
-        { role: 'about' as const },
-        { type: 'separator' as const },
-        { role: 'services' as const },
-        { type: 'separator' as const },
-        { role: 'hide' as const },
-        { role: 'hideOthers' as const },
-        { role: 'unhide' as const },
-        { type: 'separator' as const },
-        { role: 'quit' as const }
-      ]
-    }] : []),
-    // File menu
-    {
-      label: 'File',
-      submenu: [
-        isMac ? { role: 'close' as const } : { role: 'quit' as const }
-      ]
-    },
-    // Edit menu
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' as const },
-        { role: 'redo' as const },
-        { type: 'separator' as const },
-        { role: 'cut' as const },
-        { role: 'copy' as const },
-        { role: 'paste' as const },
-        ...(isMac ? [
-          { role: 'pasteAndMatchStyle' as const },
-          { role: 'delete' as const },
-          { role: 'selectAll' as const },
-          { type: 'separator' as const },
-          {
-            label: 'Speech',
-            submenu: [
-              { role: 'startSpeaking' as const },
-              { role: 'stopSpeaking' as const }
-            ]
-          }
-        ] : [
-          { role: 'delete' as const },
-          { type: 'separator' as const },
-          { role: 'selectAll' as const }
-        ])
-      ]
-    },
-    // View menu
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' as const },
-        { role: 'forceReload' as const },
-        { role: 'toggleDevTools' as const },
-        { type: 'separator' as const },
-        {
-          label: 'Zoom In',
-          accelerator: 'CmdOrCtrl+numadd',
-          click: () => {
-            if (win) {
-              const newZoom = Math.min(currentZoomFactor + 0.1, 3.0)
-              win.webContents.setZoomFactor(newZoom)
-              saveZoomFactor(newZoom)
-            }
-          }
-        },
-        {
-          label: 'Zoom Out',
-          accelerator: 'CmdOrCtrl+numsub',
-          click: () => {
-            if (win) {
-              const newZoom = Math.max(currentZoomFactor - 0.1, 0.5)
-              win.webContents.setZoomFactor(newZoom)
-              saveZoomFactor(newZoom)
-            }
-          }
-        },
-        {
-          label: 'Reset Zoom',
-          accelerator: 'CmdOrCtrl+num0',
-          click: () => {
-            if (win) {
-              win.webContents.setZoomFactor(1.0)
-              saveZoomFactor(1.0)
-            }
-          }
-        },
-        { type: 'separator' as const },
-        { role: 'togglefullscreen' as const }
-      ]
-    },
-    // Window menu
-    {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' as const },
-        { role: 'zoom' as const },
-        ...(isMac ? [
-          { type: 'separator' as const },
-          { role: 'front' as const },
-          { type: 'separator' as const },
-          { role: 'window' as const }
-        ] : [
-          { role: 'close' as const }
-        ])
-      ]
-    }
-  ]
-
-  const menu = Menu.buildFromTemplate(template)
-  Menu.setApplicationMenu(menu)
-}
-
 async function createWindow() {
   // Load zoom factor
   currentZoomFactor = await loadZoomFactor()
@@ -194,6 +73,7 @@ async function createWindow() {
     height: mainWindowState.height,
     minWidth: 800,
     minHeight: 600,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
@@ -241,7 +121,6 @@ app.whenReady().then(() => {
   // Set zoom config path
   zoomConfigPath = path.join(app.getPath('userData'), 'zoom-config.json')
 
-  createMenu()
   createWindow()
 
   // Register global shortcuts
@@ -250,9 +129,50 @@ app.whenReady().then(() => {
       win.setFullScreen(!win.isFullScreen())
     }
   })
+
+  // Zoom shortcuts
+  globalShortcut.register('CommandOrControl+numadd', () => {
+    if (win) {
+      const newZoom = Math.min(currentZoomFactor + 0.1, 3.0)
+      win.webContents.setZoomFactor(newZoom)
+      saveZoomFactor(newZoom)
+    }
+  })
+
+  globalShortcut.register('CommandOrControl+numsub', () => {
+    if (win) {
+      const newZoom = Math.max(currentZoomFactor - 0.1, 0.5)
+      win.webContents.setZoomFactor(newZoom)
+      saveZoomFactor(newZoom)
+    }
+  })
+
+  globalShortcut.register('CommandOrControl+num0', () => {
+    if (win) {
+      win.webContents.setZoomFactor(1.0)
+      saveZoomFactor(1.0)
+    }
+  })
 })
 
 app.on('will-quit', () => {
   // Unregister all shortcuts
   globalShortcut.unregisterAll()
+})
+
+// IPC handlers for window controls
+ipcMain.on('window-minimize', () => {
+  win?.minimize()
+})
+
+ipcMain.on('window-maximize', () => {
+  if (win?.isMaximized()) {
+    win.unmaximize()
+  } else {
+    win?.maximize()
+  }
+})
+
+ipcMain.on('window-close', () => {
+  win?.close()
 })

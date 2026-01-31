@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TreeView } from './components/TreeView'
 import './App.css'
 
 function App() {
@@ -11,15 +12,7 @@ function App() {
           <h1>hs-buddy</h1>
         </div>
         <div className="sidebar-content">
-          <div className="tree-placeholder">
-            <p>Tree view coming soon...</p>
-            <ul>
-              <li>Pull Requests</li>
-              <li>Skills</li>
-              <li>Tasks</li>
-              <li>More to come...</li>
-            </ul>
-          </div>
+          <TreeView />
         </div>
       </div>
       <div className="main-content">

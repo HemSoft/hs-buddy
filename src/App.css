@@ -31,36 +31,6 @@
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
-}
-
-.tree-placeholder {
-  color: #cccccc;
-}
-
-.tree-placeholder p {
-  margin-bottom: 12px;
-  font-size: 14px;
-  opacity: 0.8;
-}
-
-.tree-placeholder ul {
-  list-style: none;
-  padding: 0;
-}
-
-.tree-placeholder li {
-  padding: 8px 12px;
-  margin-bottom: 4px;
-  background-color: #2d2d30;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.tree-placeholder li:hover {
-  background-color: #37373d;
 }
 
 .main-content {

@@ -128,7 +128,7 @@ export function TitleBar() {
       <div className="title-bar-title">
         <span className="title-brand">HemSoft Developments</span>
         <span className="title-separator">—</span>
-        <span className="title-product">hs-buddy</span>
+        <span className="title-product">Buddy</span>
         <span className="title-version">V0.1.0</span>
       </div>
       <div className="window-controls">

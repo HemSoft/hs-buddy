@@ -1,10 +1,10 @@
 {
   "config": {
     "default": true,
-    "line-length": {
-      "line_length": 120,
-      "code_blocks": false
-    },
-    "no-inline-html": false
-  }
+    "line-length": false,
+    "no-inline-html": false,
+    "fenced-code-language": false,
+    "table-column-style": false
+  },
+  "ignores": ["node_modules/**", "dist/**", "dist-electron/**"]
 }

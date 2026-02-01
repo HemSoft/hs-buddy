@@ -9,14 +9,11 @@ export default defineConfig({
     react(),
     electron({
       main: {
-        // Shortcut of `build.lib.entry`.
         entry: 'electron/main.ts',
       },
       preload: {
-        // Shortcut of `build.rollupOptions.input`.
         input: path.join(__dirname, 'electron/preload.ts'),
       },
-      // Polyfill the Electron and Node.js API for Renderer process.
       renderer: process.env.NODE_ENV === 'test'
         ? undefined
         : {},

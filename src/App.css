@@ -12,40 +12,53 @@
   overflow: hidden;
 }
 
-.sidebar {
-  width: 300px;
-  min-width: 200px;
-  max-width: 500px;
-  background-color: #252526;
-  border-right: 1px solid #3e3e42;
+/* Ensure Allotment fills the available space */
+.app-body > .split-view-view {
+  flex: 1;
+}
+
+/* Style the Allotment sash (resize handle) */
+:root {
+  --focus-border: #505055;
+  --sash-hover-size: 4px;
+}
+
+.sash {
+  background-color: #3e3e42 !important;
+  width: 4px !important;
+}
+
+.sash:hover,
+.sash.active,
+.sash:active,
+.sash[class*="active"],
+[class*="split-view"] .sash:hover,
+[class*="split-view"] .sash.active,
+[class*="split-view"] .sash:active {
+  background-color: #505055 !important;
+}
+
+.main-content-wrapper {
   display: flex;
   flex-direction: column;
-}
-
-.sidebar-header {
-  padding: 16px;
-  border-bottom: 1px solid #3e3e42;
-  background-color: #2d2d30;
-}
-
-.sidebar-header h1 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #cccccc;
-  margin: 0;
-}
-
-.sidebar-content {
-  flex: 1;
-  overflow-y: auto;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 .main-content {
   flex: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
   background-color: #1e1e1e;
   overflow: hidden;
+}
+
+.content-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-header {

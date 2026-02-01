@@ -19,3 +19,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     return ipcRenderer.invoke(channel, ...omit)
   },
 })
+
+contextBridge.exposeInMainWorld('shell', {
+  openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url)
+})

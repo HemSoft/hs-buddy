@@ -50,11 +50,88 @@ npm install
 # or with bun
 bun install
 
+# Configure environment variables (for tokens)
+cp .env.example .env
+# Edit .env with your GitHub token
+
 # Start development
 npm run dev
 # or with bun
 bun run dev
 ```
+
+### Configuration
+
+hs-buddy uses **electron-store** for persistent configuration and **GitHub CLI** for authentication:
+
+- **Windows**: `%APPDATA%\hs-buddy\config.json`
+- **macOS**: `~/Library/Application Support/hs-buddy/config.json`
+- **Linux**: `~/.config/hs-buddy/config.json`
+
+#### First-Time Setup
+
+1. **Install GitHub CLI** (if not already installed):
+
+   ```bash
+   # Windows (winget)
+   winget install GitHub.cli
+   
+   # macOS (Homebrew)
+   brew install gh
+   
+   # Or download from: https://cli.github.com/
+   ```
+
+2. **Authenticate with GitHub CLI**:
+
+   ```bash
+   gh auth login
+   ```
+
+   Follow the prompts to authenticate. GitHub CLI will securely store your credentials in your system keychain.
+
+3. **Verify authentication**:
+
+   ```bash
+   gh auth status
+   ```
+
+4. **(Optional) Auto-migration from environment variables**:
+   If you have a `.env` file with `VITE_GITHUB_USERNAME` and `VITE_GITHUB_ORG`, hs-buddy will automatically create your first account in the config on launch.
+
+#### Adding GitHub Accounts
+
+You can add multiple GitHub accounts for monitoring different organizations:
+
+1. Click **Settings** in the sidebar
+2. Click "Open in Editor" to edit `config.json`
+3. Add accounts to the `github.accounts` array:
+
+```json
+{
+  "github": {
+    "accounts": [
+      {
+        "username": "your-username",
+        "org": "your-org"
+      },
+      {
+        "username": "work-username",
+        "org": "work-org"
+      }
+    ]
+  }
+}
+```
+
+**Note**: All accounts share the same GitHub CLI authentication. No tokens are stored in config or environment variables!
+
+#### Security
+
+- **No tokens in config files** - Authentication is handled by GitHub CLI
+- **System keychain storage** - Credentials are stored securely by your OS
+- **No `.env` file needed** - After migration, you can delete it
+- **Safe to commit config.json** - Contains no sensitive data (just usernames and org names)
 
 ## Development
 
@@ -103,17 +180,24 @@ hs-buddy/
 
 ## Roadmap
 
-### Phase 1: Foundation ✓
+### Phase 1: Foundation
+
 - [x] Scaffold Electron + React project
-- [ ] Tree view navigation
-- [ ] PR viewer (first use case)
+- [x] Tree view navigation
+- [x] PR viewer (first use case)
+- [x] electron-store configuration system
+- [x] Settings UI
+- [ ] Multi-account GitHub support (architecture ready)
+- [ ] Bitbucket integration
 
 ### Phase 2: Integration
+
 - [ ] Skills browser
 - [ ] Task management
 - [ ] Notifications
 
 ### Phase 3: Advanced Features
+
 - [ ] Dashboard views
 - [ ] Custom layouts
 - [ ] Plugin system

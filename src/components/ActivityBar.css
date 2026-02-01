@@ -1,0 +1,89 @@
+.activity-bar {
+  width: 48px;
+  background-color: #333333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 1px solid #3e3e42;
+}
+
+.activity-bar-items {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+}
+
+.activity-bar-item {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: #858585;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: color 0.1s ease;
+}
+
+.activity-bar-item:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.activity-bar-item.active {
+  color: #ffffff;
+  border-left-color: #007acc;
+}
+
+.activity-bar-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.activity-bar-item:focus {
+  outline: 1px solid #007acc;
+  outline-offset: -1px;
+}
+
+.activity-bar-item:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Custom Tooltip */
+.activity-bar-tooltip {
+  position: fixed;
+  left: 56px;
+  transform: translateY(-50%);
+  background-color: #252526;
+  color: #cccccc;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10000;
+  border: 1px solid #454545;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36);
+  animation: tooltip-fade-in 0.1s ease-out;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}

@@ -1,0 +1,247 @@
+.pr-list-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.pr-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.pr-list-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.pr-count {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 2px 8px;
+  border-radius: 11px;
+  font-weight: 500;
+}
+
+.pr-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+  align-content: start;
+}
+
+.pr-item {
+  background: linear-gradient(135deg, #2d2d30 0%, #252526 100%);
+  border: 1px solid #3e3e42;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.pr-item:hover {
+  transform: translateY(-2px);
+  border-color: #007acc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3),
+              0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.pr-item-header {
+  margin-bottom: 12px;
+}
+
+.pr-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pr-icon {
+  color: #c792ea;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.pr-title {
+  color: #e0e0e0;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1;
+  line-height: 1.4;
+  transition: color 0.2s ease;
+  cursor: pointer;
+}
+
+.pr-title:hover {
+  color: #569cd6;
+}
+
+.pr-title:hover .external-link-icon {
+  opacity: 1;
+  transform: translateX(2px) translateY(-2px);
+}
+
+.external-link-icon {
+  opacity: 0.4;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all 0.2s ease;
+}
+
+.pr-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #999;
+  flex-wrap: wrap;
+}
+
+.pr-source {
+  background: linear-gradient(135deg, #007acc, #005a9e);
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.pr-repo {
+  color: #4ec9b0;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.pr-number {
+  color: #569cd6;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-weight: 500;
+}
+
+.pr-author {
+  color: #cccccc;
+  font-size: 12px;
+}
+
+.pr-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pr-approvals,
+.pr-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #999;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 10px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.pr-approvals:hover,
+.pr-date:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cccccc;
+}
+
+.approved-icon {
+  color: #4ec9b0;
+  filter: drop-shadow(0 0 2px rgba(78, 201, 176, 0.5));
+}
+
+.pr-list-loading,
+.pr-list-empty,
+.pr-list-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.pr-list-loading .spin {
+  animation: spin 1s linear infinite;
+  color: var(--vscode-charts-blue);
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pr-list-empty svg {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.pr-list-empty p {
+  margin: 4px 0;
+}
+
+.empty-subtitle {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.error-message {
+  color: var(--vscode-errorForeground);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.error-hint {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.pr-list-error ul {
+  text-align: left;
+  margin: 0;
+  padding: 0 0 0 24px;
+}
+
+.pr-list-error li {
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.pr-list-error code {
+  background: var(--vscode-textCodeBlock-background);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-textPreformat-foreground);
+}

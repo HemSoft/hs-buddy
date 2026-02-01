@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, GitPullRequest, Zap, CheckSquare, Info } from 'lucide-react'
+import { ChevronDown, ChevronRight, GitPullRequest, Zap, CheckSquare, Info, Settings } from 'lucide-react'
 import './TreeView.css'
 
 interface TreeItem {
@@ -48,10 +48,19 @@ const defaultTreeData: TreeItem[] = [
       { id: 'insights-productivity', label: 'Productivity' },
       { id: 'insights-activity', label: 'Activity' },
     ]
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: <Settings size={16} />,
   }
 ]
 
-export function TreeView() {
+interface TreeViewProps {
+  onItemSelect?: (itemId: string) => void
+}
+
+export function TreeView({ onItemSelect }: TreeViewProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(
     new Set(['pull-requests', 'skills', 'tasks'])
   )
@@ -74,6 +83,7 @@ export function TreeView() {
       toggleExpand(item.id)
     } else {
       setSelectedItem(item.id)
+      onItemSelect?.(item.id)
     }
   }
 

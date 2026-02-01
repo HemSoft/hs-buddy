@@ -28,15 +28,21 @@
   "license": "MIT",
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@octokit/graphql": "^9.0.3",
+    "@octokit/plugin-retry": "^8.0.3",
+    "@octokit/plugin-throttling": "^11.0.3",
+    "@octokit/rest": "^22.0.1",
     "@uiw/react-markdown-preview": "^5.1.5",
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "allotment": "^1.20.5",
+    "electron-store": "^11.0.2",
     "electron-window-state": "^5.0.3",
     "lucide-react": "^0.563.0",
     "react": "^18.2.0",
     "react-complex-tree": "^2.6.1",
     "react-dom": "^18.2.0",
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/react": "^18.2.64",
@@ -53,7 +59,7 @@
     "prettier": "^3.4.2",
     "typescript": "^5.2.2",
     "vite": "^5.1.6",
-    "vite-plugin-electron": "^0.28.6",
+    "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.5"
   },
   "engines": {

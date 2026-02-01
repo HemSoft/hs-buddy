@@ -37,7 +37,52 @@ hs-buddy is designed to be **the** go-to tool for daily work and personal life m
 1. **Manage 110+ Skills**: Provide a beautiful UI to interact with the extensive skill library
 2. **Aggregate Information**: Display pull requests, tasks, notifications, and more in one place
 3. **Left-Hand Navigation**: Tree view structure (like VS Code) for organizing different tools and views
-4. **First Use Case**: UI version of the `hs-cli prs` command - display pull request information with a polished interface
+4. **Pull Request Management**: UI version of the `hs-cli-prs` command - display and manage GitHub PRs with a polished interface ✓
+
+## Implemented Features
+
+### Configuration System ✓
+
+- **electron-store**: Industry-standard config persistence in userData directory
+- **Schema Validation**: JSON Schema enforcement for config structure
+- **Multi-Account Support**: Multiple GitHub/Bitbucket accounts supported
+- **Security**: GitHub CLI authentication (tokens stored in system keychain, not in app)
+- **Auto-Migration**: Detects .env on first launch and creates initial config
+- **IPC Bridge**: Full two-way communication between main/renderer processes
+- **React Hooks**: `useConfig()`, `useGitHubAccounts()`, `usePRSettings()` for easy access
+- **Settings UI**: View and manage configuration with "Open in Editor" functionality
+
+Architecture:
+
+- `src/types/config.ts` - TypeScript types and JSON Schema (no token fields)
+- `electron/config.ts` - ConfigManager class wrapping electron-store
+- `electron/main.ts` - IPC handlers for config operations and GitHub CLI token retrieval
+- `src/hooks/useConfig.ts` - React hooks for renderer access
+- `src/components/Settings.tsx` - Settings UI panel
+- `src/api/github.ts` - GitHub API client using GitHub CLI authentication
+
+### Pull Request Viewer ✓
+
+- **GitHub Integration**: Fetch and display PRs from GitHub organizations
+- **My PRs View**: Shows all PRs you're involved with (authored, assigned, reviewing, review requested)
+- **Status Indicators**: Approval counts, your approval status, assignee counts
+- **Beautiful UI**: VSCode-styled dark theme with clickable PR links
+- **Real-time Data**: Direct API integration with GitHub using Octokit
+- **Architecture Based on hs-cli-prs**: Reuses the proven API clients from hs-cli-prs project
+
+Configuration:
+
+- **electron-store**: Persistent JSON config in userData directory
+  - Windows: `%APPDATA%\hs-buddy\config.json`
+  - macOS: `~/Library/Application Support/hs-buddy/config.json`
+  - Linux: `~/.config/hs-buddy/config.json`
+- **GitHub CLI Authentication**: Uses `gh auth` for secure authentication (no tokens stored!)
+  - Install: `winget install GitHub.cli` (Windows) or `brew install gh` (macOS)
+  - Login: `gh auth login`
+  - Verify: `gh auth status`
+- **Auto-migration**: First launch detects VITE_GITHUB_USERNAME/ORG and migrates to config
+- **Settings UI**: View config location, GitHub accounts, preferences, with "Open in Editor" button
+- **Multi-account**: All accounts share the same GitHub CLI authentication
 
 ## Key Design Principles
 
@@ -64,15 +109,23 @@ hs-buddy/
 │   ├── preload.ts
 │   └── electron-env.d.ts
 ├── src/               # Renderer process (React app)
+│   ├── api/           # API clients (GitHub, Bitbucket)
 │   ├── components/    # React components
+│   │   ├── PullRequestList.tsx    # PR viewer component
+│   │   ├── TreeView.tsx           # Left sidebar navigation
+│   │   └── TitleBar.tsx           # Window title bar
+│   ├── types/         # TypeScript type definitions
 │   ├── App.tsx
 │   ├── main.tsx
 │   └── *.css
 ├── dist/              # Built renderer (Vite output)
-└── dist-electron/     # Built main process
-```
-
-## Roadmap
+└── dist-electron/     
+- [x] Scaffold Electron + React + TypeScript project
+- [x] Implement tree view navigation
+- [x] Create PR viewer (first use case)
+- [x] GitHub API integration
+- [ ] Multi-account GitHub support
+- [ ] Bitbucket integration
 
 ### Phase 1: Foundation (Current)
 - [x] Scaffold Electron + React + TypeScript project

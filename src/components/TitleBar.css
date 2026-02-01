@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   height: 32px;
-  background-color: #1e1e1e;
-  border-bottom: 1px solid #252526;
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--bg-secondary);
   user-select: none;
   position: relative;
   flex-shrink: 0;
@@ -35,7 +35,7 @@
 .menu-button {
   background: transparent;
   border: none;
-  color: #cccccc;
+  color: var(--text-primary);
   padding: 4px 8px;
   font-size: 13px;
   cursor: pointer;
@@ -47,7 +47,7 @@
 
 .menu-button:hover,
 .menu-button.active {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--bg-hover);
 }
 
 .menu-dropdown {
@@ -55,10 +55,10 @@
   top: 100%;
   left: 0;
   min-width: 200px;
-  background-color: #252526;
-  border: 1px solid #454545;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
   padding: 4px 0;
   z-index: 1000;
 }
@@ -71,18 +71,18 @@
   padding: 6px 12px;
   background: transparent;
   border: none;
-  color: #cccccc;
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   text-align: left;
 }
 
 .menu-item:hover:not(.disabled) {
-  background-color: #094771;
+  background-color: var(--accent-primary);
 }
 
 .menu-item.disabled {
-  color: #6e6e6e;
+  color: var(--text-muted);
   cursor: default;
 }
 
@@ -91,14 +91,14 @@
 }
 
 .menu-item-accelerator {
-  color: #858585;
+  color: var(--text-secondary);
   font-size: 12px;
   margin-left: 24px;
 }
 
 .menu-separator {
   height: 1px;
-  background-color: #454545;
+  background-color: var(--border-primary);
   margin: 4px 0;
 }
 
@@ -128,6 +128,14 @@
 .title-separator {
   color: rgba(255, 215, 0, 0.5);
   font-weight: 300;
+}
+
+.title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffd700;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5));
 }
 
 .title-product {
@@ -168,13 +176,17 @@
   justify-content: center;
   background: transparent;
   border: none;
-  color: #cccccc;
+  color: var(--text-primary);
   cursor: pointer;
   transition: background-color 0.1s;
 }
 
 .window-control-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--bg-hover);
+}
+
+[data-theme="light"] .window-control-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .window-control-button.close-button:hover {

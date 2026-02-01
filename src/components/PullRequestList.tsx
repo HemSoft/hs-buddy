@@ -1,20 +1,67 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import type { PullRequest } from '../types/pullRequest'
-import { GitHubClient } from '../api/github'
+import { GitHubClient, type ProgressCallback } from '../api/github'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
+import { useTaskQueue } from '../hooks/useTaskQueue'
 import './PullRequestList.css'
-import { ExternalLink, GitPullRequest, Check, Clock } from 'lucide-react'
+import { ExternalLink, GitPullRequest, Check, Clock, Loader2 } from 'lucide-react'
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged'
+  onCountChange?: (count: number) => void
 }
 
-export function PullRequestList({ mode }: PullRequestListProps) {
+interface LoadingProgress {
+  currentAccount: number;
+  totalAccounts: number;
+  accountName: string;
+  org: string;
+  status: 'authenticating' | 'fetching' | 'done' | 'error';
+  prsFound?: number;
+  totalPrsFound: number;
+  error?: string;
+}
+
+export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   const [prs, setPrs] = useState<PullRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<LoadingProgress | null>(null)
+  const [totalPrsFound, setTotalPrsFound] = useState(0)
+  const [refreshTrigger, setRefreshTrigger] = useState(0) // For interval-based refresh
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
-  const { recentlyMergedDays, loading: prSettingsLoading } = usePRSettings()
+  const { recentlyMergedDays, refreshInterval, autoRefresh, loading: prSettingsLoading } = usePRSettings()
+  const { enqueue, cancelAll } = useTaskQueue('github')
+  const fetchIdRef = useRef(0) // Track fetch operation to ignore stale results
+  const lastFetchTimeRef = useRef<number>(0) // Track when we last fetched
+
+  // Auto-refresh on window focus only if interval has elapsed
+  useEffect(() => {
+    if (!autoRefresh) return
+    
+    const handleFocus = () => {
+      const now = Date.now()
+      const intervalMs = refreshInterval * 60 * 1000
+      if (lastFetchTimeRef.current > 0 && now - lastFetchTimeRef.current >= intervalMs) {
+        setRefreshTrigger(prev => prev + 1)
+      }
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [autoRefresh, refreshInterval])
+
+  const handleProgress: ProgressCallback = useCallback((p) => {
+    setProgress(prev => {
+      // Calculate cumulative total
+      let newTotal = prev?.totalPrsFound ?? 0;
+      if (p.status === 'done' && p.prsFound !== undefined) {
+        newTotal += p.prsFound;
+      }
+      setTotalPrsFound(newTotal);
+      return { ...p, totalPrsFound: newTotal };
+    });
+  }, [])
 
   useEffect(() => {
     // Don't fetch until accounts and settings are loaded
@@ -22,9 +69,14 @@ export function PullRequestList({ mode }: PullRequestListProps) {
       return
     }
 
+    // Increment fetch ID to track this specific fetch operation
+    const currentFetchId = ++fetchIdRef.current
+
     const fetchPRs = async () => {
       setLoading(true)
       setError(null)
+      setProgress(null)
+      setTotalPrsFound(0)
 
       try {
         // Check if accounts are configured
@@ -46,20 +98,38 @@ export function PullRequestList({ mode }: PullRequestListProps) {
         const githubClient = new GitHubClient(config.github, recentlyMergedDays)
         console.log('Fetching PRs for', accounts.length, 'account(s)...', 'mode:', mode, 'recentlyMergedDays:', recentlyMergedDays);
         
-        let results: PullRequest[];
-        switch (mode) {
-          case 'needs-review':
-            results = await githubClient.fetchNeedsReview();
-            break;
-          case 'recently-merged':
-            results = await githubClient.fetchRecentlyMerged();
-            break;
-          case 'my-prs':
-          default:
-            results = await githubClient.fetchMyPRs();
-            break;
-        }
+        // Enqueue the fetch operation to prevent concurrent API calls
+        const results = await enqueue(
+          async (signal) => {
+            // Check if this fetch was cancelled
+            if (signal.aborted) {
+              throw new DOMException('Fetch cancelled', 'AbortError')
+            }
+
+            let prs: PullRequest[];
+            switch (mode) {
+              case 'needs-review':
+                prs = await githubClient.fetchNeedsReview(handleProgress);
+                break;
+              case 'recently-merged':
+                prs = await githubClient.fetchRecentlyMerged(handleProgress);
+                break;
+              case 'my-prs':
+              default:
+                prs = await githubClient.fetchMyPRs(handleProgress);
+                break;
+            }
+            return prs;
+          },
+          { name: `fetch-${mode}` }
+        );
         
+        // Ignore results if a newer fetch has started
+        if (currentFetchId !== fetchIdRef.current) {
+          console.log('Ignoring stale fetch result for', mode);
+          return;
+        }
+
         console.log('Found PRs:', results.length);
 
         // Sort by repository, then by PR number
@@ -71,20 +141,45 @@ export function PullRequestList({ mode }: PullRequestListProps) {
         })
 
         setPrs(results)
+        // Track when we successfully fetched
+        lastFetchTimeRef.current = Date.now()
+        // Report count to parent
+        onCountChange?.(results.length)
       } catch (err) {
+        // Ignore cancellation errors
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          console.log('Fetch cancelled for', mode);
+          return;
+        }
+        // Ignore if a newer fetch has started
+        if (currentFetchId !== fetchIdRef.current) {
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Failed to fetch PRs')
         console.error('Error fetching PRs:', err)
       } finally {
-        setLoading(false)
+        // Only update loading state if this is still the current fetch
+        if (currentFetchId === fetchIdRef.current) {
+          setLoading(false)
+        }
       }
     }
 
     fetchPRs()
-  }, [mode, accounts, accountsLoading, recentlyMergedDays, prSettingsLoading])
+
+    // Cleanup: cancel pending tasks when mode changes or component unmounts
+    return () => {
+      cancelAll()
+    }
+  }, [mode, accounts, accountsLoading, recentlyMergedDays, prSettingsLoading, refreshTrigger, handleProgress, onCountChange, enqueue, cancelAll])
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'N/A'
-    return new Date(date).toLocaleDateString()
+    return new Date(date).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
   }
 
   const getTitle = () => {
@@ -101,14 +196,43 @@ export function PullRequestList({ mode }: PullRequestListProps) {
   }
 
   if (loading) {
+    const progressPercent = progress 
+      ? Math.round(((progress.currentAccount - (progress.status === 'done' ? 0 : 1)) / progress.totalAccounts) * 100)
+      : 0;
+    
     return (
       <div className="pr-list-container">
         <div className="pr-list-header">
           <h2>{getTitle()}</h2>
         </div>
         <div className="pr-list-loading">
-          <Clock className="spin" size={24} />
-          <p>Loading pull requests...</p>
+          <Loader2 className="spin" size={24} />
+          {progress ? (
+            <div className="loading-progress">
+              <p className="progress-main">
+                {progress.status === 'authenticating' && 'Authenticating...'}
+                {progress.status === 'fetching' && 'Fetching PRs...'}
+                {progress.status === 'done' && `Found ${progress.prsFound} PRs`}
+                {progress.status === 'error' && `Error: ${progress.error}`}
+              </p>
+              <div className="progress-bar-container">
+                <div 
+                  className="progress-bar" 
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <p className="progress-detail">
+                Account {progress.currentAccount} of {progress.totalAccounts}: {progress.accountName} ({progress.org})
+              </p>
+              {totalPrsFound > 0 && (
+                <p className="progress-total">
+                  {totalPrsFound} PR{totalPrsFound !== 1 ? 's' : ''} found so far
+                </p>
+              )}
+            </div>
+          ) : (
+            <p>Loading pull requests...</p>
+          )}
         </div>
       </div>
     )
@@ -193,7 +317,16 @@ export function PullRequestList({ mode }: PullRequestListProps) {
                 </div>
               </div>
               <div className="pr-meta">
-                <span className="pr-source">{pr.source === 'GitHub' ? 'GH' : 'BB'}</span>
+                {pr.orgAvatarUrl ? (
+                  <img 
+                    src={pr.orgAvatarUrl} 
+                    alt={pr.org || pr.source} 
+                    className="pr-org-avatar"
+                    title={pr.org}
+                  />
+                ) : (
+                  <span className="pr-source">{pr.source === 'GitHub' ? 'GH' : 'BB'}</span>
+                )}
                 <span className="pr-repo">{pr.repository}</span>
                 <span className="pr-number">#{pr.id}</span>
                 <span className="pr-author">by {pr.author}</span>

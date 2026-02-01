@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Minimize2, Square } from 'lucide-react'
+import { Users } from 'lucide-react'
+import { AboutModal } from './AboutModal'
 import './TitleBar.css'
 
 interface MenuItem {
@@ -17,6 +18,7 @@ interface Menu {
 
 export function TitleBar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [showAbout, setShowAbout] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
 
   const menus: Menu[] = [
@@ -50,6 +52,17 @@ export function TitleBar() {
         { label: 'Toggle DevTools', accelerator: 'Ctrl+Shift+I' },
         { type: 'separator' },
         { label: 'Full Screen', accelerator: 'F11' }
+      ]
+    },
+    {
+      label: 'Help',
+      items: [
+        { 
+          label: 'About Buddy', 
+          action: () => {
+            setShowAbout(true)
+          }
+        }
       ]
     }
   ]
@@ -127,21 +140,29 @@ export function TitleBar() {
       </div>
       <div className="title-bar-title">
         <span className="title-brand">HemSoft Developments</span>
-        <span className="title-separator">—</span>
+        <span className="title-icon"><Users size={14} /></span>
         <span className="title-product">Buddy</span>
         <span className="title-version">V0.1.0</span>
       </div>
       <div className="window-controls">
         <button className="window-control-button" onClick={handleMinimize} title="Minimize">
-          <Minimize2 size={14} />
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <rect y="9" width="10" height="1" fill="currentColor" />
+          </svg>
         </button>
         <button className="window-control-button" onClick={handleMaximize} title="Maximize">
-          <Square size={14} />
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1" />
+          </svg>
         </button>
         <button className="window-control-button close-button" onClick={handleClose} title="Close">
-          <X size={16} />
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path d="M0 0 L10 10 M10 0 L0 10" stroke="currentColor" strokeWidth="1" />
+          </svg>
         </button>
       </div>
+
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
     </div>
   )
 }

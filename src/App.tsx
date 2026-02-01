@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Allotment } from 'allotment'
 import 'allotment/dist/style.css'
 import { TitleBar } from './components/TitleBar'
@@ -6,7 +6,7 @@ import { ActivityBar } from './components/ActivityBar'
 import { SidebarPanel } from './components/SidebarPanel'
 import { TabBar, Tab } from './components/TabBar'
 import { PullRequestList } from './components/PullRequestList'
-import { Settings } from './components/Settings'
+import { SettingsAccounts, SettingsAppearance, SettingsPullRequests, SettingsAdvanced } from './components/settings'
 import './App.css'
 
 // View ID to label mapping
@@ -22,7 +22,10 @@ const viewLabels: Record<string, string> = {
   'tasks-projects': 'Projects',
   'insights-productivity': 'Productivity',
   'insights-activity': 'Activity',
-  'settings': 'Settings',
+  'settings-accounts': 'Accounts',
+  'settings-appearance': 'Appearance',
+  'settings-pullrequests': 'Pull Requests',
+  'settings-advanced': 'Advanced',
 }
 
 function App() {
@@ -30,35 +33,102 @@ function App() {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
 
-  // Pane sizes (persisted to localStorage)
-  const [paneSizes, setPaneSizes] = useState<number[]>(() => {
-    const saved = localStorage.getItem('buddy-pane-sizes')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        // Validate it's an array with 2 numbers
-        if (Array.isArray(parsed) && parsed.length === 2 && parsed.every(n => typeof n === 'number')) {
-          return parsed
-        }
-      } catch {
-        // Invalid JSON, use default
-      }
-    }
-    return [300, 900] // Explicit sizes for both panes
-  })
+  // PR counts for sidebar badges
+  const [prCounts, setPrCounts] = useState<Record<string, number>>({})
+
+  // Pane sizes (persisted to electron-store via IPC)
+  const [paneSizes, setPaneSizes] = useState<number[]>([300, 900])
   const paneSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Load theme from config on mount
+  useEffect(() => {
+    window.ipcRenderer.invoke('config:get-theme').then((theme: 'dark' | 'light') => {
+      document.documentElement.setAttribute('data-theme', theme || 'dark')
+    }).catch(() => {
+      document.documentElement.setAttribute('data-theme', 'dark')
+    })
+  }, [])
+
+  // Load accent color from config on mount
+  useEffect(() => {
+    window.ipcRenderer.invoke('config:get-accent-color').then((color: string) => {
+      if (color) {
+        const root = document.documentElement;
+        root.style.setProperty('--accent-primary', color);
+        // Lighten for hover state
+        const num = parseInt(color.replace('#', ''), 16);
+        const r = Math.min(255, (num >> 16) + 38);
+        const g = Math.min(255, ((num >> 8) & 0x00FF) + 38);
+        const b = Math.min(255, (num & 0x0000FF) + 38);
+        const hoverColor = `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+        root.style.setProperty('--accent-primary-hover', hoverColor);
+        root.style.setProperty('--border-focus', color);
+      }
+    }).catch(() => {})
+  }, [])
+
+  // Load background colors from config on mount
+  useEffect(() => {
+    Promise.all([
+      window.ipcRenderer.invoke('config:get-bg-primary'),
+      window.ipcRenderer.invoke('config:get-bg-secondary'),
+    ]).then(([bgPrimary, bgSecondary]) => {
+      const root = document.documentElement;
+      if (bgPrimary) {
+        root.style.setProperty('--bg-primary', bgPrimary);
+        root.style.setProperty('--panel-bg', bgPrimary);
+        root.style.setProperty('--input-bg', bgPrimary);
+      }
+      if (bgSecondary) {
+        root.style.setProperty('--bg-secondary', bgSecondary);
+        root.style.setProperty('--sidebar-bg', bgSecondary);
+      }
+    }).catch(() => {})
+  }, [])
+
+  // Load font settings from config on mount
+  useEffect(() => {
+    Promise.all([
+      window.ipcRenderer.invoke('config:get-font-family'),
+      window.ipcRenderer.invoke('config:get-mono-font-family'),
+      window.ipcRenderer.invoke('config:get-zoom-level'),
+    ]).then(([fontFamily, monoFontFamily, zoomLevel]) => {
+      if (fontFamily) {
+        document.documentElement.style.setProperty('--font-family-ui', `'${fontFamily}', system-ui, sans-serif`)
+      }
+      if (monoFontFamily) {
+        document.documentElement.style.setProperty('--font-family-mono', `'${monoFontFamily}', Consolas, monospace`)
+      }
+      if (zoomLevel && zoomLevel !== 100) {
+        document.documentElement.style.fontSize = `${zoomLevel}%`
+      }
+    }).catch(() => {
+      // Use defaults on error
+    })
+  }, [])
+
+  // Load pane sizes from electron-store on mount
+  useEffect(() => {
+    window.ipcRenderer.invoke('config:get-pane-sizes').then((sizes: number[]) => {
+      if (Array.isArray(sizes) && sizes.length === 2 && sizes.every(n => typeof n === 'number' && n > 0)) {
+        setPaneSizes(sizes)
+      }
+    }).catch(() => {
+      // Use default sizes on error
+    })
+  }, [])
 
   // Save pane sizes when changed (debounced)
   const handlePaneChange = useCallback((sizes: number[]) => {
     // Only save if we have valid sizes
     if (sizes.length === 2 && sizes.every(s => s > 0)) {
       setPaneSizes(sizes)
-      // Debounce localStorage writes
+      // Debounce saving to electron-store
       if (paneSaveTimeoutRef.current) {
         clearTimeout(paneSaveTimeoutRef.current)
       }
       paneSaveTimeoutRef.current = setTimeout(() => {
-        localStorage.setItem('buddy-pane-sizes', JSON.stringify(sizes))
+        window.ipcRenderer.invoke('config:set-pane-sizes', sizes)
       }, 300)
     }
   }, [])
@@ -103,14 +173,20 @@ function App() {
     })
   }, [activeTabId])
 
+  // Callbacks for PR count updates (wrapped in useCallback to avoid re-renders)
+  const handleMyPrsCountChange = useCallback((count: number) => {
+    setPrCounts(prev => ({ ...prev, 'pr-my-prs': count }))
+  }, [])
+  const handleNeedsReviewCountChange = useCallback((count: number) => {
+    setPrCounts(prev => ({ ...prev, 'pr-needs-review': count }))
+  }, [])
+  const handleRecentlyMergedCountChange = useCallback((count: number) => {
+    setPrCounts(prev => ({ ...prev, 'pr-recently-merged': count }))
+  }, [])
+
   const handleSectionSelect = (sectionId: string) => {
     setSelectedSection(sectionId)
-    
-    // For settings, handle specially (no sidebar, direct content)
-    if (sectionId === 'settings') {
-      openTab('settings')
-    }
-    // Don't auto-open tabs for other sections - let user click in sidebar
+    // Don't auto-open tabs - let user click in sidebar
   }
 
   const handleItemSelect = (viewId: string) => {
@@ -140,13 +216,19 @@ function App() {
 
     switch (activeViewId) {
       case 'pr-my-prs':
-        return <PullRequestList mode="my-prs" />
+        return <PullRequestList mode="my-prs" onCountChange={handleMyPrsCountChange} />
       case 'pr-needs-review':
-        return <PullRequestList mode="needs-review" />
+        return <PullRequestList mode="needs-review" onCountChange={handleNeedsReviewCountChange} />
       case 'pr-recently-merged':
-        return <PullRequestList mode="recently-merged" />
-      case 'settings':
-        return <Settings />
+        return <PullRequestList mode="recently-merged" onCountChange={handleRecentlyMergedCountChange} />
+      case 'settings-accounts':
+        return <SettingsAccounts />
+      case 'settings-appearance':
+        return <SettingsAppearance />
+      case 'settings-pullrequests':
+        return <SettingsPullRequests />
+      case 'settings-advanced':
+        return <SettingsAdvanced />
       default:
         return (
           <div className="content-placeholder">
@@ -169,38 +251,27 @@ function App() {
           selectedSection={selectedSection}
           onSectionSelect={handleSectionSelect}
         />
-        {selectedSection !== 'settings' ? (
-          <Allotment onChange={handlePaneChange} defaultSizes={paneSizes}>
-            <Allotment.Pane minSize={200} maxSize={500}>
-              <SidebarPanel 
-                section={selectedSection}
-                onItemSelect={handleItemSelect}
-                selectedItem={activeViewId}
-              />
-            </Allotment.Pane>
-            <Allotment.Pane minSize={400}>
-              <div className="main-content-wrapper">
-                <TabBar
-                  tabs={tabs}
-                  activeTabId={activeTabId}
-                  onTabSelect={setActiveTabId}
-                  onTabClose={closeTab}
-                />
-                <div className="main-content">{renderContent()}</div>
-              </div>
-            </Allotment.Pane>
-          </Allotment>
-        ) : (
-          <div className="main-content-wrapper">
-            <TabBar
-              tabs={tabs}
-              activeTabId={activeTabId}
-              onTabSelect={setActiveTabId}
-              onTabClose={closeTab}
+        <Allotment onChange={handlePaneChange} defaultSizes={paneSizes}>
+          <Allotment.Pane minSize={200} maxSize={500}>
+            <SidebarPanel 
+              section={selectedSection}
+              onItemSelect={handleItemSelect}
+              selectedItem={activeViewId}
+              counts={prCounts}
             />
-            <div className="main-content">{renderContent()}</div>
-          </div>
-        )}
+          </Allotment.Pane>
+          <Allotment.Pane minSize={400}>
+            <div className="main-content-wrapper">
+              <TabBar
+                tabs={tabs}
+                activeTabId={activeTabId}
+                onTabSelect={setActiveTabId}
+                onTabClose={closeTab}
+              />
+              <div className="main-content">{renderContent()}</div>
+            </div>
+          </Allotment.Pane>
+        </Allotment>
       </div>
     </div>
   )

@@ -11,6 +11,8 @@ export interface PullRequest {
   iApproved: boolean;
   created: Date | null;
   date: string | null;
+  orgAvatarUrl?: string;
+  org?: string;
 }
 
 export interface PRConfig {

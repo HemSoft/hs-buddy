@@ -6,10 +6,11 @@
 |---|--------|------|----------|-------|
 | 1 | ✅ | Tabbed window system for PRs | High | [Details](#1-tabbed-window-system) |
 | 2 | ✅ | Fix Recently Merged date range | High | [Details](#2-recently-merged-date-range) |
-| 3 | ⬜ | Fix taskbar app name ("HS-body" → "Buddy") | Medium | [Details](#3-taskbar-app-name) |
-| 4 | ⬜ | Create Help menu with About window | Medium | [Details](#4-help-menu-and-about-window) |
-| 5 | ⬜ | Design and create app icon | Medium | [Details](#5-app-icon) |
-| 6 | ⬜ | App-wide task queue system | High | [Details](#6-task-queue-system) |
+| 3 | ✅ | Fix taskbar app name ("HS-body" → "Buddy") | Medium | [Details](#3-taskbar-app-name) |
+| 4 | ✅ | Create Help menu with About window | Medium | [Details](#4-help-menu-and-about-window) |
+| 5 | ✅ | Design and create app icon | Medium | [Details](#5-app-icon) |
+| 6 | ✅ | App-wide task queue system | High | [Details](#6-task-queue-system) |
+| 7 | ✅ | Settings UI with form-based editing | High | [Details](#7-settings-ui-with-form-based-editing) |
 
 ---
 
@@ -140,12 +141,54 @@ useEffect(() => {
 
 ---
 
+### 7. Settings UI with Form-Based Editing
+
+**Problem:** Settings currently shows read-only values. Users must "Open in Editor" to edit raw JSON - inconsistent with other sections that use SidebarPanel navigation.
+
+**Solution:** Make Settings use SidebarPanel like other sections, with individual form-based settings pages.
+
+**Settings Categories (sidebar items):**
+
+- `settings-accounts` - GitHub Accounts + Bitbucket Workspaces (list + CRUD)
+- `settings-appearance` - Theme selector, sidebar width
+- `settings-pullrequests` - Auto-refresh toggle, refresh interval, recently merged days
+- `settings-advanced` - Config file path, "Open JSON" button, reset to defaults
+
+**Implementation Steps:**
+
+1. Add `'settings'` section to `sectionData` in `SidebarPanel.tsx`
+2. Remove special-case that hides sidebar for settings in `App.tsx`
+3. Add view labels and `renderContent()` cases for each settings view
+4. Create section components:
+   - `SettingsAccounts.tsx` - Account list with add/edit/delete
+   - `SettingsAppearance.tsx` - Theme dropdown, sidebar width slider
+   - `SettingsPullRequests.tsx` - Toggle + number inputs
+   - `SettingsAdvanced.tsx` - JSON access, reset button
+5. Add missing hooks: `useBitbucketWorkspaces()`, `useUISettings()`
+6. Create reusable form components: `FormToggle`, `FormNumber`, `FormSelect`
+7. Implement immediate auto-save (no save button, VS Code style)
+8. Delete old monolithic `Settings.tsx`
+
+**Behavior:**
+
+- Click Settings in ActivityBar → sidebar shows settings categories
+- Click category → form appears in content area
+- Changes save immediately on input change
+- "Open JSON" in Advanced section for power users
+
+---
+
 ## Completed
 
 | # | Task | Completed |
 |---|------|-----------|
+| 7 | Settings UI with form-based editing | ✅ |
 | 1 | Tabbed window system for PRs | ✅ |
 | 2 | Fix Recently Merged date range (30-day default, configurable) | ✅ |
+| 3 | Taskbar app name shows "Buddy" | ✅ |
+| 4 | Help menu with About dialog | ✅ |
+| 5 | App icon (Users icon with gold/orange gradient) | ✅ |
+| 6 | App-wide task queue system | ✅ |
 | - | VS Code-style activity bar layout | ✅ |
 | - | Resizable sidebar pane | ✅ |
 | - | Window state persistence | ✅ |

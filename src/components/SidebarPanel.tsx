@@ -1,11 +1,12 @@
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import './SidebarPanel.css'
 
 interface SidebarPanelProps {
   section: string
   onItemSelect: (itemId: string) => void
   selectedItem: string | null
+  counts?: Record<string, number>
 }
 
 interface SidebarItem {
@@ -47,13 +48,26 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
   },
   'settings': {
     title: 'Settings',
-    items: []
+    items: [
+      { id: 'settings-accounts', label: 'Accounts' },
+      { id: 'settings-appearance', label: 'Appearance' },
+      { id: 'settings-pullrequests', label: 'Pull Requests' },
+      { id: 'settings-advanced', label: 'Advanced' },
+    ]
   }
 }
 
-export function SidebarPanel({ section, onItemSelect, selectedItem }: SidebarPanelProps) {
+export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {} }: SidebarPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))
   const data = sectionData[section]
+
+  // Auto-expand section when it changes
+  useEffect(() => {
+    setExpandedSections(prev => {
+      if (prev.has(section)) return prev
+      return new Set([...prev, section])
+    })
+  }, [section])
 
   if (!data) {
     return null
@@ -73,11 +87,7 @@ export function SidebarPanel({ section, onItemSelect, selectedItem }: SidebarPan
 
   const isExpanded = expandedSections.has(section)
 
-  // If settings, just render the settings view directly
-  if (section === 'settings') {
-    onItemSelect('settings')
-    return null
-  }
+
 
   return (
     <div className="sidebar-panel">
@@ -91,7 +101,10 @@ export function SidebarPanel({ section, onItemSelect, selectedItem }: SidebarPan
             onClick={() => toggleSection(section)}
           >
             <div className="sidebar-section-title">
-              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <span className="sidebar-section-icon">
+                {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
+              </span>
               <span>{data.title}</span>
             </div>
           </div>
@@ -103,7 +116,11 @@ export function SidebarPanel({ section, onItemSelect, selectedItem }: SidebarPan
                   className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
                   onClick={() => onItemSelect(item.id)}
                 >
-                  {item.label}
+                  <span className="sidebar-item-icon"><FileText size={14} /></span>
+                  <span className="sidebar-item-label">{item.label}</span>
+                  {counts[item.id] !== undefined && (
+                    <span className="sidebar-item-count">{counts[item.id]}</span>
+                  )}
                 </div>
               ))}
             </div>

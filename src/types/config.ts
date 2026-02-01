@@ -32,7 +32,14 @@ export interface AppConfig {
   };
   ui: {
     theme: 'dark' | 'light';
+    accentColor: string; // Hex color (e.g., '#0e639c')
+    bgPrimary: string; // Primary background hex color
+    bgSecondary: string; // Secondary background hex color
+    fontFamily: string;
+    monoFontFamily: string;
+    zoomLevel: number;
     sidebarWidth: number;
+    paneSizes: number[];
   };
   pr: {
     refreshInterval: number; // minutes
@@ -90,14 +97,45 @@ export const configSchema: Schema<AppConfig> = {
         enum: ['dark', 'light'],
         default: 'dark',
       },
+      accentColor: {
+        type: 'string',
+        default: '#0e639c',
+      },
+      bgPrimary: {
+        type: 'string',
+        default: '#1e1e1e',
+      },
+      bgSecondary: {
+        type: 'string',
+        default: '#252526',
+      },
+      fontFamily: {
+        type: 'string',
+        default: 'Inter',
+      },
+      monoFontFamily: {
+        type: 'string',
+        default: 'Cascadia Code',
+      },
+      zoomLevel: {
+        type: 'number',
+        minimum: 80,
+        maximum: 150,
+        default: 100,
+      },
       sidebarWidth: {
         type: 'number',
         minimum: 200,
         maximum: 500,
         default: 300,
       },
+      paneSizes: {
+        type: 'array',
+        items: { type: 'number' },
+        default: [300, 900],
+      },
     },
-    required: ['theme', 'sidebarWidth'],
+    required: ['theme', 'accentColor', 'bgPrimary', 'bgSecondary', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes'],
   },
   pr: {
     type: 'object',
@@ -116,7 +154,7 @@ export const configSchema: Schema<AppConfig> = {
         type: 'number',
         minimum: 1,
         maximum: 365,
-        default: 30,
+        default: 7,
       },
     },
     required: ['refreshInterval', 'autoRefresh', 'recentlyMergedDays'],
@@ -135,11 +173,18 @@ export const defaultConfig: AppConfig = {
   },
   ui: {
     theme: 'dark',
+    accentColor: '#0e639c',
+    bgPrimary: '#1e1e1e',
+    bgSecondary: '#252526',
+    fontFamily: 'Inter',
+    monoFontFamily: 'Cascadia Code',
+    zoomLevel: 100,
     sidebarWidth: 300,
+    paneSizes: [300, 900],
   },
   pr: {
     refreshInterval: 15,
     autoRefresh: false,
-    recentlyMergedDays: 30,
+    recentlyMergedDays: 7,
   },
 };

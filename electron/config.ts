@@ -89,12 +89,68 @@ class ConfigManager {
     this.store.set('ui.theme', theme);
   }
 
+  getAccentColor(): string {
+    return this.store.get('ui.accentColor', '#0e639c');
+  }
+
+  setAccentColor(color: string): void {
+    this.store.set('ui.accentColor', color);
+  }
+
+  getBgPrimary(): string {
+    return this.store.get('ui.bgPrimary', '#1e1e1e');
+  }
+
+  setBgPrimary(color: string): void {
+    this.store.set('ui.bgPrimary', color);
+  }
+
+  getBgSecondary(): string {
+    return this.store.get('ui.bgSecondary', '#252526');
+  }
+
+  setBgSecondary(color: string): void {
+    this.store.set('ui.bgSecondary', color);
+  }
+
+  getFontFamily(): string {
+    return this.store.get('ui.fontFamily', 'Inter');
+  }
+
+  setFontFamily(font: string): void {
+    this.store.set('ui.fontFamily', font);
+  }
+
+  getMonoFontFamily(): string {
+    return this.store.get('ui.monoFontFamily', 'Cascadia Code');
+  }
+
+  setMonoFontFamily(font: string): void {
+    this.store.set('ui.monoFontFamily', font);
+  }
+
+  getZoomLevel(): number {
+    return this.store.get('ui.zoomLevel', 100);
+  }
+
+  setZoomLevel(level: number): void {
+    this.store.set('ui.zoomLevel', level);
+  }
+
   getSidebarWidth(): number {
     return this.store.get('ui.sidebarWidth', 300);
   }
 
   setSidebarWidth(width: number): void {
     this.store.set('ui.sidebarWidth', width);
+  }
+
+  getPaneSizes(): number[] {
+    return this.store.get('ui.paneSizes', [300, 900]) as number[];
+  }
+
+  setPaneSizes(sizes: number[]): void {
+    this.store.set('ui.paneSizes', sizes);
   }
 
   // PR Settings
@@ -112,6 +168,14 @@ class ConfigManager {
 
   setPRAutoRefresh(enabled: boolean): void {
     this.store.set('pr.autoRefresh', enabled);
+  }
+
+  getRecentlyMergedDays(): number {
+    return this.store.get('pr.recentlyMergedDays', 7);
+  }
+
+  setRecentlyMergedDays(days: number): void {
+    this.store.set('pr.recentlyMergedDays', days);
   }
 
   // Full config access

@@ -1,12 +1,14 @@
 {
   "appId": "com.hemsoft.buddy",
-  "productName": "hs-buddy",
+  "productName": "Buddy",
+  "icon": "public/icon",
   "directories": {
     "output": "release/${version}"
   },
   "files": [
     "dist",
-    "dist-electron"
+    "dist-electron",
+    "public"
   ],
   "win": {
     "target": [

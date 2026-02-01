@@ -6,9 +6,21 @@ import type { PullRequest, PRConfig } from '../types/pullRequest';
 // Create Octokit with retry and throttling plugins
 const OctokitWithPlugins = Octokit.plugin(retry, throttling);
 
+// Progress callback type
+export type ProgressCallback = (progress: {
+  currentAccount: number;
+  totalAccounts: number;
+  accountName: string;
+  org: string;
+  status: 'authenticating' | 'fetching' | 'done' | 'error';
+  prsFound?: number;
+  error?: string;
+}) => void;
+
 export class GitHubClient {
   private config: PRConfig['github'];
-  private ghToken: string | null = null;
+  private tokenCache: Map<string, string> = new Map();
+  private orgAvatarCache: Map<string, string> = new Map();
   private recentlyMergedDays: number = 7;
 
   constructor(config: PRConfig['github'], recentlyMergedDays: number = 7) {
@@ -17,39 +29,41 @@ export class GitHubClient {
   }
 
   /**
-   * Get GitHub CLI authentication token
-   * Uses 'gh auth token' command which retrieves the token from system keychain
+   * Get GitHub CLI authentication token for a specific account
+   * Uses 'gh auth token --user <username>' to get account-specific tokens
    */
-  private async getGitHubCLIToken(): Promise<string | null> {
-    // Cache the token for the session
-    if (this.ghToken) {
-      return this.ghToken;
+  private async getGitHubCLIToken(username: string): Promise<string | null> {
+    // Check cache first
+    const cached = this.tokenCache.get(username);
+    if (cached) {
+      return cached;
     }
 
     try {
-      // Use window.ipcRenderer to invoke a main process handler that runs 'gh auth token'
-      const token = await window.ipcRenderer.invoke('github:get-cli-token');
+      // Use window.ipcRenderer to invoke a main process handler that runs 'gh auth token --user <username>'
+      const token = await window.ipcRenderer.invoke('github:get-cli-token', username);
       if (token && typeof token === 'string' && token.trim().length > 0) {
-        this.ghToken = token.trim();
-        return this.ghToken;
+        const trimmedToken = token.trim();
+        this.tokenCache.set(username, trimmedToken);
+        return trimmedToken;
       }
-      console.warn('⚠️  GitHub CLI token is empty or invalid');
+      console.warn(`⚠️  GitHub CLI token is empty or invalid for account '${username}'`);
       return null;
     } catch (error) {
-      console.error('Failed to get GitHub CLI token:', error);
+      console.error(`Failed to get GitHub CLI token for '${username}':`, error);
       return null;
     }
   }
 
   /**
-   * Get Octokit instance with retry and throttling
-   * Uses GitHub CLI authentication
+   * Get Octokit instance with retry and throttling for a specific account
+   * Uses GitHub CLI authentication with per-account tokens
    */
-  private async getOctokit(): Promise<Octokit | null> {
-    const token = await this.getGitHubCLIToken();
+  private async getOctokit(username: string): Promise<Octokit | null> {
+    const token = await this.getGitHubCLIToken(username);
     
     if (!token) {
-      console.warn('⚠️  GitHub CLI authentication not available. Run: gh auth login');
+      console.warn(`⚠️  GitHub CLI authentication not available for '${username}'. Run: gh auth login`);
       return null;
     }
 
@@ -83,54 +97,110 @@ export class GitHubClient {
   /**
    * Fetch all PRs (default mode: all PRs I'm involved with)
    */
-  async fetchMyPRs(): Promise<PullRequest[]> {
-    return this.fetchPRs('my-prs');
+  async fetchMyPRs(onProgress?: ProgressCallback): Promise<PullRequest[]> {
+    return this.fetchPRs('my-prs', onProgress);
   }
 
   /**
    * Fetch PRs needing review (where I haven't approved yet)
    */
-  async fetchNeedsReview(): Promise<PullRequest[]> {
-    return this.fetchPRs('needs-review');
+  async fetchNeedsReview(onProgress?: ProgressCallback): Promise<PullRequest[]> {
+    return this.fetchPRs('needs-review', onProgress);
   }
 
   /**
    * Fetch recently merged PRs
    */
-  async fetchRecentlyMerged(): Promise<PullRequest[]> {
-    return this.fetchPRs('recently-merged');
+  async fetchRecentlyMerged(onProgress?: ProgressCallback): Promise<PullRequest[]> {
+    return this.fetchPRs('recently-merged', onProgress);
   }
 
   /**
    * Core fetch method with mode support
    */
-  private async fetchPRs(mode: 'my-prs' | 'needs-review' | 'recently-merged'): Promise<PullRequest[]> {
+  private async fetchPRs(
+    mode: 'my-prs' | 'needs-review' | 'recently-merged',
+    onProgress?: ProgressCallback
+  ): Promise<PullRequest[]> {
     const allPrs: PullRequest[] = [];
+    let authenticationErrors = 0;
+    const totalAccounts = this.config.accounts.length;
 
-    // Get Octokit instance (shared across all accounts via GitHub CLI)
-    const octokit = await this.getOctokit();
-    if (!octokit) {
-      throw new Error('GitHub CLI authentication not available. Please run: gh auth login');
-    }
-
-    // Process each configured GitHub account
-    for (const account of this.config.accounts) {
+    // Process each configured GitHub account with its own token
+    for (let i = 0; i < this.config.accounts.length; i++) {
+      const account = this.config.accounts[i];
       const { username, org } = account;
+      const currentAccount = i + 1;
 
       console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`);
+
+      // Report authenticating progress
+      onProgress?.({
+        currentAccount,
+        totalAccounts,
+        accountName: username,
+        org,
+        status: 'authenticating',
+      });
+
+      // Get Octokit instance for this specific account
+      const octokit = await this.getOctokit(username);
+      if (!octokit) {
+        console.warn(`⚠️  Skipping account '${username}' - no GitHub CLI authentication found`);
+        onProgress?.({
+          currentAccount,
+          totalAccounts,
+          accountName: username,
+          org,
+          status: 'error',
+          error: 'No GitHub CLI authentication found',
+        });
+        authenticationErrors++;
+        continue;
+      }
+
+      // Report fetching progress
+      onProgress?.({
+        currentAccount,
+        totalAccounts,
+        accountName: username,
+        org,
+        status: 'fetching',
+      });
 
       try {
         const prs = await this.fetchPRsForAccount(octokit, org, username, mode);
         allPrs.push(...prs);
 
         console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`);
+        
+        // Report done progress
+        onProgress?.({
+          currentAccount,
+          totalAccounts,
+          accountName: username,
+          org,
+          status: 'done',
+          prsFound: prs.length,
+        });
       } catch (error) {
-        console.warn(
-          `⚠️  Error fetching PRs for ${username}:`,
-          error instanceof Error ? error.message : error
-        );
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.warn(`⚠️  Error fetching PRs for ${username}:`, errorMsg);
+        onProgress?.({
+          currentAccount,
+          totalAccounts,
+          accountName: username,
+          org,
+          status: 'error',
+          error: errorMsg,
+        });
         continue;
       }
+    }
+
+    // If all accounts failed due to auth, throw error
+    if (authenticationErrors === this.config.accounts.length) {
+      throw new Error('GitHub CLI authentication not available for any configured account. Please run: gh auth login');
     }
 
     return allPrs;
@@ -147,6 +217,27 @@ export class GitHubClient {
   ): Promise<PullRequest[]> {
     const seenUrls = new Set<string>();
     const allPrs: PullRequest[] = [];
+
+    // Fetch org avatar (cached)
+    let orgAvatarUrl: string | undefined;
+    if (!this.orgAvatarCache.has(org)) {
+      try {
+        const orgData = await octokit.orgs.get({ org });
+        orgAvatarUrl = orgData.data.avatar_url;
+        this.orgAvatarCache.set(org, orgAvatarUrl);
+      } catch {
+        // Might be a user, not an org - try users endpoint
+        try {
+          const userData = await octokit.users.getByUsername({ username: org });
+          orgAvatarUrl = userData.data.avatar_url;
+          this.orgAvatarCache.set(org, orgAvatarUrl);
+        } catch {
+          console.debug(`Could not fetch avatar for ${org}`);
+        }
+      }
+    } else {
+      orgAvatarUrl = this.orgAvatarCache.get(org);
+    }
 
     // Different queries based on mode
     let queries: string[];
@@ -172,12 +263,9 @@ export class GitHubClient {
       }
       case 'my-prs':
       default:
-        // All PRs I'm involved with (open)
+        // PRs I authored that are not merged
         queries = [
           `is:pr author:${username} is:open org:${org}`,
-          `is:pr assignee:${username} is:open org:${org}`,
-          `is:pr reviewed-by:${username} is:open org:${org}`,
-          `is:pr review-requested:${username} is:open org:${org}`,
         ];
         break;
     }
@@ -207,117 +295,102 @@ export class GitHubClient {
 
           const owner: string = urlMatch[1];
           const repo: string = urlMatch[2];
-          const prNumber = item.number;
 
-          try {
-            const pr = await this.getPRDetails(octokit, owner, repo, prNumber, username, mode);
-            if (pr) {
-              // For needs-review mode, filter out PRs the user has already approved
-              if (mode === 'needs-review' && pr.iApproved) {
-                continue;
-              }
-              allPrs.push(pr);
-            }
-          } catch (error) {
-            console.debug(`Failed to get details for PR #${prNumber}:`, error);
-          }
+          // Build PR from search result (most data already available)
+          allPrs.push({
+            source: 'GitHub' as const,
+            repository: repo,
+            id: item.number,
+            title: item.title,
+            author: item.user?.login || 'unknown',
+            url: item.html_url,
+            state: item.state,
+            approvalCount: 0, // Will be filled in batch
+            assigneeCount: item.assignees?.length || 0,
+            iApproved: false, // Will be filled in batch
+            created: item.created_at ? new Date(item.created_at) : null,
+            date: null,
+            orgAvatarUrl,
+            org,
+            // Store metadata for batch processing
+            _owner: owner,
+            _repo: repo,
+            _prNumber: item.number,
+          } as PullRequest & { _owner: string; _repo: string; _prNumber: number });
         }
       } catch (error) {
         console.debug(`Search query failed: ${query}`, error);
       }
     }
 
-    return allPrs;
-  }
+    // Batch fetch reviews in parallel (with concurrency limit)
+    const BATCH_SIZE = 10;
+    const prsWithMeta = allPrs as (PullRequest & { _owner: string; _repo: string; _prNumber: number })[];
+    
+    for (let i = 0; i < prsWithMeta.length; i += BATCH_SIZE) {
+      const batch = prsWithMeta.slice(i, i + BATCH_SIZE);
+      
+      await Promise.all(batch.map(async (pr) => {
+        try {
+          const reviewsData = await octokit.pulls.listReviews({
+            owner: pr._owner,
+            repo: pr._repo,
+            pull_number: pr._prNumber,
+          });
 
-  /**
-   * Get PR details including reviews and assignees
-   */
-  private async getPRDetails(
-    octokit: Octokit,
-    owner: string,
-    repo: string,
-    prNumber: number,
-    currentUser: string,
-    mode: 'my-prs' | 'needs-review' | 'recently-merged' = 'my-prs'
-  ): Promise<PullRequest | null> {
-    try {
-      // Fetch PR data
-      const prData = await octokit.pulls.get({
-        owner,
-        repo,
-        pull_number: prNumber,
-      });
+          const reviews = reviewsData.data;
+          let approvalCount = 0;
+          let iApproved = false;
 
-      const pr = prData.data;
+          if (reviews.length > 0) {
+            const reviewerGroups = new Map<string, typeof reviews>();
 
-      // For recently-merged, skip if not merged
-      if (mode === 'recently-merged' && !pr.merged_at) {
-        return null;
-      }
+            for (const review of reviews) {
+              const login = review.user?.login;
+              if (!login) continue;
+              if (!reviewerGroups.has(login)) {
+                reviewerGroups.set(login, []);
+              }
+              reviewerGroups.get(login)?.push(review);
+            }
 
-      // Fetch reviews
-      const reviewsData = await octokit.pulls.listReviews({
-        owner,
-        repo,
-        pull_number: prNumber,
-      });
+            for (const [login, userReviews] of reviewerGroups) {
+              const latestReview = userReviews.sort((a, b) => {
+                const aTime = a.submitted_at || '';
+                const bTime = b.submitted_at || '';
+                return bTime.localeCompare(aTime);
+              })[0];
 
-      const reviews = reviewsData.data;
-
-      // Count unique approvals and check if current user approved
-      let approvalCount = 0;
-      let iApproved = false;
-
-      if (reviews.length > 0) {
-        const reviewerGroups = new Map<string, typeof reviews>();
-
-        for (const review of reviews) {
-          const login = review.user?.login;
-          if (!login) continue;
-
-          if (!reviewerGroups.has(login)) {
-            reviewerGroups.set(login, []);
-          }
-          reviewerGroups.get(login)?.push(review);
-        }
-
-        for (const [login, userReviews] of reviewerGroups) {
-          // Get latest review from this user
-          const latestReview = userReviews.sort((a, b) => {
-            const aTime = a.submitted_at || '';
-            const bTime = b.submitted_at || '';
-            return bTime.localeCompare(aTime);
-          })[0];
-
-          if (latestReview?.state === 'APPROVED') {
-            approvalCount++;
-            if (login === currentUser) {
-              iApproved = true;
+              if (latestReview?.state === 'APPROVED') {
+                approvalCount++;
+                if (login === username) {
+                  iApproved = true;
+                }
+              }
             }
           }
+
+          pr.approvalCount = approvalCount;
+          pr.iApproved = iApproved;
+        } catch (error) {
+          console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error);
         }
-      }
-
-      const assigneeCount = pr.assignees?.length || 0;
-
-      return {
-        source: 'GitHub' as const,
-        repository: repo,
-        id: pr.number,
-        title: pr.title,
-        author: pr.user?.login || 'unknown',
-        url: pr.html_url,
-        state: pr.state,
-        approvalCount,
-        assigneeCount,
-        iApproved,
-        created: pr.created_at ? new Date(pr.created_at) : null,
-        date: pr.merged_at || null,
-      };
-    } catch (error) {
-      console.debug(`Failed to get PR details for ${owner}/${repo}#${prNumber}:`, error);
-      return null;
+      }));
     }
+
+    // Clean up metadata and filter
+    const finalPrs = allPrs.map(pr => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequest & { _owner?: string; _repo?: string; _prNumber?: number };
+      return cleanPr;
+    }).filter(pr => {
+      // For needs-review mode, filter out PRs the user has already approved
+      if (mode === 'needs-review' && pr.iApproved) {
+        return false;
+      }
+      return true;
+    });
+
+    return finalPrs;
   }
 }

@@ -10,21 +10,20 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .pr-list-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--vscode-foreground);
+  color: var(--text-heading);
 }
 
 .pr-count {
   font-size: 13px;
-  color: var(--vscode-descriptionForeground);
-  background: var(--vscode-badge-background);
-  color: var(--vscode-badge-foreground);
+  background: var(--badge-bg);
+  color: var(--badge-text);
   padding: 2px 8px;
   border-radius: 11px;
   font-weight: 500;
@@ -41,8 +40,8 @@
 }
 
 .pr-item {
-  background: linear-gradient(135deg, #2d2d30 0%, #252526 100%);
-  border: 1px solid #3e3e42;
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  border: 1px solid var(--border-secondary);
   border-radius: 8px;
   padding: 16px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -51,9 +50,8 @@
 
 .pr-item:hover {
   transform: translateY(-2px);
-  border-color: #007acc;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3),
-              0 2px 6px rgba(0, 0, 0, 0.2);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-md);
 }
 
 .pr-item-header {
@@ -68,13 +66,13 @@
 }
 
 .pr-icon {
-  color: #c792ea;
+  color: var(--accent-purple);
   flex-shrink: 0;
   margin-top: 2px;
 }
 
 .pr-title {
-  color: #e0e0e0;
+  color: var(--text-heading);
   font-size: 15px;
   font-weight: 600;
   display: flex;
@@ -87,7 +85,7 @@
 }
 
 .pr-title:hover {
-  color: #569cd6;
+  color: var(--accent-blue);
 }
 
 .pr-title:hover .external-link-icon {
@@ -107,35 +105,44 @@
   align-items: center;
   gap: 10px;
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   flex-wrap: wrap;
 }
 
 .pr-source {
-  background: linear-gradient(135deg, #007acc, #005a9e);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
+  color: var(--text-inverse);
   padding: 3px 8px;
   border-radius: 4px;
   font-weight: 700;
   font-size: 10px;
   letter-spacing: 0.5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
+}
+
+.pr-org-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
 }
 
 .pr-repo {
-  color: #4ec9b0;
+  color: var(--accent-success);
   font-weight: 600;
   font-size: 13px;
 }
 
 .pr-number {
-  color: #569cd6;
+  color: var(--accent-blue);
   font-family: 'Cascadia Code', 'Consolas', monospace;
   font-weight: 500;
 }
 
 .pr-author {
-  color: #cccccc;
+  color: var(--text-primary);
   font-size: 12px;
 }
 
@@ -146,7 +153,7 @@
   gap: 16px;
   padding-top: 12px;
   margin-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-primary);
 }
 
 .pr-approvals,
@@ -155,8 +162,8 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #999;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  background: var(--bg-hover);
   padding: 4px 10px;
   border-radius: 12px;
   transition: all 0.2s ease;
@@ -164,12 +171,12 @@
 
 .pr-approvals:hover,
 .pr-date:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #cccccc;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 .approved-icon {
-  color: #4ec9b0;
+  color: var(--accent-success);
   filter: drop-shadow(0 0 2px rgba(78, 201, 176, 0.5));
 }
 
@@ -183,13 +190,56 @@
   height: 100%;
   padding: 48px 24px;
   text-align: center;
-  color: var(--vscode-descriptionForeground);
+  color: var(--text-secondary);
 }
 
 .pr-list-loading .spin {
   animation: spin 1s linear infinite;
-  color: var(--vscode-charts-blue);
+  color: var(--accent-primary);
   margin-bottom: 16px;
+}
+
+.loading-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.progress-main {
+  font-size: 14px;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background: rgba(14, 99, 156, 0.25);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.progress-total {
+  font-size: 13px;
+  color: var(--accent-success);
+  font-weight: 500;
+  margin: 4px 0 0 0;
 }
 
 @keyframes spin {
@@ -202,7 +252,7 @@
 }
 
 .pr-list-empty svg {
-  color: var(--vscode-descriptionForeground);
+  color: var(--text-secondary);
   opacity: 0.5;
   margin-bottom: 16px;
 }
@@ -217,7 +267,7 @@
 }
 
 .error-message {
-  color: var(--vscode-errorForeground);
+  color: var(--accent-error);
   font-weight: 500;
   margin-bottom: 16px;
 }
@@ -239,9 +289,9 @@
 }
 
 .pr-list-error code {
-  background: var(--vscode-textCodeBlock-background);
+  background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: 3px;
-  font-family: var(--vscode-editor-font-family);
-  color: var(--vscode-textPreformat-foreground);
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  color: var(--accent-success);
 }

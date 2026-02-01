@@ -1,10 +1,10 @@
 .activity-bar {
   width: 48px;
-  background-color: #333333;
+  background-color: var(--activity-bar-bg);
   display: flex;
   flex-direction: column;
   align-items: center;
-  border-right: 1px solid #3e3e42;
+  border-right: 1px solid var(--border-secondary);
 }
 
 .activity-bar-items {
@@ -23,7 +23,7 @@
   background: none;
   border: none;
   border-left: 2px solid transparent;
-  color: #858585;
+  color: var(--activity-bar-text, var(--text-secondary));
   cursor: pointer;
   padding: 0;
   position: relative;
@@ -31,13 +31,13 @@
 }
 
 .activity-bar-item:hover {
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--activity-bar-text-active, var(--text-heading));
+  background-color: var(--activity-bar-hover);
 }
 
 .activity-bar-item.active {
-  color: #ffffff;
-  border-left-color: #007acc;
+  color: var(--activity-bar-text-active, var(--text-heading));
+  border-left-color: var(--accent-primary);
 }
 
 .activity-bar-item.active::before {
@@ -47,11 +47,11 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--activity-bar-active);
 }
 
 .activity-bar-item:focus {
-  outline: 1px solid #007acc;
+  outline: 1px solid var(--accent-primary);
   outline-offset: -1px;
 }
 
@@ -64,16 +64,16 @@
   position: fixed;
   left: 56px;
   transform: translateY(-50%);
-  background-color: #252526;
-  color: #cccccc;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
   padding: 4px 8px;
   border-radius: 3px;
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
   z-index: 10000;
-  border: 1px solid #454545;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-sm);
   animation: tooltip-fade-in 0.1s ease-out;
 }
 

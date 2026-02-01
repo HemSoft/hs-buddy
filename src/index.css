@@ -1,16 +1,184 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Font families (configurable via settings) */
+  --font-family-ui: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-family-mono: 'Cascadia Code', 'Consolas', monospace;
+  
+  font-family: var(--font-family-ui);
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #1e1e1e;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Default to dark theme */
+  color-scheme: dark;
+  
+  /* Background colors */
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary: #2d2d30;
+  --bg-elevated: #3c3c3c;
+  --bg-hover: #2a2d2e;
+  --bg-active: #37373d;
+  
+  /* Text colors */
+  --text-primary: #cccccc;
+  --text-secondary: #858585;
+  --text-muted: #6e6e6e;
+  --text-inverse: #1e1e1e;
+  --text-heading: #ffffff;
+  
+  /* Border colors */
+  --border-primary: #3c3c3c;
+  --border-secondary: #3e3e42;
+  --border-focus: #0e639c;
+  
+  /* Accent colors (default blue) */
+  --accent-primary: #0e639c;
+  --accent-primary-hover: #1177bb;
+  --accent-success: #4ec9b0;
+  --accent-warning: #dcdcaa;
+  --accent-error: #f48771;
+  --accent-purple: #c792ea;
+  --accent-blue: #569cd6;
+  
+  /* Component-specific */
+  --titlebar-bg: #333333;
+  --activity-bar-bg: #333333;
+  --activity-bar-hover: rgba(255, 255, 255, 0.05);
+  --activity-bar-active: rgba(255, 255, 255, 0.1);
+  --sidebar-bg: #252526;
+  --panel-bg: #1e1e1e;
+  --input-bg: #1e1e1e;
+  --badge-bg: #4d4d4d;
+  --badge-text: #ffffff;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  
+  /* Sash/resize */
+  --sash-bg: #3e3e42;
+  --sash-hover: #505055;
+}
+
+/* Dark Theme (explicit) */
+[data-theme="dark"] {
+  color-scheme: dark;
+  
+  /* Background colors */
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary: #2d2d30;
+  --bg-elevated: #3c3c3c;
+  --bg-hover: #2a2d2e;
+  --bg-active: #37373d;
+  
+  /* Text colors */
+  --text-primary: #cccccc;
+  --text-secondary: #858585;
+  --text-muted: #6e6e6e;
+  --text-inverse: #1e1e1e;
+  --text-heading: #ffffff;
+  
+  /* Border colors */
+  --border-primary: #3c3c3c;
+  --border-secondary: #3e3e42;
+  --border-focus: #0e639c;
+  
+  /* Accent colors */
+  --accent-primary: #0e639c;
+  --accent-primary-hover: #1177bb;
+  --accent-success: #4ec9b0;
+  --accent-warning: #dcdcaa;
+  --accent-error: #f48771;
+  --accent-purple: #c792ea;
+  --accent-blue: #569cd6;
+  
+  /* Component-specific */
+  --titlebar-bg: #333333;
+  --activity-bar-bg: #333333;
+  --activity-bar-hover: rgba(255, 255, 255, 0.05);
+  --activity-bar-active: rgba(255, 255, 255, 0.1);
+  --sidebar-bg: #252526;
+  --panel-bg: #1e1e1e;
+  --input-bg: #1e1e1e;
+  --badge-bg: #4d4d4d;
+  --badge-text: #ffffff;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  
+  /* Sash/resize */
+  --sash-bg: #3e3e42;
+  --sash-hover: #505055;
+}
+
+/* Light Theme - VS Code inspired */
+[data-theme="light"] {
+  color-scheme: light;
+  
+  /* Background colors - crisp white base with subtle differentiation */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f3f3;
+  --bg-tertiary: #ececec;
+  --bg-elevated: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.08);
+  
+  /* Text colors - strong contrast */
+  --text-primary: #1f1f1f;
+  --text-secondary: #616161;
+  --text-muted: #8b8b8b;
+  --text-inverse: #ffffff;
+  --text-heading: #000000;
+  
+  /* Border colors */
+  --border-primary: #e5e5e5;
+  --border-secondary: #d4d4d4;
+  --border-focus: #0078d4;
+  
+  /* Accent colors - vibrant blue */
+  --accent-primary: #0078d4;
+  --accent-primary-hover: #106ebe;
+  --accent-success: #107c10;
+  --accent-warning: #ca5010;
+  --accent-error: #d13438;
+  --accent-purple: #5c2d91;
+  --accent-blue: #0066cc;
+  
+  /* Component-specific */
+  --titlebar-bg: #dddddd;
+  --activity-bar-bg: #2c2c2c;
+  --activity-bar-hover: rgba(255, 255, 255, 0.1);
+  --activity-bar-active: rgba(255, 255, 255, 0.15);
+  --activity-bar-text: #858585;
+  --activity-bar-text-active: #ffffff;
+  --sidebar-bg: #f3f3f3;
+  --panel-bg: #ffffff;
+  --input-bg: #ffffff;
+  --badge-bg: #0078d4;
+  --badge-text: #ffffff;
+  
+  /* Shadows - subtle for light mode */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  
+  /* Sash/resize */
+  --sash-bg: #e7e7e7;
+  --sash-hover: #0078d4;
+}
+
+/* Apply theme variables to body */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 * {

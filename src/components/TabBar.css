@@ -1,7 +1,7 @@
 .tab-bar {
   display: flex;
-  background-color: #252526;
-  border-bottom: 1px solid #3e3e42;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-secondary);
   min-height: 35px;
   overflow: hidden;
 }
@@ -22,7 +22,7 @@
 }
 
 .tab-bar-tabs::-webkit-scrollbar-thumb {
-  background: #5a5a5a;
+  background: var(--bg-elevated);
   border-radius: 3px;
 }
 
@@ -31,9 +31,9 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background-color: #2d2d2d;
-  color: #969696;
-  border-right: 1px solid #3e3e42;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border-secondary);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -43,13 +43,13 @@
 }
 
 .tab:hover {
-  background-color: #323232;
+  background-color: var(--bg-hover);
 }
 
 .tab.active {
-  background-color: #1e1e1e;
-  color: #ffffff;
-  border-bottom: 1px solid #0078d4;
+  background-color: var(--bg-primary);
+  color: var(--text-heading);
+  border-bottom: 1px solid var(--accent-primary);
   margin-bottom: -1px;
 }
 
@@ -68,7 +68,7 @@
   border: none;
   padding: 2px;
   cursor: pointer;
-  color: #969696;
+  color: var(--text-secondary);
   border-radius: 4px;
   opacity: 0;
   transition: opacity 0.15s ease, background-color 0.15s ease;
@@ -87,6 +87,6 @@
 }
 
 .tab-close:hover {
-  background-color: #3e3e42;
-  color: #ffffff;
+  background-color: var(--bg-elevated);
+  color: var(--text-heading);
 }

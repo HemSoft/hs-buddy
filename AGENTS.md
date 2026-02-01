@@ -155,3 +155,4 @@ hs-buddy/
 - Maintain type safety - use TypeScript strictly
 - Follow the established code style (ESLint, Prettier)
 - Keep the UI consistent with VSCode's design language
+- **Frameless Window**: This app uses `frame: false` - the native menu bar is HIDDEN. ALL menus (File, Edit, View, Help) MUST be in the custom `TitleBar.tsx` component, not in `electron/main.ts`. The Electron menu template only handles keyboard shortcuts.

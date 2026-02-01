@@ -4,6 +4,8 @@
   width: 100%;
   height: 100vh;
   overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .app-body {
@@ -19,12 +21,12 @@
 
 /* Style the Allotment sash (resize handle) */
 :root {
-  --focus-border: #505055;
+  --focus-border: var(--sash-hover, #505055);
   --sash-hover-size: 4px;
 }
 
 .sash {
-  background-color: #3e3e42 !important;
+  background-color: var(--sash-bg) !important;
   width: 4px !important;
 }
 
@@ -35,7 +37,7 @@
 [class*="split-view"] .sash:hover,
 [class*="split-view"] .sash.active,
 [class*="split-view"] .sash:active {
-  background-color: #505055 !important;
+  background-color: var(--sash-hover) !important;
 }
 
 .main-content-wrapper {
@@ -51,7 +53,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #1e1e1e;
+  background-color: var(--bg-primary);
   overflow: hidden;
 }
 
@@ -63,14 +65,14 @@
 
 .content-header {
   padding: 16px 24px;
-  border-bottom: 1px solid #3e3e42;
-  background-color: #252526;
+  border-bottom: 1px solid var(--border-secondary);
+  background-color: var(--bg-secondary);
 }
 
 .content-header h2 {
   font-size: 20px;
   font-weight: 500;
-  color: #cccccc;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -78,7 +80,7 @@
   flex: 1;
   padding: 24px;
   overflow-y: auto;
-  color: #cccccc;
+  color: var(--text-primary);
 }
 
 .content-body p {
@@ -93,10 +95,10 @@
 }
 
 .content-body code {
-  background-color: #2d2d30;
+  background-color: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: 3px;
   font-family: 'Courier New', Courier, monospace;
   font-size: 13px;
-  color: #569cd6;
+  color: var(--accent-blue);
 }

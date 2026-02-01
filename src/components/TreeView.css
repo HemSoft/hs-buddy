@@ -15,17 +15,17 @@
   padding: 4px 8px;
   cursor: pointer;
   font-size: 13px;
-  color: #cccccc;
+  color: var(--text-primary);
   transition: background-color 0.1s ease;
 }
 
 .tree-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--bg-hover);
 }
 
 .tree-item.selected {
-  background-color: #094771;
-  color: #ffffff;
+  background-color: var(--accent-primary);
+  color: var(--text-heading);
 }
 
 .tree-item.has-children {
@@ -38,7 +38,7 @@
   justify-content: center;
   width: 16px;
   height: 16px;
-  color: #858585;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
@@ -50,12 +50,12 @@
 .item-icon {
   display: flex;
   align-items: center;
-  color: #858585;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .tree-item.selected .item-icon {
-  color: #ffffff;
+  color: var(--text-heading);
 }
 
 .item-label {

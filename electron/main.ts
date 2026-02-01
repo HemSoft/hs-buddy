@@ -1,8 +1,7 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import windowStateKeeper from 'electron-window-state'
@@ -31,40 +30,31 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 
-// Zoom persistence
-let zoomConfigPath: string
-let currentZoomFactor = 1.0
+// Zoom level persistence
+const getZoomConfigPath = () => path.join(app.getPath('userData'), 'zoom-level.json')
 
-async function loadZoomFactor(): Promise<number> {
+function loadZoomLevel(): number {
   try {
-    if (existsSync(zoomConfigPath)) {
-      const data = await readFile(zoomConfigPath, 'utf-8')
-      const config = JSON.parse(data)
-      return config.zoomFactor || 1.0
+    const configPath = getZoomConfigPath()
+    if (existsSync(configPath)) {
+      const data = JSON.parse(readFileSync(configPath, 'utf-8'))
+      return data.zoomFactor || 1.0
     }
   } catch (err) {
-    console.error('Failed to load zoom factor:', err)
+    console.error('[zoom] Failed to load zoom level:', err)
   }
   return 1.0
 }
 
-async function saveZoomFactor(zoomFactor: number): Promise<void> {
+function saveZoomLevel(zoomFactor: number): void {
   try {
-    const configDir = path.dirname(zoomConfigPath)
-    if (!existsSync(configDir)) {
-      await mkdir(configDir, { recursive: true })
-    }
-    await writeFile(zoomConfigPath, JSON.stringify({ zoomFactor }, null, 2))
-    currentZoomFactor = zoomFactor
+    writeFileSync(getZoomConfigPath(), JSON.stringify({ zoomFactor }))
   } catch (err) {
-    console.error('Failed to save zoom factor:', err)
+    console.error('[zoom] Failed to save zoom level:', err)
   }
 }
 
-async function createWindow() {
-  // Load zoom factor
-  currentZoomFactor = await loadZoomFactor()
-
+function createWindow() {
   // Load window state (position, size, etc.)
   const mainWindowState = windowStateKeeper({
     defaultWidth: 1400,
@@ -79,24 +69,25 @@ async function createWindow() {
     minWidth: 800,
     minHeight: 600,
     frame: false,
+    icon: path.join(process.env.VITE_PUBLIC || path.join(process.env.APP_ROOT!, 'public'), 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Use isolated partition to prevent zoom level bleeding to other Electron apps
+      partition: 'persist:buddy',
+      // Set initial zoom from saved config
+      zoomFactor: loadZoomLevel()
     },
-    title: 'hs-buddy',
+    title: 'Buddy',
     backgroundColor: '#1e1e1e'
   })
 
   // Let window state manager track window state
   mainWindowState.manage(win)
 
-  // Apply saved zoom factor
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date()).toLocaleString())
-    if (win && currentZoomFactor !== 1.0) {
-      win.webContents.setZoomFactor(currentZoomFactor)
-    }
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -123,49 +114,121 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
-  // Set zoom config path
-  zoomConfigPath = path.join(app.getPath('userData'), 'zoom-config.json')
-
   // Initialize config manager and attempt migration from env vars
   configManager.migrateFromEnv()
 
   createWindow()
 
-  // Register global shortcuts
-  globalShortcut.register('F11', () => {
-    if (win) {
-      win.setFullScreen(!win.isFullScreen())
+  // Build application menu
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'File',
+      submenu: [
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+numadd',
+          click: () => {
+            if (win) {
+              const currentZoom = win.webContents.getZoomFactor()
+              const newZoom = Math.min(currentZoom + 0.1, 3.0)
+              win.webContents.setZoomFactor(newZoom)
+              saveZoomLevel(newZoom)
+            }
+          }
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+numsub',
+          click: () => {
+            if (win) {
+              const currentZoom = win.webContents.getZoomFactor()
+              const newZoom = Math.max(currentZoom - 0.1, 0.5)
+              win.webContents.setZoomFactor(newZoom)
+              saveZoomLevel(newZoom)
+            }
+          }
+        },
+        {
+          label: 'Reset Zoom',
+          accelerator: 'CmdOrCtrl+num0',
+          click: () => {
+            if (win) {
+              win.webContents.setZoomFactor(1.0)
+              saveZoomLevel(1.0)
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Full Screen',
+          accelerator: 'F11',
+          click: () => win?.setFullScreen(!win?.isFullScreen())
+        },
+        { type: 'separator' },
+        { role: 'toggleDevTools' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About Buddy',
+          click: () => {
+            if (win) {
+              dialog.showMessageBox(win, {
+                type: 'info',
+                title: 'About Buddy',
+                message: 'Buddy',
+                detail: 'Your universal productivity companion\n\nVersion 0.1.0\n\n© HemSoft Developments',
+              })
+            }
+          }
+        }
+      ]
     }
-  })
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 
-  // Zoom shortcuts
-  globalShortcut.register('CommandOrControl+numadd', () => {
-    if (win) {
-      const newZoom = Math.min(currentZoomFactor + 0.1, 3.0)
+  // Handle keyboard shortcuts only when app is focused (not global)
+  win?.webContents.on('before-input-event', (event, input) => {
+    if (!win) return
+
+    const ctrlOrCmd = input.control || input.meta
+
+    // Ctrl/Cmd + NumpadAdd/Plus: Zoom In
+    if (ctrlOrCmd && input.key === '+') {
+      const currentZoom = win.webContents.getZoomFactor()
+      const newZoom = Math.min(currentZoom + 0.1, 3.0)
       win.webContents.setZoomFactor(newZoom)
-      saveZoomFactor(newZoom)
+      saveZoomLevel(newZoom)
+      event.preventDefault()
     }
-  })
-
-  globalShortcut.register('CommandOrControl+numsub', () => {
-    if (win) {
-      const newZoom = Math.max(currentZoomFactor - 0.1, 0.5)
+    // Ctrl/Cmd + NumpadSubtract/Minus: Zoom Out
+    else if (ctrlOrCmd && input.key === '-') {
+      const currentZoom = win.webContents.getZoomFactor()
+      const newZoom = Math.max(currentZoom - 0.1, 0.5)
       win.webContents.setZoomFactor(newZoom)
-      saveZoomFactor(newZoom)
+      saveZoomLevel(newZoom)
+      event.preventDefault()
     }
-  })
-
-  globalShortcut.register('CommandOrControl+num0', () => {
-    if (win) {
+    // Ctrl/Cmd + 0: Reset Zoom
+    else if (ctrlOrCmd && input.key === '0') {
       win.webContents.setZoomFactor(1.0)
-      saveZoomFactor(1.0)
+      saveZoomLevel(1.0)
+      event.preventDefault()
+    }
+    // F11: Toggle Fullscreen
+    else if (input.key === 'F11') {
+      win.setFullScreen(!win.isFullScreen())
+      event.preventDefault()
     }
   })
-})
-
-app.on('will-quit', () => {
-  // Unregister all shortcuts
-  globalShortcut.unregisterAll()
 })
 
 // IPC handlers for window controls
@@ -185,10 +248,12 @@ ipcMain.on('window-close', () => {
   win?.close()
 })
 
-// GitHub CLI authentication
-ipcMain.handle('github:get-cli-token', async () => {
+// GitHub CLI authentication - supports per-account tokens
+ipcMain.handle('github:get-cli-token', async (_event, username?: string) => {
   try {
-    const { stdout, stderr } = await execAsync('gh auth token', {
+    // Use --user flag to get account-specific token if username provided
+    const command = username ? `gh auth token --user ${username}` : 'gh auth token'
+    const { stdout, stderr } = await execAsync(command, {
       encoding: 'utf8',
       timeout: 5000,
     })
@@ -199,7 +264,7 @@ ipcMain.handle('github:get-cli-token', async () => {
     
     const token = stdout.trim()
     if (!token || token.length === 0) {
-      throw new Error('GitHub CLI returned empty token')
+      throw new Error(`GitHub CLI returned empty token${username ? ` for account '${username}'` : ''}`)
     }
     
     return token
@@ -211,7 +276,9 @@ ipcMain.handle('github:get-cli-token', async () => {
     if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
       throw new Error('GitHub CLI (gh) is not installed. Install from: https://cli.github.com/')
     } else if (errorMessage.includes('not logged in')) {
-      throw new Error('Not logged in to GitHub CLI. Run: gh auth login')
+      throw new Error(`Not logged in to GitHub CLI${username ? ` for account '${username}'` : ''}. Run: gh auth login`)
+    } else if (errorMessage.includes('no account found')) {
+      throw new Error(`GitHub account '${username}' not found in GitHub CLI. Run: gh auth login -h github.com`)
     }
     
     throw error
@@ -284,12 +351,106 @@ ipcMain.handle('config:set-theme', (_event, theme) => {
   return { success: true }
 })
 
+// Accent Color
+ipcMain.handle('config:get-accent-color', () => {
+  return configManager.getAccentColor()
+})
+
+ipcMain.handle('config:set-accent-color', (_event, color) => {
+  configManager.setAccentColor(color)
+  return { success: true }
+})
+
+// Background Colors
+ipcMain.handle('config:get-bg-primary', () => {
+  return configManager.getBgPrimary()
+})
+
+ipcMain.handle('config:set-bg-primary', (_event, color) => {
+  configManager.setBgPrimary(color)
+  return { success: true }
+})
+
+ipcMain.handle('config:get-bg-secondary', () => {
+  return configManager.getBgSecondary()
+})
+
+ipcMain.handle('config:set-bg-secondary', (_event, color) => {
+  configManager.setBgSecondary(color)
+  return { success: true }
+})
+
+// Font Family
+ipcMain.handle('config:get-font-family', () => {
+  return configManager.getFontFamily()
+})
+
+ipcMain.handle('config:set-font-family', (_event, font) => {
+  configManager.setFontFamily(font)
+  return { success: true }
+})
+
+// Monospace Font Family
+ipcMain.handle('config:get-mono-font-family', () => {
+  return configManager.getMonoFontFamily()
+})
+
+ipcMain.handle('config:set-mono-font-family', (_event, font) => {
+  configManager.setMonoFontFamily(font)
+  return { success: true }
+})
+
+// Zoom Level
+ipcMain.handle('config:get-zoom-level', () => {
+  return configManager.getZoomLevel()
+})
+
+ipcMain.handle('config:set-zoom-level', (_event, level) => {
+  configManager.setZoomLevel(level)
+  return { success: true }
+})
+
+// System Fonts
+ipcMain.handle('system:get-fonts', async () => {
+  try {
+    // Use PowerShell to get installed fonts on Windows
+    const { stdout } = await execAsync(
+      'powershell -NoProfile -Command "[System.Reflection.Assembly]::LoadWithPartialName(\'System.Drawing\') | Out-Null; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }"',
+      { encoding: 'utf8', timeout: 10000 }
+    )
+    const fonts = stdout.split('\n')
+      .map(f => f.trim())
+      .filter(f => f.length > 0)
+      .sort()
+    return fonts
+  } catch (error) {
+    console.error('Failed to get system fonts:', error)
+    // Return a reasonable fallback list of common fonts
+    return [
+      'Arial', 'Calibri', 'Cambria', 'Cascadia Code', 'Cascadia Mono',
+      'Comic Sans MS', 'Consolas', 'Courier New', 'Georgia', 'Impact',
+      'Inter', 'Lucida Console', 'Lucida Sans Unicode', 'Microsoft Sans Serif',
+      'Palatino Linotype', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS',
+      'Verdana'
+    ]
+  }
+})
+
 ipcMain.handle('config:get-sidebar-width', () => {
   return configManager.getSidebarWidth()
 })
 
 ipcMain.handle('config:set-sidebar-width', (_event, width) => {
   configManager.setSidebarWidth(width)
+  return { success: true }
+})
+
+ipcMain.handle('config:get-pane-sizes', () => {
+  return configManager.getPaneSizes()
+})
+
+ipcMain.handle('config:set-pane-sizes', (_event, sizes) => {
+  configManager.setPaneSizes(sizes)
   return { success: true }
 })
 
@@ -309,6 +470,15 @@ ipcMain.handle('config:get-pr-auto-refresh', () => {
 
 ipcMain.handle('config:set-pr-auto-refresh', (_event, enabled) => {
   configManager.setPRAutoRefresh(enabled)
+  return { success: true }
+})
+
+ipcMain.handle('config:get-recently-merged-days', () => {
+  return configManager.getRecentlyMergedDays()
+})
+
+ipcMain.handle('config:set-recently-merged-days', (_event, days) => {
+  configManager.setRecentlyMergedDays(days)
   return { success: true }
 })
 

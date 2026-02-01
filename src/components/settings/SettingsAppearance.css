@@ -1,0 +1,141 @@
+/* SettingsAppearance-specific styles */
+
+/* Color Settings */
+.color-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.color-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.color-setting label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.color-picker {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.color-hex-input {
+  width: 100px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--font-family-mono);
+  color: var(--text-heading);
+  text-transform: uppercase;
+}
+
+.color-hex-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.color-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Font Settings */
+.font-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.font-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.font-setting label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+}
+
+.font-setting .settings-select {
+  max-width: 300px;
+}
+
+.font-preview {
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+  max-width: 400px;
+}
+
+.font-preview.mono {
+  font-family: var(--font-family-mono);
+  color: var(--accent-success);
+}
+
+/* Zoom Setting */
+.zoom-setting {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 400px;
+}
+
+.slider-control.wide {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 35px;
+}
+
+.slider-control.wide .settings-slider {
+  flex: 1;
+}
+
+.zoom-setting .slider-value {
+  min-width: 45px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  font-size: 13px;
+  text-align: center;
+}

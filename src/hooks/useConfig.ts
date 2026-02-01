@@ -25,9 +25,30 @@ const configAPI = {
   getTheme: () => window.ipcRenderer.invoke('config:get-theme') as Promise<'dark' | 'light'>,
   setTheme: (theme: 'dark' | 'light') =>
     window.ipcRenderer.invoke('config:set-theme', theme) as Promise<{ success: boolean }>,
+  getAccentColor: () => window.ipcRenderer.invoke('config:get-accent-color') as Promise<string>,
+  setAccentColor: (color: string) =>
+    window.ipcRenderer.invoke('config:set-accent-color', color) as Promise<{ success: boolean }>,
+  getBgPrimary: () => window.ipcRenderer.invoke('config:get-bg-primary') as Promise<string>,
+  setBgPrimary: (color: string) =>
+    window.ipcRenderer.invoke('config:set-bg-primary', color) as Promise<{ success: boolean }>,
+  getBgSecondary: () => window.ipcRenderer.invoke('config:get-bg-secondary') as Promise<string>,
+  setBgSecondary: (color: string) =>
+    window.ipcRenderer.invoke('config:set-bg-secondary', color) as Promise<{ success: boolean }>,
+  getFontFamily: () => window.ipcRenderer.invoke('config:get-font-family') as Promise<string>,
+  setFontFamily: (font: string) =>
+    window.ipcRenderer.invoke('config:set-font-family', font) as Promise<{ success: boolean }>,
+  getMonoFontFamily: () => window.ipcRenderer.invoke('config:get-mono-font-family') as Promise<string>,
+  setMonoFontFamily: (font: string) =>
+    window.ipcRenderer.invoke('config:set-mono-font-family', font) as Promise<{ success: boolean }>,
+  getZoomLevel: () => window.ipcRenderer.invoke('config:get-zoom-level') as Promise<number>,
+  setZoomLevel: (level: number) =>
+    window.ipcRenderer.invoke('config:set-zoom-level', level) as Promise<{ success: boolean }>,
   getSidebarWidth: () => window.ipcRenderer.invoke('config:get-sidebar-width') as Promise<number>,
   setSidebarWidth: (width: number) =>
     window.ipcRenderer.invoke('config:set-sidebar-width', width) as Promise<{ success: boolean }>,
+
+  // System Fonts
+  getSystemFonts: () => window.ipcRenderer.invoke('system:get-fonts') as Promise<string[]>,
 
   // PR Settings
   getPRRefreshInterval: () => window.ipcRenderer.invoke('config:get-pr-refresh-interval') as Promise<number>,
@@ -36,6 +57,9 @@ const configAPI = {
   getPRAutoRefresh: () => window.ipcRenderer.invoke('config:get-pr-auto-refresh') as Promise<boolean>,
   setPRAutoRefresh: (enabled: boolean) =>
     window.ipcRenderer.invoke('config:set-pr-auto-refresh', enabled) as Promise<{ success: boolean }>,
+  getRecentlyMergedDays: () => window.ipcRenderer.invoke('config:get-recently-merged-days') as Promise<number>,
+  setRecentlyMergedDays: (days: number) =>
+    window.ipcRenderer.invoke('config:set-recently-merged-days', days) as Promise<{ success: boolean }>,
 
   // Full Config
   getConfig: () => window.ipcRenderer.invoke('config:get-config') as Promise<AppConfig>,
@@ -150,7 +174,7 @@ export function usePRSettings() {
   const [settings, setSettings] = useState({
     refreshInterval: 15,
     autoRefresh: false,
-    recentlyMergedDays: 30,
+    recentlyMergedDays: 7,
   });
   const [loading, setLoading] = useState(true);
 
@@ -184,11 +208,17 @@ export function usePRSettings() {
     await loadSettings();
   };
 
+  const setRecentlyMergedDays = async (days: number) => {
+    await configAPI.setRecentlyMergedDays(days);
+    await loadSettings();
+  };
+
   return {
     ...settings,
     loading,
     setRefreshInterval,
     setAutoRefresh,
+    setRecentlyMergedDays,
   };
 }
 

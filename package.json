@@ -15,7 +15,11 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,json,css}\"",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy",
+    "convex:codegen": "convex codegen",
+    "validate:github": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-github-orgs.ps1"
   },
   "keywords": [
     "electron",
@@ -35,6 +39,8 @@
     "@uiw/react-markdown-preview": "^5.1.5",
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "allotment": "^1.20.5",
+    "convex": "^1.31.7",
+    "cron-parser": "^5.5.0",
     "electron-store": "^11.0.2",
     "electron-window-state": "^5.0.3",
     "lucide-react": "^0.563.0",
@@ -67,5 +73,6 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "packageManager": "bun@1.2.0"
 }

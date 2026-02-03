@@ -6,6 +6,10 @@ import type { PullRequest, PRConfig } from '../types/pullRequest';
 // Create Octokit with retry and throttling plugins
 const OctokitWithPlugins = Octokit.plugin(retry, throttling);
 
+// Module-level caches (persist across GitHubClient instances)
+const tokenCache: Map<string, string> = new Map();
+const orgAvatarCache: Map<string, string | null> = new Map(); // null = tried and failed
+
 // Progress callback type
 export type ProgressCallback = (progress: {
   currentAccount: number;
@@ -19,8 +23,6 @@ export type ProgressCallback = (progress: {
 
 export class GitHubClient {
   private config: PRConfig['github'];
-  private tokenCache: Map<string, string> = new Map();
-  private orgAvatarCache: Map<string, string> = new Map();
   private recentlyMergedDays: number = 7;
 
   constructor(config: PRConfig['github'], recentlyMergedDays: number = 7) {
@@ -33,8 +35,8 @@ export class GitHubClient {
    * Uses 'gh auth token --user <username>' to get account-specific tokens
    */
   private async getGitHubCLIToken(username: string): Promise<string | null> {
-    // Check cache first
-    const cached = this.tokenCache.get(username);
+    // Check module-level cache first (persists across instances)
+    const cached = tokenCache.get(username);
     if (cached) {
       return cached;
     }
@@ -44,7 +46,7 @@ export class GitHubClient {
       const token = await window.ipcRenderer.invoke('github:get-cli-token', username);
       if (token && typeof token === 'string' && token.trim().length > 0) {
         const trimmedToken = token.trim();
-        this.tokenCache.set(username, trimmedToken);
+        tokenCache.set(username, trimmedToken);
         return trimmedToken;
       }
       console.warn(`⚠️  GitHub CLI token is empty or invalid for account '${username}'`);
@@ -185,7 +187,12 @@ export class GitHubClient {
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.warn(`⚠️  Error fetching PRs for ${username}:`, errorMsg);
+        // Only warn for non-404 errors (404s likely mean no access or org doesn't exist)
+        if (!errorMsg.includes('404')) {
+          console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg);
+        } else {
+          console.debug(`ℹ️  No access or org not found for ${username} in ${org}`);
+        }
         onProgress?.({
           currentAccount,
           totalAccounts,
@@ -203,6 +210,15 @@ export class GitHubClient {
       throw new Error('GitHub CLI authentication not available for any configured account. Please run: gh auth login');
     }
 
+    // Sort recently-merged PRs by merge date (newest first) after combining all accounts
+    if (mode === 'recently-merged') {
+      allPrs.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA; // Descending (newest first)
+      });
+    }
+
     return allPrs;
   }
 
@@ -218,25 +234,26 @@ export class GitHubClient {
     const seenUrls = new Set<string>();
     const allPrs: PullRequest[] = [];
 
-    // Fetch org avatar (cached)
-    let orgAvatarUrl: string | undefined;
-    if (!this.orgAvatarCache.has(org)) {
+    // Fetch org avatar (cached at module level to persist across instances)
+    let orgAvatarUrl: string | undefined | null;
+    if (!orgAvatarCache.has(org)) {
       try {
         const orgData = await octokit.orgs.get({ org });
         orgAvatarUrl = orgData.data.avatar_url;
-        this.orgAvatarCache.set(org, orgAvatarUrl);
+        orgAvatarCache.set(org, orgAvatarUrl);
       } catch {
         // Might be a user, not an org - try users endpoint
         try {
           const userData = await octokit.users.getByUsername({ username: org });
           orgAvatarUrl = userData.data.avatar_url;
-          this.orgAvatarCache.set(org, orgAvatarUrl);
+          orgAvatarCache.set(org, orgAvatarUrl);
         } catch {
           console.debug(`Could not fetch avatar for ${org}`);
+          orgAvatarCache.set(org, null); // Cache the failure to avoid retrying
         }
       }
     } else {
-      orgAvatarUrl = this.orgAvatarCache.get(org);
+      orgAvatarUrl = orgAvatarCache.get(org);
     }
 
     // Different queries based on mode
@@ -280,6 +297,8 @@ export class GitHubClient {
           order: 'desc',
         });
 
+        console.debug(`Search found ${searchResults.data.items.length} results for: ${query}`);
+
         for (const item of searchResults.data.items) {
           if (seenUrls.has(item.html_url)) {
             continue;
@@ -303,13 +322,14 @@ export class GitHubClient {
             id: item.number,
             title: item.title,
             author: item.user?.login || 'unknown',
+            authorAvatarUrl: item.user?.avatar_url,
             url: item.html_url,
             state: item.state,
             approvalCount: 0, // Will be filled in batch
             assigneeCount: item.assignees?.length || 0,
             iApproved: false, // Will be filled in batch
             created: item.created_at ? new Date(item.created_at) : null,
-            date: null,
+            date: item.closed_at || null, // For merged PRs, closed_at is the merge date
             orgAvatarUrl,
             org,
             // Store metadata for batch processing
@@ -319,7 +339,13 @@ export class GitHubClient {
           } as PullRequest & { _owner: string; _repo: string; _prNumber: number });
         }
       } catch (error) {
-        console.debug(`Search query failed: ${query}`, error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        // Suppress 404 errors (org doesn't exist or no access)
+        if (!errorMsg.includes('404')) {
+          console.warn(`Search query failed: ${query}`, error);
+        } else {
+          console.debug(`No search results (404) for: ${query}`);
+        }
       }
     }
 

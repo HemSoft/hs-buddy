@@ -49,7 +49,7 @@ export function TitleBar() {
         { label: 'Reset Zoom', accelerator: 'Ctrl+Num0' },
         { type: 'separator' },
         { label: 'Reload', accelerator: 'Ctrl+R', action: () => window.location.reload() },
-        { label: 'Toggle DevTools', accelerator: 'Ctrl+Shift+I' },
+        { label: 'Toggle DevTools', accelerator: 'Ctrl+Shift+I', action: () => window.ipcRenderer.send('toggle-devtools') },
         { type: 'separator' },
         { label: 'Full Screen', accelerator: 'F11' }
       ]

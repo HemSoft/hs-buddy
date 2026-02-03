@@ -21,6 +21,7 @@ When making decisions about project structure, UI patterns, or technical impleme
 
 - **Runtime**: Electron 30+
 - **Frontend**: React 18 + TypeScript
+- **Backend**: Convex (serverless database + real-time subscriptions)
 - **Build Tool**: Vite 5
 - **UI Libraries**:
   - `react-complex-tree` - Tree view navigation (left sidebar)
@@ -29,6 +30,26 @@ When making decisions about project structure, UI patterns, or technical impleme
   - `@vscode/webview-ui-toolkit` - VSCode-style UI components
   - `lucide-react` - Icons
 - **Packaging**: electron-builder
+
+## Convex Backend
+
+- **Local Dashboard**: <http://127.0.0.1:6790/> (when `./runServer.ps1` is running)
+- **Start Dev Server**: `./runServer.ps1` or `bun run convex:dev`
+- **Start App**: `./runApp.ps1` or `bun dev`
+- **Generate Types**: `bun run convex:codegen`
+- **Deploy**: `bun run convex:deploy`
+
+### Convex Schema
+
+Located in `convex/schema.ts`:
+
+- **jobs**: Task definitions (exec, ai, skill worker types)
+- **schedules**: Cron-based triggers linked to jobs
+- **runs**: Execution history with status tracking
+
+### Cron Jobs
+
+`convex/crons.ts` runs every minute to scan for due schedules and create pending runs.
 
 ## Project Vision
 

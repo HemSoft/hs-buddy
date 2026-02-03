@@ -1,200 +1,208 @@
 # Buddy - TODO
 
-## Task Tracker
+| Status | Priority | Task | Notes |
+|--------|----------|------|-------|
+| ✅ | High | [Job management UI](#job-management-ui) | CRUD, context menus, worker-type forms (2026-02) |
+| ✅ | High | [Implement Convex cron job](#implement-convex-cron-job) | Runs every minute via crons.ts (2026-02) |
+| 📋 | High | [Build task dispatch system](#build-task-dispatch-system) | Convex → Electron communication |
+| 📋 | High | [Implement exec-worker](#implement-exec-worker) | PowerShell/Bash execution in main process |
+| 📋 | Medium | [Implement ai-worker](#implement-ai-worker) | LLM integration (OpenRouter/Claude) |
+| 📋 | Medium | [Implement skill-worker](#implement-skill-worker) | Claude CLI spawning for skills |
+| 📋 | Medium | [Add run history view](#add-run-history-view) | Real-time status updates |
+| 📋 | Low | [Implement offline queue](#implement-offline-queue) | Catch-up logic on reconnect |
+| 📋 | Medium | [Repos of Interest feature](#repos-of-interest-feature) | Folder-organized bookmark system for GitHub repos |
+| ✅ | Medium | Create schedule editor dialog | Modal with CronBuilder, job selector (2025-02) |
+| ✅ | High | Initialize Convex project | Generated types ready (2025-02) |
+| ✅ | High | Define Convex schema | `convex/schema.ts` with jobs, schedules, runs (2025-01) |
+| ✅ | High | Add Convex client to Electron | ConvexClientProvider, useConvex hooks (2025-01) |
+| ✅ | High | Implement schedule CRUD functions | `convex/schedules.ts`, `jobs.ts`, `runs.ts` (2025-01) |
+| ✅ | Medium | Add Workflows activity bar icon | RefreshCw icon in ActivityBar (2025-01) |
+| ✅ | Medium | Build Schedules sidebar + list | ScheduleList component with status badges (2025-01) |
+| ✅ | Medium | Port CronBuilder component | From hs-conductor with visual builder (2025-01) |
+| ✅ | Medium | Implement schedule toggles | Toggle mutation in useConvex hooks (2025-02) |
+| ✅ | High | Tabbed window system for PRs | Tabs above content area, no duplicates (2025-01) |
+| ✅ | High | Fix Recently Merged date range | 30-day default, configurable in Settings (2025-01) |
+| ✅ | High | App-wide task queue system | Named queues with concurrency control (2025-01) |
+| ✅ | High | Settings UI with form-based editing | SidebarPanel navigation, auto-save (2025-01) |
+| ✅ | Medium | Fix taskbar app name | "HS-body" → "Buddy" (2025-01) |
+| ✅ | Medium | Create Help menu with About window | Beautiful About dialog with branding (2025-01) |
+| ✅ | Medium | Design and create app icon | Gold/orange gradient Users icon (2025-01) |
 
-| # | Status | Task | Priority | Notes |
-|---|--------|------|----------|-------|
-| 1 | ✅ | Tabbed window system for PRs | High | [Details](#1-tabbed-window-system) |
-| 2 | ✅ | Fix Recently Merged date range | High | [Details](#2-recently-merged-date-range) |
-| 3 | ✅ | Fix taskbar app name ("HS-body" → "Buddy") | Medium | [Details](#3-taskbar-app-name) |
-| 4 | ✅ | Create Help menu with About window | Medium | [Details](#4-help-menu-and-about-window) |
-| 5 | ✅ | Design and create app icon | Medium | [Details](#5-app-icon) |
-| 6 | ✅ | App-wide task queue system | High | [Details](#6-task-queue-system) |
-| 7 | ✅ | Settings UI with form-based editing | High | [Details](#7-settings-ui-with-form-based-editing) |
+## Progress
 
----
-
-## Task Details
-
-### 1. Tabbed Window System
-
-**Problem:** Currently, clicking sidebar items replaces the main content. Switching between PR views (My PRs, Needs Review, Recently Merged) requires a full reload each time, losing context.
-
-**Solution:** Implement a tabbed interface above the main content area.
-
-**Behavior:**
-
-- Each sidebar click opens a **new tab** (does not replace current content)
-- Tabs appear above the PR content area
-- Users can switch between tabs without reloading
-- Tabs can be closed individually
-- **No duplicate tabs** - if a view is already open, activate that tab instead
-- **No tab limit** - unlimited tabs allowed
-- **No persistence** - tabs start fresh on each app launch (keep it simple)
-- Same tabbed behavior for all sections (PRs, Skills, Tasks, Insights)
-
----
-
-### 2. Recently Merged Date Range
-
-**Problem:** The Recently Merged view returned 98 PRs, some nearly a year old. This is too many and not "recent."
-
-**Solution:** Add a configurable date range filter.
-
-**Implementation:**
-
-- **Default:** 7 days
-- **User configurable** via Settings
-- Options: 7, 14, 30, 60, 90 days (dropdown in Settings)
+**Remaining: 7** | **Completed: 19** (73%)
 
 ---
 
-### 3. Taskbar App Name
+## Phase 2: Execution Engine
 
-**Problem:** The Windows taskbar shows "HS-body" instead of "Buddy".
+### Job management UI ✅
 
-**Location:** Likely in `electron/main.ts` or `electron-builder.json5`
+**Status**: Completed (2026-02)
 
-**Fix:** Update the `title` property and possibly `productName` in config files.
+**Implementation**:
+- Created `JobList.tsx` component with grouped view (Exec, AI, Skill)
+- Created `JobEditor.tsx` modal for create/edit/duplicate
+- Worker-type-specific configuration forms:
+  - **exec**: command, cwd, timeout, shell (powershell/bash/cmd)
+  - **ai**: prompt, model, maxTokens, temperature
+  - **skill**: skillName, action, params (JSON)
+- Right-click context menus with Edit, Duplicate, Delete, Run Now
+- Worker type badges and config previews
+- Uses `convex/jobs.ts` CRUD mutations
+- "Run Now" creates manual runs via `runs.create`
 
----
+**Terminology Update (2026-02)**: Renamed from "Workloads" to "Jobs" for clarity. Section renamed from "Workflows" to "Automation". Backend schema fully renamed to use "jobs" table.
 
-### 4. Help Menu and About Window
-
-**Requirements:**
-
-- Add "Help" menu to the menu bar
-- Include "About" menu item
-- Create beautiful About window (reference: hs-conductor)
-- Display:
-  - App icon
-  - App name and version
-  - HemSoft Developments branding
-  - Build info / commit hash (optional)
-  - Links (GitHub, website, etc.)
+**Location**: `src/components/automation/JobList.tsx`, `JobEditor.tsx`, `JobList.css`, `JobEditor.css`
 
 ---
 
-### 5. App Icon
+### Implement Convex cron job ✅
 
-**Requirements:**
+**Status**: Completed (2026-02)
 
-- Design new icon for Buddy
-- Same color theme as hs-conductor icon
-- Different style/design but cohesive with HemSoft branding
-- Formats needed:
-  - `.ico` for Windows taskbar/exe
-  - `.png` for About window and other UI elements
-  - Various sizes (16x16, 32x32, 48x48, 256x256, 512x512)
-
-**Reference:** `D:\github\HemSoft\hs-conductor\admin\` for icon generation scripts
-
----
-
-### 6. Task Queue System
-
-**Problem:** Rapidly triggering multiple async operations (e.g., clicking all three PR views, or future features like Skills + Tasks + PRs simultaneously) causes race conditions. Concurrent API calls overwhelm rate limiters and cause stalls.
-
-**Solution:** Create a reusable, app-wide task queue system.
-
-**Features:**
-
-- **Named queues** - Different queues for different concerns (e.g., `github`, `bitbucket`, `skills`)
-- **Concurrency control** - Configurable max concurrent tasks per queue (default: 1 for serialization)
-- **Priority support** - Optional priority levels for urgent tasks
-- **Cancellation** - AbortController integration for cleanup on component unmount
-- **React hooks** - `useTaskQueue()` hook for easy component integration
-- **Progress tracking** - Optional callbacks for task status updates
-
-**Architecture:**
-
-```
-src/
-  services/
-    taskQueue.ts       # Core TaskQueue class
-    index.ts           # Export singleton instances
-  hooks/
-    useTaskQueue.ts    # React hook wrapper
-```
-
-**Usage Example:**
-
-```typescript
-// In component
-const { enqueue, cancel } = useTaskQueue('github');
-
-useEffect(() => {
-  const taskId = enqueue(async (signal) => {
-    return await githubClient.fetchMyPRs(signal);
-  });
-  
-  return () => cancel(taskId); // Cleanup on unmount
-}, [mode]);
-```
-
-**Benefits:**
-
-- Reusable across PRs, Skills, Tasks, Insights
-- Prevents API rate limit issues
-- Clean component unmount handling
-- Future-proof for additional integrations
+**Implementation**:
+- Created `convex/crons.ts` with 1-minute interval cron job
+- Created `convex/scheduleScanner.ts` with `scanAndDispatch` internal mutation
+- Uses `cron-parser` v5 for calculating next run times
+- Queries schedules where `enabled=true` and `nextRunAt <= now`
+- Creates pending runs, updates `lastRunAt` and `nextRunAt`
+- Prevents duplicate runs by checking for existing pending/running runs
+- Updated `schedules.ts` to initialize `nextRunAt` on create/toggle/update
 
 ---
 
-### 7. Settings UI with Form-Based Editing
+### Build task dispatch system
 
-**Problem:** Settings currently shows read-only values. Users must "Open in Editor" to edit raw JSON - inconsistent with other sections that use SidebarPanel navigation.
+**Goal**: Electron polls Convex for pending runs and executes them.
 
-**Solution:** Make Settings use SidebarPanel like other sections, with individual form-based settings pages.
+**Approach**:
+- Main process polls `runs.listByStatus("pending")` every 10 seconds
+- Claims a run by marking it "running"
+- Dispatches to appropriate worker based on job.workerType
+- Updates run status on completion/failure
 
-**Settings Categories (sidebar items):**
+**Location**: `electron/workers/dispatcher.ts`
 
-- `settings-accounts` - GitHub Accounts + Bitbucket Workspaces (list + CRUD)
-- `settings-appearance` - Theme selector, sidebar width
-- `settings-pullrequests` - Auto-refresh toggle, refresh interval, recently merged days
-- `settings-advanced` - Config file path, "Open JSON" button, reset to defaults
+---
 
-**Implementation Steps:**
+### Implement exec-worker
 
-1. Add `'settings'` section to `sectionData` in `SidebarPanel.tsx`
-2. Remove special-case that hides sidebar for settings in `App.tsx`
-3. Add view labels and `renderContent()` cases for each settings view
-4. Create section components:
-   - `SettingsAccounts.tsx` - Account list with add/edit/delete
-   - `SettingsAppearance.tsx` - Theme dropdown, sidebar width slider
-   - `SettingsPullRequests.tsx` - Toggle + number inputs
-   - `SettingsAdvanced.tsx` - JSON access, reset button
-5. Add missing hooks: `useBitbucketWorkspaces()`, `useUISettings()`
-6. Create reusable form components: `FormToggle`, `FormNumber`, `FormSelect`
-7. Implement immediate auto-save (no save button, VS Code style)
-8. Delete old monolithic `Settings.tsx`
+**Goal**: Execute shell commands (PowerShell, Bash, cmd).
 
-**Behavior:**
+**Approach**:
+- Spawn child process with job.config.command
+- Capture stdout/stderr
+- Respect timeout setting
+- Return output to Convex run record
 
-- Click Settings in ActivityBar → sidebar shows settings categories
-- Click category → form appears in content area
-- Changes save immediately on input change
-- "Open JSON" in Advanced section for power users
+**Location**: `electron/workers/execWorker.ts`
+
+---
+
+### Implement ai-worker
+
+**Goal**: Execute LLM prompts via OpenRouter or Claude API.
+
+**Approach**:
+- Read job.config.prompt, model, maxTokens, temperature
+- Call OpenRouter API (or Claude direct)
+- Store response in run output
+
+**Location**: `electron/workers/aiWorker.ts`
+
+---
+
+### Implement skill-worker
+
+**Goal**: Spawn Claude CLI to execute skills.
+
+**Approach**:
+- Read job.config.skillName, action, params
+- Build Claude CLI command with skill context
+- Execute and capture output
+- Parse structured response if available
+
+**Location**: `electron/workers/skillWorker.ts`
+
+---
+
+### Add run history view
+
+**Goal**: Display recent runs with real-time status updates.
+
+**Approach**:
+- Create `RunList.tsx` component
+- Use `useRecentRuns()` hook with Convex subscription
+- Show status badges (pending → running → completed/failed)
+- Expandable rows for full output
+
+**Location**: `src/components/automation/RunList.tsx`
+
+---
+
+### Implement offline queue
+
+**Goal**: Handle missed schedules when app was closed.
+
+**Approach**:
+- On Electron startup, query schedules where `nextRunAt < now`
+- Apply `missedPolicy`:
+  - `skip`: Update `nextRunAt` without running
+  - `catchup`: Create runs for all missed intervals
+  - `last`: Create one run covering all missed
+- Process queue before resuming normal polling
+
+**Location**: `electron/workers/offlineSync.ts`
+
+---
+
+### Repos of Interest feature
+
+**Goal**: Add a bookmarking system for GitHub repos with folder organization under the Pull Requests section.
+
+**Features**:
+- New tree node "Repos of Interest" under Pull Requests
+- Create/rename/delete folders (e.g., "Relias" for work, "Home" for personal)
+- Add repos by URL (e.g., `https://github.com/relias-engineering/ai-skills`)
+- Click repo to open in browser
+- Persist in Convex (new `repoBookmarks` table with folder field)
+
+**UI**:
+- Tree view with folders as parent nodes
+- Context menu: Add Repo, New Folder, Rename, Delete
+- Modal for adding repo URL (extracts org/repo name automatically)
+
+**Repos to add when implemented**:
+- Relias: `https://github.com/relias-engineering/ai-skills`
+
+**Location**: `src/components/ReposOfInterest.tsx`, `convex/repoBookmarks.ts`
+
+---
+
+## Phase 1: Automation Foundation ✅
+
+All Phase 1 tasks complete! See [VISION.md](VISION.md) for full architecture.
+
+**Implemented:**
+- Convex backend with schedules, jobs, runs tables
+- ScheduleList with create/edit/toggle/delete
+- ScheduleEditor modal with CronBuilder
+- Real-time subscriptions via Convex
 
 ---
 
 ## Completed
 
-| # | Task | Completed |
-|---|------|-----------|
-| 7 | Settings UI with form-based editing | ✅ |
-| 1 | Tabbed window system for PRs | ✅ |
-| 2 | Fix Recently Merged date range (30-day default, configurable) | ✅ |
-| 3 | Taskbar app name shows "Buddy" | ✅ |
-| 4 | Help menu with About dialog | ✅ |
-| 5 | App icon (Users icon with gold/orange gradient) | ✅ |
-| 6 | App-wide task queue system | ✅ |
-| - | VS Code-style activity bar layout | ✅ |
-| - | Resizable sidebar pane | ✅ |
-| - | Window state persistence | ✅ |
-| - | Zoom level persistence | ✅ |
-| - | Custom tooltips for activity bar | ✅ |
-| - | PR cards redesign | ✅ |
-| - | External links open in default browser | ✅ |
-| - | PR filtering by mode (My PRs, Needs Review, Recently Merged) | ✅ |
-| - | Title bar app name changed to "Buddy" | ✅ |
+Previous milestone work:
+
+- VS Code-style activity bar layout
+- Resizable sidebar pane (Allotment)
+- Window state persistence
+- Zoom level persistence
+- Custom tooltips for activity bar
+- PR cards redesign
+- External links open in default browser
+- PR filtering by mode (My PRs, Needs Review, Recently Merged)
+- Title bar app name changed to "Buddy"

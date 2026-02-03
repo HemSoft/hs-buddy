@@ -248,6 +248,10 @@ ipcMain.on('window-close', () => {
   win?.close()
 })
 
+ipcMain.on('toggle-devtools', () => {
+  win?.webContents.toggleDevTools()
+})
+
 // GitHub CLI authentication - supports per-account tokens
 ipcMain.handle('github:get-cli-token', async (_event, username?: string) => {
   try {
@@ -285,62 +289,7 @@ ipcMain.handle('github:get-cli-token', async (_event, username?: string) => {
   }
 })
 
-// IPC handlers for configuration
-// GitHub Accounts
-ipcMain.handle('config:get-github-accounts', () => {
-  return configManager.getGitHubAccounts()
-})
-
-ipcMain.handle('config:add-github-account', (_event, account) => {
-  try {
-    configManager.addGitHubAccount(account)
-    return { success: true }
-  } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
-  }
-})
-
-ipcMain.handle('config:remove-github-account', (_event, username, org) => {
-  try {
-    configManager.removeGitHubAccount(username, org)
-    return { success: true }
-  } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
-  }
-})
-
-ipcMain.handle('config:update-github-account', (_event, username, org, updates) => {
-  try {
-    configManager.updateGitHubAccount(username, org, updates)
-    return { success: true }
-  } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
-  }
-})
-
-// Bitbucket Workspaces
-ipcMain.handle('config:get-bitbucket-workspaces', () => {
-  return configManager.getBitbucketWorkspaces()
-})
-
-ipcMain.handle('config:add-bitbucket-workspace', (_event, workspace) => {
-  try {
-    configManager.addBitbucketWorkspace(workspace)
-    return { success: true }
-  } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
-  }
-})
-
-ipcMain.handle('config:remove-bitbucket-workspace', (_event, workspace) => {
-  try {
-    configManager.removeBitbucketWorkspace(workspace)
-    return { success: true }
-  } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
-  }
-})
-
+// IPC handlers for configuration (UI settings only - accounts/PR settings are in Convex)
 // UI Settings
 ipcMain.handle('config:get-theme', () => {
   return configManager.getTheme()
@@ -454,35 +403,7 @@ ipcMain.handle('config:set-pane-sizes', (_event, sizes) => {
   return { success: true }
 })
 
-// PR Settings
-ipcMain.handle('config:get-pr-refresh-interval', () => {
-  return configManager.getPRRefreshInterval()
-})
-
-ipcMain.handle('config:set-pr-refresh-interval', (_event, minutes) => {
-  configManager.setPRRefreshInterval(minutes)
-  return { success: true }
-})
-
-ipcMain.handle('config:get-pr-auto-refresh', () => {
-  return configManager.getPRAutoRefresh()
-})
-
-ipcMain.handle('config:set-pr-auto-refresh', (_event, enabled) => {
-  configManager.setPRAutoRefresh(enabled)
-  return { success: true }
-})
-
-ipcMain.handle('config:get-recently-merged-days', () => {
-  return configManager.getRecentlyMergedDays()
-})
-
-ipcMain.handle('config:set-recently-merged-days', (_event, days) => {
-  configManager.setRecentlyMergedDays(days)
-  return { success: true }
-})
-
-// Full Config
+// Full Config (for UI settings reference)
 ipcMain.handle('config:get-config', () => {
   return configManager.getConfig()
 })

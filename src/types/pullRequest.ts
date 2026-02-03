@@ -4,6 +4,7 @@ export interface PullRequest {
   id: number;
   title: string;
   author: string;
+  authorAvatarUrl?: string;
   url: string;
   state: string;
   approvalCount: number;

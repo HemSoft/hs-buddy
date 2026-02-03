@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import './SidebarPanel.css'
 
@@ -7,6 +7,7 @@ interface SidebarPanelProps {
   onItemSelect: (itemId: string) => void
   selectedItem: string | null
   counts?: Record<string, number>
+  onCreateNew?: (type: 'schedule' | 'job') => void
 }
 
 interface SidebarItem {
@@ -46,6 +47,14 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
       { id: 'insights-activity', label: 'Activity' },
     ]
   },
+  'automation': {
+    title: 'Automation',
+    items: [
+      { id: 'automation-jobs', label: 'Jobs' },
+      { id: 'automation-schedules', label: 'Schedules' },
+      { id: 'automation-runs', label: 'Runs' },
+    ]
+  },
   'settings': {
     title: 'Settings',
     items: [
@@ -57,8 +66,9 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
   }
 }
 
-export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {} }: SidebarPanelProps) {
+export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {}, onCreateNew }: SidebarPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(null)
   const data = sectionData[section]
 
   // Auto-expand section when it changes
@@ -87,10 +97,46 @@ export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {} 
 
   const isExpanded = expandedSections.has(section)
 
+  const handleContextMenu = (e: React.MouseEvent, itemId: string) => {
+    // Only show context menu for items that support creation
+    if (itemId === 'automation-schedules' || itemId === 'automation-jobs') {
+      e.preventDefault()
+      setContextMenu({ x: e.clientX, y: e.clientY, itemId })
+    }
+  }
 
+  const handleCreateNew = () => {
+    if (contextMenu) {
+      if (contextMenu.itemId === 'automation-schedules') {
+        onCreateNew?.('schedule')
+      } else if (contextMenu.itemId === 'automation-jobs') {
+        onCreateNew?.('job')
+      }
+      setContextMenu(null)
+    }
+  }
+
+  const closeContextMenu = () => {
+    setContextMenu(null)
+  }
 
   return (
     <div className="sidebar-panel">
+      {/* Context Menu Overlay */}
+      {contextMenu && (
+        <>
+          <div className="context-menu-overlay" onClick={closeContextMenu} />
+          <div
+            className="context-menu"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+          >
+            <button onClick={handleCreateNew}>
+              <Plus size={14} />
+              {contextMenu.itemId === 'automation-schedules' ? 'New Schedule' : 'New Job'}
+            </button>
+          </div>
+        </>
+      )}
       <div className="sidebar-panel-header">
         <h2>{data.title.toUpperCase()}</h2>
       </div>
@@ -115,6 +161,7 @@ export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {} 
                   key={item.id}
                   className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
                   onClick={() => onItemSelect(item.id)}
+                  onContextMenu={(e) => handleContextMenu(e, item.id)}
                 >
                   <span className="sidebar-item-icon"><FileText size={14} /></span>
                   <span className="sidebar-item-label">{item.label}</span>

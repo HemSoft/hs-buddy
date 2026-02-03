@@ -1,4 +1,4 @@
-import { GitPullRequest, Zap, CheckSquare, BarChart3, Settings } from 'lucide-react'
+import { GitPullRequest, Zap, CheckSquare, BarChart3, Bot, Settings } from 'lucide-react'
 import { useState } from 'react'
 import './ActivityBar.css'
 
@@ -12,6 +12,7 @@ const sections = [
   { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'insights', label: 'Insights', icon: BarChart3 },
+  { id: 'automation', label: 'Automation', icon: Bot },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 

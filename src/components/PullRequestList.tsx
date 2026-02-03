@@ -4,7 +4,10 @@ import { GitHubClient, type ProgressCallback } from '../api/github'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import './PullRequestList.css'
-import { ExternalLink, GitPullRequest, Check, Clock, Loader2 } from 'lucide-react'
+import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw } from 'lucide-react'
+
+// Module-level cache to persist data across component remounts
+const prCache: Record<string, { data: PullRequest[]; fetchedAt: number }> = {}
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged'
@@ -23,33 +26,70 @@ interface LoadingProgress {
 }
 
 export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
-  const [prs, setPrs] = useState<PullRequest[]>([])
-  const [loading, setLoading] = useState(true)
+  const [prs, setPrs] = useState<PullRequest[]>(() => prCache[mode]?.data || [])
+  const [loading, setLoading] = useState(() => !prCache[mode]?.data)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<LoadingProgress | null>(null)
   const [totalPrsFound, setTotalPrsFound] = useState(0)
-  const [refreshTrigger, setRefreshTrigger] = useState(0) // For interval-based refresh
+  const [forceRefresh, setForceRefresh] = useState(0) // Manual refresh trigger
+  const [updateTimes, setUpdateTimes] = useState<{ lastUpdated: string; nextUpdate: string; progress: number } | null>(null)
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
-  const { recentlyMergedDays, refreshInterval, autoRefresh, loading: prSettingsLoading } = usePRSettings()
+  const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
   const { enqueue, cancelAll } = useTaskQueue('github')
   const fetchIdRef = useRef(0) // Track fetch operation to ignore stale results
-  const lastFetchTimeRef = useRef<number>(0) // Track when we last fetched
+  const fetchInProgressRef = useRef(false) // Guard against duplicate fetches (StrictMode)
+  
+  // Refs for callbacks to avoid triggering effect re-runs
+  const onCountChangeRef = useRef(onCountChange)
+  const enqueueRef = useRef(enqueue)
+  const cancelAllRef = useRef(cancelAll)
+  useEffect(() => { onCountChangeRef.current = onCountChange }, [onCountChange])
+  useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
+  useEffect(() => { cancelAllRef.current = cancelAll }, [cancelAll])
 
-  // Auto-refresh on window focus only if interval has elapsed
+  // Format time as HH:MM AM/PM
+  const formatTime = useCallback((timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+  }, [])
+
+  // Calculate progress bar color based on percentage (green -> yellow -> orange -> red)
+  const getProgressColor = useCallback((progress: number) => {
+    if (progress <= 25) return '#4ec9b0' // Green - fresh
+    if (progress <= 50) return '#dcd34a' // Yellow - moderate
+    if (progress <= 75) return '#e89b3c' // Orange - getting stale
+    return '#e85d5d' // Red - stale
+  }, [])
+
+  // Update the last/next update times display
   useEffect(() => {
-    if (!autoRefresh) return
-    
-    const handleFocus = () => {
-      const now = Date.now()
-      const intervalMs = refreshInterval * 60 * 1000
-      if (lastFetchTimeRef.current > 0 && now - lastFetchTimeRef.current >= intervalMs) {
-        setRefreshTrigger(prev => prev + 1)
+    const updateTimesDisplay = () => {
+      const cached = prCache[mode]
+      if (cached && refreshInterval) {
+        const now = Date.now()
+        const lastUpdated = formatTime(cached.fetchedAt)
+        const nextUpdateTimestamp = cached.fetchedAt + (refreshInterval * 60 * 1000)
+        const nextUpdate = formatTime(nextUpdateTimestamp)
+        
+        // Calculate progress (0 = just updated, 100 = time for next update)
+        const totalInterval = refreshInterval * 60 * 1000
+        const elapsed = now - cached.fetchedAt
+        const progress = Math.min(100, Math.max(0, (elapsed / totalInterval) * 100))
+        
+        setUpdateTimes({ lastUpdated, nextUpdate, progress })
+      } else {
+        setUpdateTimes(null)
       }
     }
     
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [autoRefresh, refreshInterval])
+    updateTimesDisplay()
+    // Update every 5 seconds to keep progress bar smooth
+    const interval = setInterval(updateTimesDisplay, 5000)
+    return () => clearInterval(interval)
+  }, [mode, prs, refreshInterval, formatTime])
 
   const handleProgress: ProgressCallback = useCallback((p) => {
     setProgress(prev => {
@@ -63,11 +103,42 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     });
   }, [])
 
+  const handleManualRefresh = useCallback(() => {
+    setForceRefresh(prev => prev + 1)
+  }, [])
+
   useEffect(() => {
     // Don't fetch until accounts and settings are loaded
     if (accountsLoading || prSettingsLoading) {
       return
     }
+
+    // Guard against duplicate fetches (React StrictMode double-invokes effects)
+    if (fetchInProgressRef.current) {
+      console.log(`Skipping duplicate fetch for ${mode} - fetch already in progress`)
+      return
+    }
+
+    // Check if we have fresh cached data (unless force refresh)
+    const cached = prCache[mode]
+    const isForceRefresh = forceRefresh > 0
+    
+    if (cached && !isForceRefresh) {
+      const intervalMs = refreshInterval * 60 * 1000
+      const timeSinceLastFetch = Date.now() - cached.fetchedAt
+      
+      // If cached data is fresh enough, use it and skip fetch
+      if (timeSinceLastFetch < intervalMs) {
+        console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
+        setPrs(cached.data)
+        setLoading(false)
+        onCountChangeRef.current?.(cached.data.length)
+        return
+      }
+    }
+
+    // Mark fetch as in progress
+    fetchInProgressRef.current = true
 
     // Increment fetch ID to track this specific fetch operation
     const currentFetchId = ++fetchIdRef.current
@@ -99,7 +170,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         console.log('Fetching PRs for', accounts.length, 'account(s)...', 'mode:', mode, 'recentlyMergedDays:', recentlyMergedDays);
         
         // Enqueue the fetch operation to prevent concurrent API calls
-        const results = await enqueue(
+        const results = await enqueueRef.current(
           async (signal) => {
             // Check if this fetch was cancelled
             if (signal.aborted) {
@@ -132,19 +203,22 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
 
         console.log('Found PRs:', results.length);
 
-        // Sort by repository, then by PR number
-        results.sort((a, b) => {
-          if (a.repository !== b.repository) {
-            return a.repository.localeCompare(b.repository)
-          }
-          return a.id - b.id
-        })
+        // For recently-merged, keep the date sort from the API (newest first)
+        // For other modes, sort by repository then PR number
+        if (mode !== 'recently-merged') {
+          results.sort((a, b) => {
+            if (a.repository !== b.repository) {
+              return a.repository.localeCompare(b.repository)
+            }
+            return a.id - b.id
+          })
+        }
 
         setPrs(results)
-        // Track when we successfully fetched
-        lastFetchTimeRef.current = Date.now()
+        // Update the module-level cache
+        prCache[mode] = { data: results, fetchedAt: Date.now() }
         // Report count to parent
-        onCountChange?.(results.length)
+        onCountChangeRef.current?.(results.length)
       } catch (err) {
         // Ignore cancellation errors
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -161,6 +235,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         // Only update loading state if this is still the current fetch
         if (currentFetchId === fetchIdRef.current) {
           setLoading(false)
+          fetchInProgressRef.current = false
         }
       }
     }
@@ -169,11 +244,35 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
 
     // Cleanup: cancel pending tasks when mode changes or component unmounts
     return () => {
-      cancelAll()
+      fetchInProgressRef.current = false
+      cancelAllRef.current()
     }
-  }, [mode, accounts, accountsLoading, recentlyMergedDays, prSettingsLoading, refreshTrigger, handleProgress, onCountChange, enqueue, cancelAll])
+    // Only re-fetch when these values actually change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, accounts, accountsLoading, recentlyMergedDays, prSettingsLoading, forceRefresh, refreshInterval])
 
-  const formatDate = (date: Date | null) => {
+  // Auto-refresh interval timer
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0) {
+      return
+    }
+
+    const intervalMs = refreshInterval * 60 * 1000
+    console.log(`Setting up auto-refresh interval: ${refreshInterval} minutes`)
+
+    const intervalId = setInterval(() => {
+      console.log(`Auto-refresh triggered for ${mode}`)
+      // Clear the in-progress flag to allow refresh
+      fetchInProgressRef.current = false
+      setForceRefresh(prev => prev + 1)
+    }, intervalMs)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [mode, refreshInterval])
+
+  const formatDate = (date: Date | string | null) => {
     if (!date) return 'N/A'
     return new Date(date).toLocaleDateString(undefined, {
       weekday: 'short',
@@ -204,6 +303,11 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
       <div className="pr-list-container">
         <div className="pr-list-header">
           <h2>{getTitle()}</h2>
+          <div className="pr-header-actions">
+            <button className="refresh-button" disabled title="Refreshing...">
+              <Loader2 size={16} className="spin" />
+            </button>
+          </div>
         </div>
         <div className="pr-list-loading">
           <Loader2 className="spin" size={24} />
@@ -243,6 +347,11 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
       <div className="pr-list-container">
         <div className="pr-list-header">
           <h2>{getTitle()}</h2>
+          <div className="pr-header-actions">
+            <button className="refresh-button" onClick={handleManualRefresh} title="Retry">
+              <RefreshCw size={16} />
+            </button>
+          </div>
         </div>
         <div className="pr-list-error">
           <p className="error-message">⚠️ {error}</p>
@@ -278,6 +387,31 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
       <div className="pr-list-container">
         <div className="pr-list-header">
           <h2>{getTitle()}</h2>
+          <div className="pr-header-actions">
+            {updateTimes && (
+              <div className="update-times">
+                <div className="update-times-content">
+                  <span className="update-label">Updated</span>
+                  <span className="update-time">{updateTimes.lastUpdated}</span>
+                  <span className="update-separator">·</span>
+                  <span className="update-label">Next</span>
+                  <span className="update-time">{updateTimes.nextUpdate}</span>
+                </div>
+                <div className="update-progress-track">
+                  <div 
+                    className="update-progress-bar" 
+                    style={{ 
+                      width: `${updateTimes.progress}%`,
+                      backgroundColor: getProgressColor(updateTimes.progress)
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            <button className="refresh-button" onClick={handleManualRefresh} title="Refresh">
+              <RefreshCw size={16} />
+            </button>
+          </div>
         </div>
         <div className="pr-list-empty">
           <GitPullRequest size={48} />
@@ -292,26 +426,52 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     <div className="pr-list-container">
       <div className="pr-list-header">
         <h2>{getTitle()}</h2>
-        <span className="pr-count">{prs.length} PR{prs.length !== 1 ? 's' : ''}</span>
+        <div className="pr-header-actions">
+          <span className="pr-count">{prs.length} PR{prs.length !== 1 ? 's' : ''}</span>
+          {updateTimes && (
+            <div className="update-times">
+              <div className="update-times-content">
+                <span className="update-label">Updated</span>
+                <span className="update-time">{updateTimes.lastUpdated}</span>
+                <span className="update-separator">·</span>
+                <span className="update-label">Next</span>
+                <span className="update-time">{updateTimes.nextUpdate}</span>
+              </div>
+              <div className="update-progress-track">
+                <div 
+                  className="update-progress-bar" 
+                  style={{ 
+                    width: `${updateTimes.progress}%`,
+                    backgroundColor: getProgressColor(updateTimes.progress)
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          <button className="refresh-button" onClick={handleManualRefresh} title="Refresh">
+            <RefreshCw size={16} />
+          </button>
+        </div>
       </div>
       <div className="pr-list">
         {prs.map((pr) => (
-          <div key={`${pr.source}-${pr.id}-${pr.repository}`} className="pr-item">
+          <div 
+            key={`${pr.source}-${pr.id}-${pr.repository}`} 
+            className="pr-item"
+            onClick={() => window.shell.openExternal(pr.url)}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                window.shell.openExternal(pr.url)
+              }
+            }}
+          >
             <div className="pr-item-header">
               <div className="pr-title-row">
                 <GitPullRequest size={16} className="pr-icon" />
-                <div 
-                  className="pr-title" 
-                  onClick={() => window.shell.openExternal(pr.url)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      window.shell.openExternal(pr.url)
-                    }
-                  }}
-                >
+                <div className="pr-title">
                   {pr.title}
                   <ExternalLink size={14} className="external-link-icon" />
                 </div>
@@ -329,7 +489,16 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                 )}
                 <span className="pr-repo">{pr.repository}</span>
                 <span className="pr-number">#{pr.id}</span>
-                <span className="pr-author">by {pr.author}</span>
+                <span className="pr-author">
+                  {pr.authorAvatarUrl && (
+                    <img 
+                      src={pr.authorAvatarUrl} 
+                      alt={pr.author}
+                      className="pr-author-avatar"
+                    />
+                  )}
+                  {pr.author}
+                </span>
               </div>
             </div>
             <div className="pr-item-footer">
@@ -341,7 +510,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               </div>
               <div className="pr-date">
                 <Clock size={14} />
-                <span>{formatDate(pr.created)}</span>
+                <span>{formatDate(mode === 'recently-merged' ? pr.date : pr.created)}</span>
               </div>
             </div>
           </div>

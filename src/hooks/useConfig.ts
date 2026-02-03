@@ -1,27 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { AppConfig, GitHubAccount, BitbucketWorkspace } from '../types/config';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { AppConfig, GitHubAccount } from '../types/config';
+import { useGitHubAccountsConvex, useGitHubAccountMutations, useSettings, useSettingsMutations } from './useConvex';
 
 /**
- * Type-safe wrapper around window.ipcRenderer for configuration
+ * Type-safe wrapper around window.ipcRenderer for UI settings only
+ * 
+ * Architecture (Option A - Hybrid):
+ * - UI settings (theme, colors, fonts, zoom) → electron-store (device-specific, instant startup)
+ * - Business data (accounts, PR settings) → Convex (reactive, synced)
  */
 const configAPI = {
-  // GitHub Accounts
-  getGitHubAccounts: () => window.ipcRenderer.invoke('config:get-github-accounts') as Promise<GitHubAccount[]>,
-  addGitHubAccount: (account: GitHubAccount) => 
-    window.ipcRenderer.invoke('config:add-github-account', account) as Promise<{ success: boolean; error?: string }>,
-  removeGitHubAccount: (username: string, org: string) =>
-    window.ipcRenderer.invoke('config:remove-github-account', username, org) as Promise<{ success: boolean; error?: string }>,
-  updateGitHubAccount: (username: string, org: string, updates: Partial<GitHubAccount>) =>
-    window.ipcRenderer.invoke('config:update-github-account', username, org, updates) as Promise<{ success: boolean; error?: string }>,
-
-  // Bitbucket Workspaces
-  getBitbucketWorkspaces: () => window.ipcRenderer.invoke('config:get-bitbucket-workspaces') as Promise<BitbucketWorkspace[]>,
-  addBitbucketWorkspace: (workspace: BitbucketWorkspace) =>
-    window.ipcRenderer.invoke('config:add-bitbucket-workspace', workspace) as Promise<{ success: boolean; error?: string }>,
-  removeBitbucketWorkspace: (workspace: string) =>
-    window.ipcRenderer.invoke('config:remove-bitbucket-workspace', workspace) as Promise<{ success: boolean; error?: string }>,
-
-  // UI Settings
+  // UI Settings (kept in electron-store for instant startup)
   getTheme: () => window.ipcRenderer.invoke('config:get-theme') as Promise<'dark' | 'light'>,
   setTheme: (theme: 'dark' | 'light') =>
     window.ipcRenderer.invoke('config:set-theme', theme) as Promise<{ success: boolean }>,
@@ -46,22 +35,14 @@ const configAPI = {
   getSidebarWidth: () => window.ipcRenderer.invoke('config:get-sidebar-width') as Promise<number>,
   setSidebarWidth: (width: number) =>
     window.ipcRenderer.invoke('config:set-sidebar-width', width) as Promise<{ success: boolean }>,
+  getPaneSizes: () => window.ipcRenderer.invoke('config:get-pane-sizes') as Promise<number[]>,
+  setPaneSizes: (sizes: number[]) =>
+    window.ipcRenderer.invoke('config:set-pane-sizes', sizes) as Promise<{ success: boolean }>,
 
   // System Fonts
   getSystemFonts: () => window.ipcRenderer.invoke('system:get-fonts') as Promise<string[]>,
 
-  // PR Settings
-  getPRRefreshInterval: () => window.ipcRenderer.invoke('config:get-pr-refresh-interval') as Promise<number>,
-  setPRRefreshInterval: (minutes: number) =>
-    window.ipcRenderer.invoke('config:set-pr-refresh-interval', minutes) as Promise<{ success: boolean }>,
-  getPRAutoRefresh: () => window.ipcRenderer.invoke('config:get-pr-auto-refresh') as Promise<boolean>,
-  setPRAutoRefresh: (enabled: boolean) =>
-    window.ipcRenderer.invoke('config:set-pr-auto-refresh', enabled) as Promise<{ success: boolean }>,
-  getRecentlyMergedDays: () => window.ipcRenderer.invoke('config:get-recently-merged-days') as Promise<number>,
-  setRecentlyMergedDays: (days: number) =>
-    window.ipcRenderer.invoke('config:set-recently-merged-days', days) as Promise<{ success: boolean }>,
-
-  // Full Config
+  // Full Config (for legacy/UI settings)
   getConfig: () => window.ipcRenderer.invoke('config:get-config') as Promise<AppConfig>,
   getStorePath: () => window.ipcRenderer.invoke('config:get-store-path') as Promise<string>,
   openInEditor: () => window.ipcRenderer.invoke('config:open-in-editor') as Promise<{ success: boolean }>,
@@ -112,49 +93,88 @@ export function useConfig() {
 
 /**
  * Hook specifically for GitHub accounts
+ * Uses Convex as primary source, falls back to electron-store if Convex unavailable
  */
 export function useGitHubAccounts() {
-  const [accounts, setAccounts] = useState<GitHubAccount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const convexAccounts = useGitHubAccountsConvex();
+  const { create, update, remove } = useGitHubAccountMutations();
+  const [electronStoreAccounts, setElectronStoreAccounts] = useState<GitHubAccount[]>([]);
+  const [fallbackLoaded, setFallbackLoaded] = useState(true); // Start true - electron-store always has defaults
 
+  // Load electron-store accounts as fallback
   useEffect(() => {
-    loadAccounts();
+    window.ipcRenderer.invoke('config:get-config').then((config: AppConfig) => {
+      setElectronStoreAccounts(config.github?.accounts ?? []);
+      setFallbackLoaded(true);
+    }).catch(() => setFallbackLoaded(true));
   }, []);
 
-  const loadAccounts = async () => {
-    try {
-      setLoading(true);
-      const data = await configAPI.getGitHubAccounts();
-      setAccounts(data);
-    } catch (err) {
-      console.error('Failed to load GitHub accounts:', err);
-    } finally {
-      setLoading(false);
+  // Use Convex if connected, otherwise electron-store
+  const convexConnected = convexAccounts !== undefined;
+  
+  // Build content key for comparison
+  const contentKey = convexConnected && convexAccounts
+    ? JSON.stringify(convexAccounts.map(a => [a.username, a.org]))
+    : JSON.stringify(electronStoreAccounts.map(a => [a.username, a.org]));
+  
+  // Use ref to track previous key and accounts
+  const prevKeyRef = useRef(contentKey);
+  const accountsRef = useRef<GitHubAccount[]>([]);
+  
+  // Only update accounts if content actually changed
+  if (prevKeyRef.current !== contentKey) {
+    prevKeyRef.current = contentKey;
+    if (convexConnected && convexAccounts) {
+      accountsRef.current = convexAccounts.map(a => ({ username: a.username, org: a.org }));
+    } else {
+      accountsRef.current = electronStoreAccounts;
     }
-  };
+  } else if (accountsRef.current.length === 0 && (electronStoreAccounts.length > 0 || (convexAccounts && convexAccounts.length > 0))) {
+    // Initialize on first valid data
+    if (convexConnected && convexAccounts) {
+      accountsRef.current = convexAccounts.map(a => ({ username: a.username, org: a.org }));
+    } else {
+      accountsRef.current = electronStoreAccounts;
+    }
+  }
+  
+  const accounts = accountsRef.current;
+
+  const loading = !convexConnected && !fallbackLoaded;
 
   const addAccount = async (account: GitHubAccount) => {
-    const result = await configAPI.addGitHubAccount(account);
-    if (result.success) {
-      await loadAccounts();
+    try {
+      await create({ username: account.username, org: account.org });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
-    return result;
   };
 
   const removeAccount = async (username: string, org: string) => {
-    const result = await configAPI.removeGitHubAccount(username, org);
-    if (result.success) {
-      await loadAccounts();
+    try {
+      const account = convexAccounts?.find(a => a.username === username && a.org === org);
+      if (!account) {
+        return { success: false, error: 'Account not found' };
+      }
+      await remove({ id: account._id });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
-    return result;
   };
 
   const updateAccount = async (username: string, org: string, updates: Partial<GitHubAccount>) => {
-    const result = await configAPI.updateGitHubAccount(username, org, updates);
-    if (result.success) {
-      await loadAccounts();
+    try {
+      const account = convexAccounts?.find(a => a.username === username && a.org === org);
+      if (!account) {
+        return { success: false, error: 'Account not found' };
+      }
+      await update({ id: account._id, ...updates });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
-    return result;
   };
 
   return {
@@ -163,58 +183,57 @@ export function useGitHubAccounts() {
     addAccount,
     removeAccount,
     updateAccount,
-    refresh: loadAccounts,
+    refresh: () => {}, // Convex auto-refreshes via reactivity
   };
 }
 
 /**
  * Hook for PR-specific settings
+ * Uses Convex as primary source, falls back to electron-store if Convex unavailable
  */
 export function usePRSettings() {
-  const [settings, setSettings] = useState({
+  const settings = useSettings();
+  const { updatePR } = useSettingsMutations();
+  const [electronStoreSettings, setElectronStoreSettings] = useState({
     refreshInterval: 15,
     autoRefresh: false,
     recentlyMergedDays: 7,
   });
-  const [loading, setLoading] = useState(true);
+  const [fallbackLoaded, setFallbackLoaded] = useState(true); // Start true - we have defaults
 
+  // Load electron-store settings as fallback
   useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const config = await configAPI.getConfig();
-      setSettings({
+    window.ipcRenderer.invoke('config:get-config').then((config: AppConfig) => {
+      setElectronStoreSettings({
         refreshInterval: config.pr?.refreshInterval ?? 15,
         autoRefresh: config.pr?.autoRefresh ?? false,
         recentlyMergedDays: config.pr?.recentlyMergedDays ?? 7,
       });
-    } catch (err) {
-      console.error('Failed to load PR settings:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setFallbackLoaded(true);
+    }).catch(() => setFallbackLoaded(true));
+  }, []);
+
+  // Use Convex if connected, otherwise electron-store
+  const convexConnected = settings !== undefined;
+  const currentSettings = convexConnected ? settings.pr : electronStoreSettings;
+  const loading = !convexConnected && !fallbackLoaded;
 
   const setRefreshInterval = async (minutes: number) => {
-    await configAPI.setPRRefreshInterval(minutes);
-    await loadSettings();
+    await updatePR({ refreshInterval: minutes });
   };
 
   const setAutoRefresh = async (enabled: boolean) => {
-    await configAPI.setPRAutoRefresh(enabled);
-    await loadSettings();
+    await updatePR({ autoRefresh: enabled });
   };
 
   const setRecentlyMergedDays = async (days: number) => {
-    await configAPI.setRecentlyMergedDays(days);
-    await loadSettings();
+    await updatePR({ recentlyMergedDays: days });
   };
 
   return {
-    ...settings,
+    refreshInterval: currentSettings.refreshInterval ?? 15,
+    autoRefresh: currentSettings.autoRefresh ?? false,
+    recentlyMergedDays: currentSettings.recentlyMergedDays ?? 7,
     loading,
     setRefreshInterval,
     setAutoRefresh,

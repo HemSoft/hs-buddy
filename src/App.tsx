@@ -6,7 +6,11 @@ import { ActivityBar } from './components/ActivityBar'
 import { SidebarPanel } from './components/SidebarPanel'
 import { TabBar, Tab } from './components/TabBar'
 import { PullRequestList } from './components/PullRequestList'
+import { ScheduleList, JobList } from './components/automation'
 import { SettingsAccounts, SettingsAppearance, SettingsPullRequests, SettingsAdvanced } from './components/settings'
+import { StatusBar } from './components/StatusBar'
+import { useSchedules, useJobs } from './hooks/useConvex'
+import { useMigrateToConvex } from './hooks/useMigration'
 import './App.css'
 
 // View ID to label mapping
@@ -26,6 +30,9 @@ const viewLabels: Record<string, string> = {
   'settings-appearance': 'Appearance',
   'settings-pullrequests': 'Pull Requests',
   'settings-advanced': 'Advanced',
+  'automation-jobs': 'Jobs',
+  'automation-schedules': 'Schedules',
+  'automation-runs': 'Runs',
 }
 
 function App() {
@@ -36,9 +43,20 @@ function App() {
   // PR counts for sidebar badges
   const [prCounts, setPrCounts] = useState<Record<string, number>>({})
 
+  // Create triggers for automation items (from sidebar context menu)
+  const [scheduleCreateTrigger, setScheduleCreateTrigger] = useState(0)
+  const [jobCreateTrigger, setJobCreateTrigger] = useState(0)
+
   // Pane sizes (persisted to electron-store via IPC)
   const [paneSizes, setPaneSizes] = useState<number[]>([300, 900])
   const paneSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Get schedule and job counts from Convex for status bar
+  const schedules = useSchedules()
+  const jobs = useJobs()
+
+  // One-time migration from electron-store to Convex
+  const { isComplete: migrationComplete, isLoading: migrationLoading } = useMigrateToConvex()
 
   // Load theme from config on mount
   useEffect(() => {
@@ -184,6 +202,19 @@ function App() {
     setPrCounts(prev => ({ ...prev, 'pr-recently-merged': count }))
   }, [])
 
+  // Handle creating new items from sidebar context menu
+  const handleCreateNew = useCallback((type: 'schedule' | 'job') => {
+    // Open the appropriate tab first
+    const viewId = type === 'schedule' ? 'automation-schedules' : 'automation-jobs'
+    openTab(viewId)
+    // Trigger the create dialog
+    if (type === 'schedule') {
+      setScheduleCreateTrigger(prev => prev + 1)
+    } else {
+      setJobCreateTrigger(prev => prev + 1)
+    }
+  }, [openTab])
+
   const handleSectionSelect = (sectionId: string) => {
     setSelectedSection(sectionId)
     // Don't auto-open tabs - let user click in sidebar
@@ -196,6 +227,9 @@ function App() {
   // Get active tab's viewId
   const activeTab = tabs.find(t => t.id === activeTabId)
   const activeViewId = activeTab?.viewId || null
+
+  // Show loading screen while migration is in progress
+  const showLoading = migrationLoading && !migrationComplete
 
   const renderContent = () => {
     if (!activeViewId) {
@@ -229,6 +263,21 @@ function App() {
         return <SettingsPullRequests />
       case 'settings-advanced':
         return <SettingsAdvanced />
+      case 'automation-schedules':
+        return <ScheduleList createTrigger={scheduleCreateTrigger} />
+      case 'automation-jobs':
+        return <JobList createTrigger={jobCreateTrigger} />
+      case 'automation-runs':
+        return (
+          <div className="content-placeholder">
+            <div className="content-header">
+              <h2>Runs</h2>
+            </div>
+            <div className="content-body">
+              <p>Run history coming soon!</p>
+            </div>
+          </div>
+        )
       default:
         return (
           <div className="content-placeholder">
@@ -246,33 +295,48 @@ function App() {
   return (
     <div className="app">
       <TitleBar />
-      <div className="app-body">
-        <ActivityBar 
-          selectedSection={selectedSection}
-          onSectionSelect={handleSectionSelect}
-        />
-        <Allotment onChange={handlePaneChange} defaultSizes={paneSizes}>
-          <Allotment.Pane minSize={200} maxSize={500}>
-            <SidebarPanel 
-              section={selectedSection}
-              onItemSelect={handleItemSelect}
-              selectedItem={activeViewId}
-              counts={prCounts}
-            />
-          </Allotment.Pane>
-          <Allotment.Pane minSize={400}>
-            <div className="main-content-wrapper">
-              <TabBar
-                tabs={tabs}
-                activeTabId={activeTabId}
-                onTabSelect={setActiveTabId}
-                onTabClose={closeTab}
+      {showLoading ? (
+        <div className="app-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <div style={{ fontSize: '14px', marginBottom: '8px' }}>Loading...</div>
+            <div style={{ fontSize: '12px', opacity: 0.7 }}>Initializing configuration</div>
+          </div>
+        </div>
+      ) : (
+        <div className="app-body">
+          <ActivityBar 
+            selectedSection={selectedSection}
+            onSectionSelect={handleSectionSelect}
+          />
+          <Allotment onChange={handlePaneChange} defaultSizes={paneSizes}>
+            <Allotment.Pane minSize={200} maxSize={500}>
+              <SidebarPanel 
+                section={selectedSection}
+                onItemSelect={handleItemSelect}
+                selectedItem={activeViewId}
+                counts={prCounts}
+                onCreateNew={handleCreateNew}
               />
-              <div className="main-content">{renderContent()}</div>
-            </div>
-          </Allotment.Pane>
-        </Allotment>
-      </div>
+            </Allotment.Pane>
+            <Allotment.Pane minSize={400}>
+              <div className="main-content-wrapper">
+                <TabBar
+                  tabs={tabs}
+                  activeTabId={activeTabId}
+                  onTabSelect={setActiveTabId}
+                  onTabClose={closeTab}
+                />
+                <div className="main-content">{renderContent()}</div>
+              </div>
+            </Allotment.Pane>
+          </Allotment>
+        </div>
+      )}
+      <StatusBar
+        prCount={Object.values(prCounts).reduce((a, b) => a + b, 0)}
+        scheduleCount={schedules?.length ?? 0}
+        jobCount={jobs?.length ?? 0}
+      />
     </div>
   )
 }

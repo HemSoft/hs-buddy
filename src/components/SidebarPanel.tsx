@@ -120,9 +120,9 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
 
   const fetchOrgRepos = useCallback(
     async (org: string) => {
-      // Check dataCache first
+      // Check dataCache first — validate shape since cache format changed
       const cached = dataCache.get<OrgRepoResult>(`org-repos:${org}`)
-      if (cached?.data) {
+      if (cached?.data && 'repos' in cached.data && Array.isArray(cached.data.repos)) {
         setOrgRepos(prev => ({ ...prev, [org]: cached.data.repos }))
         setOrgMeta(prev => ({
           ...prev,
@@ -132,6 +132,11 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
           },
         }))
         return
+      }
+
+      // Clear stale cache entry with old shape
+      if (cached?.data) {
+        dataCache.delete(`org-repos:${org}`)
       }
 
       setLoadingOrgs(prev => new Set([...prev, org]))

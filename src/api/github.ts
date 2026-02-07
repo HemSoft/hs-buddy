@@ -129,7 +129,7 @@ export class GitHubClient {
         },
       },
       retry: {
-        doNotRetry: ['429'],
+        doNotRetry: ['404', '429'],
         retries: 3,
       },
     })

@@ -16,13 +16,26 @@ export function readDataCache(): Record<string, { data: unknown; fetchedAt: numb
   return {}
 }
 
-export function writeDataCacheEntry(key: string, entry: { data: unknown; fetchedAt: number }): void {
+export function writeDataCacheEntry(
+  key: string,
+  entry: { data: unknown; fetchedAt: number }
+): void {
   try {
     const cache = readDataCache()
     cache[key] = entry
     writeFileSync(getDataCachePath(), JSON.stringify(cache))
   } catch (err) {
     console.error('[DataCache] Failed to write cache:', err)
+  }
+}
+
+export function deleteDataCacheEntry(key: string): void {
+  try {
+    const cache = readDataCache()
+    delete cache[key]
+    writeFileSync(getDataCachePath(), JSON.stringify(cache))
+  } catch (err) {
+    console.error('[DataCache] Failed to delete cache entry:', err)
   }
 }
 

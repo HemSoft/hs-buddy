@@ -48,7 +48,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
   
   // ai config
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState('anthropic/claude-sonnet-4-20250514')
+  const [model, setModel] = useState('claude-sonnet-4.5')
   const [maxTokens, setMaxTokens] = useState(4096)
   const [temperature, setTemperature] = useState(0.7)
   
@@ -266,21 +266,20 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           onChange={e => setModel(e.target.value)}
         >
           <optgroup label="Anthropic">
-            <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4</option>
-            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-            <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+            <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+            <option value="claude-opus-4.5">Claude Opus 4.5</option>
+            <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
           </optgroup>
           <optgroup label="OpenAI">
-            <option value="openai/gpt-4o">GPT-4o</option>
-            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-            <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-5.2">GPT-5.2</option>
+            <option value="gpt-5-mini">GPT-5 Mini (Free)</option>
+            <option value="gpt-5.1-codex-max">GPT-5.1 Codex Max</option>
           </optgroup>
           <optgroup label="Google">
-            <option value="google/gemini-pro-1.5">Gemini Pro 1.5</option>
-            <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
+            <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
           </optgroup>
         </select>
-        <div className="form-hint">Models are accessed via OpenRouter</div>
+        <div className="form-hint">Models are accessed via GitHub Copilot</div>
       </div>
 
       <div className="form-row-2">

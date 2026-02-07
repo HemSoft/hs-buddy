@@ -33,6 +33,7 @@ export interface AppConfig {
   ui: {
     theme: 'dark' | 'light';
     accentColor: string; // Hex color (e.g., '#0e639c')
+    fontColor: string; // Font/text color hex (e.g., '#cccccc')
     bgPrimary: string; // Primary background hex color
     bgSecondary: string; // Secondary background hex color
     fontFamily: string;
@@ -101,6 +102,10 @@ export const configSchema: Schema<AppConfig> = {
         type: 'string',
         default: '#0e639c',
       },
+      fontColor: {
+        type: 'string',
+        default: '#cccccc',
+      },
       bgPrimary: {
         type: 'string',
         default: '#1e1e1e',
@@ -135,7 +140,7 @@ export const configSchema: Schema<AppConfig> = {
         default: [300, 900],
       },
     },
-    required: ['theme', 'accentColor', 'bgPrimary', 'bgSecondary', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes'],
+    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes'],
   },
   pr: {
     type: 'object',
@@ -174,6 +179,7 @@ export const defaultConfig: AppConfig = {
   ui: {
     theme: 'dark',
     accentColor: '#0e639c',
+    fontColor: '#cccccc',
     bgPrimary: '#1e1e1e',
     bgSecondary: '#252526',
     fontFamily: 'Inter',

@@ -40,6 +40,7 @@ This positions Buddy as the successor to hs-conductor, with the added benefit of
 ```
 
 **Pain Points:**
+
 - Requires Windows Service running 24/7
 - Inngest Dev Server must be running locally
 - Data locked to local machine
@@ -61,6 +62,7 @@ This positions Buddy as the successor to hs-conductor, with the added benefit of
 ```
 
 **Benefits:**
+
 - No local server required
 - Data syncs across all devices
 - Real-time updates via subscriptions
@@ -195,7 +197,7 @@ Execute AI prompts via configured LLM provider.
 }
 ```
 
-**Execution**: Calls LLM API from Electron (using existing GitHub Copilot SDK pattern or OpenRouter).
+**Execution**: Calls LLM API from Electron via GitHub Copilot CLI.
 
 ### 3. skill-worker (Claude Skills)
 
@@ -214,7 +216,7 @@ Invoke any of the 110+ Claude skills directly.
 }
 ```
 
-**Execution**: Spawns Claude Code CLI with skill context, captures output.
+**Execution**: Spawns GitHub Copilot CLI with skill context, captures output.
 
 ---
 

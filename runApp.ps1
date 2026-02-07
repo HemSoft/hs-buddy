@@ -1,12 +1,19 @@
-# Start hs-buddy Electron app (requires Convex server running)
+# Start hs-buddy Electron app (requires Convex dev server running)
 
-# Check if Convex server is running on port 6790
-$port = 6790
-$connection = Test-NetConnection -ComputerName 127.0.0.1 -Port $port -WarningAction SilentlyContinue -InformationLevel Quiet
+# Check port 3210 (Convex API) — this is the port the app actually connects to.
+# Port 6790 (dashboard) can stay alive from an orphaned backend, giving a false positive.
+$apiPort = 3210
+$dashPort = 6790
 
-if (-not $connection) {
+$apiUp = Test-NetConnection -ComputerName 127.0.0.1 -Port $apiPort -WarningAction SilentlyContinue -InformationLevel Quiet
+$dashUp = Test-NetConnection -ComputerName 127.0.0.1 -Port $dashPort -WarningAction SilentlyContinue -InformationLevel Quiet
+
+if (-not $apiUp) {
     Write-Host ""
-    Write-Host "ERROR: Convex server is not running on port $port" -ForegroundColor Red
+    Write-Host "ERROR: Convex dev server is not running on port $apiPort" -ForegroundColor Red
+    if ($dashUp) {
+        Write-Host "(Dashboard on $dashPort is up but the dev watcher is not — orphaned backend?)" -ForegroundColor Yellow
+    }
     Write-Host ""
     Write-Host "Start the server first with: " -NoNewline
     Write-Host "./runServer.ps1" -ForegroundColor Yellow
@@ -14,5 +21,5 @@ if (-not $connection) {
     exit 1
 }
 
-Write-Host "Convex server detected on port $port" -ForegroundColor Green
+Write-Host "Convex dev server detected on port $apiPort" -ForegroundColor Green
 bun dev

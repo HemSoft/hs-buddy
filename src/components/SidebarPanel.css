@@ -111,10 +111,36 @@
   font-size: 11px;
   color: var(--text-secondary);
   background-color: var(--bg-elevated);
-  padding: 1px 6px;
+  padding: 0 5px;
   border-radius: 8px;
   min-width: 18px;
+  min-height: 18px;
+  line-height: 18px;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Progress ring around badge — border color + inner fill show freshness */
+.sidebar-item-count-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.sidebar-item-count-ring .sidebar-item-count {
+  border: 1.5px solid var(--ring-color);
+  color: var(--ring-color);
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--ring-color) 15%, var(--bg-elevated)) var(--ring-progress),
+    var(--bg-elevated) var(--ring-progress)
+  );
+  margin: 0;
+  transition: border-color 2s ease, color 2s ease;
 }
 
 /* Context Menu */

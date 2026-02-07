@@ -16,12 +16,14 @@ function lightenColor(hex: string, percent: number): string {
 // Default colors for reset
 const DARK_DEFAULTS = {
   accentColor: '#0e639c',
+  fontColor: '#cccccc',
   bgPrimary: '#1e1e1e',
   bgSecondary: '#252526',
 };
 
 const LIGHT_DEFAULTS = {
   accentColor: '#0078d4',
+  fontColor: '#1f1f1f',
   bgPrimary: '#ffffff',
   bgSecondary: '#f3f3f3',
 };
@@ -30,6 +32,7 @@ export function SettingsAppearance() {
   const { config, loading, api } = useConfig();
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [accentColor, setAccentColor] = useState('#0e639c');
+  const [fontColor, setFontColor] = useState('#cccccc');
   const [bgPrimary, setBgPrimary] = useState('#1e1e1e');
   const [bgSecondary, setBgSecondary] = useState('#252526');
   const [fontFamily, setFontFamily] = useState('Inter');
@@ -52,6 +55,7 @@ export function SettingsAppearance() {
     if (config) {
       setTheme(config.ui.theme);
       setAccentColor(config.ui.accentColor || '#0e639c');
+      setFontColor(config.ui.fontColor || '#cccccc');
       setBgPrimary(config.ui.bgPrimary || '#1e1e1e');
       setBgSecondary(config.ui.bgSecondary || '#252526');
       setFontFamily(config.ui.fontFamily || 'Inter');
@@ -60,11 +64,13 @@ export function SettingsAppearance() {
   }, [config]);
 
   // Apply colors to CSS variables
-  const applyColors = (accent: string, primary: string, secondary: string) => {
+  const applyColors = (accent: string, fontClr: string, primary: string, secondary: string) => {
     const root = document.documentElement;
     root.style.setProperty('--accent-primary', accent);
     root.style.setProperty('--accent-primary-hover', lightenColor(accent, 15));
     root.style.setProperty('--border-focus', accent);
+    root.style.setProperty('--text-primary', fontClr);
+    root.style.setProperty('--text-heading', lightenColor(fontClr, 20));
     root.style.setProperty('--bg-primary', primary);
     root.style.setProperty('--panel-bg', primary);
     root.style.setProperty('--input-bg', primary);
@@ -79,6 +85,7 @@ export function SettingsAppearance() {
     // Reset colors to theme defaults when switching themes
     const defaults = newTheme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS;
     setAccentColor(defaults.accentColor);
+    setFontColor(defaults.fontColor);
     setBgPrimary(defaults.bgPrimary);
     setBgSecondary(defaults.bgSecondary);
     
@@ -87,6 +94,8 @@ export function SettingsAppearance() {
     root.style.removeProperty('--accent-primary');
     root.style.removeProperty('--accent-primary-hover');
     root.style.removeProperty('--border-focus');
+    root.style.removeProperty('--text-primary');
+    root.style.removeProperty('--text-heading');
     root.style.removeProperty('--bg-primary');
     root.style.removeProperty('--panel-bg');
     root.style.removeProperty('--input-bg');
@@ -95,35 +104,44 @@ export function SettingsAppearance() {
     
     await api.setTheme(newTheme);
     await api.setAccentColor(defaults.accentColor);
+    await api.setFontColor(defaults.fontColor);
     await api.setBgPrimary(defaults.bgPrimary);
     await api.setBgSecondary(defaults.bgSecondary);
   };
 
   const handleAccentChange = async (color: string) => {
     setAccentColor(color);
-    applyColors(color, bgPrimary, bgSecondary);
+    applyColors(color, fontColor, bgPrimary, bgSecondary);
     await api.setAccentColor(color);
+  };
+
+  const handleFontColorChange = async (color: string) => {
+    setFontColor(color);
+    applyColors(accentColor, color, bgPrimary, bgSecondary);
+    await api.setFontColor(color);
   };
 
   const handleBgPrimaryChange = async (color: string) => {
     setBgPrimary(color);
-    applyColors(accentColor, color, bgSecondary);
+    applyColors(accentColor, fontColor, color, bgSecondary);
     await api.setBgPrimary(color);
   };
 
   const handleBgSecondaryChange = async (color: string) => {
     setBgSecondary(color);
-    applyColors(accentColor, bgPrimary, color);
+    applyColors(accentColor, fontColor, bgPrimary, color);
     await api.setBgSecondary(color);
   };
 
   const handleResetColors = async () => {
     const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS;
     setAccentColor(defaults.accentColor);
+    setFontColor(defaults.fontColor);
     setBgPrimary(defaults.bgPrimary);
     setBgSecondary(defaults.bgSecondary);
-    applyColors(defaults.accentColor, defaults.bgPrimary, defaults.bgSecondary);
+    applyColors(defaults.accentColor, defaults.fontColor, defaults.bgPrimary, defaults.bgSecondary);
     await api.setAccentColor(defaults.accentColor);
+    await api.setFontColor(defaults.fontColor);
     await api.setBgPrimary(defaults.bgPrimary);
     await api.setBgSecondary(defaults.bgSecondary);
   };
@@ -262,6 +280,31 @@ export function SettingsAppearance() {
                 />
               </div>
               <p className="color-hint">Used for buttons, links, and focus indicators</p>
+            </div>
+
+            <div className="color-setting">
+              <label htmlFor="font-color">Font Color</label>
+              <div className="color-picker-row">
+                <input
+                  type="color"
+                  id="font-color"
+                  className="color-picker"
+                  value={fontColor}
+                  onChange={(e) => handleFontColorChange(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="color-hex-input"
+                  value={fontColor}
+                  onChange={(e) => {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                      handleFontColorChange(e.target.value);
+                    }
+                  }}
+                  placeholder="#cccccc"
+                />
+              </div>
+              <p className="color-hint">Primary text and content color</p>
             </div>
 
             <div className="color-setting">

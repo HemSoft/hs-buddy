@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
+import type { Id } from "../../convex/_generated/dataModel";
 
 /**
  * React hooks for Convex GitHub accounts
@@ -200,4 +200,45 @@ export function useRunMutations() {
     cancel,
     cleanup,
   };
+}
+
+/**
+ * React hooks for Convex repo bookmarks
+ */
+
+// List all bookmarks
+export function useRepoBookmarks() {
+  return useQuery(api.repoBookmarks.list);
+}
+
+// List bookmarks by folder
+export function useRepoBookmarksByFolder(folder: string | undefined) {
+  return useQuery(api.repoBookmarks.listByFolder, folder ? { folder } : "skip");
+}
+
+// Bookmark mutations
+export function useRepoBookmarkMutations() {
+  const create = useMutation(api.repoBookmarks.create);
+  const update = useMutation(api.repoBookmarks.update);
+  const remove = useMutation(api.repoBookmarks.remove);
+
+  return { create, update, remove };
+}
+
+/**
+ * React hooks for Convex repo folders
+ */
+
+// List all folders (sorted)
+export function useRepoFolders() {
+  return useQuery(api.repoFolders.list);
+}
+
+// Folder mutations
+export function useRepoFolderMutations() {
+  const create = useMutation(api.repoFolders.create);
+  const rename = useMutation(api.repoFolders.rename);
+  const remove = useMutation(api.repoFolders.remove);
+
+  return { create, rename, remove };
 }

@@ -3,11 +3,9 @@ import type { PullRequest } from '../types/pullRequest'
 import { GitHubClient, type ProgressCallback } from '../api/github'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { dataCache } from '../services/dataCache'
 import './PullRequestList.css'
 import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw } from 'lucide-react'
-
-// Module-level cache to persist data across component remounts
-const prCache: Record<string, { data: PullRequest[]; fetchedAt: number }> = {}
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged'
@@ -26,8 +24,10 @@ interface LoadingProgress {
 }
 
 export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
-  const [prs, setPrs] = useState<PullRequest[]>(() => prCache[mode]?.data || [])
-  const [loading, setLoading] = useState(() => !prCache[mode]?.data)
+  const cachedEntry = dataCache.get<PullRequest[]>(mode)
+  const [prs, setPrs] = useState<PullRequest[]>(cachedEntry?.data || [])
+  const [loading, setLoading] = useState(!cachedEntry?.data)
+  const [refreshing, setRefreshing] = useState(false) // Background refresh (has data, fetching update)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<LoadingProgress | null>(null)
   const [totalPrsFound, setTotalPrsFound] = useState(0)
@@ -64,10 +64,27 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     return '#e85d5d' // Red - stale
   }, [])
 
+  // Subscribe to dataCache updates from prefetch service
+  // When prefetch completes for this mode, update our state without re-fetching
+  useEffect(() => {
+    const unsubscribe = dataCache.subscribe((key) => {
+      if (key === mode) {
+        const updated = dataCache.get<PullRequest[]>(mode)
+        if (updated?.data) {
+          setPrs(updated.data)
+          setLoading(false)
+          setRefreshing(false)
+          onCountChangeRef.current?.(updated.data.length)
+        }
+      }
+    })
+    return unsubscribe
+  }, [mode])
+
   // Update the last/next update times display
   useEffect(() => {
     const updateTimesDisplay = () => {
-      const cached = prCache[mode]
+      const cached = dataCache.get<PullRequest[]>(mode)
       if (cached && refreshInterval) {
         const now = Date.now()
         const lastUpdated = formatTime(cached.fetchedAt)
@@ -120,7 +137,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     }
 
     // Check if we have fresh cached data (unless force refresh)
-    const cached = prCache[mode]
+    const cached = dataCache.get<PullRequest[]>(mode)
     const isForceRefresh = forceRefresh > 0
     
     if (cached && !isForceRefresh) {
@@ -132,6 +149,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
         setPrs(cached.data)
         setLoading(false)
+        setRefreshing(false)
+        setError(null)
         onCountChangeRef.current?.(cached.data.length)
         return
       }
@@ -144,7 +163,15 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     const currentFetchId = ++fetchIdRef.current
 
     const fetchPRs = async () => {
-      setLoading(true)
+      // If we have existing data, show it while refreshing in the background
+      // (no full-page loading spinner — just a subtle refresh indicator)
+      const hasExistingData = prs.length > 0 || (cached?.data && cached.data.length > 0)
+      if (hasExistingData) {
+        setRefreshing(true)
+        setLoading(false)
+      } else {
+        setLoading(true)
+      }
       setError(null)
       setProgress(null)
       setTotalPrsFound(0)
@@ -172,6 +199,18 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         // Enqueue the fetch operation to prevent concurrent API calls
         const results = await enqueueRef.current(
           async (signal) => {
+            // Re-check freshness right before executing.
+            // The prefetch service may have already updated this data while
+            // this task was waiting in the queue.
+            const freshCheck = dataCache.get<PullRequest[]>(mode)
+            if (freshCheck && !isForceRefresh) {
+              const intervalMs = refreshInterval * 60 * 1000
+              if (Date.now() - freshCheck.fetchedAt < intervalMs) {
+                console.log(`[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`)
+                return freshCheck.data
+              }
+            }
+
             // Check if this fetch was cancelled
             if (signal.aborted) {
               throw new DOMException('Fetch cancelled', 'AbortError')
@@ -215,8 +254,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         }
 
         setPrs(results)
-        // Update the module-level cache
-        prCache[mode] = { data: results, fetchedAt: Date.now() }
+        // Update the persistent data cache (memory + disk)
+        dataCache.set(mode, results)
         // Report count to parent
         onCountChangeRef.current?.(results.length)
       } catch (err) {
@@ -235,6 +274,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         // Only update loading state if this is still the current fetch
         if (currentFetchId === fetchIdRef.current) {
           setLoading(false)
+          setRefreshing(false)
           fetchInProgressRef.current = false
         }
       }
@@ -408,8 +448,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                 </div>
               </div>
             )}
-            <button className="refresh-button" onClick={handleManualRefresh} title="Refresh">
-              <RefreshCw size={16} />
+            <button className="refresh-button" onClick={handleManualRefresh} title="Refresh" disabled={refreshing}>
+              {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
             </button>
           </div>
         </div>
@@ -427,7 +467,10 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
       <div className="pr-list-header">
         <h2>{getTitle()}</h2>
         <div className="pr-header-actions">
-          <span className="pr-count">{prs.length} PR{prs.length !== 1 ? 's' : ''}</span>
+          <span className="pr-count">
+            {prs.length} PR{prs.length !== 1 ? 's' : ''}
+            {refreshing && <span className="refreshing-badge">Refreshing...</span>}
+          </span>
           {updateTimes && (
             <div className="update-times">
               <div className="update-times-content">
@@ -448,8 +491,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               </div>
             </div>
           )}
-          <button className="refresh-button" onClick={handleManualRefresh} title="Refresh">
-            <RefreshCw size={16} />
+          <button className="refresh-button" onClick={handleManualRefresh} title="Refresh" disabled={refreshing}>
+            {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
           </button>
         </div>
       </div>

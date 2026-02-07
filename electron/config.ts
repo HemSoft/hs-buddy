@@ -113,6 +113,14 @@ class ConfigManager {
     this.store.set('ui.bgSecondary', color);
   }
 
+  getFontColor(): string {
+    return this.store.get('ui.fontColor', '#cccccc');
+  }
+
+  setFontColor(color: string): void {
+    this.store.set('ui.fontColor', color);
+  }
+
   getFontFamily(): string {
     return this.store.get('ui.fontFamily', 'Inter');
   }

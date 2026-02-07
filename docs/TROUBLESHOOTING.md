@@ -9,6 +9,7 @@
 **Solution**: ✅ Fixed! Removed `unsafe-eval` from CSP in [index.html](../index.html#L5)
 
 The CSP now only allows:
+
 - Scripts from same origin with inline support (no eval)
 - Styles from same origin with inline support
 - Images from HTTPS sources
@@ -21,6 +22,7 @@ The CSP now only allows:
 **Issue**: Console shows 404 errors when fetching pull requests from GitHub organizations
 
 **Causes**:
+
 1. **Private Organization**: The org exists but your GitHub account doesn't have access
 2. **Typo in Org Name**: The organization name is misspelled in configuration
 3. **Organization Doesn't Exist**: The org was deleted or renamed
@@ -29,11 +31,13 @@ The CSP now only allows:
 **Solutions**:
 
 #### Check GitHub Authentication
+
 ```powershell
 gh auth status
 ```
 
 Make sure you're logged in with the correct accounts:
+
 ```powershell
 # Login with a specific account
 gh auth login -h github.com
@@ -43,21 +47,27 @@ gh auth switch
 ```
 
 #### Validate Org Access
+
 Run the validation script to check all configured orgs:
+
 ```powershell
 .\scripts\validate-github-orgs.ps1
 ```
 
 #### Update Token Scopes
+
 If the token lacks permissions:
+
 ```powershell
 # Re-authenticate with full scopes
 gh auth refresh -s read:org,repo
 ```
 
 #### Fix Configuration
+
 Check your Convex database for GitHub account configurations:
-1. Open Convex dashboard: http://127.0.0.1:6790/
+
+1. Open Convex dashboard: <http://127.0.0.1:6790/>
 2. Navigate to **Data** → **githubAccounts**
 3. Verify organization names are correct
 4. Remove any accounts you don't have access to
@@ -69,6 +79,7 @@ Check your Convex database for GitHub account configurations:
 **Issue**: Console shows reconnection attempts or connection errors
 
 **Causes**:
+
 1. **Convex Dev Server Not Running**: The local Convex server isn't started
 2. **Network Issues**: Firewall or network blocking WebSocket connections
 3. **Incorrect Convex URL**: Environment variable pointing to wrong deployment
@@ -76,6 +87,7 @@ Check your Convex database for GitHub account configurations:
 **Solutions**:
 
 #### Start Convex Dev Server
+
 ```powershell
 # Terminal 1: Start Convex backend
 .\runServer.ps1
@@ -85,16 +97,20 @@ Check your Convex database for GitHub account configurations:
 ```
 
 #### Check Convex Dashboard
-Visit http://127.0.0.1:6790/ to verify the server is running
+
+Visit <http://127.0.0.1:6790/> to verify the server is running
 
 #### Verify Environment
+
 Check your Convex URL:
+
 ```powershell
 # Should be set in .env.local or default to dev URL
 echo $env:VITE_CONVEX_URL
 ```
 
 #### Reduce Verbose Logging
+
 ✅ Fixed! Convex client now has reduced logging by default
 
 ---
@@ -104,6 +120,7 @@ echo $env:VITE_CONVEX_URL
 **Issue**: App shows error: "GitHub CLI authentication not available for any configured account"
 
 **Solution**:
+
 ```powershell
 # Login with GitHub CLI
 gh auth login
@@ -122,6 +139,7 @@ gh api user
 **Issue**: PR viewer shows no pull requests despite having PRs in GitHub
 
 **Causes**:
+
 1. **Wrong Organization**: Configured org doesn't match your PRs
 2. **Filters Too Restrictive**: View mode filtering out your PRs
 3. **Authentication Issue**: Token doesn't have access to repos
@@ -129,14 +147,17 @@ gh api user
 **Solutions**:
 
 #### Check Organization Configuration
+
 Ensure you're querying the right organizations in Convex settings
 
 #### Try Different Views
+
 - **Pull Requests**: Shows PRs you authored
 - **Needs Review**: Shows PRs where you're requested as reviewer
 - **Recently Merged**: Shows recently merged PRs (last 7 days)
 
 #### Verify GitHub Access
+
 ```powershell
 # Check your accessible orgs
 gh api user/orgs
@@ -178,7 +199,7 @@ If you're still experiencing issues:
 
 1. **Check Logs**: Look at the console output in Developer Tools
 2. **Validate Setup**: Run `.\scripts\validate-github-orgs.ps1`
-3. **Check GitHub Status**: Visit https://www.githubstatus.com/
+3. **Check GitHub Status**: Visit <https://www.githubstatus.com/>
 4. **Review AGENTS.md**: See [AGENTS.md](../AGENTS.md) for architecture details
 
 ---
@@ -186,6 +207,7 @@ If you're still experiencing issues:
 ## Quick Reference
 
 ### Essential Commands
+
 ```powershell
 # GitHub CLI
 gh auth status              # Check authentication
@@ -203,6 +225,7 @@ bun run convex:codegen    # Generate types
 ```
 
 ### Important Files
+
 - `convex/githubAccounts.ts` - GitHub account queries
 - `src/api/github.ts` - GitHub API client
 - `electron/config.ts` - Configuration manager

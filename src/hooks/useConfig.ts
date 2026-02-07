@@ -23,6 +23,9 @@ const configAPI = {
   getBgSecondary: () => window.ipcRenderer.invoke('config:get-bg-secondary') as Promise<string>,
   setBgSecondary: (color: string) =>
     window.ipcRenderer.invoke('config:set-bg-secondary', color) as Promise<{ success: boolean }>,
+  getFontColor: () => window.ipcRenderer.invoke('config:get-font-color') as Promise<string>,
+  setFontColor: (color: string) =>
+    window.ipcRenderer.invoke('config:set-font-color', color) as Promise<{ success: boolean }>,
   getFontFamily: () => window.ipcRenderer.invoke('config:get-font-family') as Promise<string>,
   setFontFamily: (font: string) =>
     window.ipcRenderer.invoke('config:set-font-family', font) as Promise<{ success: boolean }>,

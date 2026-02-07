@@ -16,7 +16,10 @@ interface ConvexClientProviderProps {
 }
 
 export function ConvexClientProvider({ children }: ConvexClientProviderProps) {
-  const client = useMemo(() => new ConvexReactClient(CONVEX_URL), []);
+  const client = useMemo(() => {
+    console.log(`[Convex] Connecting to ${CONVEX_URL}`);
+    return new ConvexReactClient(CONVEX_URL);
+  }, []);
 
   return (
     <ConvexProvider client={client}>

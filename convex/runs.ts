@@ -249,6 +249,47 @@ export const listByStatus = query({
   },
 });
 
+// Claim the oldest pending run atomically (returns run + job, or null if none pending)
+export const claimPending = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Get oldest pending run
+    const pendingRun = await ctx.db
+      .query("runs")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .order("asc")
+      .first();
+
+    if (!pendingRun) {
+      return null;
+    }
+
+    // Mark as running atomically
+    await ctx.db.patch(pendingRun._id, {
+      status: "running",
+    });
+
+    // Fetch the associated job
+    const job = await ctx.db.get(pendingRun.jobId);
+    if (!job) {
+      // Job was deleted — fail the run
+      const completedAt = Date.now();
+      await ctx.db.patch(pendingRun._id, {
+        status: "failed",
+        error: `Job ${pendingRun.jobId} not found`,
+        completedAt,
+        duration: completedAt - pendingRun.startedAt,
+      });
+      return null;
+    }
+
+    return {
+      run: { ...pendingRun, status: "running" as const },
+      job,
+    };
+  },
+});
+
 // Cleanup old runs (keep last N days)
 export const cleanup = mutation({
   args: {

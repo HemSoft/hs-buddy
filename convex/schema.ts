@@ -138,6 +138,33 @@ export default defineSchema({
     .index("by_job", ["jobId"]),
 
   /**
+   * Repo bookmarks - folder-organized GitHub repo bookmarks
+   */
+  repoBookmarks: defineTable({
+    folder: v.string(),        // Folder name (e.g., "Relias", "Home")
+    owner: v.string(),         // GitHub org or user (e.g., "relias-engineering")
+    repo: v.string(),          // Repo name (e.g., "ai-skills")
+    url: v.string(),           // Full URL to the repo
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_folder", ["folder"])
+    .index("by_owner_repo", ["owner", "repo"]),
+
+  /**
+   * Repo bookmark folders - folder definitions for organizing bookmarks
+   */
+  repoFolders: defineTable({
+    name: v.string(),          // Folder name
+    sortOrder: v.number(),     // Display order
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_name", ["name"])
+    .index("by_sort_order", ["sortOrder"]),
+
+  /**
    * Runs - execution history for jobs
    */
   runs: defineTable({

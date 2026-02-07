@@ -24,6 +24,7 @@ This update addresses three main categories of console errors and warnings that 
 ```
 
 **Impact**:
+
 - ✅ Eliminates security warning in console
 - ✅ Improves app security posture
 - ✅ No functionality impact (app doesn't use eval)
@@ -37,6 +38,7 @@ This update addresses three main categories of console errors and warnings that 
 **File**: [`src/api/github.ts`](../src/api/github.ts)
 
 **Changes**:
+
 1. **Suppress 404 warnings** - Downgrades 404 errors to debug level since they're expected for orgs without access
 2. **Better error context** - Distinguishes between access issues and real errors
 3. **Search result logging** - Adds debug info about query results
@@ -54,6 +56,7 @@ if (!errorMsg.includes('404')) {
 ```
 
 **Impact**:
+
 - ✅ Cleaner console output
 - ✅ Easier to spot real errors
 - ✅ Better debugging with search result counts
@@ -75,6 +78,7 @@ return convexClient;
 ```
 
 **Impact**:
+
 - ✅ Less console clutter during reconnections
 - ✅ Reconnection still works fine
 - ✅ Real errors still logged
@@ -92,6 +96,7 @@ return convexClient;
 **Purpose**: Proactively validate GitHub org access before running the app
 
 **Usage**:
+
 ```powershell
 # Direct execution
 .\scripts\validate-github-orgs.ps1
@@ -101,6 +106,7 @@ bun run validate:github
 ```
 
 **Output Example**:
+
 ```
 🔍 Validating GitHub Organization Access...
 
@@ -120,6 +126,7 @@ bun run validate:github
 ```
 
 **Features**:
+
 - Checks GitHub CLI installation
 - Validates authenticated accounts
 - Tests org/user access for each configured account
@@ -134,6 +141,7 @@ bun run validate:github
 **Purpose**: Comprehensive guide for resolving common issues
 
 **Covers**:
+
 - Content Security Policy warnings
 - GitHub 404 errors
 - Convex connection issues
@@ -142,6 +150,7 @@ bun run validate:github
 - Rate limiting
 
 **Quick Reference**:
+
 ```powershell
 # Common commands
 gh auth status              # Check authentication
@@ -155,6 +164,7 @@ bun run convex:dev        # Start backend
 ## Before & After
 
 ### Console Output (Before)
+
 ```
 ⚠️ Electron Security Warning (Insecure Content-Security-Policy)
    This renderer process has "unsafe-eval" enabled...
@@ -168,6 +178,7 @@ bun run convex:dev        # Start backend
 ```
 
 ### Console Output (After)
+
 ```
 ✓ Found 5 PRs for fhemmerrelias in ReliasLearning
 ✓ Found 2 PRs for HemSoft in HemSoft
@@ -195,6 +206,7 @@ Much cleaner! 🎉
 ### 1. Only Configure Orgs You Have Access To
 
 Use the validation script before adding new accounts:
+
 ```powershell
 bun run validate:github
 ```
@@ -202,6 +214,7 @@ bun run validate:github
 ### 2. Check GitHub CLI Auth Regularly
 
 Tokens can expire or be revoked:
+
 ```powershell
 gh auth status
 gh auth refresh -s read:org,repo
@@ -210,6 +223,7 @@ gh auth refresh -s read:org,repo
 ### 3. Monitor Console for Real Errors
 
 With noise reduced, actual errors will be more visible:
+
 - ⚠️ Yellow warnings = needs attention
 - ❌ Red errors = requires action
 - ℹ️ Blue info = expected behavior
@@ -217,6 +231,7 @@ With noise reduced, actual errors will be more visible:
 ### 4. Use Debug Mode When Needed
 
 Open DevTools (Ctrl+Shift+I) and filter console:
+
 - `[GitHub]` - Filter for GitHub-related logs
 - `[Convex]` - Filter for backend logs
 - `[Config]` - Filter for configuration changes
@@ -227,7 +242,8 @@ Open DevTools (Ctrl+Shift+I) and filter console:
 
 To verify these improvements:
 
-1. **CSP Fix**: 
+1. **CSP Fix**:
+
    ```powershell
    bun dev
    # Open DevTools (Ctrl+Shift+I) → Console
@@ -235,12 +251,14 @@ To verify these improvements:
    ```
 
 2. **GitHub Error Handling**:
+
    ```powershell
    bun run validate:github
    # Should show clear access status for each org
    ```
 
 3. **Convex Logging**:
+
    ```powershell
    # Terminal 1
    bun run convex:dev

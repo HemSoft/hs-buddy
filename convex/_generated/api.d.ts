@@ -12,6 +12,8 @@ import type * as bitbucketWorkspaces from "../bitbucketWorkspaces.js";
 import type * as crons from "../crons.js";
 import type * as githubAccounts from "../githubAccounts.js";
 import type * as jobs from "../jobs.js";
+import type * as repoBookmarks from "../repoBookmarks.js";
+import type * as repoFolders from "../repoFolders.js";
 import type * as runs from "../runs.js";
 import type * as scheduleScanner from "../scheduleScanner.js";
 import type * as schedules from "../schedules.js";
@@ -28,6 +30,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   githubAccounts: typeof githubAccounts;
   jobs: typeof jobs;
+  repoBookmarks: typeof repoBookmarks;
+  repoFolders: typeof repoFolders;
   runs: typeof runs;
   scheduleScanner: typeof scheduleScanner;
   schedules: typeof schedules;

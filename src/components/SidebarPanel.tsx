@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Bookmark } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import './SidebarPanel.css'
 
@@ -7,6 +7,7 @@ interface SidebarPanelProps {
   onItemSelect: (itemId: string) => void
   selectedItem: string | null
   counts?: Record<string, number>
+  badgeProgress?: Record<string, { progress: number; color: string; tooltip: string }>
   onCreateNew?: (type: 'schedule' | 'job') => void
 }
 
@@ -22,6 +23,7 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
       { id: 'pr-my-prs', label: 'My PRs' },
       { id: 'pr-needs-review', label: 'Needs Review' },
       { id: 'pr-recently-merged', label: 'Recently Merged' },
+      { id: 'pr-repos-of-interest', label: 'Repos of Interest' },
     ]
   },
   'skills': {
@@ -66,7 +68,7 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
   }
 }
 
-export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {}, onCreateNew }: SidebarPanelProps) {
+export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {}, badgeProgress = {}, onCreateNew }: SidebarPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(null)
   const data = sectionData[section]
@@ -163,10 +165,25 @@ export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {},
                   onClick={() => onItemSelect(item.id)}
                   onContextMenu={(e) => handleContextMenu(e, item.id)}
                 >
-                  <span className="sidebar-item-icon"><FileText size={14} /></span>
+                  <span className="sidebar-item-icon">
+                    {item.id === 'pr-repos-of-interest' ? <Bookmark size={14} /> : <FileText size={14} />}
+                  </span>
                   <span className="sidebar-item-label">{item.label}</span>
                   {counts[item.id] !== undefined && (
-                    <span className="sidebar-item-count">{counts[item.id]}</span>
+                    badgeProgress[item.id] ? (
+                      <span 
+                        className="sidebar-item-count-ring"
+                        style={{
+                          '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                          '--ring-color': badgeProgress[item.id].color,
+                        } as React.CSSProperties}
+                        title={badgeProgress[item.id].tooltip}
+                      >
+                        <span className="sidebar-item-count">{counts[item.id]}</span>
+                      </span>
+                    ) : (
+                      <span className="sidebar-item-count">{counts[item.id]}</span>
+                    )
                   )}
                 </div>
               ))}

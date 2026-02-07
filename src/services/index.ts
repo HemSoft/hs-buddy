@@ -13,6 +13,8 @@ export {
   type QueueStats,
 } from './taskQueue';
 
+export { dataCache, type CacheEntry } from './dataCache';
+
 import { getTaskQueue } from './taskQueue';
 
 /**

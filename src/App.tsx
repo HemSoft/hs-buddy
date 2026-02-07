@@ -6,11 +6,16 @@ import { ActivityBar } from './components/ActivityBar'
 import { SidebarPanel } from './components/SidebarPanel'
 import { TabBar, Tab } from './components/TabBar'
 import { PullRequestList } from './components/PullRequestList'
-import { ScheduleList, JobList } from './components/automation'
+import { ScheduleList, JobList, RunList } from './components/automation'
 import { SettingsAccounts, SettingsAppearance, SettingsPullRequests, SettingsAdvanced } from './components/settings'
+import { ReposOfInterest } from './components/repos'
 import { StatusBar } from './components/StatusBar'
 import { useSchedules, useJobs } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
+import { usePrefetch } from './hooks/usePrefetch'
+import { usePRSettings } from './hooks/useConfig'
+import { dataCache } from './services/dataCache'
+import type { PullRequest } from './types/pullRequest'
 import './App.css'
 
 // View ID to label mapping
@@ -18,6 +23,7 @@ const viewLabels: Record<string, string> = {
   'pr-my-prs': 'My PRs',
   'pr-needs-review': 'Needs Review',
   'pr-recently-merged': 'Recently Merged',
+  'pr-repos-of-interest': 'Repos of Interest',
   'skills-browser': 'Browse Skills',
   'skills-recent': 'Recently Used',
   'skills-favorites': 'Favorites',
@@ -40,8 +46,88 @@ function App() {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
 
-  // PR counts for sidebar badges
-  const [prCounts, setPrCounts] = useState<Record<string, number>>({})
+  // PR counts for sidebar badges — seed from cached data so badges show immediately on startup
+  const [prCounts, setPrCounts] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {}
+    const modes = [
+      { key: 'my-prs', id: 'pr-my-prs' },
+      { key: 'needs-review', id: 'pr-needs-review' },
+      { key: 'recently-merged', id: 'pr-recently-merged' },
+    ]
+    for (const { key, id } of modes) {
+      const cached = dataCache.get<PullRequest[]>(key)
+      if (cached?.data) {
+        initial[id] = cached.data.length
+      }
+    }
+    return initial
+  })
+
+  // Subscribe to dataCache updates so sidebar badges update when prefetch completes
+  // (even if the PullRequestList tab isn't open)
+  useEffect(() => {
+    const modeToId: Record<string, string> = {
+      'my-prs': 'pr-my-prs',
+      'needs-review': 'pr-needs-review',
+      'recently-merged': 'pr-recently-merged',
+    }
+    const unsubscribe = dataCache.subscribe((key) => {
+      const viewId = modeToId[key]
+      if (viewId) {
+        const entry = dataCache.get<PullRequest[]>(key)
+        if (entry?.data) {
+          setPrCounts(prev => ({ ...prev, [viewId]: entry.data.length }))
+        }
+      }
+    })
+    return unsubscribe
+  }, [])
+
+  // Badge freshness progress — shows a timer ring around sidebar count badges
+  const { refreshInterval } = usePRSettings()
+  const [badgeProgress, setBadgeProgress] = useState<Record<string, { progress: number; color: string; tooltip: string }>>({})
+
+  useEffect(() => {
+    const PR_MODES = [
+      { key: 'my-prs', id: 'pr-my-prs' },
+      { key: 'needs-review', id: 'pr-needs-review' },
+      { key: 'recently-merged', id: 'pr-recently-merged' },
+    ]
+
+    const getProgressColor = (pct: number) => {
+      if (pct <= 25) return '#4ec9b0'
+      if (pct <= 50) return '#dcd34a'
+      if (pct <= 75) return '#e89b3c'
+      return '#e85d5d'
+    }
+
+    const computeProgress = () => {
+      const intervalMs = refreshInterval * 60 * 1000
+      const now = Date.now()
+      const next: Record<string, { progress: number; color: string; tooltip: string }> = {}
+
+      for (const { key, id } of PR_MODES) {
+        const cached = dataCache.get(key)
+        if (cached) {
+          const elapsed = now - cached.fetchedAt
+          const remaining = Math.max(0, intervalMs - elapsed)
+          const progress = Math.min(100, Math.max(0, (elapsed / intervalMs) * 100))
+          const elapsedMin = Math.floor(elapsed / 60000)
+          const remainingMin = Math.ceil(remaining / 60000)
+          const tooltip = elapsedMin < 1
+            ? `Updated just now \u00B7 Next in ${remainingMin}m`
+            : `Updated ${elapsedMin}m ago \u00B7 Next in ${remainingMin}m`
+          next[id] = { progress, color: getProgressColor(progress), tooltip }
+        }
+      }
+
+      setBadgeProgress(next)
+    }
+
+    computeProgress()
+    const timer = setInterval(computeProgress, 5000)
+    return () => clearInterval(timer)
+  }, [refreshInterval])
 
   // Create triggers for automation items (from sidebar context menu)
   const [scheduleCreateTrigger, setScheduleCreateTrigger] = useState(0)
@@ -57,6 +143,9 @@ function App() {
 
   // One-time migration from electron-store to Convex
   const { isComplete: migrationComplete, isLoading: migrationLoading } = useMigrateToConvex()
+
+  // Prefetch PR data in background on app startup
+  usePrefetch()
 
   // Load theme from config on mount
   useEffect(() => {
@@ -90,7 +179,8 @@ function App() {
     Promise.all([
       window.ipcRenderer.invoke('config:get-bg-primary'),
       window.ipcRenderer.invoke('config:get-bg-secondary'),
-    ]).then(([bgPrimary, bgSecondary]) => {
+      window.ipcRenderer.invoke('config:get-font-color'),
+    ]).then(([bgPrimary, bgSecondary, fontColor]) => {
       const root = document.documentElement;
       if (bgPrimary) {
         root.style.setProperty('--bg-primary', bgPrimary);
@@ -100,6 +190,15 @@ function App() {
       if (bgSecondary) {
         root.style.setProperty('--bg-secondary', bgSecondary);
         root.style.setProperty('--sidebar-bg', bgSecondary);
+      }
+      if (fontColor) {
+        root.style.setProperty('--text-primary', fontColor);
+        // Derive heading color as a brighter version of font color
+        const num = parseInt(fontColor.replace('#', ''), 16);
+        const r = Math.min(255, (num >> 16) + Math.round(255 * 20 / 100));
+        const g = Math.min(255, ((num >> 8) & 0x00FF) + Math.round(255 * 20 / 100));
+        const b = Math.min(255, (num & 0x0000FF) + Math.round(255 * 20 / 100));
+        root.style.setProperty('--text-heading', `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`);
       }
     }).catch(() => {})
   }, [])
@@ -255,6 +354,8 @@ function App() {
         return <PullRequestList mode="needs-review" onCountChange={handleNeedsReviewCountChange} />
       case 'pr-recently-merged':
         return <PullRequestList mode="recently-merged" onCountChange={handleRecentlyMergedCountChange} />
+      case 'pr-repos-of-interest':
+        return <ReposOfInterest />
       case 'settings-accounts':
         return <SettingsAccounts />
       case 'settings-appearance':
@@ -268,16 +369,7 @@ function App() {
       case 'automation-jobs':
         return <JobList createTrigger={jobCreateTrigger} />
       case 'automation-runs':
-        return (
-          <div className="content-placeholder">
-            <div className="content-header">
-              <h2>Runs</h2>
-            </div>
-            <div className="content-body">
-              <p>Run history coming soon!</p>
-            </div>
-          </div>
-        )
+        return <RunList />
       default:
         return (
           <div className="content-placeholder">
@@ -315,6 +407,7 @@ function App() {
                 onItemSelect={handleItemSelect}
                 selectedItem={activeViewId}
                 counts={prCounts}
+                badgeProgress={badgeProgress}
                 onCreateNew={handleCreateNew}
               />
             </Allotment.Pane>

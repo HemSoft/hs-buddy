@@ -18,6 +18,15 @@ export interface OrgRepo {
   pushedAt: string | null
 }
 
+// Result from fetchOrgRepos with account attribution
+export interface OrgRepoResult {
+  repos: OrgRepo[]
+  /** The GitHub username whose token authenticated this request */
+  authenticatedAs: string
+  /** True when the namespace is a user account rather than an organization */
+  isUserNamespace: boolean
+}
+
 // Create Octokit with retry and throttling plugins
 const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 
@@ -43,6 +52,19 @@ export class GitHubClient {
   constructor(config: PRConfig['github'], recentlyMergedDays: number = 7) {
     this.config = config
     this.recentlyMergedDays = recentlyMergedDays
+  }
+
+  /**
+   * Get the currently-active GitHub CLI account.
+   * Uses `gh auth status` — the active account is the one used for Copilot CLI, etc.
+   */
+  static async getActiveCliAccount(): Promise<string | null> {
+    try {
+      const output: string = await window.ipcRenderer.invoke('github:get-active-account')
+      return output?.trim() || null
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -135,11 +157,12 @@ export class GitHubClient {
   }
 
   /**
-   * Fetch all repositories for an organization
-   * Uses the first account that has access to the org
+   * Fetch all repositories for a namespace (org or user account).
+   * Tries repos.listForOrg first; on 404 falls back to repos.listForUser.
+   * Returns which account was used so the UI can attribute the request.
    */
-  async fetchOrgRepos(org: string): Promise<OrgRepo[]> {
-    // Try each account until we find one that can access this org
+  async fetchOrgRepos(org: string): Promise<OrgRepoResult> {
+    // Try each account that matches this org first
     for (const account of this.config.accounts) {
       if (account.org !== org) continue
 
@@ -147,12 +170,10 @@ export class GitHubClient {
       if (!octokit) continue
 
       try {
-        return await this.fetchAllOrgRepos(octokit, org)
+        const result = await this.fetchAllOrgOrUserRepos(octokit, org)
+        return { ...result, authenticatedAs: account.username }
       } catch (error) {
-        console.warn(
-          `Failed to fetch repos for org ${org} with account ${account.username}:`,
-          error
-        )
+        console.warn(`Failed to fetch repos for ${org} with account ${account.username}:`, error)
         continue
       }
     }
@@ -163,36 +184,71 @@ export class GitHubClient {
       if (!octokit) continue
 
       try {
-        return await this.fetchAllOrgRepos(octokit, org)
+        const result = await this.fetchAllOrgOrUserRepos(octokit, org)
+        return { ...result, authenticatedAs: account.username }
       } catch (error) {
-        console.warn(
-          `Failed to fetch repos for org ${org} with account ${account.username}:`,
-          error
-        )
+        console.warn(`Failed to fetch repos for ${org} with account ${account.username}:`, error)
         continue
       }
     }
 
-    throw new Error(`Could not fetch repos for org '${org}' - no authenticated account available`)
+    throw new Error(`Could not fetch repos for '${org}' - no authenticated account available`)
   }
 
   /**
-   * Paginate through all repos for an org
+   * Try org API first, fall back to user API on 404.
    */
-  private async fetchAllOrgRepos(octokit: Octokit, org: string): Promise<OrgRepo[]> {
+  private async fetchAllOrgOrUserRepos(
+    octokit: Octokit,
+    namespace: string
+  ): Promise<{ repos: OrgRepo[]; isUserNamespace: boolean }> {
+    try {
+      const repos = await this.paginateRepos(octokit, namespace, 'org')
+      return { repos, isUserNamespace: false }
+    } catch (error: unknown) {
+      const is404 =
+        error instanceof Error &&
+        (error.message.includes('404') || error.message.includes('Not Found'))
+      if (!is404) throw error
+
+      // Namespace is likely a user account — retry with user endpoint
+      console.info(`Namespace '${namespace}' is not an org, trying user repos...`)
+      const repos = await this.paginateRepos(octokit, namespace, 'user')
+      return { repos, isUserNamespace: true }
+    }
+  }
+
+  /**
+   * Paginate through all repos for an org or user namespace.
+   */
+  private async paginateRepos(
+    octokit: Octokit,
+    namespace: string,
+    kind: 'org' | 'user'
+  ): Promise<OrgRepo[]> {
     const repos: OrgRepo[] = []
     const perPage = 100
     let hasMore = true
 
     for (let page = 1; hasMore; page++) {
-      const response = await octokit.repos.listForOrg({
-        org,
-        type: 'all',
-        sort: 'full_name',
-        direction: 'asc',
-        per_page: perPage,
-        page,
-      })
+      const response =
+        kind === 'org'
+          ? await octokit.repos.listForOrg({
+              org: namespace,
+              type: 'all',
+              sort: 'full_name',
+              direction: 'asc',
+              per_page: perPage,
+              page,
+            })
+          : await octokit.repos.listForUser({
+              username: namespace,
+              type: 'owner',
+              sort: 'full_name',
+              direction: 'asc',
+              per_page: perPage,
+              page,
+            })
 
       for (const repo of response.data) {
         repos.push({

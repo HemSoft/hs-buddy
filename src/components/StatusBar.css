@@ -61,6 +61,15 @@
   color: var(--accent-primary-hover, #1a8cff);
 }
 
+.status-item-github-account {
+  color: var(--accent-green, #4ec9b0);
+  font-weight: 500;
+}
+
+.status-item-github-account:hover {
+  color: #5cddc7;
+}
+
 .status-item-active {
   background-color: rgba(255, 255, 255, 0.1);
   color: var(--accent-green, #4ec9b0);
@@ -140,7 +149,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     background-color: rgba(255, 255, 255, 0.1);
   }
   50% {

@@ -11,10 +11,10 @@ import {
   Building2,
   Loader2,
 } from 'lucide-react'
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from 'react'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
-import { GitHubClient, type OrgRepo } from '../api/github'
+import { GitHubClient, type OrgRepo, type OrgRepoResult } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import './SidebarPanel.css'
 
@@ -95,6 +95,9 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set())
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false)
   const [orgRepos, setOrgRepos] = useState<Record<string, OrgRepo[]>>({})
+  const [orgMeta, setOrgMeta] = useState<
+    Record<string, { authenticatedAs: string; isUserNamespace: boolean }>
+  >({})
   const [loadingOrgs, setLoadingOrgs] = useState<Set<string>>(new Set())
   const { accounts } = useGitHubAccounts()
   const bookmarks = useRepoBookmarks()
@@ -118,9 +121,16 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
   const fetchOrgRepos = useCallback(
     async (org: string) => {
       // Check dataCache first
-      const cached = dataCache.get<OrgRepo[]>(`org-repos:${org}`)
+      const cached = dataCache.get<OrgRepoResult>(`org-repos:${org}`)
       if (cached?.data) {
-        setOrgRepos(prev => ({ ...prev, [org]: cached.data }))
+        setOrgRepos(prev => ({ ...prev, [org]: cached.data.repos }))
+        setOrgMeta(prev => ({
+          ...prev,
+          [org]: {
+            authenticatedAs: cached.data.authenticatedAs,
+            isUserNamespace: cached.data.isUserNamespace,
+          },
+        }))
         return
       }
 
@@ -128,9 +138,16 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
       try {
         const config = { accounts }
         const client = new GitHubClient(config, 7)
-        const repos = await client.fetchOrgRepos(org)
-        setOrgRepos(prev => ({ ...prev, [org]: repos }))
-        dataCache.set(`org-repos:${org}`, repos)
+        const result = await client.fetchOrgRepos(org)
+        setOrgRepos(prev => ({ ...prev, [org]: result.repos }))
+        setOrgMeta(prev => ({
+          ...prev,
+          [org]: {
+            authenticatedAs: result.authenticatedAs,
+            isUserNamespace: result.isUserNamespace,
+          },
+        }))
+        dataCache.set(`org-repos:${org}`, result)
       } catch (error) {
         console.error(`Failed to fetch repos for ${org}:`, error)
         setOrgRepos(prev => ({ ...prev, [org]: [] }))
@@ -288,6 +305,7 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
                   const isOrgExpanded = expandedOrgs.has(org)
                   const isLoading = loadingOrgs.has(org)
                   const repos = orgRepos[org] ?? []
+                  const meta = orgMeta[org]
                   const filteredRepos = showBookmarkedOnly
                     ? repos.filter(r => bookmarkedRepoKeys.has(`${org}/${r.name}`))
                     : repos
@@ -302,6 +320,14 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
                           {isOrgExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
                         </span>
                         <span className="sidebar-item-label">{org}</span>
+                        {meta?.isUserNamespace && (
+                          <span
+                            className="sidebar-namespace-badge"
+                            title="User account (not an org)"
+                          >
+                            user
+                          </span>
+                        )}
                         {isLoading && <Loader2 size={12} className="spin" />}
                         {!isLoading && repos.length > 0 && (
                           <span className="sidebar-item-count">
@@ -309,6 +335,14 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
                           </span>
                         )}
                       </div>
+                      {meta && !isLoading && (
+                        <div
+                          className="sidebar-org-account"
+                          title={`Authenticated via @${meta.authenticatedAs}`}
+                        >
+                          via @{meta.authenticatedAs}
+                        </div>
+                      )}
                       {isOrgExpanded && (
                         <div className="sidebar-org-repos">
                           {isLoading ? (

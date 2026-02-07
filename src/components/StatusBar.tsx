@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react'
-import { GitPullRequest, Calendar, Clock, Bot, Zap } from 'lucide-react'
+import { GitPullRequest, Calendar, Clock, Bot, Zap, User } from 'lucide-react'
 import './StatusBar.css'
 
 interface StatusBarProps {
   prCount?: number
   scheduleCount?: number
   jobCount?: number
+  activeGitHubAccount?: string | null
 }
 
-export function StatusBar({ prCount = 0, scheduleCount = 0, jobCount = 0 }: StatusBarProps) {
+export function StatusBar({
+  prCount = 0,
+  scheduleCount = 0,
+  jobCount = 0,
+  activeGitHubAccount,
+}: StatusBarProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
 
   useEffect(() => {
@@ -64,6 +70,22 @@ export function StatusBar({ prCount = 0, scheduleCount = 0, jobCount = 0 }: Stat
           </span>
           <span className="status-text">{jobCount} jobs</span>
         </div>
+
+        {/* Active GitHub Account */}
+        {activeGitHubAccount && (
+          <>
+            <div className="status-divider" />
+            <div
+              className="status-item status-item-github-account"
+              data-tooltip="Active GitHub CLI Account (used for Copilot CLI, git operations)"
+            >
+              <span className="status-icon">
+                <User size={12} />
+              </span>
+              <span className="status-text">@{activeGitHubAccount}</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="status-bar-center">

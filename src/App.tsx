@@ -19,6 +19,7 @@ import { useSchedules, useJobs } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
 import { usePRSettings } from './hooks/useConfig'
+import { GitHubClient } from './api/github'
 import { dataCache } from './services/dataCache'
 import type { PullRequest } from './types/pullRequest'
 import './App.css'
@@ -153,6 +154,21 @@ function App() {
 
   // Prefetch PR data in background on app startup
   usePrefetch()
+
+  // Track the active GitHub CLI account (for Copilot CLI credit transparency)
+  const [activeGitHubAccount, setActiveGitHubAccount] = useState<string | null>(null)
+  useEffect(() => {
+    GitHubClient.getActiveCliAccount()
+      .then(setActiveGitHubAccount)
+      .catch(() => {})
+    // Re-check every 30 seconds in case user switches account externally
+    const timer = setInterval(() => {
+      GitHubClient.getActiveCliAccount()
+        .then(setActiveGitHubAccount)
+        .catch(() => {})
+    }, 30_000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Load theme from config on mount
   useEffect(() => {
@@ -469,6 +485,7 @@ function App() {
         prCount={Object.values(prCounts).reduce((a, b) => a + b, 0)}
         scheduleCount={schedules?.length ?? 0}
         jobCount={jobs?.length ?? 0}
+        activeGitHubAccount={activeGitHubAccount}
       />
     </div>
   )

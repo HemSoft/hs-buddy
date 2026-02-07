@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import type { PullRequest } from '../types/pullRequest'
 import { GitHubClient, type ProgressCallback } from '../api/github'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
+import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { dataCache } from '../services/dataCache'
 import './PullRequestList.css'
-import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw } from 'lucide-react'
+import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw, Star } from 'lucide-react'
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged'
@@ -13,14 +14,14 @@ interface PullRequestListProps {
 }
 
 interface LoadingProgress {
-  currentAccount: number;
-  totalAccounts: number;
-  accountName: string;
-  org: string;
-  status: 'authenticating' | 'fetching' | 'done' | 'error';
-  prsFound?: number;
-  totalPrsFound: number;
-  error?: string;
+  currentAccount: number
+  totalAccounts: number
+  accountName: string
+  org: string
+  status: 'authenticating' | 'fetching' | 'done' | 'error'
+  prsFound?: number
+  totalPrsFound: number
+  error?: string
 }
 
 export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
@@ -32,20 +33,41 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   const [progress, setProgress] = useState<LoadingProgress | null>(null)
   const [totalPrsFound, setTotalPrsFound] = useState(0)
   const [forceRefresh, setForceRefresh] = useState(0) // Manual refresh trigger
-  const [updateTimes, setUpdateTimes] = useState<{ lastUpdated: string; nextUpdate: string; progress: number } | null>(null)
+  const [updateTimes, setUpdateTimes] = useState<{
+    lastUpdated: string
+    nextUpdate: string
+    progress: number
+  } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
+    null
+  )
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
   const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
+  const bookmarks = useRepoBookmarks()
+  const { create: createBookmark, remove: removeBookmark } = useRepoBookmarkMutations()
   const { enqueue, cancelAll } = useTaskQueue('github')
   const fetchIdRef = useRef(0) // Track fetch operation to ignore stale results
   const fetchInProgressRef = useRef(false) // Guard against duplicate fetches (StrictMode)
-  
+
+  // Build bookmarked repo keys for quick lookup
+  const bookmarkedRepoKeys = useMemo(
+    () => new Set((bookmarks ?? []).map(b => `${b.owner}/${b.repo}`)),
+    [bookmarks]
+  )
+
   // Refs for callbacks to avoid triggering effect re-runs
   const onCountChangeRef = useRef(onCountChange)
   const enqueueRef = useRef(enqueue)
   const cancelAllRef = useRef(cancelAll)
-  useEffect(() => { onCountChangeRef.current = onCountChange }, [onCountChange])
-  useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
-  useEffect(() => { cancelAllRef.current = cancelAll }, [cancelAll])
+  useEffect(() => {
+    onCountChangeRef.current = onCountChange
+  }, [onCountChange])
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
+  useEffect(() => {
+    cancelAllRef.current = cancelAll
+  }, [cancelAll])
 
   // Format time as HH:MM AM/PM
   const formatTime = useCallback((timestamp: number) => {
@@ -67,7 +89,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   // Subscribe to dataCache updates from prefetch service
   // When prefetch completes for this mode, update our state without re-fetching
   useEffect(() => {
-    const unsubscribe = dataCache.subscribe((key) => {
+    const unsubscribe = dataCache.subscribe(key => {
       if (key === mode) {
         const updated = dataCache.get<PullRequest[]>(mode)
         if (updated?.data) {
@@ -88,40 +110,71 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
       if (cached && refreshInterval) {
         const now = Date.now()
         const lastUpdated = formatTime(cached.fetchedAt)
-        const nextUpdateTimestamp = cached.fetchedAt + (refreshInterval * 60 * 1000)
+        const nextUpdateTimestamp = cached.fetchedAt + refreshInterval * 60 * 1000
         const nextUpdate = formatTime(nextUpdateTimestamp)
-        
+
         // Calculate progress (0 = just updated, 100 = time for next update)
         const totalInterval = refreshInterval * 60 * 1000
         const elapsed = now - cached.fetchedAt
         const progress = Math.min(100, Math.max(0, (elapsed / totalInterval) * 100))
-        
+
         setUpdateTimes({ lastUpdated, nextUpdate, progress })
       } else {
         setUpdateTimes(null)
       }
     }
-    
+
     updateTimesDisplay()
     // Update every 5 seconds to keep progress bar smooth
     const interval = setInterval(updateTimesDisplay, 5000)
     return () => clearInterval(interval)
   }, [mode, prs, refreshInterval, formatTime])
 
-  const handleProgress: ProgressCallback = useCallback((p) => {
+  const handleProgress: ProgressCallback = useCallback(p => {
     setProgress(prev => {
       // Calculate cumulative total
-      let newTotal = prev?.totalPrsFound ?? 0;
+      let newTotal = prev?.totalPrsFound ?? 0
       if (p.status === 'done' && p.prsFound !== undefined) {
-        newTotal += p.prsFound;
+        newTotal += p.prsFound
       }
-      setTotalPrsFound(newTotal);
-      return { ...p, totalPrsFound: newTotal };
-    });
+      setTotalPrsFound(newTotal)
+      return { ...p, totalPrsFound: newTotal }
+    })
   }, [])
 
   const handleManualRefresh = useCallback(() => {
     setForceRefresh(prev => prev + 1)
+  }, [])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, pr: PullRequest) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, pr })
+  }, [])
+
+  const handleBookmarkRepo = useCallback(async () => {
+    if (!contextMenu) return
+    const { pr } = contextMenu
+    const org = pr.org || ''
+    const repoName = pr.repository
+    const key = `${org}/${repoName}`
+
+    if (bookmarkedRepoKeys.has(key)) {
+      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
+      if (bookmark) await removeBookmark({ id: bookmark._id })
+    } else {
+      await createBookmark({
+        folder: org,
+        owner: org,
+        repo: repoName,
+        url: pr.url.replace(/\/pull\/\d+$/, ''),
+        description: '',
+      })
+    }
+    setContextMenu(null)
+  }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark])
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
   }, [])
 
   useEffect(() => {
@@ -139,11 +192,11 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     // Check if we have fresh cached data (unless force refresh)
     const cached = dataCache.get<PullRequest[]>(mode)
     const isForceRefresh = forceRefresh > 0
-    
+
     if (cached && !isForceRefresh) {
       const intervalMs = refreshInterval * 60 * 1000
       const timeSinceLastFetch = Date.now() - cached.fetchedAt
-      
+
       // If cached data is fresh enough, use it and skip fetch
       if (timeSinceLastFetch < intervalMs) {
         console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
@@ -194,11 +247,19 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         }
 
         const githubClient = new GitHubClient(config.github, recentlyMergedDays)
-        console.log('Fetching PRs for', accounts.length, 'account(s)...', 'mode:', mode, 'recentlyMergedDays:', recentlyMergedDays);
-        
+        console.log(
+          'Fetching PRs for',
+          accounts.length,
+          'account(s)...',
+          'mode:',
+          mode,
+          'recentlyMergedDays:',
+          recentlyMergedDays
+        )
+
         // Enqueue the fetch operation to prevent concurrent API calls
         const results = await enqueueRef.current(
-          async (signal) => {
+          async signal => {
             // Re-check freshness right before executing.
             // The prefetch service may have already updated this data while
             // this task was waiting in the queue.
@@ -206,7 +267,9 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
             if (freshCheck && !isForceRefresh) {
               const intervalMs = refreshInterval * 60 * 1000
               if (Date.now() - freshCheck.fetchedAt < intervalMs) {
-                console.log(`[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`)
+                console.log(
+                  `[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`
+                )
                 return freshCheck.data
               }
             }
@@ -216,31 +279,31 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               throw new DOMException('Fetch cancelled', 'AbortError')
             }
 
-            let prs: PullRequest[];
+            let prs: PullRequest[]
             switch (mode) {
               case 'needs-review':
-                prs = await githubClient.fetchNeedsReview(handleProgress);
-                break;
+                prs = await githubClient.fetchNeedsReview(handleProgress)
+                break
               case 'recently-merged':
-                prs = await githubClient.fetchRecentlyMerged(handleProgress);
-                break;
+                prs = await githubClient.fetchRecentlyMerged(handleProgress)
+                break
               case 'my-prs':
               default:
-                prs = await githubClient.fetchMyPRs(handleProgress);
-                break;
+                prs = await githubClient.fetchMyPRs(handleProgress)
+                break
             }
-            return prs;
+            return prs
           },
           { name: `fetch-${mode}` }
-        );
-        
+        )
+
         // Ignore results if a newer fetch has started
         if (currentFetchId !== fetchIdRef.current) {
-          console.log('Ignoring stale fetch result for', mode);
-          return;
+          console.log('Ignoring stale fetch result for', mode)
+          return
         }
 
-        console.log('Found PRs:', results.length);
+        console.log('Found PRs:', results.length)
 
         // For recently-merged, keep the date sort from the API (newest first)
         // For other modes, sort by repository then PR number
@@ -261,12 +324,12 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
       } catch (err) {
         // Ignore cancellation errors
         if (err instanceof DOMException && err.name === 'AbortError') {
-          console.log('Fetch cancelled for', mode);
-          return;
+          console.log('Fetch cancelled for', mode)
+          return
         }
         // Ignore if a newer fetch has started
         if (currentFetchId !== fetchIdRef.current) {
-          return;
+          return
         }
         setError(err instanceof Error ? err.message : 'Failed to fetch PRs')
         console.error('Error fetching PRs:', err)
@@ -289,7 +352,15 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     }
     // Only re-fetch when these values actually change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, accounts, accountsLoading, recentlyMergedDays, prSettingsLoading, forceRefresh, refreshInterval])
+  }, [
+    mode,
+    accounts,
+    accountsLoading,
+    recentlyMergedDays,
+    prSettingsLoading,
+    forceRefresh,
+    refreshInterval,
+  ])
 
   // Auto-refresh interval timer
   useEffect(() => {
@@ -335,10 +406,14 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   }
 
   if (loading) {
-    const progressPercent = progress 
-      ? Math.round(((progress.currentAccount - (progress.status === 'done' ? 0 : 1)) / progress.totalAccounts) * 100)
-      : 0;
-    
+    const progressPercent = progress
+      ? Math.round(
+          ((progress.currentAccount - (progress.status === 'done' ? 0 : 1)) /
+            progress.totalAccounts) *
+            100
+        )
+      : 0
+
     return (
       <div className="pr-list-container">
         <div className="pr-list-header">
@@ -360,13 +435,11 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                 {progress.status === 'error' && `Error: ${progress.error}`}
               </p>
               <div className="progress-bar-container">
-                <div 
-                  className="progress-bar" 
-                  style={{ width: `${progressPercent}%` }}
-                />
+                <div className="progress-bar" style={{ width: `${progressPercent}%` }} />
               </div>
               <p className="progress-detail">
-                Account {progress.currentAccount} of {progress.totalAccounts}: {progress.accountName} ({progress.org})
+                Account {progress.currentAccount} of {progress.totalAccounts}:{' '}
+                {progress.accountName} ({progress.org})
               </p>
               {totalPrsFound > 0 && (
                 <p className="progress-total">
@@ -401,19 +474,21 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                 You need to configure at least one GitHub account in Settings.
               </p>
               <p className="hint">
-                On first launch, environment variables (VITE_GITHUB_USERNAME, VITE_GITHUB_ORG)
-                will be migrated to the config automatically.
+                On first launch, environment variables (VITE_GITHUB_USERNAME, VITE_GITHUB_ORG) will
+                be migrated to the config automatically.
               </p>
             </>
           )}
           {accounts.length > 0 && (
             <>
-              <p className="error-hint">
-                Make sure you're authenticated with GitHub CLI:
-              </p>
+              <p className="error-hint">Make sure you're authenticated with GitHub CLI:</p>
               <ul>
-                <li><code>gh auth status</code> - Check authentication status</li>
-                <li><code>gh auth login</code> - Log in to GitHub</li>
+                <li>
+                  <code>gh auth status</code> - Check authentication status
+                </li>
+                <li>
+                  <code>gh auth login</code> - Log in to GitHub
+                </li>
               </ul>
             </>
           )}
@@ -438,17 +513,22 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                   <span className="update-time">{updateTimes.nextUpdate}</span>
                 </div>
                 <div className="update-progress-track">
-                  <div 
-                    className="update-progress-bar" 
-                    style={{ 
+                  <div
+                    className="update-progress-bar"
+                    style={{
                       width: `${updateTimes.progress}%`,
-                      backgroundColor: getProgressColor(updateTimes.progress)
+                      backgroundColor: getProgressColor(updateTimes.progress),
                     }}
                   />
                 </div>
               </div>
             )}
-            <button className="refresh-button" onClick={handleManualRefresh} title="Refresh" disabled={refreshing}>
+            <button
+              className="refresh-button"
+              onClick={handleManualRefresh}
+              title="Refresh"
+              disabled={refreshing}
+            >
               {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
             </button>
           </div>
@@ -481,30 +561,57 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                 <span className="update-time">{updateTimes.nextUpdate}</span>
               </div>
               <div className="update-progress-track">
-                <div 
-                  className="update-progress-bar" 
-                  style={{ 
+                <div
+                  className="update-progress-bar"
+                  style={{
                     width: `${updateTimes.progress}%`,
-                    backgroundColor: getProgressColor(updateTimes.progress)
+                    backgroundColor: getProgressColor(updateTimes.progress),
                   }}
                 />
               </div>
             </div>
           )}
-          <button className="refresh-button" onClick={handleManualRefresh} title="Refresh" disabled={refreshing}>
+          <button
+            className="refresh-button"
+            onClick={handleManualRefresh}
+            title="Refresh"
+            disabled={refreshing}
+          >
             {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
           </button>
         </div>
       </div>
       <div className="pr-list">
-        {prs.map((pr) => (
-          <div 
-            key={`${pr.source}-${pr.id}-${pr.repository}`} 
+        {/* Context Menu Overlay */}
+        {contextMenu && (
+          <>
+            <div className="pr-context-menu-overlay" onClick={closeContextMenu} />
+            <div className="pr-context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
+              <button onClick={handleBookmarkRepo}>
+                <Star
+                  size={14}
+                  fill={
+                    bookmarkedRepoKeys.has(`${contextMenu.pr.org}/${contextMenu.pr.repository}`)
+                      ? 'currentColor'
+                      : 'none'
+                  }
+                />
+                {bookmarkedRepoKeys.has(`${contextMenu.pr.org}/${contextMenu.pr.repository}`)
+                  ? `Unbookmark ${contextMenu.pr.repository}`
+                  : `Bookmark ${contextMenu.pr.repository}`}
+              </button>
+            </div>
+          </>
+        )}
+        {prs.map(pr => (
+          <div
+            key={`${pr.source}-${pr.id}-${pr.repository}`}
             className="pr-item"
             onClick={() => window.shell.openExternal(pr.url)}
+            onContextMenu={e => handleContextMenu(e, pr)}
             role="link"
             tabIndex={0}
-            onKeyDown={(e) => {
+            onKeyDown={e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 window.shell.openExternal(pr.url)
@@ -521,9 +628,9 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               </div>
               <div className="pr-meta">
                 {pr.orgAvatarUrl ? (
-                  <img 
-                    src={pr.orgAvatarUrl} 
-                    alt={pr.org || pr.source} 
+                  <img
+                    src={pr.orgAvatarUrl}
+                    alt={pr.org || pr.source}
                     className="pr-org-avatar"
                     title={pr.org}
                   />
@@ -534,11 +641,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                 <span className="pr-number">#{pr.id}</span>
                 <span className="pr-author">
                   {pr.authorAvatarUrl && (
-                    <img 
-                      src={pr.authorAvatarUrl} 
-                      alt={pr.author}
-                      className="pr-author-avatar"
-                    />
+                    <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-author-avatar" />
                   )}
                   {pr.author}
                 </span>

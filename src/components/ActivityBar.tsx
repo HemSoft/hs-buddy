@@ -1,4 +1,4 @@
-import { GitPullRequest, Zap, CheckSquare, BarChart3, Bot, Settings } from 'lucide-react'
+import { Github, Zap, CheckSquare, BarChart3, Bot, Settings } from 'lucide-react'
 import { useState } from 'react'
 import './ActivityBar.css'
 
@@ -8,7 +8,7 @@ interface ActivityBarProps {
 }
 
 const sections = [
-  { id: 'pull-requests', label: 'Pull Requests', icon: GitPullRequest },
+  { id: 'github', label: 'GitHub', icon: Github },
   { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'insights', label: 'Insights', icon: BarChart3 },
@@ -37,13 +37,13 @@ export function ActivityBar({ selectedSection, onSectionSelect }: ActivityBarPro
         {sections.map(section => {
           const Icon = section.icon
           const isActive = selectedSection === section.id
-          
+
           return (
             <button
               key={section.id}
               className={`activity-bar-item ${isActive ? 'active' : ''}`}
               onClick={() => onSectionSelect(section.id)}
-              onMouseEnter={(e) => handleMouseEnter(section.id, e)}
+              onMouseEnter={e => handleMouseEnter(section.id, e)}
               onMouseLeave={handleMouseLeave}
               aria-label={section.label}
             >
@@ -52,13 +52,10 @@ export function ActivityBar({ selectedSection, onSectionSelect }: ActivityBarPro
           )
         })}
       </div>
-      
+
       {/* Custom Tooltip */}
       {hoveredItem && tooltipPosition && (
-        <div 
-          className="activity-bar-tooltip"
-          style={{ top: tooltipPosition.top }}
-        >
+        <div className="activity-bar-tooltip" style={{ top: tooltipPosition.top }}>
           {sections.find(s => s.id === hoveredItem)?.label}
         </div>
       )}

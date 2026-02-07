@@ -1,5 +1,21 @@
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus, Bookmark } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Folder,
+  FolderOpen,
+  Plus,
+  Star,
+  Filter,
+  GitPullRequest,
+  Building2,
+  Loader2,
+} from 'lucide-react'
+import { useState, useEffect, useCallback } from "react";
+import { useGitHubAccounts } from '../hooks/useConfig'
+import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
+import { GitHubClient, type OrgRepo } from '../api/github'
+import { dataCache } from '../services/dataCache'
 import './SidebarPanel.css'
 
 interface SidebarPanelProps {
@@ -17,60 +33,351 @@ interface SidebarItem {
 }
 
 const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
-  'pull-requests': {
-    title: 'Pull Requests',
-    items: [
-      { id: 'pr-my-prs', label: 'My PRs' },
-      { id: 'pr-needs-review', label: 'Needs Review' },
-      { id: 'pr-recently-merged', label: 'Recently Merged' },
-      { id: 'pr-repos-of-interest', label: 'Repos of Interest' },
-    ]
+  github: {
+    title: 'GitHub',
+    items: [], // Rendered specially — see GitHubSidebar below
   },
-  'skills': {
+  skills: {
     title: 'Skills',
     items: [
       { id: 'skills-browser', label: 'Browse Skills' },
       { id: 'skills-recent', label: 'Recently Used' },
       { id: 'skills-favorites', label: 'Favorites' },
-    ]
+    ],
   },
-  'tasks': {
+  tasks: {
     title: 'Tasks',
     items: [
       { id: 'tasks-today', label: 'Today' },
       { id: 'tasks-upcoming', label: 'Upcoming' },
       { id: 'tasks-projects', label: 'Projects' },
-    ]
+    ],
   },
-  'insights': {
+  insights: {
     title: 'Insights',
     items: [
       { id: 'insights-productivity', label: 'Productivity' },
       { id: 'insights-activity', label: 'Activity' },
-    ]
+    ],
   },
-  'automation': {
+  automation: {
     title: 'Automation',
     items: [
       { id: 'automation-jobs', label: 'Jobs' },
       { id: 'automation-schedules', label: 'Schedules' },
       { id: 'automation-runs', label: 'Runs' },
-    ]
+    ],
   },
-  'settings': {
+  settings: {
     title: 'Settings',
     items: [
       { id: 'settings-accounts', label: 'Accounts' },
       { id: 'settings-appearance', label: 'Appearance' },
       { id: 'settings-pullrequests', label: 'Pull Requests' },
       { id: 'settings-advanced', label: 'Advanced' },
-    ]
-  }
+    ],
+  },
 }
 
-export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {}, badgeProgress = {}, onCreateNew }: SidebarPanelProps) {
+// ── GitHub Sidebar sub-component ──────────────────────────────────────────
+
+interface GitHubSidebarProps {
+  onItemSelect: (itemId: string) => void
+  selectedItem: string | null
+  counts: Record<string, number>
+  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+}
+
+function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: GitHubSidebarProps) {
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(['pull-requests', 'organizations'])
+  )
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set())
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false)
+  const [orgRepos, setOrgRepos] = useState<Record<string, OrgRepo[]>>({})
+  const [loadingOrgs, setLoadingOrgs] = useState<Set<string>>(new Set())
+  const { accounts } = useGitHubAccounts()
+  const bookmarks = useRepoBookmarks()
+  const { create: createBookmark, remove: removeBookmark } = useRepoBookmarkMutations()
+
+  // Get unique orgs from accounts
+  const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
+
+  // Build a set of bookmarked repo keys for quick lookup: "org/repo"
+  const bookmarkedRepoKeys = new Set((bookmarks ?? []).map(b => `${b.owner}/${b.repo}`))
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(sectionId)) next.delete(sectionId)
+      else next.add(sectionId)
+      return next
+    })
+  }
+
+  const fetchOrgRepos = useCallback(
+    async (org: string) => {
+      // Check dataCache first
+      const cached = dataCache.get<OrgRepo[]>(`org-repos:${org}`)
+      if (cached?.data) {
+        setOrgRepos(prev => ({ ...prev, [org]: cached.data }))
+        return
+      }
+
+      setLoadingOrgs(prev => new Set([...prev, org]))
+      try {
+        const config = { accounts }
+        const client = new GitHubClient(config, 7)
+        const repos = await client.fetchOrgRepos(org)
+        setOrgRepos(prev => ({ ...prev, [org]: repos }))
+        dataCache.set(`org-repos:${org}`, repos)
+      } catch (error) {
+        console.error(`Failed to fetch repos for ${org}:`, error)
+        setOrgRepos(prev => ({ ...prev, [org]: [] }))
+      } finally {
+        setLoadingOrgs(prev => {
+          const next = new Set(prev)
+          next.delete(org)
+          return next
+        })
+      }
+    },
+    [accounts]
+  )
+
+  const toggleOrg = useCallback(
+    (org: string) => {
+      setExpandedOrgs(prev => {
+        const next = new Set(prev)
+        if (next.has(org)) {
+          next.delete(org)
+        } else {
+          next.add(org)
+          // Fetch repos if not cached
+          if (!orgRepos[org]) {
+            fetchOrgRepos(org)
+          }
+        }
+        return next
+      })
+    },
+    [orgRepos, fetchOrgRepos]
+  )
+
+  const handleBookmarkToggle = async (
+    e: React.MouseEvent,
+    org: string,
+    repoName: string,
+    repoUrl: string
+  ) => {
+    e.stopPropagation()
+    const key = `${org}/${repoName}`
+    if (bookmarkedRepoKeys.has(key)) {
+      // Remove bookmark
+      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
+      if (bookmark) {
+        await removeBookmark({ id: bookmark._id })
+      }
+    } else {
+      // Add bookmark
+      await createBookmark({
+        folder: org,
+        owner: org,
+        repo: repoName,
+        url: repoUrl,
+        description: '',
+      })
+    }
+  }
+
+  const prItems: SidebarItem[] = [
+    { id: 'pr-my-prs', label: 'My PRs' },
+    { id: 'pr-needs-review', label: 'Needs Review' },
+    { id: 'pr-recently-merged', label: 'Recently Merged' },
+  ]
+
+  return (
+    <div className="sidebar-panel">
+      <div className="sidebar-panel-header">
+        <h2>GITHUB</h2>
+      </div>
+      <div className="sidebar-panel-content">
+        {/* Pull Requests group */}
+        <div className="sidebar-section">
+          <div className="sidebar-section-header" onClick={() => toggleSection('pull-requests')}>
+            <div className="sidebar-section-title">
+              {expandedSections.has('pull-requests') ? (
+                <ChevronDown size={14} />
+              ) : (
+                <ChevronRight size={14} />
+              )}
+              <span className="sidebar-section-icon">
+                <GitPullRequest size={16} />
+              </span>
+              <span>Pull Requests</span>
+            </div>
+          </div>
+          {expandedSections.has('pull-requests') && (
+            <div className="sidebar-section-items">
+              {prItems.map(item => (
+                <div
+                  key={item.id}
+                  className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
+                  onClick={() => onItemSelect(item.id)}
+                >
+                  <span className="sidebar-item-icon">
+                    <FileText size={14} />
+                  </span>
+                  <span className="sidebar-item-label">{item.label}</span>
+                  {counts[item.id] !== undefined &&
+                    (badgeProgress[item.id] ? (
+                      <span
+                        className="sidebar-item-count-ring"
+                        style={
+                          {
+                            '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                            '--ring-color': badgeProgress[item.id].color,
+                          } as React.CSSProperties
+                        }
+                        title={badgeProgress[item.id].tooltip}
+                      >
+                        <span className="sidebar-item-count">{counts[item.id]}</span>
+                      </span>
+                    ) : (
+                      <span className="sidebar-item-count">{counts[item.id]}</span>
+                    ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Organizations group */}
+        <div className="sidebar-section">
+          <div className="sidebar-section-header" onClick={() => toggleSection('organizations')}>
+            <div className="sidebar-section-title">
+              {expandedSections.has('organizations') ? (
+                <ChevronDown size={14} />
+              ) : (
+                <ChevronRight size={14} />
+              )}
+              <span className="sidebar-section-icon">
+                <Building2 size={16} />
+              </span>
+              <span>Organizations</span>
+            </div>
+            <button
+              className={`sidebar-filter-btn ${showBookmarkedOnly ? 'active' : ''}`}
+              onClick={e => {
+                e.stopPropagation()
+                setShowBookmarkedOnly(prev => !prev)
+              }}
+              title={showBookmarkedOnly ? 'Showing bookmarked only' : 'Showing all repos'}
+            >
+              <Filter size={14} />
+            </button>
+          </div>
+          {expandedSections.has('organizations') && (
+            <div className="sidebar-section-items">
+              {uniqueOrgs.length === 0 ? (
+                <div className="sidebar-item sidebar-item-empty">
+                  <span className="sidebar-item-label">No accounts configured</span>
+                </div>
+              ) : (
+                uniqueOrgs.map(org => {
+                  const isOrgExpanded = expandedOrgs.has(org)
+                  const isLoading = loadingOrgs.has(org)
+                  const repos = orgRepos[org] ?? []
+                  const filteredRepos = showBookmarkedOnly
+                    ? repos.filter(r => bookmarkedRepoKeys.has(`${org}/${r.name}`))
+                    : repos
+
+                  return (
+                    <div key={org} className="sidebar-org-group">
+                      <div className="sidebar-item sidebar-org-item" onClick={() => toggleOrg(org)}>
+                        <span className="sidebar-item-icon">
+                          {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        </span>
+                        <span className="sidebar-item-icon">
+                          {isOrgExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
+                        </span>
+                        <span className="sidebar-item-label">{org}</span>
+                        {isLoading && <Loader2 size={12} className="spin" />}
+                        {!isLoading && repos.length > 0 && (
+                          <span className="sidebar-item-count">
+                            {showBookmarkedOnly ? filteredRepos.length : repos.length}
+                          </span>
+                        )}
+                      </div>
+                      {isOrgExpanded && (
+                        <div className="sidebar-org-repos">
+                          {isLoading ? (
+                            <div className="sidebar-item sidebar-item-empty">
+                              <Loader2 size={12} className="spin" />
+                              <span className="sidebar-item-label">Loading repos...</span>
+                            </div>
+                          ) : filteredRepos.length === 0 ? (
+                            <div className="sidebar-item sidebar-item-empty">
+                              <span className="sidebar-item-label">
+                                {showBookmarkedOnly ? 'No bookmarked repos' : 'No repos found'}
+                              </span>
+                            </div>
+                          ) : (
+                            filteredRepos.map(repo => {
+                              const isBookmarked = bookmarkedRepoKeys.has(`${org}/${repo.name}`)
+                              return (
+                                <div
+                                  key={repo.name}
+                                  className="sidebar-item sidebar-repo-item"
+                                  onClick={() => window.shell?.openExternal(repo.url)}
+                                  title={repo.description || repo.fullName}
+                                >
+                                  <span className="sidebar-item-icon">
+                                    <FileText size={12} />
+                                  </span>
+                                  <span className="sidebar-item-label">{repo.name}</span>
+                                  {repo.language && (
+                                    <span className="sidebar-repo-lang">{repo.language}</span>
+                                  )}
+                                  <button
+                                    className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+                                    onClick={e => handleBookmarkToggle(e, org, repo.name, repo.url)}
+                                    title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
+                                  >
+                                    <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
+                                  </button>
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main SidebarPanel ─────────────────────────────────────────────────────
+
+export function SidebarPanel({
+  section,
+  onItemSelect,
+  selectedItem,
+  counts = {},
+  badgeProgress = {},
+  onCreateNew,
+}: SidebarPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(
+    null
+  )
   const data = sectionData[section]
 
   // Auto-expand section when it changes
@@ -83,6 +390,18 @@ export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {},
 
   if (!data) {
     return null
+  }
+
+  // Special rendering for the GitHub section
+  if (section === 'github') {
+    return (
+      <GitHubSidebar
+        onItemSelect={onItemSelect}
+        selectedItem={selectedItem}
+        counts={counts}
+        badgeProgress={badgeProgress}
+      />
+    )
   }
 
   const toggleSection = (sectionId: string) => {
@@ -128,10 +447,7 @@ export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {},
       {contextMenu && (
         <>
           <div className="context-menu-overlay" onClick={closeContextMenu} />
-          <div
-            className="context-menu"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-          >
+          <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
             <button onClick={handleCreateNew}>
               <Plus size={14} />
               {contextMenu.itemId === 'automation-schedules' ? 'New Schedule' : 'New Job'}
@@ -144,10 +460,7 @@ export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {},
       </div>
       <div className="sidebar-panel-content">
         <div className="sidebar-section">
-          <div 
-            className="sidebar-section-header"
-            onClick={() => toggleSection(section)}
-          >
+          <div className="sidebar-section-header" onClick={() => toggleSection(section)}>
             <div className="sidebar-section-title">
               {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span className="sidebar-section-icon">
@@ -163,28 +476,29 @@ export function SidebarPanel({ section, onItemSelect, selectedItem, counts = {},
                   key={item.id}
                   className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
                   onClick={() => onItemSelect(item.id)}
-                  onContextMenu={(e) => handleContextMenu(e, item.id)}
+                  onContextMenu={e => handleContextMenu(e, item.id)}
                 >
                   <span className="sidebar-item-icon">
-                    {item.id === 'pr-repos-of-interest' ? <Bookmark size={14} /> : <FileText size={14} />}
+                    <FileText size={14} />
                   </span>
                   <span className="sidebar-item-label">{item.label}</span>
-                  {counts[item.id] !== undefined && (
-                    badgeProgress[item.id] ? (
-                      <span 
+                  {counts[item.id] !== undefined &&
+                    (badgeProgress[item.id] ? (
+                      <span
                         className="sidebar-item-count-ring"
-                        style={{
-                          '--ring-progress': `${badgeProgress[item.id].progress}%`,
-                          '--ring-color': badgeProgress[item.id].color,
-                        } as React.CSSProperties}
+                        style={
+                          {
+                            '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                            '--ring-color': badgeProgress[item.id].color,
+                          } as React.CSSProperties
+                        }
                         title={badgeProgress[item.id].tooltip}
                       >
                         <span className="sidebar-item-count">{counts[item.id]}</span>
                       </span>
                     ) : (
                       <span className="sidebar-item-count">{counts[item.id]}</span>
-                    )
-                  )}
+                    ))}
                 </div>
               ))}
             </div>

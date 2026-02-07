@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, GitPullRequest, Zap, CheckSquare, Info, Settings } from 'lucide-react'
+import { ChevronDown, ChevronRight, Github, Zap, CheckSquare, Info, Settings } from 'lucide-react'
 import './TreeView.css'
 
 interface TreeItem {
@@ -11,14 +11,14 @@ interface TreeItem {
 
 const defaultTreeData: TreeItem[] = [
   {
-    id: 'pull-requests',
-    label: 'Pull Requests',
-    icon: <GitPullRequest size={16} />,
+    id: 'github',
+    label: 'GitHub',
+    icon: <Github size={16} />,
     children: [
       { id: 'pr-my-prs', label: 'My PRs' },
       { id: 'pr-needs-review', label: 'Needs Review' },
       { id: 'pr-recently-merged', label: 'Recently Merged' },
-    ]
+    ],
   },
   {
     id: 'skills',
@@ -28,7 +28,7 @@ const defaultTreeData: TreeItem[] = [
       { id: 'skills-browser', label: 'Browse Skills' },
       { id: 'skills-recent', label: 'Recently Used' },
       { id: 'skills-favorites', label: 'Favorites' },
-    ]
+    ],
   },
   {
     id: 'tasks',
@@ -38,7 +38,7 @@ const defaultTreeData: TreeItem[] = [
       { id: 'tasks-today', label: 'Today' },
       { id: 'tasks-upcoming', label: 'Upcoming' },
       { id: 'tasks-projects', label: 'Projects' },
-    ]
+    ],
   },
   {
     id: 'insights',
@@ -47,13 +47,13 @@ const defaultTreeData: TreeItem[] = [
     children: [
       { id: 'insights-productivity', label: 'Productivity' },
       { id: 'insights-activity', label: 'Activity' },
-    ]
+    ],
   },
   {
     id: 'settings',
     label: 'Settings',
     icon: <Settings size={16} />,
-  }
+  },
 ]
 
 interface TreeViewProps {
@@ -62,7 +62,7 @@ interface TreeViewProps {
 
 export function TreeView({ onItemSelect }: TreeViewProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(
-    new Set(['pull-requests', 'skills', 'tasks'])
+    new Set(['github', 'skills', 'tasks'])
   )
   const [selectedItem, setSelectedItem] = useState<string | null>('pr-my-prs')
 
@@ -117,9 +117,5 @@ export function TreeView({ onItemSelect }: TreeViewProps) {
     )
   }
 
-  return (
-    <div className="tree-view">
-      {defaultTreeData.map(item => renderTreeItem(item))}
-    </div>
-  )
+  return <div className="tree-view">{defaultTreeData.map(item => renderTreeItem(item))}</div>
 }

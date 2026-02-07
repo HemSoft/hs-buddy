@@ -41,7 +41,9 @@
   color: var(--text-secondary);
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
 }
 
 .repos-header-btn:hover {
@@ -125,9 +127,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 32px;
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+.repos-spinner {
+  animation: repos-spin 1s linear infinite;
+}
+
+@keyframes repos-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .repos-empty {
@@ -258,7 +274,9 @@
   border-radius: 4px;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, background-color 0.15s;
+  transition:
+    opacity 0.15s,
+    background-color 0.15s;
 }
 
 .repos-folder-header:hover .repos-folder-add {

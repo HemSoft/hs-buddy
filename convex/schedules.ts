@@ -245,3 +245,30 @@ export const updateLastRun = mutation({
     });
   },
 });
+
+// Advance nextRunAt to the next future occurrence (used by offline sync)
+export const advanceNextRun = mutation({
+  args: {
+    id: v.id("schedules"),
+    nextRunAt: v.number(),
+    lastRunAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const schedule = await ctx.db.get(args.id);
+    if (!schedule) {
+      throw new Error(`Schedule ${args.id} not found`);
+    }
+
+    const patch: Record<string, unknown> = {
+      nextRunAt: args.nextRunAt,
+      updatedAt: Date.now(),
+    };
+
+    if (args.lastRunAt !== undefined) {
+      patch.lastRunAt = args.lastRunAt;
+    }
+
+    await ctx.db.patch(args.id, patch);
+    return args.id;
+  },
+});

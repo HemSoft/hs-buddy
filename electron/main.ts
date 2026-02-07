@@ -6,7 +6,7 @@ import { configManager } from './config'
 import { loadZoomLevel } from './zoom'
 import { buildMenu, registerKeyboardShortcuts } from './menu'
 import { registerAllHandlers } from './ipc'
-import { getDispatcher } from './workers'
+import { getDispatcher, runOfflineSync } from './workers'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -101,8 +101,20 @@ app.whenReady().then(() => {
   // Register all IPC handlers
   registerAllHandlers(win!)
 
-  // Start the task dispatcher (polls Convex for pending runs)
-  getDispatcher().start()
+  // Process missed schedules from when the app was closed, then start polling
+  runOfflineSync()
+    .then((result) => {
+      if (result.runsCreated > 0) {
+        console.log(`[Startup] Offline sync created ${result.runsCreated} catch-up run(s)`)
+      }
+    })
+    .catch((err) => {
+      console.warn('[Startup] Offline sync failed (non-fatal):', err)
+    })
+    .finally(() => {
+      // Start the task dispatcher (polls Convex for pending runs)
+      getDispatcher().start()
+    })
 })
 
 // Stop the dispatcher when the app is quitting

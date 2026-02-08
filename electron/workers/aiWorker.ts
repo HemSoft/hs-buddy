@@ -34,19 +34,19 @@ export const aiWorker: Worker = {
     const timeout = config.timeout ?? DEFAULT_TIMEOUT
     const model = config.model ?? DEFAULT_MODEL
 
-    const args = [
-      '--prompt', config.prompt,
-      '--model', model,
-      '--allow-all',
-      '--silent',
-    ]
+    // On Windows with shell: true, spawn joins the args array with spaces
+    // WITHOUT quoting, so a multi-word prompt gets split into separate
+    // positional arguments.  Build the full command string ourselves with
+    // the prompt properly quoted.
+    const escapedPrompt = config.prompt.replace(/"/g, '\\"')
+    const commandStr = `copilot --prompt "${escapedPrompt}" --model ${model} --allow-all --silent`
 
     return new Promise<WorkerResult>((resolve) => {
       let stdout = ''
       let stderr = ''
       let killed = false
 
-      const child = spawn('copilot', args, {
+      const child = spawn(commandStr, [], {
         env: { ...process.env },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,

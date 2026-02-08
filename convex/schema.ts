@@ -87,6 +87,9 @@ export default defineSchema({
       model: v.optional(v.string()),
       maxTokens: v.optional(v.number()),
       temperature: v.optional(v.number()),
+      // ai/skill target repo (from bookmarks)
+      repoOwner: v.optional(v.string()),
+      repoName: v.optional(v.string()),
       // skill-worker
       skillName: v.optional(v.string()),
       action: v.optional(v.string()),

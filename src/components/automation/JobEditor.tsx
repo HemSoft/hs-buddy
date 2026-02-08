@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { X, Save, Package, Terminal, Brain, Zap, AlertCircle } from 'lucide-react'
 import { useJob, useJobMutations, JobId, useBuddyStatsMutations } from '../../hooks/useConvex'
+import { useCopilotSettings } from '../../hooks/useConfig'
+import { AccountPicker } from '../shared/AccountPicker'
+import { ModelPicker } from '../shared/ModelPicker'
+import { RepoPicker } from '../shared/RepoPicker'
 import './JobEditor.css'
 
 interface JobEditorProps {
@@ -26,6 +30,8 @@ interface JobConfig {
   model?: string
   maxTokens?: number
   temperature?: number
+  repoOwner?: string
+  repoName?: string
   // skill-worker
   skillName?: string
   action?: string
@@ -36,6 +42,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
   const existingJob = useJob(jobId as JobId | undefined)
   const { create, update } = useJobMutations()
   const { increment: incrementStat } = useBuddyStatsMutations()
+  const { ghAccount: defaultGhAccount, model: defaultModel } = useCopilotSettings()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -49,9 +56,9 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
   
   // ai config
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState('claude-sonnet-4.5')
-  const [maxTokens, setMaxTokens] = useState(4096)
-  const [temperature, setTemperature] = useState(0.7)
+  const [ghAccount, setGhAccount] = useState('')
+  const [model, setModel] = useState('')
+  const [targetRepo, setTargetRepo] = useState('')  // "owner/repo" format
   
   // skill config
   const [skillName, setSkillName] = useState('')
@@ -62,6 +69,14 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
   const [error, setError] = useState<string | null>(null)
 
   const isEditing = !!jobId
+
+  // Initialize defaults from Copilot settings
+  useEffect(() => {
+    if (!isEditing && !duplicateFrom) {
+      setGhAccount(defaultGhAccount)
+      setModel(defaultModel)
+    }
+  }, [defaultGhAccount, defaultModel, isEditing, duplicateFrom])
 
   // Populate form when editing or duplicating
   useEffect(() => {
@@ -80,8 +95,9 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
         
         if (source.config.prompt) setPrompt(source.config.prompt)
         if (source.config.model) setModel(source.config.model)
-        if (source.config.maxTokens) setMaxTokens(source.config.maxTokens)
-        if (source.config.temperature !== undefined) setTemperature(source.config.temperature)
+        if (source.config.repoOwner && source.config.repoName) {
+          setTargetRepo(`${source.config.repoOwner}/${source.config.repoName}`)
+        }
         
         if (source.config.skillName) setSkillName(source.config.skillName)
         if (source.config.action) setSkillAction(source.config.action)
@@ -89,12 +105,6 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
       }
     }
   }, [existingJob, duplicateFrom])
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
 
   const buildConfig = (): JobConfig => {
     switch (workerType) {
@@ -105,13 +115,15 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           timeout: timeout || undefined,
           shell,
         }
-      case 'ai':
+      case 'ai': {
+        const [repoOwner, repoName] = targetRepo ? targetRepo.split('/') : [undefined, undefined]
         return {
           prompt: prompt.trim(),
           model: model.trim() || undefined,
-          maxTokens: maxTokens || undefined,
-          temperature,
+          repoOwner,
+          repoName,
         }
+      }
       case 'skill': {
         let params: unknown = undefined
         if (skillParams.trim()) {
@@ -262,54 +274,37 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
       </div>
 
       <div className="form-group">
-        <label htmlFor="job-model">Model</label>
-        <select
-          id="job-model"
+        <label>GitHub Account</label>
+        <AccountPicker
+          value={ghAccount}
+          onChange={setGhAccount}
+          variant="select"
+        />
+        <div className="form-hint">Account determines billing and available models</div>
+      </div>
+
+      <div className="form-group">
+        <label>Model</label>
+        <ModelPicker
           value={model}
-          onChange={e => setModel(e.target.value)}
-        >
-          <optgroup label="Anthropic">
-            <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
-            <option value="claude-opus-4.5">Claude Opus 4.5</option>
-            <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
-          </optgroup>
-          <optgroup label="OpenAI">
-            <option value="gpt-5.2">GPT-5.2</option>
-            <option value="gpt-5-mini">GPT-5 Mini (Free)</option>
-            <option value="gpt-5.1-codex-max">GPT-5.1 Codex Max</option>
-          </optgroup>
-          <optgroup label="Google">
-            <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
-          </optgroup>
-        </select>
+          onChange={setModel}
+          ghAccount={ghAccount}
+          variant="select"
+          showRefresh
+        />
         <div className="form-hint">Models are accessed via GitHub Copilot</div>
       </div>
 
-      <div className="form-row-2">
-        <div className="form-group">
-          <label htmlFor="job-max-tokens">Max Tokens</label>
-          <input
-            id="job-max-tokens"
-            type="number"
-            value={maxTokens}
-            onChange={e => setMaxTokens(parseInt(e.target.value) || 4096)}
-            min={1}
-            max={100000}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="job-temperature">Temperature</label>
-          <input
-            id="job-temperature"
-            type="number"
-            value={temperature}
-            onChange={e => setTemperature(parseFloat(e.target.value) || 0.7)}
-            min={0}
-            max={2}
-            step={0.1}
-          />
-        </div>
+      <div className="form-group">
+        <label>Target Repository</label>
+        <RepoPicker
+          value={targetRepo}
+          onChange={setTargetRepo}
+          variant="select"
+          placeholder="None (no repo context)"
+          allowNone
+        />
+        <div className="form-hint">Optional: associate this job with a bookmarked repo</div>
       </div>
     </>
   )
@@ -356,7 +351,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
   )
 
   return (
-    <div className="job-editor-overlay" onClick={handleOverlayClick}>
+    <div className="job-editor-overlay">
       <div className="job-editor">
         <div className="job-editor-header">
           <div className="job-editor-title">

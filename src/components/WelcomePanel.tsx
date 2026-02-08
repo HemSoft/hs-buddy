@@ -115,14 +115,26 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
       <div className="welcome-card">
         {/* Header */}
         <div className="welcome-header">
-          <div className="welcome-icon">
-            <Users size={48} strokeWidth={2.5} />
-          </div>
-          <h1 className="welcome-app-name">Buddy</h1>
-          <div className="welcome-version-badge">Version 0.1.0</div>
-          <div className="welcome-tagline">
-            <span className="welcome-tagline-emoji">🤝</span>
-            <span>Your Universal Productivity Companion</span>
+          <div className="welcome-header-row">
+            <div className="welcome-icon">
+              <Users size={32} strokeWidth={2.5} />
+            </div>
+            <div className="welcome-header-text">
+              <h1 className="welcome-app-name">Buddy</h1>
+              <div className="welcome-tagline">
+                <span className="welcome-tagline-emoji">🤝</span>
+                <span>Your Universal Productivity Companion</span>
+              </div>
+            </div>
+            <div className="welcome-header-meta">
+              <div className="welcome-version-badge">v0.1.3</div>
+              {liveUptime > 0 && (
+                <div className="welcome-uptime-badge">
+                  <Clock size={12} />
+                  <span>{formatUptime(liveUptime)}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -130,7 +142,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
         <div className="welcome-stats-grid">
           <div className="welcome-stat-card">
             <div className="welcome-stat-icon">
-              <GitPullRequest size={20} />
+              <GitPullRequest size={18} />
             </div>
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatNumber(totalPrsViewed)}</span>
@@ -140,7 +152,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
 
           <div className="welcome-stat-card">
             <div className="welcome-stat-icon welcome-stat-icon-live">
-              <Activity size={20} />
+              <Activity size={18} />
             </div>
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatNumber(activePrs)}</span>
@@ -150,7 +162,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
 
           <div className="welcome-stat-card">
             <div className="welcome-stat-icon">
-              <Sparkles size={20} />
+              <Sparkles size={18} />
             </div>
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatNumber(copilotPrReviews)}</span>
@@ -160,7 +172,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
 
           <div className="welcome-stat-card">
             <div className="welcome-stat-icon">
-              <FolderGit2 size={20} />
+              <FolderGit2 size={18} />
             </div>
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatNumber(reposBrowsed)}</span>
@@ -170,20 +182,20 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
 
           <div className="welcome-stat-card">
             <div className="welcome-stat-icon">
-              <Play size={20} />
+              <Play size={18} />
             </div>
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatNumber(runsTriggered)}</span>
               <span className="welcome-stat-label">Runs Executed</span>
               {totalFinished > 0 && (
-                <span className="welcome-stat-subtitle">{successRate}% success</span>
+                <span className="welcome-stat-subtitle">{successRate}%</span>
               )}
             </div>
           </div>
 
           <div className="welcome-stat-card">
             <div className="welcome-stat-icon">
-              <Star size={20} />
+              <Star size={18} />
             </div>
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatNumber(bookmarks)}</span>
@@ -193,7 +205,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
 
           <div className="welcome-stat-card">
             <div className="welcome-stat-icon">
-              <Calendar size={20} />
+              <Calendar size={18} />
             </div>
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatMemberSince(firstLaunch)}</span>
@@ -207,30 +219,22 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
           </div>
         </div>
 
-        {/* Uptime Badge */}
-        {liveUptime > 0 && (
-          <div className="welcome-uptime-badge">
-            <Clock size={14} />
-            <span>{formatUptime(liveUptime)} total uptime</span>
-          </div>
-        )}
-
         {/* Quick Actions */}
         <div className="welcome-quick-actions">
           <button className="welcome-action-btn" onClick={() => handleQuickAction('my-prs')}>
-            <GitPullRequest size={18} />
+            <GitPullRequest size={16} />
             <span>My PRs</span>
           </button>
           <button className="welcome-action-btn" onClick={() => handleQuickAction('organizations')}>
-            <Building2 size={18} />
+            <Building2 size={16} />
             <span>Organizations</span>
           </button>
           <button className="welcome-action-btn" onClick={() => handleQuickAction('jobs')}>
-            <Zap size={18} />
+            <Zap size={16} />
             <span>Jobs</span>
           </button>
           <button className="welcome-action-btn" onClick={() => handleQuickAction('settings')}>
-            <Settings size={18} />
+            <Settings size={16} />
             <span>Settings</span>
           </button>
         </div>
@@ -238,7 +242,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
         {/* Footer */}
         <div className="welcome-footer">
           <span>Made with</span>
-          <Heart size={14} className="welcome-heart" />
+          <Heart size={12} className="welcome-heart" />
           <span>by HemSoft Developments</span>
         </div>
       </div>

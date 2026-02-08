@@ -82,53 +82,38 @@
   align-items: center;
   justify-content: space-between;
   margin-top: 8px;
+  gap: 8px;
 }
 
-.copilot-prompt-meta {
+/* Left side: account + model selectors */
+.copilot-prompt-selectors {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-right: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
-.copilot-model-badge {
-  font-size: 11px;
-  color: var(--text-secondary);
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-primary);
-  white-space: nowrap;
-  cursor: default;
+.copilot-model-dropdown {
+  max-width: 220px;
 }
 
-.copilot-prompt-category {
-  position: relative;
+.copilot-model-loading {
   display: flex;
   align-items: center;
-}
-
-.copilot-prompt-category svg {
-  position: absolute;
-  right: 6px;
+  gap: 4px;
+  font-size: 11px;
   color: var(--text-secondary);
-  pointer-events: none;
+  white-space: nowrap;
+  padding: 4px 8px;
 }
 
-.copilot-prompt-category select {
-  appearance: none;
-  background: var(--input-bg);
-  border: 1px solid var(--border-primary);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 12px;
-  padding: 4px 22px 4px 8px;
-  cursor: pointer;
-  outline: none;
-}
-
-.copilot-prompt-category select:focus {
-  border-color: var(--border-focus);
+/* Right side: category + submit */
+.copilot-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .copilot-prompt-submit {

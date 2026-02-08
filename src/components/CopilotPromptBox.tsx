@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Sparkles, History, ChevronDown } from 'lucide-react'
+import { Send, Loader2, Sparkles, History } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../hooks/useConvex'
 import { useCopilotSettings } from '../hooks/useConfig'
+import { AccountPicker } from './shared/AccountPicker'
+import { ModelPicker } from './shared/ModelPicker'
+import { InlineDropdown } from './InlineDropdown'
+import type { DropdownOption } from './InlineDropdown'
 import './CopilotPromptBox.css'
 
 interface CopilotPromptBoxProps {
@@ -9,7 +13,7 @@ interface CopilotPromptBoxProps {
   onOpenResult?: (resultId: string) => void
 }
 
-const CATEGORY_OPTIONS = [
+const CATEGORY_OPTIONS: DropdownOption[] = [
   { value: 'general', label: 'General' },
   { value: 'pr-review', label: 'PR Review' },
   { value: 'code-analysis', label: 'Code Analysis' },
@@ -26,6 +30,20 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
   const recentResults = useCopilotResultsRecent(10)
   const activeCount = useCopilotActiveCount()
   const { model: configuredModel, ghAccount } = useCopilotSettings()
+
+  // Local state for account/model
+  const [localAccount, setLocalAccount] = useState(ghAccount)
+  const [localModel, setLocalModel] = useState(configuredModel)
+
+  // Sync local state from Convex once it loads (one-time initialization)
+  const initializedRef = useRef(false)
+  useEffect(() => {
+    if (!initializedRef.current && configuredModel) {
+      initializedRef.current = true
+      setLocalAccount(ghAccount)
+      setLocalModel(configuredModel)
+    }
+  }, [ghAccount, configuredModel])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -46,8 +64,8 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       const result = await window.copilot.execute({
         prompt: trimmed,
         category,
-        model: configuredModel,
-        metadata: ghAccount ? { ghAccount } : undefined,
+        model: localModel,
+        metadata: localAccount ? { ghAccount: localAccount } : undefined,
       })
 
       if (result.success && result.resultId) {
@@ -123,33 +141,43 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
           disabled={submitting}
         />
         <div className="copilot-prompt-controls">
-          <div className="copilot-prompt-meta">
-            <span className="copilot-model-badge" title={`Model: ${configuredModel}${ghAccount ? ` · Account: ${ghAccount}` : ''}`}>
-              {configuredModel}
-            </span>
-          </div>
-          <div className="copilot-prompt-category">
-            <ChevronDown size={12} />
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value)}
+          <div className="copilot-prompt-selectors">
+            {/* Account selector */}
+            <AccountPicker
+              value={localAccount}
+              onChange={setLocalAccount}
               disabled={submitting}
-            >
-              {CATEGORY_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              title="GitHub account for Copilot"
+            />
+
+            {/* Model selector */}
+            <ModelPicker
+              value={localModel}
+              onChange={setLocalModel}
+              ghAccount={localAccount}
+              disabled={submitting}
+              title="Copilot model"
+              className="copilot-model-dropdown"
+            />
           </div>
-          <button
-            className="copilot-prompt-submit"
-            onClick={handleSubmit}
-            disabled={!prompt.trim() || submitting}
-            title="Send prompt (Ctrl+Enter)"
-          >
-            {submitting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-          </button>
+          <div className="copilot-prompt-actions">
+            {/* Category selector */}
+            <InlineDropdown
+              value={category}
+              options={CATEGORY_OPTIONS}
+              onChange={setCategory}
+              disabled={submitting}
+              align="right"
+            />
+            <button
+              className="copilot-prompt-submit"
+              onClick={handleSubmit}
+              disabled={!prompt.trim() || submitting}
+              title="Send prompt (Ctrl+Enter)"
+            >
+              {submitting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+            </button>
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 # Auto-bump revision and update CHANGELOG
 bun scripts/bump-revision.ts
-git add package.json src/components/AboutModal.tsx CHANGELOG.md
+git add package.json src/components/AboutModal.tsx src/components/WelcomePanel.tsx src/components/TitleBar.tsx CHANGELOG.md
 
 # Lint staged files
 npx lint-staged

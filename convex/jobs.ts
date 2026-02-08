@@ -74,6 +74,8 @@ export const create = mutation({
       model: v.optional(v.string()),
       maxTokens: v.optional(v.number()),
       temperature: v.optional(v.number()),
+      repoOwner: v.optional(v.string()),
+      repoName: v.optional(v.string()),
       // skill-worker
       skillName: v.optional(v.string()),
       action: v.optional(v.string()),
@@ -141,6 +143,8 @@ export const update = mutation({
       model: v.optional(v.string()),
       maxTokens: v.optional(v.number()),
       temperature: v.optional(v.number()),
+      repoOwner: v.optional(v.string()),
+      repoName: v.optional(v.string()),
       skillName: v.optional(v.string()),
       action: v.optional(v.string()),
       params: v.optional(v.any()),

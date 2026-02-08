@@ -2,7 +2,7 @@
  * Auto-increment the PATCH (revision) version on every commit/build.
  *
  * 1. Bumps the patch number in package.json
- * 2. Updates the version badge in AboutModal.tsx
+ * 2. Updates version strings in AboutModal.tsx, WelcomePanel.tsx, TitleBar.tsx
  * 3. Promotes [Unreleased] CHANGELOG entries into a dated version section
  *
  * Usage: bun scripts/bump-revision.ts
@@ -22,16 +22,22 @@ pkg.version = newVersion
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8')
 console.log(`✓ package.json  ${major}.${minor}.${patch} → ${newVersion}`)
 
-// --- 2. Update AboutModal.tsx ---
-const aboutPath = resolve(ROOT, 'src', 'components', 'AboutModal.tsx')
-let aboutSrc = readFileSync(aboutPath, 'utf-8')
-const versionRegex = /Version \d+\.\d+\.\d+/
-if (versionRegex.test(aboutSrc)) {
-  aboutSrc = aboutSrc.replace(versionRegex, `Version ${newVersion}`)
-  writeFileSync(aboutPath, aboutSrc, 'utf-8')
-  console.log(`✓ AboutModal.tsx  → Version ${newVersion}`)
-} else {
-  console.warn('⚠ AboutModal.tsx: version string not found, skipped')
+// --- 2. Update version strings in components ---
+const versionFiles = [
+  { path: resolve(ROOT, 'src', 'components', 'AboutModal.tsx'), pattern: /Version \d+\.\d+\.\d+/g, replacement: `Version ${newVersion}` },
+  { path: resolve(ROOT, 'src', 'components', 'WelcomePanel.tsx'), pattern: /Version \d+\.\d+\.\d+/g, replacement: `Version ${newVersion}` },
+  { path: resolve(ROOT, 'src', 'components', 'TitleBar.tsx'), pattern: /V\d+\.\d+\.\d+/g, replacement: `V${newVersion}` },
+]
+
+for (const { path: filePath, pattern, replacement } of versionFiles) {
+  if (!existsSync(filePath)) continue
+  const src = readFileSync(filePath, 'utf-8')
+  if (pattern.test(src)) {
+    pattern.lastIndex = 0 // reset regex state
+    writeFileSync(filePath, src.replace(pattern, replacement), 'utf-8')
+    const name = filePath.split(/[\\/]/).pop()
+    console.log(`✓ ${name}  → ${replacement}`)
+  }
 }
 
 // --- 3. Update CHANGELOG.md ---

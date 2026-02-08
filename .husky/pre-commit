@@ -1,1 +1,6 @@
+# Auto-bump revision
+bun scripts/bump-revision.ts
+git add package.json src/components/AboutModal.tsx
+
+# Lint staged files
 npx lint-staged

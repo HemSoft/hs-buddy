@@ -87,6 +87,7 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
       { id: 'settings-accounts', label: 'Accounts' },
       { id: 'settings-appearance', label: 'Appearance' },
       { id: 'settings-pullrequests', label: 'Pull Requests' },
+      { id: 'settings-copilot', label: 'Copilot SDK' },
       { id: 'settings-advanced', label: 'Advanced' },
     ],
   },

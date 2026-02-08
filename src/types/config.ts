@@ -49,6 +49,10 @@ export interface AppConfig {
     autoRefresh: boolean;
     recentlyMergedDays: number; // days to look back for recently merged PRs
   };
+  copilot: {
+    ghAccount: string; // GitHub CLI account username for Copilot SDK (empty = active account)
+    model: string; // LLM model to use (e.g., 'claude-sonnet-4.5', 'gpt-4o')
+  };
 }
 
 /**
@@ -174,6 +178,20 @@ export const configSchema: Schema<AppConfig> = {
     },
     required: ['refreshInterval', 'autoRefresh', 'recentlyMergedDays'],
   },
+  copilot: {
+    type: 'object',
+    properties: {
+      ghAccount: {
+        type: 'string',
+        default: '',
+      },
+      model: {
+        type: 'string',
+        default: 'claude-sonnet-4.5',
+      },
+    },
+    required: ['ghAccount', 'model'],
+  },
 };
 
 /**
@@ -204,5 +222,9 @@ export const defaultConfig: AppConfig = {
     refreshInterval: 15,
     autoRefresh: true,
     recentlyMergedDays: 7,
+  },
+  copilot: {
+    ghAccount: '', // Empty = use currently-active gh CLI account
+    model: 'claude-sonnet-4.5',
   },
 };

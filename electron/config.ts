@@ -202,6 +202,23 @@ class ConfigManager {
     this.store.set('pr.recentlyMergedDays', days);
   }
 
+  // Copilot Settings
+  getCopilotGhAccount(): string {
+    return this.store.get('copilot.ghAccount', '');
+  }
+
+  setCopilotGhAccount(account: string): void {
+    this.store.set('copilot.ghAccount', account);
+  }
+
+  getCopilotModel(): string {
+    return this.store.get('copilot.model', 'claude-sonnet-4.5');
+  }
+
+  setCopilotModel(model: string): void {
+    this.store.set('copilot.model', model);
+  }
+
   // Full config access
   getConfig(): AppConfig {
     return this.store.store;

@@ -20,6 +20,10 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execAsync = promisify(exec)
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
 const DEFAULT_MODEL = 'claude-sonnet-4.5'
@@ -72,13 +76,33 @@ class CopilotService {
   /**
    * Execute a prompt via Copilot SDK and store the result in Convex.
    *
-   * 1. Creates a "pending" record in Convex
-   * 2. Starts a CopilotClient session
-   * 3. Sends the prompt
-   * 4. Captures the response and updates Convex to "completed"
+   * 1. Optionally switches the active gh CLI account
+   * 2. Creates a "pending" record in Convex
+   * 3. Starts a CopilotClient session
+   * 4. Sends the prompt
+   * 5. Captures the response and updates Convex to "completed"
    */
   async executePrompt(request: CopilotPromptRequest): Promise<CopilotPromptResult> {
     const model = request.model ?? DEFAULT_MODEL
+
+    // Extract ghAccount from metadata if provided
+    const ghAccount = (request.metadata as { ghAccount?: string } | undefined)?.ghAccount
+
+    // 0. Switch gh CLI account if a specific account is configured
+    if (ghAccount) {
+      try {
+        console.log(`[CopilotService] Switching to gh CLI account: ${ghAccount}`)
+        await execAsync(`gh auth switch --user ${ghAccount}`, {
+          encoding: 'utf8',
+          timeout: 5000,
+        })
+        console.log(`[CopilotService] ✓ Switched to account: ${ghAccount}`)
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        console.error(`[CopilotService] ✗ Failed to switch account to ${ghAccount}:`, errorMessage)
+        // Continue anyway — the active account will be used
+      }
+    }
 
     // 1. Create pending record in Convex
     const resultId = await this.convex.mutation(api.copilotResults.create, {
@@ -235,6 +259,64 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
    */
   getActiveCount(): number {
     return this.activeRequests.size
+  }
+
+  /**
+   * List available models from the Copilot SDK.
+   *
+   * Spins up a temporary CopilotClient, calls listModels(), then stops.
+   * Results include model id, display name, capabilities, and billing info.
+   */
+  async listModels(ghAccount?: string): Promise<Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>> {
+    const TIMEOUT = 30_000
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout: listModels did not respond within 30 seconds')), TIMEOUT)
+    )
+
+    // Switch gh CLI account BEFORE creating the client so the new copilot
+    // process inherits the correct credentials.
+    if (ghAccount) {
+      try {
+        console.log(`[CopilotService] listModels — switching to account: ${ghAccount}`)
+        await execAsync(`gh auth switch --user ${ghAccount}`, {
+          encoding: 'utf8',
+          timeout: 5000,
+        })
+        console.log(`[CopilotService] listModels — ✓ switched to ${ghAccount}`)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[CopilotService] listModels — ✗ failed to switch to ${ghAccount}:`, msg)
+        // Continue anyway — will list models for whatever account is active
+      }
+    }
+
+    let client: CopilotClient | null = null
+    try {
+      const cliPath = resolveCopilotCliPath()
+      client = new CopilotClient({ cliPath })
+
+      console.log('[CopilotService] listModels — starting client...')
+      await Promise.race([client.start(), timeoutPromise])
+
+      console.log('[CopilotService] listModels — fetching models...')
+      const models = await Promise.race([client.listModels(), timeoutPromise])
+
+      console.log(`[CopilotService] listModels — received ${models.length} models`)
+      return models.map(m => ({
+        id: m.id,
+        name: m.name,
+        isDisabled: m.policy?.state === 'disabled',
+        billingMultiplier: m.billing?.multiplier ?? 1,
+      }))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[CopilotService] listModels failed:', msg)
+      throw err
+    } finally {
+      if (client) {
+        try { await client.stop() } catch { /* best effort */ }
+      }
+    }
   }
 }
 

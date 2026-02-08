@@ -51,6 +51,10 @@ export default defineSchema({
       autoRefresh: v.boolean(),
       recentlyMergedDays: v.number(),
     }),
+    copilot: v.optional(v.object({
+      ghAccount: v.string(),   // GitHub CLI account username (empty = active)
+      model: v.string(),       // LLM model name
+    })),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -176,6 +180,7 @@ export default defineSchema({
     bookmarksCreated: v.number(),
     settingsChanged: v.number(),
     searchesPerformed: v.number(),
+    copilotPrReviews: v.optional(v.number()),
 
     // Time tracking
     firstLaunchDate: v.number(),       // Epoch ms — set once on first launch

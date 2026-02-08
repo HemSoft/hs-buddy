@@ -11,6 +11,7 @@ import {
   SettingsAccounts,
   SettingsAppearance,
   SettingsPullRequests,
+  SettingsCopilot,
   SettingsAdvanced,
 } from './components/settings'
 import { StatusBar } from './components/StatusBar'
@@ -47,6 +48,7 @@ const viewLabels: Record<string, string> = {
   'settings-accounts': 'Accounts',
   'settings-appearance': 'Appearance',
   'settings-pullrequests': 'Pull Requests',
+  'settings-copilot': 'Copilot SDK',
   'settings-advanced': 'Advanced',
   'automation-jobs': 'Jobs',
   'automation-schedules': 'Schedules',
@@ -203,10 +205,12 @@ function App() {
   }, [incrementStat])
 
   // Session lifecycle — record start, periodic checkpoint, end on unload
-  const sessionStartedRef = useRef(false)
+  // NOTE: Do NOT call recordSessionEnd in the cleanup function!
+  // React Strict Mode (and HMR) runs effects as mount→cleanup→remount.
+  // The cleanup's recordSessionEnd() would clear lastSessionStart, and
+  // the ref guard would prevent re-calling recordSessionStart on remount,
+  // leaving lastSessionStart permanently undefined (uptime stuck at 0m).
   useEffect(() => {
-    if (sessionStartedRef.current) return
-    sessionStartedRef.current = true
     recordSessionStart().catch(() => {})
 
     // Periodic uptime checkpoint every 5 minutes (guards against crashes)
@@ -226,7 +230,7 @@ function App() {
     return () => {
       clearInterval(checkpointTimer)
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      recordSessionEnd().catch(() => {})
+      // Do NOT call recordSessionEnd here — see note above
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -514,6 +518,8 @@ function App() {
         return <SettingsAppearance />
       case 'settings-pullrequests':
         return <SettingsPullRequests />
+      case 'settings-copilot':
+        return <SettingsCopilot />
       case 'settings-advanced':
         return <SettingsAdvanced />
       case 'automation-schedules':

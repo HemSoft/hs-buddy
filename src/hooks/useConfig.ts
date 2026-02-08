@@ -248,5 +248,53 @@ export function usePRSettings() {
   };
 }
 
+/**
+ * Hook for Copilot-specific settings
+ * Uses Convex as primary source, falls back to electron-store if Convex unavailable
+ */
+export function useCopilotSettings() {
+  const settings = useSettings();
+  const { updateCopilot } = useSettingsMutations();
+  const [electronStoreSettings, setElectronStoreSettings] = useState({
+    ghAccount: '',
+    model: 'claude-sonnet-4.5',
+  });
+  const [fallbackLoaded, setFallbackLoaded] = useState(true);
+
+  // Load electron-store settings as fallback
+  useEffect(() => {
+    window.ipcRenderer.invoke('config:get-config').then((config: AppConfig) => {
+      setElectronStoreSettings({
+        ghAccount: config.copilot?.ghAccount ?? '',
+        model: config.copilot?.model ?? 'claude-sonnet-4.5',
+      });
+      setFallbackLoaded(true);
+    }).catch(() => setFallbackLoaded(true));
+  }, []);
+
+  // Use Convex if connected, otherwise electron-store
+  const convexConnected = settings !== undefined;
+  const currentSettings = convexConnected
+    ? (settings.copilot ?? { ghAccount: '', model: 'claude-sonnet-4.5' })
+    : electronStoreSettings;
+  const loading = !convexConnected && !fallbackLoaded;
+
+  const setGhAccount = async (account: string) => {
+    await updateCopilot({ ghAccount: account });
+  };
+
+  const setModel = async (model: string) => {
+    await updateCopilot({ model });
+  };
+
+  return {
+    ghAccount: currentSettings.ghAccount ?? '',
+    model: currentSettings.model ?? 'claude-sonnet-4.5',
+    loading,
+    setGhAccount,
+    setModel,
+  };
+}
+
 // Export the API directly for non-hook usage
 export { configAPI };

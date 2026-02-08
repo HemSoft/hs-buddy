@@ -36,5 +36,9 @@ interface Window {
     }) => Promise<{ resultId: string | null; success: boolean; error?: string }>
     cancel: (resultId: string) => Promise<{ success: boolean; error?: string }>
     getActiveCount: () => Promise<number>
+    listModels: (ghAccount?: string) => Promise<
+      Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>
+      | { error: string }
+    >
   }
 }

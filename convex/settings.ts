@@ -8,6 +8,10 @@ const DEFAULT_SETTINGS = {
     autoRefresh: true,
     recentlyMergedDays: 7,
   },
+  copilot: {
+    ghAccount: '',           // empty = use currently-active gh CLI account
+    model: 'claude-sonnet-4.5',
+  },
 };
 
 /**
@@ -78,6 +82,49 @@ export const updatePR = mutation({
 });
 
 /**
+ * Update Copilot settings
+ */
+export const updateCopilot = mutation({
+  args: {
+    ghAccount: v.optional(v.string()),
+    model: v.optional(v.string()),
+  },
+  handler: async (ctx, updates) => {
+    const existing = await ctx.db
+      .query("settings")
+      .withIndex("by_key", (q) => q.eq("key", "default"))
+      .first();
+
+    const now = Date.now();
+    const currentCopilot = existing?.copilot ?? DEFAULT_SETTINGS.copilot;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        copilot: {
+          ...currentCopilot,
+          ...(updates.ghAccount !== undefined && { ghAccount: updates.ghAccount }),
+          ...(updates.model !== undefined && { model: updates.model }),
+        },
+        updatedAt: now,
+      });
+      return existing._id;
+    } else {
+      return await ctx.db.insert("settings", {
+        key: "default",
+        pr: DEFAULT_SETTINGS.pr,
+        copilot: {
+          ...DEFAULT_SETTINGS.copilot,
+          ...(updates.ghAccount !== undefined && { ghAccount: updates.ghAccount }),
+          ...(updates.model !== undefined && { model: updates.model }),
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+/**
  * Reset settings to defaults
  */
 export const reset = mutation({
@@ -91,7 +138,7 @@ export const reset = mutation({
     const now = Date.now();
 
     if (existing) {
-      await ctx.db.patch("settings", existing._id, {
+      await ctx.db.patch(existing._id, {
         ...DEFAULT_SETTINGS,
         updatedAt: now,
       });

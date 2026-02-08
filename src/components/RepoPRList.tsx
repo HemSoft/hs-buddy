@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
+import { useBuddyStatsMutations } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoPullRequest } from '../api/github'
 import { dataCache } from '../services/dataCache'
@@ -46,6 +47,7 @@ export function RepoPRList({ owner, repo }: RepoPRListProps) {
   const [error, setError] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pr: RepoPullRequest } | null>(null)
   const { accounts } = useGitHubAccounts()
+  const { increment: incrementStat } = useBuddyStatsMutations()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
   useEffect(() => {
@@ -158,6 +160,7 @@ export function RepoPRList({ owner, repo }: RepoPRListProps) {
                 <button
                   onClick={async () => {
                     const pr = contextMenu.pr
+                    incrementStat({ field: 'copilotPrReviews' }).catch(() => {})
                     try {
                       const result = await window.copilot.execute({
                         prompt: `Please do a thorough PR review on ${pr.url}. Analyze the code changes for bugs, security issues, performance problems, and code quality. Categorize findings by severity: 🔴 Critical, 🟡 Medium, 🟢 Nitpick.`,

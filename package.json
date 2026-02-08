@@ -7,7 +7,8 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "bun run bump && tsc && vite build && electron-builder",
+    "bump": "bun scripts/bump-revision.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "lint:md": "markdownlint-cli2 \"**/*.md\"",
@@ -19,7 +20,8 @@
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "convex:codegen": "convex codegen",
-    "validate:github": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-github-orgs.ps1"
+    "validate:github": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-github-orgs.ps1",
+    "prepare": "husky"
   },
   "keywords": [
     "electron",
@@ -32,6 +34,7 @@
   "license": "MIT",
   "dependencies": {
     "@github/copilot-sdk": "^0.1.23",
+    "@github/copilot-win32-x64": "^0.0.406",
     "@monaco-editor/react": "^4.7.0",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.0.3",
@@ -63,6 +66,8 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "markdownlint-cli2": "^0.20.0",
     "png-to-ico": "^3.0.1",
     "prettier": "^3.4.2",
@@ -75,5 +80,13 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "packageManager": "bun@1.2.0"
+  "packageManager": "bun@1.2.0",
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --max-warnings 0"
+    ],
+    "*.md": [
+      "markdownlint-cli2"
+    ]
+  }
 }

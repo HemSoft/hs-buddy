@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import type { PullRequest } from '../types/pullRequest'
 import { GitHubClient, type ProgressCallback } from '../api/github'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
-import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
+import { useRepoBookmarks, useRepoBookmarkMutations, useBuddyStatsMutations } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { dataCache } from '../services/dataCache'
 import './PullRequestList.css'
@@ -45,6 +45,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
   const bookmarks = useRepoBookmarks()
   const { create: createBookmark, remove: removeBookmark } = useRepoBookmarkMutations()
+  const { increment: incrementStat } = useBuddyStatsMutations()
   const { enqueue, cancelAll } = useTaskQueue('github')
   const fetchIdRef = useRef(0) // Track fetch operation to ignore stale results
   const fetchInProgressRef = useRef(false) // Guard against duplicate fetches (StrictMode)
@@ -176,6 +177,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   const handleAIReview = useCallback(async () => {
     if (!contextMenu) return
     const { pr } = contextMenu
+    incrementStat({ field: 'copilotPrReviews' }).catch(() => {})
     try {
       const result = await window.copilot.execute({
         prompt: `Please do a thorough PR review on ${pr.url}. Analyze the code changes for bugs, security issues, performance problems, and code quality. Categorize findings by severity: 🔴 Critical, 🟡 Medium, 🟢 Nitpick.`,
@@ -199,7 +201,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
       console.error('Failed to request AI review:', err)
     }
     setContextMenu(null)
-  }, [contextMenu])
+  }, [contextMenu, incrementStat])
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null)

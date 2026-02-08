@@ -44,4 +44,17 @@ export function registerCopilotHandlers(): void {
     const service = getCopilotService()
     return service.getActiveCount()
   })
+
+  // List available models from Copilot SDK
+  // Optionally accepts a GitHub account name to switch to before listing.
+  ipcMain.handle('copilot:list-models', async (_event, ghAccount?: string) => {
+    try {
+      const service = getCopilotService()
+      return await service.listModels(ghAccount)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error('[CopilotHandlers] listModels failed:', errorMessage)
+      return { error: errorMessage }
+    }
+  })
 }

@@ -70,11 +70,13 @@ export function useSettings() {
 // Settings mutations
 export function useSettingsMutations() {
   const updatePR = useMutation(api.settings.updatePR);
+  const updateCopilot = useMutation(api.settings.updateCopilot);
   const reset = useMutation(api.settings.reset);
   const initFromMigration = useMutation(api.settings.initFromMigration);
 
   return {
     updatePR,
+    updateCopilot,
     reset,
     initFromMigration,
   };

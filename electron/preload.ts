@@ -29,4 +29,5 @@ contextBridge.exposeInMainWorld('copilot', {
     ipcRenderer.invoke('copilot:execute', args),
   cancel: (resultId: string) => ipcRenderer.invoke('copilot:cancel', resultId),
   getActiveCount: () => ipcRenderer.invoke('copilot:active-count'),
+  listModels: (ghAccount?: string) => ipcRenderer.invoke('copilot:list-models', ghAccount),
 })

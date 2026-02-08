@@ -25,6 +25,7 @@ const DEFAULT_STATS = {
   bookmarksCreated: 0,
   settingsChanged: 0,
   searchesPerformed: 0,
+  copilotPrReviews: 0,
   firstLaunchDate: 0,
   totalUptimeMs: 0,
 };
@@ -46,6 +47,7 @@ const COUNTER_FIELDS = new Set([
   "bookmarksCreated",
   "settingsChanged",
   "searchesPerformed",
+  "copilotPrReviews",
 ]);
 
 // ── Queries ───────────────────────────────────────────────────────────────
@@ -167,7 +169,9 @@ export const batchIncrement = mutation({
 
 /**
  * Record a new session start.
- * Increments appLaunches, sets lastSessionStart, and sets firstLaunchDate if unset.
+ * Idempotent: if lastSessionStart is already set (e.g., React strict mode
+ * double-mount), this is a no-op to avoid double-counting appLaunches
+ * and resetting the session timer.
  */
 export const recordSessionStart = mutation({
   args: {},
@@ -180,6 +184,11 @@ export const recordSessionStart = mutation({
       .first();
 
     if (existing) {
+      // If a session is already active, don't double-count
+      if (existing.lastSessionStart) {
+        return existing._id;
+      }
+
       const patch: Record<string, unknown> = {
         appLaunches: existing.appLaunches + 1,
         lastSessionStart: now,

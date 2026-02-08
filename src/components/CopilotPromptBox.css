@@ -84,6 +84,24 @@
   margin-top: 8px;
 }
 
+.copilot-prompt-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+}
+
+.copilot-model-badge {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-primary);
+  white-space: nowrap;
+  cursor: default;
+}
+
 .copilot-prompt-category {
   position: relative;
   display: flex;

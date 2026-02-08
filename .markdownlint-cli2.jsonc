@@ -4,7 +4,10 @@
     "line-length": false,
     "no-inline-html": false,
     "fenced-code-language": false,
-    "table-column-style": false
+    "table-column-style": false,
+    "no-duplicate-heading": {
+      "siblings_only": true
+    }
   },
   "ignores": ["node_modules/**", "dist/**", "dist-electron/**"]
 }

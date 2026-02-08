@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, Sparkles, History, ChevronDown } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../hooks/useConvex'
+import { useCopilotSettings } from '../hooks/useConfig'
 import './CopilotPromptBox.css'
 
 interface CopilotPromptBoxProps {
@@ -24,6 +25,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
 
   const recentResults = useCopilotResultsRecent(10)
   const activeCount = useCopilotActiveCount()
+  const { model: configuredModel, ghAccount } = useCopilotSettings()
 
   // Auto-resize textarea
   useEffect(() => {
@@ -44,6 +46,8 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       const result = await window.copilot.execute({
         prompt: trimmed,
         category,
+        model: configuredModel,
+        metadata: ghAccount ? { ghAccount } : undefined,
       })
 
       if (result.success && result.resultId) {
@@ -119,6 +123,11 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
           disabled={submitting}
         />
         <div className="copilot-prompt-controls">
+          <div className="copilot-prompt-meta">
+            <span className="copilot-model-badge" title={`Model: ${configuredModel}${ghAccount ? ` · Account: ${ghAccount}` : ''}`}>
+              {configuredModel}
+            </span>
+          </div>
           <div className="copilot-prompt-category">
             <ChevronDown size={12} />
             <select

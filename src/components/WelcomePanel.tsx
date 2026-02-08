@@ -12,6 +12,7 @@ import {
   Zap,
   Settings,
   Heart,
+  Sparkles,
 } from 'lucide-react'
 import { useBuddyStats, useRepoBookmarks } from '../hooks/useConvex'
 import './WelcomePanel.css'
@@ -29,7 +30,9 @@ function formatNumber(n: number): string {
 
 /** Format milliseconds into a human-readable uptime string */
 function formatUptime(ms: number): string {
-  if (ms <= 0) return '0m'
+  if (ms <= 0) return '0s'
+  const totalSeconds = Math.floor(ms / 1_000)
+  if (totalSeconds < 60) return `${totalSeconds}s`
   const totalMinutes = Math.floor(ms / 60_000)
   if (totalMinutes < 60) return `${totalMinutes}m`
   const hours = Math.floor(totalMinutes / 60)
@@ -54,6 +57,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   const totalPrsViewed = (stats?.prsViewed ?? 0) + (stats?.prsReviewed ?? 0) + (stats?.prsMergedWatched ?? 0)
   const activePrs = Object.values(prCounts).reduce((a, b) => a + b, 0)
   const reposBrowsed = stats?.reposBrowsed ?? 0
+  const copilotPrReviews = (stats as Record<string, unknown> | undefined)?.copilotPrReviews as number ?? 0
   const runsTriggered = stats?.runsTriggered ?? 0
   const runsCompleted = stats?.runsCompleted ?? 0
   const runsFailed = stats?.runsFailed ?? 0
@@ -64,17 +68,23 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   const storedUptime = stats?.totalUptimeMs ?? 0
   const lastSessionStart = (stats as Record<string, unknown> | undefined)?.lastSessionStart as number | undefined
 
-  // Live uptime: stored total + current session elapsed, ticking every 30s
+  // Client-side session start as fallback (in case Convex data is stale)
+  const [clientSessionStart] = useState<number>(() => Date.now())
+
+  // Live uptime: stored total + current session elapsed, ticking every 1s
+  // Falls back to client-side timestamp if Convex data is unavailable
   const [liveUptime, setLiveUptime] = useState(storedUptime)
   useEffect(() => {
     const compute = () => {
-      const sessionElapsed = lastSessionStart ? Math.max(0, Date.now() - lastSessionStart) : 0
+      // Use Convex data if available, fallback to client-side timestamp
+      const sessionStart = lastSessionStart ?? clientSessionStart
+      const sessionElapsed = Math.max(0, Date.now() - sessionStart)
       setLiveUptime(storedUptime + sessionElapsed)
     }
     compute()
-    const timer = setInterval(compute, 30_000)
+    const timer = setInterval(compute, 1_000) // Update every 1 second for better UX
     return () => clearInterval(timer)
-  }, [storedUptime, lastSessionStart])
+  }, [storedUptime, lastSessionStart, clientSessionStart])
 
   // Success rate subtitle for runs
   const totalFinished = runsCompleted + runsFailed
@@ -135,6 +145,16 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
             <div className="welcome-stat-info">
               <span className="welcome-stat-value">{formatNumber(activePrs)}</span>
               <span className="welcome-stat-label">Active PRs</span>
+            </div>
+          </div>
+
+          <div className="welcome-stat-card">
+            <div className="welcome-stat-icon">
+              <Sparkles size={20} />
+            </div>
+            <div className="welcome-stat-info">
+              <span className="welcome-stat-value">{formatNumber(copilotPrReviews)}</span>
+              <span className="welcome-stat-label">PRs Reviewed</span>
             </div>
           </div>
 

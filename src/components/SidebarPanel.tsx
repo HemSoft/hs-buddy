@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
-import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
+import { useRepoBookmarks, useRepoBookmarkMutations, useBuddyStatsMutations } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type OrgRepo, type OrgRepoResult } from '../api/github'
 import { dataCache } from '../services/dataCache'
@@ -115,6 +115,7 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
   const enqueueRef = useRef(enqueue)
   useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { increment: incrementStat } = useBuddyStatsMutations()
 
   // Get unique orgs from accounts
   const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
@@ -278,6 +279,8 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
           next.delete(org)
         } else {
           next.add(org)
+          // Track stat: repos browsed (fire-and-forget)
+          incrementStat({ field: 'reposBrowsed' }).catch(() => {})
           // Fetch repos if not cached
           if (!orgRepos[org]) {
             fetchOrgRepos(org)
@@ -286,7 +289,7 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
         return next
       })
     },
-    [orgRepos, fetchOrgRepos]
+    [orgRepos, fetchOrgRepos, incrementStat]
   )
 
   const handleBookmarkToggle = async (
@@ -312,6 +315,8 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
         url: repoUrl,
         description: '',
       })
+      // Track stat: bookmarks created (fire-and-forget)
+      incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
     }
   }
 

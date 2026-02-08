@@ -225,4 +225,30 @@ export function useRepoBookmarkMutations() {
   return { create, update, remove };
 }
 
+/**
+ * React hooks for Convex buddy stats
+ */
+
+// Get buddy stats (reactive — auto-updates when any client increments)
+export function useBuddyStats() {
+  return useQuery(api.buddyStats.get);
+}
+
+// Buddy stats mutations
+export function useBuddyStatsMutations() {
+  const increment = useMutation(api.buddyStats.increment);
+  const batchIncrement = useMutation(api.buddyStats.batchIncrement);
+  const recordSessionStart = useMutation(api.buddyStats.recordSessionStart);
+  const recordSessionEnd = useMutation(api.buddyStats.recordSessionEnd);
+  const checkpointUptime = useMutation(api.buddyStats.checkpointUptime);
+
+  return {
+    increment,
+    batchIncrement,
+    recordSessionStart,
+    recordSessionEnd,
+    checkpointUptime,
+  };
+}
+
 

@@ -1,0 +1,252 @@
+/* WelcomePanel.css — About-modal-inspired welcome dashboard */
+
+.welcome-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  overflow-y: auto;
+  background-color: var(--bg-primary);
+}
+
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+  padding: 48px 32px 36px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.welcome-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 36px;
+}
+
+.welcome-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #ffd700 0%, #ff9500 50%, #ffb347 100%);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bg-primary);
+  box-shadow:
+    0 8px 24px rgba(255, 215, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+  margin-bottom: 20px;
+}
+
+.welcome-app-name {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--text-heading) 0%, var(--text-primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 1px;
+}
+
+.welcome-version-badge {
+  margin-top: 8px;
+  padding: 4px 12px;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.welcome-tagline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #ffd700 0%, #ffb347 50%, #ffd700 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-tagline-emoji {
+  -webkit-text-fill-color: initial;
+  font-size: 18px;
+}
+
+/* ── Stats Grid ─────────────────────────────────────────────────────────── */
+
+.welcome-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.welcome-stat-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.welcome-stat-card:hover {
+  border-color: var(--border-secondary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.welcome-stat-icon {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  background-color: rgba(14, 99, 156, 0.12);
+}
+
+[data-theme="light"] .welcome-stat-icon {
+  background-color: rgba(0, 120, 212, 0.1);
+}
+
+.welcome-stat-icon-live {
+  color: var(--accent-success);
+  background-color: rgba(78, 201, 176, 0.12);
+}
+
+[data-theme="light"] .welcome-stat-icon-live {
+  background-color: rgba(16, 124, 16, 0.1);
+}
+
+.welcome-stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.welcome-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-heading);
+  line-height: 1.2;
+}
+
+.welcome-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.welcome-stat-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── Uptime Badge ───────────────────────────────────────────────────────── */
+
+.welcome-uptime-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  margin-bottom: 24px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.welcome-uptime-badge svg {
+  color: var(--accent-primary);
+}
+
+/* ── Quick Actions ──────────────────────────────────────────────────────── */
+
+.welcome-quick-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.welcome-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-family-ui);
+}
+
+.welcome-action-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-heading);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.welcome-action-btn svg {
+  color: var(--accent-primary);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+.welcome-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.welcome-heart {
+  color: #e25555;
+  fill: #e25555;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .welcome-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .welcome-quick-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .welcome-card {
+    padding: 32px 20px 28px;
+  }
+}

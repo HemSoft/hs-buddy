@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Save, Calendar, AlertCircle } from 'lucide-react'
 import { CronBuilder } from './CronBuilder'
-import { useJobs, useScheduleMutations, useSchedule, JobId } from '../../hooks/useConvex'
+import { useJobs, useScheduleMutations, useSchedule, JobId, useBuddyStatsMutations } from '../../hooks/useConvex'
 import { Id } from '../../../convex/_generated/dataModel'
 import './ScheduleEditor.css'
 
@@ -15,6 +15,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
   const jobs = useJobs()
   const existingSchedule = useSchedule(scheduleId as Id<"schedules"> | undefined)
   const { create, update } = useScheduleMutations()
+  const { increment: incrementStat } = useBuddyStatsMutations()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -88,6 +89,8 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
           enabled,
           missedPolicy,
         })
+        // Track stat: schedule created (fire-and-forget)
+        incrementStat({ field: 'schedulesCreated' }).catch(() => {})
       }
       onSaved?.()
       onClose()

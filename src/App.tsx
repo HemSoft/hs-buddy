@@ -14,7 +14,8 @@ import {
   SettingsAdvanced,
 } from './components/settings'
 import { StatusBar } from './components/StatusBar'
-import { useSchedules, useJobs } from './hooks/useConvex'
+import { WelcomePanel } from './components/WelcomePanel'
+import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
 import { useBackgroundStatus } from './hooks/useBackgroundStatus'
@@ -44,6 +45,7 @@ const viewLabels: Record<string, string> = {
   'automation-jobs': 'Jobs',
   'automation-schedules': 'Schedules',
   'automation-runs': 'Runs',
+  'repo-detail': 'Repository',
 }
 
 function App() {
@@ -157,6 +159,37 @@ function App() {
 
   // Background sync status for StatusBar
   const backgroundStatus = useBackgroundStatus()
+
+  // Buddy stats mutations (for tracking usage)
+  const { increment: incrementStat, recordSessionStart, recordSessionEnd, checkpointUptime } = useBuddyStatsMutations()
+  const incrementStatRef = useRef(incrementStat)
+  useEffect(() => { incrementStatRef.current = incrementStat }, [incrementStat])
+
+  // Session lifecycle — record start, periodic checkpoint, end on unload
+  const sessionStartedRef = useRef(false)
+  useEffect(() => {
+    if (sessionStartedRef.current) return
+    sessionStartedRef.current = true
+    recordSessionStart().catch(() => {})
+
+    // Periodic uptime checkpoint every 5 minutes (guards against crashes)
+    const checkpointTimer = setInterval(() => {
+      checkpointUptime().catch(() => {})
+    }, 5 * 60 * 1000)
+
+    // Flush uptime on window close
+    const handleBeforeUnload = () => {
+      recordSessionEnd().catch(() => {})
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      clearInterval(checkpointTimer)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      recordSessionEnd().catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Track the active GitHub CLI account (for Copilot CLI credit transparency)
   const [activeGitHubAccount, setActiveGitHubAccount] = useState<string | null>(null)
@@ -305,6 +338,18 @@ function App() {
   // Open a new tab or activate existing one
   const openTab = useCallback(
     (viewId: string) => {
+      // Track stat increments (fire-and-forget)
+      incrementStatRef.current({ field: 'tabsOpened' }).catch(() => {})
+      const prStatMap: Record<string, string> = {
+        'pr-my-prs': 'prsViewed',
+        'pr-needs-review': 'prsReviewed',
+        'pr-recently-merged': 'prsMergedWatched',
+      }
+      const statField = prStatMap[viewId]
+      if (statField) {
+        incrementStatRef.current({ field: statField }).catch(() => {})
+      }
+
       // Check if tab already exists
       const existingTab = tabs.find(t => t.viewId === viewId)
       if (existingTab) {
@@ -394,15 +439,11 @@ function App() {
   const renderContent = () => {
     if (!activeViewId) {
       return (
-        <div className="content-placeholder">
-          <div className="content-header">
-            <h2>Welcome to Buddy</h2>
-          </div>
-          <div className="content-body">
-            <p>Your universal productivity companion</p>
-            <p className="subtitle">Select an item from the sidebar to get started</p>
-          </div>
-        </div>
+        <WelcomePanel
+          prCounts={prCounts}
+          onNavigate={handleItemSelect}
+          onSectionChange={handleSectionSelect}
+        />
       )
     }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Save, Package, Terminal, Brain, Zap, AlertCircle } from 'lucide-react'
-import { useJob, useJobMutations, JobId } from '../../hooks/useConvex'
+import { useJob, useJobMutations, JobId, useBuddyStatsMutations } from '../../hooks/useConvex'
 import './JobEditor.css'
 
 interface JobEditorProps {
@@ -35,6 +35,7 @@ interface JobConfig {
 export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorProps) {
   const existingJob = useJob(jobId as JobId | undefined)
   const { create, update } = useJobMutations()
+  const { increment: incrementStat } = useBuddyStatsMutations()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -179,6 +180,8 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           workerType,
           config,
         })
+        // Track stat: job created (fire-and-forget)
+        incrementStat({ field: 'jobsCreated' }).catch(() => {})
       }
       onSaved?.()
       onClose()

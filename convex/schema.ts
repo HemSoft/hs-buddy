@@ -153,6 +153,42 @@ export default defineSchema({
     .index("by_owner_repo", ["owner", "repo"]),
 
   /**
+   * Buddy stats - centralized usage statistics (singleton, keyed "default")
+   * Stored in Convex (not electron-store) for multi-client aggregation
+   * (desktop, mobile, web all share the same stats)
+   */
+  buddyStats: defineTable({
+    key: v.literal("default"),
+
+    // Lifetime counters
+    appLaunches: v.number(),
+    tabsOpened: v.number(),
+    prsViewed: v.number(),
+    prsReviewed: v.number(),
+    prsMergedWatched: v.number(),
+    reposBrowsed: v.number(),
+    repoDetailViews: v.number(),
+    jobsCreated: v.number(),
+    runsTriggered: v.number(),
+    runsCompleted: v.number(),
+    runsFailed: v.number(),
+    schedulesCreated: v.number(),
+    bookmarksCreated: v.number(),
+    settingsChanged: v.number(),
+    searchesPerformed: v.number(),
+
+    // Time tracking
+    firstLaunchDate: v.number(),       // Epoch ms — set once on first launch
+    totalUptimeMs: v.number(),         // Cumulative session time
+    lastSessionStart: v.optional(v.number()), // Epoch ms — current session start
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"]),
+
+  /**
    * Runs - execution history for jobs
    */
   runs: defineTable({

@@ -3,7 +3,7 @@
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
 | ✅ | High | [Improve Welcome to Buddy window](#improve-welcome-to-buddy-window) | Convex-backed stats dashboard, session tracking (2026-02) |
-| 📋 | High | [Expand repo detail view](#expand-repo-detail-view) | Detailed repo info panel when repo selected |
+| ✅ | High | [Expand repo detail view](#expand-repo-detail-view) | Rich card-based repo info panel with caching (2026-02) |
 | 📋 | High | [Make repos expandable folders](#make-repos-expandable-folders) | Expand repos to show Issues & PRs as children |
 | ✅ | Low | Implement offline queue | Catch-up logic on reconnect (2026-02) |
 | ✅ | Medium | Repos of Interest feature | Folder-organized bookmark system for GitHub repos (2026-02) |
@@ -35,7 +35,7 @@
 
 ## Progress
 
-**Remaining: 2** | **Completed: 29** (94%)
+**Remaining: 1** | **Completed: 30** (97%)
 
 ---
 
@@ -60,23 +60,17 @@
 
 ---
 
-### Expand repo detail view
+### Expand repo detail view ✅
 
-**Location**: `src/components/SidebarPanel.tsx` (click handler), new `RepoDetailPanel.tsx`
+**Completed**: 2026-02
 
-**Problem**: Clicking a repo in the sidebar currently just opens the GitHub URL in the browser. We want to show rich repo information inside Buddy's content panel instead.
-
-**Proposed Solution**:
-
-1. When a repo is selected in the sidebar, open a tab with a `RepoDetailPanel`
-2. Fetch and display:
-   - **Overview card**: Name, description, visibility, default branch, created/updated dates
-   - **Code stats**: Language breakdown (pie/bar chart), total size, LOC if available
-   - **Activity**: Recent commits, contributors, commit frequency
-   - **Counts**: Open issues, open PRs, stars, forks, watchers
-   - **CI/CD status**: Latest workflow run status (if GitHub Actions)
-3. Beautiful card-based layout consistent with the app's VSCode-dark aesthetic
-4. Cache repo detail data in `dataCache` with auto-refresh
+**What was built**:
+- `src/api/github.ts` — Added `fetchRepoDetail(owner, repo)` method with parallel fetching of repo metadata, languages, recent commits (10), top contributors (10), open PR count, and latest CI/CD workflow run. Added `RepoDetail`, `RepoCommit`, `RepoContributor`, `WorkflowRun` types.
+- `src/components/RepoDetailPanel.tsx` — Card-based detail view with: header (name, description, visibility/archived/fork/language/license/CI badges, topic tags, Open on GitHub + Homepage buttons), stats bar (stars, forks, watchers, issues, PRs, size, default branch), content grid (language breakdown bar + list, recent commits list with avatars, top contributors grid, repo info card with dates/size/branch/license)
+- `src/components/RepoDetailPanel.css` — Full responsive CSS using theme variables, VS Code dark theme aesthetic matching existing cards
+- `src/components/SidebarPanel.tsx` — Changed repo click from `openExternal(url)` to `onItemSelect('repo-detail:owner/repo')` to open the detail panel in a tab
+- `src/App.tsx` — Added dynamic `repo-detail:owner/repo` viewId handling, `getViewLabel()` helper for dynamic tab labels, renders `RepoDetailPanel` from parsed viewId
+- Data cached via `dataCache` with `repo-detail:{owner}/{repo}` key, auto-refreshes on PR refresh interval
 
 ---
 

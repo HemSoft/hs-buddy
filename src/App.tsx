@@ -15,6 +15,7 @@ import {
 } from './components/settings'
 import { StatusBar } from './components/StatusBar'
 import { WelcomePanel } from './components/WelcomePanel'
+import { RepoDetailPanel } from './components/RepoDetailPanel'
 import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
@@ -45,7 +46,16 @@ const viewLabels: Record<string, string> = {
   'automation-jobs': 'Jobs',
   'automation-schedules': 'Schedules',
   'automation-runs': 'Runs',
-  'repo-detail': 'Repository',
+}
+
+/** Resolve a viewId to a tab label — supports dynamic repo-detail:owner/repo labels */
+function getViewLabel(viewId: string): string {
+  if (viewId.startsWith('repo-detail:')) {
+    const repoSlug = viewId.replace('repo-detail:', '')
+    const repoName = repoSlug.split('/').pop() || repoSlug
+    return repoName
+  }
+  return viewLabels[viewId] || viewId
 }
 
 function App() {
@@ -161,9 +171,16 @@ function App() {
   const backgroundStatus = useBackgroundStatus()
 
   // Buddy stats mutations (for tracking usage)
-  const { increment: incrementStat, recordSessionStart, recordSessionEnd, checkpointUptime } = useBuddyStatsMutations()
+  const {
+    increment: incrementStat,
+    recordSessionStart,
+    recordSessionEnd,
+    checkpointUptime,
+  } = useBuddyStatsMutations()
   const incrementStatRef = useRef(incrementStat)
-  useEffect(() => { incrementStatRef.current = incrementStat }, [incrementStat])
+  useEffect(() => {
+    incrementStatRef.current = incrementStat
+  }, [incrementStat])
 
   // Session lifecycle — record start, periodic checkpoint, end on unload
   const sessionStartedRef = useRef(false)
@@ -173,9 +190,12 @@ function App() {
     recordSessionStart().catch(() => {})
 
     // Periodic uptime checkpoint every 5 minutes (guards against crashes)
-    const checkpointTimer = setInterval(() => {
-      checkpointUptime().catch(() => {})
-    }, 5 * 60 * 1000)
+    const checkpointTimer = setInterval(
+      () => {
+        checkpointUptime().catch(() => {})
+      },
+      5 * 60 * 1000
+    )
 
     // Flush uptime on window close
     const handleBeforeUnload = () => {
@@ -361,7 +381,7 @@ function App() {
       // Create new tab
       const newTab: Tab = {
         id: `tab-${Date.now()}`,
-        label: viewLabels[viewId] || viewId,
+        label: getViewLabel(viewId),
         viewId,
       }
       setTabs(prev => [...prev, newTab])
@@ -471,6 +491,16 @@ function App() {
       case 'automation-runs':
         return <RunList />
       default:
+        // Handle dynamic repo-detail views: repo-detail:owner/repo
+        if (activeViewId.startsWith('repo-detail:')) {
+          const repoSlug = activeViewId.replace('repo-detail:', '')
+          const slashIdx = repoSlug.indexOf('/')
+          if (slashIdx > 0) {
+            const owner = repoSlug.substring(0, slashIdx)
+            const repo = repoSlug.substring(slashIdx + 1)
+            return <RepoDetailPanel owner={owner} repo={repo} />
+          }
+        }
         return (
           <div className="content-placeholder">
             <div className="content-header">

@@ -13,7 +13,11 @@ import {
 } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
-import { useRepoBookmarks, useRepoBookmarkMutations, useBuddyStatsMutations } from '../hooks/useConvex'
+import {
+  useRepoBookmarks,
+  useRepoBookmarkMutations,
+  useBuddyStatsMutations,
+} from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type OrgRepo, type OrgRepoResult } from '../api/github'
 import { dataCache } from '../services/dataCache'
@@ -98,9 +102,14 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
 
   // Load persisted bookmark filter on mount
   useEffect(() => {
-    window.ipcRenderer.invoke('config:get-show-bookmarked-only').then((value: boolean) => {
-      setShowBookmarkedOnly(value)
-    }).catch(() => { /* use default */ })
+    window.ipcRenderer
+      .invoke('config:get-show-bookmarked-only')
+      .then((value: boolean) => {
+        setShowBookmarkedOnly(value)
+      })
+      .catch(() => {
+        /* use default */
+      })
   }, [])
   const [orgRepos, setOrgRepos] = useState<Record<string, OrgRepo[]>>({})
   const [orgMeta, setOrgMeta] = useState<
@@ -113,7 +122,9 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
   const { create: createBookmark, remove: removeBookmark } = useRepoBookmarkMutations()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
-  useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { increment: incrementStat } = useBuddyStatsMutations()
 
@@ -175,22 +186,24 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
         if (dataCache.isFresh(cacheKey, intervalMs)) continue
 
         console.log(`[OrgRefresh] ${org}: stale, queueing background refresh`)
-        enqueueRef.current(
-          async (signal) => {
-            if (dataCache.isFresh(cacheKey, intervalMs)) return
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+        enqueueRef
+          .current(
+            async signal => {
+              if (dataCache.isFresh(cacheKey, intervalMs)) return
+              if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
 
-            const config = { accounts }
-            const client = new GitHubClient(config, 7)
-            const result = await client.fetchOrgRepos(org)
-            dataCache.set(cacheKey, result)
-            console.log(`[OrgRefresh] ${org}: refreshed ${result.repos.length} repos`)
-          },
-          { name: `refresh-org-${org}`, priority: -1 }
-        ).catch(err => {
-          if (err instanceof DOMException && err.name === 'AbortError') return
-          console.warn(`[OrgRefresh] ${org} failed:`, err)
-        })
+              const config = { accounts }
+              const client = new GitHubClient(config, 7)
+              const result = await client.fetchOrgRepos(org)
+              dataCache.set(cacheKey, result)
+              console.log(`[OrgRefresh] ${org}: refreshed ${result.repos.length} repos`)
+            },
+            { name: `refresh-org-${org}`, priority: -1 }
+          )
+          .catch(err => {
+            if (err instanceof DOMException && err.name === 'AbortError') return
+            console.warn(`[OrgRefresh] ${org} failed:`, err)
+          })
       }
     }
 
@@ -239,7 +252,7 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
       try {
         // Use the task queue for concurrency control (same as PRs)
         const result = await enqueueRef.current(
-          async (signal) => {
+          async signal => {
             if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
             const config = { accounts }
             const client = new GitHubClient(config, 7)
@@ -480,7 +493,7 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
                                 <div
                                   key={repo.name}
                                   className="sidebar-item sidebar-repo-item"
-                                  onClick={() => window.shell?.openExternal(repo.url)}
+                                  onClick={() => onItemSelect(`repo-detail:${org}/${repo.name}`)}
                                   title={repo.description || repo.fullName}
                                 >
                                   <span className="sidebar-item-icon">

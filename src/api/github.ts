@@ -18,6 +18,60 @@ export interface OrgRepo {
   pushedAt: string | null
 }
 
+// Detailed repository info for repo detail view
+export interface RepoDetail {
+  name: string
+  fullName: string
+  description: string | null
+  url: string
+  homepage: string | null
+  language: string | null
+  defaultBranch: string
+  visibility: string
+  isArchived: boolean
+  isFork: boolean
+  createdAt: string
+  updatedAt: string
+  pushedAt: string | null
+  sizeKB: number
+  stargazersCount: number
+  forksCount: number
+  watchersCount: number
+  openIssuesCount: number
+  topics: string[]
+  license: string | null
+  languages: Record<string, number>
+  recentCommits: RepoCommit[]
+  topContributors: RepoContributor[]
+  openPRCount: number
+  latestWorkflowRun: WorkflowRun | null
+}
+
+export interface RepoCommit {
+  sha: string
+  message: string
+  author: string
+  authorAvatarUrl: string | null
+  date: string
+  url: string
+}
+
+export interface RepoContributor {
+  login: string
+  avatarUrl: string
+  contributions: number
+  url: string
+}
+
+export interface WorkflowRun {
+  name: string
+  status: string
+  conclusion: string | null
+  url: string
+  createdAt: string
+  headBranch: string
+}
+
 // Result from fetchOrgRepos with account attribution
 export interface OrgRepoResult {
   repos: OrgRepo[]
@@ -154,6 +208,129 @@ export class GitHubClient {
    */
   async fetchRecentlyMerged(onProgress?: ProgressCallback): Promise<PullRequest[]> {
     return this.fetchPRs('recently-merged', onProgress)
+  }
+
+  /**
+   * Fetch detailed information about a single repository.
+   * Fetches repo metadata, languages, recent commits, contributors,
+   * open PR count, and latest CI/CD workflow run in parallel.
+   */
+  async fetchRepoDetail(owner: string, repo: string): Promise<RepoDetail> {
+    // Find an octokit instance — prefer account matching the owner/org
+    let octokit: Octokit | null = null
+    for (const account of this.config.accounts) {
+      if (account.org === owner) {
+        octokit = await this.getOctokit(account.username)
+        if (octokit) break
+      }
+    }
+    // Fallback: try any available account
+    if (!octokit) {
+      for (const account of this.config.accounts) {
+        octokit = await this.getOctokit(account.username)
+        if (octokit) break
+      }
+    }
+    if (!octokit) {
+      throw new Error(`No authenticated GitHub account available to fetch ${owner}/${repo}`)
+    }
+
+    // Fetch all data in parallel
+    const [repoData, languagesData, commitsData, contributorsData, prsData, workflowsData] =
+      await Promise.allSettled([
+        octokit.repos.get({ owner, repo }),
+        octokit.repos.listLanguages({ owner, repo }),
+        octokit.repos.listCommits({ owner, repo, per_page: 10 }),
+        octokit.repos.listContributors({ owner, repo, per_page: 10 }),
+        octokit.pulls.list({ owner, repo, state: 'open', per_page: 1 }),
+        octokit.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 1 }),
+      ])
+
+    // Repo metadata (required — throw if it fails)
+    if (repoData.status === 'rejected') {
+      throw new Error(`Failed to fetch repo ${owner}/${repo}: ${repoData.reason}`)
+    }
+    const r = repoData.value.data
+
+    // Languages (optional)
+    const languages: Record<string, number> =
+      languagesData.status === 'fulfilled' ? languagesData.value.data : {}
+
+    // Recent commits (optional)
+    const recentCommits: RepoCommit[] =
+      commitsData.status === 'fulfilled'
+        ? commitsData.value.data.map(c => ({
+            sha: c.sha,
+            message: c.commit.message.split('\n')[0], // first line only
+            author: c.author?.login || c.commit.author?.name || 'unknown',
+            authorAvatarUrl: c.author?.avatar_url || null,
+            date: c.commit.author?.date || '',
+            url: c.html_url,
+          }))
+        : []
+
+    // Contributors (optional)
+    const topContributors: RepoContributor[] =
+      contributorsData.status === 'fulfilled' && Array.isArray(contributorsData.value.data)
+        ? contributorsData.value.data.map(c => ({
+            login: c.login ?? 'unknown',
+            avatarUrl: c.avatar_url ?? '',
+            contributions: c.contributions ?? 0,
+            url: c.html_url ?? '',
+          }))
+        : []
+
+    // Open PR count (optional) — GitHub returns total_count in search,
+    // but for pulls.list we check response headers or just count length.
+    // Since per_page=1, we use the total from the link header or just presence.
+    let openPRCount = 0
+    if (prsData.status === 'fulfilled') {
+      // If there's at least 1 PR, use the open_issues_count from repo data
+      // (which includes issues + PRs) — we'll estimate from the repo's pull data
+      openPRCount = prsData.value.data.length > 0 ? r.open_issues_count : 0
+    }
+
+    // Latest workflow run (optional)
+    let latestWorkflowRun: WorkflowRun | null = null
+    if (workflowsData.status === 'fulfilled' && workflowsData.value.data.workflow_runs.length > 0) {
+      const run = workflowsData.value.data.workflow_runs[0]
+      latestWorkflowRun = {
+        name: run.name ?? 'Workflow',
+        status: run.status ?? 'unknown',
+        conclusion: run.conclusion ?? null,
+        url: run.html_url,
+        createdAt: run.created_at,
+        headBranch: run.head_branch ?? '',
+      }
+    }
+
+    return {
+      name: r.name,
+      fullName: r.full_name,
+      description: r.description ?? null,
+      url: r.html_url,
+      homepage: r.homepage ?? null,
+      language: r.language ?? null,
+      defaultBranch: r.default_branch,
+      visibility: r.visibility ?? (r.private ? 'private' : 'public'),
+      isArchived: r.archived ?? false,
+      isFork: r.fork,
+      createdAt: r.created_at ?? '',
+      updatedAt: r.updated_at ?? '',
+      pushedAt: r.pushed_at ?? null,
+      sizeKB: r.size ?? 0,
+      stargazersCount: r.stargazers_count ?? 0,
+      forksCount: r.forks_count ?? 0,
+      watchersCount: r.subscribers_count ?? 0,
+      openIssuesCount: r.open_issues_count ?? 0,
+      topics: r.topics ?? [],
+      license: r.license?.spdx_id ?? null,
+      languages,
+      recentCommits,
+      topContributors,
+      openPRCount,
+      latestWorkflowRun,
+    }
   }
 
   /**

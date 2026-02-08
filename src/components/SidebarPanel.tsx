@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronRight,
+  CircleDot,
   FileText,
   Folder,
   FolderOpen,
@@ -19,7 +20,7 @@ import {
   useBuddyStatsMutations,
 } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
-import { GitHubClient, type OrgRepo, type OrgRepoResult } from '../api/github'
+import { GitHubClient, type OrgRepo, type OrgRepoResult, type RepoCounts } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import './SidebarPanel.css'
 
@@ -127,6 +128,12 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
   }, [enqueue])
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { increment: incrementStat } = useBuddyStatsMutations()
+
+  // Repo expansion state (tracks which repos are expanded to show Issues/PRs children)
+  const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set())
+  const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
+  const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
+  const fetchedCountsRef = useRef<Set<string>>(new Set())
 
   // Get unique orgs from accounts
   const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
@@ -333,6 +340,67 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
     }
   }
 
+  // Fetch issue/PR counts for a repo (used when expanding repos in sidebar)
+  const fetchRepoCountsForRepo = useCallback(
+    async (org: string, repoName: string) => {
+      const key = `${org}/${repoName}`
+      const cacheKey = `repo-counts:${key}`
+      const cached = dataCache.get<RepoCounts>(cacheKey)
+      if (cached?.data) {
+        setRepoCounts(prev => ({ ...prev, [key]: cached.data }))
+        return
+      }
+
+      setLoadingRepoCounts(prev => new Set([...prev, key]))
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const config = { accounts }
+            const client = new GitHubClient(config, 7)
+            return await client.fetchRepoCounts(org, repoName)
+          },
+          { name: `repo-counts-${key}`, priority: -1 }
+        )
+        setRepoCounts(prev => ({ ...prev, [key]: result }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.warn(`Failed to fetch counts for ${key}:`, error)
+      } finally {
+        setLoadingRepoCounts(prev => {
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
+      }
+    },
+    [accounts]
+  )
+
+  // Toggle repo expansion — fetch counts on first expand
+  const toggleRepo = useCallback(
+    (org: string, repoName: string) => {
+      const key = `${org}/${repoName}`
+      const shouldFetch = !fetchedCountsRef.current.has(key)
+      setExpandedRepos(prev => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
+      })
+      // Fetch counts on first expand (outside state updater to avoid side effects)
+      if (shouldFetch) {
+        fetchedCountsRef.current.add(key)
+        fetchRepoCountsForRepo(org, repoName)
+      }
+    },
+    [fetchRepoCountsForRepo]
+  )
+
   const prItems: SidebarItem[] = [
     { id: 'pr-my-prs', label: 'My PRs' },
     { id: 'pr-needs-review', label: 'Needs Review' },
@@ -489,27 +557,101 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
                           ) : (
                             filteredRepos.map(repo => {
                               const isBookmarked = bookmarkedRepoKeys.has(`${org}/${repo.name}`)
+                              const repoKey = `${org}/${repo.name}`
+                              const isRepoExpanded = expandedRepos.has(repoKey)
+                              const counts = repoCounts[repoKey]
+                              const isCountLoading = loadingRepoCounts.has(repoKey)
                               return (
-                                <div
-                                  key={repo.name}
-                                  className="sidebar-item sidebar-repo-item"
-                                  onClick={() => onItemSelect(`repo-detail:${org}/${repo.name}`)}
-                                  title={repo.description || repo.fullName}
-                                >
-                                  <span className="sidebar-item-icon">
-                                    <FileText size={12} />
-                                  </span>
-                                  <span className="sidebar-item-label">{repo.name}</span>
-                                  {repo.language && (
-                                    <span className="sidebar-repo-lang">{repo.language}</span>
-                                  )}
-                                  <button
-                                    className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
-                                    onClick={e => handleBookmarkToggle(e, org, repo.name, repo.url)}
-                                    title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
+                                <div key={repo.name} className="sidebar-repo-group">
+                                  <div
+                                    className="sidebar-item sidebar-repo-item"
+                                    onClick={() => toggleRepo(org, repo.name)}
+                                    title={repo.description || repo.fullName}
                                   >
-                                    <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
-                                  </button>
+                                    <span className="sidebar-item-icon">
+                                      {isRepoExpanded ? (
+                                        <ChevronDown size={10} />
+                                      ) : (
+                                        <ChevronRight size={10} />
+                                      )}
+                                    </span>
+                                    <span className="sidebar-item-icon">
+                                      {isRepoExpanded ? (
+                                        <FolderOpen size={12} />
+                                      ) : (
+                                        <Folder size={12} />
+                                      )}
+                                    </span>
+                                    <span className="sidebar-item-label">{repo.name}</span>
+                                    {repo.language && (
+                                      <span className="sidebar-repo-lang">{repo.language}</span>
+                                    )}
+                                    <button
+                                      className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+                                      onClick={e =>
+                                        handleBookmarkToggle(e, org, repo.name, repo.url)
+                                      }
+                                      title={
+                                        isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'
+                                      }
+                                    >
+                                      <Star
+                                        size={12}
+                                        fill={isBookmarked ? 'currentColor' : 'none'}
+                                      />
+                                    </button>
+                                  </div>
+                                  {isRepoExpanded && (
+                                    <div className="sidebar-repo-children">
+                                      <div
+                                        className={`sidebar-item sidebar-repo-child ${selectedItem === `repo-detail:${repoKey}` ? 'selected' : ''}`}
+                                        onClick={() =>
+                                          onItemSelect(`repo-detail:${repoKey}`)
+                                        }
+                                      >
+                                        <span className="sidebar-item-icon">
+                                          <FileText size={12} />
+                                        </span>
+                                        <span className="sidebar-item-label">Overview</span>
+                                      </div>
+                                      <div
+                                        className={`sidebar-item sidebar-repo-child ${selectedItem === `repo-issues:${repoKey}` ? 'selected' : ''}`}
+                                        onClick={() =>
+                                          onItemSelect(`repo-issues:${repoKey}`)
+                                        }
+                                      >
+                                        <span className="sidebar-item-icon">
+                                          <CircleDot size={12} />
+                                        </span>
+                                        <span className="sidebar-item-label">Issues</span>
+                                        {isCountLoading ? (
+                                          <Loader2 size={10} className="spin" />
+                                        ) : counts ? (
+                                          <span className="sidebar-item-count">
+                                            {counts.issues}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <div
+                                        className={`sidebar-item sidebar-repo-child ${selectedItem === `repo-prs:${repoKey}` ? 'selected' : ''}`}
+                                        onClick={() =>
+                                          onItemSelect(`repo-prs:${repoKey}`)
+                                        }
+                                      >
+                                        <span className="sidebar-item-icon">
+                                          <GitPullRequest size={12} />
+                                        </span>
+                                        <span className="sidebar-item-label">Pull Requests</span>
+                                        {isCountLoading ? (
+                                          <Loader2 size={10} className="spin" />
+                                        ) : counts ? (
+                                          <span className="sidebar-item-count">
+                                            {counts.prs}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })

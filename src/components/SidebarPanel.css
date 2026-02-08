@@ -267,6 +267,34 @@
   opacity: 1;
 }
 
+/* ── Expandable repo children (Overview, Issues, PRs) ─────────────────── */
+
+.sidebar-repo-group {
+  /* Wrapper for expandable repo + its children */
+}
+
+.sidebar-repo-children {
+  /* Container for repo child items */
+}
+
+.sidebar-repo-child {
+  padding-left: 62px !important;
+  font-size: 12px !important;
+}
+
+.sidebar-repo-child .sidebar-item-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sidebar-repo-child .sidebar-item-count {
+  font-size: 10px;
+  min-width: 16px;
+  min-height: 16px;
+  line-height: 16px;
+  padding: 0 4px;
+}
+
 .sidebar-repo-lang {
   font-size: 10px;
   color: var(--text-secondary);

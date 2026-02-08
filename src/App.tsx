@@ -16,6 +16,8 @@ import {
 import { StatusBar } from './components/StatusBar'
 import { WelcomePanel } from './components/WelcomePanel'
 import { RepoDetailPanel } from './components/RepoDetailPanel'
+import { RepoIssueList } from './components/RepoIssueList'
+import { RepoPRList } from './components/RepoPRList'
 import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
@@ -48,12 +50,22 @@ const viewLabels: Record<string, string> = {
   'automation-runs': 'Runs',
 }
 
-/** Resolve a viewId to a tab label — supports dynamic repo-detail:owner/repo labels */
+/** Resolve a viewId to a tab label — supports dynamic repo-detail/issues/prs labels */
 function getViewLabel(viewId: string): string {
   if (viewId.startsWith('repo-detail:')) {
     const repoSlug = viewId.replace('repo-detail:', '')
     const repoName = repoSlug.split('/').pop() || repoSlug
     return repoName
+  }
+  if (viewId.startsWith('repo-issues:')) {
+    const repoSlug = viewId.replace('repo-issues:', '')
+    const repoName = repoSlug.split('/').pop() || repoSlug
+    return `${repoName} Issues`
+  }
+  if (viewId.startsWith('repo-prs:')) {
+    const repoSlug = viewId.replace('repo-prs:', '')
+    const repoName = repoSlug.split('/').pop() || repoSlug
+    return `${repoName} PRs`
   }
   return viewLabels[viewId] || viewId
 }
@@ -499,6 +511,26 @@ function App() {
             const owner = repoSlug.substring(0, slashIdx)
             const repo = repoSlug.substring(slashIdx + 1)
             return <RepoDetailPanel owner={owner} repo={repo} />
+          }
+        }
+        // Handle dynamic repo-issues views: repo-issues:owner/repo
+        if (activeViewId.startsWith('repo-issues:')) {
+          const repoSlug = activeViewId.replace('repo-issues:', '')
+          const slashIdx = repoSlug.indexOf('/')
+          if (slashIdx > 0) {
+            const owner = repoSlug.substring(0, slashIdx)
+            const repo = repoSlug.substring(slashIdx + 1)
+            return <RepoIssueList owner={owner} repo={repo} />
+          }
+        }
+        // Handle dynamic repo-prs views: repo-prs:owner/repo
+        if (activeViewId.startsWith('repo-prs:')) {
+          const repoSlug = activeViewId.replace('repo-prs:', '')
+          const slashIdx = repoSlug.indexOf('/')
+          if (slashIdx > 0) {
+            const owner = repoSlug.substring(0, slashIdx)
+            const repo = repoSlug.substring(slashIdx + 1)
+            return <RepoPRList owner={owner} repo={repo} />
           }
         }
         return (

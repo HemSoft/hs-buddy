@@ -81,6 +81,43 @@ export interface OrgRepoResult {
   isUserNamespace: boolean
 }
 
+// Types for repo issue listing
+export interface RepoIssue {
+  number: number
+  title: string
+  state: string
+  author: string
+  authorAvatarUrl: string | null
+  url: string
+  createdAt: string
+  updatedAt: string
+  labels: Array<{ name: string; color: string }>
+  commentCount: number
+  assignees: Array<{ login: string; avatarUrl: string }>
+}
+
+// Types for repo pull request listing
+export interface RepoPullRequest {
+  number: number
+  title: string
+  state: string
+  author: string
+  authorAvatarUrl: string | null
+  url: string
+  createdAt: string
+  updatedAt: string
+  labels: Array<{ name: string; color: string }>
+  draft: boolean
+  headBranch: string
+  baseBranch: string
+}
+
+// Lightweight issue + PR counts for sidebar badges
+export interface RepoCounts {
+  issues: number
+  prs: number
+}
+
 // Create Octokit with retry and throttling plugins
 const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 
@@ -187,6 +224,24 @@ export class GitHubClient {
         retries: 3,
       },
     })
+  }
+
+  /**
+   * Get an Octokit instance for a given owner/org.
+   * Tries accounts matching the owner first, then falls back to any account.
+   */
+  private async getOctokitForOwner(owner: string): Promise<Octokit> {
+    for (const account of this.config.accounts) {
+      if (account.org === owner) {
+        const octokit = await this.getOctokit(account.username)
+        if (octokit) return octokit
+      }
+    }
+    for (const account of this.config.accounts) {
+      const octokit = await this.getOctokit(account.username)
+      if (octokit) return octokit
+    }
+    throw new Error(`No authenticated GitHub account available for ${owner}`)
   }
 
   /**
@@ -331,6 +386,96 @@ export class GitHubClient {
       openPRCount,
       latestWorkflowRun,
     }
+  }
+
+  /**
+   * Fetch open issue and PR counts for a specific repository.
+   * Uses GitHub search API for accurate separate counts.
+   */
+  async fetchRepoCounts(owner: string, repo: string): Promise<RepoCounts> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const [issueSearch, prSearch] = await Promise.all([
+      octokit.search.issuesAndPullRequests({
+        q: `repo:${owner}/${repo} is:issue is:open`,
+        per_page: 1,
+      }),
+      octokit.search.issuesAndPullRequests({
+        q: `repo:${owner}/${repo} is:pr is:open`,
+        per_page: 1,
+      }),
+    ])
+    return {
+      issues: issueSearch.data.total_count,
+      prs: prSearch.data.total_count,
+    }
+  }
+
+  /**
+   * Fetch open issues for a specific repository.
+   * Filters out pull requests (GitHub includes them in the issues endpoint).
+   */
+  async fetchRepoIssues(owner: string, repo: string): Promise<RepoIssue[]> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const response = await octokit.issues.listForRepo({
+      owner,
+      repo,
+      state: 'open',
+      per_page: 100,
+      sort: 'updated',
+      direction: 'desc',
+    })
+    return response.data
+      .filter(issue => !issue.pull_request)
+      .map(issue => ({
+        number: issue.number,
+        title: issue.title,
+        state: issue.state,
+        author: issue.user?.login || 'unknown',
+        authorAvatarUrl: issue.user?.avatar_url || null,
+        url: issue.html_url,
+        createdAt: issue.created_at,
+        updatedAt: issue.updated_at,
+        labels: (issue.labels || [])
+          .filter((l): l is { name?: string; color?: string | null } & object => typeof l !== 'string')
+          .map(l => ({ name: l.name || '', color: l.color || '808080' })),
+        commentCount: issue.comments,
+        assignees: (issue.assignees || []).map(a => ({
+          login: a.login,
+          avatarUrl: a.avatar_url,
+        })),
+      }))
+  }
+
+  /**
+   * Fetch open pull requests for a specific repository.
+   */
+  async fetchRepoPRs(owner: string, repo: string): Promise<RepoPullRequest[]> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const response = await octokit.pulls.list({
+      owner,
+      repo,
+      state: 'open',
+      per_page: 100,
+      sort: 'updated',
+      direction: 'desc',
+    })
+    return response.data.map(pr => ({
+      number: pr.number,
+      title: pr.title,
+      state: pr.state,
+      author: pr.user?.login || 'unknown',
+      authorAvatarUrl: pr.user?.avatar_url || null,
+      url: pr.html_url,
+      createdAt: pr.created_at,
+      updatedAt: pr.updated_at,
+      labels: (pr.labels || []).map(l => ({
+        name: typeof l === 'string' ? l : l.name || '',
+        color: typeof l === 'string' ? '808080' : l.color || '808080',
+      })),
+      draft: pr.draft || false,
+      headBranch: pr.head?.ref || '',
+      baseBranch: pr.base?.ref || '',
+    }))
   }
 
   /**

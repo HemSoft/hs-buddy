@@ -4,7 +4,7 @@
 |--------|----------|------|-------|
 | ✅ | High | [Improve Welcome to Buddy window](#improve-welcome-to-buddy-window) | Convex-backed stats dashboard, session tracking (2026-02) |
 | ✅ | High | [Expand repo detail view](#expand-repo-detail-view) | Rich card-based repo info panel with caching (2026-02) |
-| 📋 | High | [Make repos expandable folders](#make-repos-expandable-folders) | Expand repos to show Issues & PRs as children |
+| ✅ | High | [Make repos expandable folders](#make-repos-expandable-folders) | Expandable repos with Issues & PRs children (2026-02) |
 | ✅ | Low | Implement offline queue | Catch-up logic on reconnect (2026-02) |
 | ✅ | Medium | Repos of Interest feature | Folder-organized bookmark system for GitHub repos (2026-02) |
 | ✅ | Medium | Add run history view | Real-time status, filters, expandable output (2026-02) |
@@ -35,7 +35,7 @@
 
 ## Progress
 
-**Remaining: 1** | **Completed: 30** (97%)
+**Remaining: 0** | **Completed: 31** (100%)
 
 ---
 
@@ -74,18 +74,14 @@
 
 ---
 
-### Make repos expandable folders
+### Make repos expandable folders ✅
 
-**Location**: `src/components/SidebarPanel.tsx` (org repos section)
+**Completed**: 2026-02
 
-**Problem**: Repos are currently leaf nodes in the sidebar tree. We want them to be expandable folders that reveal Issues and PRs as child nodes.
-
-**Proposed Solution**:
-
-1. Change repo items from leaf `FileText` icons to expandable `Folder`/`FolderOpen`
-2. On expand, fetch and show two child groups:
-   - **Issues** (count badge) — clicking opens an Issue list for that repo
-   - **Pull Requests** (count badge) — clicking opens a PR list for that repo
-3. Lazy-load counts on first expand (GitHub API: `GET /repos/{owner}/{repo}`)
-4. Child items open dedicated filtered views in the content panel
-5. Preserve existing bookmark star and language badge on the repo row
+**What was built**:
+- `src/api/github.ts` — Added `RepoIssue`, `RepoPullRequest`, `RepoCounts` types. Added `getOctokitForOwner()` helper for Octokit instance resolution. Added `fetchRepoCounts(owner, repo)` using GitHub Search API for accurate separate issue/PR counts. Added `fetchRepoIssues(owner, repo)` with PR filtering and label/assignee mapping. Added `fetchRepoPRs(owner, repo)` with draft/branch/label support.
+- `src/components/SidebarPanel.tsx` — Repos changed from leaf `FileText` nodes to expandable `Folder`/`FolderOpen` icons with chevron toggles. Each expanded repo shows 3 children: Overview (opens repo detail), Issues (with count badge), Pull Requests (with count badge). Lazy-loads counts via search API on first expand with loading spinner. Uses `fetchedCountsRef` to prevent duplicate fetches. Preserves bookmark star and language badge on repo row.
+- `src/components/SidebarPanel.css` — Added `.sidebar-repo-group`, `.sidebar-repo-children`, `.sidebar-repo-child` styles with 62px indent for child items and compact count badges.
+- `src/components/RepoIssueList.tsx` + `.css` — Card-based issue list view with header showing `owner/repo Issues`, open count badge, refresh button. Issue cards show title, labels (with color), issue number, author avatar, relative time, comment count, and assignee avatars. Loading/error/empty states. Cached via dataCache.
+- `src/components/RepoPRList.tsx` + `.css` — Card-based PR list view with header showing `owner/repo Pull Requests`, open count badge, refresh button. PR cards show title, draft badge, labels, PR number, author avatar, branch info (`head → base`), relative time. Loading/error/empty states. Cached via dataCache.
+- `src/App.tsx` — Added imports for `RepoIssueList` and `RepoPRList`. Extended `getViewLabel()` for `repo-issues:*` and `repo-prs:*` dynamic tab labels. Added routing in `renderContent()` for both new view types.

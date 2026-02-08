@@ -1,13 +1,14 @@
 /**
- * Auto-increment the PATCH (revision) version on every build.
+ * Auto-increment the PATCH (revision) version on every commit/build.
  *
- * Reads version from package.json, bumps the patch number,
- * and updates both package.json and src/components/AboutModal.tsx.
+ * 1. Bumps the patch number in package.json
+ * 2. Updates the version badge in AboutModal.tsx
+ * 3. Promotes [Unreleased] CHANGELOG entries into a dated version section
  *
  * Usage: bun scripts/bump-revision.ts
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = resolve(import.meta.dirname, '..')
@@ -31,6 +32,43 @@ if (versionRegex.test(aboutSrc)) {
   console.log(`✓ AboutModal.tsx  → Version ${newVersion}`)
 } else {
   console.warn('⚠ AboutModal.tsx: version string not found, skipped')
+}
+
+// --- 3. Update CHANGELOG.md ---
+const changelogPath = resolve(ROOT, 'CHANGELOG.md')
+if (existsSync(changelogPath)) {
+  let changelog = readFileSync(changelogPath, 'utf-8')
+
+  // Match the [Unreleased] section and its content up to the next ## heading
+  const unreleasedRegex = /## \[Unreleased\]\n((?:.|\n)*?)(?=\n## \[|$)/
+  const match = changelog.match(unreleasedRegex)
+
+  if (match) {
+    const unreleasedContent = match[1].trim()
+    const today = new Date().toISOString().slice(0, 10)
+
+    if (unreleasedContent.length > 0) {
+      // Promote [Unreleased] content → new versioned section
+      changelog = changelog.replace(
+        unreleasedRegex,
+        `## [Unreleased]\n\n## [${newVersion}] - ${today}\n${match[1]}`
+      )
+      console.log(`✓ CHANGELOG.md   [Unreleased] → [${newVersion}] - ${today}`)
+    } else {
+      // [Unreleased] is empty — insert version header with placeholder
+      changelog = changelog.replace(
+        /## \[Unreleased\]\n/,
+        `## [Unreleased]\n\n## [${newVersion}] - ${today}\n\n- Version bump\n\n`
+      )
+      console.log(`✓ CHANGELOG.md   [${newVersion}] - ${today} (empty unreleased, added placeholder)`)
+    }
+
+    writeFileSync(changelogPath, changelog, 'utf-8')
+  } else {
+    console.warn('⚠ CHANGELOG.md: [Unreleased] section not found, skipped')
+  }
+} else {
+  console.warn('⚠ CHANGELOG.md not found, skipped')
 }
 
 console.log(`\n🏷️  Revision bumped to ${newVersion}`)

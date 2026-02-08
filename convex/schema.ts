@@ -189,6 +189,31 @@ export default defineSchema({
     .index("by_key", ["key"]),
 
   /**
+   * Copilot SDK results - captured output from Copilot SDK prompts
+   * Generic: supports PR reviews, code analysis, or any free-text prompt.
+   */
+  copilotResults: defineTable({
+    prompt: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    result: v.optional(v.string()),      // Markdown output from Copilot
+    error: v.optional(v.string()),
+    model: v.optional(v.string()),
+    category: v.optional(v.string()),    // "pr-review", "general", etc.
+    metadata: v.optional(v.any()),       // { prUrl, owner, repo, prNumber } for PR reviews
+    duration: v.optional(v.number()),    // milliseconds
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_category", ["category"])
+    .index("by_created", ["createdAt"]),
+
+  /**
    * Runs - execution history for jobs
    */
   runs: defineTable({

@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Clock,
   GitBranch,
+  Sparkles,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
@@ -43,6 +44,7 @@ export function RepoPRList({ owner, repo }: RepoPRListProps) {
   const [prs, setPrs] = useState<RepoPullRequest[]>(cachedEntry?.data || [])
   const [loading, setLoading] = useState(!cachedEntry?.data)
   const [error, setError] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pr: RepoPullRequest } | null>(null)
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
@@ -148,11 +150,54 @@ export function RepoPRList({ owner, repo }: RepoPRListProps) {
         </div>
       ) : (
         <div className="repo-prs-list">
+          {/* Context Menu */}
+          {contextMenu && (
+            <>
+              <div className="pr-context-menu-overlay" onClick={() => setContextMenu(null)} />
+              <div className="pr-context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
+                <button
+                  onClick={async () => {
+                    const pr = contextMenu.pr
+                    try {
+                      const result = await window.copilot.execute({
+                        prompt: `Please do a thorough PR review on ${pr.url}. Analyze the code changes for bugs, security issues, performance problems, and code quality. Categorize findings by severity: 🔴 Critical, 🟡 Medium, 🟢 Nitpick.`,
+                        category: 'pr-review',
+                        metadata: {
+                          prUrl: pr.url,
+                          prTitle: pr.title,
+                          prNumber: pr.number,
+                          repo,
+                          org: owner,
+                          author: pr.author,
+                        },
+                      })
+                      // Navigate to the result tab
+                      if (result.success && result.resultId) {
+                        window.dispatchEvent(
+                          new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
+                        )
+                      }
+                    } catch (err) {
+                      console.error('Failed to request AI review:', err)
+                    }
+                    setContextMenu(null)
+                  }}
+                >
+                  <Sparkles size={14} />
+                  Request AI Review
+                </button>
+              </div>
+            </>
+          )}
           {prs.map(pr => (
             <div
               key={pr.number}
               className="repo-pr-item"
               onClick={() => window.shell?.openExternal(pr.url)}
+              onContextMenu={e => {
+                e.preventDefault()
+                setContextMenu({ x: e.clientX, y: e.clientY, pr })
+              }}
             >
               <div className="repo-pr-header">
                 <div className="repo-pr-title-row">

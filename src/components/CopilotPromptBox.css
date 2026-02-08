@@ -1,0 +1,207 @@
+.copilot-prompt-box {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Header */
+.copilot-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.copilot-prompt-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-primary);
+}
+
+.copilot-prompt-title h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.copilot-active-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--accent-primary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(var(--accent-primary-rgb, 0, 122, 204), 0.1);
+  border: 1px solid rgba(var(--accent-primary-rgb, 0, 122, 204), 0.2);
+}
+
+/* Prompt input area */
+.copilot-prompt-input-area {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.copilot-prompt-textarea {
+  width: 100%;
+  min-height: 72px;
+  max-height: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font-family-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.copilot-prompt-textarea:focus {
+  border-color: var(--border-focus);
+}
+
+.copilot-prompt-textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.copilot-prompt-textarea:disabled {
+  opacity: 0.6;
+}
+
+.copilot-prompt-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.copilot-prompt-category {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.copilot-prompt-category svg {
+  position: absolute;
+  right: 6px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.copilot-prompt-category select {
+  appearance: none;
+  background: var(--input-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 4px 22px 4px 8px;
+  cursor: pointer;
+  outline: none;
+}
+
+.copilot-prompt-category select:focus {
+  border-color: var(--border-focus);
+}
+
+.copilot-prompt-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent-primary);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.copilot-prompt-submit:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+}
+
+.copilot-prompt-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Error message */
+.copilot-prompt-error {
+  padding: 8px 20px;
+  font-size: 12px;
+  color: #e85d5d;
+  background: rgba(232, 93, 93, 0.08);
+  border-bottom: 1px solid rgba(232, 93, 93, 0.2);
+}
+
+/* Recent results */
+.copilot-recent-results {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.copilot-recent-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.copilot-recent-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.copilot-recent-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.copilot-recent-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.copilot-recent-status {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.copilot-recent-prompt {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copilot-recent-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}

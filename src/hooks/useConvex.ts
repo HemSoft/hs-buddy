@@ -251,4 +251,61 @@ export function useBuddyStatsMutations() {
   };
 }
 
+/**
+ * React hooks for Convex Copilot SDK results
+ */
+
+// List recent copilot results
+export function useCopilotResultsRecent(limit?: number) {
+  return useQuery(api.copilotResults.listRecent, { limit });
+}
+
+// Get single copilot result by ID
+export function useCopilotResult(id: Id<"copilotResults"> | undefined) {
+  return useQuery(api.copilotResults.get, id ? { id } : "skip");
+}
+
+// List copilot results by category
+export function useCopilotResultsByCategory(category: string | undefined, limit?: number) {
+  return useQuery(
+    api.copilotResults.listByCategory,
+    category ? { category, limit } : "skip"
+  );
+}
+
+// List copilot results by status
+export function useCopilotResultsByStatus(
+  status: "pending" | "running" | "completed" | "failed" | undefined,
+  limit?: number
+) {
+  return useQuery(
+    api.copilotResults.listByStatus,
+    status ? { status, limit } : "skip"
+  );
+}
+
+// Count active (pending + running) copilot results — for badges
+export function useCopilotActiveCount() {
+  return useQuery(api.copilotResults.countActive);
+}
+
+// Copilot result mutations
+export function useCopilotResultMutations() {
+  const create = useMutation(api.copilotResults.create);
+  const markRunning = useMutation(api.copilotResults.markRunning);
+  const complete = useMutation(api.copilotResults.complete);
+  const fail = useMutation(api.copilotResults.fail);
+  const remove = useMutation(api.copilotResults.remove);
+  const cleanup = useMutation(api.copilotResults.cleanup);
+
+  return {
+    create,
+    markRunning,
+    complete,
+    fail,
+    remove,
+    cleanup,
+  };
+}
+
 

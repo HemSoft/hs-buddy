@@ -23,3 +23,10 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 contextBridge.exposeInMainWorld('shell', {
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url)
 })
+
+contextBridge.exposeInMainWorld('copilot', {
+  execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
+    ipcRenderer.invoke('copilot:execute', args),
+  cancel: (resultId: string) => ipcRenderer.invoke('copilot:cancel', resultId),
+  getActiveCount: () => ipcRenderer.invoke('copilot:active-count'),
+})

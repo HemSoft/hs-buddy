@@ -31,6 +31,7 @@
   "author": "HemSoft Developments",
   "license": "MIT",
   "dependencies": {
+    "@github/copilot-sdk": "^0.1.23",
     "@monaco-editor/react": "^4.7.0",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.0.3",

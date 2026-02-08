@@ -27,4 +27,14 @@ interface Window {
   shell: {
     openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
   }
+  copilot: {
+    execute: (args: {
+      prompt: string
+      category?: string
+      metadata?: unknown
+      model?: string
+    }) => Promise<{ resultId: string | null; success: boolean; error?: string }>
+    cancel: (resultId: string) => Promise<{ success: boolean; error?: string }>
+    getActiveCount: () => Promise<number>
+  }
 }

@@ -18,6 +18,9 @@ import { WelcomePanel } from './components/WelcomePanel'
 import { RepoDetailPanel } from './components/RepoDetailPanel'
 import { RepoIssueList } from './components/RepoIssueList'
 import { RepoPRList } from './components/RepoPRList'
+import { CopilotPromptBox } from './components/CopilotPromptBox'
+import { CopilotResultPanel } from './components/CopilotResultPanel'
+import { CopilotResultsList } from './components/CopilotResultsList'
 import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
@@ -48,6 +51,8 @@ const viewLabels: Record<string, string> = {
   'automation-jobs': 'Jobs',
   'automation-schedules': 'Schedules',
   'automation-runs': 'Runs',
+  'copilot-prompt': 'Copilot Prompt',
+  'copilot-all-results': 'Copilot Results',
 }
 
 /** Resolve a viewId to a tab label — supports dynamic repo-detail/issues/prs labels */
@@ -66,6 +71,9 @@ function getViewLabel(viewId: string): string {
     const repoSlug = viewId.replace('repo-prs:', '')
     const repoName = repoSlug.split('/').pop() || repoSlug
     return `${repoName} PRs`
+  }
+  if (viewId.startsWith('copilot-result:')) {
+    return 'Copilot Result'
   }
   return viewLabels[viewId] || viewId
 }
@@ -402,6 +410,18 @@ function App() {
     [tabs]
   )
 
+  // Listen for copilot:open-result custom events (from PR context menus, prompt box, etc.)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.resultId) {
+        openTab(`copilot-result:${detail.resultId}`)
+      }
+    }
+    window.addEventListener('copilot:open-result', handler)
+    return () => window.removeEventListener('copilot:open-result', handler)
+  }, [openTab])
+
   // Close a tab
   const closeTab = useCallback(
     (tabId: string) => {
@@ -502,6 +522,10 @@ function App() {
         return <JobList createTrigger={jobCreateTrigger} />
       case 'automation-runs':
         return <RunList />
+      case 'copilot-prompt':
+        return <CopilotPromptBox onOpenResult={(resultId) => openTab(`copilot-result:${resultId}`)} />
+      case 'copilot-all-results':
+        return <CopilotResultsList onOpenResult={(resultId) => openTab(`copilot-result:${resultId}`)} />
       default:
         // Handle dynamic repo-detail views: repo-detail:owner/repo
         if (activeViewId.startsWith('repo-detail:')) {
@@ -532,6 +556,11 @@ function App() {
             const repo = repoSlug.substring(slashIdx + 1)
             return <RepoPRList owner={owner} repo={repo} />
           }
+        }
+        // Handle dynamic copilot-result views: copilot-result:<id>
+        if (activeViewId.startsWith('copilot-result:')) {
+          const resultId = activeViewId.replace('copilot-result:', '')
+          return <CopilotResultPanel resultId={resultId} />
         }
         return (
           <div className="content-placeholder">

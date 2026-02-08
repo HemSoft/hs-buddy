@@ -10,6 +10,7 @@
 
 import type * as bitbucketWorkspaces from "../bitbucketWorkspaces.js";
 import type * as buddyStats from "../buddyStats.js";
+import type * as copilotResults from "../copilotResults.js";
 import type * as crons from "../crons.js";
 import type * as githubAccounts from "../githubAccounts.js";
 import type * as jobs from "../jobs.js";
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   bitbucketWorkspaces: typeof bitbucketWorkspaces;
   buddyStats: typeof buddyStats;
+  copilotResults: typeof copilotResults;
   crons: typeof crons;
   githubAccounts: typeof githubAccounts;
   jobs: typeof jobs;

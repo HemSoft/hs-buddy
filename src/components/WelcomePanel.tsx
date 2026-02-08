@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   Users,
   GitPullRequest,
@@ -60,7 +61,20 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   const bookmarks = repoBookmarks?.length ?? 0
   const firstLaunch = stats?.firstLaunchDate ?? 0
   const appLaunches = stats?.appLaunches ?? 0
-  const totalUptime = stats?.totalUptimeMs ?? 0
+  const storedUptime = stats?.totalUptimeMs ?? 0
+  const lastSessionStart = (stats as Record<string, unknown> | undefined)?.lastSessionStart as number | undefined
+
+  // Live uptime: stored total + current session elapsed, ticking every 30s
+  const [liveUptime, setLiveUptime] = useState(storedUptime)
+  useEffect(() => {
+    const compute = () => {
+      const sessionElapsed = lastSessionStart ? Math.max(0, Date.now() - lastSessionStart) : 0
+      setLiveUptime(storedUptime + sessionElapsed)
+    }
+    compute()
+    const timer = setInterval(compute, 30_000)
+    return () => clearInterval(timer)
+  }, [storedUptime, lastSessionStart])
 
   // Success rate subtitle for runs
   const totalFinished = runsCompleted + runsFailed
@@ -174,10 +188,10 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
         </div>
 
         {/* Uptime Badge */}
-        {totalUptime > 0 && (
+        {liveUptime > 0 && (
           <div className="welcome-uptime-badge">
             <Clock size={14} />
-            <span>{formatUptime(totalUptime)} total uptime</span>
+            <span>{formatUptime(liveUptime)} total uptime</span>
           </div>
         )}
 

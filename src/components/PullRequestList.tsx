@@ -6,7 +6,7 @@ import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { dataCache } from '../services/dataCache'
 import './PullRequestList.css'
-import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw, Star } from 'lucide-react'
+import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw, Star, Sparkles } from 'lucide-react'
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged'
@@ -172,6 +172,34 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     }
     setContextMenu(null)
   }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark])
+
+  const handleAIReview = useCallback(async () => {
+    if (!contextMenu) return
+    const { pr } = contextMenu
+    try {
+      const result = await window.copilot.execute({
+        prompt: `Please do a thorough PR review on ${pr.url}. Analyze the code changes for bugs, security issues, performance problems, and code quality. Categorize findings by severity: 🔴 Critical, 🟡 Medium, 🟢 Nitpick.`,
+        category: 'pr-review',
+        metadata: {
+          prUrl: pr.url,
+          prTitle: pr.title,
+          prNumber: pr.id,
+          repo: pr.repository,
+          org: pr.org,
+          author: pr.author,
+        },
+      })
+      // Navigate to the result tab
+      if (result.success && result.resultId) {
+        window.dispatchEvent(
+          new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
+        )
+      }
+    } catch (err) {
+      console.error('Failed to request AI review:', err)
+    }
+    setContextMenu(null)
+  }, [contextMenu])
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null)
@@ -587,6 +615,10 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
           <>
             <div className="pr-context-menu-overlay" onClick={closeContextMenu} />
             <div className="pr-context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
+              <button onClick={handleAIReview}>
+                <Sparkles size={14} />
+                Request AI Review
+              </button>
               <button onClick={handleBookmarkRepo}>
                 <Star
                   size={14}

@@ -153,18 +153,6 @@ export default defineSchema({
     .index("by_owner_repo", ["owner", "repo"]),
 
   /**
-   * Repo bookmark folders - folder definitions for organizing bookmarks
-   */
-  repoFolders: defineTable({
-    name: v.string(),          // Folder name
-    sortOrder: v.number(),     // Display order
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_name", ["name"])
-    .index("by_sort_order", ["sortOrder"]),
-
-  /**
    * Runs - execution history for jobs
    */
   runs: defineTable({

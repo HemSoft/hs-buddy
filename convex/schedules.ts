@@ -36,7 +36,7 @@ export const list = query({
     // Fetch associated jobs
     const schedulesWithJobs = await Promise.all(
       schedules.map(async (schedule) => {
-        const job = await ctx.db.get(schedule.jobId);
+        const job = await ctx.db.get("jobs", schedule.jobId);
         return {
           ...schedule,
           job: job ? {
@@ -67,10 +67,10 @@ export const listEnabled = query({
 export const get = query({
   args: { id: v.id("schedules") },
   handler: async (ctx, args) => {
-    const schedule = await ctx.db.get(args.id);
+    const schedule = await ctx.db.get("schedules", args.id);
     if (!schedule) return null;
 
-    const job = await ctx.db.get(schedule.jobId);
+    const job = await ctx.db.get("jobs", schedule.jobId);
     return {
       ...schedule,
       job: job ? {
@@ -101,7 +101,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     // Verify job exists
-    const job = await ctx.db.get(args.jobId);
+    const job = await ctx.db.get("jobs", args.jobId);
     if (!job) {
       throw new Error(`Job ${args.jobId} not found`);
     }
@@ -151,7 +151,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("schedules", id);
     if (!existing) {
       throw new Error(`Schedule ${id} not found`);
     }
@@ -185,7 +185,7 @@ export const update = mutation({
       updateData.nextRunAt = undefined;
     }
 
-    await ctx.db.patch(id, updateData);
+    await ctx.db.patch("schedules", id, updateData);
     return id;
   },
 });
@@ -194,12 +194,12 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("schedules") },
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("schedules", args.id);
     if (!existing) {
       throw new Error(`Schedule ${args.id} not found`);
     }
 
-    await ctx.db.delete(args.id);
+    await ctx.db.delete("schedules", args.id);
     return args.id;
   },
 });
@@ -208,7 +208,7 @@ export const remove = mutation({
 export const toggle = mutation({
   args: { id: v.id("schedules") },
   handler: async (ctx, args) => {
-    const schedule = await ctx.db.get(args.id);
+    const schedule = await ctx.db.get("schedules", args.id);
     if (!schedule) {
       throw new Error(`Schedule ${args.id} not found`);
     }
@@ -221,7 +221,7 @@ export const toggle = mutation({
       ? calculateNextRunAt(schedule.cron, schedule.timezone ?? "America/New_York")
       : undefined;
 
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("schedules", args.id, {
       enabled: newEnabled,
       nextRunAt,
       updatedAt: now,
@@ -238,7 +238,7 @@ export const updateLastRun = mutation({
     status: v.union(v.literal("completed"), v.literal("failed")),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("schedules", args.id, {
       lastRunAt: Date.now(),
       lastRunStatus: args.status,
       updatedAt: Date.now(),
@@ -254,7 +254,7 @@ export const advanceNextRun = mutation({
     lastRunAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const schedule = await ctx.db.get(args.id);
+    const schedule = await ctx.db.get("schedules", args.id);
     if (!schedule) {
       throw new Error(`Schedule ${args.id} not found`);
     }
@@ -268,7 +268,7 @@ export const advanceNextRun = mutation({
       patch.lastRunAt = args.lastRunAt;
     }
 
-    await ctx.db.patch(args.id, patch);
+    await ctx.db.patch("schedules", args.id, patch);
     return args.id;
   },
 });

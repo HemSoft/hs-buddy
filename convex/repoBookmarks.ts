@@ -28,7 +28,7 @@ export const listByFolder = query({
 export const get = query({
   args: { id: v.id("repoBookmarks") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("repoBookmarks", args.id);
   },
 });
 
@@ -75,7 +75,7 @@ export const update = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("repoBookmarks", args.id);
     if (!existing) {
       throw new Error(`Bookmark ${args.id} not found`);
     }
@@ -87,7 +87,7 @@ export const update = mutation({
     if (args.folder !== undefined) updateData.folder = args.folder;
     if (args.description !== undefined) updateData.description = args.description;
 
-    await ctx.db.patch(args.id, updateData);
+    await ctx.db.patch("repoBookmarks", args.id, updateData);
     return args.id;
   },
 });
@@ -96,11 +96,11 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("repoBookmarks") },
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("repoBookmarks", args.id);
     if (!existing) {
       throw new Error(`Bookmark ${args.id} not found`);
     }
-    await ctx.db.delete(args.id);
+    await ctx.db.delete("repoBookmarks", args.id);
     return args.id;
   },
 });

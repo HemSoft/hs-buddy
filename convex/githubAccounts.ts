@@ -17,7 +17,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id("githubAccounts") },
   handler: async (ctx, { id }) => {
-    return await ctx.db.get(id);
+    return await ctx.db.get("githubAccounts", id);
   },
 });
 
@@ -74,12 +74,12 @@ export const update = mutation({
     org: v.optional(v.string()),
   },
   handler: async (ctx, { id, username, org }) => {
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("githubAccounts", id);
     if (!existing) {
       throw new Error("GitHub account not found");
     }
 
-    await ctx.db.patch(id, {
+    await ctx.db.patch("githubAccounts", id, {
       ...(username !== undefined && { username }),
       ...(org !== undefined && { org }),
       updatedAt: Date.now(),
@@ -93,7 +93,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("githubAccounts") },
   handler: async (ctx, { id }) => {
-    await ctx.db.delete(id);
+    await ctx.db.delete("githubAccounts", id);
   },
 });
 

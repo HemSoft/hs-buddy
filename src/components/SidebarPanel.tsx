@@ -11,9 +11,10 @@ import {
   Building2,
   Loader2,
 } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
-import { useGitHubAccounts } from '../hooks/useConfig'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
+import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type OrgRepo, type OrgRepoResult } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import './SidebarPanel.css'
@@ -94,20 +95,114 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
   )
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set())
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false)
+
+  // Load persisted bookmark filter on mount
+  useEffect(() => {
+    window.ipcRenderer.invoke('config:get-show-bookmarked-only').then((value: boolean) => {
+      setShowBookmarkedOnly(value)
+    }).catch(() => { /* use default */ })
+  }, [])
   const [orgRepos, setOrgRepos] = useState<Record<string, OrgRepo[]>>({})
   const [orgMeta, setOrgMeta] = useState<
     Record<string, { authenticatedAs: string; isUserNamespace: boolean }>
   >({})
   const [loadingOrgs, setLoadingOrgs] = useState<Set<string>>(new Set())
   const { accounts } = useGitHubAccounts()
+  const { refreshInterval } = usePRSettings()
   const bookmarks = useRepoBookmarks()
   const { create: createBookmark, remove: removeBookmark } = useRepoBookmarkMutations()
+  const { enqueue } = useTaskQueue('github')
+  const enqueueRef = useRef(enqueue)
+  useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Get unique orgs from accounts
   const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
 
   // Build a set of bookmarked repo keys for quick lookup: "org/repo"
   const bookmarkedRepoKeys = new Set((bookmarks ?? []).map(b => `${b.owner}/${b.repo}`))
+
+  // Hydrate from dataCache on mount — show cached data immediately (same as PRs)
+  useEffect(() => {
+    for (const org of uniqueOrgs) {
+      const cached = dataCache.get<OrgRepoResult>(`org-repos:${org}`)
+      if (cached?.data && 'repos' in cached.data && Array.isArray(cached.data.repos)) {
+        setOrgRepos(prev => ({ ...prev, [org]: cached.data.repos }))
+        setOrgMeta(prev => ({
+          ...prev,
+          [org]: {
+            authenticatedAs: cached.data.authenticatedAs,
+            isUserNamespace: cached.data.isUserNamespace,
+          },
+        }))
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniqueOrgs.join(',')])
+
+  // Subscribe to dataCache updates — react when prefetch or auto-refresh completes
+  useEffect(() => {
+    const unsubscribe = dataCache.subscribe(key => {
+      if (key.startsWith('org-repos:')) {
+        const org = key.replace('org-repos:', '')
+        const updated = dataCache.get<OrgRepoResult>(key)
+        if (updated?.data && 'repos' in updated.data && Array.isArray(updated.data.repos)) {
+          setOrgRepos(prev => ({ ...prev, [org]: updated.data.repos }))
+          setOrgMeta(prev => ({
+            ...prev,
+            [org]: {
+              authenticatedAs: updated.data.authenticatedAs,
+              isUserNamespace: updated.data.isUserNamespace,
+            },
+          }))
+        }
+      }
+    })
+    return unsubscribe
+  }, [])
+
+  // Auto-refresh timer — same pattern as PullRequestList
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
+
+    const intervalMs = refreshInterval * 60 * 1000
+
+    const refreshAllOrgs = () => {
+      const orgs = Array.from(new Set(accounts.map(a => a.org))).sort()
+      for (const org of orgs) {
+        const cacheKey = `org-repos:${org}`
+        if (dataCache.isFresh(cacheKey, intervalMs)) continue
+
+        console.log(`[OrgRefresh] ${org}: stale, queueing background refresh`)
+        enqueueRef.current(
+          async (signal) => {
+            if (dataCache.isFresh(cacheKey, intervalMs)) return
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+
+            const config = { accounts }
+            const client = new GitHubClient(config, 7)
+            const result = await client.fetchOrgRepos(org)
+            dataCache.set(cacheKey, result)
+            console.log(`[OrgRefresh] ${org}: refreshed ${result.repos.length} repos`)
+          },
+          { name: `refresh-org-${org}`, priority: -1 }
+        ).catch(err => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          console.warn(`[OrgRefresh] ${org} failed:`, err)
+        })
+      }
+    }
+
+    console.log(`[OrgRefresh] Setting up auto-refresh: ${refreshInterval} minutes`)
+    refreshTimerRef.current = setInterval(refreshAllOrgs, intervalMs)
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current)
+        refreshTimerRef.current = null
+      }
+    }
+  }, [refreshInterval, accounts])
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
@@ -141,9 +236,16 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
 
       setLoadingOrgs(prev => new Set([...prev, org]))
       try {
-        const config = { accounts }
-        const client = new GitHubClient(config, 7)
-        const result = await client.fetchOrgRepos(org)
+        // Use the task queue for concurrency control (same as PRs)
+        const result = await enqueueRef.current(
+          async (signal) => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const config = { accounts }
+            const client = new GitHubClient(config, 7)
+            return await client.fetchOrgRepos(org)
+          },
+          { name: `fetch-org-${org}` }
+        )
         setOrgRepos(prev => ({ ...prev, [org]: result.repos }))
         setOrgMeta(prev => ({
           ...prev,
@@ -154,6 +256,7 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
         }))
         dataCache.set(`org-repos:${org}`, result)
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
         console.error(`Failed to fetch repos for ${org}:`, error)
         setOrgRepos(prev => ({ ...prev, [org]: [] }))
       } finally {
@@ -292,7 +395,11 @@ function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: Gi
               className={`sidebar-filter-btn ${showBookmarkedOnly ? 'active' : ''}`}
               onClick={e => {
                 e.stopPropagation()
-                setShowBookmarkedOnly(prev => !prev)
+                setShowBookmarkedOnly(prev => {
+                  const next = !prev
+                  window.ipcRenderer.invoke('config:set-show-bookmarked-only', next).catch(() => {})
+                  return next
+                })
               }}
               title={showBookmarkedOnly ? 'Showing bookmarked only' : 'Showing all repos'}
             >

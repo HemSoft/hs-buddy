@@ -161,6 +161,22 @@ class ConfigManager {
     this.store.set('ui.paneSizes', sizes);
   }
 
+  getDisplayId(): number {
+    return this.store.get('ui.displayId', 0);
+  }
+
+  setDisplayId(id: number): void {
+    this.store.set('ui.displayId', id);
+  }
+
+  getShowBookmarkedOnly(): boolean {
+    return this.store.get('ui.showBookmarkedOnly', false);
+  }
+
+  setShowBookmarkedOnly(value: boolean): void {
+    this.store.set('ui.showBookmarkedOnly', value);
+  }
+
   // PR Settings
   getPRRefreshInterval(): number {
     return this.store.get('pr.refreshInterval', 15);

@@ -5,7 +5,7 @@ import { query, mutation } from "./_generated/server";
 const DEFAULT_SETTINGS = {
   pr: {
     refreshInterval: 15, // minutes
-    autoRefresh: false,
+    autoRefresh: true,
     recentlyMergedDays: 7,
   },
 };
@@ -50,7 +50,7 @@ export const updatePR = mutation({
 
     if (existing) {
       // Update existing settings
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("settings", existing._id, {
         pr: {
           ...existing.pr,
           ...(updates.refreshInterval !== undefined && { refreshInterval: updates.refreshInterval }),
@@ -91,7 +91,7 @@ export const reset = mutation({
     const now = Date.now();
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("settings", existing._id, {
         ...DEFAULT_SETTINGS,
         updatedAt: now,
       });

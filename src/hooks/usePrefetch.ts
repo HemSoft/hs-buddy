@@ -1,30 +1,35 @@
 /**
- * Prefetch Hook
+ * Prefetch & Auto-Refresh Hook
  * 
- * Runs once on app startup to proactively fetch data for pages that take time
- * to load (e.g., PR pages). Uses the existing task queue for concurrency control
- * and respects the configured refresh interval — only fetches stale data.
+ * Runs on app startup to proactively fetch data for pages that take time
+ * to load (e.g., PR pages), then continues to auto-refresh on the configured
+ * interval. Uses the existing task queue for concurrency control and respects
+ * the configured refresh interval — only fetches stale data.
  * 
  * This makes navigating to PR pages feel near-instant because the data is
- * already in the dataCache by the time the user gets there.
+ * already in the dataCache by the time the user gets there, and ensures
+ * data stays fresh without manual intervention.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useGitHubAccounts, usePRSettings } from './useConfig';
 import { useTaskQueue } from './useTaskQueue';
 import { GitHubClient } from '../api/github';
 import { dataCache } from '../services/dataCache';
 import type { PullRequest } from '../types/pullRequest';
+import type { OrgRepoResult } from '../api/github';
 
 const PR_MODES = ['my-prs', 'needs-review', 'recently-merged'] as const;
 
 /**
- * Hook that prefetches all PR data in the background on app startup.
+ * Hook that prefetches all PR data in the background on app startup
+ * and auto-refreshes on the configured interval.
  * 
- * - Only runs once per app session (guards against React StrictMode re-runs)
+ * - Runs immediately on startup for initial data population
+ * - Auto-refreshes every `refreshInterval` minutes (checks every 30s for stale data)
  * - Uses low priority (-1) so user-initiated fetches always go first
  * - Re-checks freshness before executing (avoids double-fetch with PullRequestList)
- * - Silently catches errors — prefetch failures don't affect the user
+ * - Silently catches errors — background failures don't affect the user
  */
 export function usePrefetch(): void {
   const { accounts, loading: accountsLoading } = useGitHubAccounts();
@@ -36,46 +41,32 @@ export function usePrefetch(): void {
   const enqueueRef = useRef(enqueue);
   useEffect(() => { enqueueRef.current = enqueue }, [enqueue]);
 
-  useEffect(() => {
-    // Wait for config to load
-    if (accountsLoading || settingsLoading || accounts.length === 0) return;
-
-    // Only prefetch once per app session
-    if (prefetchedRef.current) return;
-    prefetchedRef.current = true;
-
-    const intervalMs = refreshInterval * 60 * 1000;
-
-    console.log('[Prefetch] Starting prefetch check...', {
-      accounts: accounts.length,
-      refreshInterval: `${refreshInterval}m`,
-      cacheStats: dataCache.getStats(),
-    });
+  // Shared function to queue fetches for stale PR data
+  const refreshStaleData = useCallback((intervalMs: number, label: string) => {
+    if (accounts.length === 0) return;
 
     for (const mode of PR_MODES) {
       if (dataCache.isFresh(mode, intervalMs)) {
-        console.log(`[Prefetch] ${mode}: still fresh, skipping`);
         continue;
       }
 
       const cachedEntry = dataCache.get(mode);
       console.log(
-        `[Prefetch] ${mode}: ${cachedEntry ? 'stale' : 'no cached data'}, queueing background fetch`
+        `[${label}] ${mode}: ${cachedEntry ? 'stale' : 'no cached data'}, queueing background fetch`
       );
 
-      // Queue the prefetch with low priority
       enqueueRef.current(
         async (signal) => {
           // Double-check freshness right before executing.
           // A concurrent PullRequestList fetch may have already updated the cache
           // while this task was waiting in the queue.
           if (dataCache.isFresh(mode, intervalMs)) {
-            console.log(`[Prefetch] ${mode}: became fresh while queued, skipping`);
+            console.log(`[${label}] ${mode}: became fresh while queued, skipping`);
             return;
           }
 
           if (signal.aborted) {
-            throw new DOMException('Prefetch cancelled', 'AbortError');
+            throw new DOMException('Fetch cancelled', 'AbortError');
           }
 
           const config = { accounts };
@@ -107,14 +98,86 @@ export function usePrefetch(): void {
 
           // Store in persistent cache
           dataCache.set(mode, prs);
-          console.log(`[Prefetch] ${mode}: fetched ${prs.length} PRs`);
+          console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`);
         },
-        { name: `prefetch-${mode}`, priority: -1 }
+        { name: `${label.toLowerCase()}-${mode}`, priority: -1 }
       ).catch(err => {
-        // Silently handle prefetch failures — they're non-critical
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        console.warn(`[Prefetch] ${mode} failed:`, err);
+        console.warn(`[${label}] ${mode} failed:`, err);
       });
     }
-  }, [accounts, accountsLoading, settingsLoading, refreshInterval, recentlyMergedDays]);
+
+    // Also refresh org repos
+    const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort();
+    for (const org of uniqueOrgs) {
+      const cacheKey = `org-repos:${org}`;
+      if (dataCache.isFresh(cacheKey, intervalMs)) {
+        continue;
+      }
+
+      console.log(
+        `[${label}] ${cacheKey}: stale, queueing background fetch`
+      );
+
+      enqueueRef.current(
+        async (signal) => {
+          if (dataCache.isFresh(cacheKey, intervalMs)) {
+            console.log(`[${label}] ${cacheKey}: became fresh while queued, skipping`);
+            return;
+          }
+
+          if (signal.aborted) {
+            throw new DOMException('Fetch cancelled', 'AbortError');
+          }
+
+          const config = { accounts };
+          const client = new GitHubClient(config, recentlyMergedDays);
+          const result: OrgRepoResult = await client.fetchOrgRepos(org);
+
+          dataCache.set(cacheKey, result);
+          console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`);
+        },
+        { name: `${label.toLowerCase()}-${cacheKey}`, priority: -1 }
+      ).catch(err => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.warn(`[${label}] ${cacheKey} failed:`, err);
+      });
+    }
+  }, [accounts, recentlyMergedDays]);
+
+  // --- Initial prefetch (runs once on startup) ---
+  useEffect(() => {
+    if (accountsLoading || settingsLoading || accounts.length === 0) return;
+    if (prefetchedRef.current) return;
+    prefetchedRef.current = true;
+
+    const intervalMs = refreshInterval * 60 * 1000;
+
+    console.log('[Prefetch] Starting initial prefetch...', {
+      accounts: accounts.length,
+      refreshInterval: `${refreshInterval}m`,
+      cacheStats: dataCache.getStats(),
+    });
+
+    refreshStaleData(intervalMs, 'Prefetch');
+  }, [accounts, accountsLoading, settingsLoading, refreshInterval, refreshStaleData]);
+
+  // --- Auto-refresh timer (checks every 30s for stale data) ---
+  useEffect(() => {
+    if (accountsLoading || settingsLoading || accounts.length === 0) return;
+
+    const intervalMs = refreshInterval * 60 * 1000;
+
+    // Check every 30 seconds if any data has gone stale
+    const timer = setInterval(() => {
+      // Quick check: is any PR data stale?
+      const anyStale = PR_MODES.some(mode => !dataCache.isFresh(mode, intervalMs));
+      if (anyStale) {
+        console.log(`[AutoRefresh] Stale data detected, refreshing (interval: ${refreshInterval}m)`);
+        refreshStaleData(intervalMs, 'AutoRefresh');
+      }
+    }, 30_000); // Poll every 30 seconds
+
+    return () => clearInterval(timer);
+  }, [accounts, accountsLoading, settingsLoading, refreshInterval, refreshStaleData]);
 }

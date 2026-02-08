@@ -143,6 +143,30 @@
   }
 }
 
+/* Syncing status item */
+.status-item-syncing {
+  color: var(--accent-primary, #0078d4);
+  font-weight: 500;
+}
+
+.status-item-syncing:hover {
+  color: var(--accent-primary-hover, #1a8cff);
+}
+
+/* Idle sync status with countdown */
+.status-item-sync-idle {
+  color: var(--text-tertiary, #6d6d6d);
+  font-weight: 400;
+}
+
+.status-item-sync-idle:hover {
+  color: var(--text-secondary, #9d9d9d);
+}
+
+.status-item-sync-idle .status-icon {
+  color: var(--accent-green, #4ec9b0);
+}
+
 /* Slight pulse for active items */
 .status-item-active {
   animation: pulse 2s ease-in-out infinite;

@@ -41,6 +41,8 @@ export interface AppConfig {
     zoomLevel: number;
     sidebarWidth: number;
     paneSizes: number[];
+    displayId: number; // Electron display ID for multi-monitor tracking
+    showBookmarkedOnly: boolean; // Filter org repos to bookmarked only
   };
   pr: {
     refreshInterval: number; // minutes
@@ -139,8 +141,16 @@ export const configSchema: Schema<AppConfig> = {
         items: { type: 'number' },
         default: [300, 900],
       },
+      displayId: {
+        type: 'number',
+        default: 0,
+      },
+      showBookmarkedOnly: {
+        type: 'boolean',
+        default: false,
+      },
     },
-    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes'],
+    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes', 'displayId', 'showBookmarkedOnly'],
   },
   pr: {
     type: 'object',
@@ -187,10 +197,12 @@ export const defaultConfig: AppConfig = {
     zoomLevel: 100,
     sidebarWidth: 300,
     paneSizes: [300, 900],
+    displayId: 0,
+    showBookmarkedOnly: false,
   },
   pr: {
     refreshInterval: 15,
-    autoRefresh: false,
+    autoRefresh: true,
     recentlyMergedDays: 7,
   },
 };

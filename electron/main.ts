@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, screen } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import windowStateKeeper from 'electron-window-state'
@@ -36,9 +36,60 @@ function createWindow() {
     defaultHeight: 900
   })
 
+  // --- Multi-monitor display validation ---
+  const savedDisplayId = configManager.getDisplayId()
+  const allDisplays = screen.getAllDisplays()
+  const primaryDisplay = screen.getPrimaryDisplay()
+
+  // Determine the correct x,y position to use
+  let windowX = mainWindowState.x
+  let windowY = mainWindowState.y
+
+  if (windowX !== undefined && windowY !== undefined) {
+    // Find what display electron-window-state would place the window on
+    const targetDisplay = screen.getDisplayMatching({
+      x: windowX,
+      y: windowY,
+      width: mainWindowState.width,
+      height: mainWindowState.height
+    })
+
+    // Check if the saved display still exists
+    const savedDisplay = allDisplays.find(d => d.id === savedDisplayId)
+
+    if (savedDisplayId !== 0 && savedDisplay && targetDisplay.id !== savedDisplayId) {
+      // The window would land on a different display than where it was saved.
+      // This means the display arrangement changed. Move it to the saved display.
+      console.log(`[Window] Display mismatch: would open on display ${targetDisplay.id}, but was saved on display ${savedDisplayId}. Correcting.`)
+
+      // Calculate the relative position within the original display and
+      // map it to the saved display (which may now have different bounds)
+      const relativeX = windowX - targetDisplay.bounds.x
+      const relativeY = windowY - targetDisplay.bounds.y
+
+      // Clamp to the saved display's work area
+      const workArea = savedDisplay.workArea
+      windowX = Math.max(workArea.x, Math.min(
+        workArea.x + relativeX,
+        workArea.x + workArea.width - mainWindowState.width
+      ))
+      windowY = Math.max(workArea.y, Math.min(
+        workArea.y + relativeY,
+        workArea.y + workArea.height - mainWindowState.height
+      ))
+    } else if (savedDisplayId !== 0 && !savedDisplay) {
+      // Saved display no longer exists - center on primary display
+      console.log(`[Window] Saved display ${savedDisplayId} no longer exists. Centering on primary display.`)
+      const workArea = primaryDisplay.workArea
+      windowX = workArea.x + Math.round((workArea.width - mainWindowState.width) / 2)
+      windowY = workArea.y + Math.round((workArea.height - mainWindowState.height) / 2)
+    }
+    // else: displayId is 0 (first launch) or target matches saved - use windowStateKeeper's position as-is
+  }
+
   win = new BrowserWindow({
-    x: mainWindowState.x,
-    y: mainWindowState.y,
+    x: windowX,
+    y: windowY,
     width: mainWindowState.width,
     height: mainWindowState.height,
     minWidth: 800,
@@ -60,6 +111,19 @@ function createWindow() {
 
   // Let window state manager track window state
   mainWindowState.manage(win)
+
+  // Track which display the window is on when it moves or the user stops resizing
+  const saveCurrentDisplay = () => {
+    if (!win) return
+    const bounds = win.getBounds()
+    const currentDisplay = screen.getDisplayMatching(bounds)
+    configManager.setDisplayId(currentDisplay.id)
+  }
+
+  // Save display immediately and on subsequent moves
+  saveCurrentDisplay()
+  win.on('moved', saveCurrentDisplay)
+  win.on('resize', saveCurrentDisplay)
 
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date()).toLocaleString())

@@ -41,6 +41,10 @@ const configAPI = {
   getPaneSizes: () => window.ipcRenderer.invoke('config:get-pane-sizes') as Promise<number[]>,
   setPaneSizes: (sizes: number[]) =>
     window.ipcRenderer.invoke('config:set-pane-sizes', sizes) as Promise<{ success: boolean }>,
+  getShowBookmarkedOnly: () =>
+    window.ipcRenderer.invoke('config:get-show-bookmarked-only') as Promise<boolean>,
+  setShowBookmarkedOnly: (value: boolean) =>
+    window.ipcRenderer.invoke('config:set-show-bookmarked-only', value) as Promise<{ success: boolean }>,
 
   // System Fonts
   getSystemFonts: () => window.ipcRenderer.invoke('system:get-fonts') as Promise<string[]>,
@@ -199,7 +203,7 @@ export function usePRSettings() {
   const { updatePR } = useSettingsMutations();
   const [electronStoreSettings, setElectronStoreSettings] = useState({
     refreshInterval: 15,
-    autoRefresh: false,
+    autoRefresh: true,
     recentlyMergedDays: 7,
   });
   const [fallbackLoaded, setFallbackLoaded] = useState(true); // Start true - we have defaults

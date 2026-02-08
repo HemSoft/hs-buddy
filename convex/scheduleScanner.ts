@@ -104,11 +104,11 @@ export const scanAndDispatch = internalMutation({
       }
 
       // Get the job to include input params in the run
-      const job = await ctx.db.get(schedule.jobId);
+      const job = await ctx.db.get("jobs", schedule.jobId);
       if (!job) {
         console.error(`Job ${schedule.jobId} not found for schedule ${schedule._id}`);
         // Disable the orphaned schedule
-        await ctx.db.patch(schedule._id, {
+        await ctx.db.patch("schedules", schedule._id, {
           enabled: false,
           updatedAt: now,
         });
@@ -117,16 +117,16 @@ export const scanAndDispatch = internalMutation({
 
       // Check if there's already a pending or running run for this schedule
       // to prevent duplicate runs for the same interval
-      const existingRun = await ctx.db
+      // Get recent runs for this schedule and filter in code
+      // (avoids .filter() per Convex best practices)
+      const recentRuns = await ctx.db
         .query("runs")
         .withIndex("by_schedule", (q) => q.eq("scheduleId", schedule._id))
-        .filter((q) =>
-          q.or(
-            q.eq(q.field("status"), "pending"),
-            q.eq(q.field("status"), "running")
-          )
-        )
-        .first();
+        .order("desc")
+        .take(10);
+      const existingRun = recentRuns.find(
+        (r) => r.status === "pending" || r.status === "running"
+      ) ?? null;
 
       if (existingRun) {
         // Skip - there's already a pending/running run for this schedule
@@ -136,7 +136,7 @@ export const scanAndDispatch = internalMutation({
           schedule.timezone ?? "America/New_York",
           new Date(now)
         );
-        await ctx.db.patch(schedule._id, {
+        await ctx.db.patch("schedules", schedule._id, {
           nextRunAt,
           updatedAt: now,
         });
@@ -163,7 +163,7 @@ export const scanAndDispatch = internalMutation({
       );
 
       // Update schedule timing
-      await ctx.db.patch(schedule._id, {
+      await ctx.db.patch("schedules", schedule._id, {
         lastRunAt: now,
         nextRunAt,
         updatedAt: now,
@@ -197,7 +197,7 @@ export const initializeNextRun = internalMutation({
     scheduleId: v.id("schedules"),
   },
   handler: async (ctx, args) => {
-    const schedule = await ctx.db.get(args.scheduleId);
+    const schedule = await ctx.db.get("schedules", args.scheduleId);
     if (!schedule) {
       throw new Error(`Schedule ${args.scheduleId} not found`);
     }
@@ -207,7 +207,7 @@ export const initializeNextRun = internalMutation({
       schedule.timezone ?? "America/New_York"
     );
 
-    await ctx.db.patch(args.scheduleId, {
+    await ctx.db.patch("schedules", args.scheduleId, {
       nextRunAt,
       updatedAt: Date.now(),
     });

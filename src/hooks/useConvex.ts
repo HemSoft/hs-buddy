@@ -225,20 +225,4 @@ export function useRepoBookmarkMutations() {
   return { create, update, remove };
 }
 
-/**
- * React hooks for Convex repo folders
- */
 
-// List all folders (sorted)
-export function useRepoFolders() {
-  return useQuery(api.repoFolders.list);
-}
-
-// Folder mutations
-export function useRepoFolderMutations() {
-  const create = useMutation(api.repoFolders.create);
-  const rename = useMutation(api.repoFolders.rename);
-  const remove = useMutation(api.repoFolders.remove);
-
-  return { create, rename, remove };
-}

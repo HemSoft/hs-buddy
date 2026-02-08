@@ -17,7 +17,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id("bitbucketWorkspaces") },
   handler: async (ctx, { id }) => {
-    return await ctx.db.get(id);
+    return await ctx.db.get("bitbucketWorkspaces", id);
   },
 });
 
@@ -76,12 +76,12 @@ export const update = mutation({
     userDisplayName: v.optional(v.string()),
   },
   handler: async (ctx, { id, workspace, username, userDisplayName }) => {
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("bitbucketWorkspaces", id);
     if (!existing) {
       throw new Error("Bitbucket workspace not found");
     }
 
-    await ctx.db.patch(id, {
+    await ctx.db.patch("bitbucketWorkspaces", id, {
       ...(workspace !== undefined && { workspace }),
       ...(username !== undefined && { username }),
       ...(userDisplayName !== undefined && { userDisplayName }),
@@ -96,6 +96,6 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("bitbucketWorkspaces") },
   handler: async (ctx, { id }) => {
-    await ctx.db.delete(id);
+    await ctx.db.delete("bitbucketWorkspaces", id);
   },
 });

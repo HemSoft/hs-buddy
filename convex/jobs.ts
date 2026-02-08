@@ -34,7 +34,7 @@ export const listByType = query({
 export const get = query({
   args: { id: v.id("jobs") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("jobs", args.id);
   },
 });
 
@@ -160,7 +160,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
 
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("jobs", id);
     if (!existing) {
       throw new Error(`Job ${id} not found`);
     }
@@ -187,7 +187,7 @@ export const update = mutation({
     if (updates.config !== undefined) updateData.config = updates.config;
     if (updates.inputParams !== undefined) updateData.inputParams = updates.inputParams;
 
-    await ctx.db.patch(id, updateData);
+    await ctx.db.patch("jobs", id, updateData);
     return id;
   },
 });
@@ -196,7 +196,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("jobs") },
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("jobs", args.id);
     if (!existing) {
       throw new Error(`Job ${args.id} not found`);
     }
@@ -208,10 +208,10 @@ export const remove = mutation({
       .collect();
 
     for (const schedule of schedules) {
-      await ctx.db.delete(schedule._id);
+      await ctx.db.delete("schedules", schedule._id);
     }
 
-    await ctx.db.delete(args.id);
+    await ctx.db.delete("jobs", args.id);
     return args.id;
   },
 });

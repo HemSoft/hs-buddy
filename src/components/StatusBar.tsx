@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { GitPullRequest, Calendar, Clock, Bot, Zap, User } from 'lucide-react'
+import { GitPullRequest, Calendar, Clock, Bot, Zap, User, RefreshCw, CheckCircle2 } from 'lucide-react'
+import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
 import './StatusBar.css'
 
 interface StatusBarProps {
@@ -7,6 +8,7 @@ interface StatusBarProps {
   scheduleCount?: number
   jobCount?: number
   activeGitHubAccount?: string | null
+  backgroundStatus?: BackgroundStatus
 }
 
 export function StatusBar({
@@ -14,6 +16,7 @@ export function StatusBar({
   scheduleCount = 0,
   jobCount = 0,
   activeGitHubAccount,
+  backgroundStatus,
 }: StatusBarProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -84,6 +87,40 @@ export function StatusBar({
               </span>
               <span className="status-text">@{activeGitHubAccount}</span>
             </div>
+          </>
+        )}
+
+        {/* Background Sync Status */}
+        {backgroundStatus && (
+          <>
+            <div className="status-divider" />
+            {backgroundStatus.phase === 'syncing' ? (
+              <div
+                className="status-item status-item-syncing"
+                data-tooltip={`Syncing: ${backgroundStatus.activeLabel || 'GitHub data'}${backgroundStatus.activeTasks > 1 ? ` (${backgroundStatus.activeTasks} tasks)` : ''}`}
+              >
+                <span className="status-icon spinning">
+                  <RefreshCw size={12} />
+                </span>
+                <span className="status-text">
+                  Syncing{backgroundStatus.activeLabel ? ` ${backgroundStatus.activeLabel}` : ''}...
+                </span>
+              </div>
+            ) : (
+              <div
+                className="status-item status-item-sync-idle"
+                data-tooltip={`Last updated ${backgroundStatus.lastRefreshedLabel || 'never'} · Next refresh in ${backgroundStatus.nextRefreshLabel || '—'}`}
+              >
+                <span className="status-icon">
+                  <CheckCircle2 size={12} />
+                </span>
+                <span className="status-text">
+                  {backgroundStatus.nextRefreshLabel
+                    ? `Next sync ${backgroundStatus.nextRefreshLabel}`
+                    : 'Auto-refresh active'}
+                </span>
+              </div>
+            )}
           </>
         )}
       </div>

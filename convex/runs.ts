@@ -22,9 +22,9 @@ export const listRecent = query({
     // Fetch job info for each run
     const runsWithJobs = await Promise.all(
       runs.map(async (run) => {
-        const job = await ctx.db.get(run.jobId);
+        const job = await ctx.db.get("jobs", run.jobId);
         const schedule = run.scheduleId 
-          ? await ctx.db.get(run.scheduleId)
+          ? await ctx.db.get("schedules", run.scheduleId)
           : null;
         
         return {
@@ -84,12 +84,12 @@ export const listBySchedule = query({
 export const get = query({
   args: { id: v.id("runs") },
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
+    const run = await ctx.db.get("runs", args.id);
     if (!run) return null;
 
-    const job = await ctx.db.get(run.jobId);
+    const job = await ctx.db.get("jobs", run.jobId);
     const schedule = run.scheduleId 
-      ? await ctx.db.get(run.scheduleId)
+      ? await ctx.db.get("schedules", run.scheduleId)
       : null;
 
     return {
@@ -114,7 +114,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     // Verify job exists
-    const job = await ctx.db.get(args.jobId);
+    const job = await ctx.db.get("jobs", args.jobId);
     if (!job) {
       throw new Error(`Job ${args.jobId} not found`);
     }
@@ -136,7 +136,7 @@ export const create = mutation({
 export const markRunning = mutation({
   args: { id: v.id("runs") },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("runs", args.id, {
       status: "running",
     });
   },
@@ -150,13 +150,13 @@ export const complete = mutation({
     outputFileId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
+    const run = await ctx.db.get("runs", args.id);
     if (!run) {
       throw new Error(`Run ${args.id} not found`);
     }
 
     const completedAt = Date.now();
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("runs", args.id, {
       status: "completed",
       output: args.output,
       outputFileId: args.outputFileId,
@@ -166,7 +166,7 @@ export const complete = mutation({
 
     // Update schedule last run status if this was a scheduled run
     if (run.scheduleId) {
-      await ctx.db.patch(run.scheduleId, {
+      await ctx.db.patch("schedules", run.scheduleId, {
         lastRunAt: completedAt,
         lastRunStatus: "completed",
       });
@@ -181,13 +181,13 @@ export const fail = mutation({
     error: v.string(),
   },
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
+    const run = await ctx.db.get("runs", args.id);
     if (!run) {
       throw new Error(`Run ${args.id} not found`);
     }
 
     const completedAt = Date.now();
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("runs", args.id, {
       status: "failed",
       error: args.error,
       completedAt,
@@ -196,7 +196,7 @@ export const fail = mutation({
 
     // Update schedule last run status if this was a scheduled run
     if (run.scheduleId) {
-      await ctx.db.patch(run.scheduleId, {
+      await ctx.db.patch("schedules", run.scheduleId, {
         lastRunAt: completedAt,
         lastRunStatus: "failed",
       });
@@ -208,7 +208,7 @@ export const fail = mutation({
 export const cancel = mutation({
   args: { id: v.id("runs") },
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
+    const run = await ctx.db.get("runs", args.id);
     if (!run) {
       throw new Error(`Run ${args.id} not found`);
     }
@@ -218,7 +218,7 @@ export const cancel = mutation({
     }
 
     const completedAt = Date.now();
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("runs", args.id, {
       status: "cancelled",
       completedAt,
       duration: completedAt - run.startedAt,
@@ -265,16 +265,16 @@ export const claimPending = mutation({
     }
 
     // Mark as running atomically
-    await ctx.db.patch(pendingRun._id, {
+    await ctx.db.patch("runs", pendingRun._id, {
       status: "running",
     });
 
     // Fetch the associated job
-    const job = await ctx.db.get(pendingRun.jobId);
+    const job = await ctx.db.get("jobs", pendingRun.jobId);
     if (!job) {
       // Job was deleted — fail the run
       const completedAt = Date.now();
-      await ctx.db.patch(pendingRun._id, {
+      await ctx.db.patch("runs", pendingRun._id, {
         status: "failed",
         error: `Job ${pendingRun.jobId} not found`,
         completedAt,
@@ -298,17 +298,20 @@ export const cleanup = mutation({
   handler: async (ctx, args) => {
     const cutoff = Date.now() - (args.olderThanDays * 24 * 60 * 60 * 1000);
     
+    // Fetch old runs using take() to avoid unbounded .collect()
+    // Filter in TypeScript code per Convex best practices (no .filter())
     const oldRuns = await ctx.db
       .query("runs")
       .withIndex("by_started")
-      .filter((q) => q.lt(q.field("startedAt"), cutoff))
-      .collect();
+      .order("asc")
+      .take(500);
 
     let deleted = 0;
     for (const run of oldRuns) {
-      // Don't delete if still running
+      // Only delete runs older than cutoff and not active
+      if (run.startedAt >= cutoff) break;
       if (run.status !== "running" && run.status !== "pending") {
-        await ctx.db.delete(run._id);
+        await ctx.db.delete("runs", run._id);
         deleted++;
       }
     }

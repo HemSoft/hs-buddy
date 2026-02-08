@@ -101,6 +101,16 @@ export function registerConfigHandlers(): void {
     return { success: true }
   })
 
+  // Show Bookmarked Only
+  ipcMain.handle('config:get-show-bookmarked-only', () => {
+    return configManager.getShowBookmarkedOnly()
+  })
+
+  ipcMain.handle('config:set-show-bookmarked-only', (_event, value) => {
+    configManager.setShowBookmarkedOnly(value)
+    return { success: true }
+  })
+
   // Full Config
   ipcMain.handle('config:get-config', () => {
     return configManager.getConfig()

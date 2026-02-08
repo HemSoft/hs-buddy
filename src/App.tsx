@@ -13,11 +13,11 @@ import {
   SettingsPullRequests,
   SettingsAdvanced,
 } from './components/settings'
-// ReposOfInterest replaced by Organizations tree in GitHub sidebar
 import { StatusBar } from './components/StatusBar'
 import { useSchedules, useJobs } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
+import { useBackgroundStatus } from './hooks/useBackgroundStatus'
 import { usePRSettings } from './hooks/useConfig'
 import { GitHubClient } from './api/github'
 import { dataCache } from './services/dataCache'
@@ -154,6 +154,9 @@ function App() {
 
   // Prefetch PR data in background on app startup
   usePrefetch()
+
+  // Background sync status for StatusBar
+  const backgroundStatus = useBackgroundStatus()
 
   // Track the active GitHub CLI account (for Copilot CLI credit transparency)
   const [activeGitHubAccount, setActiveGitHubAccount] = useState<string | null>(null)
@@ -486,6 +489,7 @@ function App() {
         scheduleCount={schedules?.length ?? 0}
         jobCount={jobs?.length ?? 0}
         activeGitHubAccount={activeGitHubAccount}
+        backgroundStatus={backgroundStatus}
       />
     </div>
   )

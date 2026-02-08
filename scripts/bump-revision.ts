@@ -39,6 +39,9 @@ const changelogPath = resolve(ROOT, 'CHANGELOG.md')
 if (existsSync(changelogPath)) {
   let changelog = readFileSync(changelogPath, 'utf-8')
 
+  // Normalize line endings for consistent regex matching
+  changelog = changelog.replace(/\r\n/g, '\n')
+
   // Match the [Unreleased] section and its content up to the next ## heading
   const unreleasedRegex = /## \[Unreleased\]\n((?:.|\n)*?)(?=\n## \[|$)/
   const match = changelog.match(unreleasedRegex)

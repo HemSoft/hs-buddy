@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-02-08
+
 ### Added
 
 - Copilot SDK settings page with dynamic model fetching and account switching

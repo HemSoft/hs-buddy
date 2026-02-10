@@ -113,6 +113,22 @@ class ConfigManager {
     this.store.set('ui.bgSecondary', color);
   }
 
+  getStatusBarBg(): string {
+    return this.store.get('ui.statusBarBg', '#181818');
+  }
+
+  setStatusBarBg(color: string): void {
+    this.store.set('ui.statusBarBg', color);
+  }
+
+  getStatusBarFg(): string {
+    return this.store.get('ui.statusBarFg', '#9d9d9d');
+  }
+
+  setStatusBarFg(color: string): void {
+    this.store.set('ui.statusBarFg', color);
+  }
+
   getFontColor(): string {
     return this.store.get('ui.fontColor', '#cccccc');
   }

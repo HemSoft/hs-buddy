@@ -41,6 +41,14 @@ const configAPI = {
   getPaneSizes: () => window.ipcRenderer.invoke('config:get-pane-sizes') as Promise<number[]>,
   setPaneSizes: (sizes: number[]) =>
     window.ipcRenderer.invoke('config:set-pane-sizes', sizes) as Promise<{ success: boolean }>,
+  getStatusBarBg: () =>
+    window.ipcRenderer.invoke('config:get-statusbar-bg') as Promise<string>,
+  setStatusBarBg: (color: string) =>
+    window.ipcRenderer.invoke('config:set-statusbar-bg', color) as Promise<{ success: boolean }>,
+  getStatusBarFg: () =>
+    window.ipcRenderer.invoke('config:get-statusbar-fg') as Promise<string>,
+  setStatusBarFg: (color: string) =>
+    window.ipcRenderer.invoke('config:set-statusbar-fg', color) as Promise<{ success: boolean }>,
   getShowBookmarkedOnly: () =>
     window.ipcRenderer.invoke('config:get-show-bookmarked-only') as Promise<boolean>,
   setShowBookmarkedOnly: (value: boolean) =>

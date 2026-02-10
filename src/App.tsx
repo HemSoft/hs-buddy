@@ -289,8 +289,10 @@ function App() {
       window.ipcRenderer.invoke('config:get-bg-primary'),
       window.ipcRenderer.invoke('config:get-bg-secondary'),
       window.ipcRenderer.invoke('config:get-font-color'),
+      window.ipcRenderer.invoke('config:get-statusbar-bg'),
+      window.ipcRenderer.invoke('config:get-statusbar-fg'),
     ])
-      .then(([bgPrimary, bgSecondary, fontColor]) => {
+      .then(([bgPrimary, bgSecondary, fontColor, statusBarBg, statusBarFg]) => {
         const root = document.documentElement
         if (bgPrimary) {
           root.style.setProperty('--bg-primary', bgPrimary)
@@ -312,6 +314,12 @@ function App() {
             '--text-heading',
             `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
           )
+        }
+        if (statusBarBg) {
+          root.style.setProperty('--statusbar-bg', statusBarBg)
+        }
+        if (statusBarFg) {
+          root.style.setProperty('--statusbar-fg', statusBarFg)
         }
       })
       .catch(() => {})

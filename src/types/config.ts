@@ -36,6 +36,8 @@ export interface AppConfig {
     fontColor: string; // Font/text color hex (e.g., '#cccccc')
     bgPrimary: string; // Primary background hex color
     bgSecondary: string; // Secondary background hex color
+    statusBarBg: string; // Status bar background hex color
+    statusBarFg: string; // Status bar foreground/text hex color
     fontFamily: string;
     monoFontFamily: string;
     zoomLevel: number;
@@ -120,6 +122,14 @@ export const configSchema: Schema<AppConfig> = {
         type: 'string',
         default: '#252526',
       },
+      statusBarBg: {
+        type: 'string',
+        default: '#181818',
+      },
+      statusBarFg: {
+        type: 'string',
+        default: '#9d9d9d',
+      },
       fontFamily: {
         type: 'string',
         default: 'Inter',
@@ -154,7 +164,7 @@ export const configSchema: Schema<AppConfig> = {
         default: false,
       },
     },
-    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes', 'displayId', 'showBookmarkedOnly'],
+    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'statusBarBg', 'statusBarFg', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes', 'displayId', 'showBookmarkedOnly'],
   },
   pr: {
     type: 'object',
@@ -210,6 +220,8 @@ export const defaultConfig: AppConfig = {
     fontColor: '#cccccc',
     bgPrimary: '#1e1e1e',
     bgSecondary: '#252526',
+    statusBarBg: '#181818',
+    statusBarFg: '#9d9d9d',
     fontFamily: 'Inter',
     monoFontFamily: 'Cascadia Code',
     zoomLevel: 100,

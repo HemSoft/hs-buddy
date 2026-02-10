@@ -19,6 +19,8 @@ const DARK_DEFAULTS = {
   fontColor: '#cccccc',
   bgPrimary: '#1e1e1e',
   bgSecondary: '#252526',
+  statusBarBg: '#181818',
+  statusBarFg: '#9d9d9d',
 };
 
 const LIGHT_DEFAULTS = {
@@ -26,6 +28,8 @@ const LIGHT_DEFAULTS = {
   fontColor: '#1f1f1f',
   bgPrimary: '#ffffff',
   bgSecondary: '#f3f3f3',
+  statusBarBg: '#f3f3f3',
+  statusBarFg: '#616161',
 };
 
 export function SettingsAppearance() {
@@ -35,6 +39,8 @@ export function SettingsAppearance() {
   const [fontColor, setFontColor] = useState('#cccccc');
   const [bgPrimary, setBgPrimary] = useState('#1e1e1e');
   const [bgSecondary, setBgSecondary] = useState('#252526');
+  const [statusBarBg, setStatusBarBg] = useState('#181818');
+  const [statusBarFg, setStatusBarFg] = useState('#9d9d9d');
   const [fontFamily, setFontFamily] = useState('Inter');
   const [monoFontFamily, setMonoFontFamily] = useState('Cascadia Code');
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
@@ -58,13 +64,15 @@ export function SettingsAppearance() {
       setFontColor(config.ui.fontColor || '#cccccc');
       setBgPrimary(config.ui.bgPrimary || '#1e1e1e');
       setBgSecondary(config.ui.bgSecondary || '#252526');
+      setStatusBarBg(config.ui.statusBarBg || '#181818');
+      setStatusBarFg(config.ui.statusBarFg || '#9d9d9d');
       setFontFamily(config.ui.fontFamily || 'Inter');
       setMonoFontFamily(config.ui.monoFontFamily || 'Cascadia Code');
     }
   }, [config]);
 
   // Apply colors to CSS variables
-  const applyColors = (accent: string, fontClr: string, primary: string, secondary: string) => {
+  const applyColors = (accent: string, fontClr: string, primary: string, secondary: string, sbBg?: string, sbFg?: string) => {
     const root = document.documentElement;
     root.style.setProperty('--accent-primary', accent);
     root.style.setProperty('--accent-primary-hover', lightenColor(accent, 15));
@@ -76,6 +84,8 @@ export function SettingsAppearance() {
     root.style.setProperty('--input-bg', primary);
     root.style.setProperty('--bg-secondary', secondary);
     root.style.setProperty('--sidebar-bg', secondary);
+    if (sbBg) root.style.setProperty('--statusbar-bg', sbBg);
+    if (sbFg) root.style.setProperty('--statusbar-fg', sbFg);
   };
 
   const handleThemeChange = async (newTheme: 'dark' | 'light') => {
@@ -88,6 +98,8 @@ export function SettingsAppearance() {
     setFontColor(defaults.fontColor);
     setBgPrimary(defaults.bgPrimary);
     setBgSecondary(defaults.bgSecondary);
+    setStatusBarBg(defaults.statusBarBg);
+    setStatusBarFg(defaults.statusBarFg);
     
     // Clear inline styles so CSS variables take effect
     const root = document.documentElement;
@@ -101,36 +113,52 @@ export function SettingsAppearance() {
     root.style.removeProperty('--input-bg');
     root.style.removeProperty('--bg-secondary');
     root.style.removeProperty('--sidebar-bg');
+    root.style.removeProperty('--statusbar-bg');
+    root.style.removeProperty('--statusbar-fg');
     
     await api.setTheme(newTheme);
     await api.setAccentColor(defaults.accentColor);
     await api.setFontColor(defaults.fontColor);
     await api.setBgPrimary(defaults.bgPrimary);
     await api.setBgSecondary(defaults.bgSecondary);
+    await api.setStatusBarBg(defaults.statusBarBg);
+    await api.setStatusBarFg(defaults.statusBarFg);
   };
 
   const handleAccentChange = async (color: string) => {
     setAccentColor(color);
-    applyColors(color, fontColor, bgPrimary, bgSecondary);
+    applyColors(color, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg);
     await api.setAccentColor(color);
   };
 
   const handleFontColorChange = async (color: string) => {
     setFontColor(color);
-    applyColors(accentColor, color, bgPrimary, bgSecondary);
+    applyColors(accentColor, color, bgPrimary, bgSecondary, statusBarBg, statusBarFg);
     await api.setFontColor(color);
   };
 
   const handleBgPrimaryChange = async (color: string) => {
     setBgPrimary(color);
-    applyColors(accentColor, fontColor, color, bgSecondary);
+    applyColors(accentColor, fontColor, color, bgSecondary, statusBarBg, statusBarFg);
     await api.setBgPrimary(color);
   };
 
   const handleBgSecondaryChange = async (color: string) => {
     setBgSecondary(color);
-    applyColors(accentColor, fontColor, bgPrimary, color);
+    applyColors(accentColor, fontColor, bgPrimary, color, statusBarBg, statusBarFg);
     await api.setBgSecondary(color);
+  };
+
+  const handleStatusBarBgChange = async (color: string) => {
+    setStatusBarBg(color);
+    document.documentElement.style.setProperty('--statusbar-bg', color);
+    await api.setStatusBarBg(color);
+  };
+
+  const handleStatusBarFgChange = async (color: string) => {
+    setStatusBarFg(color);
+    document.documentElement.style.setProperty('--statusbar-fg', color);
+    await api.setStatusBarFg(color);
   };
 
   const handleResetColors = async () => {
@@ -139,11 +167,15 @@ export function SettingsAppearance() {
     setFontColor(defaults.fontColor);
     setBgPrimary(defaults.bgPrimary);
     setBgSecondary(defaults.bgSecondary);
-    applyColors(defaults.accentColor, defaults.fontColor, defaults.bgPrimary, defaults.bgSecondary);
+    setStatusBarBg(defaults.statusBarBg);
+    setStatusBarFg(defaults.statusBarFg);
+    applyColors(defaults.accentColor, defaults.fontColor, defaults.bgPrimary, defaults.bgSecondary, defaults.statusBarBg, defaults.statusBarFg);
     await api.setAccentColor(defaults.accentColor);
     await api.setFontColor(defaults.fontColor);
     await api.setBgPrimary(defaults.bgPrimary);
     await api.setBgSecondary(defaults.bgSecondary);
+    await api.setStatusBarBg(defaults.statusBarBg);
+    await api.setStatusBarFg(defaults.statusBarFg);
   };
 
   const handleFontFamilyChange = async (font: string) => {
@@ -355,6 +387,56 @@ export function SettingsAppearance() {
                 />
               </div>
               <p className="color-hint">Sidebar and secondary surfaces</p>
+            </div>
+
+            <div className="color-setting">
+              <label htmlFor="statusbar-bg">Status Bar Background</label>
+              <div className="color-picker-row">
+                <input
+                  type="color"
+                  id="statusbar-bg"
+                  className="color-picker"
+                  value={statusBarBg}
+                  onChange={(e) => handleStatusBarBgChange(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="color-hex-input"
+                  value={statusBarBg}
+                  onChange={(e) => {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                      handleStatusBarBgChange(e.target.value);
+                    }
+                  }}
+                  placeholder="#181818"
+                />
+              </div>
+              <p className="color-hint">Background color of the bottom status bar</p>
+            </div>
+
+            <div className="color-setting">
+              <label htmlFor="statusbar-fg">Status Bar Text</label>
+              <div className="color-picker-row">
+                <input
+                  type="color"
+                  id="statusbar-fg"
+                  className="color-picker"
+                  value={statusBarFg}
+                  onChange={(e) => handleStatusBarFgChange(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="color-hex-input"
+                  value={statusBarFg}
+                  onChange={(e) => {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                      handleStatusBarFgChange(e.target.value);
+                    }
+                  }}
+                  placeholder="#9d9d9d"
+                />
+              </div>
+              <p className="color-hint">Text and icon color of the bottom status bar</p>
             </div>
           </div>
         </div>

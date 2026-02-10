@@ -142,7 +142,7 @@ export function TitleBar() {
         <span className="title-brand">HemSoft Developments</span>
         <span className="title-icon"><Users size={14} /></span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.10</span>
+        <span className="title-version">V0.1.11</span>
       </div>
       <div className="window-controls">
         <button className="window-control-button" onClick={handleMinimize} title="Minimize">

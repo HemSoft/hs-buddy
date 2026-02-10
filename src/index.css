@@ -63,6 +63,10 @@
   /* Sash/resize */
   --sash-bg: #3e3e42;
   --sash-hover: #505055;
+
+  /* Status bar */
+  --statusbar-bg: #181818;
+  --statusbar-fg: #9d9d9d;
 }
 
 /* Dark Theme (explicit) */
@@ -117,6 +121,10 @@
   /* Sash/resize */
   --sash-bg: #3e3e42;
   --sash-hover: #505055;
+
+  /* Status bar */
+  --statusbar-bg: #181818;
+  --statusbar-fg: #9d9d9d;
 }
 
 /* Light Theme - VS Code inspired */
@@ -173,6 +181,10 @@
   /* Sash/resize */
   --sash-bg: #e7e7e7;
   --sash-hover: #0078d4;
+
+  /* Status bar */
+  --statusbar-bg: #f3f3f3;
+  --statusbar-fg: #616161;
 }
 
 /* Apply theme variables to body */

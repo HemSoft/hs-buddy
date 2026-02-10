@@ -41,6 +41,25 @@ export function registerConfigHandlers(): void {
     return { success: true }
   })
 
+  // Status Bar Colors
+  ipcMain.handle('config:get-statusbar-bg', () => {
+    return configManager.getStatusBarBg()
+  })
+
+  ipcMain.handle('config:set-statusbar-bg', (_event, color) => {
+    configManager.setStatusBarBg(color)
+    return { success: true }
+  })
+
+  ipcMain.handle('config:get-statusbar-fg', () => {
+    return configManager.getStatusBarFg()
+  })
+
+  ipcMain.handle('config:set-statusbar-fg', (_event, color) => {
+    configManager.setStatusBarFg(color)
+    return { success: true }
+  })
+
   // Font Color
   ipcMain.handle('config:get-font-color', () => {
     return configManager.getFontColor()

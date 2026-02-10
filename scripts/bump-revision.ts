@@ -67,7 +67,7 @@ if (existsSync(changelogPath)) {
       // [Unreleased] is empty — insert version header with placeholder
       changelog = changelog.replace(
         /## \[Unreleased\]\n/,
-        `## [Unreleased]\n\n## [${newVersion}] - ${today}\n\n- Version bump\n\n`
+        `## [Unreleased]\n\n## [${newVersion}] - ${today}\n\n- Version bump\n`
       )
       console.log(`✓ CHANGELOG.md   [${newVersion}] - ${today} (empty unreleased, added placeholder)`)
     }

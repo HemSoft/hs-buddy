@@ -7,6 +7,7 @@ import { loadZoomLevel } from './zoom'
 import { buildMenu, registerKeyboardShortcuts } from './menu'
 import { registerAllHandlers } from './ipc'
 import { getDispatcher, runOfflineSync } from './workers'
+import { stopSharedClient } from './services/copilotClient'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -181,7 +182,8 @@ app.whenReady().then(() => {
     })
 })
 
-// Stop the dispatcher when the app is quitting
+// Stop the dispatcher and shared Copilot client when the app is quitting
 app.on('before-quit', () => {
   getDispatcher().stop()
+  stopSharedClient()
 })

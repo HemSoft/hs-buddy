@@ -12,6 +12,7 @@
   justify-content: center;
   z-index: 2000;
   backdrop-filter: blur(4px);
+  -webkit-app-region: no-drag;
 }
 
 .about-modal {

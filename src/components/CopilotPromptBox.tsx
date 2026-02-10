@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Loader2, Sparkles, History } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../hooks/useConvex'
-import { useCopilotSettings } from '../hooks/useConfig'
+import { useCopilotSettings, useGitHubAccounts } from '../hooks/useConfig'
 import { AccountPicker } from './shared/AccountPicker'
 import { ModelPicker } from './shared/ModelPicker'
 import { InlineDropdown } from './InlineDropdown'
@@ -30,10 +30,13 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
   const recentResults = useCopilotResultsRecent(10)
   const activeCount = useCopilotActiveCount()
   const { model: configuredModel, ghAccount } = useCopilotSettings()
+  const { accounts: githubAccounts } = useGitHubAccounts()
 
   // Local state for account/model
   const [localAccount, setLocalAccount] = useState(ghAccount)
   const [localModel, setLocalModel] = useState(configuredModel)
+  // Track whether the account was auto-detected (vs. manually chosen)
+  const autoDetectedRef = useRef(false)
 
   // Sync local state from Convex once it loads (one-time initialization)
   const initializedRef = useRef(false)
@@ -52,6 +55,46 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
     }
   }, [prompt])
+
+  /**
+   * Auto-detect the correct GitHub account from org/owner in the prompt text.
+   * Only auto-switches if the user hasn't manually picked a different account.
+   */
+  const resolveAccountFromPrompt = useCallback((text: string) => {
+    const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
+    const orgs: string[] = []
+    let match: RegExpExecArray | null
+    while ((match = urlPattern.exec(text)) !== null) {
+      orgs.push(match[1].toLowerCase())
+    }
+
+    if (orgs.length === 0) {
+      // No GitHub URL — if we previously auto-detected, revert to default
+      if (autoDetectedRef.current) {
+        autoDetectedRef.current = false
+        setLocalAccount(ghAccount)
+      }
+      return
+    }
+
+    // Find the first org that matches a configured account
+    for (const org of orgs) {
+      const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
+      if (acct) {
+        if (localAccount !== acct.username) {
+          autoDetectedRef.current = true
+          setLocalAccount(acct.username)
+        }
+        return
+      }
+    }
+  }, [githubAccounts, ghAccount, localAccount])
+
+  // Run auto-detection when prompt text changes (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => resolveAccountFromPrompt(prompt), 300)
+    return () => clearTimeout(timer)
+  }, [prompt, resolveAccountFromPrompt])
 
   const handleSubmit = async () => {
     const trimmed = prompt.trim()
@@ -145,7 +188,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
             {/* Account selector */}
             <AccountPicker
               value={localAccount}
-              onChange={setLocalAccount}
+              onChange={(val) => { autoDetectedRef.current = false; setLocalAccount(val) }}
               disabled={submitting}
               title="GitHub account for Copilot"
             />

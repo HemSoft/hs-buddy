@@ -47,9 +47,73 @@ class CopilotService {
   }
 
   /**
+   * Extract GitHub org/owner names from URLs in the prompt text.
+   * Matches patterns like github.com/org/repo or github.com/org/repo/pull/123
+   */
+  private extractGitHubOrgs(prompt: string): string[] {
+    const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
+    const orgs = new Set<string>()
+    let match: RegExpExecArray | null
+    while ((match = urlPattern.exec(prompt)) !== null) {
+      orgs.add(match[1].toLowerCase())
+    }
+    return [...orgs]
+  }
+
+  /**
+   * Resolve the correct GitHub CLI account for a prompt.
+   *
+   * 1. If an explicit ghAccount is provided, use it directly.
+   * 2. Otherwise, extract GitHub org(s) from URLs in the prompt text
+   *    and look up the matching account in Convex githubAccounts table.
+   *
+   * Returns the gh CLI username to switch to, or undefined if none found.
+   */
+  private async resolveAccount(prompt: string, explicitAccount?: string): Promise<string | undefined> {
+    if (explicitAccount) return explicitAccount
+
+    const orgs = this.extractGitHubOrgs(prompt)
+    if (orgs.length === 0) return undefined
+
+    // Query all GitHub accounts from Convex
+    try {
+      const accounts = await this.convex.query(api.githubAccounts.list, {})
+      for (const org of orgs) {
+        const match = accounts.find(a => a.org.toLowerCase() === org)
+        if (match) {
+          console.log(`[CopilotService] Auto-resolved account "${match.username}" for org "${org}"`)
+          return match.username
+        }
+      }
+    } catch (err) {
+      console.error('[CopilotService] Failed to query accounts for auto-resolution:', err)
+    }
+
+    return undefined
+  }
+
+  /**
+   * Switch the gh CLI to the specified account.
+   */
+  private async switchAccount(ghAccount: string): Promise<void> {
+    try {
+      console.log(`[CopilotService] Switching to gh CLI account: ${ghAccount}`)
+      await execAsync(`gh auth switch --user ${ghAccount}`, {
+        encoding: 'utf8',
+        timeout: 5000,
+      })
+      console.log(`[CopilotService] ✓ Switched to account: ${ghAccount}`)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error(`[CopilotService] ✗ Failed to switch account to ${ghAccount}:`, errorMessage)
+      // Continue anyway — the active account will be used
+    }
+  }
+
+  /**
    * Execute a prompt via Copilot SDK and store the result in Convex.
    *
-   * 1. Optionally switches the active gh CLI account
+   * 1. Resolves the correct gh CLI account (explicit or auto-detected from prompt URLs)
    * 2. Creates a "pending" record in Convex
    * 3. Starts a CopilotClient session
    * 4. Sends the prompt
@@ -58,23 +122,15 @@ class CopilotService {
   async executePrompt(request: CopilotPromptRequest): Promise<CopilotPromptResult> {
     const model = request.model ?? DEFAULT_MODEL
 
-    // Extract ghAccount from metadata if provided
-    const ghAccount = (request.metadata as { ghAccount?: string } | undefined)?.ghAccount
+    // Extract explicit ghAccount from metadata
+    const explicitAccount = (request.metadata as { ghAccount?: string } | undefined)?.ghAccount
 
-    // 0. Switch gh CLI account if a specific account is configured
+    // Resolve the correct account — auto-detect from prompt URLs if not explicit
+    const ghAccount = await this.resolveAccount(request.prompt, explicitAccount)
+
+    // Switch gh CLI account if resolved
     if (ghAccount) {
-      try {
-        console.log(`[CopilotService] Switching to gh CLI account: ${ghAccount}`)
-        await execAsync(`gh auth switch --user ${ghAccount}`, {
-          encoding: 'utf8',
-          timeout: 5000,
-        })
-        console.log(`[CopilotService] ✓ Switched to account: ${ghAccount}`)
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-        console.error(`[CopilotService] ✗ Failed to switch account to ${ghAccount}:`, errorMessage)
-        // Continue anyway — the active account will be used
-      }
+      await this.switchAccount(ghAccount)
     }
 
     // 1. Create pending record in Convex

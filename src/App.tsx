@@ -22,6 +22,9 @@ import { RepoPRList } from './components/RepoPRList'
 import { CopilotPromptBox } from './components/CopilotPromptBox'
 import { CopilotResultPanel } from './components/CopilotResultPanel'
 import { CopilotResultsList } from './components/CopilotResultsList'
+import { PRReviewPanel } from './components/PRReviewPanel'
+import type { PRReviewInfo } from './components/PRReviewPanel'
+import { CopilotUsagePanel } from './components/CopilotUsagePanel'
 import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
@@ -55,6 +58,7 @@ const viewLabels: Record<string, string> = {
   'automation-runs': 'Runs',
   'copilot-prompt': 'Copilot Prompt',
   'copilot-all-results': 'Copilot Results',
+  'copilot-usage': 'Premium Usage',
 }
 
 /** Resolve a viewId to a tab label — supports dynamic repo-detail/issues/prs labels */
@@ -76,6 +80,14 @@ function getViewLabel(viewId: string): string {
   }
   if (viewId.startsWith('copilot-result:')) {
     return 'Copilot Result'
+  }
+  if (viewId.startsWith('pr-review:')) {
+    try {
+      const info = JSON.parse(decodeURIComponent(viewId.replace('pr-review:', ''))) as PRReviewInfo
+      return `Review: ${info.prTitle.length > 30 ? info.prTitle.slice(0, 30) + '…' : info.prTitle}`
+    } catch {
+      return 'PR Review'
+    }
   }
   return viewLabels[viewId] || viewId
 }
@@ -434,6 +446,19 @@ function App() {
     return () => window.removeEventListener('copilot:open-result', handler)
   }, [openTab])
 
+  // Listen for pr-review:open custom events (from PR context menus)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as PRReviewInfo | undefined
+      if (detail?.prUrl) {
+        const encoded = encodeURIComponent(JSON.stringify(detail))
+        openTab(`pr-review:${encoded}`)
+      }
+    }
+    window.addEventListener('pr-review:open', handler)
+    return () => window.removeEventListener('pr-review:open', handler)
+  }, [openTab])
+
   // Close a tab
   const closeTab = useCallback(
     (tabId: string) => {
@@ -540,6 +565,8 @@ function App() {
         return <CopilotPromptBox onOpenResult={(resultId) => openTab(`copilot-result:${resultId}`)} />
       case 'copilot-all-results':
         return <CopilotResultsList onOpenResult={(resultId) => openTab(`copilot-result:${resultId}`)} />
+      case 'copilot-usage':
+        return <CopilotUsagePanel />
       default:
         // Handle dynamic repo-detail views: repo-detail:owner/repo
         if (activeViewId.startsWith('repo-detail:')) {
@@ -575,6 +602,22 @@ function App() {
         if (activeViewId.startsWith('copilot-result:')) {
           const resultId = activeViewId.replace('copilot-result:', '')
           return <CopilotResultPanel resultId={resultId} />
+        }
+        // Handle dynamic pr-review views: pr-review:<encoded JSON>
+        if (activeViewId.startsWith('pr-review:')) {
+          try {
+            const encoded = activeViewId.replace('pr-review:', '')
+            const prInfo = JSON.parse(decodeURIComponent(encoded)) as PRReviewInfo
+            return (
+              <PRReviewPanel
+                prInfo={prInfo}
+                onSubmitted={(resultId) => openTab(`copilot-result:${resultId}`)}
+                onClose={() => closeTab(tabs.find(t => t.viewId === activeViewId)?.id || '')}
+              />
+            )
+          } catch {
+            return <div className="content-placeholder"><p>Invalid PR review data</p></div>
+          }
         }
         return (
           <div className="content-placeholder">

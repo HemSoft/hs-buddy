@@ -59,11 +59,17 @@ export function ModelPicker({
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsError, setModelsError] = useState<string | null>(null)
 
+  // Track the latest fetch to cancel stale in-flight requests
+  const fetchIdRef = useRef(0)
+
   const fetchModels = useCallback(async (forAccount?: string) => {
+    const thisId = ++fetchIdRef.current
     setModelsLoading(true)
     setModelsError(null)
     try {
       const result = await window.copilot.listModels(forAccount || undefined)
+      // Ignore result if a newer fetch was started while we were waiting
+      if (fetchIdRef.current !== thisId) return
       if (result && 'error' in result) {
         setModelsError(result.error as string)
         setSdkModels([])
@@ -71,14 +77,17 @@ export function ModelPicker({
         setSdkModels(result)
       }
     } catch (err) {
+      if (fetchIdRef.current !== thisId) return
       setModelsError(err instanceof Error ? err.message : String(err))
       setSdkModels([])
     } finally {
-      setModelsLoading(false)
+      if (fetchIdRef.current === thisId) {
+        setModelsLoading(false)
+      }
     }
   }, [])
 
-  // Fetch models on mount and when account changes
+  // Single effect: fetch models on mount and when account changes
   const lastAccountRef = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (lastAccountRef.current !== ghAccount) {
@@ -86,15 +95,6 @@ export function ModelPicker({
       fetchModels(ghAccount || undefined)
     }
   }, [ghAccount, fetchModels])
-
-  // Initial fetch
-  const mountedRef = useRef(false)
-  useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true
-      fetchModels(ghAccount || undefined)
-    }
-  }, [fetchModels, ghAccount])
 
   // Validate selected model when models list refreshes
   useEffect(() => {

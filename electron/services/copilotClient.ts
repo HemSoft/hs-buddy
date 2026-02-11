@@ -49,6 +49,8 @@ export function resolveCopilotCliPath(): string {
 // ── Singleton client ─────────────────────────────────────────────────────
 
 let sharedClient: CopilotClient | null = null
+/** Guard to prevent concurrent start() calls on the shared client. */
+let startPromise: Promise<void> | null = null
 
 /**
  * Get (or create) the singleton CopilotClient.
@@ -70,9 +72,42 @@ export function getSharedClient(): CopilotClient {
 }
 
 /**
+ * Ensure the shared client is started and connected.
+ *
+ * Serialises concurrent callers so only ONE start() is in-flight at a time.
+ * Subsequent callers await the same promise instead of spawning a second
+ * CLI server process.
+ */
+export async function ensureClientStarted(): Promise<CopilotClient> {
+  const client = getSharedClient()
+  if (client.getState() === 'connected') return client
+
+  // If a start is already in progress, piggyback on it
+  if (startPromise) {
+    await startPromise
+    return client
+  }
+
+  startPromise = (async () => {
+    try {
+      await Promise.race([
+        client.start(),
+        rejectAfter(SESSION_TIMEOUT, 'Timeout starting Copilot client'),
+      ])
+    } finally {
+      startPromise = null
+    }
+  })()
+
+  await startPromise
+  return client
+}
+
+/**
  * Stop the shared client (call on app quit).
  */
 export async function stopSharedClient(): Promise<void> {
+  startPromise = null          // Cancel any pending start
   if (sharedClient) {
     try {
       await sharedClient.stop()
@@ -82,6 +117,21 @@ export async function stopSharedClient(): Promise<void> {
     sharedClient = null
     console.log('[CopilotClient] Shared client stopped')
   }
+}
+
+/**
+ * Restart the shared client.
+ *
+ * After a `gh auth switch` the Copilot CLI process must be restarted so
+ * it picks up credentials for the newly-active account.  This stops the
+ * current singleton (if any) and nulls it out so the next `getSharedClient()`
+ * call creates a fresh instance.
+ */
+export async function restartSharedClient(): Promise<void> {
+  console.log('[CopilotClient] Restarting shared client for account switch…')
+  await stopSharedClient()
+  // Eagerly recreate so the next sendPrompt doesn't pay the startup cost
+  getSharedClient()
 }
 
 // ── Prompt helpers ───────────────────────────────────────────────────────
@@ -134,13 +184,8 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
       ])
       client = tempClient
     } else {
-      client = getSharedClient()
-      if (client.getState() !== 'connected') {
-        await Promise.race([
-          client.start(),
-          rejectAfter(SESSION_TIMEOUT, 'Timeout starting Copilot client'),
-        ])
-      }
+      // Use the concurrency-safe helper for the shared client
+      client = await ensureClientStarted()
     }
 
     if (signal?.aborted) throw new Error('Cancelled before session creation')

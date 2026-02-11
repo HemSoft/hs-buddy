@@ -1,0 +1,304 @@
+/* CopilotUsagePanel.css — Per-account premium usage with circular rings */
+
+.copilot-usage-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px;
+  overflow-y: auto;
+  background-color: var(--bg-primary);
+  gap: 18px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+
+.usage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.usage-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.usage-header-icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  background: linear-gradient(135deg, #4ec9b0 0%, #0e639c 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(78, 201, 176, 0.25);
+}
+
+.usage-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-heading, #e8e8e8);
+}
+
+.usage-subtitle {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+}
+
+.usage-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-primary, #3c3c3c);
+  border-radius: 6px;
+  background: var(--bg-secondary, #252526);
+  color: var(--text-primary, #ccc);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.usage-refresh-btn:hover:not(:disabled) {
+  background: var(--item-hover, #2a2d2e);
+  border-color: var(--accent-primary, #0e639c);
+}
+
+.usage-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Account Cards Grid ───────────────────────────────────────────────── */
+
+.usage-accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.usage-account-card {
+  background: var(--bg-secondary, #252526);
+  border: 1px solid var(--border-primary, #3c3c3c);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.2s;
+}
+
+.usage-account-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Account Header ───────────────────────────────────────────────────── */
+
+.usage-account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.usage-account-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.usage-account-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-heading, #e8e8e8);
+}
+
+.usage-account-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: capitalize;
+}
+
+/* ── Account Body (Ring + Stats) ──────────────────────────────────────── */
+
+.usage-account-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.usage-ring {
+  flex-shrink: 0;
+}
+
+.usage-ring-percent {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-family-mono, 'Cascadia Code', monospace);
+}
+
+.usage-ring-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.usage-account-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+}
+
+.usage-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.usage-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-heading, #e8e8e8);
+  font-family: var(--font-family-mono, 'Cascadia Code', monospace);
+  line-height: 1.2;
+}
+
+.usage-stat-label {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.usage-stat-overage .usage-stat-value {
+  color: #e85d5d;
+}
+
+/* ── Account Footer ───────────────────────────────────────────────────── */
+
+.usage-account-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.usage-account-reset {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+.usage-reset-days {
+  margin-left: 4px;
+  color: var(--text-tertiary, #666);
+}
+
+.usage-account-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usage-fetched-at {
+  font-size: 10px;
+  color: var(--text-tertiary, #666);
+}
+
+.usage-link-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--accent-primary, #0e639c);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.usage-link-btn:hover {
+  background: rgba(14, 99, 156, 0.15);
+}
+
+/* ── Org membership ───────────────────────────────────────────────────── */
+
+.usage-account-orgs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary, #666);
+}
+
+/* ── Loading / Error states ───────────────────────────────────────────── */
+
+.usage-account-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 30px 0;
+  color: var(--text-secondary, #888);
+  font-size: 13px;
+}
+
+.usage-account-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 0;
+  color: #e85d5d;
+  font-size: 13px;
+}
+
+.usage-account-error strong {
+  color: var(--text-heading, #e8e8e8);
+}
+
+.usage-account-error p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+}
+
+/* ── Empty State ──────────────────────────────────────────────────────── */
+
+.usage-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--text-secondary, #888);
+  grid-column: 1 / -1;
+}
+
+.usage-empty-hint {
+  font-size: 12px;
+  color: var(--text-tertiary, #666);
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────────── */
+
+.copilot-usage-panel .spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

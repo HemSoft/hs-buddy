@@ -15,15 +15,16 @@ import type { Id } from '../../convex/_generated/dataModel'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import {
-  getSharedClient,
+  ensureClientStarted,
   sendPrompt,
+  restartSharedClient,
 } from './copilotClient'
 
 const execAsync = promisify(exec)
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
 const DEFAULT_MODEL = 'claude-sonnet-4.5'
-const HARD_TIMEOUT = 5 * 60_000 // 5 minutes
+const HARD_TIMEOUT = 30 * 60_000 // 30 minutes — PR reviews can be lengthy
 
 export interface CopilotPromptRequest {
   prompt: string
@@ -41,6 +42,8 @@ export interface CopilotPromptResult {
 class CopilotService {
   private convex: ConvexHttpClient
   private activeRequests = new Map<string, AbortController>()
+  /** The gh CLI account the shared CopilotClient was last started with. */
+  private currentGhAccount: string | undefined
 
   constructor() {
     this.convex = new ConvexHttpClient(CONVEX_URL)
@@ -93,9 +96,20 @@ class CopilotService {
   }
 
   /**
-   * Switch the gh CLI to the specified account.
+   * Switch the gh CLI to the specified account and restart the SDK client.
+   *
+   * The Copilot SDK process caches credentials at startup.  When we switch
+   * `gh auth` accounts the running process still has the OLD token, so we
+   * must restart the shared CopilotClient for the new credentials to take
+   * effect.  We track the current account to avoid unnecessary restarts.
    */
   private async switchAccount(ghAccount: string): Promise<void> {
+    // Skip if already on the correct account
+    if (this.currentGhAccount === ghAccount) {
+      console.log(`[CopilotService] Already on account "${ghAccount}" — skipping switch`)
+      return
+    }
+
     try {
       console.log(`[CopilotService] Switching to gh CLI account: ${ghAccount}`)
       await execAsync(`gh auth switch --user ${ghAccount}`, {
@@ -103,6 +117,11 @@ class CopilotService {
         timeout: 5000,
       })
       console.log(`[CopilotService] ✓ Switched to account: ${ghAccount}`)
+
+      // Restart the SDK client so it picks up the new credentials
+      await restartSharedClient()
+      this.currentGhAccount = ghAccount
+      console.log(`[CopilotService] ✓ SDK client restarted for account: ${ghAccount}`)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error(`[CopilotService] ✗ Failed to switch account to ${ghAccount}:`, errorMessage)
@@ -231,50 +250,49 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
    */
   async listModels(ghAccount?: string): Promise<Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>> {
     // Switch gh CLI account BEFORE querying so the client inherits the
-    // correct credentials.
+    // correct credentials.  Uses the same switchAccount() method which
+    // also restarts the SDK client.
     if (ghAccount) {
-      try {
-        await execAsync(`gh auth switch --user ${ghAccount}`, {
-          encoding: 'utf8',
-          timeout: 5000,
-        })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[CopilotService] listModels — failed to switch to ${ghAccount}:`, msg)
-      }
+      await this.switchAccount(ghAccount)
     }
 
-    try {
-      const client = getSharedClient()
+    const MAX_RETRIES = 2
+    let lastError: Error | undefined
 
-      // Ensure the client is started
-      if (client.getState() !== 'connected') {
-        await Promise.race([
-          client.start(),
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // ensureClientStarted() handles concurrent callers and timeouts
+        const client = await ensureClientStarted()
+
+        const models = await Promise.race([
+          client.listModels(),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout starting client for listModels')), 30_000)
+            setTimeout(() => reject(new Error('Timeout: listModels did not respond within 30s')), 30_000)
           ),
         ])
+
+        return models.map(m => ({
+          id: m.id,
+          name: m.name,
+          isDisabled: m.policy?.state === 'disabled',
+          billingMultiplier: m.billing?.multiplier ?? 1,
+        }))
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        const msg = lastError.message
+        console.warn(`[CopilotService] listModels attempt ${attempt + 1} failed: ${msg}`)
+
+        // If the connection was lost mid-flight, restart the client and retry
+        if (msg.includes('not connected') && attempt < MAX_RETRIES) {
+          console.log('[CopilotService] Restarting client for retry…')
+          await restartSharedClient()
+          continue
+        }
       }
-
-      const models = await Promise.race([
-        client.listModels(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout: listModels did not respond within 30s')), 30_000)
-        ),
-      ])
-
-      return models.map(m => ({
-        id: m.id,
-        name: m.name,
-        isDisabled: m.policy?.state === 'disabled',
-        billingMultiplier: m.billing?.multiplier ?? 1,
-      }))
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[CopilotService] listModels failed:', msg)
-      throw err
     }
+
+    console.error('[CopilotService] listModels failed after retries:', lastError?.message)
+    throw lastError!
   }
 }
 

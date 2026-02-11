@@ -4,6 +4,7 @@ import { useCopilotResultsRecent, useCopilotActiveCount } from '../hooks/useConv
 import { useCopilotSettings, useGitHubAccounts } from '../hooks/useConfig'
 import { AccountPicker } from './shared/AccountPicker'
 import { ModelPicker } from './shared/ModelPicker'
+import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
 import { InlineDropdown } from './InlineDropdown'
 import type { DropdownOption } from './InlineDropdown'
 import './CopilotPromptBox.css'
@@ -192,6 +193,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
               disabled={submitting}
               title="GitHub account for Copilot"
             />
+            {localAccount && <PremiumUsageBadge username={localAccount} />}
 
             {/* Model selector */}
             <ModelPicker

@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Zap,
 } from 'lucide-react'
 import { useState } from 'react'
 import {
@@ -102,6 +103,15 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 {recentResults && recentResults.length > 0 && (
                   <span className="sidebar-item-count">{recentResults.length}</span>
                 )}
+              </div>
+              <div
+                className={`sidebar-item ${selectedItem === 'copilot-usage' ? 'selected' : ''}`}
+                onClick={() => onItemSelect('copilot-usage')}
+              >
+                <span className="sidebar-item-icon">
+                  <Zap size={14} />
+                </span>
+                <span className="sidebar-item-label">Premium Usage</span>
               </div>
             </div>
           )}

@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld('shell', {
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url)
 })
 
+contextBridge.exposeInMainWorld('github', {
+  getCliToken: (username?: string) => ipcRenderer.invoke('github:get-cli-token', username),
+  getActiveAccount: () => ipcRenderer.invoke('github:get-active-account'),
+  switchAccount: (username: string) => ipcRenderer.invoke('github:switch-account', username),
+  getCopilotUsage: (org: string, username?: string) =>
+    ipcRenderer.invoke('github:get-copilot-usage', org, username),
+  getCopilotQuota: (username: string) =>
+    ipcRenderer.invoke('github:get-copilot-quota', username),
+})
+
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
     ipcRenderer.invoke('copilot:execute', args),

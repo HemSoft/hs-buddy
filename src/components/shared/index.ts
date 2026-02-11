@@ -6,3 +6,6 @@ export type { ModelPickerProps, SdkModel } from './ModelPicker'
 
 export { RepoPicker } from './RepoPicker'
 export type { RepoPickerProps } from './RepoPicker'
+
+export { PremiumUsageBadge } from './PremiumUsageBadge'
+export type { PremiumUsageBadgeProps } from './PremiumUsageBadge'

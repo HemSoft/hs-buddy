@@ -9,7 +9,7 @@ import './PullRequestList.css'
 import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw, Star, Sparkles } from 'lucide-react'
 
 interface PullRequestListProps {
-  mode: 'my-prs' | 'needs-review' | 'recently-merged'
+  mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
   onCountChange?: (count: number) => void
 }
 
@@ -306,6 +306,9 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               case 'recently-merged':
                 prs = await githubClient.fetchRecentlyMerged(handleProgress)
                 break
+              case 'need-a-nudge':
+                prs = await githubClient.fetchNeedANudge(handleProgress)
+                break
               case 'my-prs':
               default:
                 prs = await githubClient.fetchMyPRs(handleProgress)
@@ -419,6 +422,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         return 'PRs Needing Review'
       case 'recently-merged':
         return 'Recently Merged PRs'
+      case 'need-a-nudge':
+        return 'Needs a nudge'
       default:
         return 'Pull Requests'
     }

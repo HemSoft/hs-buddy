@@ -19,7 +19,7 @@ import { dataCache } from '../services/dataCache';
 import type { PullRequest } from '../types/pullRequest';
 import type { OrgRepoResult } from '../api/github';
 
-const PR_MODES = ['my-prs', 'needs-review', 'recently-merged'] as const;
+const PR_MODES = ['my-prs', 'needs-review', 'recently-merged', 'need-a-nudge'] as const;
 
 /**
  * Hook that prefetches all PR data in the background on app startup
@@ -79,6 +79,9 @@ export function usePrefetch(): void {
               break;
             case 'recently-merged':
               prs = await client.fetchRecentlyMerged();
+              break;
+            case 'need-a-nudge':
+              prs = await client.fetchNeedANudge();
               break;
             case 'my-prs':
             default:

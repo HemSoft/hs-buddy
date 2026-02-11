@@ -16,7 +16,7 @@ import { getTaskQueue } from '../services/taskQueue'
 import { dataCache } from '../services/dataCache'
 import { usePRSettings } from './useConfig'
 
-const PR_MODES = ['my-prs', 'needs-review', 'recently-merged'] as const
+const PR_MODES = ['my-prs', 'needs-review', 'recently-merged', 'need-a-nudge'] as const
 
 export type SyncPhase = 'idle' | 'syncing' | 'error'
 
@@ -42,6 +42,7 @@ const TASK_LABELS: Record<string, string> = {
   'my-prs': 'My PRs',
   'needs-review': 'Needs Review',
   'recently-merged': 'Recently Merged',
+  'need-a-nudge': 'Needs a nudge',
 }
 
 function formatCountdown(secs: number): string {

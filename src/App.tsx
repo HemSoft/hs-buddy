@@ -40,6 +40,7 @@ const viewLabels: Record<string, string> = {
   'pr-my-prs': 'My PRs',
   'pr-needs-review': 'Needs Review',
   'pr-recently-merged': 'Recently Merged',
+  'pr-need-a-nudge': 'Needs a nudge',
   'skills-browser': 'Browse Skills',
   'skills-recent': 'Recently Used',
   'skills-favorites': 'Favorites',
@@ -104,6 +105,7 @@ function App() {
       { key: 'my-prs', id: 'pr-my-prs' },
       { key: 'needs-review', id: 'pr-needs-review' },
       { key: 'recently-merged', id: 'pr-recently-merged' },
+      { key: 'need-a-nudge', id: 'pr-need-a-nudge' },
     ]
     for (const { key, id } of modes) {
       const cached = dataCache.get<PullRequest[]>(key)
@@ -121,6 +123,7 @@ function App() {
       'my-prs': 'pr-my-prs',
       'needs-review': 'pr-needs-review',
       'recently-merged': 'pr-recently-merged',
+      'need-a-nudge': 'pr-need-a-nudge',
     }
     const unsubscribe = dataCache.subscribe(key => {
       const viewId = modeToId[key]
@@ -145,6 +148,7 @@ function App() {
       { key: 'my-prs', id: 'pr-my-prs' },
       { key: 'needs-review', id: 'pr-needs-review' },
       { key: 'recently-merged', id: 'pr-recently-merged' },
+      { key: 'need-a-nudge', id: 'pr-need-a-nudge' },
     ]
 
     const getProgressColor = (pct: number) => {
@@ -492,6 +496,9 @@ function App() {
   const handleRecentlyMergedCountChange = useCallback((count: number) => {
     setPrCounts(prev => ({ ...prev, 'pr-recently-merged': count }))
   }, [])
+  const handleNeedANudgeCountChange = useCallback((count: number) => {
+    setPrCounts(prev => ({ ...prev, 'pr-need-a-nudge': count }))
+  }, [])
 
   // Handle creating new items from sidebar context menu
   const handleCreateNew = useCallback(
@@ -545,6 +552,8 @@ function App() {
         return (
           <PullRequestList mode="recently-merged" onCountChange={handleRecentlyMergedCountChange} />
         )
+      case 'pr-need-a-nudge':
+        return <PullRequestList mode="need-a-nudge" onCountChange={handleNeedANudgeCountChange} />
       case 'settings-accounts':
         return <SettingsAccounts />
       case 'settings-appearance':

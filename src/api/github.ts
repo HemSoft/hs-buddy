@@ -266,6 +266,13 @@ export class GitHubClient {
   }
 
   /**
+   * Fetch PRs the user has approved but haven't been merged yet
+   */
+  async fetchNeedANudge(onProgress?: ProgressCallback): Promise<PullRequest[]> {
+    return this.fetchPRs('need-a-nudge', onProgress)
+  }
+
+  /**
    * Fetch detailed information about a single repository.
    * Fetches repo metadata, languages, recent commits, contributors,
    * open PR count, and latest CI/CD workflow run in parallel.
@@ -598,7 +605,7 @@ export class GitHubClient {
    * Core fetch method with mode support
    */
   private async fetchPRs(
-    mode: 'my-prs' | 'needs-review' | 'recently-merged',
+    mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge',
     onProgress?: ProgressCallback
   ): Promise<PullRequest[]> {
     const allPrs: PullRequest[] = []
@@ -708,7 +715,7 @@ export class GitHubClient {
     octokit: Octokit,
     org: string,
     username: string,
-    mode: 'my-prs' | 'needs-review' | 'recently-merged' = 'my-prs'
+    mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge' = 'my-prs'
   ): Promise<PullRequest[]> {
     const seenUrls = new Set<string>()
     const allPrs: PullRequest[] = []
@@ -745,6 +752,10 @@ export class GitHubClient {
           `is:pr review-requested:${username} is:open org:${org}`,
           `is:pr assignee:${username} is:open org:${org} -author:${username}`,
         ]
+        break
+      case 'need-a-nudge':
+        // PRs I approved that are still open (may need a nudge to merge)
+        queries = [`is:pr is:open reviewed-by:${username} org:${org}`]
         break
       case 'recently-merged': {
         // PRs I authored or reviewed that were recently merged (within configured days)
@@ -901,6 +912,10 @@ export class GitHubClient {
       .filter(pr => {
         // For needs-review mode, filter out PRs the user has already approved
         if (mode === 'needs-review' && pr.iApproved) {
+          return false
+        }
+        // For need-a-nudge mode, only include PRs the user has approved
+        if (mode === 'need-a-nudge' && !pr.iApproved) {
           return false
         }
         return true

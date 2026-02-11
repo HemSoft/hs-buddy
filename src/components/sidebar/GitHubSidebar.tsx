@@ -344,6 +344,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
   const prItems: SidebarItem[] = [
     { id: 'pr-my-prs', label: 'My PRs' },
     { id: 'pr-needs-review', label: 'Needs Review' },
+    { id: 'pr-need-a-nudge', label: 'Needs a nudge' },
     { id: 'pr-recently-merged', label: 'Recently Merged' },
   ]
 

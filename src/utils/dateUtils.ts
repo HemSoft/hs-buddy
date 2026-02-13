@@ -10,38 +10,61 @@ const WEEK = 7 * DAY
 const MONTH = 30 * DAY
 
 /**
- * Format a timestamp as relative time (e.g., "5 minutes ago")
+ * Format a timestamp as relative time (e.g., "32 minutes ago", "3 days and 4 hours ago")
  */
-export function formatDistanceToNow(timestamp: number): string {
+export function formatDistanceToNow(timestamp: number | string | Date): string {
+  const time =
+    timestamp instanceof Date
+      ? timestamp.getTime()
+      : typeof timestamp === 'string'
+        ? new Date(timestamp).getTime()
+        : timestamp
+
+  if (!Number.isFinite(time)) {
+    return ''
+  }
+
   const now = Date.now()
-  const diff = now - timestamp
+  const diff = now - time
 
   if (diff < MINUTE) {
     return 'just now'
   }
 
-  if (diff < HOUR) {
-    const minutes = Math.floor(diff / MINUTE)
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+  const units = [
+    { value: MONTH, label: 'month' },
+    { value: WEEK, label: 'week' },
+    { value: DAY, label: 'day' },
+    { value: HOUR, label: 'hour' },
+    { value: MINUTE, label: 'minute' },
+  ]
+
+  let remaining = diff
+  const parts: string[] = []
+
+  for (const unit of units) {
+    const count = Math.floor(remaining / unit.value)
+    if (count <= 0) {
+      continue
+    }
+
+    parts.push(`${count} ${count === 1 ? unit.label : `${unit.label}s`}`)
+    remaining -= count * unit.value
+
+    if (parts.length === 2) {
+      break
+    }
   }
 
-  if (diff < DAY) {
-    const hours = Math.floor(diff / HOUR)
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  if (parts.length === 0) {
+    return 'just now'
   }
 
-  if (diff < WEEK) {
-    const days = Math.floor(diff / DAY)
-    return `${days} ${days === 1 ? 'day' : 'days'} ago`
+  if (parts.length === 1) {
+    return `${parts[0]} ago`
   }
 
-  if (diff < MONTH) {
-    const weeks = Math.floor(diff / WEEK)
-    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`
-  }
-
-  const months = Math.floor(diff / MONTH)
-  return `${months} ${months === 1 ? 'month' : 'months'} ago`
+  return `${parts[0]} and ${parts[1]} ago`
 }
 
 /**

@@ -7,6 +7,7 @@ import { ModelPicker } from './shared/ModelPicker'
 import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
 import { InlineDropdown } from './InlineDropdown'
 import type { DropdownOption } from './InlineDropdown'
+import { formatDistanceToNow } from '../utils/dateUtils'
 import './CopilotPromptBox.css'
 
 interface CopilotPromptBoxProps {
@@ -133,15 +134,6 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     }
   }
 
-  const formatRelativeTime = (ts: number) => {
-    const now = Date.now()
-    const diff = now - ts
-    if (diff < 60000) return 'just now'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    return `${Math.floor(diff / 86400000)}d ago`
-  }
-
   const statusEmoji = (status: string) => {
     switch (status) {
       case 'pending': return '⏳'
@@ -251,7 +243,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
                 <span className="copilot-recent-prompt">
                   {r.prompt.length > 80 ? r.prompt.slice(0, 80) + '...' : r.prompt}
                 </span>
-                <span className="copilot-recent-time">{formatRelativeTime(r.createdAt)}</span>
+                <span className="copilot-recent-time">{formatDistanceToNow(r.createdAt)}</span>
               </div>
             ))}
           </div>

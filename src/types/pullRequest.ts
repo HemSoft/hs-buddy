@@ -11,6 +11,9 @@ export interface PullRequest {
   assigneeCount: number;
   iApproved: boolean;
   created: Date | null;
+  updatedAt?: string | null;
+  headBranch?: string;
+  baseBranch?: string;
   date: string | null;
   orgAvatarUrl?: string;
   org?: string;

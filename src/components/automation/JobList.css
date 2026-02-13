@@ -107,98 +107,61 @@
 .job-group-items {
   display: flex;
   flex-direction: column;
+}
+
+/* ── Compact single-line job row ───────────────── */
+.job-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s ease;
+  min-height: 28px;
 }
 
-/* Job Card */
-.job-card {
-  background: var(--vscode-editor-inactiveSelectionBackground);
-  border-radius: 6px;
-  padding: 12px;
-  transition: background 0.15s ease;
-}
-
-.job-card:hover {
+.job-row:hover {
   background: var(--vscode-list-hoverBackground);
 }
 
-.job-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+.job-row .worker-icon {
+  flex-shrink: 0;
 }
 
-.job-card-title {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.job-name {
-  font-size: 14px;
+.job-row-name {
+  font-size: 13px;
   font-weight: 500;
   color: var(--vscode-foreground);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.job-type-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground);
-}
-
-.job-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.job-card:hover .job-card-actions {
-  opacity: 1;
-}
-
-.job-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.job-config-preview {
+.job-row-preview {
+  flex: 1;
   font-size: 12px;
-}
-
-.job-config-preview code {
-  display: block;
-  padding: 6px 8px;
-  background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
-  border-radius: 4px;
   font-family: var(--vscode-editor-font-family, 'Consolas', monospace);
-  color: var(--vscode-textPreformat-foreground, #d7ba7d);
+  color: var(--vscode-descriptionForeground);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.job-description {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  line-height: 1.4;
-}
-
-.job-meta {
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground);
   opacity: 0.7;
+  min-width: 0;
+}
+
+.job-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.job-row:hover .job-row-actions {
+  opacity: 1;
 }
 
 /* Worker Type Icons */

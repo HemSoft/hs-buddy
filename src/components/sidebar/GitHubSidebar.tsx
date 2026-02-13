@@ -10,8 +10,12 @@ import {
   GitPullRequest,
   Building2,
   Loader2,
+  ExternalLink,
+  Sparkles,
+  Copy,
+  ThumbsUp,
 } from 'lucide-react'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useGitHubAccounts, usePRSettings } from '../../hooks/useConfig'
 import {
   useRepoBookmarks,
@@ -19,8 +23,17 @@ import {
   useBuddyStatsMutations,
 } from '../../hooks/useConvex'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
-import { GitHubClient, type OrgRepo, type OrgRepoResult, type RepoCounts } from '../../api/github'
+import {
+  GitHubClient,
+  type OrgRepo,
+  type OrgRepoResult,
+  type RepoCounts,
+  type RepoPullRequest,
+} from '../../api/github'
 import { dataCache } from '../../services/dataCache'
+import type { PullRequest } from '../../types/pullRequest'
+import type { PRDetailSection } from '../../utils/prDetailView'
+import { createPRDetailViewId } from '../../utils/prDetailView'
 
 interface SidebarItem {
   id: string
@@ -32,6 +45,45 @@ interface GitHubSidebarProps {
   selectedItem: string | null
   counts: Record<string, number>
   badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+}
+
+function formatUpdatedAge(fetchedAt: number): string {
+  const elapsedMs = Date.now() - fetchedAt
+  if (elapsedMs < 60_000) return 'updated now'
+
+  const elapsedMinutes = Math.floor(elapsedMs / 60_000)
+  if (elapsedMinutes < 60) return `updated ${elapsedMinutes}m ago`
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60)
+  return `updated ${elapsedHours}h ago`
+}
+
+function mapRepoPRToPullRequest(pr: RepoPullRequest, org: string): PullRequest {
+  return {
+    source: 'GitHub',
+    repository: pr.url.split('/')[4] || pr.url,
+    id: pr.number,
+    title: pr.title,
+    author: pr.author,
+    authorAvatarUrl: pr.authorAvatarUrl || undefined,
+    url: pr.url,
+    state: pr.state,
+    approvalCount: pr.approvalCount ?? 0,
+    assigneeCount: pr.assigneeCount ?? 0,
+    iApproved: pr.iApproved ?? false,
+    created: pr.createdAt ? new Date(pr.createdAt) : null,
+    updatedAt: pr.updatedAt,
+    headBranch: pr.headBranch,
+    baseBranch: pr.baseBranch,
+    date: pr.updatedAt || pr.createdAt,
+    org,
+  }
+}
+
+function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
+  if (!match || !match[1] || !match[2]) return null
+  return { owner: match[1], repo: match[2] }
 }
 
 export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgress }: GitHubSidebarProps) {
@@ -74,12 +126,39 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
   const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
   const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
   const fetchedCountsRef = useRef<Set<string>>(new Set())
+  const [expandedPrGroups, setExpandedPrGroups] = useState<Set<string>>(new Set(['pr-my-prs']))
+  const [prContextMenu, setPrContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
+    null
+  )
+  const [approvingPrKey, setApprovingPrKey] = useState<string | null>(null)
+  const [expandedPRNodes, setExpandedPRNodes] = useState<Set<string>>(new Set())
+  const [expandedRepoPRGroups, setExpandedRepoPRGroups] = useState<Set<string>>(new Set())
+  const [refreshTick, setRefreshTick] = useState(Date.now())
+  const [repoPrTreeData, setRepoPrTreeData] = useState<Record<string, PullRequest[]>>({})
+  const fetchedRepoPRsRef = useRef<Set<string>>(new Set())
+  const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(() => ({
+    'pr-my-prs': dataCache.get<PullRequest[]>('my-prs')?.data || [],
+    'pr-needs-review': dataCache.get<PullRequest[]>('needs-review')?.data || [],
+    'pr-need-a-nudge': dataCache.get<PullRequest[]>('need-a-nudge')?.data || [],
+    'pr-recently-merged': dataCache.get<PullRequest[]>('recently-merged')?.data || [],
+  }))
 
   // Get unique orgs from accounts
   const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setRefreshTick(Date.now())
+    }, 60_000)
+
+    return () => clearInterval(intervalId)
+  }, [])
+
   // Build a set of bookmarked repo keys for quick lookup: "org/repo"
-  const bookmarkedRepoKeys = new Set((bookmarks ?? []).map(b => `${b.owner}/${b.repo}`))
+  const bookmarkedRepoKeys = useMemo(
+    () => new Set((bookmarks ?? []).map(b => `${b.owner}/${b.repo}`)),
+    [bookmarks]
+  )
 
   // Hydrate from dataCache on mount — show cached data immediately (same as PRs)
   useEffect(() => {
@@ -115,6 +194,31 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
             },
           }))
         }
+        return
+      }
+
+      if (key.startsWith('repo-counts:')) {
+        const repoKey = key.replace('repo-counts:', '')
+        const updated = dataCache.get<RepoCounts>(key)
+        if (updated?.data) {
+          setRepoCounts(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
+        return
+      }
+
+      if (key.startsWith('repo-prs:')) {
+        const repoKey = key.replace('repo-prs:', '')
+        const updated = dataCache.get<RepoPullRequest[]>(key)
+        if (!updated?.data) return
+
+        const [org, ...repoParts] = repoKey.split('/')
+        const repoName = repoParts.join('/')
+        if (!org || !repoName) return
+
+        setRepoPrTreeData(prev => ({
+          ...prev,
+          [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
+        }))
       }
     })
     return unsubscribe
@@ -252,22 +356,17 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     [orgRepos, fetchOrgRepos, incrementStat]
   )
 
-  const handleBookmarkToggle = async (
-    e: React.MouseEvent,
-    org: string,
-    repoName: string,
-    repoUrl: string
-  ) => {
-    e.stopPropagation()
-    const key = `${org}/${repoName}`
-    if (bookmarkedRepoKeys.has(key)) {
-      // Remove bookmark
-      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-      if (bookmark) {
-        await removeBookmark({ id: bookmark._id })
+  const toggleBookmarkRepoByValues = useCallback(
+    async (org: string, repoName: string, repoUrl: string) => {
+      const key = `${org}/${repoName}`
+      if (bookmarkedRepoKeys.has(key)) {
+        const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
+        if (bookmark) {
+          await removeBookmark({ id: bookmark._id })
+        }
+        return
       }
-    } else {
-      // Add bookmark
+
       await createBookmark({
         folder: org,
         owner: org,
@@ -275,18 +374,28 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
         url: repoUrl,
         description: '',
       })
-      // Track stat: bookmarks created (fire-and-forget)
       incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
-    }
+    },
+    [bookmarkedRepoKeys, bookmarks, createBookmark, removeBookmark, incrementStat]
+  )
+
+  const handleBookmarkToggle = async (
+    e: React.MouseEvent,
+    org: string,
+    repoName: string,
+    repoUrl: string
+  ) => {
+    e.stopPropagation()
+    await toggleBookmarkRepoByValues(org, repoName, repoUrl)
   }
 
   // Fetch issue/PR counts for a repo (used when expanding repos in sidebar)
   const fetchRepoCountsForRepo = useCallback(
-    async (org: string, repoName: string) => {
+    async (org: string, repoName: string, forceRefresh = false) => {
       const key = `${org}/${repoName}`
       const cacheKey = `repo-counts:${key}`
       const cached = dataCache.get<RepoCounts>(cacheKey)
-      if (cached?.data) {
+      if (cached?.data && !forceRefresh) {
         setRepoCounts(prev => ({ ...prev, [key]: cached.data }))
         return
       }
@@ -341,6 +450,135 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     [fetchRepoCountsForRepo]
   )
 
+  const fetchRepoPRsForRepo = useCallback(
+    async (org: string, repoName: string, forceRefresh = false) => {
+      const key = `${org}/${repoName}`
+      const cacheKey = `repo-prs:${key}`
+      const maxAgeMs = refreshInterval > 0 ? refreshInterval * 60 * 1000 : null
+
+      const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
+      if (cached?.data && !forceRefresh) {
+        setRepoPrTreeData(prev => ({
+          ...prev,
+          [key]: cached.data.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
+        }))
+
+        if (maxAgeMs && dataCache.isFresh(cacheKey, maxAgeMs)) {
+          return
+        }
+      }
+
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchRepoPRs(org, repoName)
+          },
+          { name: `repo-pr-tree-${org}-${repoName}`, priority: -1 }
+        )
+
+        setRepoPrTreeData(prev => ({
+          ...prev,
+          [key]: result.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
+        }))
+        dataCache.set(cacheKey, result)
+
+        const countsCacheKey = `repo-counts:${key}`
+        const existingCounts = dataCache.get<RepoCounts>(countsCacheKey)
+        dataCache.set(countsCacheKey, {
+          issues: existingCounts?.data?.issues ?? 0,
+          prs: result.length,
+        })
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.warn(`[RepoPRTree] ${key} failed:`, error)
+      }
+    },
+    [accounts, refreshInterval]
+  )
+
+  const toggleRepoPRGroup = useCallback(
+    (org: string, repoName: string) => {
+      const key = `${org}/${repoName}`
+      const shouldFetch = !fetchedRepoPRsRef.current.has(key)
+
+      setExpandedRepoPRGroups(prev => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
+      })
+
+      if (shouldFetch) {
+        fetchedRepoPRsRef.current.add(key)
+        fetchRepoPRsForRepo(org, repoName)
+      }
+    },
+    [fetchRepoPRsForRepo]
+  )
+
+  // Auto-refresh repo PR trees that were expanded at least once
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
+
+    const intervalMs = refreshInterval * 60 * 1000
+    const intervalId = setInterval(() => {
+      for (const key of fetchedRepoPRsRef.current) {
+        const cacheKey = `repo-prs:${key}`
+        if (dataCache.isFresh(cacheKey, intervalMs)) continue
+
+        const [org, ...repoParts] = key.split('/')
+        const repoName = repoParts.join('/')
+        if (!org || !repoName) continue
+        fetchRepoPRsForRepo(org, repoName, true)
+      }
+    }, intervalMs)
+
+    return () => clearInterval(intervalId)
+  }, [accounts.length, fetchRepoPRsForRepo, refreshInterval])
+
+  // Auto-refresh repo counts that have been fetched at least once
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
+
+    const intervalMs = refreshInterval * 60 * 1000
+
+    const refreshRepoCounts = () => {
+      for (const key of fetchedCountsRef.current) {
+        const cacheKey = `repo-counts:${key}`
+        if (dataCache.isFresh(cacheKey, intervalMs)) {
+          continue
+        }
+
+        const [org, ...repoParts] = key.split('/')
+        const repoName = repoParts.join('/')
+        if (!org || !repoName) continue
+
+        enqueueRef
+          .current(
+            async signal => {
+              if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+              const client = new GitHubClient({ accounts }, 7)
+              const result = await client.fetchRepoCounts(org, repoName)
+              dataCache.set(cacheKey, result)
+            },
+            { name: `refresh-repo-counts-${key}`, priority: -1 }
+          )
+          .catch(error => {
+            if (error instanceof DOMException && error.name === 'AbortError') return
+            console.warn(`[RepoCountsRefresh] ${key} failed:`, error)
+          })
+      }
+    }
+
+    const intervalId = setInterval(refreshRepoCounts, intervalMs)
+    return () => clearInterval(intervalId)
+  }, [accounts, refreshInterval])
+
   const prItems: SidebarItem[] = [
     { id: 'pr-my-prs', label: 'My PRs' },
     { id: 'pr-needs-review', label: 'Needs Review' },
@@ -348,8 +586,232 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     { id: 'pr-recently-merged', label: 'Recently Merged' },
   ]
 
+  useEffect(() => {
+    const viewIdByCacheKey: Record<string, string> = {
+      'my-prs': 'pr-my-prs',
+      'needs-review': 'pr-needs-review',
+      'need-a-nudge': 'pr-need-a-nudge',
+      'recently-merged': 'pr-recently-merged',
+    }
+
+    const unsubscribe = dataCache.subscribe(key => {
+      const viewId = viewIdByCacheKey[key]
+      if (!viewId) {
+        return
+      }
+
+      const data = dataCache.get<PullRequest[]>(key)?.data || []
+      setPrTreeData(prev => ({ ...prev, [viewId]: data }))
+    })
+
+    return unsubscribe
+  }, [])
+
+  const togglePRGroup = (itemId: string) => {
+    setExpandedPrGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(itemId)) {
+        next.delete(itemId)
+      } else {
+        next.add(itemId)
+      }
+      return next
+    })
+  }
+
+  const openPRReview = (pr: PullRequest) => {
+    window.dispatchEvent(
+      new CustomEvent('pr-review:open', {
+        detail: {
+          prUrl: pr.url,
+          prTitle: pr.title,
+          prNumber: pr.id,
+          repo: pr.repository,
+          org: pr.org || '',
+          author: pr.author,
+        },
+      })
+    )
+  }
+
+  const openTreePRContextMenu = (e: React.MouseEvent, pr: PullRequest) => {
+    e.preventDefault()
+    setPrContextMenu({ x: e.clientX, y: e.clientY, pr })
+  }
+
+  const togglePRNode = (prViewId: string) => {
+    setExpandedPRNodes(prev => {
+      const next = new Set(prev)
+      if (next.has(prViewId)) {
+        next.delete(prViewId)
+      } else {
+        next.add(prViewId)
+      }
+      return next
+    })
+  }
+
+  const prSubNodes: Array<{ key: PRDetailSection; label: string }> = [
+    { key: 'conversation', label: 'Conversation' },
+    { key: 'commits', label: 'Commits' },
+    { key: 'checks', label: 'Checks' },
+    { key: 'files-changed', label: 'Files changed' },
+  ]
+
+  const copyToClipboard = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return
+    }
+
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.opacity = '0'
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+  }
+
+  const applyApproveToTree = useCallback((target: PullRequest) => {
+    setPrTreeData(prev => {
+      const next: Record<string, PullRequest[]> = { ...prev }
+      for (const [groupId, items] of Object.entries(prev)) {
+        next[groupId] = items.map(item => {
+          if (
+            item.id !== target.id ||
+            item.repository !== target.repository ||
+            item.source !== target.source ||
+            item.iApproved
+          ) {
+            return item
+          }
+          return {
+            ...item,
+            iApproved: true,
+            approvalCount: item.approvalCount + 1,
+          }
+        })
+      }
+      return next
+    })
+  }, [])
+
+  const handleApprovePR = useCallback(
+    async (pr: PullRequest) => {
+      if (pr.iApproved) return
+
+      const parsed = parseOwnerRepoFromUrl(pr.url)
+      const owner = pr.org || parsed?.owner
+      const repo = pr.repository || parsed?.repo
+      if (!owner || !repo) return
+
+      const prKey = `${pr.source}-${pr.repository}-${pr.id}`
+      setApprovingPrKey(prKey)
+      try {
+        await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            await client.approvePullRequest(owner, repo, pr.id)
+          },
+          { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
+        )
+
+        applyApproveToTree(pr)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.error('Failed to approve PR from sidebar:', error)
+      } finally {
+        setApprovingPrKey(null)
+      }
+    },
+    [accounts, applyApproveToTree]
+  )
+
   return (
     <div className="sidebar-panel">
+      {prContextMenu && (
+        <>
+          <div className="context-menu-overlay" onClick={() => setPrContextMenu(null)} />
+          <div className="context-menu" style={{ top: prContextMenu.y, left: prContextMenu.x }}>
+            <button
+              onClick={() => {
+                window.shell.openExternal(prContextMenu.pr.url)
+                setPrContextMenu(null)
+              }}
+            >
+              <ExternalLink size={14} />
+              Open Pull Request
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await copyToClipboard(prContextMenu.pr.url)
+                } catch (error) {
+                  console.error('Failed to copy PR link:', error)
+                }
+                setPrContextMenu(null)
+              }}
+            >
+              <Copy size={14} />
+              Copy Link
+            </button>
+            <button
+              onClick={() => {
+                openPRReview(prContextMenu.pr)
+                setPrContextMenu(null)
+              }}
+            >
+              <Sparkles size={14} />
+              Request AI Review
+            </button>
+            <button
+              onClick={async () => {
+                await handleApprovePR(prContextMenu.pr)
+                setPrContextMenu(null)
+              }}
+              disabled={
+                prContextMenu.pr.iApproved ||
+                approvingPrKey ===
+                  `${prContextMenu.pr.source}-${prContextMenu.pr.repository}-${prContextMenu.pr.id}`
+              }
+            >
+              <ThumbsUp size={14} />
+              {prContextMenu.pr.iApproved
+                ? 'Already Approved'
+                : approvingPrKey ===
+                    `${prContextMenu.pr.source}-${prContextMenu.pr.repository}-${prContextMenu.pr.id}`
+                  ? 'Approving…'
+                  : 'Approve'}
+            </button>
+            <button
+              onClick={async () => {
+                const pr = prContextMenu.pr
+                await toggleBookmarkRepoByValues(
+                  pr.org || '',
+                  pr.repository,
+                  pr.url.replace(/\/pull\/\d+$/, '')
+                )
+                setPrContextMenu(null)
+              }}
+            >
+              <Star
+                size={14}
+                fill={
+                  bookmarkedRepoKeys.has(`${prContextMenu.pr.org || ''}/${prContextMenu.pr.repository}`)
+                    ? 'currentColor'
+                    : 'none'
+                }
+              />
+              {bookmarkedRepoKeys.has(`${prContextMenu.pr.org || ''}/${prContextMenu.pr.repository}`)
+                ? `Unbookmark ${prContextMenu.pr.repository}`
+                : `Bookmark ${prContextMenu.pr.repository}`}
+            </button>
+          </div>
+        </>
+      )}
       <div className="sidebar-panel-header">
         <h2>GITHUB</h2>
       </div>
@@ -372,32 +834,106 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
           {expandedSections.has('pull-requests') && (
             <div className="sidebar-section-items">
               {prItems.map(item => (
-                <div
-                  key={item.id}
-                  className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
-                  onClick={() => onItemSelect(item.id)}
-                >
-                  <span className="sidebar-item-icon">
-                    <FileText size={14} />
-                  </span>
-                  <span className="sidebar-item-label">{item.label}</span>
-                  {counts[item.id] !== undefined &&
-                    (badgeProgress[item.id] ? (
-                      <span
-                        className="sidebar-item-count-ring"
-                        style={
-                          {
-                            '--ring-progress': `${badgeProgress[item.id].progress}%`,
-                            '--ring-color': badgeProgress[item.id].color,
-                          } as React.CSSProperties
-                        }
-                        title={badgeProgress[item.id].tooltip}
-                      >
+                <div key={item.id}>
+                  <div
+                    className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
+                    onClick={() => onItemSelect(item.id)}
+                  >
+                    <span
+                      className="sidebar-item-chevron"
+                      onClick={e => {
+                        e.stopPropagation()
+                        togglePRGroup(item.id)
+                      }}
+                    >
+                      {expandedPrGroups.has(item.id) ? (
+                        <ChevronDown size={12} />
+                      ) : (
+                        <ChevronRight size={12} />
+                      )}
+                    </span>
+                    <span className="sidebar-item-icon">
+                      <FileText size={14} />
+                    </span>
+                    <span className="sidebar-item-label">{item.label}</span>
+                    {counts[item.id] !== undefined &&
+                      (badgeProgress[item.id] ? (
+                        <span
+                          className="sidebar-item-count-ring"
+                          style={
+                            {
+                              '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                              '--ring-color': badgeProgress[item.id].color,
+                            } as React.CSSProperties
+                          }
+                          title={badgeProgress[item.id].tooltip}
+                        >
+                          <span className="sidebar-item-count">{counts[item.id]}</span>
+                        </span>
+                      ) : (
                         <span className="sidebar-item-count">{counts[item.id]}</span>
-                      </span>
-                    ) : (
-                      <span className="sidebar-item-count">{counts[item.id]}</span>
-                    ))}
+                      ))}
+                  </div>
+
+                  {expandedPrGroups.has(item.id) && (prTreeData[item.id] || []).length > 0 && (
+                    <div className="sidebar-job-tree sidebar-pr-tree">
+                      <div className="sidebar-job-items">
+                        {(prTreeData[item.id] || []).map(pr => {
+                          const prViewId = createPRDetailViewId(pr)
+                          const isSelected = selectedItem === prViewId || selectedItem?.startsWith(`${prViewId}?section=`)
+                          return (
+                            <div key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`} className="sidebar-pr-group">
+                              <div
+                                className={`sidebar-item sidebar-pr-item ${isSelected ? 'selected' : ''}`}
+                                onClick={() => onItemSelect(prViewId)}
+                                onContextMenu={e => openTreePRContextMenu(e, pr)}
+                                title={pr.title}
+                              >
+                                <span
+                                  className="sidebar-item-chevron"
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    togglePRNode(prViewId)
+                                  }}
+                                >
+                                  {expandedPRNodes.has(prViewId) ? (
+                                    <ChevronDown size={12} />
+                                  ) : (
+                                    <ChevronRight size={12} />
+                                  )}
+                                </span>
+                                <span className="sidebar-item-icon">
+                                  <GitPullRequest size={12} />
+                                </span>
+                                <span className="sidebar-item-label">#{pr.id} {pr.title}</span>
+                                <span className="sidebar-pr-meta">{pr.repository}</span>
+                              </div>
+
+                              {expandedPRNodes.has(prViewId) && (
+                                <div className="sidebar-pr-children">
+                                  {prSubNodes.map(node => {
+                                    const childViewId = createPRDetailViewId(pr, node.key)
+                                    return (
+                                      <div
+                                        key={childViewId}
+                                        className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                                        onClick={() => onItemSelect(childViewId)}
+                                      >
+                                        <span className="sidebar-item-icon">
+                                          <FileText size={11} />
+                                        </span>
+                                        <span className="sidebar-item-label">{node.label}</span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -501,6 +1037,12 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                               const repoKey = `${org}/${repo.name}`
                               const isRepoExpanded = expandedRepos.has(repoKey)
                               const counts = repoCounts[repoKey]
+                              const repoCountsEntry = dataCache.get<RepoCounts>(
+                                `repo-counts:${repoKey}`
+                              )
+                              const repoCountsUpdatedLabel = repoCountsEntry?.fetchedAt
+                                ? formatUpdatedAge(repoCountsEntry.fetchedAt)
+                                : null
                               const isCountLoading = loadingRepoCounts.has(repoKey)
                               return (
                                 <div key={repo.name} className="sidebar-repo-group">
@@ -574,11 +1116,22 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                         ) : null}
                                       </div>
                                       <div
-                                        className={`sidebar-item sidebar-repo-child ${selectedItem === `repo-prs:${repoKey}` ? 'selected' : ''}`}
-                                        onClick={() =>
-                                          onItemSelect(`repo-prs:${repoKey}`)
-                                        }
+                                        className={`sidebar-item sidebar-repo-child sidebar-repo-pr-row ${selectedItem === `repo-prs:${repoKey}` ? 'selected' : ''}`}
+                                        onClick={() => toggleRepoPRGroup(org, repo.name)}
                                       >
+                                        <span
+                                          className="sidebar-item-chevron"
+                                          onClick={e => {
+                                            e.stopPropagation()
+                                            toggleRepoPRGroup(org, repo.name)
+                                          }}
+                                        >
+                                          {expandedRepoPRGroups.has(repoKey) ? (
+                                            <ChevronDown size={10} />
+                                          ) : (
+                                            <ChevronRight size={10} />
+                                          )}
+                                        </span>
                                         <span className="sidebar-item-icon">
                                           <GitPullRequest size={12} />
                                         </span>
@@ -590,7 +1143,89 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                             {counts.prs}
                                           </span>
                                         ) : null}
+                                        {!isCountLoading && repoCountsUpdatedLabel && (
+                                          <span key={refreshTick} className="sidebar-item-updated-age">
+                                            {repoCountsUpdatedLabel}
+                                          </span>
+                                        )}
                                       </div>
+                                      {expandedRepoPRGroups.has(repoKey) &&
+                                        (repoPrTreeData[repoKey] || []).length > 0 && (
+                                          <div className="sidebar-job-tree sidebar-repo-pr-tree">
+                                            <div className="sidebar-job-items">
+                                              {(repoPrTreeData[repoKey] || []).map(pr => {
+                                                const prViewId = createPRDetailViewId(pr)
+                                                const isSelected =
+                                                  selectedItem === prViewId ||
+                                                  selectedItem?.startsWith(`${prViewId}?section=`)
+
+                                                return (
+                                                  <div
+                                                    key={`${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
+                                                    className="sidebar-pr-group"
+                                                  >
+                                                    <div
+                                                      className={`sidebar-item sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
+                                                      onClick={() => onItemSelect(prViewId)}
+                                                      onContextMenu={e => openTreePRContextMenu(e, pr)}
+                                                      title={pr.title}
+                                                    >
+                                                      <span
+                                                        className="sidebar-item-chevron"
+                                                        onClick={e => {
+                                                          e.stopPropagation()
+                                                          togglePRNode(prViewId)
+                                                        }}
+                                                      >
+                                                        {expandedPRNodes.has(prViewId) ? (
+                                                          <ChevronDown size={12} />
+                                                        ) : (
+                                                          <ChevronRight size={12} />
+                                                        )}
+                                                      </span>
+                                                      <span className="sidebar-item-icon">
+                                                        <GitPullRequest size={12} />
+                                                      </span>
+                                                      <span className="sidebar-item-label">
+                                                        #{pr.id} {pr.title}
+                                                      </span>
+                                                      <span className="sidebar-pr-meta">
+                                                        {pr.repository}
+                                                      </span>
+                                                    </div>
+
+                                                    {expandedPRNodes.has(prViewId) && (
+                                                      <div className="sidebar-pr-children">
+                                                        {prSubNodes.map(node => {
+                                                          const childViewId = createPRDetailViewId(
+                                                            pr,
+                                                            node.key
+                                                          )
+                                                          return (
+                                                            <div
+                                                              key={childViewId}
+                                                              className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                                                              onClick={() =>
+                                                                onItemSelect(childViewId)
+                                                              }
+                                                            >
+                                                              <span className="sidebar-item-icon">
+                                                                <FileText size={11} />
+                                                              </span>
+                                                              <span className="sidebar-item-label">
+                                                                {node.label}
+                                                              </span>
+                                                            </div>
+                                                          )
+                                                        })}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
                                     </div>
                                   )}
                                 </div>

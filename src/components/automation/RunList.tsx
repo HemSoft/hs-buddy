@@ -6,16 +6,17 @@ import {
 } from 'lucide-react'
 import { useRecentRuns, useRunMutations } from '../../hooks/useConvex'
 import { formatDistanceToNow, format } from '../../utils/dateUtils'
+import type { Id } from '../../../convex/_generated/dataModel'
 import './RunList.css'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 type TriggerType = 'manual' | 'schedule' | 'api'
 
 interface RunWithJob {
-  _id: string
+  _id: Id<'runs'>
   _creationTime: number
-  jobId: string
-  scheduleId?: string
+  jobId: Id<'jobs'>
+  scheduleId?: Id<'schedules'>
   status: RunStatus
   triggeredBy: TriggerType
   input?: unknown
@@ -58,7 +59,7 @@ export function RunList() {
   const handleCancel = async (runId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     try {
-      await cancel({ id: runId as any })
+      await cancel({ id: runId as Id<'runs'> })
     } catch (error) {
       console.error('Failed to cancel run:', error)
     }

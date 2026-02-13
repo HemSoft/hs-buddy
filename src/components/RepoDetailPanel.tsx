@@ -27,6 +27,7 @@ import {
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoDetail } from '../api/github'
+import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
 import './RepoDetailPanel.css'
 
@@ -53,25 +54,6 @@ function formatDate(dateStr: string): string {
     day: 'numeric',
     year: 'numeric',
   })
-}
-
-/** Format a date string into a relative time */
-function formatRelativeTime(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMin / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMin < 60) return `${diffMin}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  const diffMonths = Math.floor(diffDays / 30)
-  if (diffMonths < 12) return `${diffMonths}mo ago`
-  const diffYears = Math.floor(diffMonths / 12)
-  return `${diffYears}y ago`
 }
 
 /** Get a color for a programming language */
@@ -448,7 +430,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
                       />
                     )}
                     <span className="repo-commit-author">{commit.author}</span>
-                    <span className="repo-commit-date">{formatRelativeTime(commit.date)}</span>
+                    <span className="repo-commit-date">{formatDistanceToNow(commit.date)}</span>
                   </div>
                 </div>
               ))}
@@ -503,7 +485,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
               <span className="repo-info-label">Updated</span>
               <span className="repo-info-value">
                 {formatDate(detail.updatedAt)}
-                <span className="repo-info-relative">{formatRelativeTime(detail.updatedAt)}</span>
+                <span className="repo-info-relative">{formatDistanceToNow(detail.updatedAt)}</span>
               </span>
             </div>
             {detail.pushedAt && (
@@ -511,7 +493,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
                 <span className="repo-info-label">Last Push</span>
                 <span className="repo-info-value">
                   {formatDate(detail.pushedAt)}
-                  <span className="repo-info-relative">{formatRelativeTime(detail.pushedAt)}</span>
+                  <span className="repo-info-relative">{formatDistanceToNow(detail.pushedAt)}</span>
                 </span>
               </div>
             )}

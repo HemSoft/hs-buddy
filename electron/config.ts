@@ -235,6 +235,15 @@ class ConfigManager {
     this.store.set('copilot.model', model);
   }
 
+  // Automation Settings
+  getScheduleForecastDays(): number {
+    return this.store.get('automation.scheduleForecastDays', 3);
+  }
+
+  setScheduleForecastDays(days: number): void {
+    this.store.set('automation.scheduleForecastDays', Math.max(1, Math.min(30, days)));
+  }
+
   // Full config access
   getConfig(): AppConfig {
     return this.store.store;

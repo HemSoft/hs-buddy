@@ -5,8 +5,9 @@ import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { dataCache } from '../services/dataCache'
+import { formatDistanceToNow } from '../utils/dateUtils'
 import './PullRequestList.css'
-import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw, Star, Sparkles } from 'lucide-react'
+import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw, Star, Sparkles, Copy, GitBranch, ThumbsUp } from 'lucide-react'
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
@@ -22,6 +23,12 @@ interface LoadingProgress {
   prsFound?: number
   totalPrsFound: number
   error?: string
+}
+
+function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
+  if (!match || !match[1] || !match[2]) return null
+  return { owner: match[1], repo: match[2] }
 }
 
 export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
@@ -41,6 +48,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
     null
   )
+  const [approving, setApproving] = useState<string | null>(null)
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
   const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
   const bookmarks = useRepoBookmarks()
@@ -191,6 +199,79 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     )
     setContextMenu(null)
   }, [contextMenu])
+
+  const handleCopyLink = useCallback(async () => {
+    if (!contextMenu) return
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(contextMenu.pr.url)
+      }
+    } catch (error) {
+      console.error('Failed to copy PR link:', error)
+    }
+    setContextMenu(null)
+  }, [contextMenu])
+
+  const handleApprove = useCallback(
+    async (pr: PullRequest) => {
+      if (pr.iApproved) return
+      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+      if (!ownerRepo) return
+
+      const approveKey = `${pr.repository}-${pr.id}`
+      setApproving(approveKey)
+      try {
+        await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, recentlyMergedDays)
+            await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
+          },
+          { name: `approve-pr-${pr.repository}-${pr.id}` }
+        )
+
+        setPrs(prev =>
+          prev.map(item => {
+            if (item.repository !== pr.repository || item.id !== pr.id || item.iApproved) {
+              return item
+            }
+            return {
+              ...item,
+              iApproved: true,
+              approvalCount: item.approvalCount + 1,
+            }
+          })
+        )
+        const cached = dataCache.get<PullRequest[]>(mode)
+        if (cached?.data) {
+          dataCache.set(
+            mode,
+            cached.data.map(item => {
+              if (item.repository !== pr.repository || item.id !== pr.id || item.iApproved) {
+                return item
+              }
+              return {
+                ...item,
+                iApproved: true,
+                approvalCount: item.approvalCount + 1,
+              }
+            })
+          )
+        }
+      } catch (error) {
+        console.error('Failed to approve PR:', error)
+      } finally {
+        setApproving(null)
+      }
+    },
+    [accounts, mode, recentlyMergedDays]
+  )
+
+  const handleApproveFromMenu = useCallback(async () => {
+    if (!contextMenu) return
+    await handleApprove(contextMenu.pr)
+    setContextMenu(null)
+  }, [contextMenu, handleApprove])
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null)
@@ -405,15 +486,6 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     }
   }, [mode, refreshInterval])
 
-  const formatDate = (date: Date | string | null) => {
-    if (!date) return 'N/A'
-    return new Date(date).toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
   const getTitle = () => {
     switch (mode) {
       case 'my-prs':
@@ -615,6 +687,14 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                 <Sparkles size={14} />
                 Request AI Review
               </button>
+              <button onClick={handleApproveFromMenu} disabled={!!contextMenu?.pr.iApproved}>
+                <ThumbsUp size={14} />
+                {contextMenu?.pr.iApproved ? 'Already Approved' : 'Approve'}
+              </button>
+              <button onClick={handleCopyLink}>
+                <Copy size={14} />
+                Copy Link
+              </button>
               <button onClick={handleBookmarkRepo}>
                 <Star
                   size={14}
@@ -646,6 +726,11 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               }
             }}
           >
+            {approving === `${pr.repository}-${pr.id}` && (
+              <div className="pr-item-approving-overlay">
+                <Loader2 size={14} className="spin" /> Approving…
+              </div>
+            )}
             <div className="pr-item-header">
               <div className="pr-title-row">
                 <GitPullRequest size={16} className="pr-icon" />
@@ -674,6 +759,14 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                   {pr.author}
                 </span>
               </div>
+              {pr.baseBranch && pr.headBranch && (
+                <div className="pr-branch-flow">
+                  <GitBranch size={12} />
+                  <span>
+                    into <strong>{pr.baseBranch}</strong> from <strong>{pr.headBranch}</strong>
+                  </span>
+                </div>
+              )}
             </div>
             <div className="pr-item-footer">
               <div className="pr-approvals">
@@ -682,9 +775,29 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                   {pr.approvalCount}/{pr.assigneeCount > 0 ? pr.assigneeCount : '?'} approvals
                 </span>
               </div>
+              <button
+                className="pr-approve-btn"
+                onClick={async e => {
+                  e.stopPropagation()
+                  await handleApprove(pr)
+                }}
+                disabled={pr.iApproved || approving === `${pr.repository}-${pr.id}`}
+                title={pr.iApproved ? 'Already approved by you' : 'Approve PR'}
+              >
+                {approving === `${pr.repository}-${pr.id}` ? (
+                  <Loader2 size={13} className="spin" />
+                ) : (
+                  <ThumbsUp size={13} />
+                )}
+                {pr.iApproved ? 'Approved' : 'Approve'}
+              </button>
               <div className="pr-date">
                 <Clock size={14} />
-                <span>{formatDate(mode === 'recently-merged' ? pr.date : pr.created)}</span>
+                <span>
+                  {formatDistanceToNow(
+                    mode === 'recently-merged' ? (pr.date || pr.created || Date.now()) : (pr.created || Date.now())
+                  )}
+                </span>
               </div>
             </div>
           </div>

@@ -6,7 +6,7 @@ import { ActivityBar } from './components/ActivityBar'
 import { SidebarPanel } from './components/SidebarPanel'
 import { TabBar, Tab } from './components/TabBar'
 import { PullRequestList } from './components/PullRequestList'
-import { ScheduleList, JobList, RunList } from './components/automation'
+import { ScheduleDetailPanel, ScheduleEditor, ScheduleOverviewPanel, JobDetailPanel, JobEditor, RunList } from './components/automation'
 import {
   SettingsAccounts,
   SettingsAppearance,
@@ -16,15 +16,17 @@ import {
 } from './components/settings'
 import { StatusBar } from './components/StatusBar'
 import { WelcomePanel } from './components/WelcomePanel'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { RepoDetailPanel } from './components/RepoDetailPanel'
 import { RepoIssueList } from './components/RepoIssueList'
-import { RepoPRList } from './components/RepoPRList'
+import { PullRequestDetailPanel } from './components/PullRequestDetailPanel'
 import { CopilotPromptBox } from './components/CopilotPromptBox'
 import { CopilotResultPanel } from './components/CopilotResultPanel'
 import { CopilotResultsList } from './components/CopilotResultsList'
 import { PRReviewPanel } from './components/PRReviewPanel'
 import type { PRReviewInfo } from './components/PRReviewPanel'
 import { CopilotUsagePanel } from './components/CopilotUsagePanel'
+import { parsePRDetailRoute } from './utils/prDetailView'
 import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
@@ -54,7 +56,6 @@ const viewLabels: Record<string, string> = {
   'settings-pullrequests': 'Pull Requests',
   'settings-copilot': 'Copilot SDK',
   'settings-advanced': 'Advanced',
-  'automation-jobs': 'Jobs',
   'automation-schedules': 'Schedules',
   'automation-runs': 'Runs',
   'copilot-prompt': 'Copilot Prompt',
@@ -74,13 +75,14 @@ function getViewLabel(viewId: string): string {
     const repoName = repoSlug.split('/').pop() || repoSlug
     return `${repoName} Issues`
   }
-  if (viewId.startsWith('repo-prs:')) {
-    const repoSlug = viewId.replace('repo-prs:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return `${repoName} PRs`
-  }
   if (viewId.startsWith('copilot-result:')) {
     return 'Copilot Result'
+  }
+  if (viewId.startsWith('job-detail:')) {
+    return 'Job Detail'
+  }
+  if (viewId.startsWith('schedule-detail:')) {
+    return 'Schedule Detail'
   }
   if (viewId.startsWith('pr-review:')) {
     try {
@@ -89,6 +91,20 @@ function getViewLabel(viewId: string): string {
     } catch {
       return 'PR Review'
     }
+  }
+  if (viewId.startsWith('pr-detail:')) {
+    const route = parsePRDetailRoute(viewId)
+    if (route) {
+      const sectionLabelMap = {
+        conversation: 'Conversation',
+        commits: 'Commits',
+        checks: 'Checks',
+        'files-changed': 'Files',
+      } as const
+      const section = route.section ? ` · ${sectionLabelMap[route.section]}` : ''
+      return `#${route.pr.id} ${route.pr.repository}${section}`
+    }
+    return 'PR Detail'
   }
   return viewLabels[viewId] || viewId
 }
@@ -188,8 +204,8 @@ function App() {
   }, [refreshInterval])
 
   // Create triggers for automation items (from sidebar context menu)
-  const [scheduleCreateTrigger, setScheduleCreateTrigger] = useState(0)
-  const [jobCreateTrigger, setJobCreateTrigger] = useState(0)
+  const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false)
+  const [jobEditorOpen, setJobEditorOpen] = useState(false)
 
   // Pane sizes (persisted to electron-store via IPC)
   const [paneSizes, setPaneSizes] = useState<number[]>([300, 900])
@@ -427,9 +443,16 @@ function App() {
       }
 
       // Create new tab
+      let label = 'View'
+      try {
+        label = getViewLabel(viewId)
+      } catch {
+        label = 'PR Detail'
+      }
+
       const newTab: Tab = {
         id: `tab-${Date.now()}`,
-        label: getViewLabel(viewId),
+        label,
         viewId,
       }
       setTabs(prev => [...prev, newTab])
@@ -503,17 +526,14 @@ function App() {
   // Handle creating new items from sidebar context menu
   const handleCreateNew = useCallback(
     (type: 'schedule' | 'job') => {
-      // Open the appropriate tab first
-      const viewId = type === 'schedule' ? 'automation-schedules' : 'automation-jobs'
-      openTab(viewId)
-      // Trigger the create dialog
       if (type === 'schedule') {
-        setScheduleCreateTrigger(prev => prev + 1)
+        setScheduleEditorOpen(true)
       } else {
-        setJobCreateTrigger(prev => prev + 1)
+        // Open the JobEditor modal directly (no Jobs list page)
+        setJobEditorOpen(true)
       }
     },
-    [openTab]
+    []
   )
 
   const handleSectionSelect = (sectionId: string) => {
@@ -565,9 +585,7 @@ function App() {
       case 'settings-advanced':
         return <SettingsAdvanced />
       case 'automation-schedules':
-        return <ScheduleList createTrigger={scheduleCreateTrigger} />
-      case 'automation-jobs':
-        return <JobList createTrigger={jobCreateTrigger} />
+        return <ScheduleOverviewPanel onOpenSchedule={(sId) => openTab(`schedule-detail:${sId}`)} />
       case 'automation-runs':
         return <RunList />
       case 'copilot-prompt':
@@ -577,6 +595,16 @@ function App() {
       case 'copilot-usage':
         return <CopilotUsagePanel />
       default:
+        // Handle dynamic schedule-detail views: schedule-detail:<scheduleId>
+        if (activeViewId.startsWith('schedule-detail:')) {
+          const sId = activeViewId.replace('schedule-detail:', '')
+          return <ScheduleDetailPanel scheduleId={sId} />
+        }
+        // Handle dynamic job-detail views: job-detail:<jobId>
+        if (activeViewId.startsWith('job-detail:')) {
+          const jId = activeViewId.replace('job-detail:', '')
+          return <JobDetailPanel jobId={jId} />
+        }
         // Handle dynamic repo-detail views: repo-detail:owner/repo
         if (activeViewId.startsWith('repo-detail:')) {
           const repoSlug = activeViewId.replace('repo-detail:', '')
@@ -595,16 +623,6 @@ function App() {
             const owner = repoSlug.substring(0, slashIdx)
             const repo = repoSlug.substring(slashIdx + 1)
             return <RepoIssueList owner={owner} repo={repo} />
-          }
-        }
-        // Handle dynamic repo-prs views: repo-prs:owner/repo
-        if (activeViewId.startsWith('repo-prs:')) {
-          const repoSlug = activeViewId.replace('repo-prs:', '')
-          const slashIdx = repoSlug.indexOf('/')
-          if (slashIdx > 0) {
-            const owner = repoSlug.substring(0, slashIdx)
-            const repo = repoSlug.substring(slashIdx + 1)
-            return <RepoPRList owner={owner} repo={repo} />
           }
         }
         // Handle dynamic copilot-result views: copilot-result:<id>
@@ -627,6 +645,13 @@ function App() {
           } catch {
             return <div className="content-placeholder"><p>Invalid PR review data</p></div>
           }
+        }
+        if (activeViewId.startsWith('pr-detail:')) {
+          const route = parsePRDetailRoute(activeViewId)
+          if (route) {
+            return <PullRequestDetailPanel pr={route.pr} section={route.section} />
+          }
+          return <div className="content-placeholder"><p>Invalid PR detail data</p></div>
         }
         return (
           <div className="content-placeholder">
@@ -676,7 +701,11 @@ function App() {
                   onTabSelect={setActiveTabId}
                   onTabClose={closeTab}
                 />
-                <div className="main-content">{renderContent()}</div>
+                <div className="main-content">
+                  <AppErrorBoundary resetKey={activeViewId}>
+                    {renderContent()}
+                  </AppErrorBoundary>
+                </div>
               </div>
             </Allotment.Pane>
           </Allotment>
@@ -689,6 +718,14 @@ function App() {
         activeGitHubAccount={activeGitHubAccount}
         backgroundStatus={backgroundStatus}
       />
+      {/* App-level Job Editor modal (triggered from sidebar "New Job") */}
+      {jobEditorOpen && (
+        <JobEditor onClose={() => setJobEditorOpen(false)} />
+      )}
+      {/* App-level Schedule Editor modal (triggered from sidebar "New Schedule") */}
+      {scheduleEditorOpen && (
+        <ScheduleEditor onClose={() => setScheduleEditorOpen(false)} />
+      )}
     </div>
   )
 }

@@ -19,7 +19,7 @@ import { ModelPicker } from './shared/ModelPicker'
 import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
 import './PRReviewPanel.css'
 
-/** Metadata shape passed from PullRequestList / RepoPRList */
+/** Metadata shape passed from PR list/tree context actions */
 export interface PRReviewInfo {
   prUrl: string
   prTitle: string

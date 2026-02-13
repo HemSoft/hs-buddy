@@ -62,7 +62,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
       setFrequency('custom');
       setCustomCron(value);
     }
-  }, []);
+  }, [value]);
 
   // Generate cron expression when settings change
   const cronExpression = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useConfig } from '../../hooks/useConfig';
 import { Palette, RefreshCw, Moon, Sun, Type, RotateCcw } from 'lucide-react';
 import './SettingsShared.css';
@@ -31,6 +31,47 @@ const LIGHT_DEFAULTS = {
   statusBarBg: '#f3f3f3',
   statusBarFg: '#616161',
 };
+
+/** Color definition for the picker grid */
+interface ColorDef {
+  id: string;
+  label: string;
+  hint: string;
+  value: string;
+  onChange: (color: string) => void;
+}
+
+/** Compact inline color picker */
+function ColorPicker({ id, label, hint, value, onChange }: ColorDef) {
+  return (
+    <div className="color-cell" title={hint}>
+      <div className="color-cell-header">
+        <input
+          type="color"
+          id={id}
+          className="color-swatch"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <div className="color-cell-info">
+          <label htmlFor={id}>{label}</label>
+          <input
+            type="text"
+            className="color-hex"
+            value={value}
+            onChange={(e) => {
+              if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                onChange(e.target.value);
+              }
+            }}
+            placeholder={value}
+          />
+        </div>
+      </div>
+      <span className="color-cell-hint">{hint}</span>
+    </div>
+  );
+}
 
 export function SettingsAppearance() {
   const { config, loading, api } = useConfig();
@@ -72,7 +113,7 @@ export function SettingsAppearance() {
   }, [config]);
 
   // Apply colors to CSS variables
-  const applyColors = (accent: string, fontClr: string, primary: string, secondary: string, sbBg?: string, sbFg?: string) => {
+  const applyColors = useCallback((accent: string, fontClr: string, primary: string, secondary: string, sbBg?: string, sbFg?: string) => {
     const root = document.documentElement;
     root.style.setProperty('--accent-primary', accent);
     root.style.setProperty('--accent-primary-hover', lightenColor(accent, 15));
@@ -86,7 +127,7 @@ export function SettingsAppearance() {
     root.style.setProperty('--sidebar-bg', secondary);
     if (sbBg) root.style.setProperty('--statusbar-bg', sbBg);
     if (sbFg) root.style.setProperty('--statusbar-fg', sbFg);
-  };
+  }, []);
 
   const handleThemeChange = async (newTheme: 'dark' | 'light') => {
     setTheme(newTheme);
@@ -218,6 +259,22 @@ export function SettingsAppearance() {
     f.toLowerCase().includes('sf mono')
   );
 
+  // Build color definitions for the grid
+  const brandColors: ColorDef[] = [
+    { id: 'accent-color', label: 'Accent', hint: 'Buttons, links, focus indicators', value: accentColor, onChange: handleAccentChange },
+    { id: 'font-color', label: 'Font', hint: 'Primary text and content', value: fontColor, onChange: handleFontColorChange },
+  ];
+
+  const backgroundColors: ColorDef[] = [
+    { id: 'bg-primary', label: 'Primary', hint: 'Main content area', value: bgPrimary, onChange: handleBgPrimaryChange },
+    { id: 'bg-secondary', label: 'Secondary', hint: 'Sidebar & cards', value: bgSecondary, onChange: handleBgSecondaryChange },
+  ];
+
+  const statusBarColors: ColorDef[] = [
+    { id: 'statusbar-bg', label: 'Background', hint: 'Status bar background', value: statusBarBg, onChange: handleStatusBarBgChange },
+    { id: 'statusbar-fg', label: 'Text', hint: 'Status bar text & icons', value: statusBarFg, onChange: handleStatusBarFgChange },
+  ];
+
   if (loading) {
     return (
       <div className="settings-page">
@@ -234,7 +291,7 @@ export function SettingsAppearance() {
       <div className="settings-page-header">
         <h2>Appearance</h2>
         <p className="settings-page-description">
-          Customize how Buddy looks and feels.
+          Customize how Buddy looks and feels. All changes apply immediately.
         </p>
       </div>
 
@@ -247,9 +304,6 @@ export function SettingsAppearance() {
               Theme
             </h3>
           </div>
-          <p className="section-description">
-            Choose your preferred color theme.
-          </p>
           <div className="theme-selector">
             <button
               className={`theme-option ${theme === 'dark' ? 'selected' : ''}`}
@@ -268,7 +322,7 @@ export function SettingsAppearance() {
           </div>
         </div>
 
-        {/* Colors Section */}
+        {/* Colors Section — compact grid layout */}
         <div className="settings-section">
           <div className="section-header">
             <h3>
@@ -284,159 +338,25 @@ export function SettingsAppearance() {
               Reset
             </button>
           </div>
-          <p className="section-description">
-            Customize the accent and background colors.
-          </p>
-          
-          <div className="color-settings">
-            <div className="color-setting">
-              <label htmlFor="accent-color">Accent Color</label>
-              <div className="color-picker-row">
-                <input
-                  type="color"
-                  id="accent-color"
-                  className="color-picker"
-                  value={accentColor}
-                  onChange={(e) => handleAccentChange(e.target.value)}
-                />
-                <input
-                  type="text"
-                  className="color-hex-input"
-                  value={accentColor}
-                  onChange={(e) => {
-                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                      handleAccentChange(e.target.value);
-                    }
-                  }}
-                  placeholder="#0e639c"
-                />
-              </div>
-              <p className="color-hint">Used for buttons, links, and focus indicators</p>
-            </div>
 
-            <div className="color-setting">
-              <label htmlFor="font-color">Font Color</label>
-              <div className="color-picker-row">
-                <input
-                  type="color"
-                  id="font-color"
-                  className="color-picker"
-                  value={fontColor}
-                  onChange={(e) => handleFontColorChange(e.target.value)}
-                />
-                <input
-                  type="text"
-                  className="color-hex-input"
-                  value={fontColor}
-                  onChange={(e) => {
-                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                      handleFontColorChange(e.target.value);
-                    }
-                  }}
-                  placeholder="#cccccc"
-                />
-              </div>
-              <p className="color-hint">Primary text and content color</p>
+          <div className="color-group">
+            <h4 className="color-group-label">Brand</h4>
+            <div className="color-grid">
+              {brandColors.map(c => <ColorPicker key={c.id} {...c} />)}
             </div>
+          </div>
 
-            <div className="color-setting">
-              <label htmlFor="bg-primary">Primary Background</label>
-              <div className="color-picker-row">
-                <input
-                  type="color"
-                  id="bg-primary"
-                  className="color-picker"
-                  value={bgPrimary}
-                  onChange={(e) => handleBgPrimaryChange(e.target.value)}
-                />
-                <input
-                  type="text"
-                  className="color-hex-input"
-                  value={bgPrimary}
-                  onChange={(e) => {
-                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                      handleBgPrimaryChange(e.target.value);
-                    }
-                  }}
-                  placeholder="#1e1e1e"
-                />
-              </div>
-              <p className="color-hint">Main content area and panels</p>
+          <div className="color-group">
+            <h4 className="color-group-label">Backgrounds</h4>
+            <div className="color-grid">
+              {backgroundColors.map(c => <ColorPicker key={c.id} {...c} />)}
             </div>
+          </div>
 
-            <div className="color-setting">
-              <label htmlFor="bg-secondary">Secondary Background</label>
-              <div className="color-picker-row">
-                <input
-                  type="color"
-                  id="bg-secondary"
-                  className="color-picker"
-                  value={bgSecondary}
-                  onChange={(e) => handleBgSecondaryChange(e.target.value)}
-                />
-                <input
-                  type="text"
-                  className="color-hex-input"
-                  value={bgSecondary}
-                  onChange={(e) => {
-                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                      handleBgSecondaryChange(e.target.value);
-                    }
-                  }}
-                  placeholder="#252526"
-                />
-              </div>
-              <p className="color-hint">Sidebar and secondary surfaces</p>
-            </div>
-
-            <div className="color-setting">
-              <label htmlFor="statusbar-bg">Status Bar Background</label>
-              <div className="color-picker-row">
-                <input
-                  type="color"
-                  id="statusbar-bg"
-                  className="color-picker"
-                  value={statusBarBg}
-                  onChange={(e) => handleStatusBarBgChange(e.target.value)}
-                />
-                <input
-                  type="text"
-                  className="color-hex-input"
-                  value={statusBarBg}
-                  onChange={(e) => {
-                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                      handleStatusBarBgChange(e.target.value);
-                    }
-                  }}
-                  placeholder="#181818"
-                />
-              </div>
-              <p className="color-hint">Background color of the bottom status bar</p>
-            </div>
-
-            <div className="color-setting">
-              <label htmlFor="statusbar-fg">Status Bar Text</label>
-              <div className="color-picker-row">
-                <input
-                  type="color"
-                  id="statusbar-fg"
-                  className="color-picker"
-                  value={statusBarFg}
-                  onChange={(e) => handleStatusBarFgChange(e.target.value)}
-                />
-                <input
-                  type="text"
-                  className="color-hex-input"
-                  value={statusBarFg}
-                  onChange={(e) => {
-                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                      handleStatusBarFgChange(e.target.value);
-                    }
-                  }}
-                  placeholder="#9d9d9d"
-                />
-              </div>
-              <p className="color-hint">Text and icon color of the bottom status bar</p>
+          <div className="color-group">
+            <h4 className="color-group-label">Status Bar</h4>
+            <div className="color-grid">
+              {statusBarColors.map(c => <ColorPicker key={c.id} {...c} />)}
             </div>
           </div>
         </div>
@@ -449,12 +369,9 @@ export function SettingsAppearance() {
               Fonts
             </h3>
           </div>
-          <p className="section-description">
-            Customize the fonts used in the interface.
-          </p>
           
-          <div className="font-settings">
-            <div className="font-setting">
+          <div className="font-grid">
+            <div className="font-cell">
               <label htmlFor="ui-font">UI Font</label>
               <select
                 id="ui-font"
@@ -477,7 +394,7 @@ export function SettingsAppearance() {
               </div>
             </div>
 
-            <div className="font-setting">
+            <div className="font-cell">
               <label htmlFor="mono-font">Monospace Font</label>
               <select
                 id="mono-font"
@@ -501,8 +418,6 @@ export function SettingsAppearance() {
             </div>
           </div>
         </div>
-
-        <p className="hint">All changes are applied immediately.</p>
       </div>
     </div>
   );

@@ -132,7 +132,7 @@ async function processSchedule(
         now
       )
 
-      for (const _missedAt of missed) {
+      for (let index = 0; index < missed.length; index++) {
         await client.mutation(api.runs.create, {
           jobId: schedule.jobId as never,
           scheduleId: schedule._id as never,

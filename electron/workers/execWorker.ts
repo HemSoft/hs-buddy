@@ -15,15 +15,23 @@ const MAX_OUTPUT_SIZE = 512_000 // 512KB per stream
 function getShellArgs(shell: string): { command: string; args: string[] } {
   switch (shell) {
     case 'powershell':
+    case 'pwsh':
+      return { command: 'pwsh.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
+    case 'powershell5':
       return { command: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
     case 'bash':
       return { command: 'bash', args: ['-c'] }
     case 'cmd':
       return { command: 'cmd.exe', args: ['/c'] }
     default:
-      // Default to PowerShell on Windows
-      return { command: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
+      // Default to pwsh (PowerShell 7+) for UTF-8 support
+      return { command: 'pwsh.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
   }
+}
+
+/** Check if a shell type is PowerShell */
+function isPowerShell(shell: string): boolean {
+  return ['powershell', 'pwsh', 'powershell5'].includes(shell) || !['bash', 'cmd'].includes(shell)
 }
 
 /** Truncate output if it exceeds the max size */
@@ -48,12 +56,17 @@ export const execWorker: Worker = {
     const shell = config.shell ?? 'powershell'
     const { command: shellCmd, args: shellArgs } = getShellArgs(shell)
 
+    // For PowerShell, ensure console output encoding is UTF-8
+    const finalCommand = isPowerShell(shell)
+      ? `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${config.command!}`
+      : config.command!
+
     return new Promise<WorkerResult>((resolve) => {
       let stdout = ''
       let stderr = ''
       let killed = false
 
-      const child = spawn(shellCmd, [...shellArgs, config.command!], {
+      const child = spawn(shellCmd, [...shellArgs, finalCommand], {
         cwd: config.cwd || undefined,
         env: { ...process.env },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -80,14 +93,14 @@ export const execWorker: Worker = {
       // Collect stdout
       child.stdout.on('data', (chunk: Buffer) => {
         if (stdout.length < MAX_OUTPUT_SIZE) {
-          stdout += chunk.toString()
+          stdout += chunk.toString('utf8')
         }
       })
 
       // Collect stderr
       child.stderr.on('data', (chunk: Buffer) => {
         if (stderr.length < MAX_OUTPUT_SIZE) {
-          stderr += chunk.toString()
+          stderr += chunk.toString('utf8')
         }
       })
 

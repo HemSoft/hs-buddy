@@ -130,6 +130,16 @@ export function registerConfigHandlers(): void {
     return { success: true }
   })
 
+  // Schedule Forecast Days
+  ipcMain.handle('config:get-schedule-forecast-days', () => {
+    return configManager.getScheduleForecastDays()
+  })
+
+  ipcMain.handle('config:set-schedule-forecast-days', (_event, days) => {
+    configManager.setScheduleForecastDays(days)
+    return { success: true }
+  })
+
   // Full Config
   ipcMain.handle('config:get-config', () => {
     return configManager.getConfig()

@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Package, Terminal, Brain, Zap, Plus, Edit, Trash2, Copy, Play } from 'lucide-react'
+import { Package, Terminal, Brain, Zap, Plus, Trash2, Copy, Play, Edit } from 'lucide-react'
 import { useJobs, useJobMutations, useRunMutations, JobId } from '../../hooks/useConvex'
-import { formatDistanceToNow } from '../../utils/dateUtils'
 import { JobEditor } from './JobEditor'
 import './JobList.css'
 
@@ -136,17 +135,6 @@ export function JobList({ createTrigger }: JobListProps) {
     }
   }
 
-  const getWorkerLabel = (workerType: 'exec' | 'ai' | 'skill') => {
-    switch (workerType) {
-      case 'exec':
-        return 'Shell Command'
-      case 'ai':
-        return 'AI Prompt'
-      case 'skill':
-        return 'Claude Skill'
-    }
-  }
-
   const getConfigPreview = (job: Job): string => {
     switch (job.workerType) {
       case 'exec':
@@ -210,64 +198,39 @@ export function JobList({ createTrigger }: JobListProps) {
     skill: (jobs as Job[]).filter(w => w.workerType === 'skill'),
   }
 
-  const renderJobCard = (job: Job) => (
+  const renderJobRow = (job: Job) => (
     <div
       key={job._id}
-      className="job-card"
+      className="job-row"
       onContextMenu={(e) => handleContextMenu(e, job)}
+      onClick={() => handleEdit(job._id)}
+      title={job.description || job.name}
     >
-      <div className="job-card-header">
-        <div className="job-card-title">
-          <span className="job-name">{job.name}</span>
-          <span className="job-type-badge">
-            {getWorkerIcon(job.workerType)}
-            {getWorkerLabel(job.workerType)}
-          </span>
-        </div>
-        <div className="job-card-actions">
-          <button
-            className="btn-icon-sm"
-            onClick={() => handleRunNow(job)}
-            title="Run Now"
-          >
-            <Play size={14} />
-          </button>
-          <button
-            className="btn-icon-sm"
-            onClick={() => handleEdit(job._id)}
-            title="Edit"
-          >
-            <Edit size={14} />
-          </button>
-          <button
-            className="btn-icon-sm"
-            onClick={() => handleDuplicate(job)}
-            title="Duplicate"
-          >
-            <Copy size={14} />
-          </button>
-          <button
-            className="btn-icon-sm btn-danger"
-            onClick={() => handleDelete(job._id, job.name)}
-            title="Delete"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
-
-      <div className="job-card-body">
-        <div className="job-config-preview">
-          <code>{getConfigPreview(job)}</code>
-        </div>
-        {job.description && (
-          <div className="job-description">
-            {job.description}
-          </div>
-        )}
-        <div className="job-meta">
-          <span>Updated {formatDistanceToNow(job.updatedAt)}</span>
-        </div>
+      {getWorkerIcon(job.workerType)}
+      <span className="job-row-name">{job.name}</span>
+      <span className="job-row-preview">{getConfigPreview(job)}</span>
+      <div className="job-row-actions">
+        <button
+          className="btn-icon-sm"
+          onClick={(e) => { e.stopPropagation(); handleRunNow(job) }}
+          title="Run Now"
+        >
+          <Play size={14} />
+        </button>
+        <button
+          className="btn-icon-sm"
+          onClick={(e) => { e.stopPropagation(); handleDuplicate(job) }}
+          title="Duplicate"
+        >
+          <Copy size={14} />
+        </button>
+        <button
+          className="btn-icon-sm btn-danger"
+          onClick={(e) => { e.stopPropagation(); handleDelete(job._id, job.name) }}
+          title="Delete"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
     </div>
   )
@@ -330,7 +293,7 @@ export function JobList({ createTrigger }: JobListProps) {
               <span className="job-group-count">{groupedJobs.exec.length}</span>
             </div>
             <div className="job-group-items">
-              {groupedJobs.exec.map(renderJobCard)}
+              {groupedJobs.exec.map(renderJobRow)}
             </div>
           </div>
         )}
@@ -343,7 +306,7 @@ export function JobList({ createTrigger }: JobListProps) {
               <span className="job-group-count">{groupedJobs.ai.length}</span>
             </div>
             <div className="job-group-items">
-              {groupedJobs.ai.map(renderJobCard)}
+              {groupedJobs.ai.map(renderJobRow)}
             </div>
           </div>
         )}
@@ -356,7 +319,7 @@ export function JobList({ createTrigger }: JobListProps) {
               <span className="job-group-count">{groupedJobs.skill.length}</span>
             </div>
             <div className="job-group-items">
-              {groupedJobs.skill.map(renderJobCard)}
+              {groupedJobs.skill.map(renderJobRow)}
             </div>
           </div>
         )}

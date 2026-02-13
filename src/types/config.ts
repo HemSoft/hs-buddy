@@ -55,6 +55,9 @@ export interface AppConfig {
     ghAccount: string; // GitHub CLI account username for Copilot SDK (empty = active account)
     model: string; // LLM model to use (e.g., 'claude-sonnet-4.5', 'gpt-4o')
   };
+  automation: {
+    scheduleForecastDays: number; // Number of days to show in schedule forecast (1-30)
+  };
 }
 
 /**
@@ -202,6 +205,18 @@ export const configSchema: Schema<AppConfig> = {
     },
     required: ['ghAccount', 'model'],
   },
+  automation: {
+    type: 'object',
+    properties: {
+      scheduleForecastDays: {
+        type: 'number',
+        minimum: 1,
+        maximum: 30,
+        default: 3,
+      },
+    },
+    required: ['scheduleForecastDays'],
+  },
 };
 
 /**
@@ -238,5 +253,8 @@ export const defaultConfig: AppConfig = {
   copilot: {
     ghAccount: '', // Empty = use currently-active gh CLI account
     model: 'claude-sonnet-4.5',
+  },
+  automation: {
+    scheduleForecastDays: 3,
   },
 };

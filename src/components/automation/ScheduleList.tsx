@@ -3,16 +3,17 @@ import { Calendar, Clock, Play, Pause, Trash2, Edit, Plus, CheckCircle, XCircle,
 import { useSchedules, useScheduleMutations } from '../../hooks/useConvex'
 import { formatDistanceToNow, format } from '../../utils/dateUtils'
 import { ScheduleEditor } from './ScheduleEditor'
+import type { Id } from '../../../convex/_generated/dataModel'
 import './ScheduleList.css'
 
 // Schedule type matching Convex schema
 interface Schedule {
-  _id: string
+  _id: Id<'schedules'>
   _creationTime: number
   name: string
   description?: string
   cron: string
-  jobId: string
+  jobId: Id<'jobs'>
   enabled: boolean
   lastRunAt?: number
   nextRunAt?: number
@@ -20,7 +21,7 @@ interface Schedule {
   createdAt: number
   updatedAt: number
   job?: {
-    _id: string
+    _id: Id<'jobs'>
     name: string
     workerType: 'exec' | 'ai' | 'skill'
   }
@@ -34,7 +35,7 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
   const schedules = useSchedules()
   const { toggle, remove } = useScheduleMutations()
   const [editorOpen, setEditorOpen] = useState(false)
-  const [editingScheduleId, setEditingScheduleId] = useState<string | undefined>()
+  const [editingScheduleId, setEditingScheduleId] = useState<Id<'schedules'> | undefined>()
   const [lastCreateTrigger, setLastCreateTrigger] = useState(0)
 
   // Open create dialog when createTrigger changes
@@ -49,7 +50,7 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
     setEditorOpen(true)
   }
 
-  const handleEdit = (scheduleId: string) => {
+  const handleEdit = (scheduleId: Id<'schedules'>) => {
     setEditingScheduleId(scheduleId)
     setEditorOpen(true)
   }
@@ -92,18 +93,18 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
     )
   }
 
-  const handleToggle = async (scheduleId: string) => {
+  const handleToggle = async (scheduleId: Id<'schedules'>) => {
     try {
-      await toggle({ id: scheduleId as any })
+      await toggle({ id: scheduleId })
     } catch (error) {
       console.error('Failed to toggle schedule:', error)
     }
   }
 
-  const handleDelete = async (scheduleId: string, name: string) => {
+  const handleDelete = async (scheduleId: Id<'schedules'>, name: string) => {
     if (confirm(`Delete schedule "${name}"?`)) {
       try {
-        await remove({ id: scheduleId as any })
+        await remove({ id: scheduleId })
       } catch (error) {
         console.error('Failed to delete schedule:', error)
       }

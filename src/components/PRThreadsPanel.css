@@ -1,0 +1,759 @@
+/* ============================================================
+   PRThreadsPanel — GitHub-quality conversation display
+   ============================================================ */
+
+.pr-threads-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* ---- Section title with summary ---- */
+.pr-threads-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pr-threads-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.pr-threads-active-count {
+  color: #eab308;
+}
+
+.pr-threads-resolved-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-success, #4ade80);
+}
+
+/* ---- Loading / error ---- */
+.pr-threads-loading,
+.pr-threads-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 0;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.pr-threads-error-detail {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.pr-threads-retry {
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pr-threads-retry:hover {
+  background: var(--bg-hover);
+}
+
+/* ---- Section ---- */
+.pr-threads-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---- Toolbar with filters ---- */
+.pr-threads-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pr-threads-filters {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.pr-threads-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.pr-threads-filter:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.pr-threads-filter.active {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.pr-threads-toggle-resolved {
+  padding: 3px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border-primary);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.pr-threads-toggle-resolved:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* ---- Thread list ---- */
+.pr-threads-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pr-threads-empty,
+.pr-threads-empty-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.pr-threads-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.4;
+}
+
+/* ============================================================
+   Individual Review Thread — GitHub-style card
+   ============================================================ */
+.review-thread {
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.review-thread.resolved {
+  opacity: 0.65;
+}
+
+.review-thread.resolved:hover {
+  opacity: 0.85;
+}
+
+/* ---- File path header ---- */
+.review-thread-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.03));
+  border-bottom: 1px solid var(--border-secondary);
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.review-thread-header:hover {
+  background: var(--bg-hover);
+}
+
+.review-thread-chevron {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.review-thread-file-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.review-thread-path-group {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.review-thread-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.review-thread-line-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  opacity: 0.8;
+}
+
+.review-thread-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.review-thread-comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.review-thread-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.review-thread-badge.resolved {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--accent-success, #4ade80);
+}
+
+.review-thread-badge.outdated {
+  background: rgba(234, 179, 8, 0.12);
+  color: #eab308;
+}
+
+/* ---- Thread body ---- */
+.review-thread-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   Diff Hunk — code context display
+   ============================================================ */
+.diff-hunk {
+  background: #0d1117;
+  border-bottom: 1px solid var(--border-secondary);
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.diff-hunk-lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-line {
+  display: flex;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 11.5px;
+  white-space: pre;
+  min-height: 20px;
+  align-items: center;
+}
+
+.diff-line-num {
+  width: 40px;
+  min-width: 40px;
+  padding: 0 6px;
+  text-align: right;
+  color: rgba(139, 148, 158, 0.4);
+  font-size: 11px;
+  user-select: none;
+  border-right: 1px solid rgba(139, 148, 158, 0.1);
+  box-sizing: border-box;
+}
+
+.diff-line-content {
+  flex: 1;
+  padding: 0 12px;
+}
+
+.diff-line.diff-add {
+  background: rgba(46, 160, 67, 0.15);
+  color: #7ee787;
+}
+
+.diff-line.diff-del {
+  background: rgba(248, 81, 73, 0.15);
+  color: #ffa198;
+}
+
+.diff-line.diff-range {
+  background: rgba(56, 139, 253, 0.10);
+  color: rgba(139, 148, 158, 0.8);
+  font-size: 11px;
+}
+
+.diff-line.diff-truncated {
+  background: transparent;
+  color: rgba(139, 148, 158, 0.4);
+  font-size: 11px;
+  min-height: 16px;
+  user-select: none;
+}
+
+.diff-line.diff-truncated .diff-line-num {
+  border-right-color: transparent;
+}
+
+.diff-line.diff-truncated .diff-line-content {
+  text-align: center;
+}
+
+/* ============================================================
+   Comment Card — GitHub-style avatar + body layout
+   ============================================================ */
+.review-thread-comments {
+  display: flex;
+  flex-direction: column;
+}
+
+.thread-comment {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.thread-comment:last-child {
+  border-bottom: none;
+}
+
+.thread-comment-avatar-col {
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.thread-comment-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.thread-comment-avatar-placeholder {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.thread-comment-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.thread-comment-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.thread-comment-username {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading, var(--text-primary));
+}
+
+.thread-comment-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  cursor: default;
+}
+
+.thread-comment-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.thread-comment-reactions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.thread-comment-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.thread-comment-reaction:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+.thread-comment-reaction.active {
+  border-color: var(--accent-primary);
+  background: rgba(56, 139, 253, 0.12);
+  color: var(--text-primary);
+}
+
+.thread-comment-reaction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.thread-comment-reaction-count {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Markdown rendered inside comments */
+.thread-comment-markdown {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.thread-comment-markdown .wmde-markdown {
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+
+.thread-comment-markdown .wmde-markdown p {
+  margin: 0 0 8px 0;
+}
+
+.thread-comment-markdown .wmde-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.thread-comment-markdown .wmde-markdown code {
+  background: rgba(110, 118, 129, 0.25) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-family: 'Cascadia Code', 'Consolas', monospace !important;
+  font-size: 12px !important;
+}
+
+.thread-comment-markdown .wmde-markdown pre {
+  background: #161b22 !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  margin: 8px 0 !important;
+  overflow-x: auto;
+}
+
+.thread-comment-markdown .wmde-markdown pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 12px !important;
+}
+
+/* ============================================================
+   Suggestion block — GitHub "Suggested change" UI
+   ============================================================ */
+.suggestion-block {
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.03));
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.suggestion-diff {
+  background: #0d1117;
+  font-size: 12px;
+  line-height: 20px;
+  overflow-x: auto;
+}
+
+.suggestion-diff .diff-line {
+  padding: 0;
+}
+
+.suggestion-diff .diff-line .diff-line-content {
+  padding: 0 12px;
+}
+
+/* ============================================================
+   Thread actions bar — reply + resolve
+   ============================================================ */
+.review-thread-actions {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-secondary);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.02));
+}
+
+.thread-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thread-reply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-primary);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.thread-reply-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+/* ---- Resolve / Unresolve button ---- */
+.thread-resolve-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+
+.thread-resolve-btn.resolve {
+  border-color: var(--accent-success, #4ade80);
+  background: rgba(74, 222, 128, 0.08);
+  color: var(--accent-success, #4ade80);
+}
+
+.thread-resolve-btn.resolve:hover {
+  background: rgba(74, 222, 128, 0.18);
+}
+
+.thread-resolve-btn.unresolve {
+  border-color: var(--border-primary);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.thread-resolve-btn.unresolve:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.thread-resolve-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Reply form ---- */
+.thread-reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thread-reply-input,
+.pr-threads-comment-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  border-radius: 6px;
+  resize: vertical;
+  min-height: 60px;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.thread-reply-input:focus,
+.pr-threads-comment-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(56, 139, 253, 0.15);
+}
+
+.thread-reply-buttons,
+.pr-threads-comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.thread-reply-hint {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  margin-right: auto;
+}
+
+.thread-reply-cancel {
+  padding: 5px 12px;
+  border: 1px solid var(--border-primary);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.thread-reply-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.thread-reply-send,
+.pr-threads-comment-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  border: none;
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.thread-reply-send:hover,
+.pr-threads-comment-submit:hover {
+  opacity: 0.85;
+}
+
+.thread-reply-send:disabled,
+.pr-threads-comment-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Issue comments section
+   ============================================================ */
+.pr-threads-comments-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pr-threads-comments {
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+/* ============================================================
+   Add comment form
+   ============================================================ */
+.pr-threads-add-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-secondary);
+  padding-top: 14px;
+}
+
+.pr-threads-add-comment-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ---- Spin animation ---- */
+.pr-threads-container .spin {
+  animation: spin 1s linear infinite;
+}

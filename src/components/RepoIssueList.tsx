@@ -11,30 +11,13 @@ import {
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoIssue } from '../api/github'
+import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
 import './RepoIssueList.css'
 
 interface RepoIssueListProps {
   owner: string
   repo: string
-}
-
-function formatRelativeTime(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMin / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMin < 60) return `${diffMin}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  const diffMonths = Math.floor(diffDays / 30)
-  if (diffMonths < 12) return `${diffMonths}mo ago`
-  const diffYears = Math.floor(diffMonths / 12)
-  return `${diffYears}y ago`
 }
 
 export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
@@ -192,7 +175,7 @@ export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
                 </span>
                 <span className="repo-issue-date">
                   <Clock size={12} />
-                  {formatRelativeTime(issue.createdAt)}
+                  {formatDistanceToNow(issue.createdAt)}
                 </span>
                 {issue.commentCount > 0 && (
                   <span className="repo-issue-comments">

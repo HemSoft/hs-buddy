@@ -15,6 +15,7 @@ import {
   useCopilotResultsRecent,
   useCopilotActiveCount,
 } from '../../hooks/useConvex'
+import { formatDistanceToNow } from '../../utils/dateUtils'
 
 interface CopilotSidebarProps {
   onItemSelect: (itemId: string) => void
@@ -47,14 +48,6 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
       case 'failed': return <XCircle size={12} style={{ color: '#e85d5d' }} />
       default: return null
     }
-  }
-
-  const formatRelativeTime = (ts: number) => {
-    const diff = Date.now() - ts
-    if (diff < 60000) return 'just now'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    return `${Math.floor(diff / 86400000)}d ago`
   }
 
   return (
@@ -157,7 +150,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                         {statusIcon(r.status)}
                       </span>
                       <span className="sidebar-item-label">{label}</span>
-                      <span className="sidebar-repo-lang">{formatRelativeTime(r.createdAt)}</span>
+                      <span className="sidebar-repo-lang">{formatDistanceToNow(r.createdAt)}</span>
                     </div>
                   )
                 })

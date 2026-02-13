@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest'
 import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
+import { graphql } from '@octokit/graphql'
 import type { PullRequest, PRConfig } from '../types/pullRequest'
 
 // Repository info type for org repo listing
@@ -110,12 +111,92 @@ export interface RepoPullRequest {
   draft: boolean
   headBranch: string
   baseBranch: string
+  assigneeCount: number
+  approvalCount: number
+  iApproved: boolean
 }
 
 // Lightweight issue + PR counts for sidebar badges
 export interface RepoCounts {
   issues: number
   prs: number
+}
+
+export interface PRHistorySummary {
+  createdAt: string
+  updatedAt: string
+  mergedAt: string | null
+  commitCount: number
+  issueCommentCount: number
+  reviewCommentCount: number
+  totalComments: number
+  threadsTotal: number
+  threadsOutdated: number
+  threadsAddressed: number
+  threadsUnaddressed: number
+  reviewers: PRReviewerSummary[]
+  timeline: PRTimelineEvent[]
+}
+
+export interface PRReviewerSummary {
+  login: string
+  avatarUrl: string | null
+  status: 'pending' | 'approved' | 'changes-requested' | 'commented' | 'reviewed'
+  updatedAt: string | null
+}
+
+export interface PRTimelineEvent {
+  id: string
+  type: 'opened' | 'comment' | 'commit' | 'review'
+  author: string
+  occurredAt: string
+  summary: string
+  url: string | null
+}
+
+export type PRCommentReactionContent =
+  | 'THUMBS_UP'
+  | 'THUMBS_DOWN'
+  | 'LAUGH'
+  | 'HOORAY'
+  | 'CONFUSED'
+  | 'HEART'
+  | 'ROCKET'
+  | 'EYES'
+
+export interface PRCommentReaction {
+  content: PRCommentReactionContent
+  count: number
+  viewerHasReacted: boolean
+}
+
+// Full review thread data for the threads panel
+export interface PRReviewComment {
+  id: string
+  author: string
+  authorAvatarUrl: string | null
+  body: string
+  createdAt: string
+  updatedAt: string
+  url: string
+  diffHunk: string | null
+  reactions: PRCommentReaction[]
+}
+
+export interface PRReviewThread {
+  id: string
+  isResolved: boolean
+  isOutdated: boolean
+  path: string | null
+  line: number | null
+  startLine: number | null
+  diffSide: string | null
+  comments: PRReviewComment[]
+}
+
+export interface PRThreadsResult {
+  threads: PRReviewThread[]
+  issueComments: PRReviewComment[]
 }
 
 // Create Octokit with retry and throttling plugins
@@ -458,15 +539,21 @@ export class GitHubClient {
    */
   async fetchRepoPRs(owner: string, repo: string): Promise<RepoPullRequest[]> {
     const octokit = await this.getOctokitForOwner(owner)
-    const response = await octokit.pulls.list({
-      owner,
-      repo,
-      state: 'open',
-      per_page: 100,
-      sort: 'updated',
-      direction: 'desc',
-    })
-    return response.data.map(pr => ({
+    const [response, viewer] = await Promise.all([
+      octokit.pulls.list({
+        owner,
+        repo,
+        state: 'open',
+        per_page: 100,
+        sort: 'updated',
+        direction: 'desc',
+      }),
+      octokit.users.getAuthenticated().catch(() => null),
+    ])
+
+    const viewerLogin = viewer?.data?.login?.toLowerCase() || null
+
+    const prs: RepoPullRequest[] = response.data.map(pr => ({
       number: pr.number,
       title: pr.title,
       state: pr.state,
@@ -482,7 +569,774 @@ export class GitHubClient {
       draft: pr.draft || false,
       headBranch: pr.head?.ref || '',
       baseBranch: pr.base?.ref || '',
+      assigneeCount: pr.assignees?.length || 0,
+      approvalCount: 0,
+      iApproved: false,
     }))
+
+    const BATCH_SIZE = 10
+    for (let i = 0; i < prs.length; i += BATCH_SIZE) {
+      const batch = prs.slice(i, i + BATCH_SIZE)
+
+      await Promise.all(
+        batch.map(async pr => {
+          try {
+            const reviewsData = await octokit.pulls.listReviews({
+              owner,
+              repo,
+              pull_number: pr.number,
+            })
+
+            const reviewerLatest = new Map<string, string>()
+            for (const review of reviewsData.data) {
+              const login = review.user?.login
+              if (!login) continue
+
+              const submittedAt = review.submitted_at || ''
+              const existingAt = reviewerLatest.get(login)
+              if (!existingAt || submittedAt > existingAt) {
+                reviewerLatest.set(login, submittedAt)
+              }
+            }
+
+            const latestStates = new Map<string, string>()
+            for (const review of reviewsData.data) {
+              const login = review.user?.login
+              if (!login) continue
+              const latestAt = reviewerLatest.get(login)
+              if ((review.submitted_at || '') === latestAt) {
+                latestStates.set(login, review.state)
+              }
+            }
+
+            let approvalCount = 0
+            let iApproved = false
+            for (const [login, state] of latestStates) {
+              if (state === 'APPROVED') {
+                approvalCount++
+                if (viewerLogin && login.toLowerCase() === viewerLogin) {
+                  iApproved = true
+                }
+              }
+            }
+
+            pr.approvalCount = approvalCount
+            pr.iApproved = iApproved
+          } catch (error) {
+            console.debug(`Failed to fetch review state for ${owner}/${repo}#${pr.number}:`, error)
+          }
+        })
+      )
+    }
+
+    return prs
+  }
+
+  /**
+   * Fetch source and destination branch names for a PR.
+   */
+  async fetchPRBranches(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<{ headBranch: string; baseBranch: string }> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const response = await octokit.pulls.get({
+      owner,
+      repo,
+      pull_number: pullNumber,
+    })
+
+    return {
+      headBranch: response.data.head?.ref || '',
+      baseBranch: response.data.base?.ref || '',
+    }
+  }
+
+  /**
+   * Fetch detailed PR history stats for context menus and history panel.
+   */
+  async fetchPRHistory(owner: string, repo: string, pullNumber: number): Promise<PRHistorySummary> {
+    const token = await this.getTokenForOwner(owner)
+
+    const query = `
+      query PRHistory($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            createdAt
+            updatedAt
+            mergedAt
+            author {
+              login
+            }
+            comments(first: 100) {
+              totalCount
+              nodes {
+                id
+                createdAt
+                bodyText
+                url
+                author {
+                  login
+                }
+              }
+            }
+            commits(first: 100) {
+              totalCount
+              nodes {
+                commit {
+                  oid
+                  committedDate
+                  messageHeadline
+                  url
+                  author {
+                    user {
+                      login
+                    }
+                    name
+                  }
+                }
+              }
+            }
+            reviewRequests(first: 30) {
+              nodes {
+                requestedReviewer {
+                  __typename
+                  ... on User {
+                    login
+                    avatarUrl
+                  }
+                }
+              }
+            }
+            reviews(first: 100) {
+              nodes {
+                id
+                state
+                submittedAt
+                url
+                author {
+                  login
+                  avatarUrl
+                }
+              }
+            }
+            reviewThreads(first: 100) {
+              totalCount
+              nodes {
+                isResolved
+                isOutdated
+                comments {
+                  totalCount
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const result = await graphql<{
+      repository: {
+        pullRequest: {
+          createdAt: string
+          updatedAt: string
+          mergedAt: string | null
+          author: { login: string } | null
+          comments: {
+            totalCount: number
+            nodes: Array<{
+              id: string
+              createdAt: string
+              bodyText: string
+              url: string
+              author: { login: string } | null
+            }>
+          }
+          commits: {
+            totalCount: number
+            nodes: Array<{
+              commit: {
+                oid: string
+                committedDate: string
+                messageHeadline: string
+                url: string
+                author: {
+                  user: { login: string } | null
+                  name: string | null
+                } | null
+              }
+            }>
+          }
+          reviewRequests: {
+            nodes: Array<{
+              requestedReviewer:
+                | {
+                    __typename: 'User'
+                    login: string
+                    avatarUrl: string
+                  }
+                | { __typename: string }
+                | null
+            }>
+          }
+          reviews: {
+            nodes: Array<{
+              id: string
+              state: string
+              submittedAt: string | null
+              url: string
+              author: { login: string; avatarUrl: string } | null
+            }>
+          }
+          reviewThreads: {
+            totalCount: number
+            nodes: Array<{
+              isResolved: boolean
+              isOutdated: boolean
+              comments: { totalCount: number }
+            }>
+          }
+        } | null
+      } | null
+    }>(query, {
+      owner,
+      repo,
+      number: pullNumber,
+      headers: {
+        authorization: `token ${token}`,
+      },
+    })
+
+    const pr = result.repository?.pullRequest
+    if (!pr) {
+      throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
+    }
+
+    const threads = pr.reviewThreads.nodes || []
+    const threadsOutdated = threads.filter(thread => thread.isOutdated).length
+    const threadsAddressed = threads.filter(thread => thread.isResolved).length
+    const threadsUnaddressed = Math.max(0, pr.reviewThreads.totalCount - threadsAddressed)
+    const reviewCommentCount = threads.reduce(
+      (count, thread) => count + (thread.comments?.totalCount || 0),
+      0
+    )
+    const issueCommentCount = pr.comments.totalCount
+
+    const latestReviewsByUser = new Map<
+      string,
+      { state: string; submittedAt: string | null; avatarUrl: string | null }
+    >()
+    for (const review of pr.reviews.nodes || []) {
+      const login = review.author?.login
+      if (!login) continue
+      const existing = latestReviewsByUser.get(login)
+      if (!existing || (review.submittedAt || '') > (existing.submittedAt || '')) {
+        latestReviewsByUser.set(login, {
+          state: review.state,
+          submittedAt: review.submittedAt,
+          avatarUrl: review.author?.avatarUrl || null,
+        })
+      }
+    }
+
+    const requestedReviewers = new Map<string, { avatarUrl: string | null }>()
+    for (const req of pr.reviewRequests.nodes || []) {
+      const reviewer = req.requestedReviewer
+      if (
+        reviewer &&
+        reviewer.__typename === 'User' &&
+        'login' in reviewer &&
+        'avatarUrl' in reviewer
+      ) {
+        requestedReviewers.set(reviewer.login, { avatarUrl: reviewer.avatarUrl || null })
+      }
+    }
+
+    const reviewerLogins = new Set<string>([
+      ...requestedReviewers.keys(),
+      ...latestReviewsByUser.keys(),
+    ])
+
+    const reviewers: PRReviewerSummary[] = Array.from(reviewerLogins).map(login => {
+      const latest = latestReviewsByUser.get(login)
+      const requested = requestedReviewers.get(login)
+      const status: PRReviewerSummary['status'] = latest
+        ? latest.state === 'APPROVED'
+          ? 'approved'
+          : latest.state === 'CHANGES_REQUESTED'
+            ? 'changes-requested'
+            : latest.state === 'COMMENTED'
+              ? 'commented'
+              : 'reviewed'
+        : 'pending'
+
+      return {
+        login,
+        avatarUrl: latest?.avatarUrl || requested?.avatarUrl || null,
+        status,
+        updatedAt: latest?.submittedAt || null,
+      }
+    })
+
+    const timeline: PRTimelineEvent[] = []
+    timeline.push({
+      id: `opened-${pullNumber}`,
+      type: 'opened',
+      author: pr.author?.login || 'unknown',
+      occurredAt: pr.createdAt,
+      summary: 'Opened pull request',
+      url: null,
+    })
+
+    for (const comment of pr.comments.nodes || []) {
+      const summary = (comment.bodyText || '').trim().split('\n')[0] || 'Added comment'
+      timeline.push({
+        id: `comment-${comment.id}`,
+        type: 'comment',
+        author: comment.author?.login || 'unknown',
+        occurredAt: comment.createdAt,
+        summary,
+        url: comment.url,
+      })
+    }
+
+    for (const commitNode of pr.commits.nodes || []) {
+      const commit = commitNode.commit
+      timeline.push({
+        id: `commit-${commit.oid}`,
+        type: 'commit',
+        author: commit.author?.user?.login || commit.author?.name || 'unknown',
+        occurredAt: commit.committedDate,
+        summary: commit.messageHeadline || 'Commit',
+        url: commit.url || null,
+      })
+    }
+
+    for (const review of pr.reviews.nodes || []) {
+      if (!review.submittedAt) continue
+      const reviewSummary =
+        review.state === 'APPROVED'
+          ? 'Approved review'
+          : review.state === 'CHANGES_REQUESTED'
+            ? 'Requested changes'
+            : review.state === 'COMMENTED'
+              ? 'Left review comments'
+              : 'Submitted review'
+
+      timeline.push({
+        id: `review-${review.id}`,
+        type: 'review',
+        author: review.author?.login || 'unknown',
+        occurredAt: review.submittedAt,
+        summary: reviewSummary,
+        url: review.url || null,
+      })
+    }
+
+    timeline.sort((a, b) => {
+      const aTs = new Date(a.occurredAt).getTime()
+      const bTs = new Date(b.occurredAt).getTime()
+      return aTs - bTs
+    })
+
+    return {
+      createdAt: pr.createdAt,
+      updatedAt: pr.updatedAt,
+      mergedAt: pr.mergedAt,
+      commitCount: pr.commits.totalCount,
+      issueCommentCount,
+      reviewCommentCount,
+      totalComments: issueCommentCount + reviewCommentCount,
+      threadsTotal: pr.reviewThreads.totalCount,
+      threadsOutdated,
+      threadsAddressed,
+      threadsUnaddressed,
+      reviewers,
+      timeline,
+    }
+  }
+
+  /**
+   * Fetch full review threads and issue comments for a PR.
+   * Returns all threads with their comments and all top-level issue comments.
+   */
+  async fetchPRThreads(owner: string, repo: string, pullNumber: number): Promise<PRThreadsResult> {
+    const token = await this.getTokenForOwner(owner)
+
+    const query = `
+      query PRThreads($owner: String!, $repo: String!, $number: Int!, $threadCursor: String) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            reviewThreads(first: 100, after: $threadCursor) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                id
+                isResolved
+                isOutdated
+                path
+                line
+                startLine
+                diffSide
+                comments(first: 50) {
+                  nodes {
+                    id
+                    author { login avatarUrl }
+                    body
+                    createdAt
+                    updatedAt
+                    url
+                    diffHunk
+                    reactionGroups {
+                      content
+                      viewerHasReacted
+                      users {
+                        totalCount
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            comments(first: 100) {
+              nodes {
+                id
+                author { login avatarUrl }
+                body
+                createdAt
+                updatedAt
+                url
+                reactionGroups {
+                  content
+                  viewerHasReacted
+                  users {
+                    totalCount
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const result = await graphql<{
+      repository: {
+        pullRequest: {
+          reviewThreads: {
+            pageInfo: { hasNextPage: boolean; endCursor: string | null }
+            nodes: Array<{
+              id: string
+              isResolved: boolean
+              isOutdated: boolean
+              path: string | null
+              line: number | null
+              startLine: number | null
+              diffSide: string | null
+              comments: {
+                nodes: Array<{
+                  id: string
+                  author: { login: string; avatarUrl: string } | null
+                  body: string | null
+                  createdAt: string
+                  updatedAt: string
+                  url: string
+                  diffHunk: string | null
+                  reactionGroups: Array<{
+                    content: string
+                    viewerHasReacted: boolean
+                    users: { totalCount: number }
+                  }>
+                }>
+              }
+            }>
+          }
+          comments: {
+            nodes: Array<{
+              id: string
+              author: { login: string; avatarUrl: string } | null
+              body: string | null
+              createdAt: string
+              updatedAt: string
+              url: string
+              reactionGroups: Array<{
+                content: string
+                viewerHasReacted: boolean
+                users: { totalCount: number }
+              }>
+            }>
+          }
+        } | null
+      } | null
+    }>(query, {
+      owner,
+      repo,
+      number: pullNumber,
+      headers: { authorization: `token ${token}` },
+    })
+
+    const pr = result.repository?.pullRequest
+    if (!pr) {
+      throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
+    }
+
+    const threads: PRReviewThread[] = (pr.reviewThreads.nodes || []).map(t => ({
+      id: t.id,
+      isResolved: t.isResolved,
+      isOutdated: t.isOutdated,
+      path: t.path,
+      line: t.line,
+      startLine: t.startLine,
+      diffSide: t.diffSide,
+      comments: (t.comments.nodes || []).map(c => ({
+        id: c.id,
+        author: c.author?.login || 'unknown',
+        authorAvatarUrl: c.author?.avatarUrl || null,
+        body: c.body || '',
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        url: c.url,
+        diffHunk: c.diffHunk || null,
+        reactions: this.mapReactionGroups(c.reactionGroups),
+      })),
+    }))
+
+    const issueComments: PRReviewComment[] = (pr.comments.nodes || []).map(c => ({
+      id: c.id,
+      author: c.author?.login || 'unknown',
+      authorAvatarUrl: c.author?.avatarUrl || null,
+      body: c.body || '',
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      url: c.url,
+      diffHunk: null,
+      reactions: this.mapReactionGroups(c.reactionGroups),
+    }))
+
+    return { threads, issueComments }
+  }
+
+  /**
+   * Reply to a review thread on a PR.
+   * Uses the `addPullRequestReviewComment` GraphQL mutation (reply variant).
+   */
+  async replyToReviewThread(
+    owner: string,
+    _pullNumber: number,
+    threadId: string,
+    body: string
+  ): Promise<PRReviewComment> {
+    const token = await this.getTokenForOwner(owner)
+
+    const mutation = `
+      mutation ReplyToThread($threadId: ID!, $body: String!) {
+        addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $threadId, body: $body }) {
+          comment {
+            id
+            author { login avatarUrl }
+            body
+            createdAt
+            updatedAt
+            url
+          }
+        }
+      }
+    `
+
+    const result = await graphql<{
+      addPullRequestReviewThreadReply: {
+        comment: {
+          id: string
+          author: { login: string; avatarUrl: string } | null
+          body: string
+          createdAt: string
+          updatedAt: string
+          url: string
+        }
+      }
+    }>(mutation, {
+      threadId,
+      body,
+      headers: { authorization: `token ${token}` },
+    })
+
+    const c = result.addPullRequestReviewThreadReply.comment
+    return {
+      id: c.id,
+      author: c.author?.login || 'unknown',
+      authorAvatarUrl: c.author?.avatarUrl || null,
+      body: c.body,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      url: c.url,
+      diffHunk: null,
+      reactions: [],
+    }
+  }
+
+  /**
+   * Resolve a review thread conversation.
+   */
+  async resolveReviewThread(owner: string, threadId: string): Promise<void> {
+    const token = await this.getTokenForOwner(owner)
+
+    const mutation = `
+      mutation ResolveThread($threadId: ID!) {
+        resolveReviewThread(input: { threadId: $threadId }) {
+          thread { id isResolved }
+        }
+      }
+    `
+
+    await graphql<unknown>(mutation, {
+      threadId,
+      headers: { authorization: `token ${token}` },
+    })
+  }
+
+  /**
+   * Unresolve a previously resolved review thread conversation.
+   */
+  async unresolveReviewThread(owner: string, threadId: string): Promise<void> {
+    const token = await this.getTokenForOwner(owner)
+
+    const mutation = `
+      mutation UnresolveThread($threadId: ID!) {
+        unresolveReviewThread(input: { threadId: $threadId }) {
+          thread { id isResolved }
+        }
+      }
+    `
+
+    await graphql<unknown>(mutation, {
+      threadId,
+      headers: { authorization: `token ${token}` },
+    })
+  }
+
+  /**
+   * Add a top-level issue comment on a PR.
+   * Uses REST API since issue comments are simpler.
+   */
+  async addPRComment(
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    body: string
+  ): Promise<PRReviewComment> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const response = await octokit.issues.createComment({
+      owner,
+      repo,
+      issue_number: pullNumber,
+      body,
+    })
+    const c = response.data
+    return {
+      id: c.node_id || String(c.id),
+      author: c.user?.login || 'unknown',
+      authorAvatarUrl: c.user?.avatar_url || null,
+      body: c.body || '',
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+      url: c.html_url,
+      diffHunk: null,
+      reactions: [],
+    }
+  }
+
+  /**
+   * Add an emoji reaction to a PR comment (review comment or issue comment).
+   */
+  async addCommentReaction(
+    owner: string,
+    subjectId: string,
+    content: PRCommentReactionContent
+  ): Promise<void> {
+    const token = await this.getTokenForOwner(owner)
+
+    const mutation = `
+      mutation AddCommentReaction($subjectId: ID!, $content: ReactionContent!) {
+        addReaction(input: { subjectId: $subjectId, content: $content }) {
+          reaction {
+            content
+          }
+        }
+      }
+    `
+
+    await graphql<unknown>(mutation, {
+      subjectId,
+      content,
+      headers: { authorization: `token ${token}` },
+    })
+  }
+
+  /**
+   * Approve a pull request review.
+   */
+  async approvePullRequest(
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    body = 'Approved'
+  ): Promise<void> {
+    const octokit = await this.getOctokitForOwner(owner)
+    await octokit.pulls.createReview({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      event: 'APPROVE',
+      body,
+    })
+  }
+
+  /**
+   * Get a token for an owner (used by thread/comment methods).
+   */
+  private async getTokenForOwner(owner: string): Promise<string> {
+    let token: string | null = null
+    for (const account of this.config.accounts) {
+      if (account.org === owner) {
+        token = await this.getGitHubCLIToken(account.username)
+        if (token) break
+      }
+    }
+    if (!token) {
+      for (const account of this.config.accounts) {
+        token = await this.getGitHubCLIToken(account.username)
+        if (token) break
+      }
+    }
+    if (!token) {
+      throw new Error('No authenticated GitHub account available')
+    }
+    return token
+  }
+
+  private mapReactionGroups(
+    groups: Array<{ content: string; viewerHasReacted: boolean; users: { totalCount: number } }> | null | undefined
+  ): PRCommentReaction[] {
+    const supported: PRCommentReactionContent[] = [
+      'THUMBS_UP',
+      'THUMBS_DOWN',
+      'LAUGH',
+      'HOORAY',
+      'CONFUSED',
+      'HEART',
+      'ROCKET',
+      'EYES',
+    ]
+    const groupMap = new Map((groups || []).map(group => [group.content, group]))
+
+    return supported.map(content => {
+      const group = groupMap.get(content)
+      return {
+        content,
+        count: group?.users.totalCount || 0,
+        viewerHasReacted: group?.viewerHasReacted || false,
+      }
+    })
   }
 
   /**
@@ -817,6 +1671,9 @@ export class GitHubClient {
             assigneeCount: item.assignees?.length || 0,
             iApproved: false, // Will be filled in batch
             created: item.created_at ? new Date(item.created_at) : null,
+            updatedAt: item.updated_at || null,
+            headBranch: '',
+            baseBranch: '',
             date: item.closed_at || null, // For merged PRs, closed_at is the merge date
             orgAvatarUrl,
             org,
@@ -851,11 +1708,18 @@ export class GitHubClient {
       await Promise.all(
         batch.map(async pr => {
           try {
-            const reviewsData = await octokit.pulls.listReviews({
-              owner: pr._owner,
-              repo: pr._repo,
-              pull_number: pr._prNumber,
-            })
+            const [reviewsData, prData] = await Promise.all([
+              octokit.pulls.listReviews({
+                owner: pr._owner,
+                repo: pr._repo,
+                pull_number: pr._prNumber,
+              }),
+              octokit.pulls.get({
+                owner: pr._owner,
+                repo: pr._repo,
+                pull_number: pr._prNumber,
+              }),
+            ])
 
             const reviews = reviewsData.data
             let approvalCount = 0
@@ -891,6 +1755,8 @@ export class GitHubClient {
 
             pr.approvalCount = approvalCount
             pr.iApproved = iApproved
+            pr.headBranch = prData.data.head?.ref || ''
+            pr.baseBranch = prData.data.base?.ref || ''
           } catch (error) {
             console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
           }

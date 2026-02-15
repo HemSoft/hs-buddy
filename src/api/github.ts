@@ -308,17 +308,21 @@ export class GitHubClient {
   }
 
   /**
+   * Return accounts ordered by best match for a target owner/org.
+   * Matching org accounts are tried first, then remaining accounts.
+   */
+  private getAccountsByOwnerPriority(owner: string) {
+    const preferred = this.config.accounts.filter(account => account.org === owner)
+    const fallback = this.config.accounts.filter(account => account.org !== owner)
+    return [...preferred, ...fallback]
+  }
+
+  /**
    * Get an Octokit instance for a given owner/org.
    * Tries accounts matching the owner first, then falls back to any account.
    */
   private async getOctokitForOwner(owner: string): Promise<Octokit> {
-    for (const account of this.config.accounts) {
-      if (account.org === owner) {
-        const octokit = await this.getOctokit(account.username)
-        if (octokit) return octokit
-      }
-    }
-    for (const account of this.config.accounts) {
+    for (const account of this.getAccountsByOwnerPriority(owner)) {
       const octokit = await this.getOctokit(account.username)
       if (octokit) return octokit
     }
@@ -359,22 +363,10 @@ export class GitHubClient {
    * open PR count, and latest CI/CD workflow run in parallel.
    */
   async fetchRepoDetail(owner: string, repo: string): Promise<RepoDetail> {
-    // Find an octokit instance — prefer account matching the owner/org
-    let octokit: Octokit | null = null
-    for (const account of this.config.accounts) {
-      if (account.org === owner) {
-        octokit = await this.getOctokit(account.username)
-        if (octokit) break
-      }
-    }
-    // Fallback: try any available account
-    if (!octokit) {
-      for (const account of this.config.accounts) {
-        octokit = await this.getOctokit(account.username)
-        if (octokit) break
-      }
-    }
-    if (!octokit) {
+    let octokit: Octokit
+    try {
+      octokit = await this.getOctokitForOwner(owner)
+    } catch {
       throw new Error(`No authenticated GitHub account available to fetch ${owner}/${repo}`)
     }
 
@@ -1295,23 +1287,14 @@ export class GitHubClient {
    * Get a token for an owner (used by thread/comment methods).
    */
   private async getTokenForOwner(owner: string): Promise<string> {
-    let token: string | null = null
-    for (const account of this.config.accounts) {
-      if (account.org === owner) {
-        token = await this.getGitHubCLIToken(account.username)
-        if (token) break
+    for (const account of this.getAccountsByOwnerPriority(owner)) {
+      const token = await this.getGitHubCLIToken(account.username)
+      if (token) {
+        return token
       }
     }
-    if (!token) {
-      for (const account of this.config.accounts) {
-        token = await this.getGitHubCLIToken(account.username)
-        if (token) break
-      }
-    }
-    if (!token) {
-      throw new Error('No authenticated GitHub account available')
-    }
-    return token
+
+    throw new Error('No authenticated GitHub account available')
   }
 
   private mapReactionGroups(
@@ -1345,24 +1328,7 @@ export class GitHubClient {
    * Returns which account was used so the UI can attribute the request.
    */
   async fetchOrgRepos(org: string): Promise<OrgRepoResult> {
-    // Try each account that matches this org first
-    for (const account of this.config.accounts) {
-      if (account.org !== org) continue
-
-      const octokit = await this.getOctokit(account.username)
-      if (!octokit) continue
-
-      try {
-        const result = await this.fetchAllOrgOrUserRepos(octokit, org)
-        return { ...result, authenticatedAs: account.username }
-      } catch (error) {
-        console.warn(`Failed to fetch repos for ${org} with account ${account.username}:`, error)
-        continue
-      }
-    }
-
-    // If no matching account, try any account
-    for (const account of this.config.accounts) {
+    for (const account of this.getAccountsByOwnerPriority(org)) {
       const octokit = await this.getOctokit(account.username)
       if (!octokit) continue
 

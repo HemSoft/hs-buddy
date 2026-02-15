@@ -4,6 +4,32 @@ import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function isNotFoundError(error: unknown): boolean {
+  const message = getErrorMessage(error)
+  return message.includes('404') || message.includes('Not Found')
+}
+
+async function tryGetCliToken(username?: string): Promise<string | null> {
+  if (!username) {
+    return null
+  }
+
+  try {
+    const { stdout } = await execAsync(`gh auth token --user ${username}`, {
+      encoding: 'utf8',
+      timeout: 5000,
+    })
+    const token = stdout.trim()
+    return token.length > 0 ? token : null
+  } catch {
+    return null
+  }
+}
+
 /** Shape returned by /orgs/{org}/settings/billing/usage */
 interface BillingUsageItem {
   date: string
@@ -43,7 +69,7 @@ export function registerGitHubHandlers(): void {
 
       return token
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage = getErrorMessage(error)
       console.error('Failed to get GitHub CLI token:', errorMessage)
 
       // Provide helpful error message
@@ -98,18 +124,7 @@ export function registerGitHubHandlers(): void {
     async (_event, org: string, username?: string) => {
       try {
         // Get a per-account token so we don't have to switch the global active account
-        let token: string | null = null
-        if (username) {
-          try {
-            const { stdout: tokenOut } = await execAsync(
-              `gh auth token --user ${username}`,
-              { encoding: 'utf8', timeout: 5000 }
-            )
-            token = tokenOut.trim()
-          } catch {
-            // Fall back to default account token
-          }
-        }
+        const token = await tryGetCliToken(username)
 
         const execEnv = {
           ...process.env,
@@ -125,10 +140,10 @@ export function registerGitHubHandlers(): void {
           )
           stdout = result.stdout
         } catch (orgError: unknown) {
-          const orgMsg = orgError instanceof Error ? orgError.message : String(orgError)
-          if (!orgMsg.includes('404') && !orgMsg.includes('Not Found')) {
+          if (!isNotFoundError(orgError)) {
             throw orgError // re-throw non-404 errors
           }
+
           // Org endpoint failed with 404 — namespace might be a user account
           try {
             const result = await execAsync(
@@ -137,8 +152,7 @@ export function registerGitHubHandlers(): void {
             )
             stdout = result.stdout
           } catch (userError: unknown) {
-            const userMsg = userError instanceof Error ? userError.message : String(userError)
-            if (userMsg.includes('404') || userMsg.includes('Not Found')) {
+            if (isNotFoundError(userError)) {
               return {
                 success: false,
                 error: `No billing access for '${org}'. This may be a user account — billing data requires the 'user' token scope, or '${org}' may not be a valid org.`,
@@ -182,7 +196,7 @@ export function registerGitHubHandlers(): void {
           },
         }
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorMessage = getErrorMessage(error)
         console.error(`Failed to get Copilot usage for org '${org}':`, errorMessage)
         return { success: false, error: errorMessage }
       }
@@ -195,11 +209,7 @@ export function registerGitHubHandlers(): void {
     async (_event, username: string) => {
       try {
         // Get a per-account token
-        const { stdout: tokenOut } = await execAsync(
-          `gh auth token --user ${username}`,
-          { encoding: 'utf8', timeout: 5000 }
-        )
-        const token = tokenOut.trim()
+        const token = await tryGetCliToken(username)
         if (!token) {
           return { success: false, error: `No token for account '${username}'` }
         }
@@ -216,7 +226,7 @@ export function registerGitHubHandlers(): void {
         const data = JSON.parse(stdout.trim())
         return { success: true, data }
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorMessage = getErrorMessage(error)
         console.error(`Failed to get Copilot quota for '${username}':`, errorMessage)
         return { success: false, error: errorMessage }
       }
@@ -232,7 +242,7 @@ export function registerGitHubHandlers(): void {
       })
       return { success: true }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage = getErrorMessage(error)
       console.error(`Failed to switch to account '${username}':`, errorMessage)
       return { success: false, error: errorMessage }
     }

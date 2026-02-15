@@ -5,203 +5,26 @@ import { TitleBar } from './components/TitleBar'
 import { ActivityBar } from './components/ActivityBar'
 import { SidebarPanel } from './components/SidebarPanel'
 import { TabBar, Tab } from './components/TabBar'
-import { PullRequestList } from './components/PullRequestList'
-import { ScheduleDetailPanel, ScheduleEditor, ScheduleOverviewPanel, JobDetailPanel, JobEditor, RunList } from './components/automation'
-import {
-  SettingsAccounts,
-  SettingsAppearance,
-  SettingsPullRequests,
-  SettingsCopilot,
-  SettingsAdvanced,
-} from './components/settings'
+import { ScheduleEditor, JobEditor } from './components/automation'
 import { StatusBar } from './components/StatusBar'
-import { WelcomePanel } from './components/WelcomePanel'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
-import { RepoDetailPanel } from './components/RepoDetailPanel'
-import { RepoIssueList } from './components/RepoIssueList'
-import { PullRequestDetailPanel } from './components/PullRequestDetailPanel'
-import { CopilotPromptBox } from './components/CopilotPromptBox'
-import { CopilotResultPanel } from './components/CopilotResultPanel'
-import { CopilotResultsList } from './components/CopilotResultsList'
-import { PRReviewPanel } from './components/PRReviewPanel'
+import { AppContentRouter } from './components/AppContentRouter'
+import { getViewLabel } from './components/appContentViewLabels'
 import type { PRReviewInfo } from './components/PRReviewPanel'
-import { CopilotUsagePanel } from './components/CopilotUsagePanel'
-import { parsePRDetailRoute } from './utils/prDetailView'
 import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
 import { useBackgroundStatus } from './hooks/useBackgroundStatus'
-import { usePRSettings } from './hooks/useConfig'
+import { useAppAppearance } from './hooks/useAppAppearance'
+import { usePRSidebarBadges } from './hooks/usePRSidebarBadges'
 import { GitHubClient } from './api/github'
-import { dataCache } from './services/dataCache'
-import type { PullRequest } from './types/pullRequest'
 import './App.css'
-
-// View ID to label mapping
-const viewLabels: Record<string, string> = {
-  'pr-my-prs': 'My PRs',
-  'pr-needs-review': 'Needs Review',
-  'pr-recently-merged': 'Recently Merged',
-  'pr-need-a-nudge': 'Needs a nudge',
-  'skills-browser': 'Browse Skills',
-  'skills-recent': 'Recently Used',
-  'skills-favorites': 'Favorites',
-  'tasks-today': 'Today',
-  'tasks-upcoming': 'Upcoming',
-  'tasks-projects': 'Projects',
-  'insights-productivity': 'Productivity',
-  'insights-activity': 'Activity',
-  'settings-accounts': 'Accounts',
-  'settings-appearance': 'Appearance',
-  'settings-pullrequests': 'Pull Requests',
-  'settings-copilot': 'Copilot SDK',
-  'settings-advanced': 'Advanced',
-  'automation-schedules': 'Schedules',
-  'automation-runs': 'Runs',
-  'copilot-prompt': 'Copilot Prompt',
-  'copilot-all-results': 'Copilot Results',
-  'copilot-usage': 'Premium Usage',
-}
-
-/** Resolve a viewId to a tab label — supports dynamic repo-detail/issues/prs labels */
-function getViewLabel(viewId: string): string {
-  if (viewId.startsWith('repo-detail:')) {
-    const repoSlug = viewId.replace('repo-detail:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return repoName
-  }
-  if (viewId.startsWith('repo-issues:')) {
-    const repoSlug = viewId.replace('repo-issues:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return `${repoName} Issues`
-  }
-  if (viewId.startsWith('copilot-result:')) {
-    return 'Copilot Result'
-  }
-  if (viewId.startsWith('job-detail:')) {
-    return 'Job Detail'
-  }
-  if (viewId.startsWith('schedule-detail:')) {
-    return 'Schedule Detail'
-  }
-  if (viewId.startsWith('pr-review:')) {
-    try {
-      const info = JSON.parse(decodeURIComponent(viewId.replace('pr-review:', ''))) as PRReviewInfo
-      return `Review: ${info.prTitle.length > 30 ? info.prTitle.slice(0, 30) + '…' : info.prTitle}`
-    } catch {
-      return 'PR Review'
-    }
-  }
-  if (viewId.startsWith('pr-detail:')) {
-    const route = parsePRDetailRoute(viewId)
-    if (route) {
-      const sectionLabelMap = {
-        conversation: 'Conversation',
-        commits: 'Commits',
-        checks: 'Checks',
-        'files-changed': 'Files',
-      } as const
-      const section = route.section ? ` · ${sectionLabelMap[route.section]}` : ''
-      return `#${route.pr.id} ${route.pr.repository}${section}`
-    }
-    return 'PR Detail'
-  }
-  return viewLabels[viewId] || viewId
-}
 
 function App() {
   const [selectedSection, setSelectedSection] = useState<string>('github')
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
-
-  // PR counts for sidebar badges — seed from cached data so badges show immediately on startup
-  const [prCounts, setPrCounts] = useState<Record<string, number>>(() => {
-    const initial: Record<string, number> = {}
-    const modes = [
-      { key: 'my-prs', id: 'pr-my-prs' },
-      { key: 'needs-review', id: 'pr-needs-review' },
-      { key: 'recently-merged', id: 'pr-recently-merged' },
-      { key: 'need-a-nudge', id: 'pr-need-a-nudge' },
-    ]
-    for (const { key, id } of modes) {
-      const cached = dataCache.get<PullRequest[]>(key)
-      if (cached?.data) {
-        initial[id] = cached.data.length
-      }
-    }
-    return initial
-  })
-
-  // Subscribe to dataCache updates so sidebar badges update when prefetch completes
-  // (even if the PullRequestList tab isn't open)
-  useEffect(() => {
-    const modeToId: Record<string, string> = {
-      'my-prs': 'pr-my-prs',
-      'needs-review': 'pr-needs-review',
-      'recently-merged': 'pr-recently-merged',
-      'need-a-nudge': 'pr-need-a-nudge',
-    }
-    const unsubscribe = dataCache.subscribe(key => {
-      const viewId = modeToId[key]
-      if (viewId) {
-        const entry = dataCache.get<PullRequest[]>(key)
-        if (entry?.data) {
-          setPrCounts(prev => ({ ...prev, [viewId]: entry.data.length }))
-        }
-      }
-    })
-    return unsubscribe
-  }, [])
-
-  // Badge freshness progress — shows a timer ring around sidebar count badges
-  const { refreshInterval } = usePRSettings()
-  const [badgeProgress, setBadgeProgress] = useState<
-    Record<string, { progress: number; color: string; tooltip: string }>
-  >({})
-
-  useEffect(() => {
-    const PR_MODES = [
-      { key: 'my-prs', id: 'pr-my-prs' },
-      { key: 'needs-review', id: 'pr-needs-review' },
-      { key: 'recently-merged', id: 'pr-recently-merged' },
-      { key: 'need-a-nudge', id: 'pr-need-a-nudge' },
-    ]
-
-    const getProgressColor = (pct: number) => {
-      if (pct <= 25) return '#4ec9b0'
-      if (pct <= 50) return '#dcd34a'
-      if (pct <= 75) return '#e89b3c'
-      return '#e85d5d'
-    }
-
-    const computeProgress = () => {
-      const intervalMs = refreshInterval * 60 * 1000
-      const now = Date.now()
-      const next: Record<string, { progress: number; color: string; tooltip: string }> = {}
-
-      for (const { key, id } of PR_MODES) {
-        const cached = dataCache.get(key)
-        if (cached) {
-          const elapsed = now - cached.fetchedAt
-          const remaining = Math.max(0, intervalMs - elapsed)
-          const progress = Math.min(100, Math.max(0, (elapsed / intervalMs) * 100))
-          const elapsedMin = Math.floor(elapsed / 60000)
-          const remainingMin = Math.ceil(remaining / 60000)
-          const tooltip =
-            elapsedMin < 1
-              ? `Updated just now \u00B7 Next in ${remainingMin}m`
-              : `Updated ${elapsedMin}m ago \u00B7 Next in ${remainingMin}m`
-          next[id] = { progress, color: getProgressColor(progress), tooltip }
-        }
-      }
-
-      setBadgeProgress(next)
-    }
-
-    computeProgress()
-    const timer = setInterval(computeProgress, 5000)
-    return () => clearInterval(timer)
-  }, [refreshInterval])
+  const { prCounts, badgeProgress, setPRCount } = usePRSidebarBadges()
 
   // Create triggers for automation items (from sidebar context menu)
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false)
@@ -220,6 +43,9 @@ function App() {
 
   // Prefetch PR data in background on app startup
   usePrefetch()
+
+  // Apply appearance config (theme/accent/colors/fonts)
+  useAppAppearance()
 
   // Background sync status for StatusBar
   const backgroundStatus = useBackgroundStatus()
@@ -280,110 +106,6 @@ function App() {
         .catch(() => {})
     }, 30_000)
     return () => clearInterval(timer)
-  }, [])
-
-  // Load theme from config on mount
-  useEffect(() => {
-    window.ipcRenderer
-      .invoke('config:get-theme')
-      .then((theme: 'dark' | 'light') => {
-        document.documentElement.setAttribute('data-theme', theme || 'dark')
-      })
-      .catch(() => {
-        document.documentElement.setAttribute('data-theme', 'dark')
-      })
-  }, [])
-
-  // Load accent color from config on mount
-  useEffect(() => {
-    window.ipcRenderer
-      .invoke('config:get-accent-color')
-      .then((color: string) => {
-        if (color) {
-          const root = document.documentElement
-          root.style.setProperty('--accent-primary', color)
-          // Lighten for hover state
-          const num = parseInt(color.replace('#', ''), 16)
-          const r = Math.min(255, (num >> 16) + 38)
-          const g = Math.min(255, ((num >> 8) & 0x00ff) + 38)
-          const b = Math.min(255, (num & 0x0000ff) + 38)
-          const hoverColor = `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-          root.style.setProperty('--accent-primary-hover', hoverColor)
-          root.style.setProperty('--border-focus', color)
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  // Load background colors from config on mount
-  useEffect(() => {
-    Promise.all([
-      window.ipcRenderer.invoke('config:get-bg-primary'),
-      window.ipcRenderer.invoke('config:get-bg-secondary'),
-      window.ipcRenderer.invoke('config:get-font-color'),
-      window.ipcRenderer.invoke('config:get-statusbar-bg'),
-      window.ipcRenderer.invoke('config:get-statusbar-fg'),
-    ])
-      .then(([bgPrimary, bgSecondary, fontColor, statusBarBg, statusBarFg]) => {
-        const root = document.documentElement
-        if (bgPrimary) {
-          root.style.setProperty('--bg-primary', bgPrimary)
-          root.style.setProperty('--panel-bg', bgPrimary)
-          root.style.setProperty('--input-bg', bgPrimary)
-        }
-        if (bgSecondary) {
-          root.style.setProperty('--bg-secondary', bgSecondary)
-          root.style.setProperty('--sidebar-bg', bgSecondary)
-        }
-        if (fontColor) {
-          root.style.setProperty('--text-primary', fontColor)
-          // Derive heading color as a brighter version of font color
-          const num = parseInt(fontColor.replace('#', ''), 16)
-          const r = Math.min(255, (num >> 16) + Math.round((255 * 20) / 100))
-          const g = Math.min(255, ((num >> 8) & 0x00ff) + Math.round((255 * 20) / 100))
-          const b = Math.min(255, (num & 0x0000ff) + Math.round((255 * 20) / 100))
-          root.style.setProperty(
-            '--text-heading',
-            `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-          )
-        }
-        if (statusBarBg) {
-          root.style.setProperty('--statusbar-bg', statusBarBg)
-        }
-        if (statusBarFg) {
-          root.style.setProperty('--statusbar-fg', statusBarFg)
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  // Load font settings from config on mount
-  useEffect(() => {
-    Promise.all([
-      window.ipcRenderer.invoke('config:get-font-family'),
-      window.ipcRenderer.invoke('config:get-mono-font-family'),
-      window.ipcRenderer.invoke('config:get-zoom-level'),
-    ])
-      .then(([fontFamily, monoFontFamily, zoomLevel]) => {
-        if (fontFamily) {
-          document.documentElement.style.setProperty(
-            '--font-family-ui',
-            `'${fontFamily}', system-ui, sans-serif`
-          )
-        }
-        if (monoFontFamily) {
-          document.documentElement.style.setProperty(
-            '--font-family-mono',
-            `'${monoFontFamily}', Consolas, monospace`
-          )
-        }
-        if (zoomLevel && zoomLevel !== 100) {
-          document.documentElement.style.fontSize = `${zoomLevel}%`
-        }
-      })
-      .catch(() => {
-        // Use defaults on error
-      })
   }, [])
 
   // Load pane sizes from electron-store on mount
@@ -509,19 +231,9 @@ function App() {
     [activeTabId]
   )
 
-  // Callbacks for PR count updates (wrapped in useCallback to avoid re-renders)
-  const handleMyPrsCountChange = useCallback((count: number) => {
-    setPrCounts(prev => ({ ...prev, 'pr-my-prs': count }))
-  }, [])
-  const handleNeedsReviewCountChange = useCallback((count: number) => {
-    setPrCounts(prev => ({ ...prev, 'pr-needs-review': count }))
-  }, [])
-  const handleRecentlyMergedCountChange = useCallback((count: number) => {
-    setPrCounts(prev => ({ ...prev, 'pr-recently-merged': count }))
-  }, [])
-  const handleNeedANudgeCountChange = useCallback((count: number) => {
-    setPrCounts(prev => ({ ...prev, 'pr-need-a-nudge': count }))
-  }, [])
+  const handlePRCountChange = useCallback((viewId: string, count: number) => {
+    setPRCount(viewId, count)
+  }, [setPRCount])
 
   // Handle creating new items from sidebar context menu
   const handleCreateNew = useCallback(
@@ -552,119 +264,12 @@ function App() {
   // Show loading screen while migration is in progress
   const showLoading = migrationLoading && !migrationComplete
 
-  const renderContent = () => {
-    if (!activeViewId) {
-      return (
-        <WelcomePanel
-          prCounts={prCounts}
-          onNavigate={handleItemSelect}
-          onSectionChange={handleSectionSelect}
-        />
-      )
+  const handleCloseView = useCallback((viewId: string) => {
+    const tab = tabs.find(t => t.viewId === viewId)
+    if (tab) {
+      closeTab(tab.id)
     }
-
-    switch (activeViewId) {
-      case 'pr-my-prs':
-        return <PullRequestList mode="my-prs" onCountChange={handleMyPrsCountChange} />
-      case 'pr-needs-review':
-        return <PullRequestList mode="needs-review" onCountChange={handleNeedsReviewCountChange} />
-      case 'pr-recently-merged':
-        return (
-          <PullRequestList mode="recently-merged" onCountChange={handleRecentlyMergedCountChange} />
-        )
-      case 'pr-need-a-nudge':
-        return <PullRequestList mode="need-a-nudge" onCountChange={handleNeedANudgeCountChange} />
-      case 'settings-accounts':
-        return <SettingsAccounts />
-      case 'settings-appearance':
-        return <SettingsAppearance />
-      case 'settings-pullrequests':
-        return <SettingsPullRequests />
-      case 'settings-copilot':
-        return <SettingsCopilot />
-      case 'settings-advanced':
-        return <SettingsAdvanced />
-      case 'automation-schedules':
-        return <ScheduleOverviewPanel onOpenSchedule={(sId) => openTab(`schedule-detail:${sId}`)} />
-      case 'automation-runs':
-        return <RunList />
-      case 'copilot-prompt':
-        return <CopilotPromptBox onOpenResult={(resultId) => openTab(`copilot-result:${resultId}`)} />
-      case 'copilot-all-results':
-        return <CopilotResultsList onOpenResult={(resultId) => openTab(`copilot-result:${resultId}`)} />
-      case 'copilot-usage':
-        return <CopilotUsagePanel />
-      default:
-        // Handle dynamic schedule-detail views: schedule-detail:<scheduleId>
-        if (activeViewId.startsWith('schedule-detail:')) {
-          const sId = activeViewId.replace('schedule-detail:', '')
-          return <ScheduleDetailPanel scheduleId={sId} />
-        }
-        // Handle dynamic job-detail views: job-detail:<jobId>
-        if (activeViewId.startsWith('job-detail:')) {
-          const jId = activeViewId.replace('job-detail:', '')
-          return <JobDetailPanel jobId={jId} />
-        }
-        // Handle dynamic repo-detail views: repo-detail:owner/repo
-        if (activeViewId.startsWith('repo-detail:')) {
-          const repoSlug = activeViewId.replace('repo-detail:', '')
-          const slashIdx = repoSlug.indexOf('/')
-          if (slashIdx > 0) {
-            const owner = repoSlug.substring(0, slashIdx)
-            const repo = repoSlug.substring(slashIdx + 1)
-            return <RepoDetailPanel owner={owner} repo={repo} />
-          }
-        }
-        // Handle dynamic repo-issues views: repo-issues:owner/repo
-        if (activeViewId.startsWith('repo-issues:')) {
-          const repoSlug = activeViewId.replace('repo-issues:', '')
-          const slashIdx = repoSlug.indexOf('/')
-          if (slashIdx > 0) {
-            const owner = repoSlug.substring(0, slashIdx)
-            const repo = repoSlug.substring(slashIdx + 1)
-            return <RepoIssueList owner={owner} repo={repo} />
-          }
-        }
-        // Handle dynamic copilot-result views: copilot-result:<id>
-        if (activeViewId.startsWith('copilot-result:')) {
-          const resultId = activeViewId.replace('copilot-result:', '')
-          return <CopilotResultPanel resultId={resultId} />
-        }
-        // Handle dynamic pr-review views: pr-review:<encoded JSON>
-        if (activeViewId.startsWith('pr-review:')) {
-          try {
-            const encoded = activeViewId.replace('pr-review:', '')
-            const prInfo = JSON.parse(decodeURIComponent(encoded)) as PRReviewInfo
-            return (
-              <PRReviewPanel
-                prInfo={prInfo}
-                onSubmitted={(resultId) => openTab(`copilot-result:${resultId}`)}
-                onClose={() => closeTab(tabs.find(t => t.viewId === activeViewId)?.id || '')}
-              />
-            )
-          } catch {
-            return <div className="content-placeholder"><p>Invalid PR review data</p></div>
-          }
-        }
-        if (activeViewId.startsWith('pr-detail:')) {
-          const route = parsePRDetailRoute(activeViewId)
-          if (route) {
-            return <PullRequestDetailPanel pr={route.pr} section={route.section} />
-          }
-          return <div className="content-placeholder"><p>Invalid PR detail data</p></div>
-        }
-        return (
-          <div className="content-placeholder">
-            <div className="content-header">
-              <h2>{viewLabels[activeViewId] || 'Content'}</h2>
-            </div>
-            <div className="content-body">
-              <p>This feature is coming soon!</p>
-            </div>
-          </div>
-        )
-    }
-  }
+  }, [tabs, closeTab])
 
   return (
     <div className="app">
@@ -703,7 +308,15 @@ function App() {
                 />
                 <div className="main-content">
                   <AppErrorBoundary resetKey={activeViewId}>
-                    {renderContent()}
+                    <AppContentRouter
+                      activeViewId={activeViewId}
+                      prCounts={prCounts}
+                      onNavigate={handleItemSelect}
+                      onSectionChange={handleSectionSelect}
+                      onOpenTab={openTab}
+                      onCloseView={handleCloseView}
+                      onPRCountChange={handlePRCountChange}
+                    />
                   </AppErrorBoundary>
                 </div>
               </div>

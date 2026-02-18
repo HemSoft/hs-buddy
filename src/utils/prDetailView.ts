@@ -23,7 +23,7 @@ export interface PRDetailInfo {
 
 export interface PRLinkInfo extends PRDetailInfo {}
 
-export type PRDetailSection = 'conversation' | 'commits' | 'checks' | 'files-changed'
+export type PRDetailSection = 'conversation' | 'commits' | 'checks' | 'files-changed' | 'ai-reviews'
 
 export interface PRDetailRoute {
   pr: PRDetailInfo
@@ -91,7 +91,8 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
     section === 'conversation' ||
     section === 'commits' ||
     section === 'checks' ||
-    section === 'files-changed'
+    section === 'files-changed' ||
+    section === 'ai-reviews'
       ? section
       : null
 

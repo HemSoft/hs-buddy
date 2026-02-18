@@ -54,6 +54,7 @@ export interface AppConfig {
   copilot: {
     ghAccount: string; // GitHub CLI account username for Copilot SDK (empty = active account)
     model: string; // LLM model to use (e.g., 'claude-sonnet-4.5', 'gpt-4o')
+    prReviewPromptTemplate: string; // Default prompt template for PR review (supports {{prUrl}})
   };
   automation: {
     scheduleForecastDays: number; // Number of days to show in schedule forecast (1-30)
@@ -202,8 +203,12 @@ export const configSchema: Schema<AppConfig> = {
         type: 'string',
         default: 'claude-sonnet-4.5',
       },
+      prReviewPromptTemplate: {
+        type: 'string',
+        default: '',
+      },
     },
-    required: ['ghAccount', 'model'],
+    required: ['ghAccount', 'model', 'prReviewPromptTemplate'],
   },
   automation: {
     type: 'object',
@@ -253,6 +258,7 @@ export const defaultConfig: AppConfig = {
   copilot: {
     ghAccount: '', // Empty = use currently-active gh CLI account
     model: 'claude-sonnet-4.5',
+    prReviewPromptTemplate: '',
   },
   automation: {
     scheduleForecastDays: 3,

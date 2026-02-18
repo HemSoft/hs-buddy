@@ -62,6 +62,7 @@ export function getViewLabel(viewId: string): string {
         commits: 'Commits',
         checks: 'Checks',
         'files-changed': 'Files',
+        'ai-reviews': 'AI Reviews',
       } as const
       const section = route.section ? ` · ${sectionLabelMap[route.section]}` : ''
       return `#${route.pr.id} ${route.pr.repository}${section}`

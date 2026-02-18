@@ -227,7 +227,7 @@ export function SidebarPanel({
               {data.items.map(item => (
                 <div key={item.id}>
                   <div
-                    className={`sidebar-item ${item.id === 'automation-schedules' && selectedItem === 'automation-schedules' ? 'selected' : ''} ${item.id !== 'automation-jobs' && item.id !== 'automation-schedules' && selectedItem === item.id ? 'selected' : ''}`}
+                    className={`sidebar-item ${item.id === 'automation-schedules' && selectedItem === 'automation-schedules' ? 'selected' : ''} ${item.id !== 'automation-jobs' && item.id !== 'automation-schedules' && selectedItem === item.id ? 'selected' : ''} ${((item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0) || (item.id === 'automation-schedules' && schedules && schedules.length > 0)) ? 'sidebar-item-disclosure' : ''}`}
                     onClick={() => {
                       if (item.id === 'automation-jobs') {
                         toggleSubSection('automation-jobs')
@@ -242,22 +242,6 @@ export function SidebarPanel({
                     }}
                     onContextMenu={e => handleContextMenu(e, item.id)}
                   >
-                    {/* Show chevron for Jobs if we have sub-items */}
-                    {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
-                      <span className="sidebar-item-icon">
-                        <FolderOpen size={14} />
-                      </span>
-                    ) : item.id === 'automation-schedules' && schedules && schedules.length > 0 ? (
-                      <span className="sidebar-item-icon">
-                        {expandedSubSections.has('automation-schedules') ? <FolderOpen size={14} /> : <Folder size={14} />}
-                      </span>
-                    ) : (
-                      <span className="sidebar-item-icon">
-                        <FileText size={14} />
-                      </span>
-                    )}
-                    <span className="sidebar-item-label">{item.label}</span>
-
                     {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
                       <span
                         className="sidebar-item-chevron"
@@ -277,6 +261,22 @@ export function SidebarPanel({
                           : <ChevronRight size={12} />}
                       </span>
                     ) : null}
+
+                    {/* Show chevron for Jobs if we have sub-items */}
+                    {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
+                      <span className="sidebar-item-icon">
+                        <FolderOpen size={14} />
+                      </span>
+                    ) : item.id === 'automation-schedules' && schedules && schedules.length > 0 ? (
+                      <span className="sidebar-item-icon">
+                        {expandedSubSections.has('automation-schedules') ? <FolderOpen size={14} /> : <Folder size={14} />}
+                      </span>
+                    ) : (
+                      <span className="sidebar-item-icon">
+                        <FileText size={14} />
+                      </span>
+                    )}
+                    <span className="sidebar-item-label">{item.label}</span>
                     {counts[item.id] !== undefined &&
                       (badgeProgress[item.id] ? (
                         <span
@@ -343,11 +343,11 @@ export function SidebarPanel({
                               className="sidebar-job-category-header"
                               onClick={() => toggleSubSection(typeKey)}
                             >
-                              <span className="sidebar-item-icon">{info.icon}</span>
-                              <span className="sidebar-item-label">{info.label}</span>
                               <span className="sidebar-item-chevron">
                                 {isTypeExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                               </span>
+                              <span className="sidebar-item-icon">{info.icon}</span>
+                              <span className="sidebar-item-label">{info.label}</span>
                               <span className="sidebar-item-count">{typeJobs.length}</span>
                             </div>
                             {isTypeExpanded && (

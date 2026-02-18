@@ -7,7 +7,21 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import { dataCache } from '../services/dataCache'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import './PullRequestList.css'
-import { ExternalLink, GitPullRequest, Check, Clock, Loader2, RefreshCw, Star, Sparkles, Copy, GitBranch, ThumbsUp } from 'lucide-react'
+import {
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
+  ExternalLink,
+  GitBranch,
+  GitPullRequest,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Star,
+  ThumbsUp,
+  XCircle,
+} from 'lucide-react'
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
@@ -775,6 +789,18 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                   {pr.approvalCount}/{pr.assigneeCount > 0 ? pr.assigneeCount : '?'} approvals
                 </span>
               </div>
+              {pr.threadsAddressed != null && pr.threadsUnaddressed != null && (
+                <div className="pr-thread-status">
+                  <span className="pr-thread-badge resolved" title="Resolved review threads">
+                    <CheckCircle2 size={13} />
+                    {pr.threadsAddressed}
+                  </span>
+                  <span className="pr-thread-badge unresolved" title="Unresolved review threads">
+                    <XCircle size={13} />
+                    {pr.threadsUnaddressed}
+                  </span>
+                </div>
+              )}
               <button
                 className="pr-approve-btn"
                 onClick={async e => {

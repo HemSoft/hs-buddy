@@ -14,6 +14,7 @@ import {
   MessageSquarePlus,
   RotateCcw,
   Send,
+  Sparkles,
 } from 'lucide-react'
 import {
   GitHubClient,
@@ -23,6 +24,7 @@ import {
   type PRThreadsResult,
 } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
+import { useLatestPRReviewRun } from '../hooks/useConvex'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow } from '../utils/dateUtils'
@@ -221,7 +223,19 @@ function SuggestionBlock({ content }: { content: string }) {
 }
 
 /** Render comment body with markdown + suggestion blocks */
-function CommentBody({ body }: { body: string }) {
+function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null }) {
+  const hasSuggestionBlock = /```suggestion\s*\n[\s\S]*?```/.test(body)
+
+  if (!hasSuggestionBlock && bodyHtml && bodyHtml.trim()) {
+    return (
+      <div
+        className="thread-comment-body thread-comment-markdown thread-comment-markdown-html"
+        data-color-mode="dark"
+        dangerouslySetInnerHTML={{ __html: bodyHtml }}
+      />
+    )
+  }
+
   const segments = parseCommentBody(body)
 
   return (
@@ -333,7 +347,7 @@ function CommentCard({
             {formatDistanceToNow(comment.createdAt)}
           </span>
         </div>
-        <CommentBody body={comment.body} />
+        <CommentBody body={comment.body} bodyHtml={comment.bodyHtml} />
         {onReact && (
           <div className="thread-comment-reactions">
             {REACTION_OPTIONS.map(option => {
@@ -571,9 +585,13 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
+  const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+  const owner = pr.org || ownerRepo?.owner
+  const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<PRThreadsResult | null>(null)
+  const [currentHeadSha, setCurrentHeadSha] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all')
   const [commentText, setCommentText] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
@@ -584,18 +602,39 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     enqueueRef.current = enqueue
   }, [enqueue])
 
+  useEffect(() => {
+    if (!owner || !pr.repository || !pr.id) {
+      setCurrentHeadSha(null)
+      return
+    }
+
+    enqueueRef.current(
+      async signal => {
+        if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+        const client = new GitHubClient({ accounts }, 7)
+        return await client.fetchPRBranches(owner, pr.repository, pr.id)
+      },
+      { name: `pr-head-${pr.repository}-${pr.id}` }
+    )
+      .then(result => setCurrentHeadSha(result.headSha || null))
+      .catch(err => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        setCurrentHeadSha(null)
+      })
+  }, [accounts, owner, pr.repository, pr.id])
+
   const fetchThreads = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (!ownerRepo) throw new Error('Could not parse owner/repo from PR URL')
+      const parsedOwnerRepo = parseOwnerRepoFromUrl(pr.url)
+      if (!parsedOwnerRepo) throw new Error('Could not parse owner/repo from PR URL')
 
       const result = await enqueueRef.current(
         async signal => {
           if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
           const client = new GitHubClient({ accounts }, 7)
-          return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
+          return await client.fetchPRThreads(parsedOwnerRepo.owner, parsedOwnerRepo.repo, pr.id)
         },
         { name: `pr-threads-${pr.repository}-${pr.id}` }
       )
@@ -700,6 +739,16 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
 
   const activeThreads = data.threads.filter(t => !t.isResolved)
   const resolvedThreads = data.threads.filter(t => t.isResolved)
+  const outdatedThreads = data.threads.filter(t => t.isOutdated)
+  const threadSnapshotChanged =
+    !!latestReview?.reviewedThreadStats &&
+    (latestReview.reviewedThreadStats.unresolved !== activeThreads.length ||
+      latestReview.reviewedThreadStats.outdated !== outdatedThreads.length)
+  const needsRefresh =
+    (!!latestReview?.reviewedHeadSha &&
+      !!currentHeadSha &&
+      latestReview.reviewedHeadSha !== currentHeadSha) ||
+    threadSnapshotChanged
 
   const filteredThreads = data.threads.filter(t => {
     if (filter === 'active') return !t.isResolved
@@ -707,8 +756,54 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     return true
   })
 
+  const openLatestReview = () => {
+    if (!latestReview) return
+    window.dispatchEvent(
+      new CustomEvent('copilot:open-result', { detail: { resultId: latestReview.resultId } })
+    )
+  }
+
+  const requestReReview = () => {
+    const prompt = latestReview?.reviewedHeadSha
+      ? `Please re-review ${pr.url}. Focus only on commits after ${latestReview.reviewedHeadSha} and unresolved/outdated review conversations.`
+      : `Please do a targeted re-review on ${pr.url}. Focus on newly pushed commits and unresolved review conversations.`
+
+    window.dispatchEvent(
+      new CustomEvent('pr-review:open', {
+        detail: {
+          prUrl: pr.url,
+          prTitle: pr.title,
+          prNumber: pr.id,
+          repo: pr.repository,
+          org: owner || '',
+          author: pr.author,
+          initialPrompt: prompt,
+        },
+      })
+    )
+  }
+
   return (
     <div className="pr-threads-container">
+      {latestReview && (
+        <div className={`pr-thread-review-context ${needsRefresh ? 'needs-refresh' : 'up-to-date'}`}>
+          <div className="pr-thread-review-context-left">
+            <Sparkles size={14} />
+            <span>
+              Last AI review {new Date(latestReview.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            </span>
+            <span className="pr-thread-review-sha">
+              {latestReview.reviewedHeadSha ? latestReview.reviewedHeadSha.slice(0, 12) : 'unknown sha'}
+            </span>
+            {needsRefresh ? <span className="pr-thread-review-badge">Refresh needed</span> : <span className="pr-thread-review-badge">Up to date</span>}
+          </div>
+          <div className="pr-thread-review-context-actions">
+            <button className="pr-thread-review-btn" onClick={openLatestReview}>Open review</button>
+            <button className="pr-thread-review-btn" onClick={requestReReview}>Re-review</button>
+          </div>
+        </div>
+      )}
+
       {/* Section title with summary */}
       <div className="pr-threads-section-title">
         <MessageCircle size={16} />

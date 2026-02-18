@@ -14,6 +14,9 @@ export interface PullRequest {
   updatedAt?: string | null;
   headBranch?: string;
   baseBranch?: string;
+  threadsTotal?: number | null;
+  threadsAddressed?: number | null;
+  threadsUnaddressed?: number | null;
   date: string | null;
   orgAvatarUrl?: string;
   org?: string;

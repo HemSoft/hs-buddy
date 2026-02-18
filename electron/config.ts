@@ -235,6 +235,14 @@ class ConfigManager {
     this.store.set('copilot.model', model);
   }
 
+  getCopilotPRReviewPromptTemplate(): string {
+    return this.store.get('copilot.prReviewPromptTemplate', '');
+  }
+
+  setCopilotPRReviewPromptTemplate(template: string): void {
+    this.store.set('copilot.prReviewPromptTemplate', template);
+  }
+
   // Automation Settings
   getScheduleForecastDays(): number {
     return this.store.get('automation.scheduleForecastDays', 3);

@@ -14,6 +14,7 @@ import type * as copilotResults from "../copilotResults.js";
 import type * as crons from "../crons.js";
 import type * as githubAccounts from "../githubAccounts.js";
 import type * as jobs from "../jobs.js";
+import type * as prReviewRuns from "../prReviewRuns.js";
 import type * as repoBookmarks from "../repoBookmarks.js";
 import type * as runs from "../runs.js";
 import type * as scheduleScanner from "../scheduleScanner.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   githubAccounts: typeof githubAccounts;
   jobs: typeof jobs;
+  prReviewRuns: typeof prReviewRuns;
   repoBookmarks: typeof repoBookmarks;
   runs: typeof runs;
   scheduleScanner: typeof scheduleScanner;

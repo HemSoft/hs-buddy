@@ -310,4 +310,35 @@ export function useCopilotResultMutations() {
   };
 }
 
+/**
+ * React hooks for Convex PR review runs
+ */
+
+export function usePRReviewRunsByPR(
+  owner: string | undefined,
+  repo: string | undefined,
+  prNumber: number | undefined,
+  limit?: number
+) {
+  return useQuery(
+    api.prReviewRuns.listByPr,
+    owner && repo && typeof prNumber === "number"
+      ? { owner, repo, prNumber, limit }
+      : "skip"
+  );
+}
+
+export function useLatestPRReviewRun(
+  owner: string | undefined,
+  repo: string | undefined,
+  prNumber: number | undefined
+) {
+  return useQuery(
+    api.prReviewRuns.latestByPr,
+    owner && repo && typeof prNumber === "number"
+      ? { owner, repo, prNumber }
+      : "skip"
+  );
+}
+
 

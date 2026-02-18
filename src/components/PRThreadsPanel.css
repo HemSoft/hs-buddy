@@ -19,6 +19,66 @@
   color: var(--text-primary);
 }
 
+.pr-thread-review-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.pr-thread-review-context.needs-refresh {
+  border-color: var(--accent-warning);
+}
+
+.pr-thread-review-context.up-to-date {
+  border-color: var(--accent-success);
+}
+
+.pr-thread-review-context-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.pr-thread-review-sha {
+  font-family: var(--font-family-mono);
+  color: var(--text-secondary);
+}
+
+.pr-thread-review-badge {
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.pr-thread-review-context-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pr-thread-review-btn {
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.pr-thread-review-btn:hover {
+  background: var(--bg-hover);
+}
+
 .pr-threads-summary {
   display: inline-flex;
   align-items: center;
@@ -514,6 +574,67 @@
   padding: 0 !important;
   border-radius: 0 !important;
   font-size: 12px !important;
+}
+
+.thread-comment-markdown-html p {
+  margin: 0 0 8px 0;
+}
+
+.thread-comment-markdown-html p:last-child {
+  margin-bottom: 0;
+}
+
+.thread-comment-markdown-html a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.thread-comment-markdown-html a:hover {
+  text-decoration: underline;
+}
+
+.thread-comment-markdown-html code {
+  background: rgba(110, 118, 129, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+}
+
+.thread-comment-markdown-html pre {
+  background: #161b22;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.thread-comment-markdown-html pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.thread-comment-markdown-html img {
+  display: block;
+  max-width: min(100%, 980px);
+  height: auto;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.thread-comment-markdown-html ul,
+.thread-comment-markdown-html ol {
+  margin: 0 0 8px 20px;
+  padding: 0;
+}
+
+.thread-comment-markdown-html blockquote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--border-primary);
+  color: var(--text-secondary);
 }
 
 /* ============================================================

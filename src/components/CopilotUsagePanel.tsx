@@ -128,6 +128,17 @@ function formatPlan(plan: string): string {
   return planNames[plan] || plan
 }
 
+const OVERAGE_COST_PER_REQUEST = 0.04
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
 /** Get plan icon */
 function PlanIcon({ plan }: { plan: string }) {
   if (plan === 'enterprise') return <Building2 size={13} />
@@ -246,6 +257,10 @@ export function CopilotUsagePanel() {
             const percentUsed = premium ? 100 - premium.percent_remaining : 0
             const used = premium ? premium.entitlement - premium.remaining : 0
             const total = premium?.entitlement ?? 0
+            const overageByCount = Math.max(0, premium?.overage_count ?? 0)
+            const overageByRemaining = Math.max(0, -(premium?.remaining ?? 0))
+            const overageRequests = Math.max(overageByCount, overageByRemaining)
+            const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
 
             return (
               <div key={account.username} className="usage-account-card">
@@ -296,10 +311,10 @@ export function CopilotUsagePanel() {
                           <span className="usage-stat-value">{total.toLocaleString()}</span>
                           <span className="usage-stat-label">Entitlement</span>
                         </div>
-                        {premium.overage_count > 0 && (
+                        {overageRequests > 0 && (
                           <div className="usage-stat usage-stat-overage">
-                            <span className="usage-stat-value">{premium.overage_count.toLocaleString()}</span>
-                            <span className="usage-stat-label">Overage</span>
+                            <span className="usage-stat-value">{formatCurrency(overageCost)}</span>
+                            <span className="usage-stat-label">Overage Cost</span>
                           </div>
                         )}
                       </div>

@@ -81,6 +81,10 @@
   color: var(--text-primary);
 }
 
+.sidebar-item-disclosure {
+  padding-left: 2px;
+}
+
 .sidebar-item:hover {
   background-color: var(--bg-hover);
 }
@@ -472,14 +476,32 @@
 }
 
 .sidebar-pr-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+  max-width: 92px;
+  flex-shrink: 0;
+}
+
+.sidebar-pr-meta-repo,
+.sidebar-pr-meta-author {
+  width: 100%;
   font-size: 10px;
   color: var(--text-secondary);
-  opacity: 0.8;
-  max-width: 56px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 0;
+  text-align: right;
+}
+
+.sidebar-pr-meta-repo {
+  opacity: 0.85;
+}
+
+.sidebar-pr-meta-author {
+  opacity: 0.65;
 }
 
 .sidebar-pr-children {

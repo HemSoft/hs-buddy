@@ -140,6 +140,16 @@ export function registerConfigHandlers(): void {
     return { success: true }
   })
 
+  // Copilot PR Review Prompt Template
+  ipcMain.handle('config:get-copilot-pr-review-prompt-template', () => {
+    return configManager.getCopilotPRReviewPromptTemplate()
+  })
+
+  ipcMain.handle('config:set-copilot-pr-review-prompt-template', (_event, template: string) => {
+    configManager.setCopilotPRReviewPromptTemplate(template)
+    return { success: true }
+  })
+
   // Full Config
   ipcMain.handle('config:get-config', () => {
     return configManager.getConfig()

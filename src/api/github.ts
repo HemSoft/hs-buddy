@@ -176,6 +176,7 @@ export interface PRReviewComment {
   author: string
   authorAvatarUrl: string | null
   body: string
+  bodyHtml: string | null
   createdAt: string
   updatedAt: string
   url: string
@@ -631,7 +632,7 @@ export class GitHubClient {
     owner: string,
     repo: string,
     pullNumber: number
-  ): Promise<{ headBranch: string; baseBranch: string }> {
+  ): Promise<{ headBranch: string; baseBranch: string; headSha: string }> {
     const octokit = await this.getOctokitForOwner(owner)
     const response = await octokit.pulls.get({
       owner,
@@ -642,6 +643,7 @@ export class GitHubClient {
     return {
       headBranch: response.data.head?.ref || '',
       baseBranch: response.data.base?.ref || '',
+      headSha: response.data.head?.sha || '',
     }
   }
 
@@ -975,6 +977,7 @@ export class GitHubClient {
                     id
                     author { login avatarUrl }
                     body
+                    bodyHTML
                     createdAt
                     updatedAt
                     url
@@ -995,6 +998,7 @@ export class GitHubClient {
                 id
                 author { login avatarUrl }
                 body
+                bodyHTML
                 createdAt
                 updatedAt
                 url
@@ -1030,6 +1034,7 @@ export class GitHubClient {
                   id: string
                   author: { login: string; avatarUrl: string } | null
                   body: string | null
+                  bodyHTML: string | null
                   createdAt: string
                   updatedAt: string
                   url: string
@@ -1048,6 +1053,7 @@ export class GitHubClient {
               id: string
               author: { login: string; avatarUrl: string } | null
               body: string | null
+              bodyHTML: string | null
               createdAt: string
               updatedAt: string
               url: string
@@ -1085,6 +1091,7 @@ export class GitHubClient {
         author: c.author?.login || 'unknown',
         authorAvatarUrl: c.author?.avatarUrl || null,
         body: c.body || '',
+        bodyHtml: c.bodyHTML || null,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
         url: c.url,
@@ -1098,6 +1105,7 @@ export class GitHubClient {
       author: c.author?.login || 'unknown',
       authorAvatarUrl: c.author?.avatarUrl || null,
       body: c.body || '',
+      bodyHtml: c.bodyHTML || null,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
       url: c.url,
@@ -1158,6 +1166,7 @@ export class GitHubClient {
       author: c.author?.login || 'unknown',
       authorAvatarUrl: c.author?.avatarUrl || null,
       body: c.body,
+      bodyHtml: null,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
       url: c.url,
@@ -1229,6 +1238,7 @@ export class GitHubClient {
       author: c.user?.login || 'unknown',
       authorAvatarUrl: c.user?.avatar_url || null,
       body: c.body || '',
+      bodyHtml: null,
       createdAt: c.created_at,
       updatedAt: c.updated_at,
       url: c.html_url,
@@ -1539,6 +1549,7 @@ export class GitHubClient {
   ): Promise<PullRequest[]> {
     const seenUrls = new Set<string>()
     const allPrs: PullRequest[] = []
+    const accountToken = await this.getGitHubCLIToken(username)
 
     // Fetch org avatar (cached at module level to persist across instances)
     let orgAvatarUrl: string | undefined | null
@@ -1640,6 +1651,9 @@ export class GitHubClient {
             updatedAt: item.updated_at || null,
             headBranch: '',
             baseBranch: '',
+            threadsTotal: null,
+            threadsAddressed: null,
+            threadsUnaddressed: null,
             date: item.closed_at || null, // For merged PRs, closed_at is the merge date
             orgAvatarUrl,
             org,
@@ -1687,6 +1701,10 @@ export class GitHubClient {
               }),
             ])
 
+            const threadStats = accountToken
+              ? await this.fetchPRThreadStats(pr._owner, pr._repo, pr._prNumber, accountToken)
+              : null
+
             const reviews = reviewsData.data
             let approvalCount = 0
             let iApproved = false
@@ -1723,6 +1741,9 @@ export class GitHubClient {
             pr.iApproved = iApproved
             pr.headBranch = prData.data.head?.ref || ''
             pr.baseBranch = prData.data.base?.ref || ''
+            pr.threadsTotal = threadStats?.total ?? null
+            pr.threadsAddressed = threadStats?.addressed ?? null
+            pr.threadsUnaddressed = threadStats?.unaddressed ?? null
           } catch (error) {
             console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
           }
@@ -1754,5 +1775,60 @@ export class GitHubClient {
       })
 
     return finalPrs
+  }
+
+  private async fetchPRThreadStats(
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    token: string
+  ): Promise<{ total: number; addressed: number; unaddressed: number } | null> {
+    const query = `
+      query PRThreadStats($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            reviewThreads(first: 100) {
+              totalCount
+              nodes {
+                isResolved
+              }
+            }
+          }
+        }
+      }
+    `
+
+    try {
+      const result = await graphql<{
+        repository: {
+          pullRequest: {
+            reviewThreads: { totalCount: number; nodes: Array<{ isResolved: boolean }> }
+          } | null
+        } | null
+      }>(query, {
+        owner,
+        repo,
+        number: pullNumber,
+        headers: {
+          authorization: `token ${token}`,
+        },
+      })
+
+      const pr = result.repository?.pullRequest
+      if (!pr) return null
+
+      const threads = pr.reviewThreads.nodes || []
+      const addressed = threads.filter(thread => thread.isResolved).length
+      const total = pr.reviewThreads.totalCount
+
+      return {
+        total,
+        addressed,
+        unaddressed: Math.max(0, total - addressed),
+      }
+    } catch (error) {
+      console.debug(`Failed to fetch review thread stats for ${owner}/${repo}#${pullNumber}:`, error)
+      return null
+    }
   }
 }

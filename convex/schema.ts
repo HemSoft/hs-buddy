@@ -222,6 +222,41 @@ export default defineSchema({
     .index("by_created", ["createdAt"]),
 
   /**
+   * PR review runs - links Copilot review executions to a specific PR snapshot.
+   */
+  prReviewRuns: defineTable({
+    owner: v.string(),
+    repo: v.string(),
+    prNumber: v.number(),
+    prUrl: v.string(),
+    prTitle: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    resultId: v.id("copilotResults"),
+    prompt: v.string(),
+    model: v.optional(v.string()),
+    ghAccount: v.optional(v.string()),
+    reviewedHeadSha: v.optional(v.string()),
+    reviewedThreadStats: v.optional(v.object({
+      total: v.number(),
+      unresolved: v.number(),
+      outdated: v.number(),
+    })),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_pr", ["owner", "repo", "prNumber"])
+    .index("by_result", ["resultId"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  /**
    * Runs - execution history for jobs
    */
   runs: defineTable({

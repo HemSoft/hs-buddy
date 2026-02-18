@@ -9,6 +9,7 @@ import type { PRHistorySummary } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRThreadsPanel } from './PRThreadsPanel'
+import { PRReviewsPanel } from './PRReviewsPanel'
 import './PullRequestDetailPanel.css'
 
 interface PullRequestDetailPanelProps {
@@ -103,6 +104,8 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
           ? 'Checks'
           : section === 'files-changed'
             ? 'Files changed'
+            : section === 'ai-reviews'
+              ? 'AI Reviews'
             : null
   const checksUrl = `${pr.url}/checks`
   const filesChangedUrl = `${pr.url}/files`
@@ -264,6 +267,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
           </button>
         </div>
       )}
+      {section === 'ai-reviews' && <PRReviewsPanel pr={pr} />}
 
       {!isFocusedSection && (
         <>

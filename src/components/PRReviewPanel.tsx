@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useCopilotSettings, useGitHubAccounts } from '../hooks/useConfig'
 import { useBuddyStatsMutations } from '../hooks/useConvex'
+import { GitHubClient } from '../api/github'
 import { AccountPicker } from './shared/AccountPicker'
 import { ModelPicker } from './shared/ModelPicker'
 import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
@@ -27,6 +28,7 @@ export interface PRReviewInfo {
   repo: string
   org: string
   author: string
+  initialPrompt?: string
 }
 
 interface PRReviewPanelProps {
@@ -41,6 +43,11 @@ interface PRReviewPanelProps {
 const DEFAULT_PROMPT_TEMPLATE = (url: string) =>
   `Please do a thorough PR review on ${url}. Analyze the code changes for bugs, security issues, performance problems, and code quality. Categorize findings by severity: 🔴 Critical, 🟡 Medium, 🟢 Nitpick.`
 
+const PR_URL_TOKEN = '{{prUrl}}'
+
+const resolvePromptTemplate = (template: string, prUrl: string) =>
+  template.includes(PR_URL_TOKEN) ? template.split(PR_URL_TOKEN).join(prUrl) : template
+
 export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelProps) {
   const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
@@ -49,7 +56,17 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
   // ── Local state ────────────────────────────────────────────────────────
   const [account, setAccount] = useState('')
   const [model, setModel] = useState(configuredModel || 'claude-sonnet-4.5')
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl))
+  const [savedDefaultTemplate, setSavedDefaultTemplate] = useState('')
+  const [savingDefault, setSavingDefault] = useState(false)
+  const getDefaultPrompt = useCallback(() => {
+    if (prInfo.initialPrompt) return prInfo.initialPrompt
+    if (savedDefaultTemplate.trim()) {
+      return resolvePromptTemplate(savedDefaultTemplate, prInfo.prUrl)
+    }
+    return DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
+  }, [prInfo.initialPrompt, prInfo.prUrl, savedDefaultTemplate])
+
+  const [prompt, setPrompt] = useState(getDefaultPrompt())
   const [promptExpanded, setPromptExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,6 +75,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const initializedRef = useRef(false)
+  const loadedDefaultRef = useRef(false)
 
   // ── Auto-resolve account from PR org ───────────────────────────────────
   useEffect(() => {
@@ -87,7 +105,56 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
     }
   }, [prompt, promptExpanded])
 
+  // Load saved default prompt template once
+  useEffect(() => {
+    if (loadedDefaultRef.current || prInfo.initialPrompt) return
+    loadedDefaultRef.current = true
+
+    const fallbackPrompt = DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
+
+    window.ipcRenderer
+      .invoke('config:get-copilot-pr-review-prompt-template')
+      .then((template: string) => {
+        const normalized = (template || '').trim()
+        if (!normalized) return
+
+        setSavedDefaultTemplate(normalized)
+        setPrompt(current => {
+          if (current !== fallbackPrompt) return current
+          return resolvePromptTemplate(normalized, prInfo.prUrl)
+        })
+      })
+      .catch(() => {
+        // Non-blocking: use built-in default if config fetch fails
+      })
+  }, [prInfo.initialPrompt, prInfo.prUrl])
+
   // ── Run now ────────────────────────────────────────────────────────────
+  const buildReviewSnapshot = useCallback(async () => {
+    if (!prInfo.org || !prInfo.repo || !prInfo.prNumber) {
+      return undefined
+    }
+
+    try {
+      const client = new GitHubClient({ accounts: githubAccounts }, 7)
+      const [branches, history] = await Promise.all([
+        client.fetchPRBranches(prInfo.org, prInfo.repo, prInfo.prNumber),
+        client.fetchPRHistory(prInfo.org, prInfo.repo, prInfo.prNumber),
+      ])
+
+      return {
+        reviewedHeadSha: branches.headSha || undefined,
+        reviewedThreadStats: {
+          total: history.threadsTotal,
+          unresolved: history.threadsUnaddressed,
+          outdated: history.threadsOutdated,
+        },
+      }
+    } catch {
+      return undefined
+    }
+  }, [githubAccounts, prInfo.org, prInfo.repo, prInfo.prNumber])
+
   const handleRunNow = useCallback(async () => {
     if (submitting) return
     setSubmitting(true)
@@ -95,6 +162,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
 
     try {
       incrementStat({ field: 'copilotPrReviews' }).catch(() => {})
+      const snapshot = await buildReviewSnapshot()
 
       const result = await window.copilot.execute({
         prompt,
@@ -108,6 +176,8 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
           org: prInfo.org,
           author: prInfo.author,
           ghAccount: account || undefined,
+          reviewedHeadSha: snapshot?.reviewedHeadSha,
+          reviewedThreadStats: snapshot?.reviewedThreadStats,
         },
       })
 
@@ -125,7 +195,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
     } finally {
       setSubmitting(false)
     }
-  }, [prompt, model, account, prInfo, submitting, incrementStat, onSubmitted])
+  }, [prompt, model, account, prInfo, submitting, incrementStat, onSubmitted, buildReviewSnapshot])
 
   // ── Schedule for later ─────────────────────────────────────────────────
   const handleSchedule = useCallback(async () => {
@@ -137,6 +207,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
       // For now, use a simple setTimeout-based delayed execution
       // In the future this could integrate with the automation/schedules system
       const delayMs = scheduleDelay * 60 * 1000
+      const snapshot = await buildReviewSnapshot()
 
       setTimeout(async () => {
         try {
@@ -155,6 +226,8 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
               author: prInfo.author,
               ghAccount: account || undefined,
               scheduledAt: Date.now(),
+              reviewedHeadSha: snapshot?.reviewedHeadSha,
+              reviewedThreadStats: snapshot?.reviewedThreadStats,
             },
           })
 
@@ -174,12 +247,29 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
     } finally {
       setSubmitting(false)
     }
-  }, [prompt, model, account, prInfo, scheduleDelay, submitting, incrementStat])
+  }, [prompt, model, account, prInfo, scheduleDelay, submitting, incrementStat, buildReviewSnapshot])
 
   // ── Reset prompt to default ────────────────────────────────────────────
   const handleResetPrompt = useCallback(() => {
-    setPrompt(DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl))
-  }, [prInfo.prUrl])
+    setPrompt(getDefaultPrompt())
+  }, [getDefaultPrompt])
+
+  const handleSaveAsDefault = useCallback(async () => {
+    const trimmed = prompt.trim()
+    if (!trimmed || savingDefault) return
+
+    setSavingDefault(true)
+    setError(null)
+    try {
+      const template = trimmed.split(prInfo.prUrl).join(PR_URL_TOKEN)
+      await window.ipcRenderer.invoke('config:set-copilot-pr-review-prompt-template', template)
+      setSavedDefaultTemplate(template)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSavingDefault(false)
+    }
+  }, [prompt, prInfo.prUrl, savingDefault])
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -321,13 +411,22 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
               rows={6}
             />
             <div className="pr-review-prompt-actions">
-              <button
-                className="pr-review-btn-text"
-                onClick={handleResetPrompt}
-                disabled={submitting}
-              >
-                Reset to default
-              </button>
+              <div className="pr-review-prompt-actions-left">
+                <button
+                  className="pr-review-btn-text"
+                  onClick={handleResetPrompt}
+                  disabled={submitting || savingDefault}
+                >
+                  Reset to default
+                </button>
+                <button
+                  className="pr-review-btn-text"
+                  onClick={handleSaveAsDefault}
+                  disabled={submitting || savingDefault || !prompt.trim()}
+                >
+                  {savingDefault ? 'Saving…' : 'Use as default'}
+                </button>
+              </div>
               <span className="pr-review-char-count">{prompt.length} chars</span>
             </div>
           </div>

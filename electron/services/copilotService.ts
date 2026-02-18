@@ -33,6 +33,22 @@ export interface CopilotPromptRequest {
   model?: string          // Override default model
 }
 
+interface PRReviewMetadata {
+  prUrl?: string
+  prTitle?: string
+  prNumber?: number
+  repo?: string
+  org?: string
+  author?: string
+  ghAccount?: string
+  reviewedHeadSha?: string
+  reviewedThreadStats?: {
+    total: number
+    unresolved: number
+    outdated: number
+  }
+}
+
 export interface CopilotPromptResult {
   resultId: string        // Convex document ID
   success: boolean
@@ -140,9 +156,10 @@ class CopilotService {
    */
   async executePrompt(request: CopilotPromptRequest): Promise<CopilotPromptResult> {
     const model = request.model ?? DEFAULT_MODEL
+    const metadata = request.metadata as PRReviewMetadata | undefined
 
     // Extract explicit ghAccount from metadata
-    const explicitAccount = (request.metadata as { ghAccount?: string } | undefined)?.ghAccount
+    const explicitAccount = metadata?.ghAccount
 
     // Resolve the correct account — auto-detect from prompt URLs if not explicit
     const ghAccount = await this.resolveAccount(request.prompt, explicitAccount)
@@ -158,6 +175,29 @@ class CopilotService {
       category: request.category,
       metadata: request.metadata,
     })
+
+    if (
+      request.category === 'pr-review' &&
+      metadata?.org &&
+      metadata.repo &&
+      typeof metadata.prNumber === 'number' &&
+      metadata.prUrl &&
+      metadata.prTitle
+    ) {
+      await this.convex.mutation(api.prReviewRuns.create, {
+        owner: metadata.org,
+        repo: metadata.repo,
+        prNumber: metadata.prNumber,
+        prUrl: metadata.prUrl,
+        prTitle: metadata.prTitle,
+        resultId,
+        prompt: request.prompt,
+        model,
+        ghAccount: metadata.ghAccount,
+        reviewedHeadSha: metadata.reviewedHeadSha,
+        reviewedThreadStats: metadata.reviewedThreadStats,
+      })
+    }
 
     const resultIdStr = resultId as unknown as string
     const abortController = new AbortController()
@@ -191,6 +231,11 @@ class CopilotService {
         model,
       })
 
+      await this.convex.mutation(api.prReviewRuns.markRunningByResult, {
+        resultId,
+        model,
+      })
+
       if (signal.aborted) throw new Error('Cancelled before starting')
 
       const fullPrompt = `${prompt}
@@ -211,6 +256,11 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
         model,
       })
 
+      await this.convex.mutation(api.prReviewRuns.completeByResult, {
+        resultId,
+        model,
+      })
+
       console.log(`[CopilotService] ✓ Completed prompt (${resultText.length} chars)`)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
@@ -221,6 +271,13 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
         error: errorMessage,
       }).catch(() => {
         console.error('[CopilotService] Failed to record error in Convex')
+      })
+
+      await this.convex.mutation(api.prReviewRuns.failByResult, {
+        resultId,
+        error: errorMessage,
+      }).catch(() => {
+        console.error('[CopilotService] Failed to record PR review run failure in Convex')
       })
     }
   }

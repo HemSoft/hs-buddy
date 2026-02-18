@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Clock, ExternalLink, GitCommit, MessageCircle, History, Loader2 } from 'lucide-react'
+import { CheckCircle2, Clock, ExternalLink, GitCommit, History, Loader2, MessageCircle, XCircle } from 'lucide-react'
 import { GitHubClient, type PRHistorySummary } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
@@ -186,11 +186,23 @@ export function PullRequestHistoryPanel({
                 <div className="thread-value">{history.threadsOutdated}</div>
               </div>
               <div className="thread-card">
-                <div className="thread-label">Addressed</div>
+                <div className="thread-label-row">
+                  <div className="thread-label">Addressed</div>
+                  <div className="thread-indicator good" aria-label="Addressed">
+                    <CheckCircle2 size={12} />
+                    Good
+                  </div>
+                </div>
                 <div className="thread-value">{history.threadsAddressed}</div>
               </div>
               <div className="thread-card">
-                <div className="thread-label">Unaddressed</div>
+                <div className="thread-label-row">
+                  <div className="thread-label">Unaddressed</div>
+                  <div className="thread-indicator bad" aria-label="Unaddressed">
+                    <XCircle size={12} />
+                    Bad
+                  </div>
+                </div>
                 <div className="thread-value">{history.threadsUnaddressed}</div>
               </div>
             </div>

@@ -656,6 +656,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     { key: 'commits', label: 'Commits' },
     { key: 'checks', label: 'Checks' },
     { key: 'files-changed', label: 'Files changed' },
+    { key: 'ai-reviews', label: 'AI Reviews' },
   ]
 
   const copyToClipboard = async (text: string) => {
@@ -836,7 +837,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
               {prItems.map(item => (
                 <div key={item.id}>
                   <div
-                    className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
+                    className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''}`}
                     onClick={() => onItemSelect(item.id)}
                   >
                     <span
@@ -884,7 +885,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                           return (
                             <div key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`} className="sidebar-pr-group">
                               <div
-                                className={`sidebar-item sidebar-pr-item ${isSelected ? 'selected' : ''}`}
+                                className={`sidebar-item sidebar-item-disclosure sidebar-pr-item ${isSelected ? 'selected' : ''}`}
                                 onClick={() => onItemSelect(prViewId)}
                                 onContextMenu={e => openTreePRContextMenu(e, pr)}
                                 title={pr.title}
@@ -906,7 +907,10 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                   <GitPullRequest size={12} />
                                 </span>
                                 <span className="sidebar-item-label">#{pr.id} {pr.title}</span>
-                                <span className="sidebar-pr-meta">{pr.repository}</span>
+                                <span className="sidebar-pr-meta">
+                                  <span className="sidebar-pr-meta-repo">{pr.repository}</span>
+                                  <span className="sidebar-pr-meta-author">{pr.author}</span>
+                                </span>
                               </div>
 
                               {expandedPRNodes.has(prViewId) && (
@@ -987,8 +991,8 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
 
                   return (
                     <div key={org} className="sidebar-org-group">
-                      <div className="sidebar-item sidebar-org-item" onClick={() => toggleOrg(org)}>
-                        <span className="sidebar-item-icon">
+                      <div className="sidebar-item sidebar-item-disclosure sidebar-org-item" onClick={() => toggleOrg(org)}>
+                        <span className="sidebar-item-chevron">
                           {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                         </span>
                         <span className="sidebar-item-icon">
@@ -1047,15 +1051,15 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                               return (
                                 <div key={repo.name} className="sidebar-repo-group">
                                   <div
-                                    className="sidebar-item sidebar-repo-item"
+                                    className="sidebar-item sidebar-item-disclosure sidebar-repo-item"
                                     onClick={() => toggleRepo(org, repo.name)}
                                     title={repo.description || repo.fullName}
                                   >
-                                    <span className="sidebar-item-icon">
+                                    <span className="sidebar-item-chevron">
                                       {isRepoExpanded ? (
-                                        <ChevronDown size={10} />
+                                        <ChevronDown size={12} />
                                       ) : (
-                                        <ChevronRight size={10} />
+                                        <ChevronRight size={12} />
                                       )}
                                     </span>
                                     <span className="sidebar-item-icon">
@@ -1116,7 +1120,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                         ) : null}
                                       </div>
                                       <div
-                                        className={`sidebar-item sidebar-repo-child sidebar-repo-pr-row ${selectedItem === `repo-prs:${repoKey}` ? 'selected' : ''}`}
+                                        className={`sidebar-item sidebar-item-disclosure sidebar-repo-child sidebar-repo-pr-row ${selectedItem === `repo-prs:${repoKey}` ? 'selected' : ''}`}
                                         onClick={() => toggleRepoPRGroup(org, repo.name)}
                                       >
                                         <span
@@ -1127,9 +1131,9 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                           }}
                                         >
                                           {expandedRepoPRGroups.has(repoKey) ? (
-                                            <ChevronDown size={10} />
+                                            <ChevronDown size={12} />
                                           ) : (
-                                            <ChevronRight size={10} />
+                                            <ChevronRight size={12} />
                                           )}
                                         </span>
                                         <span className="sidebar-item-icon">
@@ -1165,7 +1169,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                                     className="sidebar-pr-group"
                                                   >
                                                     <div
-                                                      className={`sidebar-item sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
+                                                      className={`sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
                                                       onClick={() => onItemSelect(prViewId)}
                                                       onContextMenu={e => openTreePRContextMenu(e, pr)}
                                                       title={pr.title}

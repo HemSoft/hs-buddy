@@ -1,4 +1,6 @@
-# Solving Software Engineering Development through the art of the Agentic Loop — The Agentic Loop Methodology™: One Intake. One Loop. Compounding Quality. 🚀
+# Solving Software Engineering Development through the art of the Agentic Loop — The Set it Free Loop™ 🚀
+
+## Learning to fly
 
 Software engineering is shifting from one-off automation to **self-improving systems**.
 
@@ -15,29 +17,29 @@ This document captures the practical recipe.
 
 ---
 
-## Naming the Movement: The Agentic Loop Methodology™
+## Naming the Movement: The Set it Free Loop™
 
 Breakthrough engineering eras are remembered because they are named, shared, and repeated.
 
 This approach deserves a clear identity:
 
-- **Name**: **The Agentic Loop Methodology™**
+- **Name**: **The Set it Free Loop™**
 - **Tagline**: **One Intake. One Loop. Compounding Quality.**
 - **Core Promise**: Convert every signal (quality finding or feature request) into governed, measurable software delivery.
 
 ### Why this name works
 
-- **Agentic** captures intelligence and adaptive reasoning.
-- **Loop** captures continuous recursive improvement.
-- **Methodology** signals this is an operational system, not a one-off script.
+- **Set it Free** captures liberation from manual bottlenecks and static workflows.
+- **Loop** captures recursive, compounding self-improvement.
+- The phrase is memorable, emotional, and movement-ready.
 
 ### The short form for teams
 
 When socializing this internally, use:
 
-- **ALM** — Agentic Loop Methodology
+- **SFL** — Set it Free Loop
 
-Example: "This repo is ALM-enabled: all intake routes into the same quality-gated loop."
+Example: "This repo is SFL-enabled: all intake routes into the same quality-gated loop."
 
 ---
 
@@ -79,7 +81,7 @@ Your authored logic remains in the concise `.md` workflow source file.
 
 ---
 
-## 3) The Agentic Loop Pattern
+## 3) The Set it Free Loop Pattern
 
 ### Loop Stages
 
@@ -102,7 +104,7 @@ Your authored logic remains in the concise `.md` workflow source file.
 
 The system is recursive, but **bounded** by explicit controls.
 
-![Agentic Loop Overview](assets/agentic-architecture/01-agentic-loop-overview.png)
+![Set it Free Loop Overview](assets/set-it-free-loop/01-set-it-free-loop-overview.png)
 
 ---
 
@@ -151,7 +153,7 @@ To make recursion safe and useful, stack gates in this order:
 7. **Merge Gate**
    - only after all required statuses are green.
 
-![Recursive Quality Gates](assets/agentic-architecture/02-recursive-quality-gates.png)
+![Set it Free Quality Gates](assets/set-it-free-loop/02-set-it-free-quality-gates.png)
 
 ---
 
@@ -238,7 +240,7 @@ This is the missing piece that turns maintenance automation into full software d
 No matter where requests originate (GitHub Issues, Jira, ServiceNow, support forms, Slack triage),
 **normalize all feature requests into GitHub Issues** as the canonical queue for the repository.
 
-Once normalized, feature work can flow through the exact same Agentic Loop as defect and quality work.
+Once normalized, feature work can flow through the exact same Set it Free Loop as defect and quality work.
 
 ### Unified Intake Flow
 
@@ -345,7 +347,7 @@ These are planning estimates, not billing guarantees.
 - Use p50/p90 cost-per-run to forecast instead of guesses.
 - Apply hard monthly budget caps and throttle non-critical runs.
 
-![Scaling Cost Model](assets/agentic-architecture/03-scaling-cost-model.png)
+![Set it Free Scaling Economics](assets/set-it-free-loop/03-set-it-free-scaling-economics.png)
 
 ---
 
@@ -369,7 +371,7 @@ These are planning estimates, not billing guarantees.
 - Keep strict hard gates and escalation controls
 - Expand repo count gradually
 
-![Rollout Roadmap](assets/agentic-architecture/04-rollout-roadmap.png)
+![Set it Free Roadmap](assets/set-it-free-loop/04-set-it-free-roadmap.png)
 
 ---
 

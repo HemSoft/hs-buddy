@@ -2,6 +2,14 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
+| 🚧 | High | [Define Set it Free governance policy](#define-set-it-free-governance-policy) | Owners, escalation labels, merge boundaries |
+| 📋 | High | [Build feature-intake normalization workflow](#build-feature-intake-normalization-workflow) | Jira/GitHub/other demand into canonical GitHub Issues |
+| 📋 | High | [Implement issue-to-PR fixer workflow](#implement-issue-to-pr-fixer-workflow) | Auto-generate scoped PRs for low-risk issue classes |
+| 📋 | High | [Implement PR quality analyzer workflow](#implement-pr-quality-analyzer-workflow) | Severity thresholds + deterministic gates |
+| 📋 | Medium | [Add loop safety controls and dedupe](#add-loop-safety-controls-and-dedupe) | Retry caps, idempotency keys, fan-out limits |
+| 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
+| 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives |
+| 📋 | Low | [Publish Set it Free playbook](#publish-set-it-free-playbook) | Repeatable rollout guide for additional repos |
 | ✅ | High | Improve Welcome to Buddy window | Convex-backed stats dashboard, session tracking (2026-02) |
 | ✅ | High | Expand repo detail view | Rich card-based repo info panel with caching (2026-02) |
 | ✅ | High | Make repos expandable folders | Expandable repos with Issues & PRs children (2026-02) |
@@ -35,4 +43,88 @@
 
 ## Progress
 
-**Remaining: 0** | **Completed: 31** (100%)
+**Remaining: 8** | **Completed: 31** (79%)
+
+---
+
+## Remaining Items
+
+### Define Set it Free governance policy
+
+**Goal**: Set hard operational boundaries before scaling automation.
+
+**Deliverables**:
+
+- Label taxonomy (`agent:pause`, `agent:human-required`, `agent:fixable`)
+- Maximum retry/fan-out policy
+- Merge authority matrix by risk class
+
+### Build feature-intake normalization workflow
+
+**Goal**: Convert incoming demand from any ticketing source into canonical GitHub Issues.
+
+**Deliverables**:
+
+- Mapping schema for external IDs to issue metadata
+- Template-driven issue creation with acceptance criteria
+- Dedupe checks for re-submitted requests
+
+### Implement issue-to-PR fixer workflow
+
+**Goal**: Automate low-risk implementation from normalized issues.
+
+**Deliverables**:
+
+- Trigger rules by label/category
+- Safe write boundaries (paths/types)
+- PR creation with linked issue references
+
+### Implement PR quality analyzer workflow
+
+**Goal**: Prevent weak PRs from merging.
+
+**Deliverables**:
+
+- Severity scoring rubric
+- Fail rules for critical/high thresholds
+- Required checks integration for merge gates
+
+### Add loop safety controls and dedupe
+
+**Goal**: Ensure recursion remains bounded and stable.
+
+**Deliverables**:
+
+- Idempotency keys per finding/request
+- Single-active-issue rule by category
+- Escalation after repeated failure attempts
+
+### Create cost telemetry dashboard
+
+**Goal**: Make spend predictable at repo and portfolio level.
+
+**Deliverables**:
+
+- Per-workflow run and cost metrics
+- p50/p90 cost-per-run reporting
+- Monthly cap alerts and throttle policies
+
+### Run 30-day Set it Free pilot
+
+**Goal**: Validate quality and economics with real usage.
+
+**Deliverables**:
+
+- Baseline vs post-loop performance report
+- False positive and rework analysis
+- Recommendation for broader rollout
+
+### Publish Set it Free playbook
+
+**Goal**: Make this model repeatable across additional repositories.
+
+**Deliverables**:
+
+- Standard workflow templates
+- Rollout checklist and readiness rubric
+- Governance and operations handbook

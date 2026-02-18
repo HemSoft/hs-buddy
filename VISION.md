@@ -1,14 +1,46 @@
 # Buddy Workflows Vision
 
-**Version**: 1.0  
-**Created**: 2026-02-01  
-**Status**: Approved for Implementation
+**Version**: 2.0  
+**Updated**: 2026-02-18  
+**Status**: Active Execution
 
 ## Executive Summary
 
-Transform **hs-buddy** from a PR management tool into a comprehensive productivity platform by porting the scheduling and workflow system from **hs-conductor**. The key architectural shift: replace Inngest with **Convex** as the backend, enabling a serverless Electron app with cloud-powered scheduling, real-time updates, and true cross-platform sync.
+Buddy has successfully evolved beyond a PR viewer into a workflow-capable productivity platform.
 
-This positions Buddy as the successor to hs-conductor, with the added benefit of future **mobile app support**.
+The next leap is the **Set it Free Loop**: a unified, recursive operating model where:
+
+- quality findings are detected and converted into actionable issues,
+- feature requests from any intake system are normalized into the same issue queue,
+- fixes are generated, validated by hard quality gates, and reviewed,
+- and outcomes continuously improve both code and process.
+
+This vision formalizes Buddy as a platform for **continuous self-improving software delivery**.
+
+---
+
+## Set it Free Loop Vision
+
+### The Core Idea
+
+Create one canonical delivery loop:
+
+1. Ingest signals (repo audits + feature requests)
+2. Normalize into GitHub Issues
+3. Generate implementation PRs
+4. Enforce deterministic quality gates
+5. Review and merge
+6. Learn, measure, and improve the next cycle
+
+### Why this matters
+
+- One queue for all work types (quality, debt, defects, features)
+- One policy model for governance and safety
+- One telemetry model for cost, speed, and reliability
+
+### Signature phrase
+
+#### The Set it Free Loop — Learning to fly
 
 ---
 
@@ -19,6 +51,9 @@ This positions Buddy as the successor to hs-conductor, with the added benefit of
 3. **Serverless Architecture** — No local Express server or Windows Service required
 4. **Real-time Experience** — Live task status updates via Convex subscriptions
 5. **Skill Integration** — First-class support for the 110+ Claude skills library
+6. **Unified Delivery Intake** — Normalize all feature demand into GitHub Issues
+7. **Recursive Quality Automation** — Continuously run audit → fix → verify loops
+8. **Portfolio Scalability** — Operate this model across many repositories with cost controls
 
 ---
 
@@ -416,6 +451,20 @@ Once Buddy Workflows is stable:
 - [ ] Push notification integration
 - [ ] Beta testing
 
+### Phase 5: Set it Free Loop (Current Priority)
+
+**Goal**: Productionize recursive quality + feature intake workflows
+
+- [ ] Launch weekly repo-audit as recurring issue generator
+- [ ] Add feature-intake normalization workflow (Jira/GitHub/etc. → GitHub Issues)
+- [ ] Implement issue-to-PR fixer workflow for low-risk classes
+- [ ] Implement PR quality analyzer workflow with severity thresholds
+- [ ] Add loop guardrails (max retries, dedupe keys, escalation labels)
+- [ ] Add cost telemetry + monthly budget thresholds
+- [ ] Run 30-day pilot in hs-buddy and publish outcomes
+
+**Deliverable**: One intake, one quality-gated loop, measured with real KPIs
+
 ---
 
 ## Technical Decisions
@@ -453,6 +502,9 @@ Once Buddy Workflows is stable:
 3. **< 5 second** task trigger latency (cloud → local execution start)
 4. **Real-time UI updates** working reliably
 5. **Conductor Windows Service** safely retired
+6. **Feature intake normalization rate** > 90% into GitHub Issues
+7. **Agent-generated PR merge success** tracked with clear quality thresholds
+8. **Cost per resolved issue** measured and trending down over pilot period
 
 ---
 

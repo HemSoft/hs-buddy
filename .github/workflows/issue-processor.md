@@ -1,12 +1,13 @@
 ---
 description: |
-  This workflow processes GitHub issues labelled agent:fixable. It reads the
-  issue, scopes the fix, creates a focused branch with the change applied,
-  opens a pull request, and relabels the issue as agent:in-progress.
+  This workflow runs every 30 minutes, picks the single oldest open issue
+  labelled agent:fixable, claims it, implements the described fix on a new
+  branch, and opens a pull request. One issue per run — no fan-out.
 
 on:
-  issues:
-    types: [labeled]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,47 +25,67 @@ safe-outputs:
     title-prefix: "[agent-fix] "
     labels: [agent:pr, type:fix]
   update-issue:
-    max: 3
+    max: 1
 ---
 
 # Issue Processor
 
-When an issue is labelled `agent:fixable`, read it, implement the described fix,
-open a scoped pull request, and mark the issue as in-progress.
+Run every 30 minutes. Find the oldest open `agent:fixable` issue, claim it,
+implement the fix, and open a pull request. Process exactly one issue per run.
 
-## Trigger conditions
+## Step 1 — Find the oldest claimable issue
 
-Only proceed if ALL of the following are true:
+Search for open issues in this repository that have ALL of the following labels:
 
-- The triggering label is exactly `agent:fixable`
-- The issue also has `type:action-item`
-- The issue does NOT have `agent:pause`, `agent:human-required`, or `no-agent`
-- The issue body contains a **Finding**, **Fix**, and **Acceptance criteria** section
+- `agent:fixable`
+- `type:action-item`
 
-If any condition is not met, add the label `agent:pause` to the issue and stop.
+And do NOT have any of:
 
-## Process
+- `agent:in-progress`
+- `agent:pause`
+- `agent:human-required`
+- `no-agent`
 
-### 1. Read and validate the issue
+Sort results by creation date ascending. Take the **single oldest** result.
 
-Extract from the issue body:
+If no issue matches, exit immediately — nothing to do.
 
-- **Finding**: the file(s) and problem described
-- **Fix**: the exact change to make
-- **Acceptance criteria**: how to verify correctness
-- **Risk**: confirm it is `risk:trivial` or `risk:low` — abort if higher
+## Step 2 — Claim the issue
 
-If the fix would touch more than 3 files, add `agent:human-required` and stop.
+Before doing any other work, update the issue to add label `agent:in-progress`
+and remove label `agent:fixable`. This prevents a concurrent run from picking
+up the same issue.
 
-### 2. Inspect the codebase
+Post a comment on the issue: "🤖 Issue Processor claimed this issue. Working on a fix."
 
-Before writing any change:
+## Step 3 — Validate the issue body
 
-- Read the target file(s) in full
-- Confirm the problem described in the issue actually exists as stated
-- If the file has already been fixed, close the issue with a comment and stop
+The issue body must contain all three sections: **Finding**, **Fix**, and
+**Acceptance criteria**.
 
-### 3. Implement the fix
+Extract:
+
+- **Finding**: the file path(s) and exact problem described
+- **Fix**: precisely what change to make
+- **Acceptance criteria**: how to verify the fix is correct
+- **Risk**: must be `risk:trivial` or `risk:low`
+
+If any section is missing, or if risk is `risk:medium` or higher, or if the
+fix would touch more than 3 files: add label `agent:human-required`, remove
+`agent:in-progress`, post a comment explaining the reason, and exit.
+
+## Step 4 — Inspect the codebase
+
+Read the target file(s) in full before writing anything:
+
+- Confirm the problem described in the Finding actually exists as stated
+- If the file has already been fixed (the problem no longer exists), close
+  the issue with the comment "✅ Already resolved — closing." and exit
+
+## Step 5 — Implement the fix on a new branch
+
+Create a branch named `agent-fix/issue-<issue-number>` from `main`.
 
 Apply the minimal change that satisfies the acceptance criteria:
 
@@ -72,29 +93,27 @@ Apply the minimal change that satisfies the acceptance criteria:
 - Do not rename symbols unless that is the stated fix
 - Do not add comments, docs, or type annotations to unchanged lines
 - Preserve existing formatting conventions exactly
+- Touch only the files identified in the Fix section
 
-### 4. Open a pull request
+## Step 6 — Open a pull request
 
-Create a PR with:
+Create a PR from `agent-fix/issue-<issue-number>` into `main` with:
 
-- Title: `[agent-fix] <issue title without the [repo-audit] prefix>`
+- Title: `[agent-fix] <issue title, stripped of any [repo-audit] prefix>`
 - Body:
   - `Closes #<issue number>`
-  - Summary of what was changed and why
-  - Reference to the acceptance criteria from the issue
-  - Risk assessment confirmation
-- Base branch: `main`
+  - One-paragraph summary of what was changed and why
+  - Acceptance criteria quoted from the issue
+  - Risk confirmation: `risk:trivial` or `risk:low` with one-line justification
 - Labels: `agent:pr`, `type:fix`
 
-### 5. Update the issue
+## Step 7 — Update the issue
 
-- Remove label `agent:fixable`
-- Add label `agent:in-progress`
-- Post a comment linking to the PR: "Opened PR #<number> to address this finding."
+Post a comment: "🔀 Opened PR #<number> — ready for review."
 
 ## Guardrails
 
-- Maximum 1 PR per issue processor run
-- Never force-push or amend existing commits
-- Never modify files outside the scope stated in the issue Fix section
-- If the fix fails validation (e.g. the file does not exist), add `agent:pause` and comment with the reason
+- Exit after processing exactly one issue per run — never loop over multiple issues
+- Never force-push, amend commits, or modify files outside the Fix scope
+- If any step fails unexpectedly: add `agent:pause`, remove `agent:in-progress`,
+  post a comment with the failure reason, and exit cleanly

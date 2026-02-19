@@ -1,46 +1,25 @@
-# Buddy Workflows Vision
+# Buddy Vision
 
-**Version**: 2.0  
-**Updated**: 2026-02-18  
+**Version**: 2.1
+**Updated**: 2026-02-18
 **Status**: Active Execution
 
 ## Executive Summary
 
-Buddy has successfully evolved beyond a PR viewer into a workflow-capable productivity platform.
-
-The next leap is the **Set it Free Loop**: a unified, recursive operating model where:
-
-- quality findings are detected and converted into actionable issues,
-- feature requests from any intake system are normalized into the same issue queue,
-- fixes are generated, validated by hard quality gates, and reviewed,
-- and outcomes continuously improve both code and process.
-
-This vision formalizes Buddy as a platform for **continuous self-improving software delivery**.
+Buddy has successfully evolved beyond a PR viewer into a workflow-capable productivity platform built on Convex for real-time, cross-device delivery.
 
 ---
 
-## Set it Free Loop Vision
+## Set it Free Loop™
 
-### The Core Idea
+Buddy is the first reference consumer of the **Set it Free Loop™** — a continuous quality improvement operating model for software repositories.
 
-Create one canonical delivery loop:
+> One Intake. One Loop. Compounding Quality.
 
-1. Ingest signals (repo audits + feature requests)
-2. Normalize into GitHub Issues
-3. Generate implementation PRs
-4. Enforce deterministic quality gates
-5. Review and merge
-6. Learn, measure, and improve the next cycle
+The operating model, workflow library, governance policy, and intake tooling all live in the canonical home:
+**[relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop)**
 
-### Why this matters
-
-- One queue for all work types (quality, debt, defects, features)
-- One policy model for governance and safety
-- One telemetry model for cost, speed, and reliability
-
-### Signature phrase
-
-#### The Set it Free Loop — Learning to fly
+Buddy's `.github/workflows/` deploys from that library. Its governance labels are configured by the label setup script in that repo.
 
 ---
 
@@ -451,19 +430,22 @@ Once Buddy Workflows is stable:
 - [ ] Push notification integration
 - [ ] Beta testing
 
-### Phase 5: Set it Free Loop (Current Priority)
+### Phase 5: Set it Free Loop ✅ Foundation / 🚧 In Progress
 
-**Goal**: Productionize recursive quality + feature intake workflows
+**Goal**: Buddy as a governed reference consumer of the Set it Free Loop operating model.
 
-- [ ] Launch weekly repo-audit as recurring issue generator
-- [ ] Add feature-intake normalization workflow (Jira/GitHub/etc. → GitHub Issues)
-- [ ] Implement issue-to-PR fixer workflow for low-risk classes
-- [ ] Implement PR quality analyzer workflow with severity thresholds
-- [ ] Add loop guardrails (max retries, dedupe keys, escalation labels)
-- [ ] Add cost telemetry + monthly budget thresholds
-- [ ] Run 30-day pilot in hs-buddy and publish outcomes
+The operating model itself lives in **[relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop)**.
+Buddy's role here is to run the loop and dogfood the governance standard.
 
-**Deliverable**: One intake, one quality-gated loop, measured with real KPIs
+- [x] `daily-repo-status` workflow deployed and running
+- [x] `weekly-repo-audit` workflow deployed and running
+- [x] Governance labels configured via `setup-labels.ps1`
+- [x] `featureIntakes` Convex table for intake normalization
+- [ ] `issue-to-pr-fixer` workflow — deploy from SFL catalog when ready
+- [ ] `pr-quality-analyzer` workflow — deploy from SFL catalog when ready
+- [ ] 30-day pilot metrics published to SFL repo
+
+**Deliverable**: Buddy demonstrates the full loop; metrics feed back into the SFL operating model
 
 ---
 
@@ -510,6 +492,7 @@ Once Buddy Workflows is stable:
 
 ## References
 
+- [relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop) — SFL operating model, workflow library, governance
 - [hs-conductor](D:\github\HemSoft\hs-conductor) — Source codebase for migration
 - [Convex Documentation](https://docs.convex.dev) — Backend platform
 - [Convex File Storage](https://docs.convex.dev/file-storage) — For run outputs

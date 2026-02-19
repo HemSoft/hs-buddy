@@ -1,0 +1,12 @@
+Rule: react-doctor/rerender-lazy-state-init
+Severity: warning
+Category: Performance
+Count: 2
+
+useState(now()) calls initializer on every render — use useState(() => now()) for lazy initialization
+
+Suggestion: Wrap in an arrow function so it only runs once: `useState(() => expensiveComputation())`
+
+Files:
+  src/components/sidebar/GitHubSidebar.tsx: 136
+  src/components/PRReviewPanel.tsx: 69

@@ -1,0 +1,23 @@
+Rule: react-doctor/prefer-useReducer
+Severity: warning
+Category: State & Effects
+Count: 14
+
+Component "GitHubSidebar" has 17 useState calls — consider useReducer for related state
+
+Suggestion: Group related state: `const [state, dispatch] = useReducer(reducer, { field1, field2, ... })`
+
+Files:
+  src/components/sidebar/GitHubSidebar.tsx: 89
+  src/components/automation/ScheduleEditor.tsx: 14
+  src/components/automation/JobList.tsx: 45
+  src/components/automation/CronBuilder.tsx: 21
+  src/components/automation/JobEditor.tsx: 41
+  src/components/settings/SettingsAppearance.tsx: 76
+  src/components/settings/SettingsAccounts.tsx: 7
+  src/components/PullRequestList.tsx: 48
+  src/components/settings/SettingsCopilot.tsx: 8
+  src/components/PRReviewPanel.tsx: 51
+  src/components/PRThreadsPanel.tsx: 390, 584
+  src/components/CopilotPromptBox.tsx: 25
+  src/App.tsx: 23

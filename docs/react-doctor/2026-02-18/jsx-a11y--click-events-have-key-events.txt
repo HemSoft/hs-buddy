@@ -1,0 +1,27 @@
+Rule: jsx-a11y/click-events-have-key-events
+Severity: warning
+Category: Accessibility
+Count: 50
+
+Enforce a clickable non-interactive element has at least one keyboard event listener.
+
+Suggestion: Visible, non-interactive elements with click handlers must have one of `keyup`, `keydown`, or `keypress` listener.
+
+Files:
+  src/components/SidebarPanel.tsx: 202, 216, 229, 246, 255, 312, 342, 356
+  src/components/sidebar/GitHubSidebar.tsx: 738, 822, 839, 843, 887, 893, 921, 949, 994, 1053, 1093, 1104, 1122, 1126, 1171, 1177, 1209
+  src/components/automation/ScheduleEditor.tsx: 107
+  src/components/automation/RunList.tsx: 240
+  src/components/automation/JobList.tsx: 202, 258
+  src/components/AboutModal.tsx: 20
+  src/components/TreeView.tsx: 97
+  src/components/sidebar/CopilotSidebar.tsx: 64, 79, 88, 100, 115, 143
+  src/components/TabBar.tsx: 31
+  src/components/RepoIssueList.tsx: 135
+  src/components/RepoDetailPanel.tsx: 274, 414, 450
+  src/components/PullRequestList.tsx: 698
+  src/components/PRReviewPanel.tsx: 334, 388, 434
+  src/components/PRThreadsPanel.tsx: 462
+  src/components/InlineDropdown.tsx: 160
+  src/components/CopilotPromptBox.tsx: 236
+  src/components/automation/ScheduleOverviewPanel.tsx: 230

@@ -1,0 +1,13 @@
+Rule: react-doctor/no-effect-event-handler
+Severity: warning
+Category: State & Effects
+Count: 3
+
+useEffect simulating an event handler — move logic to an actual event handler instead
+
+Suggestion: Move the conditional logic into onClick, onChange, or onSubmit handlers directly
+
+Files:
+  src/components/automation/ScheduleEditor.tsx: 32
+  src/components/settings/SettingsAppearance.tsx: 101
+  src/components/CopilotResultPanel.tsx: 28

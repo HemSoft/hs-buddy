@@ -1,0 +1,15 @@
+Rule: jsx-a11y/label-has-associated-control
+Severity: warning
+Category: Accessibility
+Count: 9
+
+A form label must be associated with a control.
+
+Suggestion: Either give the label a `htmlFor` attribute with the id of the associated control, or wrap the label around the control.
+
+Files:
+  src/components/automation/ScheduleEditor.tsx: 178
+  src/components/automation/CronBuilder.tsx: 137
+  src/components/automation/JobEditor.tsx: 277, 287, 299, 398
+  src/components/settings/SettingsPullRequests.tsx: 79
+  src/components/PRReviewPanel.tsx: 351, 368

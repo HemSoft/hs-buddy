@@ -1,0 +1,12 @@
+Rule: jsx-a11y/no-autofocus
+Severity: warning
+Category: Accessibility
+Count: 2
+
+The `autoFocus` attribute is found here, which can cause usability issues for sighted and non-sighted users.
+
+Suggestion: Remove the `autoFocus` attribute.
+
+Files:
+  src/components/automation/ScheduleEditor.tsx: 135
+  src/components/automation/JobEditor.tsx: 382

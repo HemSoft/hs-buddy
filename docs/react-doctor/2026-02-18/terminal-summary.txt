@@ -1,0 +1,110 @@
+react-doctor v0.0.20
+
+[2mScanning D:\github\HemSoft\hs-buddy...[22m
+
+- Detecting framework. Found Vite.
+Γ£ö Detecting framework. Found Vite.
+- Detecting React version. Found React ^18.2.0.
+Γ£ö Detecting React version. Found React ^18.2.0.
+- Detecting language. Found TypeScript.
+Γ£ö Detecting language. Found TypeScript.
+- Detecting React Compiler. Not found.
+Γ£ö Detecting React Compiler. Not found.
+- Found 113 source files.
+Γ£ö Found 113 source files.
+
+- Running lint checks...
+- Detecting dead code.
+Γ£ö Detecting dead code.
+- Running lint checks...
+Γ£ö Running lint checks.
+  [31mΓ£ù[39m Derived state in useEffect ΓÇö compute during render instead
+[2m    For derived state, compute inline: `const x = fn(dep)`. For state resets on prop change, use a key prop: `<Component key={prop} />`[22m
+
+  [31mΓ£ù[39m `combobox` role is missing required aria props `aria-controls`.
+[2m    Add missing aria props `aria-controls` to the element with `combobox` role.[22m
+
+  [31mΓ£ù[39m Possible hardcoded secret in "PR_URL_TOKEN" ΓÇö use environment variables instead
+[2m    Move to server-side `process.env.SECRET_NAME`. Only `NEXT_PUBLIC_*` vars are safe for the client (and should not contain secrets)[22m
+
+  [33mΓÜá[39m setLiveUptime(storedUptime + ...) ΓÇö use functional update to avoid stale closures
+[2m    Use the callback form: `setState(prev => prev + 1)` to always read the latest value[22m
+
+  [33mΓÜá[39m Enforce a clickable non-interactive element has at least one keyboard event listener.[33m (50)[39m
+[2m    Visible, non-interactive elements with click handlers must have one of `keyup`, `keydown`, or `keypress` listener.[22m
+
+  [33mΓÜá[39m Static HTML elements with event handlers require a role.[33m (49)[39m
+[2m    Add a role attribute to this element, or use a semantic HTML element instead.[22m
+
+  [33mΓÜá[39m Component "PullRequestList" has 10 useState calls ΓÇö consider useReducer for related state[33m (14)[39m
+[2m    Group related state: `const [state, dispatch] = useReducer(reducer, { field1, field2, ... })`[22m
+
+  [33mΓÜá[39m Component "PullRequestList" is 787 lines ΓÇö consider breaking it into smaller focused components[33m (10)[39m
+[2m    Extract logical sections into focused components: `<UserHeader />`, `<UserActions />`, etc.[22m
+
+  [33mΓÜá[39m 3 setState calls in a single useEffect ΓÇö consider using useReducer or deriving state[33m (14)[39m
+[2m    Combine into useReducer: `const [state, dispatch] = useReducer(reducer, initialState)`[22m
+
+  [33mΓÜá[39m Do not use `dangerouslySetInnerHTML` prop
+[2m    `dangerouslySetInnerHTML` is a way to inject HTML into your React component. This is dangerous because it can easily lead to XSS vulnerabilities.[22m
+
+  [33mΓÜá[39m Array index "i" used as key ΓÇö causes bugs when list is reordered or filtered[33m (12)[39m
+[2m    Use a stable unique identifier: `key={item.id}` or `key={item.slug}` ΓÇö index keys break on reorder/filter[22m
+
+  [33mΓÜá[39m Inline render function "renderConfigDetails()" ΓÇö extract to a separate component for proper reconciliation
+[2m    Extract to a named component: `const ListItem = ({ item }) => <div>{item.name}</div>`[22m
+
+  [33mΓÜá[39m A form label must be associated with a control.[33m (9)[39m
+[2m    Either give the label a `htmlFor` attribute with the id of the associated control, or wrap the label around the control.[22m
+
+  [33mΓÜá[39m useState initialized from prop "value" ΓÇö if this value should stay in sync with the prop, derive it during render instead
+[2m    Remove useState and compute the value inline: `const value = transform(propName)`[22m
+
+  [33mΓÜá[39m The `autoFocus` attribute is found here, which can cause usability issues for sighted and non-sighted users.[33m (2)[39m
+[2m    Remove the `autoFocus` attribute.[22m
+
+  [33mΓÜá[39m useEffect simulating an event handler ΓÇö move logic to an actual event handler instead[33m (3)[39m
+[2m    Move the conditional logic into onClick, onChange, or onSubmit handlers directly[22m
+
+  [33mΓÜá[39m 7 sequential await statements that appear independent ΓÇö use Promise.all() for parallel execution[33m (2)[39m
+[2m    Use `const [a, b] = await Promise.all([fetchA(), fetchB()])` to run independent operations concurrently[22m
+
+  [33mΓÜá[39m Default prop value {} creates a new object reference every render ΓÇö extract to a module-level constant[33m (2)[39m
+[2m    Move to module scope: `const EMPTY_ITEMS: Item[] = []` then use as the default value[22m
+
+  [33mΓÜá[39m useState(now()) calls initializer on every render ΓÇö use useState(() => now()) for lazy initialization[33m (2)[39m
+[2m    Wrap in an arrow function so it only runs once: `useState(() => expensiveComputation())`[22m
+
+  [33mΓÜá[39m Missing `href` attribute for the `a` element.[33m (2)[39m
+[2m    Provide an `href` for the `a` element.[22m
+
+  [33mΓÜá[39m preventDefault() on <a> onClick ΓÇö use a <button> or routing component instead[33m (2)[39m
+[2m    Use `<form action={serverAction}>` (works without JS) or `<button>` instead of `<a>` with preventDefault[22m
+
+  [33mΓÜá[39m Unused file[33m (27)[39m
+[2m    This file is not imported by any other file in the project.[22m
+
+  [33mΓÜá[39m Unused export: ScheduleList[33m (29)[39m
+
+  [33mΓÜá[39m Unused type: ConvexReactClient[33m (12)[39m
+
+  [33mΓÜá[39m Duplicate export: useTaskQueue|default
+
+  [2mΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ[22m
+  [2mΓöé[22m [32mΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ[39m                                                  [2mΓöé[22m
+  [2mΓöé[22m [32mΓöé Γùá Γùá Γöé[39m                                                  [2mΓöé[22m
+  [2mΓöé[22m [32mΓöé  Γû╜  Γöé[39m                                                  [2mΓöé[22m
+  [2mΓöé[22m [32mΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ[39m                                                  [2mΓöé[22m
+  [2mΓöé[22m React Doctor [2m(www.react.doctor)[22m                          [2mΓöé[22m
+  [2mΓöé[22m                                                          [2mΓöé[22m
+  [2mΓöé[22m [32m79[39m / 100  [32mGreat[39m                                          [2mΓöé[22m
+  [2mΓöé[22m                                                          [2mΓöé[22m
+  [2mΓöé[22m [32mΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûê[39m[2mΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæΓûæ[22m       [2mΓöé[22m
+  [2mΓöé[22m                                                          [2mΓöé[22m
+  [2mΓöé[22m [31mΓ£ù 3 errors[39m  [33mΓÜá 246 warnings[39m  [2macross 73/113 files[22m  [2min 1.7s[22m [2mΓöé[22m
+  [2mΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ[22m
+
+[2m  Full diagnostics written to C:\Users\User\AppData\Local\Temp\react-doctor-b7076ed6-431d-493f-8e45-2d5292579bbc[22m
+
+[2m  Share your results: [36mhttps://www.react.doctor/share?p=%40hemsoft%2Fbuddy&s=79&e=3&w=246&f=73[39m[22m
+

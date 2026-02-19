@@ -1,0 +1,37 @@
+Rule: knip/files
+Severity: warning
+Category: Dead Code
+Count: 27
+
+Unused file
+
+Suggestion: This file is not imported by any other file in the project.
+
+Files:
+  generate-icons.ts
+  electron\cache.ts
+  electron\config.ts
+  electron\main.ts
+  electron\menu.ts
+  electron\preload.ts
+  electron\zoom.ts
+  electron\ipc\cacheHandlers.ts
+  electron\ipc\configHandlers.ts
+  electron\ipc\copilotHandlers.ts
+  electron\ipc\githubHandlers.ts
+  electron\ipc\index.ts
+  electron\ipc\shellHandlers.ts
+  electron\ipc\windowHandlers.ts
+  electron\services\copilotClient.ts
+  electron\services\copilotService.ts
+  electron\workers\aiWorker.ts
+  electron\workers\dispatcher.ts
+  electron\workers\execWorker.ts
+  electron\workers\index.ts
+  electron\workers\offlineSync.ts
+  electron\workers\skillWorker.ts
+  electron\workers\types.ts
+  src\components\TreeView.tsx
+  src\services\index.ts
+  src\types\governance.ts
+  src\components\shared\index.ts

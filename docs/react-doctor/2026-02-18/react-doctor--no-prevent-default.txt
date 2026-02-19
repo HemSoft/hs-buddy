@@ -1,0 +1,12 @@
+Rule: react-doctor/no-prevent-default
+Severity: warning
+Category: Correctness
+Count: 2
+
+preventDefault() on <a> onClick — use a <button> or routing component instead
+
+Suggestion: Use `<form action={serverAction}>` (works without JS) or `<button>` instead of `<a>` with preventDefault
+
+Files:
+  src/components/PullRequestHistoryPanel.tsx: 273
+  src/components/PRReviewPanel.tsx: 334

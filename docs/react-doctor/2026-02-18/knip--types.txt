@@ -1,0 +1,17 @@
+Rule: knip/types
+Severity: warning
+Category: Dead Code
+Count: 12
+
+Unused type: ConvexReactClient
+
+Files:
+  src\providers\ConvexClientProvider.tsx
+  src\services\dataCache.ts
+  src\services\taskQueue.ts
+  src\hooks\useTaskQueue.ts
+  src\utils\prDetailView.ts
+  src\components\shared\AccountPicker.tsx
+  src\components\shared\ModelPicker.tsx
+  src\components\shared\PremiumUsageBadge.tsx
+  src\components\shared\RepoPicker.tsx

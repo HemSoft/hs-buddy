@@ -257,6 +257,52 @@ export default defineSchema({
     .index("by_created", ["createdAt"]),
 
   /**
+   * Feature intake normalization records
+   * Maps external ticket IDs (Jira/GitHub/manual/etc.) to canonical GitHub issue drafts.
+   */
+  featureIntakes: defineTable({
+    source: v.union(
+      v.literal("jira"),
+      v.literal("github-issue"),
+      v.literal("manual"),
+      v.literal("other")
+    ),
+    externalId: v.string(),
+    externalUrl: v.optional(v.string()),
+    requestedBy: v.optional(v.string()),
+    title: v.string(),
+    problem: v.string(),
+    requestedOutcome: v.optional(v.string()),
+    acceptanceCriteria: v.array(v.string()),
+    riskLabel: v.union(
+      v.literal("risk:trivial"),
+      v.literal("risk:low"),
+      v.literal("risk:medium"),
+      v.literal("risk:high"),
+      v.literal("risk:critical")
+    ),
+    canonicalKey: v.string(),
+    canonicalIssueTitle: v.string(),
+    canonicalIssueBody: v.string(),
+    canonicalIssueLabels: v.array(v.string()),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("linked"),
+      v.literal("duplicate")
+    ),
+    duplicateOfId: v.optional(v.id("featureIntakes")),
+    canonicalIssueNumber: v.optional(v.number()),
+    canonicalIssueUrl: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_source_external", ["source", "externalId"])
+    .index("by_canonical_key", ["canonicalKey"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  /**
    * Runs - execution history for jobs
    */
   runs: defineTable({

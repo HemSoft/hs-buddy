@@ -1,0 +1,18 @@
+Rule: knip/exports
+Severity: warning
+Category: Dead Code
+Count: 29
+
+Unused export: ScheduleList
+
+Files:
+  src\components\automation\index.ts
+  src\hooks\useConvex.ts
+  src\services\taskQueue.ts
+  src\hooks\useConfig.ts
+  src\types\config.ts
+  src\hooks\useTaskQueue.ts
+  src\utils\prDetailView.ts
+  src\utils\dateUtils.ts
+  src\components\automation\ScheduleList.tsx
+  src\components\automation\JobList.tsx

@@ -28,7 +28,7 @@ That repo contains:
 | Workflow | Schedule | Output | Source |
 |----------|----------|--------|--------|
 | `daily-repo-status` | Daily | `type:report` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `weekly-repo-audit` | Mondays 14:17 UTC | `type:report` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `repo-audit` | Daily | `type:report` + `agent:fixable` issues | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 
 ---
 

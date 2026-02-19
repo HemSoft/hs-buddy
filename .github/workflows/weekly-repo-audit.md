@@ -1,11 +1,12 @@
 ---
 description: |
-  This workflow runs a weekly repository audit to detect documentation drift,
+  This workflow runs a daily repository audit to detect documentation drift,
   stale artifacts, configuration hygiene issues, and cross-reference mismatches.
+  It creates one summary report issue and individual agent-fixable issues for
+  findings that an AI agent can safely resolve autonomously.
 
 on:
-  schedule:
-    - cron: "17 14 * * 1"
+  schedule: daily
   workflow_dispatch:
 
 permissions:
@@ -22,12 +23,14 @@ tools:
 safe-outputs:
   create-issue:
     title-prefix: "[repo-audit] "
-    labels: [report]
+    labels: [type:report, audit]
+    max: 10
 ---
 
-# Weekly Repo Audit
+# Daily Repo Audit
 
-Run a high-signal repository audit and publish exactly one actionable weekly report issue.
+Run a high-signal daily repository audit. Produce a summary report issue and
+individual fixable issues for findings an agent can resolve autonomously.
 
 ## Goals
 
@@ -54,18 +57,47 @@ Run a high-signal repository audit and publish exactly one actionable weekly rep
 
 ## Output Requirements
 
-- Create one GitHub issue with:
-  - Executive summary (overall repo health)
-  - Findings table with severity and confidence
-  - Recommended actions labeled "Do now", "Do next", "Later"
-  - A short "No action required" section if everything looks healthy
+### Summary issue (always)
 
-- Keep tone concise and practical.
-- Prioritize signal over volume; avoid speculative findings.
+Create one summary issue with labels `type:report` and `audit` containing:
+
+- Executive summary (overall repo health)
+- Findings table with severity, confidence, and whether each finding is agent-fixable
+- A short "No action required" section if everything looks healthy
+
+### Per-finding issues (for agent-fixable findings only)
+
+For each finding that meets ALL of the following criteria, create a separate issue:
+
+- The fix is **scoped to one or two files** — no broad refactors
+- The fix is **deterministic** — there is one clear correct outcome
+- Risk class is `risk:trivial` or `risk:low`
+- No user-facing behavioral change is required
+
+Label each agent-fixable issue with: `type:action-item`, `agent:fixable`, and the appropriate risk label (`risk:trivial` or `risk:low`).
+
+Issue title format: `[repo-audit] <short description of the specific fix>`
+
+Issue body must include:
+
+- **Finding**: What was detected and where (file path, line if known)
+- **Fix**: Exactly what change to make
+- **Acceptance criteria**: How to verify the fix is correct
+- **Risk**: `risk:trivial` or `risk:low` with justification
+
+Do NOT create agent-fixable issues for:
+
+- Findings requiring architectural decisions
+- Findings that touch more than 3 files
+- Anything with risk:medium or higher
+- Ambiguous findings where multiple valid fixes exist
+
+Cap total agent-fixable issues at 3 per run to avoid noise.
 
 ## Process
 
 1. Inspect repository structure and key docs
 2. Cross-check docs/config claims against implementation
-3. Compile findings with severity and confidence
-4. Create one audit issue via safe output tool
+3. Compile findings with severity, confidence, and agent-fixability assessment
+4. Create summary report issue
+5. For each qualifying finding, create a scoped agent-fixable issue

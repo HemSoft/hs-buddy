@@ -31,7 +31,7 @@
 name: "Daily Repo Status"
 "on":
   schedule:
-  - cron: "56 2 * * *"
+  - cron: "0 13 * * *"
     # Friendly format: daily (scattered)
   workflow_dispatch:
 

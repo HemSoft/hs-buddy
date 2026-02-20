@@ -34,6 +34,7 @@ That repo contains:
 | `pr-analyzer-a` | `8,38 * * * *` | Correctness & logic review comments on draft PRs | Local |
 | `pr-analyzer-b` | `10,40 * * * *` | Security & performance review comments on draft PRs | Local |
 | `pr-analyzer-c` | `12,42 * * * *` | Style & maintainability review comments on draft PRs | Local |
+| `pr-fixer` | `20,50 * * * *` | Implements analyzer fixes on draft PRs, increments cycle | Local |
 
 ---
 

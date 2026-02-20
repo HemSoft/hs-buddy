@@ -28,7 +28,7 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 | ✅ | High | Issue Processor workflow | Cron every 30 min; claim issue; create draft PR; agent:in-progress labeling (2026-02) |
 | ✅ | **Critical** | Build sfl-auditor workflow | Audits issue/PR label consistency; repairs orphaned in-progress, conflicting labels, and unexplained pauses. Cron `15,45 * * * *` (2026-02) |
 | ✅ | High | Build PR Analyzer workflow (×3 models) | Three analyzers (A: Correctness, B: Security, C: Style) on staggered crons; cycle-aware comment markers; compiled lock.yml (2026-02) |
-| 📋 | High | Build PR Fixer workflow (authority) | Single fixer using Claude Opus; reads all analyzer comments on a draft PR; implements all fixes; commits to the PR branch; exits. Does not un-draft the PR. |
+| ✅ | High | Build PR Fixer workflow (authority) | Authority model (Claude Opus); reads all 3 analyzer comments; implements fixes; commits via create-pull-request safe output; increments pr:cycle-N; escalates at cycle 3. Cron `20,50 * * * *` (2026-02) |
 | ✅ | High | Add pr:cycle-N label system | Labels `pr:cycle-1/2/3` created; analyzers skip cycle-3 PRs; escalation built into PR Fixer design (2026-02) |
 | 📋 | High | Build PR Promoter workflow | Runs after PR Fixer; if analyzers find zero blocking issues → convert draft PR to ready-for-review and post "Ready for human review" comment. |
 | 📋 | Medium | Run 30-day Set it Free pilot | Measure MTTR, merge quality, false positives; publish to SFL repo |
@@ -66,20 +66,11 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 
 ## Progress
 
-**Remaining: 4** | **Completed: 37** (90%)
+**Remaining: 3** | **Completed: 38** (93%)
 
 ---
 
 ## Remaining Items
-
-### Build PR Fixer workflow (authority)
-
-**Goal**: Single authoritative fixer using Claude Opus. Reads all review comments posted by analyzers on a draft PR, implements all non-blocking and blocking fixes, commits to the PR branch, increments the cycle label (`pr:cycle-N`), and exits without un-drafting the PR.
-
-**Deliverables**:
-
-- `.github/workflows/pr-fixer.md` + compiled `.lock.yml`
-- Model configured via `GH_AW_MODEL_AGENT_COPILOT` repo variable
 
 ### Build PR Promoter workflow
 

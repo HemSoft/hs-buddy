@@ -76,8 +76,8 @@ escalation, not further analysis.)
 
 ## Step 3 — Check if already reviewed
 
-Search the PR's comments for a comment containing the exact marker:
-`<!-- pr-analyzer-a cycle:N -->` where N is the current cycle number from
+Search the PR body for the exact marker text:
+`[MARKER:pr-analyzer-a cycle:N]` where N is the current cycle number from
 Step 2.
 
 If the marker exists, this analyzer has already reviewed this PR in the
@@ -119,8 +119,12 @@ Call `update_issue` with:
 - `operation`: `"append"`
 - `body`: the structured review in the exact format below
 
+**CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
+be the very first line of your output, exactly as shown. Without it, the
+pipeline will re-review this PR every 30 minutes forever.
+
 ```markdown
-<!-- pr-analyzer-a cycle:N -->
+[MARKER:pr-analyzer-a cycle:N]
 ## 🔍 PR Analysis A — Correctness & Logic
 
 **Analyzer**: A (Correctness & Logic)

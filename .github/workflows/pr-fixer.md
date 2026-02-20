@@ -78,12 +78,12 @@ cycles and still has issues. Escalate:
 
 ## Step 3 — Verify all three analyzers have reviewed
 
-Search the PR's comments for these exact markers for the current cycle number
+Search the PR body for these exact marker texts for the current cycle number
 (N = current cycle from Step 2):
 
-- `<!-- pr-analyzer-a cycle:N -->`
-- `<!-- pr-analyzer-b cycle:N -->`
-- `<!-- pr-analyzer-c cycle:N -->`
+- `[MARKER:pr-analyzer-a cycle:N]`
+- `[MARKER:pr-analyzer-b cycle:N]`
+- `[MARKER:pr-analyzer-c cycle:N]`
 
 All three markers MUST be present. If any marker is missing, at least one
 analyzer has not reviewed this PR in the current cycle yet. Call `noop` with
@@ -92,8 +92,8 @@ missing) — skipping." and exit. The next run will try again.
 
 ## Step 4 — Check if already fixed in this cycle
 
-Search the PR's comments for the exact marker:
-`<!-- pr-fixer cycle:N -->` where N is the current cycle number.
+Search the PR body for the exact marker text:
+`[MARKER:pr-fixer cycle:N]` where N is the current cycle number.
 
 If that marker exists, this fixer has already processed this cycle. Call `noop`
 with message "PR #<number> already fixed in cycle <N> — skipping." and exit.
@@ -217,8 +217,12 @@ Call `update_issue` with:
 - `operation`: `"append"`
 - `body`: the structured fix summary in the exact format below
 
+**CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
+be the very first line of your output, exactly as shown. Without it, the
+pipeline will re-fix this PR every 30 minutes forever.
+
 ```markdown
-<!-- pr-fixer cycle:N -->
+[MARKER:pr-fixer cycle:N]
 ## 🔧 PR Fixer — Cycle N Fix Summary
 
 **Fixer**: Authority (Claude Opus)

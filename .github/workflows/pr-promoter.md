@@ -67,8 +67,8 @@ message "PR #<number> is at cycle 0 — waiting for analyzers." and exit.
 If the PR is NOT a draft, it was already promoted. Call `noop` with message
 "PR #<number> is already non-draft — skipping." and exit.
 
-Search the PR's comments for the exact marker:
-`<!-- pr-promoter cycle:N -->` where N is the cycle number that triggered
+Search the PR body for the exact marker text:
+`[MARKER:pr-promoter cycle:N]` where N is the cycle number that triggered
 promotion (any value of N).
 
 If any such marker exists, the promoter has already acted on this PR. Call
@@ -86,17 +86,17 @@ the PR Fixer has already incremented it:
 
 So the logic is:
 
-1. Look for the **pr-fixer** marker comment: `<!-- pr-fixer cycle:N -->`
+1. Look for the **pr-fixer** marker: `[MARKER:pr-fixer cycle:N]`
    for the most recent cycle. If the fixer ran and incremented, the
    analyzer verdicts that matter are from that fixer's cycle (N).
 2. If no fixer comment exists for the latest cycle, check analyzer comments
    at the current cycle number.
 
-Search the PR's comments for these exact markers for the target cycle (C):
+Search the PR body for these exact marker texts for the target cycle (C):
 
-- `<!-- pr-analyzer-a cycle:C -->`
-- `<!-- pr-analyzer-b cycle:C -->`
-- `<!-- pr-analyzer-c cycle:C -->`
+- `[MARKER:pr-analyzer-a cycle:C]`
+- `[MARKER:pr-analyzer-b cycle:C]`
+- `[MARKER:pr-analyzer-c cycle:C]`
 
 All three markers MUST be present. If any marker is missing, call `noop`
 with message "PR #<number> cycle <C>: waiting for all 3 analyzers — skipping."
@@ -140,8 +140,12 @@ Call `update_issue` with:
 - `operation`: `"append"`
 - `body`: the structured promotion comment in the exact format below
 
+**CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
+be the very first line of your output, exactly as shown. Without it, the
+pipeline may re-promote this PR.
+
 ```markdown
-<!-- pr-promoter cycle:C -->
+[MARKER:pr-promoter cycle:C]
 ## ✅ PR Promoter — Ready for Human Review
 
 **Promoter**: PR Promoter

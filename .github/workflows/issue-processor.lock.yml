@@ -23,7 +23,7 @@
 # labelled agent:fixable, claims it, implements the described fix on a new
 # branch, and opens a pull request. One issue per run — no fan-out.
 #
-# frontmatter-hash: dd26b001783aee39067de4549682eb100af770b9e131854223f8a840bc064045
+# frontmatter-hash: a673109c6f510937ae74b7dc1084c0f0e1b45b0345b216191d9fb48a8ed8136b
 
 name: "Issue Processor"
 "on":
@@ -144,7 +144,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'EOF'
-          {"create_pull_request":{},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":1}}
+          {"create_pull_request":{},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":2}}
           EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'EOF'
           [
@@ -182,7 +182,7 @@ jobs:
               "name": "create_pull_request"
             },
             {
-              "description": "Update an existing GitHub issue's status, title, labels, assignees, milestone, or body. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 1 issue(s) can be updated.",
+              "description": "Update an existing GitHub issue's status, title, labels, assignees, milestone, or body. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 2 issue(s) can be updated. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1104,7 +1104,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.ref_name }}\",\"labels\":[\"agent:pr\",\"type:fix\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"max\":1}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.ref_name }}\",\"draft\":false,\"labels\":[\"agent:pr\",\"type:fix\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"max\":2,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

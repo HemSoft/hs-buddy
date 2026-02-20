@@ -24,8 +24,10 @@ safe-outputs:
   create-pull-request:
     title-prefix: "[agent-fix] "
     labels: [agent:pr, type:fix]
+    draft: false
   update-issue:
-    max: 1
+    target: "*"
+    max: 2
 ---
 
 # Issue Processor
@@ -53,11 +55,15 @@ If no issue matches, exit immediately — nothing to do.
 
 ## Step 2 — Claim the issue
 
-Before doing any other work, update the issue to add label `agent:in-progress`
-and remove label `agent:fixable`. This prevents a concurrent run from picking
-up the same issue.
+Before doing any other work, call `update_issue` with:
 
-Post a comment on the issue: "🤖 Issue Processor claimed this issue. Working on a fix."
+- `issue_number`: the issue number found in Step 1 (always required)
+- `labels`: replace with `["agent:in-progress", "type:report", "type:action-item", "audit"]`
+  (remove `agent:fixable`, add `agent:in-progress` — keep all other existing labels)
+- `body`: append "🤖 Issue Processor claimed this issue. Working on a fix."
+- `operation`: `"append"`
+
+This prevents a concurrent run from picking up the same issue.
 
 ## Step 3 — Validate the issue body
 
@@ -109,7 +115,11 @@ Create a PR from `agent-fix/issue-<issue-number>` into `main` with:
 
 ## Step 7 — Update the issue
 
-Post a comment: "🔀 Opened PR #<number> — ready for review."
+Call `update_issue` with:
+
+- `issue_number`: the issue number from Step 1 (always required)
+- `body`: "🔀 Opened PR #<number> — ready for review."
+- `operation`: `"append"`
 
 ## Guardrails
 

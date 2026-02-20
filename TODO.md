@@ -1,11 +1,35 @@
 # Buddy - TODO
 
+## Agentic PR Lifecycle
+
+The full pipeline for autonomous code quality:
+
+```
+Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
+                                                    ↓
+                              ┌─────── PR Analyzers (×3 models) ─────────┐
+                              │  Comment on issues found; exit            │
+                              └───────────────────────────────────────────┘
+                                                    ↓
+                              ┌─────── PR Fixer (Authority / Opus) ───────┐
+                              │  Read all comments; fix; commit; exit      │
+                              └───────────────────────────────────────────┘
+                                                    ↓
+                              Repeat up to 3 cycles (pr:cycle-1/2/3 labels)
+                                                    ↓
+                         Still issues after cycle 3? → agent:human-required
+                         Clean? → Un-draft PR → Human review & merge
+```
+
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
 | ✅ | High | Define Set it Free governance policy | Moved to relias-engineering/set-it-free-loop (2026-02) |
 | ✅ | High | Build feature-intake normalization workflow | Convex mapping schema + template-driven issue drafts + dedupe checks (2026-02) |
-| 📋 | High | Deploy issue-to-pr-fixer workflow | From SFL catalog once graduated — see set-it-free-loop/TODO.md |
-| 📋 | High | Deploy PR quality analyzer workflow | From SFL catalog once graduated — see set-it-free-loop/TODO.md |
+| ✅ | High | Issue Processor workflow | Cron every 30 min; claim issue; create draft PR; agent:in-progress labeling (2026-02) |
+| 📋 | High | Build PR Analyzer workflow (×3 models) | Three separate analyzer agents that review draft PRs labeled `agent:pr`; each posts structured review comments and exits. Models: `claude-sonnet-4-5`, `gemini-2-pro`, `gpt-4o`. Triggered on cron; picks oldest `agent:pr` draft PR not yet reviewed this cycle. |
+| 📋 | High | Build PR Fixer workflow (authority) | Single fixer using Claude Opus; reads all analyzer comments on a draft PR; implements all fixes; commits to the PR branch; exits. Does not un-draft the PR. |
+| 📋 | High | Add pr:cycle-N label system | Labels `pr:cycle-1`, `pr:cycle-2`, `pr:cycle-3` on PRs to track iteration count. After cycle 3 with remaining issues → add `agent:human-required`, post human-escalation comment. |
+| 📋 | High | Build PR Promoter workflow | Runs after PR Fixer; if analyzers find zero blocking issues → convert draft PR to ready-for-review and post "Ready for human review" comment. |
 | 📋 | Medium | Run 30-day Set it Free pilot | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | ✅ | High | Improve Welcome to Buddy window | Convex-backed stats dashboard, session tracking (2026-02) |
@@ -41,19 +65,46 @@
 
 ## Progress
 
-**Remaining: 4** | **Completed: 33** (89%)
+**Remaining: 6** | **Completed: 34** (85%)
 
 ---
 
 ## Remaining Items
 
-### Deploy issue-to-pr-fixer workflow
+### Build PR Analyzer workflow (×3 models)
 
-**Goal**: When graduated in [set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop), deploy to Buddy via `deploy-workflow.ps1`.
+**Goal**: Three parallel analyzer agents that each review the draft PR and post structured comments identifying issues. Each runs independently with a different model to get diverse perspectives (claude-sonnet-4-5, gemini-2-pro, gpt-4o). Triggered by cron; picks the oldest draft PR labeled `agent:pr` that has not yet been reviewed in the current cycle.
 
-### Deploy PR quality analyzer workflow
+**Concurrency guard**: Label `agent:analyzing` while running; remove when done.
 
-**Goal**: When graduated in [set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop), deploy to Buddy via `deploy-workflow.ps1`.
+**Deliverables**:
+
+- `.github/workflows/pr-analyzer-a.md` + compiled `.lock.yml`
+- `.github/workflows/pr-analyzer-b.md` + compiled `.lock.yml`
+- `.github/workflows/pr-analyzer-c.md` + compiled `.lock.yml`
+
+### Build PR Fixer workflow (authority)
+
+**Goal**: Single authoritative fixer using Claude Opus. Reads all review comments posted by analyzers on a draft PR, implements all non-blocking and blocking fixes, commits to the PR branch, increments the cycle label (`pr:cycle-N`), and exits without un-drafting the PR.
+
+**Deliverables**:
+
+- `.github/workflows/pr-fixer.md` + compiled `.lock.yml`
+- Model configured via `GH_AW_MODEL_AGENT_COPILOT` repo variable
+
+### Add pr:cycle-N label system
+
+**Goal**: Track how many fixer cycles a PR has been through. After cycle 3 with remaining issues, escalate to human with `agent:human-required` label and explanatory comment.
+
+**Labels to create**: `pr:cycle-1`, `pr:cycle-2`, `pr:cycle-3`
+
+### Build PR Promoter workflow
+
+**Goal**: Runs after the PR Fixer. If all three analyzers found zero blocking issues in the latest cycle, convert the draft PR to ready-for-review (remove draft state) and post a "✅ Ready for human review" comment.
+
+**Deliverables**:
+
+- `.github/workflows/pr-promoter.md` + compiled `.lock.yml`
 
 ### Run 30-day Set it Free pilot
 

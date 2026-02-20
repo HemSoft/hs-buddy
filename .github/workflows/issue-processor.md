@@ -24,7 +24,7 @@ safe-outputs:
   create-pull-request:
     title-prefix: "[agent-fix] "
     labels: [agent:pr, type:fix]
-    draft: false
+    draft: true
   update-issue:
     target: "*"
     max: 2

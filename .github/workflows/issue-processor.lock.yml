@@ -23,7 +23,7 @@
 # labelled agent:fixable, claims it, implements the described fix on a new
 # branch, and opens a pull request. One issue per run — no fan-out.
 #
-# frontmatter-hash: a673109c6f510937ae74b7dc1084c0f0e1b45b0345b216191d9fb48a8ed8136b
+# frontmatter-hash: 8c725af7805650da8fb80c990b53e4137681a1441eeaf7e6749a9bad685f82d8
 
 name: "Issue Processor"
 "on":
@@ -149,7 +149,7 @@ jobs:
           cat > /opt/gh-aw/safeoutputs/tools.json << 'EOF'
           [
             {
-              "description": "Create a new GitHub pull request to propose code changes. Use this after making file edits to submit them for review and merging. The PR will be created from the current branch with your committed changes. For code review comments on an existing PR, use create_pull_request_review_comment instead. CONSTRAINTS: Maximum 1 pull request(s) can be created. Title will be prefixed with \"[agent-fix] \". Labels [agent:pr type:fix] will be automatically added.",
+              "description": "Create a new GitHub pull request to propose code changes. Use this after making file edits to submit them for review and merging. The PR will be created from the current branch with your committed changes. For code review comments on an existing PR, use create_pull_request_review_comment instead. CONSTRAINTS: Maximum 1 pull request(s) can be created. Title will be prefixed with \"[agent-fix] \". Labels [agent:pr type:fix] will be automatically added. PRs will be created as drafts.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1104,7 +1104,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.ref_name }}\",\"draft\":false,\"labels\":[\"agent:pr\",\"type:fix\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"max\":2,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.ref_name }}\",\"draft\":true,\"labels\":[\"agent:pr\",\"type:fix\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"max\":2,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

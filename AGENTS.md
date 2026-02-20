@@ -6,16 +6,18 @@
 
 ## Built Upon hs-conductor
 
-This application is architecturally based on **[hs-conductor](D:\github\HemSoft\hs-conductor)**, specifically the `/admin` Electron app within that repository.
+This application is architecturally based on **hs-conductor**, specifically the `/admin` Electron app within that repository.
 
 ### Reference Architecture
 
 When making decisions about project structure, UI patterns, or technical implementation, **always reference hs-conductor/admin** for consistency:
 
-- **Electron Setup**: `D:\github\HemSoft\hs-conductor\admin\electron\main.ts`
-- **React Structure**: `D:\github\HemSoft\hs-conductor\admin\src\`
-- **Build Config**: `D:\github\HemSoft\hs-conductor\admin\vite.config.ts`
+- **Electron Setup**: `(hs-conductor-repo)/admin/electron/main.ts`
+- **React Structure**: `(hs-conductor-repo)/admin/src/`
+- **Build Config**: `(hs-conductor-repo)/admin/vite.config.ts`
 - **UI Components**: React Complex Tree, Allotment (split panes), Monaco Editor, VSCode WebView UI Toolkit
+
+> **Note:** Replace `(hs-conductor-repo)` with the actual path where you have cloned the hs-conductor repository.
 
 ## Technology Stack
 

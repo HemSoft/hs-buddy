@@ -80,7 +80,7 @@ If any of these are violated, the SFL Auditor should detect and repair it automa
 | `pr-analyzer-b.lock.yml` | Reviews draft PRs for security & performance issues | `10,40 * * * *` |
 | `pr-analyzer-c.lock.yml` | Reviews draft PRs for style & maintainability issues | `12,42 * * * *` |
 | `pr-fixer.lock.yml` | Implements fixes from analyzer comments | `20,50 * * * *` |
-| `pr-promoter.lock.yml` | Un-drafts clean PRs for human review | _(planned)_ |
+| `pr-promoter.lock.yml` | Un-drafts clean PRs for human review | `25,55 * * * *` |
 
 ---
 

@@ -30,7 +30,7 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 | ✅ | High | Build PR Analyzer workflow (×3 models) | Three analyzers (A: Correctness, B: Security, C: Style) on staggered crons; cycle-aware comment markers; compiled lock.yml (2026-02) |
 | ✅ | High | Build PR Fixer workflow (authority) | Authority model (Claude Opus); reads all 3 analyzer comments; implements fixes; commits via create-pull-request safe output; increments pr:cycle-N; escalates at cycle 3. Cron `20,50 * * * *` (2026-02) |
 | ✅ | High | Add pr:cycle-N label system | Labels `pr:cycle-1/2/3` created; analyzers skip cycle-3 PRs; escalation built into PR Fixer design (2026-02) |
-| 📋 | High | Build PR Promoter workflow | Runs after PR Fixer; if analyzers find zero blocking issues → convert draft PR to ready-for-review and post "Ready for human review" comment. |
+| ✅ | High | Build PR Promoter workflow | Runs after PR Fixer; if all 3 analyzers pass → un-draft PR via create-pull-request (draft:false) + promotion comment. Cron `25,55 * * * *` (2026-02) |
 | 📋 | Medium | Run 30-day Set it Free pilot | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | ✅ | High | Improve Welcome to Buddy window | Convex-backed stats dashboard, session tracking (2026-02) |
@@ -66,19 +66,11 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 
 ## Progress
 
-**Remaining: 3** | **Completed: 38** (93%)
+**Remaining: 2** | **Completed: 39** (95%)
 
 ---
 
 ## Remaining Items
-
-### Build PR Promoter workflow
-
-**Goal**: Runs after the PR Fixer. If all three analyzers found zero blocking issues in the latest cycle, convert the draft PR to ready-for-review (remove draft state) and post a "✅ Ready for human review" comment.
-
-**Deliverables**:
-
-- `.github/workflows/pr-promoter.md` + compiled `.lock.yml`
 
 ### Run 30-day Set it Free pilot
 

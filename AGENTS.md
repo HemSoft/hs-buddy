@@ -1,5 +1,73 @@
 # hs-buddy Agent Context
 
+## Current Mission: Perfect the Agentic Loop
+
+> **This is the single highest-priority focus of this repository right now.**
+
+The agentic loop lives entirely in `.github/workflows/`. Its job is simple:
+**GitHub Actions, GitHub Issues, and GitHub Pull Requests must be in perfect harmony at all times.**
+
+The pipeline works like this:
+
+```
+Repo Audit → Issues (agent:fixable)
+                 ↓
+         Issue Processor (claims issue, creates draft PR)
+                 ↓
+         PR Analyzers ×3 → PR Fixer → PR Promoter
+                 ↓
+         Clean PR → Human review & merge
+```
+
+The **SFL Auditor** (`.github/workflows/sfl-auditor.lock.yml`) is the health guardian of this loop. It runs every 30 minutes and is responsible for detecting and repairing any state inconsistency between issues and PRs.
+
+### Agent Standing Orders
+
+These apply in every session, without exception:
+
+#### 1. SFL Auditor is First
+
+If the SFL Auditor has failed, is producing incorrect output, or missed a discrepancy — **fix the SFL Auditor before doing anything else.** No other pipeline work takes precedence over keeping the auditor healthy.
+
+#### 2. Teach, Don't Just Fix
+
+When you observe a state discrepancy (e.g., `agent:in-progress` issue with no open PR, conflicting labels, orphaned branches) — **do not silently fix it manually**. Instead:
+
+1. Fix the immediate symptom if urgent.
+2. Identify what SFL Auditor check would have caught this.
+3. Propose an improvement to `sfl-auditor.md` that would prevent it recurring.
+
+The goal is to make manual intervention unnecessary over time. Every manual fix is a gap in the auditor's knowledge.
+
+#### 3. Propose Before You Commit (Interactive Sessions)
+
+During interactive sessions with the user, **always propose SFL Auditor improvements explicitly before making changes**. State what you observed, what check is missing, and what the fix to the auditor would be. The user will approve, adjust, or redirect. Only then commit.
+
+#### 4. What "Harmony" Means
+
+The pipeline is in harmony when ALL of the following are true:
+
+- Every issue labeled `agent:in-progress` has exactly one open PR with a branch matching `agent-fix/issue-<number>-*`
+- No issue has both `agent:in-progress` and `agent:fixable` simultaneously
+- No `agent:pause` label exists without an explanatory comment
+- No open `agent-fix/` PR exists whose linked issue is closed or lacks `agent:in-progress`
+- No `agent:fixable` issue has been waiting more than 2 cron cycles without being claimed
+
+If any of these are violated, the SFL Auditor should detect and repair it automatically. If it doesn't, that is a bug in the SFL Auditor.
+
+### Workflow Files
+
+| File | Purpose | Schedule |
+|------|---------|----------|
+| `repo-audit.lock.yml` | Creates `agent:fixable` issues from code quality findings | Daily |
+| `issue-processor.lock.yml` | Claims oldest `agent:fixable` issue, creates draft PR | `*/30 * * * *` |
+| `sfl-auditor.lock.yml` | Audits issue/PR label harmony, repairs discrepancies | `15,45 * * * *` |
+| `pr-analyzer-*.lock.yml` | Reviews draft PRs, posts structured comments | _(planned)_ |
+| `pr-fixer.lock.yml` | Implements fixes from analyzer comments | _(planned)_ |
+| `pr-promoter.lock.yml` | Un-drafts clean PRs for human review | _(planned)_ |
+
+---
+
 ## Project Overview
 
 **hs-buddy** is your universal productivity companion - an Electron application that sits on top of the HemSoft skills infrastructure to help automate tasks, manage workflows, and provide insights across both work and personal life.

@@ -22,6 +22,8 @@ tools:
     lockdown: false
 
 safe-outputs:
+  noop:
+    max: 1
   update-issue:
     target: "*"
     max: 10
@@ -98,11 +100,21 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
+## Step 6 — Signal completion
+
+After completing all checks (Steps 2–5), you MUST always call exactly one of:
+
+- `update_issue` — if any discrepancy was found and repaired (already called above)
+- `noop` — if ALL checks passed and NO discrepancies were found
+
+Never finish the run without calling at least one safe output. A run with zero
+safe outputs is treated as a failure.
+
 ## Guardrails
 
 - Never modify PR content or labels — only update issues via `update_issue`
 - Never remove `agent:human-required` — that label requires explicit human action
 - Never add `agent:fixable` to an issue that already has a matching open PR
-- If a check finds nothing wrong, do nothing — no noop comments
+- Always post the recovery comment in Step 2 even if a previous auditor run already commented — it documents the recurring issue and aids debugging
 - If the GitHub API search fails for any step, skip that step and continue with the rest
 - At most 10 `update_issue` calls per run (enforced by safe-outputs max)

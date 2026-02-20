@@ -26,6 +26,7 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 | ✅ | High | Define Set it Free governance policy | Moved to relias-engineering/set-it-free-loop (2026-02) |
 | ✅ | High | Build feature-intake normalization workflow | Convex mapping schema + template-driven issue drafts + dedupe checks (2026-02) |
 | ✅ | High | Issue Processor workflow | Cron every 30 min; claim issue; create draft PR; agent:in-progress labeling (2026-02) |
+| 📋 | **Critical** | Build sfl-auditor workflow | Detects and repairs issue/PR state discrepancies (e.g., `agent:in-progress` with no open PR). Runs every 30 min. Resets orphaned issues back to `agent:fixable`. |
 | 📋 | High | Build PR Analyzer workflow (×3 models) | Three separate analyzer agents that review draft PRs labeled `agent:pr`; each posts structured review comments and exits. Models: `claude-sonnet-4-5`, `gemini-2-pro`, `gpt-4o`. Triggered on cron; picks oldest `agent:pr` draft PR not yet reviewed this cycle. |
 | 📋 | High | Build PR Fixer workflow (authority) | Single fixer using Claude Opus; reads all analyzer comments on a draft PR; implements all fixes; commits to the PR branch; exits. Does not un-draft the PR. |
 | 📋 | High | Add pr:cycle-N label system | Labels `pr:cycle-1`, `pr:cycle-2`, `pr:cycle-3` on PRs to track iteration count. After cycle 3 with remaining issues → add `agent:human-required`, post human-escalation comment. |
@@ -65,11 +66,28 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 
 ## Progress
 
-**Remaining: 6** | **Completed: 34** (85%)
+**Remaining: 7** | **Completed: 34** (83%)
 
 ---
 
 ## Remaining Items
+
+### Build sfl-auditor workflow
+
+**Goal**: Detect and repair state discrepancies between issue labels and open PRs. A "health check" that runs every 30 minutes and ensures the agentic pipeline is self-consistent.
+
+**Checks to perform**:
+
+- Issue labeled `agent:in-progress` but no open (draft or non-draft) PR whose branch name matches `agent-fix/issue-<number>` → reset to `agent:fixable`, post recovery comment on the issue
+- PR labeled `agent:pr` but its linked issue no longer has `agent:in-progress` → post a warning comment on the PR
+- Issue labeled `agent:in-progress` AND `agent:fixable` at the same time (conflicting labels) → remove `agent:fixable`
+- Issue labeled `agent:pause` with no associated comment explaining why → post a diagnostic comment
+
+**Deliverables**:
+
+- `.github/workflows/sfl-auditor.md` + compiled `.lock.yml`
+- Cron schedule: `*/30 * * * *` (same cadence as issue-processor, offset by 15 min)
+- Posts a noop comment on any issue it verifies as healthy (optional, configurable)
 
 ### Build PR Analyzer workflow (×3 models)
 

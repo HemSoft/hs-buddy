@@ -55,15 +55,15 @@ issue number matches this issue's number.
 
 If NO matching open PR exists for an in-progress issue:
 
-1. Call `update_issue` with:
+1. Call `update_issue` with ALL of these fields in a **single call**:
    - `issue_number`: the issue number
    - `labels`: the issue's current labels with `agent:in-progress` removed and
      `agent:fixable` added (keep all other existing labels unchanged)
-
-2. Call `update_issue` with:
-   - `issue_number`: the issue number
    - `body`: "⚠️ **SFL Auditor**: No open PR found for this issue. Resetting to `agent:fixable` so the issue processor can reclaim it on the next run."
    - `operation`: `"append"`
+
+**IMPORTANT**: Labels and body MUST be in the same `update_issue` call.
+Splitting them into two calls causes label changes to be silently dropped.
 
 ## Step 3 — Check: conflicting labels
 

@@ -27,7 +27,7 @@ safe-outputs:
     draft: true
   update-issue:
     target: "*"
-    max: 2
+    max: 3
 ---
 
 # Issue Processor
@@ -89,9 +89,9 @@ Read the target file(s) in full before writing anything:
 - If the file has already been fixed (the problem no longer exists), close
   the issue with the comment "✅ Already resolved — closing." and exit
 
-## Step 5 — Implement the fix on a new branch
+## Step 5 — Implement the fix
 
-Create a branch named `agent-fix/issue-<issue-number>` from `main`.
+Checkout a new branch named `agent-fix/issue-<issue-number>` from `main`.
 
 Apply the minimal change that satisfies the acceptance criteria:
 
@@ -101,17 +101,28 @@ Apply the minimal change that satisfies the acceptance criteria:
 - Preserve existing formatting conventions exactly
 - Touch only the files identified in the Fix section
 
-## Step 6 — Open a pull request
+Commit the changes with a descriptive commit message.
 
-Create a PR from `agent-fix/issue-<issue-number>` into `main` with:
+**IMPORTANT**: Do NOT run `git push`. The safe-output tool in the next step
+handles branch pushing and PR creation together. A direct `git push` will fail
+because the workflow token does not have push permissions.
 
-- Title: `[agent-fix] <issue title, stripped of any [repo-audit] prefix>`
+## Step 6 — Open a pull request via safe output
+
+Call the `create_pull_request` safe output tool. This is the ONLY way to
+create a PR — it handles pushing the branch and opening the PR in one step.
+
+The tool will use your committed changes on the current branch. Provide:
+
+- Title: `<issue title, stripped of any [repo-audit] prefix>`
+  (the `[agent-fix]` prefix is added automatically by the safe-output config)
 - Body:
   - `Closes #<issue number>`
   - One-paragraph summary of what was changed and why
   - Acceptance criteria quoted from the issue
   - Risk confirmation: `risk:trivial` or `risk:low` with one-line justification
-- Labels: `agent:pr`, `type:fix`
+
+Do NOT set labels — they are configured automatically by the safe-output.
 
 ## Step 7 — Update the issue
 
@@ -125,5 +136,7 @@ Call `update_issue` with:
 
 - Exit after processing exactly one issue per run — never loop over multiple issues
 - Never force-push, amend commits, or modify files outside the Fix scope
-- If any step fails unexpectedly: add `agent:pause`, remove `agent:in-progress`,
-  post a comment with the failure reason, and exit cleanly
+- Never run `git push` directly — always use the `create_pull_request` safe output
+- If any step fails unexpectedly: call `update_issue` with labels that replace
+  `agent:in-progress` with `agent:pause` (keep all other labels), and body
+  appending the failure reason, then exit cleanly

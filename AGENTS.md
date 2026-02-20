@@ -74,15 +74,15 @@ If any of these are violated, the SFL Auditor should detect and repair it automa
 
 ## Built Upon hs-conductor
 
-This application is architecturally based on **[hs-conductor](D:\github\HemSoft\hs-conductor)**, specifically the `/admin` Electron app within that repository.
+This application is architecturally based on **[hs-conductor](https://github.com/HemSoft/hs-conductor)**, specifically the `/admin` Electron app within that repository.
 
 ### Reference Architecture
 
 When making decisions about project structure, UI patterns, or technical implementation, **always reference hs-conductor/admin** for consistency:
 
-- **Electron Setup**: `D:\github\HemSoft\hs-conductor\admin\electron\main.ts`
-- **React Structure**: `D:\github\HemSoft\hs-conductor\admin\src\`
-- **Build Config**: `D:\github\HemSoft\hs-conductor\admin\vite.config.ts`
+- **Electron Setup**: `(hs-conductor)/admin/electron/main.ts`
+- **React Structure**: `(hs-conductor)/admin/src/`
+- **Build Config**: `(hs-conductor)/admin/vite.config.ts`
 - **UI Components**: React Complex Tree, Allotment (split panes), Monaco Editor, VSCode WebView UI Toolkit
 
 ## Technology Stack

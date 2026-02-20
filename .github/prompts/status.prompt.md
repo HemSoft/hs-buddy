@@ -33,6 +33,7 @@ Run these queries:
    - `pr-analyzer-b.lock.yml`
    - `pr-analyzer-c.lock.yml`
    - `pr-fixer.lock.yml`
+   - `pr-promoter.lock.yml`
 
    Get their conclusion (success / failure / cancelled) and timestamp.
 
@@ -61,6 +62,7 @@ Print a concise report:
 | PR Analyzer B | N | 0 or list |
 | PR Analyzer C | N | 0 or list |
 | PR Fixer | N | 0 or list |
+| PR Promoter | N | 0 or list |
 
 ### Verdict: ✅ ALL GOOD | ⚠️ ISSUES FOUND
 <one-line summary>

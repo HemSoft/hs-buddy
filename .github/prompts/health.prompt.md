@@ -26,6 +26,7 @@ Run these queries in parallel:
    - `pr-analyzer-b.lock.yml`
    - `pr-analyzer-c.lock.yml`
    - `pr-fixer.lock.yml`
+   - `pr-promoter.lock.yml`
 4. **Open issues** with label `agentic-workflows` (framework-generated failure notices)
 
 ---
@@ -44,6 +45,7 @@ Check every harmony condition from AGENTS.md:
 | **F. PR cycle integrity** | Every draft PR with `agent:pr` has a valid `pr:cycle-N` label (0 ≤ N ≤ 3); no PR has multiple cycle labels |
 | **G. No stuck PRs** | No draft `agent:pr` PR has been at the same cycle for more than 3 hours (analyzers + fixer should advance it within ~1h) |
 | **H. Idempotency markers** | No PR has duplicate analyzer or fixer comments for the same cycle (e.g., two `<!-- pr-analyzer-a cycle:0 -->` markers) |
+| **I. Promoted PRs are non-draft** | Every PR with `agent:promoted` label is NOT a draft |
 
 For each check, state: ✅ Pass / ❌ Fail / ⚠️ Warning — and list the specific issue/PR numbers when failing.
 
@@ -65,7 +67,7 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 ## Step 4 — Evaluate other workflow health
 
 For each of `issue-processor.lock.yml`, `repo-audit.lock.yml`, `pr-analyzer-a.lock.yml`,
-`pr-analyzer-b.lock.yml`, `pr-analyzer-c.lock.yml`, and `pr-fixer.lock.yml`:
+`pr-analyzer-b.lock.yml`, `pr-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `pr-promoter.lock.yml`:
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp
@@ -93,6 +95,7 @@ Produce a concise health report in this format:
 | E. No stale fixable issues | ✅/❌/⚠️ | ... || F. PR cycle integrity | ✅/❌/⚠️ | ... |
 | G. No stuck PRs | ✅/❌/⚠️ | ... |
 | H. Idempotency markers | ✅/❌/⚠️ | ... |
+| I. Promoted PRs non-draft | ✅/❌/⚠️ | ... |
 ### SFL Auditor
 - Last run: <run ID> at <time> — <conclusion>
 - Safe outputs: ✅/❌
@@ -114,6 +117,10 @@ Produce a concise health report in this format:
 - Open failure issues: none | #<numbers>
 
 ### PR Fixer
+- Last run: <run ID> at <time> — <conclusion>
+- Open failure issues: none | #<numbers>
+
+### PR Promoter
 - Last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 

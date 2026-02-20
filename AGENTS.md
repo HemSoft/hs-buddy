@@ -62,7 +62,9 @@ If any of these are violated, the SFL Auditor should detect and repair it automa
 | `repo-audit.lock.yml` | Creates `agent:fixable` issues from code quality findings | Daily |
 | `issue-processor.lock.yml` | Claims oldest `agent:fixable` issue, creates draft PR | `*/30 * * * *` |
 | `sfl-auditor.lock.yml` | Audits issue/PR label harmony, repairs discrepancies | `15,45 * * * *` |
-| `pr-analyzer-*.lock.yml` | Reviews draft PRs, posts structured comments | _(planned)_ |
+| `pr-analyzer-a.lock.yml` | Reviews draft PRs for correctness & logic issues | `8,38 * * * *` |
+| `pr-analyzer-b.lock.yml` | Reviews draft PRs for security & performance issues | `10,40 * * * *` |
+| `pr-analyzer-c.lock.yml` | Reviews draft PRs for style & maintainability issues | `12,42 * * * *` |
 | `pr-fixer.lock.yml` | Implements fixes from analyzer comments | _(planned)_ |
 | `pr-promoter.lock.yml` | Un-drafts clean PRs for human review | _(planned)_ |
 

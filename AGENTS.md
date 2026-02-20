@@ -43,7 +43,21 @@ The goal is to make manual intervention unnecessary over time. Every manual fix 
 
 During interactive sessions with the user, **always propose SFL Auditor improvements explicitly before making changes**. State what you observed, what check is missing, and what the fix to the auditor would be. The user will approve, adjust, or redirect. Only then commit.
 
-#### 4. What "Harmony" Means
+#### 4. Idempotency and Concurrency Are Non-Negotiable
+
+Every workflow in the pipeline runs on a cron schedule. Multiple instances may overlap, GitHub Actions may retry, and the same event may fire twice. **Every workflow MUST be safe to run concurrently and repeatedly without producing duplicate side-effects.**
+
+Concrete rules:
+
+- **Marker-based idempotency**: Before performing any write, check for a marker comment (e.g., `<!-- pr-analyzer-a cycle:0 -->`) that proves this work was already done. If the marker exists, exit cleanly.
+- **Claim-before-work**: Before starting expensive work on an issue or PR, atomically claim it (e.g., swap `agent:fixable` → `agent:in-progress`) so concurrent runs skip it.
+- **No duplicate PRs/comments**: If a PR or comment already exists for the target, do not create another. Verify first.
+- **Concurrency groups**: Every `.lock.yml` uses `concurrency: group: "gh-aw-${{ github.workflow }}"` to serialize runs of the same workflow. The `.md` frontmatter does not need to set this — `gh aw compile` adds it automatically.
+- **Stateless design**: Workflows must not depend on local filesystem state between runs. All state lives in GitHub (labels, comments, branches, PRs).
+
+If you are authoring or modifying a workflow and cannot identify how it prevents duplicate side-effects under concurrent execution, **stop and fix that first**.
+
+#### 5. What "Harmony" Means
 
 The pipeline is in harmony when ALL of the following are true:
 

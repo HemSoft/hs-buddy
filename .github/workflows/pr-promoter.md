@@ -24,9 +24,6 @@ tools:
 safe-outputs:
   noop:
     max: 1
-  create-pull-request:
-    draft: false
-    labels: [agent:pr]
   update-issue:
     target: "*"
     max: 3
@@ -73,8 +70,12 @@ Search the PR body for the exact marker text:
 `[MARKER:pr-promoter cycle:N]` where N is the cycle number that triggered
 promotion (any value of N).
 
-If any such marker exists, the promoter has already acted on this PR. Call
-`noop` with message "PR #<number> was already promoted — skipping." and exit.
+If any such marker exists AND the PR is still draft, DO NOT skip. This means a
+previous promotion attempt partially succeeded (comment/labels) but did not
+flip draft state. Continue to Step 4 and retry promotion.
+
+If any such marker exists AND the PR is non-draft, call `noop` with message
+"PR #<number> was already promoted — skipping." and exit.
 
 ## Step 4 — Verify all three analyzers have reviewed the current cycle
 
@@ -120,36 +121,44 @@ If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
 fixing. Call `noop` with message "PR #<number> cycle <C>: blocking issues
 found — not promoting. The PR Fixer will handle this." and exit.
 
-## Step 6 — Prepare branch for promotion
+## Step 6 — Authenticate GitHub CLI
 
-Before calling `create_pull_request`, ensure there is a commit to push.
-If there are no pending code changes, create an empty promotion commit on the
-PR head branch:
+Before running `gh pr ready`, ensure gh CLI is authenticated in this runtime.
+
+Use:
 
 ```bash
-git fetch origin <head-branch-name>
-git checkout <head-branch-name>
-git commit --allow-empty -m "chore: promote PR #<number> for human review"
+export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
+gh auth status
 ```
 
-This commit must not modify any files. It only provides a pushable commit so
-the PR can be updated from draft to ready-for-review.
+If `gh auth status` fails or both `$GITHUB_TOKEN` and `$COPILOT_GITHUB_TOKEN`
+are unavailable, call `noop` with message
+"PR #<number> cannot promote: gh auth unavailable" and exit.
 
-## Step 7 — Promote the PR
+## Step 7 — Convert PR to ready-for-review
 
-Call the `create_pull_request` safe output tool with:
+Use GitHub CLI to convert the existing draft PR directly:
 
-- **branch**: the PR's head branch name (e.g., `agent-fix/issue-7`)
-- **title**: the existing PR title (unchanged)
+```bash
+gh pr ready <number> --repo HemSoft/hs-buddy
+```
 
-This call pushes to the existing branch and, because `draft: false` is
-configured, converts the PR from draft to ready-for-review.
+This is the authoritative transition for draft -> non-draft and does not rely
+on patch application.
 
-**IMPORTANT**: Do NOT provide a `body` field in this call. Leaving body unset
-prevents patch-application failures on large PR bodies and keeps the existing
-PR description unchanged.
+## Step 8 — Verify draft state actually changed
 
-## Step 8 — Post the promotion comment
+After calling `gh pr ready`, re-read the PR state.
+
+- If the PR is still draft, promotion has FAILED. Call `noop` with message
+  "PR #<number> promotion attempt did not change draft state — retry next cycle."
+  and exit.
+- If the PR is non-draft, continue.
+
+Never mark human handoff labels on a still-draft PR.
+
+## Step 9 — Post the promotion comment
 
 Call `update_issue` with:
 
@@ -189,13 +198,15 @@ from draft to ready-for-review.
 Replace C with the cycle number that was checked. Extract the linked issue
 number from `Closes #N` in the PR body.
 
-## Step 9 — Update labels
+## Step 10 — Update labels
 
 Call `update_issue` with:
 
 - `issue_number`: the PR number
-- `labels`: the PR's current labels with `agent:promoted` added.
-  Keep all other existing labels unchanged.
+- `labels`: the PR's current labels with `human:ready-for-review` added.
+  If `agent:promoted` exists, remove it. Keep all other existing labels unchanged.
+
+This step is only valid after Step 8 confirms the PR is non-draft.
 
 ## Guardrails
 
@@ -203,11 +214,10 @@ Call `update_issue` with:
 - For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
 - Never modify the PR's code, title, or body content (an empty commit with no file changes is allowed for promotion only)
 - Never close or merge the PR — only convert from draft to ready-for-review
-- Never remove labels — only add `agent:promoted`
+- Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
-- If the `create_pull_request` call fails, call `noop` with the failure
-  reason and exit cleanly
+- Never apply `human:ready-for-review` to a draft PR
+- If gh authentication fails or `gh pr ready` fails, call `noop` with the failure reason and exit cleanly
 - If any step fails unexpectedly, call `noop` with the failure reason and exit
 - At most 3 `update_issue` calls per run (enforced by safe-outputs max)
-- The `create_pull_request` call is the mechanism for un-drafting; if the
-  PR already exists on the branch, the handler updates it to non-draft
+- `gh pr ready` is the only supported mechanism for draft -> ready transition

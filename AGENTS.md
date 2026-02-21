@@ -69,6 +69,19 @@ The pipeline is in harmony when ALL of the following are true:
 
 If any of these are violated, the SFL Auditor should detect and repair it automatically. If it doesn't, that is a bug in the SFL Auditor.
 
+#### 6. Workflow-Only State Changes (No Manual Bypass)
+
+Manual direct mutation of loop state is prohibited except for emergency containment explicitly requested by a human.
+
+- Do **NOT** manually un-draft PRs, relabel loop issues/PRs, or close loop PRs as a normal fix path.
+- If a workflow outcome is wrong (e.g., PR remains draft), fix the workflow prompt/logic so the next run resolves it.
+- Any emergency manual intervention must be followed by a workflow fix in the same session to prevent recurrence.
+- Human handoff is complete only when both are true:
+  1. PR is non-draft, and
+  2. PR has `human:ready-for-review` label.
+
+If either condition is false, promotion is incomplete and must be retried by workflow logic.
+
 ### Workflow Files
 
 | File | Purpose | Schedule |

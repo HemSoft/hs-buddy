@@ -152,7 +152,18 @@ configured, converts the PR from draft to ready-for-review.
 **IMPORTANT**: Call `create_pull_request` exactly once and pass ONLY
 `branch` and `title` fields. Do NOT provide `body`.
 
-## Step 8 — Post the promotion comment
+## Step 8 — Verify draft state actually changed
+
+After calling `create_pull_request`, re-read the PR state.
+
+- If the PR is still draft, promotion has FAILED. Call `noop` with message
+  "PR #<number> promotion attempt did not change draft state — retry next cycle."
+  and exit.
+- If the PR is non-draft, continue.
+
+Never mark human handoff labels on a still-draft PR.
+
+## Step 9 — Post the promotion comment
 
 Call `update_issue` with:
 
@@ -192,13 +203,15 @@ from draft to ready-for-review.
 Replace C with the cycle number that was checked. Extract the linked issue
 number from `Closes #N` in the PR body.
 
-## Step 9 — Update labels
+## Step 10 — Update labels
 
 Call `update_issue` with:
 
 - `issue_number`: the PR number
 - `labels`: the PR's current labels with `human:ready-for-review` added.
   If `agent:promoted` exists, remove it. Keep all other existing labels unchanged.
+
+This step is only valid after Step 8 confirms the PR is non-draft.
 
 ## Guardrails
 
@@ -208,6 +221,7 @@ Call `update_issue` with:
 - Never close or merge the PR — only convert from draft to ready-for-review
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
+- Never apply `human:ready-for-review` to a draft PR
 - If the `create_pull_request` call fails, call `noop` with the failure
   reason and exit cleanly
 - If any step fails unexpectedly, call `noop` with the failure reason and exit

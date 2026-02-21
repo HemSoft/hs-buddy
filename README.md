@@ -188,11 +188,6 @@ Having issues? Check out the comprehensive [Troubleshooting Guide](docs/TROUBLES
 - Empty pull request lists
 - Authentication problems
 
-You can also run the validation script to check your GitHub org configurations:
-
-```powershell
-.\scripts\validate-github-orgs.ps1
-```
 
 ## Roadmap
 

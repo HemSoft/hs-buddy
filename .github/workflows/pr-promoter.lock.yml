@@ -26,7 +26,7 @@
 # in the current cycle, un-drafts the PR and posts a promotion comment.
 # Processes exactly one PR per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"1281e74a7f41b0c334dfb6ced36b0e3994241a0ea6b83eaf130c5cd3667a376d","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"b769513acee240e6d716e6776790c5eea532277faa33b4299f6645bfcae02458","compiler_version":"v0.47.1"}
 
 name: "PR Promoter"
 "on":

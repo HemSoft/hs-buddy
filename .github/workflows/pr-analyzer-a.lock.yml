@@ -26,7 +26,7 @@
 # review comments identifying blocking and non-blocking issues. Intended
 # model: claude-sonnet-4-5 (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"3a8678b0fbf9eb4fe3dd8ca421c0ab53a765334a0f44af46dc575132e732a153","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"348745abc253672f0142702ecaf8b59d705e016f24824732951feb9c9abacfdf","compiler_version":"v0.47.1"}
 
 name: "PR Analyzer A — Correctness & Logic"
 "on":

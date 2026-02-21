@@ -26,7 +26,7 @@
 # review comments identifying blocking and non-blocking issues. Intended
 # model: gemini-2-pro (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"b0bc595f61d5bfe6404c132e0ea78437f77cdc7050c1e444599eebd6883aae88","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"093370aa9a849b042c894758a5d2980451c3c0288229a264aae38c7d035679b9","compiler_version":"v0.47.1"}
 
 name: "PR Analyzer B — Security & Performance"
 "on":

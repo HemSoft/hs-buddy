@@ -22,6 +22,8 @@ tools:
     lockdown: false
 
 safe-outputs:
+  noop:
+    max: 1
   create-pull-request:
     draft: false
     labels: [agent:pr]
@@ -59,8 +61,8 @@ Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
 - If `pr:cycle-2` exists, the current cycle is `2`
 - If `pr:cycle-3` exists, the current cycle is `3`
 
-If the current cycle is `0`, no analyzers have run yet. Call `noop` with
-message "PR #<number> is at cycle 0 — waiting for analyzers." and exit.
+Do NOT assume cycle `0` means analyzers have not run. A cycle can remain `0`
+when all analyzers PASS and the fixer correctly noops.
 
 ## Step 3 — Check if already promoted
 
@@ -89,8 +91,8 @@ So the logic is:
 1. Look for the **pr-fixer** marker: `[MARKER:pr-fixer cycle:N]`
    for the most recent cycle. If the fixer ran and incremented, the
    analyzer verdicts that matter are from that fixer's cycle (N).
-2. If no fixer comment exists for the latest cycle, check analyzer comments
-   at the current cycle number.
+2. If no fixer marker exists, check analyzer markers at the current cycle
+  number (including cycle `0`).
 
 Search the PR body for these exact marker texts for the target cycle (C):
 
@@ -183,6 +185,7 @@ Call `update_issue` with:
 ## Guardrails
 
 - Promote exactly ONE PR per run — never loop over multiple PRs
+- For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
 - Never modify the PR's code, title, or body content
 - Never close or merge the PR — only convert from draft to ready-for-review
 - Never remove labels — only add `agent:promoted`

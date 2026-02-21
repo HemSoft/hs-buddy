@@ -26,7 +26,7 @@
 # review comments identifying blocking and non-blocking issues. Intended
 # model: gpt-4o (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"a0c34adb8e34e346957aa525e41d5caaa49460e925677d19005113dc4c489d25","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"94328d154297fedac7f933f58b0277a1f685c6a0639b71917b1cfbd6b169a92d","compiler_version":"v0.47.1"}
 
 name: "PR Analyzer C — Style & Maintainability"
 "on":

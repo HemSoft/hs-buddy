@@ -22,6 +22,8 @@ tools:
     lockdown: false
 
 safe-outputs:
+  noop:
+    max: 1
   update-issue:
     target: "*"
     max: 2
@@ -177,6 +179,7 @@ Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs
+- For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
 - Never modify PR code, labels, or draft status — only post review comments
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, call `noop` with an explanation

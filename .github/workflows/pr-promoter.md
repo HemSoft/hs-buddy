@@ -141,13 +141,13 @@ Call the `create_pull_request` safe output tool with:
 
 - **branch**: the PR's head branch name (e.g., `agent-fix/issue-7`)
 - **title**: the existing PR title (unchanged)
-- **body**: the existing PR body (unchanged)
 
 This call pushes to the existing branch and, because `draft: false` is
 configured, converts the PR from draft to ready-for-review.
 
-**IMPORTANT**: Do NOT modify the PR title or body. Use the exact values
-from the existing PR.
+**IMPORTANT**: Do NOT provide a `body` field in this call. Leaving body unset
+prevents patch-application failures on large PR bodies and keeps the existing
+PR description unchanged.
 
 ## Step 8 — Post the promotion comment
 

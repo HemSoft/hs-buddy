@@ -24,9 +24,6 @@ tools:
 safe-outputs:
   noop:
     max: 1
-  create-pull-request:
-    draft: false
-    labels: [agent:pr]
   update-issue:
     target: "*"
     max: 3
@@ -124,37 +121,20 @@ If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
 fixing. Call `noop` with message "PR #<number> cycle <C>: blocking issues
 found — not promoting. The PR Fixer will handle this." and exit.
 
-## Step 6 — Prepare branch for promotion
+## Step 6 — Convert PR to ready-for-review
 
-Before calling `create_pull_request`, ensure there is a commit to push.
-If there are no pending code changes, create an empty promotion commit on the
-PR head branch:
+Use GitHub CLI to convert the existing draft PR directly:
 
 ```bash
-git fetch origin <head-branch-name>
-git checkout <head-branch-name>
-git commit --allow-empty -m "chore: promote PR #<number> for human review"
+gh pr ready <number> --repo HemSoft/hs-buddy
 ```
 
-This commit must not modify any files. It only provides a pushable commit so
-the PR can be updated from draft to ready-for-review.
+This is the authoritative transition for draft -> non-draft and does not rely
+on patch application.
 
-## Step 7 — Promote the PR
+## Step 7 — Verify draft state actually changed
 
-Call the `create_pull_request` safe output tool with:
-
-- **branch**: the PR's head branch name (e.g., `agent-fix/issue-7`)
-- **title**: the existing PR title (unchanged)
-
-This call pushes to the existing branch and, because `draft: false` is
-configured, converts the PR from draft to ready-for-review.
-
-**IMPORTANT**: Call `create_pull_request` exactly once and pass ONLY
-`branch` and `title` fields. Do NOT provide `body`.
-
-## Step 8 — Verify draft state actually changed
-
-After calling `create_pull_request`, re-read the PR state.
+After calling `gh pr ready`, re-read the PR state.
 
 - If the PR is still draft, promotion has FAILED. Call `noop` with message
   "PR #<number> promotion attempt did not change draft state — retry next cycle."
@@ -163,7 +143,7 @@ After calling `create_pull_request`, re-read the PR state.
 
 Never mark human handoff labels on a still-draft PR.
 
-## Step 9 — Post the promotion comment
+## Step 8 — Post the promotion comment
 
 Call `update_issue` with:
 
@@ -203,7 +183,7 @@ from draft to ready-for-review.
 Replace C with the cycle number that was checked. Extract the linked issue
 number from `Closes #N` in the PR body.
 
-## Step 10 — Update labels
+## Step 9 — Update labels
 
 Call `update_issue` with:
 
@@ -222,9 +202,7 @@ This step is only valid after Step 8 confirms the PR is non-draft.
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
 - Never apply `human:ready-for-review` to a draft PR
-- If the `create_pull_request` call fails, call `noop` with the failure
-  reason and exit cleanly
+- If `gh pr ready` fails, call `noop` with the failure reason and exit cleanly
 - If any step fails unexpectedly, call `noop` with the failure reason and exit
 - At most 3 `update_issue` calls per run (enforced by safe-outputs max)
-- The `create_pull_request` call is the mechanism for un-drafting; if the
-  PR already exists on the branch, the handler updates it to non-draft
+- `gh pr ready` is the only supported mechanism for draft -> ready transition

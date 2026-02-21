@@ -180,14 +180,6 @@ hs-buddy/
 
 ## Troubleshooting
 
-Having issues? Check out the comprehensive [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for solutions to common problems:
-
-- Content Security Policy warnings
-- GitHub 404 errors
-- Convex connection issues
-- Empty pull request lists
-- Authentication problems
-
 You can also run the validation script to check your GitHub org configurations:
 
 ```powershell

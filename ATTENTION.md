@@ -4,14 +4,15 @@
 
 ## Active Concerns
 
-### Promoter Cannot Reliably Un-Draft Existing PRs
+### gh-aw Token Type Incompatibility
 
 - **Severity**: Critical
-- **Detected**: 2026-02-20
-- **Status**: Active
-- **Description**: Promoter logs show successful analyzer detection and even `create_pull_request` success messages, but PR #8/#10 remain draft. Evidence indicates `create_pull_request` safe output is not a reliable mechanism for converting an existing draft PR to ready-for-review in this environment.
-- **Impact**: PRs can satisfy analyzer PASS conditions and still never reach human review, causing permanent draft-state deadlock.
-- **Suggested Action**: Redesign promotion semantics: treat `agent:promoted` + linked issue `agent:review-requested` as the canonical handoff signal, and stop requiring draft-status flip as the only success condition.
+- **Detected**: 2026-02-21
+- **Status**: Mitigated (pr-promoter & sfl-auditor rewritten; remaining workflows blocked)
+- **Description**: gh-aw framework requires `github_pat_...` (fine-grained PAT) for `COPILOT_GITHUB_TOKEN`, but the repo has a `ghp_...` (classic PAT). The `validate_multi_secret.sh` step rejects it with: "Error: COPILOT_GITHUB_TOKEN is a classic Personal Access Token (ghp_...)". All 9 gh-aw workflows were failing 100% of runs since 2026-02-21 ~13:38 UTC.
+- **Impact**: All AI-powered workflows (analyzers, fixer, issue-processor, daily-repo-status, repo-audit) are non-functional. Only deterministic workflows have been rewritten as standard GitHub Actions.
+- **Mitigation**: pr-promoter.yml and sfl-auditor.yml rewritten as standard workflows using `GH_AW_GITHUB_TOKEN` (OAuth token) for `gh` CLI operations. Old `.lock.yml` files renamed to `.disabled`.
+- **Remaining**: 7 workflows still need gh-aw Copilot engine (requires fine-grained PAT or alternative AI backend).
 
 ### PR Body Bloat from Duplicate Reviews
 

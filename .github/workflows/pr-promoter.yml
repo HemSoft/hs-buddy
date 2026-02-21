@@ -1,0 +1,270 @@
+# PR Promoter — standard workflow (replaces gh-aw pr-promoter.lock.yml)
+#
+# Converts clean draft PRs to ready-for-review. If all three analyzers found
+# zero blocking issues (PASS verdict) in the current cycle, un-drafts the PR
+# and posts a promotion comment. Processes exactly one PR per run.
+
+name: "PR Promoter"
+
+on:
+  schedule:
+    - cron: "25,55 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: "gh-aw-PR Promoter"
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Verify authentication
+        run: |
+          set -euo pipefail
+          if ! gh auth status 2>&1; then
+            echo "::error::GH_AW_GITHUB_TOKEN is not valid"
+            exit 1
+          fi
+
+      - name: Find target PR
+        id: find-pr
+        run: |
+          set -euo pipefail
+
+          # Find draft PRs with agent:pr, without agent:human-required, oldest first
+          PRS=$(gh pr list --repo "$REPO" --state open --draft --label "agent:pr" \
+            --json number,isDraft,labels,body,createdAt \
+            --jq 'sort_by(.createdAt)')
+
+          # Filter out PRs with agent:human-required
+          FILTERED=$(echo "$PRS" | jq '[.[] | select(.labels | map(.name) | index("agent:human-required") | not)]')
+
+          COUNT=$(echo "$FILTERED" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No draft PRs with agent:pr label found — nothing to promote."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Take the oldest
+          PR_NUMBER=$(echo "$FILTERED" | jq '.[0].number')
+          PR_BODY=$(echo "$FILTERED" | jq -r '.[0].body // ""')
+          PR_LABELS=$(echo "$FILTERED" | jq -c '.[0].labels | map(.name)')
+          IS_DRAFT=$(echo "$FILTERED" | jq '.[0].isDraft')
+
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "is_draft=$IS_DRAFT" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          # Save body and labels for later steps
+          echo "$PR_BODY" > /tmp/pr_body.txt
+          echo "$PR_LABELS" > /tmp/pr_labels.json
+
+          echo "Found PR #$PR_NUMBER (draft=$IS_DRAFT)"
+
+      - name: Determine cycle and check markers
+        if: steps.find-pr.outputs.skip != 'true'
+        id: check-cycle
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-pr.outputs.pr_number }}"
+          IS_DRAFT="${{ steps.find-pr.outputs.is_draft }}"
+          PR_BODY=$(cat /tmp/pr_body.txt)
+          PR_LABELS=$(cat /tmp/pr_labels.json)
+
+          # Step 2: Determine cycle from labels
+          CYCLE=0
+          for N in 1 2 3; do
+            if echo "$PR_LABELS" | jq -e "index(\"pr:cycle-$N\")" > /dev/null 2>&1; then
+              CYCLE=$N
+            fi
+          done
+          echo "Current cycle label: $CYCLE"
+
+          # Step 3: Check if already promoted
+          if [ "$IS_DRAFT" = "false" ]; then
+            echo "PR #$PR_NUMBER is already non-draft — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check for existing promoter marker (any cycle)
+          if echo "$PR_BODY" | grep -qP '\[MARKER:pr-promoter cycle:\d+\]'; then
+            if [ "$IS_DRAFT" = "false" ]; then
+              echo "PR #$PR_NUMBER was already promoted — skipping."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Previous promotion partially succeeded but PR still draft — retrying."
+          fi
+
+          # Step 4: Determine which cycle's verdicts to check
+          # Check for pr-fixer marker to find the effective cycle
+          CHECK_CYCLE=$CYCLE
+
+          # Look for the highest fixer cycle marker
+          FIXER_CYCLE=""
+          for N in 0 1 2 3; do
+            if echo "$PR_BODY" | grep -qF "[MARKER:pr-fixer cycle:$N]"; then
+              FIXER_CYCLE=$N
+            fi
+          done
+
+          if [ -n "$FIXER_CYCLE" ]; then
+            CHECK_CYCLE=$FIXER_CYCLE
+            echo "Found fixer marker at cycle $FIXER_CYCLE — checking analyzer verdicts for cycle $CHECK_CYCLE"
+          else
+            echo "No fixer marker found — checking analyzer verdicts for cycle $CHECK_CYCLE"
+          fi
+
+          # Check all three analyzer markers exist
+          MISSING=""
+          for ANALYZER in a b c; do
+            if ! echo "$PR_BODY" | grep -qF "[MARKER:pr-analyzer-$ANALYZER cycle:$CHECK_CYCLE]"; then
+              MISSING="$MISSING $ANALYZER"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "PR #$PR_NUMBER cycle $CHECK_CYCLE: waiting for analyzers$MISSING — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "All three analyzer markers present for cycle $CHECK_CYCLE"
+          echo "check_cycle=$CHECK_CYCLE" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Check analyzer verdicts
+        if: steps.find-pr.outputs.skip != 'true' && steps.check-cycle.outputs.skip != 'true'
+        id: check-verdicts
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-pr.outputs.pr_number }}"
+          CHECK_CYCLE="${{ steps.check-cycle.outputs.check_cycle }}"
+
+          # Fetch all comments on the PR
+          COMMENTS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq '.body')
+
+          # Also get PR comments (review comments and issue comments)
+          # The body contains the markers; check verdicts there
+          PR_BODY=$(cat /tmp/pr_body.txt)
+
+          # For each analyzer, find the verdict after its marker
+          ALL_PASS=true
+          for ANALYZER in a b c; do
+            MARKER="[MARKER:pr-analyzer-$ANALYZER cycle:$CHECK_CYCLE]"
+
+            # Extract the section after this marker until the next marker or end
+            SECTION=$(echo "$PR_BODY" | sed -n "/$(echo "$MARKER" | sed 's/\[/\\[/g; s/\]/\\]/g')/,/\[MARKER:/p" | head -50)
+
+            if echo "$SECTION" | grep -qF '**PASS**'; then
+              echo "Analyzer $ANALYZER: PASS"
+            elif echo "$SECTION" | grep -qF '**BLOCKING ISSUES FOUND**'; then
+              echo "Analyzer $ANALYZER: BLOCKING ISSUES FOUND"
+              ALL_PASS=false
+            else
+              echo "Analyzer $ANALYZER: verdict not found in section, checking full body"
+              # Fallback: search entire body for verdict near the marker
+              ALL_PASS=false
+            fi
+          done
+
+          if [ "$ALL_PASS" = "false" ]; then
+            echo "PR #$PR_NUMBER cycle $CHECK_CYCLE: blocking issues found — not promoting."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "All three analyzers passed — proceeding to promotion."
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Convert PR to ready-for-review
+        if: >-
+          steps.find-pr.outputs.skip != 'true' &&
+          steps.check-cycle.outputs.skip != 'true' &&
+          steps.check-verdicts.outputs.skip != 'true'
+        id: promote
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-pr.outputs.pr_number }}"
+
+          echo "Converting PR #$PR_NUMBER from draft to ready-for-review..."
+          gh pr ready "$PR_NUMBER" --repo "$REPO"
+
+          # Verify state changed
+          IS_DRAFT=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json isDraft --jq '.isDraft')
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "::error::PR #$PR_NUMBER promotion attempt did not change draft state"
+            exit 1
+          fi
+
+          echo "PR #$PR_NUMBER is now ready for review."
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Post promotion comment and update labels
+        if: steps.promote.outputs.promoted == 'true'
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-pr.outputs.pr_number }}"
+          CHECK_CYCLE="${{ steps.check-cycle.outputs.check_cycle }}"
+          PR_BODY=$(cat /tmp/pr_body.txt)
+
+          # Extract linked issue number from "Closes #N" in PR body
+          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K\d+' | head -1)
+          if [ -z "$ISSUE_NUMBER" ]; then
+            ISSUE_NUMBER="unknown"
+          fi
+
+          # Post promotion comment with idempotency marker
+          COMMENT="[MARKER:pr-promoter cycle:${CHECK_CYCLE}]
+          ## ✅ PR Promoter — Ready for Human Review
+
+          **Promoter**: PR Promoter (standard workflow)
+          **Cycle**: ${CHECK_CYCLE}
+          **PR**: #${PR_NUMBER}
+          **Linked Issue**: #${ISSUE_NUMBER}
+
+          ### Analyzer Verdicts
+
+          | Analyzer | Focus | Verdict |
+          |----------|-------|---------|
+          | A | Correctness & Logic | **PASS** |
+          | B | Security & Performance | **PASS** |
+          | C | Style & Maintainability | **PASS** |
+
+          ### Summary
+
+          All three analyzers found zero blocking issues. This PR has been converted
+          from draft to ready-for-review.
+
+          **Next step**: Human review and merge."
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$COMMENT"
+
+          # Update labels: add human:ready-for-review, remove agent:promoted if present
+          # Ensure label exists
+          gh label create "human:ready-for-review" --repo "$REPO" \
+            --color "0e8a16" --description "Ready for human review" 2>/dev/null || true
+
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "human:ready-for-review"
+
+          # Remove legacy agent:promoted if present
+          CURRENT_LABELS=$(cat /tmp/pr_labels.json)
+          if echo "$CURRENT_LABELS" | jq -e 'index("agent:promoted")' > /dev/null 2>&1; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "agent:promoted"
+          fi
+
+          echo "PR #$PR_NUMBER promoted successfully."

@@ -30,8 +30,6 @@
 
 name: "PR Analyzer B — Security & Performance"
 "on":
-  schedule:
-  - cron: "10,40 * * * *"
   workflow_dispatch:
 
 permissions: {}

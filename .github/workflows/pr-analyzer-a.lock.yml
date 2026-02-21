@@ -30,8 +30,6 @@
 
 name: "PR Analyzer A — Correctness & Logic"
 "on":
-  schedule:
-  - cron: "8,38 * * * *"
   workflow_dispatch:
 
 permissions: {}

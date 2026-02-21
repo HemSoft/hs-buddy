@@ -120,7 +120,22 @@ If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
 fixing. Call `noop` with message "PR #<number> cycle <C>: blocking issues
 found — not promoting. The PR Fixer will handle this." and exit.
 
-## Step 6 — Promote the PR
+## Step 6 — Prepare branch for promotion
+
+Before calling `create_pull_request`, ensure there is a commit to push.
+If there are no pending code changes, create an empty promotion commit on the
+PR head branch:
+
+```bash
+git fetch origin <head-branch-name>
+git checkout <head-branch-name>
+git commit --allow-empty -m "chore: promote PR #<number> for human review"
+```
+
+This commit must not modify any files. It only provides a pushable commit so
+the PR can be updated from draft to ready-for-review.
+
+## Step 7 — Promote the PR
 
 Call the `create_pull_request` safe output tool with:
 
@@ -134,7 +149,7 @@ configured, converts the PR from draft to ready-for-review.
 **IMPORTANT**: Do NOT modify the PR title or body. Use the exact values
 from the existing PR.
 
-## Step 7 — Post the promotion comment
+## Step 8 — Post the promotion comment
 
 Call `update_issue` with:
 
@@ -174,7 +189,7 @@ from draft to ready-for-review.
 Replace C with the cycle number that was checked. Extract the linked issue
 number from `Closes #N` in the PR body.
 
-## Step 8 — Update labels
+## Step 9 — Update labels
 
 Call `update_issue` with:
 
@@ -186,7 +201,7 @@ Call `update_issue` with:
 
 - Promote exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
-- Never modify the PR's code, title, or body content
+- Never modify the PR's code, title, or body content (an empty commit with no file changes is allowed for promotion only)
 - Never close or merge the PR — only convert from draft to ready-for-review
 - Never remove labels — only add `agent:promoted`
 - Never touch the linked issue — only operate on the PR

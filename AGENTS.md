@@ -82,6 +82,14 @@ Manual direct mutation of loop state is prohibited except for emergency containm
 
 If either condition is false, promotion is incomplete and must be retried by workflow logic.
 
+#### 7. Promoter Auth Requirement
+
+`pr-promoter` depends on authenticated `gh` CLI calls (`gh pr ready`) inside the agent runtime.
+
+- The agent execution environment MUST receive `GITHUB_TOKEN` (and `GH_TOKEN`) from workflow secrets/context.
+- If these are missing, promotion silently degrades into no-op comments while PRs remain draft.
+- Any workflow recompilation or refactor that touches `pr-promoter.lock.yml` must preserve token injection for the `Execute GitHub Copilot CLI` step.
+
 ### Workflow Files
 
 | File | Purpose | Schedule |

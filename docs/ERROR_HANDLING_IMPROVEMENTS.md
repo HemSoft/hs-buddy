@@ -276,7 +276,7 @@ To verify these improvements:
 
 - [TROUBLESHOOTING.md](../docs/TROUBLESHOOTING.md) - Full troubleshooting guide
 - [README.md](../README.md#troubleshooting) - Quick troubleshooting reference
-- [AGENTS.md](../AGENTS.md) - Architecture documentation
+- [README.md](../README.md) - Architecture documentation
 
 ---
 

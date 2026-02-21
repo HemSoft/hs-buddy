@@ -15,7 +15,7 @@ its Debug Checklist systematically.
 ## Step 1 — Read Context
 
 1. Read `ATTENTION.md` for known active concerns
-2. Read `AGENTS.md` for pipeline architecture reference
+2. Read `.github/copilot-instructions.md` for pipeline architecture reference
 3. Read `VISION.md` for architectural alignment checks
 
 ---
@@ -49,7 +49,7 @@ Based on the snapshot, investigate anything that looks wrong:
 For each issue found:
 
 1. Identify the **root cause**, not just the symptom
-2. Check if AGENTS.md's harmony rules are violated
+2. Check if the harmony rules in `.github/copilot-instructions.md` are violated
 3. Assess whether the fix adds or removes complexity
 4. Apply the simplistication principle: can we fix this by removing something?
 
@@ -103,4 +103,4 @@ Print a structured report:
 - **Simplisticate**: Every fix should reduce complexity, not add it.
 - **Document everything**: ATTENTION.md must reflect what you found.
 - **No silent fixes**: If you repair state, log what was wrong and why.
-- **Architectural alignment**: Check every finding against VISION.md and AGENTS.md.
+- **Architectural alignment**: Check every finding against VISION.md and `.github/copilot-instructions.md`.

@@ -63,8 +63,8 @@ Labels are a tax on every workflow that reads them.
 
 Before approving any pipeline change, verify alignment:
 
-1. Read `VISION.md` and `AGENTS.md`
-2. Do workflows match the pipeline diagram in AGENTS.md?
+1. Read `VISION.md` and `.github/copilot-instructions.md`
+2. Do workflows match the catalog in `.github/workflows/README.md`?
 3. Are safe-outputs permissions minimal?
 4. Is state stored only in GitHub (labels, comments, branches, PRs)?
 5. Are concurrency guards present on all cron workflows?
@@ -114,7 +114,7 @@ living document of things that need human awareness.
 
 When asked to evaluate a proposed change:
 
-1. Read VISION.md and AGENTS.md
+1. Read VISION.md and `.github/copilot-instructions.md`
 2. Count the number of labels, workflows, and state transitions involved
 3. Ask: Does this change add or remove complexity?
 4. If it adds complexity, propose a simpler alternative

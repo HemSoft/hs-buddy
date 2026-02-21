@@ -199,6 +199,25 @@ export function CopilotUsagePanel() {
 
   const anyLoading = Object.values(quotas).some(s => s.loading)
 
+  const aggregateTotals = Object.values(quotas).reduce(
+    (acc, state) => {
+      const premium = state.data?.quota_snapshots?.premium_interactions
+      if (!premium) {
+        return acc
+      }
+
+      const used = premium.entitlement - premium.remaining
+      const overageByCount = Math.max(0, premium.overage_count)
+      const overageByRemaining = Math.max(0, -premium.remaining)
+      const overageRequests = Math.max(overageByCount, overageByRemaining)
+
+      acc.totalUsed += used
+      acc.totalOverageCost += overageRequests * OVERAGE_COST_PER_REQUEST
+      return acc
+    },
+    { totalUsed: 0, totalOverageCost: 0 }
+  )
+
   const formatTime = (ts: number) => {
     const d = new Date(ts)
     return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -228,6 +247,19 @@ export function CopilotUsagePanel() {
             <p className="usage-subtitle">
               Copilot premium request quota per account
             </p>
+          </div>
+        </div>
+        <div className="usage-header-summary" aria-live="polite">
+          <div className="usage-header-summary-item">
+            <span className="usage-header-summary-value">{aggregateTotals.totalUsed.toLocaleString()}</span>
+            <span className="usage-header-summary-label">Total Used</span>
+          </div>
+          <div className="usage-header-summary-divider" aria-hidden="true" />
+          <div className="usage-header-summary-item">
+            <span className="usage-header-summary-value">
+              {formatCurrency(aggregateTotals.totalOverageCost)}
+            </span>
+            <span className="usage-header-summary-label">Total Overage</span>
           </div>
         </div>
         <button

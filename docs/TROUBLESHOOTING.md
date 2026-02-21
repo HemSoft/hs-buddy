@@ -200,7 +200,7 @@ If you're still experiencing issues:
 1. **Check Logs**: Look at the console output in Developer Tools
 2. **Validate Setup**: Run `.\scripts\validate-github-orgs.ps1`
 3. **Check GitHub Status**: Visit <https://www.githubstatus.com/>
-4. **Review AGENTS.md**: See [AGENTS.md](../AGENTS.md) for architecture details
+4. **Review README**: See [README.md](../README.md) for architecture details
 
 ---
 

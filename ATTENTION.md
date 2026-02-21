@@ -1,26 +1,35 @@
 # ATTENTION
 
-> Auto-maintained by the debug skill. Last updated: 2026-02-20
+> Auto-maintained by the debug skill. Last updated: 2026-02-21
 
 ## Active Concerns
 
-### Marker Format Migration In Progress
+### Promoter Cannot Reliably Un-Draft Existing PRs
 
 - **Severity**: Critical
 - **Detected**: 2026-02-20
-- **Status**: Monitoring
-- **Description**: PR analyzers were producing HTML comment markers (`<!-- pr-analyzer-a cycle:0 -->`) that LLMs strip from output. Changed to visible `[MARKER:pr-analyzer-a cycle:N]` format in commit ff8e5a4. Awaiting confirmation that new cron cycles produce correct markers.
-- **Impact**: PRs #8 and #10 are stuck in infinite analyzer loops (13+ runs, zero progression). Pipeline is effectively stalled until markers work.
-- **Suggested Action**: After 2-3 cron cycles, run `marker-check.ps1` to verify new format is being produced. If still failing, check runtime-import mechanism.
+- **Status**: Active
+- **Description**: Promoter logs show successful analyzer detection and even `create_pull_request` success messages, but PR #8/#10 remain draft. Evidence indicates `create_pull_request` safe output is not a reliable mechanism for converting an existing draft PR to ready-for-review in this environment.
+- **Impact**: PRs can satisfy analyzer PASS conditions and still never reach human review, causing permanent draft-state deadlock.
+- **Suggested Action**: Redesign promotion semantics: treat `agent:promoted` + linked issue `agent:review-requested` as the canonical handoff signal, and stop requiring draft-status flip as the only success condition.
 
 ### PR Body Bloat from Duplicate Reviews
 
 - **Severity**: High
 - **Detected**: 2026-02-20
 - **Status**: Active
-- **Description**: PR #8 body has grown to 36KB+ because analyzers re-appended reviews on every run without finding their skip markers. PR #10 similarly affected.
+- **Description**: PR #8 body has grown to 61KB+ because analyzers re-appended reviews repeatedly before idempotency stabilized. PR #10 is clean by comparison.
 - **Impact**: Large PR bodies slow down API calls, confuse human reviewers, and waste LLM tokens on every subsequent workflow that reads the body.
 - **Suggested Action**: Once markers are working, consider a one-time body cleanup on stuck PRs — or close and re-create them with fresh bodies.
+
+### Issue-Processor Failure Path Creates PR-Labeled Issues
+
+- **Severity**: High
+- **Detected**: 2026-02-21
+- **Status**: Active
+- **Description**: Issue #26 (`[agent-fix] Update .gitignore...`) is an issue, not a PR, but carries `agent:pr` and `type:fix`. Its body shows a push/create-PR failure fallback path from issue-processor.
+- **Impact**: State model pollution: PR-only labels appear on issues, confusing status checks and any workflow logic that assumes `agent:pr` implies pull request semantics.
+- **Suggested Action**: In issue-processor failure fallback, use `agent:pause` or `agent:human-required` labels instead of `agent:pr`; add SFL Auditor check to auto-detect issues with `agent:pr` and normalize labels.
 
 ### Label Complexity Reaching Threshold
 
@@ -36,10 +45,13 @@
 - **Severity**: Medium
 - **Detected**: 2026-02-20
 - **Status**: Monitoring
-- **Description**: PRs #8 (README package manager fix) and #10 (hardcoded Windows paths) have accumulated 13+ duplicate review cycles with no progression. Even after the marker fix, the bloated bodies may confuse future analyzer runs.
+- **Description**: PRs #8 (README package manager fix) and #10 (hardcoded Windows paths) have all analyzer PASS markers but remain draft after repeated promoter runs.
 - **Impact**: If markers work but analyzers re-read old duplicate content, they may produce inconsistent verdicts.
 - **Suggested Action**: If marker fix resolves the progression issue, monitor one full cycle. If bodies still cause problems, close PRs, delete branches, remove `agent:in-progress` from issues (revert to `agent:fixable`), and let the pipeline re-create clean PRs.
 
 ## Resolved (last 30 days)
 
-_None yet — this is the first ATTENTION.md entry._
+### Marker Format Migration (HTML comments → visible markers)
+
+- **Resolved**: 2026-02-21
+- **Resolution**: Analyzer outputs now include `[MARKER:pr-analyzer-<a|b|c> cycle:N]` tags in PR bodies. Legacy HTML comment marker dependency is removed.

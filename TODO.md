@@ -1,5 +1,7 @@
 # Buddy - TODO
 
+> COPILOT_GITHUB_TOKEN, created under HemSoft targeting all repos, has all the access I can give it.
+
 ## Agentic PR Lifecycle
 
 The full pipeline for autonomous code quality:
@@ -31,6 +33,7 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 | ✅ | High | Build PR Fixer workflow (authority) | Authority model (Claude Opus); reads all 3 analyzer comments; implements fixes; commits via create-pull-request safe output; increments pr:cycle-N; escalates at cycle 3. Cron `20,50 * * * *` (2026-02) |
 | ✅ | High | Add pr:cycle-N label system | Labels `pr:cycle-1/2/3` created; analyzers skip cycle-3 PRs; escalation built into PR Fixer design (2026-02) |
 | ✅ | High | Build PR Promoter workflow | Runs after PR Fixer; if all 3 analyzers pass → un-draft PR via create-pull-request (draft:false) + promotion comment. Cron `25,55 * * * *` (2026-02) |
+| ✅ | **High** | Critically reduce and remove AGENTS.md | Migrated to .github/copilot-instructions.md + README.md; deleted AGENTS.md (2026-02) |
 | 📋 | Medium | Run 30-day Set it Free pilot | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | ✅ | High | Improve Welcome to Buddy window | Convex-backed stats dashboard, session tracking (2026-02) |
@@ -66,7 +69,7 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 
 ## Progress
 
-**Remaining: 2** | **Completed: 39** (95%)
+**Remaining: 2** | **Completed: 40** (95%)
 
 ---
 

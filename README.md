@@ -133,6 +133,26 @@ You can add multiple GitHub accounts for monitoring different organizations:
 - **No `.env` file needed** - After migration, you can delete it
 - **Safe to commit config.json** - Contains no sensitive data (just usernames and org names)
 
+## Convex Backend
+
+hs-buddy uses [Convex](https://docs.convex.dev) as its serverless backend for real-time data sync.
+
+```bash
+# Start Convex dev server
+./runServer.ps1          # or: bun run convex:dev
+
+# Start the Electron app
+./runApp.ps1             # or: bun dev
+
+# Generate Convex types
+bun run convex:codegen
+
+# Deploy to production
+bun run convex:deploy
+```
+
+Local dashboard (when dev server is running): <http://127.0.0.1:6790/>
+
 ## Development
 
 ```bash

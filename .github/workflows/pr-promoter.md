@@ -73,8 +73,12 @@ Search the PR body for the exact marker text:
 `[MARKER:pr-promoter cycle:N]` where N is the cycle number that triggered
 promotion (any value of N).
 
-If any such marker exists, the promoter has already acted on this PR. Call
-`noop` with message "PR #<number> was already promoted — skipping." and exit.
+If any such marker exists AND the PR is still draft, DO NOT skip. This means a
+previous promotion attempt partially succeeded (comment/labels) but did not
+flip draft state. Continue to Step 4 and retry promotion.
+
+If any such marker exists AND the PR is non-draft, call `noop` with message
+"PR #<number> was already promoted — skipping." and exit.
 
 ## Step 4 — Verify all three analyzers have reviewed the current cycle
 
@@ -145,9 +149,8 @@ Call the `create_pull_request` safe output tool with:
 This call pushes to the existing branch and, because `draft: false` is
 configured, converts the PR from draft to ready-for-review.
 
-**IMPORTANT**: Do NOT provide a `body` field in this call. Leaving body unset
-prevents patch-application failures on large PR bodies and keeps the existing
-PR description unchanged.
+**IMPORTANT**: Call `create_pull_request` exactly once and pass ONLY
+`branch` and `title` fields. Do NOT provide `body`.
 
 ## Step 8 — Post the promotion comment
 
@@ -194,8 +197,8 @@ number from `Closes #N` in the PR body.
 Call `update_issue` with:
 
 - `issue_number`: the PR number
-- `labels`: the PR's current labels with `agent:promoted` added.
-  Keep all other existing labels unchanged.
+- `labels`: the PR's current labels with `human:ready-for-review` added.
+  If `agent:promoted` exists, remove it. Keep all other existing labels unchanged.
 
 ## Guardrails
 
@@ -203,7 +206,7 @@ Call `update_issue` with:
 - For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
 - Never modify the PR's code, title, or body content (an empty commit with no file changes is allowed for promotion only)
 - Never close or merge the PR — only convert from draft to ready-for-review
-- Never remove labels — only add `agent:promoted`
+- Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
 - If the `create_pull_request` call fails, call `noop` with the failure
   reason and exit cleanly

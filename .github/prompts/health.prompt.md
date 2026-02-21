@@ -45,7 +45,7 @@ Check every harmony condition from AGENTS.md:
 | **F. PR cycle integrity** | Every draft PR with `agent:pr` has a valid `pr:cycle-N` label (0 ≤ N ≤ 3); no PR has multiple cycle labels |
 | **G. No stuck PRs** | No draft `agent:pr` PR has been at the same cycle for more than 3 hours (analyzers + fixer should advance it within ~1h) |
 | **H. Idempotency markers** | No PR has duplicate analyzer or fixer comments for the same cycle (e.g., two `<!-- pr-analyzer-a cycle:0 -->` markers) |
-| **I. Promoted PRs are non-draft** | Every PR with `agent:promoted` label is NOT a draft |
+| **I. Promoted PRs are non-draft** | Every PR with `human:ready-for-review` label is NOT a draft |
 
 For each check, state: ✅ Pass / ❌ Fail / ⚠️ Warning — and list the specific issue/PR numbers when failing.
 

@@ -1,0 +1,108 @@
+name: PR Draft Transition Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to test"
+        required: true
+        type: string
+      mode:
+        description: "Transition mode"
+        required: true
+        default: ready
+        type: choice
+        options:
+          - ready
+          - undo
+          - roundtrip
+      token_source:
+        description: "Token source for GH_TOKEN"
+        required: true
+        default: gh_aw
+        type: choice
+        options:
+          - gh_aw
+          - copilot
+          - github_default
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Select token source
+        shell: bash
+        env:
+          TOKEN_GH_AW: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          TOKEN_COPILOT: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          TOKEN_GITHUB_DEFAULT: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN_SOURCE: ${{ inputs.token_source }}
+        run: |
+          set -euo pipefail
+          case "$TOKEN_SOURCE" in
+            gh_aw)
+              TOKEN_VALUE="$TOKEN_GH_AW"
+              ;;
+            copilot)
+              TOKEN_VALUE="$TOKEN_COPILOT"
+              ;;
+            github_default)
+              TOKEN_VALUE="$TOKEN_GITHUB_DEFAULT"
+              ;;
+            *)
+              echo "Unsupported token source: $TOKEN_SOURCE"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$TOKEN_VALUE" ]; then
+            echo "Selected token source is empty: $TOKEN_SOURCE"
+            exit 1
+          fi
+
+          echo "GH_TOKEN=$TOKEN_VALUE" >> "$GITHUB_ENV"
+
+      - name: Verify auth and initial state
+        shell: bash
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          gh auth status
+          gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json number,isDraft,title,headRefName
+
+      - name: Execute transition mode
+        shell: bash
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            ready)
+              gh pr ready "$PR_NUMBER" --repo "${{ github.repository }}"
+              ;;
+            undo)
+              gh pr ready "$PR_NUMBER" --undo --repo "${{ github.repository }}"
+              ;;
+            roundtrip)
+              gh pr ready "$PR_NUMBER" --repo "${{ github.repository }}"
+              gh pr ready "$PR_NUMBER" --undo --repo "${{ github.repository }}"
+              ;;
+            *)
+              echo "Unsupported mode: $MODE"
+              exit 1
+              ;;
+          esac
+
+      - name: Verify final state
+        shell: bash
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json number,isDraft,title,headRefName

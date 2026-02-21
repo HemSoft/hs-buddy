@@ -36,7 +36,8 @@ Built on the same architecture as [hs-conductor](https://github.com/HemSoft/hs-c
 ### Prerequisites
 
 - **Node.js 22+** - [Download](https://nodejs.org/)
-- **Bun** (optional, for faster package management) - [Install](https://bun.sh/)
+- **Bun** (official package manager) - [Install](https://bun.sh/)
+  - Note: npm can be used as a fallback, but bun is specified in package.json
 
 ### Setup
 
@@ -45,19 +46,19 @@ Built on the same architecture as [hs-conductor](https://github.com/HemSoft/hs-c
 git clone https://github.com/HemSoft/hs-buddy.git
 cd hs-buddy
 
-# Install dependencies
-npm install
-# or with bun
+# Install dependencies (bun is the official package manager)
 bun install
+# or with npm as a fallback
+npm install
 
 # Configure environment variables (for tokens)
 cp .env.example .env
 # Edit .env with your GitHub token
 
 # Start development
-npm run dev
-# or with bun
 bun run dev
+# or with npm as a fallback
+npm run dev
 ```
 
 ### Configuration
@@ -137,7 +138,7 @@ You can add multiple GitHub accounts for monitoring different organizations:
 
 ```bash
 # Start development server
-npm run dev
+bun run dev
 
 # Type checking
 npm run typecheck
@@ -188,11 +189,6 @@ Having issues? Check out the comprehensive [Troubleshooting Guide](docs/TROUBLES
 - Empty pull request lists
 - Authentication problems
 
-You can also run the validation script to check your GitHub org configurations:
-
-```powershell
-.\scripts\validate-github-orgs.ps1
-```
 
 ## Roadmap
 

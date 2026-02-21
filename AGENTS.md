@@ -1,23 +1,134 @@
 # hs-buddy Agent Context
 
+## Current Mission: Perfect the Agentic Loop
+
+> **This is the single highest-priority focus of this repository right now.**
+
+The agentic loop lives entirely in `.github/workflows/`. Its job is simple:
+**GitHub Actions, GitHub Issues, and GitHub Pull Requests must be in perfect harmony at all times.**
+
+The pipeline works like this:
+
+```
+Repo Audit → Issues (agent:fixable)
+                 ↓
+         Issue Processor (claims issue, creates draft PR)
+                 ↓
+         PR Analyzers ×3 → PR Fixer → PR Promoter
+                 ↓
+         Clean PR → Human review & merge
+```
+
+The **SFL Auditor** (`.github/workflows/sfl-auditor.lock.yml`) is the health guardian of this loop. It runs every 30 minutes and is responsible for detecting and repairing any state inconsistency between issues and PRs.
+
+### Agent Standing Orders
+
+These apply in every session, without exception:
+
+#### 1. SFL Auditor is First
+
+If the SFL Auditor has failed, is producing incorrect output, or missed a discrepancy — **fix the SFL Auditor before doing anything else.** No other pipeline work takes precedence over keeping the auditor healthy.
+
+#### 2. Teach, Don't Just Fix
+
+When you observe a state discrepancy (e.g., `agent:in-progress` issue with no open PR, conflicting labels, orphaned branches) — **do not silently fix it manually**. Instead:
+
+1. Fix the immediate symptom if urgent.
+2. Identify what SFL Auditor check would have caught this.
+3. Propose an improvement to `sfl-auditor.md` that would prevent it recurring.
+
+The goal is to make manual intervention unnecessary over time. Every manual fix is a gap in the auditor's knowledge.
+
+#### 3. Propose Before You Commit (Interactive Sessions)
+
+During interactive sessions with the user, **always propose SFL Auditor improvements explicitly before making changes**. State what you observed, what check is missing, and what the fix to the auditor would be. The user will approve, adjust, or redirect. Only then commit.
+
+#### 4. Idempotency and Concurrency Are Non-Negotiable
+
+Every workflow in the pipeline runs on a cron schedule. Multiple instances may overlap, GitHub Actions may retry, and the same event may fire twice. **Every workflow MUST be safe to run concurrently and repeatedly without producing duplicate side-effects.**
+
+Concrete rules:
+
+- **Marker-based idempotency**: Before performing any write, check for a marker comment (e.g., `<!-- pr-analyzer-a cycle:0 -->`) that proves this work was already done. If the marker exists, exit cleanly.
+- **Claim-before-work**: Before starting expensive work on an issue or PR, atomically claim it (e.g., swap `agent:fixable` → `agent:in-progress`) so concurrent runs skip it.
+- **No duplicate PRs/comments**: If a PR or comment already exists for the target, do not create another. Verify first.
+- **Concurrency groups**: Every `.lock.yml` uses `concurrency: group: "gh-aw-${{ github.workflow }}"` to serialize runs of the same workflow. The `.md` frontmatter does not need to set this — `gh aw compile` adds it automatically.
+- **Stateless design**: Workflows must not depend on local filesystem state between runs. All state lives in GitHub (labels, comments, branches, PRs).
+
+If you are authoring or modifying a workflow and cannot identify how it prevents duplicate side-effects under concurrent execution, **stop and fix that first**.
+
+#### 5. What "Harmony" Means
+
+The pipeline is in harmony when ALL of the following are true:
+
+- Every issue labeled `agent:in-progress` has exactly one open PR with a branch matching `agent-fix/issue-<number>-*`
+- No issue has both `agent:in-progress` and `agent:fixable` simultaneously
+- No `agent:pause` label exists without an explanatory comment
+- No open `agent-fix/` PR exists whose linked issue is closed or lacks `agent:in-progress`
+- No `agent:fixable` issue has been waiting more than 2 cron cycles without being claimed
+
+If any of these are violated, the SFL Auditor should detect and repair it automatically. If it doesn't, that is a bug in the SFL Auditor.
+
+#### 6. Workflow-Only State Changes (No Manual Bypass)
+
+Manual direct mutation of loop state is prohibited except for emergency containment explicitly requested by a human.
+
+- Do **NOT** manually un-draft PRs, relabel loop issues/PRs, or close loop PRs as a normal fix path.
+- If a workflow outcome is wrong (e.g., PR remains draft), fix the workflow prompt/logic so the next run resolves it.
+- Any emergency manual intervention must be followed by a workflow fix in the same session to prevent recurrence.
+- Human handoff is complete only when both are true:
+  1. PR is non-draft, and
+  2. PR has `human:ready-for-review` label.
+
+If either condition is false, promotion is incomplete and must be retried by workflow logic.
+
+#### 7. Promoter Auth Requirement
+
+`pr-promoter` depends on authenticated `gh` CLI calls (`gh pr ready`) inside the agent runtime.
+
+- The agent execution environment MUST receive `GITHUB_TOKEN` (and `GH_TOKEN`) from workflow secrets/context.
+- If these are missing, promotion silently degrades into no-op comments while PRs remain draft.
+- Any workflow recompilation or refactor that touches `pr-promoter.lock.yml` must preserve token injection for the `Execute GitHub Copilot CLI` step.
+
+#### 8. Credential Attribution Requirement
+
+For this repository, default all CLI and workflow token usage to the **`fhemmerrelias`** identity unless explicitly overridden by a human.
+
+- Local `gh` CLI operations should run with active account `fhemmerrelias`.
+- Workflow runtime secrets used for agent actions (`GH_AW_GITHUB_TOKEN`, `COPILOT_GITHUB_TOKEN`) should be sourced from the `fhemmerrelias` token.
+- If a maintenance action requires repo-admin access unavailable to `fhemmerrelias`, perform that one-time admin action, then immediately switch the active CLI account back to `fhemmerrelias`.
+
+### Workflow Files
+
+| File | Purpose | Schedule |
+|------|---------|----------|
+| `repo-audit.lock.yml` | Creates `agent:fixable` issues from code quality findings | Daily |
+| `issue-processor.lock.yml` | Claims oldest `agent:fixable` issue, creates draft PR | `*/30 * * * *` |
+| `sfl-auditor.lock.yml` | Audits issue/PR label harmony, repairs discrepancies | `15,45 * * * *` |
+| `pr-analyzer-a.lock.yml` | Reviews draft PRs for correctness & logic issues | `8,38 * * * *` |
+| `pr-analyzer-b.lock.yml` | Reviews draft PRs for security & performance issues | `10,40 * * * *` |
+| `pr-analyzer-c.lock.yml` | Reviews draft PRs for style & maintainability issues | `12,42 * * * *` |
+| `pr-fixer.lock.yml` | Implements fixes from analyzer comments | `20,50 * * * *` |
+| `pr-promoter.lock.yml` | Un-drafts clean PRs for human review | `25,55 * * * *` |
+
+---
+
 ## Project Overview
 
 **hs-buddy** is your universal productivity companion - an Electron application that sits on top of the HemSoft skills infrastructure to help automate tasks, manage workflows, and provide insights across both work and personal life.
 
 ## Built Upon hs-conductor
 
-This application is architecturally based on **hs-conductor**, specifically the `/admin` Electron app within that repository.
+This application is architecturally based on **[hs-conductor](https://github.com/HemSoft/hs-conductor)**, specifically the `/admin` Electron app within that repository.
 
 ### Reference Architecture
 
 When making decisions about project structure, UI patterns, or technical implementation, **always reference hs-conductor/admin** for consistency:
 
-- **Electron Setup**: `(hs-conductor-repo)/admin/electron/main.ts`
-- **React Structure**: `(hs-conductor-repo)/admin/src/`
-- **Build Config**: `(hs-conductor-repo)/admin/vite.config.ts`
+- **Electron Setup**: `(hs-conductor)/admin/electron/main.ts`
+- **React Structure**: `(hs-conductor)/admin/src/`
+- **Build Config**: `(hs-conductor)/admin/vite.config.ts`
 - **UI Components**: React Complex Tree, Allotment (split panes), Monaco Editor, VSCode WebView UI Toolkit
-
-> **Note:** Replace `(hs-conductor-repo)` with the actual path where you have cloned the hs-conductor repository.
 
 ## Technology Stack
 

@@ -27,10 +27,10 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 | ✅ | High | Build feature-intake normalization workflow | Convex mapping schema + template-driven issue drafts + dedupe checks (2026-02) |
 | ✅ | High | Issue Processor workflow | Cron every 30 min; claim issue; create draft PR; agent:in-progress labeling (2026-02) |
 | ✅ | **Critical** | Build sfl-auditor workflow | Audits issue/PR label consistency; repairs orphaned in-progress, conflicting labels, and unexplained pauses. Cron `15,45 * * * *` (2026-02) |
-| 📋 | High | Build PR Analyzer workflow (×3 models) | Three separate analyzer agents that review draft PRs labeled `agent:pr`; each posts structured review comments and exits. Models: `claude-sonnet-4-5`, `gemini-2-pro`, `gpt-4o`. Triggered on cron; picks oldest `agent:pr` draft PR not yet reviewed this cycle. |
-| 📋 | High | Build PR Fixer workflow (authority) | Single fixer using Claude Opus; reads all analyzer comments on a draft PR; implements all fixes; commits to the PR branch; exits. Does not un-draft the PR. |
-| 📋 | High | Add pr:cycle-N label system | Labels `pr:cycle-1`, `pr:cycle-2`, `pr:cycle-3` on PRs to track iteration count. After cycle 3 with remaining issues → add `agent:human-required`, post human-escalation comment. |
-| 📋 | High | Build PR Promoter workflow | Runs after PR Fixer; if analyzers find zero blocking issues → convert draft PR to ready-for-review and post "Ready for human review" comment. |
+| ✅ | High | Build PR Analyzer workflow (×3 models) | Three analyzers (A: Correctness, B: Security, C: Style) on staggered crons; cycle-aware comment markers; compiled lock.yml (2026-02) |
+| ✅ | High | Build PR Fixer workflow (authority) | Authority model (Claude Opus); reads all 3 analyzer comments; implements fixes; commits via create-pull-request safe output; increments pr:cycle-N; escalates at cycle 3. Cron `20,50 * * * *` (2026-02) |
+| ✅ | High | Add pr:cycle-N label system | Labels `pr:cycle-1/2/3` created; analyzers skip cycle-3 PRs; escalation built into PR Fixer design (2026-02) |
+| ✅ | High | Build PR Promoter workflow | Runs after PR Fixer; if all 3 analyzers pass → un-draft PR via create-pull-request (draft:false) + promotion comment. Cron `25,55 * * * *` (2026-02) |
 | 📋 | Medium | Run 30-day Set it Free pilot | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | ✅ | High | Improve Welcome to Buddy window | Convex-backed stats dashboard, session tracking (2026-02) |
@@ -66,46 +66,11 @@ Repo Audit → Issues  →  Issue Processor  →  Draft PR (agent:pr)
 
 ## Progress
 
-**Remaining: 6** | **Completed: 35** (85%)
+**Remaining: 2** | **Completed: 39** (95%)
 
 ---
 
 ## Remaining Items
-
-### Build PR Analyzer workflow (×3 models)
-
-**Goal**: Three parallel analyzer agents that each review the draft PR and post structured comments identifying issues. Each runs independently with a different model to get diverse perspectives (claude-sonnet-4-5, gemini-2-pro, gpt-4o). Triggered by cron; picks the oldest draft PR labeled `agent:pr` that has not yet been reviewed in the current cycle.
-
-**Concurrency guard**: Label `agent:analyzing` while running; remove when done.
-
-**Deliverables**:
-
-- `.github/workflows/pr-analyzer-a.md` + compiled `.lock.yml`
-- `.github/workflows/pr-analyzer-b.md` + compiled `.lock.yml`
-- `.github/workflows/pr-analyzer-c.md` + compiled `.lock.yml`
-
-### Build PR Fixer workflow (authority)
-
-**Goal**: Single authoritative fixer using Claude Opus. Reads all review comments posted by analyzers on a draft PR, implements all non-blocking and blocking fixes, commits to the PR branch, increments the cycle label (`pr:cycle-N`), and exits without un-drafting the PR.
-
-**Deliverables**:
-
-- `.github/workflows/pr-fixer.md` + compiled `.lock.yml`
-- Model configured via `GH_AW_MODEL_AGENT_COPILOT` repo variable
-
-### Add pr:cycle-N label system
-
-**Goal**: Track how many fixer cycles a PR has been through. After cycle 3 with remaining issues, escalate to human with `agent:human-required` label and explanatory comment.
-
-**Labels to create**: `pr:cycle-1`, `pr:cycle-2`, `pr:cycle-3`
-
-### Build PR Promoter workflow
-
-**Goal**: Runs after the PR Fixer. If all three analyzers found zero blocking issues in the latest cycle, convert the draft PR to ready-for-review (remove draft state) and post a "✅ Ready for human review" comment.
-
-**Deliverables**:
-
-- `.github/workflows/pr-promoter.md` + compiled `.lock.yml`
 
 ### Run 30-day Set it Free pilot
 

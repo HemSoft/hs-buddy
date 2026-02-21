@@ -36,3 +36,6 @@ Thumbs.db
 
 # Electron
 out/
+
+# Prompt checkpoints (local state, not tracked)
+.github/prompts/.status-checkpoint

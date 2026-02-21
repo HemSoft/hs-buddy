@@ -21,17 +21,17 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# Runs every 30 minutes (offset 15 min from issue-processor), audits the
-# relationship between issue labels and open pull requests, and repairs any
-# state discrepancies it finds. Keeps the agentic pipeline self-consistent
-# without human intervention.
+# PR Analyzer A — Correctness & Logic review. One of three analyzer agents
+# that independently review draft PRs labeled agent:pr. Posts structured
+# review comments identifying blocking and non-blocking issues. Intended
+# model: claude-sonnet-4-5 (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"9dd08df9c2a0f1d0519f5e65dd7f9c64b528d3850fb0be9bd70d105ae0d253a3","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"348745abc253672f0142702ecaf8b59d705e016f24824732951feb9c9abacfdf","compiler_version":"v0.47.1"}
 
-name: "SFL Auditor"
+name: "PR Analyzer A — Correctness & Logic"
 "on":
   schedule:
-  - cron: "15,45 * * * *"
+  - cron: "8,38 * * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -39,7 +39,7 @@ permissions: {}
 concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
-run-name: "SFL Auditor"
+run-name: "PR Analyzer A — Correctness & Logic"
 
 jobs:
   activation:
@@ -73,7 +73,7 @@ jobs:
       - name: Check workflow file timestamps
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GH_AW_WORKFLOW_FILE: "sfl-auditor.lock.yml"
+          GH_AW_WORKFLOW_FILE: "pr-analyzer-a.lock.yml"
         with:
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
@@ -162,7 +162,7 @@ jobs:
           </system>
           GH_AW_PROMPT_EOF
           cat << 'GH_AW_PROMPT_EOF' >> "$GH_AW_PROMPT"
-          {{#runtime-import .github/workflows/sfl-auditor.md}}
+          {{#runtime-import .github/workflows/pr-analyzer-a.md}}
           GH_AW_PROMPT_EOF
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -245,7 +245,7 @@ jobs:
       GH_AW_SAFE_OUTPUTS: /opt/gh-aw/safeoutputs/outputs.jsonl
       GH_AW_SAFE_OUTPUTS_CONFIG_PATH: /opt/gh-aw/safeoutputs/config.json
       GH_AW_SAFE_OUTPUTS_TOOLS_PATH: /opt/gh-aw/safeoutputs/tools.json
-      GH_AW_WORKFLOW_ID_SANITIZED: sflauditor
+      GH_AW_WORKFLOW_ID_SANITIZED: pranalyzera
     outputs:
       checkout_pr_success: ${{ steps.checkout-pr.outputs.checkout_pr_success || 'true' }}
       has_patch: ${{ steps.collect_output.outputs.has_patch }}
@@ -303,7 +303,7 @@ jobs:
               version: "",
               agent_version: "0.0.411",
               cli_version: "v0.47.1",
-              workflow_name: "SFL Auditor",
+              workflow_name: "PR Analyzer A — Correctness & Logic",
               experimental: false,
               supports_tools_allowlist: true,
               run_id: context.runId,
@@ -350,12 +350,12 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":10}}
+          {"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":2}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 10 issue(s) can be updated. Target: *.",
+              "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 2 issue(s) can be updated. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -851,7 +851,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: 1
-          GH_AW_WORKFLOW_NAME: "SFL Auditor"
+          GH_AW_WORKFLOW_NAME: "PR Analyzer A — Correctness & Logic"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -864,7 +864,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "SFL Auditor"
+          GH_AW_WORKFLOW_NAME: "PR Analyzer A — Correctness & Logic"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -877,10 +877,10 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "SFL Auditor"
+          GH_AW_WORKFLOW_NAME: "PR Analyzer A — Correctness & Logic"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
-          GH_AW_WORKFLOW_ID: "sfl-auditor"
+          GH_AW_WORKFLOW_ID: "pr-analyzer-a"
           GH_AW_SECRET_VERIFICATION_RESULT: ${{ needs.agent.outputs.secret_verification_result }}
           GH_AW_CHECKOUT_PR_SUCCESS: ${{ needs.agent.outputs.checkout_pr_success }}
           GH_AW_GROUP_REPORTS: "false"
@@ -896,7 +896,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "SFL Auditor"
+          GH_AW_WORKFLOW_NAME: "PR Analyzer A — Correctness & Logic"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
@@ -944,8 +944,8 @@ jobs:
       - name: Setup threat detection
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          WORKFLOW_NAME: "SFL Auditor"
-          WORKFLOW_DESCRIPTION: "Runs every 30 minutes (offset 15 min from issue-processor), audits the\nrelationship between issue labels and open pull requests, and repairs any\nstate discrepancies it finds. Keeps the agentic pipeline self-consistent\nwithout human intervention."
+          WORKFLOW_NAME: "PR Analyzer A — Correctness & Logic"
+          WORKFLOW_DESCRIPTION: "PR Analyzer A — Correctness & Logic review. One of three analyzer agents\nthat independently review draft PRs labeled agent:pr. Posts structured\nreview comments identifying blocking and non-blocking issues. Intended\nmodel: claude-sonnet-4-5 (set via GH_AW_MODEL_AGENT_COPILOT repo variable)."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |
@@ -1022,8 +1022,8 @@ jobs:
     timeout-minutes: 15
     env:
       GH_AW_ENGINE_ID: "copilot"
-      GH_AW_WORKFLOW_ID: "sfl-auditor"
-      GH_AW_WORKFLOW_NAME: "SFL Auditor"
+      GH_AW_WORKFLOW_ID: "pr-analyzer-a"
+      GH_AW_WORKFLOW_NAME: "PR Analyzer A — Correctness & Logic"
     outputs:
       create_discussion_error_count: ${{ steps.process_safe_outputs.outputs.create_discussion_error_count }}
       create_discussion_errors: ${{ steps.process_safe_outputs.outputs.create_discussion_errors }}
@@ -1050,7 +1050,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":10,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":2,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

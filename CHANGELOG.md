@@ -7,6 +7,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.70] - 2026-02-21
+
+- Version bump
+
+## [0.1.69] - 2026-02-21
+
+- Version bump
+
+## [0.1.68] - 2026-02-21
+
+- Version bump
+
+## [0.1.67] - 2026-02-21
+
+- Version bump
+
+## [0.1.66] - 2026-02-21
+
+- Version bump
+
+## [0.1.65] - 2026-02-21
+
+- Version bump
+
+## [0.1.64] - 2026-02-21
+
+- Version bump
+
+## [0.1.63] - 2026-02-21
+
+- Version bump
+
+## [0.1.62] - 2026-02-21
+
+- Version bump
+
+## [0.1.61] - 2026-02-21
+
+- Version bump
+
+## [0.1.60] - 2026-02-21
+
+- Version bump
+
+## [0.1.59] - 2026-02-21
+
+- Version bump
+
+## [0.1.58] - 2026-02-21
+
+- Version bump
+
+## [0.1.57] - 2026-02-21
+
+- Version bump
+
+## [0.1.56] - 2026-02-21
+
+- Version bump
+
+## [0.1.55] - 2026-02-21
+
+- Version bump
+
+## [0.1.54] - 2026-02-21
+
+- Version bump
+
+## [0.1.53] - 2026-02-20
+
+- Version bump
+
+## [0.1.52] - 2026-02-20
+
+- Version bump
+
+## [0.1.51] - 2026-02-20
+
+- Version bump
+
+## [0.1.50] - 2026-02-20
+
+- Version bump
+
+## [0.1.49] - 2026-02-20
+
+- Version bump
+
+## [0.1.48] - 2026-02-20
+
+- Version bump
+
+## [0.1.47] - 2026-02-20
+
+- Version bump
+
+## [0.1.46] - 2026-02-20
+
+- Version bump
+
+## [0.1.45] - 2026-02-20
+
+- Version bump
+
+## [0.1.44] - 2026-02-20
+
+- Version bump
+
+## [0.1.43] - 2026-02-20
+
+- Version bump
+
+## [0.1.42] - 2026-02-20
+
+- Version bump
+
+## [0.1.41] - 2026-02-20
+
+- Version bump
+
+## [0.1.40] - 2026-02-20
+
+- Version bump
+
+## [0.1.39] - 2026-02-20
+
+- Version bump
+
 ## [0.1.38] - 2026-02-20
 
 - Version bump

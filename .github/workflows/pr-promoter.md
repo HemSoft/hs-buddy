@@ -121,7 +121,22 @@ If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
 fixing. Call `noop` with message "PR #<number> cycle <C>: blocking issues
 found — not promoting. The PR Fixer will handle this." and exit.
 
-## Step 6 — Convert PR to ready-for-review
+## Step 6 — Authenticate GitHub CLI
+
+Before running `gh pr ready`, ensure gh CLI is authenticated in this runtime.
+
+Use:
+
+```bash
+export GH_TOKEN="$COPILOT_GITHUB_TOKEN"
+gh auth status
+```
+
+If `gh auth status` fails or `$COPILOT_GITHUB_TOKEN` is unavailable, call
+`noop` with message "PR #<number> cannot promote: gh auth unavailable" and
+exit.
+
+## Step 7 — Convert PR to ready-for-review
 
 Use GitHub CLI to convert the existing draft PR directly:
 
@@ -132,7 +147,7 @@ gh pr ready <number> --repo HemSoft/hs-buddy
 This is the authoritative transition for draft -> non-draft and does not rely
 on patch application.
 
-## Step 7 — Verify draft state actually changed
+## Step 8 — Verify draft state actually changed
 
 After calling `gh pr ready`, re-read the PR state.
 
@@ -143,7 +158,7 @@ After calling `gh pr ready`, re-read the PR state.
 
 Never mark human handoff labels on a still-draft PR.
 
-## Step 8 — Post the promotion comment
+## Step 9 — Post the promotion comment
 
 Call `update_issue` with:
 
@@ -183,7 +198,7 @@ from draft to ready-for-review.
 Replace C with the cycle number that was checked. Extract the linked issue
 number from `Closes #N` in the PR body.
 
-## Step 9 — Update labels
+## Step 10 — Update labels
 
 Call `update_issue` with:
 
@@ -202,7 +217,7 @@ This step is only valid after Step 8 confirms the PR is non-draft.
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
 - Never apply `human:ready-for-review` to a draft PR
-- If `gh pr ready` fails, call `noop` with the failure reason and exit cleanly
+- If gh authentication fails or `gh pr ready` fails, call `noop` with the failure reason and exit cleanly
 - If any step fails unexpectedly, call `noop` with the failure reason and exit
 - At most 3 `update_issue` calls per run (enforced by safe-outputs max)
 - `gh pr ready` is the only supported mechanism for draft -> ready transition

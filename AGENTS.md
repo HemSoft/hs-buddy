@@ -90,6 +90,14 @@ If either condition is false, promotion is incomplete and must be retried by wor
 - If these are missing, promotion silently degrades into no-op comments while PRs remain draft.
 - Any workflow recompilation or refactor that touches `pr-promoter.lock.yml` must preserve token injection for the `Execute GitHub Copilot CLI` step.
 
+#### 8. Credential Attribution Requirement
+
+For this repository, default all CLI and workflow token usage to the **`fhemmerrelias`** identity unless explicitly overridden by a human.
+
+- Local `gh` CLI operations should run with active account `fhemmerrelias`.
+- Workflow runtime secrets used for agent actions (`GH_AW_GITHUB_TOKEN`, `COPILOT_GITHUB_TOKEN`) should be sourced from the `fhemmerrelias` token.
+- If a maintenance action requires repo-admin access unavailable to `fhemmerrelias`, perform that one-time admin action, then immediately switch the active CLI account back to `fhemmerrelias`.
+
 ### Workflow Files
 
 | File | Purpose | Schedule |

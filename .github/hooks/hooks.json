@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "pwsh -NoProfile -File .github/hooks/stop-check-actions.ps1",
+        "windows": "pwsh -NoProfile -File .github\\hooks\\stop-check-actions.ps1",
+        "timeout": 60
+      }
+    ]
+  }
+}

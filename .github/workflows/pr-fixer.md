@@ -16,6 +16,10 @@ permissions:
   issues: read
   pull-requests: read
 
+engine:
+  id: copilot
+  model: claude-opus-4.6
+
 network: defaults
 
 tools:

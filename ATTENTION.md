@@ -4,6 +4,15 @@
 
 ## Active Concerns
 
+### PR Analyzers A/B/C Failing — Copilot CLI Model Names Updated
+
+- **Severity**: Critical
+- **Detected**: 2026-02-22
+- **Status**: Fix applied locally, pending commit & push
+- **Description**: Copilot CLI updated its allowed model names (hyphens → dots, removed legacy models). All three PR Analyzers were using invalid model names: `claude-sonnet-4-5` → `claude-sonnet-4.5`, `gemini-2-pro` → `gemini-3-pro-preview`, `gpt-4o` → `gpt-4.1`. Error: `option '--model' argument is invalid`.
+- **Impact**: All PR analysis is blocked — PRs #66 and #67 cannot progress through the SFL pipeline.
+- **Suggested Action**: Commit and push the fix (6 files: 3 `.md` + 3 `.lock.yml`), then monitor next cron run.
+
 ### SFL Auditor Crashing — jq Word-Splitting Bug in Orphaned PRs Check
 
 - **Severity**: Critical

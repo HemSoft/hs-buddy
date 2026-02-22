@@ -4,7 +4,7 @@ description: |
   independently review draft PRs labeled agent:pr using different AI models.
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
-  diversity — different models catch different things. Model: gemini-2-pro
+  diversity — different models catch different things. Model: gemini-3-pro-preview
   (set via engine.model frontmatter).
 
 on:
@@ -19,7 +19,7 @@ permissions:
 
 engine:
   id: copilot
-  model: gemini-2-pro
+  model: gemini-3-pro-preview
 
 network: defaults
 

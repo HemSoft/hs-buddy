@@ -1,8 +1,18 @@
 # PR Promoter — standard workflow (replaces gh-aw pr-promoter.lock.yml)
 #
-# Converts clean draft PRs to ready-for-review. If all three analyzers found
-# zero blocking issues (PASS verdict) in the current cycle, un-drafts the PR
-# and posts a promotion comment. Processes exactly one PR per run.
+# Two-stage lifecycle manager for agent PRs:
+#
+# Job 1 (promote): Converts clean draft PRs to ready-for-review when all three
+# analyzers report PASS in the current cycle.
+#
+# Job 2 (merge): Merges approved PRs after a human approves the review.
+# Consults the Merge Authority Matrix from SET_IT_FREE_GOVERNANCE.md:
+#   - risk:trivial / risk:low → auto-merge (0 reviews required, CI green)
+#   - risk:medium → 1 approved review required
+#   - risk:high → 1 human review required
+#   - risk:critical → 2 human reviews required
+#
+# Processes exactly one PR per job per run.
 
 name: "PR Promoter"
 
@@ -12,7 +22,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -268,3 +278,222 @@ jobs:
           fi
 
           echo "PR #$PR_NUMBER promoted successfully."
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: promote
+    env:
+      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Verify authentication
+        run: |
+          set -euo pipefail
+          if ! gh auth status 2>&1; then
+            echo "::error::GH_AW_GITHUB_TOKEN is not valid"
+            exit 1
+          fi
+
+      - name: Find approved PR
+        id: find-approved
+        run: |
+          set -euo pipefail
+
+          # Find non-draft PRs with human:ready-for-review, oldest first
+          PRS=$(gh pr list --repo "$REPO" --state open --label "human:ready-for-review" \
+            --json number,isDraft,labels,body,reviews,createdAt \
+            --jq '[.[] | select(.isDraft == false)] | sort_by(.createdAt)')
+
+          COUNT=$(echo "$PRS" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No non-draft PRs with human:ready-for-review label — nothing to merge."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Take the oldest
+          PR_NUMBER=$(echo "$PRS" | jq '.[0].number')
+          PR_BODY=$(echo "$PRS" | jq -r '.[0].body // ""')
+          PR_LABELS=$(echo "$PRS" | jq -c '.[0].labels | map(.name)')
+
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          # Save for later steps
+          echo "$PR_BODY" > /tmp/merge_pr_body.txt
+          echo "$PR_LABELS" > /tmp/merge_pr_labels.json
+
+          echo "Found PR #$PR_NUMBER for merge evaluation"
+
+      - name: Check idempotency
+        if: steps.find-approved.outputs.skip != 'true'
+        id: check-idempotency
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
+
+          # Check for existing merger marker in PR comments
+          EXISTING=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments \
+            --jq '[.comments[].body | select(contains("[MARKER:pr-merger]"))] | length')
+
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "PR #$PR_NUMBER already has a merger marker — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Determine risk class and required approvals
+        if: steps.find-approved.outputs.skip != 'true' && steps.check-idempotency.outputs.skip != 'true'
+        id: risk-check
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
+          PR_LABELS=$(cat /tmp/merge_pr_labels.json)
+
+          # Determine risk class from labels
+          RISK="unknown"
+          for R in critical high medium low trivial; do
+            if echo "$PR_LABELS" | jq -e "index(\"risk:$R\")" > /dev/null 2>&1; then
+              RISK="$R"
+              break
+            fi
+          done
+
+          echo "Risk class: $RISK"
+
+          # Merge Authority Matrix (from SET_IT_FREE_GOVERNANCE.md):
+          #   trivial  → 0 reviews, auto-merge
+          #   low      → 0 reviews, auto-merge
+          #   medium   → 1 review (any)
+          #   high     → 1 review (human)
+          #   critical → 2 reviews (human)
+          #   unknown  → treat as medium (1 review required)
+          case "$RISK" in
+            trivial|low)
+              REQUIRED_REVIEWS=0
+              ;;
+            medium|unknown)
+              REQUIRED_REVIEWS=1
+              ;;
+            high)
+              REQUIRED_REVIEWS=1
+              ;;
+            critical)
+              REQUIRED_REVIEWS=2
+              ;;
+          esac
+
+          echo "required_reviews=$REQUIRED_REVIEWS" >> "$GITHUB_OUTPUT"
+          echo "risk=$RISK" >> "$GITHUB_OUTPUT"
+          echo "Risk: $RISK → requires $REQUIRED_REVIEWS approved review(s)"
+
+      - name: Check approval status
+        if: steps.find-approved.outputs.skip != 'true' && steps.check-idempotency.outputs.skip != 'true'
+        id: check-approvals
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
+          REQUIRED="${{ steps.risk-check.outputs.required_reviews }}"
+
+          # Count approved reviews (deduplicated by author — only latest review per person)
+          APPROVED_COUNT=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json reviews \
+            --jq '[.reviews | group_by(.author.login) | .[] | last | select(.state == "APPROVED")] | length')
+
+          echo "PR #$PR_NUMBER has $APPROVED_COUNT approved review(s), requires $REQUIRED"
+
+          if [ "$APPROVED_COUNT" -lt "$REQUIRED" ]; then
+            echo "PR #$PR_NUMBER needs more approvals ($APPROVED_COUNT/$REQUIRED) — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Approval requirement met."
+          echo "approved_count=$APPROVED_COUNT" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Check CI status
+        if: >-
+          steps.find-approved.outputs.skip != 'true' &&
+          steps.check-idempotency.outputs.skip != 'true' &&
+          steps.check-approvals.outputs.skip != 'true'
+        id: check-ci
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
+
+          # Check combined status of all required checks
+          STATUS=$(gh pr checks "$PR_NUMBER" --repo "$REPO" --json name,state \
+            --jq '[.[] | select(.name != "PR Promoter" and .name != "SFL Auditor" and .name != "SFL Dispatcher")] | if length == 0 then "pass" else [.[] | select(.state != "SUCCESS" and .state != "SKIPPED")] | if length == 0 then "pass" else "fail" end end')
+
+          if [ "$STATUS" = "fail" ]; then
+            echo "PR #$PR_NUMBER has failing CI checks — skipping merge."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "CI checks passed."
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Merge PR
+        if: >-
+          steps.find-approved.outputs.skip != 'true' &&
+          steps.check-idempotency.outputs.skip != 'true' &&
+          steps.check-approvals.outputs.skip != 'true' &&
+          steps.check-ci.outputs.skip != 'true'
+        id: do-merge
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
+
+          echo "Merging PR #$PR_NUMBER via squash merge..."
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch
+
+          echo "PR #$PR_NUMBER merged successfully."
+          echo "merged=true" >> "$GITHUB_OUTPUT"
+
+      - name: Post merge comment and clean up labels
+        if: steps.do-merge.outputs.merged == 'true'
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
+          RISK="${{ steps.risk-check.outputs.risk }}"
+          APPROVED_COUNT="${{ steps.check-approvals.outputs.approved_count }}"
+          PR_BODY=$(cat /tmp/merge_pr_body.txt)
+
+          # Extract linked issue number from "Closes #N" in PR body
+          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K\d+' | head -1)
+
+          # Post merge comment with idempotency marker
+          COMMENT="[MARKER:pr-merger]
+          ## 🎉 PR Merger — Merged
+
+          **PR**: #${PR_NUMBER}
+          **Risk class**: \`${RISK}\`
+          **Approved reviews**: ${APPROVED_COUNT}
+          **Linked Issue**: #${ISSUE_NUMBER:-unknown}
+          **Merge method**: squash
+
+          This PR was automatically merged after receiving the required human approval(s)."
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$COMMENT"
+
+          # Clean up labels on linked issue if it exists and is still open
+          if [ -n "$ISSUE_NUMBER" ]; then
+            ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json state --jq '.state' 2>/dev/null || echo "CLOSED")
+            if [ "$ISSUE_STATE" = "OPEN" ]; then
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label "agent:in-progress" 2>/dev/null || true
+            fi
+          fi
+
+          # Remove human:ready-for-review from PR (now merged, but for completeness)
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "human:ready-for-review" 2>/dev/null || true
+
+          echo "Post-merge cleanup complete."

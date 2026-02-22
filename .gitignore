@@ -4,7 +4,7 @@ bun.lock
 package-lock.json
 yarn.lock
 
-# Build outputs
+# Build outputs (created by `bun run build` or `npm run build`)
 dist/
 dist-electron/
 release/

@@ -6,6 +6,7 @@
 [![Electron](https://img.shields.io/badge/Electron-30-47848F.svg)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF.svg)](https://vitejs.dev/)
+[![Set it Free Loop](https://img.shields.io/badge/Set_it_Free_Loop-Governed-FFD700?style=flat&logo=githubactions&logoColor=white)](docs/SET_IT_FREE_GOVERNANCE.md)
 
 ## Overview
 
@@ -246,6 +247,29 @@ You can also run the validation script to check your GitHub org configurations:
 - [ ] Dashboard views
 - [ ] Custom layouts
 - [ ] Plugin system
+
+## Set it Free Loop
+
+This repository is governed by the **Set it Free Loop™** — a recursive automation system that detects quality findings, generates fixes, reviews them with multiple AI models, and merges improvements autonomously.
+
+<p align="center">
+  <img src="assets/set-it-free-loop/sfl-architecture-flow.png" alt="Set it Free Loop Architecture" width="800" />
+</p>
+
+The loop runs continuously via GitHub Actions workflows:
+
+| Stage | Workflow | What it does |
+|-------|----------|--------------|
+| **Detect** | Repo Audit | Scans for documentation drift, stale artifacts, config hygiene |
+| **Claim** | Issue Processor | Claims `agent:fixable` issues and opens draft PRs |
+| **Review** | PR Analyzers A/B/C | Three independent AI models perform full-spectrum code review |
+| **Fix** | PR Fixer | Implements reviewer suggestions, increments cycle counter |
+| **Promote** | PR Promoter | Un-drafts clean PRs when all analyzers pass |
+| **Guard** | SFL Auditor + Dispatcher | Repairs label discrepancies, orchestrates dispatch every 30 min |
+
+Human involvement is required only for final merge approval on `risk:medium` or higher changes. Trivial and low-risk fixes are auto-merged after passing CI and the PR quality gate.
+
+See [SET_IT_FREE_GOVERNANCE.md](docs/SET_IT_FREE_GOVERNANCE.md) for the full policy including label taxonomy, retry limits, merge authority matrix, and escalation paths.
 
 ## Contributing
 

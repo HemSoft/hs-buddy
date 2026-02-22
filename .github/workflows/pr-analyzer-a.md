@@ -1,9 +1,11 @@
 ---
 description: |
-  PR Analyzer A — Correctness & Logic review. One of three analyzer agents
-  that independently review draft PRs labeled agent:pr. Posts structured
-  review comments identifying blocking and non-blocking issues. Intended
-  model: claude-sonnet-4-5 (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
+  PR Analyzer A — Full-Spectrum Review. One of three analyzer agents that
+  independently review draft PRs labeled agent:pr using different AI models.
+  Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
+  security, performance, style, maintainability). The value comes from model
+  diversity — different models catch different things. Model: claude-sonnet-4-5
+  (set via engine.model frontmatter).
 
 on:
   schedule:
@@ -14,6 +16,10 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
+
+engine:
+  id: copilot
+  model: claude-sonnet-4-5
 
 network: defaults
 
@@ -29,16 +35,22 @@ safe-outputs:
     max: 2
 ---
 
-# PR Analyzer A — Correctness & Logic
+# PR Analyzer A — Full-Spectrum Review
 
 Run every 30 minutes. Find the oldest draft PR labeled `agent:pr` that has
 not yet been reviewed by this analyzer in the current cycle. Post a structured
-review comment focusing on **correctness and logic**. Exit after reviewing one
-PR per run.
+full-spectrum review comment. Exit after reviewing one PR per run.
+
+You are one of three independent analyzers. All three review the same
+dimensions; the value comes from **model diversity** — different AI models
+catch different issues.
 
 ## Your review perspective
 
-You are Analyzer A. Your sole focus is **correctness and logic**:
+You are Analyzer A. Perform a **comprehensive full-spectrum review** covering
+ALL of the following areas:
+
+### Correctness & Logic
 
 - Does the code do what the PR description and linked issue say it should?
 - Are there logic errors, off-by-one mistakes, or incorrect conditionals?
@@ -47,8 +59,38 @@ You are Analyzer A. Your sole focus is **correctness and logic**:
 - Are there regressions — does the change break existing behavior?
 - Is error handling correct and complete for the changed code paths?
 
-Do NOT review for style, naming, performance, or security — those are handled
-by the other two analyzers.
+### Security
+
+- Are there injection vulnerabilities (SQL, XSS, command injection, path traversal)?
+- Is user input validated and sanitized at system boundaries?
+- Are secrets, tokens, or credentials exposed or logged?
+- Are there OWASP Top 10 violations (broken access control, cryptographic
+  failures, insecure design, security misconfiguration, SSRF)?
+- Are authentication and authorization checks correct and complete?
+- Are any new dependencies from untrusted sources?
+
+### Performance
+
+- Does the change introduce performance regressions (N+1 queries, unbounded
+  loops, unnecessary allocations, blocking I/O on hot paths)?
+- Are there resource leaks (unclosed handles, streams, connections)?
+- Is caching used appropriately — no stale data, no cache stampedes?
+- Are there memory leaks or unbounded growth?
+
+### Style & Maintainability
+
+- Does the change follow the existing code style and conventions?
+- Are names clear, consistent, and following project conventions?
+- Is the code readable without extra context?
+- Is there unnecessary complexity or dead code?
+- Are TypeScript types used correctly (no unnecessary `any` or `as` casts)?
+- Are imports organized consistently?
+
+### Best Practices
+
+- Are there missing tests for the changed behavior?
+- Are there breaking changes without migration?
+- Is commit discipline maintained (focused, minimal changes)?
 
 ## Step 1 — Find the target PR
 
@@ -94,24 +136,43 @@ Gather all context needed for review:
 2. Read the linked issue (extract issue number from `Closes #N` in PR body)
 3. Read the PR diff to see exactly what changed
 4. Read the full content of each changed file for surrounding context
+5. Check for any configuration files, environment variable usage, or
+   dependency changes in the diff
+6. Check the project's configuration files (tsconfig.json, .eslintrc,
+   prettier config) for enforced style rules
 
-## Step 5 — Analyze for correctness and logic
+## Step 5 — Full-spectrum analysis
 
-Review every changed line against these criteria:
+Review every changed line across ALL dimensions:
 
 1. **Functional correctness**: Does the change implement what the issue asked for?
 2. **Logic errors**: Are conditionals, loops, and control flow correct?
 3. **Edge cases**: Are null checks, empty arrays, boundary conditions handled?
-4. **Acceptance criteria**: Does the change satisfy every acceptance criterion
-   from the linked issue?
+4. **Acceptance criteria**: Does the change satisfy every acceptance criterion?
 5. **Regressions**: Could the change break existing functionality?
 6. **Error handling**: Are errors in changed code paths caught appropriately?
+7. **Injection vulnerabilities**: Is any external input concatenated into
+   queries, commands, HTML, or file paths without sanitization?
+8. **Secret exposure**: Are tokens, keys, or credentials written to logs,
+   comments, error messages, or committed to source?
+9. **OWASP Top 10**: Broken access control, cryptographic failures, insecure
+   design, security misconfiguration, SSRF
+10. **Performance regressions**: Unbounded loops, N+1 queries, synchronous
+    I/O on critical paths, excessive memory allocation
+11. **Resource management**: Are files, connections, and handles properly closed?
+12. **Code style consistency**: Does the change match existing conventions?
+13. **Naming clarity**: Are names descriptive, consistent with the codebase?
+14. **Unnecessary complexity**: Are there simpler ways to express the logic?
+15. **TypeScript types**: No unnecessary `any` or `as` casts?
+16. **Missing tests**: Are tests needed for the changed behavior?
 
 Classify each finding as:
 
-- **BLOCKING**: Must be fixed before merge (logic errors, regressions,
-  unmet acceptance criteria, missing error handling)
-- **NON-BLOCKING**: Improvement suggestion that does not prevent merge
+- **BLOCKING** 🔴: Must be fixed before merge — crashes, security holes,
+  data loss, logic errors, regressions, unmet acceptance criteria, missing
+  error handling, resource leaks, significant performance regressions
+- **NON-BLOCKING** 🟡: Improvement suggestion — minor optimization, style
+  preference, readability improvement, hardening suggestion
 
 ## Step 6 — Post the review comment
 
@@ -127,14 +188,14 @@ pipeline will re-review this PR every 30 minutes forever.
 
 ```markdown
 [MARKER:pr-analyzer-a cycle:N]
-## 🔍 PR Analysis A — Correctness & Logic
+## 📊 PR Analysis A — Full-Spectrum Review
 
-**Analyzer**: A (Correctness & Logic)
+**Analyzer**: A
 **Cycle**: N
 **PR**: #<number>
 **Linked Issue**: #<issue-number>
 
-### Blocking Issues
+### Blocking Issues 🔴
 
 > Issues that MUST be fixed before this PR can merge.
 
@@ -142,7 +203,7 @@ pipeline will re-review this PR every 30 minutes forever.
 
 _None found._ (use this if no blocking issues)
 
-### Non-Blocking Suggestions
+### Non-Blocking Suggestions 🟡
 
 > Improvements that would be nice but are not required for merge.
 
@@ -167,5 +228,6 @@ Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, call `noop` with an explanation
 - If any step fails unexpectedly, call `noop` with the failure reason and exit
-- Keep the review focused on correctness and logic — leave style and security
-  to the other analyzers
+- Review the FULL spectrum — do not limit yourself to a single area
+- Be pragmatic about style — only mark as BLOCKING when it causes real
+  confusion or maintenance burden, not for personal preferences

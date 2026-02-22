@@ -7,7 +7,7 @@ description: |
 
 on:
   schedule:
-    - cron: "15,45 * * * *"
+    - cron: "15 * * * *"
   workflow_dispatch:
 
 permissions:

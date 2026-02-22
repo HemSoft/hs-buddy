@@ -28,12 +28,10 @@
 # diversity — different models catch different things. Model: claude-opus-4.6
 # (set via engine.model frontmatter).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"9a64835c00857df4f0a399dce8525cc44e548c45fe3d7448a0dfae48c9e53442","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"e7b8ed53d276872705bd26d77926a84c0f24a9df3093184a0eb83d5b75abb58a","compiler_version":"v0.47.1"}
 
 name: "PR Analyzer C — Full-Spectrum Review"
 "on":
-  schedule:
-  - cron: "12,42 * * * *"
   workflow_dispatch:
 
 permissions: {}

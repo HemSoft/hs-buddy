@@ -5,8 +5,6 @@ description: |
   branch, and opens a pull request. One issue per run — no fan-out.
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:

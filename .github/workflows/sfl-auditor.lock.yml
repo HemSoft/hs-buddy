@@ -26,12 +26,12 @@
 # state discrepancies it finds. Keeps the agentic pipeline self-consistent
 # without human intervention.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ab6632d30afe4ad8a22a22d917d12b3bc0bb3045c3b2bac901bb24a340831165","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"77414433a225731a9d6f46ee0714efcae61d50b843c0da5c6ca8123d86a93f7c","compiler_version":"v0.47.1"}
 
 name: "SFL Auditor"
 "on":
   schedule:
-  - cron: "15,45 * * * *"
+  - cron: "15 * * * *"
   workflow_dispatch:
 
 permissions: {}

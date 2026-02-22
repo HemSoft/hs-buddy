@@ -7,8 +7,6 @@ description: |
   (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
 
 on:
-  schedule:
-    - cron: "20,50 * * * *"
   workflow_dispatch:
 
 permissions:

@@ -6,8 +6,6 @@ description: |
   Processes exactly one PR per run.
 
 on:
-  schedule:
-    - cron: "25,55 * * * *"
   workflow_dispatch:
 
 permissions:

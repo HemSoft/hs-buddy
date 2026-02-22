@@ -28,12 +28,10 @@
 # diversity — different models catch different things. Model: gpt-5.3-codex
 # (set via engine.model frontmatter).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"5d4d9c1fe9481fe9e20cf2779cac57b537afe12d30a8c39df32d1c9fdd5d109c","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"cf4e6656878ffe2cd4d7fed13d94936af73f2573eda04b858d53ad79591c71d0","compiler_version":"v0.47.1"}
 
 name: "PR Analyzer B — Full-Spectrum Review"
 "on":
-  schedule:
-  - cron: "10,40 * * * *"
   workflow_dispatch:
 
 permissions: {}

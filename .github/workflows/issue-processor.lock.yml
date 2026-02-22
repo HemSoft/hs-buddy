@@ -25,12 +25,10 @@
 # labelled agent:fixable, claims it, implements the described fix on a new
 # branch, and opens a pull request. One issue per run — no fan-out.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"1cce1f28797f1cf9d0ffd1b15ff4045d1138e31fa34274a2a39e8799279c4216","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"65ab6d81d22e5300fa521ddcdcd0c9ce78882346b39a96b0661a068ddd3b3a80","compiler_version":"v0.47.1"}
 
 name: "Issue Processor"
 "on":
-  schedule:
-  - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions: {}

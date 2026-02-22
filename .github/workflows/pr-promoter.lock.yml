@@ -26,12 +26,10 @@
 # in the current cycle, un-drafts the PR and posts a promotion comment.
 # Processes exactly one PR per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"4277279244562c0254480d1a6d73ae2be140b47b3d68c52837787b79487a8ba4","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"31bac536f9aee6a2788ef3031a306dac92ac747e898eb254f50964d54b9c2159","compiler_version":"v0.47.1"}
 
 name: "PR Promoter"
 "on":
-  schedule:
-  - cron: "25,55 * * * *"
   workflow_dispatch:
 
 permissions: {}

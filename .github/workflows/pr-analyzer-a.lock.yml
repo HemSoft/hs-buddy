@@ -28,12 +28,10 @@
 # diversity — different models catch different things. Model: claude-sonnet-4.6
 # (set via engine.model frontmatter).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f9d16bddb5df97c97af9b294b92cd8b3d297bdad9d5ab6c40e90769a5d5de9de","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"603c828a59886ef460cf42d3f28924d03cc7ca71d8cc7caf6929b7318478ef16","compiler_version":"v0.47.1"}
 
 name: "PR Analyzer A — Full-Spectrum Review"
 "on":
-  schedule:
-  - cron: "8,38 * * * *"
   workflow_dispatch:
 
 permissions: {}

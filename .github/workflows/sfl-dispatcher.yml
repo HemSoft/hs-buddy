@@ -155,7 +155,7 @@ jobs:
         if: steps.prs.outputs.draft_pr_count != '0' || steps.approved.outputs.approved_count != '0'
         run: |
           echo "Dispatching PR Promoter..."
-          gh workflow run pr-promoter.yml --repo "$REPO"
+          gh workflow run pr-promoter.lock.yml --repo "$REPO"
 
       - name: Summary
         run: |

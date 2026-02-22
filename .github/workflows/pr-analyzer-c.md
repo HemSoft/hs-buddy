@@ -8,8 +8,6 @@ description: |
   (set via engine.model frontmatter).
 
 on:
-  schedule:
-    - cron: "12,42 * * * *"
   workflow_dispatch:
 
 permissions:

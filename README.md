@@ -46,9 +46,9 @@ git clone https://github.com/HemSoft/hs-buddy.git
 cd hs-buddy
 
 # Install dependencies
-npm install
-# or with bun
 bun install
+# or with npm
+npm install
 
 # Configure environment variables (for tokens)
 cp .env.example .env

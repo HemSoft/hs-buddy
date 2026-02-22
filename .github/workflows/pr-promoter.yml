@@ -427,9 +427,17 @@ jobs:
 
           PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
 
-          # Check combined status of all required checks
-          STATUS=$(gh pr checks "$PR_NUMBER" --repo "$REPO" --json name,state \
-            --jq '[.[] | select(.name != "PR Promoter" and .name != "SFL Auditor" and .name != "SFL Dispatcher")] | if length == 0 then "pass" else [.[] | select(.state != "SUCCESS" and .state != "SKIPPED")] | if length == 0 then "pass" else "fail" end end')
+          # gh pr checks exits non-zero when no checks exist; treat that as pass
+          CHECKS_JSON=$(gh pr checks "$PR_NUMBER" --repo "$REPO" --json name,state 2>&1) || true
+
+          # If no checks or empty output, treat as pass
+          if [ -z "$CHECKS_JSON" ] || echo "$CHECKS_JSON" | grep -q "no checks reported"; then
+            echo "No CI checks found — treating as pass."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          STATUS=$(echo "$CHECKS_JSON" | jq -r '[.[] | select(.name != "PR Promoter" and .name != "SFL Auditor" and .name != "SFL Dispatcher")] | if length == 0 then "pass" else [.[] | select(.state != "SUCCESS" and .state != "SKIPPED")] | if length == 0 then "pass" else "fail" end end')
 
           if [ "$STATUS" = "fail" ]; then
             echo "PR #$PR_NUMBER has failing CI checks — skipping merge."

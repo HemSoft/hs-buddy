@@ -4,7 +4,7 @@ description: |
   independently review draft PRs labeled agent:pr using different AI models.
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
-  diversity — different models catch different things. Model: claude-sonnet-4.5
+  diversity — different models catch different things. Model: claude-sonnet-4.6
   (set via engine.model frontmatter).
 
 on:
@@ -19,7 +19,7 @@ permissions:
 
 engine:
   id: copilot
-  model: claude-sonnet-4.5
+  model: claude-sonnet-4.6
 
 network: defaults
 

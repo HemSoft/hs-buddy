@@ -178,16 +178,33 @@ npm run build
 
 ```
 hs-buddy/
-├── electron/           # Main process (Electron)
-│   ├── main.ts        # Window management, menus, IPC
-│   └── preload.ts     # Secure context bridge
-├── src/               # Renderer process (React)
-│   ├── components/    # React components
-│   ├── App.tsx        # Main application component
-│   └── main.tsx       # React entry point
-├── dist/              # Vite build output (renderer)
-├── dist-electron/     # Electron build output (main)
-└── release/           # Packaged application binaries
+├── electron/               # Main process (Electron)
+│   ├── ipc/               # IPC handlers (6 modules)
+│   ├── services/          # Copilot client/service
+│   ├── workers/           # AI/exec/dispatcher workers
+│   ├── main.ts            # Window management, menus, IPC
+│   └── preload.ts         # Secure context bridge
+├── src/                   # Renderer process (React)
+│   ├── api/               # GitHub API client
+│   ├── components/        # React components
+│   │   ├── automation/    # Automation/schedule UI
+│   │   ├── settings/      # Settings panels
+│   │   ├── shared/        # Shared components
+│   │   └── sidebar/       # Sidebar components
+│   ├── hooks/             # React hooks
+│   ├── providers/         # React context providers
+│   ├── services/          # Renderer-side services
+│   ├── types/             # TypeScript types
+│   ├── utils/             # Utilities
+│   ├── App.tsx            # Main application component
+│   └── main.tsx           # React entry point
+├── convex/                # Serverless backend functions
+├── scripts/               # Helper scripts
+├── assets/                # Images and design assets
+├── public/                # Static assets
+├── dist/                  # Vite build output (renderer)
+├── dist-electron/         # Electron build output (main)
+└── release/               # Packaged application binaries
 ```
 
 ## Keyboard Shortcuts

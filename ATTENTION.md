@@ -4,56 +4,47 @@
 
 ## Active Concerns
 
-### PR Analyzers A/B/C Failing — Copilot CLI Model Names Updated
-
-- **Severity**: Critical
-- **Detected**: 2026-02-22
-- **Status**: Fix applied locally, pending commit & push
-- **Description**: Copilot CLI updated its allowed model names (hyphens → dots, removed legacy models). All three PR Analyzers were using invalid model names: `claude-sonnet-4-5` → `claude-sonnet-4.5`, `gemini-2-pro` → `gemini-3-pro-preview`, `gpt-4o` → `gpt-4.1`. Error: `option '--model' argument is invalid`.
-- **Impact**: All PR analysis is blocked — PRs #66 and #67 cannot progress through the SFL pipeline.
-- **Suggested Action**: Commit and push the fix (6 files: 3 `.md` + 3 `.lock.yml`), then monitor next cron run.
-
-### SFL Auditor Crashing — jq Word-Splitting Bug in Orphaned PRs Check
-
-- **Severity**: Critical
-- **Detected**: 2026-02-22
-- **Status**: Fix applied locally, pending commit & push
-- **Description**: `sfl-auditor.yml` step "Check: orphaned agent PRs" used `for ROW in $(jq -c '.[]' ...)` which bash word-splits on spaces in PR titles. Every run fails with `jq: parse error: Unfinished string at EOF`.
-- **Impact**: SFL Auditor cannot complete — orphaned labels, conflicting labels, and orphaned PRs are not being detected or repaired.
-- **Suggested Action**: Commit and push the fix (already applied in working tree), then monitor next cron run.
-
 ### Label Complexity Exceeds Threshold
 
 - **Severity**: Medium
 - **Detected**: 2026-02-20
 - **Status**: Active
-- **Description**: 30 labels, 25 unused on open items, health score 25/100. Disproportionate for a repo with 7 open issues and 4 open PRs.
+- **Description**: 30 labels, 25 unused on open items, health score 25/100. Disproportionate for a repo with few open issues/PRs.
 - **Impact**: Cognitive and computational tax on every workflow that reads labels.
 - **Suggested Action**: Run `label-audit.ps1` and prune unused labels. Target ≤20.
 
+### SFL Auditor Intermittent Failures (Transient API Errors)
+
+- **Severity**: Low
+- **Detected**: 2026-02-22
+- **Status**: Monitoring
+- **Description**: SFL Auditor succeeds ~60% of runs. Failures are transient Copilot API errors ("Failed to get response from the AI model; Unknown error"), not config issues. Engine block and model are correct.
+- **Impact**: Delayed label/PR state repair when a run fails. Next hourly run usually succeeds.
+- **Suggested Action**: Monitor. If failure rate stays above 30%, investigate Copilot API health.
+
 ## Resolved (last 30 days)
+
+### Workflow Run Waste — 825 Runs from Redundant Crons
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Removed cron triggers from 6 dispatcher-gated workflows (PR Analyzers A/B/C, PR Fixer, PR Promoter, Issue Processor). They now run ONLY when SFL Dispatcher detects work. SFL Auditor reduced from 2x/hour to 1x/hour. Estimated savings: ~288 wasted Copilot inference runs/day when idle. Also fixed PR Promoter dispatch call (pr-promoter.yml → pr-promoter.lock.yml).
+
+### PR Analyzers A/B/C — Invalid Model Names
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Updated to valid Copilot CLI model names: A→claude-sonnet-4.6, B→gpt-5.3-codex, C→claude-opus-4.6.
+
+### Missing Engine Blocks (PR Promoter, SFL Auditor, PR Fixer)
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Added explicit `engine:` blocks. Empty model string was causing Copilot CLI auth failures.
+
+### SFL Auditor Crashing — jq Word-Splitting Bug
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Fixed bash word-splitting in orphaned PRs check.
 
 ### gh-aw Token Type Incompatibility
 
 - **Resolved**: 2026-02-21
-- **Resolution**: pr-promoter.yml and sfl-auditor.yml rewritten as standard GitHub Actions workflows. Issue-processor, repo-audit, and all analyzers now run successfully via gh-aw `.lock.yml` files. Old `.lock.yml.disabled` files retained as reference.
-
-### PR Body Bloat (PRs #8, #10)
-
-- **Resolved**: 2026-02-22
-- **Resolution**: Both PRs merged successfully. No longer an issue.
-
-### Issue #26 with Incorrect `agent:pr` Label
-
-- **Resolved**: 2026-02-22
-- **Resolution**: Label was cleaned up. Issue #26 now correctly has `agent:in-progress` with matching PR #53.
-
-### Two Draft PRs #8/#10 Stuck
-
-- **Resolved**: 2026-02-22
-- **Resolution**: Both PRs were promoted and merged.
-
-### Marker Format Migration (HTML comments → visible markers)
-
-- **Resolved**: 2026-02-21
-- **Resolution**: Analyzer outputs now include `[MARKER:pr-analyzer-<a|b|c> cycle:N]` tags in PR bodies. Legacy HTML comment marker dependency is removed.
+- **Resolution**: Workflows rewritten as standard GitHub Actions or gh-aw `.lock.yml` files.

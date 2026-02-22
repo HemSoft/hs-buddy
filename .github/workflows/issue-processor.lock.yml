@@ -29,6 +29,8 @@
 
 name: "Issue Processor"
 "on":
+  schedule:
+  - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions: {}

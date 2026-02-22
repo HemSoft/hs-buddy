@@ -31,6 +31,8 @@
 
 name: "PR Fixer — Authority"
 "on":
+  schedule:
+  - cron: "20,50 * * * *"
   workflow_dispatch:
 
 permissions: {}

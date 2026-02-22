@@ -128,7 +128,7 @@ jobs:
 
           FOUND=0
 
-          for ROW in $(jq -c '.[]' /tmp/agent_prs.json); do
+          while IFS= read -r ROW; do
             PR_NUM=$(echo "$ROW" | jq '.number')
             LINKED_ISSUE=$(echo "$ROW" | jq '.linkedIssue')
             BRANCH=$(echo "$ROW" | jq -r '.headRefName')
@@ -150,7 +150,7 @@ jobs:
 
               FOUND=$((FOUND + 1))
             fi
-          done
+          done < <(jq -c '.[]' /tmp/agent_prs.json)
 
           echo "orphaned_prs_found=$FOUND" >> "$GITHUB_OUTPUT"
           echo "Found $FOUND orphaned agent PRs"

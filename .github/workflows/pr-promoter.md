@@ -181,11 +181,11 @@ pipeline may re-promote this PR.
 
 ### Analyzer Verdicts
 
-| Analyzer | Focus | Verdict |
-|----------|-------|---------|
-| A | Correctness & Logic | **PASS** |
-| B | Security & Performance | **PASS** |
-| C | Style & Maintainability | **PASS** |
+| Analyzer | Verdict |
+|----------|---------|
+| A | **PASS** |
+| B | **PASS** |
+| C | **PASS** |
 
 ### Summary
 

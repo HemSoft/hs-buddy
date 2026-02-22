@@ -158,8 +158,8 @@ Work through every finding from Step 5 — both blocking AND non-blocking:
 - Preserve existing formatting conventions exactly
 - If a finding is ambiguous or contradictory with another finding, prefer the
   safer interpretation
-- If a finding from Analyzer C (style) conflicts with a finding from
-  Analyzer A (correctness) or B (security), prioritize correctness/security
+- If a finding from one analyzer conflicts with a finding from another,
+  prefer the safer interpretation (security > correctness > style)
 - If a fix cannot be implemented (e.g., requires external dependency changes
   or architectural redesign), note it in the summary comment
 
@@ -269,4 +269,4 @@ findings and fixes.
 - If the PR diff is empty or cannot be read, call `noop` with an explanation
 - If any step fails unexpectedly, call `noop` with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
-- Prioritize correctness over style — when findings conflict, correctness wins
+- When findings conflict across analyzers, prefer security over style

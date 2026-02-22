@@ -1,56 +1,48 @@
 # ATTENTION
 
-> Auto-maintained by the debug skill. Last updated: 2026-02-21
+> Auto-maintained by the debug skill. Last updated: 2026-02-22
 
 ## Active Concerns
 
-### gh-aw Token Type Incompatibility
+### SFL Auditor Crashing — jq Word-Splitting Bug in Orphaned PRs Check
 
 - **Severity**: Critical
-- **Detected**: 2026-02-21
-- **Status**: Mitigated (pr-promoter & sfl-auditor rewritten; remaining workflows blocked)
-- **Description**: gh-aw framework requires `github_pat_...` (fine-grained PAT) for `COPILOT_GITHUB_TOKEN`, but the repo has a `ghp_...` (classic PAT). The `validate_multi_secret.sh` step rejects it with: "Error: COPILOT_GITHUB_TOKEN is a classic Personal Access Token (ghp_...)". All 9 gh-aw workflows were failing 100% of runs since 2026-02-21 ~13:38 UTC.
-- **Impact**: All AI-powered workflows (analyzers, fixer, issue-processor, daily-repo-status, repo-audit) are non-functional. Only deterministic workflows have been rewritten as standard GitHub Actions.
-- **Mitigation**: pr-promoter.yml and sfl-auditor.yml rewritten as standard workflows using `GH_AW_GITHUB_TOKEN` (OAuth token) for `gh` CLI operations. Old `.lock.yml` files renamed to `.disabled`.
-- **Remaining**: 7 workflows still need gh-aw Copilot engine (requires fine-grained PAT or alternative AI backend).
+- **Detected**: 2026-02-22
+- **Status**: Fix applied locally, pending commit & push
+- **Description**: `sfl-auditor.yml` step "Check: orphaned agent PRs" used `for ROW in $(jq -c '.[]' ...)` which bash word-splits on spaces in PR titles. Every run fails with `jq: parse error: Unfinished string at EOF`.
+- **Impact**: SFL Auditor cannot complete — orphaned labels, conflicting labels, and orphaned PRs are not being detected or repaired.
+- **Suggested Action**: Commit and push the fix (already applied in working tree), then monitor next cron run.
 
-### PR Body Bloat from Duplicate Reviews
-
-- **Severity**: High
-- **Detected**: 2026-02-20
-- **Status**: Active
-- **Description**: PR #8 body has grown to 61KB+ because analyzers re-appended reviews repeatedly before idempotency stabilized. PR #10 is clean by comparison.
-- **Impact**: Large PR bodies slow down API calls, confuse human reviewers, and waste LLM tokens on every subsequent workflow that reads the body.
-- **Suggested Action**: Once markers are working, consider a one-time body cleanup on stuck PRs — or close and re-create them with fresh bodies.
-
-### Issue-Processor Failure Path Creates PR-Labeled Issues
-
-- **Severity**: High
-- **Detected**: 2026-02-21
-- **Status**: Active
-- **Description**: Issue #26 (`[agent-fix] Update .gitignore...`) is an issue, not a PR, but carries `agent:pr` and `type:fix`. Its body shows a push/create-PR failure fallback path from issue-processor.
-- **Impact**: State model pollution: PR-only labels appear on issues, confusing status checks and any workflow logic that assumes `agent:pr` implies pull request semantics.
-- **Suggested Action**: In issue-processor failure fallback, use `agent:pause` or `agent:human-required` labels instead of `agent:pr`; add SFL Auditor check to auto-detect issues with `agent:pr` and normalize labels.
-
-### Label Complexity Reaching Threshold
+### Label Complexity Exceeds Threshold
 
 - **Severity**: Medium
 - **Detected**: 2026-02-20
 - **Status**: Active
-- **Description**: 30 labels across 7+ categories (agent, pr, risk, type, source, plus GitHub defaults). For a repo with 2 open issues and 2 open PRs, this is disproportionate overhead. Every workflow that reads labels pays a cognitive and computational tax.
-- **Impact**: New workflows require understanding the full label taxonomy. Mistakes in label transitions cause state machine violations that the SFL Auditor must repair. Complexity breeds bugs.
-- **Suggested Action**: Run `label-audit.ps1` to identify unused labels. Target reduction to ≤20 labels. Consider merging `risk:` levels from 5 to 3. Question whether `source:` and `type:` categories are earning their existence.
-
-### Two Draft PRs May Need Reset
-
-- **Severity**: Medium
-- **Detected**: 2026-02-20
-- **Status**: Monitoring
-- **Description**: PRs #8 (README package manager fix) and #10 (hardcoded Windows paths) have all analyzer PASS markers but remain draft after repeated promoter runs.
-- **Impact**: If markers work but analyzers re-read old duplicate content, they may produce inconsistent verdicts.
-- **Suggested Action**: If marker fix resolves the progression issue, monitor one full cycle. If bodies still cause problems, close PRs, delete branches, remove `agent:in-progress` from issues (revert to `agent:fixable`), and let the pipeline re-create clean PRs.
+- **Description**: 30 labels, 25 unused on open items, health score 25/100. Disproportionate for a repo with 7 open issues and 4 open PRs.
+- **Impact**: Cognitive and computational tax on every workflow that reads labels.
+- **Suggested Action**: Run `label-audit.ps1` and prune unused labels. Target ≤20.
 
 ## Resolved (last 30 days)
+
+### gh-aw Token Type Incompatibility
+
+- **Resolved**: 2026-02-21
+- **Resolution**: pr-promoter.yml and sfl-auditor.yml rewritten as standard GitHub Actions workflows. Issue-processor, repo-audit, and all analyzers now run successfully via gh-aw `.lock.yml` files. Old `.lock.yml.disabled` files retained as reference.
+
+### PR Body Bloat (PRs #8, #10)
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Both PRs merged successfully. No longer an issue.
+
+### Issue #26 with Incorrect `agent:pr` Label
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Label was cleaned up. Issue #26 now correctly has `agent:in-progress` with matching PR #53.
+
+### Two Draft PRs #8/#10 Stuck
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Both PRs were promoted and merged.
 
 ### Marker Format Migration (HTML comments → visible markers)
 

@@ -31,11 +31,11 @@ That repo contains:
 | `repo-audit` | Daily | `type:report` + `agent:fixable` issues | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `issue-processor` | `*/30 * * * *` | Claims `agent:fixable` issue, opens draft PR | Local |
 | `sfl-auditor` | `15,45 * * * *` | Repairs issue/PR label discrepancies | Local |
-| `pr-analyzer-a` | `8,38 * * * *` | Correctness & logic review comments on draft PRs | Local |
-| `pr-analyzer-b` | `10,40 * * * *` | Security & performance review comments on draft PRs | Local |
-| `pr-analyzer-c` | `12,42 * * * *` | Style & maintainability review comments on draft PRs | Local |
+| `pr-analyzer-a` | `8,38 * * * *` | Full-spectrum review comments on draft PRs (Model A) | Local |
+| `pr-analyzer-b` | `10,40 * * * *` | Full-spectrum review comments on draft PRs (Model B) | Local |
+| `pr-analyzer-c` | `12,42 * * * *` | Full-spectrum review comments on draft PRs (Model C) | Local |
 | `pr-fixer` | `20,50 * * * *` | Implements analyzer fixes on draft PRs, increments cycle | Local |
-| `pr-promoter` | `25,55 * * * *` | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label | Local |
+| `pr-promoter` | `25,55 * * * *` | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label. Merges approved PRs per Merge Authority Matrix (squash + delete branch). | Local |
 
 ---
 

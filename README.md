@@ -6,7 +6,7 @@
 [![Electron](https://img.shields.io/badge/Electron-30-47848F.svg)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF.svg)](https://vitejs.dev/)
-[![Set it Free Loop](https://img.shields.io/badge/Set_it_Free_Loop-Governed-FFD700?style=flat&logo=githubactions&logoColor=white)](docs/SET_IT_FREE_GOVERNANCE.md)
+[![Set it Free Loop](https://img.shields.io/badge/Set_it_Free_Loop-v1.0-FFD700?style=flat&logo=githubactions&logoColor=white)](docs/SET_IT_FREE_GOVERNANCE.md)
 
 ## Overview
 

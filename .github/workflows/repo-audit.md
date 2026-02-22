@@ -55,6 +55,21 @@ individual fixable issues for findings an agent can resolve autonomously.
 4. Cross-Reference Accuracy
    - Mismatches between type/config docs and real usage patterns
 
+5. Workflow Scheduling Hygiene
+   - **Duplicate names**: Two or more `.yml` files in `.github/workflows/` that
+     share the same `name:` value — they will appear identical in the Actions UI
+     and may indicate redundant work
+   - **Overlapping cron schedules**: Workflows whose cron expressions produce
+     runs at the same minute, suggesting accidental double-execution (compare
+     expanded cron minute/hour sets for collisions)
+   - **Overlapping concerns**: A `.lock.yml` (gh-aw compiled) AND a standalone
+     `.yml` that perform the same logical task — one should be removed
+   - **Orphaned gh-aw prompt files**: A `.md` file in `.github/workflows/`
+     whose corresponding `.lock.yml` no longer exists
+   - **Stale `.disabled` files**: A `.lock.yml.disabled` sitting alongside an
+     active `.lock.yml` or `.yml` of the same base name — the disabled copy
+     should be deleted to avoid confusion
+
 ## Output Requirements
 
 ### Summary issue (always)

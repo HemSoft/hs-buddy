@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.103] - 2026-02-23
+
 ## [0.1.102] - 2026-02-23
+
+### Added
+
+- Add merge job to PR Promoter for approved PRs
 
 ## [0.1.101] - 2026-02-23
 

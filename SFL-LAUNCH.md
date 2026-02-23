@@ -5,7 +5,7 @@
 > repository as a deployable, versioned product.
 
 **Created**: 2026-02-22
-**Status**: Planning
+**Status**: ✅ Operational — v2.0.0
 
 ---
 
@@ -13,98 +13,83 @@
 
 hs-buddy has been the **reference consumer** and testing ground for the Set it Free Loop.
 The workflows, governance policy, label taxonomy, and operational patterns have been
-iterated here until stable. We're now close to packaging the system so it can be deployed
-to other repositories — fully, partially, or minimally — with version tracking.
+iterated here until stable. The system is now packaged in the
+[set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop) repo and ready
+for deployment to other repositories.
 
 ---
 
-## Goals
+## Goals — All Achieved
 
-1. **Flexible deployment**: Consumers pick which SFL components they want — full loop,
-   audit-only, review-only, etc. Not all-or-nothing.
+1. **Flexible deployment** ✅ — Three deployment tiers (minimal, standard, full) plus single-workflow mode.
 
-2. **Version-controlled releases**: The SFL repo carries a version (e.g., `2.0`). When
-   deployed to a consumer repo, that version is stamped into the consumer. The SFL badge
-   in the consumer's README reflects the *deployed* version, not the *latest* version.
+2. **Version-controlled releases** ✅ — `sfl.json` manifest stamped in consumer repos at deployment time.
+   SHA-pinned source references in every deployed workflow file.
 
-3. **Drift visibility**: The SFL badge on the main repo shows the latest version. Consumer
-   repos show their deployed version. At a glance you can see who's current and who's behind.
+3. **Drift visibility** ✅ — `sfl.json` carries `version`, `sourceSha`, `tier`, and `deployedAt`.
+   Badge reads version from manifest for at-a-glance currency.
 
-4. **Easy onboarding**: A single command (or minimal steps) to deploy SFL to a new repo.
-   No deep knowledge of the internals required.
+4. **Easy onboarding** ✅ — Single command: `.\deploy-workflow.ps1 -Tier full -Repos "org/repo"`.
+   Script handles cloning, branching, copying, labeling, manifest creation, and PR opening.
 
-5. **Upgrade path**: A clear mechanism to upgrade a consumer repo from version N to N+1
-   without breaking customizations.
+5. **Upgrade path** ✅ — Re-run `deploy-workflow.ps1` at the desired SHA. Source pins update automatically.
 
 ---
 
-## Open Questions
+## Decisions Made
 
-### Deployment Tool
+| Question | Decision |
+|----------|----------|
+| Deployment tool | **PowerShell script** (`deploy-workflow.ps1`) with manifest-based approach |
+| Component selection | **3-tier system**: minimal / standard / full, plus single-workflow custom mode |
+| Version tracking | **`sfl.json`** manifest in consumer repo root |
+| Badge design | Dynamic JSON badge reading `version` from `sfl.json` |
+| Upgrade strategy | Re-run deploy script at new SHA (Option C) |
 
-What tool/mechanism handles deployment to consumer repos?
+---
 
-| Option | Pros | Cons |
-|--------|------|------|
-| **PowerShell script** (`deploy-workflow.ps1`) | Already exists in SFL repo, familiar | Manual, no dependency resolution |
-| **GitHub CLI extension** (`gh sfl deploy`) | Native feel, cross-platform | Needs to be built and published |
-| **GitHub App / Reusable workflows** | Centralized updates, no file copying | Consumer loses local control |
-| **Template repository** | GitHub-native, one-click | No selective components, no versioning |
-| **npm/bun package** | Versioned, dependency management built-in | Tooling overhead, not a natural fit for workflows |
-| **gh-aw compile from shared prompts** | Already used for .lock.yml generation | Ties consumers to gh-aw toolchain |
+## What's Deployed in set-it-free-loop
 
-**Leaning toward**: PowerShell script with a manifest-based approach — a `sfl.json` in the
-consumer repo that declares which components are installed and at what version.
+### Workflows (9 total — `deployment/workflows/`)
 
-### Component Selection
+| Workflow | Category | Model | Status |
+|----------|----------|-------|--------|
+| daily-repo-status | reporting | — | ✅ Active v1.0.0 |
+| repo-audit | quality | — | ✅ Active v1.1.0 |
+| issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
+| simplisticate | quality | gh-aw default | ✅ Active v1.0.0 |
+| pr-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
+| pr-analyzer-b | review | gpt-5.3-codex | ✅ Active v1.0.0 |
+| pr-analyzer-c | review | claude-opus-4.6 | ✅ Active v1.0.0 |
+| pr-fixer | automation | claude-opus-4.6 | ✅ Active v1.0.0 |
+| pr-promoter | automation | claude-sonnet-4.6 | ✅ Active v1.0.0 |
 
-How granular should the component picker be?
+### Infrastructure (2 — `deployment/infrastructure/`)
 
-**Proposed tiers**:
+| Component | Type | Schedule |
+|-----------|------|----------|
+| sfl-dispatcher | Standard YAML | Every 30 min |
+| sfl-auditor | Standard YAML | :15, :45 every hour |
 
-| Tier | Components Included | Use Case |
-|------|--------------------|----------|
-| **Minimal** | SFL Auditor, labels, governance doc | Hygiene-only — no AI, no PRs |
-| **Standard** | Minimal + Repo Audit, Issue Processor, Dispatcher | Detect + claim issues automatically |
-| **Full** | Standard + PR Analyzers A/B/C, PR Fixer, PR Promoter | Complete autonomous loop |
-| **Custom** | Pick individual components from a menu | Power users |
+### Governance (26 labels, policy doc, setup script)
 
-### Version Tracking
+| Component | Path |
+|-----------|------|
+| labels.json | `deployment/governance/labels.json` |
+| policy.md | `deployment/governance/policy.md` |
+| setup-labels.ps1 | `deployment/governance/setup-labels.ps1` |
 
-How does the consumer repo know its deployed version?
+### Deployment Tooling
 
-**Proposed**: A `sfl.json` manifest file in the consumer repo root:
+| Component | Path |
+|-----------|------|
+| deploy-workflow.ps1 | `deployment/scripts/deploy-workflow.ps1` |
+| sfl-manifest.schema.json | `deployment/sfl-manifest.schema.json` |
 
-```json
-{
-  "version": "2.0",
-  "deployedAt": "2026-02-22T20:00:00Z",
-  "components": ["auditor", "dispatcher", "repo-audit", "issue-processor", "pr-analyzers", "pr-fixer", "pr-promoter"],
-  "tier": "full",
-  "source": "relias-engineering/set-it-free-loop"
-}
-```
+### Dogfooding
 
-The SFL badge reads `version` from this file:
-
-```markdown
-![SFL](https://img.shields.io/badge/dynamic/json?url=...&query=$.version&label=Set%20it%20Free%20Loop&color=FFD700)
-```
-
-### Badge Design
-
-- **SFL repo badge**: Shows the *latest* released version (e.g., `v2.1`)
-- **Consumer repo badge**: Shows the *deployed* version from `sfl.json` (e.g., `v2.0`)
-- **Color coding**: Green if current, yellow if one minor behind, red if major behind
-  (would need a badge service or GitHub Action to calculate)
-
-### Upgrade Strategy
-
-When the SFL repo releases a new version, how do consumers upgrade?
-
-- **Option A**: Consumer runs `deploy-workflow.ps1 -Upgrade` which diffs and patches
-- **Option B**: Dependabot-style PR created automatically by an SFL workflow
-- **Option C**: Consumer pulls latest and re-runs deploy with their manifest
+All workflows are staged in `.github/workflows/` on the set-it-free-loop repo itself,
+so the SFL loop runs on its own codebase.
 
 ---
 
@@ -123,13 +108,10 @@ When the SFL repo releases a new version, how do consumers upgrade?
 
 ---
 
-## Next Steps
+## Remaining Work
 
-- [ ] Define the component manifest schema (`sfl.json`)
-- [ ] Build the deployment script with tier selection
-- [ ] Create version tagging strategy for the SFL repo
-- [ ] Implement dynamic badge that reads version from `sfl.json`
-- [ ] Write onboarding guide for new consumers
-- [ ] Test deployment on a second repo (not hs-buddy)
-- [ ] Document upgrade workflow
-- [ ] Backport proven workflows from hs-buddy to set-it-free-loop repo
+- [ ] Test deployment on a second repo (not hs-buddy) via `deploy-workflow.ps1`
+- [ ] Create dynamic badge service or GitHub Action for version currency color coding
+- [ ] Write onboarding guide for new consumers (quick-start)
+- [ ] Build `loop-cost-reporter` workflow for budget visibility
+- [ ] Build `feature-intake-normalizer` workflow for Jira/GitHub normalization

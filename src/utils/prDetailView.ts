@@ -21,7 +21,7 @@ export interface PRDetailInfo {
   org?: string
 }
 
-export interface PRLinkInfo extends PRDetailInfo {}
+export type PRLinkInfo = PRDetailInfo
 
 export type PRDetailSection = 'conversation' | 'commits' | 'checks' | 'files-changed' | 'ai-reviews'
 

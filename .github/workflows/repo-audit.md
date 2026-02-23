@@ -23,7 +23,7 @@ tools:
 safe-outputs:
   create-issue:
     title-prefix: "[repo-audit] "
-    labels: [type:report, audit]
+    labels: [report, audit]
     max: 10
   update-issue:
     target: "*"
@@ -38,7 +38,7 @@ individual fixable issues for findings an agent can resolve autonomously.
 ## Step 0 — Close previous audit summary reports
 
 Before creating today's audit, search for all **open** issues whose title
-starts with `[repo-audit] Daily Repo Audit` AND that have both `type:report`
+starts with `[repo-audit] Daily Repo Audit` AND that have both `report`
 and `audit` labels. For each one found, close it using `update_issue` with:
 
 - `issue_number`: the issue number
@@ -101,7 +101,7 @@ Do NOT close agent-fixable action-item issues — only the dated summary reports
 
 ### Summary issue (always)
 
-Create one summary issue with labels `type:report` and `audit` containing:
+Create one summary issue with labels `report` and `audit` containing:
 
 - Executive summary (overall repo health)
 - Findings table with severity, confidence, and whether each finding is agent-fixable
@@ -126,7 +126,7 @@ Each grouped issue must meet ALL of the following criteria:
 - Risk class is `risk:trivial` or `risk:low`
 - No user-facing behavioral change is required
 
-Label each agent-fixable issue with: `type:action-item`, `agent:fixable`, and
+Label each agent-fixable issue with: `action-item`, `agent:fixable`, and
 the appropriate risk label (`risk:trivial` or `risk:low`).
 
 Issue title format: `[repo-audit] <short description of the group>`

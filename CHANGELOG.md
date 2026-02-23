@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.108] - 2026-02-23
+
 ## [0.1.107] - 2026-02-23
+
+### Fixed
+
+- Auto-close stale report issues in all report workflows + SFL Auditor
 
 ## [0.1.106] - 2026-02-23
 

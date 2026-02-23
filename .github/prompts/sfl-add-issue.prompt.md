@@ -83,7 +83,7 @@ passes", "export is no longer referenced anywhere">
 `risk:<trivial|low|medium|high|critical>` — <one-line justification>
 ```
 
-**Labels**: `agent:fixable`, `type:action-item`, `risk:<trivial|low|medium|high|critical>`
+**Labels**: `agent:fixable`, `action-item`, `risk:<trivial|low|medium|high|critical>`
 
 ---
 
@@ -107,7 +107,7 @@ gh issue create --repo "<owner>/<repo>" \
   --title "[sfl] <title>" \
   --body "<body>" \
   --label "agent:fixable" \
-  --label "type:action-item" \
+  --label "action-item" \
   --label "risk:<trivial|low|medium|high|critical>"
 ```
 

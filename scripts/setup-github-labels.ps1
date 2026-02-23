@@ -61,9 +61,9 @@ $Labels = @(
     @{ name = "source:github-issue";  color = "6f42c1"; description = "Created from an existing GitHub issue" }
     @{ name = "source:manual";        color = "f9f1a5"; description = "Manually created by developer" }
 
-    # ── Type labels ───────────────────────────────────────────────────────────
-    @{ name = "type:report";      color = "8b949e"; description = "Informational output only — automation must not act on this" }
-    @{ name = "type:action-item"; color = "1f6feb"; description = "Actionable item — automation will process and generate a PR" }
+    # ── Classification labels ─────────────────────────────────────────────────
+    @{ name = "report";      color = "8b949e"; description = "Informational output only — automation must not act on this" }
+    @{ name = "action-item"; color = "1f6feb"; description = "Actionable item — automation will process and generate a PR" }
 
     # ── Opt-out label ─────────────────────────────────────────────────────────
     @{ name = "no-agent"; color = "ffffff"; description = "Opt this issue out of all Set it Free automation" }

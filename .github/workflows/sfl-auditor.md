@@ -85,7 +85,7 @@ simultaneously:
 
 ## Step 4 — Check: action items missing agent:fixable
 
-Search for open issues that have BOTH `type:action-item` AND `audit` labels
+Search for open issues that have BOTH `action-item` AND `audit` labels
 but do NOT have any of: `agent:fixable`, `agent:in-progress`,
 `agent:human-required`, `agent:pause`, `agent:escalated`.
 
@@ -130,8 +130,8 @@ list B (those are handled by other steps).
 
 ## Step 7 — Check: stale report issues
 
-Search for **open** issues that have the label `type:report` (or both
-`daily-status` and `report`) but do NOT have any of: `type:action-item`,
+Search for **open** issues that have the label `report` (or both
+`daily-status` and `report`) but do NOT have any of: `action-item`,
 `agent:fixable`, `agent:in-progress`.
 
 These are pure informational report issues (daily status, audit summaries,

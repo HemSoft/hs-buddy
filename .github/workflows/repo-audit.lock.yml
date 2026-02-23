@@ -26,7 +26,7 @@
 # It creates one summary report issue and individual agent-fixable issues for
 # findings that an AI agent can safely resolve autonomously.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"9db3d7e9c08aa98ab8e15c698b2e3b7c82c940f75a00c557b61e1faab869a0fa","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"4fc5ac094645a23d06289594010e82b3ee41d789af31d9ae0858b28a49b0f666","compiler_version":"v0.47.1"}
 
 name: "Daily Repo Audit"
 "on":
@@ -356,7 +356,7 @@ jobs:
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 10 issue(s) can be created. Title will be prefixed with \"[repo-audit] \". Labels [type:report audit] will be automatically added.",
+              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 10 issue(s) can be created. Title will be prefixed with \"[repo-audit] \". Labels [report audit] will be automatically added.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1125,7 +1125,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_issue\":{\"labels\":[\"type:report\",\"audit\"],\"max\":10,\"title_prefix\":\"[repo-audit] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_issue\":{\"labels\":[\"report\",\"audit\"],\"max\":10,\"title_prefix\":\"[repo-audit] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

@@ -21,7 +21,7 @@ tools:
 safe-outputs:
   create-pull-request:
     title-prefix: "[agent-fix] "
-    labels: [agent:pr, type:fix]
+    labels: [agent:pr]
     draft: true
   update-issue:
     target: "*"
@@ -38,7 +38,7 @@ implement the fix, and open a pull request. Process exactly one issue per run.
 Search for open issues in this repository that have ALL of the following labels:
 
 - `agent:fixable`
-- `type:action-item`
+- `action-item`
 
 And do NOT have any of:
 
@@ -56,7 +56,7 @@ If no issue matches, exit immediately — nothing to do.
 Before doing any other work, call `update_issue` with:
 
 - `issue_number`: the issue number found in Step 1 (always required)
-- `labels`: replace with `["agent:in-progress", "type:report", "type:action-item", "audit"]`
+- `labels`: replace with `["agent:in-progress", "report", "action-item", "audit"]`
   (remove `agent:fixable`, add `agent:in-progress` — keep all other existing labels)
 - `body`: append "🤖 Issue Processor claimed this issue. Working on a fix."
 - `operation`: `"append"`

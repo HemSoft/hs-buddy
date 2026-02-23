@@ -27,8 +27,8 @@ That repo contains:
 
 | Workflow | Schedule | Output | Source |
 |----------|----------|--------|--------|
-| `daily-repo-status` | Daily | `type:report` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `repo-audit` | Daily | `type:report` + `agent:fixable` issues | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `daily-repo-status` | Daily | `report` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `repo-audit` | Daily | `report` + `agent:fixable` issues | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `sfl-dispatcher` | `*/30 * * * *` | Dispatches workflows only when work exists (no Copilot inference) | Local |
 | `sfl-auditor` | `15 * * * *` (hourly) | Repairs issue/PR label discrepancies | Local |
 | `issue-processor` | Dispatcher-only | Claims `agent:fixable` issue, opens draft PR | Local |

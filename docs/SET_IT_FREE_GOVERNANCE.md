@@ -42,15 +42,15 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 | `risk:high` | `#e11d48` (red) | High-risk: auth, payments, data migrations |
 | `risk:critical` | `#6f1b1b` (dark red) | Critical: security, PII, compliance-adjacent |
 
-### Type labels (applied to all agent-created issues)
+### Classification labels (applied to all agent-created issues)
 
 | Label | Color | Meaning |
 |-------|-------|---------|
-| `type:report` | `#8b949e` (gray) | Informational output only — automation must not act on this |
-| `type:action-item` | `#1f6feb` (blue) | Actionable item — automation will process and generate a PR |
+| `report` | `#8b949e` (gray) | Informational output only — automation must not act on this |
+| `action-item` | `#1f6feb` (blue) | Actionable item — automation will process and generate a PR |
 
-> **Rule**: every automated issue must carry exactly one `type:*` label. Processors filter
-> exclusively on `type:action-item` — `type:report` issues are permanently invisible to them.
+> **Rule**: every automated issue must carry exactly one type label (`report` or `action-item`). Processors filter
+> exclusively on `action-item` — `report` issues are permanently invisible to them.
 
 ### Intake-source labels (co-applied with lifecycle labels)
 
@@ -65,10 +65,10 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 
 ```
 # Report issue (no automation ever touches this)
-[report created] → type:report  (permanent — no further transitions)
+[report created] → report  (permanent — no further transitions)
 
 # Action-item issue
-[detected] → type:action-item + agent:fixable
+[detected] → action-item + agent:fixable
            → agent:in-progress  (agent claims it)
            → agent:review-requested  (PR ready)
            → MERGED or CLOSED

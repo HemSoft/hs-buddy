@@ -23,7 +23,7 @@ tools:
 safe-outputs:
   create-issue:
     title-prefix: "[simplisticate] "
-    labels: [type:report, audit]
+    labels: [report, audit]
     max: 10
   update-issue:
     target: "*"
@@ -42,7 +42,7 @@ autonomously.
 
 Before creating today's audit, search for all **open** issues whose title
 starts with `[simplisticate] Daily Simplisticate Audit` AND that have both
-`type:report` and `audit` labels. For each one found, close it using
+`report` and `audit` labels. For each one found, close it using
 `update_issue` with:
 
 - `issue_number`: the issue number
@@ -105,7 +105,7 @@ Do NOT close agent-fixable action-item issues — only the dated summary reports
 
 ### Summary issue (always)
 
-Create one summary issue with labels `type:report` and `audit` containing:
+Create one summary issue with labels `report` and `audit` containing:
 
 - Executive summary (overall code simplicity health)
 - Findings table with:
@@ -126,7 +126,7 @@ For each finding that meets ALL of the following criteria, create a separate iss
 - No user-facing behavioral change
 - The resulting code is strictly simpler (fewer lines, fewer branches, fewer abstractions)
 
-Label each agent-fixable issue with: `type:action-item`, `agent:fixable`, and the appropriate risk label (`risk:trivial` or `risk:low`).
+Label each agent-fixable issue with: `action-item`, `agent:fixable`, and the appropriate risk label (`risk:trivial` or `risk:low`).
 
 Issue title format: `[simplisticate] <short description of the specific simplification>`
 

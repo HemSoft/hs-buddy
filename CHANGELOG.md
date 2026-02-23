@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.105] - 2026-02-23
+
+## [0.1.104] - 2026-02-23
+
 ## [0.1.103] - 2026-02-23
+
+### Changed
+
+- Remove duplicate pr-promoter.yml workflow
 
 ## [0.1.102] - 2026-02-23
 

@@ -2,7 +2,8 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 📋 | **High** | [Critically reduce and remove AGENTS.md](#critically-reduce-and-remove-agentsmd) | AGENTS.md still at root; .github/copilot-instructions.md not yet created |
+| 🤖 | **High** | Critically reduce and remove AGENTS.md | SFL issue #89 — pipeline will slim down redundant content |
+| 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | ✅ | **Critical** | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
@@ -47,21 +48,34 @@
 
 ## Progress
 
-**Remaining: 3** | **Completed: 39** (93%)
+**Remaining: 4** (1 SFL-tracked) | **Completed: 39** (91%)
 
 ---
 
 ## Remaining Items
 
-### Critically reduce and remove AGENTS.md
+### SFL Loop monitoring in Organizations tree
 
-**Goal**: Migrate relevant content to `.github/copilot-instructions.md` and slim down or remove the root `AGENTS.md`.
+**Goal**: Dynamically detect SFL-enabled repos and show a pipeline status node under each repo in the Organizations sidebar tree.
+
+**Detection**: Check for SFL workflow files (e.g., `sfl-dispatcher.yml`, `sfl-auditor.lock.yml`, or `issue-processor.lock.yml`) via the GitHub API (`GET /repos/{owner}/{repo}/contents/.github/workflows`). Cache the result per repo.
+
+**UI**: When SFL is detected, add a child node under the repo (alongside Overview, Issues, Pull Requests):
+
+- **SFL Loop** — clickable, opens a content page showing:
+  - Pipeline health status (harmony check)
+  - Active issues: `agent:fixable`, `agent:in-progress` counts
+  - Open draft PRs in the pipeline with cycle count
+  - Recent merge activity
+  - Last auditor/dispatcher run timestamps
 
 **Steps**:
 
-1. Create `.github/copilot-instructions.md` with the essential project conventions
-2. Move workflow-specific instructions into the workflow files themselves
-3. Remove or archive the root `AGENTS.md`
+1. Add `fetchSFLStatus(owner, repo)` to `GitHubClient` — check for SFL workflows + fetch labeled issues/PRs
+2. Cache SFL-enabled flag per repo in `dataCache`
+3. In `GitHubSidebar.tsx`, conditionally render "SFL Loop" node when detected
+4. Create `SFLLoopPanel.tsx` content page with pipeline overview
+5. Add `sfl-loop:owner/repo` route to `AppContentRouter.tsx` and `appContentViewLabels.ts`
 
 ---
 

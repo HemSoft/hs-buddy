@@ -461,7 +461,23 @@ jobs:
           PR_NUMBER="${{ steps.find-approved.outputs.pr_number }}"
 
           echo "Merging PR #$PR_NUMBER via squash merge..."
-          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch
+          if ! gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch 2>/tmp/merge_error.txt; then
+            MERGE_ERR=$(cat /tmp/merge_error.txt)
+            echo "::error::Merge failed for PR #$PR_NUMBER: $MERGE_ERR"
+
+            # Post comment explaining the failure
+            COMMENT="## ⚠️ PR Merger — Merge Failed\n\n"
+            COMMENT+="**PR**: #${PR_NUMBER}\n"
+            COMMENT+="**Error**: \`${MERGE_ERR}\`\n\n"
+            COMMENT+="The squash merge could not be completed. This is typically caused by a merge conflict with \`main\`.\n\n"
+            COMMENT+="Adding \`agent:human-required\` for manual resolution."
+
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$COMMENT"
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "agent:human-required"
+
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           echo "PR #$PR_NUMBER merged successfully."
           echo "merged=true" >> "$GITHUB_OUTPUT"

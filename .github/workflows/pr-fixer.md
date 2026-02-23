@@ -132,16 +132,54 @@ Record the full list of findings for implementation.
 4. Read the full content of each file mentioned in the findings
 5. Read surrounding context files if needed to understand dependencies
 
-## Step 7 — Check out the PR branch
+## Step 7 — Check out the PR branch and rebase onto main
 
 Fetch and check out the PR's head branch:
 
 ```bash
-git fetch origin <head-branch-name>
+git fetch origin main <head-branch-name>
 git checkout <head-branch-name>
 ```
 
 Verify you are on the correct branch before making any changes.
+
+### Rebase onto latest main
+
+Before implementing any fixes, rebase the branch onto the latest `main` to
+ensure the PR is up to date and will merge cleanly:
+
+```bash
+git rebase origin/main
+```
+
+If the rebase completes cleanly, continue to Step 8.
+
+### Handling rebase conflicts
+
+If `git rebase` fails with merge conflicts:
+
+1. **Read each conflicting file** — look for `<<<<<<<`, `=======`, `>>>>>>>` markers
+2. **Resolve the conflicts** — you understand what your branch changed and can
+   read what `main` changed. For `risk:trivial` / `risk:low` fixes, the
+   resolution is usually straightforward (the agent made a mechanical fix and
+   main moved a nearby line)
+3. **Stage resolved files** and continue the rebase:
+
+   ```bash
+   git add <resolved-file>
+   git rebase --continue
+   ```
+
+4. If multiple commits conflict, repeat for each one
+
+If you **cannot confidently resolve** a conflict (e.g., main fundamentally
+changed the code your fix targets, or the conflict is outside the scope of
+your PR):
+
+1. Abort the rebase: `git rebase --abort`
+2. Post a comment via `update_issue` explaining the conflict
+3. Add `agent:human-required` label
+4. Exit
 
 ## Step 8 — Implement all fixes
 
@@ -268,6 +306,9 @@ findings and fixes.
   1. Post a comment explaining the conflict via `update_issue`
   2. Add `agent:human-required` label
   3. Exit
+- Always rebase onto `origin/main` before implementing fixes (Step 7)
+- Attempt to resolve rebase conflicts before escalating — only escalate if
+  resolution is ambiguous or outside the PR's scope
 - If the PR diff is empty or cannot be read, call `noop` with an explanation
 - If any step fails unexpectedly, call `noop` with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)

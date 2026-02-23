@@ -55,7 +55,20 @@ individual fixable issues for findings an agent can resolve autonomously.
 4. Cross-Reference Accuracy
    - Mismatches between type/config docs and real usage patterns
 
-5. Workflow Scheduling Hygiene
+5. React Health (react-doctor)
+   - Run `npx -y react-doctor@latest . --yes` if a `package.json` with React
+     dependencies exists at repo root
+   - Parse the terminal output for errors and warnings
+   - Group findings by category (Accessibility, Dead Code, State & Effects,
+     Performance, Security, Architecture)
+   - **False positive exclusion**: Files under `electron/` are Electron main
+     process files — they are NOT part of the React import graph. Ignore any
+     "Unused file" findings for `electron/**` paths.
+   - Security findings (`dangerouslySetInnerHTML`, hardcoded secrets) should be
+     flagged in the summary report but NOT auto-created as agent-fixable issues
+     — they require human triage
+
+6. Workflow Scheduling Hygiene
    - **Duplicate names**: Two or more `.yml` files in `.github/workflows/` that
      share the same `name:` value — they will appear identical in the Actions UI
      and may indicate redundant work
@@ -80,34 +93,49 @@ Create one summary issue with labels `type:report` and `audit` containing:
 - Findings table with severity, confidence, and whether each finding is agent-fixable
 - A short "No action required" section if everything looks healthy
 
-### Per-finding issues (for agent-fixable findings only)
+### Per-finding issues (grouped by category)
 
-For each finding that meets ALL of the following criteria, create a separate issue:
+**Group findings by category and fix pattern.** Do NOT create one issue per
+individual finding. Instead, create one issue per group of related,
+mechanically similar fixes that share the same remediation approach.
 
-- The fix is **scoped to one or two files** — no broad refactors
-- The fix is **deterministic** — there is one clear correct outcome
+For example:
+
+- 50 "add `role` attribute" a11y warnings → ONE issue: "Fix accessibility roles"
+- 12 unused exports across 6 files → ONE issue: "Remove unused exports"
+- 3 `useState` lazy init fixes → ONE issue: "Fix useState lazy initialization"
+
+Each grouped issue must meet ALL of the following criteria:
+
+- Every fix in the group uses the **same mechanical pattern** (same type of change)
+- Each individual fix is **deterministic** — one clear correct outcome per file
 - Risk class is `risk:trivial` or `risk:low`
 - No user-facing behavioral change is required
 
-Label each agent-fixable issue with: `type:action-item`, `agent:fixable`, and the appropriate risk label (`risk:trivial` or `risk:low`).
+Label each agent-fixable issue with: `type:action-item`, `agent:fixable`, and
+the appropriate risk label (`risk:trivial` or `risk:low`).
 
-Issue title format: `[repo-audit] <short description of the specific fix>`
+Issue title format: `[repo-audit] <short description of the group>`
 
 Issue body must include:
 
-- **Finding**: What was detected and where (file path, line if known)
-- **Fix**: Exactly what change to make
-- **Acceptance criteria**: How to verify the fix is correct
+- **Category**: The shared finding category (e.g., Accessibility, Dead Code)
+- **Pattern**: The common fix pattern (e.g., "add `role` attr to clickable divs")
+- **Affected files**: A checklist of every file and line, e.g.:
+  - `[ ] src/components/TabBar.tsx:31 — add role="button"`
+  - `[ ] src/components/TreeView.tsx:97 — add role="button"`
+- **Acceptance criteria**: How to verify the group of fixes is correct
 - **Risk**: `risk:trivial` or `risk:low` with justification
 
 Do NOT create agent-fixable issues for:
 
 - Findings requiring architectural decisions
-- Findings that touch more than 3 files
+- Findings where multiple valid fixes exist per instance
 - Anything with risk:medium or higher
-- Ambiguous findings where multiple valid fixes exist
+- Groups that would touch more than 15 files (split into smaller groups)
 
-Cap total agent-fixable issues at 3 per run to avoid noise.
+Cap total agent-fixable issues at 3 per run. Each issue may cover many
+findings, but they must all share the same fix pattern.
 
 ## Process
 

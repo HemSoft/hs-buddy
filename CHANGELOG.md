@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.114] - 2026-02-23
+
 ## [0.1.113] - 2026-02-23
+
+### Added
+
+- Flag stalled PRs missing analyzer markers after 2 hours
 
 ## [0.1.112] - 2026-02-23
 

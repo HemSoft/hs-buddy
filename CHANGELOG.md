@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.106] - 2026-02-23
+
 ## [0.1.105] - 2026-02-23
+
+### Fixed
+
+- Add SFL auditor check for action items missing agent:fixable label
 
 ## [0.1.104] - 2026-02-23
 

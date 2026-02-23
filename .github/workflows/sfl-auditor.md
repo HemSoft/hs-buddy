@@ -52,6 +52,10 @@ branch name matches the pattern `agent-fix/issue-<number>-<hash>` (e.g.
 For each PR in list B, extract the issue number: it is the digit(s) immediately
 after `agent-fix/issue-` and before the next `-`.
 
+**C. Recently merged agent PRs**: all *merged* (closed) pull requests whose head
+branch name matches the pattern `agent-fix/issue-<number>-<hash>`, merged within
+the last 7 days. For each, extract the issue number the same way as list B.
+
 ## Step 2 — Check: orphaned agent:in-progress labels
 
 For each issue in list A, check whether list B contains a PR whose extracted
@@ -110,7 +114,21 @@ extracted in Step 1). If that issue does NOT have `agent:in-progress`:
 Skip this check if the issue was already processed in Step 2 (to avoid
 double-commenting).
 
-## Step 6 — Check: unexplained agent:pause
+## Step 6 — Check: merged PRs with issues left open
+
+For each PR in list C (recently merged agent PRs), look up the corresponding
+issue using the extracted issue number. If that issue is still **OPEN**:
+
+1. Call `update_issue` with ALL of these fields in a **single call**:
+   - `issue_number`: the issue number
+   - `status`: `"closed"`
+   - `body`: "✅ **SFL Auditor**: PR #<pr-number> was merged but this issue was left open. Closing it now."
+   - `operation`: `"append"`
+
+Skip issues that still have `agent:in-progress` AND a matching open PR in
+list B (those are handled by other steps).
+
+## Step 7 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that
 issue contains the words "pause" or "paused" or "agent:pause".
@@ -122,9 +140,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 7 — Signal completion
+## Step 8 — Signal completion
 
-After completing all checks (Steps 2–6), you MUST always call exactly one of:
+After completing all checks (Steps 2–7), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - `noop` — if ALL checks passed and NO discrepancies were found

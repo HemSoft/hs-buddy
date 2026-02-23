@@ -24,6 +24,11 @@
 
 ## Resolved (last 30 days)
 
+### SFL Auditor Missing Check — Merged PRs with Open Issues
+
+- **Resolved**: 2026-02-22
+- **Resolution**: Issue #76 was fixed by merged PR #79 but the issue stayed open. Root cause: no auditor step checked for merged agent PRs whose linked issues remain open. Added Step 6 ("merged PRs with issues left open") to sfl-auditor.md — the auditor now gathers recently merged `agent-fix/` PRs and closes any linked issue that was left open.
+
 ### Workflow Run Waste — 825 Runs from Redundant Crons
 
 - **Resolved**: 2026-02-22

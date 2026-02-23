@@ -8,10 +8,10 @@
 
 - **Severity**: Medium
 - **Detected**: 2026-02-20
-- **Status**: Active
+- **Status**: Partially resolved (2026-02-23)
 - **Description**: 30 labels, 25 unused on open items, health score 25/100. Disproportionate for a repo with few open issues/PRs.
 - **Impact**: Cognitive and computational tax on every workflow that reads labels.
-- **Suggested Action**: Run `label-audit.ps1` and prune unused labels. Target ≤20.
+- **Suggested Action**: 3 labels removed in label simplification (type:report, type:action-item, type:fix). Consider further pruning to target ≤20.
 
 ### SFL Auditor Intermittent Failures (Transient API Errors)
 
@@ -23,6 +23,11 @@
 - **Suggested Action**: Monitor. If failure rate stays above 30%, investigate Copilot API health.
 
 ## Resolved (last 30 days)
+
+### Label Taxonomy Simplified — Dropped type: Prefixes
+
+- **Resolved**: 2026-02-23
+- **Resolution**: Renamed `type:action-item` → `action-item`, merged `type:report` into existing `report` label, deleted dead `type:fix` label (zero issues). Updated all workflow prompts, governance docs, scripts, and Convex backend. Net reduction: 3 labels eliminated.
 
 ### SFL Auditor Missing Check — Merged PRs with Open Issues
 

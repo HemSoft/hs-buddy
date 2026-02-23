@@ -99,6 +99,3 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
   return { pr, section: validSection }
 }
 
-export function parsePRDetailViewId(viewId: string): PRDetailInfo | null {
-  return parsePRLinkInfo(viewId)
-}

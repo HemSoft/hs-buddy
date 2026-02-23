@@ -128,7 +128,23 @@ issue using the extracted issue number. If that issue is still **OPEN**:
 Skip issues that still have `agent:in-progress` AND a matching open PR in
 list B (those are handled by other steps).
 
-## Step 7 — Check: unexplained agent:pause
+## Step 7 — Check: stale report issues
+
+Search for **open** issues that have the label `type:report` (or both
+`daily-status` and `report`) but do NOT have any of: `type:action-item`,
+`agent:fixable`, `agent:in-progress`.
+
+These are pure informational report issues (daily status, audit summaries,
+simplisticate summaries). If more than one issue shares the same title prefix
+(e.g., multiple `[repo-status]` or `[repo-audit] Daily Repo Audit` issues),
+close all but the most recent one using `update_issue` with:
+
+- `issue_number`: the issue number
+- `status`: `"closed"`
+- `body`: "🧹 **SFL Auditor**: Closing stale report issue — a newer report exists."
+- `operation`: `"append"`
+
+## Step 8 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that
 issue contains the words "pause" or "paused" or "agent:pause".
@@ -140,9 +156,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 8 — Signal completion
+## Step 9 — Signal completion
 
-After completing all checks (Steps 2–7), you MUST always call exactly one of:
+After completing all checks (Steps 2–8), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - `noop` — if ALL checks passed and NO discrepancies were found

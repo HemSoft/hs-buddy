@@ -25,12 +25,26 @@ safe-outputs:
     title-prefix: "[repo-audit] "
     labels: [type:report, audit]
     max: 10
+  update-issue:
+    target: "*"
+    max: 5
 ---
 
 # Daily Repo Audit
 
 Run a high-signal daily repository audit. Produce a summary report issue and
 individual fixable issues for findings an agent can resolve autonomously.
+
+## Step 0 — Close previous audit summary reports
+
+Before creating today's audit, search for all **open** issues whose title
+starts with `[repo-audit] Daily Repo Audit` AND that have both `type:report`
+and `audit` labels. For each one found, close it using `update_issue` with:
+
+- `issue_number`: the issue number
+- `status`: `"closed"`
+
+Do NOT close agent-fixable action-item issues — only the dated summary reports.
 
 ## Goals
 

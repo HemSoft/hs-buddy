@@ -25,11 +25,3 @@ import { getTaskQueue } from './taskQueue';
 /** Queue for GitHub API operations */
 export const githubQueue = getTaskQueue('github', { concurrency: 1 });
 
-/** Queue for Bitbucket API operations (future use) */
-export const bitbucketQueue = getTaskQueue('bitbucket', { concurrency: 1 });
-
-/** Queue for Skills operations (future use) */
-export const skillsQueue = getTaskQueue('skills', { concurrency: 2 });
-
-/** Queue for general/misc operations */
-export const generalQueue = getTaskQueue('general', { concurrency: 3 });

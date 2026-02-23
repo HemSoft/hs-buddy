@@ -40,41 +40,44 @@ for (const { path: filePath, pattern, replacement } of versionFiles) {
   }
 }
 
-// --- 3. Update CHANGELOG.md ---
+// --- 3. Prepare CHANGELOG.md version header ---
+// Only inserts the version header. The commit-msg hook fills in the
+// actual entry from the Conventional Commit message.
 const changelogPath = resolve(ROOT, 'CHANGELOG.md')
 if (existsSync(changelogPath)) {
   let changelog = readFileSync(changelogPath, 'utf-8')
-
-  // Normalize line endings for consistent regex matching
   changelog = changelog.replace(/\r\n/g, '\n')
 
-  // Match the [Unreleased] section and its content up to the next ## heading
-  const unreleasedRegex = /## \[Unreleased\]\n((?:.|\n)*?)(?=\n## \[|$)/
-  const match = changelog.match(unreleasedRegex)
+  const today = new Date().toISOString().slice(0, 10)
 
-  if (match) {
-    const unreleasedContent = match[1].trim()
-    const today = new Date().toISOString().slice(0, 10)
+  // Check if this version header already exists (idempotency)
+  if (!changelog.includes(`## [${newVersion}]`)) {
+    const unreleasedRegex = /## \[Unreleased\]\n((?:.|\n)*?)(?=\n## \[|$)/
+    const match = changelog.match(unreleasedRegex)
 
-    if (unreleasedContent.length > 0) {
-      // Promote [Unreleased] content → new versioned section
-      changelog = changelog.replace(
-        unreleasedRegex,
-        `## [Unreleased]\n\n## [${newVersion}] - ${today}\n${match[1]}`
-      )
-      console.log(`✓ CHANGELOG.md   [Unreleased] → [${newVersion}] - ${today}`)
+    if (match) {
+      const unreleasedContent = match[1].trim()
+
+      if (unreleasedContent.length > 0) {
+        // Promote any manually-written [Unreleased] content into the new version
+        changelog = changelog.replace(
+          unreleasedRegex,
+          `## [Unreleased]\n\n## [${newVersion}] - ${today}\n${match[1]}`
+        )
+        console.log(`✓ CHANGELOG.md   [Unreleased] → [${newVersion}] - ${today}`)
+      } else {
+        // Insert empty version header — commit-msg hook will fill it
+        changelog = changelog.replace(
+          /## \[Unreleased\]\n/,
+          `## [Unreleased]\n\n## [${newVersion}] - ${today}\n`
+        )
+        console.log(`✓ CHANGELOG.md   [${newVersion}] - ${today} (commit-msg hook will fill entry)`)
+      }
+
+      writeFileSync(changelogPath, changelog, 'utf-8')
     } else {
-      // [Unreleased] is empty — insert version header with placeholder
-      changelog = changelog.replace(
-        /## \[Unreleased\]\n/,
-        `## [Unreleased]\n\n## [${newVersion}] - ${today}\n\n- Version bump\n`
-      )
-      console.log(`✓ CHANGELOG.md   [${newVersion}] - ${today} (empty unreleased, added placeholder)`)
+      console.warn('⚠ CHANGELOG.md: [Unreleased] section not found, skipped')
     }
-
-    writeFileSync(changelogPath, changelog, 'utf-8')
-  } else {
-    console.warn('⚠ CHANGELOG.md: [Unreleased] section not found, skipped')
   }
 } else {
   console.warn('⚠ CHANGELOG.md not found, skipped')

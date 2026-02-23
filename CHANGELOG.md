@@ -7,391 +7,168 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.100] - 2026-02-23
+
 ## [0.1.99] - 2026-02-23
 
-- Version bump
+### Fixed
 
-## [0.1.98] - 2026-02-23
+- Allow all risk levels in sfl-add-issue prompt
 
-- Version bump
+### Added
+
+- `sfl-add-issue` prompt for manual pipeline issue creation
 
 ## [0.1.97] - 2026-02-23
 
-- Version bump
+### Added
 
-## [0.1.96] - 2026-02-23
+- Rebase conflict resolution, merge-failure handling, grouped audit issues, react-doctor scope
 
-- Version bump
+### Fixed
 
-## [0.1.95] - 2026-02-23
+- Remove unused queue exports from services/index.ts (#80)
+- Remove dead export `parsePRDetailViewId` in prDetailView.ts (#79)
 
-- Version bump
+## [0.1.94] - 2026-02-22
 
-## [0.1.94] - 2026-02-23
+### Added
 
-- Version bump
+- Dynamic SFL badge and architecture infographic
+- SFL architecture flow diagram
+- Daily simplisticate audit workflow (1:00 AM EST)
+- Workflow scheduling hygiene checks to repo-audit
+- Set it Free Loop section and badge to README
+- Per-workflow model diversity via engine frontmatter
+- Merge job for auto-merging approved PRs in PR Promoter
 
-## [0.1.93] - 2026-02-22
+### Fixed
 
-- Version bump
+- PR Analyzer models updated to Sonnet 4.6, Gemini 3 Pro, Opus 4.6
+- PR Analyzer B model compatibility (gpt-5.3-codex)
+- Engine blocks for PR Promoter, SFL Auditor, and PR Fixer workflows
+- Correct false-completion entry for AGENTS.md in TODO.md (#67)
+- Handle missing CI checks in PR Promoter merge job
 
-## [0.1.92] - 2026-02-22
+### Changed
 
-- Version bump
-
-## [0.1.91] - 2026-02-22
-
-- Version bump
-
-## [0.1.90] - 2026-02-22
-
-- Version bump
-
-## [0.1.89] - 2026-02-22
-
-- Version bump
-
-## [0.1.88] - 2026-02-22
-
-- Version bump
-
-## [0.1.87] - 2026-02-22
-
-- Version bump
-
-## [0.1.86] - 2026-02-22
-
-- Version bump
-
-## [0.1.85] - 2026-02-22
-
-- Version bump
-
-## [0.1.84] - 2026-02-22
-
-- Version bump
-
-## [0.1.83] - 2026-02-22
-
-- Version bump
-
-## [0.1.82] - 2026-02-22
-
-- Version bump
-
-## [0.1.81] - 2026-02-22
-
-- Version bump
-
-## [0.1.80] - 2026-02-22
-
-- Version bump
-
-## [0.1.79] - 2026-02-22
-
-- Version bump
-
-## [0.1.78] - 2026-02-22
-
-- Version bump
-
-## [0.1.77] - 2026-02-22
-
-- Version bump
-
-## [0.1.76] - 2026-02-22
-
-- Version bump
-
-## [0.1.75] - 2026-02-22
-
-- Version bump
-
-## [0.1.74] - 2026-02-22
-
-- Version bump
+- Remove redundant cron triggers from dispatcher-gated workflows
+- Remove duplicate SFL Auditor lock workflow and orphaned prompt
+- Update ATTENTION.md — resolve completed issues, add run waste fix
+- Update SFL-LAUNCH.md — status operational v2.0.0
+- Add version number to SFL badge
+- Add SFL-LAUNCH.md planning document
+- Update Project Structure in README.md (#66)
+- Clarify build output directories in .gitignore (#53)
+- Update workflow docs, fix auditor bug, add promoter dispatch
+- Remove stale react-doctor diagnostic output (#59)
+- Delete orphaned assets/backup/ directory (#65)
 
 ## [0.1.73] - 2026-02-21
 
-- Version bump
+### Added
 
-## [0.1.72] - 2026-02-21
+- SFL Dispatcher to gate gh-aw runs and eliminate no-op waste
 
-- Version bump
+### Fixed
 
-## [0.1.71] - 2026-02-21
+- Mark human review handoff with `human:ready-for-review`
+- PR promotion uses `gh pr ready` (deterministic undraft)
+- Bootstrap gh auth for promoter draft→ready transition
+- Wire GitHub token into promoter agent runtime
+- Grant promoter write permissions for ready-for-review transition
+- Recompile pr-promoter and restore strict-compatible frontmatter
 
-- Version bump
+### Changed
 
-## [0.1.70] - 2026-02-21
-
-- Version bump
-
-## [0.1.69] - 2026-02-21
-
-- Version bump
-
-## [0.1.68] - 2026-02-21
-
-- Version bump
-
-## [0.1.67] - 2026-02-21
-
-- Version bump
-
-## [0.1.66] - 2026-02-21
-
-- Version bump
-
-## [0.1.65] - 2026-02-21
-
-- Version bump
-
-## [0.1.64] - 2026-02-21
-
-- Version bump
-
-## [0.1.63] - 2026-02-21
-
-- Version bump
-
-## [0.1.62] - 2026-02-21
-
-- Version bump
-
-## [0.1.61] - 2026-02-21
-
-- Version bump
-
-## [0.1.60] - 2026-02-21
-
-- Version bump
-
-## [0.1.59] - 2026-02-21
-
-- Version bump
-
-## [0.1.58] - 2026-02-21
-
-- Version bump
-
-## [0.1.57] - 2026-02-21
-
-- Version bump
-
-## [0.1.56] - 2026-02-21
-
-- Version bump
-
-## [0.1.55] - 2026-02-21
-
-- Version bump
-
-## [0.1.54] - 2026-02-21
-
-- Version bump
+- Consolidate AGENTS.md, migrate skills, and add usage telemetry
+- Rewrite pr-promoter and sfl-auditor as standard workflows
+- Enforce workflow-only PR promotion and verified human handoff
+- Default hs-buddy workflow credentials to fhemmerrelias
+- Add manual PR draft-transition smoke workflow
 
 ## [0.1.53] - 2026-02-20
 
-- Version bump
+### Added
 
-## [0.1.52] - 2026-02-20
+- PR Analyzer workflows (x3) — correctness, security, style
+- PR Fixer workflow — authority model with cycle-aware fix loop
+- PR Promoter workflow — un-drafts clean PRs for human review
+- Debug skill with pipeline forensics arsenal
+- Status skill and unblock analyzer/promoter no-op flow
+- `status.prompt.md` for quick pipeline status checks
+- `health.prompt.md` — pipeline harmony audit prompt
+- Idempotency standing order in docs
 
-- Version bump
+### Fixed
 
-## [0.1.51] - 2026-02-20
+- Three pipeline bugs causing issue #12 claim-fail-reset loop
+- Replace HTML comment markers with visible text markers in all PR workflows
+- Unblock promoter by adding empty promotion commit strategy
+- Avoid promoter patch failures on large PR bodies
+- SFL-auditor — add noop safe-output, require explicit signal
 
-- Version bump
+### Changed
 
-## [0.1.50] - 2026-02-20
-
-- Version bump
-
-## [0.1.49] - 2026-02-20
-
-- Version bump
-
-## [0.1.48] - 2026-02-20
-
-- Version bump
-
-## [0.1.47] - 2026-02-20
-
-- Version bump
-
-## [0.1.46] - 2026-02-20
-
-- Version bump
-
-## [0.1.45] - 2026-02-20
-
-- Version bump
-
-## [0.1.44] - 2026-02-20
-
-- Version bump
-
-## [0.1.43] - 2026-02-20
-
-- Version bump
-
-## [0.1.42] - 2026-02-20
-
-- Version bump
-
-## [0.1.41] - 2026-02-20
-
-- Version bump
-
-## [0.1.40] - 2026-02-20
-
-- Version bump
-
-## [0.1.39] - 2026-02-20
-
-- Version bump
-
-## [0.1.38] - 2026-02-20
-
-- Version bump
-
-## [0.1.37] - 2026-02-20
-
-- Version bump
-
-## [0.1.36] - 2026-02-20
-
-- Version bump
-
-## [0.1.35] - 2026-02-20
-
-- Version bump
-
-## [0.1.34] - 2026-02-20
-
-- Version bump
-
-## [0.1.33] - 2026-02-20
-
-- Version bump
+- Rewrite AGENTS.md with agentic loop mission as primary focus
 
 ## [0.1.32] - 2026-02-19
 
-- Version bump
+### Added
 
-## [0.1.31] - 2026-02-19
+- SFL-auditor workflow — detect and repair issue/PR label discrepancies
+- Issue processor — 30min schedule, oldest-first, claim-then-fix pattern
+- PR review pipeline design — draft PRs, analyzer+fixer+promoter lifecycle
 
-- Version bump
+### Fixed
 
-## [0.1.30] - 2026-02-19
+- Issue processor — non-draft PRs, working `agent:in-progress` labeling
 
-- Version bump
+### Changed
 
-## [0.1.29] - 2026-02-19
-
-- Version bump
-
-## [0.1.28] - 2026-02-19
-
-- Version bump
-
-## [0.1.27] - 2026-02-19
-
-- Version bump
-
-## [0.1.26] - 2026-02-19
-
-- Version bump
-
-## [0.1.25] - 2026-02-19
-
-- Version bump
+- Rename weekly-repo-audit to repo-audit
 
 ## [0.1.24] - 2026-02-18
 
-- Version bump
+### Added
 
-## [0.1.23] - 2026-02-18
+- AI review run tracking and improved PR thread UX
+- Daily repo audit with agent-fixable issues + issue processor workflow
+- Agentic workflow daily-repo-status
 
-- Version bump
+### Changed
 
-## [0.1.22] - 2026-02-18
-
-- Version bump
-
-## [0.1.21] - 2026-02-18
-
-- Version bump
-
-## [0.1.20] - 2026-02-18
-
-- Version bump
-
-## [0.1.19] - 2026-02-18
-
-- Version bump
-
-## [0.1.18] - 2026-02-18
-
-- Version bump
-
-## [0.1.17] - 2026-02-18
-
-- Version bump
-
-## [0.1.16] - 2026-02-18
-
-- Version bump
+- Move SFL operating model to relias-engineering/set-it-free-loop
+- Rebrand as Set it Free Loop with alternate infographic suite
+- Launch Agentic Loop Methodology with harmonized infographics
+- Align vision and actionable roadmap to Set it Free Loop
 
 ## [0.1.15] - 2026-02-15
 
-- Version bump
+### Changed
+
+- Simplify app shell and GitHub account resolution
 
 ## [0.1.14] - 2026-02-13
 
-- Version bump
+### Added
 
-## [0.1.13] - 2026-02-11
-
-- Version bump
-
-## [0.1.12] - 2026-02-11
-
-- Version bump
+- Hierarchical PR details and automation sidebar drill-down
 
 ## [0.1.11] - 2026-02-10
 
-- Version bump
+### Added
 
-## [0.1.10] - 2026-02-10
+- Auto-resolve GitHub account from repo URLs in Copilot prompts
+- Configurable status bar background and foreground colors
+- Per-account Copilot premium usage tracking
+- "Needs a nudge" PR view for approved but unmerged PRs
 
-- Version bump
+### Changed
 
-## [0.1.9] - 2026-02-10
-
-- Version bump
-
-## [0.1.8] - 2026-02-10
-
-- Version bump
+- Extract shared CopilotClient singleton and fix modal input blocking
 
 ## [0.1.7] - 2026-02-08
-
-- Version bump
-
-## [0.1.6] - 2026-02-08
-
-- Version bump
-
-## [0.1.5] - 2026-02-08
-
-- Version bump
-
-## [0.1.4] - 2026-02-08
-
-- Version bump
-
-## [0.1.3] - 2026-02-08
 
 ### Added
 
@@ -399,6 +176,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Husky pre-commit hooks with ESLint and markdownlint validation
 - Auto revision bumping on every build
 - CHANGELOG.md
+
+### Fixed
+
+- Handle CRLF line endings in CHANGELOG bump
+
+### Changed
+
+- Extract CopilotSidebar and GitHubSidebar components
 
 ## [0.1.0] - 2026-02-08
 

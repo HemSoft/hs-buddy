@@ -1,0 +1,3 @@
+# Populate CHANGELOG.md from conventional commit message
+bun scripts/changelog-from-commit.ts "$1"
+git add CHANGELOG.md

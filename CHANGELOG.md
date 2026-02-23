@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.113] - 2026-02-23
+
+## [0.1.112] - 2026-02-23
+
 ## [0.1.111] - 2026-02-23
+
+### Added
+
+- SFL Auditor Step 8 — flag unclaimed agent:fixable issues older than 2 hours
 
 ## [0.1.110] - 2026-02-23
 

@@ -161,7 +161,26 @@ If an `agent:fixable` issue is older than 2 hours and has not been claimed:
 Only flag each issue **once** — if the issue already has a comment containing
 "over 2 hours without being claimed", skip it.
 
-## Step 9 — Check: unexplained agent:pause
+## Step 9 — Check: stalled draft PRs without analyzer reviews
+
+For each PR in list B (open agent PRs), check whether the PR is a **draft**
+and was created more than **2 hours ago**.
+
+For each such stale draft PR, check the PR body for analyzer markers:
+`[MARKER:pr-analyzer-a cycle:`, `[MARKER:pr-analyzer-b cycle:`,
+`[MARKER:pr-analyzer-c cycle:`.
+
+If ANY of the three markers is missing, and the PR does NOT already have a
+comment containing "missing analyzer markers", this PR is stalled — the
+analyzers are not running on it.
+
+Call `update_issue` with:
+
+- `issue_number`: the PR number
+- `body`: "⏰ **SFL Auditor**: Draft PR #<pr-number> has been open for over 2 hours and is missing one or more analyzer markers. The PR Analyzers may not be dispatching for this PR. A human should investigate."
+- `operation`: `"append"`
+
+## Step 10 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that
 issue contains the words "pause" or "paused" or "agent:pause".
@@ -173,9 +192,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 10 — Signal completion
+## Step 11 — Signal completion
 
-After completing all checks (Steps 2–9), you MUST always call exactly one of:
+After completing all checks (Steps 2–10), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - `noop` — if ALL checks passed and NO discrepancies were found

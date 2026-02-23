@@ -83,7 +83,7 @@ passes", "export is no longer referenced anywhere">
 `risk:<trivial|low|medium|high|critical>` — <one-line justification>
 ```
 
-**Labels**: `agent:fixable`, `action-item`, `risk:<trivial|low|medium|high|critical>`
+**Labels**: `agent:fixable`, `action-item`, `feature-request`, `risk:<trivial|low|medium|high|critical>`
 
 ---
 
@@ -108,6 +108,7 @@ gh issue create --repo "<owner>/<repo>" \
   --body "<body>" \
   --label "agent:fixable" \
   --label "action-item" \
+  --label "feature-request" \
   --label "risk:<trivial|low|medium|high|critical>"
 ```
 

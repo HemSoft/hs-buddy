@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.110] - 2026-02-23
+
 ## [0.1.109] - 2026-02-23
+
+### Changed
+
+- Update ATTENTION.md for label simplification
 
 ## [0.1.108] - 2026-02-23
 

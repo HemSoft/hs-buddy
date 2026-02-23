@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.111] - 2026-02-23
+
 ## [0.1.110] - 2026-02-23
+
+### Added
+
+- Add feature-request label to sfl-add-issue prompt and label setup
 
 ## [0.1.109] - 2026-02-23
 

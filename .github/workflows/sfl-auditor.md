@@ -144,7 +144,24 @@ close all but the most recent one using `update_issue` with:
 - `body`: "🧹 **SFL Auditor**: Closing stale report issue — a newer report exists."
 - `operation`: `"append"`
 
-## Step 8 — Check: unexplained agent:pause
+## Step 8 — Check: stale unclaimed issues
+
+Search for **open** issues that have the label `agent:fixable` but do NOT have
+`agent:in-progress`, `agent:pause`, `agent:human-required`, or `agent:escalated`.
+
+For each such issue, check whether it was created more than **2 hours ago**.
+
+If an `agent:fixable` issue is older than 2 hours and has not been claimed:
+
+1. Call `update_issue` with ALL of these fields in a **single call**:
+   - `issue_number`: the issue number
+   - `body`: "⏰ **SFL Auditor**: This issue has been `agent:fixable` for over 2 hours without being claimed by the Issue Processor. This may indicate a pipeline stall. A human should investigate whether the Issue Processor is running correctly."
+   - `operation`: `"append"`
+
+Only flag each issue **once** — if the issue already has a comment containing
+"over 2 hours without being claimed", skip it.
+
+## Step 9 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that
 issue contains the words "pause" or "paused" or "agent:pause".
@@ -156,9 +173,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 9 — Signal completion
+## Step 10 — Signal completion
 
-After completing all checks (Steps 2–8), you MUST always call exactly one of:
+After completing all checks (Steps 2–9), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - `noop` — if ALL checks passed and NO discrepancies were found

@@ -5,11 +5,11 @@
     Lists all labels, groups by category, detects orphaned/unused labels,
     and identifies simplification opportunities.
 .PARAMETER Repo
-    The repo to audit (default: HemSoft/hs-buddy).
+    The repo to audit (default: relias-engineering/hs-buddy).
 #>
 [CmdletBinding()]
 param(
-    [string]$Repo = "HemSoft/hs-buddy"
+    [string]$Repo = "relias-engineering/hs-buddy"
 )
 
 $ErrorActionPreference = "Stop"

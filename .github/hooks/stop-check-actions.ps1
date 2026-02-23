@@ -20,7 +20,7 @@ if ($hookInput.stop_hook_active -eq $true) {
     exit 0
 }
 
-$repo = "HemSoft/hs-buddy"
+$repo = "relias-engineering/hs-buddy"
 $failures = @()
 
 # Check key workflows

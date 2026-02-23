@@ -46,7 +46,7 @@ That repo contains:
 2. Run from the SFL repo:
 
    ```powershell
-   .\deployment\scripts\deploy-workflow.ps1 -Workflow <name> -Repos "HemSoft/hs-buddy"
+   .\deployment\scripts\deploy-workflow.ps1 -Workflow <name> -Repos "relias-engineering/hs-buddy"
    ```
 
 3. Review and merge the resulting PR
@@ -58,7 +58,7 @@ That repo contains:
 Labels are configured by running once:
 
 ```powershell
-.\deployment\governance\setup-labels.ps1 -Owner HemSoft -Repo hs-buddy
+.\deployment\governance\setup-labels.ps1 -Owner relias-engineering -Repo hs-buddy
 ```
 
 See the [full label taxonomy and governance policy](https://github.com/relias-engineering/set-it-free-loop/blob/main/deployment/governance/policy.md).

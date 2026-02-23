@@ -13,7 +13,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
   }
 
   const openGitHub = () => {
-    window.shell.openExternal('https://github.com/HemSoft/hs-buddy')
+    window.shell.openExternal('https://github.com/relias-engineering/hs-buddy')
   }
 
   return (
@@ -33,7 +33,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
           <h1 className="about-app-name">Buddy</h1>
 
           {/* Version Badge */}
-          <div className="about-version-badge">Version 0.1.117</div>
+          <div className="about-version-badge">Version 0.1.119</div>
 
           {/* Tagline */}
           <div className="about-tagline">

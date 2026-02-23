@@ -44,7 +44,7 @@ Built on the same architecture as [hs-conductor](https://github.com/HemSoft/hs-c
 
 ```bash
 # Clone the repository
-git clone https://github.com/HemSoft/hs-buddy.git
+git clone https://github.com/relias-engineering/hs-buddy.git
 cd hs-buddy
 
 # Install dependencies

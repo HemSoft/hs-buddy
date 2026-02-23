@@ -5,11 +5,11 @@
     Scans all open agent-fix PRs for [MARKER:...] tags,
     detects missing/duplicate markers, and identifies stuck PRs.
 .PARAMETER Repo
-    The repo to check (default: HemSoft/hs-buddy).
+    The repo to check (default: relias-engineering/hs-buddy).
 #>
 [CmdletBinding()]
 param(
-    [string]$Repo = "HemSoft/hs-buddy"
+    [string]$Repo = "relias-engineering/hs-buddy"
 )
 
 $ErrorActionPreference = "Stop"

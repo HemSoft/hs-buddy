@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Repo = "HemSoft/hs-buddy",
+    [string]$Repo = "relias-engineering/hs-buddy",
     [string]$LastCheckUtc,
     [switch]$AsJson
 )

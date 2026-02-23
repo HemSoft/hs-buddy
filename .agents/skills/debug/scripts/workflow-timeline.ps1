@@ -14,7 +14,7 @@ param(
     [Parameter(Mandatory)]
     [int]$PRNumber,
     [int]$Limit = 20,
-    [string]$Repo = "HemSoft/hs-buddy"
+    [string]$Repo = "relias-engineering/hs-buddy"
 )
 
 $ErrorActionPreference = "Stop"

@@ -6,6 +6,7 @@
 | 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
+| 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | ✅ | **Critical** | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
 | ✅ | High | Define Set it Free governance policy | Moved to relias-engineering/set-it-free-loop (2026-02) |
 | ✅ | High | Build feature-intake normalization workflow | Convex mapping + template-driven issue drafts + dedupe (2026-02) |
@@ -48,7 +49,7 @@
 
 ## Progress
 
-**Remaining: 4** (1 SFL-tracked) | **Completed: 39** (91%)
+**Remaining: 5** (1 SFL-tracked) | **Completed: 39** (89%)
 
 ---
 
@@ -88,6 +89,18 @@
 - Baseline vs post-loop performance report
 - False positive and rework analysis
 - Recommendation for broader rollout
+
+---
+
+### Add branch cleanup to repo-audit
+
+**Goal**: Have the repo-audit workflow detect and report stale branches (merged `agent-fix/*` branches, orphaned worktree branches, old scaffold branches) so they don't accumulate.
+
+**Scope**:
+
+- List remote branches matching `agent-fix/*` whose linked PR is merged or closed → create issue to delete
+- Detect local-only branches that are fully merged into main
+- Flag branches older than 7 days with no associated open PR
 
 ---
 

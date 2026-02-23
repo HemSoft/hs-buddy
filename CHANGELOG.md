@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.115] - 2026-02-23
+
 ## [0.1.114] - 2026-02-23
+
+### Fixed
+
+- Remove stale sfl-auditor.yml competing with sfl-auditor.lock.yml
 
 ## [0.1.113] - 2026-02-23
 

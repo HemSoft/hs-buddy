@@ -21,12 +21,12 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# PR Promoter — converts clean draft PRs to ready-for-review. Runs after the
-# PR Fixer. If all three analyzers found zero blocking issues (PASS verdict)
-# in the current cycle, un-drafts the PR and posts a promotion comment.
-# Processes exactly one PR per run.
+# PR Promoter — two-phase workflow. Phase 1: converts clean draft PRs to
+# ready-for-review when all three analyzers PASS. Phase 2: squash-merges
+# approved PRs that have human approval and deletes the source branch.
+# Processes exactly one promotion and one merge per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"31bac536f9aee6a2788ef3031a306dac92ac747e898eb254f50964d54b9c2159","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"84014e3dca799a525a1c0adcbe84dd33598ea3792be9a6522374a21d72b11c34","compiler_version":"v0.47.1"}
 
 name: "PR Promoter"
 "on":
@@ -348,12 +348,12 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":3}}
+          {"missing_data":{},"missing_tool":{},"noop":{"max":2},"update_issue":{"max":5}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 3 issue(s) can be updated. Target: *.",
+              "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 5 issue(s) can be updated. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -847,7 +847,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_NOOP_MAX: 1
+          GH_AW_NOOP_MAX: 2
           GH_AW_WORKFLOW_NAME: "PR Promoter"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
@@ -942,7 +942,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "PR Promoter"
-          WORKFLOW_DESCRIPTION: "PR Promoter — converts clean draft PRs to ready-for-review. Runs after the\nPR Fixer. If all three analyzers found zero blocking issues (PASS verdict)\nin the current cycle, un-drafts the PR and posts a promotion comment.\nProcesses exactly one PR per run."
+          WORKFLOW_DESCRIPTION: "PR Promoter — two-phase workflow. Phase 1: converts clean draft PRs to\nready-for-review when all three analyzers PASS. Phase 2: squash-merges\napproved PRs that have human approval and deletes the source branch.\nProcesses exactly one promotion and one merge per run."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |
@@ -1047,7 +1047,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

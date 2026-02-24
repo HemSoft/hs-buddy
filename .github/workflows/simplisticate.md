@@ -122,11 +122,14 @@ For each finding that meets ALL of the following criteria, create a separate iss
 
 - The simplification is **scoped to one or two files** — no broad refactors
 - The simplification is **deterministic** — there is one clear correct outcome
-- Risk is 🟢 Low (`risk:trivial` or `risk:low`)
 - No user-facing behavioral change
 - The resulting code is strictly simpler (fewer lines, fewer branches, fewer abstractions)
 
-Label each agent-fixable issue with: `action-item`, `agent:fixable`, and the appropriate risk label (`risk:trivial` or `risk:low`).
+Risk level alone does NOT disqualify a finding from being agent-fixable.
+🟡 Medium and 🔴 High risk items are still agent-fixable — the risk is
+acknowledged in the issue body and surfaced at human-review time.
+
+Label each agent-fixable issue with: `action-item`, `agent:fixable`, and the appropriate risk label (`risk:trivial`, `risk:low`, `risk:medium`, or `risk:high`).
 
 Issue title format: `[simplisticate] <short description of the specific simplification>`
 
@@ -137,17 +140,52 @@ Issue body must include:
 - **Proposed Simplification**: Exactly what change to make
 - **Before/After**: Brief code sketch showing the improvement
 - **Acceptance Criteria**: How to verify the simplification is correct
-- **Risk**: `risk:trivial` or `risk:low` with justification
+- **Risk**: `risk:trivial`, `risk:low`, `risk:medium`, or `risk:high` with justification. For 🟡 Medium or 🔴 High risk, include a **Risk Acknowledgment** line stating what could go wrong and why the simplification is still worth pursuing.
 
 Do NOT create agent-fixable issues for:
 
 - Findings requiring architectural decisions
 - Findings that touch more than 3 files
-- Anything with 🟡 Medium or 🔴 High risk
 - Simplifications where multiple valid approaches exist
 - Changes that would alter external behavior
 
 Cap total agent-fixable issues at 3 per run to avoid noise.
+
+## Cross-Referencing Child Issues (temporary_id)
+
+When creating agent-fixable issues and referencing them from the summary,
+use `temporary_id` so the summary body can link to child issues before their
+real numbers are known. The `temporary_id` **must** match `^aw_[A-Za-z0-9]{3,8}$`
+(3–8 alphanumeric characters after `aw_`). Calls with invalid IDs are silently
+rejected and the child issue is never created.
+
+**Naming convention:** Derive the `temporary_id` from a short mnemonic of the
+finding, NOT from the finding number. For example, a ternary-chain finding
+becomes `aw_ternary`, a duplicate-logic finding becomes `aw_dedup1`, an
+OR-chain finding becomes `aw_orchain`. This naturally produces 3–8 character
+suffixes and avoids the most common mistake (single-digit suffixes like `f1`).
+
+### Valid examples
+
+| temporary_id | Body reference | Why it works |
+|---|---|---|
+| `aw_ternary` | `#aw_ternary` | 7 alphanumeric chars — mnemonic ✅ |
+| `aw_dedup1` | `#aw_dedup1` | 6 alphanumeric chars — mnemonic ✅ |
+| `aw_orchain` | `#aw_orchain` | 7 alphanumeric chars — mnemonic ✅ |
+| `aw_fix1` | `#aw_fix1` | 4 alphanumeric chars ✅ |
+| `aw_Tern01` | `#aw_Tern01` | 6 alphanumeric chars ✅ |
+| `aw_abc` | `#aw_abc` | 3 alphanumeric chars (minimum) ✅ |
+
+### Invalid examples — do NOT use
+
+| temporary_id | Why it fails |
+|---|---|
+| `aw_f1` | Only 2 chars after `aw_` — minimum is 3 ❌ |
+| `aw_f2` | Only 2 chars after `aw_` — minimum is 3 ❌ |
+| `aw_f3` | Only 2 chars after `aw_` — minimum is 3 ❌ |
+| `aw_a` | Only 1 char ❌ |
+| `aw_my-id` | Hyphen is not alphanumeric ❌ |
+| `aw_123456789` | 9 chars — maximum is 8 ❌ |
 
 ## Process
 

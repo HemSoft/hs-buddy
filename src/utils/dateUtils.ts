@@ -156,19 +156,3 @@ export function formatDistanceToFuture(timestamp: number): string {
   return `in ${weeks} ${weeks === 1 ? 'week' : 'weeks'}`
 }
 
-/**
- * Check if a timestamp is today
- */
-export function isToday(timestamp: number): boolean {
-  const date = new Date(timestamp)
-  const today = new Date()
-  return date.toDateString() === today.toDateString()
-}
-
-/**
- * Check if a timestamp is within the last N days
- */
-export function isWithinDays(timestamp: number, days: number): boolean {
-  const cutoff = Date.now() - (days * DAY)
-  return timestamp >= cutoff
-}

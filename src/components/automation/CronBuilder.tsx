@@ -187,8 +187,8 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
           <div className="cron-option">
             <span className="option-label">At minute</span>
             <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
-              {Array.from({ length: 60 }, (_, i) => (
-                <option key={i} value={i}>{i.toString().padStart(2, '0')}</option>
+              {Array.from({ length: 60 }, (_, min) => (
+                <option key={min} value={min}>{min.toString().padStart(2, '0')}</option>
               ))}
             </select>
             <span className="option-suffix">of every hour</span>
@@ -200,9 +200,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
           <div className="cron-option">
             <span className="option-label">At</span>
             <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
-              {Array.from({ length: 24 }, (_, i) => (
-                <option key={i} value={i}>
-                  {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
                 </option>
               ))}
             </select>
@@ -237,9 +237,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             <div className="cron-option">
               <span className="option-label">At</span>
               <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
-                {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>
+                    {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
                   </option>
                 ))}
               </select>
@@ -268,9 +268,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             <div className="cron-option">
               <span className="option-label">At</span>
               <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
-                {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {i === 0 ? '12 AM' : i < 12 ? `${i} AM` : i === 12 ? '12 PM' : `${i - 12} PM`}
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>
+                    {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
                   </option>
                 ))}
               </select>

@@ -158,8 +158,8 @@ export function SettingsAccounts() {
             </div>
           ) : (
             <div className="items-list">
-              {accounts.map((account, index) => (
-                <div key={index} className="list-item">
+              {accounts.map((account) => (
+                <div key={`${account.username}-${account.org}`} className="list-item">
                   <div className="list-item-content">
                     <div className="list-item-primary">
                       <User size={16} />

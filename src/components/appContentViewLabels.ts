@@ -37,6 +37,11 @@ export function getViewLabel(viewId: string): string {
     const repoName = repoSlug.split('/').pop() || repoSlug
     return `${repoName} Issues`
   }
+  if (viewId.startsWith('repo-prs:')) {
+    const repoSlug = viewId.replace('repo-prs:', '')
+    const repoName = repoSlug.split('/').pop() || repoSlug
+    return `${repoName} PRs`
+  }
   if (viewId.startsWith('copilot-result:')) {
     return 'Copilot Result'
   }

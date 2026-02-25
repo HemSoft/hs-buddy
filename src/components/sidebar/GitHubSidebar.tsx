@@ -1121,7 +1121,10 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                       </div>
                                       <div
                                         className={`sidebar-item sidebar-item-disclosure sidebar-repo-child sidebar-repo-pr-row ${selectedItem === `repo-prs:${repoKey}` ? 'selected' : ''}`}
-                                        onClick={() => toggleRepoPRGroup(org, repo.name)}
+                                        onClick={() => {
+                                          onItemSelect(`repo-prs:${repoKey}`)
+                                          toggleRepoPRGroup(org, repo.name)
+                                        }}
                                       >
                                         <span
                                           className="sidebar-item-chevron"

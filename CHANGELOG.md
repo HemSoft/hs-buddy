@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.132] - 2026-02-25
+
+### Added
+
+- Centralize PR analyzer model config in sfl.json
+
 ## [0.1.131] - 2026-02-25
 
 ### Changed

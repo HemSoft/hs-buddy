@@ -26,9 +26,9 @@
 # Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
 # security, performance, style, maintainability). The value comes from model
 # diversity — different models catch different things. Model: claude-sonnet-4.6
-# (set via engine.model frontmatter).
+# (set via engine.model frontmatter — canonical value in sfl.json models section).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"603c828a59886ef460cf42d3f28924d03cc7ca71d8cc7caf6929b7318478ef16","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"03a517659d18ec92e0574ab9fc5f4a1053984b6ca71a232c25614c985bd31efb","compiler_version":"v0.47.1"}
 
 name: "PR Analyzer A — Full-Spectrum Review"
 "on":
@@ -944,7 +944,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "PR Analyzer A — Full-Spectrum Review"
-          WORKFLOW_DESCRIPTION: "PR Analyzer A — Full-Spectrum Review. One of three analyzer agents that\nindependently review draft PRs labeled agent:pr using different AI models.\nEach analyzer reviews the ENTIRE PR across all dimensions (correctness,\nsecurity, performance, style, maintainability). The value comes from model\ndiversity — different models catch different things. Model: claude-sonnet-4.6\n(set via engine.model frontmatter)."
+          WORKFLOW_DESCRIPTION: "PR Analyzer A — Full-Spectrum Review. One of three analyzer agents that\nindependently review draft PRs labeled agent:pr using different AI models.\nEach analyzer reviews the ENTIRE PR across all dimensions (correctness,\nsecurity, performance, style, maintainability). The value comes from model\ndiversity — different models catch different things. Model: claude-sonnet-4.6\n(set via engine.model frontmatter — canonical value in sfl.json models section)."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |

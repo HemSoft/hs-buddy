@@ -5,7 +5,7 @@ description: |
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
   diversity — different models catch different things. Model: claude-sonnet-4.6
-  (set via engine.model frontmatter).
+  (set via engine.model frontmatter — canonical value in sfl.json models section).
 
 on:
   workflow_dispatch:

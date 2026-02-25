@@ -4,6 +4,11 @@
   "tier": "full",
   "source": "relias-engineering/set-it-free-loop",
   "sourceSha": "d696d3dd371bb3742ace24fddc5d85f08f7e4e97",
+  "models": {
+    "pr-analyzer-a": "claude-sonnet-4.6",
+    "pr-analyzer-b": "gemini-3-pro-preview",
+    "pr-analyzer-c": "gpt-5.3-codex"
+  },
   "components": [
     "labels",
     "governance",

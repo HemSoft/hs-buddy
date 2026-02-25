@@ -4,8 +4,8 @@ description: |
   independently review draft PRs labeled agent:pr using different AI models.
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
-  diversity — different models catch different things. Model: gpt-4o
-  (set via engine.model frontmatter).
+  diversity — different models catch different things. Model: gemini-3-pro-preview
+  (set via engine.model frontmatter — canonical value in sfl.json models section).
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ permissions:
 
 engine:
   id: copilot
-  model: gpt-4o
+  model: gemini-3-pro-preview
 
 network: defaults
 

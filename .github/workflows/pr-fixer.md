@@ -267,6 +267,7 @@ The new cycle number is: current cycle + 1.
 Call `update_issue` with:
 
 - `issue_number`: the PR number
+- `status`: `"open"` (required — validation rejects calls without status/title/body)
 - `labels`: the PR's current labels with the old `pr:cycle-N` removed (if any)
   and `pr:cycle-<N+1>` added. Keep all other existing labels unchanged.
 

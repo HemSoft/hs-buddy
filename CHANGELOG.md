@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.144] - 2026-02-25
+
+## [0.1.143] - 2026-02-25
+
 ## [0.1.142] - 2026-02-25
+
+### Added
+
+- Label-triggered draft flip and merge via pr-label-actions.yml
 
 ## [0.1.141] - 2026-02-25
 

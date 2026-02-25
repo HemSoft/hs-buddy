@@ -156,6 +156,7 @@ Fixer will handle this." and exit.
 Call `update_issue` with:
 
 - `issue_number`: the PR number
+- `status`: `"open"` (required — validation rejects calls without status/title/body)
 - `labels`: the PR's current labels with `human:ready-for-review` added.
   If `agent:promoted` exists, remove it. Keep all other existing labels.
 
@@ -215,6 +216,7 @@ number from `Closes #N` in the PR body.
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
 - Use `update_issue` with `labels` to add `human:ready-for-review` (triggers `pr-label-actions.yml` to flip draft)
+- Every `update_issue` call MUST include at least one of `status`, `title`, or `body` — calls with only `labels` are silently rejected by validation
 - Do NOT use `gh pr ready` or `create_pull_request` — the agent has no gh CLI access
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
@@ -256,6 +258,7 @@ If the PR is not mergeable (e.g., conflicts, failing checks), update the dashboa
 Call `update_issue` with:
 
 - `issue_number`: the PR number
+- `status`: `"open"` (required — validation rejects calls without status/title/body)
 - `labels`: the PR's current labels with `ready-to-merge` added. Keep all
   existing labels.
 
@@ -294,4 +297,5 @@ Extract the linked issue number from `Closes #N` in the PR body.
 Call `update_issue` on the **linked issue** (not the PR) with:
 
 - `issue_number`: the linked issue number
+- `status`: `"open"` (required — validation rejects calls without status/title/body)
 - `labels`: remove `agent:in-progress`, keep all other labels unchanged

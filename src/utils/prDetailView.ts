@@ -85,16 +85,12 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
     return null
   }
 
+  const VALID_SECTIONS: PRDetailSection[] = ['conversation', 'commits', 'checks', 'files-changed', 'ai-reviews']
+
   const sectionPart = viewId.split('?section=')[1]
-  const section = sectionPart as PRDetailSection | undefined
-  const validSection =
-    section === 'conversation' ||
-    section === 'commits' ||
-    section === 'checks' ||
-    section === 'files-changed' ||
-    section === 'ai-reviews'
-      ? section
-      : null
+  const validSection = VALID_SECTIONS.includes(sectionPart as PRDetailSection)
+    ? (sectionPart as PRDetailSection)
+    : null
 
   return { pr, section: validSection }
 }

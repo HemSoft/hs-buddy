@@ -133,7 +133,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
   const [approvingPrKey, setApprovingPrKey] = useState<string | null>(null)
   const [expandedPRNodes, setExpandedPRNodes] = useState<Set<string>>(new Set())
   const [expandedRepoPRGroups, setExpandedRepoPRGroups] = useState<Set<string>>(new Set())
-  const [refreshTick, setRefreshTick] = useState(Date.now())
+  const [refreshTick, setRefreshTick] = useState(() => Date.now())
   const [repoPrTreeData, setRepoPrTreeData] = useState<Record<string, PullRequest[]>>({})
   const fetchedRepoPRsRef = useRef<Set<string>>(new Set())
   const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(() => ({

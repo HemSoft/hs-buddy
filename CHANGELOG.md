@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.150] - 2026-02-25
+
+## [0.1.149] - 2026-02-25
+
+### Changed
+
+- Move pr-label-actions polling from standalone 5-min cron to sfl-dispatcher (30-min cadence)
+- Remove PR Label Actions from pause/resume scripts (no longer has own schedule)
+
 ## [0.1.148] - 2026-02-25
+
+### Fixed
+
+- Handle all non-PR event types in pr-label-actions step conditions
 
 ## [0.1.147] - 2026-02-25
 

@@ -142,6 +142,24 @@ jobs:
             echo "No approved PRs awaiting merge."
           fi
 
+      - name: Check for draft PRs with ready-for-review label
+        id: label_actions
+        run: |
+          set -euo pipefail
+          COUNT=$(gh pr list --repo "$REPO" --state open --draft --label "human:ready-for-review" --json number --jq 'length')
+          echo "label_flip_count=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -gt 0 ]; then
+            echo "Found $COUNT draft PR(s) with human:ready-for-review — will dispatch PR Label Actions."
+          else
+            echo "No draft PRs with ready-for-review label — skipping PR Label Actions."
+          fi
+
+      - name: Dispatch PR Label Actions
+        if: steps.label_actions.outputs.label_flip_count != '0'
+        run: |
+          echo "Dispatching PR Label Actions..."
+          gh workflow run pr-label-actions.yml --repo "$REPO"
+
       - name: Dispatch PR Promoter
         if: steps.prs.outputs.draft_pr_count != '0' || steps.approved.outputs.approved_count != '0'
         run: |
@@ -181,6 +199,12 @@ jobs:
               PROMOTER_REASON="${{ steps.approved.outputs.approved_count }} approved PRs"
             fi
           fi
+          if [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ]; then
+            echo "| PR Label Actions | Yes (${{ steps.label_actions.outputs.label_flip_count }} draft PRs to flip) |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| PR Label Actions | No (no draft PRs with ready-for-review label) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
           if [ "$PROMOTER_DISPATCHED" = "Yes" ]; then
             echo "| PR Promoter | Yes ($PROMOTER_REASON) |" >> "$GITHUB_STEP_SUMMARY"
           else

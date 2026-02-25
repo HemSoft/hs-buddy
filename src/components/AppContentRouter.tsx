@@ -21,6 +21,12 @@ import { CopilotUsagePanel } from './CopilotUsagePanel'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
 
+function parseOwnerRepo(slug: string): { owner: string; repo: string } | null {
+  const slashIdx = slug.indexOf('/')
+  if (slashIdx <= 0) return null
+  return { owner: slug.substring(0, slashIdx), repo: slug.substring(slashIdx + 1) }
+}
+
 type AppContentRouterProps = {
   activeViewId: string | null
   prCounts: Record<string, number>
@@ -91,22 +97,12 @@ export function AppContentRouter({
         return <JobDetailPanel jobId={jobId} />
       }
       if (activeViewId.startsWith('repo-detail:')) {
-        const repoSlug = activeViewId.replace('repo-detail:', '')
-        const slashIdx = repoSlug.indexOf('/')
-        if (slashIdx > 0) {
-          const owner = repoSlug.substring(0, slashIdx)
-          const repo = repoSlug.substring(slashIdx + 1)
-          return <RepoDetailPanel owner={owner} repo={repo} />
-        }
+        const parsed = parseOwnerRepo(activeViewId.replace('repo-detail:', ''))
+        if (parsed) return <RepoDetailPanel owner={parsed.owner} repo={parsed.repo} />
       }
       if (activeViewId.startsWith('repo-issues:')) {
-        const repoSlug = activeViewId.replace('repo-issues:', '')
-        const slashIdx = repoSlug.indexOf('/')
-        if (slashIdx > 0) {
-          const owner = repoSlug.substring(0, slashIdx)
-          const repo = repoSlug.substring(slashIdx + 1)
-          return <RepoIssueList owner={owner} repo={repo} />
-        }
+        const parsed = parseOwnerRepo(activeViewId.replace('repo-issues:', ''))
+        if (parsed) return <RepoIssueList owner={parsed.owner} repo={parsed.repo} />
       }
       if (activeViewId.startsWith('repo-prs:')) {
         const repoSlug = activeViewId.replace('repo-prs:', '')

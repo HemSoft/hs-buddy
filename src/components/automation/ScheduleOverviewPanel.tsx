@@ -226,9 +226,9 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
                 <span className="day-group-count">{group.occurrences.length} run{group.occurrences.length !== 1 ? 's' : ''}</span>
               </div>
               <div className="day-group-items">
-                {group.occurrences.map((occ, i) => (
+                {group.occurrences.map((occ) => (
                   <div
-                    key={`${occ.scheduleId}-${occ.time}`}
+                    key={`${occ.scheduleId}-${occ.time.getTime()}`}
                     className="occurrence-row"
                     onClick={() => onOpenSchedule?.(occ.scheduleId)}
                     title={`Schedule: ${occ.scheduleName}\nJob: ${occ.jobName}\nCron: ${occ.cron}`}

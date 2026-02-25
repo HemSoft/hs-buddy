@@ -118,7 +118,7 @@ export function TitleBar() {
               <div className="menu-dropdown">
                 {menu.items.map((item, index) => (
                   item.type === 'separator' ? (
-                    <div key={`separator-${index}`} className="menu-separator" />
+                    <div key={`sep-before-${menu.items.slice(index + 1).find(i => i.label)?.label ?? 'end'}`} className="menu-separator" />
                   ) : (
                     <button
                       key={item.label}
@@ -142,7 +142,7 @@ export function TitleBar() {
         <span className="title-brand">HemSoft Developments</span>
         <span className="title-icon"><Users size={14} /></span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.131</span>
+        <span className="title-version">V0.1.121</span>
       </div>
       <div className="window-controls">
         <button className="window-control-button" onClick={handleMinimize} title="Minimize">

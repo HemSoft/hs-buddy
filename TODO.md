@@ -2,13 +2,13 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| ✅ | **High** | Critically reduce and remove AGENTS.md | SFL issue #89 — removed redundant sections 4 (idempotency), 5 (harmony), 7 (promoter auth); all covered in workflow prompts and governance docs (2026-02) |
 | 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
-| ✅ | **High** | Complete migration to relias-engineering | Migrated, PAT set, pipeline verified (2026-02) |
-| ✅ | **Critical** | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
+| ✅ | Critical | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
+| ✅ | High | Critically reduce and remove AGENTS.md | Removed redundant sections; covered in workflow prompts and governance docs (2026-02) |
+| ✅ | High | Complete migration to relias-engineering | Migrated, PAT set, pipeline verified (2026-02) |
 | ✅ | High | Define Set it Free governance policy | Moved to relias-engineering/set-it-free-loop (2026-02) |
 | ✅ | High | Build feature-intake normalization workflow | Convex mapping + template-driven issue drafts + dedupe (2026-02) |
 | ✅ | High | Issue Processor workflow | Cron claim → draft PR → agent:in-progress labeling (2026-02) |
@@ -19,9 +19,9 @@
 | ✅ | High | Improve Welcome to Buddy window | Convex-backed stats dashboard, session tracking (2026-02) |
 | ✅ | High | Expand repo detail view | Rich card-based repo info panel with caching (2026-02) |
 | ✅ | High | Make repos expandable folders | Expandable repos with Issues & PRs children (2026-02) |
-| ✅ | **High** | Build task dispatch system | Dispatcher + exec worker + Convex claiming (2026-02) |
+| ✅ | High | Build task dispatch system | Dispatcher + exec worker + Convex claiming (2026-02) |
 | ✅ | High | Implement exec-worker | spawn()-based shell execution, timeout, abort (2026-02) |
-| ✅ | **High** | Restructure electron/main.ts | Split 423→95 lines, 8 new modules (2026-02) |
+| ✅ | High | Restructure electron/main.ts | Split 423→95 lines, 8 new modules (2026-02) |
 | ✅ | High | Job management UI | CRUD, context menus, worker-type forms (2026-02) |
 | ✅ | High | Implement Convex cron job | Runs every minute via crons.ts (2026-02) |
 | ✅ | High | Data prefetch + persistent cache | PR data survives restarts, background refresh (2026-02) |
@@ -33,7 +33,6 @@
 | ✅ | High | Define Convex schema | convex/schema.ts with jobs, schedules, runs (2025-01) |
 | ✅ | High | Add Convex client to Electron | ConvexClientProvider, useConvex hooks (2025-01) |
 | ✅ | High | Implement schedule CRUD functions | convex/schedules.ts, jobs.ts, runs.ts (2025-01) |
-| ✅ | Medium | Build feature-intake normalization workflow | Convex mapping schema + template-driven issue drafts + dedupe checks (2026-02) |
 | ✅ | Medium | Repos of Interest feature | Folder-organized bookmark system for GitHub repos (2026-02) |
 | ✅ | Medium | Add run history view | Real-time status, filters, expandable output (2026-02) |
 | ✅ | Medium | Implement skill-worker | Copilot CLI spawn, --allow-all mode, abort/timeout (2026-02) |
@@ -50,7 +49,7 @@
 
 ## Progress
 
-**Remaining: 5** (1 SFL-tracked) | **Completed: 40** (89%)
+**Remaining: 4** | **Completed: 40** (91%)
 
 ---
 

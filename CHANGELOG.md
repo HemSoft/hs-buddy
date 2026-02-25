@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.131] - 2026-02-25
+
+### Changed
+
+- Clean up TODO.md formatting and remove duplicate entry
+
+## [0.1.130] - 2026-02-25
+
+### Changed
+
+- Clean up TODO.md formatting and remove duplicate entry
+
 ## [0.1.129] - 2026-02-25
 
 ## [0.1.128] - 2026-02-25

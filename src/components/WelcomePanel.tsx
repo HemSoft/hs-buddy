@@ -79,7 +79,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
       // Use Convex data if available, fallback to client-side timestamp
       const sessionStart = lastSessionStart ?? clientSessionStart
       const sessionElapsed = Math.max(0, Date.now() - sessionStart)
-      setLiveUptime(storedUptime + sessionElapsed)
+      setLiveUptime(() => storedUptime + sessionElapsed)
     }
     compute()
     const timer = setInterval(compute, 1_000) // Update every 1 second for better UX

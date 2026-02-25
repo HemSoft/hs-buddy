@@ -126,14 +126,14 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
   const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
   const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
   const fetchedCountsRef = useRef<Set<string>>(new Set())
-  const [expandedPrGroups, setExpandedPrGroups] = useState<Set<string>>(new Set(['pr-my-prs']))
+  const [expandedPrGroups, setExpandedPrGroups] = useState<Set<string>>(new Set())
   const [prContextMenu, setPrContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
     null
   )
   const [approvingPrKey, setApprovingPrKey] = useState<string | null>(null)
   const [expandedPRNodes, setExpandedPRNodes] = useState<Set<string>>(new Set())
   const [expandedRepoPRGroups, setExpandedRepoPRGroups] = useState<Set<string>>(new Set())
-  const [refreshTick, setRefreshTick] = useState(Date.now())
+  const [refreshTick, setRefreshTick] = useState(() => Date.now())
   const [repoPrTreeData, setRepoPrTreeData] = useState<Record<string, PullRequest[]>>({})
   const fetchedRepoPRsRef = useRef<Set<string>>(new Set())
   const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(() => ({
@@ -1121,7 +1121,10 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
                                       </div>
                                       <div
                                         className={`sidebar-item sidebar-item-disclosure sidebar-repo-child sidebar-repo-pr-row ${selectedItem === `repo-prs:${repoKey}` ? 'selected' : ''}`}
-                                        onClick={() => toggleRepoPRGroup(org, repo.name)}
+                                        onClick={() => {
+                                          onItemSelect(`repo-prs:${repoKey}`)
+                                          toggleRepoPRGroup(org, repo.name)
+                                        }}
                                       >
                                         <span
                                           className="sidebar-item-chevron"

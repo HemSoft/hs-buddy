@@ -23,7 +23,7 @@ export const viewLabels: Record<string, string> = {
   'automation-runs': 'Runs',
   'copilot-prompt': 'Copilot Prompt',
   'copilot-all-results': 'Copilot Results',
-  'copilot-usage': 'Premium Usage',
+  'copilot-usage': 'Copilot Usage',
 }
 
 export function getViewLabel(viewId: string): string {
@@ -36,6 +36,11 @@ export function getViewLabel(viewId: string): string {
     const repoSlug = viewId.replace('repo-issues:', '')
     const repoName = repoSlug.split('/').pop() || repoSlug
     return `${repoName} Issues`
+  }
+  if (viewId.startsWith('repo-prs:')) {
+    const repoSlug = viewId.replace('repo-prs:', '')
+    const repoName = repoSlug.split('/').pop() || repoSlug
+    return `${repoName} PRs`
   }
   if (viewId.startsWith('copilot-result:')) {
     return 'Copilot Result'

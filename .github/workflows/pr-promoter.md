@@ -29,6 +29,8 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 5
+  create-pull-request:
+    draft: false
 ---
 
 # PR Promoter
@@ -133,44 +135,22 @@ If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
 fixing. Call `noop` with message "PR #<number> cycle <C>: blocking issues
 found — not promoting. The PR Fixer will handle this." and exit.
 
-## Step 6 — Authenticate GitHub CLI
+## Step 6 — Convert PR to ready-for-review
 
-Before running `gh pr ready`, ensure gh CLI is authenticated in this runtime.
+Call the `create_pull_request` safe output tool to update the existing PR.
+Since a PR already exists for this branch, the tool will update the PR's
+draft status to non-draft (ready for review).
 
-Use:
+Provide:
 
-```bash
-export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
-gh auth status
-```
+- `head`: the PR's head branch name (e.g., `agent-fix/issue-7-0b395b450da6a762`)
+- `title`: the existing PR title (unchanged)
+- `body`: the existing PR body (unchanged — do NOT modify or truncate it)
 
-If `gh auth status` fails or both `$GITHUB_TOKEN` and `$COPILOT_GITHUB_TOKEN`
-are unavailable, call `noop` with message
-"PR #<number> cannot promote: gh auth unavailable" and exit.
+The `create-pull-request` safe output is configured with `draft: false`,
+which will convert the PR from draft to ready-for-review.
 
-## Step 7 — Convert PR to ready-for-review
-
-Use GitHub CLI to convert the existing draft PR directly:
-
-```bash
-gh pr ready <number> --repo relias-engineering/hs-buddy
-```
-
-This is the authoritative transition for draft -> non-draft and does not rely
-on patch application.
-
-## Step 8 — Verify draft state actually changed
-
-After calling `gh pr ready`, re-read the PR state.
-
-- If the PR is still draft, promotion has FAILED. Call `noop` with message
-  "PR #<number> promotion attempt did not change draft state — retry next cycle."
-  and exit.
-- If the PR is non-draft, continue.
-
-Never mark human handoff labels on a still-draft PR.
-
-## Step 9 — Post the promotion comment
+## Step 7 — Post the promotion comment
 
 Call `update_issue` with:
 
@@ -210,7 +190,7 @@ from draft to ready-for-review.
 Replace C with the cycle number that was checked. Extract the linked issue
 number from `Closes #N` in the PR body.
 
-## Step 10 — Update labels
+## Step 8 — Update labels
 
 Call `update_issue` with:
 
@@ -218,23 +198,18 @@ Call `update_issue` with:
 - `labels`: the PR's current labels with `human:ready-for-review` added.
   If `agent:promoted` exists, remove it. Keep all other existing labels unchanged.
 
-This step is only valid after Step 8 confirms the PR is non-draft.
-
 ## Guardrails
 
 - Promote exactly ONE PR per run — never loop over multiple PRs
 - Merge exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
-- Never modify the PR's code, title, or body content (an empty commit with no file changes is allowed for promotion only)
+- Never modify the PR's code, title, or body content
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
-- Never apply `human:ready-for-review` to a draft PR
-- If gh authentication fails or `gh pr ready` fails, call `noop` with the failure reason and exit cleanly
+- Use `create_pull_request` safe output to convert draft → ready-for-review
 - If any step fails unexpectedly, call `noop` with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
-- `gh pr ready` is the only supported mechanism for draft -> ready transition
-- `gh pr merge` is the only supported mechanism for merging approved PRs
 
 ---
 
@@ -244,7 +219,7 @@ After completing Phase 1 (Promotion), check for approved PRs ready to merge.
 This phase runs regardless of whether Phase 1 promoted a PR or nooped.
 Process exactly ONE merge per run.
 
-## Step 11 — Find merge candidate
+## Step 9 — Find merge candidate
 
 Search for open pull requests in this repository that meet ALL criteria:
 
@@ -257,7 +232,7 @@ Sort results by creation date ascending. Take the **single oldest** result.
 If no PR matches, call `noop` with message "No approved PRs awaiting merge."
 and exit.
 
-## Step 12 — Verify merge eligibility
+## Step 10 — Verify merge eligibility
 
 Check the PR merge state:
 
@@ -268,7 +243,7 @@ If the PR is not mergeable (e.g., conflicts, failing checks), call `noop`
 with message "PR #<number> is not mergeable (state: <mergeStateStatus>) —
 skipping." and exit.
 
-## Step 13 — Authenticate GitHub CLI
+## Step 11 — Authenticate GitHub CLI
 
 Before running `gh pr merge`, ensure gh CLI is authenticated in this runtime.
 
@@ -282,7 +257,7 @@ gh auth status
 If authentication fails, call `noop` with message
 "PR #<number> cannot merge: gh auth unavailable" and exit.
 
-## Step 14 — Squash merge and delete branch
+## Step 12 — Squash merge and delete branch
 
 Use GitHub CLI to squash-merge the PR and delete the source branch:
 
@@ -292,7 +267,7 @@ gh pr merge <number> --squash --delete-branch --repo relias-engineering/hs-buddy
 
 This is the authoritative merge mechanism.
 
-## Step 15 — Verify merge succeeded
+## Step 13 — Verify merge succeeded
 
 After calling `gh pr merge`, check the PR state.
 
@@ -300,7 +275,7 @@ After calling `gh pr merge`, check the PR state.
   "PR #<number> merge failed — retry next cycle." and exit.
 - If the PR state is `MERGED`, continue.
 
-## Step 16 — Post merge comment
+## Step 14 — Post merge comment
 
 Call `update_issue` with:
 
@@ -322,7 +297,7 @@ This PR was automatically merged after human approval.
 
 Extract the linked issue number from `Closes #N` in the PR body.
 
-## Step 17 — Clean up linked issue labels
+## Step 15 — Clean up linked issue labels
 
 Extract the linked issue number from `Closes #N` in the PR body.
 

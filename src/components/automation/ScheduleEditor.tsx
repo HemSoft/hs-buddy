@@ -132,7 +132,6 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g., Daily PR Check"
-              autoFocus
             />
           </div>
 

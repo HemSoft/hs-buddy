@@ -10,6 +10,7 @@ import {
 import { WelcomePanel } from './WelcomePanel'
 import { RepoDetailPanel } from './RepoDetailPanel'
 import { RepoIssueList } from './RepoIssueList'
+import { RepoPullRequestList } from './RepoPullRequestList'
 import { PullRequestDetailPanel } from './PullRequestDetailPanel'
 import { CopilotPromptBox } from './CopilotPromptBox'
 import { CopilotResultPanel } from './CopilotResultPanel'
@@ -105,6 +106,15 @@ export function AppContentRouter({
           const owner = repoSlug.substring(0, slashIdx)
           const repo = repoSlug.substring(slashIdx + 1)
           return <RepoIssueList owner={owner} repo={repo} />
+        }
+      }
+      if (activeViewId.startsWith('repo-prs:')) {
+        const repoSlug = activeViewId.replace('repo-prs:', '')
+        const slashIdx = repoSlug.indexOf('/')
+        if (slashIdx > 0) {
+          const owner = repoSlug.substring(0, slashIdx)
+          const repo = repoSlug.substring(slashIdx + 1)
+          return <RepoPullRequestList owner={owner} repo={repo} onOpenPR={onOpenTab} />
         }
       }
       if (activeViewId.startsWith('copilot-result:')) {

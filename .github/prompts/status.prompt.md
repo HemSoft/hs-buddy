@@ -1,5 +1,4 @@
 ---
-mode: agent
 description: Quick pipeline status — issues vs PRs, failed runs since last check.
 ---
 

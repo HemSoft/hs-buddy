@@ -66,7 +66,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
     return DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
   }, [prInfo.initialPrompt, prInfo.prUrl, savedDefaultTemplate])
 
-  const [prompt, setPrompt] = useState(getDefaultPrompt())
+  const [prompt, setPrompt] = useState(() => getDefaultPrompt())
   const [promptExpanded, setPromptExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)

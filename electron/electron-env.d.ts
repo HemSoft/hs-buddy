@@ -86,6 +86,19 @@ interface Window {
         }
       }
     }>
+    getCopilotBudget: (org: string, username?: string) => Promise<{
+      success: boolean
+      error?: string
+      data?: {
+        org: string
+        budgetAmount: number | null
+        preventFurtherUsage: boolean
+        spent: number
+        spentUnavailable: boolean
+        useQuotaOverage: boolean
+        fetchedAt: number
+      }
+    }>
   }
   copilot: {
     execute: (args: {

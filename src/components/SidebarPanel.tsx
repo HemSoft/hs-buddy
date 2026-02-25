@@ -82,12 +82,15 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
   },
 }
 
+const DEFAULT_COUNTS: Record<string, number> = {}
+const DEFAULT_BADGE_PROGRESS: Record<string, { progress: number; color: string; tooltip: string }> = {}
+
 export function SidebarPanel({
   section,
   onItemSelect,
   selectedItem,
-  counts = {},
-  badgeProgress = {},
+  counts = DEFAULT_COUNTS,
+  badgeProgress = DEFAULT_BADGE_PROGRESS,
   onCreateNew,
 }: SidebarPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))

@@ -2,8 +2,7 @@
 description: |
   This workflow runs a daily repository audit to detect documentation drift,
   stale artifacts, configuration hygiene issues, and cross-reference mismatches.
-  It creates one summary report issue and individual agent-fixable issues for
-  findings that an AI agent can safely resolve autonomously.
+  It creates exactly ONE consolidated report issue with all findings.
 
 on:
   schedule: daily
@@ -24,7 +23,7 @@ safe-outputs:
   create-issue:
     title-prefix: "[repo-audit] "
     labels: [report, audit]
-    max: 10
+    max: 1
   update-issue:
     target: "*"
     max: 5
@@ -32,19 +31,25 @@ safe-outputs:
 
 # Daily Repo Audit
 
-Run a high-signal daily repository audit. Produce a summary report issue and
-individual fixable issues for findings an agent can resolve autonomously.
+Run a high-signal daily repository audit. Produce **exactly one issue**
+containing all findings. Do NOT create multiple issues — every finding goes
+into a single consolidated report.
+
+## CRITICAL — Single Issue Output
+
+This workflow creates **ONE issue and one issue only**. All findings —
+regardless of category, severity, or fixability — are reported in that
+single issue. Do NOT create separate agent-fixable issues, per-finding
+issues, or per-category issues. Everything belongs in one report.
 
 ## Step 0 — Close previous audit summary reports
 
 Before creating today's audit, search for all **open** issues whose title
-starts with `[repo-audit] Daily Repo Audit` AND that have both `report`
-and `audit` labels. For each one found, close it using `update_issue` with:
+starts with `[repo-audit]` AND that have both `report` and `audit` labels.
+For each one found, close it using `update_issue` with:
 
 - `issue_number`: the issue number
 - `status`: `"closed"`
-
-Do NOT close agent-fixable action-item issues — only the dated summary reports.
 
 ## Goals
 
@@ -78,9 +83,6 @@ Do NOT close agent-fixable action-item issues — only the dated summary reports
    - **False positive exclusion**: Files under `electron/` are Electron main
      process files — they are NOT part of the React import graph. Ignore any
      "Unused file" findings for `electron/**` paths.
-   - Security findings (`dangerouslySetInnerHTML`, hardcoded secrets) should be
-     flagged in the summary report but NOT auto-created as agent-fixable issues
-     — they require human triage
 
 6. Workflow Scheduling Hygiene
    - **Duplicate names**: Two or more `.yml` files in `.github/workflows/` that
@@ -97,64 +99,48 @@ Do NOT close agent-fixable action-item issues — only the dated summary reports
      active `.lock.yml` or `.yml` of the same base name — the disabled copy
      should be deleted to avoid confusion
 
-## Output Requirements
+## Output — Single Consolidated Issue
 
-### Summary issue (always)
+Create **exactly one issue** titled `[repo-audit] Daily Repo Audit — <date>`
+with labels `report` and `audit`. This is the ONLY issue this workflow creates.
 
-Create one summary issue with labels `report` and `audit` containing:
+The issue body must contain:
 
-- Executive summary (overall repo health)
-- Findings table with severity, confidence, and whether each finding is agent-fixable
-- A short "No action required" section if everything looks healthy
+### Executive Summary
 
-### Per-finding issues (grouped by category)
+A brief overall repo health assessment (1-3 sentences).
 
-**Group findings by category and fix pattern.** Do NOT create one issue per
-individual finding. Instead, create one issue per group of related,
-mechanically similar fixes that share the same remediation approach.
+### Findings Table
 
-For example:
+| # | Category | Finding | Severity | Confidence | Agent-Fixable? |
+|---|----------|---------|----------|------------|----------------|
+| 1 | ... | ... | High/Medium/Low | High/Medium | Yes/No |
 
-- 50 "add `role` attribute" a11y warnings → ONE issue: "Fix accessibility roles"
-- 12 unused exports across 6 files → ONE issue: "Remove unused exports"
-- 3 `useState` lazy init fixes → ONE issue: "Fix useState lazy initialization"
+### Detailed Findings
 
-Each grouped issue must meet ALL of the following criteria:
+For each finding in the table, include a detail section:
 
-- Every fix in the group uses the **same mechanical pattern** (same type of change)
-- Each individual fix is **deterministic** — one clear correct outcome per file
-- Risk class is `risk:trivial` or `risk:low`
-- No user-facing behavioral change is required
+#### Finding N: <title>
 
-Label each agent-fixable issue with: `action-item`, `agent:fixable`, and
-the appropriate risk label (`risk:trivial` or `risk:low`).
+- **Category**: e.g., Accessibility, Dead Code, Configuration
+- **Severity**: High / Medium / Low
+- **Confidence**: High / Medium
+- **Agent-Fixable**: Yes / No (with brief justification)
+- **Affected files**: List of files and lines involved
+- **Recommended fix**: What should be done
+- **Risk**: trivial / low / medium / high
 
-Issue title format: `[repo-audit] <short description of the group>`
+### Summary
 
-Issue body must include:
-
-- **Category**: The shared finding category (e.g., Accessibility, Dead Code)
-- **Pattern**: The common fix pattern (e.g., "add `role` attr to clickable divs")
-- **Affected files**: A checklist of every file and line, e.g.:
-  - `[ ] src/components/TabBar.tsx:31 — add role="button"`
-  - `[ ] src/components/TreeView.tsx:97 — add role="button"`
-- **Acceptance criteria**: How to verify the group of fixes is correct
-- **Risk**: `risk:trivial` or `risk:low` with justification
-
-Do NOT create agent-fixable issues for:
-
-- Findings requiring architectural decisions
-- Findings where multiple valid fixes exist per instance
-- Anything with risk:medium or higher
-- Groups that would touch more than 15 files (split into smaller groups)
-
-Cap total agent-fixable issues at 3 per run. Each issue may cover many
-findings, but they must all share the same fix pattern.
+- Total findings: N
+- Agent-fixable: N (these can be addressed by creating `agent:fixable` issues manually)
+- Requires human review: N
+- No action required (if clean)
 
 ## Process
 
 1. Inspect repository structure and key docs
 2. Cross-check docs/config claims against implementation
 3. Compile findings with severity, confidence, and agent-fixability assessment
-4. Create summary report issue
-5. For each qualifying finding, create a scoped agent-fixable issue
+4. Close any previous open `[repo-audit]` report issues
+5. Create the single consolidated report issue

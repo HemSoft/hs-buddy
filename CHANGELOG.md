@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.131] - 2026-02-25
+
+### Changed
+
+- Clean up TODO.md formatting and remove duplicate entry
+
+## [0.1.130] - 2026-02-25
+
+### Changed
+
+- Clean up TODO.md formatting and remove duplicate entry
+
+## [0.1.129] - 2026-02-25
+
+## [0.1.128] - 2026-02-25
+
+## [0.1.127] - 2026-02-25
+
+## [0.1.126] - 2026-02-25
+
+### Added
+
+- Add Copilot org budget cards with personal budget fallback
+
+## [0.1.125] - 2026-02-25
+
+## [0.1.124] - 2026-02-25
+
+### Fixed
+
+- Unblock SFL pipeline — 4 root causes of infinite no-op loop
+
+## [0.1.123] - 2026-02-25
+
+## [0.1.122] - 2026-02-24
+
+### Fixed
+
+- Strengthen temporary_id guidance to prevent 2-char suffix failures
+
 ## [0.1.121] - 2026-02-24
 
 ## [0.1.120] - 2026-02-24

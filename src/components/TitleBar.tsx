@@ -118,10 +118,10 @@ export function TitleBar() {
               <div className="menu-dropdown">
                 {menu.items.map((item, index) => (
                   item.type === 'separator' ? (
-                    <div key={index} className="menu-separator" />
+                    <div key={`separator-${index}`} className="menu-separator" />
                   ) : (
                     <button
-                      key={index}
+                      key={item.label}
                       className={`menu-item ${item.disabled ? 'disabled' : ''}`}
                       onClick={() => handleItemClick(item)}
                       disabled={item.disabled}

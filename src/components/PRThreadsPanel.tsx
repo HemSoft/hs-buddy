@@ -140,7 +140,7 @@ function DiffHunk({ hunk }: { hunk: string }) {
           }
 
           return (
-            <div key={i} className={lineClass}>
+            <div key={`diff-line-${i}`} className={lineClass}>
               {!line.startsWith('@@') && (
                 <>
                   <span className="diff-line-num">{leftNum ?? ''}</span>
@@ -213,7 +213,7 @@ function SuggestionBlock({ content }: { content: string }) {
       </div>
       <div className="suggestion-diff">
         {lines.map((line, i) => (
-          <div key={i} className="diff-line diff-add">
+          <div key={`suggestion-line-${i}`} className="diff-line diff-add">
             <span className="diff-line-content">{`  ${line}`}</span>
           </div>
         ))}
@@ -242,10 +242,10 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
     <div className="thread-comment-body">
       {segments.map((segment, i) => {
         if (segment.type === 'suggestion') {
-          return <SuggestionBlock key={i} content={segment.content} />
+          return <SuggestionBlock key={`${segment.type}-${i}`} content={segment.content} />
         }
         return (
-          <div key={i} className="thread-comment-markdown" data-color-mode="dark">
+          <div key={`${segment.type}-${i}`} className="thread-comment-markdown" data-color-mode="dark">
             <MarkdownPreview
               source={segment.content}
               style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: '13px' }}

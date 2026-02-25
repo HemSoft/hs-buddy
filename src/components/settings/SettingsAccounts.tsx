@@ -159,7 +159,7 @@ export function SettingsAccounts() {
           ) : (
             <div className="items-list">
               {accounts.map((account, index) => (
-                <div key={index} className="list-item">
+                <div key={account.username} className="list-item">
                   <div className="list-item-content">
                     <div className="list-item-primary">
                       <User size={16} />

@@ -1,0 +1,38 @@
+name: PR Label Actions
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  ready-for-review:
+    if: >-
+      github.event.label.name == 'human:ready-for-review'
+      && github.event.pull_request.draft == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark PR as ready for review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Flipping PR #${{ github.event.pull_request.number }} from draft to ready-for-review"
+          gh pr ready ${{ github.event.pull_request.number }} --repo ${{ github.repository }}
+          echo "Done — PR is now ready for review"
+
+  squash-merge:
+    if: >-
+      github.event.label.name == 'ready-to-merge'
+      && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Squash merge PR and delete branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Squash-merging PR #${{ github.event.pull_request.number }}"
+          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch --repo ${{ github.repository }}
+          echo "Done — PR merged and branch deleted"

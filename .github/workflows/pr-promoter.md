@@ -151,20 +151,19 @@ fixing. Update the dashboard with:
 "PR #<number> cycle <C>: blocking issues found — not promoting. The PR
 Fixer will handle this." and exit.
 
-## Step 6 — Convert PR to ready-for-review
+## Step 6 — Add ready-for-review label (triggers draft flip)
 
-Use the GitHub CLI to mark the PR as ready for review. First authenticate,
-then run the command:
+Call `update_issue` with:
 
-```bash
-export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
-gh pr ready <number> --repo relias-engineering/hs-buddy
-```
+- `issue_number`: the PR number
+- `labels`: the PR's current labels with `human:ready-for-review` added.
+  If `agent:promoted` exists, remove it. Keep all other existing labels.
 
-Replace `<number>` with the actual PR number.
+This label addition triggers the `pr-label-actions.yml` workflow which
+automatically converts the PR from draft to ready-for-review.
 
-If `gh pr ready` fails, update the dashboard with the error and exit.
-Do NOT fall back to `create_pull_request` — it cannot flip draft status.
+**Important**: The `labels` field REPLACES all labels. You MUST include every
+existing label on the PR plus `human:ready-for-review`. Do not drop any labels.
 
 ## Step 7 — Post the promotion comment
 
@@ -206,14 +205,6 @@ from draft to ready-for-review.
 Replace C with the cycle number that was checked. Extract the linked issue
 number from `Closes #N` in the PR body.
 
-## Step 8 — Update labels
-
-Call `update_issue` with:
-
-- `issue_number`: the PR number
-- `labels`: the PR's current labels with `human:ready-for-review` added.
-  If `agent:promoted` exists, remove it. Keep all other existing labels unchanged.
-
 ## Guardrails
 
 - Promote exactly ONE PR per run — never loop over multiple PRs
@@ -223,7 +214,8 @@ Call `update_issue` with:
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
-- Use `gh pr ready` to convert draft → ready-for-review (NOT `create_pull_request`)
+- Use `update_issue` with `labels` to add `human:ready-for-review` (triggers `pr-label-actions.yml` to flip draft)
+- Do NOT use `gh pr ready` or `create_pull_request` — the agent has no gh CLI access
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
 
@@ -259,39 +251,21 @@ Check the PR merge state:
 If the PR is not mergeable (e.g., conflicts, failing checks), update the dashboard with:
 "PR #<number> is not mergeable (state: <mergeStateStatus>) — skipping." and exit.
 
-## Step 11 — Authenticate GitHub CLI
+## Step 11 — Add ready-to-merge label (triggers squash merge)
 
-Before running `gh pr merge`, ensure gh CLI is authenticated in this runtime.
+Call `update_issue` with:
 
-Use:
+- `issue_number`: the PR number
+- `labels`: the PR's current labels with `ready-to-merge` added. Keep all
+  existing labels.
 
-```bash
-export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
-gh auth status
-```
+This label addition triggers the `pr-label-actions.yml` workflow which
+automatically squash-merges the PR and deletes the source branch.
 
-If authentication fails, update the dashboard with:
-"PR #<number> cannot merge: gh auth unavailable" and exit.
+**Important**: The `labels` field REPLACES all labels. You MUST include every
+existing label on the PR plus `ready-to-merge`. Do not drop any labels.
 
-## Step 12 — Squash merge and delete branch
-
-Use GitHub CLI to squash-merge the PR and delete the source branch:
-
-```bash
-gh pr merge <number> --squash --delete-branch --repo relias-engineering/hs-buddy
-```
-
-This is the authoritative merge mechanism.
-
-## Step 13 — Verify merge succeeded
-
-After calling `gh pr merge`, check the PR state.
-
-- If the PR is still open, merge has FAILED. Update the dashboard with:
-  "PR #<number> merge failed — retry next cycle." and exit.
-- If the PR state is `MERGED`, continue.
-
-## Step 14 — Post merge comment
+## Step 12 — Post merge comment
 
 Call `update_issue` with:
 
@@ -313,7 +287,7 @@ This PR was automatically merged after human approval.
 
 Extract the linked issue number from `Closes #N` in the PR body.
 
-## Step 15 — Clean up linked issue labels
+## Step 13 — Clean up linked issue labels
 
 Extract the linked issue number from `Closes #N` in the PR body.
 

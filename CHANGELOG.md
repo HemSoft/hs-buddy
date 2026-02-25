@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.145] - 2026-02-25
+
 ## [0.1.144] - 2026-02-25
+
+### Fixed
+
+- Add status field to labels-only update_issue calls to pass gh-aw validation
 
 ## [0.1.143] - 2026-02-25
 

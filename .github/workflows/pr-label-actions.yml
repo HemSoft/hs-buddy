@@ -3,6 +3,8 @@ name: PR Label Actions
 on:
   pull_request:
     types: [labeled]
+  schedule:
+    - cron: "*/5 * * * *" # Every 5 minutes — catches labels added by GITHUB_TOKEN
 
 permissions:
   pull-requests: write
@@ -11,21 +13,40 @@ permissions:
 jobs:
   ready-for-review:
     if: >-
-      github.event.label.name == 'human:ready-for-review'
-      && github.event.pull_request.draft == true
+      (github.event_name == 'pull_request'
+      && github.event.label.name == 'human:ready-for-review'
+      && github.event.pull_request.draft == true)
+      || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - name: Mark PR as ready for review
+      - name: Find draft PRs with ready-for-review label
+        if: github.event_name == 'schedule'
+        id: find
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Flipping PR #${{ github.event.pull_request.number }} from draft to ready-for-review"
-          gh pr ready ${{ github.event.pull_request.number }} --repo ${{ github.repository }}
+          PR=$(gh pr list --repo ${{ github.repository }} --state open --draft --label "human:ready-for-review" --json number --jq '.[0].number // empty')
+          echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
+      - name: Mark PR as ready for review
+        if: >-
+          (github.event_name == 'pull_request')
+          || (github.event_name == 'schedule' && steps.find.outputs.pr_number != '')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            PR_NUM="${{ steps.find.outputs.pr_number }}"
+          else
+            PR_NUM="${{ github.event.pull_request.number }}"
+          fi
+          echo "Flipping PR #${PR_NUM} from draft to ready-for-review"
+          gh pr ready "${PR_NUM}" --repo ${{ github.repository }}
           echo "Done — PR is now ready for review"
 
   squash-merge:
     if: >-
-      github.event.label.name == 'ready-to-merge'
+      github.event_name == 'pull_request'
+      && github.event.label.name == 'ready-to-merge'
       && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:

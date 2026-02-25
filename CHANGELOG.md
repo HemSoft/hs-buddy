@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.147] - 2026-02-25
+
 ## [0.1.146] - 2026-02-25
+
+### Changed
+
+- Add workflow_dispatch trigger to pr-label-actions for manual testing
 
 ## [0.1.145] - 2026-02-25
 

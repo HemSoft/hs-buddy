@@ -41,6 +41,21 @@ labeled `agent:pr` where all three analyzer verdicts are **PASS** in the
 current cycle. Convert it from draft to ready-for-review and post a promotion
 comment. Process exactly one PR per run.
 
+## Dashboard Protocol — Discussion #51
+
+Discussion #51 is a **live status dashboard**. Its body has named sections
+delimited by HTML comment markers (`<!-- SECTION:pr-promoter -->` ...
+`<!-- /SECTION:pr-promoter -->`). When posting a skip or status message:
+
+1. Read discussion #51's current body
+2. Find your section between the markers
+3. Replace ONLY the line(s) between your markers with your new status
+4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
+
+Never discard other workflows' sections. If the body is empty or missing
+markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
+pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
+
 ## Step 1 — Find the target PR
 
 Search for open pull requests in this repository that meet ALL criteria:
@@ -118,9 +133,8 @@ All three markers MUST be present. If any marker is missing:
    - `operation`: `"append"`
    - `body`: "⏰ **PR Promoter**: PR #<number> has been open for over 2 hours but is missing analyzer markers for cycle <C>. The PR Analyzers may not be running. A human should investigate."
 
-2. Regardless of PR age, call `update_discussion` on discussion #51 (the SFL
-   Activity Log) with message "PR #<number> cycle <C>: waiting for all 3
-   analyzers — skipping." and exit.
+2. Regardless of PR age, update the dashboard (see Dashboard Protocol) with:
+   "PR #<number> cycle <C>: waiting for all 3 analyzers — skipping." and exit.
 
 ## Step 5 — Check all analyzer verdicts
 
@@ -135,8 +149,8 @@ If ALL three verdicts say exactly `**PASS**`, the PR is clean and ready for
 promotion. Proceed to Step 6.
 
 If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
-fixing. Call `update_discussion` on discussion #51 (the SFL Activity Log) with
-message "PR #<number> cycle <C>: blocking issues found — not promoting. The PR
+fixing. Update the dashboard with:
+"PR #<number> cycle <C>: blocking issues found — not promoting. The PR
 Fixer will handle this." and exit.
 
 ## Step 6 — Convert PR to ready-for-review
@@ -206,13 +220,13 @@ Call `update_issue` with:
 
 - Promote exactly ONE PR per run — never loop over multiple PRs
 - Merge exactly ONE PR per run — never loop over multiple PRs
-- For every skip path, you MUST call `update_discussion` on discussion #51 (the SFL Activity Log) — do not only write plain text
+- For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
 - Never modify the PR's code, title, or body content
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
 - Use `create_pull_request` safe output to convert draft → ready-for-review
-- If any step fails unexpectedly, call `update_discussion` on discussion #51 with the failure reason and exit
+- If any step fails unexpectedly, update the dashboard with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
 
 ---
@@ -234,8 +248,8 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
-If no PR matches, call `update_discussion` on discussion #51 (the SFL Activity
-Log) with message "No approved PRs awaiting merge." and exit.
+If no PR matches, update the dashboard with:
+"No approved PRs awaiting merge." and exit.
 
 ## Step 10 — Verify merge eligibility
 
@@ -244,9 +258,8 @@ Check the PR merge state:
 - `mergeable` must be `MERGEABLE`
 - `mergeStateStatus` must be `CLEAN`
 
-If the PR is not mergeable (e.g., conflicts, failing checks), call `update_discussion`
-on discussion #51 (the SFL Activity Log) with message "PR #<number> is not
-mergeable (state: <mergeStateStatus>) — skipping." and exit.
+If the PR is not mergeable (e.g., conflicts, failing checks), update the dashboard with:
+"PR #<number> is not mergeable (state: <mergeStateStatus>) — skipping." and exit.
 
 ## Step 11 — Authenticate GitHub CLI
 
@@ -259,9 +272,8 @@ export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
 gh auth status
 ```
 
-If authentication fails, call `update_discussion` on discussion #51 (the SFL
-Activity Log) with message "PR #<number> cannot merge: gh auth unavailable"
-and exit.
+If authentication fails, update the dashboard with:
+"PR #<number> cannot merge: gh auth unavailable" and exit.
 
 ## Step 12 — Squash merge and delete branch
 
@@ -277,9 +289,8 @@ This is the authoritative merge mechanism.
 
 After calling `gh pr merge`, check the PR state.
 
-- If the PR is still open, merge has FAILED. Call `update_discussion` on
-  discussion #51 (the SFL Activity Log) with message "PR #<number> merge failed
-  — retry next cycle." and exit.
+- If the PR is still open, merge has FAILED. Update the dashboard with:
+  "PR #<number> merge failed — retry next cycle." and exit.
 - If the PR state is `MERGED`, continue.
 
 ## Step 14 — Post merge comment

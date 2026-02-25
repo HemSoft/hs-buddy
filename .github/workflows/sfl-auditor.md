@@ -40,6 +40,21 @@ Run every 30 minutes. Audit the relationship between issue labels and open
 pull requests. Detect and repair state discrepancies to keep the agentic
 pipeline self-consistent. Never modify PR content — only update issues.
 
+## Dashboard Protocol — Discussion #51
+
+Discussion #51 is a **live status dashboard**. Its body has named sections
+delimited by HTML comment markers (`<!-- SECTION:sfl-auditor -->` ...
+`<!-- /SECTION:sfl-auditor -->`). When posting a status message:
+
+1. Read discussion #51's current body
+2. Find your section between the markers
+3. Replace ONLY the line(s) between your markers with your new status
+4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
+
+Never discard other workflows' sections. If the body is empty or missing
+markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
+pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
+
 ## Step 1 — Gather current state
 
 Collect two lists:
@@ -202,7 +217,7 @@ If NO such comment exists:
 After completing all checks (Steps 2–10), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
-- `update_discussion` on discussion #51 (the SFL Activity Log) — if ALL checks
+- Update the dashboard (see Dashboard Protocol) — if ALL checks
   passed and NO discrepancies were found
 
 Never finish the run without calling at least one safe output. A run with zero

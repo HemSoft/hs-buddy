@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.124] - 2026-02-25
+
+## [0.1.123] - 2026-02-25
+
 ## [0.1.122] - 2026-02-24
+
+### Fixed
+
+- Strengthen temporary_id guidance to prevent 2-char suffix failures
 
 ## [0.1.121] - 2026-02-24
 

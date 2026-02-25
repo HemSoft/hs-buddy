@@ -118,9 +118,19 @@ These are lines matching `- **[file:line]** — description`.
 
 Check each analyzer's "### Verdict" line:
 
-- If ALL three verdicts say `**PASS**`, there is nothing to fix. Call `noop`
-  with message "PR #<number> cycle <N>: all analyzers passed — no fixes
-  needed." and exit. (The PR Promoter will handle promotion.)
+- If ALL three verdicts say `**PASS**`, there is nothing to fix.
+  **Before exiting**, you MUST still write the fixer marker so the dispatcher
+  knows this cycle was processed. Call `update_issue` with:
+  - `issue_number`: the PR number
+  - `operation`: `"append"`
+  - `body`: the following text exactly (replace N with the cycle number):
+
+  `[MARKER:pr-fixer cycle:N]` on the first line, then
+  `## 🔧 PR Fixer — Cycle N` as the heading, then
+  `**All three analyzers passed** — no fixes needed. The PR Promoter will handle promotion.`
+
+  Then call `noop` with message "PR #<number> cycle <N>: all analyzers
+  passed — marker written, no fixes needed." and exit.
 
 Record the full list of findings for implementation.
 

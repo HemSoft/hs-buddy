@@ -170,11 +170,15 @@ For each such stale draft PR, check the PR body for analyzer markers:
 `[MARKER:pr-analyzer-a cycle:`, `[MARKER:pr-analyzer-b cycle:`,
 `[MARKER:pr-analyzer-c cycle:`.
 
-If ANY of the three markers is missing, and the PR does NOT already have a
-comment containing "missing analyzer markers", this PR is stalled — the
-analyzers are not running on it.
+If ANY of the three markers is missing, check the **PR body text** for the
+string `missing one or more analyzer markers`. Search the FULL body — not
+comments, not just the last paragraph. The body is the main description
+returned by `GET /repos/{owner}/{repo}/pulls/{number}` in the `body` field.
 
-Call `update_issue` with:
+If that exact string already appears ANYWHERE in the PR body, this PR was
+already flagged — **skip it entirely, do NOT append another warning**.
+
+Only if the string is truly absent from the body, call `update_issue` with:
 
 - `issue_number`: the PR number
 - `body`: "⏰ **SFL Auditor**: Draft PR #<pr-number> has been open for over 2 hours and is missing one or more analyzer markers. The PR Analyzers may not be dispatching for this PR. A human should investigate."

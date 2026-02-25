@@ -4,7 +4,7 @@ description: |
   independently review draft PRs labeled agent:pr using different AI models.
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
-  diversity — different models catch different things. Model: gpt-5.3-codex
+  diversity — different models catch different things. Model: gpt-4o
   (set via engine.model frontmatter).
 
 on:
@@ -17,7 +17,7 @@ permissions:
 
 engine:
   id: copilot
-  model: gpt-5.3-codex
+  model: gpt-4o
 
 network: defaults
 

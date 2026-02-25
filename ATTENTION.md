@@ -1,8 +1,47 @@
 # ATTENTION
 
-> Auto-maintained by the debug skill. Last updated: 2026-02-22
+> Auto-maintained by the debug skill. Last updated: 2026-02-24
 
 ## Active Concerns
+
+### Pipeline Stall — PRs Stuck as Draft, Infinite No-Op Loop
+
+- **Severity**: Critical
+- **Detected**: 2026-02-24
+- **Status**: Fix deployed (pending push)
+- **Description**: 9 draft PRs with `agent:pr` label are stuck. Three root causes identified and fixed:
+  1. **Fixer missing marker on all-PASS**: When all 3 analyzers PASS, the fixer called `noop` without writing `[MARKER:pr-fixer cycle:N]`. The dispatcher re-dispatched the fixer every 30 min forever.
+  2. **Promoter auth failure**: Promoter tried `gh pr ready` but neither `$GITHUB_TOKEN` nor `$COPILOT_GITHUB_TOKEN` existed in the gh-aw runtime. The gh-aw platform blocks `pull-requests: write`. Switched to `create-pull-request` safe-output with `draft: false`.
+  3. **Auditor dedup broken**: SFL Auditor appended 10-17 duplicate "missing analyzer markers" warnings to PR bodies. The agent failed to detect existing warnings in body text.
+- **Impact**: Zero PRs progressed to promotion or human review. ~7 wasted workflow runs every 30 min (fixer + promoter + auditor spam).
+- **Suggested Action**: Push the fixes, monitor next 2 dispatch cycles to confirm pipeline flow resumes.
+
+### Analyzer B (gpt-5.3-codex) Unreliable
+
+- **Severity**: High
+- **Detected**: 2026-02-24
+- **Status**: Fix deployed (changed model to gpt-4o)
+- **Description**: Analyzer B using `gpt-5.3-codex` only wrote markers on 1 of 9 PRs. The model appears unreliable for tool-use/safe-output workflows.
+- **Impact**: PRs waiting indefinitely for Analyzer B marker before fixer can run.
+- **Suggested Action**: Model changed to `gpt-4o`. Monitor after push — all 3 analyzers should now write markers within 1-2 dispatch cycles.
+
+### PR Body Bloat from Auditor/Analyzer Spam
+
+- **Severity**: Medium
+- **Detected**: 2026-02-24
+- **Status**: Active — bodies need cleanup
+- **Description**: PR bodies contain 10-17 duplicate auditor warnings plus duplicate Analyzer A markers. PR #20 has 4+ copies of `[MARKER:pr-analyzer-a cycle:0]`.
+- **Impact**: Bloated bodies may confuse agents parsing markers, waste API bandwidth.
+- **Suggested Action**: After pipeline flows normally, consider a one-time cleanup of duplicate content in PR bodies.
+
+### Phase 2 (Merge) Still Uses gh CLI Auth
+
+- **Severity**: Medium
+- **Detected**: 2026-02-24
+- **Status**: Active — deferred
+- **Description**: The Promoter's Phase 2 merge job (Steps 11-13) still uses `gh pr merge` which requires CLI auth. This will fail for the same reason as the old `gh pr ready`.
+- **Impact**: Once PRs get human approval, auto-merge will fail. Humans can still merge manually.
+- **Suggested Action**: When a PR reaches approved state, investigate if `create-pull-request` safe-output can handle merges, or add a dedicated merge mechanism.
 
 ### Label Complexity Exceeds Threshold
 
@@ -12,15 +51,6 @@
 - **Description**: 30 labels, 25 unused on open items, health score 25/100. Disproportionate for a repo with few open issues/PRs.
 - **Impact**: Cognitive and computational tax on every workflow that reads labels.
 - **Suggested Action**: 3 labels removed in label simplification (type:report, type:action-item, type:fix). Consider further pruning to target ≤20.
-
-### SFL Auditor Intermittent Failures (Transient API Errors)
-
-- **Severity**: Low
-- **Detected**: 2026-02-22
-- **Status**: Monitoring
-- **Description**: SFL Auditor succeeds ~60% of runs. Failures are transient Copilot API errors ("Failed to get response from the AI model; Unknown error"), not config issues. Engine block and model are correct.
-- **Impact**: Delayed label/PR state repair when a run fails. Next hourly run usually succeeds.
-- **Suggested Action**: Monitor. If failure rate stays above 30%, investigate Copilot API health.
 
 ## Resolved (last 30 days)
 

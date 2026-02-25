@@ -29,40 +29,14 @@ When you observe a state discrepancy (e.g., `agent:in-progress` issue with no op
 
 During interactive sessions, **always propose SFL Auditor improvements explicitly before making changes**. State what you observed, what check is missing, and what the fix would be. Wait for user approval.
 
-### 4. Idempotency and Concurrency Are Non-Negotiable
-
-Every workflow runs on a cron schedule. Multiple instances may overlap, events may fire twice.
-
-- **Marker-based idempotency**: Check for marker comments (e.g., `<!-- pr-analyzer-a cycle:0 -->`) before writing.
-- **Claim-before-work**: Atomically claim resources (e.g., swap `agent:fixable` → `agent:in-progress`).
-- **No duplicate PRs/comments**: Verify before creating.
-- **Concurrency groups**: Every `.lock.yml` uses `concurrency: group: "gh-aw-${{ github.workflow }}"`.
-- **Stateless design**: All state lives in GitHub (labels, comments, branches, PRs).
-
-### 5. What "Harmony" Means
-
-The pipeline is in harmony when ALL of the following are true:
-
-- Every `agent:in-progress` issue has exactly one open PR with branch `agent-fix/issue-<number>-*`
-- No issue has both `agent:in-progress` and `agent:fixable` simultaneously
-- No `agent:pause` label exists without an explanatory comment
-- No open `agent-fix/` PR exists whose linked issue is closed or lacks `agent:in-progress`
-- No `agent:fixable` issue has been waiting more than 2 cron cycles without being claimed
-
-If any are violated, the SFL Auditor should detect and repair it automatically. If it doesn't, that is a bug in the SFL Auditor.
-
-### 6. Workflow-Only State Changes (No Manual Bypass)
+### 4. Workflow-Only State Changes (No Manual Bypass)
 
 - Do **NOT** manually un-draft PRs, relabel loop issues/PRs, or close loop PRs as a normal fix path.
 - Fix the workflow prompt/logic so the next run resolves it.
 - Emergency manual intervention must be followed by a workflow fix in the same session.
 - Human handoff is complete only when both: (1) PR is non-draft, and (2) PR has `human:ready-for-review` label.
 
-### 7. Promoter Auth Requirement
-
-`pr-promoter` depends on authenticated `gh` CLI calls inside the agent runtime. The execution environment MUST receive `GITHUB_TOKEN` (and `GH_TOKEN`) from workflow secrets/context. Any workflow refactor touching `pr-promoter.lock.yml` must preserve token injection.
-
-### 8. Credential Attribution Requirement
+### 5. Credential Attribution Requirement
 
 Default all CLI and workflow token usage to the **`fhemmerrelias`** identity unless explicitly overridden by a human.
 

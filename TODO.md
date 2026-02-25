@@ -2,7 +2,7 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 🤖 | **High** | Critically reduce and remove AGENTS.md | SFL issue #89 — pipeline will slim down redundant content |
+| ✅ | **High** | Critically reduce and remove AGENTS.md | SFL issue #89 — removed redundant sections 4 (idempotency), 5 (harmony), 7 (promoter auth); all covered in workflow prompts and governance docs (2026-02) |
 | 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |

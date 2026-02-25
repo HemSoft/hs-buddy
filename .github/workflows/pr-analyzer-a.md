@@ -8,6 +8,8 @@ description: |
   (set via engine.model frontmatter — canonical value in sfl.json models section).
 
 on:
+  pull_request:
+    types: [opened]
   workflow_dispatch:
 
 permissions:

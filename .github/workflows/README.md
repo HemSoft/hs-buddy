@@ -32,9 +32,9 @@ That repo contains:
 | `sfl-dispatcher` | `*/30 * * * *` | Dispatches workflows only when work exists (no Copilot inference) | Local |
 | `sfl-auditor` | `15 * * * *` (hourly) | Repairs issue/PR label discrepancies | Local |
 | `issue-processor` | Dispatcher-only | Claims `agent:fixable` issue, opens draft PR | Local |
-| `pr-analyzer-a` | Dispatcher-only | Full-spectrum review comments on draft PRs (Model A) | Local |
-| `pr-analyzer-b` | Dispatcher-only | Full-spectrum review comments on draft PRs (Model B) | Local |
-| `pr-analyzer-c` | Dispatcher-only | Full-spectrum review comments on draft PRs (Model C) | Local |
+| `pr-analyzer-a` | `pull_request: opened` | Full-spectrum review comments on draft PRs (Model A) | Local |
+| `pr-analyzer-b` | `pull_request: opened` | Full-spectrum review comments on draft PRs (Model B) | Local |
+| `pr-analyzer-c` | `pull_request: opened` | Full-spectrum review comments on draft PRs (Model C) | Local |
 | `pr-fixer` | Dispatcher-only | Implements analyzer fixes on draft PRs, increments cycle | Local |
 | `pr-promoter` | Dispatcher-only | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label. Merges approved PRs per Merge Authority Matrix (squash + delete branch). | Local |
 

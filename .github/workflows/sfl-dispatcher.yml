@@ -3,11 +3,12 @@
 # Runs every 30 minutes and checks GitHub state with simple gh CLI calls.
 # Only dispatches gh-aw workflows when there's actual work to do:
 #   - Issue Processor: when agent:fixable issues exist
-#   - PR Analyzers A/B/C: when draft PRs with agent:pr exist
 #   - PR Fixer: when draft PRs with agent:pr AND all 3 analyzer markers exist
 #   - PR Promoter: when draft PRs are ready for promotion OR approved PRs await merge
 #
-# This eliminates ~240 no-op Copilot inference calls/day.
+# PR Analyzers A/B/C are event-driven (pull_request: opened) and not dispatched here.
+#
+# This eliminates no-op Copilot inference calls.
 
 name: "SFL Dispatcher"
 
@@ -108,16 +109,6 @@ jobs:
           echo "Dispatching Issue Processor..."
           gh workflow run issue-processor.lock.yml --repo "$REPO"
 
-      - name: Dispatch PR Analyzers
-        if: steps.prs.outputs.draft_pr_count != '0'
-        run: |
-          echo "Dispatching PR Analyzer A..."
-          gh workflow run pr-analyzer-a.lock.yml --repo "$REPO"
-          echo "Dispatching PR Analyzer B..."
-          gh workflow run pr-analyzer-b.lock.yml --repo "$REPO"
-          echo "Dispatching PR Analyzer C..."
-          gh workflow run pr-analyzer-c.lock.yml --repo "$REPO"
-
       - name: Dispatch PR Fixer
         if: steps.prs.outputs.fixer_ready == 'true'
         run: |
@@ -168,12 +159,6 @@ jobs:
             echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "| Issue Processor | No (0 fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [ "${{ steps.prs.outputs.draft_pr_count }}" != "0" ]; then
-            echo "| PR Analyzer A/B/C | Yes (${{ steps.prs.outputs.draft_pr_count }} draft PRs) |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| PR Analyzer A/B/C | No (0 draft PRs) |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ]; then

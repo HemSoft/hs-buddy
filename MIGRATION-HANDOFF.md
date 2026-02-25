@@ -17,11 +17,11 @@
 | 11 workflows disabled on old HemSoft repo | ✅ |
 | 11 workflows enabled on new repo | ✅ |
 | SFL Dispatcher test run | ✅ Passed |
-| Issue Processor test run | ❌ Failed — needs PAT |
-| Local folder moved | ⬜ You do this |
-| Fine-grained PAT created | ⬜ You do this |
-| Secret updated with PAT | ⬜ You do this |
-| Full pipeline verification | ⬜ After above steps |
+| Issue Processor test run | ✅ Passed (after PAT) |
+| Local folder moved | ✅ Moved to d:\github\Relias\hs-buddy |
+| Fine-grained PAT created | ✅ Created |
+| Secret updated with PAT | ✅ Both secrets updated |
+| Full pipeline verification | ✅ All workflows green |
 
 ## Step 1: Create a Fine-Grained PAT
 

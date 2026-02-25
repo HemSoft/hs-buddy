@@ -24,7 +24,7 @@ interface CopilotSidebarProps {
 
 export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['copilot-prompt', 'copilot-results'])
+    new Set(['copilot-prompt'])
   )
   const recentResults = useCopilotResultsRecent(15)
   const activeCount = useCopilotActiveCount()
@@ -104,7 +104,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 <span className="sidebar-item-icon">
                   <Zap size={14} />
                 </span>
-                <span className="sidebar-item-label">Premium Usage</span>
+                <span className="sidebar-item-label">Copilot Usage</span>
               </div>
             </div>
           )}

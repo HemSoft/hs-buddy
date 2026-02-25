@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('github', {
     ipcRenderer.invoke('github:get-copilot-usage', org, username),
   getCopilotQuota: (username: string) =>
     ipcRenderer.invoke('github:get-copilot-quota', username),
+  getCopilotBudget: (org: string, username?: string) =>
+    ipcRenderer.invoke('github:get-copilot-budget', org, username),
 })
 
 contextBridge.exposeInMainWorld('copilot', {

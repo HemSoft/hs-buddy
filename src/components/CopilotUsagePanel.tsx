@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Zap,
   RefreshCw,
@@ -7,6 +7,7 @@ import {
   Building2,
   Crown,
   Briefcase,
+  ShieldAlert,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import './CopilotUsagePanel.css'
@@ -34,6 +35,22 @@ interface QuotaData {
     completions: QuotaSnapshot
     premium_interactions: QuotaSnapshot
   }
+}
+
+interface OrgBudgetData {
+  org: string
+  budgetAmount: number | null
+  preventFurtherUsage: boolean
+  spent: number
+  spentUnavailable: boolean
+  useQuotaOverage: boolean
+  fetchedAt: number
+}
+
+interface OrgBudgetState {
+  data: OrgBudgetData | null
+  loading: boolean
+  error: string | null
 }
 
 interface AccountQuotaState {
@@ -149,6 +166,7 @@ function PlanIcon({ plan }: { plan: string }) {
 export function CopilotUsagePanel() {
   const { accounts } = useGitHubAccounts()
   const [quotas, setQuotas] = useState<Record<string, AccountQuotaState>>({})
+  const [orgBudgets, setOrgBudgets] = useState<Record<string, OrgBudgetState>>({})
 
   const fetchQuota = useCallback(async (username: string) => {
     setQuotas(prev => ({
@@ -195,7 +213,75 @@ export function CopilotUsagePanel() {
     for (const account of accounts) {
       fetchQuota(account.username)
     }
+    for (const [org, username] of uniqueOrgs) {
+      fetchBudget(org, username)
+    }
   }
+
+  // Collect unique orgs from account config (deduplicated)
+  const uniqueOrgs = useMemo(() => {
+    const map = new Map<string, string>() // org → username
+    for (const account of accounts) {
+      if (account.org && !map.has(account.org)) {
+        map.set(account.org, account.username)
+      }
+    }
+    return map
+  }, [accounts])
+
+  const fetchBudget = useCallback(async (org: string, username?: string) => {
+    setOrgBudgets(prev => ({
+      ...prev,
+      [org]: { data: prev[org]?.data ?? null, loading: true, error: null },
+    }))
+    try {
+      const result = await window.github.getCopilotBudget(org, username)
+      if (result.success && result.data) {
+        setOrgBudgets(prev => ({
+          ...prev,
+          [org]: { data: result.data!, loading: false, error: null },
+        }))
+      } else {
+        setOrgBudgets(prev => ({
+          ...prev,
+          [org]: { data: null, loading: false, error: result.error || 'Unknown error' },
+        }))
+      }
+    } catch (error) {
+      setOrgBudgets(prev => ({
+        ...prev,
+        [org]: {
+          data: null,
+          loading: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      }))
+    }
+  }, [])
+
+  // Fetch budgets when unique orgs are known
+  useEffect(() => {
+    for (const [org, username] of uniqueOrgs) {
+      fetchBudget(org, username)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Array.from(uniqueOrgs.keys()).join(',')])
+
+  // Compute per-org overage from account quota data (for orgs without billing API access)
+  const orgOverageFromQuotas = useMemo(() => {
+    const map = new Map<string, number>() // org → total overage cost
+    for (const account of accounts) {
+      const state = quotas[account.username]
+      const premium = state?.data?.quota_snapshots?.premium_interactions
+      if (!premium || !account.org) continue
+      const overageByCount = Math.max(0, premium.overage_count)
+      const overageByRemaining = Math.max(0, -premium.remaining)
+      const overageRequests = Math.max(overageByCount, overageByRemaining)
+      const cost = overageRequests * OVERAGE_COST_PER_REQUEST
+      map.set(account.org, (map.get(account.org) ?? 0) + cost)
+    }
+    return map
+  }, [accounts, quotas])
 
   const anyLoading = Object.values(quotas).some(s => s.loading)
 
@@ -243,7 +329,7 @@ export function CopilotUsagePanel() {
             <Zap size={20} />
           </div>
           <div>
-            <h2>Premium Usage</h2>
+            <h2>Copilot Usage</h2>
             <p className="usage-subtitle">
               Copilot premium request quota per account
             </p>
@@ -392,6 +478,105 @@ export function CopilotUsagePanel() {
           })
         )}
       </div>
+
+      {/* Org Budget Section */}
+      {uniqueOrgs.size > 0 && (
+        <div className="usage-budgets-section">
+          <h3 className="usage-budgets-heading">
+            <Building2 size={14} />
+            Org Budgets
+          </h3>
+          <div className="usage-budgets-grid">
+            {Array.from(uniqueOrgs.keys()).map(org => {
+              const state = orgBudgets[org]
+              const d = state?.data
+
+              // Known spending limits for personal accounts (billing API not available)
+              const PERSONAL_BUDGETS: Record<string, number> = { hemsoft: 50 }
+
+              // When billing APIs are unavailable, use overage computed from quota data
+              const quotaOverage = orgOverageFromQuotas.get(org) ?? 0
+              const effectiveBudget = d?.budgetAmount ?? PERSONAL_BUDGETS[org.toLowerCase()] ?? null
+              const displaySpent = d?.useQuotaOverage ? quotaOverage : (d?.spent ?? 0)
+              const pct = effectiveBudget ? Math.min((displaySpent / effectiveBudget) * 100, 100) : null
+
+              // "My share" overlay: personal overage from accounts in this org
+              const myShare = !d?.useQuotaOverage ? quotaOverage : 0
+              const mySharePct = effectiveBudget && myShare > 0
+                ? Math.min((myShare / effectiveBudget) * 100, pct ?? 100)
+                : null
+
+              const barColor = pct === null ? '#4ec9b0'
+                : pct >= 90 ? '#e85d5d'
+                : pct >= 75 ? '#e89b3c'
+                : pct >= 50 ? '#dcd34a'
+                : '#4ec9b0'
+
+              return (
+                <div key={org} className="usage-budget-card">
+                  <div className="usage-budget-card-header">
+                    <span className="usage-budget-org-name">
+                      <Building2 size={13} />
+                      {org}
+                    </span>
+                    {state?.loading && <RefreshCw size={12} className="spin" />}
+                    {d?.preventFurtherUsage && (
+                      <span className="usage-budget-stop-badge" title="Usage stopped at limit">
+                        <ShieldAlert size={11} />
+                        Stop at limit
+                      </span>
+                    )}
+                  </div>
+
+                  {state?.error && !d && (
+                    <p className="usage-budget-error">
+                      {state.error.includes('enhanced billing') ? 'Not on enhanced billing' : 'Failed to load'}
+                    </p>
+                  )}
+
+                  {d && (
+                    <>
+                      <div className="usage-budget-bar-track">
+                        <div
+                          className="usage-budget-bar-fill"
+                          style={{ width: `${pct ?? 0}%`, background: barColor }}
+                        />
+                        {mySharePct !== null && mySharePct > 0 && (
+                          <div
+                            className="usage-budget-bar-myshare"
+                            style={{ width: `${mySharePct}%` }}
+                            title={`My share: ${formatCurrency(myShare)}`}
+                          />
+                        )}
+                      </div>
+                      <div className="usage-budget-amounts">
+                        <span className="usage-budget-spent" style={{ color: barColor }}>
+                          {formatCurrency(displaySpent)}{' '}
+                          {d.useQuotaOverage ? 'overage' : 'spent'}
+                        </span>
+                        {myShare > 0 && !d.useQuotaOverage && (
+                          <span className="usage-budget-myshare-label">
+                            {formatCurrency(myShare)} mine
+                          </span>
+                        )}
+                        {effectiveBudget !== null ? (
+                          <span className="usage-budget-limit">
+                            of {formatCurrency(effectiveBudget)}
+                          </span>
+                        ) : (
+                          <span className="usage-budget-limit">
+                            {d.useQuotaOverage ? 'from quota' : 'no budget set'}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -23,7 +23,7 @@ export const viewLabels: Record<string, string> = {
   'automation-runs': 'Runs',
   'copilot-prompt': 'Copilot Prompt',
   'copilot-all-results': 'Copilot Results',
-  'copilot-usage': 'Premium Usage',
+  'copilot-usage': 'Copilot Usage',
 }
 
 export function getViewLabel(viewId: string): string {

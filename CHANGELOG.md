@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.126] - 2026-02-25
+
+## [0.1.125] - 2026-02-25
+
 ## [0.1.124] - 2026-02-25
+
+### Fixed
+
+- Unblock SFL pipeline — 4 root causes of infinite no-op loop
 
 ## [0.1.123] - 2026-02-25
 

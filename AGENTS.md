@@ -1,5 +1,11 @@
 # Copilot Instructions for hs-buddy
 
+> **This file should ideally be empty until the architecture changes.**
+> Standing orders and guidelines below exist only because the agentic loop
+> needs guardrails. If every workflow is correct and self-documenting,
+> nothing else belongs here. Do not add entries that duplicate what the
+> workflows already enforce.
+
 ## Agentic Loop — Standing Orders
 
 The agentic loop lives in `.github/workflows/`. Its mission:
@@ -59,6 +65,22 @@ If any are violated, the SFL Auditor should detect and repair it automatically. 
 ### 8. Credential Attribution Requirement
 
 Default all CLI and workflow token usage to the **`fhemmerrelias`** identity unless explicitly overridden by a human.
+
+### 9. Risk Acknowledgment for Agent Fixes
+
+Medium or high risk is **not** a reason to mark a finding as non-agent-fixable.
+Agents should still attempt the fix. When the resulting PR reaches human review
+(via PR Promoter), the risk level and a brief justification must be visible in
+the linked issue body so the reviewer knows what to scrutinize.
+
+Workflow prompts must label such issues with the appropriate `risk:medium` or
+`risk:high` label and include a **Risk Acknowledgment** line in the issue body.
+
+### 10. Capture Lessons in Skills
+
+When an interactive session produces a new insight, instruction, or correction
+that would improve future runs, update the relevant skill file — not just
+this document. AGENTS.md is for standing orders; skills carry domain knowledge.
 
 ---
 

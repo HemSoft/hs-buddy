@@ -2,12 +2,12 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 🚧 | **High** | [Complete migration to relias-engineering](#complete-migration-to-relias-engineering) | PAT token + local move + verify pipeline — see handoff |
 | 🤖 | **High** | Critically reduce and remove AGENTS.md | SFL issue #89 — pipeline will slim down redundant content |
 | 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
+| ✅ | **High** | Complete migration to relias-engineering | Migrated, PAT set, pipeline verified (2026-02) |
 | ✅ | **Critical** | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
 | ✅ | High | Define Set it Free governance policy | Moved to relias-engineering/set-it-free-loop (2026-02) |
 | ✅ | High | Build feature-intake normalization workflow | Convex mapping + template-driven issue drafts + dedupe (2026-02) |
@@ -50,38 +50,11 @@
 
 ## Progress
 
-**Remaining: 6** (1 SFL-tracked, 1 migration) | **Completed: 39** (87%)
+**Remaining: 5** (1 SFL-tracked) | **Completed: 40** (89%)
 
 ---
 
 ## Remaining Items
-
-### Complete migration to relias-engineering
-
-**Goal**: Finish migrating hs-buddy from `HemSoft/hs-buddy` to `relias-engineering/hs-buddy` so SFL pipeline workflows consume `fhemmerrelias` Copilot Pro+ credits instead of personal HemSoft credits.
-
-**Status**: Code mirrored, labels/issues/PRs migrated, references updated, workflows enabled. Pipeline verification blocked on token issue.
-
-**What's done** (automated):
-
-- Repo created at `relias-engineering/hs-buddy` (private)
-- All branches pushed (main + 3 active PR branches)
-- 37 labels, 16 issues (#1-#16), 3 draft PRs (#17-#19) migrated
-- Git remote updated to `git@github-work1:relias-engineering/hs-buddy.git`
-- All 14 files with `HemSoft/hs-buddy` references updated to `relias-engineering/hs-buddy`
-- 11 cron workflows disabled on old `HemSoft/hs-buddy`
-- 11 workflows enabled on new repo
-
-**What's left** (manual — see [MIGRATION-HANDOFF.md](MIGRATION-HANDOFF.md)):
-
-1. **Create a fine-grained PAT** for `fhemmerrelias` — the `gho_` OAuth token from `gh auth` is rejected by GitHub Agent Workflows (`COPILOT_GITHUB_TOKEN is an OAuth token — not supported for GitHub Copilot`)
-2. **Update `COPILOT_GITHUB_TOKEN` secret** on `relias-engineering/hs-buddy` with the new `github_pat_...` token
-3. **Move local folder** from `d:\github\HemSoft\hs-buddy` to `d:\github\Relias\hs-buddy`
-4. **Reopen workspace** in VS Code from new location
-5. **Trigger SFL Dispatcher** and verify full pipeline health (dispatcher → issue processor → analyzers)
-6. **Archive old `HemSoft/hs-buddy`** repo once confirmed working
-
----
 
 ### SFL Loop monitoring in Organizations tree
 

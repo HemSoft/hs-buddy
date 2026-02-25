@@ -233,6 +233,172 @@ export function registerGitHubHandlers(): void {
     }
   )
 
+  // Get Copilot budget and current-month spend for an org
+  ipcMain.handle(
+    'github:get-copilot-budget',
+    async (_event, org: string, username?: string) => {
+      try {
+        const token = await tryGetCliToken(username)
+        const execEnv = {
+          ...process.env,
+          ...(token ? { GH_TOKEN: token } : {}),
+        }
+
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = now.getMonth() + 1
+
+        // Fetch budget limit and spend in parallel
+        const [budgetResult, usageResult] = await Promise.allSettled([
+          execAsync(
+            `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
+            { encoding: 'utf8', timeout: 15000, env: execEnv }
+          ),
+          execAsync(
+            `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+            { encoding: 'utf8', timeout: 15000, env: execEnv }
+          ),
+        ])
+
+        // Parse budget — try org-level first, then fall back to enterprise-level
+        interface BudgetItem {
+          budget_product_sku: string
+          budget_amount: number
+          prevent_further_usage: boolean
+          budget_entity_name?: string
+        }
+        let budgetAmount: number | null = null
+        let preventFurtherUsage = false
+        let budgetError: string | null = null
+
+        const findCopilotBudget = (budgets: BudgetItem[], entityFilter?: string) => {
+          const candidates = entityFilter
+            ? budgets.filter(b => {
+                const entity = b.budget_entity_name?.toLowerCase() ?? ''
+                const orgLower = entityFilter.toLowerCase()
+                return entity === orgLower || orgLower.includes(entity) || entity.includes(orgLower)
+              })
+            : budgets
+          const sku = (b: BudgetItem) => b.budget_product_sku?.toLowerCase() ?? ''
+          return (
+            candidates.find(b => sku(b).includes('premium')) ??
+            candidates.find(b => sku(b).includes('copilot'))
+          )
+        }
+
+        if (budgetResult.status === 'fulfilled') {
+          const budgetData = JSON.parse(budgetResult.value.stdout.trim()) as { budgets?: BudgetItem[] }
+          const copilotBudget = findCopilotBudget(budgetData.budgets ?? [])
+          if (copilotBudget) {
+            budgetAmount = copilotBudget.budget_amount
+            preventFurtherUsage = copilotBudget.prevent_further_usage
+          }
+        } else {
+          budgetError = getErrorMessage(budgetResult.reason)
+          console.warn(`Budget fetch failed for '${org}':`, budgetError)
+        }
+
+        // Fall back to known spending limits for personal accounts (billing API not available)
+        // Personal GitHub accounts don't expose budgets via API; configure limits here.
+        const PERSONAL_BUDGETS: Record<string, number> = {
+          hemsoft: 50,
+        }
+        if (budgetAmount === null && budgetError) {
+          const knownBudget = PERSONAL_BUDGETS[org.toLowerCase()]
+          if (knownBudget !== undefined) {
+            budgetAmount = knownBudget
+            budgetError = null
+          }
+        }
+
+        // Fall back to enterprise-level budget if still no copilot budget found
+        // TODO: make enterprise slug configurable instead of hardcoding
+        if (budgetAmount === null) {
+          const ENTERPRISE_SLUG = 'Bertelsmann'
+          try {
+            const entResult = await execAsync(
+              `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets" -H "X-GitHub-Api-Version: 2022-11-28" --paginate`,
+              { encoding: 'utf8', timeout: 20000, env: execEnv }
+            )
+            const entData = JSON.parse(entResult.stdout.trim()) as { budgets?: BudgetItem[] }
+            const match = findCopilotBudget(entData.budgets ?? [], org)
+            if (match) {
+              budgetAmount = match.budget_amount
+              preventFurtherUsage = match.prevent_further_usage
+            }
+          } catch (entError) {
+            console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
+          }
+        }
+
+        // Parse spend — use netAmount (cost after included-quota discount, matches billing UI)
+        let spent = 0
+        let spentError: string | null = null
+        if (usageResult.status === 'fulfilled') {
+          const usageData = JSON.parse(usageResult.value.stdout.trim()) as {
+            usageItems?: Array<{ netAmount: number }>
+          }
+          spent = usageData.usageItems?.reduce((sum, item) => sum + item.netAmount, 0) ?? 0
+          spent = Math.round(spent * 100) / 100
+        } else {
+          spentError = getErrorMessage(usageResult.reason)
+          console.warn(`Usage fetch failed for '${org}':`, spentError)
+
+          // Fall back to quota-based spend for personal accounts
+          // Compute overage cost from Copilot internal quota data
+          if (PERSONAL_BUDGETS[org.toLowerCase()] !== undefined) {
+            const quotaToken = await tryGetCliToken(username)
+            if (quotaToken) {
+              try {
+                const quotaResult = await execAsync(
+                  'gh api /copilot_internal/user',
+                  { encoding: 'utf8', timeout: 15000, env: { ...process.env, GH_TOKEN: quotaToken } }
+                )
+                const quotaData = JSON.parse(quotaResult.stdout.trim())
+                const premium = quotaData?.quota_snapshots?.premium_interactions
+                if (premium) {
+                  const overageByCount = Math.max(0, premium.overage_count ?? 0)
+                  const overageByRemaining = Math.max(0, -(premium.remaining ?? 0))
+                  const overageRequests = Math.max(overageByCount, overageByRemaining)
+                  spent = Math.round(overageRequests * 0.04 * 100) / 100
+                  spentError = null
+                }
+              } catch (quotaError) {
+                console.warn(`Quota-based spend fallback failed for '${org}':`, getErrorMessage(quotaError))
+              }
+            }
+          }
+        }
+
+        // If both APIs failed, determine the reason
+        if (budgetError && spentError) {
+          const is404 = budgetError.includes('404') || spentError.includes('404')
+          return {
+            success: true,
+            data: {
+              org,
+              budgetAmount: null,
+              preventFurtherUsage: false,
+              spent: 0,
+              spentUnavailable: true,
+              useQuotaOverage: is404,
+              fetchedAt: Date.now(),
+            },
+          }
+        }
+
+        return {
+          success: true,
+          data: { org, budgetAmount, preventFurtherUsage, spent, spentUnavailable: !!spentError, useQuotaOverage: false, fetchedAt: Date.now() },
+        }
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error)
+        console.error(`Failed to get Copilot budget for org '${org}':`, errorMessage)
+        return { success: false, error: errorMessage }
+      }
+    }
+  )
+
   // Switch the active GitHub CLI account
   ipcMain.handle('github:switch-account', async (_event, username: string) => {
     try {

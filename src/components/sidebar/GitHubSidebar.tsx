@@ -126,7 +126,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
   const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
   const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
   const fetchedCountsRef = useRef<Set<string>>(new Set())
-  const [expandedPrGroups, setExpandedPrGroups] = useState<Set<string>>(new Set(['pr-my-prs']))
+  const [expandedPrGroups, setExpandedPrGroups] = useState<Set<string>>(new Set())
   const [prContextMenu, setPrContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
     null
   )

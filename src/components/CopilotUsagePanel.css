@@ -343,6 +343,129 @@
   color: var(--text-tertiary, #666);
 }
 
+/* ── Org Budget Section ───────────────────────────────────────────────── */
+
+.usage-budgets-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.usage-budgets-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-secondary, #888);
+}
+
+.usage-budgets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.usage-budget-card {
+  background: var(--bg-secondary, #252526);
+  border: 1px solid var(--border-primary, #3c3c3c);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usage-budget-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usage-budget-org-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading, #e8e8e8);
+  flex: 1;
+}
+
+.usage-budget-stop-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #e89b3c;
+  background: rgba(232, 155, 60, 0.12);
+  border: 1px solid rgba(232, 155, 60, 0.25);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.usage-budget-bar-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.usage-budget-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease, background 0.3s ease;
+  min-width: 2px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.usage-budget-bar-myshare {
+  height: 100%;
+  border-radius: 3px;
+  background: #dcd34a;
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0.85;
+  transition: width 0.5s ease;
+  min-width: 2px;
+}
+
+.usage-budget-amounts {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.usage-budget-spent {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-family-mono, 'Cascadia Code', monospace);
+}
+
+.usage-budget-limit {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+.usage-budget-myshare-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #dcd34a;
+}
+
+.usage-budget-error {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
 /* ── Spinner ──────────────────────────────────────────────────────────── */
 
 .copilot-usage-panel .spin {

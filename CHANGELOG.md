@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.140] - 2026-02-25
+
+## [0.1.139] - 2026-02-25
+
 ## [0.1.138] - 2026-02-25
+
+### Added
+
+- Repurpose Discussion #51 as live SFL dashboard
 
 ## [0.1.137] - 2026-02-25
 

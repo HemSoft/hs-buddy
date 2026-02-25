@@ -30,8 +30,6 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 5
-  create-pull-request:
-    draft: false
 ---
 
 # PR Promoter
@@ -155,18 +153,18 @@ Fixer will handle this." and exit.
 
 ## Step 6 — Convert PR to ready-for-review
 
-Call the `create_pull_request` safe output tool to update the existing PR.
-Since a PR already exists for this branch, the tool will update the PR's
-draft status to non-draft (ready for review).
+Use the GitHub CLI to mark the PR as ready for review. First authenticate,
+then run the command:
 
-Provide:
+```bash
+export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
+gh pr ready <number> --repo relias-engineering/hs-buddy
+```
 
-- `head`: the PR's head branch name (e.g., `agent-fix/issue-7-0b395b450da6a762`)
-- `title`: the existing PR title (unchanged)
-- `body`: the existing PR body (unchanged — do NOT modify or truncate it)
+Replace `<number>` with the actual PR number.
 
-The `create-pull-request` safe output is configured with `draft: false`,
-which will convert the PR from draft to ready-for-review.
+If `gh pr ready` fails, update the dashboard with the error and exit.
+Do NOT fall back to `create_pull_request` — it cannot flip draft status.
 
 ## Step 7 — Post the promotion comment
 
@@ -225,7 +223,7 @@ Call `update_issue` with:
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
-- Use `create_pull_request` safe output to convert draft → ready-for-review
+- Use `gh pr ready` to convert draft → ready-for-review (NOT `create_pull_request`)
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
 

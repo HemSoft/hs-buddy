@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.127] - 2026-02-25
+
 ## [0.1.126] - 2026-02-25
+
+### Added
+
+- Add Copilot org budget cards with personal budget fallback
 
 ## [0.1.125] - 2026-02-25
 

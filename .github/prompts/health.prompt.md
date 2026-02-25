@@ -1,5 +1,4 @@
 ---
-mode: agent
 description: Audit the health of the hs-buddy agentic pipeline. Checks that GitHub Actions, Issues, and PRs are in harmony per .github/copilot-instructions.md. Always apply Standing Orders from .github/copilot-instructions.md.
 ---
 

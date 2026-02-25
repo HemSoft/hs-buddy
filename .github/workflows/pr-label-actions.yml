@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Find draft PRs with ready-for-review label
-        if: github.event_name == 'schedule'
+        if: github.event_name != 'pull_request'
         id: find
         env:
           GH_TOKEN: ${{ github.token }}
@@ -32,14 +32,14 @@ jobs:
       - name: Mark PR as ready for review
         if: >-
           (github.event_name == 'pull_request')
-          || (github.event_name == 'schedule' && steps.find.outputs.pr_number != '')
+          || (github.event_name != 'pull_request' && steps.find.outputs.pr_number != '')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            PR_NUM="${{ steps.find.outputs.pr_number }}"
-          else
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
             PR_NUM="${{ github.event.pull_request.number }}"
+          else
+            PR_NUM="${{ steps.find.outputs.pr_number }}"
           fi
           echo "Flipping PR #${PR_NUM} from draft to ready-for-review"
           gh pr ready "${PR_NUM}" --repo ${{ github.repository }}

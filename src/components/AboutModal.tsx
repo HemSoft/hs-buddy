@@ -33,7 +33,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
           <h1 className="about-app-name">Buddy</h1>
 
           {/* Version Badge */}
-          <div className="about-version-badge">Version 0.1.147</div>
+          <div className="about-version-badge">Version 0.1.148</div>
 
           {/* Tagline */}
           <div className="about-tagline">

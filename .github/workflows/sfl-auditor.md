@@ -26,7 +26,8 @@ tools:
     lockdown: false
 
 safe-outputs:
-  noop:
+  update-discussion:
+    target: "*"
     max: 1
   update-issue:
     target: "*"
@@ -201,7 +202,8 @@ If NO such comment exists:
 After completing all checks (Steps 2–10), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
-- `noop` — if ALL checks passed and NO discrepancies were found
+- `update_discussion` on discussion #51 (the SFL Activity Log) — if ALL checks
+  passed and NO discrepancies were found
 
 Never finish the run without calling at least one safe output. A run with zero
 safe outputs is treated as a failure.

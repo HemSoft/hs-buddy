@@ -2,7 +2,7 @@
 description: |
   This workflow creates daily repo status reports. It gathers recent repository
   activity (issues, PRs, discussions, releases, code changes) and generates
-  engaging GitHub issues with productivity insights, community highlights,
+  engaging GitHub discussions with productivity insights, community highlights,
   and project recommendations.
 
 on:
@@ -13,6 +13,7 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
+  discussions: read
 
 network: defaults
 
@@ -24,10 +25,10 @@ tools:
     lockdown: false
 
 safe-outputs:
-  create-issue:
+  create-discussion:
     title-prefix: "[repo-status] "
-    labels: [report, daily-status]
-  update-issue:
+    category: "General"
+  update-discussion:
     target: "*"
     max: 5
 source: githubnext/agentics/workflows/daily-repo-status.md@d19056381ba48cb1f7c78510c23069701fa7ae87
@@ -35,15 +36,15 @@ source: githubnext/agentics/workflows/daily-repo-status.md@d19056381ba48cb1f7c78
 
 # Daily Repo Status
 
-Create an upbeat daily status report for the repo as a GitHub issue.
+Create an upbeat daily status report for the repo as a GitHub Discussion.
 
 ## Step 0 — Close previous daily status reports
 
-Before creating today's report, search for all **open** issues that have BOTH
-the `daily-status` AND `report` labels. For each one found, close it using
-`update_issue` with:
+Before creating today's report, search for all **open** discussions whose title
+starts with `[repo-status]`. For each one found, close it using
+`update_discussion` with:
 
-- `issue_number`: the issue number
+- `discussion_number`: the discussion number
 - `status`: `"closed"`
 
 This ensures only today's report remains open.
@@ -65,4 +66,4 @@ This ensures only today's report remains open.
 
 1. Gather recent activity from the repository
 2. Study the repository, its issues and its pull requests
-3. Create a new GitHub issue with your findings and insights
+3. Create a new GitHub Discussion (category: General) with your findings and insights

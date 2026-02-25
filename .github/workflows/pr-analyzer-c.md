@@ -26,7 +26,8 @@ tools:
     lockdown: false
 
 safe-outputs:
-  noop:
+  update-discussion:
+    target: "*"
     max: 1
   update-issue:
     target: "*"
@@ -100,8 +101,9 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
-If no PR matches, call `noop` with message "No draft PRs with agent:pr label
-found — nothing to review." and exit.
+If no PR matches, call `update_discussion` on discussion #51 (the SFL Activity
+Log) with message "No draft PRs with agent:pr label found — nothing to review."
+and exit.
 
 ## Step 2 — Determine the current review cycle
 
@@ -112,8 +114,9 @@ Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
 - If `pr:cycle-2` exists, the current cycle is `2`
 - If `pr:cycle-3` exists, the current cycle is `3`
 
-If the current cycle is `3`, call `noop` with message "PR #<number> is already
-at cycle 3 — skipping analysis." and exit.
+If the current cycle is `3`, call `update_discussion` on discussion #51 (the
+SFL Activity Log) with message "PR #<number> is already at cycle 3 — skipping
+analysis." and exit.
 
 ## Step 3 — Check if already reviewed
 
@@ -122,8 +125,9 @@ Search the PR body for the exact marker text:
 Step 2.
 
 If the marker exists, this analyzer has already reviewed this PR in the
-current cycle. Call `noop` with message "PR #<number> already reviewed by
-Analyzer C in cycle <N> — skipping." and exit.
+current cycle. Call `update_discussion` on discussion #51 (the SFL Activity
+Log) with message "PR #<number> already reviewed by Analyzer C in cycle <N>
+— skipping." and exit.
 
 ## Step 4 — Read the PR content
 
@@ -220,11 +224,11 @@ Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs
-- For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
+- For every skip path, you MUST call `update_discussion` on discussion #51 (the SFL Activity Log) — do not only write plain text
 - Never modify PR code, labels, or draft status — only post review comments
 - Never re-review a PR that already has your marker for the current cycle
-- If the PR diff is empty or cannot be read, call `noop` with an explanation
-- If any step fails unexpectedly, call `noop` with the failure reason and exit
+- If the PR diff is empty or cannot be read, call `update_discussion` on discussion #51 with an explanation
+- If any step fails unexpectedly, call `update_discussion` on discussion #51 with the failure reason and exit
 - Review the FULL spectrum — do not limit yourself to a single area
 - Be pragmatic about style — only mark as BLOCKING when it causes real
   confusion or maintenance burden, not for personal preferences

@@ -26,7 +26,7 @@
 # approved PRs that have human approval and deletes the source branch.
 # Processes exactly one promotion and one merge per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"e2982fd975c5966a6b698eb9486830dfe327d5d2fa394d5b0d6e73b090b009d7","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"61b83c5385ce3ce1d39c73f382091df6a0bdab5f60e80e2aba419e7fbe092f56","compiler_version":"v0.47.1"}
 
 name: "PR Promoter"
 "on":
@@ -348,10 +348,35 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"create_pull_request":{},"missing_data":{},"missing_tool":{},"noop":{"max":2},"update_issue":{"max":5}}
+          {"create_pull_request":{},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":2},"update_issue":{"max":5}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
+            {
+              "description": "Update an existing GitHub discussion's title or body. Use this to modify discussion properties after creation. Only the fields you specify will be updated; other fields remain unchanged.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "description": "New discussion body to replace the existing content. Use Markdown formatting.",
+                    "type": "string"
+                  },
+                  "discussion_number": {
+                    "description": "Discussion number to update. This is the numeric ID from the GitHub URL (e.g., 345 in github.com/owner/repo/discussions/345). Required when the workflow target is '*' (any discussion).",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  },
+                  "title": {
+                    "description": "New discussion title to replace the existing title.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "name": "update_discussion"
+            },
             {
               "description": "Create a new GitHub pull request to propose code changes. Use this after making file edits to submit them for review and merging. The PR will be created from the current branch with your committed changes. For code review comments on an existing PR, use create_pull_request_review_comment instead. CONSTRAINTS: Maximum 1 pull request(s) can be created.",
               "inputSchema": {
@@ -884,6 +909,7 @@ jobs:
     runs-on: ubuntu-slim
     permissions:
       contents: write
+      discussions: write
       issues: write
       pull-requests: write
     outputs:
@@ -911,7 +937,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_NOOP_MAX: 2
+          GH_AW_NOOP_MAX: 1
           GH_AW_WORKFLOW_NAME: "PR Promoter"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
@@ -1093,6 +1119,7 @@ jobs:
     runs-on: ubuntu-slim
     permissions:
       contents: write
+      discussions: write
       issues: write
       pull-requests: write
     timeout-minutes: 15
@@ -1153,7 +1180,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.ref_name }}\",\"draft\":false,\"max\":1,\"max_patch_size\":1024},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.ref_name }}\",\"draft\":false,\"max\":1,\"max_patch_size\":1024},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":2,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

@@ -2,7 +2,7 @@
 description: |
   This workflow runs a daily repository audit to detect documentation drift,
   stale artifacts, configuration hygiene issues, and cross-reference mismatches.
-  It creates exactly ONE consolidated report issue with all findings.
+  It creates exactly ONE consolidated report discussion with all findings.
 
 on:
   schedule: daily
@@ -12,6 +12,7 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
+  discussions: read
 
 network: defaults
 
@@ -20,35 +21,34 @@ tools:
     lockdown: false
 
 safe-outputs:
-  create-issue:
+  create-discussion:
     title-prefix: "[repo-audit] "
-    labels: [report, audit]
+    category: "General"
     max: 1
-  update-issue:
+  update-discussion:
     target: "*"
     max: 5
 ---
 
 # Daily Repo Audit
 
-Run a high-signal daily repository audit. Produce **exactly one issue**
-containing all findings. Do NOT create multiple issues — every finding goes
+Run a high-signal daily repository audit. Produce **exactly one Discussion**
+containing all findings. Do NOT create multiple discussions — every finding goes
 into a single consolidated report.
 
-## CRITICAL — Single Issue Output
+## CRITICAL — Single Discussion Output
 
-This workflow creates **ONE issue and one issue only**. All findings —
+This workflow creates **ONE discussion and one discussion only**. All findings —
 regardless of category, severity, or fixability — are reported in that
-single issue. Do NOT create separate agent-fixable issues, per-finding
-issues, or per-category issues. Everything belongs in one report.
+single discussion (category: General). Do NOT create separate agent-fixable issues,
+per-finding discussions, or per-category discussions. Everything belongs in one report.
 
 ## Step 0 — Close previous audit summary reports
 
-Before creating today's audit, search for all **open** issues whose title
-starts with `[repo-audit]` AND that have both `report` and `audit` labels.
-For each one found, close it using `update_issue` with:
+Before creating today's audit, search for all **open** discussions whose title
+starts with `[repo-audit]`. For each one found, close it using `update_discussion` with:
 
-- `issue_number`: the issue number
+- `discussion_number`: the discussion number
 - `status`: `"closed"`
 
 ## Goals

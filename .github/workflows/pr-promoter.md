@@ -24,7 +24,8 @@ tools:
     lockdown: false
 
 safe-outputs:
-  noop:
+  update-discussion:
+    target: "*"
     max: 2
   update-issue:
     target: "*"
@@ -62,7 +63,7 @@ Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
 - If `pr:cycle-3` exists, the current cycle is `3`
 
 Do NOT assume cycle `0` means analyzers have not run. A cycle can remain `0`
-when all analyzers PASS and the fixer correctly noops.
+when all analyzers PASS and the fixer skips without incrementing.
 
 ## Step 3 — Check if already promoted
 
@@ -88,7 +89,8 @@ the PR Fixer has already incremented it:
 - If labels include `pr:cycle-N` (N ≥ 1), the fixer already ran cycle N-1
   and incremented to N. The analyzer verdicts to check are from cycle N-1.
 - However, the fixer only increments the cycle AFTER fixing. If the fixer
-  found nothing to fix (all PASS), it calls `noop` and does NOT increment.
+  found nothing to fix (all PASS), it posts to the Activity Log and does NOT
+  increment.
 
 So the logic is:
 
@@ -116,8 +118,9 @@ All three markers MUST be present. If any marker is missing:
    - `operation`: `"append"`
    - `body`: "⏰ **PR Promoter**: PR #<number> has been open for over 2 hours but is missing analyzer markers for cycle <C>. The PR Analyzers may not be running. A human should investigate."
 
-2. Regardless of PR age, call `noop` with message "PR #<number> cycle <C>:
-   waiting for all 3 analyzers — skipping." and exit.
+2. Regardless of PR age, call `update_discussion` on discussion #51 (the SFL
+   Activity Log) with message "PR #<number> cycle <C>: waiting for all 3
+   analyzers — skipping." and exit.
 
 ## Step 5 — Check all analyzer verdicts
 
@@ -132,8 +135,9 @@ If ALL three verdicts say exactly `**PASS**`, the PR is clean and ready for
 promotion. Proceed to Step 6.
 
 If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
-fixing. Call `noop` with message "PR #<number> cycle <C>: blocking issues
-found — not promoting. The PR Fixer will handle this." and exit.
+fixing. Call `update_discussion` on discussion #51 (the SFL Activity Log) with
+message "PR #<number> cycle <C>: blocking issues found — not promoting. The PR
+Fixer will handle this." and exit.
 
 ## Step 6 — Convert PR to ready-for-review
 
@@ -202,13 +206,13 @@ Call `update_issue` with:
 
 - Promote exactly ONE PR per run — never loop over multiple PRs
 - Merge exactly ONE PR per run — never loop over multiple PRs
-- For every skip path, you MUST call the `noop` safe output tool (do not only write plain text)
+- For every skip path, you MUST call `update_discussion` on discussion #51 (the SFL Activity Log) — do not only write plain text
 - Never modify the PR's code, title, or body content
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
 - Use `create_pull_request` safe output to convert draft → ready-for-review
-- If any step fails unexpectedly, call `noop` with the failure reason and exit
+- If any step fails unexpectedly, call `update_discussion` on discussion #51 with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
 
 ---
@@ -216,7 +220,8 @@ Call `update_issue` with:
 ## Phase 2 — Merge Job
 
 After completing Phase 1 (Promotion), check for approved PRs ready to merge.
-This phase runs regardless of whether Phase 1 promoted a PR or nooped.
+This phase runs regardless of whether Phase 1 promoted a PR or posted to the
+Activity Log.
 Process exactly ONE merge per run.
 
 ## Step 9 — Find merge candidate
@@ -229,8 +234,8 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
-If no PR matches, call `noop` with message "No approved PRs awaiting merge."
-and exit.
+If no PR matches, call `update_discussion` on discussion #51 (the SFL Activity
+Log) with message "No approved PRs awaiting merge." and exit.
 
 ## Step 10 — Verify merge eligibility
 
@@ -239,9 +244,9 @@ Check the PR merge state:
 - `mergeable` must be `MERGEABLE`
 - `mergeStateStatus` must be `CLEAN`
 
-If the PR is not mergeable (e.g., conflicts, failing checks), call `noop`
-with message "PR #<number> is not mergeable (state: <mergeStateStatus>) —
-skipping." and exit.
+If the PR is not mergeable (e.g., conflicts, failing checks), call `update_discussion`
+on discussion #51 (the SFL Activity Log) with message "PR #<number> is not
+mergeable (state: <mergeStateStatus>) — skipping." and exit.
 
 ## Step 11 — Authenticate GitHub CLI
 
@@ -254,8 +259,9 @@ export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
 gh auth status
 ```
 
-If authentication fails, call `noop` with message
-"PR #<number> cannot merge: gh auth unavailable" and exit.
+If authentication fails, call `update_discussion` on discussion #51 (the SFL
+Activity Log) with message "PR #<number> cannot merge: gh auth unavailable"
+and exit.
 
 ## Step 12 — Squash merge and delete branch
 
@@ -271,8 +277,9 @@ This is the authoritative merge mechanism.
 
 After calling `gh pr merge`, check the PR state.
 
-- If the PR is still open, merge has FAILED. Call `noop` with message
-  "PR #<number> merge failed — retry next cycle." and exit.
+- If the PR is still open, merge has FAILED. Call `update_discussion` on
+  discussion #51 (the SFL Activity Log) with message "PR #<number> merge failed
+  — retry next cycle." and exit.
 - If the PR state is `MERGED`, continue.
 
 ## Step 14 — Post merge comment

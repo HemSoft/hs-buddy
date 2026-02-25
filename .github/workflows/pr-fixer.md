@@ -28,11 +28,12 @@ safe-outputs:
   create-pull-request:
     labels: [agent:pr, type:fix]
     draft: true
+  update-discussion:
+    target: "*"
+    max: 1
   update-issue:
     target: "*"
     max: 5
-  noop:
-    max: 1
 ---
 
 # PR Fixer — Authority
@@ -54,8 +55,9 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
-If no PR matches, call `noop` with message "No draft PRs with agent:pr label
-found — nothing to fix." and exit.
+If no PR matches, call `update_discussion` on discussion #51 (the SFL Activity
+Log) with message "No draft PRs with agent:pr label found — nothing to fix."
+and exit.
 
 ## Step 2 — Determine the current review cycle
 
@@ -88,17 +90,19 @@ Search the PR body for these exact marker texts for the current cycle number
 - `[MARKER:pr-analyzer-c cycle:N]`
 
 All three markers MUST be present. If any marker is missing, at least one
-analyzer has not reviewed this PR in the current cycle yet. Call `noop` with
-message "PR #<number> cycle <N>: waiting for all 3 analyzers (<missing>
-missing) — skipping." and exit. The next run will try again.
+analyzer has not reviewed this PR in the current cycle yet. Call `update_discussion`
+on discussion #51 (the SFL Activity Log) with message "PR #<number> cycle <N>:
+waiting for all 3 analyzers (<missing> missing) — skipping." and exit. The next
+run will try again.
 
 ## Step 4 — Check if already fixed in this cycle
 
 Search the PR body for the exact marker text:
 `[MARKER:pr-fixer cycle:N]` where N is the current cycle number.
 
-If that marker exists, this fixer has already processed this cycle. Call `noop`
-with message "PR #<number> already fixed in cycle <N> — skipping." and exit.
+If that marker exists, this fixer has already processed this cycle. Call `update_discussion`
+on discussion #51 (the SFL Activity Log) with message "PR #<number> already fixed
+in cycle <N> — skipping." and exit.
 
 ## Step 5 — Parse all analyzer findings
 
@@ -129,8 +133,9 @@ Check each analyzer's "### Verdict" line:
   `## 🔧 PR Fixer — Cycle N` as the heading, then
   `**All three analyzers passed** — no fixes needed. The PR Promoter will handle promotion.`
 
-  Then call `noop` with message "PR #<number> cycle <N>: all analyzers
-  passed — marker written, no fixes needed." and exit.
+  Then call `update_discussion` on discussion #51 (the SFL Activity Log) with
+  message "PR #<number> cycle <N>: all analyzers passed — marker written, no
+  fixes needed." and exit.
 
 Record the full list of findings for implementation.
 
@@ -319,7 +324,7 @@ findings and fixes.
 - Always rebase onto `origin/main` before implementing fixes (Step 7)
 - Attempt to resolve rebase conflicts before escalating — only escalate if
   resolution is ambiguous or outside the PR's scope
-- If the PR diff is empty or cannot be read, call `noop` with an explanation
-- If any step fails unexpectedly, call `noop` with the failure reason and exit
+- If the PR diff is empty or cannot be read, call `update_discussion` on discussion #51 with an explanation
+- If any step fails unexpectedly, call `update_discussion` on discussion #51 with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
 - When findings conflict across analyzers, prefer security over style

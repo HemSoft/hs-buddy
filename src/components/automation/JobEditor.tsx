@@ -379,7 +379,6 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g., Daily PR Report"
-              autoFocus
             />
           </div>
 

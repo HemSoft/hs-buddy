@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.152] - 2026-02-26
+
 ## [0.1.151] - 2026-02-26
+
+### Fixed
+
+- Recompile pr-analyzer-b lock file with correct model (claude-opus-4.6)
 
 ## [0.1.150] - 2026-02-25
 

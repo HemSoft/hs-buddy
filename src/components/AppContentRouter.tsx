@@ -105,13 +105,8 @@ export function AppContentRouter({
         if (parsed) return <RepoIssueList owner={parsed.owner} repo={parsed.repo} />
       }
       if (activeViewId.startsWith('repo-prs:')) {
-        const repoSlug = activeViewId.replace('repo-prs:', '')
-        const slashIdx = repoSlug.indexOf('/')
-        if (slashIdx > 0) {
-          const owner = repoSlug.substring(0, slashIdx)
-          const repo = repoSlug.substring(slashIdx + 1)
-          return <RepoPullRequestList owner={owner} repo={repo} onOpenPR={onOpenTab} />
-        }
+        const parsed = parseOwnerRepo(activeViewId.replace('repo-prs:', ''))
+        if (parsed) return <RepoPullRequestList owner={parsed.owner} repo={parsed.repo} onOpenPR={onOpenTab} />
       }
       if (activeViewId.startsWith('copilot-result:')) {
         const resultId = activeViewId.replace('copilot-result:', '')

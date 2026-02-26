@@ -31,6 +31,12 @@ safe-outputs:
   update-discussion:
     target: "*"
     max: 1
+  add-labels:
+    target: "*"
+    max: 1
+  remove-labels:
+    target: "*"
+    max: 1
 ---
 
 # Discussion Processor
@@ -45,9 +51,14 @@ If triggered by a `discussion` event, check that the label just applied is
 **`action-item`**. If the label is anything else, exit immediately — this run
 is a no-op.
 
+**Re-trigger guard:** Read the discussion body and check whether it already
+contains the text `Processed by Discussion Processor`. If it does, exit
+immediately — this discussion was already processed. Do NOT create duplicate
+issues.
+
 If triggered manually (`workflow_dispatch`), search for the **oldest open**
-discussion that has the `action-item` label. If none exists, exit — nothing to
-do.
+discussion that has the `action-item` label **and** whose body does NOT contain
+`Processed by Discussion Processor`. If none exists, exit — nothing to do.
 
 ## Step 2 — Read and parse the discussion body
 
@@ -121,16 +132,25 @@ For each group, call `create_issue` with:
 
 ## Step 4 — Mark discussion as processed
 
-Call `update_discussion` to update the source discussion:
+Perform **three** separate safe-output calls in this exact order:
 
-- `discussion_number`: the discussion number
-- `labels`: replace `action-item` with `report` (keep all other existing labels)
-- `body`: append a processing receipt at the bottom:
+1. **Remove label:** Call `remove_labels` with **only** the `labels` parameter
+   set to `["action-item"]`. Do **NOT** pass `item_number` — omitting it
+   makes the handler target the discussion that triggered this workflow.
+2. **Add label:** Call `add_labels` with **only** the `labels` parameter set to
+   `["report"]`. Do **NOT** pass `item_number` — same reason as above.
+3. **Append receipt:** Call `update_discussion` with `discussion_number` set to
+   the discussion number and `body` set to the **full existing body** with this
+   appended at the very end:
 
-  ```
-  ---
-  **Processed by Discussion Processor** — Created <N> issue(s): #<num1>, #<num2>, ...
-  ```
+   ```
+   ---
+   **Processed by Discussion Processor** — Created <N> issue(s): #<num1>, #<num2>, ...
+   ```
+
+All three calls are required. The label swap (`action-item` → `report`) is the
+primary re-trigger prevention. The receipt text is a secondary guard checked in
+Step 1. Do NOT skip any call — `update_discussion` cannot change labels.
 
 ## Guardrails
 

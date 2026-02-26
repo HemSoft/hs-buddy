@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.155] - 2026-02-26
+
 ## [0.1.154] - 2026-02-26
+
+### Fixed
+
+- Add label swap via remove_labels + add_labels safe-outputs
 
 ## [0.1.153] - 2026-02-26
 

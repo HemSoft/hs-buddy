@@ -15,6 +15,8 @@ $workflows = @(
     "Daily Simplisticate Audit"
     "Daily Repo Status"
     "Daily Repo Audit"
+    "Discussion Processor"
+    "PR Label Actions"
 )
 
 Write-Host "Resuming all SFL workflows..." -ForegroundColor Yellow

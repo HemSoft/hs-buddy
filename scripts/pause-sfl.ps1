@@ -15,6 +15,8 @@ $workflows = @(
     "Daily Simplisticate Audit"
     "Daily Repo Status"
     "Daily Repo Audit"
+    "Discussion Processor"
+    "PR Label Actions"
 )
 
 Write-Host "Pausing all SFL workflows..." -ForegroundColor Yellow

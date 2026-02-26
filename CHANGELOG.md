@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.151] - 2026-02-26
+
 ## [0.1.150] - 2026-02-25
+
+### Changed
+
+- Move pr-label-actions polling from 5-min cron to sfl-dispatcher
 
 ## [0.1.149] - 2026-02-25
 

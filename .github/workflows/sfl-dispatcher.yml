@@ -33,6 +33,49 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            sfl.json
+            .github/workflows
+          sparse-checkout-cone-mode: false
+
+      - name: Model drift guard
+        run: |
+          set -euo pipefail
+
+          echo "Checking model consistency between sfl.json and lock files..."
+          DRIFT=false
+
+          for KEY in $(jq -r '.models | keys[]' sfl.json); do
+            EXPECTED=$(jq -r ".models[\"$KEY\"]" sfl.json)
+            LOCKFILE=".github/workflows/${KEY}.lock.yml"
+
+            if [ ! -f "$LOCKFILE" ]; then
+              echo "⚠️  No lock file for $KEY — skipping"
+              continue
+            fi
+
+            ACTUAL=$(grep -m1 'GH_AW_ENGINE_MODEL:' "$LOCKFILE" | sed 's/.*GH_AW_ENGINE_MODEL: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | tr -d '[:space:]')
+
+            if [ "$EXPECTED" != "$ACTUAL" ]; then
+              echo "❌ MODEL DRIFT: $KEY — sfl.json says '$EXPECTED', lock file says '$ACTUAL'"
+              DRIFT=true
+            else
+              echo "✅ $KEY: $EXPECTED"
+            fi
+          done
+
+          if [ "$DRIFT" = "true" ]; then
+            echo ""
+            echo "::error::Model drift detected! Lock files do not match sfl.json. Recompile lock files before re-enabling workflows."
+            exit 1
+          fi
+
+          echo ""
+          echo "All models consistent."
+
       - name: Check for fixable issues
         id: issues
         run: |

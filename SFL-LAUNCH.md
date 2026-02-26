@@ -59,8 +59,8 @@ for deployment to other repositories.
 | issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
 | simplisticate | quality | gh-aw default | ✅ Active v1.0.0 |
 | pr-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
-| pr-analyzer-b | review | gpt-5.3-codex | ✅ Active v1.0.0 |
-| pr-analyzer-c | review | claude-opus-4.6 | ✅ Active v1.0.0 |
+| pr-analyzer-b | review | claude-opus-4.6 | ✅ Active v1.0.0 |
+| pr-analyzer-c | review | gpt-5.3-codex | ✅ Active v1.0.0 |
 | pr-fixer | automation | claude-opus-4.6 | ✅ Active v1.0.0 |
 | pr-promoter | automation | claude-sonnet-4.6 | ✅ Active v1.0.0 |
 

@@ -1,6 +1,6 @@
 # ATTENTION
 
-> Auto-maintained by the debug skill. Last updated: 2026-02-24
+> Auto-maintained by the debug skill. Last updated: 2026-02-26
 
 ## Active Concerns
 
@@ -16,14 +16,14 @@
 - **Impact**: Zero PRs progressed to promotion or human review. ~7 wasted workflow runs every 30 min (fixer + promoter + auditor spam).
 - **Suggested Action**: Push the fixes, monitor next 2 dispatch cycles to confirm pipeline flow resumes.
 
-### Analyzer B (gpt-5.3-codex) Unreliable
+### Model Drift — Recurring Wrong Model on Analyzer B
 
 - **Severity**: High
-- **Detected**: 2026-02-24
-- **Status**: Fix deployed (changed model to gpt-4o)
-- **Description**: Analyzer B using `gpt-5.3-codex` only wrote markers on 1 of 9 PRs. The model appears unreliable for tool-use/safe-output workflows.
-- **Impact**: PRs waiting indefinitely for Analyzer B marker before fixer can run.
-- **Suggested Action**: Model changed to `gpt-4o`. Monitor after push — all 3 analyzers should now write markers within 1-2 dispatch cycles.
+- **Detected**: 2026-02-26
+- **Status**: Mitigated (guard added to Dispatcher)
+- **Description**: Analyzer B has been assigned the wrong model 6 times across 4 days. Most recently, `gemini-3-pro-preview` appeared at runtime despite the lock file specifying `claude-opus-4.6`. Root cause: the `generate_aw_info` step in lock files is set at compile time and can drift if branches are created before a model fix lands on `main`. Additionally, `sfl.json`, `.md` frontmatter, lock files, and docs (SFL-LAUNCH.md) can all diverge.
+- **Impact**: Agent failures (400 Bad Request from unsupported model) and wasted workflow runs.
+- **Suggested Action**: Model-drift guard added to SFL Dispatcher. Active agent branches rebased onto `main`. Monitor for recurrence.
 
 ### PR Body Bloat from Auditor/Analyzer Spam
 
@@ -72,7 +72,7 @@
 ### PR Analyzers A/B/C — Invalid Model Names
 
 - **Resolved**: 2026-02-22
-- **Resolution**: Updated to valid Copilot CLI model names: A→claude-sonnet-4.6, B→gpt-5.3-codex, C→claude-opus-4.6.
+- **Resolution**: Updated to valid Copilot CLI model names: A→claude-sonnet-4.6, B→claude-opus-4.6, C→gpt-5.3-codex. (Note: B and C were swapped in the original fix; corrected 2026-02-25.)
 
 ### Missing Engine Blocks (PR Promoter, SFL Auditor, PR Fixer)
 

@@ -1,9 +1,22 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { DatabaseWriter } from "./_generated/server";
 
 /**
  * Run history operations
  */
+
+/** Increment a buddyStats counter field within the current transaction */
+async function incrementStat(db: DatabaseWriter, field: string, amount = 1) {
+  const doc = await db
+    .query("buddyStats")
+    .withIndex("by_key", (q) => q.eq("key", "default"))
+    .first();
+  if (doc) {
+    const current = (doc as Record<string, unknown>)[field] as number ?? 0;
+    await db.patch(doc._id, { [field]: current + amount, updatedAt: Date.now() });
+  }
+}
 
 // List recent runs (last N runs)
 export const listRecent = query({
@@ -128,6 +141,9 @@ export const create = mutation({
       startedAt: Date.now(),
     });
 
+    // Track the stat
+    await incrementStat(ctx.db, "runsTriggered");
+
     return id;
   },
 });
@@ -164,6 +180,9 @@ export const complete = mutation({
       duration: completedAt - run.startedAt,
     });
 
+    // Track the stat
+    await incrementStat(ctx.db, "runsCompleted");
+
     // Update schedule last run status if this was a scheduled run
     if (run.scheduleId) {
       await ctx.db.patch("schedules", run.scheduleId, {
@@ -193,6 +212,9 @@ export const fail = mutation({
       completedAt,
       duration: completedAt - run.startedAt,
     });
+
+    // Track the stat
+    await incrementStat(ctx.db, "runsFailed");
 
     // Update schedule last run status if this was a scheduled run
     if (run.scheduleId) {

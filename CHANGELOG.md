@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.158] - 2026-02-26
+
 ## [0.1.157] - 2026-02-26
+
+### Changed
+
+- Recompile all workflows with gh-aw v0.50.4, move ONBOARDING.md to docs
 
 ## [0.1.156] - 2026-02-26
 

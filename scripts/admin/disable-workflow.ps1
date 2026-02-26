@@ -6,6 +6,8 @@ param(
     [string]$Workflow
 )
 
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+
 $repo = "relias-engineering/hs-buddy"
 
 gh workflow disable $Workflow --repo $repo 2>&1

@@ -7,6 +7,8 @@ param(
     [int]$Limit = 30
 )
 
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+
 $repo = "relias-engineering/hs-buddy"
 
 $issues = gh issue list --repo $repo --state $State --limit $Limit --json number,title,state,createdAt,labels | ConvertFrom-Json

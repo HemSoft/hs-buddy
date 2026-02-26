@@ -22,11 +22,16 @@ $workflows = @(
 Write-Host "Resuming all SFL workflows..." -ForegroundColor Yellow
 
 foreach ($wf in $workflows) {
-    gh workflow enable $wf --repo $repo 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  Enabled: $wf" -ForegroundColor Green
+    $state = gh workflow view $wf --repo $repo --json state --jq '.state' 2>&1
+    if ($state -eq 'active') {
+        Write-Host "  Already enabled: $wf" -ForegroundColor DarkGray
     } else {
-        Write-Host "  Failed:  $wf" -ForegroundColor Red
+        gh workflow enable $wf --repo $repo 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Enabled: $wf" -ForegroundColor Green
+        } else {
+            Write-Host "  Failed:  $wf" -ForegroundColor Red
+        }
     }
 }
 

@@ -22,11 +22,16 @@ $workflows = @(
 Write-Host "Pausing all SFL workflows..." -ForegroundColor Yellow
 
 foreach ($wf in $workflows) {
-    gh workflow disable $wf --repo $repo 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  Disabled: $wf" -ForegroundColor DarkGray
+    $state = gh workflow view $wf --repo $repo --json state --jq '.state' 2>&1
+    if ($state -eq 'disabled_manually') {
+        Write-Host "  Already disabled: $wf" -ForegroundColor DarkGray
     } else {
-        Write-Host "  Failed:   $wf" -ForegroundColor Red
+        gh workflow disable $wf --repo $repo 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Disabled: $wf" -ForegroundColor DarkGray
+        } else {
+            Write-Host "  Failed:   $wf" -ForegroundColor Red
+        }
     }
 }
 

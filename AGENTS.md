@@ -5,6 +5,8 @@
 > needs guardrails. If every workflow is correct and self-documenting,
 > nothing else belongs here. Do not add entries that duplicate what the
 > workflows already enforce.
+>
+> Please make sure to always consider and prefer to search for documentation using Context7 and the web fetch and web repo tools.
 
 ## Agentic Loop — Standing Orders
 

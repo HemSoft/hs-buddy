@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.160] - 2026-02-26
+
+## [0.1.159] - 2026-02-26
+
 ## [0.1.158] - 2026-02-26
+
+### Fixed
+
+- Add UTF-8 encoding to all convenience scripts
 
 ## [0.1.157] - 2026-02-26
 

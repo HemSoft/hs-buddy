@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.157] - 2026-02-26
+
 ## [0.1.156] - 2026-02-26
+
+### Added
+
+- Add convenience scripts for reports and admin
 
 ## [0.1.155] - 2026-02-26
 

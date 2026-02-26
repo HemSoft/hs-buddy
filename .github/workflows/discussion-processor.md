@@ -21,6 +21,7 @@ network: defaults
 tools:
   github:
     lockdown: false
+    toolsets: [context, repos, issues, pull_requests, discussions]
 
 safe-outputs:
   create-issue:

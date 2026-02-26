@@ -27,7 +27,7 @@
 # Generic — works with any workflow that produces structured finding discussions
 # (repo-audit, simplisticate, etc.).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"bb242d19d2523721b458f93d357e8fac2e9e9db39bd8fe0afe0f033af4610054","compiler_version":"v0.47.1"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"fc1374470f7e097b6a61596477cdc73e604c9a5780633efd07e721d285f7e0e4","compiler_version":"v0.47.1"}
 
 name: "Discussion Processor"
 "on":
@@ -646,7 +646,7 @@ jobs:
                 "env": {
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "\${GITHUB_MCP_SERVER_TOKEN}",
                   "GITHUB_READ_ONLY": "1",
-                  "GITHUB_TOOLSETS": "context,repos,issues,pull_requests"
+                  "GITHUB_TOOLSETS": "context,repos,issues,pull_requests,discussions"
                 }
               },
               "safeoutputs": {

@@ -141,18 +141,8 @@ function DiffHunk({ hunk }: { hunk: string }) {
 
           return (
             <div key={line.startsWith('@@') ? line.slice(0, 30) : `${leftNum ?? '+'}:${rightNum ?? '-'}`} className={lineClass}>
-              {!line.startsWith('@@') && (
-                <>
-                  <span className="diff-line-num">{leftNum ?? ''}</span>
-                  <span className="diff-line-num">{rightNum ?? ''}</span>
-                </>
-              )}
-              {line.startsWith('@@') && (
-                <>
-                  <span className="diff-line-num" />
-                  <span className="diff-line-num" />
-                </>
-              )}
+              <span className="diff-line-num">{leftNum ?? ''}</span>
+              <span className="diff-line-num">{rightNum ?? ''}</span>
               <span className="diff-line-content">{line}</span>
             </div>
           )

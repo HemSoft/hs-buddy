@@ -242,6 +242,28 @@ Work through every finding from Step 5 — both blocking AND non-blocking:
 - If a fix cannot be implemented (e.g., requires external dependency changes
   or architectural redesign), note it in the summary comment
 
+### Early escalation — unfixable blocking issues
+
+After attempting all blocking fixes, check whether ANY blocking issue remains
+unfixed. If so, do NOT proceed to Step 9. Instead:
+
+1. Call `update_issue` to add label `agent:human-required` (keep all existing
+   labels) and append:
+
+   ```
+   🚨 **PR Fixer**: One or more blocking issues cannot be fixed automatically.
+   Escalating to human review.
+
+   **Unfixable blocking issues:**
+   - [file:line] — reason this cannot be fixed
+   ```
+
+2. Update the dashboard with: "PR #<number> cycle <N>: escalated — unfixable
+   blocking issues found."
+3. Exit.
+
+This prevents wasting cycles on findings the agent cannot resolve.
+
 ### After all fixes
 
 Stage and commit all changes with a single descriptive commit:

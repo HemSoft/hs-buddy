@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.184] - 2026-02-28
+
 ## [0.1.183] - 2026-02-28
+
+### Added
+
+- Add safe-input for GraphQL merge state + upgrade gh-aw v0.50.7
 
 ## [0.1.182] - 2026-02-28
 

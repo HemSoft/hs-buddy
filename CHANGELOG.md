@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.198] - 2026-02-28
+
 ## [0.1.197] - 2026-02-28
+
+### Added
+
+- Add SFL config reader to pr-promoter, pr-fixer, issue-processor workflows
 
 ## [0.1.196] - 2026-02-28
 

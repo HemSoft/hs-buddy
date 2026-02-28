@@ -31,12 +31,19 @@ When you observe a state discrepancy (e.g., `agent:in-progress` issue with no op
 
 During interactive sessions, **always propose SFL Auditor improvements explicitly before making changes**. State what you observed, what check is missing, and what the fix would be. Wait for user approval.
 
-### 4. Workflow-Only State Changes (No Manual Bypass)
+### 4. Hands-Off Prime Directive
 
-- Do **NOT** manually un-draft PRs, relabel loop issues/PRs, or close loop PRs as a normal fix path.
-- Fix the workflow prompt/logic so the next run resolves it.
+**Never manually nudge the SFL pipeline.** The system must prove itself autonomously.
+
+- Do **NOT** manually dispatch workflows "to help" the pipeline along.
+- Do **NOT** manually un-draft PRs, relabel loop issues/PRs, flip labels, or close loop PRs.
+- Do **NOT** manually merge PRs that the pipeline should be merging.
+- The only permitted manual actions are:
+  - **Configuration changes** (`sfl-config.yml`) — human-only by design.
+  - **Enabling/disabling workflows** — during gradual rollout only.
+  - **Human code review** — when `auto-merge` is `false`.
+- If the pipeline isn't doing what it should, **fix the workflow logic** so the next scheduled run resolves it. Don't work around it.
 - Emergency manual intervention must be followed by a workflow fix in the same session.
-- Human handoff is complete only when both: (1) PR is non-draft, and (2) PR has `human:ready-for-review` label.
 
 ### 5. Credential Attribution Requirement
 

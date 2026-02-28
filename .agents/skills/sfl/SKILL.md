@@ -44,6 +44,17 @@ former `audit`, `debug`, and `status` skills.
 
 ---
 
+## Hands-Off Prime Directive
+
+**Never manually nudge the SFL pipeline.** The system must prove itself autonomously.
+
+- Do NOT manually dispatch workflows, flip labels, un-draft PRs, or merge PRs to "help" the pipeline.
+- If something isn't working, fix the workflow prompt/logic — don't work around it.
+- The only permitted manual actions are: config changes (`sfl-config.yml`), enabling/disabling workflows during rollout, and human code review when required.
+- This applies to both interactive sessions and automated agents.
+
+---
+
 ## Capabilities
 
 When asked "what can you do?", answer from this list:

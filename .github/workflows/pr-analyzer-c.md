@@ -110,7 +110,11 @@ pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
 ## Step 1 — Find the target PR
 
-Search for open pull requests in this repository that meet ALL criteria:
+If `pull-request-number` is provided in the context variables, use that PR
+number directly as the target. Do NOT search for a different PR.
+
+Only if no `pull-request-number` is provided (e.g., manual `workflow_dispatch`),
+search for open pull requests in this repository that meet ALL criteria:
 
 - Is a **draft** PR
 - Has the label `agent:pr`

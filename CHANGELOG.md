@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.187] - 2026-02-28
+
 ## [0.1.186] - 2026-02-28
+
+### Fixed
+
+- Add REPO_OWNER/REPO_NAME env vars to test-conflict-resolver safe-inputs
 
 ## [0.1.185] - 2026-02-28
 

@@ -162,8 +162,62 @@ concurrency:
 2. **Check safe-outputs** — does it have permission to do what it needs?
 3. **Check the model** — is it capable enough for the task?
 4. **Check markers** — is idempotency preventing re-runs?
-5. **View run logs** — look for safe-output errors or model refusals
+5. **Analyze the agent execution** — see [Agent Execution Analysis](#agent-execution-analysis) below
 6. **Test with `workflow_dispatch`** — manual trigger to reproduce
+
+#### Agent Execution Analysis
+
+The most important step for debugging agentic workflows is analyzing the
+**"Execute GitHub Copilot CLI"** step logs. This is where the agent reasons,
+calls tools, and makes decisions. Always focus here first.
+
+Use a subagent or batched terminal command to extract key signals from the run
+logs in one pass. **Never** read the full log sequentially — it can be 50K+
+lines. Instead, run this batched extraction against run ID `$RUN_ID`:
+
+```powershell
+$log = gh run view $RUN_ID --log 2>&1
+
+Write-Output "=== AGENT TOOL CALLS ==="
+$log | Select-String "Parse agent logs.*(Γ£ô|✗)" | Select-Object -First 40
+
+Write-Output "`n=== AGENT REASONING ==="
+$log | Select-String "Agent:.*(?:PR #|draft|conflict|cannot|can't|failed|error|skip|noop|found|merge)" -CaseSensitive:$false | Select-Object -First 25
+
+Write-Output "`n=== SAFE-INPUT CALLS ==="
+$log | Select-String "safeinputs.*Calling handler|safeinputs.*invoke" -CaseSensitive:$false | Select-Object -First 10
+
+Write-Output "`n=== SAFE OUTPUTS ==="
+$log | Select-String "Process Safe Outputs.*(Processing message|completed|Failed|Skipped|noop|Summary)" -CaseSensitive:$false | Select-Object -First 15
+
+Write-Output "`n=== TOKENS & STATS ==="
+$log | Select-String "Tokens:|Turns:|Total:" | Select-Object -First 5
+```
+
+**What to look for:**
+
+| Signal | Meaning |
+|--------|---------|
+| Agent reasoning about credentials/tokens | Agent is lost — can't push, trying to bypass sandbox |
+| `github-pull_request_read` → payload too large | PR body bloat — agent can't read PR via MCP |
+| `safeinputs.*Calling handler` lines | Safe-input tool was actually invoked (not just registered) |
+| `noop` in safe outputs | Agent decided there was nothing to do |
+| High token count (>500K) with `noop` | Agent burned tokens exploring but accomplished nothing |
+| `✗` (failed tool calls) | Tool failures — check what failed and why |
+| Agent reasoning about `push_to_pull_request_branch` | Agent may be confused about push mechanism |
+
+**Common agent failure patterns:**
+
+1. **Credential exploration spiral** — Agent tries `git fetch`, fails, investigates
+   `LD_PRELOAD`, reads lock.yml, tries Python bypass. Root cause: prompt doesn't
+   clearly explain the safe-output push mechanism.
+2. **PR body too large for MCP** — `github-pull_request_read` returns truncated or
+   fails. Fix: use `gh pr list`/`gh api` commands instead of MCP tool.
+3. **Safe-input not called** — Tool registered but agent never invokes it. Fix:
+   prompt must explicitly instruct "call the X tool" at the relevant step.
+4. **Discussion 404** — Agent tries to read a discussion via `github-issue_read`
+   (wrong tool) or `web_fetch` (private repo). Fix: agent needs GraphQL or
+   `update_discussion` safe-output only.
 
 ### Debugging Standard Workflows
 

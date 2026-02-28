@@ -47,6 +47,8 @@ safe-inputs:
         }' -f owner="$REPO_OWNER" -f name="$REPO_NAME" -F number="$INPUT_PR_NUMBER"
     env:
       GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
 
   resolve-pr-conflicts:
     description: "Resolve merge conflicts on a PR by overwriting conflicting files with main's version, then merging main into the PR branch. This is a brute-force resolution — the PR's changes to conflicting files are lost. Only use for files where main's version is acceptable. Returns JSON with status and details."
@@ -114,6 +116,8 @@ safe-inputs:
       echo "{\"status\":\"success\",\"message\":\"$MERGE_RESULT\",\"file_resolved\":\"$FILE\",\"pr_branch\":\"$HEAD_BRANCH\"}"
     env:
       GH_TOKEN: "${{ secrets.GH_AW_GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
 
 safe-outputs:
   add-comment:

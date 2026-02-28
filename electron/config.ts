@@ -280,7 +280,7 @@ class ConfigManager {
         org,
       });
       console.log('[ConfigManager] Migration complete - now using GitHub CLI authentication');
-      console.log('[ConfigManager] You can remove VITE_GITHUB_TOKEN from .env (no longer needed)');
+      console.log('[ConfigManager] You can remove VITE_GITHUB_USERNAME and VITE_GITHUB_ORG from .env (no longer needed)');
     } else {
       console.log('[ConfigManager] No environment variables found for migration');
       console.log('[ConfigManager] Add accounts manually through Settings or edit config.json');

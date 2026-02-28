@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.176] - 2026-02-28
+
 ## [0.1.175] - 2026-02-28
+
+### Changed
+
+- Label pruning (39->27) and Session Start Gate
 
 ## [0.1.174] - 2026-02-28
 

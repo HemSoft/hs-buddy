@@ -2,25 +2,25 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
-| ✅ | **Critical** | SFL Simplification — Replace supersession model | DONE: pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
-| ✅ | **Critical** | SFL Simplification — Label pruning | DONE: 39→27 labels, removed 12 unused (2026-02) |
-| ✅ | **High** | SFL Simplification — Reduce PR Fixer prompt | DONE: 365→164 lines via V2 architecture (2026-02) |
-| ✅ | **High** | SFL Simplification — Adopt new safe-outputs | DONE: add-comment, add-labels/remove-labels configured in fixer/promoter/processor (2026-02) |
-| ✅ | **High** | SFL Complexity gate for future sessions | DONE: Session Start Gate added to SKILL.md Simplicity section (2026-02) |
+| 📋 | High | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
+| 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
-| 📋 | **High** | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
+| ✅ | Critical | SFL Simplification — Replace supersession model | pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
+| ✅ | Critical | SFL Simplification — Label pruning | 39→27 labels, removed 12 unused (2026-02) |
 | ✅ | Critical | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
-| ✅ | High | Critically reduce and remove AGENTS.md | Removed redundant sections; covered in workflow prompts and governance docs (2026-02) |
+| ✅ | High | SFL Simplification — Reduce PR Fixer prompt | 365→164 lines via V2 architecture (2026-02) |
+| ✅ | High | SFL Simplification — Adopt new safe-outputs | add-comment, add-labels/remove-labels in fixer/promoter/processor (2026-02) |
+| ✅ | High | SFL Complexity gate for future sessions | Session Start Gate added to SKILL.md (2026-02) |
+| ✅ | High | Critically reduce and remove AGENTS.md | Covered in workflow prompts and governance docs (2026-02) |
 | ✅ | High | Complete migration to relias-engineering | Migrated, PAT set, pipeline verified (2026-02) |
 | ✅ | High | Define Set it Free governance policy | Moved to relias-engineering/set-it-free-loop (2026-02) |
 | ✅ | High | Build feature-intake normalization workflow | Convex mapping + template-driven issue drafts + dedupe (2026-02) |
 | ✅ | High | Issue Processor workflow | Cron claim → draft PR → agent:in-progress labeling (2026-02) |
 | ✅ | High | Build PR Analyzer workflow (×3 models) | Three analyzers on staggered crons; cycle-aware markers (2026-02) |
-| ✅ | High | Build PR Fixer workflow (authority) | Claude Opus; reads analyzer comments; commits fixes; escalates at cycle 3 (2026-02) |
-| ✅ | High | Add pr:cycle-N label system | Labels pr:cycle-1/2/3; analyzers skip cycle-3; escalation built in (2026-02) |
+| ✅ | High | Build PR Fixer workflow (authority) | Claude Opus; reads analyzer comments; commits fixes (2026-02) |
+| ✅ | High | Add pr:cycle-N label system | Labels pr:cycle-1/2/3; analyzers skip cycle-3 (2026-02) |
 | ✅ | High | Build PR Promoter workflow | All analyzers pass → un-draft PR + promotion comment (2026-02) |
 | ✅ | High | Improve Welcome to Buddy window | Convex-backed stats dashboard, session tracking (2026-02) |
 | ✅ | High | Expand repo detail view | Rich card-based repo info panel with caching (2026-02) |
@@ -55,50 +55,11 @@
 
 ## Progress
 
-**Remaining: 4** | **Completed: 45** (92%)
+**Remaining: 5** | **Completed: 45** (90%)
 
 ---
 
 ## Remaining Items
-
-### SFL Simplification — Replace supersession model
-
-**Status**: ✅ COMPLETED (2026-02-28)
-
-Rewrote `pr-fixer.md` to use `push-to-pull-request-branch` instead of
-creating superseding PRs. Prompt reduced from 365→164 lines. Supersession
-model, META tags, and PR chains eliminated. See `.agents/skills/sfl/docs/architecture-v2.md`.
-
----
-
-### SFL Simplification — Label pruning
-
-**Status**: ✅ COMPLETED (2026-02-28)
-
-Reduced from 39→27 labels. Deleted 12 labels with zero issues, zero PRs, and
-zero workflow references: `agent:review-requested`, `enhancement`,
-`feature-request`, `good first issue`, `help wanted`, `question`,
-`risk:critical`, `source:github-issue`, `source:jira`, `source:manual`,
-`type:fix`, `wontfix`.
-
----
-
-### SFL Simplification — Reduce PR Fixer prompt
-
-**Status**: ✅ COMPLETED (2026-02-28)
-
-Reduced from 365→164 lines as part of V2 architecture rewrite.
-
----
-
-### SFL Complexity gate for future sessions
-
-**Status**: ✅ COMPLETED (2026-02-28)
-
-Added "Session Start Gate" to SKILL.md Simplicity section with 4-step check:
-workflow count (≤14), label count (≤25), prompt line count (≤150), fix-first rule.
-
----
 
 ### SFL Loop monitoring in Organizations tree
 

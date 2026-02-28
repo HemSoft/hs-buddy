@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useId } from 'react';
 import './CronBuilder.css';
 
 type Frequency = 'minute' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
@@ -19,6 +19,7 @@ const DAYS_OF_WEEK = [
 ];
 
 export function CronBuilder({ value, onChange }: CronBuilderProps) {
+  const cronFreqLabelId = useId()
   const [frequency, setFrequency] = useState<Frequency>('hourly');
   const [minute, setMinute] = useState(0);
   const [hour, setHour] = useState(9);
@@ -134,8 +135,8 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   return (
     <div className="cron-builder">
       <div className="cron-frequency">
-        <label>Run Frequency</label>
-        <div className="frequency-buttons">
+        <label id={cronFreqLabelId}>Run Frequency</label>
+        <div className="frequency-buttons" role="group" aria-labelledby={cronFreqLabelId}>
           <button
             type="button"
             className={`freq-btn ${frequency === 'minute' ? 'active' : ''}`}

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useId } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 import './InlineDropdown.css'
 
@@ -48,6 +48,7 @@ export function InlineDropdown({
   const [focusIndex, setFocusIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const listboxId = useId()
 
   const selectedOption = options.find(o => o.value === value)
   const displayLabel = selectedOption?.label ?? placeholder
@@ -134,6 +135,7 @@ export function InlineDropdown({
       role="combobox"
       aria-expanded={isOpen}
       aria-haspopup="listbox"
+      aria-controls={isOpen ? listboxId : undefined}
       onKeyDown={handleKeyDown}
     >
       <button
@@ -151,6 +153,7 @@ export function InlineDropdown({
       {isOpen && (
         <div
           ref={menuRef}
+          id={listboxId}
           className={`idropdown-menu ${align === 'right' ? 'idropdown-menu-right' : ''} ${openUpward ? 'idropdown-menu-up' : ''}`}
           role="listbox"
         >

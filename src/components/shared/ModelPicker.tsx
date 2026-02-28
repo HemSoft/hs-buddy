@@ -33,6 +33,8 @@ export interface ModelPickerProps {
   align?: 'left' | 'right'
   /** Show refresh button (only for select variant) */
   showRefresh?: boolean
+  /** id for the select element (select variant only) */
+  id?: string
 }
 
 /**
@@ -53,6 +55,7 @@ export function ModelPicker({
   variant = 'inline',
   align = 'left',
   showRefresh = false,
+  id,
 }: ModelPickerProps) {
   const { setModel: persistModel } = useCopilotSettings()
   const [sdkModels, setSdkModels] = useState<SdkModel[]>([])
@@ -166,6 +169,7 @@ export function ModelPicker({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div className="select-control" style={{ flex: 1 }}>
               <select
+                id={id}
                 value={value}
                 onChange={e => handleChange(e.target.value)}
                 className="settings-select"

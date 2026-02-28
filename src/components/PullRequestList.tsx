@@ -292,6 +292,15 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
   }, [])
 
   useEffect(() => {
+    if (!contextMenu) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [contextMenu, closeContextMenu])
+
+  useEffect(() => {
     // Don't fetch until accounts and settings are loaded
     if (accountsLoading || prSettingsLoading) {
       return
@@ -695,7 +704,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
         {/* Context Menu Overlay */}
         {contextMenu && (
           <>
-            <div className="pr-context-menu-overlay" onClick={closeContextMenu} />
+            <div className="pr-context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
             <div className="pr-context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
               <button onClick={handleAIReview}>
                 <Sparkles size={14} />

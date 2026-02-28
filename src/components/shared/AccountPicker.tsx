@@ -21,6 +21,8 @@ export interface AccountPickerProps {
   variant?: 'inline' | 'select'
   /** Menu alignment for inline variant */
   align?: 'left' | 'right'
+  /** id for the select element (select variant only) */
+  id?: string
 }
 
 /**
@@ -38,6 +40,7 @@ export function AccountPicker({
   className = '',
   variant = 'inline',
   align = 'left',
+  id,
 }: AccountPickerProps) {
   const { setGhAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
@@ -69,6 +72,7 @@ export function AccountPicker({
     return (
       <div className={`select-control ${className}`}>
         <select
+          id={id}
           value={value}
           onChange={e => handleChange(e.target.value)}
           className="settings-select"

@@ -17,7 +17,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
   }
 
   return (
-    <div className="about-modal-overlay" onClick={handleOverlayClick}>
+    <div className="about-modal-overlay" role="presentation" onClick={handleOverlayClick}>
       <div className="about-modal">
         <button className="about-close-button" onClick={onClose} title="Close">
           <X size={18} />

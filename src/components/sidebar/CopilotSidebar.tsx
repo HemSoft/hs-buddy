@@ -61,7 +61,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
       <div className="sidebar-panel-content">
         {/* Prompt section */}
         <div className="sidebar-section">
-          <div className="sidebar-section-header" onClick={() => toggleSection('copilot-prompt')}>
+          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection('copilot-prompt')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('copilot-prompt') } }}>
             <div className="sidebar-section-title">
               {expandedSections.has('copilot-prompt') ? (
                 <ChevronDown size={14} />
@@ -112,7 +112,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
 
         {/* Recent results section */}
         <div className="sidebar-section">
-          <div className="sidebar-section-header" onClick={() => toggleSection('copilot-results')}>
+          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection('copilot-results')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('copilot-results') } }}>
             <div className="sidebar-section-title">
               {expandedSections.has('copilot-results') ? (
                 <ChevronDown size={14} />

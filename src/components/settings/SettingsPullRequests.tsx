@@ -76,12 +76,13 @@ export function SettingsPullRequests() {
           </p>
           <div className="setting-row">
             <div className="setting-info">
-              <label>Enable Auto Refresh</label>
+              <label htmlFor="pr-auto-refresh-toggle">Enable Auto Refresh</label>
               <p className="setting-hint">
                 When enabled, PRs will automatically refresh at the specified interval.
               </p>
             </div>
             <button
+              id="pr-auto-refresh-toggle"
               className={`toggle-button ${localAutoRefresh ? 'active' : ''}`}
               onClick={handleAutoRefreshToggle}
               aria-pressed={localAutoRefresh}

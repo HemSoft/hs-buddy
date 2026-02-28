@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { X, Save, Calendar, AlertCircle } from 'lucide-react'
 import { CronBuilder } from './CronBuilder'
 import { useJobs, useScheduleMutations, useSchedule, JobId, useBuddyStatsMutations } from '../../hooks/useConvex'
@@ -12,6 +12,7 @@ interface ScheduleEditorProps {
 }
 
 export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorProps) {
+  const scheduleCronLabelId = useId()
   const jobs = useJobs()
   const existingSchedule = useSchedule(scheduleId as Id<"schedules"> | undefined)
   const { create, update } = useScheduleMutations()
@@ -104,7 +105,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
   const selectedJob = jobs?.find(j => j._id === jobId)
 
   return (
-    <div className="schedule-editor-overlay" onClick={handleOverlayClick}>
+    <div className="schedule-editor-overlay" role="presentation" onClick={handleOverlayClick}>
       <div className="schedule-editor">
         <div className="schedule-editor-header">
           <div className="schedule-editor-title">
@@ -174,8 +175,10 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
           </div>
 
           <div className="form-group">
-            <label>Schedule</label>
-            <CronBuilder value={cron} onChange={setCron} />
+            <label id={scheduleCronLabelId}>Schedule</label>
+            <div role="group" aria-labelledby={scheduleCronLabelId}>
+              <CronBuilder value={cron} onChange={setCron} />
+            </div>
           </div>
 
           <div className="form-group">

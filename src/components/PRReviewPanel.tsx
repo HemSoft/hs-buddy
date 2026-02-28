@@ -348,12 +348,13 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
       {/* Configuration Section */}
       <div className="pr-review-config">
         <div className="pr-review-config-row">
-          <label className="pr-review-label">
+          <label htmlFor="pr-review-account" className="pr-review-label">
             <User size={14} />
             Account
           </label>
           <div className="pr-review-control">
             <AccountPicker
+              id="pr-review-account"
               value={account}
               onChange={setAccount}
               disabled={submitting}
@@ -365,12 +366,13 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         </div>
 
         <div className="pr-review-config-row">
-          <label className="pr-review-label">
+          <label htmlFor="pr-review-model" className="pr-review-label">
             <Cpu size={14} />
             Model
           </label>
           <div className="pr-review-control">
             <ModelPicker
+              id="pr-review-model"
               value={model}
               onChange={setModel}
               ghAccount={account}
@@ -387,7 +389,10 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
       <div className="pr-review-prompt-section">
         <div
           className="pr-review-prompt-header"
+          role="button"
+          tabIndex={0}
           onClick={() => setPromptExpanded(!promptExpanded)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPromptExpanded(prev => !prev) } }}
         >
           <div className="pr-review-prompt-label">
             <FileText size={14} />

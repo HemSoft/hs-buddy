@@ -9,7 +9,7 @@ import {
   Brain,
   Zap,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
 import { useJobs, useSchedules } from '../hooks/useConvex'
@@ -193,16 +193,25 @@ export function SidebarPanel({
     }
   }
 
-  const closeContextMenu = () => {
+  const closeContextMenu = useCallback(() => {
     setContextMenu(null)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [contextMenu, closeContextMenu])
 
   return (
     <div className="sidebar-panel">
       {/* Context Menu Overlay */}
       {contextMenu && (
         <>
-          <div className="context-menu-overlay" onClick={closeContextMenu} />
+          <div className="context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
           <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
             <button onClick={handleCreateNew}>
               <Plus size={14} />
@@ -216,7 +225,7 @@ export function SidebarPanel({
       </div>
       <div className="sidebar-panel-content">
         <div className="sidebar-section">
-          <div className="sidebar-section-header" onClick={() => toggleSection(section)}>
+          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection(section)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(section) } }}>
             <div className="sidebar-section-title">
               {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span className="sidebar-section-icon">

@@ -450,7 +450,7 @@ function ReviewThreadCard({
   return (
     <div className={`review-thread ${statusClass}`}>
       {/* File path header bar */}
-      <div className="review-thread-header" onClick={() => setExpanded(!expanded)}>
+      <div className="review-thread-header" role="button" tabIndex={0} onClick={() => setExpanded(prev => !prev)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(prev => !prev) } }}>
         <span className="review-thread-chevron">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </span>

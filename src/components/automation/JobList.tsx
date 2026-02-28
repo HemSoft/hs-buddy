@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Package, Terminal, Brain, Zap, Plus, Trash2, Copy, Play, Edit } from 'lucide-react'
 import { useJobs, useJobMutations, useRunMutations, JobId } from '../../hooks/useConvex'
 import { JobEditor } from './JobEditor'
@@ -115,14 +115,23 @@ export function JobList({ createTrigger }: JobListProps) {
     setContextMenu({ x: e.clientX, y: e.clientY, job })
   }
 
-  const closeContextMenu = () => {
+  const closeContextMenu = useCallback(() => {
     setContextMenu(null)
-  }
+  }, [])
 
   // Close context menu when clicking outside
   const handleOverlayClick = () => {
     closeContextMenu()
   }
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [contextMenu, closeContextMenu])
 
   const getWorkerIcon = (workerType: 'exec' | 'ai' | 'skill') => {
     switch (workerType) {
@@ -255,7 +264,7 @@ export function JobList({ createTrigger }: JobListProps) {
       {/* Context Menu */}
       {contextMenu && (
         <>
-          <div className="context-menu-overlay" onClick={handleOverlayClick} />
+          <div className="context-menu-overlay" onClick={handleOverlayClick} aria-hidden="true" />
           <div
             className="context-menu"
             style={{ top: contextMenu.y, left: contextMenu.x }}

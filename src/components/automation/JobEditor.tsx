@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { X, Save, Package, Terminal, Brain, Zap, AlertCircle } from 'lucide-react'
 import { useJob, useJobMutations, JobId, useBuddyStatsMutations } from '../../hooks/useConvex'
 import { useCopilotSettings } from '../../hooks/useConfig'
@@ -39,6 +39,7 @@ interface JobConfig {
 }
 
 export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorProps) {
+  const workerTypeLabelId = useId()
   const existingJob = useJob(jobId as JobId | undefined)
   const { create, update } = useJobMutations()
   const { increment: incrementStat } = useBuddyStatsMutations()
@@ -274,8 +275,9 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
       </div>
 
       <div className="form-group">
-        <label>GitHub Account</label>
+        <label htmlFor="job-gh-account">GitHub Account</label>
         <AccountPicker
+          id="job-gh-account"
           value={ghAccount}
           onChange={setGhAccount}
           variant="select"
@@ -284,8 +286,9 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
       </div>
 
       <div className="form-group">
-        <label>Model</label>
+        <label htmlFor="job-model">Model</label>
         <ModelPicker
+          id="job-model"
           value={model}
           onChange={setModel}
           ghAccount={ghAccount}
@@ -296,8 +299,9 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
       </div>
 
       <div className="form-group">
-        <label>Target Repository</label>
+        <label htmlFor="job-target-repo">Target Repository</label>
         <RepoPicker
+          id="job-target-repo"
           value={targetRepo}
           onChange={setTargetRepo}
           variant="select"
@@ -394,8 +398,8 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           </div>
 
           <div className="form-group">
-            <label>Worker Type</label>
-            <div className="worker-type-selector">
+            <label id={workerTypeLabelId}>Worker Type</label>
+            <div className="worker-type-selector" role="group" aria-labelledby={workerTypeLabelId}>
               <button
                 type="button"
                 className={`worker-type-btn ${workerType === 'exec' ? 'active' : ''}`}

@@ -24,6 +24,8 @@ export interface RepoPickerProps {
   placeholder?: string
   /** Whether to include a "None" option */
   allowNone?: boolean
+  /** id for the select element (select variant only) */
+  id?: string
 }
 
 /**
@@ -43,6 +45,7 @@ export function RepoPicker({
   align = 'left',
   placeholder = 'No repo',
   allowNone = true,
+  id,
 }: RepoPickerProps) {
   const bookmarks = useRepoBookmarks()
 
@@ -97,6 +100,7 @@ export function RepoPicker({
     return (
       <div className={`select-control ${className}`}>
         <select
+          id={id}
           value={value}
           onChange={e => onChange(e.target.value)}
           className="settings-select"

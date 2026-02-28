@@ -639,6 +639,15 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     setPrContextMenu({ x: e.clientX, y: e.clientY, pr })
   }
 
+  useEffect(() => {
+    if (!prContextMenu) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPrContextMenu(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [prContextMenu])
+
   const togglePRNode = (prViewId: string) => {
     setExpandedPRNodes(prev => {
       const next = new Set(prev)
@@ -735,7 +744,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     <div className="sidebar-panel">
       {prContextMenu && (
         <>
-          <div className="context-menu-overlay" onClick={() => setPrContextMenu(null)} />
+          <div className="context-menu-overlay" onClick={() => setPrContextMenu(null)} aria-hidden="true" />
           <div className="context-menu" style={{ top: prContextMenu.y, left: prContextMenu.x }}>
             <button
               onClick={() => {
@@ -819,7 +828,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
       <div className="sidebar-panel-content">
         {/* Pull Requests group */}
         <div className="sidebar-section">
-          <div className="sidebar-section-header" onClick={() => toggleSection('pull-requests')}>
+          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection('pull-requests')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('pull-requests') } }}>
             <div className="sidebar-section-title">
               {expandedSections.has('pull-requests') ? (
                 <ChevronDown size={14} />
@@ -946,7 +955,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
 
         {/* Organizations group */}
         <div className="sidebar-section">
-          <div className="sidebar-section-header" onClick={() => toggleSection('organizations')}>
+          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection('organizations')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('organizations') } }}>
             <div className="sidebar-section-title">
               {expandedSections.has('organizations') ? (
                 <ChevronDown size={14} />
@@ -991,7 +1000,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
 
                   return (
                     <div key={org} className="sidebar-org-group">
-                      <div className="sidebar-item sidebar-item-disclosure sidebar-org-item" onClick={() => toggleOrg(org)}>
+                      <div className="sidebar-item sidebar-item-disclosure sidebar-org-item" role="button" tabIndex={0} onClick={() => toggleOrg(org)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleOrg(org) } }}>
                         <span className="sidebar-item-chevron">
                           {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                         </span>

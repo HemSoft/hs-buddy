@@ -54,5 +54,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "Squash-merging PR #${{ github.event.pull_request.number }}"
-          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch --repo ${{ github.repository }}
+          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch --admin --repo ${{ github.repository }}
           echo "Done — PR merged and branch deleted"

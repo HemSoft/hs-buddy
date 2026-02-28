@@ -1,0 +1,415 @@
+---
+name: sfl
+description: "V2.0 - Commands: Explain, Debug, Audit, Report, Status, Simplicity, Memory. Expert in hs-buddy's Set it Free Loop \u2014 GitHub agentic workflow architecture, debugging, auditing, status reporting, and operational health. Consolidates audit, debug, and status capabilities into one skill. Use when creating, modifying, debugging, or auditing SFL workflows, checking pipeline state, or running status reports."
+hooks:
+  PostToolUse:
+    - matcher: "Read|Write|Edit"
+      hooks:
+        - type: prompt
+          prompt: |
+            If a file was read, written, or edited in the sfl directory (path contains 'skills/sfl'), verify that history logging occurred.
+
+            Check if History/{YYYY-MM-DD}.md exists and contains an entry for this interaction with:
+            - Format: "## HH:MM - {Action Taken}"
+            - One-line summary
+            - Accurate timestamp (obtained via `Get-Date -Format "HH:mm"` command, never guessed)
+
+            If history entry is missing or incomplete, provide specific feedback on what needs to be added.
+            If history entry exists and is properly formatted, acknowledge completion.
+  Stop:
+    - matcher: "*"
+      hooks:
+        - type: prompt
+          prompt: |
+            Before stopping, if sfl was used (check if any files in sfl directory were modified), verify that the interaction was logged:
+
+            1. Check if History/{YYYY-MM-DD}.md exists in sfl directory
+            2. Verify it contains an entry with format "## HH:MM - {Action Taken}" where HH:MM was obtained via `Get-Date -Format "HH:mm"` (never guessed)
+            3. Ensure the entry includes a one-line summary of what was done
+
+            If history entry is missing:
+            - Return {"decision": "block", "reason": "History entry missing. Please log this interaction to History/{YYYY-MM-DD}.md with format: ## HH:MM - {Action Taken}\n{One-line summary}\n\nCRITICAL: Get the current time using `Get-Date -Format \"HH:mm\"` command - never guess the timestamp."}
+
+            If history entry exists:
+            - Return {"decision": "approve"}
+
+            Include a systemMessage with details about the history entry status.
+---
+
+# SFL — Set it Free Loop
+
+Expert skill for the GitHub agentic workflow system that powers hs-buddy's
+autonomous quality loop. This is a consolidated skill — it supersedes the
+former `audit`, `debug`, and `status` skills.
+
+---
+
+## Capabilities
+
+When asked "what can you do?", answer from this list:
+
+| # | Capability | Sub-skill | Quick reference |
+|---|------------|-----------|-----------------|
+| 1 | **Explain architecture** — workflow types, state machine, safe-outputs, models | [Architecture](#architecture) | [docs/architecture.md](docs/architecture.md) |
+| 2 | **Debug the pipeline** — stuck PRs, failing workflows, label inconsistencies | [Debugging](#debugging) | [docs/debugging.md](docs/debugging.md) |
+| 3 | **Audit the pipeline** — exhaustive pass/fail health checks, phantom issues | [Auditing](#auditing) | [docs/auditing.md](docs/auditing.md) |
+| 4 | **Report pipeline status** — checkpointed status, verdicts, failure summaries | [Status](#status) | [docs/status.md](docs/status.md) |
+| 5 | **Guard simplicity** — complexity assessment, anti-patterns, architectural watchdog | [Simplicity](#simplicity) | [docs/constraints.md](docs/constraints.md) |
+| 6 | **Remember & reflect** — lessons learned, constraint discoveries, self-improvement | [Memory](#memory) | [docs/lessons.md](docs/lessons.md) |
+
+Every capability maps to one sub-skill section below. Each sub-skill owns its
+scripts, its docs page, and its rules.
+
+---
+
+## Architecture
+
+> Deep reference: [docs/architecture.md](docs/architecture.md)
+
+The Set it Free Loop is a **minimal, autonomous pipeline** that:
+
+1. **Detects** quality findings via scheduled audits (repo-audit, simplisticate)
+2. **Groups** findings into actionable issues (discussion-processor)
+3. **Claims** one issue at a time and opens a draft PR (issue-processor)
+4. **Reviews** the PR with three independent AI models (pr-analyzer-a/b/c)
+5. **Fixes** all review findings and increments the cycle (pr-fixer)
+6. **Promotes** clean PRs to ready-for-review when all analyzers PASS (pr-promoter)
+7. **Merges** approved PRs after human sign-off (pr-promoter phase 2)
+
+### Two Workflow Types
+
+| Type | Files | Compilation | Example |
+|------|-------|-------------|---------|
+| **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | issue-processor, pr-fixer |
+| **Standard** | `.yml` only | N/A | sfl-dispatcher, pr-label-actions |
+
+**Key constraint**: Agentic workflows use `safe-outputs` for all mutations
+and **cannot directly trigger other agentic workflows**. The `sfl-dispatcher`
+bridges this gap.
+
+### Workflow Inventory
+
+| Workflow | Type | Schedule/Trigger | Purpose |
+|----------|------|------------------|---------|
+| `sfl-dispatcher` | Standard | `*/30 * * * *` | Gates agentic runs — only dispatches when work exists |
+| `sfl-auditor` | Agentic | `:15 * * * *` | Repairs issue↔PR label discrepancies |
+| `daily-repo-status` | Agentic | Daily | Produces status report Discussion |
+| `repo-audit` | Agentic | Daily | Finds code quality issues → Discussion |
+| `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
+| `discussion-processor` | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
+| `issue-processor` | Agentic | Dispatcher-only | Claims oldest `agent:fixable` issue → draft PR |
+| `pr-analyzer-a` | Agentic | `pull_request: opened` | Full-spectrum review (claude-sonnet-4.6) |
+| `pr-analyzer-b` | Agentic | `pull_request: opened` | Full-spectrum review (claude-opus-4.6) |
+| `pr-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |
+| `pr-fixer` | Agentic | Dispatcher-only | Implements analyzer fixes, increments cycle |
+| `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs, merges approved PRs |
+| `pr-label-actions` | Standard | `pull_request: labeled` | Label-driven automation |
+| `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
+
+### Model Configuration
+
+Models are pinned in `sfl.json` at the repo root. The `sfl-dispatcher` runs a
+**model drift guard** that verifies lock files match the manifest on every run.
+To change a model: update `sfl.json`, recompile with `gh aw compile`.
+
+---
+
+## Debugging
+
+> Deep reference: [docs/debugging.md](docs/debugging.md)
+
+Use when the pipeline is stuck, a PR isn't progressing, or a workflow produces
+unexpected output.
+
+### Scripts
+
+```powershell
+# Full ecosystem snapshot (issues, PRs, labels, recent runs)
+& ".agents/skills/sfl/scripts/debug/snapshot.ps1"
+
+# Deep-dive a specific PR
+& ".agents/skills/sfl/scripts/debug/pr-forensics.ps1" -PRNumber <n>
+
+# Check all open PRs for idempotency markers
+& ".agents/skills/sfl/scripts/debug/marker-check.ps1"
+
+# Build timeline of workflow runs for a PR
+& ".agents/skills/sfl/scripts/debug/workflow-timeline.ps1" -PRNumber <n>
+
+# Inspect PR body for bloat and structural issues
+& ".agents/skills/sfl/scripts/debug/body-inspect.ps1" -PRNumber <n>
+
+# Audit labels for sprawl and unused entries
+& ".agents/skills/sfl/scripts/debug/label-audit.ps1"
+```
+
+### Debug Checklist
+
+1. **Run snapshot.ps1** — understand current state before touching anything
+2. **Identify the symptom** — what is the user seeing?
+3. **Locate the workflow** — which workflow should have acted and didn't?
+4. **Check the type** — agentic (.md + .lock.yml) or standard (.yml)?
+5. **For agentic**: Check markers, safe-outputs, prompt logic, model config
+6. **For standard**: Check YAML conditions, permissions, trigger events
+7. **Check labels** — is the state machine in a valid state?
+8. **Check the dispatcher** — did it dispatch when it should have?
+9. **Determine root cause** — not the first suspicious thing, the ACTUAL cause
+10. **Assess architectural impact** — does the fix add or remove complexity?
+11. **Update ATTENTION.md** — never silently fix
+
+### ATTENTION.md
+
+After every debug session, update `ATTENTION.md` in the repo root — the living
+document of things that need human awareness.
+
+**Format:**
+
+```markdown
+# ATTENTION
+
+> Auto-maintained by the SFL skill. Last updated: {date}
+
+## Active Concerns
+
+### {Concern Title}
+- **Severity**: Critical | High | Medium | Low
+- **Detected**: {date}
+- **Status**: Active | Monitoring | Resolved
+- **Description**: {1-2 sentences}
+- **Impact**: {what breaks if ignored}
+- **Suggested Action**: {concrete next step}
+
+## Resolved (last 30 days)
+
+### {Title}
+- **Resolved**: {date}
+- **Resolution**: {what fixed it}
+```
+
+Keep `ATTENTION.md` under 100 lines. Remove resolved items older than 30 days.
+
+---
+
+## Auditing
+
+> Deep reference: [docs/auditing.md](docs/auditing.md)
+
+Exhaustive pass/fail health checks that go beyond green checkmarks.
+
+### Quick Health Check
+
+```powershell
+& ".agents/skills/sfl/scripts/health-check.ps1"
+```
+
+| Check | What it verifies |
+|-------|------------------|
+| Workflow count | ≤ 14 files in `.github/workflows/` (ceiling) |
+| Label health | ≤ 25 labels, no orphans |
+| Issue↔PR harmony | Every `agent:in-progress` issue has a matching PR |
+| Marker integrity | All open agent PRs have valid markers for their cycle |
+| Model drift | Lock files match `sfl.json` model assignments |
+| Workflow states | Expected workflows are enabled/disabled per intent |
+
+### Audit Concerns
+
+Beyond automated checks, manually verify:
+
+- **Oldest open issue** — Why is it still open? If `agent:in-progress`, is
+  a PR progressing? (Skip issue #1 — tracking issue by design.)
+- **Phantom child issues** — Report issues that claim they created child
+  issues. Do those child issues actually exist? Placeholder tokens like
+  `#aw_f1` mean the workflow failed to create them.
+- **Risk acknowledgment** — Medium/high risk is NOT a reason to mark a
+  finding as non-agent-fixable. Risk is surfaced at human-review time
+  via `risk:medium`/`risk:high` labels.
+
+### Audit Output Format
+
+```
+## SFL Audit — <date>
+
+| # | Check | Result | Detail |
+|---|-------|--------|--------|
+| 1 | <check name> | ✅ or ❌ | One-line summary |
+| … | … | … | … |
+
+### Verdict: CLEAN | PROBLEMS FOUND
+
+### Failures (only if any ❌)
+
+#### ❌ <Check name>
+- **Severity**: High / Medium / Low
+- **Evidence**: <what you found>
+- **Impact**: <what breaks if ignored>
+- **Suggested Action**: <concrete next step>
+```
+
+Every concern MUST appear as a row. ✅ for pass, ❌ for fail. Update
+`ATTENTION.md` with any new findings.
+
+---
+
+## Status
+
+> Deep reference: [docs/status.md](docs/status.md)
+
+Fast, checkpointed pipeline status with clear verdicts.
+
+### Scripts
+
+```powershell
+# Full status report from last checkpoint
+& ".agents/skills/sfl/scripts/status/status-report.ps1"
+
+# Full report with custom checkpoint time
+& ".agents/skills/sfl/scripts/status/status-report.ps1" -LastCheckUtc "2026-02-20T18:14:44Z"
+
+# Raw JSON dataset for further analysis
+& ".agents/skills/sfl/scripts/status/status-collect.ps1" -AsJson
+
+# Read/write the checkpoint timestamp
+& ".agents/skills/sfl/scripts/status/status-checkpoint.ps1"
+```
+
+### Rules
+
+- Prefer script outputs over ad-hoc `gh` loops
+- Always convert display times to US Eastern
+- Treat `missing finish_reason for choice 0` as non-blocking (known transient)
+- Keep output concise and decision-oriented: **ALL GOOD** or **ISSUES FOUND**
+
+---
+
+## Simplicity
+
+> Deep reference: [docs/constraints.md](docs/constraints.md)
+
+Architectural watchdog. Questions every addition. Protects the complexity ceiling.
+
+### Principles
+
+> Every workflow file must earn its existence. Every label must earn its existence.
+> If the fix for a problem is "add another workflow", stop and ask if an existing
+> one can be extended instead.
+
+14 workflow files is the **complexity ceiling**. Additions must be justified
+against removal of something else.
+
+**Before adding any new workflow:**
+
+1. Can an existing workflow handle this? (Extend, don't multiply)
+2. Is this truly a separate concern, or a step in another workflow?
+3. Does this add a new state transition that needs tracking?
+4. What is the net workflow count change? (Target: zero or negative)
+
+### Safe-Outputs Discipline
+
+- Use the minimum `max` value that covers real usage
+- Always use `title-prefix` on created issues/PRs for traceability
+- Always use `draft: true` for created PRs
+- Never grant permissions beyond what the prompt needs
+
+### Anti-Patterns
+
+| Anti-Pattern | Why it's harmful |
+|--------------|------------------|
+| **Label creep** | Adding labels to solve state problems — use comments/markers instead |
+| **Workflow sprawl** | Adding workflows when an existing one could be extended |
+| **Silent fixes** | Repairing state without documenting what went wrong |
+| **Over-engineering** | Adding retry/backoff/circuit-breakers before proving they're needed |
+| **Marker format changes** | Changing how markers work without updating ALL consumers |
+| **Permission escalation** | Giving workflows more permissions than they need |
+
+### Complexity Assessment
+
+When evaluating a proposed change:
+
+1. Read `VISION.md` and `.github/copilot-instructions.md`
+2. Count labels, workflows, state transitions involved
+3. Ask: Does this add or remove complexity?
+4. If it adds complexity, propose a simpler alternative
+5. If no simpler alternative exists, document WHY in `ATTENTION.md`
+
+---
+
+## Memory
+
+> Deep reference: [docs/lessons.md](docs/lessons.md)
+
+This skill learns and improves over time. Lessons are stored, constraints are
+cataloged, and the skill itself evolves.
+
+### After Every Session
+
+When encountering something noteworthy:
+
+1. **Capture the lesson** — What went wrong? What was the root cause?
+2. **Check if reusable** — Will this help in future sessions?
+3. **Store appropriately**:
+   - Pipeline patterns → [docs/lessons.md](docs/lessons.md)
+   - Constraint discoveries → [docs/constraints.md](docs/constraints.md)
+   - Skill improvements → update this SKILL.md directly
+
+### Reflect Command
+
+When the user says "reflect" or "save what we learned":
+
+1. Summarize the session's key findings
+2. Identify patterns that recurred or were discovered
+3. Append to `docs/lessons.md` with date and one-line summary
+4. If a constraint was discovered, add to `docs/constraints.md`
+5. If the skill itself needs updating, propose and apply the edit
+
+### Self-Improvement Triggers
+
+Update this skill when:
+
+- A workflow is added or removed (update the inventory table)
+- A new constraint is discovered about agentic workflows
+- A debugging procedure proves insufficient
+- A new script is created that supports SFL operations
+- Guiding principles need refinement from operational experience
+
+---
+
+## All Scripts Reference
+
+### Core
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/health-check.ps1` | 6-check automated pass/fail report |
+| `scripts/workflow-inventory.ps1` | Catalog all workflows with type classification |
+| `scripts/loop-state.ps1` | Current pipeline state — what's in the loop right now |
+
+### Debug (`scripts/debug/`)
+
+| Script | Purpose |
+|--------|---------|
+| `snapshot.ps1` | Full ecosystem state: issues, PRs, labels, recent runs |
+| `pr-forensics.ps1` | Deep PR analysis: markers, labels, linked issue, cycle state |
+| `label-audit.ps1` | Label usage audit, unused/redundant labels, health score |
+| `marker-check.ps1` | Verify idempotency markers on all active PRs |
+| `workflow-timeline.ps1` | Chronological timeline of workflow runs for a PR |
+| `body-inspect.ps1` | PR body structure and bloat detection |
+
+### Status (`scripts/status/`)
+
+| Script | Purpose |
+|--------|---------|
+| `status-checkpoint.ps1` | Read/write checkpoint timestamp |
+| `status-collect.ps1` | Gather issues, PRs, workflow runs, markers (outputs JSON) |
+| `status-report.ps1` | Render concise markdown report in US Eastern time |
+
+### Repo-Level Scripts
+
+| Script | Location | Purpose |
+|--------|----------|---------|
+| `pause-sfl.ps1` | `scripts/` | Disable all SFL workflows |
+| `resume-sfl.ps1` | `scripts/` | Re-enable all SFL workflows |
+| `list-workflows.ps1` | `scripts/reports/` | All workflows with state and last run |
+| `list-issues.ps1` | `scripts/reports/` | Open issues with labels |
+| `list-prs.ps1` | `scripts/reports/` | Open PRs with labels |
+| `monitor-actions.ps1` | `scripts/` | Live monitor of workflow runs |
+| SFL debug stages | `scripts/sfl-debug/` | 14-step staged enable/disable sequence |

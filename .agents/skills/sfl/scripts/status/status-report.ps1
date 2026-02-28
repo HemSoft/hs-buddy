@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$data = & ".claude/skills/status/scripts/status-collect.ps1" -Repo $Repo -LastCheckUtc $LastCheckUtc
+$data = & ".agents/skills/sfl/scripts/status/status-collect.ps1" -Repo $Repo -LastCheckUtc $LastCheckUtc
 if ($data -is [string]) { $data = $data | ConvertFrom-Json }
 
 function To-Eastern($utcText) {
@@ -98,5 +98,5 @@ Write-Output ""
 Write-Output "### Verdict: $verdict"
 
 if ($UpdateCheckpoint) {
-    & ".claude/skills/status/scripts/status-checkpoint.ps1" -Mode write -Value $data.nowUtc | Out-Null
+    & ".agents/skills/sfl/scripts/status/status-checkpoint.ps1" -Mode write -Value $data.nowUtc | Out-Null
 }

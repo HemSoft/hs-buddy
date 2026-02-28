@@ -5,6 +5,7 @@
 | 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
+| 📋 | **High** | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | ✅ | Critical | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
 | ✅ | High | Critically reduce and remove AGENTS.md | Removed redundant sections; covered in workflow prompts and governance docs (2026-02) |
@@ -49,7 +50,7 @@
 
 ## Progress
 
-**Remaining: 4** | **Completed: 40** (91%)
+**Remaining: 5** | **Completed: 40** (89%)
 
 ---
 
@@ -101,6 +102,162 @@
 - List remote branches matching `agent-fix/*` whose linked PR is merged or closed → create issue to delete
 - Detect local-only branches that are fully merged into main
 - Flag branches older than 7 days with no associated open PR
+
+---
+
+### Global Copilot Assistant Panel
+
+**Goal**: Add a global, context-aware AI assistant as a toggleable right-hand pane, powered by the Copilot SDK. The assistant is always one click away and adapts to whatever the user is viewing.
+
+**Layout Change**: The current two-pane layout (`Sidebar | Content`) becomes a three-pane layout (`Sidebar | Content | Assistant`) using the existing Allotment splitter. The third pane is optional — toggled on/off via a Copilot button in the TitleBar.
+
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ TitleBar  [File][Edit][View][Help]  HemSoft Developments Buddy   [✦ Copilot] [─][□][✕] │
+├────────┬──────────────────────────────────────┬──────────────────────┤
+│Activity│           Content Area               │  Copilot Assistant  │
+│  Bar   │  ┌──────────────────────────────┐    │  ┌────────────────┐ │
+│        │  │ TabBar                       │    │  │                │ │
+│Sidebar │  │──────────────────────────────│    │  │  Conversation  │ │
+│(Tree)  │  │                              │    │  │  Output        │ │
+│        │  │  Active View Content          │    │  │  (scrollable)  │ │
+│        │  │  (PR Detail, Repo, Welcome,  │    │  │                │ │
+│        │  │   Issues, etc.)              │    │  │                │ │
+│        │  │                              │    │  │                │ │
+│        │  │                              │    │  ├────────────────┤ │
+│        │  │                              │    │  │ Context badge  │ │
+│        │  └──────────────────────────────┘    │  │ [  Prompt     ]│ │
+│        │                                      │  │ [  Input      ]│ │
+│        │                                      │  │ [  Send ▶     ]│ │
+│        │                                      │  └────────────────┘ │
+├────────┴──────────────────────────────────────┴──────────────────────┤
+│ StatusBar                                                           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Sub-Tasks
+
+##### Phase 1 — Layout & Toggle Infrastructure
+
+1. **TitleBar Copilot toggle button** — Add a `✦ Copilot` button (using `Sparkles` icon from lucide-react) to `TitleBar.tsx` between the brand title and the window controls. The button toggles the assistant pane open/closed. Persist open/closed state to electron-store via `config:get-assistant-open` / `config:set-assistant-open`.
+
+2. **Three-pane Allotment layout** — Modify the `Allotment` in `App.tsx` from 2 panes to 3 panes. The third pane (assistant) is conditionally rendered based on toggle state. Persist pane sizes as a 3-element array via existing `config:get-pane-sizes` / `config:set-pane-sizes` IPC, gracefully handling migration from the current 2-element array. Third pane constraints: `minSize={280}`, `maxSize={600}`, `preferredSize={350}`.
+
+3. **Keyboard shortcut** — Register `Ctrl+Shift+A` (or similar) globally to toggle the assistant pane. Wire through `electron/menu.ts` accelerator and IPC.
+
+##### Phase 2 — Assistant Panel Component
+
+1. **`AssistantPanel.tsx`** — New component rendered in the third Allotment pane. Layout uses CSS flex column:
+   - **Header** (fixed): "Copilot Assistant" with clear-conversation and model-picker controls.
+   - **Conversation area** (flex-grow, scrollable): Renders a list of `AssistantMessage` entries (user + assistant turns). Auto-scrolls to bottom on new messages. Supports markdown rendering for assistant responses (reuse the existing markdown renderer from `CopilotResultPanel`).
+   - **Context badge bar** (fixed): Shows what context is currently attached (e.g., "PR #142 — fix auth bug", "Repo: hs-buddy", "Issue #23"). Dismissible per-item.
+   - **Input area** (fixed at bottom): Multi-line `<textarea>` with auto-resize (same pattern as `CopilotPromptBox`), Send button (`Send` icon), keyboard submit on `Enter` (Shift+Enter for newline). Shows a typing/streaming indicator while the assistant is responding.
+
+2. **`AssistantPanel.css`** — VSCode-inspired dark theme styling consistent with the app's existing aesthetic. Conversation bubbles differentiated by role (user = right-aligned subtle, assistant = left-aligned with background). Code blocks with syntax highlighting.
+
+##### Phase 3 — Context Awareness System
+
+1. **`useAssistantContext` hook** — React hook that derives the current context from app state:
+   - **Active tab view** (`activeViewId`): If viewing `pr-detail:owner/repo/123`, attach PR metadata (title, number, URL, author, description, diff stats). If viewing `repo-detail:owner/repo`, attach repo metadata. If viewing `repo-issues:owner/repo`, attach issue list context. If viewing `welcome`, attach app overview context.
+   - **Sidebar selection** (`selectedSection` + highlighted tree node): If a specific tree item is selected/highlighted, include its identity.
+   - **Selected text**: If the user has highlighted text in the content area, include it as a quote block in the prompt.
+   - Returns a structured `AssistantContext` object: `{ viewType, viewId, summary, metadata }` that gets serialized into a system prompt preamble.
+
+2. **Context serialization** — Convert `AssistantContext` into a system prompt prefix for the Copilot SDK. Example:
+
+   ```
+   You are Buddy Assistant, an expert AI helper embedded in HemSoft Buddy.
+   The user is currently viewing: Pull Request #142 "Fix auth token refresh"
+   Repository: relias-engineering/hs-buddy
+   Author: fhemmerrelias
+   Status: Open (draft)
+   [Additional metadata as available]
+   
+   Answer questions about what's on screen, the app itself, or anything else.
+   ```
+
+##### Phase 4 — Copilot SDK Integration for Chat
+
+1. **Streaming conversation via Copilot SDK** — Extend `copilotClient.ts` with a new `sendChatMessage()` function that supports multi-turn conversation (maintains session across turns instead of creating/destroying per prompt). Use the SDK's `AssistantMessageEvent` streaming to pipe tokens into the UI in real-time.
+
+2. **New IPC channel: `copilot:chat`** — Add to `electron/ipc/copilotHandlers.ts`:
+   - `copilot:chat-send` — Accepts `{ message, context, conversationHistory }`, returns streamed response chunks via IPC event `copilot:chat-chunk`.
+   - `copilot:chat-abort` — Aborts the in-flight chat response.
+   - `copilot:chat-clear` — Resets conversation history.
+
+3. **Conversation state management** — `useAssistantConversation` hook manages:
+    - `messages: AssistantMessage[]` — Full conversation history (role, content, timestamp, context snapshot).
+    - `isStreaming: boolean` — Whether a response is being received.
+    - `sendMessage(text)` — Appends user message, calls IPC, streams response.
+    - `clearConversation()` — Resets messages array.
+    - `abortResponse()` — Cancels in-flight streaming.
+    - Conversation persists in React state (not Convex) — intentionally ephemeral per app session.
+
+##### Phase 5 — Conversation Persistence (Optional)
+
+1. **Convex conversation storage** — Optional future enhancement: persist conversations to Convex so they survive app restarts. Schema addition:
+
+    ```typescript
+    assistantConversations: defineTable({
+      title: v.optional(v.string()),
+      messages: v.array(v.object({
+        role: v.union(v.literal('user'), v.literal('assistant')),
+        content: v.string(),
+        timestamp: v.number(),
+        contextSnapshot: v.optional(v.string()),
+      })),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+    ```
+
+2. **Conversation history sidebar** — Small dropdown or list in the assistant header to switch between past conversations or start a new one.
+
+##### Phase 6 — Polish & UX
+
+1. **Smooth pane animation** — Animate the assistant pane sliding in/out when toggled (CSS transition on width or Allotment's built-in resize behavior).
+
+2. **Empty state** — When the assistant pane is open but no messages exist, show a friendly onboarding message: "Ask me anything about what you're viewing, or about Buddy itself. I can help with PRs, repos, issues, and more."
+
+3. **Suggested prompts** — In the empty state, show 3-4 contextual quick-action buttons based on current view:
+    - PR view: "Summarize this PR", "List unresolved threads", "Suggest improvements"
+    - Repo view: "Show recent activity", "Explain this repo"
+    - Welcome: "What can you do?", "Show my open PRs"
+
+4. **StatusBar integration** — Add a small Copilot indicator to the `StatusBar` showing streaming/idle state when the assistant is active.
+
+5. **Copy & export** — Allow copying individual assistant messages or exporting the full conversation as markdown.
+
+6. **Accessibility** — Ensure keyboard navigation within the assistant panel (Tab through messages, Enter to send, Escape to close pane), ARIA labels on all interactive elements, screen reader announcements for new messages.
+
+#### Key Design Decisions
+
+- **Ephemeral by default**: Conversations live in React state, not Convex. This keeps it lightweight and avoids schema churn during development. Convex persistence is Phase 5.
+- **Copilot SDK, not a new LLM integration**: Reuses the existing `copilotClient.ts` singleton and `@github/copilot-sdk` package — no new dependencies for the AI backend.
+- **Context injection, not RAG**: Context comes from structured app state (PR metadata, repo info) injected as a system prompt, not from document retrieval. This is simpler, faster, and leverages data already in memory.
+- **Separate from existing Copilot Prompt tab**: The current `CopilotPromptBox` in the Activity Bar → Copilot section is a batch-style "submit prompt, view result" workflow. The assistant panel is a real-time conversational interface. Both coexist.
+
+#### Files to Create or Modify
+
+| Action | File | Purpose |
+|--------|------|---------|
+| Create | `src/components/AssistantPanel.tsx` | Main assistant pane component |
+| Create | `src/components/AssistantPanel.css` | Assistant pane styling |
+| Create | `src/hooks/useAssistantContext.ts` | Derives context from active view/selection |
+| Create | `src/hooks/useAssistantConversation.ts` | Manages conversation state, streaming, abort |
+| Create | `src/types/assistant.ts` | `AssistantMessage`, `AssistantContext` type definitions |
+| Modify | `src/components/TitleBar.tsx` | Add Copilot toggle button between brand and window controls |
+| Modify | `src/components/TitleBar.css` | Style the toggle button |
+| Modify | `src/App.tsx` | Add third Allotment pane, toggle state, pane size persistence |
+| Modify | `src/App.css` | Layout adjustments for three-pane |
+| Modify | `electron/services/copilotClient.ts` | Add `sendChatMessage()` with multi-turn session |
+| Modify | `electron/ipc/copilotHandlers.ts` | Add `copilot:chat-send`, `copilot:chat-abort`, `copilot:chat-clear` IPC channels |
+| Modify | `electron/ipc/index.ts` | Register new chat IPC handlers |
+| Modify | `electron/config.ts` | Add `assistant-open` persistence key |
+| Modify | `src/components/StatusBar.tsx` | Add Copilot streaming indicator |
+| Modify (Phase 5) | `convex/schema.ts` | Add `assistantConversations` table |
 
 ---
 

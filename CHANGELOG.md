@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.168] - 2026-02-28
+
+## [0.1.167] - 2026-02-28
+
+## [0.1.166] - 2026-02-28
+
+## [0.1.165] - 2026-02-28
+
+## [0.1.164] - 2026-02-28
+
+### Added
+
+- Consolidate audit, debug, status skills into SFL V2.0
+
 ## [0.1.163] - 2026-02-26
 
 ## [0.1.162] - 2026-02-26

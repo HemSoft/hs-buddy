@@ -99,12 +99,9 @@ If no PR matches, skip to Phase 2 (Step 11 — Merge Job).
 
 ## Step 2 — Determine the current review cycle
 
-Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
-
-- If no `pr:cycle-N` label exists, the current cycle is `0`
-- If `pr:cycle-1` exists, the current cycle is `1`
-- If `pr:cycle-2` exists, the current cycle is `2`
-- If `pr:cycle-3` exists, the current cycle is `3`
+Check the PR's labels for any `pr:cycle-N` labels. Find the highest N
+among all matching labels. If no `pr:cycle-N` label exists, the current
+cycle is `0`.
 
 Do NOT assume cycle `0` means analyzers have not run. A cycle can remain `0`
 when all analyzers PASS and the fixer skips without incrementing.

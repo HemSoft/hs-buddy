@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.205] - 2026-02-28
+
+## [0.1.204] - 2026-02-28
+
+### Changed
+
+- Fixer no longer gives up on unfixable issues — makes progress each cycle and lets the loop iterate
+- Dynamic cycle detection across all workflows (no longer hardcoded to 3)
+- Removed cycle-3 cap from analyzers — Fixer controls escalation via sfl-config
+- Increased max-fix-cycles from 3 to 10
+
 ## [0.1.203] - 2026-02-28
+
+### Fixed
+
+- Accept BLOCKED mergeStateStatus when auto-merge is true
 
 ## [0.1.202] - 2026-02-28
 

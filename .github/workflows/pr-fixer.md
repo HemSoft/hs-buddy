@@ -217,14 +217,11 @@ If no PR matches either mode, update the dashboard with:
 
 ## Step 2 — Determine the current review cycle
 
-Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
+Check the PR's labels for any `pr:cycle-N` labels. Find the highest N
+among all matching labels. If no `pr:cycle-N` label exists, the current
+cycle is `0`.
 
-- If no `pr:cycle-N` label exists, the current cycle is `0`
-- If `pr:cycle-1` exists, the current cycle is `1`
-- If `pr:cycle-2` exists, the current cycle is `2`
-- If `pr:cycle-3` exists, the current cycle is `3`
-
-Use `cycles.max-fix-cycles` from Step 0 (default: 3) as the cycle cap.
+Use `cycles.max-fix-cycles` from Step 0 (default: 10) as the cycle cap.
 
 If the current cycle equals the cap, the PR has reached the cycle limit. Escalate:
 
@@ -297,13 +294,24 @@ Check each analyzer's "### Verdict" line:
 - If findings conflict across analyzers, prefer safety (security > correctness > style)
 - If a fix cannot be implemented, note it in the summary
 
-### Early escalation — unfixable blocking issues
+### Make progress — every cycle counts
 
-If ANY blocking issue cannot be fixed:
+Do NOT escalate to `agent:human-required` just because you cannot fix
+everything in one cycle. The loop exists to iterate. Your job each cycle:
 
-1. Call `add_labels` to add `agent:human-required`
-2. Call `add_comment` with details of unfixable blocking issues
-3. Update the dashboard and exit.
+1. **Fix as many blocking issues as possible** — implement real code changes.
+2. **Fix non-blocking suggestions** when time allows.
+3. **Push whatever progress you made** — even partial progress is progress.
+4. The analyzers will re-evaluate after your push and report what remains.
+5. You will get another cycle to continue the work.
+
+The ONLY reason to add `agent:human-required` is when the cycle cap
+(from Step 2) is reached. Never escalate before that.
+
+If a blocking issue requires work beyond what you can do in a single push
+(e.g., refactoring many files), do as much as you can now. The next cycle
+will show the analyzers that progress was made, and they will report the
+remaining work.
 
 ### After all fixes
 

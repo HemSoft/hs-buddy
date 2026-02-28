@@ -117,13 +117,9 @@ jobs:
           PR_BODY=$(echo "$OLDEST" | jq -r '.body // ""')
           PR_LABELS=$(echo "$OLDEST" | jq -c '[.labels[].name]')
 
-          # Determine current cycle
-          CYCLE=0
-          for N in 1 2 3; do
-            if echo "$PR_LABELS" | jq -e "index(\"pr:cycle-$N\")" > /dev/null 2>&1; then
-              CYCLE=$N
-            fi
-          done
+          # Determine current cycle from labels (find highest pr:cycle-N)
+          CYCLE=$(echo "$PR_LABELS" | jq -r '.[]' | grep -oP '^pr:cycle-\K\d+$' | sort -rn | head -1)
+          CYCLE=${CYCLE:-0}
 
           # Check for all 3 analyzer markers at current cycle
           ALL_MARKERS=true

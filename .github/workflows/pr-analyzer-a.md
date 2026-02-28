@@ -127,16 +127,9 @@ If no PR matches, update the dashboard (see Dashboard Protocol) with:
 
 ## Step 2 — Determine the current review cycle
 
-Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
-
-- If no `pr:cycle-N` label exists, the current cycle is `0`
-- If `pr:cycle-1` exists, the current cycle is `1`
-- If `pr:cycle-2` exists, the current cycle is `2`
-- If `pr:cycle-3` exists, the current cycle is `3`
-
-If the current cycle is `3`, update the dashboard with:
-"PR #<number> is already at cycle 3 — skipping analysis." and exit.
-(Cycle 3 PRs are awaiting human escalation, not further analysis.)
+Check the PR's labels for any `pr:cycle-N` labels. Find the highest N
+among all matching labels. If no `pr:cycle-N` label exists, the current
+cycle is `0`.
 
 ## Step 3 — Check if already reviewed
 

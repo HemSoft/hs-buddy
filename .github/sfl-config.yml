@@ -12,4 +12,4 @@ risk-tolerance: low           # Maximum risk level SFL will process autonomously
                               # Issues above this level get agent:human-required
 
 cycles:
-  max-fix-cycles: 3           # Max analyzer→fix cycles before human escalation
+  max-fix-cycles: 10          # Max analyzer→fix cycles before human escalation

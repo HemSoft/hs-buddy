@@ -27,7 +27,7 @@
 # Generic — works with any workflow that produces structured finding discussions
 # (repo-audit, simplisticate, etc.).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"89fce046cfb51265080c09b2d6f7b80949514aeeed869a3fabd1ec075db13dec","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"0840ff76f8ec50e0fab1b0a69ae4b3b40574db21074aea5486925db93bc850a8","compiler_version":"v0.50.4"}
 
 name: "Discussion Processor"
 "on":
@@ -226,6 +226,7 @@ jobs:
       contents: read
       discussions: read
       issues: read
+      pull-requests: read
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_AW_ASSETS_ALLOWED_EXTS: ""

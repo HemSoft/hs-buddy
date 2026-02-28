@@ -23,6 +23,34 @@ tools:
   github:
     lockdown: false
 
+safe-inputs:
+  check-pr-merge-state:
+    description: "Check a PR's merge state via GitHub GraphQL API. Returns mergeable status (MERGEABLE, CONFLICTING, UNKNOWN) and mergeStateStatus (CLEAN, DIRTY, BLOCKED, UNSTABLE, BEHIND, UNKNOWN, DRAFT). Use this instead of REST API which returns null on first access."
+    inputs:
+      pr_number:
+        type: number
+        required: true
+        description: "The pull request number to check"
+    run: |
+      gh api graphql -f query='
+        query($owner:String!, $name:String!, $number:Int!) {
+          repository(owner:$owner, name:$name) {
+            pullRequest(number:$number) {
+              number
+              title
+              mergeable
+              mergeStateStatus
+              headRefName
+              baseRefName
+              isDraft
+            }
+          }
+        }' -f owner="$REPO_OWNER" -f name="$REPO_NAME" -F number="$INPUT_PR_NUMBER"
+    env:
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
+
 safe-outputs:
   push-to-pull-request-branch:
     max: 1
@@ -76,9 +104,12 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 - Is **NOT** a draft PR
 - Has the label `human:ready-for-review`
-- Has `mergeable` state of `CONFLICTING`
 
-If a match is found, skip to **Step 6b — Resolve merge conflicts**.
+For each match, call the `check-pr-merge-state` safe-input tool with the PR
+number to get the accurate GraphQL merge state. The REST API returns `null`
+for the mergeable field on first access — always use this tool instead.
+
+If any PR has `mergeable: CONFLICTING`, skip to **Step 6b — Resolve merge conflicts**.
 
 ### 1b — Standard analyzer-fix mode
 

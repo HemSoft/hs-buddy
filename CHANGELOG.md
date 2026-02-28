@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.183] - 2026-02-28
+
+## [0.1.182] - 2026-02-28
+
+## [0.1.181] - 2026-02-28
+
 ## [0.1.180] - 2026-02-28
+
+### Changed
+
+- Temporary debug workflow to test mergeable state access
 
 ## [0.1.179] - 2026-02-28
 

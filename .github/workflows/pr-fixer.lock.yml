@@ -26,7 +26,7 @@
 # fixes directly to the PR branch, updates cycle labels, and exits. Does NOT
 # un-draft the PR — that is the Promoter's job.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"1fa16065170a6b433572d25c3d8e94a501cbfe491cde7cc1500bbe9402a49126","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"0622bd1a7261db2ff1cbc3d6d15527af3e5231f93ff54d094a04a568a248edb5","compiler_version":"v0.50.4"}
 
 name: "PR Fixer — Authority"
 "on":
@@ -867,6 +867,34 @@ jobs:
                   "REPO_OWNER": "REPO_OWNER"
                 },
                 "timeout": 60
+              },
+              {
+                "name": "resolve-pr-conflicts",
+                "description": "Resolve a merge conflict on a PR by overwriting a conflicting file with main's version via the GitHub Contents API, then merging remaining main changes via update-branch. Call once per conflicting file. Returns JSON with status (success, partial, error) and details. The PR's changes to the resolved file are LOST — main's version wins.",
+                "inputSchema": {
+                  "properties": {
+                    "file_path": {
+                      "description": "Path to the conflicting file to resolve (e.g., src/components/Foo.tsx)",
+                      "type": "string"
+                    },
+                    "pr_number": {
+                      "description": "The pull request number to resolve conflicts for",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "file_path",
+                    "pr_number"
+                  ],
+                  "type": "object"
+                },
+                "handler": "resolve-pr-conflicts.sh",
+                "env": {
+                  "GH_TOKEN": "GH_TOKEN",
+                  "REPO_NAME": "REPO_NAME",
+                  "REPO_OWNER": "REPO_OWNER"
+                },
+                "timeout": 120
               }
             ]
           }
@@ -915,6 +943,68 @@ jobs:
           
           GH_AW_SAFE_INPUTS_SH_CHECK-PR-MERGE-STATE_EOF
           chmod +x /opt/gh-aw/safe-inputs/check-pr-merge-state.sh
+          cat > /opt/gh-aw/safe-inputs/resolve-pr-conflicts.sh << 'GH_AW_SAFE_INPUTS_SH_RESOLVE-PR-CONFLICTS_EOF'
+          #!/bin/bash
+          # Auto-generated safe-input tool: resolve-pr-conflicts
+          # Resolve a merge conflict on a PR by overwriting a conflicting file with main's version via the GitHub Contents API, then merging remaining main changes via update-branch. Call once per conflicting file. Returns JSON with status (success, partial, error) and details. The PR's changes to the resolved file are LOST — main's version wins.
+          
+          set -euo pipefail
+          
+          set -euo pipefail
+          
+          PR_NUM="$INPUT_PR_NUMBER"
+          FILE="$INPUT_FILE_PATH"
+          
+          echo "Resolving conflict for file '$FILE' on PR #$PR_NUM"
+          
+          # Get PR head branch name
+          HEAD_BRANCH=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" --jq '.head.ref')
+          echo "PR branch: $HEAD_BRANCH"
+          
+          # Get main's version of the file (base64)
+          MAIN_B64=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE?ref=main" --jq '.content' | tr -d '\n')
+          if [ -z "$MAIN_B64" ]; then
+            echo '{"status":"error","message":"Could not read main version of file"}'
+            exit 1
+          fi
+          
+          # Get PR branch's file SHA (needed for update)
+          PR_SHA=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE?ref=$HEAD_BRANCH" --jq '.sha')
+          if [ -z "$PR_SHA" ]; then
+            echo '{"status":"error","message":"Could not read PR branch version of file"}'
+            exit 1
+          fi
+          
+          echo "Main b64 length: ${#MAIN_B64}, PR file SHA: $PR_SHA"
+          
+          # Commit main's version to PR branch — capture new commit SHA for update-branch
+          NEW_SHA=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE" \
+            --method PUT \
+            -f message="chore: resolve merge conflict in $FILE" \
+            -f content="$MAIN_B64" \
+            -f sha="$PR_SHA" \
+            -f branch="$HEAD_BRANCH" \
+            --jq '.commit.sha' 2>&1) || {
+            echo "{\"status\":\"error\",\"message\":\"Contents API PUT failed: $NEW_SHA\"}"
+            exit 1
+          }
+          
+          echo "File committed with SHA: $NEW_SHA"
+          
+          # Merge main into PR branch using the commit SHA we just created (avoids race)
+          MERGE_RESULT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM/update-branch" \
+            --method PUT \
+            -f expected_head_sha="$NEW_SHA" \
+            --jq '.message' 2>&1) || {
+            echo "{\"status\":\"partial\",\"message\":\"File committed but update-branch failed: $MERGE_RESULT\",\"file_committed\":\"$FILE\"}"
+            exit 0
+          }
+          
+          echo "{\"status\":\"success\",\"message\":\"$MERGE_RESULT\",\"file_resolved\":\"$FILE\",\"pr_branch\":\"$HEAD_BRANCH\"}"
+          
+          
+          GH_AW_SAFE_INPUTS_SH_RESOLVE-PR-CONFLICTS_EOF
+          chmod +x /opt/gh-aw/safe-inputs/resolve-pr-conflicts.sh
           
       - name: Generate Safe Inputs MCP Server Config
         id: safe-inputs-config
@@ -940,7 +1030,7 @@ jobs:
           DEBUG: '*'
           GH_AW_SAFE_INPUTS_PORT: ${{ steps.safe-inputs-config.outputs.safe_inputs_port }}
           GH_AW_SAFE_INPUTS_API_KEY: ${{ steps.safe-inputs-config.outputs.safe_inputs_api_key }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           REPO_NAME: ${{ github.event.repository.name }}
           REPO_OWNER: ${{ github.repository_owner }}
         run: |
@@ -959,7 +1049,7 @@ jobs:
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
           GH_AW_SAFE_OUTPUTS_API_KEY: ${{ steps.safe-outputs-start.outputs.api_key }}
           GH_AW_SAFE_OUTPUTS_PORT: ${{ steps.safe-outputs-start.outputs.port }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           REPO_NAME: ${{ github.event.repository.name }}
           REPO_OWNER: ${{ github.repository_owner }}
@@ -1045,7 +1135,7 @@ jobs:
           GH_AW_MCP_CONFIG: /home/runner/.copilot/mcp-config.json
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_REF_NAME: ${{ github.ref_name }}

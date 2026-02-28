@@ -51,6 +51,75 @@ safe-inputs:
       REPO_OWNER: "${{ github.repository_owner }}"
       REPO_NAME: "${{ github.event.repository.name }}"
 
+  resolve-pr-conflicts:
+    description: "Resolve a merge conflict on a PR by overwriting a conflicting file with main's version via the GitHub Contents API, then merging remaining main changes via update-branch. Call once per conflicting file. Returns JSON with status (success, partial, error) and details. The PR's changes to the resolved file are LOST — main's version wins."
+    inputs:
+      pr_number:
+        type: number
+        required: true
+        description: "The pull request number to resolve conflicts for"
+      file_path:
+        type: string
+        required: true
+        description: "Path to the conflicting file to resolve (e.g., src/components/Foo.tsx)"
+    timeout: 120
+    run: |
+      set -euo pipefail
+
+      PR_NUM="$INPUT_PR_NUMBER"
+      FILE="$INPUT_FILE_PATH"
+
+      echo "Resolving conflict for file '$FILE' on PR #$PR_NUM"
+
+      # Get PR head branch name
+      HEAD_BRANCH=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" --jq '.head.ref')
+      echo "PR branch: $HEAD_BRANCH"
+
+      # Get main's version of the file (base64)
+      MAIN_B64=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE?ref=main" --jq '.content' | tr -d '\n')
+      if [ -z "$MAIN_B64" ]; then
+        echo '{"status":"error","message":"Could not read main version of file"}'
+        exit 1
+      fi
+
+      # Get PR branch's file SHA (needed for update)
+      PR_SHA=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE?ref=$HEAD_BRANCH" --jq '.sha')
+      if [ -z "$PR_SHA" ]; then
+        echo '{"status":"error","message":"Could not read PR branch version of file"}'
+        exit 1
+      fi
+
+      echo "Main b64 length: ${#MAIN_B64}, PR file SHA: $PR_SHA"
+
+      # Commit main's version to PR branch — capture new commit SHA for update-branch
+      NEW_SHA=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE" \
+        --method PUT \
+        -f message="chore: resolve merge conflict in $FILE" \
+        -f content="$MAIN_B64" \
+        -f sha="$PR_SHA" \
+        -f branch="$HEAD_BRANCH" \
+        --jq '.commit.sha' 2>&1) || {
+        echo "{\"status\":\"error\",\"message\":\"Contents API PUT failed: $NEW_SHA\"}"
+        exit 1
+      }
+
+      echo "File committed with SHA: $NEW_SHA"
+
+      # Merge main into PR branch using the commit SHA we just created (avoids race)
+      MERGE_RESULT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM/update-branch" \
+        --method PUT \
+        -f expected_head_sha="$NEW_SHA" \
+        --jq '.message' 2>&1) || {
+        echo "{\"status\":\"partial\",\"message\":\"File committed but update-branch failed: $MERGE_RESULT\",\"file_committed\":\"$FILE\"}"
+        exit 0
+      }
+
+      echo "{\"status\":\"success\",\"message\":\"$MERGE_RESULT\",\"file_resolved\":\"$FILE\",\"pr_branch\":\"$HEAD_BRANCH\"}"
+    env:
+      GH_TOKEN: "${{ secrets.GH_AW_GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
+
 safe-outputs:
   push-to-pull-request-branch:
     max: 1
@@ -280,30 +349,24 @@ Update the dashboard with:
 
 This mode runs when a non-draft, approved PR has merge conflicts preventing merge.
 
-1. Read the PR diff and identify the conflicting files
-2. Read the current `main` branch versions of those files
-3. Read the PR branch versions of those files
-4. Resolve conflicts by:
-   - Keeping the PR's intentional changes
-   - Incorporating any changes from `main` that don't conflict with the PR's intent
-   - When in doubt, prefer the PR's changes (the reviewer approved this intent)
-5. Read the linked issue (extract from `Closes #N` in PR body) for context on intent
+**Do NOT use git fetch, git rebase, or git merge** — credential isolation in
+the sandbox prevents git operations on remote branches.
 
-### Step 7b — Push conflict resolution
+Instead, use the `resolve-pr-conflicts` safe-input tool for each conflicting file:
 
-Stage and commit the resolved files:
+1. List the PR's changed files using:
+   `gh api repos/{owner}/{repo}/pulls/{pr_number}/files --jq '.[].filename'`
+2. For **each** file in the list, call `resolve-pr-conflicts` with the PR number
+   and file path. The tool overwrites the file on the PR branch with main's
+   version via the Contents API, then merges remaining main changes.
+3. After resolving all files, call `check-pr-merge-state` to verify the PR is
+   now `MERGEABLE`. If still `CONFLICTING`, report the failure.
 
-```bash
-git add -A
-git commit -m "fix: resolve merge conflicts with main
+**Important**: This is a brute-force resolution — the PR's version of each
+resolved file is replaced with main's version. The PR's changes to those
+specific files are lost. This is acceptable for agent-generated PRs.
 
-Conflicts resolved:
-- <list each file>"
-```
-
-Call `push_to_pull_request_branch` to push the resolution to the PR branch.
-
-### Step 8b — Post resolution comment
+### Step 7b — Post resolution comment
 
 Call `add_comment` with:
 
@@ -315,7 +378,12 @@ Call `add_comment` with:
 
 ### Resolved Files
 
-- `<file>` — <brief description of how conflict was resolved>
+| File | Resolution |
+|------|-----------|
+| `<file>` | Overwritten with main's version |
+
+⚠️ The PR's changes to the above files were lost during conflict resolution.
+Main's version was used to clear the conflicts.
 
 Conflicts have been resolved. The PR Promoter can now merge this PR.
 ```

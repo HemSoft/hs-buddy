@@ -120,6 +120,16 @@ safe-inputs:
       REPO_OWNER: "${{ github.repository_owner }}"
       REPO_NAME: "${{ github.event.repository.name }}"
 
+  read-sfl-config:
+    description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits."
+    inputs: {}
+    run: |
+      gh api "repos/$REPO_OWNER/$REPO_NAME/contents/.github/sfl-config.yml?ref=main" --jq '.content' | base64 -d
+    env:
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
+
 safe-outputs:
   push-to-pull-request-branch:
     max: 1
@@ -162,6 +172,18 @@ Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
+## Step 0 — Read SFL autonomy config
+
+Call `read_sfl_config` (no inputs). Parse the YAML and note these values:
+
+- `autonomy.conflict-resolution` (boolean) — if `false`, do NOT attempt
+  conflict resolution in Step 6b; instead post a comment requesting human
+  intervention and exit
+- `cycles.max-fix-cycles` (number) — the maximum cycle number before
+  escalating to human
+
+Keep these values in context for use in later steps.
+
 ## Step 1 — Find the target PR
 
 First, check for non-draft PRs with merge conflicts (conflict resolution mode).
@@ -202,11 +224,13 @@ Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
 - If `pr:cycle-2` exists, the current cycle is `2`
 - If `pr:cycle-3` exists, the current cycle is `3`
 
-If the current cycle is `3`, the PR has reached the cycle cap. Escalate:
+Use `cycles.max-fix-cycles` from Step 0 (default: 3) as the cycle cap.
+
+If the current cycle equals the cap, the PR has reached the cycle limit. Escalate:
 
 1. Call `add_labels` to add `agent:human-required` to the PR
 2. Call `add_comment` with:
-   "🚨 **PR Fixer**: Cycle limit (3) reached. Escalating to human review."
+   "🚨 **PR Fixer**: Cycle limit (<cap>) reached. Escalating to human review."
 3. Update the dashboard and exit.
 
 ## Step 3 — Verify all three analyzers have reviewed
@@ -349,6 +373,11 @@ Update the dashboard with:
 
 This mode runs when a non-draft, approved PR has merge conflicts preventing merge.
 
+**Pre-check**: If `autonomy.conflict-resolution` is `false` (from Step 0),
+do NOT attempt resolution. Instead, post a comment:
+"⚠️ Conflict resolution is disabled in SFL config. Human intervention required."
+Add label `agent:human-required`, update the dashboard, and exit.
+
 **Do NOT use git fetch, git rebase, or git merge** — credential isolation in
 the sandbox prevents git operations on remote branches.
 
@@ -399,6 +428,6 @@ Update the dashboard with:
 - Never un-draft the PR — that is the Promoter's job
 - Never close or merge the PR
 - Never create a new PR — push fixes to the existing branch
-- Maximum 3 fix cycles per PR — escalate after that
+- Maximum fix cycles per PR is controlled by `cycles.max-fix-cycles` in sfl-config.yml — escalate after that
 - For every skip path, update the dashboard
 - If any step fails unexpectedly, update the dashboard and exit

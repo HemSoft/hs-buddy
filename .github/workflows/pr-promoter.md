@@ -25,6 +25,17 @@ tools:
   github:
     lockdown: false
 
+safe-inputs:
+  read-sfl-config:
+    description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits."
+    inputs: {}
+    run: |
+      gh api "repos/$REPO_OWNER/$REPO_NAME/contents/.github/sfl-config.yml?ref=main" --jq '.content' | base64 -d
+    env:
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
+
 safe-outputs:
   add-labels:
     max: 3
@@ -62,6 +73,17 @@ delimited by HTML comment markers (`<!-- SECTION:pr-promoter -->` ...
 Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
+
+## Step 0 — Read SFL autonomy config
+
+Call `read_sfl_config` (no inputs). Parse the YAML and note these values:
+
+- `autonomy.auto-merge` (boolean) — controls whether Phase 2 requires human
+  approval before merging
+- `autonomy.conflict-resolution` (boolean) — noted for awareness
+- `risk-tolerance` (string) — noted for awareness
+
+Keep these values in context for use in later steps.
 
 ## Step 1 — Find the target PR
 
@@ -241,7 +263,15 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 - Is **NOT** a draft PR
 - Has the label `human:ready-for-review`
-- Has at least one GitHub review with state `APPROVED`
+
+**If `autonomy.auto-merge` is `false` (from Step 0):**
+
+- Also require at least one GitHub review with state `APPROVED`
+
+**If `autonomy.auto-merge` is `true`:**
+
+- Skip the approval requirement — any non-draft PR with `human:ready-for-review`
+  is eligible for merge
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
@@ -294,9 +324,13 @@ Call `update_issue` with:
 **Linked Issue**: #<issue-number>
 **Merge method**: squash
 **Branch**: <branch-name> (deleted)
+**Approval**: <human-approved | auto-merge>
 
-This PR was automatically merged after human approval.
+This PR was automatically merged <after human approval | via SFL auto-merge>.
 ```
+
+Use "human-approved" / "after human approval" when `auto-merge` is `false`.
+Use "auto-merge" / "via SFL auto-merge" when `auto-merge` is `true`.
 
 Extract the linked issue number from `Closes #N` in the PR body.
 

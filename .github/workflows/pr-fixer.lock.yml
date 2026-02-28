@@ -26,7 +26,7 @@
 # fixes directly to the PR branch, updates cycle labels, and exits. Does NOT
 # un-draft the PR — that is the Promoter's job.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"0622bd1a7261db2ff1cbc3d6d15527af3e5231f93ff54d094a04a568a248edb5","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"d5689a50651f34da347dc187c776523612b389ac7cb82a7189c32ee6fef6913d","compiler_version":"v0.50.4"}
 
 name: "PR Fixer — Authority"
 "on":
@@ -869,6 +869,21 @@ jobs:
                 "timeout": 60
               },
               {
+                "name": "read-sfl-config",
+                "description": "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits.",
+                "inputSchema": {
+                  "properties": {},
+                  "type": "object"
+                },
+                "handler": "read-sfl-config.sh",
+                "env": {
+                  "GH_TOKEN": "GH_TOKEN",
+                  "REPO_NAME": "REPO_NAME",
+                  "REPO_OWNER": "REPO_OWNER"
+                },
+                "timeout": 60
+              },
+              {
                 "name": "resolve-pr-conflicts",
                 "description": "Resolve a merge conflict on a PR by overwriting a conflicting file with main's version via the GitHub Contents API, then merging remaining main changes via update-branch. Call once per conflicting file. Returns JSON with status (success, partial, error) and details. The PR's changes to the resolved file are LOST — main's version wins.",
                 "inputSchema": {
@@ -943,6 +958,18 @@ jobs:
           
           GH_AW_SAFE_INPUTS_SH_CHECK-PR-MERGE-STATE_EOF
           chmod +x /opt/gh-aw/safe-inputs/check-pr-merge-state.sh
+          cat > /opt/gh-aw/safe-inputs/read-sfl-config.sh << 'GH_AW_SAFE_INPUTS_SH_READ-SFL-CONFIG_EOF'
+          #!/bin/bash
+          # Auto-generated safe-input tool: read-sfl-config
+          # Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits.
+          
+          set -euo pipefail
+          
+          gh api "repos/$REPO_OWNER/$REPO_NAME/contents/.github/sfl-config.yml?ref=main" --jq '.content' | base64 -d
+          
+          
+          GH_AW_SAFE_INPUTS_SH_READ-SFL-CONFIG_EOF
+          chmod +x /opt/gh-aw/safe-inputs/read-sfl-config.sh
           cat > /opt/gh-aw/safe-inputs/resolve-pr-conflicts.sh << 'GH_AW_SAFE_INPUTS_SH_RESOLVE-PR-CONFLICTS_EOF'
           #!/bin/bash
           # Auto-generated safe-input tool: resolve-pr-conflicts

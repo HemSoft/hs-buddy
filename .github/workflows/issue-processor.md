@@ -18,6 +18,17 @@ tools:
   github:
     lockdown: false
 
+safe-inputs:
+  read-sfl-config:
+    description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits."
+    inputs: {}
+    run: |
+      gh api "repos/$REPO_OWNER/$REPO_NAME/contents/.github/sfl-config.yml?ref=main" --jq '.content' | base64 -d
+    env:
+      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
+
 safe-outputs:
   create-pull-request:
     title-prefix: "[agent-fix] "
@@ -37,6 +48,17 @@ safe-outputs:
 Run every 30 minutes. Find the oldest open `agent:fixable` issue, claim it,
 implement the fix, and open a pull request. Process exactly one issue per run.
 
+## Step 0 — Read SFL autonomy config
+
+Call `read_sfl_config` (no inputs). Parse the YAML and note:
+
+- `risk-tolerance` (string: `trivial`, `low`, `medium`, or `high`) — the
+  maximum risk level the agent may process autonomously
+
+The risk hierarchy is: `trivial` < `low` < `medium` < `high`.
+
+Keep this value in context for use in Step 1.
+
 ## Step 1 — Find the oldest claimable issue
 
 Search for open issues in this repository that have ALL of the following labels:
@@ -52,6 +74,17 @@ And do NOT have any of:
 - `no-agent`
 
 Sort results by creation date ascending. Take the **single oldest** result.
+
+**Risk tolerance check**: Before claiming, check the issue's `risk:*` label
+against the `risk-tolerance` from Step 0:
+
+- If the issue has `risk:medium` and tolerance is `low` or `trivial` → skip it
+- If the issue has `risk:high` and tolerance is `medium`, `low`, or `trivial` → skip it
+
+When skipping due to risk: add label `agent:human-required`, post a comment
+"⚠️ Issue risk level (`risk:<level>`) exceeds SFL tolerance (`<tolerance>`).
+Requires human review.", and try the next oldest issue. If no eligible issues
+remain, exit — nothing to do.
 
 If no issue matches, exit immediately — nothing to do.
 

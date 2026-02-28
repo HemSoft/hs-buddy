@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import DOMPurify from 'dompurify'
 import MarkdownPreview from '@uiw/react-markdown-preview'
 import {
   Check,
@@ -221,7 +222,7 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
       <div
         className="thread-comment-body thread-comment-markdown thread-comment-markdown-html"
         data-color-mode="dark"
-        dangerouslySetInnerHTML={{ __html: bodyHtml }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(bodyHtml) }}
       />
     )
   }

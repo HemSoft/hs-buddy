@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.180] - 2026-02-28
+
 ## [0.1.179] - 2026-02-28
+
+### Fixed
+
+- Use GH_AW_GITHUB_TOKEN for PR merge bypass
 
 ## [0.1.178] - 2026-02-28
 

@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.201] - 2026-02-28
+
 ## [0.1.200] - 2026-02-28
+
+### Fixed
+
+- Dispatcher dispatches Promoter for all ready-for-review PRs, not just approved
 
 ## [0.1.199] - 2026-02-28
 

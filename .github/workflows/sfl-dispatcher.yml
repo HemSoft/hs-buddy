@@ -134,19 +134,36 @@ jobs:
             fi
           done
 
-          # Also check fixer hasn't already processed this cycle
+          # Determine state: fixer done? analyzers done? needs re-analysis?
           if echo "$PR_BODY" | grep -qF "[MARKER:pr-fixer cycle:$CYCLE]"; then
             echo "PR #$PR_NUMBER already fixed in cycle $CYCLE — fixer not needed."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
             echo "promoter_ready=true" >> "$GITHUB_OUTPUT"
+            echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
           elif [ "$ALL_MARKERS" = "true" ]; then
             echo "PR #$PR_NUMBER has all 3 analyzer markers for cycle $CYCLE — will dispatch fixer."
             echo "fixer_ready=true" >> "$GITHUB_OUTPUT"
             echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
+            echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
+          elif [ "$CYCLE" -gt 0 ]; then
+            # Cycle > 0 with no analyzer markers — check if previous cycle was fixed
+            PREV=$((CYCLE - 1))
+            if echo "$PR_BODY" | grep -qF "[MARKER:pr-fixer cycle:$PREV]"; then
+              echo "PR #$PR_NUMBER at cycle $CYCLE needs re-analysis (fixer completed cycle $PREV)."
+              echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+              echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
+              echo "analyzers_needed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE — fixer not ready."
+              echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+              echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
+              echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
+            fi
           else
-            echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE — fixer not ready."
+            echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE — waiting for analyzers."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
             echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
+            echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Dispatch Issue Processor
@@ -154,6 +171,14 @@ jobs:
         run: |
           echo "Dispatching Issue Processor..."
           gh workflow run issue-processor.lock.yml --repo "$REPO"
+
+      - name: Dispatch PR Analyzers (re-analysis after fixer)
+        if: steps.prs.outputs.analyzers_needed == 'true'
+        run: |
+          echo "Dispatching all 3 PR Analyzers for re-analysis..."
+          gh workflow run pr-analyzer-a.lock.yml --repo "$REPO"
+          gh workflow run pr-analyzer-b.lock.yml --repo "$REPO"
+          gh workflow run pr-analyzer-c.lock.yml --repo "$REPO"
 
       - name: Dispatch PR Fixer
         if: steps.prs.outputs.fixer_ready == 'true'
@@ -215,6 +240,12 @@ jobs:
             echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "| Issue Processor | No (0 fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ steps.prs.outputs.analyzers_needed }}" = "true" ]; then
+            echo "| PR Analyzers A/B/C | Yes (re-analysis after fixer) |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| PR Analyzers A/B/C | No (not needed) |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ]; then

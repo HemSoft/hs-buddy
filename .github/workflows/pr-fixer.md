@@ -1,10 +1,9 @@
 ---
 description: |
   PR Fixer — Authority model. Reads all analyzer review comments on a draft
-  PR labeled agent:pr, implements all blocking and non-blocking fixes, commits
-  to the PR branch, increments the cycle label, and exits. Does NOT un-draft
-  the PR — that is the Promoter's job. Intended model: claude-opus-4
-  (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
+  PR labeled agent:pr, implements all blocking and non-blocking fixes, pushes
+  fixes directly to the PR branch, updates cycle labels, and exits. Does NOT
+  un-draft the PR — that is the Promoter's job.
 
 on:
   workflow_dispatch:
@@ -25,23 +24,29 @@ tools:
     lockdown: false
 
 safe-outputs:
-  create-pull-request:
-    labels: [agent:pr, type:fix]
-    draft: true
+  push-to-pull-request-branch:
+    max: 1
+  add-comment:
+    target: "*"
+    max: 1
+  add-labels:
+    max: 3
+  remove-labels:
+    max: 3
   update-discussion:
     target: "*"
     max: 1
   update-issue:
     target: "*"
-    max: 7
+    max: 3
 ---
 
 # PR Fixer — Authority
 
 Run every 30 minutes (offset from analyzers). Find the oldest draft PR labeled
 `agent:pr` whose current cycle has all three analyzer reviews posted. Read
-every finding, implement all fixes, commit to the PR branch, increment the
-cycle label, and post a structured fix summary. Process exactly one PR per run.
+every finding, implement all fixes, push them to the PR branch, update the
+cycle label, and post a fix summary comment. Process exactly one PR per run.
 
 **You do NOT un-draft the PR.** That is the PR Promoter's responsibility.
 
@@ -70,159 +75,74 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
-If no PR matches, update the dashboard (see Dashboard Protocol) with:
+If no PR matches, update the dashboard with:
 "No draft PRs with agent:pr label found — nothing to fix." and exit.
 
 ## Step 2 — Determine the current review cycle
 
-Determine two values:
-
-### Local cycle (for marker matching)
-
 Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
 
-- If no `pr:cycle-N` label exists, the local cycle is `0`
-- If `pr:cycle-1` exists, the local cycle is `1`
-- If `pr:cycle-2` exists, the local cycle is `2`
-- If `pr:cycle-3` exists, the local cycle is `3`
+- If no `pr:cycle-N` label exists, the current cycle is `0`
+- If `pr:cycle-1` exists, the current cycle is `1`
+- If `pr:cycle-2` exists, the current cycle is `2`
+- If `pr:cycle-3` exists, the current cycle is `3`
 
-### Cumulative cycle (for escalation limit)
+If the current cycle is `3`, the PR has reached the cycle cap. Escalate:
 
-Search the PR body for `[META:cumulative-cycle:N]` where N is a number.
-
-- If found, the cumulative cycle is N
-- If not found, the cumulative cycle is `0`
-
-The cumulative cycle tracks how many total fix iterations this issue has been
-through across PR supersessions. If the cumulative cycle is `3` or higher,
-escalate:
-
-1. Call `update_issue` to add the label `agent:human-required` to the PR
-   (keep all existing labels) and append body:
-
-   ```
-   🚨 **PR Fixer**: Cumulative cycle limit (3) reached across fix PRs. Escalating to human review.
-   ```
-
-2. Exit.
+1. Call `add_labels` to add `agent:human-required` to the PR
+2. Call `add_comment` with:
+   "🚨 **PR Fixer**: Cycle limit (3) reached. Escalating to human review."
+3. Update the dashboard and exit.
 
 ## Step 3 — Verify all three analyzers have reviewed
 
-Search the PR body for these exact marker texts for the local cycle number
-(N = local cycle from Step 2):
+Search the PR body for these exact marker texts for the current cycle (N):
 
 - `[MARKER:pr-analyzer-a cycle:N]`
 - `[MARKER:pr-analyzer-b cycle:N]`
 - `[MARKER:pr-analyzer-c cycle:N]`
 
-All three markers MUST be present. If any marker is missing, at least one
-analyzer has not reviewed this PR in the current cycle yet. Update the dashboard with:
+All three markers MUST be present. If any marker is missing, update the dashboard with:
 "PR #<number> cycle <N>: waiting for all 3 analyzers (<missing> missing) — skipping."
-and exit. The next run will try again.
+and exit.
 
 ## Step 4 — Check if already fixed in this cycle
 
 Search the PR body for the exact marker text:
-`[MARKER:pr-fixer cycle:N]` where N is the local cycle number.
+`[MARKER:pr-fixer cycle:N]` where N is the current cycle number.
 
-If that marker exists, this fixer has already processed this cycle. Update the dashboard with:
+If that marker exists, update the dashboard with:
 "PR #<number> already fixed in cycle <N> — skipping." and exit.
 
 ## Step 5 — Parse all analyzer findings
 
-From the three analyzer comments found in Step 3, extract every finding:
+From the three analyzer reviews, extract every finding:
 
 ### Blocking Issues
 
-Collect all items under each analyzer's "### Blocking Issues" section.
-These are lines matching `- [ ] **[file:line]** — description`.
+Lines matching `- [ ] **[file:line]** — description` under "### Blocking Issues".
 
 ### Non-Blocking Suggestions
 
-Collect all items under each analyzer's "### Non-Blocking Suggestions" section.
-These are lines matching `- **[file:line]** — description`.
+Lines matching `- **[file:line]** — description` under "### Non-Blocking Suggestions".
 
 ### Verdicts
 
 Check each analyzer's "### Verdict" line:
 
 - If ALL three verdicts say `**PASS**`, there is nothing to fix.
-  **Before exiting**, you MUST still write the fixer marker so the dispatcher
-  knows this cycle was processed. Call `update_issue` with:
-  - `issue_number`: the PR number
-  - `operation`: `"append"`
-  - `body`: the following text exactly (replace N with the cycle number):
-
-  `[MARKER:pr-fixer cycle:N]` on the first line, then
-  `## 🔧 PR Fixer — Cycle N` as the heading, then
-  `**All three analyzers passed** — no fixes needed. The PR Promoter will handle promotion.`
-
-  Then update the dashboard with:
-  "PR #<number> cycle <N>: all analyzers passed — marker written, no
-  fixes needed." and exit.
-
-Record the full list of findings for implementation.
+  Post the fixer marker (Step 9) noting "All three analyzers passed — no fixes
+  needed." Then update the dashboard and exit.
 
 ## Step 6 — Read the PR content and codebase
 
-1. Read the PR description (body) to understand the original intent
+1. Read the PR description to understand original intent
 2. Read the linked issue (extract issue number from `Closes #N` in PR body)
-3. Read the PR diff to see the current changes
-4. Read the full content of each file mentioned in the findings
-5. Read surrounding context files if needed to understand dependencies
+3. Read the PR diff to see current changes
+4. Read each file mentioned in the findings
+5. Read surrounding context files if needed
 
-## Step 7 — Check out the PR branch and rebase onto main
-
-Fetch and check out the PR's head branch:
-
-```bash
-git fetch origin main <head-branch-name>
-git checkout <head-branch-name>
-```
-
-Verify you are on the correct branch before making any changes.
-
-### Rebase onto latest main
-
-Before implementing any fixes, rebase the branch onto the latest `main` to
-ensure the PR is up to date and will merge cleanly:
-
-```bash
-git rebase origin/main
-```
-
-If the rebase completes cleanly, continue to Step 8.
-
-### Handling rebase conflicts
-
-If `git rebase` fails with merge conflicts:
-
-1. **Read each conflicting file** — look for `<<<<<<<`, `=======`, `>>>>>>>` markers
-2. **Resolve the conflicts** — you understand what your branch changed and can
-   read what `main` changed. For `risk:trivial` / `risk:low` fixes, the
-   resolution is usually straightforward (the agent made a mechanical fix and
-   main moved a nearby line)
-3. **Stage resolved files** and continue the rebase:
-
-   ```bash
-   git add <resolved-file>
-   git rebase --continue
-   ```
-
-4. If multiple commits conflict, repeat for each one
-
-If you **cannot confidently resolve** a conflict (e.g., main fundamentally
-changed the code your fix targets, or the conflict is outside the scope of
-your PR):
-
-1. Abort the rebase: `git rebase --abort`
-2. Post a comment via `update_issue` explaining the conflict
-3. Add `agent:human-required` label
-4. Exit
-
-## Step 8 — Implement all fixes
-
-Work through every finding from Step 5 — both blocking AND non-blocking:
+## Step 7 — Implement all fixes
 
 ### Fix priorities
 
@@ -235,121 +155,62 @@ Work through every finding from Step 5 — both blocking AND non-blocking:
 - Make the minimum change necessary — do not refactor surrounding code
 - Do not add comments, docs, or type annotations to unchanged lines
 - Preserve existing formatting conventions exactly
-- If a finding is ambiguous or contradictory with another finding, prefer the
-  safer interpretation
-- If a finding from one analyzer conflicts with a finding from another,
-  prefer the safer interpretation (security > correctness > style)
-- If a fix cannot be implemented (e.g., requires external dependency changes
-  or architectural redesign), note it in the summary comment
+- If findings conflict across analyzers, prefer safety (security > correctness > style)
+- If a fix cannot be implemented, note it in the summary
 
 ### Early escalation — unfixable blocking issues
 
-After attempting all blocking fixes, check whether ANY blocking issue remains
-unfixed. If so, do NOT proceed to Step 9. Instead:
+If ANY blocking issue cannot be fixed:
 
-1. Call `update_issue` to add label `agent:human-required` (keep all existing
-   labels) and append:
-
-   ```
-   🚨 **PR Fixer**: One or more blocking issues cannot be fixed automatically.
-   Escalating to human review.
-
-   **Unfixable blocking issues:**
-   - [file:line] — reason this cannot be fixed
-   ```
-
-2. Update the dashboard with: "PR #<number> cycle <N>: escalated — unfixable
-   blocking issues found."
-3. Exit.
-
-This prevents wasting cycles on findings the agent cannot resolve.
+1. Call `add_labels` to add `agent:human-required`
+2. Call `add_comment` with details of unfixable blocking issues
+3. Update the dashboard and exit.
 
 ### After all fixes
 
-Stage and commit all changes with a single descriptive commit:
+Stage and commit all changes:
 
 ```bash
 git add -A
 git commit -m "fix: address analyzer findings from cycle N
 
 Fixes applied:
-- <one-line summary of each fix>
-
-Addresses blocking issues from PR analyzers A, B, C."
+- <one-line summary of each fix>"
 ```
 
-## Step 9 — Open fix PR via create_pull_request
+## Step 8 — Push fixes to the PR branch
 
-The `create_pull_request` safe output creates a **new branch and a new PR**.
-This is the platform's security model — agents cannot push directly to
-existing branches. Each fix cycle produces its own PR that supersedes the
-previous one.
+Call `push_to_pull_request_branch` to push your committed changes directly
+to the existing PR's branch. This updates the PR in place — no new PR needed.
 
-Extract the linked issue number from the current PR body (`Closes #N`).
-Calculate the new cumulative cycle: current cumulative cycle + 1.
+## Step 9 — Update cycle label
 
-Call `create_pull_request` with:
+Increment the cycle label:
 
-- **Title**: the same title as the current PR (unchanged)
-- **Body**: build the body with these sections in order:
+1. Call `remove_labels` to remove the current cycle label (e.g., `pr:cycle-0`
+   or whichever `pr:cycle-N` exists). If no cycle label exists, skip removal.
+2. Call `add_labels` to add the next cycle label (e.g., `pr:cycle-1`).
 
-```
-Closes #<issue-number>
-Supersedes #<old-PR-number>
+## Step 10 — Post fix summary
 
-[META:cumulative-cycle:<new-cumulative-cycle>]
+Call `update_issue` with `operation: "append"` to post the fixer marker and
+summary to the PR body:
 
-<original PR description from the linked issue or current PR body,
-excluding any analyzer/fixer markers>
-```
-
-The safe-output config automatically adds `agent:pr` and `type:fix` labels
-and creates the PR as a draft. The handler will create a new branch with
-a suffix — this is expected behavior.
-
-The new PR opening will automatically trigger all three analyzers
-(`pull_request: types: [opened]`). No manual re-trigger is needed.
-
-## Step 10 — Close the old PR
-
-Call `update_issue` with:
-
-- `issue_number`: the old PR number (the one you just fixed)
-- `status`: `"closed"`
-- `body`: `"Superseded by fix PR. See latest draft PR with \`type:fix\` label for the updated implementation."`
-- `operation`: `"append"`
-
-This prevents the old PR from being picked up by future fixer or promoter runs.
-
-## Step 11 — Post fix record to old PR
-
-Call `update_issue` with:
-
-- `issue_number`: the old PR number
-- `operation`: `"append"`
-- `body`: the structured fix summary in the exact format below
-
-**CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
-be the very first line of your output, exactly as shown.
+**CRITICAL**: The `[MARKER:...]` line MUST be the very first line.
 
 ```markdown
 [MARKER:pr-fixer cycle:N]
 ## 🔧 PR Fixer — Cycle N Fix Summary
 
 **Fixer**: Authority (Claude Opus)
-**Cumulative Cycle**: <cumulative-cycle>
-**Old PR**: #<old-PR-number> (closed)
+**PR**: #<number>
 **Linked Issue**: #<issue-number>
 
 ### Fixes Applied
 
-> Changes committed to address analyzer findings.
-
 - **[file:line]** — What was changed and why. (from Analyzer X)
 
 ### Unable to Fix
-
-> Findings that could not be addressed automatically.
 
 - **[file:line]** — Why this could not be fixed. (from Analyzer X)
 
@@ -360,26 +221,17 @@ _None._ (use this if all findings were fixed)
 - **Blocking issues fixed**: X of Y
 - **Non-blocking suggestions fixed**: X of Y
 - **Commit**: `<short SHA>`
-- **New fix PR opened**: (created via create_pull_request safe output)
 ```
 
-Replace N with the local cycle number. Fill in actual findings and fixes.
+Update the dashboard with:
+"PR #<number> cycle <N>: fixed and pushed — <X> blocking, <Y> non-blocking fixes applied."
 
 ## Guardrails
 
-- Fix exactly ONE PR per run — never loop over multiple PRs
-- Never un-draft the PR — the PR Promoter handles that
-- Close ONLY the old PR being superseded (Step 10) — never close the linked issue
-- Never modify the linked issue's labels or content
-- Never remove `agent:human-required` — that label requires explicit human action
-- Do NOT run `git push` — the workflow token does not have push permissions.
-  Always use the `create_pull_request` safe output (Step 9)
-- Always rebase onto `origin/main` before implementing fixes (Step 7)
-- Attempt to resolve rebase conflicts before escalating — only escalate if
-  resolution is ambiguous or outside the PR's scope
-- If the PR diff is empty or cannot be read, update the dashboard with an explanation
-- If any step fails unexpectedly, update the dashboard with the failure reason and exit
-- At most 7 `update_issue` calls per run (enforced by safe-outputs max)
-- When findings conflict across analyzers, prefer security over style
-- The `create_pull_request` safe output will create a new branch with a
-  suffix — this is expected. Do NOT try to prevent it
+- Process exactly ONE PR per run
+- Never un-draft the PR — that is the Promoter's job
+- Never close or merge the PR
+- Never create a new PR — push fixes to the existing branch
+- Maximum 3 fix cycles per PR — escalate after that
+- For every skip path, update the dashboard
+- If any step fails unexpectedly, update the dashboard and exit

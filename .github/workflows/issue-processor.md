@@ -23,6 +23,10 @@ safe-outputs:
     title-prefix: "[agent-fix] "
     labels: [agent:pr]
     draft: true
+  add-labels:
+    max: 3
+  remove-labels:
+    max: 3
   update-issue:
     target: "*"
     max: 3
@@ -53,13 +57,14 @@ If no issue matches, exit immediately — nothing to do.
 
 ## Step 2 — Claim the issue
 
-Before doing any other work, call `update_issue` with:
+Before doing any other work:
 
-- `issue_number`: the issue number found in Step 1 (always required)
-- `labels`: replace with `["agent:in-progress", "report", "action-item", "audit"]`
-  (remove `agent:fixable`, add `agent:in-progress` — keep all other existing labels)
-- `body`: append "🤖 Issue Processor claimed this issue. Working on a fix."
-- `operation`: `"append"`
+1. Call `add_labels` to add `agent:in-progress` to the issue
+2. Call `remove_labels` to remove `agent:fixable` from the issue
+3. Call `update_issue` with:
+   - `issue_number`: the issue number from Step 1
+   - `body`: "🤖 Issue Processor claimed this issue. Working on a fix."
+   - `operation`: `"append"`
 
 This prevents a concurrent run from picking up the same issue.
 
@@ -135,6 +140,6 @@ Call `update_issue` with:
 - Exit after processing exactly one issue per run — never loop over multiple issues
 - Never force-push, amend commits, or modify files outside the Fix scope
 - Never run `git push` directly — always use the `create_pull_request` safe output
-- If any step fails unexpectedly: call `update_issue` with labels that replace
-  `agent:in-progress` with `agent:pause` (keep all other labels), and body
-  appending the failure reason, then exit cleanly
+- If any step fails unexpectedly: call `add_labels` with `agent:pause` and
+  `remove_labels` with `agent:in-progress`, then call `update_issue` to append
+  the failure reason, then exit cleanly

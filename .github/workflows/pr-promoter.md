@@ -24,6 +24,10 @@ tools:
     lockdown: false
 
 safe-outputs:
+  add-labels:
+    max: 3
+  remove-labels:
+    max: 3
   update-discussion:
     target: "*"
     max: 2
@@ -153,18 +157,14 @@ Fixer will handle this." and exit.
 
 ## Step 6 — Add ready-for-review label (triggers draft flip)
 
-Call `update_issue` with:
+Call `add_labels` with `human:ready-for-review`. This adds the label without
+touching existing labels — no risk of accidentally dropping labels.
 
-- `issue_number`: the PR number
-- `status`: `"open"` (required — validation rejects calls without status/title/body)
-- `labels`: the PR's current labels with `human:ready-for-review` added.
-  If `agent:promoted` exists, remove it. Keep all other existing labels.
+If the PR has the legacy `agent:promoted` label, also call `remove_labels`
+to remove it.
 
-This label addition triggers the `pr-label-actions.yml` workflow which
-automatically converts the PR from draft to ready-for-review.
-
-**Important**: The `labels` field REPLACES all labels. You MUST include every
-existing label on the PR plus `human:ready-for-review`. Do not drop any labels.
+The `human:ready-for-review` label addition triggers `pr-label-actions.yml`
+which automatically converts the PR from draft to ready-for-review.
 
 ## Step 7 — Post the promotion comment
 
@@ -215,8 +215,8 @@ number from `Closes #N` in the PR body.
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
 - Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
 - Never touch the linked issue — only operate on the PR
-- Use `update_issue` with `labels` to add `human:ready-for-review` (triggers `pr-label-actions.yml` to flip draft)
-- Every `update_issue` call MUST include at least one of `status`, `title`, or `body` — calls with only `labels` are silently rejected by validation
+- Use `add_labels` for label additions (safer than `update_issue` with full label array)
+- Use `update_issue` with `operation: "append"` for marker comments (requires `status`/`title`/`body`)
 - Do NOT use `gh pr ready` or `create_pull_request` — the agent has no gh CLI access
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
@@ -255,18 +255,11 @@ If the PR is not mergeable (e.g., conflicts, failing checks), update the dashboa
 
 ## Step 11 — Add ready-to-merge label (triggers squash merge)
 
-Call `update_issue` with:
+Call `add_labels` with `ready-to-merge`. This adds the label without touching
+existing labels.
 
-- `issue_number`: the PR number
-- `status`: `"open"` (required — validation rejects calls without status/title/body)
-- `labels`: the PR's current labels with `ready-to-merge` added. Keep all
-  existing labels.
-
-This label addition triggers the `pr-label-actions.yml` workflow which
+The `ready-to-merge` label addition triggers `pr-label-actions.yml` which
 automatically squash-merges the PR and deletes the source branch.
-
-**Important**: The `labels` field REPLACES all labels. You MUST include every
-existing label on the PR plus `ready-to-merge`. Do not drop any labels.
 
 ## Step 12 — Post merge comment
 

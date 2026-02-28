@@ -33,4 +33,61 @@ Ask "can an existing workflow handle this?" before creating a new file.
 
 ---
 
+### 2026-02-28 — Complexity spiral from reactive platform constraint discovery
+
+**Context**: PR Fixer workflow needed to push fixes to existing PR branches.
+`create_pull_request` safe-output always creates a NEW branch — the agent cannot
+push to existing branches. This was assumed to be a hard platform constraint.  
+**Problem**: Instead of questioning the design, each workaround added more logic:
+supersession model (new PR per fix), cumulative cycle tracking via META tags,
+old-PR closing, fix record posting. PR Fixer prompt grew to ~365 lines.  
+**Root Cause**: Platform constraints were discovered reactively (after failures)
+rather than proactively (reading tool descriptions). Each workaround was treated
+as "the fix" without asking whether the overall design should change.  
+**Resolution**: Web research on 2026-02-28 revealed `push-to-pull-request-branch`
+safe-output existed all along. The entire supersession model was unnecessary —
+the fixer CAN push to existing PR branches. Additionally, `add-comment`,
+`close-pull-request`, `add-labels`, and `remove-labels` were all available but
+never configured. See constraints.md for the full safe-output type inventory.  
+**Takeaway**: ALWAYS verify platform constraints against official docs at
+`https://github.github.com/gh-aw/reference/safe-outputs/` — never infer
+capabilities from existing code alone. The code only shows what was configured,
+not what's available.
+
+### 2026-02-28 — Cross-session complexity blindness
+
+**Context**: Over a week of iterations, each session's agent added complexity to
+fix the last session's problems. No single session saw the full picture.  
+**Problem**: 40 labels (limit: 25), fixer prompt at 365 lines, 4+ state tracking
+mechanisms per workflow, every metric at or over its ceiling.  
+**Root Cause**: Each agent session starts fresh with no memory of the complexity
+trajectory. The "simplicity" guardrails exist in docs but no agent enforced them.  
+**Resolution**: Pending — TODO items created for systematic simplification.  
+**Takeaway**: At the START of every SFL session, run a complexity check:
+count workflows, labels, prompt lines, and state mechanisms. Compare against
+ceilings. If anything is at or over the limit, address that BEFORE adding
+anything new.
+
+---
+
 *Add new lessons below this line. Most recent at the bottom.*
+
+### 2026-02-28 — Code-only capability assessment misses available features
+
+**Context**: Designing the simplified architecture, I stated that `add-comment`
+and `create-pull-request-review-comment` were NOT available as safe-output types.
+User challenged: "How exactly are you determining that?"  
+**Problem**: I had only inspected existing `.lock.yml` files and configured
+safe-outputs to determine what was available. The code showed what WE configured,
+not what the PLATFORM offers.  
+**Root Cause**: Lazy capability assessment — grepping existing code instead of
+consulting the official documentation. This is a form of anchoring bias: existing
+code defines the mental model of what's possible.  
+**Resolution**: Fetched `https://github.github.com/gh-aw/reference/safe-outputs/`
+and discovered 25+ safe-output types, including `push-to-pull-request-branch`,
+`add-comment`, `close-pull-request`, `add-labels`, `remove-labels`,
+`dispatch-workflow`, and more. The entire supersession model was unnecessary.  
+**Takeaway**: When determining platform capabilities, ALWAYS check official docs
+first. Existing code shows what was configured, not what's available. This
+applies to any platform: GitHub Actions, Convex, Electron — check the docs,
+not just the codebase.

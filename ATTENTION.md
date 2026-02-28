@@ -43,14 +43,23 @@
 - **Impact**: Once PRs get human approval, auto-merge will fail. Humans can still merge manually.
 - **Suggested Action**: When a PR reaches approved state, investigate if `create-pull-request` safe-output can handle merges, or add a dedicated merge mechanism.
 
+### SFL Complexity Spiral — Needs Systematic Simplification
+
+- **Severity**: High
+- **Detected**: 2026-02-28
+- **Status**: Active — root cause partially resolved
+- **Description**: Over a week of iterative fixes pushed every complexity metric past its ceiling. 40 labels (cap: 25), 14 workflows (at ceiling), PR Fixer prompt at ~365 lines. The supersession model was built to work around a perceived limitation (`create_pull_request` always creates new branches). However, web research on 2026-02-28 revealed that `push-to-pull-request-branch` existed all along — the fixer CAN push to existing PR branches. Additionally, `add-comment`, `close-pull-request`, `add-labels`/`remove-labels`, and `dispatch-workflow` were all available but never configured. The entire supersession model was unnecessary.
+- **Impact**: The supersession model, cumulative META tags, and PR chain logic can all be removed. The simplified architecture should use `push-to-pull-request-branch` for fix cycles.
+- **Suggested Action**: See TODO.md. Revised simplification plan: (1) switch fixer to `push-to-pull-request-branch` instead of `create-pull-request`, (2) use `add-comment` for analyzer/promoter feedback, (3) use `add-labels`/`remove-labels` for granular label ops, (4) prune labels to ≤25, (5) reduce fixer prompt.
+
 ### Label Complexity Exceeds Threshold
 
-- **Severity**: Medium
+- **Severity**: High (upgraded from Medium)
 - **Detected**: 2026-02-20
-- **Status**: Partially resolved (2026-02-23)
-- **Description**: 30 labels, 25 unused on open items, health score 25/100. Disproportionate for a repo with few open issues/PRs.
+- **Status**: Active — now at 40 labels (was 30)
+- **Description**: 40 labels, well over the 25-label ceiling. Many labels unused on any open item.
 - **Impact**: Cognitive and computational tax on every workflow that reads labels.
-- **Suggested Action**: 3 labels removed in label simplification (type:report, type:action-item, type:fix). Consider further pruning to target ≤20.
+- **Suggested Action**: Audit all 40 labels. Target ≤25. Candidates for removal: `source:*` (4), unused `risk:*`, `agent:escalated`, `agent:review-requested`, `agent:promoted`, `ready-to-merge`.
 
 ## Resolved (last 30 days)
 

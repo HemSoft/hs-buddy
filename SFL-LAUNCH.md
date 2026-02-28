@@ -115,3 +115,7 @@ so the SFL loop runs on its own codebase.
 - [ ] Write onboarding guide for new consumers (quick-start)
 - [ ] Build `loop-cost-reporter` workflow for budget visibility
 - [ ] Build `feature-intake-normalizer` workflow for Jira/GitHub normalization
+- [ ] Port V2 architecture changes from hs-buddy to set-it-free-loop:
+  - pr-fixer: `push-to-pull-request-branch` (replaces supersession model)
+  - pr-promoter/issue-processor: granular `add-labels`/`remove-labels`
+  - See `.agents/skills/sfl/docs/architecture-v2.md` for details

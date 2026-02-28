@@ -84,8 +84,14 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 | **Standard** | `.yml` only | N/A | sfl-dispatcher, pr-label-actions |
 
 **Key constraint**: Agentic workflows use `safe-outputs` for all mutations
-and **cannot directly trigger other agentic workflows**. The `sfl-dispatcher`
-bridges this gap.
+and **cannot directly trigger other agentic workflows** via events. The
+`sfl-dispatcher` bridges this gap. However, agentic workflows CAN use the
+`dispatch-workflow` safe-output to trigger other workflows in the same repo.
+
+> **Important**: Always verify available safe-output types against official docs
+> at `https://github.github.com/gh-aw/reference/safe-outputs/` — never assume
+> from existing code. See [docs/constraints.md](docs/constraints.md) for the
+> complete inventory of 25+ available types.
 
 ### Workflow Inventory
 
@@ -309,6 +315,12 @@ against removal of something else.
 - Always use `title-prefix` on created issues/PRs for traceability
 - Always use `draft: true` for created PRs
 - Never grant permissions beyond what the prompt needs
+- **Prefer granular safe-outputs**: use `add-labels`/`remove-labels` instead of
+  `update-issue` labels (which replaces ALL). Use `add-comment` for feedback
+  instead of body-append when possible. Use `push-to-pull-request-branch`
+  instead of creating new PRs for fix cycles.
+- **Verify capabilities before workarounds**: check the official safe-outputs
+  reference before building complex workarounds for perceived limitations
 
 ### Anti-Patterns
 
@@ -320,6 +332,7 @@ against removal of something else.
 | **Over-engineering** | Adding retry/backoff/circuit-breakers before proving they're needed |
 | **Marker format changes** | Changing how markers work without updating ALL consumers |
 | **Permission escalation** | Giving workflows more permissions than they need |
+| **Code-only capability assessment** | Inferring platform limits from existing code instead of official docs |
 
 ### Complexity Assessment
 

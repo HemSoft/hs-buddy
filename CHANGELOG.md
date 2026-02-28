@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.174] - 2026-02-28
+
+## [0.1.173] - 2026-02-28
+
 ## [0.1.172] - 2026-02-28
+
+### Fixed
+
+- Add early escalation when fixer can't resolve blocking issues
 
 ## [0.1.171] - 2026-02-28
 

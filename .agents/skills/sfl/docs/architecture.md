@@ -88,14 +88,23 @@ resources.
 
 ### Available Safe-Output Types
 
-| Type | What it does |
-|------|--------------|
-| `create-pull-request` | Opens a new PR with specified labels, draft state, title prefix |
-| `create-issue` | Creates a new issue with specified labels, title prefix |
-| `update-issue` | Modifies an existing issue (labels, body, state) |
-| `update-discussion` | Modifies an existing discussion |
-| `add-labels` | Adds labels to an issue/PR |
-| `remove-labels` | Removes labels from an issue/PR |
+The platform provides 25+ safe-output types. Only the ones currently used in
+SFL are shown here. For the full inventory, see
+[constraints.md](constraints.md#available-safe-output-types-verified-2026-02-28)
+or the [official reference](https://github.github.com/gh-aw/reference/safe-outputs/).
+
+| Type | What it does | Used by |
+|------|-------------|----------|
+| `create-pull-request` | Opens a new PR (always creates new branch) | issue-processor |
+| `push-to-pull-request-branch` | Pushes changes to an existing PR's branch | pr-fixer |
+| `create-issue` | Creates a new issue | discussion-processor |
+| `update-issue` | Modifies an existing issue (body, state) | analyzers, promoter |
+| `update-discussion` | Modifies an existing discussion | dashboard updates |
+| `add-labels` | Adds labels without replacing existing ones | fixer, promoter, issue-processor |
+| `remove-labels` | Removes specific labels | fixer, promoter, issue-processor |
+| `add-comment` | Posts a comment on issues/PRs/discussions | pr-fixer |
+| `close-pull-request` | Closes PRs without merging | (available, not yet used) |
+| `dispatch-workflow` | Triggers another workflow (same repo, max 3) | (available, not yet used) |
 
 ### Key Constraints
 
@@ -122,6 +131,10 @@ The `sfl-dispatcher` (standard YAML) polls every 30 minutes and uses
 `gh workflow dispatch` to explicitly trigger agentic workflows when work
 exists. This is a **necessary intermediary** — accept its existence but
 resist adding more intermediaries.
+
+> **Note**: The `dispatch-workflow` safe-output also exists (max 3, same repo)
+> and could allow agentic workflows to trigger each other directly. This is
+> available but not yet adopted in SFL.
 
 ### The Cost of This Constraint
 
@@ -160,12 +173,15 @@ No external state store. No database. No files. GitHub IS the state store.
 ```
 [draft PR opened] → agent:pr + pr:cycle-0
                   → Analyzers post reviews (markers written)
-                  → pr-fixer implements fixes → pr:cycle-1
+                  → pr-fixer pushes fixes to same branch → pr:cycle-1
                   → Analyzers re-review → pr:cycle-1 markers
                   → All PASS → pr-promoter un-drafts
                   → human:ready-for-review applied
                   → Human approves → pr-promoter merges (squash + delete branch)
 ```
+
+The fixer uses `push-to-pull-request-branch` to push fixes to the same PR
+branch — no new PRs are created during fix cycles.
 
 ### Idempotency Markers
 

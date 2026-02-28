@@ -89,8 +89,10 @@ start failing due to API limits.
 & ".agents/skills/sfl/scripts/debug/body-inspect.ps1" -PRNumber <n>
 ```
 
-**Fix**: The pr-fixer should summarize previous cycle reviews, not accumulate
-them verbatim. Check the pr-fixer prompt.
+**Fix (V2)**: The pr-fixer now uses `push-to-pull-request-branch` instead of
+creating superseding PRs. This eliminates cumulative body content. If bloat
+still occurs, check whether analyzer markers are being appended rather than
+replaced per cycle.
 
 ### 5. Concurrent Run Conflicts
 

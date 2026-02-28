@@ -283,9 +283,20 @@ If no PR matches, update the dashboard with:
 Check the PR merge state:
 
 - `mergeable` must be `MERGEABLE`
-- `mergeStateStatus` must be `CLEAN`
 
-If the PR is mergeable and clean, proceed to Step 11.
+**If `autonomy.auto-merge` is `true` (from Step 0):**
+
+- Accept `mergeStateStatus` of `CLEAN` or `BLOCKED`.
+  The `BLOCKED` state from missing required reviews is expected — the merge
+  label triggers an admin-bypass merge, so review requirements do not apply.
+  Proceed to Step 11.
+
+**If `autonomy.auto-merge` is `false`:**
+
+- `mergeStateStatus` must be `CLEAN`. If it is `BLOCKED`, update the
+  dashboard with:
+  "PR #<number> is not mergeable (state: BLOCKED) — human review required."
+  and exit.
 
 If the PR has merge conflicts (`mergeable` is `CONFLICTING`):
 
@@ -296,8 +307,8 @@ If the PR has merge conflicts (`mergeable` is `CONFLICTING`):
 2. Update the dashboard with:
    "PR #<number> has merge conflicts — dispatched PR Fixer to rebase." and exit.
 
-If the PR is not mergeable for other reasons (failing checks, `BLOCKED` state
-from missing required reviews, etc.), update the dashboard with:
+If the PR is not mergeable for other reasons (failing checks, unexpected state),
+update the dashboard with:
 "PR #<number> is not mergeable (state: <mergeStateStatus>) — skipping." and exit.
 
 ## Step 11 — Add ready-to-merge label (triggers squash merge)

@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.194] - 2026-02-28
+
+## [0.1.193] - 2026-02-28
+
+### Added
+
+- Add SFL config reader POC test workflow + sfl-config.yml
+
+## [0.1.192] - 2026-02-28
+
+## [0.1.191] - 2026-02-28
+
 ## [0.1.190] - 2026-02-28
+
+### Changed
+
+- Add SFL Auto-Merge mode to TODO as critical priority
 
 ## [0.1.189] - 2026-02-28
 

@@ -67,6 +67,21 @@ pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
 ## Step 1 — Find the target PR
 
+First, check for non-draft PRs with merge conflicts (conflict resolution mode).
+Then fall back to draft PRs needing analyzer fixes (standard mode).
+
+### 1a — Conflict resolution mode
+
+Search for open pull requests in this repository that meet ALL criteria:
+
+- Is **NOT** a draft PR
+- Has the label `human:ready-for-review`
+- Has `mergeable` state of `CONFLICTING`
+
+If a match is found, skip to **Step 6b — Resolve merge conflicts**.
+
+### 1b — Standard analyzer-fix mode
+
 Search for open pull requests in this repository that meet ALL criteria:
 
 - Is a **draft** PR
@@ -75,7 +90,7 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
-If no PR matches, update the dashboard with:
+If no PR matches either mode, update the dashboard with:
 "No draft PRs with agent:pr label found — nothing to fix." and exit.
 
 ## Step 2 — Determine the current review cycle
@@ -225,6 +240,59 @@ _None._ (use this if all findings were fixed)
 
 Update the dashboard with:
 "PR #<number> cycle <N>: fixed and pushed — <X> blocking, <Y> non-blocking fixes applied."
+
+---
+
+## Conflict Resolution Mode (from Step 1a)
+
+### Step 6b — Resolve merge conflicts
+
+This mode runs when a non-draft, approved PR has merge conflicts preventing merge.
+
+1. Read the PR diff and identify the conflicting files
+2. Read the current `main` branch versions of those files
+3. Read the PR branch versions of those files
+4. Resolve conflicts by:
+   - Keeping the PR's intentional changes
+   - Incorporating any changes from `main` that don't conflict with the PR's intent
+   - When in doubt, prefer the PR's changes (the reviewer approved this intent)
+5. Read the linked issue (extract from `Closes #N` in PR body) for context on intent
+
+### Step 7b — Push conflict resolution
+
+Stage and commit the resolved files:
+
+```bash
+git add -A
+git commit -m "fix: resolve merge conflicts with main
+
+Conflicts resolved:
+- <list each file>"
+```
+
+Call `push_to_pull_request_branch` to push the resolution to the PR branch.
+
+### Step 8b — Post resolution comment
+
+Call `add_comment` with:
+
+```markdown
+## 🔀 Merge Conflicts Resolved
+
+**PR**: #<number>
+**Conflicting files**: <count>
+
+### Resolved Files
+
+- `<file>` — <brief description of how conflict was resolved>
+
+Conflicts have been resolved. The PR Promoter can now merge this PR.
+```
+
+Update the dashboard with:
+"PR #<number>: merge conflicts resolved — <count> files fixed."
+
+---
 
 ## Guardrails
 

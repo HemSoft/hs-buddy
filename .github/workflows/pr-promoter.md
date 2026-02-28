@@ -7,6 +7,8 @@ description: |
 
 on:
   workflow_dispatch:
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   contents: read
@@ -34,6 +36,9 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 5
+  dispatch-workflow:
+    workflows: ["pr-fixer"]
+    max: 1
 ---
 
 # PR Promoter
@@ -250,7 +255,19 @@ Check the PR merge state:
 - `mergeable` must be `MERGEABLE`
 - `mergeStateStatus` must be `CLEAN`
 
-If the PR is not mergeable (e.g., conflicts, failing checks), update the dashboard with:
+If the PR is mergeable and clean, proceed to Step 11.
+
+If the PR has merge conflicts (`mergeable` is `CONFLICTING`):
+
+1. Dispatch the PR Fixer workflow to resolve conflicts:
+   Call `dispatch_workflow` with:
+   - `workflow`: `pr-fixer.lock.yml`
+   - No inputs needed — the fixer will find the PR by label/state
+2. Update the dashboard with:
+   "PR #<number> has merge conflicts — dispatched PR Fixer to rebase." and exit.
+
+If the PR is not mergeable for other reasons (failing checks, `BLOCKED` state
+from missing required reviews, etc.), update the dashboard with:
 "PR #<number> is not mergeable (state: <mergeStateStatus>) — skipping." and exit.
 
 ## Step 11 — Add ready-to-merge label (triggers squash merge)

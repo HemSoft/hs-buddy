@@ -161,31 +161,23 @@ jobs:
           echo "Dispatching PR Fixer..."
           gh workflow run pr-fixer.lock.yml --repo "$REPO"
 
-      - name: Check for approved PRs awaiting merge
-        id: approved
+      - name: Check for non-draft PRs awaiting promotion
+        id: ready_prs
         run: |
           set -euo pipefail
 
-          # Find non-draft PRs with human:ready-for-review that have at least one approved review
-          PRS=$(gh pr list --repo "$REPO" --state open --label "human:ready-for-review" \
-            --json number,isDraft,reviews \
-            --jq '[.[] | select(.isDraft == false)]')
+          # Find non-draft PRs with human:ready-for-review
+          # The Promoter itself reads sfl-config.yml to decide if approval is needed
+          COUNT=$(gh pr list --repo "$REPO" --state open --label "human:ready-for-review" \
+            --json number,isDraft \
+            --jq '[.[] | select(.isDraft == false)] | length')
 
-          APPROVED=0
-          for ROW in $(echo "$PRS" | jq -c '.[]'); do
-            # Check if any review is APPROVED (deduplicated by author)
-            HAS_APPROVAL=$(echo "$ROW" | jq '[.reviews | group_by(.author.login) | .[] | last | select(.state == "APPROVED")] | length')
-            if [ "$HAS_APPROVAL" -gt 0 ]; then
-              APPROVED=$((APPROVED + 1))
-            fi
-          done
+          echo "ready_count=$COUNT" >> "$GITHUB_OUTPUT"
 
-          echo "approved_count=$APPROVED" >> "$GITHUB_OUTPUT"
-
-          if [ "$APPROVED" -gt 0 ]; then
-            echo "Found $APPROVED approved PR(s) awaiting merge — will dispatch PR Promoter."
+          if [ "$COUNT" -gt 0 ]; then
+            echo "Found $COUNT non-draft PR(s) with human:ready-for-review — will dispatch PR Promoter."
           else
-            echo "No approved PRs awaiting merge."
+            echo "No non-draft PRs awaiting promotion."
           fi
 
       - name: Check for draft PRs with ready-for-review label
@@ -207,7 +199,7 @@ jobs:
           gh workflow run pr-label-actions.yml --repo "$REPO"
 
       - name: Dispatch PR Promoter
-        if: steps.prs.outputs.promoter_ready == 'true' || steps.approved.outputs.approved_count != '0'
+        if: steps.prs.outputs.promoter_ready == 'true' || steps.ready_prs.outputs.ready_count != '0'
         run: |
           echo "Dispatching PR Promoter..."
           gh workflow run pr-promoter.lock.yml --repo "$REPO"
@@ -237,12 +229,12 @@ jobs:
             PROMOTER_DISPATCHED="Yes"
             PROMOTER_REASON="fixer complete, ready for promotion"
           fi
-          if [ "${{ steps.approved.outputs.approved_count }}" != "0" ]; then
+          if [ "${{ steps.ready_prs.outputs.ready_count }}" != "0" ]; then
             PROMOTER_DISPATCHED="Yes"
             if [ -n "$PROMOTER_REASON" ]; then
-              PROMOTER_REASON="$PROMOTER_REASON + ${{ steps.approved.outputs.approved_count }} approved PRs"
+              PROMOTER_REASON="$PROMOTER_REASON + ${{ steps.ready_prs.outputs.ready_count }} ready-for-review PRs"
             else
-              PROMOTER_REASON="${{ steps.approved.outputs.approved_count }} approved PRs"
+              PROMOTER_REASON="${{ steps.ready_prs.outputs.ready_count }} ready-for-review PRs"
             fi
           fi
           if [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ]; then

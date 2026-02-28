@@ -27,7 +27,7 @@
 # the PR — that is the Promoter's job. Intended model: claude-opus-4
 # (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f3782b57920c6d7a9986686e2dc7bb2000cb46d2326c61ecf197bc69e51d1797","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"567fb4657b01e693bff1c132c321cade55ceeee29c5a8a16520c99112f612093","compiler_version":"v0.50.4"}
 
 name: "PR Fixer — Authority"
 "on":
@@ -327,7 +327,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"create_pull_request":{"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":5}}
+          {"create_pull_request":{"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":7}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -394,7 +394,7 @@ jobs:
               "name": "create_pull_request"
             },
             {
-              "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 5 issue(s) can be updated. Target: *.",
+              "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 7 issue(s) can be updated. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1268,7 +1268,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"labels\":[\"agent:pr\",\"type:fix\"],\"max\":1,\"max_patch_size\":1024},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"labels\":[\"agent:pr\",\"type:fix\"],\"max\":1,\"max_patch_size\":1024},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":7,\"target\":\"*\"}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

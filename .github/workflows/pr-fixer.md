@@ -33,7 +33,7 @@ safe-outputs:
     max: 1
   update-issue:
     target: "*"
-    max: 5
+    max: 7
 ---
 
 # PR Fixer — Authority
@@ -75,29 +75,41 @@ If no PR matches, update the dashboard (see Dashboard Protocol) with:
 
 ## Step 2 — Determine the current review cycle
 
+Determine two values:
+
+### Local cycle (for marker matching)
+
 Check the PR's labels for a `pr:cycle-N` label (where N is 1, 2, or 3).
 
-- If no `pr:cycle-N` label exists, the current cycle is `0`
-- If `pr:cycle-1` exists, the current cycle is `1`
-- If `pr:cycle-2` exists, the current cycle is `2`
-- If `pr:cycle-3` exists, the current cycle is `3`
+- If no `pr:cycle-N` label exists, the local cycle is `0`
+- If `pr:cycle-1` exists, the local cycle is `1`
+- If `pr:cycle-2` exists, the local cycle is `2`
+- If `pr:cycle-3` exists, the local cycle is `3`
 
-If the current cycle is `3`: this PR has already been through three fix
-cycles and still has issues. Escalate:
+### Cumulative cycle (for escalation limit)
+
+Search the PR body for `[META:cumulative-cycle:N]` where N is a number.
+
+- If found, the cumulative cycle is N
+- If not found, the cumulative cycle is `0`
+
+The cumulative cycle tracks how many total fix iterations this issue has been
+through across PR supersessions. If the cumulative cycle is `3` or higher,
+escalate:
 
 1. Call `update_issue` to add the label `agent:human-required` to the PR
    (keep all existing labels) and append body:
 
    ```
-   🚨 **PR Fixer**: This PR has reached cycle 3 without resolving all issues. Escalating to human review.
+   🚨 **PR Fixer**: Cumulative cycle limit (3) reached across fix PRs. Escalating to human review.
    ```
 
 2. Exit.
 
 ## Step 3 — Verify all three analyzers have reviewed
 
-Search the PR body for these exact marker texts for the current cycle number
-(N = current cycle from Step 2):
+Search the PR body for these exact marker texts for the local cycle number
+(N = local cycle from Step 2):
 
 - `[MARKER:pr-analyzer-a cycle:N]`
 - `[MARKER:pr-analyzer-b cycle:N]`
@@ -111,7 +123,7 @@ and exit. The next run will try again.
 ## Step 4 — Check if already fixed in this cycle
 
 Search the PR body for the exact marker text:
-`[MARKER:pr-fixer cycle:N]` where N is the current cycle number.
+`[MARKER:pr-fixer cycle:N]` where N is the local cycle number.
 
 If that marker exists, this fixer has already processed this cycle. Update the dashboard with:
 "PR #<number> already fixed in cycle <N> — skipping." and exit.
@@ -244,58 +256,67 @@ Fixes applied:
 Addresses blocking issues from PR analyzers A, B, C."
 ```
 
-**IMPORTANT**: Do NOT run `git push`. The `create_pull_request` safe output
-in the next step handles pushing the branch. A direct `git push` will fail
-because the workflow token does not have push permissions.
+## Step 9 — Open fix PR via create_pull_request
 
-## Step 9 — Push fixes via safe output
+The `create_pull_request` safe output creates a **new branch and a new PR**.
+This is the platform's security model — agents cannot push directly to
+existing branches. Each fix cycle produces its own PR that supersedes the
+previous one.
 
-Call the `create_pull_request` safe output tool. This handles pushing your
-committed changes to the remote branch. Since a PR already exists for this
-branch, the tool will push the new commits to the existing PR.
+Extract the linked issue number from the current PR body (`Closes #N`).
+Calculate the new cumulative cycle: current cumulative cycle + 1.
 
-Provide:
+Call `create_pull_request` with:
 
-- Title: the existing PR title (unchanged)
-- Body: the existing PR body (unchanged) — do NOT modify the original PR
-  description
+- **Title**: the same title as the current PR (unchanged)
+- **Body**: build the body with these sections in order:
 
-## Step 10 — Increment the cycle label
+```
+Closes #<issue-number>
+Supersedes #<old-PR-number>
 
-The new cycle number is: current cycle + 1.
+[META:cumulative-cycle:<new-cumulative-cycle>]
+
+<original PR description from the linked issue or current PR body,
+excluding any analyzer/fixer markers>
+```
+
+The safe-output config automatically adds `agent:pr` and `type:fix` labels
+and creates the PR as a draft. The handler will create a new branch with
+a suffix — this is expected behavior.
+
+The new PR opening will automatically trigger all three analyzers
+(`pull_request: types: [opened]`). No manual re-trigger is needed.
+
+## Step 10 — Close the old PR
 
 Call `update_issue` with:
 
-- `issue_number`: the PR number
-- `status`: `"open"` (required — validation rejects calls without status/title/body)
-- `labels`: the PR's current labels with the old `pr:cycle-N` removed (if any)
-  and `pr:cycle-<N+1>` added. Keep all other existing labels unchanged.
+- `issue_number`: the old PR number (the one you just fixed)
+- `status`: `"closed"`
+- `body`: `"Superseded by fix PR. See latest draft PR with \`type:fix\` label for the updated implementation."`
+- `operation`: `"append"`
 
-For example:
+This prevents the old PR from being picked up by future fixer or promoter runs.
 
-- Cycle 0 → add `pr:cycle-1` (no old label to remove)
-- Cycle 1 → remove `pr:cycle-1`, add `pr:cycle-2`
-- Cycle 2 → remove `pr:cycle-2`, add `pr:cycle-3`
-
-## Step 11 — Post the fix summary
+## Step 11 — Post fix record to old PR
 
 Call `update_issue` with:
 
-- `issue_number`: the PR number
+- `issue_number`: the old PR number
 - `operation`: `"append"`
 - `body`: the structured fix summary in the exact format below
 
 **CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
-be the very first line of your output, exactly as shown. Without it, the
-pipeline will re-fix this PR every 30 minutes forever.
+be the very first line of your output, exactly as shown.
 
 ```markdown
 [MARKER:pr-fixer cycle:N]
 ## 🔧 PR Fixer — Cycle N Fix Summary
 
 **Fixer**: Authority (Claude Opus)
-**Cycle**: N → N+1
-**PR**: #<number>
+**Cumulative Cycle**: <cumulative-cycle>
+**Old PR**: #<old-PR-number> (closed)
 **Linked Issue**: #<issue-number>
 
 ### Fixes Applied
@@ -317,27 +338,26 @@ _None._ (use this if all findings were fixed)
 - **Blocking issues fixed**: X of Y
 - **Non-blocking suggestions fixed**: X of Y
 - **Commit**: `<short SHA>`
-- **Next cycle**: pr:cycle-N+1
+- **New fix PR opened**: (created via create_pull_request safe output)
 ```
 
-Replace N with the current cycle number (before increment). Fill in actual
-findings and fixes.
+Replace N with the local cycle number. Fill in actual findings and fixes.
 
 ## Guardrails
 
 - Fix exactly ONE PR per run — never loop over multiple PRs
 - Never un-draft the PR — the PR Promoter handles that
-- Never close or merge the PR
+- Close ONLY the old PR being superseded (Step 10) — never close the linked issue
 - Never modify the linked issue's labels or content
 - Never remove `agent:human-required` — that label requires explicit human action
-- If pushing fails (e.g., merge conflict), do NOT force push. Instead:
-  1. Post a comment explaining the conflict via `update_issue`
-  2. Add `agent:human-required` label
-  3. Exit
+- Do NOT run `git push` — the workflow token does not have push permissions.
+  Always use the `create_pull_request` safe output (Step 9)
 - Always rebase onto `origin/main` before implementing fixes (Step 7)
 - Attempt to resolve rebase conflicts before escalating — only escalate if
   resolution is ambiguous or outside the PR's scope
 - If the PR diff is empty or cannot be read, update the dashboard with an explanation
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit
-- At most 5 `update_issue` calls per run (enforced by safe-outputs max)
+- At most 7 `update_issue` calls per run (enforced by safe-outputs max)
 - When findings conflict across analyzers, prefer security over style
+- The `create_pull_request` safe output will create a new branch with a
+  suffix — this is expected. Do NOT try to prevent it

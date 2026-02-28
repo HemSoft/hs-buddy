@@ -138,12 +138,15 @@ jobs:
           if echo "$PR_BODY" | grep -qF "[MARKER:pr-fixer cycle:$CYCLE]"; then
             echo "PR #$PR_NUMBER already fixed in cycle $CYCLE — fixer not needed."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+            echo "promoter_ready=true" >> "$GITHUB_OUTPUT"
           elif [ "$ALL_MARKERS" = "true" ]; then
             echo "PR #$PR_NUMBER has all 3 analyzer markers for cycle $CYCLE — will dispatch fixer."
             echo "fixer_ready=true" >> "$GITHUB_OUTPUT"
+            echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE — fixer not ready."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+            echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Dispatch Issue Processor
@@ -204,7 +207,7 @@ jobs:
           gh workflow run pr-label-actions.yml --repo "$REPO"
 
       - name: Dispatch PR Promoter
-        if: steps.prs.outputs.draft_pr_count != '0' || steps.approved.outputs.approved_count != '0'
+        if: steps.prs.outputs.promoter_ready == 'true' || steps.approved.outputs.approved_count != '0'
         run: |
           echo "Dispatching PR Promoter..."
           gh workflow run pr-promoter.lock.yml --repo "$REPO"
@@ -230,9 +233,9 @@ jobs:
 
           PROMOTER_DISPATCHED="No"
           PROMOTER_REASON=""
-          if [ "${{ steps.prs.outputs.draft_pr_count }}" != "0" ]; then
+          if [ "${{ steps.prs.outputs.promoter_ready }}" = "true" ]; then
             PROMOTER_DISPATCHED="Yes"
-            PROMOTER_REASON="${{ steps.prs.outputs.draft_pr_count }} draft PRs"
+            PROMOTER_REASON="fixer complete, ready for promotion"
           fi
           if [ "${{ steps.approved.outputs.approved_count }}" != "0" ]; then
             PROMOTER_DISPATCHED="Yes"

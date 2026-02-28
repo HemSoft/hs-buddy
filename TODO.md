@@ -4,10 +4,10 @@
 |--------|----------|------|-------|
 | 📋 | **High** | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | ✅ | **Critical** | SFL Simplification — Replace supersession model | DONE: pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
-| 📋 | **Critical** | [SFL Simplification — Label pruning](#sfl-simplification--label-pruning) | 40 labels (cap: 25); audit and remove unused labels |
+| ✅ | **Critical** | SFL Simplification — Label pruning | DONE: 39→27 labels, removed 12 unused (2026-02) |
 | ✅ | **High** | SFL Simplification — Reduce PR Fixer prompt | DONE: 365→164 lines via V2 architecture (2026-02) |
 | ✅ | **High** | SFL Simplification — Adopt new safe-outputs | DONE: add-comment, add-labels/remove-labels configured in fixer/promoter/processor (2026-02) |
-| 📋 | **High** | [SFL Complexity gate for future sessions](#sfl-complexity-gate-for-future-sessions) | Add complexity check to SFL skill: count workflows, labels, prompt lines at session start |
+| ✅ | **High** | SFL Complexity gate for future sessions | DONE: Session Start Gate added to SKILL.md Simplicity section (2026-02) |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | **High** | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
@@ -55,7 +55,7 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 43** (88%)
+**Remaining: 4** | **Completed: 45** (92%)
 
 ---
 
@@ -73,18 +73,13 @@ model, META tags, and PR chains eliminated. See `.agents/skills/sfl/docs/archite
 
 ### SFL Simplification — Label pruning
 
-**Goal**: Reduce from 40 labels to ≤25.
+**Status**: ✅ COMPLETED (2026-02-28)
 
-**Audit candidates for removal**:
-
-- `source:github-issue`, `source:jira`, `source:manual`, `source:repo-audit` — 4 labels, likely unused
-- `agent:escalated`, `agent:review-requested`, `agent:promoted` — may overlap with other state
-- `ready-to-merge` — may be redundant with `human:ready-for-review`
-- `risk:critical`, `risk:high` — check if used by any workflow
-- `type:fix` — check if still needed after supersession removal
-- `no-agent`, `agentic-workflows` — check usage
-
-**Steps**: Run `label-audit.ps1`, cross-reference with workflow prompts, delete unused.
+Reduced from 39→27 labels. Deleted 12 labels with zero issues, zero PRs, and
+zero workflow references: `agent:review-requested`, `enhancement`,
+`feature-request`, `good first issue`, `help wanted`, `question`,
+`risk:critical`, `source:github-issue`, `source:jira`, `source:manual`,
+`type:fix`, `wontfix`.
 
 ---
 
@@ -98,18 +93,10 @@ Reduced from 365→164 lines as part of V2 architecture rewrite.
 
 ### SFL Complexity gate for future sessions
 
-**Goal**: Add a "complexity check" protocol to the SFL skill so that every session starts by counting workflows, labels, and prompt lines — and flags violations before any new work begins.
+**Status**: ✅ COMPLETED (2026-02-28)
 
-**Add to SKILL.md Simplicity section**:
-
-```
-### Session Start Protocol
-Before modifying any SFL workflow or adding any logic:
-1. Count workflow .yml files (ceiling: 14)
-2. Count labels via `gh label list` (ceiling: 25)  
-3. Count lines in any prompt you plan to modify (flag if >150)
-4. If ANY metric is at or over ceiling, address that FIRST
-```
+Added "Session Start Gate" to SKILL.md Simplicity section with 4-step check:
+workflow count (≤14), label count (≤25), prompt line count (≤150), fix-first rule.
 
 ---
 

@@ -47,19 +47,17 @@
 
 - **Severity**: High
 - **Detected**: 2026-02-28
-- **Status**: Active — root cause partially resolved
-- **Description**: Over a week of iterative fixes pushed every complexity metric past its ceiling. 40 labels (cap: 25), 14 workflows (at ceiling), PR Fixer prompt at ~365 lines. The supersession model was built to work around a perceived limitation (`create_pull_request` always creates new branches). However, web research on 2026-02-28 revealed that `push-to-pull-request-branch` existed all along — the fixer CAN push to existing PR branches. Additionally, `add-comment`, `close-pull-request`, `add-labels`/`remove-labels`, and `dispatch-workflow` were all available but never configured. The entire supersession model was unnecessary.
-- **Impact**: The supersession model, cumulative META tags, and PR chain logic can all be removed. The simplified architecture should use `push-to-pull-request-branch` for fix cycles.
-- **Suggested Action**: See TODO.md. Revised simplification plan: (1) switch fixer to `push-to-pull-request-branch` instead of `create-pull-request`, (2) use `add-comment` for analyzer/promoter feedback, (3) use `add-labels`/`remove-labels` for granular label ops, (4) prune labels to ≤25, (5) reduce fixer prompt.
+- **Status**: ✅ Resolved (2026-02-28)
+- **Description**: Over a week of iterative fixes pushed every complexity metric past its ceiling. Discovery of `push-to-pull-request-branch` and other safe-outputs invalidated the entire supersession model.
+- **Resolution**: PR Fixer rewritten (365→164 lines), supersession model removed, labels pruned (39→27), granular label ops adopted, Session Start Gate added to SKILL.md. See `architecture-v2.md`.
 
 ### Label Complexity Exceeds Threshold
 
 - **Severity**: High (upgraded from Medium)
 - **Detected**: 2026-02-20
-- **Status**: Active — now at 40 labels (was 30)
-- **Description**: 40 labels, well over the 25-label ceiling. Many labels unused on any open item.
-- **Impact**: Cognitive and computational tax on every workflow that reads labels.
-- **Suggested Action**: Audit all 40 labels. Target ≤25. Candidates for removal: `source:*` (4), unused `risk:*`, `agent:escalated`, `agent:review-requested`, `agent:promoted`, `ready-to-merge`.
+- **Status**: ✅ Resolved (2026-02-28) — pruned to 27 labels
+- **Description**: Was at 39 labels, well over the 25-label ceiling.
+- **Resolution**: Deleted 12 unused labels (zero issues, zero PRs, zero workflow refs). Now at 27.
 
 ## Resolved (last 30 days)
 

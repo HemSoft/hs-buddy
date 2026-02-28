@@ -344,6 +344,15 @@ When evaluating a proposed change:
 4. If it adds complexity, propose a simpler alternative
 5. If no simpler alternative exists, document WHY in `ATTENTION.md`
 
+### Session Start Gate
+
+Before modifying any SFL workflow or adding any logic, run these checks:
+
+1. Count workflow `.yml` files in `.github/workflows/` (ceiling: 14)
+2. Count labels via `gh label list --json name --jq 'length'` (ceiling: 25)
+3. Count lines in any prompt you plan to modify (flag if >150)
+4. If ANY metric is at or over ceiling, address that FIRST before new work
+
 ---
 
 ## Memory

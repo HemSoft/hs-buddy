@@ -2,6 +2,7 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
+| 📋 | Critical | [SFL Auto-Merge mode](#sfl-auto-merge-mode) | Configurable flag to let SFL merge its own PRs autonomously; off by default |
 | 📋 | High | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
 | 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
@@ -55,11 +56,36 @@
 
 ## Progress
 
-**Remaining: 5** | **Completed: 45** (90%)
+**Remaining: 6** | **Completed: 45** (88%)
 
 ---
 
 ## Remaining Items
+
+### SFL Auto-Merge mode
+
+**Goal**: Make SFL capable of running fully autonomously — including merging its own PRs — as an opt-in feature. Off by default. When enabled, the PR Promoter skips the human approval gate and directly adds `ready-to-merge`, which triggers PR Label Actions to squash-merge with `--admin` bypass.
+
+**Why configurable**: In production deployments, SFL should stop at `human:ready-for-review` and wait for a human to approve and merge. Full autonomy is an experimental capability for testing the complete loop end-to-end. The mother repo (set-it-free-loop) must ship with this OFF.
+
+**Design considerations**:
+
+- **Where to store the flag**: Options include a repo variable (`vars.SFL_AUTO_MERGE`), a repository label, a config file in `.github/`, or a GitHub environment. Repo variable is simplest and doesn't require code changes to read.
+- **What reads the flag**: PR Promoter workflow — it's the decision point between "hand off to human" and "add ready-to-merge". The promoter prompt needs a conditional: if auto-merge is on, add the label directly; if off, stop at `human:ready-for-review`.
+- **Self-approval problem**: The `fhemmerrelias` PAT creates PRs and runs the promoter — GitHub blocks self-approval. With auto-merge ON, the promoter skips the approval step entirely since `--admin` on merge bypasses all branch protection.
+- **Audit trail**: When auto-merge is active, the promoter should add a comment noting the PR was auto-merged without human review, for transparency.
+- **Safety guardrails**: Consider requiring `risk:trivial` or `risk:low` for auto-merge; `risk:medium`/`risk:high` PRs always wait for human review regardless of the flag.
+
+**Implementation steps**:
+
+1. Add `SFL_AUTO_MERGE` repo variable (or determine best config mechanism)
+2. Update `pr-promoter.md` to read the flag and branch behavior accordingly
+3. Update `pr-label-actions.yml` if needed (currently already uses `--admin`)
+4. Test full autonomous loop: issue → PR → analyze → fix → promote → merge
+5. Document the feature in SFL onboarding/governance docs
+6. Verify the flag defaults to OFF in a fresh SFL deployment
+
+---
 
 ### SFL Loop monitoring in Organizations tree
 

@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.211] - 2026-03-01
+
 ## [0.1.210] - 2026-03-01
+
+### Fixed
+
+- Dispatcher grep pipeline crash when no cycle label exists
 
 ## [0.1.209] - 2026-03-01
 

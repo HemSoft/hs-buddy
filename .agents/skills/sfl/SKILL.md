@@ -73,6 +73,47 @@ scripts, its docs page, and its rules.
 
 ---
 
+## Preflight
+
+**Run these checks before ANY `gh` or debug command.** Skipping preflight
+is the #1 cause of confusing errors in SFL sessions.
+
+### 1. Auth Check
+
+```powershell
+# Ensures the correct gh account is active for the target repo
+& ".agents/skills/sfl/scripts/ensure-auth.ps1"
+# For a different repo:
+& ".agents/skills/sfl/scripts/ensure-auth.ps1" -Repo "HemSoft/set-it-free-loop"
+```
+
+The agent has 4 gh accounts. Each org requires a specific one:
+
+| Org | Required Account |
+|-----|------------------|
+| `relias-engineering` | `fhemmerrelias` |
+| `HemSoft` | `HemSoft` |
+| `franzhemmer` | `franzhemmer` |
+| `fhemmer2-relias` | `fhemmer2-relias` |
+
+### 2. Use Scripts, Not Ad-Hoc Commands
+
+**Never manually construct `gh run view | grep` pipelines.** There is almost
+certainly a script for what you need. Check the [All Scripts Reference](#all-scripts-reference)
+section below. If a script is missing, **create it** before proceeding.
+
+### 3. Session Start Gate
+
+Before modifying any SFL workflow:
+
+```powershell
+& ".agents/skills/sfl/scripts/health-check.ps1"
+```
+
+This verifies workflow count (≤14), label count (≤25), and other ceilings.
+
+---
+
 ## Architecture
 
 > Deep reference: [docs/architecture.md](docs/architecture.md)
@@ -357,10 +398,10 @@ When evaluating a proposed change:
 
 ### Session Start Gate
 
-Before modifying any SFL workflow or adding any logic, run these checks:
+Before modifying any SFL workflow or adding any logic:
 
-1. Count workflow `.yml` files in `.github/workflows/` (ceiling: 14)
-2. Count labels via `gh label list --json name --jq 'length'` (ceiling: 25)
+1. Run `ensure-auth.ps1` (see [Preflight](#preflight))
+2. Run `health-check.ps1` — it verifies workflow count (≤14), labels (≤25), and more
 3. Count lines in any prompt you plan to modify (flag if >150)
 4. If ANY metric is at or over ceiling, address that FIRST before new work
 
@@ -408,6 +449,12 @@ Update this skill when:
 
 ## All Scripts Reference
 
+### Preflight
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/ensure-auth.ps1` | Verify/switch correct gh CLI account for target repo |
+
 ### Core
 
 | Script | Purpose |
@@ -426,6 +473,7 @@ Update this skill when:
 | `marker-check.ps1` | Verify idempotency markers on all active PRs |
 | `workflow-timeline.ps1` | Chronological timeline of workflow runs for a PR |
 | `body-inspect.ps1` | PR body structure and bloat detection |
+| `dispatcher-log.ps1` | Extract decision output from dispatcher runs (`-Last 3` for history) |
 
 ### Status (`scripts/status/`)
 

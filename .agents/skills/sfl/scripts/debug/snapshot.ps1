@@ -19,7 +19,13 @@ Write-Host ""
 
 # --- Issues ---
 Write-Host "--- OPEN ISSUES WITH AGENT LABELS ---" -ForegroundColor Yellow
-$issues = gh issue list --repo $Repo --state open --json number,title,labels,createdAt --jq '.[] | select(.labels | map(.name) | any(startswith("agent:")))' 2>&1 | ConvertFrom-Json
+$issueRaw = gh issue list --repo $Repo --state open --json number,title,labels,createdAt 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  ERROR: gh issue list failed. Check gh auth status." -ForegroundColor Red
+    Write-Host "  Output: $issueRaw" -ForegroundColor DarkGray
+    exit 1
+}
+$issues = ($issueRaw | ConvertFrom-Json) | Where-Object { $_.labels | Where-Object { $_.name -like "agent:*" } }
 if ($issues) {
     foreach ($i in $issues) {
         $labels = ($i.labels | ForEach-Object { $_.name }) -join ", "

@@ -330,6 +330,7 @@ function App() {
         jobCount={jobs?.length ?? 0}
         activeGitHubAccount={activeGitHubAccount}
         backgroundStatus={backgroundStatus}
+        onNavigate={openTab}
       />
       {/* App-level Job Editor modal (triggered from sidebar "New Job") */}
       {jobEditorOpen && (

@@ -52,6 +52,16 @@
   color: var(--text-primary, #cccccc);
 }
 
+/* Clickable status items that navigate to views */
+.status-item-clickable {
+  cursor: pointer;
+}
+
+.status-item-clickable:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #e0e0e0);
+}
+
 .status-item-brand {
   color: var(--accent-primary, #0078d4);
   font-weight: 500;
@@ -123,6 +133,19 @@
   pointer-events: none;
   transition: opacity 0.15s ease;
   z-index: 1000;
+}
+
+/* Prevent tooltip from clipping at left edge */
+.status-bar-left .status-item[data-tooltip]::after {
+  left: 0;
+  transform: none;
+}
+
+/* Prevent tooltip from clipping at right edge */
+.status-bar-right .status-item[data-tooltip]::after {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 
 .status-item[data-tooltip]:hover::after {

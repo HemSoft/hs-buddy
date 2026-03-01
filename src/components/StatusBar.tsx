@@ -9,6 +9,7 @@ interface StatusBarProps {
   jobCount?: number
   activeGitHubAccount?: string | null
   backgroundStatus?: BackgroundStatus
+  onNavigate?: (viewId: string) => void
 }
 
 export function StatusBar({
@@ -17,6 +18,7 @@ export function StatusBar({
   jobCount = 0,
   activeGitHubAccount,
   backgroundStatus,
+  onNavigate,
 }: StatusBarProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -47,7 +49,14 @@ export function StatusBar({
     <div className="status-bar">
       <div className="status-bar-left">
         {/* Pull Requests */}
-        <div className="status-item" data-tooltip="GitHub Pull Requests">
+        <div
+          className="status-item status-item-clickable"
+          data-tooltip="View Pull Requests"
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.('pr-my-prs')}
+          onKeyDown={e => e.key === 'Enter' && onNavigate?.('pr-my-prs')}
+        >
           <span className="status-icon">
             <GitPullRequest size={12} />
           </span>
@@ -57,7 +66,14 @@ export function StatusBar({
         <div className="status-divider" />
 
         {/* Schedules */}
-        <div className="status-item" data-tooltip="Active Schedules">
+        <div
+          className="status-item status-item-clickable"
+          data-tooltip="View Schedules"
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.('automation-schedules')}
+          onKeyDown={e => e.key === 'Enter' && onNavigate?.('automation-schedules')}
+        >
           <span className="status-icon">
             <Calendar size={12} />
           </span>
@@ -67,7 +83,14 @@ export function StatusBar({
         <div className="status-divider" />
 
         {/* Jobs */}
-        <div className="status-item" data-tooltip="Configured Jobs">
+        <div
+          className="status-item status-item-clickable"
+          data-tooltip="View Jobs"
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.('automation-runs')}
+          onKeyDown={e => e.key === 'Enter' && onNavigate?.('automation-runs')}
+        >
           <span className="status-icon">
             <Zap size={12} />
           </span>
@@ -79,8 +102,12 @@ export function StatusBar({
           <>
             <div className="status-divider" />
             <div
-              className="status-item status-item-github-account"
-              data-tooltip="Active GitHub CLI Account (used for Copilot CLI, git operations)"
+              className="status-item status-item-github-account status-item-clickable"
+              data-tooltip="View Account Settings"
+              role="button"
+              tabIndex={0}
+              onClick={() => onNavigate?.('settings-accounts')}
+              onKeyDown={e => e.key === 'Enter' && onNavigate?.('settings-accounts')}
             >
               <span className="status-icon">
                 <User size={12} />
@@ -97,14 +124,14 @@ export function StatusBar({
             {backgroundStatus.phase === 'syncing' ? (
               <div
                 className="status-item status-item-syncing"
-                data-tooltip={`Processing ${backgroundStatus.currentIndex} of ${backgroundStatus.batchTotal} — ${backgroundStatus.activeLabel || 'GitHub data'}`}
+                data-tooltip={`Syncing ${backgroundStatus.activeLabel || 'GitHub data'}${backgroundStatus.activeTasks > 1 ? ` — ${backgroundStatus.activeTasks} tasks remaining` : ''}`}
               >
                 <span className="status-icon spinning">
                   <RefreshCw size={12} />
                 </span>
                 <span className="status-text">
-                  {backgroundStatus.batchTotal && backgroundStatus.batchTotal > 1
-                    ? `${backgroundStatus.currentIndex} of ${backgroundStatus.batchTotal} · ${backgroundStatus.activeLabel || 'Syncing'}...`
+                  {backgroundStatus.activeTasks > 1
+                    ? `${backgroundStatus.activeTasks} remaining · ${backgroundStatus.activeLabel || 'Syncing'}...`
                     : `${backgroundStatus.activeLabel || 'Syncing'}...`}
                 </span>
               </div>

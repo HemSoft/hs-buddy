@@ -11,7 +11,7 @@
  * - When data was last refreshed
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { getTaskQueue } from '../services/taskQueue'
 import { dataCache } from '../services/dataCache'
 import { usePRSettings } from './useConfig'
@@ -27,10 +27,6 @@ export interface BackgroundStatus {
   activeLabel: string | null
   /** Number of queued + running tasks in the github queue */
   activeTasks: number
-  /** Current task position in the batch (1-based) */
-  currentIndex: number | null
-  /** Total tasks in the current batch */
-  batchTotal: number | null
   /** Seconds until the next auto-refresh fires (based on oldest cache entry) */
   nextRefreshSecs: number | null
   /** Human-readable countdown string, e.g. "12m 30s" */
@@ -76,18 +72,10 @@ export function useBackgroundStatus(): BackgroundStatus {
     phase: 'idle',
     activeLabel: null,
     activeTasks: 0,
-    currentIndex: null,
-    batchTotal: null,
     nextRefreshSecs: null,
     nextRefreshLabel: null,
     lastRefreshedAt: null,
     lastRefreshedLabel: null,
-  })
-
-  // Track batch progress across ticks
-  const batchRef = useRef<{ completedInBatch: number; prevActiveTasks: number }>({
-    completedInBatch: 0,
-    prevActiveTasks: 0,
   })
 
   useEffect(() => {
@@ -99,28 +87,11 @@ export function useBackgroundStatus(): BackgroundStatus {
       const pending = queue.pendingCount
       const activeTasks = running + pending
 
-      const batch = batchRef.current
-
-      // Detect batch transitions
-      if (activeTasks > 0 && batch.prevActiveTasks === 0) {
-        // Entering a new sync batch — reset counter
-        batch.completedInBatch = 0
-      } else if (activeTasks < batch.prevActiveTasks && batch.prevActiveTasks > 0) {
-        // A task completed — increment completed count
-        batch.completedInBatch += batch.prevActiveTasks - activeTasks
-      }
-      batch.prevActiveTasks = activeTasks
-
-      // Compute queue position
+      // Compute current task label
       let activeLabel: string | null = null
-      let currentIndex: number | null = null
-      let batchTotal: number | null = null
 
       if (activeTasks > 0) {
-        // Get actual running task name from the queue
         activeLabel = TASK_LABELS[queue.getRunningTaskName() ?? ''] ?? queue.getRunningTaskName() ?? 'GitHub data'
-        currentIndex = batch.completedInBatch + 1
-        batchTotal = batch.completedInBatch + activeTasks
       }
 
       // Find the oldest cache entry to compute countdown
@@ -144,8 +115,6 @@ export function useBackgroundStatus(): BackgroundStatus {
         phase,
         activeLabel,
         activeTasks,
-        currentIndex,
-        batchTotal,
         nextRefreshSecs: phase === 'syncing' ? null : remainingSecs,
         nextRefreshLabel: phase === 'syncing' ? null : formatCountdown(remainingSecs),
         lastRefreshedAt: latestRefresh || null,

@@ -134,6 +134,19 @@ export function SidebarPanel({
     })
   }, [section])
 
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [contextMenu, closeContextMenu])
+
   if (!data) {
     return null
   }
@@ -192,19 +205,6 @@ export function SidebarPanel({
       setContextMenu(null)
     }
   }
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null)
-  }, [])
-
-  useEffect(() => {
-    if (!contextMenu) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeContextMenu()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [contextMenu, closeContextMenu])
 
   return (
     <div className="sidebar-panel">

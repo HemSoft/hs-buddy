@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.218] - 2026-03-01
+
+## [0.1.217] - 2026-03-01
+
+## [0.1.216] - 2026-03-01
+
 ## [0.1.215] - 2026-03-01
+
+### Changed
+
+- Mark SFL Auto-Merge and 30-day pilot as completed
 
 ## [0.1.214] - 2026-03-01
 

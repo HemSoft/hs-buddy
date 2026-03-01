@@ -2,14 +2,14 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 📋 | Critical | [SFL Auto-Merge mode](#sfl-auto-merge-mode) | Configurable flag to let SFL merge its own PRs autonomously; off by default |
 | 📋 | High | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
 | 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
-| 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
 | 📋 | Medium | [Task Planner (Todoist Integration)](#task-planner-todoist-integration) | 7-day upcoming view powered by Todoist REST API; new Activity Bar section |
+| ✅ | Medium | Run 30-day Set it Free pilot | Removed — ongoing operational concern, not a dev task (2026-02) |
+| ✅ | Critical | SFL Auto-Merge mode | Implemented in sfl-config.yml + pr-promoter + pr-label-actions (2026-02) |
 | ✅ | Medium | Elegant status bar queue display | Shows "X of N · TaskName" with batch tracking instead of concatenating all tasks (2026-02) |
 | ✅ | Medium | Copilot enterprise budget not resetting on new billing cycle | Fixed: UTC dates for billing API query, auto-refresh on month boundary, billing period display (2026-02) |
 | ✅ | Critical | SFL Simplification — Replace supersession model | pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
@@ -60,36 +60,11 @@
 
 ## Progress
 
-**Remaining: 7** | **Completed: 47** (87%)
+**Remaining: 5** | **Completed: 49** (91%)
 
 ---
 
 ## Remaining Items
-
-### SFL Auto-Merge mode
-
-**Goal**: Make SFL capable of running fully autonomously — including merging its own PRs — as an opt-in feature. Off by default. When enabled, the PR Promoter skips the human approval gate and directly adds `ready-to-merge`, which triggers PR Label Actions to squash-merge with `--admin` bypass.
-
-**Why configurable**: In production deployments, SFL should stop at `human:ready-for-review` and wait for a human to approve and merge. Full autonomy is an experimental capability for testing the complete loop end-to-end. The mother repo (set-it-free-loop) must ship with this OFF.
-
-**Design considerations**:
-
-- **Where to store the flag**: Options include a repo variable (`vars.SFL_AUTO_MERGE`), a repository label, a config file in `.github/`, or a GitHub environment. Repo variable is simplest and doesn't require code changes to read.
-- **What reads the flag**: PR Promoter workflow — it's the decision point between "hand off to human" and "add ready-to-merge". The promoter prompt needs a conditional: if auto-merge is on, add the label directly; if off, stop at `human:ready-for-review`.
-- **Self-approval problem**: The `fhemmerrelias` PAT creates PRs and runs the promoter — GitHub blocks self-approval. With auto-merge ON, the promoter skips the approval step entirely since `--admin` on merge bypasses all branch protection.
-- **Audit trail**: When auto-merge is active, the promoter should add a comment noting the PR was auto-merged without human review, for transparency.
-- **Safety guardrails**: Consider requiring `risk:trivial` or `risk:low` for auto-merge; `risk:medium`/`risk:high` PRs always wait for human review regardless of the flag.
-
-**Implementation steps**:
-
-1. Add `SFL_AUTO_MERGE` repo variable (or determine best config mechanism)
-2. Update `pr-promoter.md` to read the flag and branch behavior accordingly
-3. Update `pr-label-actions.yml` if needed (currently already uses `--admin`)
-4. Test full autonomous loop: issue → PR → analyze → fix → promote → merge
-5. Document the feature in SFL onboarding/governance docs
-6. Verify the flag defaults to OFF in a fresh SFL deployment
-
----
 
 ### SFL Loop monitoring in Organizations tree
 
@@ -113,18 +88,6 @@
 3. In `GitHubSidebar.tsx`, conditionally render "SFL Loop" node when detected
 4. Create `SFLLoopPanel.tsx` content page with pipeline overview
 5. Add `sfl-loop:owner/repo` route to `AppContentRouter.tsx` and `appContentViewLabels.ts`
-
----
-
-### Run 30-day Set it Free pilot
-
-**Goal**: Validate quality and economics with real usage in this repo. Publish metrics back to the SFL repo.
-
-**Deliverables**:
-
-- Baseline vs post-loop performance report
-- False positive and rework analysis
-- Recommendation for broader rollout
 
 ---
 

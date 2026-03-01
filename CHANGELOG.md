@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.215] - 2026-03-01
+
 ## [0.1.214] - 2026-03-01
+
+### Added
+
+- Add run count badges to job list and harden buddyStats
 
 ## [0.1.213] - 2026-03-01
 

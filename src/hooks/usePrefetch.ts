@@ -14,6 +14,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useGitHubAccounts, usePRSettings } from './useConfig';
 import { useTaskQueue } from './useTaskQueue';
+import { getTaskQueue } from '../services/taskQueue';
 import { GitHubClient } from '../api/github';
 import { dataCache } from '../services/dataCache';
 import type { PullRequest } from '../types/pullRequest';
@@ -45,8 +46,15 @@ export function usePrefetch(): void {
   const refreshStaleData = useCallback((intervalMs: number, label: string) => {
     if (accounts.length === 0) return;
 
+    const queue = getTaskQueue('github');
+
     for (const mode of PR_MODES) {
       if (dataCache.isFresh(mode, intervalMs)) {
+        continue;
+      }
+
+      const taskName = `${label.toLowerCase()}-${mode}`;
+      if (queue.hasTaskWithName(taskName)) {
         continue;
       }
 
@@ -115,6 +123,11 @@ export function usePrefetch(): void {
     for (const org of uniqueOrgs) {
       const cacheKey = `org-repos:${org}`;
       if (dataCache.isFresh(cacheKey, intervalMs)) {
+        continue;
+      }
+
+      const orgTaskName = `${label.toLowerCase()}-${cacheKey}`;
+      if (queue.hasTaskWithName(orgTaskName)) {
         continue;
       }
 

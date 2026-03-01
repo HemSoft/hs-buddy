@@ -219,6 +219,19 @@ export class TaskQueue {
   }
 
   /**
+   * Check if a task with the given name is already pending or running.
+   */
+  hasTaskWithName(name: string): boolean {
+    for (const task of this.pendingTasks) {
+      if (task.name === name) return true;
+    }
+    for (const task of this.runningTasks.values()) {
+      if (task.name === name) return true;
+    }
+    return false;
+  }
+
+  /**
    * Process the next task(s) in the queue.
    */
   private processQueue(): void {

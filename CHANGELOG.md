@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.212] - 2026-03-01
+
 ## [0.1.211] - 2026-03-01
+
+### Added
+
+- Add preflight auth script, dispatcher-log reader, fix snapshot.ps1
 
 ## [0.1.210] - 2026-03-01
 

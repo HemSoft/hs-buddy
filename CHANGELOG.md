@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.209] - 2026-03-01
 
+### Fixed
+
+- Increment runsTriggered stat in schedule scanner & improve status bar batch display
+
 ## [0.1.208] - 2026-03-01
 
 ## [0.1.207] - 2026-03-01

@@ -97,13 +97,15 @@ export function StatusBar({
             {backgroundStatus.phase === 'syncing' ? (
               <div
                 className="status-item status-item-syncing"
-                data-tooltip={`Syncing: ${backgroundStatus.activeLabel || 'GitHub data'}${backgroundStatus.activeTasks > 1 ? ` (${backgroundStatus.activeTasks} tasks)` : ''}`}
+                data-tooltip={`Processing ${backgroundStatus.currentIndex} of ${backgroundStatus.batchTotal} — ${backgroundStatus.activeLabel || 'GitHub data'}`}
               >
                 <span className="status-icon spinning">
                   <RefreshCw size={12} />
                 </span>
                 <span className="status-text">
-                  Syncing{backgroundStatus.activeLabel ? ` ${backgroundStatus.activeLabel}` : ''}...
+                  {backgroundStatus.batchTotal && backgroundStatus.batchTotal > 1
+                    ? `${backgroundStatus.currentIndex} of ${backgroundStatus.batchTotal} · ${backgroundStatus.activeLabel || 'Syncing'}...`
+                    : `${backgroundStatus.activeLabel || 'Syncing'}...`}
                 </span>
               </div>
             ) : (

@@ -200,6 +200,25 @@ export class TaskQueue {
   }
 
   /**
+   * Get the name of the currently running task (first one if multiple).
+   */
+  getRunningTaskName(): string | null {
+    for (const task of this.runningTasks.values()) {
+      if (task.name) return task.name;
+    }
+    return null;
+  }
+
+  /**
+   * Get names of all pending tasks in queue order.
+   */
+  getPendingTaskNames(): string[] {
+    return this.pendingTasks
+      .map(t => t.name)
+      .filter((n): n is string => !!n);
+  }
+
+  /**
    * Process the next task(s) in the queue.
    */
   private processQueue(): void {

@@ -1,6 +1,19 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { CronExpressionParser, type CronExpressionOptions } from "cron-parser";
+import type { DatabaseWriter } from "./_generated/server";
+
+/** Increment a buddyStats counter field within the current transaction */
+async function incrementStat(db: DatabaseWriter, field: string, amount = 1) {
+  const doc = await db
+    .query("buddyStats")
+    .withIndex("by_key", (q) => q.eq("key", "default"))
+    .first();
+  if (doc) {
+    const current = (doc as Record<string, unknown>)[field] as number ?? 0;
+    await db.patch(doc._id, { [field]: current + amount, updatedAt: Date.now() });
+  }
+}
 
 /**
  * Schedule Scanner Module
@@ -154,6 +167,9 @@ export const scanAndDispatch = internalMutation({
         startedAt: now,
       });
       runsCreated++;
+
+      // Track the stat (matches runs.create behavior)
+      await incrementStat(ctx.db, "runsTriggered");
 
       // Calculate next run time (from now, not from the missed time)
       const nextRunAt = calculateNextRunAt(

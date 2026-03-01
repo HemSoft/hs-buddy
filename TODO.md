@@ -8,8 +8,9 @@
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
-| 📋 | Medium | [Elegant status bar queue display](#elegant-status-bar-queue-display) | Show "Processing 1 of N" with current task name instead of concatenating all queued tasks |
 | 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
+| 📋 | Medium | [Task Planner (Todoist Integration)](#task-planner-todoist-integration) | 7-day upcoming view powered by Todoist REST API; new Activity Bar section |
+| ✅ | Medium | Elegant status bar queue display | Shows "X of N · TaskName" with batch tracking instead of concatenating all tasks (2026-02) |
 | ✅ | Medium | Copilot enterprise budget not resetting on new billing cycle | Fixed: UTC dates for billing API query, auto-refresh on month boundary, billing period display (2026-02) |
 | ✅ | Critical | SFL Simplification — Replace supersession model | pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
 | ✅ | Critical | SFL Simplification — Label pruning | 39→27 labels, removed 12 unused (2026-02) |
@@ -59,7 +60,7 @@
 
 ## Progress
 
-**Remaining: 7** | **Completed: 46** (87%)
+**Remaining: 7** | **Completed: 47** (87%)
 
 ---
 
@@ -307,24 +308,228 @@
 
 ---
 
-### Elegant status bar queue display
+### Task Planner (Todoist Integration)
 
-**Goal**: Replace the current chaotic status bar behavior during startup and scheduled processing with a clean, sequential display. When multiple tasks are queued (e.g., 4-5 tasks during startup), the status bar currently concatenates all task names, creating a busy and unreadable display.
+**Goal**: Add a new Activity Bar section "Planner" with a 7-day upcoming task view powered by the Todoist REST API v2, similar to Todoist's "Upcoming" mode. Shows today's tasks first, then each subsequent day for 7 days total.
 
-**Desired behavior**: Show `Processing 1 of N — <current task name>` and update as each task completes, e.g.:
+**Authentication**: Uses `TODOIST_API_TOKEN` environment variable (already available). All API calls go through Electron IPC → main process (no token exposure in renderer).
 
-- `Processing 1 of 4 — Fetching PR data...`
-- `Processing 2 of 4 — Syncing repo bookmarks...`
-- `Processing 3 of 4 — Checking schedules...`
-- `Processing 4 of 4 — Refreshing cache...`
+**API Endpoints** (Todoist REST API v2, base: `https://api.todoist.com/rest/v2`):
 
-When all tasks are done, revert to the normal idle status.
+- `GET /tasks?filter=today` — today's tasks
+- `GET /tasks?filter=<date>` — tasks for a specific date (format: `MMM DD`, e.g., `Mar 1`)
+- `GET /tasks?filter=<start> | <end>` — date range queries
+- `POST /tasks/{id}/close` — complete a task
+- `POST /tasks/{id}/reopen` — uncomplete a task
+- `POST /tasks` — create a new task (body: `{ content, due_date, priority, project_id }`)
+- `POST /tasks/{id}` — update a task (body: partial fields like `{ content, due_date }`)
+- `GET /projects` — list all projects (for project name resolution)
+- `GET /labels` — list all labels
 
-**Scope**:
+**UI Design** — Upcoming 7-Day View:
 
-- Update `StatusBar.tsx` to show a single active task with a queue position indicator
-- Modify the task queue / status update logic to track total count and current index
-- Ensure the display is clear and elegant even when many tasks are processing simultaneously
+```
+┌────────────────────────────────────────────────┐
+│  📅 Task Planner                               │
+├────────────────────────────────────────────────┤
+│                                                │
+│  ■ Today — Fri, Feb 28          [+ Add Task]   │
+│  ┌────────────────────────────────────────────┐ │
+│  │ ☐ Review PR for auth service    P1  Work   │ │
+│  │ ☐ Update team standup notes     P3  Work   │ │
+│  │ ☐ Buy groceries                 P4  Home   │ │
+│  └────────────────────────────────────────────┘ │
+│                                                │
+│  ■ Tomorrow — Sat, Mar 1                       │
+│  ┌────────────────────────────────────────────┐ │
+│  │ ☐ Prepare sprint demo           P2  Work   │ │
+│  └────────────────────────────────────────────┘ │
+│                                                │
+│  ■ Sun, Mar 2                                  │
+│  ┌────────────────────────────────────────────┐ │
+│  │   No tasks                                 │ │
+│  └────────────────────────────────────────────┘ │
+│                                                │
+│  ■ Mon, Mar 3                                  │
+│  ┌────────────────────────────────────────────┐ │
+│  │ ☐ Deploy v2.1 to staging        P1  Work   │ │
+│  │ ☐ Write blog post draft         P3  Ideas  │ │
+│  └────────────────────────────────────────────┘ │
+│  ...                                           │
+└────────────────────────────────────────────────┘
+```
+
+**Task Row Features**:
+
+- Checkbox to complete/uncomplete (calls `POST /tasks/{id}/close` or `/reopen`)
+- Task content text (click to edit inline)
+- Priority indicator (colored dot: P1=red, P2=orange, P3=blue, P4=grey)
+- Project name badge (resolved from `GET /projects` cache)
+- Labels as small tags
+- Hover: show description preview, due time if set
+- Context menu: Edit, Reschedule, Set Priority, Delete
+
+**Overdue Section**: Tasks with `due.date < today` appear in a pinned "Overdue" section at the very top, styled with a red/warning accent, before the Today section.
+
+#### Architecture
+
+##### Activity Bar & Sidebar
+
+1. **New Activity Bar entry**: Add `{ id: 'planner', label: 'Planner', icon: CalendarDays }` to `ActivityBar.tsx` sections array. Position it after `tasks` (or replace `tasks` since it's currently placeholder).
+
+2. **Sidebar section**: Add `planner` to `sectionData` in `SidebarPanel.tsx`:
+
+   ```typescript
+   planner: {
+     title: 'Planner',
+     items: [
+       { id: 'planner-upcoming', label: 'Upcoming' },
+       { id: 'planner-today', label: 'Today' },
+       { id: 'planner-projects', label: 'Projects' },
+     ],
+   }
+   ```
+
+3. **View labels**: Add entries to `appContentViewLabels.ts`:
+
+   ```typescript
+   'planner-upcoming': 'Upcoming',
+   'planner-today': 'Today',
+   'planner-projects': 'Projects',
+   ```
+
+##### Electron IPC — Todoist Service
+
+1. **`electron/services/todoistClient.ts`** — Todoist REST API v2 client:
+   - `fetchTasks(filter: string): Promise<TodoistTask[]>` — GET /tasks with filter
+   - `fetchTasksForDateRange(startDate: string, days: number): Promise<Map<string, TodoistTask[]>>` — Fetch tasks grouped by date for the upcoming view
+   - `completeTask(taskId: string): Promise<void>` — POST /tasks/{id}/close
+   - `reopenTask(taskId: string): Promise<void>` — POST /tasks/{id}/reopen
+   - `createTask(params: CreateTaskParams): Promise<TodoistTask>` — POST /tasks
+   - `updateTask(taskId: string, params: Partial<CreateTaskParams>): Promise<TodoistTask>` — POST /tasks/{id}
+   - `deleteTask(taskId: string): Promise<void>` — DELETE /tasks/{id}
+   - `fetchProjects(): Promise<TodoistProject[]>` — GET /projects (cache for 5 min)
+   - `fetchLabels(): Promise<TodoistLabel[]>` — GET /labels
+   - Auth: reads `TODOIST_API_TOKEN` from `process.env`
+
+2. **`electron/ipc/todoistHandlers.ts`** — IPC bridge:
+   - `todoist:get-upcoming` — Returns 7-day grouped tasks
+   - `todoist:get-today` — Returns today's tasks only
+   - `todoist:complete-task` — Complete a task by ID
+   - `todoist:reopen-task` — Reopen a task by ID
+   - `todoist:create-task` — Create a new task
+   - `todoist:update-task` — Update an existing task
+   - `todoist:delete-task` — Delete a task
+   - `todoist:get-projects` — List all projects
+
+3. **Register handlers** in `electron/ipc/index.ts`
+
+4. **Preload exposure** in `electron/preload.ts` — expose todoist IPC methods on `window.electronAPI`
+
+##### React Components
+
+1. **`src/components/planner/TaskPlannerView.tsx`** — Main upcoming view component:
+   - Fetches 7-day task data via `useTodoistUpcoming()` hook
+   - Renders day sections with task lists
+   - Handles task completion toggling
+   - Auto-refreshes every 60 seconds
+   - Pull-to-refresh / manual refresh button
+
+2. **`src/components/planner/DaySection.tsx`** — Single day header + task list:
+   - Date header with day name, formatted date, task count
+   - "Today" / "Tomorrow" labels for relative dates
+   - "+ Add Task" button per day section
+   - Empty state for days with no tasks
+
+3. **`src/components/planner/TaskRow.tsx`** — Individual task row:
+   - Completion checkbox with optimistic UI update
+   - Task content with inline edit support
+   - Priority dot indicator
+   - Project name badge
+   - Label tags
+   - Context menu (right-click)
+
+4. **`src/components/planner/TaskPlannerView.css`** — Styling matching VSCode dark theme
+
+5. **`src/components/planner/AddTaskInline.tsx`** — Inline task creation form:
+   - Content input, date picker, priority selector, project dropdown
+   - Auto-assigns date based on which day section it's in
+
+##### Hooks
+
+1. **`src/hooks/useTodoist.ts`** — React hooks for Todoist data:
+   - `useTodoistUpcoming(days?: number)` — Fetches and caches upcoming tasks, returns `{ dayGroups, isLoading, error, refresh }`
+   - `useTodoistToday()` — Shortcut for today-only view
+   - `useTodoistProjects()` — Cached project list for name resolution
+   - `useTaskActions()` — Returns `{ completeTask, reopenTask, createTask, updateTask, deleteTask }` with optimistic updates
+
+##### Types
+
+1. **`src/types/todoist.ts`** — TypeScript interfaces:
+
+   ```typescript
+   interface TodoistTask {
+     id: string
+     content: string
+     description: string
+     project_id: string
+     priority: 1 | 2 | 3 | 4  // 4=P1, 3=P2, 2=P3, 1=P4
+     due: { date: string; datetime?: string; string: string; timezone?: string } | null
+     labels: string[]
+     is_completed: boolean
+     created_at: string
+     url: string
+     order: number
+   }
+   
+   interface TodoistProject {
+     id: string
+     name: string
+     color: string
+     parent_id: string | null
+     order: number
+   }
+   
+   interface TodoistLabel {
+     id: string
+     name: string
+     color: string
+   }
+   
+   interface DayGroup {
+     date: string        // ISO date string YYYY-MM-DD
+     label: string       // "Today", "Tomorrow", "Mon, Mar 3"
+     tasks: TodoistTask[]
+   }
+   ```
+
+#### Files to Create or Modify
+
+| Action | File | Purpose |
+|--------|------|---------|
+| Create | `src/types/todoist.ts` | TodoistTask, TodoistProject, TodoistLabel, DayGroup types |
+| Create | `electron/services/todoistClient.ts` | Todoist REST API v2 client |
+| Create | `electron/ipc/todoistHandlers.ts` | IPC handlers for todoist operations |
+| Create | `src/hooks/useTodoist.ts` | React hooks: useTodoistUpcoming, useTaskActions, etc. |
+| Create | `src/components/planner/TaskPlannerView.tsx` | Main 7-day upcoming view |
+| Create | `src/components/planner/TaskPlannerView.css` | Planner styling |
+| Create | `src/components/planner/DaySection.tsx` | Per-day section component |
+| Create | `src/components/planner/TaskRow.tsx` | Individual task row component |
+| Create | `src/components/planner/AddTaskInline.tsx` | Inline task creation |
+| Modify | `src/components/ActivityBar.tsx` | Add "Planner" section with CalendarDays icon |
+| Modify | `src/components/SidebarPanel.tsx` | Add planner section data |
+| Modify | `src/components/AppContentRouter.tsx` | Route planner-upcoming/today/projects views |
+| Modify | `src/components/appContentViewLabels.ts` | Add planner view labels |
+| Modify | `electron/ipc/index.ts` | Register todoist IPC handlers |
+| Modify | `electron/preload.ts` | Expose todoist IPC methods |
+
+#### Key Design Decisions
+
+- **Electron IPC, not direct fetch**: The renderer never sees the API token. All Todoist calls go through IPC → main process → Todoist API.
+- **Optimistic UI**: Task completion toggles instantly in the UI, with rollback on API error.
+- **Lightweight caching**: Project list cached 5 min in main process. Task data refreshed on view focus + 60s interval.
+- **No Convex storage**: Tasks live in Todoist — Buddy is a pure client. No syncing or local persistence beyond in-memory cache.
+- **Replace or coexist with "Tasks" section**: The existing `tasks` Activity Bar section has placeholder items (Today, Upcoming, Projects). The Planner section can either replace it or live alongside it. Replacing makes sense since the items are identical — just rename the section and wire it to real data.
 
 ---
 

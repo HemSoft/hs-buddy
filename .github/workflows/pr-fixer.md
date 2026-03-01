@@ -180,6 +180,70 @@ safe-inputs:
       REPO_OWNER: "${{ github.repository_owner }}"
       REPO_NAME: "${{ github.event.repository.name }}"
 
+  replace-pr-body-text:
+    description: "Perform a targeted find-and-replace on a PR's body text via the GitHub API. Use this to update checkboxes, fix text, or make small edits to the PR description without reproducing the entire body. The search_text must match EXACTLY one location in the body. Returns JSON with status."
+    inputs:
+      pr_number:
+        type: number
+        required: true
+        description: "The pull request number"
+      search_text:
+        type: string
+        required: true
+        description: "The exact text to find in the PR body (must match exactly once)"
+      replace_text:
+        type: string
+        required: true
+        description: "The text to replace search_text with"
+    timeout: 30
+    run: |
+      set -euo pipefail
+
+      PR_NUM="$INPUT_PR_NUMBER"
+      SEARCH="$INPUT_SEARCH_TEXT"
+      REPLACE="$INPUT_REPLACE_TEXT"
+
+      # Get current PR body
+      BODY=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" --jq '.body')
+      if [ -z "$BODY" ]; then
+        echo '{"status":"error","message":"Could not read PR body"}'
+        exit 1
+      fi
+
+      # Count occurrences to ensure exactly one match
+      COUNT=$(echo "$BODY" | grep -cF "$SEARCH" || true)
+      if [ "$COUNT" -eq 0 ]; then
+        echo '{"status":"error","message":"search_text not found in PR body"}'
+        exit 1
+      fi
+      if [ "$COUNT" -gt 1 ]; then
+        echo "{\"status\":\"error\",\"message\":\"search_text found $COUNT times — must match exactly once\"}"
+        exit 1
+      fi
+
+      # Perform the replacement
+      NEW_BODY=$(echo "$BODY" | awk -v search="$SEARCH" -v replace="$REPLACE" '{
+        idx = index($0, search)
+        if (idx > 0) {
+          printf "%s%s%s\n", substr($0, 1, idx-1), replace, substr($0, idx+length(search))
+        } else {
+          print
+        }
+      }')
+
+      # Update the PR body
+      gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" \
+        --method PATCH \
+        --input <(jq -n --arg body "$NEW_BODY" '{"body": $body}') \
+        --jq '{status: "success", body_length: (.body | length)}' 2>&1 || {
+        echo '{"status":"error","message":"Failed to update PR body"}'
+        exit 1
+      }
+    env:
+      GH_TOKEN: "${{ secrets.GH_AW_GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
+
   read-sfl-config:
     description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits."
     inputs: {}
@@ -361,6 +425,27 @@ Check each analyzer's "### Verdict" line:
 - Preserve existing formatting conventions exactly
 - If findings conflict across analyzers, prefer safety (security > correctness > style)
 - If a fix cannot be implemented, note it in the summary
+
+### PR body and metadata fixes
+
+Some findings reference the **PR body** (e.g., unchecked acceptance criteria
+checkboxes, missing issue references, misleading descriptions). These are NOT
+code fixes — do NOT try to fix them via `update_issue` with a full body
+replacement (the body is too large).
+
+Instead, use the `replace_pr_body_text` safe-input:
+
+1. Identify the exact text to change (e.g., `- [ ] All remaining 9 oversized`)
+2. Determine the replacement text (e.g., `- [x] All remaining 9 oversized`)
+3. Call `replace_pr_body_text` with exact `search_text` and `replace_text`
+
+**Examples of PR body fixes:**
+
+- Checking acceptance criteria checkboxes: `search_text: "- [ ] criterion text"` → `replace_text: "- [x] criterion text — see #85"`
+- Adding issue references: append `(see #N)` to relevant text
+- Correcting misleading descriptions: targeted text replacement
+
+Always verify the fix by confirming the tool returns `status: success`.
 
 ### Make progress — every cycle counts
 

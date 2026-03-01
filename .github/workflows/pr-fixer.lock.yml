@@ -26,7 +26,7 @@
 # fixes directly to the PR branch, updates cycle labels, and exits. Does NOT
 # un-draft the PR — that is the Promoter's job.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"4fba862ef912d70359bad8b58d524f163247ec0ebbf486e30be5944435e4778a","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"0d75eced30324c961dc5e2d494ea72f6745842fd5545c073938bf5418bffae44","compiler_version":"v0.50.4"}
 
 name: "PR Fixer — Authority"
 "on":
@@ -958,6 +958,39 @@ jobs:
                 "timeout": 60
               },
               {
+                "name": "replace-pr-body-text",
+                "description": "Perform a targeted find-and-replace on a PR's body text via the GitHub API. Use this to update checkboxes, fix text, or make small edits to the PR description without reproducing the entire body. The search_text must match EXACTLY one location in the body. Returns JSON with status.",
+                "inputSchema": {
+                  "properties": {
+                    "pr_number": {
+                      "description": "The pull request number",
+                      "type": "number"
+                    },
+                    "replace_text": {
+                      "description": "The text to replace search_text with",
+                      "type": "string"
+                    },
+                    "search_text": {
+                      "description": "The exact text to find in the PR body (must match exactly once)",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "pr_number",
+                    "replace_text",
+                    "search_text"
+                  ],
+                  "type": "object"
+                },
+                "handler": "replace-pr-body-text.sh",
+                "env": {
+                  "GH_TOKEN": "GH_TOKEN",
+                  "REPO_NAME": "REPO_NAME",
+                  "REPO_OWNER": "REPO_OWNER"
+                },
+                "timeout": 30
+              },
+              {
                 "name": "resolve-pr-conflicts",
                 "description": "Resolve a merge conflict on a PR by overwriting a conflicting file with main's version via the GitHub Contents API, then merging remaining main changes via update-branch. Call once per conflicting file. Returns JSON with status (success, partial, error) and details. The PR's changes to the resolved file are LOST — main's version wins.",
                 "inputSchema": {
@@ -1082,6 +1115,59 @@ jobs:
           
           GH_AW_SAFE_INPUTS_SH_READ-SFL-CONFIG_EOF
           chmod +x /opt/gh-aw/safe-inputs/read-sfl-config.sh
+          cat > /opt/gh-aw/safe-inputs/replace-pr-body-text.sh << 'GH_AW_SAFE_INPUTS_SH_REPLACE-PR-BODY-TEXT_EOF'
+          #!/bin/bash
+          # Auto-generated safe-input tool: replace-pr-body-text
+          # Perform a targeted find-and-replace on a PR's body text via the GitHub API. Use this to update checkboxes, fix text, or make small edits to the PR description without reproducing the entire body. The search_text must match EXACTLY one location in the body. Returns JSON with status.
+          
+          set -euo pipefail
+          
+          set -euo pipefail
+          
+          PR_NUM="$INPUT_PR_NUMBER"
+          SEARCH="$INPUT_SEARCH_TEXT"
+          REPLACE="$INPUT_REPLACE_TEXT"
+          
+          # Get current PR body
+          BODY=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" --jq '.body')
+          if [ -z "$BODY" ]; then
+            echo '{"status":"error","message":"Could not read PR body"}'
+            exit 1
+          fi
+          
+          # Count occurrences to ensure exactly one match
+          COUNT=$(echo "$BODY" | grep -cF "$SEARCH" || true)
+          if [ "$COUNT" -eq 0 ]; then
+            echo '{"status":"error","message":"search_text not found in PR body"}'
+            exit 1
+          fi
+          if [ "$COUNT" -gt 1 ]; then
+            echo "{\"status\":\"error\",\"message\":\"search_text found $COUNT times — must match exactly once\"}"
+            exit 1
+          fi
+          
+          # Perform the replacement
+          NEW_BODY=$(echo "$BODY" | awk -v search="$SEARCH" -v replace="$REPLACE" '{
+            idx = index($0, search)
+            if (idx > 0) {
+              printf "%s%s%s\n", substr($0, 1, idx-1), replace, substr($0, idx+length(search))
+            } else {
+              print
+            }
+          }')
+          
+          # Update the PR body
+          gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" \
+            --method PATCH \
+            --input <(jq -n --arg body "$NEW_BODY" '{"body": $body}') \
+            --jq '{status: "success", body_length: (.body | length)}' 2>&1 || {
+            echo '{"status":"error","message":"Failed to update PR body"}'
+            exit 1
+          }
+          
+          
+          GH_AW_SAFE_INPUTS_SH_REPLACE-PR-BODY-TEXT_EOF
+          chmod +x /opt/gh-aw/safe-inputs/replace-pr-body-text.sh
           cat > /opt/gh-aw/safe-inputs/resolve-pr-conflicts.sh << 'GH_AW_SAFE_INPUTS_SH_RESOLVE-PR-CONFLICTS_EOF'
           #!/bin/bash
           # Auto-generated safe-input tool: resolve-pr-conflicts

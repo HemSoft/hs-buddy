@@ -151,6 +151,23 @@
   min-width: 0;
 }
 
+.job-row-run-count {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  background-color: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.job-row:hover .job-row-run-count {
+  opacity: 1;
+}
+
 .job-row-actions {
   display: flex;
   align-items: center;

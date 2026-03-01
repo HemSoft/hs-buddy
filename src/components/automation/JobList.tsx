@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Package, Terminal, Brain, Zap, Plus, Trash2, Copy, Play, Edit } from 'lucide-react'
-import { useJobs, useJobMutations, useRunMutations, JobId } from '../../hooks/useConvex'
+import { useJobs, useJobMutations, useRunMutations, useJobRunCounts, JobId } from '../../hooks/useConvex'
 import { JobEditor } from './JobEditor'
 import './JobList.css'
 
@@ -46,6 +46,7 @@ export function JobList({ createTrigger }: JobListProps) {
   const jobs = useJobs()
   const { remove } = useJobMutations()
   const { create: createRun } = useRunMutations()
+  const runCounts = useJobRunCounts()
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingJobId, setEditingJobId] = useState<JobId | undefined>()
   const [duplicateJob, setDuplicateJob] = useState<Job | undefined>()
@@ -207,7 +208,9 @@ export function JobList({ createTrigger }: JobListProps) {
     skill: (jobs as Job[]).filter(w => w.workerType === 'skill'),
   }
 
-  const renderJobRow = (job: Job) => (
+  const renderJobRow = (job: Job) => {
+    const counts = runCounts?.[job._id]
+    return (
     <div
       key={job._id}
       className="job-row"
@@ -218,6 +221,12 @@ export function JobList({ createTrigger }: JobListProps) {
       {getWorkerIcon(job.workerType)}
       <span className="job-row-name">{job.name}</span>
       <span className="job-row-preview">{getConfigPreview(job)}</span>
+      {counts && counts.total > 0 && (
+        <span className="job-row-run-count" title={`${counts.total} runs (${counts.completed} completed${counts.failed > 0 ? `, ${counts.failed} failed` : ''})`}>
+          <Play size={10} />
+          {counts.total}
+        </span>
+      )}
       <div className="job-row-actions">
         <button
           className="btn-icon-sm"
@@ -242,7 +251,8 @@ export function JobList({ createTrigger }: JobListProps) {
         </button>
       </div>
     </div>
-  )
+    )
+  }
 
   return (
     <div className="job-list">

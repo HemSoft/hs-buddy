@@ -165,6 +165,11 @@ export function useRecentRuns(limit?: number) {
   return useQuery(api.runs.listRecent, { limit });
 }
 
+// Run counts per job (for badges)
+export function useJobRunCounts() {
+  return useQuery(api.runs.countsByJob);
+}
+
 // List runs for a job
 export function useJobRuns(jobId: JobId | undefined, limit?: number) {
   return useQuery(api.runs.listByJob, jobId ? { jobId, limit } : "skip");

@@ -141,7 +141,7 @@ jobs:
             ALL_PASS=true
             for ANALYZER in a b c; do
               # Extract the section for this analyzer at this cycle and check for PASS
-              SECTION=$(echo "$PR_BODY" | sed -n "/\[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE\]/,/\[MARKER:/p" | head -50)
+              SECTION=$(echo "$PR_BODY" | sed -n "/\[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE\]/,/\[MARKER:/p" | head -50 || true)
               if ! echo "$SECTION" | grep -qF '**PASS**'; then
                 ALL_PASS=false
                 break

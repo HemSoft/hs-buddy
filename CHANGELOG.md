@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.226] - 2026-03-01
+
 ## [0.1.225] - 2026-03-01
+
+### Fixed
+
+- Add replace-pr-body-text safe-input for targeted PR body edits
 
 ## [0.1.224] - 2026-03-01
 

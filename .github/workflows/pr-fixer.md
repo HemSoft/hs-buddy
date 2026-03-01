@@ -132,6 +132,7 @@ safe-inputs:
 
 safe-outputs:
   push-to-pull-request-branch:
+    target: "*"
     max: 1
   add-comment:
     target: "*"

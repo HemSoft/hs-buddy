@@ -245,8 +245,8 @@ export function registerGitHubHandlers(): void {
         }
 
         const now = new Date()
-        const year = now.getFullYear()
-        const month = now.getMonth() + 1
+        const year = now.getUTCFullYear()
+        const month = now.getUTCMonth() + 1
 
         // Fetch budget limit and spend in parallel
         const [budgetResult, usageResult] = await Promise.allSettled([
@@ -382,6 +382,8 @@ export function registerGitHubHandlers(): void {
               spent: 0,
               spentUnavailable: true,
               useQuotaOverage: is404,
+              billingMonth: month,
+              billingYear: year,
               fetchedAt: Date.now(),
             },
           }
@@ -389,7 +391,7 @@ export function registerGitHubHandlers(): void {
 
         return {
           success: true,
-          data: { org, budgetAmount, preventFurtherUsage, spent, spentUnavailable: !!spentError, useQuotaOverage: false, fetchedAt: Date.now() },
+          data: { org, budgetAmount, preventFurtherUsage, spent, spentUnavailable: !!spentError, useQuotaOverage: false, billingMonth: month, billingYear: year, fetchedAt: Date.now() },
         }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)

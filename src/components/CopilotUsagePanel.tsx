@@ -44,6 +44,8 @@ interface OrgBudgetData {
   spent: number
   spentUnavailable: boolean
   useQuotaOverage: boolean
+  billingMonth: number
+  billingYear: number
   fetchedAt: number
 }
 
@@ -266,6 +268,38 @@ export function CopilotUsagePanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Array.from(uniqueOrgs.keys()).join(',')])
+
+  // Auto-refresh on UTC month boundary (checks every 5 minutes)
+  useEffect(() => {
+    const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
+    const currentUTCMonth = () => {
+      const now = new Date()
+      return now.getUTCFullYear() * 100 + (now.getUTCMonth() + 1)
+    }
+
+    const interval = setInterval(() => {
+      const nowMonth = currentUTCMonth()
+      // Check if any cached budget data is from a previous billing month
+      const needsRefresh = Object.values(orgBudgets).some(state => {
+        if (!state.data) return false
+        const dataMonth = state.data.billingYear * 100 + state.data.billingMonth
+        return dataMonth < nowMonth
+      })
+
+      if (needsRefresh) {
+        // Billing cycle changed — force re-fetch everything
+        for (const account of accounts) {
+          fetchQuota(account.username)
+        }
+        for (const [org, username] of uniqueOrgs) {
+          fetchBudget(org, username)
+        }
+      }
+    }, REFRESH_INTERVAL)
+
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts.length, Array.from(uniqueOrgs.keys()).join(',')])
 
   // Compute per-org overage from account quota data (for orgs without billing API access)
   const orgOverageFromQuotas = useMemo(() => {
@@ -568,6 +602,14 @@ export function CopilotUsagePanel() {
                             {d.useQuotaOverage ? 'from quota' : 'no budget set'}
                           </span>
                         )}
+                      </div>
+                      <div className="usage-budget-footer">
+                        <span className="usage-budget-period">
+                          {new Date(d.billingYear, d.billingMonth - 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                        </span>
+                        <span className="usage-fetched-at">
+                          {formatTime(d.fetchedAt)}
+                        </span>
                       </div>
                     </>
                   )}

@@ -466,6 +466,22 @@
   color: var(--text-secondary, #888);
 }
 
+.usage-budget-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.usage-budget-period {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* ── Spinner ──────────────────────────────────────────────────────────── */
 
 .copilot-usage-panel .spin {

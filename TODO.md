@@ -8,6 +8,9 @@
 | 📋 | Medium | [Run 30-day Set it Free pilot](#run-30-day-set-it-free-pilot) | Measure MTTR, merge quality, false positives; publish to SFL repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
+| 📋 | Medium | [Elegant status bar queue display](#elegant-status-bar-queue-display) | Show "Processing 1 of N" with current task name instead of concatenating all queued tasks |
+| 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
+| ✅ | Medium | Copilot enterprise budget not resetting on new billing cycle | Fixed: UTC dates for billing API query, auto-refresh on month boundary, billing period display (2026-02) |
 | ✅ | Critical | SFL Simplification — Replace supersession model | pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
 | ✅ | Critical | SFL Simplification — Label pruning | 39→27 labels, removed 12 unused (2026-02) |
 | ✅ | Critical | Build sfl-auditor workflow | Audits label consistency; repairs orphaned state (2026-02) |
@@ -56,7 +59,7 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 45** (88%)
+**Remaining: 7** | **Completed: 46** (87%)
 
 ---
 
@@ -301,3 +304,30 @@
 - Per-workflow run and cost metrics
 - p50/p90 cost-per-run reporting
 - Monthly cap alerts and throttle policies
+
+---
+
+### Elegant status bar queue display
+
+**Goal**: Replace the current chaotic status bar behavior during startup and scheduled processing with a clean, sequential display. When multiple tasks are queued (e.g., 4-5 tasks during startup), the status bar currently concatenates all task names, creating a busy and unreadable display.
+
+**Desired behavior**: Show `Processing 1 of N — <current task name>` and update as each task completes, e.g.:
+
+- `Processing 1 of 4 — Fetching PR data...`
+- `Processing 2 of 4 — Syncing repo bookmarks...`
+- `Processing 3 of 4 — Checking schedules...`
+- `Processing 4 of 4 — Refreshing cache...`
+
+When all tasks are done, revert to the normal idle status.
+
+**Scope**:
+
+- Update `StatusBar.tsx` to show a single active task with a queue position indicator
+- Modify the task queue / status update logic to track total count and current index
+- Ensure the display is clear and elegant even when many tasks are processing simultaneously
+
+---
+
+### PR Analyzers should post reviews, not update PR body
+
+**Goal**: Migrate analyzer verdicts from PR body updates (`update_issue`) to proper PR review comments (`add_comment` or `submit-pull-request-review`), keeping the PR body clean.

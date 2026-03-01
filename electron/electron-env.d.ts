@@ -96,6 +96,8 @@ interface Window {
         spent: number
         spentUnavailable: boolean
         useQuotaOverage: boolean
+        billingMonth: number
+        billingYear: number
         fetchedAt: number
       }
     }>

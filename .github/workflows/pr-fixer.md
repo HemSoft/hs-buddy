@@ -120,6 +120,66 @@ safe-inputs:
       REPO_OWNER: "${{ github.repository_owner }}"
       REPO_NAME: "${{ github.event.repository.name }}"
 
+  write-file-to-pr-branch:
+    description: "Write a file directly to a PR branch via the GitHub Contents API. Use this INSTEAD of push_to_pull_request_branch when modifying files that were CREATED by the PR (i.e., files that don't exist on main). This bypasses the patch mechanism which fails with add/add conflicts for PR-only files. Returns JSON with the new commit SHA."
+    inputs:
+      pr_number:
+        type: number
+        required: true
+        description: "The pull request number"
+      file_path:
+        type: string
+        required: true
+        description: "Path to the file to update (e.g., src/components/Foo.tsx)"
+      file_content:
+        type: string
+        required: true
+        description: "The complete new file content (will be base64-encoded automatically)"
+      commit_message:
+        type: string
+        required: true
+        description: "The commit message for this file update"
+    timeout: 60
+    run: |
+      set -euo pipefail
+
+      PR_NUM="$INPUT_PR_NUMBER"
+      FILE="$INPUT_FILE_PATH"
+      CONTENT="$INPUT_FILE_CONTENT"
+      MSG="$INPUT_COMMIT_MESSAGE"
+
+      # Get PR head branch name
+      HEAD_BRANCH=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" --jq '.head.ref')
+      echo "PR branch: $HEAD_BRANCH"
+
+      # Get current file SHA on the PR branch (needed for update)
+      FILE_SHA=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE?ref=$HEAD_BRANCH" --jq '.sha' 2>/dev/null || echo "")
+      if [ -z "$FILE_SHA" ]; then
+        echo '{"status":"error","message":"File does not exist on PR branch"}'
+        exit 1
+      fi
+
+      # Base64-encode the content
+      B64_CONTENT=$(echo -n "$CONTENT" | base64 -w 0)
+
+      # Update the file on the PR branch
+      RESULT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE" \
+        --method PUT \
+        -f message="$MSG" \
+        -f content="$B64_CONTENT" \
+        -f sha="$FILE_SHA" \
+        -f branch="$HEAD_BRANCH" \
+        --jq '{status: "success", commit_sha: .commit.sha, file: .content.path}' 2>&1) || {
+        echo "{\"status\":\"error\",\"message\":\"Contents API PUT failed: $RESULT\"}"
+        exit 1
+      }
+
+      echo "$RESULT"
+    env:
+      GH_TOKEN: "${{ secrets.GH_AW_GITHUB_TOKEN }}"
+      REPO_OWNER: "${{ github.repository_owner }}"
+      REPO_NAME: "${{ github.event.repository.name }}"
+
   read-sfl-config:
     description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits."
     inputs: {}
@@ -335,8 +395,38 @@ Fixes applied:
 
 ## Step 8 — Push fixes to the PR branch
 
+### Choosing the right push mechanism
+
+The PR branch may contain files that don't exist on `main` (the base branch).
+The `push_to_pull_request_branch` safe-output generates patches relative to
+`main`, so modifying PR-only files causes add/add merge conflicts.
+
+**Decision rule:**
+
+1. List the files you modified. For each, check if the file exists on `main`
+   by running: `git show main:<file_path> > /dev/null 2>&1 && echo EXISTS || echo PR_ONLY`
+2. If ALL modified files exist on `main`: use `push_to_pull_request_branch` (Step 8a).
+3. If ANY modified file is PR-only: use `write_file_to_pr_branch` for EACH
+   modified file (Step 8b) — this includes files that exist on main too.
+   Do NOT mix both mechanisms in the same cycle.
+
+### Step 8a — Push via patch (all files exist on main)
+
 Call `push_to_pull_request_branch` to push your committed changes directly
 to the existing PR's branch. This updates the PR in place — no new PR needed.
+
+### Step 8b — Push via Contents API (PR-only files present)
+
+For each file you modified, call `write_file_to_pr_branch` with:
+
+- `pr_number`: the PR number
+- `file_path`: the path to the file
+- `file_content`: the COMPLETE updated file content
+- `commit_message`: on the first file use the full commit message; on
+  subsequent files use "fix: continued — update <filename>"
+
+This writes each file directly to the PR branch via the GitHub Contents API,
+bypassing the patch mechanism entirely.
 
 ## Step 9 — Update cycle label
 

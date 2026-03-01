@@ -26,7 +26,7 @@
 # fixes directly to the PR branch, updates cycle labels, and exits. Does NOT
 # un-draft the PR — that is the Promoter's job.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"afa17f07c3c88551aec91e12e62b2dfa8a7396f955bcb8cdc6b09934768b2980","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"4fba862ef912d70359bad8b58d524f163247ec0ebbf486e30be5944435e4778a","compiler_version":"v0.50.4"}
 
 name: "PR Fixer — Authority"
 "on":
@@ -984,6 +984,44 @@ jobs:
                   "REPO_OWNER": "REPO_OWNER"
                 },
                 "timeout": 120
+              },
+              {
+                "name": "write-file-to-pr-branch",
+                "description": "Write a file directly to a PR branch via the GitHub Contents API. Use this INSTEAD of push_to_pull_request_branch when modifying files that were CREATED by the PR (i.e., files that don't exist on main). This bypasses the patch mechanism which fails with add/add conflicts for PR-only files. Returns JSON with the new commit SHA.",
+                "inputSchema": {
+                  "properties": {
+                    "commit_message": {
+                      "description": "The commit message for this file update",
+                      "type": "string"
+                    },
+                    "file_content": {
+                      "description": "The complete new file content (will be base64-encoded automatically)",
+                      "type": "string"
+                    },
+                    "file_path": {
+                      "description": "Path to the file to update (e.g., src/components/Foo.tsx)",
+                      "type": "string"
+                    },
+                    "pr_number": {
+                      "description": "The pull request number",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "commit_message",
+                    "file_content",
+                    "file_path",
+                    "pr_number"
+                  ],
+                  "type": "object"
+                },
+                "handler": "write-file-to-pr-branch.sh",
+                "env": {
+                  "GH_TOKEN": "GH_TOKEN",
+                  "REPO_NAME": "REPO_NAME",
+                  "REPO_OWNER": "REPO_OWNER"
+                },
+                "timeout": 60
               }
             ]
           }
@@ -1106,6 +1144,51 @@ jobs:
           
           GH_AW_SAFE_INPUTS_SH_RESOLVE-PR-CONFLICTS_EOF
           chmod +x /opt/gh-aw/safe-inputs/resolve-pr-conflicts.sh
+          cat > /opt/gh-aw/safe-inputs/write-file-to-pr-branch.sh << 'GH_AW_SAFE_INPUTS_SH_WRITE-FILE-TO-PR-BRANCH_EOF'
+          #!/bin/bash
+          # Auto-generated safe-input tool: write-file-to-pr-branch
+          # Write a file directly to a PR branch via the GitHub Contents API. Use this INSTEAD of push_to_pull_request_branch when modifying files that were CREATED by the PR (i.e., files that don't exist on main). This bypasses the patch mechanism which fails with add/add conflicts for PR-only files. Returns JSON with the new commit SHA.
+          
+          set -euo pipefail
+          
+          set -euo pipefail
+          
+          PR_NUM="$INPUT_PR_NUMBER"
+          FILE="$INPUT_FILE_PATH"
+          CONTENT="$INPUT_FILE_CONTENT"
+          MSG="$INPUT_COMMIT_MESSAGE"
+          
+          # Get PR head branch name
+          HEAD_BRANCH=$(gh api "repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUM" --jq '.head.ref')
+          echo "PR branch: $HEAD_BRANCH"
+          
+          # Get current file SHA on the PR branch (needed for update)
+          FILE_SHA=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE?ref=$HEAD_BRANCH" --jq '.sha' 2>/dev/null || echo "")
+          if [ -z "$FILE_SHA" ]; then
+            echo '{"status":"error","message":"File does not exist on PR branch"}'
+            exit 1
+          fi
+          
+          # Base64-encode the content
+          B64_CONTENT=$(echo -n "$CONTENT" | base64 -w 0)
+          
+          # Update the file on the PR branch
+          RESULT=$(gh api "repos/$REPO_OWNER/$REPO_NAME/contents/$FILE" \
+            --method PUT \
+            -f message="$MSG" \
+            -f content="$B64_CONTENT" \
+            -f sha="$FILE_SHA" \
+            -f branch="$HEAD_BRANCH" \
+            --jq '{status: "success", commit_sha: .commit.sha, file: .content.path}' 2>&1) || {
+            echo "{\"status\":\"error\",\"message\":\"Contents API PUT failed: $RESULT\"}"
+            exit 1
+          }
+          
+          echo "$RESULT"
+          
+          
+          GH_AW_SAFE_INPUTS_SH_WRITE-FILE-TO-PR-BRANCH_EOF
+          chmod +x /opt/gh-aw/safe-inputs/write-file-to-pr-branch.sh
           
       - name: Generate Safe Inputs MCP Server Config
         id: safe-inputs-config

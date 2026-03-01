@@ -144,6 +144,9 @@ safe-outputs:
   update-discussion:
     target: "*"
     max: 1
+  create-issue:
+    max: 2
+    title-prefix: "[follow-up] "
   update-issue:
     target: "*"
     max: 3
@@ -267,9 +270,13 @@ Lines matching `- **[file:line]** — description` under "### Non-Blocking Sugge
 
 Check each analyzer's "### Verdict" line:
 
-- If ALL three verdicts say `**PASS**`, there is nothing to fix.
-  Post the fixer marker (Step 9) noting "All three analyzers passed — no fixes
-  needed." Then update the dashboard and exit.
+- If ALL three verdicts say `**PASS**`, there is **nothing to fix — STOP HERE**.
+  Do NOT proceed to Steps 6–9. Do NOT implement non-blocking suggestions.
+  Do NOT increment the cycle label. Instead:
+  1. Post ONLY the fixer marker (Step 10) noting "All three analyzers passed —
+     no fixes needed. Non-blocking suggestions are informational only."
+  2. Update the dashboard.
+  3. **Exit immediately.** The PR Promoter will handle promotion.
 
 ## Step 6 — Read the PR content and codebase
 

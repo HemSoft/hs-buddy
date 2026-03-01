@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.220] - 2026-03-01
+
 ## [0.1.219] - 2026-03-01
+
+### Fixed
+
+- Add target '*' to pr-fixer push-to-pull-request-branch safe-output
 
 ## [0.1.218] - 2026-03-01
 

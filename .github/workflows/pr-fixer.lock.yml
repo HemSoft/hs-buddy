@@ -26,7 +26,7 @@
 # fixes directly to the PR branch, updates cycle labels, and exits. Does NOT
 # un-draft the PR — that is the Promoter's job.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"63c444eb613b02ce2f5f5ff281fe9e63df6251f727bfa225f0b44d89632407e1","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"afa17f07c3c88551aec91e12e62b2dfa8a7396f955bcb8cdc6b09934768b2980","compiler_version":"v0.50.4"}
 
 name: "PR Fixer — Authority"
 "on":
@@ -102,7 +102,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: add_comment, update_issue, update_discussion, add_labels, remove_labels, push_to_pull_request_branch, missing_tool, missing_data
+          Tools: add_comment, create_issue, update_issue, update_discussion, add_labels, remove_labels, push_to_pull_request_branch, missing_tool, missing_data
           GH_AW_PROMPT_EOF
           cat "/opt/gh-aw/prompts/safe_outputs_push_to_pr_branch.md"
           cat << 'GH_AW_PROMPT_EOF'
@@ -326,10 +326,51 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":3},"missing_data":{},"missing_tool":{},"noop":{"max":1},"push_to_pull_request_branch":{"max":1,"target":"*"},"remove_labels":{"max":3},"update_discussion":{"max":1},"update_issue":{"max":3}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":3},"create_issue":{"max":2},"missing_data":{},"missing_tool":{},"noop":{"max":1},"push_to_pull_request_branch":{"max":1,"target":"*"},"remove_labels":{"max":3},"update_discussion":{"max":1},"update_issue":{"max":3}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
+            {
+              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 2 issue(s) can be created. Title will be prefixed with \"[follow-up] \".",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "description": "Detailed issue description in Markdown. Do NOT repeat the title as a heading since it already appears as the issue's h1. Include context, reproduction steps, or acceptance criteria as appropriate.",
+                    "type": "string"
+                  },
+                  "labels": {
+                    "description": "Labels to categorize the issue (e.g., 'bug', 'enhancement'). Labels must exist in the repository.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "parent": {
+                    "description": "Parent issue number for creating sub-issues. This is the numeric ID from the GitHub URL (e.g., 42 in github.com/owner/repo/issues/42). Can also be a temporary_id (e.g., 'aw_abc123', 'aw_Test123') from a previously created issue in the same workflow run.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  },
+                  "temporary_id": {
+                    "description": "Unique temporary identifier for referencing this issue before it's created. Format: 'aw_' followed by 3 to 8 alphanumeric characters (e.g., 'aw_abc1', 'aw_Test123'). Use '#aw_ID' in body text to reference other issues by their temporary_id; these are replaced with actual issue numbers after creation.",
+                    "pattern": "^aw_[A-Za-z0-9]{3,8}$",
+                    "type": "string"
+                  },
+                  "title": {
+                    "description": "Concise issue title summarizing the bug, feature, or task. The title appears as the main heading, so keep it brief and descriptive.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "name": "create_issue"
+            },
             {
               "description": "Update an existing GitHub discussion's title or body. Use this to modify discussion properties after creation. Only the fields you specify will be updated; other fields remain unchanged.",
               "inputSchema": {
@@ -620,6 +661,39 @@ jobs:
                 "repo": {
                   "type": "string",
                   "maxLength": 256
+                }
+              }
+            },
+            "create_issue": {
+              "defaultMax": 1,
+              "fields": {
+                "body": {
+                  "required": true,
+                  "type": "string",
+                  "sanitize": true,
+                  "maxLength": 65000
+                },
+                "labels": {
+                  "type": "array",
+                  "itemType": "string",
+                  "itemSanitize": true,
+                  "itemMaxLength": 128
+                },
+                "parent": {
+                  "issueOrPRNumber": true
+                },
+                "repo": {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                "temporary_id": {
+                  "type": "string"
+                },
+                "title": {
+                  "required": true,
+                  "type": "string",
+                  "sanitize": true,
+                  "maxLength": 128
                 }
               }
             },
@@ -1607,7 +1681,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":3},\"missing_data\":{},\"missing_tool\":{},\"push_to_pull_request_branch\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"if_no_changes\":\"warn\",\"max\":1,\"max_patch_size\":1024,\"target\":\"*\"},\"remove_labels\":{\"max\":3},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":3},\"create_issue\":{\"max\":2,\"title_prefix\":\"[follow-up] \"},\"missing_data\":{},\"missing_tool\":{},\"push_to_pull_request_branch\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"if_no_changes\":\"warn\",\"max\":1,\"max_patch_size\":1024,\"target\":\"*\"},\"remove_labels\":{\"max\":3},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\"}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

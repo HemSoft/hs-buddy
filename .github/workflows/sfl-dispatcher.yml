@@ -137,10 +137,28 @@ jobs:
             echo "promoter_ready=true" >> "$GITHUB_OUTPUT"
             echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
           elif [ "$ALL_MARKERS" = "true" ]; then
-            echo "PR #$PR_NUMBER has all 3 analyzer markers for cycle $CYCLE — will dispatch fixer."
-            echo "fixer_ready=true" >> "$GITHUB_OUTPUT"
-            echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
-            echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
+            # Check if all 3 analyzers gave PASS verdicts — if so, skip fixer entirely
+            ALL_PASS=true
+            for ANALYZER in a b c; do
+              # Extract the section for this analyzer at this cycle and check for PASS
+              SECTION=$(echo "$PR_BODY" | sed -n "/\[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE\]/,/\[MARKER:/p" | head -50)
+              if ! echo "$SECTION" | grep -qF '**PASS**'; then
+                ALL_PASS=false
+                break
+              fi
+            done
+
+            if [ "$ALL_PASS" = "true" ]; then
+              echo "PR #$PR_NUMBER: all 3 analyzers PASS at cycle $CYCLE — skipping fixer, promoting."
+              echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+              echo "promoter_ready=true" >> "$GITHUB_OUTPUT"
+              echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "PR #$PR_NUMBER has all 3 analyzer markers for cycle $CYCLE — will dispatch fixer."
+              echo "fixer_ready=true" >> "$GITHUB_OUTPUT"
+              echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
+              echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
+            fi
           elif [ "$CYCLE" -gt 0 ]; then
             # Cycle > 0 with no analyzer markers — check if previous cycle was fixed
             PREV=$((CYCLE - 1))

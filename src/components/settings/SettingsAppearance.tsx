@@ -1,77 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useConfig } from '../../hooks/useConfig';
-import { Palette, RefreshCw, Moon, Sun, Type, RotateCcw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { lightenColor, DARK_DEFAULTS, LIGHT_DEFAULTS, type ColorDef } from './AppearanceColorPicker';
+import { AppearanceThemeSection } from './AppearanceThemeSection';
+import { AppearanceColorsSection } from './AppearanceColorsSection';
+import { AppearanceFontsSection } from './AppearanceFontsSection';
 import './SettingsShared.css';
 import './SettingsAppearance.css';
-
-// Helper to lighten a hex color for hover state
-function lightenColor(hex: string, percent: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.min(255, (num >> 16) + Math.round(255 * percent / 100));
-  const g = Math.min(255, ((num >> 8) & 0x00FF) + Math.round(255 * percent / 100));
-  const b = Math.min(255, (num & 0x0000FF) + Math.round(255 * percent / 100));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
-
-// Default colors for reset
-const DARK_DEFAULTS = {
-  accentColor: '#0e639c',
-  fontColor: '#cccccc',
-  bgPrimary: '#1e1e1e',
-  bgSecondary: '#252526',
-  statusBarBg: '#181818',
-  statusBarFg: '#9d9d9d',
-};
-
-const LIGHT_DEFAULTS = {
-  accentColor: '#0078d4',
-  fontColor: '#1f1f1f',
-  bgPrimary: '#ffffff',
-  bgSecondary: '#f3f3f3',
-  statusBarBg: '#f3f3f3',
-  statusBarFg: '#616161',
-};
-
-/** Color definition for the picker grid */
-interface ColorDef {
-  id: string;
-  label: string;
-  hint: string;
-  value: string;
-  onChange: (color: string) => void;
-}
-
-/** Compact inline color picker */
-function ColorPicker({ id, label, hint, value, onChange }: ColorDef) {
-  return (
-    <div className="color-cell" title={hint}>
-      <div className="color-cell-header">
-        <input
-          type="color"
-          id={id}
-          className="color-swatch"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <div className="color-cell-info">
-          <label htmlFor={id}>{label}</label>
-          <input
-            type="text"
-            className="color-hex"
-            value={value}
-            onChange={(e) => {
-              if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                onChange(e.target.value);
-              }
-            }}
-            placeholder={value}
-          />
-        </div>
-      </div>
-      <span className="color-cell-hint">{hint}</span>
-    </div>
-  );
-}
 
 export function SettingsAppearance() {
   const { config, loading, api } = useConfig();
@@ -87,7 +22,6 @@ export function SettingsAppearance() {
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [fontsLoading, setFontsLoading] = useState(true);
 
-  // Load system fonts once
   useEffect(() => {
     api.getSystemFonts().then((fonts) => {
       setSystemFonts(fonts);
@@ -97,7 +31,6 @@ export function SettingsAppearance() {
     });
   }, [api]);
 
-  // Sync state with config
   useEffect(() => {
     if (config) {
       setTheme(config.ui.theme);
@@ -231,7 +164,6 @@ export function SettingsAppearance() {
     await api.setMonoFontFamily(font);
   };
 
-  // Filter fonts for better UX
   const uiFonts = systemFonts.filter(f => 
     !f.toLowerCase().includes('emoji') &&
     !f.toLowerCase().includes('symbol') &&
@@ -259,7 +191,6 @@ export function SettingsAppearance() {
     f.toLowerCase().includes('sf mono')
   );
 
-  // Build color definitions for the grid
   const brandColors: ColorDef[] = [
     { id: 'accent-color', label: 'Accent', hint: 'Buttons, links, focus indicators', value: accentColor, onChange: handleAccentChange },
     { id: 'font-color', label: 'Font', hint: 'Primary text and content', value: fontColor, onChange: handleFontColorChange },
@@ -296,128 +227,22 @@ export function SettingsAppearance() {
       </div>
 
       <div className="settings-page-content">
-        {/* Theme Section */}
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <Palette size={16} />
-              Theme
-            </h3>
-          </div>
-          <div className="theme-selector">
-            <button
-              className={`theme-option ${theme === 'dark' ? 'selected' : ''}`}
-              onClick={() => handleThemeChange('dark')}
-            >
-              <Moon size={20} />
-              <span>Dark</span>
-            </button>
-            <button
-              className={`theme-option ${theme === 'light' ? 'selected' : ''}`}
-              onClick={() => handleThemeChange('light')}
-            >
-              <Sun size={20} />
-              <span>Light</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Colors Section — compact grid layout */}
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <Palette size={16} />
-              Colors
-            </h3>
-            <button 
-              className="settings-btn settings-btn-secondary"
-              onClick={handleResetColors}
-              title="Reset to theme defaults"
-            >
-              <RotateCcw size={14} />
-              Reset
-            </button>
-          </div>
-
-          <div className="color-group">
-            <h4 className="color-group-label">Brand</h4>
-            <div className="color-grid">
-              {brandColors.map(c => <ColorPicker key={c.id} {...c} />)}
-            </div>
-          </div>
-
-          <div className="color-group">
-            <h4 className="color-group-label">Backgrounds</h4>
-            <div className="color-grid">
-              {backgroundColors.map(c => <ColorPicker key={c.id} {...c} />)}
-            </div>
-          </div>
-
-          <div className="color-group">
-            <h4 className="color-group-label">Status Bar</h4>
-            <div className="color-grid">
-              {statusBarColors.map(c => <ColorPicker key={c.id} {...c} />)}
-            </div>
-          </div>
-        </div>
-
-        {/* Font Section */}
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <Type size={16} />
-              Fonts
-            </h3>
-          </div>
-          
-          <div className="font-grid">
-            <div className="font-cell">
-              <label htmlFor="ui-font">UI Font</label>
-              <select
-                id="ui-font"
-                className="settings-select"
-                value={fontFamily}
-                onChange={(e) => handleFontFamilyChange(e.target.value)}
-                disabled={fontsLoading}
-              >
-                <option value="Inter">Inter (Default)</option>
-                <option value="system-ui">System Default</option>
-                {uiFonts.map(font => (
-                  <option key={font} value={font}>{font}</option>
-                ))}
-              </select>
-              <div 
-                className="font-preview"
-                style={{ fontFamily: `'${fontFamily}', system-ui, sans-serif` }}
-              >
-                The quick brown fox jumps over the lazy dog
-              </div>
-            </div>
-
-            <div className="font-cell">
-              <label htmlFor="mono-font">Monospace Font</label>
-              <select
-                id="mono-font"
-                className="settings-select"
-                value={monoFontFamily}
-                onChange={(e) => handleMonoFontFamilyChange(e.target.value)}
-                disabled={fontsLoading}
-              >
-                <option value="Cascadia Code">Cascadia Code (Default)</option>
-                <option value="Consolas">Consolas</option>
-                {monoFonts.filter(f => f !== 'Cascadia Code' && f !== 'Consolas').map(font => (
-                  <option key={font} value={font}>{font}</option>
-                ))}
-              </select>
-              <div 
-                className="font-preview mono"
-                style={{ fontFamily: `'${monoFontFamily}', Consolas, monospace` }}
-              >
-                const hello = "world"; // 0123456789
-              </div>
-            </div>
-          </div>
-        </div>
+        <AppearanceThemeSection theme={theme} onThemeChange={handleThemeChange} />
+        <AppearanceColorsSection
+          brandColors={brandColors}
+          backgroundColors={backgroundColors}
+          statusBarColors={statusBarColors}
+          onReset={handleResetColors}
+        />
+        <AppearanceFontsSection
+          fontFamily={fontFamily}
+          monoFontFamily={monoFontFamily}
+          uiFonts={uiFonts}
+          monoFonts={monoFonts}
+          fontsLoading={fontsLoading}
+          onFontFamilyChange={handleFontFamilyChange}
+          onMonoFontFamilyChange={handleMonoFontFamilyChange}
+        />
       </div>
     </div>
   );

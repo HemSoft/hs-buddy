@@ -97,7 +97,7 @@ jobs:
 
           # Find draft PRs with agent:pr, without agent:human-required
           PRS=$(gh pr list --repo "$REPO" --state open --draft --label "agent:pr" \
-            --json number,body,labels,createdAt \
+            --json number,labels,createdAt \
             --jq '[.[] | select(.labels | map(.name) | index("agent:human-required") | not)]')
 
           COUNT=$(echo "$PRS" | jq 'length')
@@ -114,8 +114,12 @@ jobs:
           # Check if the oldest PR has all 3 analyzer markers (fixer readiness)
           OLDEST=$(echo "$PRS" | jq -r 'sort_by(.createdAt) | .[0]')
           PR_NUMBER=$(echo "$OLDEST" | jq '.number')
-          PR_BODY=$(echo "$OLDEST" | jq -r '.body // ""')
           PR_LABELS=$(echo "$OLDEST" | jq -c '[.labels[].name]')
+
+          # Fetch body separately via REST API to avoid shell variable size issues
+          # (PR bodies can be 100KB+ which causes problems when passed through echo/jq chains)
+          PR_BODY_FILE=$(mktemp)
+          gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.body // ""' > "$PR_BODY_FILE"
 
           # Determine current cycle from labels (find highest pr:cycle-N)
           CYCLE=$(echo "$PR_LABELS" | jq -r '.[]' | grep -oP '^pr:cycle-\K\d+$' | sort -rn | head -1 || true)
@@ -124,14 +128,14 @@ jobs:
           # Check for all 3 analyzer markers at current cycle
           ALL_MARKERS=true
           for ANALYZER in a b c; do
-            if ! echo "$PR_BODY" | grep -qF "[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE]"; then
+            if ! grep -qF "[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE]" "$PR_BODY_FILE"; then
               ALL_MARKERS=false
               break
             fi
           done
 
           # Determine state: fixer done? analyzers done? needs re-analysis?
-          if echo "$PR_BODY" | grep -qF "[MARKER:pr-fixer cycle:$CYCLE]"; then
+          if grep -qF "[MARKER:pr-fixer cycle:$CYCLE]" "$PR_BODY_FILE"; then
             echo "PR #$PR_NUMBER already fixed in cycle $CYCLE — fixer not needed."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
             echo "promoter_ready=true" >> "$GITHUB_OUTPUT"
@@ -141,7 +145,7 @@ jobs:
             ALL_PASS=true
             for ANALYZER in a b c; do
               # Extract the section for this analyzer at this cycle and check for PASS
-              SECTION=$(echo "$PR_BODY" | sed -n "/\[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE\]/,/\[MARKER:/p" | head -50 || true)
+              SECTION=$(sed -n "/\[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE\]/,/\[MARKER:/p" "$PR_BODY_FILE" | head -50 || true)
               if ! echo "$SECTION" | grep -qF '**PASS**'; then
                 ALL_PASS=false
                 break
@@ -162,7 +166,7 @@ jobs:
           elif [ "$CYCLE" -gt 0 ]; then
             # Cycle > 0 with no analyzer markers — check if previous cycle was fixed
             PREV=$((CYCLE - 1))
-            if echo "$PR_BODY" | grep -qF "[MARKER:pr-fixer cycle:$PREV]"; then
+            if grep -qF "[MARKER:pr-fixer cycle:$PREV]" "$PR_BODY_FILE"; then
               echo "PR #$PR_NUMBER at cycle $CYCLE needs re-analysis (fixer completed cycle $PREV)."
               echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
               echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
@@ -179,6 +183,8 @@ jobs:
             echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
             echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
           fi
+
+          rm -f "$PR_BODY_FILE"
 
       - name: Dispatch Issue Processor
         if: steps.issues.outputs.fixable_count != '0'

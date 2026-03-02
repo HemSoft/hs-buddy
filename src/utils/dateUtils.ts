@@ -122,37 +122,3 @@ export function format(date: number | Date, formatStr: string): string {
   return result
 }
 
-/**
- * Get relative time description for upcoming dates
- */
-export function formatDistanceToFuture(timestamp: number): string {
-  const now = Date.now()
-  const diff = timestamp - now
-
-  if (diff < 0) {
-    return 'overdue'
-  }
-
-  if (diff < MINUTE) {
-    return 'in less than a minute'
-  }
-
-  if (diff < HOUR) {
-    const minutes = Math.floor(diff / MINUTE)
-    return `in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
-  }
-
-  if (diff < DAY) {
-    const hours = Math.floor(diff / HOUR)
-    return `in ${hours} ${hours === 1 ? 'hour' : 'hours'}`
-  }
-
-  if (diff < WEEK) {
-    const days = Math.floor(diff / DAY)
-    return `in ${days} ${days === 1 ? 'day' : 'days'}`
-  }
-
-  const weeks = Math.floor(diff / WEEK)
-  return `in ${weeks} ${weeks === 1 ? 'week' : 'weeks'}`
-}
-

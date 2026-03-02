@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Remove dead export `formatDistanceToFuture` from dateUtils.ts (#92)
+
+### Added
+
 - Refactor remaining 9 oversized components (>250 lines) (#87)
 
 ## [0.1.232] - 2026-03-02

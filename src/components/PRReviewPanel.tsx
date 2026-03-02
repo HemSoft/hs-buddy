@@ -1,23 +1,18 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Sparkles,
   Play,
   Clock,
-  ExternalLink,
-  GitPullRequest,
   User,
   Cpu,
-  FileText,
   X,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react'
-import { useCopilotSettings, useGitHubAccounts } from '../hooks/useConfig'
-import { useBuddyStatsMutations } from '../hooks/useConvex'
-import { GitHubClient } from '../api/github'
 import { AccountPicker } from './shared/AccountPicker'
 import { ModelPicker } from './shared/ModelPicker'
 import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
+import { PRInfoCard } from './pr-review/PRInfoCard'
+import { PromptSection } from './pr-review/PromptSection'
+import { ScheduledMessage } from './pr-review/ScheduledMessage'
+import { usePRReviewData } from './pr-review/usePRReviewData'
 import './PRReviewPanel.css'
 
 /** Metadata shape passed from PR list/tree context actions */
@@ -40,264 +35,30 @@ interface PRReviewPanelProps {
   onClose?: () => void
 }
 
-const DEFAULT_PROMPT_TEMPLATE = (url: string) =>
-  `Please do a thorough PR review on ${url}. Analyze the code changes for bugs, security issues, performance problems, and code quality. Categorize findings by severity: 🔴 Critical, 🟡 Medium, 🟢 Nitpick.`
-
-const PR_URL_TOKEN = '{{prUrl}}'
-
-const resolvePromptTemplate = (template: string, prUrl: string) =>
-  template.includes(PR_URL_TOKEN) ? template.split(PR_URL_TOKEN).join(prUrl) : template
-
 export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelProps) {
-  const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
-  const { accounts: githubAccounts } = useGitHubAccounts()
-  const { increment: incrementStat } = useBuddyStatsMutations()
-
-  // ── Local state ────────────────────────────────────────────────────────
-  const [account, setAccount] = useState('')
-  const [model, setModel] = useState(configuredModel || 'claude-sonnet-4.5')
-  const [savedDefaultTemplate, setSavedDefaultTemplate] = useState('')
-  const [savingDefault, setSavingDefault] = useState(false)
-  const getDefaultPrompt = useCallback(() => {
-    if (prInfo.initialPrompt) return prInfo.initialPrompt
-    if (savedDefaultTemplate.trim()) {
-      return resolvePromptTemplate(savedDefaultTemplate, prInfo.prUrl)
-    }
-    return DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
-  }, [prInfo.initialPrompt, prInfo.prUrl, savedDefaultTemplate])
-
-  const [prompt, setPrompt] = useState(() => getDefaultPrompt())
-  const [promptExpanded, setPromptExpanded] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [scheduled, setScheduled] = useState(false)
-  const [scheduleDelay, setScheduleDelay] = useState(5) // minutes
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const initializedRef = useRef(false)
-  const loadedDefaultRef = useRef(false)
-
-  // ── Auto-resolve account from PR org ───────────────────────────────────
-  useEffect(() => {
-    if (initializedRef.current) return
-    initializedRef.current = true
-
-    // Try to match the PR's org to a configured GitHub account
-    const matchedAccount = githubAccounts.find(
-      a => a.org.toLowerCase() === prInfo.org.toLowerCase()
-    )
-    if (matchedAccount) {
-      setAccount(matchedAccount.username)
-    } else if (configuredAccount) {
-      setAccount(configuredAccount)
-    }
-
-    if (configuredModel) {
-      setModel(configuredModel)
-    }
-  }, [githubAccounts, prInfo.org, configuredAccount, configuredModel])
-
-  // Auto-resize textarea when expanded
-  useEffect(() => {
-    if (promptExpanded && textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 300)}px`
-    }
-  }, [prompt, promptExpanded])
-
-  // Load saved default prompt template once
-  useEffect(() => {
-    if (loadedDefaultRef.current || prInfo.initialPrompt) return
-    loadedDefaultRef.current = true
-
-    const fallbackPrompt = DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
-
-    window.ipcRenderer
-      .invoke('config:get-copilot-pr-review-prompt-template')
-      .then((template: string) => {
-        const normalized = (template || '').trim()
-        if (!normalized) return
-
-        setSavedDefaultTemplate(normalized)
-        setPrompt(current => {
-          if (current !== fallbackPrompt) return current
-          return resolvePromptTemplate(normalized, prInfo.prUrl)
-        })
-      })
-      .catch(() => {
-        // Non-blocking: use built-in default if config fetch fails
-      })
-  }, [prInfo.initialPrompt, prInfo.prUrl])
-
-  // ── Run now ────────────────────────────────────────────────────────────
-  const buildReviewSnapshot = useCallback(async () => {
-    if (!prInfo.org || !prInfo.repo || !prInfo.prNumber) {
-      return undefined
-    }
-
-    try {
-      const client = new GitHubClient({ accounts: githubAccounts }, 7)
-      const [branches, history] = await Promise.all([
-        client.fetchPRBranches(prInfo.org, prInfo.repo, prInfo.prNumber),
-        client.fetchPRHistory(prInfo.org, prInfo.repo, prInfo.prNumber),
-      ])
-
-      return {
-        reviewedHeadSha: branches.headSha || undefined,
-        reviewedThreadStats: {
-          total: history.threadsTotal,
-          unresolved: history.threadsUnaddressed,
-          outdated: history.threadsOutdated,
-        },
-      }
-    } catch {
-      return undefined
-    }
-  }, [githubAccounts, prInfo.org, prInfo.repo, prInfo.prNumber])
-
-  const handleRunNow = useCallback(async () => {
-    if (submitting) return
-    setSubmitting(true)
-    setError(null)
-
-    try {
-      incrementStat({ field: 'copilotPrReviews' }).catch(() => {})
-      const snapshot = await buildReviewSnapshot()
-
-      const result = await window.copilot.execute({
-        prompt,
-        category: 'pr-review',
-        model,
-        metadata: {
-          prUrl: prInfo.prUrl,
-          prTitle: prInfo.prTitle,
-          prNumber: prInfo.prNumber,
-          repo: prInfo.repo,
-          org: prInfo.org,
-          author: prInfo.author,
-          ghAccount: account || undefined,
-          reviewedHeadSha: snapshot?.reviewedHeadSha,
-          reviewedThreadStats: snapshot?.reviewedThreadStats,
-        },
-      })
-
-      if (result.success && result.resultId) {
-        // Navigate to the result
-        window.dispatchEvent(
-          new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
-        )
-        onSubmitted?.(result.resultId)
-      } else {
-        setError(result.error ?? 'Failed to start PR review')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSubmitting(false)
-    }
-  }, [prompt, model, account, prInfo, submitting, incrementStat, onSubmitted, buildReviewSnapshot])
-
-  // ── Schedule for later ─────────────────────────────────────────────────
-  const handleSchedule = useCallback(async () => {
-    if (submitting) return
-    setSubmitting(true)
-    setError(null)
-
-    try {
-      // For now, use a simple setTimeout-based delayed execution
-      // In the future this could integrate with the automation/schedules system
-      const delayMs = scheduleDelay * 60 * 1000
-      const snapshot = await buildReviewSnapshot()
-
-      setTimeout(async () => {
-        try {
-          incrementStat({ field: 'copilotPrReviews' }).catch(() => {})
-
-          const result = await window.copilot.execute({
-            prompt,
-            category: 'pr-review',
-            model,
-            metadata: {
-              prUrl: prInfo.prUrl,
-              prTitle: prInfo.prTitle,
-              prNumber: prInfo.prNumber,
-              repo: prInfo.repo,
-              org: prInfo.org,
-              author: prInfo.author,
-              ghAccount: account || undefined,
-              scheduledAt: Date.now(),
-              reviewedHeadSha: snapshot?.reviewedHeadSha,
-              reviewedThreadStats: snapshot?.reviewedThreadStats,
-            },
-          })
-
-          if (result.success && result.resultId) {
-            window.dispatchEvent(
-              new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
-            )
-          }
-        } catch (err) {
-          console.error('Scheduled PR review failed:', err)
-        }
-      }, delayMs)
-
-      setScheduled(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSubmitting(false)
-    }
-  }, [prompt, model, account, prInfo, scheduleDelay, submitting, incrementStat, buildReviewSnapshot])
-
-  // ── Reset prompt to default ────────────────────────────────────────────
-  const handleResetPrompt = useCallback(() => {
-    setPrompt(getDefaultPrompt())
-  }, [getDefaultPrompt])
-
-  const handleSaveAsDefault = useCallback(async () => {
-    const trimmed = prompt.trim()
-    if (!trimmed || savingDefault) return
-
-    setSavingDefault(true)
-    setError(null)
-    try {
-      const template = trimmed.split(prInfo.prUrl).join(PR_URL_TOKEN)
-      await window.ipcRenderer.invoke('config:set-copilot-pr-review-prompt-template', template)
-      setSavedDefaultTemplate(template)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSavingDefault(false)
-    }
-  }, [prompt, prInfo.prUrl, savingDefault])
-
-  // ── Render ─────────────────────────────────────────────────────────────
+  const {
+    account, setAccount,
+    model, setModel,
+    prompt, setPrompt,
+    promptExpanded, setPromptExpanded,
+    submitting,
+    error,
+    scheduled,
+    scheduleDelay, setScheduleDelay,
+    savingDefault,
+    handleRunNow,
+    handleSchedule,
+    handleResetPrompt,
+    handleSaveAsDefault,
+  } = usePRReviewData(prInfo, onSubmitted)
 
   if (scheduled) {
     return (
-      <div className="pr-review-panel">
-        <div className="pr-review-panel-header">
-          <div className="pr-review-panel-title">
-            <Sparkles size={18} />
-            <h2>PR Review Scheduled</h2>
-          </div>
-          {onClose && (
-            <button className="pr-review-close-btn" onClick={onClose} title="Close">
-              <X size={16} />
-            </button>
-          )}
-        </div>
-        <div className="pr-review-scheduled-message">
-          <Clock size={32} />
-          <p>
-            Review for <strong>{prInfo.prTitle}</strong> has been scheduled to run in{' '}
-            <strong>{scheduleDelay} minute{scheduleDelay !== 1 ? 's' : ''}</strong>.
-          </p>
-          <p className="pr-review-scheduled-hint">
-            The result will appear in the Copilot results list when complete.
-          </p>
-        </div>
-      </div>
+      <ScheduledMessage
+        prTitle={prInfo.prTitle}
+        scheduleDelay={scheduleDelay}
+        onClose={onClose}
+      />
     )
   }
 
@@ -316,34 +77,14 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         )}
       </div>
 
-      {/* PR Info Card */}
-      <div className="pr-review-pr-card">
-        <div className="pr-review-pr-header">
-          <GitPullRequest size={16} />
-          <span className="pr-review-pr-title">{prInfo.prTitle}</span>
-        </div>
-        <div className="pr-review-pr-meta">
-          <span className="pr-review-pr-repo">
-            {prInfo.org}/{prInfo.repo}
-          </span>
-          <span className="pr-review-pr-number">#{prInfo.prNumber}</span>
-          <span className="pr-review-pr-author">
-            <User size={12} />
-            {prInfo.author}
-          </span>
-          <a
-            className="pr-review-pr-link"
-            onClick={e => {
-              e.preventDefault()
-              window.shell?.openExternal(prInfo.prUrl)
-            }}
-            title="Open PR in browser"
-          >
-            <ExternalLink size={12} />
-            View PR
-          </a>
-        </div>
-      </div>
+      <PRInfoCard
+        prTitle={prInfo.prTitle}
+        org={prInfo.org}
+        repo={prInfo.repo}
+        prNumber={prInfo.prNumber}
+        author={prInfo.author}
+        prUrl={prInfo.prUrl}
+      />
 
       {/* Configuration Section */}
       <div className="pr-review-config">
@@ -385,65 +126,16 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         </div>
       </div>
 
-      {/* Prompt Section */}
-      <div className="pr-review-prompt-section">
-        <div
-          className="pr-review-prompt-header"
-          role="button"
-          tabIndex={0}
-          onClick={() => setPromptExpanded(!promptExpanded)}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPromptExpanded(prev => !prev) } }}
-        >
-          <div className="pr-review-prompt-label">
-            <FileText size={14} />
-            <span>Prompt</span>
-          </div>
-          <div className="pr-review-prompt-toggle">
-            <span className="pr-review-prompt-hint">
-              {promptExpanded ? 'Click to collapse' : 'Click to edit'}
-            </span>
-            {promptExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </div>
-        </div>
-        {promptExpanded ? (
-          <div className="pr-review-prompt-editor">
-            <textarea
-              ref={textareaRef}
-              className="pr-review-prompt-textarea"
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              disabled={submitting}
-              rows={6}
-            />
-            <div className="pr-review-prompt-actions">
-              <div className="pr-review-prompt-actions-left">
-                <button
-                  className="pr-review-btn-text"
-                  onClick={handleResetPrompt}
-                  disabled={submitting || savingDefault}
-                >
-                  Reset to default
-                </button>
-                <button
-                  className="pr-review-btn-text"
-                  onClick={handleSaveAsDefault}
-                  disabled={submitting || savingDefault || !prompt.trim()}
-                >
-                  {savingDefault ? 'Saving…' : 'Use as default'}
-                </button>
-              </div>
-              <span className="pr-review-char-count">{prompt.length} chars</span>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="pr-review-prompt-preview"
-            onClick={() => setPromptExpanded(true)}
-          >
-            {prompt.length > 200 ? prompt.slice(0, 200) + '...' : prompt}
-          </div>
-        )}
-      </div>
+      <PromptSection
+        prompt={prompt}
+        promptExpanded={promptExpanded}
+        submitting={submitting}
+        savingDefault={savingDefault}
+        onPromptChange={setPrompt}
+        onToggleExpanded={() => setPromptExpanded(prev => !prev)}
+        onResetPrompt={handleResetPrompt}
+        onSaveAsDefault={handleSaveAsDefault}
+      />
 
       {/* Error */}
       {error && <div className="pr-review-error">{error}</div>}

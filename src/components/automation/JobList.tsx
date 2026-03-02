@@ -1,42 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Package, Terminal, Brain, Zap, Plus, Trash2, Copy, Play, Edit } from 'lucide-react'
-import { useJobs, useJobMutations, useRunMutations, useJobRunCounts, JobId } from '../../hooks/useConvex'
+import { Package, Terminal, Brain, Zap, Plus } from 'lucide-react'
+import { useJobs, useJobMutations, useRunMutations, useJobRunCounts } from '../../hooks/useConvex'
 import { JobEditor } from './JobEditor'
+import { JobRow } from './job-list/JobRow'
+import { JobContextMenu } from './job-list/JobContextMenu'
+import type { Job, JobId } from './job-list/types'
 import './JobList.css'
-
-// Job type matching Convex schema
-interface Job {
-  _id: JobId
-  _creationTime: number
-  name: string
-  description?: string
-  workerType: 'exec' | 'ai' | 'skill'
-  config: {
-    // exec-worker
-    command?: string
-    cwd?: string
-    timeout?: number
-    shell?: 'powershell' | 'bash' | 'cmd'
-    // ai-worker
-    prompt?: string
-    model?: string
-    maxTokens?: number
-    temperature?: number
-    // skill-worker
-    skillName?: string
-    action?: string
-    params?: unknown
-  }
-  inputParams?: {
-    name: string
-    type: 'string' | 'number' | 'boolean'
-    defaultValue?: unknown
-    required: boolean
-    description?: string
-  }[]
-  createdAt: number
-  updatedAt: number
-}
 
 interface JobListProps {
   createTrigger?: number // Increment to trigger create dialog
@@ -120,10 +89,7 @@ export function JobList({ createTrigger }: JobListProps) {
     setContextMenu(null)
   }, [])
 
-  // Close context menu when clicking outside
-  const handleOverlayClick = () => {
-    closeContextMenu()
-  }
+  // Close context menu when clicking outside - handled by JobContextMenu overlay
 
   useEffect(() => {
     if (!contextMenu) return
@@ -133,39 +99,6 @@ export function JobList({ createTrigger }: JobListProps) {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [contextMenu, closeContextMenu])
-
-  const getWorkerIcon = (workerType: 'exec' | 'ai' | 'skill') => {
-    switch (workerType) {
-      case 'exec':
-        return <Terminal size={16} className="worker-icon worker-exec" />
-      case 'ai':
-        return <Brain size={16} className="worker-icon worker-ai" />
-      case 'skill':
-        return <Zap size={16} className="worker-icon worker-skill" />
-    }
-  }
-
-  const getConfigPreview = (job: Job): string => {
-    switch (job.workerType) {
-      case 'exec':
-        return job.config.command || 'No command'
-      case 'ai':
-        if (job.config.prompt) {
-          const truncated = job.config.prompt.length > 50
-            ? job.config.prompt.substring(0, 50) + '...'
-            : job.config.prompt
-          return truncated
-        }
-        return 'No prompt'
-      case 'skill':
-        if (job.config.skillName) {
-          return job.config.action
-            ? `${job.config.skillName}:${job.config.action}`
-            : job.config.skillName
-        }
-        return 'No skill'
-    }
-  }
 
   if (jobs === undefined) {
     return (
@@ -208,51 +141,11 @@ export function JobList({ createTrigger }: JobListProps) {
     skill: (jobs as Job[]).filter(w => w.workerType === 'skill'),
   }
 
-  const renderJobRow = (job: Job) => {
-    const counts = runCounts?.[job._id]
-    return (
-    <div
-      key={job._id}
-      className="job-row"
-      onContextMenu={(e) => handleContextMenu(e, job)}
-      onClick={() => handleEdit(job._id)}
-      title={job.description || job.name}
-    >
-      {getWorkerIcon(job.workerType)}
-      <span className="job-row-name">{job.name}</span>
-      <span className="job-row-preview">{getConfigPreview(job)}</span>
-      {counts && counts.total > 0 && (
-        <span className="job-row-run-count" title={`${counts.total} runs (${counts.completed} completed${counts.failed > 0 ? `, ${counts.failed} failed` : ''})`}>
-          <Play size={10} />
-          {counts.total}
-        </span>
-      )}
-      <div className="job-row-actions">
-        <button
-          className="btn-icon-sm"
-          onClick={(e) => { e.stopPropagation(); handleRunNow(job) }}
-          title="Run Now"
-        >
-          <Play size={14} />
-        </button>
-        <button
-          className="btn-icon-sm"
-          onClick={(e) => { e.stopPropagation(); handleDuplicate(job) }}
-          title="Duplicate"
-        >
-          <Copy size={14} />
-        </button>
-        <button
-          className="btn-icon-sm btn-danger"
-          onClick={(e) => { e.stopPropagation(); handleDelete(job._id, job.name) }}
-          title="Delete"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
-    )
-  }
+  const jobGroupConfig = [
+    { type: 'exec' as const, icon: <Terminal size={14} />, label: 'Shell Commands' },
+    { type: 'ai' as const, icon: <Brain size={14} />, label: 'AI Prompts' },
+    { type: 'skill' as const, icon: <Zap size={14} />, label: 'Claude Skills' },
+  ]
 
   return (
     <div className="job-list">
@@ -271,77 +164,47 @@ export function JobList({ createTrigger }: JobListProps) {
         />
       )}
 
-      {/* Context Menu */}
       {contextMenu && (
-        <>
-          <div className="context-menu-overlay" onClick={handleOverlayClick} aria-hidden="true" />
-          <div
-            className="context-menu"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-          >
-            <button onClick={() => handleRunNow(contextMenu.job)}>
-              <Play size={14} />
-              Run Now
-            </button>
-            <button onClick={() => handleEdit(contextMenu.job._id)}>
-              <Edit size={14} />
-              Edit
-            </button>
-            <button onClick={() => handleDuplicate(contextMenu.job)}>
-              <Copy size={14} />
-              Duplicate
-            </button>
-            <div className="context-menu-separator" />
-            <button
-              className="danger"
-              onClick={() => handleDelete(contextMenu.job._id, contextMenu.job.name)}
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
-          </div>
-        </>
+        <JobContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          job={contextMenu.job}
+          onRunNow={handleRunNow}
+          onEdit={handleEdit}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onClose={closeContextMenu}
+        />
       )}
 
       <div className="job-list-content">
-        {groupedJobs.exec.length > 0 && (
-          <div className="job-group">
-            <div className="job-group-header">
-              <Terminal size={14} />
-              <span>Shell Commands</span>
-              <span className="job-group-count">{groupedJobs.exec.length}</span>
+        {jobGroupConfig.map(({ type, icon, label }) => {
+          const typeJobs = groupedJobs[type]
+          if (typeJobs.length === 0) return null
+          return (
+            <div key={type} className="job-group">
+              <div className="job-group-header">
+                {icon}
+                <span>{label}</span>
+                <span className="job-group-count">{typeJobs.length}</span>
+              </div>
+              <div className="job-group-items">
+                {typeJobs.map(job => (
+                  <JobRow
+                    key={job._id}
+                    job={job}
+                    runCounts={runCounts?.[job._id]}
+                    onEdit={handleEdit}
+                    onDuplicate={handleDuplicate}
+                    onDelete={handleDelete}
+                    onRunNow={handleRunNow}
+                    onContextMenu={handleContextMenu}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="job-group-items">
-              {groupedJobs.exec.map(renderJobRow)}
-            </div>
-          </div>
-        )}
-
-        {groupedJobs.ai.length > 0 && (
-          <div className="job-group">
-            <div className="job-group-header">
-              <Brain size={14} />
-              <span>AI Prompts</span>
-              <span className="job-group-count">{groupedJobs.ai.length}</span>
-            </div>
-            <div className="job-group-items">
-              {groupedJobs.ai.map(renderJobRow)}
-            </div>
-          </div>
-        )}
-
-        {groupedJobs.skill.length > 0 && (
-          <div className="job-group">
-            <div className="job-group-header">
-              <Zap size={14} />
-              <span>Claude Skills</span>
-              <span className="job-group-count">{groupedJobs.skill.length}</span>
-            </div>
-            <div className="job-group-items">
-              {groupedJobs.skill.map(renderJobRow)}
-            </div>
-          </div>
-        )}
+          )
+        })}
       </div>
     </div>
   )

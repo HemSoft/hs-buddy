@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Refactor remaining 9 oversized components (>250 lines) (#87)
+
 ## [0.1.232] - 2026-03-02
 
 ## [0.1.231] - 2026-03-02

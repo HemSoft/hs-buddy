@@ -1,14 +1,14 @@
-import { useState, useEffect, useId } from 'react'
+import { useId } from 'react'
 import { X, Save, Package, Terminal, Brain, Zap, AlertCircle } from 'lucide-react'
-import { useJob, useJobMutations, JobId, useBuddyStatsMutations } from '../../hooks/useConvex'
-import { useCopilotSettings } from '../../hooks/useConfig'
-import { AccountPicker } from '../shared/AccountPicker'
-import { ModelPicker } from '../shared/ModelPicker'
-import { RepoPicker } from '../shared/RepoPicker'
+import { useJobEditorForm } from './job-editor/useJobEditorForm'
+import type { JobConfig } from './job-editor/useJobEditorForm'
+import { ExecConfigSection } from './job-editor/ExecConfigSection'
+import { AiConfigSection } from './job-editor/AiConfigSection'
+import { SkillConfigSection } from './job-editor/SkillConfigSection'
 import './JobEditor.css'
 
 interface JobEditorProps {
-  jobId?: string // If provided, editing; otherwise creating
+  jobId?: string
   duplicateFrom?: {
     name: string
     description?: string
@@ -19,339 +19,64 @@ interface JobEditorProps {
   onSaved?: () => void
 }
 
-interface JobConfig {
-  // exec-worker
-  command?: string
-  cwd?: string
-  timeout?: number
-  shell?: 'powershell' | 'bash' | 'cmd'
-  // ai-worker
-  prompt?: string
-  model?: string
-  maxTokens?: number
-  temperature?: number
-  repoOwner?: string
-  repoName?: string
-  // skill-worker
-  skillName?: string
-  action?: string
-  params?: unknown
-}
-
 export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorProps) {
   const workerTypeLabelId = useId()
-  const existingJob = useJob(jobId as JobId | undefined)
-  const { create, update } = useJobMutations()
-  const { increment: incrementStat } = useBuddyStatsMutations()
-  const { ghAccount: defaultGhAccount, model: defaultModel } = useCopilotSettings()
-
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [workerType, setWorkerType] = useState<'exec' | 'ai' | 'skill'>('exec')
-  
-  // exec config
-  const [command, setCommand] = useState('')
-  const [cwd, setCwd] = useState('')
-  const [timeout, setTimeout] = useState(60000)
-  const [shell, setShell] = useState<'powershell' | 'bash' | 'cmd'>('powershell')
-  
-  // ai config
-  const [prompt, setPrompt] = useState('')
-  const [ghAccount, setGhAccount] = useState('')
-  const [model, setModel] = useState('')
-  const [targetRepo, setTargetRepo] = useState('')  // "owner/repo" format
-  
-  // skill config
-  const [skillName, setSkillName] = useState('')
-  const [skillAction, setSkillAction] = useState('')
-  const [skillParams, setSkillParams] = useState('')
-
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const isEditing = !!jobId
-
-  // Initialize defaults from Copilot settings
-  useEffect(() => {
-    if (!isEditing && !duplicateFrom) {
-      setGhAccount(defaultGhAccount)
-      setModel(defaultModel)
-    }
-  }, [defaultGhAccount, defaultModel, isEditing, duplicateFrom])
-
-  // Populate form when editing or duplicating
-  useEffect(() => {
-    const source = existingJob || duplicateFrom
-    if (source) {
-      setName(duplicateFrom ? `${source.name} (Copy)` : source.name)
-      setDescription(source.description || '')
-      setWorkerType(source.workerType)
-      
-      // Populate config based on worker type
-      if (source.config) {
-        if (source.config.command) setCommand(source.config.command)
-        if (source.config.cwd) setCwd(source.config.cwd)
-        if (source.config.timeout) setTimeout(source.config.timeout)
-        if (source.config.shell) setShell(source.config.shell)
-        
-        if (source.config.prompt) setPrompt(source.config.prompt)
-        if (source.config.model) setModel(source.config.model)
-        if (source.config.repoOwner && source.config.repoName) {
-          setTargetRepo(`${source.config.repoOwner}/${source.config.repoName}`)
-        }
-        
-        if (source.config.skillName) setSkillName(source.config.skillName)
-        if (source.config.action) setSkillAction(source.config.action)
-        if (source.config.params) setSkillParams(JSON.stringify(source.config.params, null, 2))
-      }
-    }
-  }, [existingJob, duplicateFrom])
-
-  const buildConfig = (): JobConfig => {
-    switch (workerType) {
-      case 'exec':
-        return {
-          command: command.trim(),
-          cwd: cwd.trim() || undefined,
-          timeout: timeout || undefined,
-          shell,
-        }
-      case 'ai': {
-        const [repoOwner, repoName] = targetRepo ? targetRepo.split('/') : [undefined, undefined]
-        return {
-          prompt: prompt.trim(),
-          model: model.trim() || undefined,
-          repoOwner,
-          repoName,
-        }
-      }
-      case 'skill': {
-        let params: unknown = undefined
-        if (skillParams.trim()) {
-          try {
-            params = JSON.parse(skillParams)
-          } catch {
-            throw new Error('Invalid JSON in parameters')
-          }
-        }
-        return {
-          skillName: skillName.trim(),
-          action: skillAction.trim() || undefined,
-          params,
-        }
-      }
-    }
-  }
-
-  const handleSave = async () => {
-    // Validate
-    if (!name.trim()) {
-      setError('Job name is required')
-      return
-    }
-
-    // Validate worker-specific fields
-    switch (workerType) {
-      case 'exec':
-        if (!command.trim()) {
-          setError('Command is required for exec jobs')
-          return
-        }
-        break
-      case 'ai':
-        if (!prompt.trim()) {
-          setError('Prompt is required for AI jobs')
-          return
-        }
-        break
-      case 'skill':
-        if (!skillName.trim()) {
-          setError('Skill name is required for skill jobs')
-          return
-        }
-        break
-    }
-
-    setError(null)
-    setSaving(true)
-
-    try {
-      const config = buildConfig()
-
-      if (isEditing && jobId) {
-        await update({
-          id: jobId as JobId,
-          name: name.trim(),
-          description: description.trim() || undefined,
-          workerType,
-          config,
-        })
-      } else {
-        await create({
-          name: name.trim(),
-          description: description.trim() || undefined,
-          workerType,
-          config,
-        })
-        // Track stat: job created (fire-and-forget)
-        incrementStat({ field: 'jobsCreated' }).catch(() => {})
-      }
-      onSaved?.()
-      onClose()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save job')
-    } finally {
-      setSaving(false)
-    }
-  }
+  const {
+    name, setName,
+    description, setDescription,
+    workerType, setWorkerType,
+    command, setCommand,
+    cwd, setCwd,
+    timeout, setTimeout,
+    shell, setShell,
+    prompt, setPrompt,
+    ghAccount, setGhAccount,
+    model, setModel,
+    targetRepo, setTargetRepo,
+    skillName, setSkillName,
+    skillAction, setSkillAction,
+    skillParams, setSkillParams,
+    saving,
+    error,
+    isEditing,
+    handleSave,
+  } = useJobEditorForm(jobId, duplicateFrom, onSaved, onClose)
 
   const renderExecConfig = () => (
-    <>
-      <div className="form-group">
-        <label htmlFor="job-command">Command *</label>
-        <textarea
-          id="job-command"
-          value={command}
-          onChange={e => setCommand(e.target.value)}
-          placeholder="e.g., Get-Process | Select-Object -First 10"
-          rows={3}
-          className="mono"
-        />
-        <div className="form-hint">The shell command to execute</div>
-      </div>
-
-      <div className="form-row-2">
-        <div className="form-group">
-          <label htmlFor="job-shell">Shell</label>
-          <select
-            id="job-shell"
-            value={shell}
-            onChange={e => setShell(e.target.value as 'powershell' | 'bash' | 'cmd')}
-          >
-            <option value="powershell">PowerShell</option>
-            <option value="bash">Bash</option>
-            <option value="cmd">CMD</option>
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="job-timeout">Timeout (ms)</label>
-          <input
-            id="job-timeout"
-            type="number"
-            value={timeout}
-            onChange={e => setTimeout(parseInt(e.target.value) || 60000)}
-            min={1000}
-            step={1000}
-          />
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="job-cwd">Working Directory</label>
-        <input
-          id="job-cwd"
-          type="text"
-          value={cwd}
-          onChange={e => setCwd(e.target.value)}
-          placeholder="e.g., C:\Projects\MyApp (optional)"
-        />
-        <div className="form-hint">Leave empty to use the app's working directory</div>
-      </div>
-    </>
+    <ExecConfigSection
+      command={command}
+      shell={shell}
+      timeout={timeout}
+      cwd={cwd}
+      onCommandChange={setCommand}
+      onShellChange={setShell}
+      onTimeoutChange={setTimeout}
+      onCwdChange={setCwd}
+    />
   )
 
   const renderAiConfig = () => (
-    <>
-      <div className="form-group">
-        <label htmlFor="job-prompt">Prompt *</label>
-        <textarea
-          id="job-prompt"
-          value={prompt}
-          onChange={e => setPrompt(e.target.value)}
-          placeholder="Enter the prompt for the AI model..."
-          rows={6}
-        />
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="job-gh-account">GitHub Account</label>
-        <AccountPicker
-          id="job-gh-account"
-          value={ghAccount}
-          onChange={setGhAccount}
-          variant="select"
-        />
-        <div className="form-hint">Account determines billing and available models</div>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="job-model">Model</label>
-        <ModelPicker
-          id="job-model"
-          value={model}
-          onChange={setModel}
-          ghAccount={ghAccount}
-          variant="select"
-          showRefresh
-        />
-        <div className="form-hint">Models are accessed via GitHub Copilot</div>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="job-target-repo">Target Repository</label>
-        <RepoPicker
-          id="job-target-repo"
-          value={targetRepo}
-          onChange={setTargetRepo}
-          variant="select"
-          placeholder="None (no repo context)"
-          allowNone
-        />
-        <div className="form-hint">Optional: associate this job with a bookmarked repo</div>
-      </div>
-    </>
+    <AiConfigSection
+      prompt={prompt}
+      ghAccount={ghAccount}
+      model={model}
+      targetRepo={targetRepo}
+      onPromptChange={setPrompt}
+      onGhAccountChange={setGhAccount}
+      onModelChange={setModel}
+      onTargetRepoChange={setTargetRepo}
+    />
   )
 
   const renderSkillConfig = () => (
-    <>
-      <div className="form-group">
-        <label htmlFor="job-skill-name">Skill Name *</label>
-        <input
-          id="job-skill-name"
-          type="text"
-          value={skillName}
-          onChange={e => setSkillName(e.target.value)}
-          placeholder="e.g., todoist, github, diary"
-        />
-        <div className="form-hint">Name of the Claude skill to execute</div>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="job-skill-action">Action</label>
-        <input
-          id="job-skill-action"
-          type="text"
-          value={skillAction}
-          onChange={e => setSkillAction(e.target.value)}
-          placeholder="e.g., list, create, sync (optional)"
-        />
-        <div className="form-hint">Specific action within the skill</div>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="job-skill-params">Parameters (JSON)</label>
-        <textarea
-          id="job-skill-params"
-          value={skillParams}
-          onChange={e => setSkillParams(e.target.value)}
-          placeholder='e.g., {"projectId": "123", "filter": "today"}'
-          rows={4}
-          className="mono"
-        />
-        <div className="form-hint">Optional JSON parameters to pass to the skill</div>
-      </div>
-    </>
+    <SkillConfigSection
+      skillName={skillName}
+      skillAction={skillAction}
+      skillParams={skillParams}
+      onSkillNameChange={setSkillName}
+      onSkillActionChange={setSkillAction}
+      onSkillParamsChange={setSkillParams}
+    />
   )
 
   return (

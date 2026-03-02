@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.229] - 2026-03-02
+
 ## [0.1.228] - 2026-03-02
 
+### Fixed
+
+- Use temp file for PR body in dispatcher to handle large bodies
+
+### Added
+
+- Refactor oversized components into focused sub-components (#82)
+
 ## [0.1.227] - 2026-03-02
+
+### Changed
+
+- Bump max-fix-cycles from 10 to 15
 
 ## [0.1.226] - 2026-03-01
 
@@ -23,14 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add replace-pr-body-text safe-input for targeted PR body edits
 
-## [0.1.224] - 2026-03-01
-
-## [0.1.223] - 2026-03-01
-
-## [0.1.222] - 2026-03-01
-
-## [0.1.221] - 2026-03-01
-
 ## [0.1.220] - 2026-03-01
 
 ### Fixed
@@ -42,12 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Add target '*' to pr-fixer push-to-pull-request-branch safe-output
-
-## [0.1.218] - 2026-03-01
-
-## [0.1.217] - 2026-03-01
-
-## [0.1.216] - 2026-03-01
 
 ## [0.1.215] - 2026-03-01
 
@@ -66,8 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Make status bar items clickable and simplify sync display
-
-## [0.1.212] - 2026-03-01
 
 ## [0.1.211] - 2026-03-01
 

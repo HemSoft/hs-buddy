@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.227] - 2026-03-02
+
 ## [0.1.226] - 2026-03-01
+
+### Fixed
+
+- Suppress broken pipe error in dispatcher sed|head pipeline
 
 ## [0.1.225] - 2026-03-01
 

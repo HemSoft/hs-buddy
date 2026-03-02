@@ -25,7 +25,7 @@
 # labelled agent:fixable, claims it, implements the described fix on a new
 # branch, and opens a pull request. One issue per run — no fan-out.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"7b90f07665b5598c4f711bedb5df1f111eea9d2383cfe18d8aa9ac325f724bff","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f5e88f805f44b41569ec2a6090533985459c753e95bb96b57a0b484f2f45b089","compiler_version":"v0.50.4"}
 
 name: "Issue Processor"
 "on":
@@ -948,7 +948,7 @@ jobs:
       - name: Execute GitHub Copilot CLI
         id: agentic_execution
         # Copilot CLI tool arguments (sorted):
-        timeout-minutes: 20
+        timeout-minutes: 60
         run: |
           set -o pipefail
           # shellcheck disable=SC1003

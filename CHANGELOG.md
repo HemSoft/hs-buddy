@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.232] - 2026-03-02
+
 ## [0.1.231] - 2026-03-02
+
+### Fixed
+
+- Widen auditor Step 4 to catch any action-item missing agent:fixable
 
 ## [0.1.230] - 2026-03-02
 

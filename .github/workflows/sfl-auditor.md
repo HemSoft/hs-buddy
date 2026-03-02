@@ -101,12 +101,13 @@ simultaneously:
 
 ## Step 4 — Check: action items missing agent:fixable
 
-Search for open issues that have BOTH `action-item` AND `audit` labels
+Search for open issues that have the `action-item` label
 but do NOT have any of: `agent:fixable`, `agent:in-progress`,
 `agent:human-required`, `agent:pause`, `agent:escalated`.
 
-These are action items the repo-audit agent created but forgot to label as
-`agent:fixable`, so they will never enter the pipeline.
+These are action items that a workflow created (discussion-processor,
+pr-fixer follow-ups, etc.) but the `agent:fixable` label was missing,
+so they will never enter the pipeline.
 
 For each such issue:
 

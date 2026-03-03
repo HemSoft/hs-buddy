@@ -116,12 +116,13 @@ straight to the activity log entry (Step 8) and report `0 findings`.
 
 (The `[simplisticate]` prefix is added automatically.)
 
-### Labels
+### Risk in body
 
-Add the appropriate risk label based on the **highest** risk across all
-findings: `risk:trivial`, `risk:low`, `risk:medium`, or `risk:high`.
+Each finding already includes a severity and risk assessment in its body text.
+Do NOT apply any risk labels (`risk:low`, `risk:medium`, etc.) — the only
+label applied is `agent:fixable` (enforced by safe-outputs).
 
-For 🟡 Medium or 🔴 High risk, include a **Risk Acknowledgment** line in the
+For 🟡 Medium or 🔴 High risk findings, include a **Risk Acknowledgment** line in the
 issue body stating what could go wrong and why the simplifications are still
 worth pursuing.
 

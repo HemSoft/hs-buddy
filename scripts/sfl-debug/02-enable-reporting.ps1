@@ -41,7 +41,7 @@ if ($confirm -notin @('y', 'Y', 'yes')) {
 $workflows = @(
     @{ File = "repo-audit.lock.yml";       Name = "Daily Repo Audit" }
     @{ File = "daily-repo-status.lock.yml"; Name = "Daily Repo Status" }
-    @{ File = "simplisticate.lock.yml";    Name = "Daily Simplisticate Audit" }
+    @{ File = "simplisticate-audit.lock.yml"; Name = "Simplisticate Audit" }
 )
 
 foreach ($wf in $workflows) {

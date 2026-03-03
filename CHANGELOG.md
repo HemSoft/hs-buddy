@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.240] - 2026-03-03
+
 ## [0.1.239] - 2026-03-03
+
+### Fixed
+
+- Prevent double Issue Processor trigger by removing risk labels from Simplisticate
 
 ## [0.1.238] - 2026-03-03
 

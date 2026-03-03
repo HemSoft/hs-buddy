@@ -38,7 +38,7 @@ $sflWorkflows = @(
     "PR Analyzer A — Full-Spectrum Review"
     "PR Analyzer B — Full-Spectrum Review"
     "PR Analyzer C — Full-Spectrum Review"
-    "Daily Simplisticate Audit"
+    "Simplisticate Audit"
     "Daily Repo Status"
     "Daily Repo Audit"
     "Discussion Processor"

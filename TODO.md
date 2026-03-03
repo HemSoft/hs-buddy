@@ -2,7 +2,8 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 📋 | High | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
+| 🚧 | High | [Simplisticate E2E Test](#simplisticate-e2e-test) | Run Simplisticate workflow once and track through full pipeline (issue → PR → merge) |
+| �📋 | High | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
 | 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
@@ -61,6 +62,79 @@
 ## Progress
 
 **Remaining: 5** | **Completed: 49** (91%)
+
+---
+
+## Simplisticate E2E Test
+
+**Goal**: Run the Simplisticate workflow once (without enabling it permanently) and track it through the complete SFL pipeline to verify end-to-end functionality.
+
+**Workflow Path**: Simplisticate → Discussion → Discussion Processor → Issue → Issue Processor → PR → Analyzers → Fixer → Promoter → Merge
+
+**Current Status**: 🚧 In Progress — PR #92 merged, PR #93 promoted, PR #94 in analysis, Issue #90 claimed
+
+**Steps**:
+
+1. ✅ Add TODO item and create tracking
+2. ✅ Run Simplisticate workflow manually via workflow_dispatch
+   - Run ID: 22594180794 (started 2026-03-02T20:23:21Z)
+3. ✅ Simplisticate completed — created 3 action issues + 1 report
+   - **#88** `[simplisticate] Remove dead export formatDistanceToFuture from dateUtils.ts` — `agent:fixable`, `action-item`, `risk:trivial`
+   - **#89** `[simplisticate] Hoist month-name arrays out of format() function body in dateUtils.ts` — `agent:fixable`, `action-item`, `risk:trivial`
+   - **#90** `[simplisticate] Remove redundant PRLinkInfo type alias in prDetailView.ts` — `agent:fixable`, `action-item`, `risk:trivial`
+   - **#91** `[simplisticate] Daily Simplisticate Audit — 2026-03-02` — `audit`, `report` (correctly ignored by pipeline)
+4. ✅ Dispatcher at 20:47 detected open issues + dispatched Issue Processor
+5. ✅ Issue Processor claimed #88 → `agent:in-progress` → created **draft PR #92** at 20:51
+   - Branch: `agent-fix/issue-88-e94a453e726fda28`
+   - Run ID: 22595052020 (success)
+6. ✅ Analyzers A/B/C all triggered at 20:51, all completed successfully
+   - Analyzer A (claude-sonnet-4.6): **PASS** — no blocking issues
+   - Analyzer B (claude-opus-4.6): **PASS** — no blocking issues
+   - Analyzer C (gpt-5.3-codex): **PASS** — no blocking issues
+   - Verdicts written to PR body via `update_issue` safe-output
+7. ✅ Dispatcher at 21:16 → Promoter un-drafted PR #92, added `human:ready-for-review`
+8. ✅ Dispatcher at 21:16 → Issue Processor claimed #89 → `agent:in-progress` → created **draft PR #93**
+9. ✅ Re-analysis at 21:22 → all 3 analyzers completed on PR #92
+10. ✅ PR Label Actions at 21:22 → added `ready-to-merge` to PR #92
+11. ✅ **PR #92 MERGED** at 4:51 PM EST — Issue #88 auto-closed
+12. ✅ Analyzers A/B/C triggered at 4:51 PM EST for PR #93, all completed
+13. ✅ Dispatcher at 4:46 PM EST → Promoter un-drafted PR #93, added `human:ready-for-review`
+14. ✅ Dispatcher at 4:46 PM EST → Issue Processor claimed #90 → `agent:in-progress` → created **draft PR #94**
+15. ✅ Analyzers A/B/C triggered at 4:51 PM EST for PR #94, all completed
+16. ✅ Dispatcher at 5:12 PM EST → Promoter un-drafted PR #94, added `human:ready-for-review`
+17. ✅ PR Label Actions at 5:17 PM EST
+18. ✅ Dispatcher at 5:44 PM EST → Promoter ran, added `ready-to-merge` to PR #93
+19. ❌ **PR Label Actions FAILED at 5:49 PM EST** — squash merge of PR #93 failed: "Pull Request is not mergeable"
+    - `mergeable: false`, `mergeable_state: dirty` — **merge conflict** as predicted
+    - PR #93 (hoist arrays in dateUtils.ts) conflicts with PR #92's changes to same file
+    - Issue #89 lost `agent:in-progress` label (now just `action-item`, `audit`, `report`, `risk:trivial`)
+20. 🚧 PR #94 — promoted with `human:ready-for-review`, awaiting `ready-to-merge`
+21. ⏳ PR #93 needs Fixer to resolve merge conflict, or manual rebase
+22. ⏳ PR #94 through full pipeline to merge
+
+**Current State** (as of 5:55 PM EST):
+
+| Item | Stage | Labels |
+|------|-------|--------|
+| Issue #88 | ✅ CLOSED | `action-item`, `audit`, `report`, `risk:trivial` |
+| PR #92 | ✅ MERGED at 4:51 PM EST | `agent:pr`, `human:ready-for-review`, `ready-to-merge` |
+| Issue #89 | OPEN | `action-item`, `audit`, `report`, `risk:trivial` — ⚠️ lost `agent:in-progress` |
+| PR #93 | OPEN (not draft) | `agent:pr`, `human:ready-for-review`, `ready-to-merge` — **MERGE CONFLICT** |
+| Issue #90 | OPEN | `agent:in-progress` |
+| PR #94 | OPEN (not draft) | `agent:pr`, `human:ready-for-review` — awaiting `ready-to-merge` |
+| Issue #91 | OPEN (report) | `audit`, `report` |
+
+**Observations & Takeaways**:
+
+- ✅ First full autonomous cycle completed (Issue #88 → PR #92 → merged) in ~60 min
+- ✅ `ready-to-merge` eventually propagated to PR #93 (took 3 Dispatcher cycles after promotion)
+- ❌ **Merge conflict confirmed** — PR #93 touches `dateUtils.ts` which PR #92 already modified. Squash merge failed.
+- ⚠️ Issue #89 lost `agent:in-progress` after merge failure — label state is now inconsistent (no `agent:fixable` either)
+- ⚠️ Pipeline has no automatic recovery path for merge conflicts on already-promoted PRs — the Fixer only runs on draft PRs with changes-requested verdicts
+- ℹ️ Analyzer verdicts use PR body (`update_issue` safe-output), not labels — Dispatcher parses body
+- ℹ️ Pipeline processes 1 issue per Dispatcher cycle (30 min each)
+- ❓ **Open question**: Can the pipeline self-recover from this merge conflict? Or does it need the Fixer to rebase PR #93? The Fixer may not get dispatched since the PR already passed analysis and has `ready-to-merge`.
+- ❓ **Open question**: Why did issue #89 lose `agent:in-progress`? The merge failure shouldn't remove that label.
 
 ---
 

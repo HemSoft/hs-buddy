@@ -61,7 +61,19 @@ The checkpoint is stored in `.github/prompts/.status-checkpoint`.
 ## Rules
 
 - Prefer script outputs over ad-hoc `gh` loops
-- Always convert display times to US Eastern
+- **All times in EST/EDT** — never display UTC to the user. Convert all GitHub API timestamps using `[System.TimeZoneInfo]::ConvertTimeFromUtc()` with `"Eastern Standard Time"`. Append `EST` or `EDT` suffix based on DST.
+- When reporting times in prose (not scripts), convert inline: e.g., "PR #92 merged at 4:51 PM EST" not "21:51 UTC"
 - Treat `missing finish_reason for choice 0` as non-blocking (known transient)
 - Keep output concise and decision-oriented
 - Verdicts are binary: ALL GOOD or ISSUES FOUND — no ambiguity
+
+## Observations & Takeaways
+
+Every status report should end with an **Observations** section that captures
+notable pipeline behaviors — even when everything is working correctly:
+
+- Timing gaps between cron cycles
+- Concurrent PRs touching the same files (merge conflict risk)
+- How many Dispatcher cycles it took for verdict propagation
+- Unexpected safe-output behaviors
+- Pipeline autonomy wins

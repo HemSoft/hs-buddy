@@ -112,8 +112,11 @@ and all dispatcher-triggered workflows.
 
 ## Audit Output Format
 
+All timestamps in audit output MUST be in **US Eastern (EST/EDT)**. Never
+display raw UTC timestamps to the user.
+
 ```markdown
-## SFL Audit — {date}
+## SFL Audit — {date in EST/EDT}
 
 | # | Check | Result | Detail |
 |---|-------|--------|--------|
@@ -137,6 +140,15 @@ and all dispatcher-triggered workflows.
 - **Evidence**: {what you found}
 - **Impact**: {what breaks if ignored}
 - **Suggested Action**: {concrete next step}
+
+### Observations & Takeaways
+
+Capture notable behaviors even when all checks pass:
+- Timing gaps between cron cycles that caused delays
+- Concurrent PRs touching the same file (merge conflict risk)
+- How many Dispatcher cycles for verdict propagation
+- Safe-output behaviors (e.g., verdicts in PR body vs labels)
+- Pipeline autonomy wins worth calling out
 ```
 
 Use ✅ for pass, ❌ for fail. No other symbols. Every check MUST appear as

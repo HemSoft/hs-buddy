@@ -285,7 +285,7 @@ Beyond automated checks, manually verify:
 ### Audit Output Format
 
 ```
-## SFL Audit — <date>
+## SFL Audit — <date in EST/EDT>
 
 | # | Check | Result | Detail |
 |---|-------|--------|--------|
@@ -301,10 +301,30 @@ Beyond automated checks, manually verify:
 - **Evidence**: <what you found>
 - **Impact**: <what breaks if ignored>
 - **Suggested Action**: <concrete next step>
+
+### Observations & Takeaways
+
+Capture anything unexpected even if all checks pass:
+- Pipeline behaviors that worked but were surprising
+- Timing gaps between cron cycles that caused delays
+- Verdicts that took multiple Dispatcher cycles to propagate
+- Merge conflicts between concurrent PRs touching same files
+- Safe-output behaviors (e.g., verdicts in PR body vs labels)
 ```
 
 Every concern MUST appear as a row. ✅ for pass, ❌ for fail. Update
 `ATTENTION.md` with any new findings.
+
+### Timezone Rule
+
+All timestamps in audit output MUST be in **US Eastern (EST/EDT)**. Never
+display raw UTC. Use the `To-Eastern` helper from `status-report.ps1` or
+convert inline:
+
+```powershell
+$tz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Eastern Standard Time")
+$est = [System.TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+```
 
 ---
 
@@ -333,9 +353,29 @@ Fast, checkpointed pipeline status with clear verdicts.
 ### Rules
 
 - Prefer script outputs over ad-hoc `gh` loops
-- Always convert display times to US Eastern
+- **All times in EST/EDT** — never display UTC to the user. Convert all GitHub API timestamps using `[System.TimeZoneInfo]::ConvertTimeFromUtc()` with `"Eastern Standard Time"`. Append `EST` or `EDT` suffix based on DST.
+- When reporting times in prose (not scripts), convert inline: e.g., "PR #92 merged at 4:51 PM EST" not "21:51 UTC"
 - Treat `missing finish_reason for choice 0` as non-blocking (known transient)
 - Keep output concise and decision-oriented: **ALL GOOD** or **ISSUES FOUND**
+
+### Observations & Takeaways
+
+The Status command should always end with an **Observations** section when
+reporting to the user. This captures pipeline behaviors that aren't bugs but
+are worth noting:
+
+- **Timing gaps**: Cron cycles that caused delays (e.g., "Dispatcher ran 3 min before issue was created — 30-min wait")
+- **Concurrent PR conflicts**: Multiple PRs modifying the same file
+- **Verdict propagation**: How many Dispatcher cycles before a PR got `ready-to-merge`
+- **Unexpected behaviors**: Safe-output patterns, label transitions that were surprising
+- **What worked well**: Pipeline autonomy wins worth calling out
+
+Format:
+
+```
+### Observations
+- {emoji} {observation}
+```
 
 ---
 

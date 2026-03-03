@@ -7,15 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.234] - 2026-03-03
+
+### Changed
+
+- Update SFL skill with EST rules, observations sections, and E2E tracking
+
+## [0.1.233] - 2026-03-03
+
 ### Added
 
 - Remove dead export `formatDistanceToFuture` from dateUtils.ts (#92)
-
-### Added
-
 - Refactor remaining 9 oversized components (>250 lines) (#87)
 
 ## [0.1.232] - 2026-03-02
+
+### Fixed
+
+- Increase Issue Processor timeout from 20 to 60 minutes
 
 ## [0.1.231] - 2026-03-02
 

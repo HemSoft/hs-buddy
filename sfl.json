@@ -6,7 +6,7 @@
   "sourceSha": "d696d3dd371bb3742ace24fddc5d85f08f7e4e97",
   "models": {
     "sfl-analyzer-a": "claude-sonnet-4.6",
-    "sfl-analyzer-b": "gemini-3-pro-preview",
+    "sfl-analyzer-b": "claude-opus-4.5",
     "sfl-analyzer-c": "gpt-5.3-codex"
   },
   "components": [

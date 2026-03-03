@@ -19,7 +19,6 @@ $workflows = @(
     "Daily Repo Audit"
     "Discussion Processor"
     "PR Label Actions"
-    "Test SFL Config Reader"
 )
 
 Write-Host "Pausing all SFL workflows..." -ForegroundColor Yellow

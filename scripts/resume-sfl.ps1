@@ -19,7 +19,6 @@ $workflows = @(
     "Daily Repo Audit"
     "Discussion Processor"
     "PR Label Actions"
-    "Test SFL Config Reader"
 )
 
 Write-Host "Resuming all SFL workflows..." -ForegroundColor Yellow

@@ -103,7 +103,6 @@
 | `simplisticate` | Identifies simplification opportunities | Manual dispatch |
 | `repo-audit` | Repository health audit | Manual dispatch |
 | `daily-repo-status` | Daily status report discussion | Cron (daily) |
-| `test-sfl-config` | Validates sfl-config.yml | Manual dispatch |
 
 **Standard YAML workflows** (4):
 

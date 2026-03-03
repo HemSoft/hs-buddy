@@ -1,5 +1,5 @@
 import { Building2, RefreshCw, ShieldAlert } from 'lucide-react'
-import { formatCurrency } from './AccountQuotaCard'
+import { formatCurrency } from './quotaUtils'
 
 interface OrgBudgetData {
   org: string

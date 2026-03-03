@@ -1,5 +1,5 @@
 import { Zap, RefreshCw, TrendingUp } from 'lucide-react'
-import { formatCurrency } from './AccountQuotaCard'
+import { formatCurrency } from './quotaUtils'
 
 interface UsageHeaderProps {
   totalUsed: number

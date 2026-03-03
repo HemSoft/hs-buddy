@@ -3,8 +3,9 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
-import { AccountQuotaCard, OVERAGE_COST_PER_REQUEST, computeProjection } from './copilot-usage/AccountQuotaCard'
-import type { AccountQuotaState } from './copilot-usage/AccountQuotaCard'
+import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
+import { OVERAGE_COST_PER_REQUEST, computeProjection } from './copilot-usage/quotaUtils'
+import type { AccountQuotaState } from './copilot-usage/quotaUtils'
 import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
 import './CopilotUsagePanel.css'

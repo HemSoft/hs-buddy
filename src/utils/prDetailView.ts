@@ -21,8 +21,6 @@ export interface PRDetailInfo {
   org?: string
 }
 
-export type PRLinkInfo = PRDetailInfo
-
 export type PRDetailSection = 'conversation' | 'commits' | 'checks' | 'files-changed' | 'ai-reviews'
 
 export interface PRDetailRoute {
@@ -39,7 +37,7 @@ export function createPRDetailViewId(
     ? createdDate.toISOString()
     : null
 
-  const info: PRLinkInfo = {
+  const info: PRDetailInfo = {
     source: pr.source,
     repository: pr.repository,
     id: pr.id,
@@ -64,7 +62,7 @@ export function createPRDetailViewId(
   return section ? `${base}?section=${section}` : base
 }
 
-export function parsePRLinkInfo(viewId: string): PRLinkInfo | null {
+export function parsePRLinkInfo(viewId: string): PRDetailInfo | null {
   const prefix = 'pr-detail:'
   if (!viewId.startsWith(prefix)) {
     return null
@@ -73,7 +71,7 @@ export function parsePRLinkInfo(viewId: string): PRLinkInfo | null {
   try {
     const encoded = viewId.replace(prefix, '').split('?section=')[0]
     if (!encoded) return null
-    return JSON.parse(decodeURIComponent(encoded)) as PRLinkInfo
+    return JSON.parse(decodeURIComponent(encoded)) as PRDetailInfo
   } catch {
     return null
   }

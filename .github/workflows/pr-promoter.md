@@ -50,6 +50,9 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["pr-fixer"]
     max: 1
+  add-comment:
+    target: "*"
+    max: 1
 ---
 
 # PR Promoter
@@ -351,3 +354,12 @@ Call `update_issue` on the **linked issue** (not the PR) with:
 - `issue_number`: the linked issue number
 - `status`: `"open"` (required — validation rejects calls without status/title/body)
 - `labels`: remove `agent:in-progress`, keep all other labels unchanged
+
+## Activity Log
+
+As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
+
+- `issue_number`: `95`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | PR Promoter | PR #<number> | ✅ Promoted` or `✅ Merge requested (ready-to-merge)` or `✅ Dispatched PR Fixer` or `⏭️ No eligible PRs`
+
+This is mandatory — every run must log exactly one entry.

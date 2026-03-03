@@ -43,6 +43,9 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 3
+  add-comment:
+    target: "*"
+    max: 1
 ---
 
 # Issue Processor
@@ -169,6 +172,15 @@ Call `update_issue` with:
 - `issue_number`: the issue number from Step 1 (always required)
 - `body`: "🔀 Opened PR #<number> — ready for review."
 - `operation`: `"append"`
+
+## Activity Log
+
+As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
+
+- `issue_number`: `95`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | Issue Processor | Issue #<number> → PR #<pr> | ✅ Created PR` or `⏭️ No eligible issues`
+
+This is mandatory — every run must log exactly one entry.
 
 ## Guardrails
 

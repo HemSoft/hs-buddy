@@ -13,3 +13,7 @@ risk-tolerance: low           # Maximum risk level SFL will process autonomously
 
 cycles:
   max-fix-cycles: 15          # Max analyzer→fix cycles before human escalation
+
+activity-log:
+  discussion: 95              # Discussion number for the SFL Activity Log
+  format: "YYYY-MM-DD h:mm AM/PM EST | Workflow Name | Target | ✅/❌ Summary"

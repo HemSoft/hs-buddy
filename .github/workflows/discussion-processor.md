@@ -38,6 +38,9 @@ safe-outputs:
   remove-labels:
     target: "*"
     max: 1
+  add-comment:
+    target: "*"
+    max: 1
 ---
 
 # Discussion Processor
@@ -152,6 +155,15 @@ Perform **three** separate safe-output calls in this exact order:
 All three calls are required. The label swap (`action-item` → `report`) is the
 primary re-trigger prevention. The receipt text is a secondary guard checked in
 Step 1. Do NOT skip any call — `update_discussion` cannot change labels.
+
+## Activity Log
+
+As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
+
+- `issue_number`: `95`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | Discussion Processor | Discussion #<number> | ✅ Created N issue(s)` or `⏭️ No discussions to process`
+
+This is mandatory — every run must log exactly one entry.
 
 ## Guardrails
 

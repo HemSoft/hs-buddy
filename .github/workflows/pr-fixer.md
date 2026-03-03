@@ -260,7 +260,7 @@ safe-outputs:
     max: 1
   add-comment:
     target: "*"
-    max: 1
+    max: 2
   add-labels:
     max: 3
   remove-labels:
@@ -613,6 +613,15 @@ Update the dashboard with:
 "PR #<number>: merge conflicts resolved — <count> files fixed."
 
 ---
+
+## Activity Log
+
+As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
+
+- `issue_number`: `95`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | PR Fixer | PR #<number> | ✅ Fixed (N issues)` or `❌ Escalated` or `✅ Conflicts resolved (N files)`
+
+This is mandatory — every run must log exactly one entry.
 
 ## Guardrails
 

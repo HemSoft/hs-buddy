@@ -36,7 +36,7 @@ safe-inputs:
 safe-outputs:
   add-comment:
     target: "*"
-    max: 1
+    max: 2
   noop:
     max: 1
 
@@ -84,3 +84,10 @@ SFL Config Test Results:
 ```
 
 If the config file cannot be read, call `noop` with an error message explaining what happened.
+
+## Activity Log
+
+As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
+
+- `issue_number`: `95`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | Test SFL Config | Test | ✅ Config validated`

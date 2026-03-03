@@ -8,6 +8,7 @@ on:
 permissions:
   pull-requests: write
   contents: write
+  discussions: write
 
 jobs:
   ready-for-review:
@@ -132,3 +133,11 @@ jobs:
           echo "Squash-merging PR #${{ github.event.pull_request.number }}"
           gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch --admin --repo ${{ github.repository }}
           echo "Done — PR merged and branch deleted"
+
+      - name: Post activity log entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TIMESTAMP=$(TZ='America/New_York' date +'%Y-%m-%d %l:%M %p EST' | sed 's/  / /')
+          BODY="${TIMESTAMP} | PR Label Actions | PR #${{ github.event.pull_request.number }} | ✅ Squash merged"
+          gh api graphql -f query='mutation($discussionId:ID!, $body:String!) { addDiscussionComment(input:{discussionId:$discussionId, body:$body}) { comment { id } } }' -f discussionId="$(gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!) { repository(owner:$owner,name:$name) { discussion(number:$number) { id } } }' -f owner="${{ github.repository_owner }}" -f name="${{ github.event.repository.name }}" -F number=95 --jq '.data.repository.discussion.id')" -f body="$BODY"

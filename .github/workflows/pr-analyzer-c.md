@@ -34,6 +34,9 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 2
+  add-comment:
+    target: "*"
+    max: 1
 ---
 
 # PR Analyzer C — Full-Spectrum Review
@@ -233,6 +236,15 @@ _None found._ (use this if no suggestions)
 
 Replace N with the current cycle number, and fill in actual findings.
 Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
+
+## Activity Log
+
+As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
+
+- `issue_number`: `95`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | PR Analyzer C | PR #<number> | ✅ PASS` or `❌ BLOCKING ISSUES FOUND`
+
+This is mandatory — every run must log exactly one entry.
 
 ## Guardrails
 

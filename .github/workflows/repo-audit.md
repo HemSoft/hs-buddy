@@ -28,6 +28,9 @@ safe-outputs:
   update-discussion:
     target: "*"
     max: 5
+  add-comment:
+    target: "*"
+    max: 1
 ---
 
 # Daily Repo Audit
@@ -144,3 +147,4 @@ For each finding in the table, include a detail section:
 3. Compile findings with severity, confidence, and agent-fixability assessment
 4. Close any previous open `[repo-audit]` report issues
 5. Create the single consolidated report issue
+6. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Repo Audit | Audit | ✅ N findings (M agent-fixable)`

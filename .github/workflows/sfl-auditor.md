@@ -32,6 +32,9 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 10
+  add-comment:
+    target: "*"
+    max: 1
 ---
 
 # SFL Auditor
@@ -223,6 +226,15 @@ After completing all checks (Steps 2–10), you MUST always call exactly one of:
 
 Never finish the run without calling at least one safe output. A run with zero
 safe outputs is treated as a failure.
+
+## Activity Log
+
+As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
+
+- `issue_number`: `95`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | SFL Auditor | Audit | ✅ All checks passed` or `⚠️ N discrepancies repaired`
+
+This is mandatory — every run must log exactly one entry.
 
 ## Guardrails
 

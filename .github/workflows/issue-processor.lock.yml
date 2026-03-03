@@ -25,7 +25,7 @@
 # labelled agent:fixable, claims it, implements the described fix on a new
 # branch, and opens a pull request. One issue per run — no fan-out.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f5e88f805f44b41569ec2a6090533985459c753e95bb96b57a0b484f2f45b089","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"9fc2088c1ea471c1b9ec80dd6f2d48b42c4f546f582bae1ee4fc466b6a0b7fc3","compiler_version":"v0.50.4"}
 
 name: "Issue Processor"
 "on":
@@ -101,7 +101,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: update_issue, create_pull_request, add_labels, remove_labels, missing_tool, missing_data
+          Tools: add_comment, update_issue, create_pull_request, add_labels, remove_labels, missing_tool, missing_data
           GH_AW_PROMPT_EOF
           cat "/opt/gh-aw/prompts/safe_outputs_create_pull_request.md"
           cat << 'GH_AW_PROMPT_EOF'
@@ -325,10 +325,31 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_labels":{"max":3},"create_pull_request":{"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"max":3},"update_issue":{"max":3}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":3},"create_pull_request":{"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"max":3},"update_issue":{"max":3}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
+            {
+              "description": "Add a comment to an existing GitHub issue, pull request, or discussion. Use this to provide feedback, answer questions, or add information to an existing conversation. For creating new items, use create_issue, create_discussion, or create_pull_request instead. IMPORTANT: Comments are subject to validation constraints enforced by the MCP server - maximum 65536 characters for the complete comment (including footer which is added automatically), 10 mentions (@username), and 50 links. Exceeding these limits will result in an immediate error with specific guidance. NOTE: By default, this tool requires discussions:write permission. If your GitHub App lacks Discussions permission, set 'discussions: false' in the workflow's safe-outputs.add-comment configuration to exclude this permission. CONSTRAINTS: Maximum 1 comment(s) can be added. Target: *.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "description": "The comment text in Markdown format. This is the 'body' field - do not use 'comment_body' or other variations. Provide helpful, relevant information that adds value to the conversation. CONSTRAINTS: The complete comment (your body text + automatically added footer) must not exceed 65536 characters total. Maximum 10 mentions (@username), maximum 50 links (http/https URLs). A footer (~200-500 characters) is automatically appended with workflow attribution, so leave adequate space. If these limits are exceeded, the tool call will fail with a detailed error message indicating which constraint was violated.",
+                    "type": "string"
+                  },
+                  "item_number": {
+                    "description": "The issue, pull request, or discussion number to comment on. This is the numeric ID from the GitHub URL (e.g., 123 in github.com/owner/repo/issues/123). If omitted, the tool auto-targets the issue, PR, or discussion that triggered this workflow. Auto-targeting only works for issue, pull_request, discussion, and comment event triggers — it does NOT work for schedule, workflow_dispatch, push, or workflow_run triggers. For those trigger types, always provide item_number explicitly, or the comment will be silently discarded.",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "type": "object"
+              },
+              "name": "add_comment"
+            },
             {
               "description": "Create a new GitHub pull request to propose code changes. Use this after making file edits to submit them for review and merging. The PR will be created from the current branch with your committed changes. For code review comments on an existing PR, use create_pull_request_review_comment instead. CONSTRAINTS: Maximum 1 pull request(s) can be created. Title will be prefixed with \"[agent-fix] \". Labels [agent:pr] will be automatically added. PRs will be created as drafts.",
               "inputSchema": {
@@ -548,6 +569,24 @@ jobs:
           GH_AW_SAFE_OUTPUTS_TOOLS_EOF
           cat > /opt/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_EOF'
           {
+            "add_comment": {
+              "defaultMax": 1,
+              "fields": {
+                "body": {
+                  "required": true,
+                  "type": "string",
+                  "sanitize": true,
+                  "maxLength": 65000
+                },
+                "item_number": {
+                  "issueOrPRNumber": true
+                },
+                "repo": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            },
             "add_labels": {
               "defaultMax": 5,
               "fields": {
@@ -1244,6 +1283,7 @@ jobs:
     runs-on: ubuntu-slim
     permissions:
       contents: write
+      discussions: write
       issues: write
       pull-requests: write
     outputs:
@@ -1354,6 +1394,7 @@ jobs:
     runs-on: ubuntu-slim
     permissions:
       contents: write
+      discussions: write
       issues: write
       pull-requests: write
     timeout-minutes: 15
@@ -1417,7 +1458,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_labels\":{\"max\":3},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"labels\":[\"agent:pr\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"missing_data\":{},\"missing_tool\":{},\"remove_labels\":{\"max\":3},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":3},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"labels\":[\"agent:pr\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"missing_data\":{},\"missing_tool\":{},\"remove_labels\":{\"max\":3},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\"}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

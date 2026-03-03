@@ -31,6 +31,9 @@ safe-outputs:
   update-discussion:
     target: "*"
     max: 5
+  add-comment:
+    target: "*"
+    max: 1
 source: githubnext/agentics/workflows/daily-repo-status.md@d19056381ba48cb1f7c78510c23069701fa7ae87
 ---
 
@@ -67,3 +70,4 @@ This ensures only today's report remains open.
 1. Gather recent activity from the repository
 2. Study the repository, its issues and its pull requests
 3. Create a new GitHub Discussion (category: General) with your findings and insights
+4. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Daily Repo Status | Report | ✅ Created discussion`

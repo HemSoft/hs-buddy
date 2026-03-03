@@ -28,6 +28,9 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 5
+  add-comment:
+    target: "*"
+    max: 1
 ---
 
 # Daily Simplisticate Audit
@@ -196,3 +199,4 @@ suffixes and avoids the most common mistake (single-digit suffixes like `f1`).
 5. Compile findings with severity, risk, and agent-fixability assessment
 6. Create summary report issue
 7. For each qualifying finding, create a scoped agent-fixable issue
+8. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Simplisticate | Audit | ✅ N findings, M agent-fixable`

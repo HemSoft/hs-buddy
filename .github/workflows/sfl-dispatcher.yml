@@ -22,6 +22,7 @@ permissions:
   issues: read
   pull-requests: read
   actions: write
+  discussions: write
 
 concurrency:
   group: "sfl-dispatcher"
@@ -299,3 +300,21 @@ jobs:
           else
             echo "| PR Promoter | No (no draft or approved PRs) |" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Post activity log entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TIMESTAMP=$(TZ='America/New_York' date +'%Y-%m-%d %l:%M %p EST' | sed 's/  / /')
+          DISPATCHED=""
+          [ "${{ steps.issues.outputs.fixable_count }}" != "0" ] && DISPATCHED="${DISPATCHED}IP "
+          [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ] && DISPATCHED="${DISPATCHED}Fixer "
+          [ "${{ steps.ready_prs.outputs.ready_count }}" != "0" ] && DISPATCHED="${DISPATCHED}Promoter "
+          [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ] && DISPATCHED="${DISPATCHED}Labels "
+          if [ -z "$DISPATCHED" ]; then
+            BODY="${TIMESTAMP} | SFL Dispatcher | Dispatch | ⏭️ No workflows dispatched"
+          else
+            BODY="${TIMESTAMP} | SFL Dispatcher | Dispatch | ✅ Dispatched: ${DISPATCHED}"
+          fi
+          DISC_ID=$(gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!) { repository(owner:$owner,name:$name) { discussion(number:$number) { id } } }' -f owner="${{ github.repository_owner }}" -f name="${{ github.event.repository.name }}" -F number=95 --jq '.data.repository.discussion.id')
+          gh api graphql -f query='mutation($id:ID!,$body:String!) { addDiscussionComment(input:{discussionId:$id,body:$body}) { comment { id } } }' -f id="$DISC_ID" -f body="$BODY"

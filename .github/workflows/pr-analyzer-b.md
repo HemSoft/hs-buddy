@@ -19,7 +19,7 @@ permissions:
 
 engine:
   id: copilot
-  model: claude-opus-4.6
+  model: gemini-3.1-pro
 
 network: defaults
 

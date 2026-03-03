@@ -106,24 +106,7 @@ simultaneously:
    - `labels`: the issue's current labels with `agent:fixable` removed (keep
      `agent:in-progress` and all other existing labels)
 
-## Step 4 — Check: action items missing agent:fixable
-
-Search for open issues that have the `action-item` label
-but do NOT have any of: `agent:fixable`, `agent:in-progress`,
-`agent:human-required`, `agent:pause`, `agent:escalated`.
-
-These are action items that a workflow created (discussion-processor,
-pr-fixer follow-ups, etc.) but the `agent:fixable` label was missing,
-so they will never enter the pipeline.
-
-For each such issue:
-
-1. Call `update_issue` with ALL of these fields in a **single call**:
-   - `issue_number`: the issue number
-   - `labels`: the issue's current labels with `agent:fixable` added (keep all
-     other existing labels unchanged)
-   - `body`: "🔧 **SFL Auditor**: This action item was missing `agent:fixable`. Added it so the Issue Processor can claim it on the next cycle."
-   - `operation`: `"append"`
+## Step 4 — (Removed — consolidated into agent:fixable)
 
 ## Step 5 — Check: orphaned agent PRs
 
@@ -155,7 +138,7 @@ list B (those are handled by other steps).
 ## Step 7 — Check: stale report issues
 
 Search for **open** issues that have the label `report` (or both
-`daily-status` and `report`) but do NOT have any of: `action-item`,
+`daily-status` and `report`) but do NOT have any of:
 `agent:fixable`, `agent:in-progress`.
 
 These are pure informational report issues (daily status, audit summaries,

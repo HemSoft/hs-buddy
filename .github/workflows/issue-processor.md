@@ -1,10 +1,12 @@
 ---
 description: |
-  This workflow runs every 30 minutes, picks the single oldest open issue
-  labelled agent:fixable, claims it, implements the described fix on a new
-  branch, and opens a pull request. One issue per run — no fan-out.
+  Triggered when an issue is labeled `agent:fixable`, or dispatched by the
+  SFL Dispatcher as a fallback. Claims the issue, implements the described
+  fix on a new branch, and opens a pull request. One issue per run.
 
 on:
+  issues:
+    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -50,8 +52,8 @@ safe-outputs:
 
 # Issue Processor
 
-Run every 30 minutes. Find the oldest open `agent:fixable` issue, claim it,
-implement the fix, and open a pull request. Process exactly one issue per run.
+Claim an `agent:fixable` issue, implement the fix, and open a pull request.
+Process exactly one issue per run.
 
 ## Step 0 — Read SFL autonomy config
 
@@ -64,34 +66,44 @@ The risk hierarchy is: `trivial` < `low` < `medium` < `high`.
 
 Keep this value in context for use in Step 1.
 
-## Step 1 — Find the oldest claimable issue
+## Step 1 — Identify the target issue
 
-Search for open issues in this repository that have ALL of the following labels:
+This workflow can be triggered two ways:
 
-- `agent:fixable`
-- `action-item`
+### A) Event-driven (`issues: labeled`)
 
-And do NOT have any of:
+Check that the label just applied is **`agent:fixable`**. If it is any other
+label, exit immediately — this run is a no-op.
+
+Use the issue from the event payload directly. Verify it does NOT have any of:
 
 - `agent:in-progress`
 - `agent:pause`
 - `agent:human-required`
 - `no-agent`
 
-Sort results by creation date ascending. Take the **single oldest** result.
+If it has any of those, exit — nothing to do.
 
-**Risk tolerance check**: Before claiming, check the issue's `risk:*` label
-against the `risk-tolerance` from Step 0:
+### B) Dispatched (`workflow_dispatch`)
+
+Search for open issues with label `agent:fixable` that do NOT have any of:
+`agent:in-progress`, `agent:pause`, `agent:human-required`, `no-agent`.
+
+Sort by creation date ascending. Take the **single oldest** result.
+If no issue matches, exit — nothing to do.
+
+### Risk tolerance check (both paths)
+
+Before claiming, check the issue's `risk:*` label against `risk-tolerance`
+from Step 0:
 
 - If the issue has `risk:medium` and tolerance is `low` or `trivial` → skip it
 - If the issue has `risk:high` and tolerance is `medium`, `low`, or `trivial` → skip it
 
 When skipping due to risk: add label `agent:human-required`, post a comment
 "⚠️ Issue risk level (`risk:<level>`) exceeds SFL tolerance (`<tolerance>`).
-Requires human review.", and try the next oldest issue. If no eligible issues
-remain, exit — nothing to do.
-
-If no issue matches, exit immediately — nothing to do.
+Requires human review.", and exit (for event-driven) or try the next oldest
+issue (for dispatched). If no eligible issues remain, exit — nothing to do.
 
 ## Step 2 — Claim the issue
 

@@ -271,7 +271,7 @@ safe-outputs:
   create-issue:
     max: 2
     title-prefix: "[follow-up] "
-    labels: [agent:fixable, action-item]
+    labels: [agent:fixable]
   update-issue:
     target: "*"
     max: 3

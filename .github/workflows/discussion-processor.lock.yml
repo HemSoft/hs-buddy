@@ -21,13 +21,13 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# Triggered when a discussion is labeled `action-item`. Reads the discussion
+# Triggered when a discussion is labeled. Reads the discussion
 # body, groups agent-fixable findings by category, and creates one issue per
-# group. Replaces the `action-item` label with `report` to mark it processed.
+# group. Marks the discussion with `report` label when processed.
 # Generic — works with any workflow that produces structured finding discussions
 # (repo-audit, simplisticate, etc.).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"019a4d627c3898578b8f54ffd63f2eca0bbb1cd335c442cbfb0f7f8d8faa4420","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"d899bb535b4733222a53c34f3a9ac594ab390c44f9c49e43343b1e0c0a7a0464","compiler_version":"v0.50.4"}
 
 name: "Discussion Processor"
 "on":
@@ -120,7 +120,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: add_comment, create_issue, update_discussion, add_labels, remove_labels, missing_tool, missing_data
+          Tools: add_comment, create_issue, update_discussion, add_labels, missing_tool, missing_data
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -344,12 +344,12 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":1,"target":"*"},"create_issue":{"max":6},"missing_data":{},"missing_tool":{},"noop":{"max":1},"remove_labels":{"max":1},"update_discussion":{"max":1}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":1,"target":"*"},"create_issue":{"max":6},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 6 issue(s) can be created. Title will be prefixed with \"[auto] \". Labels [agent:fixable action-item] will be automatically added.",
+              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 6 issue(s) can be created. Title will be prefixed with \"[auto] \". Labels [agent:fixable] will be automatically added.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -455,30 +455,6 @@ jobs:
                 "type": "object"
               },
               "name": "add_labels"
-            },
-            {
-              "description": "Remove labels from an existing GitHub issue or pull request. Silently skips labels that don't exist on the item. Use this to clean up labels or manage label lifecycles (e.g., removing 'needs-review' after review is complete). CONSTRAINTS: Maximum 1 label(s) can be removed. Target: *.",
-              "inputSchema": {
-                "additionalProperties": false,
-                "properties": {
-                  "item_number": {
-                    "description": "Issue or PR number to remove labels from. This is the numeric ID from the GitHub URL (e.g., 456 in github.com/owner/repo/issues/456). If omitted, removes labels from the item that triggered this workflow.",
-                    "type": "number"
-                  },
-                  "labels": {
-                    "description": "Label names to remove (e.g., ['smoke', 'needs-triage']). Non-existent labels are silently skipped.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  }
-                },
-                "required": [
-                  "labels"
-                ],
-                "type": "object"
-              },
-              "name": "remove_labels"
             },
             {
               "description": "Report that a tool or capability needed to complete the task is not available, or share any information you deem important about missing functionality or limitations. Use this when you cannot accomplish what was requested because the required functionality is missing or access is restricted.",
@@ -677,25 +653,6 @@ jobs:
                   "type": "string",
                   "sanitize": true,
                   "maxLength": 65000
-                }
-              }
-            },
-            "remove_labels": {
-              "defaultMax": 5,
-              "fields": {
-                "item_number": {
-                  "issueOrPRNumber": true
-                },
-                "labels": {
-                  "required": true,
-                  "type": "array",
-                  "itemType": "string",
-                  "itemSanitize": true,
-                  "itemMaxLength": 128
-                },
-                "repo": {
-                  "type": "string",
-                  "maxLength": 256
                 }
               }
             },
@@ -1026,7 +983,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "Discussion Processor"
-          WORKFLOW_DESCRIPTION: "Triggered when a discussion is labeled `action-item`. Reads the discussion\nbody, groups agent-fixable findings by category, and creates one issue per\ngroup. Replaces the `action-item` label with `report` to mark it processed.\nGeneric — works with any workflow that produces structured finding discussions\n(repo-audit, simplisticate, etc.)."
+          WORKFLOW_DESCRIPTION: "Triggered when a discussion is labeled. Reads the discussion\nbody, groups agent-fixable findings by category, and creates one issue per\ngroup. Marks the discussion with `report` label when processed.\nGeneric — works with any workflow that produces structured finding discussions\n(repo-audit, simplisticate, etc.)."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |
@@ -1265,7 +1222,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":1,\"target\":\"*\"},\"create_issue\":{\"labels\":[\"agent:fixable\",\"action-item\"],\"max\":6,\"title_prefix\":\"[auto] \"},\"missing_data\":{},\"missing_tool\":{},\"remove_labels\":{\"max\":1,\"target\":\"*\"},\"update_discussion\":{\"max\":1,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":1,\"target\":\"*\"},\"create_issue\":{\"labels\":[\"agent:fixable\"],\"max\":6,\"title_prefix\":\"[auto] \"},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

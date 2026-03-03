@@ -26,7 +26,7 @@
 # fixes directly to the PR branch, updates cycle labels, and exits. Does NOT
 # un-draft the PR — that is the Promoter's job.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"b913b663ead0af6e28d32cf0e039432e33438b3706d875d51a3171df8744cd65","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"0d21c2d6329a4ec2b5228ee11a212331afe8f709a51b2dc36a9febfa5312a36e","compiler_version":"v0.50.4"}
 
 name: "PR Fixer — Authority"
 "on":
@@ -331,7 +331,7 @@ jobs:
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 2 issue(s) can be created. Title will be prefixed with \"[follow-up] \". Labels [agent:fixable action-item] will be automatically added.",
+              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 2 issue(s) can be created. Title will be prefixed with \"[follow-up] \". Labels [agent:fixable] will be automatically added.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1850,7 +1850,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":2,\"target\":\"*\"},\"add_labels\":{\"max\":3},\"create_issue\":{\"labels\":[\"agent:fixable\",\"action-item\"],\"max\":2,\"title_prefix\":\"[follow-up] \"},\"missing_data\":{},\"missing_tool\":{},\"push_to_pull_request_branch\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"if_no_changes\":\"warn\",\"max\":1,\"max_patch_size\":1024,\"target\":\"*\"},\"remove_labels\":{\"max\":3},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":2,\"target\":\"*\"},\"add_labels\":{\"max\":3},\"create_issue\":{\"labels\":[\"agent:fixable\"],\"max\":2,\"title_prefix\":\"[follow-up] \"},\"missing_data\":{},\"missing_tool\":{},\"push_to_pull_request_branch\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"if_no_changes\":\"warn\",\"max\":1,\"max_patch_size\":1024,\"target\":\"*\"},\"remove_labels\":{\"max\":3},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\"}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.238] - 2026-03-03
+
+## [0.1.237] - 2026-03-03
+
 ## [0.1.236] - 2026-03-03
+
+### Added
+
+- Detect and retry stuck ready-to-merge PRs
 
 ## [0.1.235] - 2026-03-03
 

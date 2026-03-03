@@ -2,8 +2,8 @@
 description: |
   This workflow runs a daily code simplification audit to identify unnecessary
   complexity, over-engineering, dead code, and opportunities for targeted
-  simplification. It creates one summary report issue and individual
-  agent-fixable issues for low-risk simplifications an agent can apply autonomously.
+  simplification. It creates exactly one agent-fixable issue containing all
+  findings and detailed fix instructions for the SFL pipeline to process.
 
 on:
   schedule: "0 6 * * *"   # 1:00 AM EST
@@ -23,8 +23,8 @@ tools:
 safe-outputs:
   create-issue:
     title-prefix: "[simplisticate] "
-    labels: [report, audit]
-    max: 10
+    labels: [agent:fixable]
+    max: 1
   update-issue:
     target: "*"
     max: 5
@@ -37,21 +37,19 @@ safe-outputs:
 
 > *"Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away."* — Antoine de Saint-Exupéry
 
-Run a high-signal daily code simplification audit. Produce a summary report
-issue and individual fixable issues for simplifications an agent can apply
-autonomously.
+Run a high-signal daily code simplification audit. Produce **exactly one issue**
+containing all findings with detailed, step-by-step fix instructions. This
+single issue enters the SFL pipeline and must give the Issue Processor
+everything it needs to implement all fixes in one pass.
 
-## Step 0 — Close previous simplisticate summary reports
+## Step 0 — Close previous simplisticate issues
 
 Before creating today's audit, search for all **open** issues whose title
-starts with `[simplisticate] Daily Simplisticate Audit` AND that have both
-`report` and `audit` labels. For each one found, close it using
+starts with `[simplisticate]`. For each one found, close it using
 `update_issue` with:
 
 - `issue_number`: the issue number
 - `status`: `"closed"`
-
-Do NOT close agent-fixable action-item issues — only the dated summary reports.
 
 ## Goals
 
@@ -104,91 +102,95 @@ Do NOT close agent-fixable action-item issues — only the dated summary reports
    - Verbose code that can leverage newer language/framework features
    - Unnecessary defensive coding against impossible scenarios
 
-## Output Requirements
+## Output — Single Consolidated Issue
 
-### Summary issue (always)
+Create **exactly one issue** using `create_issue`. The safe-output config
+automatically adds the `[simplisticate]` title prefix and `agent:fixable` label.
 
-Create one summary issue with labels `report` and `audit` containing:
+If the audit found zero actionable findings, do NOT create an issue — skip
+straight to the activity log entry (Step 8) and report `0 findings`.
 
-- Executive summary (overall code simplicity health)
-- Findings table with:
-  - Location (file + line range)
-  - Complexity signal type
-  - Severity (low / medium / high)
-  - Risk of simplification (🟢 Low / 🟡 Medium / 🔴 High)
-  - Whether the finding is agent-fixable
-- A short "No action required" section if everything looks clean
+### Title
 
-### Per-finding issues (for agent-fixable findings only)
+`Daily Simplification — YYYY-MM-DD`
 
-For each finding that meets ALL of the following criteria, create a separate issue:
+(The `[simplisticate]` prefix is added automatically.)
 
-- The simplification is **scoped to one or two files** — no broad refactors
-- The simplification is **deterministic** — there is one clear correct outcome
-- No user-facing behavioral change
-- The resulting code is strictly simpler (fewer lines, fewer branches, fewer abstractions)
+### Labels
 
-Risk level alone does NOT disqualify a finding from being agent-fixable.
-🟡 Medium and 🔴 High risk items are still agent-fixable — the risk is
-acknowledged in the issue body and surfaced at human-review time.
+Add the appropriate risk label based on the **highest** risk across all
+findings: `risk:trivial`, `risk:low`, `risk:medium`, or `risk:high`.
 
-Label each agent-fixable issue with: `action-item`, `agent:fixable`, and the appropriate risk label (`risk:trivial`, `risk:low`, `risk:medium`, or `risk:high`).
+For 🟡 Medium or 🔴 High risk, include a **Risk Acknowledgment** line in the
+issue body stating what could go wrong and why the simplifications are still
+worth pursuing.
 
-Issue title format: `[simplisticate] <short description of the specific simplification>`
+### Issue body structure
 
-Issue body must include:
+The issue body must give the Issue Processor a complete, self-contained
+implementation guide. Use this exact structure:
 
-- **Finding**: What complexity was detected and where (file path, line range)
-- **Complexity Signal**: Which signal type from the table above
-- **Proposed Simplification**: Exactly what change to make
-- **Before/After**: Brief code sketch showing the improvement
-- **Acceptance Criteria**: How to verify the simplification is correct
-- **Risk**: `risk:trivial`, `risk:low`, `risk:medium`, or `risk:high` with justification. For 🟡 Medium or 🔴 High risk, include a **Risk Acknowledgment** line stating what could go wrong and why the simplification is still worth pursuing.
+```markdown
+## Summary
 
-Do NOT create agent-fixable issues for:
+<Executive summary — overall code simplicity health, total findings count,
+estimated total lines changed>
 
-- Findings requiring architectural decisions
-- Findings that touch more than 3 files
-- Simplifications where multiple valid approaches exist
-- Changes that would alter external behavior
+## Findings
 
-Cap total agent-fixable issues at 3 per run to avoid noise.
+<For EACH finding, create a numbered section:>
 
-## Cross-Referencing Child Issues (temporary_id)
+### Finding 1: <short description>
 
-When creating agent-fixable issues and referencing them from the summary,
-use `temporary_id` so the summary body can link to child issues before their
-real numbers are known. The `temporary_id` **must** match `^aw_[A-Za-z0-9]{3,8}$`
-(3–8 alphanumeric characters after `aw_`). Calls with invalid IDs are silently
-rejected and the child issue is never created.
+- **File(s)**: `<file path>` (lines X–Y)
+- **Signal**: <complexity signal from the table above>
+- **Severity**: <low / medium / high>
+- **Risk**: 🟢/🟡/🔴 <risk level> — <one-line justification>
 
-**Naming convention:** Derive the `temporary_id` from a short mnemonic of the
-finding, NOT from the finding number. For example, a ternary-chain finding
-becomes `aw_ternary`, a duplicate-logic finding becomes `aw_dedup1`, an
-OR-chain finding becomes `aw_orchain`. This naturally produces 3–8 character
-suffixes and avoids the most common mistake (single-digit suffixes like `f1`).
+**Problem**: <What is wrong and why it should be simplified>
 
-### Valid examples
+**Fix**: <Precise, unambiguous instructions — what to delete, rename, inline,
+or rewrite. Include exact code when the change is non-obvious.>
 
-| temporary_id | Body reference | Why it works |
-|---|---|---|
-| `aw_ternary` | `#aw_ternary` | 7 alphanumeric chars — mnemonic ✅ |
-| `aw_dedup1` | `#aw_dedup1` | 6 alphanumeric chars — mnemonic ✅ |
-| `aw_orchain` | `#aw_orchain` | 7 alphanumeric chars — mnemonic ✅ |
-| `aw_fix1` | `#aw_fix1` | 4 alphanumeric chars ✅ |
-| `aw_Tern01` | `#aw_Tern01` | 6 alphanumeric chars ✅ |
-| `aw_abc` | `#aw_abc` | 3 alphanumeric chars (minimum) ✅ |
+<Repeat for each finding>
 
-### Invalid examples — do NOT use
+## Implementation Order
 
-| temporary_id | Why it fails |
-|---|---|
-| `aw_f1` | Only 2 chars after `aw_` — minimum is 3 ❌ |
-| `aw_f2` | Only 2 chars after `aw_` — minimum is 3 ❌ |
-| `aw_f3` | Only 2 chars after `aw_` — minimum is 3 ❌ |
-| `aw_a` | Only 1 char ❌ |
-| `aw_my-id` | Hyphen is not alphanumeric ❌ |
-| `aw_123456789` | 9 chars — maximum is 8 ❌ |
+Apply changes in this order to avoid conflicts:
+
+1. <file:line — brief description>
+2. <file:line — brief description>
+...
+
+## Acceptance Criteria
+
+- [ ] <Criterion 1 — e.g., "no TypeScript errors after changes">
+- [ ] <Criterion 2 — e.g., "removed function is not referenced anywhere">
+- [ ] <Criterion 3>
+...
+```
+
+### Writing effective fix instructions
+
+The Issue Processor is an AI agent that will read this issue and implement
+every fix in a single PR. To maximize its success:
+
+- **Be exact**: Specify file paths, line numbers, function names. Say
+  "delete lines 45–52 of `src/utils/helpers.ts`" not "remove the helper."
+- **Show code**: For non-trivial changes, include before/after code snippets.
+- **Order matters**: List an implementation order that avoids merge conflicts
+  (e.g., delete from bottom-of-file upward, rename before removing imports).
+- **One direction**: Don't offer alternatives. State the single correct change.
+- **Scope guard**: Every finding must be scoped to 1–3 files. If a finding
+  would touch more than 3 files, split it or exclude it.
+
+### What to exclude
+
+Do NOT include findings that:
+
+- Require architectural decisions with multiple valid approaches
+- Would alter external/user-facing behavior
+- Need human judgment to resolve (flag these in the summary as informational)
 
 ## Process
 
@@ -196,7 +198,8 @@ suffixes and avoids the most common mistake (single-digit suffixes like `f1`).
 2. Scan source files for complexity signals
 3. Cross-reference findings with test coverage and usage patterns
 4. Assess risk of each potential simplification
-5. Compile findings with severity, risk, and agent-fixability assessment
-6. Create summary report issue
-7. For each qualifying finding, create a scoped agent-fixable issue
-8. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Simplisticate | Audit | ✅ N findings, M agent-fixable`
+5. Filter out findings that require human judgment or broad refactors
+6. Compile all actionable findings into one issue with detailed fix instructions
+7. Order the fixes to minimize conflicts (bottom-up deletions, etc.)
+8. Create the single consolidated issue (or skip if zero findings)
+9. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Simplisticate | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`

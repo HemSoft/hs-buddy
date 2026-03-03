@@ -28,7 +28,7 @@
 # diversity — different models catch different things. Model: claude-sonnet-4.6
 # (set via engine.model frontmatter — canonical value in sfl.json models section).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"d571a1e08b45cadbba9dd91c46fd94300a2e2b7fdee6d0de9fe7596d23588e83","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"c75d68d6842245552c519e0babe557d97529a4ff62f33c424361469a023c7663","compiler_version":"v0.50.4"}
 
 name: "PR Analyzer A — Full-Spectrum Review"
 "on":
@@ -123,7 +123,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: add_comment, update_issue, update_discussion, missing_tool, missing_data
+          Tools: add_comment, update_issue, update_discussion, add_labels, missing_tool, missing_data
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -346,7 +346,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":2}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":1,"target":"*"},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":2}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -395,6 +395,27 @@ jobs:
                 "type": "object"
               },
               "name": "add_comment"
+            },
+            {
+              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 1 label(s) can be added. Target: *.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "item_number": {
+                    "description": "Issue or PR number to add labels to. This is the numeric ID from the GitHub URL (e.g., 456 in github.com/owner/repo/issues/456). If omitted, adds labels to the issue or PR that triggered this workflow. Only works for issue or pull_request event triggers. For schedule, workflow_dispatch, or other triggers, item_number is required — omitting it will silently skip the label operation.",
+                    "type": "number"
+                  },
+                  "labels": {
+                    "description": "Label names to add (e.g., ['bug', 'priority-high']). Labels must exist in the repository.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              },
+              "name": "add_labels"
             },
             {
               "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 2 issue(s) can be updated. Target: *.",
@@ -544,6 +565,25 @@ jobs:
                 },
                 "item_number": {
                   "issueOrPRNumber": true
+                },
+                "repo": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            },
+            "add_labels": {
+              "defaultMax": 5,
+              "fields": {
+                "item_number": {
+                  "issueOrPRNumber": true
+                },
+                "labels": {
+                  "required": true,
+                  "type": "array",
+                  "itemType": "string",
+                  "itemSanitize": true,
+                  "itemMaxLength": 128
                 },
                 "repo": {
                   "type": "string",
@@ -1230,7 +1270,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":2,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":1,\"target\":\"*\"},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":2,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

@@ -23,10 +23,10 @@
 #
 # This workflow runs a daily code simplification audit to identify unnecessary
 # complexity, over-engineering, dead code, and opportunities for targeted
-# simplification. It creates one summary report issue and individual
-# agent-fixable issues for low-risk simplifications an agent can apply autonomously.
+# simplification. It creates exactly one agent-fixable issue containing all
+# findings and detailed fix instructions for the SFL pipeline to process.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"40c563f57d8b26246ead9c315e17f31cd5197383b4bbc0127cf774f70ca295b3","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"c62d127bf5f32dc852e2201630a8c175860e2152470d881037f1c1c756074511","compiler_version":"v0.50.4"}
 
 name: "Daily Simplisticate Audit"
 "on":
@@ -327,12 +327,12 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"create_issue":{"max":10},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":5}}
+          {"add_comment":{"max":1,"target":"*"},"create_issue":{"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":5}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 10 issue(s) can be created. Title will be prefixed with \"[simplisticate] \". Labels [report audit] will be automatically added.",
+              "description": "Create a new GitHub issue for tracking bugs, feature requests, or tasks. Use this for actionable work items that need assignment, labeling, and status tracking. For reports, announcements, or status updates that don't require task tracking, use create_discussion instead. CONSTRAINTS: Maximum 1 issue(s) can be created. Title will be prefixed with \"[simplisticate] \". Labels [agent:fixable] will be automatically added.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -996,7 +996,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "Daily Simplisticate Audit"
-          WORKFLOW_DESCRIPTION: "This workflow runs a daily code simplification audit to identify unnecessary\ncomplexity, over-engineering, dead code, and opportunities for targeted\nsimplification. It creates one summary report issue and individual\nagent-fixable issues for low-risk simplifications an agent can apply autonomously."
+          WORKFLOW_DESCRIPTION: "This workflow runs a daily code simplification audit to identify unnecessary\ncomplexity, over-engineering, dead code, and opportunities for targeted\nsimplification. It creates exactly one agent-fixable issue containing all\nfindings and detailed fix instructions for the SFL pipeline to process."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |
@@ -1212,7 +1212,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"create_issue\":{\"labels\":[\"report\",\"audit\"],\"max\":10,\"title_prefix\":\"[simplisticate] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"create_issue\":{\"labels\":[\"agent:fixable\"],\"max\":1,\"title_prefix\":\"[simplisticate] \"},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":5,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

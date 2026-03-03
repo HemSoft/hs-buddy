@@ -9,7 +9,7 @@ description: |
 
 on:
   pull_request:
-    types: [opened]
+    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -37,13 +37,26 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
+  add-labels:
+    target: "*"
+    max: 1
 ---
 
 # PR Analyzer C — Full-Spectrum Review
 
-Run every 30 minutes. Find the oldest draft PR labeled `agent:pr` that has
-not yet been reviewed by this analyzer in the current cycle. Post a structured
-full-spectrum review comment. Exit after reviewing one PR per run.
+Triggered when a PR receives the `review:b-done` label (chained from
+Analyzer B). Post a structured full-spectrum review comment, then add the
+`review:c-done` label to signal that all three reviews are complete. Exit
+after reviewing one PR per run.
+
+## Step 0 — Validate trigger
+
+If triggered by a `pull_request: labeled` event, check that the label just
+applied is **`review:b-done`**. If it is any other label, exit immediately —
+this run is a no-op.
+
+If triggered manually (`workflow_dispatch`), proceed to Step 1 to search for
+a PR to review.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -246,11 +259,23 @@ As your **final action**, post a one-line comment to **Discussion #95** (the SFL
 
 This is mandatory — every run must log exactly one entry.
 
+## Step 7 — Signal review chain complete
+
+After posting the review comment and activity log, add the `review:c-done`
+label to the PR to signal that all three analyzer reviews are complete:
+
+Call `add_labels` with:
+
+- `issue_number`: the PR number
+- `labels`: `["review:c-done"]`
+
+This is the LAST action in the workflow. Do NOT skip this step.
+
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
-- Never modify PR code, labels, or draft status — only post review comments
+- Never modify PR code or draft status — only post review comments and add the chaining label
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, update the dashboard with an explanation
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit

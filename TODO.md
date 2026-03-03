@@ -2,7 +2,8 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 🚧 | High | [Simplisticate E2E Test](#simplisticate-e2e-test) | Run Simplisticate workflow once and track through full pipeline (issue → PR → merge) |
+| � | Critical | [Simplisticate Workflows](#simplisticate-workflows) | Simplify SFL architecture: event-driven triggers, single-issue processing, remove autonomous merging |
+| �🚧 | High | [Simplisticate E2E Test](#simplisticate-e2e-test) | Run Simplisticate workflow once and track through full pipeline (issue → PR → merge) |
 | �📋 | High | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
 | 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
@@ -61,7 +62,65 @@
 
 ## Progress
 
-**Remaining: 5** | **Completed: 49** (91%)
+**Remaining: 6** | **Completed: 49** (89%)
+
+---
+
+## Simplisticate Workflows
+
+**Goal**: Simplify the SFL agentic workflow architecture from a cron-polled, batch-processing system to an event-driven, single-item pipeline.
+
+**Principles**:
+
+- Everything is triggered by creation/labeling events — not cron polling
+- One issue at a time, processed immediately when created/labeled
+- No autonomous merging — PRs get promoted, humans merge (or a future safe-output handles it)
+
+### Sub-Tasks
+
+| # | Status | Task | Details |
+|---|--------|------|---------|
+| 1 | 📋 | **Remove autonomous PR merging** | Remove `ready-to-merge` label flow, `squash-merge` job in `pr-label-actions.yml`, and merge logic in PR Promoter. PRs stop at `human:ready-for-review`. |
+| 2 | 📋 | **Single-issue processing** | Issue Processor handles exactly 1 issue per run. Remove batch claiming logic if present. |
+| 3 | 📋 | **Event-driven issue processing** | When a workflow creates an issue with `agent:fixable` + `action-item`, trigger Issue Processor immediately via label event instead of waiting for next Dispatcher cron. |
+| 4 | 📋 | **Event-driven analyzer triggers** | When Issue Processor creates a draft PR, trigger analyzers immediately instead of waiting for Dispatcher. |
+| 5 | 📋 | **Reduce Dispatcher scope** | Dispatcher becomes a fallback/catch-up mechanism, not the primary trigger. Most work should already be done by event-driven triggers. |
+
+### Current Workflow Inventory (16 total)
+
+**Agentic workflows** (12 — `.md` + `.lock.yml` prompts):
+
+| Workflow | Purpose | Trigger |
+|----------|---------|---------|
+| `sfl-auditor` | Audits pipeline state, repairs discrepancies | Cron (30 min) |
+| `issue-processor` | Claims `agent:fixable` issues → creates draft PRs | Dispatched by Dispatcher |
+| `pr-analyzer-a` | Code review (Claude Sonnet) | Dispatched by Dispatcher |
+| `pr-analyzer-b` | Code review (Claude Opus) | Dispatched by Dispatcher |
+| `pr-analyzer-c` | Code review (GPT Codex) | Dispatched by Dispatcher |
+| `pr-fixer` | Applies fixes based on analyzer feedback | Dispatched by Dispatcher |
+| `pr-promoter` | Un-drafts PRs, adds `ready-to-merge` | Dispatched by Dispatcher |
+| `discussion-processor` | Processes feature intake discussions → issues | Dispatched by Dispatcher |
+| `simplisticate` | Identifies simplification opportunities | Manual dispatch |
+| `repo-audit` | Repository health audit | Manual dispatch |
+| `daily-repo-status` | Daily status report discussion | Cron (daily) |
+| `test-sfl-config` | Validates sfl-config.yml | Manual dispatch |
+
+**Standard YAML workflows** (4):
+
+| Workflow | Purpose | Trigger |
+|----------|---------|---------|
+| `sfl-dispatcher.yml` | Dispatches agentic workflows on cron | Cron (30 min) |
+| `pr-label-actions.yml` | Draft flip + squash merge on label events | `pull_request: labeled` / `workflow_dispatch` |
+| `agentics-maintenance.yml` | Maintenance tasks | Various |
+| `copilot-setup-steps.yml` | Copilot setup | Various |
+
+### Session Context (2026-03-03)
+
+- Both stuck PRs (#93, #94) had to be manually rebased and merged — the autonomous merge path failed due to org rulesets + fire-once label events with no retry
+- `pull_request: labeled` events don't fire from API/CLI label additions (GitHub loop prevention)
+- The `squash-merge` job in `pr-label-actions.yml` has no `workflow_dispatch` fallback
+- `NOOP_REPORT_AS_ISSUE: "true"` is platform-default on all 12 agentic workflows, creating duplicate logging (issue #80 + discussion #95)
+- Label count: 24 (ceiling: 25) — recently pruned from 36
 
 ---
 

@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.248] - 2026-03-03
+
 ## [0.1.247] - 2026-03-03
+
+### Fixed
+
+- Switch analyzer-b model from gemini-3-pro-preview to claude-opus-4.5
 
 ## [0.1.246] - 2026-03-03
 

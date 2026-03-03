@@ -40,6 +40,9 @@ safe-outputs:
   add-labels:
     target: "*"
     max: 1
+  dispatch-workflow:
+    workflows: ["pr-analyzer-b"]
+    max: 1
 ---
 
 # PR Analyzer A — Full-Spectrum Review
@@ -252,15 +255,15 @@ This is mandatory — every run must log exactly one entry.
 
 ## Step 7 — Chain to Analyzer B
 
-After posting the review comment and activity log, add the `review:a-done`
-label to the PR to trigger Analyzer B:
+After posting the review comment and activity log:
 
-Call `add_labels` with:
+1. Add the `review:a-done` label to the PR as an audit trail marker:
+   - Call `add_labels` with `issue_number`: the PR number, `labels`: `["review:a-done"]`
 
-- `issue_number`: the PR number
-- `labels`: `["review:a-done"]`
+2. Dispatch Analyzer B to continue the review chain:
+   - Call `dispatch_workflow` with workflow `pr-analyzer-b`
 
-This is the LAST action in the workflow. Do NOT skip this step.
+Both actions are required. Do NOT skip this step.
 
 ## Guardrails
 

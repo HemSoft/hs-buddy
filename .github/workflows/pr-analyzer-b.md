@@ -4,12 +4,10 @@ description: |
   independently review draft PRs labeled agent:pr using different AI models.
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
-  diversity — different models catch different things. Model: claude-opus-4.6
+  diversity — different models catch different things. Model: gemini-3-pro-preview
   (set via engine.model frontmatter — canonical value in sfl.json models section).
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +17,7 @@ permissions:
 
 engine:
   id: copilot
-  model: gemini-3.1-pro
+  model: gemini-3-pro-preview
 
 network: defaults
 
@@ -40,23 +38,16 @@ safe-outputs:
   add-labels:
     target: "*"
     max: 1
+  dispatch-workflow:
+    workflows: ["pr-analyzer-c"]
+    max: 1
 ---
 
 # PR Analyzer B — Full-Spectrum Review
 
-Triggered when a PR receives the `review:a-done` label (chained from
-Analyzer A). Post a structured full-spectrum review comment, then add the
-`review:b-done` label to trigger Analyzer C. Exit after reviewing one PR
-per run.
-
-## Step 0 — Validate trigger
-
-If triggered by a `pull_request: labeled` event, check that the label just
-applied is **`review:a-done`**. If it is any other label, exit immediately —
-this run is a no-op.
-
-If triggered manually (`workflow_dispatch`), proceed to Step 1 to search for
-a PR to review.
+Dispatched by Analyzer A after completing its review, or dispatched manually.
+Post a structured full-spectrum review comment, then add the `review:b-done`
+label and dispatch Analyzer C. Exit after reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -261,15 +252,15 @@ This is mandatory — every run must log exactly one entry.
 
 ## Step 7 — Chain to Analyzer C
 
-After posting the review comment and activity log, add the `review:b-done`
-label to the PR to trigger Analyzer C:
+After posting the review comment and activity log:
 
-Call `add_labels` with:
+1. Add the `review:b-done` label to the PR as an audit trail marker:
+   - Call `add_labels` with `issue_number`: the PR number, `labels`: `["review:b-done"]`
 
-- `issue_number`: the PR number
-- `labels`: `["review:b-done"]`
+2. Dispatch Analyzer C to continue the review chain:
+   - Call `dispatch_workflow` with workflow `pr-analyzer-c`
 
-This is the LAST action in the workflow. Do NOT skip this step.
+Both actions are required. Do NOT skip this step.
 
 ## Guardrails
 

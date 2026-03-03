@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.243] - 2026-03-03
+
 ## [0.1.242] - 2026-03-03
+
+### Changed
+
+- Switch PR Analyzer B to gemini-3.1-pro
 
 ## [0.1.241] - 2026-03-03
 

@@ -8,8 +8,6 @@ description: |
   (set via engine.model frontmatter — canonical value in sfl.json models section).
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -44,19 +42,10 @@ safe-outputs:
 
 # PR Analyzer C — Full-Spectrum Review
 
-Triggered when a PR receives the `review:b-done` label (chained from
-Analyzer B). Post a structured full-spectrum review comment, then add the
-`review:c-done` label to signal that all three reviews are complete. Exit
-after reviewing one PR per run.
-
-## Step 0 — Validate trigger
-
-If triggered by a `pull_request: labeled` event, check that the label just
-applied is **`review:b-done`**. If it is any other label, exit immediately —
-this run is a no-op.
-
-If triggered manually (`workflow_dispatch`), proceed to Step 1 to search for
-a PR to review.
+Dispatched by Analyzer B after completing its review, or dispatched manually.
+Post a structured full-spectrum review comment, then add the `review:c-done`
+label to signal that all three reviews are complete. Exit after reviewing
+one PR per run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models

@@ -119,7 +119,7 @@ gh run list --workflow="sfl-dispatcher.yml" --repo <owner>/<repo> --limit 1
 
 A successful dispatcher run confirms `GH_AW_GITHUB_TOKEN` works.
 To verify `COPILOT_GITHUB_TOKEN`, check that a downstream workflow
-(e.g., `issue-processor` or `pr-analyzer-a`) completes without
+(e.g., `sfl-issue-processor` or `sfl-analyzer-a`) completes without
 `401` or Copilot inference errors.
 
 ---

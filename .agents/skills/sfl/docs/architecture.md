@@ -122,7 +122,7 @@ or the [official reference](https://github.github.com/gh-aw/reference/safe-outpu
 
 An agentic workflow's safe-output cannot trigger another agentic workflow.
 For example, when `issue-processor` creates a PR via `create-pull-request`,
-that PR creation event does NOT trigger `pr-analyzer-a/b/c` directly (even
+that PR creation event does NOT trigger `sfl-analyzer-a/b/c` directly (even
 though they listen on `pull_request: opened`).
 
 ### How We Work Around This
@@ -198,9 +198,9 @@ Models are pinned in `sfl.json` at repo root:
 ```json
 {
   "models": {
-    "pr-analyzer-a": "claude-sonnet-4.6",
-    "pr-analyzer-b": "claude-opus-4.6",
-    "pr-analyzer-c": "gpt-5.3-codex"
+    "sfl-analyzer-a": "claude-sonnet-4.6",
+    "sfl-analyzer-b": "gemini-3-pro-preview",
+    "sfl-analyzer-c": "gpt-5.3-codex"
   }
 }
 ```

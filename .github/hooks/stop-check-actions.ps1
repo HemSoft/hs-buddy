@@ -25,9 +25,9 @@ $failures = @()
 
 # Check key workflows
 $workflows = @(
-    @{ Name = "PR Analyzer A"; File = "pr-analyzer-a.lock.yml" }
-    @{ Name = "PR Analyzer B"; File = "pr-analyzer-b.lock.yml" }
-    @{ Name = "PR Analyzer C"; File = "pr-analyzer-c.lock.yml" }
+    @{ Name = "SFL Analyzer A"; File = "sfl-analyzer-a.lock.yml" }
+    @{ Name = "SFL Analyzer B"; File = "sfl-analyzer-b.lock.yml" }
+    @{ Name = "SFL Analyzer C"; File = "sfl-analyzer-c.lock.yml" }
     @{ Name = "SFL Dispatcher"; File = "sfl-dispatcher.yml" }
     @{ Name = "SFL Auditor";    File = "sfl-auditor.lock.yml" }
     @{ Name = "PR Fixer";       File = "pr-fixer.lock.yml" }

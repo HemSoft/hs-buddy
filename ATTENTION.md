@@ -30,7 +30,7 @@
 - **Severity**: Medium
 - **Detected**: 2026-02-24
 - **Status**: Active — bodies need cleanup
-- **Description**: PR bodies contain 10-17 duplicate auditor warnings plus duplicate Analyzer A markers. PR #20 has 4+ copies of `[MARKER:pr-analyzer-a cycle:0]`.
+- **Description**: PR bodies contain 10-17 duplicate auditor warnings plus duplicate Analyzer A markers. PR #20 has 4+ copies of `[MARKER:sfl-analyzer-a cycle:0]`.
 - **Impact**: Bloated bodies may confuse agents parsing markers, waste API bandwidth.
 - **Suggested Action**: After pipeline flows normally, consider a one-time cleanup of duplicate content in PR bodies.
 

@@ -64,9 +64,9 @@ if ($agentPRs -and $agentPRs.Count -gt 0) {
         # Check analyzer markers for current cycle
         $body = $pr.body
         if ($body) {
-            $analyzerA = $body.Contains("[MARKER:pr-analyzer-a cycle:$cycle]")
-            $analyzerB = $body.Contains("[MARKER:pr-analyzer-b cycle:$cycle]")
-            $analyzerC = $body.Contains("[MARKER:pr-analyzer-c cycle:$cycle]")
+            $analyzerA = $body.Contains("[MARKER:sfl-analyzer-a cycle:$cycle]")
+            $analyzerB = $body.Contains("[MARKER:sfl-analyzer-b cycle:$cycle]")
+            $analyzerC = $body.Contains("[MARKER:sfl-analyzer-c cycle:$cycle]")
             $fixer = $body.Contains("[MARKER:pr-fixer cycle:$cycle]")
 
             $aIcon = if ($analyzerA) { [char]0x2705 } else { [char]0x23F3 }
@@ -79,9 +79,9 @@ if ($agentPRs -and $agentPRs.Count -gt 0) {
             # Check verdicts
             if ($analyzerA -and $analyzerB -and $analyzerC) {
                 $passCount = 0
-                if ($body -match "(?s)\[MARKER:pr-analyzer-a cycle:$cycle\].*?\*\*(PASS|BLOCKING)") { if ($matches[1] -eq "PASS") { $passCount++ } }
-                if ($body -match "(?s)\[MARKER:pr-analyzer-b cycle:$cycle\].*?\*\*(PASS|BLOCKING)") { if ($matches[1] -eq "PASS") { $passCount++ } }
-                if ($body -match "(?s)\[MARKER:pr-analyzer-c cycle:$cycle\].*?\*\*(PASS|BLOCKING)") { if ($matches[1] -eq "PASS") { $passCount++ } }
+                if ($body -match "(?s)\[MARKER:sfl-analyzer-a cycle:$cycle\].*?\*\*(PASS|BLOCKING)") { if ($matches[1] -eq "PASS") { $passCount++ } }
+                if ($body -match "(?s)\[MARKER:sfl-analyzer-b cycle:$cycle\].*?\*\*(PASS|BLOCKING)") { if ($matches[1] -eq "PASS") { $passCount++ } }
+                if ($body -match "(?s)\[MARKER:sfl-analyzer-c cycle:$cycle\].*?\*\*(PASS|BLOCKING)") { if ($matches[1] -eq "PASS") { $passCount++ } }
 
                 Write-Host "    Verdicts: $passCount/3 PASS" -ForegroundColor $(if ($passCount -eq 3) { "Green" } elseif ($passCount -ge 1) { "Yellow" } else { "Red" })
 

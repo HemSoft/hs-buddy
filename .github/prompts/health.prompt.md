@@ -21,9 +21,9 @@ Run these queries in parallel:
    - `sfl-auditor.lock.yml`
    - `sfl-issue-processor.lock.yml`
    - `repo-audit.lock.yml`
-   - `pr-analyzer-a.lock.yml`
-   - `pr-analyzer-b.lock.yml`
-   - `pr-analyzer-c.lock.yml`
+   - `sfl-analyzer-a.lock.yml`
+   - `sfl-analyzer-b.lock.yml`
+   - `sfl-analyzer-c.lock.yml`
    - `pr-fixer.lock.yml`
    - `pr-promoter.lock.yml`
 4. **Open issues** with label `agentic-workflows` (framework-generated failure notices)
@@ -43,7 +43,7 @@ Check every harmony condition from `.github/copilot-instructions.md`:
 | **E. No stale fixable issues** | No `agent:fixable` issue has been open longer than ~1 hour without being claimed |
 | **F. PR cycle integrity** | Every draft PR with `agent:pr` has a valid `pr:cycle-N` label (0 ≤ N ≤ 3); no PR has multiple cycle labels |
 | **G. No stuck PRs** | No draft `agent:pr` PR has been at the same cycle for more than 3 hours (analyzers + fixer should advance it within ~1h) |
-| **H. Idempotency markers** | No PR has duplicate analyzer or fixer comments for the same cycle (e.g., two `<!-- pr-analyzer-a cycle:0 -->` markers) |
+| **H. Idempotency markers** | No PR has duplicate analyzer or fixer comments for the same cycle (e.g., two `<!-- sfl-analyzer-a cycle:0 -->` markers) |
 | **I. Promoted PRs are non-draft** | Every PR with `human:ready-for-review` label is NOT a draft |
 
 For each check, state: ✅ Pass / ❌ Fail / ⚠️ Warning — and list the specific issue/PR numbers when failing.
@@ -65,8 +65,8 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 
 ## Step 4 — Evaluate other workflow health
 
-For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `pr-analyzer-a.lock.yml`,
-`pr-analyzer-b.lock.yml`, `pr-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `pr-promoter.lock.yml`:
+For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `sfl-analyzer-a.lock.yml`,
+`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `pr-promoter.lock.yml`:
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp

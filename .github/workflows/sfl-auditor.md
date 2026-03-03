@@ -59,7 +59,7 @@ delimited by HTML comment markers (`<!-- SECTION:sfl-auditor -->` ...
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
 
 Never discard other workflows' sections. If the body is empty or missing
-markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
+markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
 ## Step 1 — Gather current state
@@ -174,8 +174,8 @@ For each PR in list B (open agent PRs), check whether the PR is a **draft**
 and was created more than **2 hours ago**.
 
 For each such stale draft PR, check the PR body for analyzer markers:
-`[MARKER:pr-analyzer-a cycle:`, `[MARKER:pr-analyzer-b cycle:`,
-`[MARKER:pr-analyzer-c cycle:`.
+`[MARKER:sfl-analyzer-a cycle:`, `[MARKER:sfl-analyzer-b cycle:`,
+`[MARKER:sfl-analyzer-c cycle:`.
 
 If ANY of the three markers is missing, check the **PR body text** for the
 string `missing one or more analyzer markers`. Search the FULL body — not

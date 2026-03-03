@@ -41,15 +41,15 @@ safe-outputs:
     target: "*"
     max: 1
   dispatch-workflow:
-    workflows: ["pr-analyzer-b"]
+    workflows: ["sfl-analyzer-b"]
     max: 1
 ---
 
-# PR Analyzer A — Full-Spectrum Review
+# SFL Analyzer A — Full-Spectrum Review
 
 Triggered when a draft PR is opened, or dispatched manually. Find the target
 draft PR labeled `agent:pr`, post a structured full-spectrum review comment,
-then add the `review:a-done` label to trigger Analyzer B. Exit after
+then add the `review:a-done` label and dispatch Analyzer B. Exit after
 reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
@@ -106,8 +106,8 @@ ALL of the following areas:
 ## Dashboard Protocol — Discussion #51
 
 Discussion #51 is a **live status dashboard**. Its body has named sections
-delimited by HTML comment markers (`<!-- SECTION:pr-analyzer-a -->` ...
-`<!-- /SECTION:pr-analyzer-a -->`). When posting a skip or status message:
+delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-a -->` ...
+`<!-- /SECTION:sfl-analyzer-a -->`). When posting a skip or status message:
 
 1. Read discussion #51's current body
 2. Find your section between the markers
@@ -115,7 +115,7 @@ delimited by HTML comment markers (`<!-- SECTION:pr-analyzer-a -->` ...
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
 
 Never discard other workflows' sections. If the body is empty or missing
-markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
+markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
 ## Step 1 — Find the target PR
@@ -144,7 +144,7 @@ cycle is `0`.
 ## Step 3 — Check if already reviewed
 
 Search the PR body for the exact marker text:
-`[MARKER:pr-analyzer-a cycle:N]` where N is the current cycle number from
+`[MARKER:sfl-analyzer-a cycle:N]` where N is the current cycle number from
 Step 2.
 
 If the marker exists, this analyzer has already reviewed this PR in the
@@ -211,8 +211,8 @@ be the very first line of your output, exactly as shown. Without it, the
 pipeline will re-review this PR every 30 minutes forever.
 
 ```markdown
-[MARKER:pr-analyzer-a cycle:N]
-## 📊 PR Analysis A — Full-Spectrum Review
+[MARKER:sfl-analyzer-a cycle:N]
+## 📊 SFL Analysis A — Full-Spectrum Review
 
 **Analyzer**: A
 **Cycle**: N
@@ -249,7 +249,7 @@ Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EST | PR Analyzer A | PR #<number> | ✅ PASS` or `❌ BLOCKING ISSUES FOUND`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | SFL Analyzer A | PR #<number> | ✅ PASS` or `❌ BLOCKING ISSUES FOUND`
 
 This is mandatory — every run must log exactly one entry.
 
@@ -261,7 +261,7 @@ After posting the review comment and activity log:
    - Call `add_labels` with `issue_number`: the PR number, `labels`: `["review:a-done"]`
 
 2. Dispatch Analyzer B to continue the review chain:
-   - Call `dispatch_workflow` with workflow `pr-analyzer-b`
+   - Call `dispatch_workflow` with workflow `sfl-analyzer-b`
 
 Both actions are required. Do NOT skip this step.
 

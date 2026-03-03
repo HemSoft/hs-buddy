@@ -94,9 +94,9 @@
 |----------|---------|---------|
 | `sfl-auditor` | Audits pipeline state, repairs discrepancies | Cron (30 min) |
 | `issue-processor` | Claims `agent:fixable` issues → creates draft PRs | Dispatched by Dispatcher |
-| `pr-analyzer-a` | Code review (Claude Sonnet) | Dispatched by Dispatcher |
-| `pr-analyzer-b` | Code review (Claude Opus) | Dispatched by Dispatcher |
-| `pr-analyzer-c` | Code review (GPT Codex) | Dispatched by Dispatcher |
+| `sfl-analyzer-a` | Code review (Claude Sonnet) | Dispatched by Dispatcher |
+| `sfl-analyzer-b` | Code review (Gemini Pro) | Dispatched by Dispatcher |
+| `sfl-analyzer-c` | Code review (GPT Codex) | Dispatched by Dispatcher |
 | `pr-fixer` | Applies fixes based on analyzer feedback | Dispatched by Dispatcher |
 | `pr-promoter` | Un-drafts PRs, adds `ready-to-merge` | Dispatched by Dispatcher |
 | `discussion-processor` | Processes feature intake discussions → issues | Dispatched by Dispatcher |

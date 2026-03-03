@@ -1,10 +1,10 @@
 ---
 description: |
-  PR Analyzer C — Full-Spectrum Review. One of three analyzer agents that
+  PR Analyzer B — Full-Spectrum Review. One of three analyzer agents that
   independently review draft PRs labeled agent:pr using different AI models.
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
-  diversity — different models catch different things. Model: gpt-5.3-codex
+  diversity — different models catch different things. Model: gemini-3-pro-preview
   (set via engine.model frontmatter — canonical value in sfl.json models section).
 
 on:
@@ -17,7 +17,7 @@ permissions:
 
 engine:
   id: copilot
-  model: gpt-5.3-codex
+  model: gemini-3-pro-preview
 
 network: defaults
 
@@ -38,14 +38,16 @@ safe-outputs:
   add-labels:
     target: "*"
     max: 1
+  dispatch-workflow:
+    workflows: ["sfl-analyzer-c"]
+    max: 1
 ---
 
-# PR Analyzer C — Full-Spectrum Review
+# SFL Analyzer B — Full-Spectrum Review
 
-Dispatched by Analyzer B after completing its review, or dispatched manually.
-Post a structured full-spectrum review comment, then add the `review:c-done`
-label to signal that all three reviews are complete. Exit after reviewing
-one PR per run.
+Dispatched by Analyzer A after completing its review, or dispatched manually.
+Post a structured full-spectrum review comment, then add the `review:b-done`
+label and dispatch Analyzer C. Exit after reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -53,7 +55,7 @@ catch different issues.
 
 ## Your review perspective
 
-You are Analyzer C. Perform a **comprehensive full-spectrum review** covering
+You are Analyzer B. Perform a **comprehensive full-spectrum review** covering
 ALL of the following areas:
 
 ### Correctness & Logic
@@ -101,8 +103,8 @@ ALL of the following areas:
 ## Dashboard Protocol — Discussion #51
 
 Discussion #51 is a **live status dashboard**. Its body has named sections
-delimited by HTML comment markers (`<!-- SECTION:pr-analyzer-c -->` ...
-`<!-- /SECTION:pr-analyzer-c -->`). When posting a skip or status message:
+delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-b -->` ...
+`<!-- /SECTION:sfl-analyzer-b -->`). When posting a skip or status message:
 
 1. Read discussion #51's current body
 2. Find your section between the markers
@@ -110,7 +112,7 @@ delimited by HTML comment markers (`<!-- SECTION:pr-analyzer-c -->` ...
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
 
 Never discard other workflows' sections. If the body is empty or missing
-markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
+markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
 ## Step 1 — Find the target PR
@@ -139,12 +141,12 @@ cycle is `0`.
 ## Step 3 — Check if already reviewed
 
 Search the PR body for the exact marker text:
-`[MARKER:pr-analyzer-c cycle:N]` where N is the current cycle number from
+`[MARKER:sfl-analyzer-b cycle:N]` where N is the current cycle number from
 Step 2.
 
 If the marker exists, this analyzer has already reviewed this PR in the
 current cycle. Update the dashboard with:
-"PR #<number> already reviewed by Analyzer C in cycle <N> — skipping."
+"PR #<number> already reviewed by Analyzer B in cycle <N> — skipping."
 and exit.
 
 ## Step 4 — Read the PR content
@@ -206,10 +208,10 @@ be the very first line of your output, exactly as shown. Without it, the
 pipeline will re-review this PR every 30 minutes forever.
 
 ```markdown
-[MARKER:pr-analyzer-c cycle:N]
-## 📊 PR Analysis C — Full-Spectrum Review
+[MARKER:sfl-analyzer-b cycle:N]
+## 📊 SFL Analysis B — Full-Spectrum Review
 
-**Analyzer**: C
+**Analyzer**: B
 **Cycle**: N
 **PR**: #<number>
 **Linked Issue**: #<issue-number>
@@ -244,21 +246,21 @@ Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EST | PR Analyzer C | PR #<number> | ✅ PASS` or `❌ BLOCKING ISSUES FOUND`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | SFL Analyzer B | PR #<number> | ✅ PASS` or `❌ BLOCKING ISSUES FOUND`
 
 This is mandatory — every run must log exactly one entry.
 
-## Step 7 — Signal review chain complete
+## Step 7 — Chain to Analyzer C
 
-After posting the review comment and activity log, add the `review:c-done`
-label to the PR to signal that all three analyzer reviews are complete:
+After posting the review comment and activity log:
 
-Call `add_labels` with:
+1. Add the `review:b-done` label to the PR as an audit trail marker:
+   - Call `add_labels` with `issue_number`: the PR number, `labels`: `["review:b-done"]`
 
-- `issue_number`: the PR number
-- `labels`: `["review:c-done"]`
+2. Dispatch Analyzer C to continue the review chain:
+   - Call `dispatch_workflow` with workflow `sfl-analyzer-c`
 
-This is the LAST action in the workflow. Do NOT skip this step.
+Both actions are required. Do NOT skip this step.
 
 ## Guardrails
 

@@ -123,7 +123,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 1. **Detects** quality findings via scheduled audits (repo-audit, simplisticate)
 2. **Groups** findings into actionable issues (discussion-processor)
 3. **Claims** one issue at a time and opens a draft PR (sfl-issue-processor)
-4. **Reviews** the PR with three independent AI models (pr-analyzer-a/b/c)
+4. **Reviews** the PR with three independent AI models (sfl-analyzer-a/b/c)
 5. **Fixes** all review findings and increments the cycle (pr-fixer)
 6. **Promotes** clean PRs to ready-for-review when all analyzers PASS (pr-promoter)
 7. **Merges** approved PRs after human sign-off (pr-promoter phase 2)
@@ -156,9 +156,9 @@ and **cannot directly trigger other agentic workflows** via events. The
 | `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
 | `discussion-processor` | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
 | `sfl-issue-processor` | Agentic | Dispatcher-only | Claims oldest `agent:fixable` issue → draft PR |
-| `pr-analyzer-a` | Agentic | `pull_request: opened` | Full-spectrum review (claude-sonnet-4.6) |
-| `pr-analyzer-b` | Agentic | `pull_request: opened` | Full-spectrum review (claude-opus-4.6) |
-| `pr-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |
+| `sfl-analyzer-a` | Agentic | `pull_request: opened` | Full-spectrum review (claude-sonnet-4.6) |
+| `sfl-analyzer-b` | Agentic | `pull_request: opened` | Full-spectrum review (gemini-3-pro-preview) |
+| `sfl-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |
 | `pr-fixer` | Agentic | Dispatcher-only | Implements analyzer fixes, increments cycle |
 | `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs, merges approved PRs |
 | `pr-label-actions` | Standard | `pull_request: labeled` | Label-driven automation |

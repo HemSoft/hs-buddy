@@ -165,7 +165,7 @@ These run on a cron schedule and produce **findings** as Discussions or Issues.
 |-----------|-----------|
 | Open issues with `agent:fixable` label exist | → `issue-processor` |
 | Draft PRs with `agent:pr` + all 3 analyzer markers + not all PASS | → `pr-fixer` |
-| Draft PRs with `agent:pr` + fixer completed previous cycle | → `pr-analyzer-a`, `pr-analyzer-b`, `pr-analyzer-c` |
+| Draft PRs with `agent:pr` + fixer completed previous cycle | → `sfl-analyzer-a`, `sfl-analyzer-b`, `sfl-analyzer-c` |
 | Draft PRs with all analyzers PASS or non-draft PRs with `human:ready-for-review` | → `pr-promoter` |
 | Draft PRs with `human:ready-for-review` label | → `pr-label-actions` |
 
@@ -198,7 +198,7 @@ These run on a cron schedule and produce **findings** as Discussions or Issues.
 
 All three analyzers run independently on the same PR. The value is **model diversity** — different AI models catch different issues.
 
-#### `pr-analyzer-a` — Full-Spectrum Review (Model A)
+#### `sfl-analyzer-a` — Full-Spectrum Review (Model A)
 
 | Field | Value |
 |-------|-------|
@@ -207,24 +207,24 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Model** | `claude-sonnet-4.6` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Outputs** | `update-discussion` (max 1), `update-issue` (max 2), `add-comment` (max 1) |
-| **Idempotency** | Writes `[MARKER:pr-analyzer-a cycle:N]` to PR body |
+| **Idempotency** | Writes `[MARKER:sfl-analyzer-a cycle:N]` to PR body |
 | **Verdict** | `**PASS**` or `**FAIL**` with structured review |
 | **Throughput** | 1 PR per run |
 
-#### `pr-analyzer-b` — Full-Spectrum Review (Model B)
+#### `sfl-analyzer-b` — Full-Spectrum Review (Model B)
 
 | Field | Value |
 |-------|-------|
 | **Type** | Agentic (`.md` + `.lock.yml`) |
 | **Trigger** | `pull_request: [opened]`, `workflow_dispatch` (dispatcher for re-analysis) |
-| **Model** | `claude-opus-4.6` |
+| **Model** | `gemini-3-pro-preview` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Outputs** | `update-discussion` (max 1), `update-issue` (max 2), `add-comment` (max 1) |
-| **Idempotency** | Writes `[MARKER:pr-analyzer-b cycle:N]` to PR body |
+| **Idempotency** | Writes `[MARKER:sfl-analyzer-b cycle:N]` to PR body |
 | **Verdict** | `**PASS**` or `**FAIL**` with structured review |
 | **Throughput** | 1 PR per run |
 
-#### `pr-analyzer-c` — Full-Spectrum Review (Model C)
+#### `sfl-analyzer-c` — Full-Spectrum Review (Model C)
 
 | Field | Value |
 |-------|-------|
@@ -233,7 +233,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Model** | `gpt-5.3-codex` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Outputs** | `update-discussion` (max 1), `update-issue` (max 2), `add-comment` (max 1) |
-| **Idempotency** | Writes `[MARKER:pr-analyzer-c cycle:N]` to PR body |
+| **Idempotency** | Writes `[MARKER:sfl-analyzer-c cycle:N]` to PR body |
 | **Verdict** | `**PASS**` or `**FAIL**` with structured review |
 | **Throughput** | 1 PR per run |
 
@@ -525,9 +525,9 @@ agent:pr + pr:cycle-0 (implicit)
 
 | Workflow | Model | Pinned In |
 |----------|-------|-----------|
-| pr-analyzer-a | `claude-sonnet-4.6` | `sfl.json` |
-| pr-analyzer-b | `claude-opus-4.6` | `sfl.json` |
-| pr-analyzer-c | `gpt-5.3-codex` | `sfl.json` |
+| sfl-analyzer-a | `claude-sonnet-4.6` | `sfl.json` |
+| sfl-analyzer-b | `gemini-3-pro-preview` | `sfl.json` |
+| sfl-analyzer-c | `gpt-5.3-codex` | `sfl.json` |
 | pr-fixer | `claude-opus-4.6` | Workflow frontmatter |
 | pr-promoter | `claude-sonnet-4.6` | Workflow frontmatter |
 | sfl-auditor | `claude-sonnet-4.6` | Workflow frontmatter |

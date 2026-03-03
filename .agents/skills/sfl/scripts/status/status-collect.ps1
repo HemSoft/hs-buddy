@@ -26,9 +26,9 @@ $workflows = @(
     "sfl-auditor.lock.yml",
     "sfl-issue-processor.lock.yml",
     "repo-audit.lock.yml",
-    "pr-analyzer-a.lock.yml",
-    "pr-analyzer-b.lock.yml",
-    "pr-analyzer-c.lock.yml",
+    "sfl-analyzer-a.lock.yml",
+    "sfl-analyzer-b.lock.yml",
+    "sfl-analyzer-c.lock.yml",
     "pr-fixer.lock.yml",
     "pr-promoter.lock.yml"
 )
@@ -59,9 +59,9 @@ foreach ($pr in $prs) {
     $cycle = if ($cycleLabel) { [int]($cycleLabel -replace "pr:cycle-", "") } else { 0 }
     $body = [string]$pr.body
 
-    $a = $body.Contains("[MARKER:pr-analyzer-a cycle:$cycle]")
-    $b = $body.Contains("[MARKER:pr-analyzer-b cycle:$cycle]")
-    $c = $body.Contains("[MARKER:pr-analyzer-c cycle:$cycle]")
+    $a = $body.Contains("[MARKER:sfl-analyzer-a cycle:$cycle]")
+    $b = $body.Contains("[MARKER:sfl-analyzer-b cycle:$cycle]")
+    $c = $body.Contains("[MARKER:sfl-analyzer-c cycle:$cycle]")
 
     $prMarkers += [PSCustomObject]@{
         prNumber = $pr.number

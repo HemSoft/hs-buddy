@@ -13,7 +13,7 @@ whenever a new constraint is discovered or an existing one is resolved.
 
 An agentic workflow's safe-output (e.g., `create-pull-request`) does NOT
 trigger other agentic workflows that listen on the same event. For example,
-`issue-processor` creates a draft PR, but `pr-analyzer-a/b/c` (which listen
+`sfl-issue-processor` creates a draft PR, but `sfl-analyzer-a/b/c` (which listen
 on `pull_request: opened`) are not triggered by that creation.
 
 **Workaround**: The `sfl-dispatcher` (standard YAML) polls every 30 minutes

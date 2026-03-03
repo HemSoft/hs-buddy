@@ -197,9 +197,9 @@ jobs:
         if: steps.prs.outputs.analyzers_needed == 'true'
         run: |
           echo "Dispatching all 3 PR Analyzers for re-analysis..."
-          gh workflow run pr-analyzer-a.lock.yml --repo "$REPO"
-          gh workflow run pr-analyzer-b.lock.yml --repo "$REPO"
-          gh workflow run pr-analyzer-c.lock.yml --repo "$REPO"
+          gh workflow run sfl-analyzer-a.lock.yml --repo "$REPO"
+          gh workflow run sfl-analyzer-b.lock.yml --repo "$REPO"
+          gh workflow run sfl-analyzer-c.lock.yml --repo "$REPO"
 
       - name: Dispatch PR Fixer
         if: steps.prs.outputs.fixer_ready == 'true'

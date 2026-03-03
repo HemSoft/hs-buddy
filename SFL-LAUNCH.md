@@ -58,9 +58,9 @@ for deployment to other repositories.
 | repo-audit | quality | — | ✅ Active v1.1.0 |
 | sfl-issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
 | simplisticate | quality | gh-aw default | ✅ Active v1.0.0 |
-| pr-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
-| pr-analyzer-b | review | claude-opus-4.6 | ✅ Active v1.0.0 |
-| pr-analyzer-c | review | gpt-5.3-codex | ✅ Active v1.0.0 |
+| sfl-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
+| sfl-analyzer-b | review | gemini-3-pro-preview | ✅ Active v1.0.0 |
+| sfl-analyzer-c | review | gpt-5.3-codex | ✅ Active v1.0.0 |
 | pr-fixer | automation | claude-opus-4.6 | ✅ Active v1.0.0 |
 | pr-promoter | automation | claude-sonnet-4.6 | ✅ Active v1.0.0 |
 

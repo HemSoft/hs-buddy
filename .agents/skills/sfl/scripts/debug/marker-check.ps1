@@ -87,7 +87,7 @@ foreach ($pr in $agentPRs) {
         }
 
         # Check progression for current cycle
-        $analyzersPresent = @("pr-analyzer-a", "pr-analyzer-b", "pr-analyzer-c") |
+        $analyzersPresent = @("sfl-analyzer-a", "sfl-analyzer-b", "sfl-analyzer-c") |
             Where-Object { $markersByType[$_] -and $markersByType[$_] -contains $cycle }
         $fixerPresent = $markersByType["pr-fixer"] -and $markersByType["pr-fixer"] -contains $cycle
         $promoterPresent = $markersByType["pr-promoter"] -and $markersByType["pr-promoter"] -contains $cycle

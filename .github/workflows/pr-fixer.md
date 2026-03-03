@@ -298,7 +298,7 @@ delimited by HTML comment markers (`<!-- SECTION:pr-fixer -->` ...
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
 
 Never discard other workflows' sections. If the body is empty or missing
-markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
+markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
 ## Step 0 — Read SFL autonomy config
@@ -363,9 +363,9 @@ If the current cycle equals the cap, the PR has reached the cycle limit. Escalat
 
 Search the PR body for these exact marker texts for the current cycle (N):
 
-- `[MARKER:pr-analyzer-a cycle:N]`
-- `[MARKER:pr-analyzer-b cycle:N]`
-- `[MARKER:pr-analyzer-c cycle:N]`
+- `[MARKER:sfl-analyzer-a cycle:N]`
+- `[MARKER:sfl-analyzer-b cycle:N]`
+- `[MARKER:sfl-analyzer-c cycle:N]`
 
 All three markers MUST be present. If any marker is missing, update the dashboard with:
 "PR #<number> cycle <N>: waiting for all 3 analyzers (<missing> missing) — skipping."

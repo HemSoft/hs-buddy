@@ -55,18 +55,18 @@ Write-Host "`n--- MARKER ANALYSIS (cycle $cycle) ---" -ForegroundColor Yellow
 $body = $pr.body
 
 $markerTypes = @(
-    @{ Name = "Analyzer A"; Pattern = "[MARKER:pr-analyzer-a cycle:$cycle]" },
-    @{ Name = "Analyzer B"; Pattern = "[MARKER:pr-analyzer-b cycle:$cycle]" },
-    @{ Name = "Analyzer C"; Pattern = "[MARKER:pr-analyzer-c cycle:$cycle]" },
+    @{ Name = "Analyzer A"; Pattern = "[MARKER:sfl-analyzer-a cycle:$cycle]" },
+    @{ Name = "Analyzer B"; Pattern = "[MARKER:sfl-analyzer-b cycle:$cycle]" },
+    @{ Name = "Analyzer C"; Pattern = "[MARKER:sfl-analyzer-c cycle:$cycle]" },
     @{ Name = "Fixer";      Pattern = "[MARKER:pr-fixer cycle:$cycle]" },
     @{ Name = "Promoter";   Pattern = "[MARKER:pr-promoter cycle:$cycle]" }
 )
 
 # Also check legacy HTML comment markers
 $legacyMarkers = @(
-    @{ Name = "Analyzer A (legacy)"; Pattern = "<!-- pr-analyzer-a cycle:$cycle -->" },
-    @{ Name = "Analyzer B (legacy)"; Pattern = "<!-- pr-analyzer-b cycle:$cycle -->" },
-    @{ Name = "Analyzer C (legacy)"; Pattern = "<!-- pr-analyzer-c cycle:$cycle -->" },
+    @{ Name = "Analyzer A (legacy)"; Pattern = "<!-- sfl-analyzer-a cycle:$cycle -->" },
+    @{ Name = "Analyzer B (legacy)"; Pattern = "<!-- sfl-analyzer-b cycle:$cycle -->" },
+    @{ Name = "Analyzer C (legacy)"; Pattern = "<!-- sfl-analyzer-c cycle:$cycle -->" },
     @{ Name = "Fixer (legacy)";      Pattern = "<!-- pr-fixer cycle:$cycle -->" },
     @{ Name = "Promoter (legacy)";   Pattern = "<!-- pr-promoter cycle:$cycle -->" }
 )

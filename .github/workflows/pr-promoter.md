@@ -74,7 +74,7 @@ delimited by HTML comment markers (`<!-- SECTION:pr-promoter -->` ...
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
 
 Never discard other workflows' sections. If the body is empty or missing
-markers, write the full template with all 6 sections (pr-analyzer-a/b/c,
+markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
 ## Step 0 — Read SFL autonomy config
@@ -146,9 +146,9 @@ So the logic is:
 
 Search the PR body for these exact marker texts for the target cycle (C):
 
-- `[MARKER:pr-analyzer-a cycle:C]`
-- `[MARKER:pr-analyzer-b cycle:C]`
-- `[MARKER:pr-analyzer-c cycle:C]`
+- `[MARKER:sfl-analyzer-a cycle:C]`
+- `[MARKER:sfl-analyzer-b cycle:C]`
+- `[MARKER:sfl-analyzer-c cycle:C]`
 
 All three markers MUST be present. If any marker is missing:
 

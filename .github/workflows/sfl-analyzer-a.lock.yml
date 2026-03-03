@@ -21,34 +21,44 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# PR Analyzer C — Full-Spectrum Review. One of three analyzer agents that
+# PR Analyzer A — Full-Spectrum Review. One of three analyzer agents that
 # independently review draft PRs labeled agent:pr using different AI models.
 # Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
 # security, performance, style, maintainability). The value comes from model
-# diversity — different models catch different things. Model: gpt-5.3-codex
+# diversity — different models catch different things. Model: claude-sonnet-4.6
 # (set via engine.model frontmatter — canonical value in sfl.json models section).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f1e7118176d89617f986c4e68eb3bc6cc264e29ef049d027f1d5fc62d566506b","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f748b727a4fe95ed76e3ce6f779084d7f6eb4733694b365380c980312f7f23f2","compiler_version":"v0.50.4"}
 
-name: "PR Analyzer C — Full-Spectrum Review"
+name: "SFL Analyzer A — Full-Spectrum Review"
 "on":
+  pull_request:
+    types:
+    - opened
   workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}"
+  group: "gh-aw-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
 
-run-name: "PR Analyzer C — Full-Spectrum Review"
+run-name: "SFL Analyzer A — Full-Spectrum Review"
 
 jobs:
   activation:
+    needs: pre_activation
+    if: >
+      (needs.pre_activation.outputs.activated == 'true') && ((github.event_name != 'pull_request') || (github.event.pull_request.head.repo.id == github.repository_id))
     runs-on: ubuntu-slim
     permissions:
       contents: read
     outputs:
+      body: ${{ steps.sanitized.outputs.body }}
       comment_id: ""
       comment_repo: ""
+      text: ${{ steps.sanitized.outputs.text }}
+      title: ${{ steps.sanitized.outputs.title }}
     steps:
       - name: Setup Scripts
         uses: github/gh-aw/actions/setup@90ebf8057e8e005103b8d123732d2c64c30e9b27 # v0.50.4
@@ -73,12 +83,21 @@ jobs:
       - name: Check workflow file timestamps
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GH_AW_WORKFLOW_FILE: "pr-analyzer-c.lock.yml"
+          GH_AW_WORKFLOW_FILE: "sfl-analyzer-a.lock.yml"
         with:
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
             const { main } = require('/opt/gh-aw/actions/check_workflow_timestamp_api.cjs');
+            await main();
+      - name: Compute current body text
+        id: sanitized
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
+            setupGlobals(core, github, context, exec, io);
+            const { main } = require('/opt/gh-aw/actions/compute_text.cjs');
             await main();
       - name: Create prompt with built-in context
         env:
@@ -104,7 +123,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: add_comment, update_issue, update_discussion, add_labels, missing_tool, missing_data
+          Tools: add_comment, update_issue, update_discussion, add_labels, dispatch_workflow, missing_tool, missing_data
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -139,7 +158,7 @@ jobs:
           </system>
           GH_AW_PROMPT_EOF
           cat << 'GH_AW_PROMPT_EOF'
-          {{#runtime-import .github/workflows/pr-analyzer-c.md}}
+          {{#runtime-import .github/workflows/sfl-analyzer-a.md}}
           GH_AW_PROMPT_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
@@ -164,6 +183,7 @@ jobs:
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
+          GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED: ${{ needs.pre_activation.outputs.activated }}
         with:
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
@@ -182,7 +202,8 @@ jobs:
                 GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: process.env.GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER,
                 GH_AW_GITHUB_REPOSITORY: process.env.GH_AW_GITHUB_REPOSITORY,
                 GH_AW_GITHUB_RUN_ID: process.env.GH_AW_GITHUB_RUN_ID,
-                GH_AW_GITHUB_WORKSPACE: process.env.GH_AW_GITHUB_WORKSPACE
+                GH_AW_GITHUB_WORKSPACE: process.env.GH_AW_GITHUB_WORKSPACE,
+                GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED: process.env.GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED
               }
             });
       - name: Validate prompt placeholders
@@ -217,7 +238,7 @@ jobs:
       GH_AW_SAFE_OUTPUTS: /opt/gh-aw/safeoutputs/outputs.jsonl
       GH_AW_SAFE_OUTPUTS_CONFIG_PATH: /opt/gh-aw/safeoutputs/config.json
       GH_AW_SAFE_OUTPUTS_TOOLS_PATH: /opt/gh-aw/safeoutputs/tools.json
-      GH_AW_WORKFLOW_ID_SANITIZED: pranalyzerc
+      GH_AW_WORKFLOW_ID_SANITIZED: sflanalyzera
     outputs:
       checkout_pr_success: ${{ steps.checkout-pr.outputs.checkout_pr_success || 'true' }}
       detection_conclusion: ${{ steps.detection_conclusion.outputs.conclusion }}
@@ -274,11 +295,11 @@ jobs:
             const awInfo = {
               engine_id: "copilot",
               engine_name: "GitHub Copilot CLI",
-              model: "gpt-5.3-codex",
+              model: "claude-sonnet-4.6",
               version: "",
               agent_version: "0.0.417",
               cli_version: "v0.50.4",
-              workflow_name: "PR Analyzer C — Full-Spectrum Review",
+              workflow_name: "SFL Analyzer A — Full-Spectrum Review",
               experimental: false,
               supports_tools_allowlist: true,
               run_id: context.runId,
@@ -325,7 +346,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":1,"target":"*"},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":2}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":1,"target":"*"},"dispatch_workflow":{"max":1,"workflow_files":{"sfl-analyzer-b":".lock.yml"},"workflows":["sfl-analyzer-b"]},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":2}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -528,6 +549,16 @@ jobs:
                 "type": "object"
               },
               "name": "missing_data"
+            },
+            {
+              "_workflow_name": "sfl-analyzer-b",
+              "description": "Dispatch the 'sfl-analyzer-b' workflow with workflow_dispatch trigger. This workflow must support workflow_dispatch and be in .github/workflows/ directory in the same repository.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              },
+              "name": "sfl_analyzer_b"
             }
           ]
           GH_AW_SAFE_OUTPUTS_TOOLS_EOF
@@ -822,7 +853,7 @@ jobs:
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          COPILOT_MODEL: gpt-5.3-codex
+          COPILOT_MODEL: claude-sonnet-4.6
           GH_AW_MCP_CONFIG: /home/runner/.copilot/mcp-config.json
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
@@ -1007,8 +1038,8 @@ jobs:
         if: always() && steps.detection_guard.outputs.run_detection == 'true'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          WORKFLOW_NAME: "PR Analyzer C — Full-Spectrum Review"
-          WORKFLOW_DESCRIPTION: "PR Analyzer C — Full-Spectrum Review. One of three analyzer agents that\nindependently review draft PRs labeled agent:pr using different AI models.\nEach analyzer reviews the ENTIRE PR across all dimensions (correctness,\nsecurity, performance, style, maintainability). The value comes from model\ndiversity — different models catch different things. Model: gpt-5.3-codex\n(set via engine.model frontmatter — canonical value in sfl.json models section)."
+          WORKFLOW_NAME: "SFL Analyzer A — Full-Spectrum Review"
+          WORKFLOW_DESCRIPTION: "PR Analyzer A — Full-Spectrum Review. One of three analyzer agents that\nindependently review draft PRs labeled agent:pr using different AI models.\nEach analyzer reviews the ENTIRE PR across all dimensions (correctness,\nsecurity, performance, style, maintainability). The value comes from model\ndiversity — different models catch different things. Model: claude-sonnet-4.6\n(set via engine.model frontmatter — canonical value in sfl.json models section)."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |
@@ -1041,7 +1072,7 @@ jobs:
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          COPILOT_MODEL: gpt-5.3-codex
+          COPILOT_MODEL: claude-sonnet-4.6
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
@@ -1094,6 +1125,7 @@ jobs:
     if: (always()) && (needs.agent.result != 'skipped')
     runs-on: ubuntu-slim
     permissions:
+      actions: write
       contents: read
       discussions: write
       issues: write
@@ -1124,7 +1156,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: "1"
-          GH_AW_WORKFLOW_NAME: "PR Analyzer C — Full-Spectrum Review"
+          GH_AW_WORKFLOW_NAME: "SFL Analyzer A — Full-Spectrum Review"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -1137,7 +1169,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "PR Analyzer C — Full-Spectrum Review"
+          GH_AW_WORKFLOW_NAME: "SFL Analyzer A — Full-Spectrum Review"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -1150,10 +1182,10 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "PR Analyzer C — Full-Spectrum Review"
+          GH_AW_WORKFLOW_NAME: "SFL Analyzer A — Full-Spectrum Review"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
-          GH_AW_WORKFLOW_ID: "pr-analyzer-c"
+          GH_AW_WORKFLOW_ID: "sfl-analyzer-a"
           GH_AW_SECRET_VERIFICATION_RESULT: ${{ needs.agent.outputs.secret_verification_result }}
           GH_AW_CHECKOUT_PR_SUCCESS: ${{ needs.agent.outputs.checkout_pr_success }}
           GH_AW_GROUP_REPORTS: "false"
@@ -1169,7 +1201,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "PR Analyzer C — Full-Spectrum Review"
+          GH_AW_WORKFLOW_NAME: "SFL Analyzer A — Full-Spectrum Review"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
@@ -1182,11 +1214,36 @@ jobs:
             const { main } = require('/opt/gh-aw/actions/handle_noop_message.cjs');
             await main();
 
+  pre_activation:
+    if: (github.event_name != 'pull_request') || (github.event.pull_request.head.repo.id == github.repository_id)
+    runs-on: ubuntu-slim
+    outputs:
+      activated: ${{ steps.check_membership.outputs.is_team_member == 'true' }}
+      matched_command: ''
+    steps:
+      - name: Setup Scripts
+        uses: github/gh-aw/actions/setup@90ebf8057e8e005103b8d123732d2c64c30e9b27 # v0.50.4
+        with:
+          destination: /opt/gh-aw/actions
+      - name: Check team membership for workflow
+        id: check_membership
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          GH_AW_REQUIRED_ROLES: admin,maintainer,write
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
+            setupGlobals(core, github, context, exec, io);
+            const { main } = require('/opt/gh-aw/actions/check_membership.cjs');
+            await main();
+
   safe_outputs:
     needs: agent
     if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (needs.agent.outputs.detection_success == 'true')
     runs-on: ubuntu-slim
     permissions:
+      actions: write
       contents: read
       discussions: write
       issues: write
@@ -1194,9 +1251,9 @@ jobs:
     timeout-minutes: 15
     env:
       GH_AW_ENGINE_ID: "copilot"
-      GH_AW_ENGINE_MODEL: "gpt-5.3-codex"
-      GH_AW_WORKFLOW_ID: "pr-analyzer-c"
-      GH_AW_WORKFLOW_NAME: "PR Analyzer C — Full-Spectrum Review"
+      GH_AW_ENGINE_MODEL: "claude-sonnet-4.6"
+      GH_AW_WORKFLOW_ID: "sfl-analyzer-a"
+      GH_AW_WORKFLOW_NAME: "SFL Analyzer A — Full-Spectrum Review"
     outputs:
       code_push_failure_count: ${{ steps.process_safe_outputs.outputs.code_push_failure_count }}
       code_push_failure_errors: ${{ steps.process_safe_outputs.outputs.code_push_failure_errors }}
@@ -1225,7 +1282,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":1,\"target\":\"*\"},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":2,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":1,\"target\":\"*\"},\"dispatch_workflow\":{\"max\":1,\"workflow_files\":{\"sfl-analyzer-b\":\".lock.yml\"},\"workflows\":[\"sfl-analyzer-b\"]},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":2,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

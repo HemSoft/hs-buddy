@@ -10,6 +10,7 @@
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
 | 📋 | Medium | [Task Planner (Todoist Integration)](#task-planner-todoist-integration) | 7-day upcoming view powered by Todoist REST API; new Activity Bar section |
+| ✅ | Medium | Copilot Usage month-end projection | Per-account + aggregate trend projection with ghost arc on ring, daily rate, est. overage (2026-03) |
 | ✅ | Medium | Run 30-day Set it Free pilot | Removed — ongoing operational concern, not a dev task (2026-02) |
 | ✅ | Critical | SFL Auto-Merge mode | Implemented in sfl-config.yml + pr-promoter + pr-label-actions (2026-02) |
 | ✅ | Medium | Elegant status bar queue display | Shows "X of N · TaskName" with batch tracking instead of concatenating all tasks (2026-02) |
@@ -62,7 +63,7 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 49** (89%)
+**Remaining: 6** | **Completed: 50** (89%)
 
 ---
 

@@ -49,7 +49,7 @@ export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas
           const effectiveBudget = d?.budgetAmount ?? PERSONAL_BUDGETS[org.toLowerCase()] ?? null
           const displaySpent = d?.useQuotaOverage ? quotaOverage : (d?.spent ?? 0)
           const pct = effectiveBudget ? Math.min((displaySpent / effectiveBudget) * 100, 100) : null
-          const myShare = !d?.useQuotaOverage ? quotaOverage : 0
+          const myShare = !d?.useQuotaOverage ? Math.min(quotaOverage, displaySpent) : 0
           const mySharePct = effectiveBudget && myShare > 0
             ? Math.min((myShare / effectiveBudget) * 100, pct ?? 100)
             : null

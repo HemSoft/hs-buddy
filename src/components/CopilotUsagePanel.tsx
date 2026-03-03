@@ -3,7 +3,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
-import { AccountQuotaCard, OVERAGE_COST_PER_REQUEST } from './copilot-usage/AccountQuotaCard'
+import { AccountQuotaCard, OVERAGE_COST_PER_REQUEST, computeProjection } from './copilot-usage/AccountQuotaCard'
 import type { AccountQuotaState } from './copilot-usage/AccountQuotaCard'
 import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
@@ -196,11 +196,32 @@ export function CopilotUsagePanel() {
     { totalUsed: 0, totalOverageCost: 0 }
   )
 
+  // Compute aggregate projections across all accounts
+  const aggregateProjections = useMemo(() => {
+    let projectedTotal = 0
+    let projectedOverageCost = 0
+    let hasAny = false
+
+    for (const state of Object.values(quotas) as AccountQuotaState[]) {
+      const premium = state.data?.quota_snapshots?.premium_interactions
+      if (!premium || !state.data) continue
+      const proj = computeProjection(premium, state.data.quota_reset_date_utc)
+      if (!proj) continue
+      hasAny = true
+      projectedTotal += proj.projectedTotal
+      projectedOverageCost += proj.projectedOverageCost
+    }
+
+    return hasAny ? { projectedTotal, projectedOverageCost } : null
+  }, [quotas])
+
   return (
     <div className="copilot-usage-panel">
       <UsageHeader
         totalUsed={aggregateTotals.totalUsed}
         totalOverageCost={aggregateTotals.totalOverageCost}
+        projectedTotal={aggregateProjections?.projectedTotal ?? null}
+        projectedOverageCost={aggregateProjections?.projectedOverageCost ?? null}
         anyLoading={anyLoading}
         onRefreshAll={refreshAll}
       />

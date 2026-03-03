@@ -488,6 +488,78 @@
   animation: spin 1s linear infinite;
 }
 
+/* ── Projection Row (per-account card) ────────────────────────────────── */
+
+.usage-projection {
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.usage-projection-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary, #666);
+}
+
+.usage-projection-header svg {
+  color: #6c9cdb;
+}
+
+.usage-projection-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.usage-projection-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.usage-projection-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #6c9cdb;
+  font-family: var(--font-family-mono, 'Cascadia Code', monospace);
+  line-height: 1.2;
+}
+
+.usage-projection-label {
+  font-size: 9px;
+  color: var(--text-tertiary, #666);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.usage-projection-overage .usage-projection-value {
+  color: #e89b3c;
+}
+
+/* ── Header: projected items ──────────────────────────────────────────── */
+
+.usage-header-projected .usage-header-summary-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #6c9cdb;
+}
+
+.usage-header-projected .usage-header-summary-value svg {
+  flex-shrink: 0;
+}
+
+.usage-header-projected-overage .usage-header-summary-value {
+  color: #e89b3c;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

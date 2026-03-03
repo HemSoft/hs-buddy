@@ -56,7 +56,7 @@ for deployment to other repositories.
 |----------|----------|-------|--------|
 | daily-repo-status | reporting | — | ✅ Active v1.0.0 |
 | repo-audit | quality | — | ✅ Active v1.1.0 |
-| issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
+| sfl-issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
 | simplisticate | quality | gh-aw default | ✅ Active v1.0.0 |
 | pr-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
 | pr-analyzer-b | review | claude-opus-4.6 | ✅ Active v1.0.0 |
@@ -117,5 +117,5 @@ so the SFL loop runs on its own codebase.
 - [ ] Build `feature-intake-normalizer` workflow for Jira/GitHub normalization
 - [ ] Port V2 architecture changes from hs-buddy to set-it-free-loop:
   - pr-fixer: `push-to-pull-request-branch` (replaces supersession model)
-  - pr-promoter/issue-processor: granular `add-labels`/`remove-labels`
+  - pr-promoter/sfl-issue-processor: granular `add-labels`/`remove-labels`
   - See `.agents/skills/sfl/docs/architecture-v2.md` for details

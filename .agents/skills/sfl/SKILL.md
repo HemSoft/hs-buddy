@@ -122,7 +122,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 
 1. **Detects** quality findings via scheduled audits (repo-audit, simplisticate)
 2. **Groups** findings into actionable issues (discussion-processor)
-3. **Claims** one issue at a time and opens a draft PR (issue-processor)
+3. **Claims** one issue at a time and opens a draft PR (sfl-issue-processor)
 4. **Reviews** the PR with three independent AI models (pr-analyzer-a/b/c)
 5. **Fixes** all review findings and increments the cycle (pr-fixer)
 6. **Promotes** clean PRs to ready-for-review when all analyzers PASS (pr-promoter)
@@ -132,7 +132,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 
 | Type | Files | Compilation | Example |
 |------|-------|-------------|---------|
-| **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | issue-processor, pr-fixer |
+| **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | sfl-issue-processor, pr-fixer |
 | **Standard** | `.yml` only | N/A | sfl-dispatcher, pr-label-actions |
 
 **Key constraint**: Agentic workflows use `safe-outputs` for all mutations
@@ -155,7 +155,7 @@ and **cannot directly trigger other agentic workflows** via events. The
 | `repo-audit` | Agentic | Daily | Finds code quality issues → Discussion |
 | `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
 | `discussion-processor` | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
-| `issue-processor` | Agentic | Dispatcher-only | Claims oldest `agent:fixable` issue → draft PR |
+| `sfl-issue-processor` | Agentic | Dispatcher-only | Claims oldest `agent:fixable` issue → draft PR |
 | `pr-analyzer-a` | Agentic | `pull_request: opened` | Full-spectrum review (claude-sonnet-4.6) |
 | `pr-analyzer-b` | Agentic | `pull_request: opened` | Full-spectrum review (claude-opus-4.6) |
 | `pr-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |

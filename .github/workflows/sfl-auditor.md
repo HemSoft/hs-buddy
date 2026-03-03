@@ -1,6 +1,6 @@
 ---
 description: |
-  Runs every 30 minutes (offset 15 min from issue-processor), audits the
+  Runs every 30 minutes (offset 15 min from sfl-issue-processor), audits the
   relationship between issue labels and open pull requests, and repairs any
   state discrepancies it finds. Keeps the agentic pipeline self-consistent
   without human intervention.

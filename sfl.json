@@ -16,7 +16,7 @@
     "sfl-auditor",
     "daily-repo-status",
     "repo-audit",
-    "issue-processor",
+    "sfl-issue-processor",
     "simplisticate",
     "pr-analyzer-a",
     "pr-analyzer-b",

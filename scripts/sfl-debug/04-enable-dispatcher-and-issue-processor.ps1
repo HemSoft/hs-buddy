@@ -46,7 +46,7 @@ if ($confirm -notin @('y', 'Y', 'yes')) {
 
 $workflows = @(
     @{ File = "sfl-dispatcher.yml";          Name = "SFL Dispatcher" }
-    @{ File = "issue-processor.lock.yml";    Name = "Issue Processor" }
+    @{ File = "sfl-issue-processor.lock.yml";    Name = "SFL Issue Processor" }
 )
 
 foreach ($wf in $workflows) {

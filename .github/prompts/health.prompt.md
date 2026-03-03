@@ -19,7 +19,7 @@ Run these queries in parallel:
 2. **All open PRs** (including draft) with branch names matching `agent-fix/*`
 3. **Recent workflow runs** (last 5) for each of:
    - `sfl-auditor.lock.yml`
-   - `issue-processor.lock.yml`
+   - `sfl-issue-processor.lock.yml`
    - `repo-audit.lock.yml`
    - `pr-analyzer-a.lock.yml`
    - `pr-analyzer-b.lock.yml`
@@ -65,7 +65,7 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 
 ## Step 4 — Evaluate other workflow health
 
-For each of `issue-processor.lock.yml`, `repo-audit.lock.yml`, `pr-analyzer-a.lock.yml`,
+For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `pr-analyzer-a.lock.yml`,
 `pr-analyzer-b.lock.yml`, `pr-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `pr-promoter.lock.yml`:
 
 - Last run conclusion (success/failure/cancelled)

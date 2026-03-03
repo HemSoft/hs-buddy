@@ -24,7 +24,7 @@ $prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefN
 
 $workflows = @(
     "sfl-auditor.lock.yml",
-    "issue-processor.lock.yml",
+    "sfl-issue-processor.lock.yml",
     "repo-audit.lock.yml",
     "pr-analyzer-a.lock.yml",
     "pr-analyzer-b.lock.yml",

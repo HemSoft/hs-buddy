@@ -97,7 +97,7 @@ Write-Host "`n--- RECENT WORKFLOW RUNS (last 2 hours) ---" -ForegroundColor Yell
 $since = [DateTime]::UtcNow.AddHours(-2).ToString("yyyy-MM-ddTHH:mm:ssZ")
 $workflows = @(
     "sfl-auditor.lock.yml",
-    "issue-processor.lock.yml",
+    "sfl-issue-processor.lock.yml",
     "repo-audit.lock.yml",
     "pr-analyzer-a.lock.yml",
     "pr-analyzer-b.lock.yml",

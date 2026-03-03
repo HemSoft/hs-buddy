@@ -26,7 +26,7 @@ Run these queries:
 2. **All open PRs** — get number, title, draft status, head branch name
 3. **Workflow runs since `LAST_CHECK`** for each of:
    - `sfl-auditor.lock.yml`
-   - `issue-processor.lock.yml`
+   - `sfl-issue-processor.lock.yml`
    - `repo-audit.lock.yml`
    - `pr-analyzer-a.lock.yml`
    - `pr-analyzer-b.lock.yml`

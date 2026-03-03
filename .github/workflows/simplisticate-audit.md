@@ -36,7 +36,7 @@ safe-outputs:
     target: "*"
     max: 1
   dispatch-workflow:
-    workflows: ["issue-processor"]
+    workflows: ["sfl-issue-processor"]
     max: 1
 ---
 
@@ -212,5 +212,5 @@ Do NOT include findings that:
 8. Create the single consolidated issue (or skip if zero findings)
 9. If an issue was created in step 8, dispatch the Issue Processor to begin
    working on it immediately. Call the `dispatch_workflow` safe-output with
-   workflow `issue-processor`.
+   workflow `sfl-issue-processor`.
 10. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Simplisticate | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`

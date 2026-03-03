@@ -191,7 +191,7 @@ jobs:
         if: steps.issues.outputs.fixable_count != '0'
         run: |
           echo "Dispatching Issue Processor..."
-          gh workflow run issue-processor.lock.yml --repo "$REPO"
+          gh workflow run sfl-issue-processor.lock.yml --repo "$REPO"
 
       - name: Dispatch PR Analyzers (re-analysis after fixer)
         if: steps.prs.outputs.analyzers_needed == 'true'

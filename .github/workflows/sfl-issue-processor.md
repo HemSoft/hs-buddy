@@ -52,7 +52,7 @@ safe-outputs:
     max: 1
 ---
 
-# Issue Processor
+# SFL Issue Processor
 
 Claim an `agent:fixable` issue, implement the fix, and open a pull request.
 Process exactly one issue per run.

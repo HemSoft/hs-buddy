@@ -30,7 +30,7 @@ $RemoteRepo = "HemSoft/set-it-free-loop"
 $AgenticWorkflows = @(
     "daily-repo-status"
     "discussion-processor"
-    "issue-processor"
+    "sfl-issue-processor"
     "pr-analyzer-a"
     "pr-analyzer-b"
     "pr-analyzer-c"

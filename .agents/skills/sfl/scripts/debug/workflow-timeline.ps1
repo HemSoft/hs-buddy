@@ -29,7 +29,7 @@ Write-Host "PR Created: $($pr.createdAt)"
 
 # Pipeline workflows in execution order
 $workflows = @(
-    "issue-processor.lock.yml",
+    "sfl-issue-processor.lock.yml",
     "pr-analyzer-a.lock.yml",
     "pr-analyzer-b.lock.yml",
     "pr-analyzer-c.lock.yml",

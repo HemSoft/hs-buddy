@@ -1,6 +1,6 @@
 # SFL Dispatcher — lightweight gate that prevents wasteful gh-aw runs
 #
-# Runs every 30 minutes and checks GitHub state with simple gh CLI calls.
+# Runs on explicit dispatch and checks GitHub state with simple gh CLI calls.
 # Only dispatches gh-aw workflows when there's actual work to do:
 #   - Issue Processor: when agent:fixable issues exist
 #   - PR Fixer: when draft PRs with agent:pr AND all 3 analyzer markers exist
@@ -13,8 +13,6 @@
 name: "SFL Dispatcher"
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -129,7 +127,7 @@ jobs:
           # Check for all 3 analyzer markers at current cycle
           ALL_MARKERS=true
           for ANALYZER in a b c; do
-            if ! grep -qF "[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE]" "$PR_BODY_FILE"; then
+            if ! grep -qF "[MARKER:sfl-analyzer-$ANALYZER cycle:$CYCLE]" "$PR_BODY_FILE"; then
               ALL_MARKERS=false
               break
             fi
@@ -146,7 +144,7 @@ jobs:
             ALL_PASS=true
             for ANALYZER in a b c; do
               # Extract the section for this analyzer at this cycle and check for PASS
-              SECTION=$(sed -n "/\[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE\]/,/\[MARKER:/p" "$PR_BODY_FILE" | head -50 || true)
+              SECTION=$(sed -n "/\[MARKER:sfl-analyzer-$ANALYZER cycle:$CYCLE\]/,/\[MARKER:/p" "$PR_BODY_FILE" | head -50 || true)
               if ! echo "$SECTION" | grep -qF '**PASS**'; then
                 ALL_PASS=false
                 break

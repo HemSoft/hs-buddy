@@ -16,15 +16,12 @@ interface PRItemProps {
   pr: PullRequest
   mode: string
   approving: string | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onApprove: (pr: PullRequest) => any
+  onApprove: (pr: PullRequest) => Promise<void> | void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onOpen: (url: string) => any
+  onOpen: (url: string) => void
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }: any) {
+export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }: PRItemProps) {
   const approveKey = `${pr.repository}-${pr.id}`
   const isApproving = approving === approveKey
 

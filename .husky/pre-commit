@@ -4,3 +4,6 @@ git add package.json src/components/AboutModal.tsx src/components/WelcomePanel.t
 
 # Lint staged files
 npx lint-staged
+
+# Block commits when the repo has TypeScript errors
+bun run typecheck

@@ -236,7 +236,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
             approving={approving}
             onApprove={handleApprove}
             onContextMenu={handleContextMenu}
-            onOpen={url => window.shell.openExternal(url)}
+            onOpen={(url: string) => window.shell.openExternal(url)}
           />
         ))}
       </div>

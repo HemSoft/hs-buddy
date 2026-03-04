@@ -1,4 +1,5 @@
 ---
+name: "SFL PR Promoter"
 description: |
   PR Promoter — two-phase workflow. Phase 1: converts clean draft PRs to
   ready-for-review when all three analyzers PASS. Phase 2: squash-merges

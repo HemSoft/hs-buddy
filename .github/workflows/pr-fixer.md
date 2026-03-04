@@ -1,4 +1,5 @@
 ---
+name: "SFL PR Fixer — Authority"
 description: |
   PR Fixer — Authority model. Reads all analyzer review comments on a draft
   PR labeled agent:pr, implements all blocking and non-blocking fixes, pushes

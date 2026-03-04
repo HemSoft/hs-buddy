@@ -228,18 +228,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Find non-draft PRs with human:ready-for-review
-          # The Promoter itself reads sfl-config.yml to decide if approval is needed
-          COUNT=$(gh pr list --repo "$REPO" --state open --label "human:ready-for-review" \
-            --json number,isDraft \
-            --jq '[.[] | select(.isDraft == false)] | length')
+          # Find non-draft PRs that are explicitly marked ready-to-merge and
+          # already have human approval. This prevents repeated no-op promoter
+          # runs on PRs that are merely ready for review.
+          COUNT=$(gh pr list --repo "$REPO" --state open --label "ready-to-merge" \
+            --json number,isDraft,reviewDecision \
+            --jq '[.[] | select(.isDraft == false and .reviewDecision == "APPROVED")] | length')
 
           echo "ready_count=$COUNT" >> "$GITHUB_OUTPUT"
 
           if [ "$COUNT" -gt 0 ]; then
-            echo "Found $COUNT non-draft PR(s) with human:ready-for-review — will dispatch PR Promoter."
+            echo "Found $COUNT approved non-draft PR(s) with ready-to-merge — will dispatch PR Promoter."
           else
-            echo "No non-draft PRs awaiting promotion."
+            echo "No approved non-draft ready-to-merge PRs awaiting promotion."
           fi
 
       - name: Check for draft PRs with ready-for-review label
@@ -300,9 +301,9 @@ jobs:
           if [ "${{ steps.ready_prs.outputs.ready_count }}" != "0" ]; then
             PROMOTER_DISPATCHED="Yes"
             if [ -n "$PROMOTER_REASON" ]; then
-              PROMOTER_REASON="$PROMOTER_REASON + ${{ steps.ready_prs.outputs.ready_count }} ready-for-review PRs"
+              PROMOTER_REASON="$PROMOTER_REASON + ${{ steps.ready_prs.outputs.ready_count }} approved ready-to-merge PRs"
             else
-              PROMOTER_REASON="${{ steps.ready_prs.outputs.ready_count }} ready-for-review PRs"
+              PROMOTER_REASON="${{ steps.ready_prs.outputs.ready_count }} approved ready-to-merge PRs"
             fi
           fi
           if [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ]; then

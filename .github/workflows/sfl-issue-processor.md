@@ -104,19 +104,29 @@ This prevents a concurrent run from picking up the same issue.
 
 ## Step 3 — Validate the issue body
 
-The issue body must contain all three sections: **Finding**, **Fix**, and
+Preferred format includes all three sections: **Finding**, **Fix**, and
 **Acceptance criteria**.
 
-Extract:
+However, do not reject a valid autonomous task only because headings differ.
+Accept either:
 
-- **Finding**: the file path(s) and exact problem described
-- **Fix**: precisely what change to make
-- **Acceptance criteria**: how to verify the fix is correct
-- **Risk**: note the risk level for awareness (e.g. `risk:trivial`, `risk:low`, `risk:medium`)
+1. Canonical format: `Finding` + `Fix` + `Acceptance criteria`
 
-If any of the three required sections (Finding, Fix, Acceptance criteria) is
-missing: add label `agent:human-required`, remove `agent:in-progress`, post a
-comment explaining the reason, and exit.
+2. Feature-spec format with enough actionable detail, such as:
+
+- `Goal` or `Summary`
+- implementation details (e.g., `Implementation Plan`, `Files to Create or Modify`, API/route/component lists)
+- verifiable success criteria (`Acceptance criteria` or equivalent testable outcomes)
+
+When canonical headings are missing but feature-spec content is sufficient,
+derive internal equivalents:
+
+- **Finding (derived)**: current capability gap or missing behavior
+- **Fix (derived)**: concrete implementation steps/files/components
+- **Acceptance criteria (derived)**: explicit verifiable outcomes
+
+Only escalate to `agent:human-required` when the body is truly non-actionable,
+ambiguous, or lacks enough concrete implementation detail to make a safe change.
 
 ## Step 4 — Inspect the codebase
 
@@ -136,7 +146,9 @@ Apply the minimal change that satisfies the acceptance criteria:
 - Do not rename symbols unless that is the stated fix
 - Do not add comments, docs, or type annotations to unchanged lines
 - Preserve existing formatting conventions exactly
-- Touch only the files identified in the Fix section
+- Prefer touching only files identified in the Fix section; if using derived
+  feature-spec mapping, touch only files explicitly listed in the issue's
+  implementation details.
 
 Commit the changes with a descriptive commit message.
 

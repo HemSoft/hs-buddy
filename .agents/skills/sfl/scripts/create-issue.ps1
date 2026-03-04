@@ -139,9 +139,29 @@ if ([string]::IsNullOrWhiteSpace($finalTitle)) {
 }
 
 $bodyLines = New-Object System.Collections.Generic.List[string]
-$bodyLines.Add("## Summary") | Out-Null
+$bodyLines.Add("## Finding") | Out-Null
 $bodyLines.Add("") | Out-Null
-$bodyLines.Add($What.Trim()) | Out-Null
+if (-not [string]::IsNullOrWhiteSpace($TodoItem)) {
+    $bodyLines.Add("The requested capability is not yet implemented: $TodoItem.") | Out-Null
+} else {
+    $bodyLines.Add($What.Trim()) | Out-Null
+}
+
+$bodyLines.Add("") | Out-Null
+$bodyLines.Add("## Fix") | Out-Null
+$bodyLines.Add("") | Out-Null
+if (-not [string]::IsNullOrWhiteSpace($TodoItem)) {
+    $bodyLines.Add("Implement the TODO specification for '$TodoItem' using the imported context below. Keep changes scoped to the listed files/components and follow existing architecture patterns.") | Out-Null
+} else {
+    $bodyLines.Add("Implement the requested change with minimal, targeted edits that align with existing code patterns.") | Out-Null
+}
+
+$bodyLines.Add("") | Out-Null
+$bodyLines.Add("## Acceptance criteria") | Out-Null
+$bodyLines.Add("") | Out-Null
+$bodyLines.Add("- The requested behavior is implemented end-to-end.") | Out-Null
+$bodyLines.Add("- Changes compile and relevant checks pass.") | Out-Null
+$bodyLines.Add("- Scope remains focused on the requested functionality.") | Out-Null
 
 if (-not [string]::IsNullOrWhiteSpace($TodoItem)) {
     $bodyLines.Add("") | Out-Null
@@ -178,12 +198,12 @@ $bodyFile = Join-Path $env:TEMP ("sfl-create-issue-{0}.md" -f ([Guid]::NewGuid()
 try {
     Set-Content -LiteralPath $bodyFile -Value $issueBody -Encoding UTF8
 
-    $args = @('issue', 'create', '--repo', $Repo, '--title', $finalTitle, '--body-file', $bodyFile)
+    $ghArgs = @('issue', 'create', '--repo', $Repo, '--title', $finalTitle, '--body-file', $bodyFile)
     foreach ($label in $Labels) {
-        $args += @('--label', $label)
+        $ghArgs += @('--label', $label)
     }
 
-    $result = & gh @args 2>&1
+    $result = & gh @ghArgs 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to create issue: $result"
         return $false

@@ -4,6 +4,15 @@
 
 ## Active Concerns
 
+### Issue Intake Too Strict for Autonomous Feature Work
+
+- **Severity**: High
+- **Detected**: 2026-03-03
+- **Status**: Mitigated (prompt + create-issue template updated)
+- **Description**: Issue Processor Step 3 required exact `Finding`/`Fix`/`Acceptance criteria` headers and escalated otherwise-actionable feature-spec issues to `agent:human-required`.
+- **Impact**: Valid `agent:fixable` issues could be claimed and then immediately rejected, reducing end-to-end autonomy.
+- **Suggested Action**: Monitor the next labeled feature-spec issue to confirm PR creation proceeds without human-required escalation.
+
 ### Pipeline Stall — PRs Stuck as Draft, Infinite No-Op Loop
 
 - **Severity**: Critical

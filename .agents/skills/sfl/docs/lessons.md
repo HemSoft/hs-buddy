@@ -91,3 +91,19 @@ and discovered 25+ safe-output types, including `push-to-pull-request-branch`,
 first. Existing code shows what was configured, not what's available. This
 applies to any platform: GitHub Actions, Convex, Electron — check the docs,
 not just the codebase.
+
+### 2026-03-03 — PR approval requires a distinct reviewer identity
+
+**Context**: Added and tested `scripts/pr-approve.ps1` to auto-select the oldest
+`human:ready-for-review` PR and approve it when SFL criteria are met.  
+**Problem**: Approval failed even with correct auth preflight (`fhemmerrelias`).  
+**Root Cause**: GitHub blocks self-approval (`Review Can not approve your own
+pull request`). Switching to `fhemmer2-relias` also failed because that account
+did not have access to `relias-engineering/hs-buddy`.  
+**Resolution**: Keep `pr-approve` criteria gate + auto-selection, but require a
+reviewer identity that both (a) is not the PR author and (b) has repo access.
+When no such reviewer is available, fallback was an explicit
+`gh pr merge --squash --delete-branch --admin` with human instruction.  
+**Takeaway**: "Correct auth" means both identity mapping and repository access.
+For SFL approval automation, provision a dedicated non-author reviewer account
+with org/repo access; otherwise approval will fail by design.

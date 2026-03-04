@@ -1,6 +1,6 @@
 ---
 name: sfl
-description: "V2.0 - Commands: Explain, Debug, Audit, Report, Status, Simplicity, Memory. Expert in hs-buddy's Set it Free Loop \u2014 GitHub agentic workflow architecture, debugging, auditing, status reporting, and operational health. Consolidates audit, debug, and status capabilities into one skill. Use when creating, modifying, debugging, or auditing SFL workflows, checking pipeline state, or running status reports."
+description: "V2.0 - Commands: Explain, Debug, Audit, Report, Status, Simplicity, Memory, pr-approve. Expert in hs-buddy's Set it Free Loop \u2014 GitHub agentic workflow architecture, debugging, auditing, status reporting, and operational health. Consolidates audit, debug, and status capabilities into one skill. Use when creating, modifying, debugging, or auditing SFL workflows, checking pipeline state, or running status reports."
 hooks:
   PostToolUse:
     - matcher: "Read|Write|Edit"
@@ -67,6 +67,7 @@ When asked "what can you do?", answer from this list:
 | 4 | **Report pipeline status** — checkpointed status, verdicts, failure summaries | [Status](#status) | [docs/status.md](docs/status.md) |
 | 5 | **Guard simplicity** — complexity assessment, anti-patterns, architectural watchdog | [Simplicity](#simplicity) | [docs/constraints.md](docs/constraints.md) |
 | 6 | **Remember & reflect** — lessons learned, constraint discoveries, self-improvement | [Memory](#memory) | [docs/lessons.md](docs/lessons.md) |
+| 7 | **Approve PR command** — submit an approval review by PR number | [Debugging](#debugging) | [scripts/pr-approve.ps1](scripts/pr-approve.ps1) |
 
 Every capability maps to one sub-skill section below. Each sub-skill owns its
 scripts, its docs page, and its rules.
@@ -502,6 +503,7 @@ Update this skill when:
 | `scripts/health-check.ps1` | 6-check automated pass/fail report |
 | `scripts/workflow-inventory.ps1` | Catalog all workflows with type classification |
 | `scripts/loop-state.ps1` | Current pipeline state — what's in the loop right now |
+| `scripts/pr-approve.ps1 -PRNumber <n>` | Submit PR approval review by PR number |
 
 ### Debug (`scripts/debug/`)
 

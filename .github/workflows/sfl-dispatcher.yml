@@ -13,6 +13,8 @@
 name: "SFL Dispatcher"
 
 on:
+  schedule:
+    - cron: "*/30 * * * *"
   workflow_dispatch:
   issues:
     types: [labeled]

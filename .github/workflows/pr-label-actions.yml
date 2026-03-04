@@ -3,12 +3,10 @@ name: PR Label Actions
 on:
   pull_request:
     types: [labeled]
-  workflow_dispatch: # Dispatched by SFL Dispatcher every 30 min
+  workflow_dispatch: # Dispatched by SFL Dispatcher when a draft PR is human-ready
 
 permissions:
   pull-requests: write
-  contents: write
-  discussions: write
 
 jobs:
   ready-for-review:
@@ -42,102 +40,3 @@ jobs:
           echo "Flipping PR #${PR_NUM} from draft to ready-for-review"
           gh pr ready "${PR_NUM}" --repo ${{ github.repository }}
           echo "Done — PR is now ready for review"
-
-  squash-merge:
-    if: >-
-      github.event_name == 'pull_request'
-      && github.event.label.name == 'ready-to-merge'
-      && github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
-
-      - name: Update CHANGELOG from PR title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          set -euo pipefail
-
-          # Extract conventional commit prefix and description
-          # Patterns: feat(...): ..., fix: ..., [agent-fix] ..., docs: ..., chore: ..., refactor: ...
-          TITLE="$PR_TITLE"
-          SECTION=""
-          ENTRY=""
-
-          if echo "$TITLE" | grep -qiE '^feat(\(|:|\s)|^\[agent-fix\]'; then
-            SECTION="Added"
-            ENTRY=$(echo "$TITLE" | sed -E 's/^(feat(\([^)]*\))?[:\s]+|\[agent-fix\]\s*)//')
-          elif echo "$TITLE" | grep -qiE '^fix(\(|:|\s)'; then
-            SECTION="Fixed"
-            ENTRY=$(echo "$TITLE" | sed -E 's/^fix(\([^)]*\))?[:\s]+//')
-          elif echo "$TITLE" | grep -qiE '^refactor(\(|:|\s)'; then
-            SECTION="Changed"
-            ENTRY=$(echo "$TITLE" | sed -E 's/^refactor(\([^)]*\))?[:\s]+//')
-          elif echo "$TITLE" | grep -qiE '^docs(\(|:|\s)'; then
-            SECTION="Changed"
-            ENTRY=$(echo "$TITLE" | sed -E 's/^docs(\([^)]*\))?[:\s]+//')
-          elif echo "$TITLE" | grep -qiE '^chore(\(|:|\s)'; then
-            SECTION="Changed"
-            ENTRY=$(echo "$TITLE" | sed -E 's/^chore(\([^)]*\))?[:\s]+//')
-          else
-            # No conventional prefix — use full title under Changed
-            SECTION="Changed"
-            ENTRY="$TITLE"
-          fi
-
-          # Clean up: trim leading/trailing whitespace, capitalize first letter
-          ENTRY=$(echo "$ENTRY" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          ENTRY="$(echo "${ENTRY:0:1}" | tr '[:lower:]' '[:upper:]')${ENTRY:1}"
-
-          # Format: - Entry text (#PR)
-          LINE="- ${ENTRY} (#${PR_NUMBER})"
-
-          # Insert under [Unreleased] section
-          if grep -q '## \[Unreleased\]' CHANGELOG.md; then
-            # Add entry after [Unreleased] header, creating section if needed
-            if grep -A1 '## \[Unreleased\]' CHANGELOG.md | grep -q "### $SECTION"; then
-              # Section exists — add after it
-              sed -i "/## \[Unreleased\]/,/## \[/{/### $SECTION/a\\${LINE}
-              }" CHANGELOG.md
-            else
-              # Section doesn't exist — create it after [Unreleased]
-              sed -i "/## \[Unreleased\]/a\\\n### ${SECTION}\n\n${LINE}" CHANGELOG.md
-            fi
-          else
-            echo "Warning: No [Unreleased] section in CHANGELOG.md — skipping update"
-            exit 0
-          fi
-
-          echo "CHANGELOG updated: ### $SECTION / $LINE"
-
-          # Commit if changed
-          if git diff --quiet CHANGELOG.md; then
-            echo "No CHANGELOG changes to commit"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add CHANGELOG.md
-            git commit -m "docs: update CHANGELOG for PR #${PR_NUMBER}"
-            git push
-          fi
-
-      - name: Squash merge PR and delete branch
-        env:
-          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
-        run: |
-          echo "Squash-merging PR #${{ github.event.pull_request.number }}"
-          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch --admin --repo ${{ github.repository }}
-          echo "Done — PR merged and branch deleted"
-
-      - name: Post activity log entry
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TIMESTAMP=$(TZ='America/New_York' date +'%Y-%m-%d %l:%M %p EST' | sed 's/  / /')
-          BODY="${TIMESTAMP} | PR Label Actions | PR #${{ github.event.pull_request.number }} | ✅ Squash merged"
-          gh api graphql -f query='mutation($discussionId:ID!, $body:String!) { addDiscussionComment(input:{discussionId:$discussionId, body:$body}) { comment { id } } }' -f discussionId="$(gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!) { repository(owner:$owner,name:$name) { discussion(number:$number) { id } } }' -f owner="${{ github.repository_owner }}" -f name="${{ github.event.repository.name }}" -F number=95 --jq '.data.repository.discussion.id')" -f body="$BODY"

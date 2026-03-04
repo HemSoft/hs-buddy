@@ -2,7 +2,6 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| � | Critical | [Simplisticate Workflows](#simplisticate-workflows) | Simplify SFL architecture: event-driven triggers, single-issue processing, remove autonomous merging |
 | �🚧 | High | [Simplisticate E2E Test](#simplisticate-e2e-test) | Run Simplisticate workflow once and track through full pipeline (issue → PR → merge) |
 | �📋 | High | [Global Copilot Assistant Panel](#global-copilot-assistant-panel) | Toggleable right-hand pane with context-aware AI chat powered by Copilot SDK |
 | 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
@@ -10,6 +9,7 @@
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
 | 📋 | Medium | [Task Planner (Todoist Integration)](#task-planner-todoist-integration) | 7-day upcoming view powered by Todoist REST API; new Activity Bar section |
+| ✅ | Critical | Simplisticate Workflows | Completed 2026-03-03: event-driven trigger path implemented and autonomous merge flow removed in favor of human review handoff. |
 | ✅ | Medium | Copilot Usage month-end projection | Per-account + aggregate trend projection with ghost arc on ring, daily rate, est. overage (2026-03) |
 | ✅ | Medium | Run 30-day Set it Free pilot | Removed — ongoing operational concern, not a dev task (2026-02) |
 | ✅ | Critical | SFL Auto-Merge mode | Implemented in sfl-config.yml + pr-promoter + pr-label-actions (2026-02) |

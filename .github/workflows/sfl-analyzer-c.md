@@ -129,10 +129,26 @@ search for open pull requests in this repository that meet ALL criteria:
 - Has the label `agent:pr`
 - Does NOT have the label `agent:human-required`
 
-Sort results by creation date ascending. Take the **single oldest** result.
+Sort results by creation date ascending, then evaluate candidates in that order
+to find the first PR that still needs Analyzer C for its current cycle:
 
-If no PR matches, update the dashboard (see Dashboard Protocol) with:
+1. For each candidate PR, determine current cycle N from `pr:cycle-N` labels
+  (default N=0 if none).
+2. Check whether the PR body already contains `[MARKER:sfl-analyzer-c cycle:N]`.
+3. Skip candidates where that marker already exists.
+4. Select the first candidate where the marker does NOT exist.
+
+This prevents starvation where the oldest draft PR is repeatedly selected even
+though Analyzer C already reviewed it for the current cycle.
+
+If no draft PR matches the base criteria, update the dashboard (see Dashboard
+Protocol) with:
 "No draft PRs with agent:pr label found — nothing to review." and exit.
+
+If draft PRs match the base criteria but ALL already have the current-cycle
+Analyzer C marker, update the dashboard with:
+"All eligible draft PRs already reviewed by Analyzer C for their current cycle — nothing to review."
+and exit.
 
 ## Step 2 — Determine the current review cycle
 

@@ -191,7 +191,33 @@ Only if the string is truly absent from the body, call `update_issue` with:
 - `body`: "⏰ **SFL Auditor**: Draft PR #<pr-number> has been open for over 2 hours and is missing one or more analyzer markers. The PR Analyzers may not be dispatching for this PR. A human should investigate."
 - `operation`: `"append"`
 
-## Step 10 — Check: unexplained agent:pause
+## Step 10 — Check: analyzer starvation by oldest-draft selection
+
+For open agent PRs in list B, create a draft-only subset and sort by creation
+date ascending.
+
+If there are at least 2 draft PRs:
+
+1. Let `oldest` be the first draft PR in sorted order.
+2. Determine `oldest` current cycle N from `pr:cycle-N` labels (default 0).
+3. Check whether `oldest` body contains
+  `[MARKER:sfl-analyzer-a cycle:N]`, `[MARKER:sfl-analyzer-b cycle:N]`, and
+  `[MARKER:sfl-analyzer-c cycle:N]`.
+4. Find any newer draft PR where at least one analyzer marker is missing for
+  its current cycle.
+
+If `oldest` has all three analyzer markers for its current cycle AND a newer
+draft PR is missing one or more analyzer markers for its own current cycle,
+append exactly one warning comment to that newer PR via `update_issue`:
+
+- `issue_number`: the newer PR number
+- `body`: "⚠️ **SFL Auditor**: Potential analyzer starvation detected. An older draft PR appears fully analyzed for its current cycle while this newer draft PR is still missing one or more analyzer markers. Analyzer target-selection logic may be stuck on oldest-first behavior."
+- `operation`: `"append"`
+
+Only flag each newer PR once. If its body already contains the exact string
+`Potential analyzer starvation detected`, skip it.
+
+## Step 11 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that
 issue contains the words "pause" or "paused" or "agent:pause".
@@ -203,7 +229,7 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 11 — Check: stuck ready-to-merge PRs
+## Step 12 — Check: stuck ready-to-merge PRs
 
 Search for open pull requests (non-draft) that have the label `ready-to-merge`.
 
@@ -236,9 +262,9 @@ If the retry is performed, also call `update_issue` (append) on the PR:
 "🔄 **SFL Auditor**: retried ready-to-merge — label toggled after 2+ hours
 without merge."
 
-## Step 12 — Signal completion
+## Step 13 — Signal completion
 
-After completing all checks (Steps 2–11), you MUST always call exactly one of:
+After completing all checks (Steps 2–12), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - Update the dashboard (see Dashboard Protocol) — if ALL checks

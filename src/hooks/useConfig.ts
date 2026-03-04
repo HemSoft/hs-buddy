@@ -304,5 +304,4 @@ export function useCopilotSettings() {
   };
 }
 
-// Export the API directly for non-hook usage
-export { configAPI };
+

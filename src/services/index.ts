@@ -5,7 +5,6 @@
 export {
   TaskQueue,
   getTaskQueue,
-  taskQueueRegistry,
   type TaskId,
   type TaskStatus,
   type TaskOptions,

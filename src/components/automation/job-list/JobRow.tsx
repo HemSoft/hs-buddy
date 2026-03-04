@@ -1,25 +1,6 @@
 import { Terminal, Brain, Zap, Play, Copy, Trash2 } from 'lucide-react'
 import type { Job } from './types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyId = any
-
-interface RunCounts {
-  total: number
-  completed: number
-  failed: number
-}
-
-export interface JobRowProps {
-  job: Job
-  runCounts?: RunCounts
-  onEdit: (jobId: AnyId) => void
-  onDuplicate: (job: Job) => void
-  onDelete: (jobId: AnyId, name: string) => void
-  onRunNow: (job: Job) => void
-  onContextMenu: (e: React.MouseEvent, job: Job) => void
-}
-
 export function getWorkerIcon(workerType: 'exec' | 'ai' | 'skill', size = 16) {
   switch (workerType) {
     case 'exec':

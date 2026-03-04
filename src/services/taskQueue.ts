@@ -297,66 +297,13 @@ export class TaskQueue {
   }
 }
 
-/**
- * Registry of named task queues.
- */
-class TaskQueueRegistry {
-  private queues: Map<string, TaskQueue> = new Map();
-  private defaultOptions: QueueOptions = { concurrency: 1 };
+const queues = new Map<string, TaskQueue>();
 
-  /**
-   * Get or create a named queue.
-   * @param name The queue name
-   * @param options Optional queue configuration (only used on creation)
-   */
-  getQueue(name: string, options?: QueueOptions): TaskQueue {
-    let queue = this.queues.get(name);
-    if (!queue) {
-      queue = new TaskQueue(name, options ?? this.defaultOptions);
-      this.queues.set(name, queue);
-    }
-    return queue;
-  }
-
-  /**
-   * Check if a queue exists.
-   */
-  hasQueue(name: string): boolean {
-    return this.queues.has(name);
-  }
-
-  /**
-   * Get all queue names.
-   */
-  getQueueNames(): string[] {
-    return Array.from(this.queues.keys());
-  }
-
-  /**
-   * Cancel all tasks in all queues.
-   */
-  cancelAll(): void {
-    for (const queue of this.queues.values()) {
-      queue.cancelAll();
-    }
-  }
-
-  /**
-   * Get combined stats from all queues.
-   */
-  getAllStats(): Record<string, QueueStats> {
-    const stats: Record<string, QueueStats> = {};
-    for (const [name, queue] of this.queues) {
-      stats[name] = queue.getStats();
-    }
-    return stats;
-  }
-}
-
-// Export singleton registry
-export const taskQueueRegistry = new TaskQueueRegistry();
-
-// Convenience function to get a queue
 export function getTaskQueue(name: string, options?: QueueOptions): TaskQueue {
-  return taskQueueRegistry.getQueue(name, options);
+  let queue = queues.get(name);
+  if (!queue) {
+    queue = new TaskQueue(name, options ?? { concurrency: 1 });
+    queues.set(name, queue);
+  }
+  return queue;
 }

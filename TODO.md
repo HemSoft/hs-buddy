@@ -9,6 +9,7 @@
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
 | 📋 | Medium | [Task Planner (Todoist Integration)](#task-planner-todoist-integration) | 7-day upcoming view powered by Todoist REST API; new Activity Bar section |
+| 📋 | Medium | [Tempo tracking](#tempo-tracking) | New tree-view section for time tracking with Tempo API calls, daily/weekly summaries, and fast worklog actions |
 | ✅ | Critical | Simplisticate Workflows | Completed 2026-03-03: event-driven trigger path implemented and autonomous merge flow removed in favor of human review handoff. |
 | ✅ | Medium | Copilot Usage month-end projection | Per-account + aggregate trend projection with ghost arc on ring, daily rate, est. overage (2026-03) |
 | ✅ | Medium | Run 30-day Set it Free pilot | Removed — ongoing operational concern, not a dev task (2026-02) |
@@ -63,7 +64,7 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 50** (89%)
+**Remaining: 7** | **Completed: 50** (88%)
 
 ---
 
@@ -136,21 +137,21 @@
 
 1. ✅ Add TODO item and create tracking
 2. ✅ Run Simplisticate workflow manually via workflow_dispatch
-   - Run ID: 22594180794 (started 2026-03-02T20:23:21Z)
+  - Run ID: 22594180794 (started 2026-03-02T20:23:21Z)
 3. ✅ Simplisticate completed — created 3 action issues + 1 report
-   - **#88** `[simplisticate] Remove dead export formatDistanceToFuture from dateUtils.ts` — `agent:fixable`, `action-item`, `risk:trivial`
-   - **#89** `[simplisticate] Hoist month-name arrays out of format() function body in dateUtils.ts` — `agent:fixable`, `action-item`, `risk:trivial`
-   - **#90** `[simplisticate] Remove redundant PRLinkInfo type alias in prDetailView.ts` — `agent:fixable`, `action-item`, `risk:trivial`
-   - **#91** `[simplisticate] Daily Simplisticate Audit — 2026-03-02` — `audit`, `report` (correctly ignored by pipeline)
+  - **#88** `[simplisticate] Remove dead export formatDistanceToFuture from dateUtils.ts` — `agent:fixable`, `action-item`, `risk:trivial`
+  - **#89** `[simplisticate] Hoist month-name arrays out of format() function body in dateUtils.ts` — `agent:fixable`, `action-item`, `risk:trivial`
+  - **#90** `[simplisticate] Remove redundant PRLinkInfo type alias in prDetailView.ts` — `agent:fixable`, `action-item`, `risk:trivial`
+  - **#91** `[simplisticate] Daily Simplisticate Audit — 2026-03-02` — `audit`, `report` (correctly ignored by pipeline)
 4. ✅ Dispatcher at 20:47 detected open issues + dispatched Issue Processor
 5. ✅ Issue Processor claimed #88 → `agent:in-progress` → created **draft PR #92** at 20:51
-   - Branch: `agent-fix/issue-88-e94a453e726fda28`
-   - Run ID: 22595052020 (success)
+  - Branch: `agent-fix/issue-88-e94a453e726fda28`
+  - Run ID: 22595052020 (success)
 6. ✅ Analyzers A/B/C all triggered at 20:51, all completed successfully
-   - Analyzer A (claude-sonnet-4.6): **PASS** — no blocking issues
-   - Analyzer B (claude-opus-4.6): **PASS** — no blocking issues
-   - Analyzer C (gpt-5.3-codex): **PASS** — no blocking issues
-   - Verdicts written to PR body via `update_issue` safe-output
+  - Analyzer A (claude-sonnet-4.6): **PASS** — no blocking issues
+  - Analyzer B (claude-opus-4.6): **PASS** — no blocking issues
+  - Analyzer C (gpt-5.3-codex): **PASS** — no blocking issues
+  - Verdicts written to PR body via `update_issue` safe-output
 7. ✅ Dispatcher at 21:16 → Promoter un-drafted PR #92, added `human:ready-for-review`
 8. ✅ Dispatcher at 21:16 → Issue Processor claimed #89 → `agent:in-progress` → created **draft PR #93**
 9. ✅ Re-analysis at 21:22 → all 3 analyzers completed on PR #92
@@ -281,20 +282,20 @@
 ##### Phase 2 — Assistant Panel Component
 
 1. **`AssistantPanel.tsx`** — New component rendered in the third Allotment pane. Layout uses CSS flex column:
-   - **Header** (fixed): "Copilot Assistant" with clear-conversation and model-picker controls.
-   - **Conversation area** (flex-grow, scrollable): Renders a list of `AssistantMessage` entries (user + assistant turns). Auto-scrolls to bottom on new messages. Supports markdown rendering for assistant responses (reuse the existing markdown renderer from `CopilotResultPanel`).
-   - **Context badge bar** (fixed): Shows what context is currently attached (e.g., "PR #142 — fix auth bug", "Repo: hs-buddy", "Issue #23"). Dismissible per-item.
-   - **Input area** (fixed at bottom): Multi-line `<textarea>` with auto-resize (same pattern as `CopilotPromptBox`), Send button (`Send` icon), keyboard submit on `Enter` (Shift+Enter for newline). Shows a typing/streaming indicator while the assistant is responding.
+  - **Header** (fixed): "Copilot Assistant" with clear-conversation and model-picker controls.
+  - **Conversation area** (flex-grow, scrollable): Renders a list of `AssistantMessage` entries (user + assistant turns). Auto-scrolls to bottom on new messages. Supports markdown rendering for assistant responses (reuse the existing markdown renderer from `CopilotResultPanel`).
+  - **Context badge bar** (fixed): Shows what context is currently attached (e.g., "PR #142 — fix auth bug", "Repo: hs-buddy", "Issue #23"). Dismissible per-item.
+  - **Input area** (fixed at bottom): Multi-line `<textarea>` with auto-resize (same pattern as `CopilotPromptBox`), Send button (`Send` icon), keyboard submit on `Enter` (Shift+Enter for newline). Shows a typing/streaming indicator while the assistant is responding.
 
 2. **`AssistantPanel.css`** — VSCode-inspired dark theme styling consistent with the app's existing aesthetic. Conversation bubbles differentiated by role (user = right-aligned subtle, assistant = left-aligned with background). Code blocks with syntax highlighting.
 
 ##### Phase 3 — Context Awareness System
 
 1. **`useAssistantContext` hook** — React hook that derives the current context from app state:
-   - **Active tab view** (`activeViewId`): If viewing `pr-detail:owner/repo/123`, attach PR metadata (title, number, URL, author, description, diff stats). If viewing `repo-detail:owner/repo`, attach repo metadata. If viewing `repo-issues:owner/repo`, attach issue list context. If viewing `welcome`, attach app overview context.
-   - **Sidebar selection** (`selectedSection` + highlighted tree node): If a specific tree item is selected/highlighted, include its identity.
-   - **Selected text**: If the user has highlighted text in the content area, include it as a quote block in the prompt.
-   - Returns a structured `AssistantContext` object: `{ viewType, viewId, summary, metadata }` that gets serialized into a system prompt preamble.
+  - **Active tab view** (`activeViewId`): If viewing `pr-detail:owner/repo/123`, attach PR metadata (title, number, URL, author, description, diff stats). If viewing `repo-detail:owner/repo`, attach repo metadata. If viewing `repo-issues:owner/repo`, attach issue list context. If viewing `welcome`, attach app overview context.
+  - **Sidebar selection** (`selectedSection` + highlighted tree node): If a specific tree item is selected/highlighted, include its identity.
+  - **Selected text**: If the user has highlighted text in the content area, include it as a quote block in the prompt.
+  - Returns a structured `AssistantContext` object: `{ viewType, viewId, summary, metadata }` that gets serialized into a system prompt preamble.
 
 2. **Context serialization** — Convert `AssistantContext` into a system prompt prefix for the Copilot SDK. Example:
 
@@ -314,9 +315,9 @@
 1. **Streaming conversation via Copilot SDK** — Extend `copilotClient.ts` with a new `sendChatMessage()` function that supports multi-turn conversation (maintains session across turns instead of creating/destroying per prompt). Use the SDK's `AssistantMessageEvent` streaming to pipe tokens into the UI in real-time.
 
 2. **New IPC channel: `copilot:chat`** — Add to `electron/ipc/copilotHandlers.ts`:
-   - `copilot:chat-send` — Accepts `{ message, context, conversationHistory }`, returns streamed response chunks via IPC event `copilot:chat-chunk`.
-   - `copilot:chat-abort` — Aborts the in-flight chat response.
-   - `copilot:chat-clear` — Resets conversation history.
+  - `copilot:chat-send` — Accepts `{ message, context, conversationHistory }`, returns streamed response chunks via IPC event `copilot:chat-chunk`.
+  - `copilot:chat-abort` — Aborts the in-flight chat response.
+  - `copilot:chat-clear` — Resets conversation history.
 
 3. **Conversation state management** — `useAssistantConversation` hook manages:
     - `messages: AssistantMessage[]` — Full conversation history (role, content, timestamp, context snapshot).
@@ -497,26 +498,26 @@
 ##### Electron IPC — Todoist Service
 
 1. **`electron/services/todoistClient.ts`** — Todoist REST API v2 client:
-   - `fetchTasks(filter: string): Promise<TodoistTask[]>` — GET /tasks with filter
-   - `fetchTasksForDateRange(startDate: string, days: number): Promise<Map<string, TodoistTask[]>>` — Fetch tasks grouped by date for the upcoming view
-   - `completeTask(taskId: string): Promise<void>` — POST /tasks/{id}/close
-   - `reopenTask(taskId: string): Promise<void>` — POST /tasks/{id}/reopen
-   - `createTask(params: CreateTaskParams): Promise<TodoistTask>` — POST /tasks
-   - `updateTask(taskId: string, params: Partial<CreateTaskParams>): Promise<TodoistTask>` — POST /tasks/{id}
-   - `deleteTask(taskId: string): Promise<void>` — DELETE /tasks/{id}
-   - `fetchProjects(): Promise<TodoistProject[]>` — GET /projects (cache for 5 min)
-   - `fetchLabels(): Promise<TodoistLabel[]>` — GET /labels
-   - Auth: reads `TODOIST_API_TOKEN` from `process.env`
+  - `fetchTasks(filter: string): Promise<TodoistTask[]>` — GET /tasks with filter
+  - `fetchTasksForDateRange(startDate: string, days: number): Promise<Map<string, TodoistTask[]>>` — Fetch tasks grouped by date for the upcoming view
+  - `completeTask(taskId: string): Promise<void>` — POST /tasks/{id}/close
+  - `reopenTask(taskId: string): Promise<void>` — POST /tasks/{id}/reopen
+  - `createTask(params: CreateTaskParams): Promise<TodoistTask>` — POST /tasks
+  - `updateTask(taskId: string, params: Partial<CreateTaskParams>): Promise<TodoistTask>` — POST /tasks/{id}
+  - `deleteTask(taskId: string): Promise<void>` — DELETE /tasks/{id}
+  - `fetchProjects(): Promise<TodoistProject[]>` — GET /projects (cache for 5 min)
+  - `fetchLabels(): Promise<TodoistLabel[]>` — GET /labels
+  - Auth: reads `TODOIST_API_TOKEN` from `process.env`
 
 2. **`electron/ipc/todoistHandlers.ts`** — IPC bridge:
-   - `todoist:get-upcoming` — Returns 7-day grouped tasks
-   - `todoist:get-today` — Returns today's tasks only
-   - `todoist:complete-task` — Complete a task by ID
-   - `todoist:reopen-task` — Reopen a task by ID
-   - `todoist:create-task` — Create a new task
-   - `todoist:update-task` — Update an existing task
-   - `todoist:delete-task` — Delete a task
-   - `todoist:get-projects` — List all projects
+  - `todoist:get-upcoming` — Returns 7-day grouped tasks
+  - `todoist:get-today` — Returns today's tasks only
+  - `todoist:complete-task` — Complete a task by ID
+  - `todoist:reopen-task` — Reopen a task by ID
+  - `todoist:create-task` — Create a new task
+  - `todoist:update-task` — Update an existing task
+  - `todoist:delete-task` — Delete a task
+  - `todoist:get-projects` — List all projects
 
 3. **Register handlers** in `electron/ipc/index.ts`
 
@@ -525,39 +526,39 @@
 ##### React Components
 
 1. **`src/components/planner/TaskPlannerView.tsx`** — Main upcoming view component:
-   - Fetches 7-day task data via `useTodoistUpcoming()` hook
-   - Renders day sections with task lists
-   - Handles task completion toggling
-   - Auto-refreshes every 60 seconds
-   - Pull-to-refresh / manual refresh button
+  - Fetches 7-day task data via `useTodoistUpcoming()` hook
+  - Renders day sections with task lists
+  - Handles task completion toggling
+  - Auto-refreshes every 60 seconds
+  - Pull-to-refresh / manual refresh button
 
 2. **`src/components/planner/DaySection.tsx`** — Single day header + task list:
-   - Date header with day name, formatted date, task count
-   - "Today" / "Tomorrow" labels for relative dates
-   - "+ Add Task" button per day section
-   - Empty state for days with no tasks
+  - Date header with day name, formatted date, task count
+  - "Today" / "Tomorrow" labels for relative dates
+  - "+ Add Task" button per day section
+  - Empty state for days with no tasks
 
 3. **`src/components/planner/TaskRow.tsx`** — Individual task row:
-   - Completion checkbox with optimistic UI update
-   - Task content with inline edit support
-   - Priority dot indicator
-   - Project name badge
-   - Label tags
-   - Context menu (right-click)
+  - Completion checkbox with optimistic UI update
+  - Task content with inline edit support
+  - Priority dot indicator
+  - Project name badge
+  - Label tags
+  - Context menu (right-click)
 
 4. **`src/components/planner/TaskPlannerView.css`** — Styling matching VSCode dark theme
 
 5. **`src/components/planner/AddTaskInline.tsx`** — Inline task creation form:
-   - Content input, date picker, priority selector, project dropdown
-   - Auto-assigns date based on which day section it's in
+  - Content input, date picker, priority selector, project dropdown
+  - Auto-assigns date based on which day section it's in
 
 ##### Hooks
 
 1. **`src/hooks/useTodoist.ts`** — React hooks for Todoist data:
-   - `useTodoistUpcoming(days?: number)` — Fetches and caches upcoming tasks, returns `{ dayGroups, isLoading, error, refresh }`
-   - `useTodoistToday()` — Shortcut for today-only view
-   - `useTodoistProjects()` — Cached project list for name resolution
-   - `useTaskActions()` — Returns `{ completeTask, reopenTask, createTask, updateTask, deleteTask }` with optimistic updates
+  - `useTodoistUpcoming(days?: number)` — Fetches and caches upcoming tasks, returns `{ dayGroups, isLoading, error, refresh }`
+  - `useTodoistToday()` — Shortcut for today-only view
+  - `useTodoistProjects()` — Cached project list for name resolution
+  - `useTaskActions()` — Returns `{ completeTask, reopenTask, createTask, updateTask, deleteTask }` with optimistic updates
 
 ##### Types
 
@@ -629,6 +630,129 @@
 
 ---
 
+### Tempo tracking
+
+**Goal**: Add a visually rich **Tempo Tracking** section in the tree view so users can log, inspect, and manage time entries without leaving Buddy.
+
+**Primary UX Concept**: Treat Tempo as a first-class workspace view (like PRs/Issues), with fast actions and high-information cards.
+
+**Tree View Placement**:
+
+- Add a new top-level tree section: **Tempo Tracking**
+- Child nodes:
+  - `tempo-today` — Today's entries and remaining hours
+  - `tempo-week` — Weekly grid (Mon-Fri) with total vs target
+  - `tempo-quick-log` — Fast-add panel for common entries
+  - `tempo-recent` — Recent worklogs and edits
+
+**Visual Direction (cool + polished)**:
+
+- Use a strong, data-forward layout with compact stat cards and timeline rows.
+- Header cards:
+  - `Today Hours`
+  - `Week Hours`
+  - `Remaining to Target`
+  - `Top Issue This Week`
+- Timeline style rows for each worklog with:
+  - Issue key pill (`PE-992`, `INT-14`)
+  - Account badge (`GEN-DEV`, `INT`)
+  - Duration chip (`1.5h`)
+  - Editable note preview
+- Include subtle motion for state changes (add/edit/delete) and optimistic UI transitions.
+
+**Feature Scope**:
+
+1. Read daily and date-range worklogs from Tempo.
+2. Add/edit/delete worklogs from the UI.
+3. Quick-log presets inspired by the Tempo skill aliases.
+4. Daily target meter (8h) and weekly target meter (40h).
+5. Account auto-suggestion by issue prefix (`INT-*` -> `INT`, `PE-*` -> `GEN-DEV`).
+
+**Tempo API Integration**:
+
+- Base URL: `https://api.tempo.io/4`
+- Endpoints:
+  - `GET /worklogs/user/{accountId}?from={date}&to={date}`
+  - `POST /worklogs`
+  - `PUT /worklogs/{id}`
+  - `DELETE /worklogs/{id}`
+  - `GET /accounts`
+- Required env vars (main process only):
+  - `TEMPO_API_TOKEN`
+  - `ATLASSIAN_EMAIL`
+  - `ATLASSIAN_API_TOKEN`
+
+**Electron IPC Architecture**:
+
+- `electron/services/tempoClient.ts`
+  - `getWorklogsForDate(date)`
+  - `getWorklogsForRange(from, to)`
+  - `createWorklog(payload)`
+  - `updateWorklog(id, payload)`
+  - `deleteWorklog(id)`
+  - `getAccounts()`
+- `electron/ipc/tempoHandlers.ts`
+  - `tempo:get-today`
+  - `tempo:get-week`
+  - `tempo:create-worklog`
+  - `tempo:update-worklog`
+  - `tempo:delete-worklog`
+  - `tempo:get-accounts`
+- `electron/preload.ts`
+  - expose typed `window.electronAPI.tempo.*` methods
+
+**React UI Components**:
+
+- `src/components/tempo/TempoDashboard.tsx` — shell view for cards + tabs
+- `src/components/tempo/TempoSummaryCards.tsx` — today/week/remaining metrics
+- `src/components/tempo/TempoTimeline.tsx` — chronological worklog rows
+- `src/components/tempo/TempoQuickLog.tsx` — one-click common-entry logging
+- `src/components/tempo/TempoWorklogEditor.tsx` — modal/drawer for add/edit
+- `src/components/tempo/TempoDashboard.css` — unified visual styling
+
+**Hooks & Types**:
+
+- `src/hooks/useTempo.ts`
+  - `useTempoToday()`
+  - `useTempoWeek()`
+  - `useTempoActions()` (create/update/delete)
+- `src/types/tempo.ts`
+  - `TempoWorklog`, `TempoAccount`, `TempoIssueSummary`, `TempoDaySummary`
+
+**Quick-Log Presets (initial)**:
+
+- Meetings -> `INT-14`
+- PE Support -> `PE-869`
+- Relias Assistant -> `PE-992`
+- AI Chapter -> `PE-931`
+- Professional Development -> `INT-5`
+- PTO / Sick / Holiday -> `INT-8`
+
+**Implementation Plan**:
+
+1. Add `Tempo Tracking` section to Activity Bar + Sidebar tree data.
+2. Add app routes: `tempo-today`, `tempo-week`, `tempo-quick-log`, `tempo-recent`.
+3. Build main-process Tempo service + IPC handlers.
+4. Build typed renderer hooks and initial dashboard UI.
+5. Add quick-log presets and account inference.
+6. Add optimistic updates + rollback on failure.
+7. Add empty/error/loading states with clear action guidance.
+
+**Acceptance Criteria**:
+
+- User can view today's worklogs in Buddy.
+- User can add a worklog in under 10 seconds via Quick Log.
+- User can edit and delete entries from the timeline.
+- Daily/weekly totals are accurate and update immediately after mutations.
+- No Tempo credentials are exposed in renderer code.
+- Tree view section is discoverable and visually consistent with the app theme.
+
+**Documentation**: See `docs/TEMPO_TRACKING_FEATURE.md` for full architecture, payload examples, and phased rollout details.
+
+---
+
 ### PR Analyzers should post reviews, not update PR body
 
 **Goal**: Migrate analyzer verdicts from PR body updates (`update_issue`) to proper PR review comments (`add_comment` or `submit-pull-request-review`), keeping the PR body clean.
+
+

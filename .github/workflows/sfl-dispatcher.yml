@@ -14,6 +14,8 @@ name: "SFL Dispatcher"
 
 on:
   workflow_dispatch:
+  issues:
+    types: [labeled]
 
 permissions:
   contents: read
@@ -27,6 +29,9 @@ concurrency:
 
 jobs:
   dispatch:
+    if: >-
+      github.event_name != 'issues' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'agent:fixable')
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}

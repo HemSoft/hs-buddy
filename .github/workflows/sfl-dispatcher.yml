@@ -18,6 +18,8 @@ on:
   workflow_dispatch:
   issues:
     types: [labeled]
+  pull_request:
+    types: [labeled]
 
 permissions:
   contents: read
@@ -32,8 +34,17 @@ concurrency:
 jobs:
   dispatch:
     if: >-
-      github.event_name != 'issues' ||
-      (github.event.action == 'labeled' && github.event.label.name == 'agent:fixable')
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'agent:fixable') ||
+      (github.event_name == 'pull_request' && github.event.action == 'labeled' && (
+        github.event.label.name == 'agent:pr' ||
+        github.event.label.name == 'review:a-done' ||
+        github.event.label.name == 'review:b-done' ||
+        github.event.label.name == 'review:c-done' ||
+        startsWith(github.event.label.name, 'pr:cycle-') ||
+        github.event.label.name == 'human:ready-for-review'
+      ))
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}

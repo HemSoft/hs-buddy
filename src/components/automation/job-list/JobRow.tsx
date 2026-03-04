@@ -20,14 +20,14 @@ export interface JobRowProps {
   onContextMenu: (e: React.MouseEvent, job: Job) => void
 }
 
-export function getWorkerIcon(workerType: 'exec' | 'ai' | 'skill') {
+export function getWorkerIcon(workerType: 'exec' | 'ai' | 'skill', size = 16) {
   switch (workerType) {
     case 'exec':
-      return <Terminal size={16} className="worker-icon worker-exec" />
+      return <Terminal size={size} className="worker-icon worker-exec" />
     case 'ai':
-      return <Brain size={16} className="worker-icon worker-ai" />
+      return <Brain size={size} className="worker-icon worker-ai" />
     case 'skill':
-      return <Zap size={16} className="worker-icon worker-skill" />
+      return <Zap size={size} className="worker-icon worker-skill" />
   }
 }
 

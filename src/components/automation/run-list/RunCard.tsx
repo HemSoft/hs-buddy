@@ -6,15 +6,13 @@ import {
   ChevronDown,
   ChevronRight,
   Ban,
-  Terminal,
-  Brain,
-  Zap,
   Play,
   User,
   Calendar,
   RefreshCw,
 } from 'lucide-react'
 import { formatDistanceToNow, format } from '../../../utils/dateUtils'
+import { getWorkerIcon } from '../job-list/JobRow'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 type TriggerType = 'manual' | 'schedule' | 'api'
@@ -80,17 +78,6 @@ function getTriggerIcon(triggeredBy: TriggerType) {
   }
 }
 
-function getWorkerIcon(workerType: 'exec' | 'ai' | 'skill') {
-  switch (workerType) {
-    case 'exec':
-      return <Terminal size={14} className="worker-icon worker-exec" />
-    case 'ai':
-      return <Brain size={14} className="worker-icon worker-ai" />
-    case 'skill':
-      return <Zap size={14} className="worker-icon worker-skill" />
-  }
-}
-
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
@@ -138,7 +125,7 @@ export function RunCard({ run, isExpanded, onToggle, onCancel }: any) {
           <div className="run-card-title">
             {run.job ? (
               <>
-                {getWorkerIcon(run.job.workerType)}
+                {getWorkerIcon(run.job.workerType, 14)}
                 <span className="run-job-name">{run.job.name}</span>
               </>
             ) : (

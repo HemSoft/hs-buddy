@@ -2,26 +2,12 @@ import { useMemo } from 'react'
 import { CheckCircle2, Clock, ExternalLink, Loader2, RefreshCcw, Sparkles, XCircle } from 'lucide-react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { usePRReviewRunsByPR } from '../hooks/useConvex'
+import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { formatDateCompact } from '../utils/dateUtils'
 import './PRReviewsPanel.css'
 
 interface PRReviewsPanelProps {
   pr: PRDetailInfo
-}
-
-function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
-  if (!match || !match[1] || !match[2]) return null
-  return { owner: match[1], repo: match[2] }
-}
-
-function formatDate(timestamp: number | undefined): string {
-  if (!timestamp) return '—'
-  return new Date(timestamp).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }
 
 export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
@@ -107,7 +93,7 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
           </div>
           <div className="pr-reviews-latest-row">
             <span className="pr-reviews-label">Run time</span>
-            <span className="pr-reviews-value">{formatDate(latest.createdAt)}</span>
+            <span className="pr-reviews-value">{formatDateCompact(latest.createdAt)}</span>
           </div>
         </div>
       )}
@@ -126,7 +112,7 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
             <div key={run._id} className="pr-reviews-item">
               <div className="pr-reviews-item-main">
                 <span className={`pr-reviews-pill ${run.status}`}>{run.status}</span>
-                <span className="pr-reviews-item-time">{formatDate(run.createdAt)}</span>
+                <span className="pr-reviews-item-time">{formatDateCompact(run.createdAt)}</span>
                 {run.reviewedHeadSha && (
                   <span className="pr-reviews-item-sha mono">{run.reviewedHeadSha.slice(0, 12)}</span>
                 )}

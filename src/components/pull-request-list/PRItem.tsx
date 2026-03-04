@@ -12,7 +12,7 @@ import {
 import type { PullRequest } from '../../types/pullRequest'
 import { formatDistanceToNow } from '../../utils/dateUtils'
 
-export interface PRItemProps {
+interface PRItemProps {
   pr: PullRequest
   mode: string
   approving: string | null

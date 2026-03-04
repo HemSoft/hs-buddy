@@ -4,9 +4,10 @@ import { GitHubClient, type ProgressCallback } from '../../api/github'
 import { useGitHubAccounts, usePRSettings } from '../../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConvex'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
+import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
 import { dataCache } from '../../services/dataCache'
 
-export interface LoadingProgress {
+interface LoadingProgress {
   currentAccount: number
   totalAccounts: number
   accountName: string
@@ -15,12 +16,6 @@ export interface LoadingProgress {
   prsFound?: number
   totalPrsFound: number
   error?: string
-}
-
-function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
-  if (!match || !match[1] || !match[2]) return null
-  return { owner: match[1], repo: match[2] }
 }
 
 export function usePRListData(

@@ -14,6 +14,7 @@ import {
   type RepoPullRequest,
 } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
+import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
 import type { PullRequest } from '../../../types/pullRequest'
 
 export interface SidebarItem {
@@ -41,12 +42,6 @@ function mapRepoPRToPullRequest(pr: RepoPullRequest, org: string): PullRequest {
     date: pr.updatedAt || pr.createdAt,
     org,
   }
-}
-
-function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
-  if (!match || !match[1] || !match[2]) return null
-  return { owner: match[1], repo: match[2] }
 }
 
 export function useGitHubSidebarData() {

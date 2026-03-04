@@ -12,6 +12,7 @@ import {
   Copy,
 } from 'lucide-react'
 import { useCopilotResult, useCopilotResultMutations } from '../hooks/useConvex'
+import { formatDateFull, formatDuration } from '../utils/dateUtils'
 import type { Id } from '../../convex/_generated/dataModel'
 import './CopilotResultPanel.css'
 
@@ -80,22 +81,6 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     }
   }
 
-  const formatDuration = (ms: number) => {
-    if (ms < 1000) return `${ms}ms`
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-    return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
-  }
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  }
-
   const handleCopy = async () => {
     if (result.result) {
       await navigator.clipboard.writeText(result.result)
@@ -137,7 +122,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
               {result.model && (
                 <span className="copilot-result-model">{result.model}</span>
               )}
-              <span className="copilot-result-date">{formatDate(result.createdAt)}</span>
+              <span className="copilot-result-date">{formatDateFull(result.createdAt)}</span>
               {result.duration && (
                 <span className="copilot-result-duration">
                   {formatDuration(result.duration)}

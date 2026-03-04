@@ -1,6 +1,7 @@
-import { Terminal, Brain, Zap, Play, Edit, Copy, Trash2, Clock, Calendar } from 'lucide-react'
+import { Play, Edit, Copy, Trash2, Clock, Calendar } from 'lucide-react'
 import { useJob, useJobMutations, useRunMutations, useJobRuns, JobId } from '../../hooks/useConvex'
 import { formatDistanceToNow } from '../../utils/dateUtils'
+import { getWorkerIcon } from './job-list/JobRow'
 import { useState } from 'react'
 import { JobEditor } from './JobEditor'
 import './JobDetailPanel.css'
@@ -37,15 +38,6 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
         </div>
       </div>
     )
-  }
-
-  const getWorkerIcon = (workerType: string) => {
-    switch (workerType) {
-      case 'exec': return <Terminal size={16} className="worker-icon worker-exec" />
-      case 'ai': return <Brain size={16} className="worker-icon worker-ai" />
-      case 'skill': return <Zap size={16} className="worker-icon worker-skill" />
-      default: return null
-    }
   }
 
   const getWorkerLabel = (workerType: string) => {

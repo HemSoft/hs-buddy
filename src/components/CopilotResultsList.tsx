@@ -10,6 +10,7 @@ import {
   Filter,
 } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotResultMutations } from '../hooks/useConvex'
+import { formatDateCompact, formatDuration } from '../utils/dateUtils'
 import './CopilotResultsList.css'
 
 interface CopilotResultsListProps {
@@ -48,21 +49,6 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
       default:
         return null
     }
-  }
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  }
-
-  const formatDuration = (ms: number) => {
-    if (ms < 1000) return `${ms}ms`
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-    return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
   }
 
   const handleDelete = async (e: React.MouseEvent, resultId: string) => {
@@ -161,7 +147,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
                       {r.duration ? formatDuration(r.duration) : '—'}
                     </td>
                     <td className="result-date-cell">
-                      {formatDate(r.createdAt)}
+                      {formatDateCompact(r.createdAt)}
                     </td>
                     <td className="result-actions-cell">
                       {r.category === 'pr-review' && !!metadata?.prUrl && (

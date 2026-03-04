@@ -6,7 +6,8 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import type { PRDetailSection } from '../utils/prDetailView'
 import type { PRHistorySummary } from '../api/github'
-import { formatDistanceToNow } from '../utils/dateUtils'
+import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
+import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRThreadsPanel } from './PRThreadsPanel'
 import { PRReviewsPanel } from './PRReviewsPanel'
@@ -17,26 +18,9 @@ interface PullRequestDetailPanelProps {
   section?: PRDetailSection | null
 }
 
-function formatDate(date: string | null): string {
-  if (!date) return 'N/A'
-  return new Date(date).toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
 function formatRelative(date: string | null): string {
   if (!date) return ''
   return formatDistanceToNow(date)
-}
-
-function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
-  if (!match || !match[1] || !match[2]) return null
-  return { owner: match[1], repo: match[2] }
 }
 
 export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetailPanelProps) {
@@ -231,7 +215,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
                 Created
                 {createdRelative && <span className="pr-detail-meta-relative">({createdRelative})</span>}
               </div>
-              <div className="pr-detail-meta-value">{formatDate(pr.created)}</div>
+              <div className="pr-detail-meta-value">{formatDateFull(pr.created)}</div>
             </div>
             <div className="pr-detail-meta-item">
               <div className="pr-detail-meta-label">
@@ -239,7 +223,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
                 Last Activity
                 {activityRelative && <span className="pr-detail-meta-relative">({activityRelative})</span>}
               </div>
-              <div className="pr-detail-meta-value">{formatDate(activityAt)}</div>
+              <div className="pr-detail-meta-value">{formatDateFull(activityAt)}</div>
             </div>
           </div>
         </>

@@ -122,3 +122,29 @@ export function format(date: number | Date, formatStr: string): string {
   return result
 }
 
+export function formatDateFull(date: string | number | null | undefined): string {
+  if (date == null) return 'N/A'
+  return new Date(date).toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+export function formatDateCompact(date: string | number | null | undefined): string {
+  if (date == null) return '—'
+  return new Date(date).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
+}

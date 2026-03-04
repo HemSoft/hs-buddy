@@ -4,7 +4,8 @@ import { GitHubClient, type PRHistorySummary } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
-import { formatDistanceToNow } from '../utils/dateUtils'
+import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
+import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import './PullRequestHistoryPanel.css'
 
 interface PullRequestHistoryPanelProps {
@@ -14,25 +15,7 @@ interface PullRequestHistoryPanelProps {
   onLoaded?: (history: PRHistorySummary) => void
 }
 
-function formatDate(date: string | null): string {
-  if (!date) return 'N/A'
-  return new Date(date).toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
 
-function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
-  if (!match || !match[1] || !match[2]) {
-    return null
-  }
-
-  return { owner: match[1], repo: match[2] }
-}
 
 export function PullRequestHistoryPanel({
   pr,
@@ -143,15 +126,15 @@ export function PullRequestHistoryPanel({
           <div className="pr-history-grid">
             <div className="pr-history-card">
               <div className="label">Created</div>
-              <div className="value">{formatDate(history.createdAt)}</div>
+              <div className="value">{formatDateFull(history.createdAt)}</div>
             </div>
             <div className="pr-history-card">
               <div className="label">Last Updated</div>
-              <div className="value">{formatDate(history.updatedAt)}</div>
+              <div className="value">{formatDateFull(history.updatedAt)}</div>
             </div>
             <div className="pr-history-card">
               <div className="label">Merged</div>
-              <div className="value">{formatDate(history.mergedAt)}</div>
+              <div className="value">{formatDateFull(history.mergedAt)}</div>
             </div>
           </div>
 
@@ -264,7 +247,7 @@ export function PullRequestHistoryPanel({
                   <span className="timeline-dot">•</span>
                   <span className="timeline-author">{event.author}</span>
                   <span className="timeline-dot">•</span>
-                  <span className="timeline-time" title={formatDate(event.occurredAt)}>
+                  <span className="timeline-time" title={formatDateFull(event.occurredAt)}>
                     {formatDistanceToNow(event.occurredAt)}
                   </span>
                 </div>

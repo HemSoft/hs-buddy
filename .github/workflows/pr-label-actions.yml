@@ -21,7 +21,7 @@ jobs:
         if: github.event_name != 'pull_request'
         id: find
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
           PR=$(gh pr list --repo ${{ github.repository }} --state open --draft --label "human:ready-for-review" --json number --jq '.[0].number // empty')
           echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
@@ -30,7 +30,7 @@ jobs:
           (github.event_name == 'pull_request')
           || (github.event_name != 'pull_request' && steps.find.outputs.pr_number != '')
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             PR_NUM="${{ github.event.pull_request.number }}"

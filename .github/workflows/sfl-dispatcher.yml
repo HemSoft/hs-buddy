@@ -6,9 +6,8 @@
 #   - PR Fixer: when draft PRs with agent:pr AND all 3 analyzer markers exist
 #   - PR Promoter: when draft PRs are ready for promotion OR approved PRs await merge
 #
-# PR Analyzers A/B/C are event-driven (pull_request: opened) and not dispatched here.
-#
-# This eliminates no-op Copilot inference calls.
+# PR Analyzers A/B/C are primarily event-driven, but dispatcher can re-dispatch
+# missing analyzers when marker state is incomplete.
 
 name: "SFL Dispatcher"
 
@@ -128,6 +127,7 @@ jobs:
           if [ "$COUNT" -eq 0 ]; then
             echo "No eligible draft PRs — skipping analyzers and fixer."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+            echo "missing_analyzers=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -149,12 +149,14 @@ jobs:
 
           # Check for all 3 analyzer markers at current cycle
           ALL_MARKERS=true
+          MISSING_ANALYZERS=()
           for ANALYZER in a b c; do
             if ! grep -qF "[MARKER:sfl-analyzer-$ANALYZER cycle:$CYCLE]" "$PR_BODY_FILE"; then
               ALL_MARKERS=false
-              break
+              MISSING_ANALYZERS+=("$ANALYZER")
             fi
           done
+          echo "missing_analyzers=${MISSING_ANALYZERS[*]}" >> "$GITHUB_OUTPUT"
 
           # Determine state: fixer done? analyzers done? needs re-analysis?
           if grep -qF "[MARKER:pr-fixer cycle:$CYCLE]" "$PR_BODY_FILE"; then
@@ -185,25 +187,11 @@ jobs:
               echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
               echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
             fi
-          elif [ "$CYCLE" -gt 0 ]; then
-            # Cycle > 0 with no analyzer markers — check if previous cycle was fixed
-            PREV=$((CYCLE - 1))
-            if grep -qF "[MARKER:pr-fixer cycle:$PREV]" "$PR_BODY_FILE"; then
-              echo "PR #$PR_NUMBER at cycle $CYCLE needs re-analysis (fixer completed cycle $PREV)."
-              echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
-              echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
-              echo "analyzers_needed=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE — fixer not ready."
-              echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
-              echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
-              echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
-            fi
           else
-            echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE — waiting for analyzers."
+            echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE (${MISSING_ANALYZERS[*]}) — dispatching missing analyzers."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
             echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
-            echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
+            echo "analyzers_needed=true" >> "$GITHUB_OUTPUT"
           fi
 
           rm -f "$PR_BODY_FILE"
@@ -217,10 +205,17 @@ jobs:
       - name: Dispatch PR Analyzers (re-analysis after fixer)
         if: steps.prs.outputs.analyzers_needed == 'true'
         run: |
-          echo "Dispatching all 3 PR Analyzers for re-analysis..."
-          gh workflow run sfl-analyzer-a.lock.yml --repo "$REPO"
-          gh workflow run sfl-analyzer-b.lock.yml --repo "$REPO"
-          gh workflow run sfl-analyzer-c.lock.yml --repo "$REPO"
+          set -euo pipefail
+          MISSING="${{ steps.prs.outputs.missing_analyzers }}"
+          if [ -z "$MISSING" ]; then
+            echo "Analyzer dispatch requested but no missing analyzers were reported."
+            exit 0
+          fi
+
+          echo "Dispatching missing analyzer(s): $MISSING"
+          for ANALYZER in $MISSING; do
+            gh workflow run "sfl-analyzer-$ANALYZER.lock.yml" --repo "$REPO"
+          done
 
       - name: Dispatch PR Fixer
         if: steps.prs.outputs.fixer_ready == 'true'
@@ -285,7 +280,7 @@ jobs:
           fi
 
           if [ "${{ steps.prs.outputs.analyzers_needed }}" = "true" ]; then
-            echo "| PR Analyzers A/B/C | Yes (re-analysis after fixer) |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| PR Analyzers A/B/C | Yes (missing markers: ${{ steps.prs.outputs.missing_analyzers }}) |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "| PR Analyzers A/B/C | No (not needed) |" >> "$GITHUB_STEP_SUMMARY"
           fi

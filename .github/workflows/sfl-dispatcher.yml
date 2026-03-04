@@ -13,6 +13,9 @@
 name: "SFL Dispatcher"
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
@@ -36,6 +39,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
+      github.event_name == 'push' ||
       (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'agent:fixable') ||
       (github.event_name == 'pull_request' && github.event.action == 'labeled' && (
         github.event.label.name == 'agent:pr' ||

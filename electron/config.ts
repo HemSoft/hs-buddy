@@ -193,6 +193,14 @@ class ConfigManager {
     this.store.set('ui.showBookmarkedOnly', value);
   }
 
+  getAssistantOpen(): boolean {
+    return this.store.get('ui.assistantOpen', false);
+  }
+
+  setAssistantOpen(value: boolean): void {
+    this.store.set('ui.assistantOpen', value);
+  }
+
   // PR Settings
   getPRRefreshInterval(): number {
     return this.store.get('pr.refreshInterval', 15);

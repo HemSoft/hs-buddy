@@ -9,6 +9,7 @@ import { ScheduleEditor, JobEditor } from './components/automation'
 import { StatusBar } from './components/StatusBar'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { AppContentRouter } from './components/AppContentRouter'
+import { AssistantPanel } from './components/AssistantPanel'
 import { getViewLabel } from './components/appContentViewLabels'
 import type { PRReviewInfo } from './components/PRReviewPanel'
 import { useSchedules, useJobs, useBuddyStatsMutations } from './hooks/useConvex'
@@ -17,6 +18,7 @@ import { usePrefetch } from './hooks/usePrefetch'
 import { useBackgroundStatus } from './hooks/useBackgroundStatus'
 import { useAppAppearance } from './hooks/useAppAppearance'
 import { usePRSidebarBadges } from './hooks/usePRSidebarBadges'
+import { useAssistantContext } from './hooks/useAssistantContext'
 import { GitHubClient } from './api/github'
 import './App.css'
 
@@ -33,6 +35,9 @@ function App() {
   // Pane sizes (persisted to electron-store via IPC)
   const [paneSizes, setPaneSizes] = useState<number[]>([300, 900])
   const paneSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Assistant panel toggle state (persisted to electron-store)
+  const [assistantOpen, setAssistantOpen] = useState(false)
 
   // Get schedule and job counts from Convex for status bar
   const schedules = useSchedules()
@@ -115,21 +120,36 @@ function App() {
       .then((sizes: number[]) => {
         if (
           Array.isArray(sizes) &&
-          sizes.length === 2 &&
+          sizes.length >= 2 &&
           sizes.every(n => typeof n === 'number' && n > 0)
         ) {
-          setPaneSizes(sizes)
+          // Gracefully handle migration from 2-element to 3-element array
+          if (sizes.length === 2) {
+            setPaneSizes([sizes[0], sizes[1], 350])
+          } else {
+            setPaneSizes(sizes)
+          }
         }
       })
       .catch(() => {
         // Use default sizes on error
       })
+
+    // Load assistant open state
+    window.ipcRenderer
+      .invoke('config:get-assistant-open')
+      .then((open: boolean) => {
+        if (typeof open === 'boolean') {
+          setAssistantOpen(open)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // Save pane sizes when changed (debounced)
   const handlePaneChange = useCallback((sizes: number[]) => {
-    // Only save if we have valid sizes
-    if (sizes.length === 2 && sizes.every(s => s > 0)) {
+    // Only save if we have valid sizes (2 or 3 panes)
+    if (sizes.length >= 2 && sizes.every(s => s > 0)) {
       setPaneSizes(sizes)
       // Debounce saving to electron-store
       if (paneSaveTimeoutRef.current) {
@@ -261,6 +281,38 @@ function App() {
   const activeTab = tabs.find(t => t.id === activeTabId)
   const activeViewId = activeTab?.viewId || null
 
+  // Assistant context derived from active view
+  const assistantContext = useAssistantContext(activeViewId)
+
+  // Toggle assistant panel
+  const toggleAssistant = useCallback(() => {
+    setAssistantOpen(prev => {
+      const next = !prev
+      window.ipcRenderer.invoke('config:set-assistant-open', next).catch(() => {})
+      return next
+    })
+  }, [])
+
+  // Listen for IPC 'toggle-assistant' from main process (Ctrl+Shift+A shortcut)
+  useEffect(() => {
+    window.ipcRenderer.on('toggle-assistant', toggleAssistant)
+    return () => {
+      window.ipcRenderer.off('toggle-assistant', toggleAssistant)
+    }
+  }, [toggleAssistant])
+
+  // Keyboard shortcut fallback: Ctrl+Shift+A to toggle assistant
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault()
+        toggleAssistant()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [toggleAssistant])
+
   // Show loading screen while migration is in progress
   const showLoading = migrationLoading && !migrationComplete
 
@@ -273,7 +325,7 @@ function App() {
 
   return (
     <div className="app">
-      <TitleBar />
+      <TitleBar assistantOpen={assistantOpen} onToggleAssistant={toggleAssistant} />
       {showLoading ? (
         <div
           className="app-body"
@@ -321,6 +373,11 @@ function App() {
                 </div>
               </div>
             </Allotment.Pane>
+            {assistantOpen && (
+              <Allotment.Pane minSize={280} maxSize={600} preferredSize={paneSizes[2] || 350}>
+                <AssistantPanel context={assistantContext} />
+              </Allotment.Pane>
+            )}
           </Allotment>
         </div>
       )}
@@ -331,6 +388,7 @@ function App() {
         activeGitHubAccount={activeGitHubAccount}
         backgroundStatus={backgroundStatus}
         onNavigate={openTab}
+        assistantActive={assistantOpen}
       />
       {/* App-level Job Editor modal (triggered from sidebar "New Job") */}
       {jobEditorOpen && (

@@ -130,6 +130,17 @@ export function registerConfigHandlers(): void {
     return { success: true }
   })
 
+  // Assistant Open
+  ipcMain.handle('config:get-assistant-open', () => {
+    return configManager.getAssistantOpen()
+  })
+
+  ipcMain.handle('config:set-assistant-open', (_event, value) => {
+    if (typeof value !== 'boolean') return { success: false }
+    configManager.setAssistantOpen(value)
+    return { success: true }
+  })
+
   // Schedule Forecast Days
   ipcMain.handle('config:get-schedule-forecast-days', () => {
     return configManager.getScheduleForecastDays()

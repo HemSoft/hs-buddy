@@ -98,6 +98,11 @@ export function registerKeyboardShortcuts(win: BrowserWindow): void {
       saveZoomLevel(1.0)
       event.preventDefault()
     }
+    // Ctrl/Cmd + Shift + A: Toggle Assistant
+    else if (ctrlOrCmd && input.shift && input.key === 'A') {
+      win.webContents.send('toggle-assistant')
+      event.preventDefault()
+    }
     // F11: Toggle Fullscreen
     else if (input.key === 'F11') {
       win.setFullScreen(!win.isFullScreen())

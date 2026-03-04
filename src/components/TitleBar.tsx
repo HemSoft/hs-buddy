@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Users } from 'lucide-react'
+import { Users, Sparkles } from 'lucide-react'
 import { AboutModal } from './AboutModal'
 import './TitleBar.css'
 
@@ -16,7 +16,12 @@ interface Menu {
   items: MenuItem[]
 }
 
-export function TitleBar() {
+interface TitleBarProps {
+  assistantOpen?: boolean
+  onToggleAssistant?: () => void
+}
+
+export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showAbout, setShowAbout] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
@@ -145,6 +150,13 @@ export function TitleBar() {
         <span className="title-version">V0.1.267</span>
       </div>
       <div className="window-controls">
+        <button
+          className={`window-control-button copilot-toggle-button ${assistantOpen ? 'active' : ''}`}
+          onClick={onToggleAssistant}
+          title="Toggle Copilot Assistant (Ctrl+Shift+A)"
+        >
+          <Sparkles size={14} />
+        </button>
         <button className="window-control-button" onClick={handleMinimize} title="Minimize">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <rect y="9" width="10" height="1" fill="currentColor" />

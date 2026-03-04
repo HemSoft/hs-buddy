@@ -71,6 +71,15 @@
   color: var(--accent-primary-hover, #1a8cff);
 }
 
+.status-item-copilot {
+  color: #ffd700;
+  font-weight: 500;
+}
+
+.status-item-copilot:hover {
+  color: #ffe44d;
+}
+
 .status-item-github-account {
   color: var(--accent-green, #4ec9b0);
   font-weight: 500;

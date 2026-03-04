@@ -193,3 +193,17 @@
   background-color: #e81123;
   color: #ffffff;
 }
+
+.copilot-toggle-button {
+  color: var(--text-secondary) !important;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.copilot-toggle-button:hover {
+  color: #ffd700 !important;
+}
+
+.copilot-toggle-button.active {
+  color: #ffd700 !important;
+  background-color: rgba(255, 215, 0, 0.1) !important;
+}

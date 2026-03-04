@@ -45,6 +45,7 @@ export interface AppConfig {
     paneSizes: number[];
     displayId: number; // Electron display ID for multi-monitor tracking
     showBookmarkedOnly: boolean; // Filter org repos to bookmarked only
+    assistantOpen: boolean; // Whether the Copilot Assistant pane is open
   };
   pr: {
     refreshInterval: number; // minutes
@@ -167,8 +168,12 @@ export const configSchema: Schema<AppConfig> = {
         type: 'boolean',
         default: false,
       },
+      assistantOpen: {
+        type: 'boolean',
+        default: false,
+      },
     },
-    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'statusBarBg', 'statusBarFg', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes', 'displayId', 'showBookmarkedOnly'],
+    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'statusBarBg', 'statusBarFg', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes', 'displayId', 'showBookmarkedOnly', 'assistantOpen'],
   },
   pr: {
     type: 'object',
@@ -249,6 +254,7 @@ export const defaultConfig: AppConfig = {
     paneSizes: [300, 900],
     displayId: 0,
     showBookmarkedOnly: false,
+    assistantOpen: false,
   },
   pr: {
     refreshInterval: 15,

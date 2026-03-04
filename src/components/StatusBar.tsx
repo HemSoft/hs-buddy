@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { GitPullRequest, Calendar, Clock, Bot, Zap, User, RefreshCw, CheckCircle2 } from 'lucide-react'
+import { GitPullRequest, Calendar, Clock, Bot, Zap, User, RefreshCw, CheckCircle2, Sparkles } from 'lucide-react'
 import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
 import './StatusBar.css'
 
@@ -10,6 +10,7 @@ interface StatusBarProps {
   activeGitHubAccount?: string | null
   backgroundStatus?: BackgroundStatus
   onNavigate?: (viewId: string) => void
+  assistantActive?: boolean
 }
 
 export function StatusBar({
@@ -19,6 +20,7 @@ export function StatusBar({
   activeGitHubAccount,
   backgroundStatus,
   onNavigate,
+  assistantActive,
 }: StatusBarProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -155,6 +157,16 @@ export function StatusBar({
       </div>
 
       <div className="status-bar-center">
+        {/* Copilot Assistant indicator */}
+        {assistantActive && (
+          <div className="status-item status-item-copilot" data-tooltip="Copilot Assistant active">
+            <span className="status-icon">
+              <Sparkles size={12} />
+            </span>
+            <span className="status-text">Copilot</span>
+          </div>
+        )}
+
         {/* Buddy branding */}
         <div className="status-item status-item-brand" data-tooltip="hs-buddy">
           <span className="status-icon">

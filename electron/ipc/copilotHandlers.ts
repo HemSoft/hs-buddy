@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { getCopilotService } from '../services/copilotService'
+import { sendChatMessage, abortChat, clearChatHistory } from '../services/copilotClient'
 
 /**
  * IPC handlers for Copilot SDK integration.
@@ -56,5 +57,31 @@ export function registerCopilotHandlers(): void {
       console.error('[CopilotHandlers] listModels failed:', errorMessage)
       return { error: errorMessage }
     }
+  })
+
+  // Chat: send message with context and conversation history
+  ipcMain.handle(
+    'copilot:chat-send',
+    async (_event, args: { message: string; context: string; conversationHistory: Array<{ role: string; content: string }> }) => {
+      try {
+        return await sendChatMessage(args)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error('[CopilotHandlers] chat-send failed:', errorMessage)
+        throw new Error(errorMessage)
+      }
+    }
+  )
+
+  // Chat: abort in-flight response
+  ipcMain.handle('copilot:chat-abort', async () => {
+    abortChat()
+    return { success: true }
+  })
+
+  // Chat: clear conversation history
+  ipcMain.handle('copilot:chat-clear', async () => {
+    clearChatHistory()
+    return { success: true }
   })
 }

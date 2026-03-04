@@ -210,6 +210,62 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
   }
 }
 
+// ── Chat helpers ─────────────────────────────────────────────────────
+
+let chatAbortController: AbortController | null = null
+
+export interface ChatRequest {
+  message: string
+  context: string
+  conversationHistory: Array<{ role: string; content: string }>
+}
+
+/**
+ * Send a chat message with context and conversation history.
+ * Creates a session, sends a prompt with system context prepended, and returns the response.
+ */
+export async function sendChatMessage(request: ChatRequest): Promise<string> {
+  chatAbortController?.abort()
+  chatAbortController = new AbortController()
+
+  // Build the full prompt with context and conversation history
+  const historyText = request.conversationHistory
+    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .join('\n\n')
+
+  const fullPrompt = [
+    request.context,
+    '',
+    historyText ? `Previous conversation:\n${historyText}\n` : '',
+    `User: ${request.message}`,
+    '',
+    'IMPORTANT: Format your response as clean, well-structured Markdown.',
+  ].filter(Boolean).join('\n')
+
+  return sendPrompt({
+    prompt: fullPrompt,
+    timeout: 120_000,
+    signal: chatAbortController.signal,
+  })
+}
+
+/**
+ * Abort in-flight chat response.
+ */
+export function abortChat(): void {
+  if (chatAbortController) {
+    chatAbortController.abort()
+    chatAbortController = null
+  }
+}
+
+/**
+ * Clear chat history (no-op since history is managed client-side).
+ */
+export function clearChatHistory(): void {
+  abortChat()
+}
+
 // ── Utilities ────────────────────────────────────────────────────────────
 
 function rejectAfter(ms: number, message: string): Promise<never> {

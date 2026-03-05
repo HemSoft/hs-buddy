@@ -5,9 +5,6 @@
  * and offline sync for missed schedule catch-up.
  */
 
-export { Dispatcher, getDispatcher } from './dispatcher'
-export { execWorker } from './execWorker'
-export { aiWorker } from './aiWorker'
-export { skillWorker } from './skillWorker'
+export { getDispatcher } from './dispatcher'
 export { runOfflineSync } from './offlineSync'
 export type { Worker, WorkerResult, JobConfig } from './types'

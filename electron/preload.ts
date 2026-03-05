@@ -45,5 +45,4 @@ contextBridge.exposeInMainWorld('copilot', {
   chatSend: (args: { message: string; context: string; conversationHistory: Array<{ role: string; content: string }> }) =>
     ipcRenderer.invoke('copilot:chat-send', args),
   chatAbort: () => ipcRenderer.invoke('copilot:chat-abort'),
-  chatClear: () => ipcRenderer.invoke('copilot:chat-clear'),
 })

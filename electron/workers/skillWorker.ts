@@ -6,11 +6,10 @@
 
 import path from 'node:path'
 import os from 'node:os'
-import { sendPrompt, truncateOutput } from '../services/copilotClient'
+import { sendPrompt, truncateOutput, DEFAULT_MODEL } from '../services/copilotClient'
 import type { Worker, WorkerResult, JobConfig } from './types'
 
 const DEFAULT_TIMEOUT = 120_000
-const DEFAULT_MODEL = 'claude-sonnet-4.5'
 
 /** Skills live under ~/.agents/skills — run the Copilot agent from there */
 const SKILLS_DIR = path.join(os.homedir(), '.agents', 'skills')

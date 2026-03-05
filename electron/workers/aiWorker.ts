@@ -4,11 +4,10 @@
  * Thin wrapper: validates config, delegates to sendPrompt(), returns WorkerResult.
  */
 
-import { sendPrompt, truncateOutput } from '../services/copilotClient'
+import { sendPrompt, truncateOutput, DEFAULT_MODEL } from '../services/copilotClient'
 import type { Worker, WorkerResult, JobConfig } from './types'
 
 const DEFAULT_TIMEOUT = 120_000
-const DEFAULT_MODEL = 'claude-sonnet-4.5'
 
 export const aiWorker: Worker = {
   async execute(config: JobConfig, signal?: AbortSignal): Promise<WorkerResult> {

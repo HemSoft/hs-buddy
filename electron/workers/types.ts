@@ -21,8 +21,6 @@ export interface JobConfig {
   // ai-worker
   prompt?: string
   model?: string
-  maxTokens?: number
-  temperature?: number
   // skill-worker
   skillName?: string
   action?: string

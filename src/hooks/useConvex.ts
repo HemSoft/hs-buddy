@@ -11,11 +11,6 @@ export function useGitHubAccountsConvex() {
   return useQuery(api.githubAccounts.list);
 }
 
-// Get single GitHub account by ID
-export function useGitHubAccount(id: Id<"githubAccounts"> | undefined) {
-  return useQuery(api.githubAccounts.get, id ? { id } : "skip");
-}
-
 // GitHub account mutations
 export function useGitHubAccountMutations() {
   const create = useMutation(api.githubAccounts.create);
@@ -28,33 +23,6 @@ export function useGitHubAccountMutations() {
     update,
     remove,
     bulkImport,
-  };
-}
-
-/**
- * React hooks for Convex Bitbucket workspaces
- */
-
-// List all Bitbucket workspaces
-export function useBitbucketWorkspaces() {
-  return useQuery(api.bitbucketWorkspaces.list);
-}
-
-// Get single Bitbucket workspace by ID
-export function useBitbucketWorkspace(id: Id<"bitbucketWorkspaces"> | undefined) {
-  return useQuery(api.bitbucketWorkspaces.get, id ? { id } : "skip");
-}
-
-// Bitbucket workspace mutations
-export function useBitbucketWorkspaceMutations() {
-  const create = useMutation(api.bitbucketWorkspaces.create);
-  const update = useMutation(api.bitbucketWorkspaces.update);
-  const remove = useMutation(api.bitbucketWorkspaces.remove);
-
-  return {
-    create,
-    update,
-    remove,
   };
 }
 
@@ -91,11 +59,6 @@ export function useSchedules() {
   return useQuery(api.schedules.list);
 }
 
-// List only enabled schedules
-export function useEnabledSchedules() {
-  return useQuery(api.schedules.listEnabled);
-}
-
 // Get single schedule by ID
 export function useSchedule(id: Id<"schedules"> | undefined) {
   return useQuery(api.schedules.get, id ? { id } : "skip");
@@ -128,19 +91,9 @@ export function useJobs() {
   return useQuery(api.jobs.list);
 }
 
-// List jobs by worker type
-export function useJobsByType(workerType: "exec" | "ai" | "skill") {
-  return useQuery(api.jobs.listByType, { workerType });
-}
-
 // Get single job by ID
 export function useJob(id: JobId | undefined) {
   return useQuery(api.jobs.get, id ? { id } : "skip");
-}
-
-// Get job by name
-export function useJobByName(name: string | undefined) {
-  return useQuery(api.jobs.getByName, name ? { name } : "skip");
 }
 
 // Job mutations
@@ -185,11 +138,6 @@ export function useRun(id: Id<"runs"> | undefined) {
   return useQuery(api.runs.get, id ? { id } : "skip");
 }
 
-// List runs by status
-export function useRunsByStatus(status: "pending" | "running" | "completed" | "failed" | "cancelled", limit?: number) {
-  return useQuery(api.runs.listByStatus, { status, limit });
-}
-
 // Run mutations
 export function useRunMutations() {
   const create = useMutation(api.runs.create);
@@ -216,11 +164,6 @@ export function useRunMutations() {
 // List all bookmarks
 export function useRepoBookmarks() {
   return useQuery(api.repoBookmarks.list);
-}
-
-// List bookmarks by folder
-export function useRepoBookmarksByFolder(folder: string | undefined) {
-  return useQuery(api.repoBookmarks.listByFolder, folder ? { folder } : "skip");
 }
 
 // Bookmark mutations
@@ -270,25 +213,6 @@ export function useCopilotResultsRecent(limit?: number) {
 // Get single copilot result by ID
 export function useCopilotResult(id: Id<"copilotResults"> | undefined) {
   return useQuery(api.copilotResults.get, id ? { id } : "skip");
-}
-
-// List copilot results by category
-export function useCopilotResultsByCategory(category: string | undefined, limit?: number) {
-  return useQuery(
-    api.copilotResults.listByCategory,
-    category ? { category, limit } : "skip"
-  );
-}
-
-// List copilot results by status
-export function useCopilotResultsByStatus(
-  status: "pending" | "running" | "completed" | "failed" | undefined,
-  limit?: number
-) {
-  return useQuery(
-    api.copilotResults.listByStatus,
-    status ? { status, limit } : "skip"
-  );
 }
 
 // Count active (pending + running) copilot results — for badges

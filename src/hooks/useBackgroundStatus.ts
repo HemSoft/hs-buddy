@@ -15,8 +15,7 @@ import { useState, useEffect } from 'react'
 import { getTaskQueue } from '../services/taskQueue'
 import { dataCache } from '../services/dataCache'
 import { usePRSettings } from './useConfig'
-
-const PR_MODES = ['my-prs', 'needs-review', 'recently-merged', 'need-a-nudge'] as const
+import { PR_MODES } from '../constants'
 
 export type SyncPhase = 'idle' | 'syncing' | 'error'
 

@@ -13,8 +13,7 @@
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
 import { CronExpressionParser, type CronExpressionOptions } from 'cron-parser'
-
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
+import { CONVEX_URL } from '../config'
 
 interface Schedule {
   _id: string
@@ -132,7 +131,7 @@ async function processSchedule(
         now
       )
 
-      for (let index = 0; index < missed.length; index++) {
+      for (const _ of missed) {
         await client.mutation(api.runs.create, {
           jobId: schedule.jobId as never,
           scheduleId: schedule._id as never,

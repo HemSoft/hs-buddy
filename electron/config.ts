@@ -2,6 +2,9 @@ import Store from 'electron-store';
 import type { AppConfig, GitHubAccount, BitbucketWorkspace } from '../src/types/config';
 import { configSchema, defaultConfig } from '../src/types/config';
 
+/** Shared Convex URL — single source of truth for the main process. */
+export const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
+
 /**
  * Configuration manager using electron-store for persistent storage
  * Stores in userData/config.json (OS-specific location)
@@ -201,48 +204,7 @@ class ConfigManager {
     this.store.set('ui.assistantOpen', value);
   }
 
-  // PR Settings
-  getPRRefreshInterval(): number {
-    return this.store.get('pr.refreshInterval', 15);
-  }
-
-  setPRRefreshInterval(minutes: number): void {
-    this.store.set('pr.refreshInterval', minutes);
-  }
-
-  getPRAutoRefresh(): boolean {
-    return this.store.get('pr.autoRefresh', false);
-  }
-
-  setPRAutoRefresh(enabled: boolean): void {
-    this.store.set('pr.autoRefresh', enabled);
-  }
-
-  getRecentlyMergedDays(): number {
-    return this.store.get('pr.recentlyMergedDays', 7);
-  }
-
-  setRecentlyMergedDays(days: number): void {
-    this.store.set('pr.recentlyMergedDays', days);
-  }
-
-  // Copilot Settings
-  getCopilotGhAccount(): string {
-    return this.store.get('copilot.ghAccount', '');
-  }
-
-  setCopilotGhAccount(account: string): void {
-    this.store.set('copilot.ghAccount', account);
-  }
-
-  getCopilotModel(): string {
-    return this.store.get('copilot.model', 'claude-sonnet-4.5');
-  }
-
-  setCopilotModel(model: string): void {
-    this.store.set('copilot.model', model);
-  }
-
+  // Copilot Settings (PR Review Prompt Template — still used via IPC)
   getCopilotPRReviewPromptTemplate(): string {
     return this.store.get('copilot.prReviewPromptTemplate', '');
   }
@@ -263,10 +225,6 @@ class ConfigManager {
   // Full config access
   getConfig(): AppConfig {
     return this.store.store;
-  }
-
-  setConfig(config: AppConfig): void {
-    this.store.store = config;
   }
 
   // Migration helper from environment variables

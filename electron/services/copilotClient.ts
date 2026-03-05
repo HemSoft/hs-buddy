@@ -15,7 +15,7 @@ import { CopilotClient, type AssistantMessageEvent } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
 
-const DEFAULT_MODEL = 'claude-sonnet-4.5'
+export const DEFAULT_MODEL = 'claude-sonnet-4.5'
 const SESSION_TIMEOUT = 30_000  // 30s for session creation
 const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
 
@@ -143,7 +143,7 @@ export function truncateOutput(text: string, maxSize = MAX_OUTPUT_SIZE): string 
 }
 
 /** Extract the text content from an AssistantMessageEvent */
-export function extractContent(response: AssistantMessageEvent | undefined): string {
+function extractContent(response: AssistantMessageEvent | undefined): string {
   if (!response?.data?.content) return ''
   return typeof response.data.content === 'string'
     ? response.data.content
@@ -257,13 +257,6 @@ export function abortChat(): void {
     chatAbortController.abort()
     chatAbortController = null
   }
-}
-
-/**
- * Clear chat history (no-op since history is managed client-side).
- */
-export function clearChatHistory(): void {
-  abortChat()
 }
 
 // ── Utilities ────────────────────────────────────────────────────────────

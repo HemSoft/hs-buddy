@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { getCopilotService } from '../services/copilotService'
-import { sendChatMessage, abortChat, clearChatHistory } from '../services/copilotClient'
+import { sendChatMessage, abortChat } from '../services/copilotClient'
 
 /**
  * IPC handlers for Copilot SDK integration.
@@ -79,9 +79,4 @@ export function registerCopilotHandlers(): void {
     return { success: true }
   })
 
-  // Chat: clear conversation history
-  ipcMain.handle('copilot:chat-clear', async () => {
-    clearChatHistory()
-    return { success: true }
-  })
 }

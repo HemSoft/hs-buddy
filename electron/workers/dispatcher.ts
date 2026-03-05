@@ -12,9 +12,9 @@ import { execWorker } from './execWorker'
 import { aiWorker } from './aiWorker'
 import { skillWorker } from './skillWorker'
 import type { Worker, JobConfig } from './types'
+import { CONVEX_URL } from '../config'
 
 const POLL_INTERVAL = 10_000 // 10 seconds
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
 
 /** Map worker type → worker implementation */
 const workers: Record<string, Worker> = {

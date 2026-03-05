@@ -18,12 +18,12 @@ import {
   ensureClientStarted,
   sendPrompt,
   restartSharedClient,
+  DEFAULT_MODEL,
 } from './copilotClient'
+import { CONVEX_URL } from '../config'
 
 const execAsync = promisify(exec)
 
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
-const DEFAULT_MODEL = 'claude-sonnet-4.5'
 const HARD_TIMEOUT = 30 * 60_000 // 30 minutes — PR reviews can be lengthy
 
 export interface CopilotPromptRequest {

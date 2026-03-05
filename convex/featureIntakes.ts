@@ -1,3 +1,4 @@
+// Used by SFL workflows via Convex HTTP API, not by the Electron renderer.
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -63,8 +64,8 @@ const sourceToLabel = (source: "jira" | "github-issue" | "manual" | "other"): st
       return "source:github-issue";
     case "manual":
       return "source:manual";
-    default:
-      return "source:manual";
+    case "other":
+      return "source:other";
   }
 };
 

@@ -6,6 +6,7 @@
  */
 
 import { spawn } from 'node:child_process'
+import { truncateOutput } from '../services/copilotClient'
 import type { Worker, WorkerResult, JobConfig } from './types'
 
 const DEFAULT_TIMEOUT = 30_000 // 30 seconds
@@ -29,15 +30,9 @@ function getShellArgs(shell: string): { command: string; args: string[] } {
   }
 }
 
-/** Check if a shell type is PowerShell */
+/** Check if a shell type is PowerShell (any shell that isn't bash or cmd) */
 function isPowerShell(shell: string): boolean {
-  return ['powershell', 'pwsh', 'powershell5'].includes(shell) || !['bash', 'cmd'].includes(shell)
-}
-
-/** Truncate output if it exceeds the max size */
-function truncate(text: string, maxSize: number): string {
-  if (text.length <= maxSize) return text
-  return text.slice(0, maxSize) + `\n\n--- Output truncated (${text.length} chars total) ---`
+  return !['bash', 'cmd'].includes(shell)
 }
 
 export const execWorker: Worker = {
@@ -120,8 +115,8 @@ export const execWorker: Worker = {
         clearTimeout(timer)
         signal?.removeEventListener('abort', onAbort)
 
-        const trimmedStdout = truncate(stdout.trim(), MAX_OUTPUT_SIZE)
-        const trimmedStderr = truncate(stderr.trim(), MAX_OUTPUT_SIZE)
+        const trimmedStdout = truncateOutput(stdout.trim(), MAX_OUTPUT_SIZE)
+        const trimmedStderr = truncateOutput(stderr.trim(), MAX_OUTPUT_SIZE)
 
         if (killed) {
           resolve({

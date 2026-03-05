@@ -1,6 +1,6 @@
 ---
 description: |
-  This workflow runs a daily repository audit to detect documentation drift,
+  This workflow runs a repository audit to detect documentation drift,
   stale artifacts, configuration hygiene issues, and cross-reference mismatches.
   It creates exactly ONE consolidated report discussion with all findings.
 
@@ -33,9 +33,9 @@ safe-outputs:
     max: 1
 ---
 
-# Daily Repo Audit
+# Repo Audit
 
-Run a high-signal daily repository audit. Produce **exactly one Discussion**
+Run a high-signal repository audit. Produce **exactly one Discussion**
 containing all findings. Do NOT create multiple discussions — every finding goes
 into a single consolidated report.
 
@@ -104,7 +104,7 @@ starts with `[repo-audit]`. For each one found, close it using `update_discussio
 
 ## Output — Single Consolidated Issue
 
-Create **exactly one issue** titled `[repo-audit] Daily Repo Audit — <date>`
+Create **exactly one issue** titled `[repo-audit] Repo Audit — <date>`
 with labels `report` and `audit`. This is the ONLY issue this workflow creates.
 
 The issue body must contain:

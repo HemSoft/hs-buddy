@@ -9,7 +9,7 @@
 - The repo has SFL workflows deployed (see [README.md](README.md))
 - Labels are configured via `setup-labels.ps1`
 - The user setting up tokens has **admin** access to the repo
-- **GitHub Discussions is enabled** on the repo — required by `daily-repo-status` and `repo-audit`
+- **GitHub Discussions is enabled** on the repo — required by `daily-repo-status` (SFL Repo Status) and `repo-audit` (Repo Audit)
   workflows, which post reports as Discussions rather than issues.
   Enable it under **Settings → Features → Discussions**. A "General" category must exist
   (created automatically when Discussions is first enabled).

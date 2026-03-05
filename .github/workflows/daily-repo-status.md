@@ -1,6 +1,6 @@
 ---
 description: |
-  This workflow creates daily repo status reports. It gathers recent repository
+  This workflow creates repo status reports. It gathers recent repository
   activity (issues, PRs, discussions, releases, code changes) and generates
   engaging GitHub discussions with productivity insights, community highlights,
   and project recommendations.
@@ -37,11 +37,11 @@ safe-outputs:
 source: githubnext/agentics/workflows/daily-repo-status.md@d19056381ba48cb1f7c78510c23069701fa7ae87
 ---
 
-# Daily Repo Status
+# SFL Repo Status
 
-Create an upbeat daily status report for the repo as a GitHub Discussion.
+Create an upbeat status report for the repo as a GitHub Discussion.
 
-## Step 0 — Close previous daily status reports
+## Step 0 — Close previous status reports
 
 Before creating today's report, search for all **open** discussions whose title
 starts with `[repo-status]`. For each one found, close it using
@@ -70,4 +70,4 @@ This ensures only today's report remains open.
 1. Gather recent activity from the repository
 2. Study the repository, its issues and its pull requests
 3. Create a new GitHub Discussion (category: General) with your findings and insights
-4. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Daily Repo Status | Report | ✅ Created discussion`
+4. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | SFL Repo Status | Report | ✅ Created discussion`

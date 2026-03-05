@@ -27,9 +27,9 @@ That repo contains:
 
 | Workflow | Schedule | Output | Source |
 |----------|----------|--------|--------|
-| `daily-repo-status` | Daily | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `repo-audit` | Daily | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `discussion-processor` | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
+| `daily-repo-status` (`SFL Repo Status`) | Daily | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `repo-audit` (`Repo Audit`) | Daily | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
 | `sfl-dispatcher` | `*/30 * * * *` | Dispatches workflows only when work exists (no Copilot inference) | Local |
 | `sfl-auditor` | `15 * * * *` (hourly) | Repairs issue/PR label discrepancies | Local |
 | `sfl-issue-processor` | Dispatcher-only | Claims `agent:fixable` issue, opens draft PR | Local |
@@ -38,6 +38,7 @@ That repo contains:
 | `sfl-analyzer-c` | `pull_request: opened` | Full-spectrum review comments on draft PRs (Model C) | Local |
 | `pr-fixer` | Dispatcher-only | Implements analyzer fixes on draft PRs, increments cycle | Local |
 | `pr-promoter` | Dispatcher-only | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label. Merges approved PRs per Merge Authority Matrix (squash + delete branch). | Local |
+| `pr-label-actions` (`SFL PR Label Actions`) | `pull_request: labeled` / Dispatcher | Label-driven ready-for-review flip automation | Local |
 
 ---
 

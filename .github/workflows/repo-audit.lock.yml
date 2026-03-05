@@ -21,13 +21,13 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# This workflow runs a daily repository audit to detect documentation drift,
+# This workflow runs a repository audit to detect documentation drift,
 # stale artifacts, configuration hygiene issues, and cross-reference mismatches.
 # It creates exactly ONE consolidated report discussion with all findings.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"e23667eba4b0732d9866af9f907986337e7e46b0b5a574b056e197e53cc9bf77","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ac26cbebfd45e1cc9a33c2ab93787548d86d9517531bbae9107650dcf0e32ed7","compiler_version":"v0.50.4"}
 
-name: "Daily Repo Audit"
+name: "Repo Audit"
 "on":
   schedule:
   - cron: "49 2 * * *"
@@ -39,7 +39,7 @@ permissions: {}
 concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
-run-name: "Daily Repo Audit"
+run-name: "Repo Audit"
 
 jobs:
   activation:
@@ -281,7 +281,7 @@ jobs:
               version: "",
               agent_version: "0.0.417",
               cli_version: "v0.50.4",
-              workflow_name: "Daily Repo Audit",
+              workflow_name: "Repo Audit",
               experimental: false,
               supports_tools_allowlist: true,
               run_id: context.runId,
@@ -904,8 +904,8 @@ jobs:
         if: always() && steps.detection_guard.outputs.run_detection == 'true'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          WORKFLOW_NAME: "Daily Repo Audit"
-          WORKFLOW_DESCRIPTION: "This workflow runs a daily repository audit to detect documentation drift,\nstale artifacts, configuration hygiene issues, and cross-reference mismatches.\nIt creates exactly ONE consolidated report discussion with all findings."
+          WORKFLOW_NAME: "Repo Audit"
+          WORKFLOW_DESCRIPTION: "This workflow runs a repository audit to detect documentation drift,\nstale artifacts, configuration hygiene issues, and cross-reference mismatches.\nIt creates exactly ONE consolidated report discussion with all findings."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |
@@ -1021,7 +1021,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: "1"
-          GH_AW_WORKFLOW_NAME: "Daily Repo Audit"
+          GH_AW_WORKFLOW_NAME: "Repo Audit"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -1034,7 +1034,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Daily Repo Audit"
+          GH_AW_WORKFLOW_NAME: "Repo Audit"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -1047,7 +1047,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Daily Repo Audit"
+          GH_AW_WORKFLOW_NAME: "Repo Audit"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_WORKFLOW_ID: "repo-audit"
@@ -1068,7 +1068,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Daily Repo Audit"
+          GH_AW_WORKFLOW_NAME: "Repo Audit"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
@@ -1094,7 +1094,7 @@ jobs:
     env:
       GH_AW_ENGINE_ID: "copilot"
       GH_AW_WORKFLOW_ID: "repo-audit"
-      GH_AW_WORKFLOW_NAME: "Daily Repo Audit"
+      GH_AW_WORKFLOW_NAME: "Repo Audit"
     outputs:
       code_push_failure_count: ${{ steps.process_safe_outputs.outputs.code_push_failure_count }}
       code_push_failure_errors: ${{ steps.process_safe_outputs.outputs.code_push_failure_errors }}

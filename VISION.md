@@ -437,8 +437,8 @@ Once Buddy Workflows is stable:
 The operating model itself lives in **[relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop)**.
 Buddy's role here is to run the loop and dogfood the governance standard.
 
-- [x] `daily-repo-status` workflow deployed and running
-- [x] `repo-audit` workflow deployed and running
+- [x] `daily-repo-status` (`SFL Repo Status`) workflow deployed and running
+- [x] `repo-audit` (`Repo Audit`) workflow deployed and running
 - [x] Governance labels configured via `setup-labels.ps1`
 - [x] `featureIntakes` Convex table for intake normalization
 - [ ] `issue-to-pr-fixer` workflow — deploy from SFL catalog when ready

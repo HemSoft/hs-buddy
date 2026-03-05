@@ -40,7 +40,7 @@ safe-outputs:
     max: 1
 ---
 
-# Discussion Processor
+# SFL Discussion Processor
 
 When a discussion is labeled, read it, group its agent-fixable findings
 into coherent issues, and mark the discussion as processed.
@@ -52,12 +52,12 @@ not `report`. If the label is `report`, exit immediately — this discussion
 was already processed.
 
 **Re-trigger guard:** Read the discussion body and check whether it already
-contains the text `Processed by Discussion Processor`. If it does, exit
+contains the text `Processed by SFL Discussion Processor`. If it does, exit
 immediately — this discussion was already processed. Do NOT create duplicate
 issues.
 
 If triggered manually (`workflow_dispatch`), search for the **oldest open**
-discussion whose body does NOT contain `Processed by Discussion Processor`
+discussion whose body does NOT contain `Processed by SFL Discussion Processor`
 and does NOT have the `report` label. If none exists, exit — nothing to do.
 
 ## Step 2 — Read and parse the discussion body
@@ -143,7 +143,7 @@ Perform **two** separate safe-output calls in this exact order:
 
    ```
    ---
-   **Processed by Discussion Processor** — Created <N> issue(s): #<num1>, #<num2>, ...
+  **Processed by SFL Discussion Processor** — Created <N> issue(s): #<num1>, #<num2>, ...
    ```
 
 Both calls are required. The `report` label is the primary re-trigger prevention.
@@ -155,7 +155,7 @@ The receipt text is a secondary guard checked in Step 1. Do NOT skip any call �
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EST | Discussion Processor | Discussion #<number> | ✅ Created N issue(s)` or `⏭️ No discussions to process`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | SFL Discussion Processor | Discussion #<number> | ✅ Created N issue(s)` or `⏭️ No discussions to process`
 
 This is mandatory — every run must log exactly one entry.
 

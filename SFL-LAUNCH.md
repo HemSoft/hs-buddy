@@ -54,8 +54,8 @@ for deployment to other repositories.
 
 | Workflow | Category | Model | Status |
 |----------|----------|-------|--------|
-| daily-repo-status | reporting | — | ✅ Active v1.0.0 |
-| repo-audit | quality | — | ✅ Active v1.1.0 |
+| daily-repo-status (SFL Repo Status) | reporting | — | ✅ Active v1.0.0 |
+| repo-audit (Repo Audit) | quality | — | ✅ Active v1.1.0 |
 | sfl-issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
 | simplisticate | quality | gh-aw default | ✅ Active v1.0.0 |
 | sfl-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |

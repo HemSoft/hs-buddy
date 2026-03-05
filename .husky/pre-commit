@@ -5,5 +5,13 @@ git add package.json src/components/AboutModal.tsx src/components/WelcomePanel.t
 # Lint staged files
 npx lint-staged
 
+# Block commits on markdownlint violations for staged .md files
+if [ -f ".git/hooks/pre-commit-markdown.ps1" ]; then
+	pwsh -NoProfile -ExecutionPolicy Bypass -File ".git/hooks/pre-commit-markdown.ps1"
+else
+	echo "Missing .git/hooks/pre-commit-markdown.ps1. Reinstall copilot hooks."
+	exit 1
+fi
+
 # Block commits when the repo has TypeScript errors
 bun run typecheck

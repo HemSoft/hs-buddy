@@ -121,6 +121,32 @@ function Invoke-GitCommitFaultTolerant([string]$Message) {
     }
 }
 
+function Invoke-GitPushWithRebaseRetry([string]$Branch) {
+    $pushOutput = @(& git push 2>&1)
+    if ($LASTEXITCODE -eq 0) {
+        return
+    }
+
+    $pushText = ($pushOutput -join [Environment]::NewLine)
+    $isNonFastForward = $pushText -match 'non-fast-forward|failed to push some refs|Updates were rejected'
+    if (-not $isNonFastForward) {
+        throw "git push failed during session-stop automation.$([Environment]::NewLine)$pushText"
+    }
+
+    Write-Info "Push rejected (non-fast-forward). Attempting 'git pull --rebase' then retrying push."
+    $pullOutput = @(& git pull --rebase 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $pullText = ($pullOutput -join [Environment]::NewLine)
+        throw "git pull --rebase failed during session-stop automation.$([Environment]::NewLine)$pullText"
+    }
+
+    $retryOutput = @(& git push 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $retryText = ($retryOutput -join [Environment]::NewLine)
+        throw "git push retry failed after rebase during session-stop automation.$([Environment]::NewLine)$retryText"
+    }
+}
+
 $repoRoot = (git rev-parse --show-toplevel).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repoRoot)) {
     throw 'Not inside a Git repository.'
@@ -160,10 +186,7 @@ if ($remaining) {
 if (-not $SkipPush) {
     $branch = Get-CurrentBranch
     Write-Info "Pushing branch '$branch'"
-    git push
-    if ($LASTEXITCODE -ne 0) {
-        throw 'git push failed during session-stop automation.'
-    }
+    Invoke-GitPushWithRebaseRetry -Branch $branch
 }
 
 Write-Info 'Completed successfully.'

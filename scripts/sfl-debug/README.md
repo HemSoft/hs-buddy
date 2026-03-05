@@ -9,11 +9,11 @@ for confirmation before making changes.
 | Script | What it does |
 |--------|-------------|
 | `01-verify-clean-slate.ps1` | Confirms all workflows are disabled, no open issues/PRs |
-| `02-enable-reporting.ps1` | Enables repo-audit, repo-status, simplisticate (finding generators) |
-| `03-enable-discussion-processor.ps1` | Enables discussion-processor (converts findings → issues) |
-| `04-enable-dispatcher-and-issue-processor.ps1` | Enables dispatcher + issue-processor (claims issues → draft PRs) |
+| `02-enable-reporting.ps1` | Enables `repo-audit`, `daily-repo-status` (SFL Repo Status), and `simplisticate` (finding generators) |
+| `03-enable-discussion-processor.ps1` | Enables `discussion-processor` (SFL Discussion Processor; converts findings → issues) |
+| `04-enable-dispatcher-and-issue-processor.ps1` | Enables dispatcher + `sfl-issue-processor` (claims issues → draft PRs) |
 | `05-enable-pr-analyzers.ps1` | Enables PR Analyzer A/B/C (review draft PRs on open) |
-| `06-enable-pr-fixer-and-labels.ps1` | Enables PR Fixer + PR Label Actions (implement fixes) |
+| `06-enable-pr-fixer-and-labels.ps1` | Enables PR Fixer + SFL PR Label Actions (implement fixes) |
 | `07-enable-promoter-and-auditor.ps1` | Enables PR Promoter + SFL Auditor (merge + hygiene) |
 
 ## Disablement Stages (reverse order)
@@ -21,11 +21,11 @@ for confirmation before making changes.
 | Script | What it does |
 |--------|-------------|
 | `08-disable-promoter-and-auditor.ps1` | Disables PR Promoter + SFL Auditor |
-| `09-disable-pr-fixer-and-labels.ps1` | Disables PR Fixer + PR Label Actions |
+| `09-disable-pr-fixer-and-labels.ps1` | Disables PR Fixer + SFL PR Label Actions |
 | `10-disable-pr-analyzers.ps1` | Disables PR Analyzer A/B/C |
-| `11-disable-dispatcher-and-issue-processor.ps1` | Disables dispatcher + issue-processor |
-| `12-disable-discussion-processor.ps1` | Disables discussion-processor |
-| `13-disable-reporting.ps1` | Disables repo-audit, repo-status, simplisticate |
+| `11-disable-dispatcher-and-issue-processor.ps1` | Disables dispatcher + `sfl-issue-processor` |
+| `12-disable-discussion-processor.ps1` | Disables `discussion-processor` (SFL Discussion Processor) |
+| `13-disable-reporting.ps1` | Disables `repo-audit`, `daily-repo-status`, `simplisticate` |
 | `14-verify-all-disabled.ps1` | Confirms everything is off |
 
 ## Quick Reference

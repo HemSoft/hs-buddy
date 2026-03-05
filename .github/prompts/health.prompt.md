@@ -26,7 +26,7 @@ Run these queries in parallel:
    - `sfl-analyzer-c.lock.yml`
    - `pr-fixer.lock.yml`
    - `pr-promoter.lock.yml`
-4. **Open issues** with label `agentic-workflows` (framework-generated failure notices)
+4. **Open issues** with labels `agent:pause` or `agent:escalated` that mention workflow failures
 
 ---
 
@@ -57,7 +57,7 @@ The SFL Auditor (`sfl-auditor.lock.yml`) is the health guardian. Evaluate:
 - Did the last run **succeed** (conclusion: `success`)?
 - Did it produce **safe outputs** (no "no safe outputs" warning in associated issues)?
 - Is it running on schedule (`15,45 * * * *`) — i.e., was the last run within the last 46 minutes?
-- Are there any open `agentic-workflows` issues pointing at `sfl-auditor` failures?
+- Are there any open `agent:pause` / `agent:escalated` issues pointing at `sfl-auditor` failures?
 
 State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and failure reasons.
 
@@ -70,7 +70,7 @@ For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `sfl-analyzer
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp
-- Any open `agentic-workflows` failure issues linked to it
+- Any open `agent:pause` / `agent:escalated` workflow-failure issues linked to it
 - Whether the workflow ran on schedule (check cron vs last-run gap)
 
 ---

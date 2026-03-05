@@ -164,7 +164,7 @@ No external state store. No database. No files. GitHub IS the state store.
 ```
 [finding detected] → agent:fixable + action-item
                    → agent:in-progress  (issue-processor claims it)
-                   → agent:review-requested  (PR ready for review)
+                   → agent:promoted + human:ready-for-review  (PR ready for review)
                    → MERGED or CLOSED
 ```
 

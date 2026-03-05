@@ -135,7 +135,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 | Type | Files | Compilation | Example |
 |------|-------|-------------|---------|
 | **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | sfl-issue-processor, pr-fixer |
-| **Standard** | `.yml` only | N/A | sfl-dispatcher, pr-label-actions |
+| **Standard** | `.yml` only | N/A | sfl-dispatcher, pr-label-actions (`SFL PR Label Actions`) |
 
 **Key constraint**: Agentic workflows use `safe-outputs` for all mutations
 and **cannot directly trigger other agentic workflows** via events. The
@@ -153,17 +153,17 @@ and **cannot directly trigger other agentic workflows** via events. The
 |----------|------|------------------|---------|
 | `sfl-dispatcher` | Standard | `*/30 * * * *` | Gates agentic runs — only dispatches when work exists |
 | `sfl-auditor` | Agentic | `:15 * * * *` | Repairs issue↔PR label discrepancies |
-| `daily-repo-status` | Agentic | Daily | Produces status report Discussion |
-| `repo-audit` | Agentic | Daily | Finds code quality issues → Discussion |
+| `daily-repo-status` (`SFL Repo Status`) | Agentic | Daily | Produces status report Discussion |
+| `repo-audit` (`Repo Audit`) | Agentic | Daily | Finds code quality issues → Discussion |
 | `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
-| `discussion-processor` | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
+| `discussion-processor` (`SFL Discussion Processor`) | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
 | `sfl-issue-processor` | Agentic | Dispatcher-only | Claims oldest `agent:fixable` issue → draft PR |
 | `sfl-analyzer-a` | Agentic | `pull_request: opened` | Full-spectrum review (claude-sonnet-4.6) |
 | `sfl-analyzer-b` | Agentic | `pull_request: opened` | Full-spectrum review (gemini-3-pro-preview) |
 | `sfl-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |
 | `pr-fixer` | Agentic | Dispatcher-only | Implements analyzer fixes, increments cycle |
 | `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs, merges approved PRs |
-| `pr-label-actions` | Standard | `pull_request: labeled` | Label-driven automation |
+| `pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |
 | `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
 
 ### Model Configuration

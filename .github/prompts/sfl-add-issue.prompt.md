@@ -35,7 +35,6 @@ Determine the risk class together with the user:
 | **risk:low** | Mechanical refactor, adding missing attributes, removing unused imports — one clear correct outcome | Auto-merge (0 reviews) |
 | **risk:medium** | Changes with limited behavioral impact, multiple valid approaches possible | 1 approved review |
 | **risk:high** | Significant behavioral change, cross-cutting concern, or security-adjacent | 1 human review required |
-| **risk:critical** | Core architecture, auth, data integrity, or broad blast radius | 2 human reviews required |
 
 For **risk:medium and above**, inform the user:
 
@@ -80,10 +79,10 @@ passes", "export is no longer referenced anywhere">
 
 ## Risk
 
-`risk:<trivial|low|medium|high|critical>` — <one-line justification>
+`risk:<trivial|low|medium|high>` — <one-line justification>
 ```
 
-**Labels**: `agent:fixable`, `feature-request`, `risk:<trivial|low|medium|high|critical>`
+**Labels**: `agent:fixable`, `feature-request`, `risk:<trivial|low|medium|high>`
 
 ---
 
@@ -108,7 +107,7 @@ gh issue create --repo "<owner>/<repo>" \
   --body "<body>" \
   --label "agent:fixable" \
   --label "feature-request" \
-  --label "risk:<trivial|low|medium|high|critical>"
+  --label "risk:<trivial|low|medium|high>"
 ```
 
 After creation, confirm the issue number and tell the user:

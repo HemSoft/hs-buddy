@@ -71,7 +71,7 @@ Keep this value in context for use in Step 1.
 ## Step 1 — Identify the target issue
 
 Search for open issues with label `agent:fixable` that do NOT have any of:
-`agent:in-progress`, `agent:pause`, `agent:human-required`, `no-agent`.
+`agent:in-progress`, `agent:pause`, `agent:human-required`.
 
 Sort by creation date ascending. Take the **single oldest** result.
 If no issue matches, exit — nothing to do.

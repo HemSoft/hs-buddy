@@ -137,13 +137,13 @@ list B (those are handled by other steps).
 
 ## Step 7 — Check: stale report issues
 
-Search for **open** issues that have the label `report` (or both
-`daily-status` and `report`) but do NOT have any of:
+Search for **open** issues that have the label `report`
+but do NOT have any of:
 `agent:fixable`, `agent:in-progress`.
 
 These are pure informational report issues (daily status, audit summaries,
 simplisticate summaries). If more than one issue shares the same title prefix
-(e.g., multiple `[repo-status]` or `[repo-audit] Daily Repo Audit` issues),
+(e.g., multiple `[repo-status]` or `[repo-audit] Repo Audit` issues),
 close all but the most recent one using `update_issue` with:
 
 - `issue_number`: the issue number

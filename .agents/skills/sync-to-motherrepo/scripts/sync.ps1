@@ -48,7 +48,7 @@ $InfraWorkflows = @(
 
 # Dogfood-only workflows (copied to .github/workflows/ but not to deployment/)
 $DogfoodOnlyWorkflows = @(
-    "pr-label-actions.yml"
+    "sfl-pr-label-actions.yml"
 )
 
 # Documentation files

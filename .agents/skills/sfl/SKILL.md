@@ -135,7 +135,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 | Type | Files | Compilation | Example |
 |------|-------|-------------|---------|
 | **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | sfl-issue-processor, pr-fixer |
-| **Standard** | `.yml` only | N/A | sfl-dispatcher, pr-label-actions (`SFL PR Label Actions`) |
+| **Standard** | `.yml` only | N/A | sfl-dispatcher, sfl-pr-label-actions (`SFL PR Label Actions`) |
 
 **Key constraint**: Agentic workflows use `safe-outputs` for all mutations
 and **cannot directly trigger other agentic workflows** via events. The
@@ -163,7 +163,7 @@ and **cannot directly trigger other agentic workflows** via events. The
 | `sfl-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |
 | `pr-fixer` | Agentic | Dispatcher-only | Implements analyzer fixes, increments cycle |
 | `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs and hands them to humans |
-| `pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |
+| `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |
 | `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
 
 ### Model Configuration

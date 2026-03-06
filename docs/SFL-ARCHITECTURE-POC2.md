@@ -46,7 +46,7 @@ There are three ways work enters the SFL pipeline:
 |-------|-------|-------------|-----------|-------------|
 | `agent:pr` | ⬜ `#ededed` | Marks a PR as SFL-managed | sfl-issue-processor | analyzers, fixer, promoter, dispatcher |
 | `pr:cycle-1` … `pr:cycle-3` | 🔵→⬜ gradient | Tracks how many analyze→fix cycles the PR has been through | pr-fixer | dispatcher, promoter |
-| `human:ready-for-review` | 🟣 `#6f42c1` | PR is ready for human review and merge decision | pr-promoter | pr-label-actions, human |
+| `human:ready-for-review` | 🟣 `#6f42c1` | PR is ready for human review and merge decision | pr-promoter | sfl-pr-label-actions, human |
 
 ### Risk Labels
 
@@ -158,7 +158,7 @@ These run on a cron schedule and produce **findings** as Discussions or Issues.
 | Draft PRs with `agent:pr` + all 3 analyzer markers + not all PASS | → `pr-fixer` |
 | Draft PRs with `agent:pr` + fixer completed previous cycle | → `sfl-analyzer-a`, `sfl-analyzer-b`, `sfl-analyzer-c` |
 | Draft PRs with all analyzers PASS or non-draft PRs with `human:ready-for-review` | → `pr-promoter` |
-| Draft PRs with `human:ready-for-review` label | → `pr-label-actions` (`SFL PR Label Actions`) |
+| Draft PRs with `human:ready-for-review` label | → `sfl-pr-label-actions` (`SFL PR Label Actions`) |
 
 **Pre-flight:** Runs a **model drift guard** that validates `sfl.json` model pins against `.lock.yml` files. Drift = hard failure.
 
@@ -263,7 +263,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Artifact State** | `030-pr-ready-for-review` → `040-pr-ready-for-human-review` → **Done** |
 | **Throughput** | 1 promotion per run |
 
-#### `pr-label-actions` — SFL PR Label Actions
+#### `sfl-pr-label-actions` — SFL PR Label Actions
 
 | Field | Value |
 |-------|-------|

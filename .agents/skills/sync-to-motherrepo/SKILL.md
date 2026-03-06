@@ -62,7 +62,7 @@ Check sync freshness — compare timestamps between source and target:
 | `.github/workflows/{name}.lock.yml` | `.github/workflows/{name}.lock.yml` | Dogfood lock files |
 | `.github/workflows/sfl-dispatcher.yml` | `deployment/infrastructure/sfl-dispatcher.yml` | Standard YAML infrastructure |
 | `.github/workflows/sfl-dispatcher.yml` | `.github/workflows/sfl-dispatcher.yml` | Dogfood copy |
-| `.github/workflows/pr-label-actions.yml` | `.github/workflows/pr-label-actions.yml` | Dogfood only (not a deployable component) |
+| `.github/workflows/sfl-pr-label-actions.yml` | `.github/workflows/sfl-pr-label-actions.yml` | Dogfood only (not a deployable component) |
 | `.github/workflows/README.md` | `.github/workflows/README.md` | Workflow catalog |
 | `.github/sfl-config.yml` | `deployment/governance/sfl-config.yml` | Default governance config |
 | `docs/SET_IT_FREE_GOVERNANCE.md` | `docs/SET_IT_FREE_GOVERNANCE.md` | Governance docs |

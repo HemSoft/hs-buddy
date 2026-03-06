@@ -239,7 +239,7 @@ jobs:
         if: steps.label_actions.outputs.label_flip_count != '0'
         run: |
           echo "Dispatching SFL PR Label Actions..."
-          gh workflow run pr-label-actions.yml --repo "$REPO"
+          gh workflow run sfl-pr-label-actions.yml --repo "$REPO"
 
       - name: Dispatch PR Promoter
         if: steps.prs.outputs.promoter_ready == 'true'

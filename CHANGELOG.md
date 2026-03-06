@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.274] - 2026-03-06
+
 ## [0.1.273] - 2026-03-06
 
 ## [0.1.272] - 2026-03-06
@@ -485,38 +487,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Move pr-label-actions polling from 5-min cron to sfl-dispatcher
+- Move sfl-pr-label-actions polling from 5-min cron to sfl-dispatcher
 
 ## [0.1.149] - 2026-02-25
 
 ### Changed
 
-- Move pr-label-actions polling from standalone 5-min cron to sfl-dispatcher (30-min cadence)
+- Move sfl-pr-label-actions polling from standalone 5-min cron to sfl-dispatcher (30-min cadence)
 - Remove PR Label Actions from pause/resume scripts (no longer has own schedule)
 
 ## [0.1.148] - 2026-02-25
 
 ### Fixed
 
-- Handle all non-PR event types in pr-label-actions step conditions
+- Handle all non-PR event types in sfl-pr-label-actions step conditions
 
 ## [0.1.147] - 2026-02-25
 
 ### Fixed
 
-- Include workflow_dispatch in pr-label-actions job conditions
+- Include workflow_dispatch in sfl-pr-label-actions job conditions
 
 ## [0.1.146] - 2026-02-25
 
 ### Changed
 
-- Add workflow_dispatch trigger to pr-label-actions for manual testing
+- Add workflow_dispatch trigger to sfl-pr-label-actions for manual testing
 
 ## [0.1.145] - 2026-02-25
 
 ### Fixed
 
-- Add schedule trigger to pr-label-actions for GITHUB_TOKEN label events
+- Add schedule trigger to sfl-pr-label-actions for GITHUB_TOKEN label events
 
 ## [0.1.144] - 2026-02-25
 
@@ -530,7 +532,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Label-triggered draft flip and merge via pr-label-actions.yml
+- Label-triggered draft flip and merge via sfl-pr-label-actions.yml
 
 ## [0.1.141] - 2026-02-25
 

@@ -30,7 +30,7 @@ if ($confirm -notin @('y', 'Y', 'yes')) {
 
 $workflows = @(
     @{ File = "pr-fixer.lock.yml";    Name = "PR Fixer — Authority" }
-    @{ File = "pr-label-actions.yml"; Name = "PR Label Actions" }
+    @{ File = "sfl-pr-label-actions.yml"; Name = "PR Label Actions" }
 )
 
 foreach ($wf in $workflows) {

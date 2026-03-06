@@ -13,7 +13,7 @@
 | ✅ | Critical | Simplisticate Workflows | Completed 2026-03-03: event-driven trigger path implemented and autonomous merge flow removed in favor of human review handoff. |
 | ✅ | Medium | Copilot Usage month-end projection | Per-account + aggregate trend projection with ghost arc on ring, daily rate, est. overage (2026-03) |
 | ✅ | Medium | Run 30-day Set it Free pilot | Removed — ongoing operational concern, not a dev task (2026-02) |
-| ✅ | Critical | SFL Auto-Merge mode | Implemented in sfl-config.yml + pr-promoter + pr-label-actions (2026-02) |
+| ✅ | Critical | SFL Auto-Merge mode | Implemented in sfl-config.yml + pr-promoter + sfl-pr-label-actions (2026-02) |
 | ✅ | Medium | Elegant status bar queue display | Shows "X of N · TaskName" with batch tracking instead of concatenating all tasks (2026-02) |
 | ✅ | Medium | Copilot enterprise budget not resetting on new billing cycle | Fixed: UTC dates for billing API query, auto-refresh on month boundary, billing period display (2026-02) |
 | ✅ | Critical | SFL Simplification — Replace supersession model | pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
@@ -82,7 +82,7 @@
 
 | # | Status | Task | Details |
 |---|--------|------|---------|
-| 1 | 📋 | **Remove autonomous PR merging** | Remove `ready-to-merge` label flow, `squash-merge` job in `pr-label-actions.yml`, and merge logic in PR Promoter. PRs stop at `human:ready-for-review`. |
+| 1 | 📋 | **Remove autonomous PR merging** | Remove `ready-to-merge` label flow, `squash-merge` job in `sfl-pr-label-actions.yml`, and merge logic in PR Promoter. PRs stop at `human:ready-for-review`. |
 | 2 | 📋 | **Single-issue processing** | Issue Processor handles exactly 1 issue per run. Remove batch claiming logic if present. |
 | 3 | 📋 | **Event-driven issue processing** | When a workflow creates an issue with `agent:fixable` + `action-item`, trigger Issue Processor immediately via label event instead of waiting for next Dispatcher cron. |
 | 4 | 📋 | **Event-driven analyzer triggers** | When Issue Processor creates a draft PR, trigger analyzers immediately instead of waiting for Dispatcher. |
@@ -111,7 +111,7 @@
 | Workflow | Purpose | Trigger |
 |----------|---------|---------|
 | `sfl-dispatcher.yml` | Dispatches agentic workflows on cron | Cron (30 min) |
-| `pr-label-actions.yml` | Draft flip + squash merge on label events | `pull_request: labeled` / `workflow_dispatch` |
+| `sfl-pr-label-actions.yml` | Draft flip + squash merge on label events | `pull_request: labeled` / `workflow_dispatch` |
 | `agentics-maintenance.yml` | Maintenance tasks | Various |
 | `copilot-setup-steps.yml` | Copilot setup | Various |
 
@@ -119,7 +119,7 @@
 
 - Both stuck PRs (#93, #94) had to be manually rebased and merged — the autonomous merge path failed due to org rulesets + fire-once label events with no retry
 - `pull_request: labeled` events don't fire from API/CLI label additions (GitHub loop prevention)
-- The `squash-merge` job in `pr-label-actions.yml` has no `workflow_dispatch` fallback
+- The `squash-merge` job in `sfl-pr-label-actions.yml` has no `workflow_dispatch` fallback
 - `NOOP_REPORT_AS_ISSUE: "true"` is platform-default on all 12 agentic workflows, creating duplicate logging (issue #80 + discussion #95)
 - Label count: 24 (ceiling: 25) — recently pruned from 36
 

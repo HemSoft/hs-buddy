@@ -161,7 +161,7 @@ Fixer will handle this." and exit.
 Call `add_labels` with `human:ready-for-review`. This adds the label without
 touching existing labels — no risk of accidentally dropping labels.
 
-The `human:ready-for-review` label addition triggers `pr-label-actions.yml`
+The `human:ready-for-review` label addition triggers `sfl-pr-label-actions.yml`
 which automatically converts the PR from draft to ready-for-review.
 
 ## Step 7 — Post the promotion comment

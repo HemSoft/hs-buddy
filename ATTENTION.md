@@ -43,14 +43,14 @@
 - **Impact**: Bloated bodies may confuse agents parsing markers, waste API bandwidth.
 - **Suggested Action**: After pipeline flows normally, consider a one-time cleanup of duplicate content in PR bodies.
 
-### Phase 2 (Merge) Still Uses gh CLI Auth
+### Auto-Merge Drift in SFL Runtime
 
-- **Severity**: Medium
-- **Detected**: 2026-02-24
-- **Status**: Active — deferred
-- **Description**: The Promoter's Phase 2 merge job (Steps 11-13) still uses `gh pr merge` which requires CLI auth. This will fail for the same reason as the old `gh pr ready`.
-- **Impact**: Once PRs get human approval, auto-merge will fail. Humans can still merge manually.
-- **Suggested Action**: When a PR reaches approved state, investigate if `create-pull-request` safe-output can handle merges, or add a dedicated merge mechanism.
+- **Severity**: High
+- **Detected**: 2026-03-06
+- **Status**: Fix prepared — pending merge
+- **Description**: The live SFL config and PR Promoter prompt still attempted the `ready-to-merge` auto-merge path even though the repo no longer had a workflow that actually executed the merge.
+- **Impact**: PRs could be mislabeled as merge-ready, auditors could keep retrying the dead path, and humans could misread the repo's actual merge policy.
+- **Suggested Action**: Merge the config/prompt/dispatcher/governance sync that removes `ready-to-merge` automation and keeps final merge human-owned.
 
 ### SFL Complexity Spiral — Needs Systematic Simplification
 

@@ -37,7 +37,7 @@ That repo contains:
 | `sfl-analyzer-b` | `pull_request: opened` | Full-spectrum review comments on draft PRs (Model B) | Local |
 | `sfl-analyzer-c` | `pull_request: opened` | Full-spectrum review comments on draft PRs (Model C) | Local |
 | `pr-fixer` | Dispatcher-only | Implements analyzer fixes on draft PRs, increments cycle | Local |
-| `pr-promoter` | Dispatcher-only | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label. Merges approved PRs per Merge Authority Matrix (squash + delete branch). | Local |
+| `pr-promoter` | Dispatcher-only | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label. Final merge is human-owned. | Local |
 | `pr-label-actions` (`SFL PR Label Actions`) | `pull_request: labeled` / Dispatcher | Label-driven ready-for-review flip automation | Local |
 
 ---

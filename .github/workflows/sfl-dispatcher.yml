@@ -223,26 +223,6 @@ jobs:
           echo "Dispatching PR Fixer..."
           gh workflow run pr-fixer.lock.yml --repo "$REPO"
 
-      - name: Check for non-draft PRs awaiting promotion
-        id: ready_prs
-        run: |
-          set -euo pipefail
-
-          # Find non-draft PRs that are explicitly marked ready-to-merge and
-          # already have human approval. This prevents repeated no-op promoter
-          # runs on PRs that are merely ready for review.
-          COUNT=$(gh pr list --repo "$REPO" --state open --label "ready-to-merge" \
-            --json number,isDraft,reviewDecision \
-            --jq '[.[] | select(.isDraft == false and .reviewDecision == "APPROVED")] | length')
-
-          echo "ready_count=$COUNT" >> "$GITHUB_OUTPUT"
-
-          if [ "$COUNT" -gt 0 ]; then
-            echo "Found $COUNT approved non-draft PR(s) with ready-to-merge — will dispatch PR Promoter."
-          else
-            echo "No approved non-draft ready-to-merge PRs awaiting promotion."
-          fi
-
       - name: Check for draft PRs with ready-for-review label
         id: label_actions
         run: |
@@ -262,7 +242,7 @@ jobs:
           gh workflow run pr-label-actions.yml --repo "$REPO"
 
       - name: Dispatch PR Promoter
-        if: steps.prs.outputs.promoter_ready == 'true' || steps.ready_prs.outputs.ready_count != '0'
+        if: steps.prs.outputs.promoter_ready == 'true'
         run: |
           echo "Dispatching PR Promoter..."
           gh workflow run pr-promoter.lock.yml --repo "$REPO"
@@ -298,14 +278,6 @@ jobs:
             PROMOTER_DISPATCHED="Yes"
             PROMOTER_REASON="fixer complete, ready for promotion"
           fi
-          if [ "${{ steps.ready_prs.outputs.ready_count }}" != "0" ]; then
-            PROMOTER_DISPATCHED="Yes"
-            if [ -n "$PROMOTER_REASON" ]; then
-              PROMOTER_REASON="$PROMOTER_REASON + ${{ steps.ready_prs.outputs.ready_count }} approved ready-to-merge PRs"
-            else
-              PROMOTER_REASON="${{ steps.ready_prs.outputs.ready_count }} approved ready-to-merge PRs"
-            fi
-          fi
           if [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ]; then
             echo "| SFL PR Label Actions | Yes (${{ steps.label_actions.outputs.label_flip_count }} draft PRs to flip) |" >> "$GITHUB_STEP_SUMMARY"
           else
@@ -326,7 +298,7 @@ jobs:
           DISPATCHED=""
           [ "${{ steps.issues.outputs.fixable_count }}" != "0" ] && DISPATCHED="${DISPATCHED}IP "
           [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ] && DISPATCHED="${DISPATCHED}Fixer "
-          [ "${{ steps.ready_prs.outputs.ready_count }}" != "0" ] && DISPATCHED="${DISPATCHED}Promoter "
+          [ "${{ steps.prs.outputs.promoter_ready }}" = "true" ] && DISPATCHED="${DISPATCHED}Promoter "
           [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ] && DISPATCHED="${DISPATCHED}Labels "
           if [ -z "$DISPATCHED" ]; then
             BODY="${TIMESTAMP} | SFL Dispatcher | Dispatch | ⏭️ No workflows dispatched"

@@ -47,8 +47,7 @@ There are three ways work enters the SFL pipeline:
 | `agent:pr` | ⬜ `#ededed` | Marks a PR as SFL-managed | sfl-issue-processor | analyzers, fixer, promoter, dispatcher |
 | `agent:promoted` | 🔵 `#1D76DB` | PR promoted from draft to ready-for-review | pr-promoter | human (informational) |
 | `pr:cycle-1` … `pr:cycle-3` | 🔵→⬜ gradient | Tracks how many analyze→fix cycles the PR has been through | pr-fixer | dispatcher, promoter |
-| `human:ready-for-review` | 🟣 `#6f42c1` | PR is ready for human review and merge decision | pr-promoter | pr-label-actions, pr-promoter (merge phase) |
-| `ready-to-merge` | 🟢 `#0E8A16` | Triggers automatic squash merge of approved PR | human / pr-promoter | pr-label-actions |
+| `human:ready-for-review` | 🟣 `#6f42c1` | PR is ready for human review and merge decision | pr-promoter | pr-label-actions, human |
 
 ### Risk Labels
 
@@ -256,15 +255,14 @@ All three analyzers run independently on the same PR. The value is **model diver
 | Field | Value |
 |-------|-------|
 | **Type** | Agentic (`.md` + `.lock.yml`) |
-| **Trigger** | `workflow_dispatch`, `pull_request_review: [submitted]` |
+| **Trigger** | `workflow_dispatch` |
 | **Model** | `claude-sonnet-4.6` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
-| **Safe-Inputs** | `read-sfl-config` |
-| **Safe-Outputs** | `add-labels` (max 3), `remove-labels` (max 3), `update-discussion` (max 2), `update-issue` (max 5), `dispatch-workflow` (pr-fixer, max 1), `add-comment` (max 1) |
+| **Safe-Inputs** | None |
+| **Safe-Outputs** | `add-labels` (max 3), `remove-labels` (max 3), `update-discussion` (max 2), `update-issue` (max 5), `add-comment` (max 1) |
 | **Phase 1 — Promote** | All 3 analyzers PASS → adds `human:ready-for-review` + `agent:promoted` labels |
-| **Phase 2 — Merge** | If `auto-merge: true` in sfl-config → squash-merges, deletes branch, closes linked issue |
 | **Artifact State** | `030-pr-ready-for-review` → `040-pr-ready-for-human-review` → **Done** |
-| **Throughput** | 1 promotion + 1 merge per run |
+| **Throughput** | 1 promotion per run |
 
 #### `pr-label-actions` — SFL PR Label Actions
 
@@ -435,25 +433,14 @@ PHASE 6b — PROMOTION (Dispatcher-triggered, if all PASS)
       │  for-human-review│
       └────────┬─────────┘
 
-PHASE 7 — MERGE DECISION
-═════════════════════════
+PHASE 7 — HUMAN MERGE DECISION
+═══════════════════════════════
              │
              ▼
-      ┌────────────────┐
-      │ Fully Autonomous│    ← Checks sfl-config.yml → auto-merge flag
-      │    ?            │
-      └───┬────────┬───┘
-          │        │
-         Yes       No
-          │        │
-          ▼        ▼
-   ┌──────────┐  ┌────────┐
-   │pr-promoter│  │ Done!  │    ← Human reviews, approves, applies
-   │(Phase 2:  │  │(manual)│       ready-to-merge label
-   │ merge)    │  └────────┘
-   │           │
-   │ Squash    │
-   │ merge +   │
+      ┌───────────────┐
+      │ Human Review  │
+      │ + Merge       │
+      └───────────────┘
    │ delete    │
    │ branch +  │
    │ close     │
@@ -480,7 +467,7 @@ CONTINUOUS — HEALTH CHECK (Hourly)
 | `010-issue-created` | Finding detected, Discussion/Issue exists | Discussion or Issue with `action-item` | `020-issue-ready` (via discussion-processor) |
 | `020-issue-ready` | Issue triaged with `agent:fixable` or `agent:human-required` | Issue with lifecycle label | `030-pr-ready-for-review` (via sfl-issue-processor) |
 | `030-pr-ready-for-review` | Draft PR opened, awaiting analyzer reviews + fix cycles | Draft PR with `agent:pr` label | `040-pr-ready-for-human-review` (via pr-promoter) |
-| `040-pr-ready-for-human-review` | PR un-drafted, all analyzers PASS, awaiting human | Non-draft PR with `human:ready-for-review` | **Merged** (via pr-promoter + ready-to-merge flow) |
+| `040-pr-ready-for-human-review` | PR un-drafted, all analyzers PASS, awaiting human | Non-draft PR with `human:ready-for-review` | **Merged** (human action) |
 
 ### Issue Label State Machine
 
@@ -499,8 +486,8 @@ agent:pr + pr:cycle-1
   → [fixer pushes fixes] → pr:cycle-1
   → [analyzers re-review] → pr:cycle-1 markers written
   → … (repeat up to max-fix-cycles)
-  → [all PASS] → agent:promoted + human:ready-for-review
-  → [human approves] → ready-to-merge → MERGED
+       → [all PASS] → agent:promoted + human:ready-for-review
+       → [human review + merge] → MERGED
 ```
 
 ### Configuration

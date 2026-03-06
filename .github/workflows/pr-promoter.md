@@ -1,15 +1,12 @@
 ---
 name: "SFL PR Promoter"
 description: |
-  PR Promoter — two-phase workflow. Phase 1: converts clean draft PRs to
-  ready-for-review when all three analyzers PASS. Phase 2: squash-merges
-  approved PRs that have human approval and deletes the source branch.
-  Processes exactly one promotion and one merge per run.
+  PR Promoter — promotes exactly one clean draft PR to ready-for-review
+  when all three analyzers PASS. Human review and human merge happen
+  outside this workflow.
 
 on:
   workflow_dispatch:
-  pull_request_review:
-    types: [submitted]
 
 permissions:
   contents: read
@@ -26,17 +23,6 @@ tools:
   github:
     lockdown: false
 
-safe-inputs:
-  read-sfl-config:
-    description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits."
-    inputs: {}
-    run: |
-      gh api "repos/$REPO_OWNER/$REPO_NAME/contents/.github/sfl-config.yml?ref=main" --jq '.content' | base64 -d
-    env:
-      GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-      REPO_OWNER: "${{ github.repository_owner }}"
-      REPO_NAME: "${{ github.event.repository.name }}"
-
 safe-outputs:
   add-labels:
     max: 3
@@ -48,9 +34,6 @@ safe-outputs:
   update-issue:
     target: "*"
     max: 5
-  dispatch-workflow:
-    workflows: ["pr-fixer"]
-    max: 1
   add-comment:
     target: "*"
     max: 1
@@ -78,17 +61,6 @@ Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
 
-## Step 0 — Read SFL autonomy config
-
-Call `read_sfl_config` (no inputs). Parse the YAML and note these values:
-
-- `autonomy.auto-merge` (boolean) — controls whether Phase 2 requires human
-  approval before merging
-- `autonomy.conflict-resolution` (boolean) — noted for awareness
-- `risk-tolerance` (string) — noted for awareness
-
-Keep these values in context for use in later steps.
-
 ## Step 1 — Find the target PR
 
 Search for open pull requests in this repository that meet ALL criteria:
@@ -99,7 +71,8 @@ Search for open pull requests in this repository that meet ALL criteria:
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
-If no PR matches, skip to Phase 2 (Step 11 — Merge Job).
+If no PR matches, update the dashboard with:
+"No draft PRs are ready for promotion." and exit.
 
 ## Step 2 — Determine the current review cycle
 
@@ -112,8 +85,8 @@ when all analyzers PASS and the fixer skips without incrementing.
 
 ## Step 3 — Check if already promoted
 
-If the PR is NOT a draft, it was already promoted. Skip to Phase 2
-(Step 11 — Merge Job).
+If the PR is NOT a draft, update the dashboard with:
+"PR #<number> is already ready for review — skipping." and exit.
 
 Search the PR body for the exact marker text:
 `[MARKER:pr-promoter cycle:N]` where N is the cycle number that triggered
@@ -123,8 +96,8 @@ If any such marker exists AND the PR is still draft, DO NOT skip. This means a
 previous promotion attempt partially succeeded (comment/labels) but did not
 flip draft state. Continue to Step 4 and retry promotion.
 
-If any such marker exists AND the PR is non-draft, skip to Phase 2
-(Step 11 — Merge Job).
+If any such marker exists AND the PR is non-draft, update the dashboard with:
+"PR #<number> is already ready for review — skipping." and exit.
 
 ## Step 4 — Verify all three analyzers have reviewed the current cycle
 
@@ -237,7 +210,6 @@ number from `Closes #N` in the PR body.
 ## Guardrails
 
 - Promote exactly ONE PR per run — never loop over multiple PRs
-- Merge exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
 - Never modify the PR's code, title, or body content
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
@@ -249,118 +221,11 @@ number from `Closes #N` in the PR body.
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit
 - At most 5 `update_issue` calls per run (enforced by safe-outputs max)
 
----
-
-## Phase 2 — Merge Job
-
-After completing Phase 1 (Promotion), check for approved PRs ready to merge.
-This phase runs regardless of whether Phase 1 promoted a PR or posted to the
-Activity Log.
-Process exactly ONE merge per run.
-
-## Step 9 — Find merge candidate
-
-Search for open pull requests in this repository that meet ALL criteria:
-
-- Is **NOT** a draft PR
-- Has the label `human:ready-for-review`
-
-**If `autonomy.auto-merge` is `false` (from Step 0):**
-
-- Also require at least one GitHub review with state `APPROVED`
-
-**If `autonomy.auto-merge` is `true`:**
-
-- Skip the approval requirement — any non-draft PR with `human:ready-for-review`
-  is eligible for merge
-
-Sort results by creation date ascending. Take the **single oldest** result.
-
-If no PR matches, update the dashboard with:
-"No approved PRs awaiting merge." and exit.
-
-## Step 10 — Verify merge eligibility
-
-Check the PR merge state:
-
-- `mergeable` must be `MERGEABLE`
-
-**If `autonomy.auto-merge` is `true` (from Step 0):**
-
-- Accept `mergeStateStatus` of `CLEAN` or `BLOCKED`.
-  The `BLOCKED` state from missing required reviews is expected — the merge
-  label triggers an admin-bypass merge, so review requirements do not apply.
-  Proceed to Step 11.
-
-**If `autonomy.auto-merge` is `false`:**
-
-- `mergeStateStatus` must be `CLEAN`. If it is `BLOCKED`, update the
-  dashboard with:
-  "PR #<number> is not mergeable (state: BLOCKED) — human review required."
-  and exit.
-
-If the PR has merge conflicts (`mergeable` is `CONFLICTING`):
-
-1. Dispatch the PR Fixer workflow to resolve conflicts:
-   Call `dispatch_workflow` with:
-   - `workflow`: `pr-fixer.lock.yml`
-   - No inputs needed — the fixer will find the PR by label/state
-2. Update the dashboard with:
-   "PR #<number> has merge conflicts — dispatched PR Fixer to rebase." and exit.
-
-If the PR is not mergeable for other reasons (failing checks, unexpected state),
-update the dashboard with:
-"PR #<number> is not mergeable (state: <mergeStateStatus>) — skipping." and exit.
-
-## Step 11 — Add ready-to-merge label (triggers squash merge)
-
-Call `add_labels` with `ready-to-merge`. This adds the label without touching
-existing labels.
-
-The `ready-to-merge` label addition triggers `pr-label-actions.yml` which
-automatically squash-merges the PR and deletes the source branch.
-
-## Step 12 — Post merge comment
-
-Call `update_issue` with:
-
-- `issue_number`: the PR number
-- `operation`: `"append"`
-- `body`: the structured merge comment in the exact format below
-
-```markdown
-[MARKER:pr-merge]
-## ✅ PR Merged
-
-**PR**: #<number>
-**Linked Issue**: #<issue-number>
-**Merge method**: squash
-**Branch**: <branch-name> (deleted)
-**Approval**: <human-approved | auto-merge>
-
-This PR was automatically merged <after human approval | via SFL auto-merge>.
-```
-
-Use "human-approved" / "after human approval" when `auto-merge` is `false`.
-Use "auto-merge" / "via SFL auto-merge" when `auto-merge` is `true`.
-
-Extract the linked issue number from `Closes #N` in the PR body.
-
-## Step 13 — Clean up linked issue labels
-
-Extract the linked issue number from `Closes #N` in the PR body.
-
-Call `update_issue` on the **linked issue** (not the PR) with:
-
-- `issue_number`: the linked issue number
-- `status`: `"open"` (required — validation rejects calls without status/title/body)
-- `labels`: remove `agent:in-progress`, keep all other labels unchanged
-
 ## Activity Log
 
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EST | PR Promoter | PR #<number> | ✅ Promoted` or `✅ Merge requested (ready-to-merge)` or `✅ Dispatched PR Fixer` or `⏭️ No eligible PRs`
+- `body`: `YYYY-MM-DD h:mm AM/PM EST | PR Promoter | PR #<number> | ✅ Promoted` or `⏭️ No eligible PRs`
 
 This is mandatory — every run must log exactly one entry.

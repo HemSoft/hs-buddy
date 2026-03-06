@@ -10,7 +10,7 @@
 
 This document defines the operational boundaries, safety controls, and decision authority for
 the **Set it Free Loop** — Buddy's recursive automation system that detects quality findings,
-generates fixes, and merges improvements autonomously.
+generates fixes, and hands clean pull requests to humans for the final merge decision.
 
 The goal is controlled autonomy: maximum automation velocity with deterministic guardrails so
 humans are involved at exactly the right moments.
@@ -30,7 +30,6 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 | `agent:pr` | `#ededed` (light gray) | PR is managed by the Set it Free Loop |
 | `agent:promoted` | `#1D76DB` (blue) | PR promoted from draft to ready-for-review |
 | `human:ready-for-review` | `#6f42c1` (purple) | PR is ready for human review and merge decision |
-| `ready-to-merge` | `#0E8A16` (green) | Triggers merge handling for approved PRs |
 | `agent:pause` | `#e3771a` (orange) | Agent halted; issue needs human intervention |
 | `agent:human-required` | `#d73a4a` (red) | Fix exceeds safe automation boundary — human must own this |
 | `agent:escalated` | `#b60205` (dark red) | Escalated after repeated failures; senior review needed |
@@ -70,6 +69,7 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 [detected] → action-item + agent:fixable
            → agent:in-progress  (agent claims it)
            → human:ready-for-review  (PR promoted and awaiting human review)
+           → human review / human merge decision
            → MERGED or CLOSED
 
 At any stage:
@@ -123,8 +123,8 @@ The risk class of an issue determines who (or what) is authorized to merge the r
 
 | Risk Class | Auto-Merge | Required Reviews | Review Type | Additional Gates |
 |------------|-----------|-----------------|-------------|-----------------|
-| `risk:trivial` | ✅ Yes | 0 | — | CI green |
-| `risk:low` | ✅ Yes | 0 | — | CI green + PR quality gate pass |
+| `risk:trivial` | ❌ No | 0 | — | CI green |
+| `risk:low` | ❌ No | 0 | — | CI green + PR quality gate pass |
 | `risk:medium` | ❌ No | 1 | Copilot review | CI green + PR quality gate pass |
 | `risk:high` | ❌ No | 1 | Human (any team member) | CI green + quality gate + PR review comment |
 

@@ -268,7 +268,7 @@ The loop runs continuously via GitHub Actions workflows:
 | **Promote** | PR Promoter | Un-drafts clean PRs when all analyzers pass |
 | **Guard** | SFL Auditor + Dispatcher | Repairs label discrepancies, orchestrates dispatch every 30 min |
 
-Human involvement is required only for final merge approval on `risk:medium` or higher changes. Trivial and low-risk fixes are auto-merged after passing CI and the PR quality gate.
+Human involvement is required for the final merge decision on every SFL PR. Low-risk fixes can still be prepared autonomously, but merging is human-owned.
 
 See [SET_IT_FREE_GOVERNANCE.md](docs/SET_IT_FREE_GOVERNANCE.md) for the full policy including label taxonomy, retry limits, merge authority matrix, and escalation paths.
 

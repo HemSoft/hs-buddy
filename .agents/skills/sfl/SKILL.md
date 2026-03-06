@@ -128,7 +128,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 4. **Reviews** the PR with three independent AI models (sfl-analyzer-a/b/c)
 5. **Fixes** all review findings and increments the cycle (pr-fixer)
 6. **Promotes** clean PRs to ready-for-review when all analyzers PASS (pr-promoter)
-7. **Merges** approved PRs after human sign-off (pr-promoter phase 2)
+7. **Hands off** clean PRs for human review and merge decision
 
 ### Two Workflow Types
 
@@ -162,7 +162,7 @@ and **cannot directly trigger other agentic workflows** via events. The
 | `sfl-analyzer-b` | Agentic | `pull_request: opened` | Full-spectrum review (gemini-3-pro-preview) |
 | `sfl-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |
 | `pr-fixer` | Agentic | Dispatcher-only | Implements analyzer fixes, increments cycle |
-| `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs, merges approved PRs |
+| `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs and hands them to humans |
 | `pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |
 | `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
 
@@ -368,7 +368,7 @@ are worth noting:
 
 - **Timing gaps**: Cron cycles that caused delays (e.g., "Dispatcher ran 3 min before issue was created — 30-min wait")
 - **Concurrent PR conflicts**: Multiple PRs modifying the same file
-- **Verdict propagation**: How many Dispatcher cycles before a PR got `ready-to-merge`
+- **Verdict propagation**: How many Dispatcher cycles before a PR got `human:ready-for-review`
 - **Unexpected behaviors**: Safe-output patterns, label transitions that were surprising
 - **What worked well**: Pipeline autonomy wins worth calling out
 

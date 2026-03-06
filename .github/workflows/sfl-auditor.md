@@ -35,10 +35,6 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
-  remove-labels:
-    max: 1
-  add-labels:
-    max: 1
 ---
 
 # SFL Auditor
@@ -229,42 +225,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 12 — Check: stuck ready-to-merge PRs
+## Step 12 — Signal completion
 
-Search for open pull requests (non-draft) that have the label `ready-to-merge`.
-
-For each such PR, check when the `ready-to-merge` label was added. Use the
-timeline events API (`GET /repos/{owner}/{repo}/issues/{number}/timeline`) to
-find the `labeled` event where `label.name` is `ready-to-merge`. Note the
-`created_at` timestamp of that event.
-
-If the label was added **more than 2 hours ago** and the PR is still open
-(not merged), the merge event failed and needs to be retried.
-
-To retry:
-
-1. Call `remove_labels` with `ready-to-merge` on the PR
-2. Call `add_labels` with `ready-to-merge` on the PR
-
-This re-fires the `pull_request: labeled` event, which triggers the
-`pr-label-actions.yml` squash-merge job.
-
-Only retry **one** PR per auditor run (the oldest stuck one). If multiple
-PRs are stuck, subsequent auditor runs will handle the rest.
-
-If the PR body already contains the text `SFL Auditor: retried ready-to-merge`,
-skip it — a previous auditor run already toggled it and the merge is still
-failing for a different reason. Flag it with `update_issue` (append):
-"⚠️ **SFL Auditor**: PR #<number> has `ready-to-merge` but merge retry
-already attempted. A human should investigate."
-
-If the retry is performed, also call `update_issue` (append) on the PR:
-"🔄 **SFL Auditor**: retried ready-to-merge — label toggled after 2+ hours
-without merge."
-
-## Step 13 — Signal completion
-
-After completing all checks (Steps 2–12), you MUST always call exactly one of:
+After completing all checks (Steps 2–11), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - Update the dashboard (see Dashboard Protocol) — if ALL checks
@@ -285,7 +248,7 @@ This is mandatory — every run must log exactly one entry.
 ## Guardrails
 
 - Never modify PR content — only update issues/PRs via `update_issue`
-- The only permitted PR label modification is the `ready-to-merge` toggle in Step 11
+- Never modify PR labels as part of auditor repairs
 - Never remove `agent:human-required` — that label requires explicit human action
 - Never add `agent:fixable` to an issue that already has a matching open PR
 - Always post the recovery comment in Step 2 even if a previous auditor run already commented — it documents the recurring issue and aids debugging

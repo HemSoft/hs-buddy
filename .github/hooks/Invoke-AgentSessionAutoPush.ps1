@@ -88,11 +88,34 @@ function Get-StagedShortStat {
 
 function Get-CurrentBranch {
     $branch = (git rev-parse --abbrev-ref HEAD).Trim()
-    if ([string]::IsNullOrWhiteSpace($branch)) {
+    if ([string]::IsNullOrWhiteSpace($branch) -or $branch -eq 'HEAD') {
         throw 'Unable to resolve current branch.'
     }
 
     return $branch
+}
+
+function Get-PushRemote([string]$Branch) {
+    $configuredRemote = ((git config --get "branch.$Branch.remote") | Out-String).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($configuredRemote)) {
+        return $configuredRemote
+    }
+
+    $remotes = @(
+        git remote |
+            ForEach-Object { "$($_)".Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+
+    if ($remotes -contains 'origin') {
+        return 'origin'
+    }
+
+    if ($remotes.Count -eq 1) {
+        return $remotes[0]
+    }
+
+    throw "Unable to determine which remote should track branch '$Branch'."
 }
 
 function Invoke-GitAdd {
@@ -251,6 +274,19 @@ function Invoke-GitPushWithRebaseRetry([string]$Branch) {
     }
 
     $pushText = ($pushOutput -join [Environment]::NewLine)
+    $isMissingUpstream = $pushText -match 'has no upstream branch|no upstream branch|set the remote as upstream'
+    if ($isMissingUpstream) {
+        $remote = Get-PushRemote -Branch $Branch
+        Write-Info "No upstream configured for '$Branch'. Running 'git push --set-upstream $remote $Branch'."
+        $setUpstreamOutput = @(& git push --set-upstream $remote $Branch 2>&1)
+        if ($LASTEXITCODE -eq 0) {
+            return
+        }
+
+        $setUpstreamText = ($setUpstreamOutput -join [Environment]::NewLine)
+        throw "git push --set-upstream failed during session-stop automation.$([Environment]::NewLine)$setUpstreamText"
+    }
+
     $isNonFastForward = $pushText -match 'non-fast-forward|failed to push some refs|Updates were rejected'
     if (-not $isNonFastForward) {
         throw "git push failed during session-stop automation.$([Environment]::NewLine)$pushText"

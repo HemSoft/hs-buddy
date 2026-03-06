@@ -159,6 +159,59 @@ function Join-CommitList([string[]]$Items) {
     return "$($values[0]), $($values[1]), and $($values[2])"
 }
 
+function Convert-PathTokenToWords([string]$Value) {
+    $text = $Value -replace '\.[^.]+$', ''
+    $text = $text -replace '\.lock$', ''
+    $text = $text -replace '[_-]+', ' '
+    $text = $text -replace '\s+', ' '
+    return $text.Trim().ToLowerInvariant()
+}
+
+function Get-CommitTargets([string[]]$Files) {
+    $fileList = @($Files)
+    $targets = New-Object System.Collections.Generic.List[string]
+
+    foreach ($file in $fileList) {
+        $target = switch -Regex ($file) {
+            '^\.github/workflows/([^/]+?)(?:\.lock)?\.(?:ya?ml|md)$' {
+                "$($Matches[1]) workflow"
+                break
+            }
+            '^src/components/([^/]+)\.tsx$' {
+                $Matches[1]
+                break
+            }
+            '^\.agents/skills/([^/]+)/' {
+                "$($Matches[1]) skill"
+                break
+            }
+            '^docs/([^/]+)\.md$' {
+                "$(Convert-PathTokenToWords -Value $Matches[1]) doc"
+                break
+            }
+            '^scripts/(?:.*/)?([^/]+)\.ps1$' {
+                "$(Convert-PathTokenToWords -Value $Matches[1]) script"
+                break
+            }
+            '^(README|CHANGELOG|TODO|ATTENTION|VERBIAGE|VISION)\.md$' {
+                "$(Convert-PathTokenToWords -Value $Matches[1]) doc"
+                break
+            }
+            '^package\.json$' {
+                'package metadata'
+                break
+            }
+            default { $null }
+        }
+
+        if ($target -and -not $targets.Contains($target)) {
+            $targets.Add($target)
+        }
+    }
+
+    return $targets.ToArray()
+}
+
 function Get-CommitAreas([string[]]$Files) {
     $fileList = @($Files)
     $areas = New-Object System.Collections.Generic.List[string]
@@ -198,8 +251,15 @@ function New-FollowUpCommitMessage([string[]]$Files, [int]$PassNumber, [string]$
         $normalizedPrefix = "${normalizedPrefix}:"
     }
 
+    $targets = @(Get-CommitTargets -Files $fileList)
     $areas = @(Get-CommitAreas -Files $fileList)
-    $summary = if ($areas.Count -gt 0) {
+    $summary = if ($targets.Count -ge 2) {
+        "update $($targets[0]) and $($targets[1])"
+    }
+    elseif ($targets.Count -eq 1) {
+        "update $($targets[0])"
+    }
+    elseif ($areas.Count -gt 0) {
         "update $(Join-CommitList -Items $areas)"
     }
     elseif ($fileList.Count -eq 1) {
@@ -211,7 +271,10 @@ function New-FollowUpCommitMessage([string[]]$Files, [int]$PassNumber, [string]$
     }
 
     $subject = "$normalizedPrefix $summary"
-    if ($subject.Length -gt 72 -and $areas.Count -gt 1) {
+    if ($subject.Length -gt 72 -and $targets.Count -ge 2) {
+        $subject = "$normalizedPrefix update $($targets[0]) and related files"
+    }
+    elseif ($subject.Length -gt 72 -and $areas.Count -gt 1) {
         $subject = "$normalizedPrefix update $($areas[0]) and related files"
     }
 

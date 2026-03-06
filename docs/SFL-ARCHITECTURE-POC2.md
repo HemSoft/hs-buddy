@@ -45,7 +45,6 @@ There are three ways work enters the SFL pipeline:
 | Label | Color | Description | Applied By | Consumed By |
 |-------|-------|-------------|-----------|-------------|
 | `agent:pr` | ⬜ `#ededed` | Marks a PR as SFL-managed | sfl-issue-processor | analyzers, fixer, promoter, dispatcher |
-| `agent:promoted` | 🔵 `#1D76DB` | PR promoted from draft to ready-for-review | pr-promoter | human (informational) |
 | `pr:cycle-1` … `pr:cycle-3` | 🔵→⬜ gradient | Tracks how many analyze→fix cycles the PR has been through | pr-fixer | dispatcher, promoter |
 | `human:ready-for-review` | 🟣 `#6f42c1` | PR is ready for human review and merge decision | pr-promoter | pr-label-actions, human |
 
@@ -260,7 +259,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Inputs** | None |
 | **Safe-Outputs** | `add-labels` (max 3), `remove-labels` (max 3), `update-discussion` (max 2), `update-issue` (max 5), `add-comment` (max 1) |
-| **Phase 1 — Promote** | All 3 analyzers PASS → adds `human:ready-for-review` + `agent:promoted` labels |
+| **Phase 1 — Promote** | All 3 analyzers PASS → adds `human:ready-for-review` label |
 | **Artifact State** | `030-pr-ready-for-review` → `040-pr-ready-for-human-review` → **Done** |
 | **Throughput** | 1 promotion per run |
 
@@ -422,7 +421,7 @@ PHASE 6b — PROMOTION (Dispatcher-triggered, if all PASS)
                ▼
     ┌──────────────────┐
     │   pr-promoter     │    ← Phase 1: Un-drafts the PR
-    │(workflow_dispatch)│       Adds human:ready-for-review + agent:promoted
+       │(workflow_dispatch)│       Adds human:ready-for-review
     │ Model: Sonnet 4.6│
     └────────┬─────────┘
              │
@@ -486,7 +485,7 @@ agent:pr + pr:cycle-1
   → [fixer pushes fixes] → pr:cycle-1
   → [analyzers re-review] → pr:cycle-1 markers written
   → … (repeat up to max-fix-cycles)
-       → [all PASS] → agent:promoted + human:ready-for-review
+       → [all PASS] → human:ready-for-review
        → [human review + merge] → MERGED
 ```
 

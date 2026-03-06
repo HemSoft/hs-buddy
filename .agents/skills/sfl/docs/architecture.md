@@ -164,7 +164,7 @@ No external state store. No database. No files. GitHub IS the state store.
 ```
 [finding detected] → agent:fixable + action-item
                    → agent:in-progress  (issue-processor claims it)
-                   → agent:promoted + human:ready-for-review  (PR ready for review)
+                   → human:ready-for-review  (PR ready for review)
                    → MERGED or CLOSED
 ```
 
@@ -177,7 +177,7 @@ No external state store. No database. No files. GitHub IS the state store.
                   → Analyzers re-review → pr:cycle-1 markers
                   → All PASS → pr-promoter un-drafts
                   → human:ready-for-review applied
-                  → Human approves → pr-promoter merges (squash + delete branch)
+                  → Human reviews and merges
 ```
 
 The fixer uses `push-to-pull-request-branch` to push fixes to the same PR

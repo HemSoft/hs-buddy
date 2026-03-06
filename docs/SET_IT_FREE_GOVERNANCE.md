@@ -28,7 +28,6 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 | `agent:fixable` | `#2ea44f` (green) | Agent has analyzed this and can auto-fix safely |
 | `agent:in-progress` | `#0075ca` (blue) | Agent is actively working on this item |
 | `agent:pr` | `#ededed` (light gray) | PR is managed by the Set it Free Loop |
-| `agent:promoted` | `#1D76DB` (blue) | PR promoted from draft to ready-for-review |
 | `human:ready-for-review` | `#6f42c1` (purple) | PR is ready for human review and merge decision |
 | `agent:pause` | `#e3771a` (orange) | Agent halted; issue needs human intervention |
 | `agent:human-required` | `#d73a4a` (red) | Fix exceeds safe automation boundary — human must own this |

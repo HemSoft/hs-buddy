@@ -161,9 +161,6 @@ Fixer will handle this." and exit.
 Call `add_labels` with `human:ready-for-review`. This adds the label without
 touching existing labels — no risk of accidentally dropping labels.
 
-If the PR has the legacy `agent:promoted` label, also call `remove_labels`
-to remove it.
-
 The `human:ready-for-review` label addition triggers `pr-label-actions.yml`
 which automatically converts the PR from draft to ready-for-review.
 
@@ -213,7 +210,7 @@ number from `Closes #N` in the PR body.
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
 - Never modify the PR's code, title, or body content
 - Never close or merge the PR during promotion — only convert from draft to ready-for-review
-- Never remove labels except replacing legacy `agent:promoted` with `human:ready-for-review`
+- Never remove labels during promotion
 - Never touch the linked issue — only operate on the PR
 - Use `add_labels` for label additions (safer than `update_issue` with full label array)
 - Use `update_issue` with `operation: "append"` for marker comments (requires `status`/`title`/`body`)

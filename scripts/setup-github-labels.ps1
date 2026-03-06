@@ -42,7 +42,6 @@ $Labels = @(
     # ── Lifecycle labels ──────────────────────────────────────────────────────
     @{ name = "agent:fixable";           color = "2ea44f"; description = "Agent has analyzed this and can auto-fix safely" }
     @{ name = "agent:in-progress";       color = "0075ca"; description = "Agent is actively working on this item" }
-    @{ name = "agent:review-requested";  color = "d4af37"; description = "Agent completed work; requesting human review" }
     @{ name = "human:ready-for-review";  color = "6f42c1"; description = "PR is ready for human review and merge decision" }
     @{ name = "agent:pause";             color = "e3771a"; description = "Agent halted; issue needs human intervention before retry" }
     @{ name = "agent:human-required";    color = "d73a4a"; description = "Fix exceeds safe automation boundary — human must own this" }

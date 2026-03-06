@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [int]$MaxFollowUpCommits = 5,
-    [string]$CommitPrefix = 'chore(session): auto-followup',
+    [string]$CommitPrefix = 'chore(session):',
     [switch]$SkipPush
 )
 
@@ -74,8 +74,16 @@ function Get-StatusPorcelain {
     return (git status --porcelain)
 }
 
-function Get-StagedFile {
-    return (git diff --cached --name-only)
+function Get-StagedFiles {
+    return @(
+        git diff --cached --name-only |
+            ForEach-Object { "$($_)".Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+}
+
+function Get-StagedShortStat {
+    return ((git diff --cached --shortstat | Out-String).Trim())
 }
 
 function Get-CurrentBranch {
@@ -106,14 +114,129 @@ function Invoke-GitAdd {
     }
 }
 
-function Invoke-GitCommitFaultTolerant([string]$Message) {
-    $commitOutput = @(& git commit -m $Message 2>&1)
+function Join-CommitList([string[]]$Items) {
+    $values = @(
+        @($Items) |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -Unique
+    )
+
+    if ($values.Count -eq 0) {
+        return 'session changes'
+    }
+
+    if ($values.Count -eq 1) {
+        return $values[0]
+    }
+
+    if ($values.Count -eq 2) {
+        return "$($values[0]) and $($values[1])"
+    }
+
+    return "$($values[0]), $($values[1]), and $($values[2])"
+}
+
+function Get-CommitAreas([string[]]$Files) {
+    $fileList = @($Files)
+    $areas = New-Object System.Collections.Generic.List[string]
+
+    foreach ($file in $fileList) {
+        $area = switch -Regex ($file) {
+            '^\.github/workflows/' { 'SFL workflows'; break }
+            '^\.github/' { 'GitHub automation'; break }
+            '^\.agents/skills/' { 'agent skills'; break }
+            '^docs/' { 'documentation'; break }
+            '^(README|CHANGELOG|TODO|ATTENTION|VERBIAGE|VISION)\.md$' { 'documentation'; break }
+            '^src/components/' { 'desktop UI'; break }
+            '^src/' { 'app code'; break }
+            '^electron/' { 'Electron shell'; break }
+            '^convex/' { 'Convex backend'; break }
+            '^scripts/' { 'scripts'; break }
+            '^(package\.json|bun\.lockb|tsconfig(\..+)?\.json|vite\.config\.ts|electron-builder\.json5)$' { 'build metadata'; break }
+            default { $null }
+        }
+
+        if ($area -and -not $areas.Contains($area)) {
+            $areas.Add($area)
+        }
+    }
+
+    return $areas.ToArray()
+}
+
+function New-FollowUpCommitMessage([string[]]$Files, [int]$PassNumber, [string]$Prefix) {
+    $fileList = @($Files)
+    $normalizedPrefix = $Prefix.Trim()
+    if ([string]::IsNullOrWhiteSpace($normalizedPrefix) -or $normalizedPrefix -match 'auto-followup') {
+        $normalizedPrefix = 'chore(session):'
+    }
+
+    if (-not $normalizedPrefix.EndsWith(':')) {
+        $normalizedPrefix = "${normalizedPrefix}:"
+    }
+
+    $areas = @(Get-CommitAreas -Files $fileList)
+    $summary = if ($areas.Count -gt 0) {
+        "update $(Join-CommitList -Items $areas)"
+    }
+    elseif ($fileList.Count -eq 1) {
+        $name = [IO.Path]::GetFileNameWithoutExtension($fileList[0]) -replace '[-_]+', ' '
+        "update $name"
+    }
+    else {
+        'capture remaining session changes'
+    }
+
+    $subject = "$normalizedPrefix $summary"
+    if ($subject.Length -gt 72 -and $areas.Count -gt 1) {
+        $subject = "$normalizedPrefix update $($areas[0]) and related files"
+    }
+
+    $shortStat = Get-StagedShortStat
+    $bodyLines = New-Object System.Collections.Generic.List[string]
+    $bodyLines.Add('Session-stop follow-up commit for remaining uncommitted changes.')
+
+    if ($shortStat) {
+        $bodyLines.Add("Diff: $shortStat")
+    }
+
+    $bodyLines.Add("Pass: $PassNumber")
+    $bodyLines.Add('Files:')
+
+    $previewCount = [Math]::Min($fileList.Count, 8)
+    for ($index = 0; $index -lt $previewCount; $index++) {
+        $bodyLines.Add("- $($fileList[$index])")
+    }
+
+    if ($fileList.Count -gt $previewCount) {
+        $remainingCount = $fileList.Count - $previewCount
+        $bodyLines.Add("- ... (+$remainingCount more)")
+    }
+
+    return @{
+        Subject = $subject
+        Body = ($bodyLines -join [Environment]::NewLine)
+    }
+}
+
+function Invoke-GitCommitFaultTolerant([string]$Subject, [string]$Body) {
+    $commitArgs = @('commit', '-m', $Subject)
+    if (-not [string]::IsNullOrWhiteSpace($Body)) {
+        $commitArgs += @('-m', $Body)
+    }
+
+    $commitOutput = @(& git @commitArgs 2>&1)
     if ($LASTEXITCODE -eq 0) {
         return
     }
 
     Write-Info 'git commit failed (likely hook/lint checks). Retrying with --no-verify for session-stop fault tolerance.'
-    $retryOutput = @(& git commit --no-verify -m $Message 2>&1)
+    $retryArgs = @('commit', '--no-verify', '-m', $Subject)
+    if (-not [string]::IsNullOrWhiteSpace($Body)) {
+        $retryArgs += @('-m', $Body)
+    }
+
+    $retryOutput = @(& git @retryArgs 2>&1)
     if ($LASTEXITCODE -ne 0) {
         $firstAttempt = ($commitOutput -join [Environment]::NewLine)
         $secondAttempt = ($retryOutput -join [Environment]::NewLine)
@@ -167,15 +290,15 @@ for ($i = 1; $i -le $MaxFollowUpCommits; $i++) {
     Write-Info "Detected uncommitted changes after commit. Follow-up pass $i/$MaxFollowUpCommits."
     Invoke-GitAdd
 
-    $staged = Get-StagedFile
+    $staged = @(Get-StagedFiles)
     if (-not $staged) {
         Write-Info 'No staged changes remain. Stopping follow-up loop.'
         break
     }
 
-    $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $message = "$CommitPrefix ($stamp)"
-    Invoke-GitCommitFaultTolerant -Message $message
+    $message = New-FollowUpCommitMessage -Files $staged -PassNumber $i -Prefix $CommitPrefix
+    Write-Info "Using follow-up commit subject: $($message.Subject)"
+    Invoke-GitCommitFaultTolerant -Subject $message.Subject -Body $message.Body
 }
 
 $remaining = Get-StatusPorcelain

@@ -147,7 +147,7 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
         <span className="title-brand">HemSoft Developments</span>
         <span className="title-icon"><Users size={14} /></span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.274</span>
+        <span className="title-version">V0.1.275</span>
       </div>
       <div className="window-controls">
         <button

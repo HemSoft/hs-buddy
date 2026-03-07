@@ -8,8 +8,6 @@ $workflows = @(
     "Copilot Setup Steps"
     "SFL Auditor"
     "Issue Processor"
-    "PR Fixer — Authority"
-    "PR Promoter"
     "SFL Analyzer A — Full-Spectrum Review"
     "SFL Analyzer B — Full-Spectrum Review"
     "SFL Analyzer C — Full-Spectrum Review"

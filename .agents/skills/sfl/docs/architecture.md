@@ -131,7 +131,8 @@ SFL uses explicit-dispatch handoffs inside the hot path:
 - Issue intake triggers `sfl-issue-processor` directly.
 - The analyzer chain uses `dispatch-workflow` to enforce a strict
   `sfl-analyzer-a -> sfl-analyzer-b -> sfl-analyzer-c` sequence.
-- Analyzer C writes the current-cycle verdict into the PR body.
+- Analyzer C writes the current-cycle verdict into the PR body and explicitly
+  dispatches `sfl-pr-router.yml` for that PR.
 - `sfl-pr-router.yml` reads that verdict deterministically and either dispatches
   `sfl-issue-processor` or adds `human:ready-for-review`.
 

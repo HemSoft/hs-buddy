@@ -559,7 +559,12 @@ jobs:
               "description": "Dispatch the 'sfl-analyzer-b' workflow with workflow_dispatch trigger. This workflow must support workflow_dispatch and be in .github/workflows/ directory in the same repository.",
               "inputSchema": {
                 "additionalProperties": false,
-                "properties": {},
+                "properties": {
+                  "pull-request-number": {
+                    "description": "Target draft PR number for a targeted Analyzer B review",
+                    "type": "string"
+                  }
+                },
                 "type": "object"
               },
               "name": "sfl_analyzer_b"

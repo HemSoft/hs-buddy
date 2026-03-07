@@ -30,7 +30,6 @@ $workflows = @(
     "sfl-analyzer-b.lock.yml",
     "sfl-analyzer-c.lock.yml",
     "sfl-pr-router.yml",
-    "pr-fixer.lock.yml",
     "sfl-pr-label-actions.yml"
 )
 

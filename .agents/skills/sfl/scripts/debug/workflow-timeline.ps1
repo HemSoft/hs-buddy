@@ -34,7 +34,6 @@ $workflows = @(
     "sfl-analyzer-b.lock.yml",
     "sfl-analyzer-c.lock.yml",
     "sfl-pr-router.yml",
-    "pr-fixer.lock.yml",
     "sfl-auditor.lock.yml"
 )
 
@@ -111,15 +110,14 @@ if ($analyzerRuns.Count -gt 9) {
     Write-Host "  Check marker output in PR body." -ForegroundColor Yellow
 }
 
-$fixerRuns = $sorted | Where-Object { $_.Workflow -eq "pr-fixer" }
 $routerRuns = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-router" }
-if ($fixerRuns.Count -eq 0 -and $analyzerRuns.Count -gt 3) {
-    Write-Host "  WARNING: Analyzers have run $($analyzerRuns.Count)x but Fixer has not run." -ForegroundColor Red
-    Write-Host "  Issue Processor may not be finding the markers it needs." -ForegroundColor Yellow
-}
 if ($routerRuns.Count -eq 0 -and $analyzerRuns.Count -ge 3) {
     Write-Host "  WARNING: Analyzer chain completed but PR Router has not run." -ForegroundColor Red
-    Write-Host "  Check pull_request:edited routing and router marker state." -ForegroundColor Yellow
+    Write-Host "  Check explicit Analyzer C -> PR Router dispatch and router marker state." -ForegroundColor Yellow
+}
+if ($routerRuns.Count -gt 0 -and $analyzerRuns.Count -gt 3) {
+    Write-Host "  WARNING: Multiple analyzer runs detected for one PR cycle." -ForegroundColor Yellow
+    Write-Host "  Check marker output and Analyzer A handoff idempotency." -ForegroundColor Yellow
 }
 
 Write-Host "`n=== TIMELINE COMPLETE ===" -ForegroundColor Cyan

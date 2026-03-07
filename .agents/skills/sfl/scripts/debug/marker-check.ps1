@@ -46,7 +46,7 @@ foreach ($pr in $agentPRs) {
     $cycle = if ($cycleLabel) { [int]($cycleLabel -replace "pr:cycle-", "") } else { 0 }
 
     # Check all marker types
-    $markerPattern = '\[MARKER:(sfl-analyzer-[abc]|pr-fixer|sfl-issue-processor|sfl-pr-router) cycle:(\d+)\]'
+    $markerPattern = '\[MARKER:(sfl-analyzer-[abc]|sfl-issue-processor|sfl-pr-router) cycle:(\d+)\]'
     $matches_found = [regex]::Matches($body, $markerPattern)
 
     if ($matches_found.Count -eq 0) {

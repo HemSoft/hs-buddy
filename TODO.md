@@ -2,7 +2,7 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 🚧 | High | [Unify issue processor and fixer into a single implementer](#unify-issue-processor-and-fixer-into-a-single-implementer) | Hot path refactor underway: dispatcher now routes follow-up implementation back through the issue processor |
+| ✅ | High | Unify issue processor and fixer into a single implementer | Completed 2026-03-07: retired `pr-fixer`; `sfl-issue-processor` is now the single implementer across first-pass and follow-up cycles. |
 | 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
@@ -65,90 +65,11 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 52** (90%)
+**Remaining: 5** | **Completed: 53** (91%)
 
 ---
 
-### Unify issue processor and fixer into a single implementer
-
-**Goal**: Replace the split between `sfl-issue-processor` and `pr-fixer` with one implementation workflow that advances the same issue/PR across all coding cycles.
-
-**Desired behavior**:
-
-- Always read the linked issue as the canonical source of intent and acceptance criteria.
-- Always check whether an open draft PR already exists for that issue.
-- If no PR exists, implement the first pass and create the draft PR.
-- If a PR exists, read current PR state plus analyzer feedback and push the next fix set to the same branch.
-- After each follow-up implementation pass, explicitly dispatch Analyzer A; for a newly created PR, rely on `pull_request: opened` for the first review cycle.
-
-**Why**:
-
-- Removes duplicated implementation logic split across `sfl-issue-processor` and `pr-fixer`.
-- Keeps the runtime model simple: implementer codes, analyzers review, router hands off.
-- Eliminates the confusing cycle restart bounce where fixer hands control back indirectly instead of continuing the explicit chain.
-
-**Likely follow-up changes**:
-
-- Rename `sfl-issue-processor` to something like `sfl-implementer`.
-- Retire `pr-fixer` and delete its dispatcher branch.
-- Make implementer rely on PR open for the first review cycle and dispatch Analyzer A only after pushing follow-up fixes.
-- Keep `pr:cycle-N` only as metadata/idempotency if still needed, not as the orchestration trigger.
-
-## Simplisticate Workflows
-
-**Goal**: Simplify the SFL agentic workflow architecture from a cron-polled, batch-processing system to an event-driven, single-item pipeline.
-
-**Principles**:
-
-- Everything is triggered by creation/labeling events — not cron polling
-- One issue at a time, processed immediately when created/labeled
-- No autonomous merging — PRs get promoted, humans merge (or a future safe-output handles it)
-
-### Sub-Tasks
-
-| # | Status | Task | Details |
-|---|--------|------|---------|
-| 1 | 📋 | **Remove autonomous PR merging** | Remove `ready-to-merge` label flow, `squash-merge` job in `sfl-pr-label-actions.yml`, and merge logic in PR Promoter. PRs stop at `human:ready-for-review`. |
-| 2 | 📋 | **Single-issue processing** | Issue Processor handles exactly 1 issue per run. Remove batch claiming logic if present. |
-| 3 | 📋 | **Event-driven issue processing** | When a workflow creates an issue with `agent:fixable`, trigger Issue Processor immediately via issue-open event instead of waiting for next Dispatcher cron. |
-| 4 | 📋 | **Event-driven analyzer triggers** | When Issue Processor creates a draft PR, trigger analyzers immediately instead of waiting for Dispatcher. |
-| 5 | 📋 | **Reduce Dispatcher scope** | Dispatcher becomes a fallback/catch-up mechanism, not the primary trigger. Most work should already be done by event-driven triggers. |
-
-### Current Workflow Inventory (16 total)
-
-**Agentic workflows** (12 — `.md` + `.lock.yml` prompts):
-
-| Workflow | Purpose | Trigger |
-|----------|---------|---------|
-| `sfl-auditor` | Audits pipeline state, repairs discrepancies | Cron (30 min) |
-| `issue-processor` | Claims `agent:fixable` issues → creates draft PRs | Dispatched by Dispatcher |
-| `sfl-analyzer-a` | Code review (Claude Sonnet) | Dispatched by Dispatcher |
-| `sfl-analyzer-b` | Code review (Gemini Pro) | Dispatched by Dispatcher |
-| `sfl-analyzer-c` | Code review (GPT Codex) | Dispatched by Dispatcher |
-| `pr-fixer` | Applies fixes based on analyzer feedback | Dispatched by Dispatcher |
-| `sfl-pr-router` | Routes all-PASS vs blocking PRs after Analyzer C | `pull_request: edited` |
-| `discussion-processor` | Processes feature intake discussions → issues | Dispatched by Dispatcher |
-| `simplisticate` | Identifies simplification opportunities | Manual dispatch |
-| `repo-audit` | Repository health audit | Manual dispatch |
-| `daily-repo-status` | Daily status report discussion | Cron (daily) |
-
-**Standard YAML workflows** (4):
-
-| Workflow | Purpose | Trigger |
-|----------|---------|---------|
-| `sfl-pr-label-actions.yml` | Draft flip + squash merge on label events | `pull_request: labeled` / `workflow_dispatch` |
-| `agentics-maintenance.yml` | Maintenance tasks | Various |
-| `copilot-setup-steps.yml` | Copilot setup | Various |
-
-### Session Context (2026-03-03)
-
-- Both stuck PRs (#93, #94) had to be manually rebased and merged — the autonomous merge path failed due to org rulesets + fire-once label events with no retry
-- `pull_request: labeled` events don't fire from API/CLI label additions (GitHub loop prevention)
-- The `squash-merge` job in `sfl-pr-label-actions.yml` has no `workflow_dispatch` fallback
-- `NOOP_REPORT_AS_ISSUE: "true"` is platform-default on all 12 agentic workflows, creating duplicate logging (issue #80 + discussion #95)
-- Label count: 24 (ceiling: 25) — recently pruned from 36
-
----
+## Remaining Items
 
 ### Create cost telemetry dashboard
 
@@ -179,60 +100,6 @@
 - `POST /tasks/{id}` — update a task (body: partial fields like `{ content, due_date }`)
 - `GET /projects` — list all projects (for project name resolution)
 - `GET /labels` — list all labels
-
-**UI Design** — Upcoming 7-Day View:
-
-```
-┌────────────────────────────────────────────────┐
-│  📅 Task Planner                               │
-├────────────────────────────────────────────────┤
-│                                                │
-│  ■ Today — Fri, Feb 28          [+ Add Task]   │
-│  ┌────────────────────────────────────────────┐ │
-│  │ ☐ Review PR for auth service    P1  Work   │ │
-│  │ ☐ Update team standup notes     P3  Work   │ │
-│  │ ☐ Buy groceries                 P4  Home   │ │
-│  └────────────────────────────────────────────┘ │
-│                                                │
-│  ■ Tomorrow — Sat, Mar 1                       │
-│  ┌────────────────────────────────────────────┐ │
-│  │ ☐ Prepare sprint demo           P2  Work   │ │
-│  └────────────────────────────────────────────┘ │
-│                                                │
-│  ■ Sun, Mar 2                                  │
-│  ┌────────────────────────────────────────────┐ │
-│  │   No tasks                                 │ │
-│  └────────────────────────────────────────────┘ │
-│                                                │
-│  ■ Mon, Mar 3                                  │
-│  ┌────────────────────────────────────────────┐ │
-│  │ ☐ Deploy v2.1 to staging        P1  Work   │ │
-│  │ ☐ Write blog post draft         P3  Ideas  │ │
-│  └────────────────────────────────────────────┘ │
-│  ...                                           │
-└────────────────────────────────────────────────┘
-```
-
-**Task Row Features**:
-
-- Checkbox to complete/uncomplete (calls `POST /tasks/{id}/close` or `/reopen`)
-- Task content text (click to edit inline)
-- Priority indicator (colored dot: P1=red, P2=orange, P3=blue, P4=grey)
-- Project name badge (resolved from `GET /projects` cache)
-- Labels as small tags
-- Hover: show description preview, due time if set
-- Context menu: Edit, Reschedule, Set Priority, Delete
-
-**Overdue Section**: Tasks with `due.date < today` appear in a pinned "Overdue" section at the very top, styled with a red/warning accent, before the Today section.
-
-#### Architecture
-
-##### Activity Bar & Sidebar
-
-1. **New Activity Bar entry**: Add `{ id: 'planner', label: 'Planner', icon: CalendarDays }` to `ActivityBar.tsx` sections array. Position it after `tasks` (or replace `tasks` since it's currently placeholder).
-
-2. **Sidebar section**: Add `planner` to `sectionData` in `SidebarPanel.tsx`:
-
    ```typescript
    planner: {
      title: 'Planner',

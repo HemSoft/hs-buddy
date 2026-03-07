@@ -42,6 +42,9 @@ safe-outputs:
   add-labels:
     target: "*"
     max: 1
+  dispatch-workflow:
+    workflows: ["sfl-pr-router"]
+    max: 1
 ---
 
 # SFL Analyzer C — Full-Spectrum Review

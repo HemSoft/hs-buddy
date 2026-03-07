@@ -35,8 +35,8 @@ That repo contains:
 | `sfl-analyzer-a` | `pull_request: opened` | Starts the sequential A -> B -> C review chain for draft PRs (Model A) | Local |
 | `sfl-analyzer-b` | Analyzer A dispatch | Continues the sequential full-spectrum review chain (Model B) | Local |
 | `sfl-analyzer-c` | Analyzer B dispatch | Finishes the sequential full-spectrum review chain and writes the verdict state that the PR Router consumes | Local |
-| `sfl-pr-router` (`SFL PR Router`) | Analyzer C dispatch / manual dispatch | Deterministically reads Analyzer C's current-cycle verdicts and either labels the PR ready for review or dispatches the Issue Processor for the next pass | Local |
-| `sfl-pr-label-actions` (`SFL PR Label Actions`) | `pull_request: labeled` / manual dispatch | Label-driven ready-for-review flip automation | Local |
+| `sfl-pr-router` (`SFL PR Router`) | Analyzer C dispatch / manual dispatch | Deterministically reads Analyzer C's current-cycle verdicts and either dispatches label-actions for ready-for-review or dispatches the Issue Processor for the next pass | Local |
+| `sfl-pr-label-actions` (`SFL PR Label Actions`) | PR Router dispatch / manual dispatch | Deterministic ready-for-review flip automation | Local |
 
 ---
 

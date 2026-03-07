@@ -2,13 +2,14 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| ✅ | High | Unify issue processor and fixer into a single implementer | Completed 2026-03-07: retired `pr-fixer`; `sfl-issue-processor` is now the single implementer across first-pass and follow-up cycles. |
-| 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
+| 🚧 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Issue #128 is active in SFL; auto-detect SFL-enabled repos and show pipeline status node under each repo |
+| 📋 | High | [Build project-scoped Copilot workspaces](#build-project-scoped-copilot-workspaces) | Issue #130 created; new top-level section for Codex-style multi-project agents backed by local git folders and GitHub Copilot SDK |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
 | 📋 | Medium | [Task Planner (Todoist Integration)](#task-planner-todoist-integration) | 7-day upcoming view powered by Todoist REST API; new Activity Bar section |
 | 📋 | Medium | [Tempo tracking](#tempo-tracking) | New tree-view section for time tracking with Tempo API calls, daily/weekly summaries, and fast worklog actions |
+| ✅ | High | Unify issue processor and fixer into a single implementer | Completed 2026-03-07: retired `pr-fixer`; `sfl-issue-processor` is now the single implementer across first-pass and follow-up cycles. |
 | ✅ | High | Global Copilot Assistant Panel | Completed via SFL pipeline (PR #104 merged on 2026-03-04). |
 | ✅ | High | Simplisticate E2E Test | Completed end-to-end SFL validation run (issue → PR → merge) on 2026-03-04. |
 | ✅ | Critical | Simplisticate Workflows | Completed 2026-03-03: event-driven trigger path implemented and autonomous merge flow removed in favor of human review handoff. |
@@ -65,11 +66,196 @@
 
 ## Progress
 
-**Remaining: 5** | **Completed: 53** (91%)
+**Remaining: 7** | **Completed: 53** (88%)
 
 ---
 
 ## Remaining Items
+
+### Build project-scoped Copilot workspaces
+
+**Tracking**: GitHub Issue #130 created on 2026-03-07. Not yet routed into SFL.
+
+**Goal**: Add a new top-level app section that feels like a Codex-style multi-project workspace manager, where each project is a local git clone and can host its own Copilot agent sessions, history, and execution context.
+
+**Settled v1 decisions**:
+
+- UI section name: `The Crew`
+- Initial execution model: project-scoped prompt/thread execution, not full autonomous agents
+- Eligibility: GitHub repos only
+- Project storage: local-only, not Convex-backed
+- Concurrency: one active thread/run per project
+- Instruction-file handling: implicit only; rely on Copilot SDK + repo context rather than surfacing those files explicitly in the UI
+
+**Product shape**:
+
+- New top-level Activity Bar entry, separate from the existing `Copilot` section.
+- Users can register multiple local projects by selecting a folder from disk.
+- Each project maps to a local git repository root and becomes a persistent workspace inside Buddy.
+- Each workspace can start new Copilot agent runs and retain project-scoped history.
+- The existing top-right assistant panel remains global and lightweight; this feature is the structured, project-centric surface.
+
+**Hard requirements**:
+
+- Project creation must start from a local folder picker, not manual text entry only.
+- Selected folders must validate as local git clones before they are accepted.
+- The effective project root should be the git root, not an arbitrary nested subfolder.
+- Agent execution must run with the project folder as working directory so Copilot sees the correct repo context.
+- Project execution must respect repository-local instruction sources such as `AGENTS.md`, prompt files, Copilot instructions, and related markdown guidance already present in that clone.
+
+**Why this is not just a Copilot Prompt clone**:
+
+- The current Copilot area is prompt/result oriented and mostly global.
+- This feature needs persistent project identity, local path validation, project metadata, project-scoped sessions, and project-aware execution UX.
+- The shared Copilot SDK client already supports per-request `cwd`, which is the right primitive for binding an agent run to a specific local repo.
+
+**Likely architecture**:
+
+##### Data model
+
+- Store project records locally rather than in Convex, likely via electron-store config or a dedicated local persistence layer:
+  - display name
+  - local path
+  - git root
+  - detected GitHub owner/repo from remotes
+  - default branch
+  - last opened timestamp
+  - status / validation metadata
+- Store project threads locally as well, with one active thread per project in v1:
+  - project id
+  - title
+  - status
+  - model
+  - created / updated timestamps
+- Decide whether to keep results compatible with existing `copilotResults` while treating project identity as local-only metadata, or move project-thread history fully local for v1.
+
+##### Electron / IPC
+
+- Add a native folder-picker IPC handler using Electron dialog APIs.
+- Add git validation helpers that can:
+  - resolve repo root from any nested folder
+  - verify `.git` presence or worktree validity
+  - inspect remotes / branch info
+  - detect common instruction files in the repo root
+- Add Copilot execution IPC that accepts project context explicitly:
+  - `projectId`
+  - `cwd`
+  - optional session/thread id
+  - selected model
+  - execution mode (chat vs agent run)
+
+##### Copilot SDK integration
+
+- Reuse the shared Copilot SDK service where practical.
+- Preserve the existing per-run `cwd` behavior for project isolation.
+- Start with persistent multi-turn prompt/thread execution scoped to a project.
+- Do not expand to full agent autonomy or broad tool-permission UX in v1.
+- Keep the implementation compatible with a later upgrade to richer agent workflows if the thread model proves sound.
+
+##### Renderer / navigation
+
+- Add a new Activity Bar section named `The Crew`.
+- Add a dedicated sidebar tree with:
+  - project list
+  - per-project thread history
+  - quick action to add project
+  - recent activity / active-run badges
+- Add routed content views for:
+  - all projects overview
+  - project detail workspace
+  - session transcript / run detail
+  - new project onboarding / empty state
+
+##### Validation / onboarding UX
+
+- Folder picker should immediately validate the selection.
+- If the folder is not a git repo, show a hard validation error.
+- If the folder is nested inside a repo, normalize to the git root and explain that adjustment.
+- If the remote is not GitHub, reject the project for v1.
+- Show detected metadata before final save: path, repo slug, branch.
+
+**Likely implementation areas**:
+
+- `src/components/ActivityBar.tsx`
+- `src/components/SidebarPanel.tsx`
+- new `src/components/projects/` subtree
+- `src/components/AppContentRouter.tsx`
+- `src/components/appContentViewLabels.ts`
+- `electron/preload.ts`
+- new `electron/ipc/projectWorkspaceHandlers.ts`
+- `electron/services/copilotService.ts`
+- `electron/services/copilotClient.ts`
+- new git/project inspection helpers under `electron/services/` or `src/api/`
+- `convex/schema.ts` plus matching Convex query/mutation files
+
+**Phased rollout suggestion**:
+
+1. **Foundation**
+  - Persist project records locally
+   - Add folder picker + git-root validation
+   - Render top-level section and project list
+2. **Project workspace shell**
+   - Project detail view
+   - Empty state and metadata cards
+  - Recent runs / thread list
+3. **Scoped Copilot runs**
+  - Start prompt/thread execution from a project
+  - Persist local project-thread history
+   - Open results in project context
+4. **Session model**
+  - One active thread per project
+   - Resume/revisit past sessions
+   - Rename/archive sessions
+5. **Agent hardening**
+  - Future-only: evaluate richer tool permission policy
+  - Future-only: approval UX if real agents are introduced
+  - Better execution diagnostics when repo context is invalid
+
+**Key risks / design traps**:
+
+- Confusing this with the existing global assistant and duplicating concepts instead of layering cleanly.
+- Letting the `The Crew` UI imply full autonomy when v1 is only scoped project-thread execution.
+- Letting arbitrary folders in without strong git-root validation.
+- Storing local paths in synced state when they are machine-specific and should remain local.
+- Rejecting valid local repos too late instead of failing fast on non-GitHub remotes.
+- Building a complex session model before deciding whether results should remain compatible with existing `copilotResults` data.
+
+**Remaining open questions**:
+
+- Whether project-thread history should reuse existing `copilotResults` records with local project linkage, or live in a separate local store.
+- Whether the existing Copilot results list should remain global, or gain project filters / project grouping.
+- Whether thread titles are user-authored, prompt-derived, or auto-generated from repo + first prompt.
+
+---
+
+### SFL Loop monitoring in Organizations tree
+
+**Tracking**: GitHub Issue #128 is active in SFL.
+
+**Goal**: Surface SFL health directly under each repo in the Organizations tree so users can see pipeline state without opening the repo detail view first.
+
+**Desired behavior**:
+
+- Auto-detect whether a repo is SFL-enabled based on workflow inventory rather than a hardcoded allow-list.
+- Add a child node under each eligible repo such as `SFL Loop` or `Pipeline Status`.
+- Show high-signal state at a glance: healthy, blocked, active work, or human review waiting.
+- Support expand-to-inspect details such as open agent issues, active draft PRs, ready-for-review PRs, and recent workflow failures.
+- Refresh with the rest of the GitHub sidebar data and avoid expensive per-repo polling.
+
+**Likely implementation areas**:
+
+- GitHub sidebar data hooks under `src/components/sidebar/github-sidebar/`
+- Repo detail / repo tree data shaping under `src/components/` and `src/hooks/`
+- GitHub API aggregation in `src/api/github.ts`
+- Shared constants/types for SFL repo detection and status summarization
+
+**Open design choices**:
+
+- Whether to infer SFL support from exact workflow filenames, labels, or both
+- Whether status should be purely read-only or include quick actions later
+- Whether the node appears for all repos with disabled SFL workflows or only currently active ones
+
+---
 
 ### Create cost telemetry dashboard
 
@@ -80,6 +266,25 @@
 - Per-workflow run and cost metrics
 - p50/p90 cost-per-run reporting
 - Monthly cap alerts and throttle policies
+
+---
+
+### Add branch cleanup to repo-audit
+
+**Goal**: Extend repo-audit so it can identify stale agent branches and propose or perform safe cleanup for merged or orphaned `agent-fix/*` branches.
+
+**Desired behavior**:
+
+- Detect merged `agent-fix/*` branches that are no longer needed.
+- Detect orphaned branches whose issue/PR pair has already been closed.
+- Avoid touching active draft PR branches or anything without clear SFL ownership.
+- Report cleanup candidates clearly, with enough evidence for safe automation or human review.
+
+**Likely implementation areas**:
+
+- `repo-audit.md` / `repo-audit.lock.yml`
+- GitHub branch and PR lookup utilities
+- SFL auditor/reporting surfaces if cleanup findings should be visible elsewhere
 
 ---
 

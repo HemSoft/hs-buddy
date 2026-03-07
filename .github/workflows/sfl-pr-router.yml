@@ -107,13 +107,14 @@ jobs:
 
           if [[ "$VERDICT_A" == "**PASS** |"* && "$VERDICT_B" == "**PASS** |"* && "$VERDICT_C" == "**PASS** |"* ]]; then
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "human:ready-for-review"
+            gh workflow run "sfl-pr-label-actions.yml" --repo "$REPO" -f pull-request-number="$PR_NUMBER"
 
             printf '%s\n\n## ✅ SFL PR Router — Ready for Human Review\n\n**Router**: SFL PR Router\n**Cycle**: %s\n**PR**: #%s\n\n### Decision\n\nAll three analyzers returned **PASS** for the current cycle. Added `human:ready-for-review` to hand off to label-actions and human review.\n' "$ROUTER_MARKER" "$CYCLE" "$PR_NUMBER" >> router-marker.md
             printf '%s' "$BODY" > pr-body.md
             printf '\n\n' >> pr-body.md
             cat router-marker.md >> pr-body.md
             gh pr edit "$PR_NUMBER" --repo "$REPO" --body-file pr-body.md
-            echo "Promoted PR #$PR_NUMBER via deterministic router."
+            echo "Promoted PR #$PR_NUMBER via deterministic router and dispatched label-actions once."
             exit 0
           fi
 

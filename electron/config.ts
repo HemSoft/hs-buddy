@@ -1,5 +1,5 @@
 import Store from 'electron-store';
-import type { AppConfig, GitHubAccount, BitbucketWorkspace } from '../src/types/config';
+import type { AppConfig, GitHubAccount, BitbucketWorkspace, DisplayRect } from '../src/types/config';
 import { configSchema, defaultConfig } from '../src/types/config';
 
 /** Shared Convex URL — single source of truth for the main process. */
@@ -186,6 +186,22 @@ class ConfigManager {
 
   setDisplayId(id: number): void {
     this.store.set('ui.displayId', id);
+  }
+
+  getDisplayBounds(): DisplayRect {
+    return this.store.get('ui.displayBounds', { x: 0, y: 0, width: 0, height: 0 });
+  }
+
+  setDisplayBounds(bounds: DisplayRect): void {
+    this.store.set('ui.displayBounds', bounds);
+  }
+
+  getDisplayWorkArea(): DisplayRect {
+    return this.store.get('ui.displayWorkArea', { x: 0, y: 0, width: 0, height: 0 });
+  }
+
+  setDisplayWorkArea(workArea: DisplayRect): void {
+    this.store.set('ui.displayWorkArea', workArea);
   }
 
   getShowBookmarkedOnly(): boolean {

@@ -19,6 +19,14 @@ export interface BitbucketWorkspace {
   userDisplayName: string;
 }
 
+/** Rectangle describing display bounds or work area */
+export interface DisplayRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Application configuration stored in electron-store
  * NOTE: No secrets stored! Authentication uses GitHub CLI (gh auth).
@@ -44,6 +52,8 @@ export interface AppConfig {
     sidebarWidth: number;
     paneSizes: number[];
     displayId: number; // Electron display ID for multi-monitor tracking
+    displayBounds: DisplayRect; // Saved display bounds for robust restore
+    displayWorkArea: DisplayRect; // Saved display work area for robust restore
     showBookmarkedOnly: boolean; // Filter org repos to bookmarked only
     assistantOpen: boolean; // Whether the Copilot Assistant pane is open
   };
@@ -164,6 +174,26 @@ export const configSchema: Schema<AppConfig> = {
         type: 'number',
         default: 0,
       },
+      displayBounds: {
+        type: 'object',
+        properties: {
+          x: { type: 'number', default: 0 },
+          y: { type: 'number', default: 0 },
+          width: { type: 'number', default: 0 },
+          height: { type: 'number', default: 0 },
+        },
+        default: { x: 0, y: 0, width: 0, height: 0 },
+      },
+      displayWorkArea: {
+        type: 'object',
+        properties: {
+          x: { type: 'number', default: 0 },
+          y: { type: 'number', default: 0 },
+          width: { type: 'number', default: 0 },
+          height: { type: 'number', default: 0 },
+        },
+        default: { x: 0, y: 0, width: 0, height: 0 },
+      },
       showBookmarkedOnly: {
         type: 'boolean',
         default: false,
@@ -253,6 +283,8 @@ export const defaultConfig: AppConfig = {
     sidebarWidth: 300,
     paneSizes: [300, 900],
     displayId: 0,
+    displayBounds: { x: 0, y: 0, width: 0, height: 0 },
+    displayWorkArea: { x: 0, y: 0, width: 0, height: 0 },
     showBookmarkedOnly: false,
     assistantOpen: false,
   },

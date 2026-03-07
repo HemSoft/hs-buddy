@@ -96,7 +96,7 @@ jobs:
             exit 0
           fi
 
-          if [[ "$VERDICT_A" == "**PASS** | No blocking issues found." && "$VERDICT_B" == "**PASS** | No blocking issues found." && "$VERDICT_C" == "**PASS** | No blocking issues found." ]]; then
+          if [[ "$VERDICT_A" == "**PASS** |"* && "$VERDICT_B" == "**PASS** |"* && "$VERDICT_C" == "**PASS** |"* ]]; then
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "human:ready-for-review"
 
             printf '%s\n\n## ✅ SFL PR Router — Ready for Human Review\n\n**Router**: SFL PR Router\n**Cycle**: %s\n**PR**: #%s\n\n### Decision\n\nAll three analyzers returned **PASS** for the current cycle. Added `human:ready-for-review` to hand off to label-actions and human review.\n' "$ROUTER_MARKER" "$CYCLE" "$PR_NUMBER" >> router-marker.md
@@ -120,3 +120,4 @@ jobs:
           fi
 
           echo "PR #$PR_NUMBER cycle $CYCLE does not have a routable verdict state."
+          exit 1

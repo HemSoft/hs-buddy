@@ -28,7 +28,7 @@
 # rely on the `pull_request: opened` event to start the analyzer chain. One
 # work item per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"4b3ebf0a38d9d6886f073cd1926d8d7f37c65b4947e951e0f25691de0aa2d861","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ed16ceb756fd7bee66a52ea638d40ccca62e7b06dad664e362962622387df87c","compiler_version":"v0.50.4"}
 
 name: "SFL Issue Processor / Implementer"
 "on":
@@ -353,12 +353,12 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":3},"create_pull_request":{"max":1},"dispatch_workflow":{"max":1,"workflow_files":{"sfl-analyzer-a":".lock.yml"},"workflows":["sfl-analyzer-a"]},"missing_data":{},"missing_tool":{},"noop":{"max":1},"push_to_pull_request_branch":{"max":1,"target":"*"},"remove_labels":{"max":3},"update_issue":{"max":4}}
+          {"add_comment":{"max":3,"target":"*"},"add_labels":{"max":3},"create_pull_request":{"max":1},"dispatch_workflow":{"max":1,"workflow_files":{"sfl-analyzer-a":".lock.yml"},"workflows":["sfl-analyzer-a"]},"missing_data":{},"missing_tool":{},"noop":{"max":1},"push_to_pull_request_branch":{"max":1,"target":"*"},"remove_labels":{"max":3},"update_issue":{"max":4}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Add a comment to an existing GitHub issue, pull request, or discussion. Use this to provide feedback, answer questions, or add information to an existing conversation. For creating new items, use create_issue, create_discussion, or create_pull_request instead. IMPORTANT: Comments are subject to validation constraints enforced by the MCP server - maximum 65536 characters for the complete comment (including footer which is added automatically), 10 mentions (@username), and 50 links. Exceeding these limits will result in an immediate error with specific guidance. NOTE: By default, this tool requires discussions:write permission. If your GitHub App lacks Discussions permission, set 'discussions: false' in the workflow's safe-outputs.add-comment configuration to exclude this permission. CONSTRAINTS: Maximum 1 comment(s) can be added. Target: *.",
+              "description": "Add a comment to an existing GitHub issue, pull request, or discussion. Use this to provide feedback, answer questions, or add information to an existing conversation. For creating new items, use create_issue, create_discussion, or create_pull_request instead. IMPORTANT: Comments are subject to validation constraints enforced by the MCP server - maximum 65536 characters for the complete comment (including footer which is added automatically), 10 mentions (@username), and 50 links. Exceeding these limits will result in an immediate error with specific guidance. NOTE: By default, this tool requires discussions:write permission. If your GitHub App lacks Discussions permission, set 'discussions: false' in the workflow's safe-outputs.add-comment configuration to exclude this permission. CONSTRAINTS: Maximum 3 comment(s) can be added. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1570,7 +1570,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":3},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"labels\":[\"agent:pr\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"dispatch_workflow\":{\"max\":1,\"workflow_files\":{\"sfl-analyzer-a\":\".lock.yml\"},\"workflows\":[\"sfl-analyzer-a\"]},\"missing_data\":{},\"missing_tool\":{},\"push_to_pull_request_branch\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"if_no_changes\":\"warn\",\"max\":1,\"max_patch_size\":1024,\"target\":\"*\"},\"remove_labels\":{\"max\":3},\"update_issue\":{\"allow_body\":true,\"max\":4,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":3,\"target\":\"*\"},\"add_labels\":{\"max\":3},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"labels\":[\"agent:pr\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[agent-fix] \"},\"dispatch_workflow\":{\"max\":1,\"workflow_files\":{\"sfl-analyzer-a\":\".lock.yml\"},\"workflows\":[\"sfl-analyzer-a\"]},\"missing_data\":{},\"missing_tool\":{},\"push_to_pull_request_branch\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"if_no_changes\":\"warn\",\"max\":1,\"max_patch_size\":1024,\"target\":\"*\"},\"remove_labels\":{\"max\":3},\"update_issue\":{\"allow_body\":true,\"max\":4,\"target\":\"*\"}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

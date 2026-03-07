@@ -61,7 +61,7 @@ safe-outputs:
     max: 4
   add-comment:
     target: "*"
-    max: 1
+    max: 3
   dispatch-workflow:
     workflows: ["sfl-analyzer-a"]
     max: 1
@@ -172,10 +172,12 @@ If this is a **new issue** from Step 1b:
 
 1. Call `add_labels` to add `agent:in-progress` to the issue.
 2. Call `remove_labels` to remove `agent:fixable` from the issue.
-3. Call `update_issue` with:
+3. Call `add_comment` with:
    - `issue_number`: the issue number from Step 1b
    - `body`: "🤖 Issue Processor claimed this issue. Working on a fix."
-   - `operation`: `"append"`
+
+Do NOT append progress updates to the issue body. Keep the issue body as the
+canonical implementation spec and put operational status in comments.
 
 If this is a **follow-up PR** from Step 1a:
 
@@ -279,11 +281,12 @@ The tool will use your committed changes on the current branch. Provide:
 
 Do NOT set labels — they are configured automatically by the safe-output.
 
-After the PR is created, call `update_issue` on the linked issue with:
+After the PR is created, call `add_comment` on the linked issue with:
 
 - `issue_number`: the issue number
-- `body`: "🔀 Opened PR #<number> — ready for review."
-- `operation`: `"append"`
+- `body`: "🔀 Opened PR #<number> — ready for analyzer review."
+
+Do NOT append this status to the issue body.
 
 ### 6b — Draft PR already exists
 

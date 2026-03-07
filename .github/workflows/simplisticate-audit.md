@@ -178,6 +178,39 @@ Apply changes in this order to avoid conflicts:
 ...
 ```
 
+Formatting requirements for the issue body:
+
+- Leave a blank line after every heading.
+- Leave a blank line before and after every list.
+- Leave a blank line before and after every fenced code block.
+- Do NOT collapse headings, paragraphs, and lists onto the same line.
+- Prefer plain Markdown over decorative formatting.
+
+Valid example:
+
+```markdown
+## Summary
+
+Overall code simplicity health is fair.
+
+## Findings
+
+### Finding 1: Duplicate helper
+
+- **File(s)**: `src/example.ts`
+- **Signal**: Duplicated logic
+
+**Problem**: Two helpers implement the same logic.
+
+**Fix**: Delete one helper and update the call sites.
+```
+
+Invalid example:
+
+```markdown
+## SummaryOverall code simplicity health is fair.## Findings### Finding 1: Duplicate helper- **File(s)**: `src/example.ts`**Problem**: Two helpers implement the same logic.
+```
+
 ### Writing effective fix instructions
 
 The Issue Processor is an AI agent that will read this issue and implement

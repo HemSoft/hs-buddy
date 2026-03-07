@@ -280,6 +280,29 @@ starts the next implementation pass immediately.
 
 This is the LAST action in the workflow. Do NOT skip this step.
 
+Treat the dispatch as mandatory completion work, not as an optional follow-up.
+If you wrote a `### Verdict` section, you must also emit exactly one matching
+`dispatch_workflow` safe-output in the same run.
+
+Decision table:
+
+| Verdict | Required dispatch |
+|---------|-------------------|
+| `**PASS**` | `pr-promoter` |
+| `**BLOCKING ISSUES FOUND**` | `sfl-issue-processor` |
+
+Non-blocking suggestions do NOT prevent promotion. A review that has zero
+blocking issues and one or more non-blocking suggestions is still `**PASS**`
+and MUST dispatch `pr-promoter`.
+
+Before finishing, explicitly verify:
+
+1. Review comment appended
+2. Activity log comment posted to Discussion #95
+3. Matching workflow dispatched from the table above
+
+If item 3 did not happen, the run is incomplete.
+
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs

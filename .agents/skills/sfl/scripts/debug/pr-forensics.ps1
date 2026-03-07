@@ -131,7 +131,7 @@ if ($issueNum) {
 Write-Host "`n--- DIAGNOSIS ---" -ForegroundColor Magenta
 if ($foundNew -ge 3 -and $blockCount -eq 0) {
     Write-Host "  All 3 analyzer markers present, no blocking issues." -ForegroundColor Green
-    Write-Host "  PR should be progressing to Fixer -> Promoter." -ForegroundColor Green
+    Write-Host "  PR should be progressing to PR Promoter." -ForegroundColor Green
     if ($pr.isDraft) {
         Write-Host "  PR is still draft — check Promoter logs." -ForegroundColor Yellow
     }
@@ -144,7 +144,7 @@ if ($foundNew -ge 3 -and $blockCount -eq 0) {
     Write-Host "  These analyzers either haven't run yet or failed to produce markers." -ForegroundColor DarkGray
 } elseif ($blockCount -gt 0) {
     Write-Host "  BLOCKED: Analyzer(s) found blocking issues." -ForegroundColor Yellow
-    Write-Host "  Fixer should address these on next run." -ForegroundColor DarkGray
+    Write-Host "  Issue Processor should address these on the next run." -ForegroundColor DarkGray
 }
 
 Write-Host "`n=== FORENSICS COMPLETE ===" -ForegroundColor Cyan

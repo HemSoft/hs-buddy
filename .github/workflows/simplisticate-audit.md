@@ -35,9 +35,6 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
-  dispatch-workflow:
-    workflows: ["sfl-issue-processor"]
-    max: 1
 ---
 
 # Simplisticate Audit
@@ -243,7 +240,6 @@ Do NOT include findings that:
 6. Compile all actionable findings into one issue with detailed fix instructions
 7. Order the fixes to minimize conflicts (bottom-up deletions, etc.)
 8. Create the single consolidated issue (or skip if zero findings)
-9. If an issue was created in step 8, dispatch the Issue Processor to begin
-   working on it immediately. Call the `dispatch_workflow` safe-output with
-   workflow `sfl-issue-processor`.
+9. Rely on the new issue's `issues: opened` event to start `sfl-issue-processor`.
+  Do NOT dispatch the Issue Processor explicitly from this workflow.
 10. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Simplisticate | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`

@@ -2,6 +2,30 @@ import type { BrowserWindow, MenuItemConstructorOptions } from 'electron'
 import { dialog, Menu } from 'electron'
 import { saveZoomLevel } from './zoom'
 
+const ZOOM_STEP = 0.1
+const MAX_ZOOM = 3.0
+const MIN_ZOOM = 0.5
+const DEFAULT_ZOOM = 1.0
+
+function zoomIn(win: BrowserWindow): void {
+  const currentZoom = win.webContents.getZoomFactor()
+  const newZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM)
+  win.webContents.setZoomFactor(newZoom)
+  saveZoomLevel(newZoom)
+}
+
+function zoomOut(win: BrowserWindow): void {
+  const currentZoom = win.webContents.getZoomFactor()
+  const newZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM)
+  win.webContents.setZoomFactor(newZoom)
+  saveZoomLevel(newZoom)
+}
+
+function resetZoom(win: BrowserWindow): void {
+  win.webContents.setZoomFactor(DEFAULT_ZOOM)
+  saveZoomLevel(DEFAULT_ZOOM)
+}
+
 export function buildMenu(win: BrowserWindow): Electron.Menu {
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
@@ -16,30 +40,17 @@ export function buildMenu(win: BrowserWindow): Electron.Menu {
         {
           label: 'Zoom In',
           accelerator: 'CmdOrCtrl+numadd',
-          click: () => {
-            const currentZoom = win.webContents.getZoomFactor()
-            const newZoom = Math.min(currentZoom + 0.1, 3.0)
-            win.webContents.setZoomFactor(newZoom)
-            saveZoomLevel(newZoom)
-          }
+          click: () => zoomIn(win)
         },
         {
           label: 'Zoom Out',
           accelerator: 'CmdOrCtrl+numsub',
-          click: () => {
-            const currentZoom = win.webContents.getZoomFactor()
-            const newZoom = Math.max(currentZoom - 0.1, 0.5)
-            win.webContents.setZoomFactor(newZoom)
-            saveZoomLevel(newZoom)
-          }
+          click: () => zoomOut(win)
         },
         {
           label: 'Reset Zoom',
           accelerator: 'CmdOrCtrl+num0',
-          click: () => {
-            win.webContents.setZoomFactor(1.0)
-            saveZoomLevel(1.0)
-          }
+          click: () => resetZoom(win)
         },
         { type: 'separator' },
         {
@@ -78,24 +89,17 @@ export function registerKeyboardShortcuts(win: BrowserWindow): void {
 
     // Ctrl/Cmd + NumpadAdd/Plus: Zoom In
     if (ctrlOrCmd && input.key === '+') {
-      const currentZoom = win.webContents.getZoomFactor()
-      const newZoom = Math.min(currentZoom + 0.1, 3.0)
-      win.webContents.setZoomFactor(newZoom)
-      saveZoomLevel(newZoom)
+      zoomIn(win)
       event.preventDefault()
     }
     // Ctrl/Cmd + NumpadSubtract/Minus: Zoom Out
     else if (ctrlOrCmd && input.key === '-') {
-      const currentZoom = win.webContents.getZoomFactor()
-      const newZoom = Math.max(currentZoom - 0.1, 0.5)
-      win.webContents.setZoomFactor(newZoom)
-      saveZoomLevel(newZoom)
+      zoomOut(win)
       event.preventDefault()
     }
     // Ctrl/Cmd + 0: Reset Zoom
     else if (ctrlOrCmd && input.key === '0') {
-      win.webContents.setZoomFactor(1.0)
-      saveZoomLevel(1.0)
+      resetZoom(win)
       event.preventDefault()
     }
     // Ctrl/Cmd + Shift + A: Toggle Assistant

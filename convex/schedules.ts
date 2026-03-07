@@ -1,27 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { CronExpressionParser, type CronExpressionOptions } from "cron-parser";
-
-/**
- * Calculate the next run time for a cron expression.
- */
-function calculateNextRunAt(
-  cronExpression: string,
-  timezone?: string,
-  fromDate?: Date
-): number {
-  try {
-    const options: CronExpressionOptions = {};
-    if (timezone) options.tz = timezone;
-    if (fromDate) options.currentDate = fromDate;
-
-    const expression = CronExpressionParser.parse(cronExpression, options);
-    return expression.next().getTime();
-  } catch (error) {
-    console.error(`Failed to parse cron "${cronExpression}":`, error);
-    return Date.now() + 60 * 60 * 1000; // Fallback: 1 hour from now
-  }
-}
+import { calculateNextRunAt } from "./lib/cronUtils";
 
 /**
  * Schedule CRUD operations
@@ -228,21 +207,6 @@ export const toggle = mutation({
     });
 
     return newEnabled;
-  },
-});
-
-// Update last run info (called after execution)
-export const updateLastRun = mutation({
-  args: {
-    id: v.id("schedules"),
-    status: v.union(v.literal("completed"), v.literal("failed")),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch("schedules", args.id, {
-      lastRunAt: Date.now(),
-      lastRunStatus: args.status,
-      updatedAt: Date.now(),
-    });
   },
 });
 

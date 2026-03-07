@@ -14,6 +14,7 @@ import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
 import { CronExpressionParser, type CronExpressionOptions } from 'cron-parser'
 import { CONVEX_URL } from '../config'
+import { calculateNextRunAt } from '../../convex/lib/cronUtils'
 
 interface Schedule {
   _id: string
@@ -33,27 +34,6 @@ interface OfflineSyncResult {
   runsCreated: number
   skipped: number
   errors: string[]
-}
-
-/**
- * Calculate the next future run time for a cron expression.
- */
-function calculateNextRunAt(
-  cronExpression: string,
-  timezone?: string,
-  fromDate?: Date
-): number {
-  try {
-    const options: CronExpressionOptions = {}
-    if (timezone) options.tz = timezone
-    if (fromDate) options.currentDate = fromDate
-
-    const expression = CronExpressionParser.parse(cronExpression, options)
-    return expression.next().getTime()
-  } catch (error) {
-    console.error(`[OfflineSync] Failed to parse cron "${cronExpression}":`, error)
-    return Date.now() + 60 * 60 * 1000 // Fallback: 1 hour from now
-  }
 }
 
 /**

@@ -57,16 +57,7 @@ const toCanonicalKey = (input: {
 };
 
 const sourceToLabel = (source: "jira" | "github-issue" | "manual" | "other"): string => {
-  switch (source) {
-    case "jira":
-      return "source:jira";
-    case "github-issue":
-      return "source:github-issue";
-    case "manual":
-      return "source:manual";
-    case "other":
-      return "source:other";
-  }
+  return `source:${source}`;
 };
 
 const toUniqueCriteria = (criteria: string[]): string[] => {

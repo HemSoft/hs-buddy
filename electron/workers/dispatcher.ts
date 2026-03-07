@@ -29,6 +29,7 @@ export class Dispatcher {
   private processing = false
   private abortController: AbortController | null = null
   private consecutiveErrors = 0
+  private lastErrorTime = 0
   private readonly MAX_BACKOFF = 120_000 // 2 minutes max backoff
 
   constructor(convexUrl?: string) {
@@ -65,17 +66,14 @@ export class Dispatcher {
     // Don't overlap — serial queue
     if (this.processing) return
 
-    // Exponential backoff on consecutive errors (skip polls)
+    // Exponential backoff on consecutive errors (time-based guard)
     if (this.consecutiveErrors > 0) {
       const backoff = Math.min(
         POLL_INTERVAL * Math.pow(2, this.consecutiveErrors - 1),
         this.MAX_BACKOFF
       )
-      // Only poll if enough time has passed since last error
-      // We approximate this by skipping some poll cycles
-      const skipCycles = Math.floor(backoff / POLL_INTERVAL)
-      if (this.consecutiveErrors <= skipCycles) {
-        // Not enough time, but we still decrement to eventually retry
+      if (Date.now() < this.lastErrorTime + backoff) {
+        return
       }
     }
 
@@ -85,6 +83,7 @@ export class Dispatcher {
       this.consecutiveErrors = 0 // reset on success
     } catch (err) {
       this.consecutiveErrors++
+      this.lastErrorTime = Date.now()
       // Only log first error and every 6th after (once per minute at 10s interval)
       if (this.consecutiveErrors === 1 || this.consecutiveErrors % 6 === 0) {
         const msg = err instanceof Error ? err.message : String(err)

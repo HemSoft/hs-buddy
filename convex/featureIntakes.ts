@@ -135,7 +135,6 @@ const buildIssueBody = (input: {
     `- Risk Class: ${input.riskLabel}`,
     "",
     "## Agent Metadata",
-    "- Type: action-item",
     "- Lifecycle: agent:fixable",
     `- Idempotency key: ${input.canonicalKey}`,
     "",
@@ -273,7 +272,6 @@ export const normalize = mutation({
     const riskLabel = args.riskLabel ?? "risk:low";
     const canonicalIssueTitle = buildIssueTitle(title);
     const canonicalIssueLabels = [
-      "action-item",
       "agent:fixable",
       sourceToLabel(args.source),
       riskLabel,

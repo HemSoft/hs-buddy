@@ -2,12 +2,13 @@
 #
 # Runs on explicit dispatch and checks GitHub state with simple gh CLI calls.
 # Only dispatches gh-aw workflows when there's actual work to do:
-#   - Issue Processor: when agent:fixable issues exist
-#   - PR Fixer: when draft PRs with agent:pr AND all 3 analyzer markers exist
+#   - Issue Processor: when agent:fixable issues exist or an existing draft PR
+#     has blocking analyzer feedback ready for another implementation pass
 #   - PR Promoter: when draft PRs are ready for promotion OR approved PRs await merge
 #
-# PR Analyzers A/B/C are primarily event-driven, but dispatcher can re-dispatch
-# missing analyzers when marker state is incomplete.
+# PR Analyzers run in sequence via the A -> B -> C chain.
+# Dispatcher recovery only re-dispatches the next missing analyzer when marker
+# state is incomplete.
 #
 # IMPORTANT: issue creation uses `issues: opened` instead of `issues: labeled` to
 # avoid one workflow run per label when a new issue is created with multiple labels.
@@ -27,7 +28,7 @@ on:
   issues:
     types: [opened, reopened]
   pull_request:
-    types: [labeled, edited]
+    types: [labeled]
 
 permissions:
   contents: read
@@ -46,15 +47,7 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'push' ||
       (github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'reopened') && contains(github.event.issue.labels.*.name, 'agent:fixable')) ||
-      (github.event_name == 'pull_request' && github.event.action == 'edited') ||
-      (github.event_name == 'pull_request' && github.event.action == 'labeled' && (
-        github.event.label.name == 'agent:pr' ||
-        github.event.label.name == 'review:a-done' ||
-        github.event.label.name == 'review:b-done' ||
-        github.event.label.name == 'review:c-done' ||
-        startsWith(github.event.label.name, 'pr:cycle-') ||
-        github.event.label.name == 'human:ready-for-review'
-      ))
+      (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'human:ready-for-review')
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
@@ -131,15 +124,15 @@ jobs:
           echo "draft_pr_count=$COUNT" >> "$GITHUB_OUTPUT"
 
           if [ "$COUNT" -eq 0 ]; then
-            echo "No eligible draft PRs — skipping analyzers and fixer."
-            echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+            echo "No eligible draft PRs — skipping analyzers and follow-up implementation."
+            echo "implementer_ready=false" >> "$GITHUB_OUTPUT"
             echo "missing_analyzers=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "Found $COUNT eligible draft PR(s) — will dispatch analyzers."
 
-          # Check if the oldest PR has all 3 analyzer markers (fixer readiness)
+          # Check if the oldest PR has all 3 analyzer markers (implementation readiness)
           OLDEST=$(echo "$PRS" | jq -r 'sort_by(.createdAt) | .[0]')
           PR_NUMBER=$(echo "$OLDEST" | jq '.number')
           PR_LABELS=$(echo "$OLDEST" | jq -c '[.labels[].name]')
@@ -156,22 +149,38 @@ jobs:
           # Check for all 3 analyzer markers at current cycle
           ALL_MARKERS=true
           MISSING_ANALYZERS=()
+          HAS_A=false
+          HAS_B=false
+          HAS_C=false
           for ANALYZER in a b c; do
             if ! grep -qF "[MARKER:sfl-analyzer-$ANALYZER cycle:$CYCLE]" "$PR_BODY_FILE"; then
               ALL_MARKERS=false
               MISSING_ANALYZERS+=("$ANALYZER")
+            else
+              case "$ANALYZER" in
+                a) HAS_A=true ;;
+                b) HAS_B=true ;;
+                c) HAS_C=true ;;
+              esac
             fi
           done
           echo "missing_analyzers=${MISSING_ANALYZERS[*]}" >> "$GITHUB_OUTPUT"
 
-          # Determine state: fixer done? analyzers done? needs re-analysis?
-          if grep -qF "[MARKER:pr-fixer cycle:$CYCLE]" "$PR_BODY_FILE"; then
-            echo "PR #$PR_NUMBER already fixed in cycle $CYCLE — fixer not needed."
-            echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
-            echo "promoter_ready=true" >> "$GITHUB_OUTPUT"
-            echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
-          elif [ "$ALL_MARKERS" = "true" ]; then
-            # Check if all 3 analyzers gave PASS verdicts — if so, skip fixer entirely
+          NEXT_ANALYZER=""
+          if [ "$ALL_MARKERS" != "true" ]; then
+            if [ "$HAS_A" != "true" ]; then
+              NEXT_ANALYZER="a"
+            elif [ "$HAS_B" != "true" ]; then
+              NEXT_ANALYZER="b"
+            elif [ "$HAS_C" != "true" ]; then
+              NEXT_ANALYZER="c"
+            fi
+          fi
+          echo "next_analyzer=$NEXT_ANALYZER" >> "$GITHUB_OUTPUT"
+
+          # Determine state: promote, continue implementation, or recover analyzers.
+          if [ "$ALL_MARKERS" = "true" ]; then
+            # Check if all 3 analyzers gave PASS verdicts.
             ALL_PASS=true
             for ANALYZER in a b c; do
               # Extract the section for this analyzer at this cycle and check for PASS
@@ -183,19 +192,19 @@ jobs:
             done
 
             if [ "$ALL_PASS" = "true" ]; then
-              echo "PR #$PR_NUMBER: all 3 analyzers PASS at cycle $CYCLE — skipping fixer, promoting."
-              echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+              echo "PR #$PR_NUMBER: all 3 analyzers PASS at cycle $CYCLE — promoting."
+              echo "implementer_ready=false" >> "$GITHUB_OUTPUT"
               echo "promoter_ready=true" >> "$GITHUB_OUTPUT"
               echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
             else
-              echo "PR #$PR_NUMBER has all 3 analyzer markers for cycle $CYCLE — will dispatch fixer."
-              echo "fixer_ready=true" >> "$GITHUB_OUTPUT"
+              echo "PR #$PR_NUMBER has blocking analyzer feedback at cycle $CYCLE — will dispatch Issue Processor."
+              echo "implementer_ready=true" >> "$GITHUB_OUTPUT"
               echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
               echo "analyzers_needed=false" >> "$GITHUB_OUTPUT"
             fi
           else
-            echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE (${MISSING_ANALYZERS[*]}) — dispatching missing analyzers."
-            echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
+            echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE (${MISSING_ANALYZERS[*]}) — dispatching Analyzer $NEXT_ANALYZER next."
+            echo "implementer_ready=false" >> "$GITHUB_OUTPUT"
             echo "promoter_ready=false" >> "$GITHUB_OUTPUT"
             echo "analyzers_needed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -203,31 +212,25 @@ jobs:
           rm -f "$PR_BODY_FILE"
 
       - name: Dispatch Issue Processor
-        if: steps.issues.outputs.fixable_count != '0' && github.event_name != 'push'
+        if: >-
+          steps.prs.outputs.implementer_ready == 'true' ||
+          (steps.issues.outputs.fixable_count != '0' && github.event_name != 'push')
         run: |
           echo "Dispatching Issue Processor..."
           gh workflow run sfl-issue-processor.lock.yml --repo "$REPO"
 
-      - name: Dispatch PR Analyzers (re-analysis after fixer)
+      - name: Dispatch next PR Analyzer
         if: steps.prs.outputs.analyzers_needed == 'true'
         run: |
           set -euo pipefail
-          MISSING="${{ steps.prs.outputs.missing_analyzers }}"
-          if [ -z "$MISSING" ]; then
+          NEXT="${{ steps.prs.outputs.next_analyzer }}"
+          if [ -z "$NEXT" ]; then
             echo "Analyzer dispatch requested but no missing analyzers were reported."
             exit 0
           fi
 
-          echo "Dispatching missing analyzer(s): $MISSING"
-          for ANALYZER in $MISSING; do
-            gh workflow run "sfl-analyzer-$ANALYZER.lock.yml" --repo "$REPO"
-          done
-
-      - name: Dispatch PR Fixer
-        if: steps.prs.outputs.fixer_ready == 'true'
-        run: |
-          echo "Dispatching PR Fixer..."
-          gh workflow run pr-fixer.lock.yml --repo "$REPO"
+          echo "Dispatching next analyzer in sequence: $NEXT"
+          gh workflow run "sfl-analyzer-$NEXT.lock.yml" --repo "$REPO"
 
       - name: Check for draft PRs with ready-for-review label
         id: label_actions
@@ -269,22 +272,22 @@ jobs:
           fi
 
           if [ "${{ steps.prs.outputs.analyzers_needed }}" = "true" ]; then
-            echo "| PR Analyzers A/B/C | Yes (missing markers: ${{ steps.prs.outputs.missing_analyzers }}) |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| PR Analyzers A/B/C | Yes (next: ${{ steps.prs.outputs.next_analyzer }}; missing markers: ${{ steps.prs.outputs.missing_analyzers }}) |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "| PR Analyzers A/B/C | No (not needed) |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ]; then
-            echo "| PR Fixer | Yes (markers complete) |" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.prs.outputs.implementer_ready }}" = "true" ]; then
+            echo "| Issue Processor follow-up | Yes (blocking analyzer feedback ready) |" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "| PR Fixer | No (markers incomplete) |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Issue Processor follow-up | No (no blocking analyzer feedback ready) |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           PROMOTER_DISPATCHED="No"
           PROMOTER_REASON=""
           if [ "${{ steps.prs.outputs.promoter_ready }}" = "true" ]; then
             PROMOTER_DISPATCHED="Yes"
-            PROMOTER_REASON="fixer complete, ready for promotion"
+            PROMOTER_REASON="all analyzers PASS for current cycle"
           fi
           if [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ]; then
             echo "| SFL PR Label Actions | Yes (${{ steps.label_actions.outputs.label_flip_count }} draft PRs to flip) |" >> "$GITHUB_STEP_SUMMARY"
@@ -305,7 +308,7 @@ jobs:
           TIMESTAMP=$(TZ='America/New_York' date +'%Y-%m-%d %l:%M %p EST' | sed 's/  / /')
           DISPATCHED=""
           [ "${{ steps.issues.outputs.fixable_count }}" != "0" ] && DISPATCHED="${DISPATCHED}IP "
-          [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ] && DISPATCHED="${DISPATCHED}Fixer "
+          [ "${{ steps.prs.outputs.implementer_ready }}" = "true" ] && DISPATCHED="${DISPATCHED}IP-follow-up "
           [ "${{ steps.prs.outputs.promoter_ready }}" = "true" ] && DISPATCHED="${DISPATCHED}Promoter "
           [ "${{ steps.label_actions.outputs.label_flip_count }}" != "0" ] && DISPATCHED="${DISPATCHED}Labels "
           if [ -z "$DISPATCHED" ]; then

@@ -42,15 +42,13 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 | `risk:medium` | `#fbca04` (yellow) | Medium-risk: logic changes, new features |
 | `risk:high` | `#e11d48` (red) | High-risk: auth, payments, data migrations |
 
-### Classification labels (applied to all agent-created issues)
+### Classification labels (applied to automated artifacts)
 
 | Label | Color | Meaning |
 |-------|-------|---------|
 | `report` | `#8b949e` (gray) | Informational output only — automation must not act on this |
-| `action-item` | `#1f6feb` (blue) | Actionable item — automation will process and generate a PR |
 
-> **Rule**: every automated issue must carry exactly one type label (`report` or `action-item`). Processors filter
-> exclusively on `action-item` — `report` issues are permanently invisible to them.
+> **Rule**: actionable issues are identified by the `agent:fixable` lifecycle label. `report` is reserved for informational output that automation must ignore.
 
 ### Intake-source labels (co-applied with lifecycle labels)
 
@@ -64,8 +62,8 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 # Report issue (no automation ever touches this)
 [report created] → report  (permanent — no further transitions)
 
-# Action-item issue
-[detected] → action-item + agent:fixable
+# Actionable issue
+[detected] → agent:fixable
            → agent:in-progress  (agent claims it)
            → human:ready-for-review  (PR promoted and awaiting human review)
            → human review / human merge decision

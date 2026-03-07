@@ -73,12 +73,6 @@ if ($labelNames -notcontains "human:ready-for-review") {
     $missingCriteria.Add("Missing label: human:ready-for-review") | Out-Null
 }
 
-foreach ($requiredReviewLabel in @("review:a-done", "review:b-done", "review:c-done")) {
-    if ($labelNames -notcontains $requiredReviewLabel) {
-        $missingCriteria.Add("Missing label: $requiredReviewLabel") | Out-Null
-    }
-}
-
 foreach ($analyzer in @("a", "b", "c")) {
     if ($pr.body -notmatch "\[MARKER:sfl-analyzer-$analyzer cycle:\d+\]") {
         $missingCriteria.Add("Missing analyzer marker for analyzer $analyzer") | Out-Null

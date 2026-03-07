@@ -22,8 +22,8 @@ There are three ways work enters the SFL pipeline:
 | # | Entry Point | How It Works |
 |---|-------------|-------------|
 | A | **Scheduled Workflows** | `repo-audit` and `simplisticate` run daily, discover findings, and produce discussion reports |
-| B | **Discussion Label Trigger** | When a discussion is labeled `action-item`, the `SFL Discussion Processor` (`discussion-processor`) fires and creates issues |
-| C | **Chat Session (Human)** | A human asks Copilot to "create an SFL issue that fixes…" — the issue is created with `agent:fixable` + `action-item` labels |
+| B | **Discussion Processing Trigger** | When a discussion is labeled, the `SFL Discussion Processor` (`discussion-processor`) can group agent-fixable findings into issues unless the label is `report` |
+| C | **Chat Session (Human)** | A human asks Copilot to "create an SFL issue that fixes…" — the issue is created with the `agent:fixable` label |
 
 ---
 
@@ -33,7 +33,6 @@ There are three ways work enters the SFL pipeline:
 
 | Label | Color | Description | Applied By | Consumed By |
 |-------|-------|-------------|-----------|-------------|
-| `action-item` | 🔵 `#1f6feb` | Actionable item — automation will process and generate a PR | repo-audit, simplisticate, discussion-processor | discussion-processor |
 | `agent:fixable` | 🟢 `#2ea44f` | Agent has analyzed this and can auto-fix safely | discussion-processor, human | sfl-issue-processor (via dispatcher) |
 | `agent:in-progress` | 🔵 `#0075ca` | Agent is actively working on this item | sfl-issue-processor | sfl-auditor |
 | `agent:human-required` | 🔴 `#d73a4a` | Fix exceeds safe automation boundary — human must own | sfl-issue-processor, sfl-auditor | human |
@@ -85,7 +84,7 @@ These run on a cron schedule and produce **findings** as Discussions or Issues.
 | **Safe-Outputs** | `create-discussion` (max 1, prefix `[repo-audit]`), `update-discussion` (max 5), `add-comment` (max 1) |
 | **Input** | Full repository state |
 | **Output** | Single consolidated Discussion with all findings |
-| **Artifact State** | `010-issue-created` (when Discussion is labeled `action-item`) |
+| **Artifact State** | `010-issue-created` (when findings are recorded in a Discussion or Issue) |
 
 #### `simplisticate` — Daily Simplification Audit
 
@@ -123,12 +122,12 @@ These run on a cron schedule and produce **findings** as Discussions or Issues.
 | Field | Value |
 |-------|-------|
 | **Type** | Agentic (`.md` + `.lock.yml`) |
-| **Trigger** | `discussion: [labeled]` (specifically the `action-item` label), `workflow_dispatch` |
+| **Trigger** | `discussion: [labeled]`, `workflow_dispatch` |
 | **Model** | (platform default) |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read`, `discussions: read` |
-| **Safe-Outputs** | `create-issue` (max 6, prefix `[auto]`, labels: `agent:fixable`, `action-item`), `update-discussion` (max 1), `add-labels` (max 1), `remove-labels` (max 1), `add-comment` (max 1) |
+| **Safe-Outputs** | `create-issue` (max 6, prefix `[auto]`, labels: `agent:fixable`), `update-discussion` (max 1), `add-labels` (max 1), `add-comment` (max 1) |
 | **Input** | Discussion body containing structured findings |
-| **Output** | Individual issues per finding group, discussion label flipped from `action-item` → `report` |
+| **Output** | Individual issues per finding group, discussion marked as processed and labeled `report` |
 | **Artifact State** | Transitions Discussion from `010-issue-created` → issues at `020-issue-ready` |
 
 #### `sfl-issue-categorizer` *(conceptual — handled by `discussion-processor`)*
@@ -308,7 +307,7 @@ PHASE 1 — DISCOVERY (Daily)
            │                        │
            │   ┌────────────────────┘
            │   │  Human or workflow labels
-           ▼   ▼  discussion with `action-item`
+           ▼   ▼  discussion with agent-fixable findings
     ┌─────────────────┐
     │  ARTIFACT STATE │
     │ 010-issue-created│    ← Discussion or Issue exists with findings
@@ -319,12 +318,12 @@ PHASE 2 — CATEGORIZATION (Event-driven)
            │
            ▼
     ┌─────────────────────┐
-       │ SFL Discussion      │    ← Triggered by `action-item` label on discussion
+       │ SFL Discussion      │    ← Triggered by discussion label event
        │ Processor           │
     │  (event: labeled)    │
     └────────┬─────────────┘
              │ Groups findings → creates issues
-             │ Flips discussion label: action-item → report
+             │ Adds `report` after processing
              │
              ├──────────────────────┐
              ▼                      ▼
@@ -332,8 +331,8 @@ PHASE 2 — CATEGORIZATION (Event-driven)
       │ ARTIFACT     │       │ ARTIFACT      │
       │020-issue-    │       │020-issue-     │
       │ ready        │       │ ready         │
-      │(agent:fixable│       │(agent:human-  │
-      │+ action-item)│       │ required)     │
+       │(agent:fixable)│      │(agent:human-  │
+       │             │       │ required)     │
       └──────┬───────┘       └──────────────┘
              │                   (exits pipeline — human owns)
              │
@@ -463,7 +462,7 @@ CONTINUOUS — HEALTH CHECK (Hourly)
 
 | State | Description | GitHub Primitive | Transitions To |
 |-------|-------------|-----------------|---------------|
-| `010-issue-created` | Finding detected, Discussion/Issue exists | Discussion or Issue with `action-item` | `020-issue-ready` (via discussion-processor) |
+| `010-issue-created` | Finding detected, Discussion/Issue exists | Discussion or Issue with findings | `020-issue-ready` (via discussion-processor) |
 | `020-issue-ready` | Issue triaged with `agent:fixable` or `agent:human-required` | Issue with lifecycle label | `030-pr-ready-for-review` (via sfl-issue-processor) |
 | `030-pr-ready-for-review` | Draft PR opened, awaiting analyzer reviews + fix cycles | Draft PR with `agent:pr` label | `040-pr-ready-for-human-review` (via pr-promoter) |
 | `040-pr-ready-for-human-review` | PR un-drafted, all analyzers PASS, awaiting human | Non-draft PR with `human:ready-for-review` | **Merged** (human action) |

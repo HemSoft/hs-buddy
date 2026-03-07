@@ -46,8 +46,7 @@ safe-outputs:
 # SFL Analyzer C — Full-Spectrum Review
 
 Dispatched by Analyzer B after completing its review, or dispatched manually.
-Post a structured full-spectrum review comment, add the `review:c-done`
-label to signal that all three reviews are complete, then dispatch
+Post a structured full-spectrum review comment, then dispatch
 `sfl-dispatcher` to route the PR immediately. Exit after reviewing one PR
 per run.
 
@@ -257,7 +256,7 @@ _None found._ (use this if no suggestions)
 ```
 
 Replace N with the current cycle number, and fill in actual findings.
-Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
+Use checkboxes (`- [ ]`) for blocking issues so the Issue Processor can track them.
 
 ## Activity Log
 
@@ -268,21 +267,9 @@ As your **final action**, post a one-line comment to **Discussion #95** (the SFL
 
 This is mandatory — every run must log exactly one entry.
 
-## Step 7 — Signal review chain complete
+## Step 7 — Dispatch SFL Dispatcher
 
-After posting the review comment and activity log, add the `review:c-done`
-label to the PR to signal that all three analyzer reviews are complete:
-
-Call `add_labels` with:
-
-- `issue_number`: the PR number
-- `labels`: `["review:c-done"]`
-
-This is the LAST action in the workflow. Do NOT skip this step.
-
-## Step 8 — Dispatch SFL Dispatcher
-
-After adding `review:c-done`, dispatch the `sfl-dispatcher` workflow so routing
+After posting the review comment and activity log, dispatch the `sfl-dispatcher` workflow so routing
 to fixer/promoter happens immediately (no scheduler wait).
 
 Call `sfl_dispatcher` with no arguments.

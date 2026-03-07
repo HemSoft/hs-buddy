@@ -49,8 +49,7 @@ safe-outputs:
 
 Triggered when a draft PR is opened, or dispatched manually. Find the target
 draft PR labeled `agent:pr`, post a structured full-spectrum review comment,
-then add the `review:a-done` label and dispatch Analyzer B. Exit after
-reviewing one PR per run.
+then dispatch Analyzer B. Exit after reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -242,7 +241,7 @@ _None found._ (use this if no suggestions)
 ```
 
 Replace N with the current cycle number, and fill in actual findings.
-Use checkboxes (`- [ ]`) for blocking issues so the PR Fixer can track them.
+Use checkboxes (`- [ ]`) for blocking issues so the Issue Processor can track them.
 
 ## Activity Log
 
@@ -257,19 +256,16 @@ This is mandatory — every run must log exactly one entry.
 
 After posting the review comment and activity log:
 
-1. Add the `review:a-done` label to the PR as an audit trail marker:
-   - Call `add_labels` with `issue_number`: the PR number, `labels`: `["review:a-done"]`
-
-2. Dispatch Analyzer B to continue the review chain:
+1. Dispatch Analyzer B to continue the review chain:
    - Call `dispatch_workflow` with workflow `sfl-analyzer-b`
 
-Both actions are required. Do NOT skip this step.
+This action is required. Do NOT skip this step.
 
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
-- Never modify PR code or draft status — only post review comments and add the chaining label
+- Never modify PR code or draft status — only post review comments and dispatch the next analyzer
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, update the dashboard with an explanation
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit

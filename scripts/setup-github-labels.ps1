@@ -62,7 +62,6 @@ $Labels = @(
 
     # ── Classification labels ─────────────────────────────────────────────────
     @{ name = "report";          color = "8b949e"; description = "Informational output only — automation must not act on this" }
-    @{ name = "action-item";     color = "1f6feb"; description = "Actionable item — automation will process and generate a PR" }
     @{ name = "feature-request"; color = "a2eeef"; description = "Feature request — created via sfl-add-issue prompt" }
 
     # ── Opt-out label ─────────────────────────────────────────────────────────

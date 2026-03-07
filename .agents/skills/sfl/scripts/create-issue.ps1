@@ -2,8 +2,8 @@
 .SYNOPSIS
     Creates an SFL-ready issue with the labels needed for pipeline pickup.
 .DESCRIPTION
-    Creates a GitHub issue in the target repo with default labels
-    `agent:fixable` and `action-item` so SFL can process it.
+    Creates a GitHub issue in the target repo with the default label
+    `agent:fixable` so SFL can process it.
 
     You can provide freeform issue intent via -What and optionally source
     content from a TODO section via -TodoItem. When -TodoItem is provided,
@@ -20,7 +20,7 @@
 .PARAMETER Repo
     Target repository in org/repo format.
 .PARAMETER Labels
-    Labels to apply. Defaults to `agent:fixable` and `action-item`.
+    Labels to apply. Defaults to `agent:fixable`.
 .PARAMETER DryRun
     Print generated title/body without creating an issue.
 .EXAMPLE
@@ -41,7 +41,7 @@ param(
 
     [string]$Repo = "relias-engineering/hs-buddy",
 
-    [string[]]$Labels = @("agent:fixable", "action-item"),
+    [string[]]$Labels = @("agent:fixable"),
 
     [switch]$DryRun
 )
@@ -182,7 +182,7 @@ if (-not [string]::IsNullOrWhiteSpace($TodoItem)) {
 $bodyLines.Add("") | Out-Null
 $bodyLines.Add("## SFL Routing") | Out-Null
 $bodyLines.Add("") | Out-Null
-$bodyLines.Add('This issue is intentionally labeled for SFL pickup (`agent:fixable` + `action-item`).') | Out-Null
+$bodyLines.Add('This issue is intentionally labeled for SFL pickup (`agent:fixable`).') | Out-Null
 
 $issueBody = ($bodyLines -join "`n")
 

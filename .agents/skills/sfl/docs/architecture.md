@@ -96,13 +96,13 @@ or the [official reference](https://github.github.com/gh-aw/reference/safe-outpu
 | Type | What it does | Used by |
 |------|-------------|----------|
 | `create-pull-request` | Opens a new PR (always creates new branch) | issue-processor |
-| `push-to-pull-request-branch` | Pushes changes to an existing PR's branch | pr-fixer |
+| `push-to-pull-request-branch` | Pushes changes to an existing PR's branch | sfl-issue-processor |
 | `create-issue` | Creates a new issue | discussion-processor |
 | `update-issue` | Modifies an existing issue (body, state) | analyzers, promoter |
 | `update-discussion` | Modifies an existing discussion | dashboard updates |
 | `add-labels` | Adds labels without replacing existing ones | fixer, promoter, issue-processor |
 | `remove-labels` | Removes specific labels | fixer, promoter, issue-processor |
-| `add-comment` | Posts a comment on issues/PRs/discussions | pr-fixer |
+| `add-comment` | Posts a comment on issues/PRs/discussions | sfl-issue-processor |
 | `close-pull-request` | Closes PRs without merging | (available, not yet used) |
 | `dispatch-workflow` | Triggers another workflow (same repo, max 3) | (available, not yet used) |
 
@@ -116,25 +116,26 @@ or the [official reference](https://github.github.com/gh-aw/reference/safe-outpu
 4. **`draft: true`**: All created PRs must be draft. The PR Promoter is the
    only workflow that un-drafts.
 
-## The Agentic-Cannot-Trigger-Agentic Constraint
+## Event Gaps And Explicit Dispatch
 
 **This is the most important architectural constraint in the SFL.**
 
-An agentic workflow's safe-output cannot trigger another agentic workflow.
-For example, when `issue-processor` creates a PR via `create-pull-request`,
-that PR creation event does NOT trigger `sfl-analyzer-a/b/c` directly (even
-though they listen on `pull_request: opened`).
+Agentic workflows cannot rely on their GitHub mutations to implicitly fan out
+the rest of the loop. For example, when `issue-processor` creates a PR via
+`create-pull-request`, that PR creation does not give us a reliable, complete
+pipeline progression on its own.
 
 ### How We Work Around This
 
-The `sfl-dispatcher` (standard YAML) polls every 30 minutes and uses
-`gh workflow dispatch` to explicitly trigger agentic workflows when work
-exists. This is a **necessary intermediary** — accept its existence but
-resist adding more intermediaries.
+SFL uses two explicit-dispatch patterns:
 
-> **Note**: The `dispatch-workflow` safe-output also exists (max 3, same repo)
-> and could allow agentic workflows to trigger each other directly. This is
-> available but not yet adopted in SFL.
+- The `sfl-dispatcher` (standard YAML) polls GitHub state and dispatches
+  workflows when work exists.
+- The analyzer chain uses `dispatch-workflow` to enforce a strict
+  `sfl-analyzer-a -> sfl-analyzer-b -> sfl-analyzer-c` sequence.
+
+Dispatcher recovery should only dispatch the **next** missing analyzer in that
+sequence, never fan out multiple analyzers at once.
 
 ### The Cost of This Constraint
 
@@ -162,7 +163,7 @@ No external state store. No database. No files. GitHub IS the state store.
 ### Issue Lifecycle
 
 ```
-[finding detected] → agent:fixable + action-item
+[finding detected] → agent:fixable
                    → agent:in-progress  (issue-processor claims it)
                    → human:ready-for-review  (PR ready for review)
                    → MERGED or CLOSED
@@ -172,16 +173,18 @@ No external state store. No database. No files. GitHub IS the state store.
 
 ```
 [draft PR opened] → agent:pr + pr:cycle-0
-                  → Analyzers post reviews (markers written)
-                  → pr-fixer pushes fixes to same branch → pr:cycle-1
-                  → Analyzers re-review → pr:cycle-1 markers
+                  → Analyzer A starts the chain
+                  → Analyzer B runs after A
+                  → Analyzer C runs after B
+                  → Issue Processor pushes fixes to same branch → pr:cycle-1
+                  → Issue Processor dispatches Analyzer A again
                   → All PASS → pr-promoter un-drafts
                   → human:ready-for-review applied
                   → Human reviews and merges
 ```
 
-The fixer uses `push-to-pull-request-branch` to push fixes to the same PR
-branch — no new PRs are created during fix cycles.
+The issue processor uses `push-to-pull-request-branch` to push follow-up fixes
+to the same PR branch — no new PRs are created during fix cycles.
 
 ### Idempotency Markers
 

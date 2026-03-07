@@ -124,9 +124,9 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 
 1. **Detects** quality findings via scheduled audits (repo-audit, simplisticate)
 2. **Groups** findings into actionable issues (discussion-processor)
-3. **Claims** one issue at a time and opens a draft PR (sfl-issue-processor)
+3. **Implements** one issue at a time and either opens or advances its draft PR (sfl-issue-processor)
 4. **Reviews** the PR with three independent AI models (sfl-analyzer-a/b/c)
-5. **Fixes** all review findings and increments the cycle (pr-fixer)
+5. **Loops** back through the implementer until the current cycle is clean
 6. **Promotes** clean PRs to ready-for-review when all analyzers PASS (pr-promoter)
 7. **Hands off** clean PRs for human review and merge decision
 
@@ -134,7 +134,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 
 | Type | Files | Compilation | Example |
 |------|-------|-------------|---------|
-| **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | sfl-issue-processor, pr-fixer |
+| **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | sfl-issue-processor, pr-promoter |
 | **Standard** | `.yml` only | N/A | sfl-dispatcher, sfl-pr-label-actions (`SFL PR Label Actions`) |
 
 **Key constraint**: Agentic workflows use `safe-outputs` for all mutations
@@ -157,11 +157,11 @@ and **cannot directly trigger other agentic workflows** via events. The
 | `repo-audit` (`Repo Audit`) | Agentic | Daily | Finds code quality issues → Discussion |
 | `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
 | `discussion-processor` (`SFL Discussion Processor`) | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
-| `sfl-issue-processor` | Agentic | Dispatcher-only | Claims oldest `agent:fixable` issue → draft PR |
-| `sfl-analyzer-a` | Agentic | `pull_request: opened` | Full-spectrum review (claude-sonnet-4.6) |
-| `sfl-analyzer-b` | Agentic | `pull_request: opened` | Full-spectrum review (gemini-3-pro-preview) |
-| `sfl-analyzer-c` | Agentic | `pull_request: opened` | Full-spectrum review (gpt-5.3-codex) |
-| `pr-fixer` | Agentic | Dispatcher-only | Implements analyzer fixes, increments cycle |
+| `sfl-issue-processor` | Agentic | Dispatcher-only | Single implementer: creates or advances the draft PR for one issue |
+| `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A -> B -> C review chain (claude-sonnet-4.6) |
+| `sfl-analyzer-b` | Agentic | Analyzer A dispatch | Continues the sequential review chain (gemini-3-pro-preview) |
+| `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain (gpt-5.3-codex) |
+| `pr-fixer` | Agentic | Dispatcher-only | Legacy workflow retained during implementer migration |
 | `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs and hands them to humans |
 | `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |
 | `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
@@ -215,38 +215,7 @@ unexpected output.
 8. **Check the dispatcher** — did it dispatch when it should have?
 9. **Determine root cause** — not the first suspicious thing, the ACTUAL cause
 10. **Assess architectural impact** — does the fix add or remove complexity?
-11. **Update ATTENTION.md** — never silently fix
-
-### ATTENTION.md
-
-After every debug session, update `ATTENTION.md` in the repo root — the living
-document of things that need human awareness.
-
-**Format:**
-
-```markdown
-# ATTENTION
-
-> Auto-maintained by the SFL skill. Last updated: {date}
-
-## Active Concerns
-
-### {Concern Title}
-- **Severity**: Critical | High | Medium | Low
-- **Detected**: {date}
-- **Status**: Active | Monitoring | Resolved
-- **Description**: {1-2 sentences}
-- **Impact**: {what breaks if ignored}
-- **Suggested Action**: {concrete next step}
-
-## Resolved (last 30 days)
-
-### {Title}
-- **Resolved**: {date}
-- **Resolution**: {what fixed it}
-```
-
-Keep `ATTENTION.md` under 100 lines. Remove resolved items older than 30 days.
+11. **Report what changed** — never silently fix
 
 ---
 
@@ -314,8 +283,8 @@ Capture anything unexpected even if all checks pass:
 - Safe-output behaviors (e.g., verdicts in PR body vs labels)
 ```
 
-Every concern MUST appear as a row. ✅ for pass, ❌ for fail. Update
-`ATTENTION.md` with any new findings.
+Every concern MUST appear as a row. ✅ for pass, ❌ for fail. Include any new
+findings directly in the audit/status output.
 
 ### Timezone Rule
 
@@ -436,7 +405,7 @@ When evaluating a proposed change:
 2. Count labels, workflows, state transitions involved
 3. Ask: Does this add or remove complexity?
 4. If it adds complexity, propose a simpler alternative
-5. If no simpler alternative exists, document WHY in `ATTENTION.md`
+5. If no simpler alternative exists, document WHY in the debug or audit output
 
 ### Session Start Gate
 
@@ -505,7 +474,7 @@ Update this skill when:
 | `scripts/workflow-inventory.ps1` | Catalog all workflows with type classification |
 | `scripts/loop-state.ps1` | Current pipeline state — what's in the loop right now |
 | `scripts/pr-approve.ps1 -PRNumber <n>` | Submit PR approval review by PR number |
-| `scripts/create-issue.ps1 -What "..." [-TodoItem "..."]` | Create an `agent:fixable` + `action-item` issue for SFL pickup |
+| `scripts/create-issue.ps1 -What "..." [-TodoItem "..."]` | Create an `agent:fixable` issue for SFL pickup |
 
 ### Debug (`scripts/debug/`)
 

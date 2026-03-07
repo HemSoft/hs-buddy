@@ -2,6 +2,7 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
+| 🚧 | High | [Unify issue processor and fixer into a single implementer](#unify-issue-processor-and-fixer-into-a-single-implementer) | Hot path refactor underway: dispatcher now routes follow-up implementation back through the issue processor |
 | 📋 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Auto-detect SFL-enabled repos; show pipeline status node under each repo |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
@@ -64,9 +65,34 @@
 
 ## Progress
 
-**Remaining: 5** | **Completed: 52** (91%)
+**Remaining: 6** | **Completed: 52** (90%)
 
 ---
+
+### Unify issue processor and fixer into a single implementer
+
+**Goal**: Replace the split between `sfl-issue-processor` and `pr-fixer` with one implementation workflow that advances the same issue/PR across all coding cycles.
+
+**Desired behavior**:
+
+- Always read the linked issue as the canonical source of intent and acceptance criteria.
+- Always check whether an open draft PR already exists for that issue.
+- If no PR exists, implement the first pass and create the draft PR.
+- If a PR exists, read current PR state plus analyzer feedback and push the next fix set to the same branch.
+- After each implementation pass, explicitly dispatch Analyzer A so the review chain remains fully sequential.
+
+**Why**:
+
+- Removes duplicated implementation logic split across `sfl-issue-processor` and `pr-fixer`.
+- Keeps the runtime model simple: dispatcher routes, implementer codes, analyzers review, promoter hands off.
+- Eliminates the confusing cycle restart bounce where fixer hands control back indirectly instead of continuing the explicit chain.
+
+**Likely follow-up changes**:
+
+- Rename `sfl-issue-processor` to something like `sfl-implementer`.
+- Retire `pr-fixer` and delete its dispatcher branch.
+- Make implementer dispatch Analyzer A both after creating a PR and after pushing follow-up fixes.
+- Keep `pr:cycle-N` only as metadata/idempotency if still needed, not as the orchestration trigger.
 
 ## Simplisticate Workflows
 
@@ -84,7 +110,7 @@
 |---|--------|------|---------|
 | 1 | 📋 | **Remove autonomous PR merging** | Remove `ready-to-merge` label flow, `squash-merge` job in `sfl-pr-label-actions.yml`, and merge logic in PR Promoter. PRs stop at `human:ready-for-review`. |
 | 2 | 📋 | **Single-issue processing** | Issue Processor handles exactly 1 issue per run. Remove batch claiming logic if present. |
-| 3 | 📋 | **Event-driven issue processing** | When a workflow creates an issue with `agent:fixable` + `action-item`, trigger Issue Processor immediately via label event instead of waiting for next Dispatcher cron. |
+| 3 | 📋 | **Event-driven issue processing** | When a workflow creates an issue with `agent:fixable`, trigger Issue Processor immediately via issue-open event instead of waiting for next Dispatcher cron. |
 | 4 | 📋 | **Event-driven analyzer triggers** | When Issue Processor creates a draft PR, trigger analyzers immediately instead of waiting for Dispatcher. |
 | 5 | 📋 | **Reduce Dispatcher scope** | Dispatcher becomes a fallback/catch-up mechanism, not the primary trigger. Most work should already be done by event-driven triggers. |
 

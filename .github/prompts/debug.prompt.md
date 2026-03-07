@@ -14,9 +14,8 @@ its Debugging guidance and Debug Checklist systematically.
 
 ## Step 1 — Read Context
 
-1. Read `ATTENTION.md` for known active concerns
-2. Read `AGENTS.md` and `.github/workflows/README.md` for pipeline architecture and standing orders
-3. Read `VISION.md` for architectural alignment checks
+1. Read `AGENTS.md` and `.github/workflows/README.md` for pipeline architecture and standing orders
+2. Read `VISION.md` for architectural alignment checks
 
 ---
 
@@ -55,13 +54,13 @@ For each issue found:
 
 ---
 
-## Step 5 — Update ATTENTION.md
+## Step 5 — Record Findings In The Report
 
-Add or update entries in `ATTENTION.md`:
+Capture in the report:
 
 - New concerns discovered during investigation
-- Status changes on existing concerns (Active → Monitoring → Resolved)
-- Move resolved items to the Resolved section with resolution notes
+- Status changes on previously known concerns
+- Which older concerns are now resolved
 
 ---
 
@@ -83,8 +82,8 @@ Print a structured report:
    Root cause: {explanation}
    Suggested fix: {action}
 
-### ATTENTION.md Changes
-- Added: {items}
+### Concern Status
+- New: {items}
 - Updated: {items}
 - Resolved: {items}
 
@@ -101,6 +100,6 @@ Print a structured report:
 
 - **Read-only first**: Understand before changing. Run scripts before editing anything.
 - **Simplisticate**: Every fix should reduce complexity, not add it.
-- **Document everything**: ATTENTION.md must reflect what you found.
+- **Document everything**: The debug report must reflect what you found.
 - **No silent fixes**: If you repair state, log what was wrong and why.
 - **Architectural alignment**: Check every finding against `VISION.md`, `AGENTS.md`, and `.agents/skills/sfl/SKILL.md`.

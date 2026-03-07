@@ -77,7 +77,7 @@ Check sync freshness — compare timestamps between source and target:
 - `scripts/pause-sfl.ps1`, `scripts/resume-sfl.ps1` — repo-specific control scripts
 - `scripts/sfl-debug/` — repo-specific debug sequence
 - `assets/set-it-free-loop/` — presentation assets, not SFL infrastructure
-- `ATTENTION.md`, `SFL-LAUNCH.md` — repo-specific operational state
+- `SFL-LAUNCH.md` — repo-specific operational state
 - `AGENTS.md` — repo-specific standing orders
 
 ## Rules

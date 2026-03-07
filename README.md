@@ -264,7 +264,7 @@ The loop runs continuously via GitHub Actions workflows:
 | **Detect** | Repo Audit | Scans for documentation drift, stale artifacts, config hygiene |
 | **Claim** | Issue Processor | Claims `agent:fixable` issues and opens draft PRs |
 | **Review** | PR Analyzers A/B/C | Three independent AI models perform full-spectrum code review |
-| **Fix** | PR Fixer | Implements reviewer suggestions, increments cycle counter |
+| **Implement / Revise** | Issue Processor | Creates the first draft PR and applies follow-up analyzer feedback on later cycles |
 | **Promote** | PR Promoter | Un-drafts clean PRs when all analyzers pass |
 | **Guard** | SFL Auditor + Dispatcher | Repairs label discrepancies, orchestrates dispatch every 30 min |
 

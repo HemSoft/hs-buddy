@@ -19,7 +19,7 @@ Symptom reported
   ├─ Issue stuck in agent:fixable?
   │    ├─ Is sfl-dispatcher enabled and running?
   │    ├─ Is there already an agent:in-progress issue? (one at a time)
-  │    └─ Does the issue have both agent:fixable AND action-item labels?
+   │    └─ Does the issue have the `agent:fixable` label and a valid issue body?
   │
   ├─ Workflow failing?
   │    ├─ Agentic? → Check safe-output limits (max exceeded?)

@@ -41,7 +41,7 @@ safe-outputs:
 
 # PR Promoter
 
-Run every 30 minutes (offset 5 min after PR Fixer). Find the oldest draft PR
+Find the oldest draft PR
 labeled `agent:pr` where all three analyzer verdicts are **PASS** in the
 current cycle. Convert it from draft to ready-for-review and post a promotion
 comment. Process exactly one PR per run.
@@ -101,22 +101,9 @@ If any such marker exists AND the PR is non-draft, update the dashboard with:
 
 ## Step 4 — Verify all three analyzers have reviewed the current cycle
 
-Determine the cycle to check. This is the cycle BEFORE the current one if
-the PR Fixer has already incremented it:
-
-- If labels include `pr:cycle-N` (N ≥ 1), the fixer already ran cycle N-1
-  and incremented to N. The analyzer verdicts to check are from cycle N-1.
-- However, the fixer only increments the cycle AFTER fixing. If the fixer
-  found nothing to fix (all PASS), it posts to the Activity Log and does NOT
-  increment.
-
-So the logic is:
-
-1. Look for the **pr-fixer** marker: `[MARKER:pr-fixer cycle:N]`
-   for the most recent cycle. If the fixer ran and incremented, the
-   analyzer verdicts that matter are from that fixer's cycle (N).
-2. If no fixer marker exists, check analyzer markers at the current cycle
-  number (including cycle `0`).
+Use the current cycle number from Step 2 directly. Promotion should depend
+only on the current analyzer results, not on how many implementation passes
+produced them.
 
 Search the PR body for these exact marker texts for the target cycle (C):
 
@@ -154,7 +141,7 @@ promotion. Proceed to Step 6.
 If ANY verdict says `**BLOCKING ISSUES FOUND**`, the PR has issues that need
 fixing. Update the dashboard with:
 "PR #<number> cycle <C>: blocking issues found — not promoting. The PR
-Fixer will handle this." and exit.
+Issue Processor will handle this." and exit.
 
 ## Step 6 — Add ready-for-review label (triggers draft flip)
 

@@ -154,4 +154,4 @@ Capture notable behaviors even when all checks pass:
 Use ✅ for pass, ❌ for fail. No other symbols. Every check MUST appear as
 a row. Detail column is one sentence max.
 
-After the audit, update `ATTENTION.md` with any new findings.
+After the audit, include any new findings in the audit report output.

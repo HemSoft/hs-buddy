@@ -200,6 +200,148 @@ export interface PRThreadsResult {
   issueComments: PRReviewComment[]
 }
 
+const PR_HISTORY_QUERY = `
+  query PRHistory($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        createdAt
+        updatedAt
+        mergedAt
+        author {
+          login
+        }
+        comments(first: 100) {
+          totalCount
+          nodes {
+            id
+            createdAt
+            bodyText
+            url
+            author {
+              login
+            }
+          }
+        }
+        commits(first: 100) {
+          totalCount
+          nodes {
+            commit {
+              oid
+              committedDate
+              messageHeadline
+              url
+              author {
+                user {
+                  login
+                }
+                name
+              }
+            }
+          }
+        }
+        reviewRequests(first: 30) {
+          nodes {
+            requestedReviewer {
+              __typename
+              ... on User {
+                login
+                avatarUrl
+              }
+            }
+          }
+        }
+        reviews(first: 100) {
+          nodes {
+            id
+            state
+            submittedAt
+            url
+            author {
+              login
+              avatarUrl
+            }
+          }
+        }
+        reviewThreads(first: 100) {
+          totalCount
+          nodes {
+            isResolved
+            isOutdated
+            comments {
+              totalCount
+            }
+          }
+        }
+      }
+    }
+  }
+` as const
+
+type PRHistoryGraphQLResponse = {
+  repository: {
+    pullRequest: {
+      createdAt: string
+      updatedAt: string
+      mergedAt: string | null
+      author: { login: string } | null
+      comments: {
+        totalCount: number
+        nodes: Array<{
+          id: string
+          createdAt: string
+          bodyText: string
+          url: string
+          author: { login: string } | null
+        }>
+      }
+      commits: {
+        totalCount: number
+        nodes: Array<{
+          commit: {
+            oid: string
+            committedDate: string
+            messageHeadline: string
+            url: string
+            author: {
+              user: { login: string } | null
+              name: string | null
+            } | null
+          }
+        }>
+      }
+      reviewRequests: {
+        nodes: Array<{
+          requestedReviewer:
+            | {
+                __typename: 'User'
+                login: string
+                avatarUrl: string
+              }
+            | { __typename: string }
+            | null
+        }>
+      }
+      reviews: {
+        nodes: Array<{
+          id: string
+          state: string
+          submittedAt: string | null
+          url: string
+          author: { login: string; avatarUrl: string } | null
+        }>
+      }
+      reviewThreads: {
+        totalCount: number
+        nodes: Array<{
+          isResolved: boolean
+          isOutdated: boolean
+          comments: { totalCount: number }
+        }>
+      }
+    } | null
+  } | null
+}
+
 // Create Octokit with retry and throttling plugins
 const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 
@@ -225,6 +367,161 @@ export class GitHubClient {
   constructor(config: PRConfig['github'], recentlyMergedDays: number = 7) {
     this.config = config
     this.recentlyMergedDays = recentlyMergedDays
+  }
+
+  private countApprovals(
+    reviews: Array<{ user?: { login?: string } | null; state: string; submitted_at?: string | null }>,
+    viewerLogin: string | null
+  ): { approvalCount: number; iApproved: boolean } {
+    const latestByUser = new Map<string, { state: string; submittedAt: string }>()
+    for (const review of reviews) {
+      const login = review.user?.login
+      if (!login) continue
+      const submittedAt = review.submitted_at || ''
+      const existing = latestByUser.get(login)
+      if (!existing || submittedAt > existing.submittedAt) {
+        latestByUser.set(login, { state: review.state, submittedAt })
+      }
+    }
+    let approvalCount = 0
+    let iApproved = false
+    for (const [login, { state }] of latestByUser) {
+      if (state === 'APPROVED') {
+        approvalCount++
+        if (viewerLogin && login.toLowerCase() === viewerLogin.toLowerCase()) {
+          iApproved = true
+        }
+      }
+    }
+    return { approvalCount, iApproved }
+  }
+
+  private buildPRTimeline(
+    pr: NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest'] & {},
+    pullNumber: number
+  ): PRTimelineEvent[] {
+    const timeline: PRTimelineEvent[] = []
+    timeline.push({
+      id: `opened-${pullNumber}`,
+      type: 'opened',
+      author: pr.author?.login || 'unknown',
+      occurredAt: pr.createdAt,
+      summary: 'Opened pull request',
+      url: null,
+    })
+
+    for (const comment of pr.comments.nodes || []) {
+      const summary = (comment.bodyText || '').trim().split('\n')[0] || 'Added comment'
+      timeline.push({
+        id: `comment-${comment.id}`,
+        type: 'comment',
+        author: comment.author?.login || 'unknown',
+        occurredAt: comment.createdAt,
+        summary,
+        url: comment.url,
+      })
+    }
+
+    for (const commitNode of pr.commits.nodes || []) {
+      const commit = commitNode.commit
+      timeline.push({
+        id: `commit-${commit.oid}`,
+        type: 'commit',
+        author: commit.author?.user?.login || commit.author?.name || 'unknown',
+        occurredAt: commit.committedDate,
+        summary: commit.messageHeadline || 'Commit',
+        url: commit.url || null,
+      })
+    }
+
+    for (const review of pr.reviews.nodes || []) {
+      if (!review.submittedAt) continue
+      const reviewSummary =
+        review.state === 'APPROVED'
+          ? 'Approved review'
+          : review.state === 'CHANGES_REQUESTED'
+            ? 'Requested changes'
+            : review.state === 'COMMENTED'
+              ? 'Left review comments'
+              : 'Submitted review'
+
+      timeline.push({
+        id: `review-${review.id}`,
+        type: 'review',
+        author: review.author?.login || 'unknown',
+        occurredAt: review.submittedAt,
+        summary: reviewSummary,
+        url: review.url || null,
+      })
+    }
+
+    timeline.sort((a, b) => {
+      const aTs = new Date(a.occurredAt).getTime()
+      const bTs = new Date(b.occurredAt).getTime()
+      return aTs - bTs
+    })
+
+    return timeline
+  }
+
+  private buildReviewerSummaries(
+    pr: NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest'] & {}
+  ): PRReviewerSummary[] {
+    const latestReviewsByUser = new Map<
+      string,
+      { state: string; submittedAt: string | null; avatarUrl: string | null }
+    >()
+    for (const review of pr.reviews.nodes || []) {
+      const login = review.author?.login
+      if (!login) continue
+      const existing = latestReviewsByUser.get(login)
+      if (!existing || (review.submittedAt || '') > (existing.submittedAt || '')) {
+        latestReviewsByUser.set(login, {
+          state: review.state,
+          submittedAt: review.submittedAt,
+          avatarUrl: review.author?.avatarUrl || null,
+        })
+      }
+    }
+
+    const requestedReviewers = new Map<string, { avatarUrl: string | null }>()
+    for (const req of pr.reviewRequests.nodes || []) {
+      const reviewer = req.requestedReviewer
+      if (
+        reviewer &&
+        reviewer.__typename === 'User' &&
+        'login' in reviewer &&
+        'avatarUrl' in reviewer
+      ) {
+        requestedReviewers.set(reviewer.login, { avatarUrl: reviewer.avatarUrl || null })
+      }
+    }
+
+    const reviewerLogins = new Set<string>([
+      ...requestedReviewers.keys(),
+      ...latestReviewsByUser.keys(),
+    ])
+
+    return Array.from(reviewerLogins).map(login => {
+      const latest = latestReviewsByUser.get(login)
+      const requested = requestedReviewers.get(login)
+      const status: PRReviewerSummary['status'] = latest
+        ? latest.state === 'APPROVED'
+          ? 'approved'
+          : latest.state === 'CHANGES_REQUESTED'
+            ? 'changes-requested'
+            : latest.state === 'COMMENTED'
+              ? 'commented'
+              : 'reviewed'
+        : 'pending'
+
+      return {
+        login,
+        avatarUrl: latest?.avatarUrl || requested?.avatarUrl || null,
+        status,
+        updatedAt: latest?.submittedAt || null,
+      }
+    })
   }
 
   /**
@@ -579,40 +876,7 @@ export class GitHubClient {
               repo,
               pull_number: pr.number,
             })
-
-            const reviewerLatest = new Map<string, string>()
-            for (const review of reviewsData.data) {
-              const login = review.user?.login
-              if (!login) continue
-
-              const submittedAt = review.submitted_at || ''
-              const existingAt = reviewerLatest.get(login)
-              if (!existingAt || submittedAt > existingAt) {
-                reviewerLatest.set(login, submittedAt)
-              }
-            }
-
-            const latestStates = new Map<string, string>()
-            for (const review of reviewsData.data) {
-              const login = review.user?.login
-              if (!login) continue
-              const latestAt = reviewerLatest.get(login)
-              if ((review.submitted_at || '') === latestAt) {
-                latestStates.set(login, review.state)
-              }
-            }
-
-            let approvalCount = 0
-            let iApproved = false
-            for (const [login, state] of latestStates) {
-              if (state === 'APPROVED') {
-                approvalCount++
-                if (viewerLogin && login.toLowerCase() === viewerLogin) {
-                  iApproved = true
-                }
-              }
-            }
-
+            const { approvalCount, iApproved } = this.countApprovals(reviewsData.data, viewerLogin)
             pr.approvalCount = approvalCount
             pr.iApproved = iApproved
           } catch (error) {
@@ -653,147 +917,7 @@ export class GitHubClient {
   async fetchPRHistory(owner: string, repo: string, pullNumber: number): Promise<PRHistorySummary> {
     const token = await this.getTokenForOwner(owner)
 
-    const query = `
-      query PRHistory($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            createdAt
-            updatedAt
-            mergedAt
-            author {
-              login
-            }
-            comments(first: 100) {
-              totalCount
-              nodes {
-                id
-                createdAt
-                bodyText
-                url
-                author {
-                  login
-                }
-              }
-            }
-            commits(first: 100) {
-              totalCount
-              nodes {
-                commit {
-                  oid
-                  committedDate
-                  messageHeadline
-                  url
-                  author {
-                    user {
-                      login
-                    }
-                    name
-                  }
-                }
-              }
-            }
-            reviewRequests(first: 30) {
-              nodes {
-                requestedReviewer {
-                  __typename
-                  ... on User {
-                    login
-                    avatarUrl
-                  }
-                }
-              }
-            }
-            reviews(first: 100) {
-              nodes {
-                id
-                state
-                submittedAt
-                url
-                author {
-                  login
-                  avatarUrl
-                }
-              }
-            }
-            reviewThreads(first: 100) {
-              totalCount
-              nodes {
-                isResolved
-                isOutdated
-                comments {
-                  totalCount
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const result = await graphql<{
-      repository: {
-        pullRequest: {
-          createdAt: string
-          updatedAt: string
-          mergedAt: string | null
-          author: { login: string } | null
-          comments: {
-            totalCount: number
-            nodes: Array<{
-              id: string
-              createdAt: string
-              bodyText: string
-              url: string
-              author: { login: string } | null
-            }>
-          }
-          commits: {
-            totalCount: number
-            nodes: Array<{
-              commit: {
-                oid: string
-                committedDate: string
-                messageHeadline: string
-                url: string
-                author: {
-                  user: { login: string } | null
-                  name: string | null
-                } | null
-              }
-            }>
-          }
-          reviewRequests: {
-            nodes: Array<{
-              requestedReviewer:
-                | {
-                    __typename: 'User'
-                    login: string
-                    avatarUrl: string
-                  }
-                | { __typename: string }
-                | null
-            }>
-          }
-          reviews: {
-            nodes: Array<{
-              id: string
-              state: string
-              submittedAt: string | null
-              url: string
-              author: { login: string; avatarUrl: string } | null
-            }>
-          }
-          reviewThreads: {
-            totalCount: number
-            nodes: Array<{
-              isResolved: boolean
-              isOutdated: boolean
-              comments: { totalCount: number }
-            }>
-          }
-        } | null
-      } | null
-    }>(query, {
+    const result = await graphql<PRHistoryGraphQLResponse>(PR_HISTORY_QUERY, {
       owner,
       repo,
       number: pullNumber,
@@ -816,123 +940,8 @@ export class GitHubClient {
       0
     )
     const issueCommentCount = pr.comments.totalCount
-
-    const latestReviewsByUser = new Map<
-      string,
-      { state: string; submittedAt: string | null; avatarUrl: string | null }
-    >()
-    for (const review of pr.reviews.nodes || []) {
-      const login = review.author?.login
-      if (!login) continue
-      const existing = latestReviewsByUser.get(login)
-      if (!existing || (review.submittedAt || '') > (existing.submittedAt || '')) {
-        latestReviewsByUser.set(login, {
-          state: review.state,
-          submittedAt: review.submittedAt,
-          avatarUrl: review.author?.avatarUrl || null,
-        })
-      }
-    }
-
-    const requestedReviewers = new Map<string, { avatarUrl: string | null }>()
-    for (const req of pr.reviewRequests.nodes || []) {
-      const reviewer = req.requestedReviewer
-      if (
-        reviewer &&
-        reviewer.__typename === 'User' &&
-        'login' in reviewer &&
-        'avatarUrl' in reviewer
-      ) {
-        requestedReviewers.set(reviewer.login, { avatarUrl: reviewer.avatarUrl || null })
-      }
-    }
-
-    const reviewerLogins = new Set<string>([
-      ...requestedReviewers.keys(),
-      ...latestReviewsByUser.keys(),
-    ])
-
-    const reviewers: PRReviewerSummary[] = Array.from(reviewerLogins).map(login => {
-      const latest = latestReviewsByUser.get(login)
-      const requested = requestedReviewers.get(login)
-      const status: PRReviewerSummary['status'] = latest
-        ? latest.state === 'APPROVED'
-          ? 'approved'
-          : latest.state === 'CHANGES_REQUESTED'
-            ? 'changes-requested'
-            : latest.state === 'COMMENTED'
-              ? 'commented'
-              : 'reviewed'
-        : 'pending'
-
-      return {
-        login,
-        avatarUrl: latest?.avatarUrl || requested?.avatarUrl || null,
-        status,
-        updatedAt: latest?.submittedAt || null,
-      }
-    })
-
-    const timeline: PRTimelineEvent[] = []
-    timeline.push({
-      id: `opened-${pullNumber}`,
-      type: 'opened',
-      author: pr.author?.login || 'unknown',
-      occurredAt: pr.createdAt,
-      summary: 'Opened pull request',
-      url: null,
-    })
-
-    for (const comment of pr.comments.nodes || []) {
-      const summary = (comment.bodyText || '').trim().split('\n')[0] || 'Added comment'
-      timeline.push({
-        id: `comment-${comment.id}`,
-        type: 'comment',
-        author: comment.author?.login || 'unknown',
-        occurredAt: comment.createdAt,
-        summary,
-        url: comment.url,
-      })
-    }
-
-    for (const commitNode of pr.commits.nodes || []) {
-      const commit = commitNode.commit
-      timeline.push({
-        id: `commit-${commit.oid}`,
-        type: 'commit',
-        author: commit.author?.user?.login || commit.author?.name || 'unknown',
-        occurredAt: commit.committedDate,
-        summary: commit.messageHeadline || 'Commit',
-        url: commit.url || null,
-      })
-    }
-
-    for (const review of pr.reviews.nodes || []) {
-      if (!review.submittedAt) continue
-      const reviewSummary =
-        review.state === 'APPROVED'
-          ? 'Approved review'
-          : review.state === 'CHANGES_REQUESTED'
-            ? 'Requested changes'
-            : review.state === 'COMMENTED'
-              ? 'Left review comments'
-              : 'Submitted review'
-
-      timeline.push({
-        id: `review-${review.id}`,
-        type: 'review',
-        author: review.author?.login || 'unknown',
-        occurredAt: review.submittedAt,
-        summary: reviewSummary,
-        url: review.url || null,
-      })
-    }
-
-    timeline.sort((a, b) => {
-      const aTs = new Date(a.occurredAt).getTime()
-      const bTs = new Date(b.occurredAt).getTime()
-      return aTs - bTs
-    })
+    const reviewers = this.buildReviewerSummaries(pr)
+    const timeline = this.buildPRTimeline(pr, pullNumber)
 
     return {
       createdAt: pr.createdAt,
@@ -1706,36 +1715,7 @@ export class GitHubClient {
               : null
 
             const reviews = reviewsData.data
-            let approvalCount = 0
-            let iApproved = false
-
-            if (reviews.length > 0) {
-              const reviewerGroups = new Map<string, typeof reviews>()
-
-              for (const review of reviews) {
-                const login = review.user?.login
-                if (!login) continue
-                if (!reviewerGroups.has(login)) {
-                  reviewerGroups.set(login, [])
-                }
-                reviewerGroups.get(login)?.push(review)
-              }
-
-              for (const [login, userReviews] of reviewerGroups) {
-                const latestReview = userReviews.sort((a, b) => {
-                  const aTime = a.submitted_at || ''
-                  const bTime = b.submitted_at || ''
-                  return bTime.localeCompare(aTime)
-                })[0]
-
-                if (latestReview?.state === 'APPROVED') {
-                  approvalCount++
-                  if (login === username) {
-                    iApproved = true
-                  }
-                }
-              }
-            }
+            const { approvalCount, iApproved } = this.countApprovals(reviews, username)
 
             pr.approvalCount = approvalCount
             pr.iApproved = iApproved

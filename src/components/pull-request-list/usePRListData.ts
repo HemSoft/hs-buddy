@@ -7,6 +7,7 @@ import { useTaskQueue } from '../../hooks/useTaskQueue'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
+import { MS_PER_MINUTE } from '../../constants'
 
 interface LoadingProgress {
   currentAccount: number
@@ -106,9 +107,9 @@ export function usePRListData(
       if (cached && refreshInterval) {
         const now = Date.now()
         const lastUpdated = formatTime(cached.fetchedAt, { hour12: true, numeric: true })
-        const nextUpdateTimestamp = cached.fetchedAt + refreshInterval * 60 * 1000
+        const nextUpdateTimestamp = cached.fetchedAt + refreshInterval * MS_PER_MINUTE
         const nextUpdate = formatTime(nextUpdateTimestamp, { hour12: true, numeric: true })
-        const totalInterval = refreshInterval * 60 * 1000
+        const totalInterval = refreshInterval * MS_PER_MINUTE
         const elapsed = now - cached.fetchedAt
         const progress = Math.min(100, Math.max(0, (elapsed / totalInterval) * 100))
         setUpdateTimes({ lastUpdated, nextUpdate, progress })
@@ -252,7 +253,7 @@ export function usePRListData(
     const cached = dataCache.get<PullRequest[]>(mode)
     const isForceRefresh = forceRefresh > 0
     if (cached && !isForceRefresh) {
-      const intervalMs = refreshInterval * 60 * 1000
+      const intervalMs = refreshInterval * MS_PER_MINUTE
       const timeSinceLastFetch = Date.now() - cached.fetchedAt
       if (timeSinceLastFetch < intervalMs) {
         console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
@@ -301,7 +302,7 @@ export function usePRListData(
           async signal => {
             const freshCheck = dataCache.get<PullRequest[]>(mode)
             if (freshCheck && !isForceRefresh) {
-              const intervalMs = refreshInterval * 60 * 1000
+              const intervalMs = refreshInterval * MS_PER_MINUTE
               if (Date.now() - freshCheck.fetchedAt < intervalMs) {
                 console.log(
                   `[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`
@@ -386,7 +387,7 @@ export function usePRListData(
     if (!refreshInterval || refreshInterval <= 0) {
       return
     }
-    const intervalMs = refreshInterval * 60 * 1000
+    const intervalMs = refreshInterval * MS_PER_MINUTE
     console.log(`Setting up auto-refresh interval: ${refreshInterval} minutes`)
     const intervalId = setInterval(() => {
       console.log(`Auto-refresh triggered for ${mode}`)

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { usePRSettings } from './useConfig'
 import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
+import { MS_PER_MINUTE } from '../constants'
 
 type BadgeProgress = { progress: number; color: string; tooltip: string }
 
@@ -63,7 +64,7 @@ export function usePRSidebarBadges() {
 
   useEffect(() => {
     const computeProgress = () => {
-      const intervalMs = refreshInterval * 60 * 1000
+      const intervalMs = refreshInterval * MS_PER_MINUTE
       const now = Date.now()
       const next: Record<string, BadgeProgress> = {}
 

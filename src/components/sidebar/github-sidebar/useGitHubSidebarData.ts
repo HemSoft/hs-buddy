@@ -16,6 +16,7 @@ import {
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
 import type { PullRequest } from '../../../types/pullRequest'
+import { MS_PER_MINUTE } from '../../../constants'
 
 export interface SidebarItem {
   id: string
@@ -174,7 +175,7 @@ export function useGitHubSidebarData() {
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
-    const intervalMs = refreshInterval * 60 * 1000
+    const intervalMs = refreshInterval * MS_PER_MINUTE
     const refreshAllOrgs = () => {
       const orgs = (Array.from(new Set(accounts.map(a => a.org))).filter(Boolean) as string[]).sort()
       for (const org of orgs) {
@@ -383,7 +384,7 @@ export function useGitHubSidebarData() {
     async (org: string, repoName: string, forceRefresh = false) => {
       const key = `${org}/${repoName}`
       const cacheKey = `repo-prs:${key}`
-      const maxAgeMs = refreshInterval > 0 ? refreshInterval * 60 * 1000 : null
+      const maxAgeMs = refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
       const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
       if (cached?.data && !forceRefresh) {
         setRepoPrTreeData(prev => ({
@@ -445,7 +446,7 @@ export function useGitHubSidebarData() {
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
-    const intervalMs = refreshInterval * 60 * 1000
+    const intervalMs = refreshInterval * MS_PER_MINUTE
     const intervalId = setInterval(() => {
       for (const key of fetchedRepoPRsRef.current) {
         const cacheKey = `repo-prs:${key}`
@@ -461,7 +462,7 @@ export function useGitHubSidebarData() {
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
-    const intervalMs = refreshInterval * 60 * 1000
+    const intervalMs = refreshInterval * MS_PER_MINUTE
     const refreshRepoCounts = () => {
       for (const key of fetchedCountsRef.current) {
         const cacheKey = `repo-counts:${key}`

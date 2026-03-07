@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react'
 import { getTaskQueue } from '../services/taskQueue'
 import { dataCache } from '../services/dataCache'
 import { usePRSettings } from './useConfig'
-import { PR_MODES } from '../constants'
+import { PR_MODES, MS_PER_MINUTE } from '../constants'
 
 export type SyncPhase = 'idle' | 'syncing' | 'error'
 
@@ -78,7 +78,7 @@ export function useBackgroundStatus(): BackgroundStatus {
   })
 
   useEffect(() => {
-    const intervalMs = refreshInterval * 60 * 1000
+    const intervalMs = refreshInterval * MS_PER_MINUTE
 
     const compute = () => {
       const queue = getTaskQueue('github')

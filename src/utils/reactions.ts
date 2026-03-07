@@ -4,7 +4,7 @@ import { type PRCommentReactionContent, type PRReviewComment, type PRThreadsResu
 // type is absent from the array. The original PRThreadsPanel code silently
 // ignored missing reaction types (the .map() would fall through unchanged).
 // This is a bug fix — the API may omit reaction types with count 0.
-export function applyReactionToComment(
+function applyReactionToComment(
   comment: PRReviewComment,
   content: PRCommentReactionContent
 ): PRReviewComment {

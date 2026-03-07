@@ -1,12 +1,5 @@
 import { useEffect } from 'react'
-
-function brightenHex(color: string, amount: number): string {
-  const num = parseInt(color.replace('#', ''), 16)
-  const r = Math.min(255, (num >> 16) + amount)
-  const g = Math.min(255, ((num >> 8) & 0x00ff) + amount)
-  const b = Math.min(255, (num & 0x0000ff) + amount)
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
+import { lightenColor } from '../components/settings/AppearanceColorPicker'
 
 export function useAppAppearance(): void {
   useEffect(() => {
@@ -30,7 +23,7 @@ export function useAppAppearance(): void {
 
         const root = document.documentElement
         root.style.setProperty('--accent-primary', color)
-        root.style.setProperty('--accent-primary-hover', brightenHex(color, 38))
+        root.style.setProperty('--accent-primary-hover', lightenColor(color, 15))
         root.style.setProperty('--border-focus', color)
       })
       .catch(() => {})
@@ -57,7 +50,7 @@ export function useAppAppearance(): void {
         }
         if (fontColor) {
           root.style.setProperty('--text-primary', fontColor)
-          root.style.setProperty('--text-heading', brightenHex(fontColor, Math.round((255 * 20) / 100)))
+          root.style.setProperty('--text-heading', lightenColor(fontColor, 20))
         }
         if (statusBarBg) {
           root.style.setProperty('--statusbar-bg', statusBarBg)

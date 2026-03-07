@@ -17,6 +17,7 @@ import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoDetail } from '../api/github'
 import { dataCache } from '../services/dataCache'
+import { MS_PER_MINUTE } from '../constants'
 import { RepoStatsBar } from './repo-detail/RepoStatsBar'
 import { RepoContentGrid } from './repo-detail/RepoContentGrid'
 import { getLanguageColor, getWorkflowStatusInfo } from './repo-detail/repoDetailUtils'
@@ -86,7 +87,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   // Auto-refresh based on PR settings interval
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return
-    const intervalMs = refreshInterval * 60 * 1000
+    const intervalMs = refreshInterval * MS_PER_MINUTE
     const timer = setInterval(() => fetchDetail(true), intervalMs)
     return () => clearInterval(timer)
   }, [refreshInterval, fetchDetail])

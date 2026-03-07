@@ -18,6 +18,7 @@ import { getTaskQueue } from '../services/taskQueue';
 import { GitHubClient } from '../api/github';
 import { dataCache } from '../services/dataCache';
 import type { PullRequest } from '../types/pullRequest';
+import { MS_PER_MINUTE } from '../constants';
 import type { OrgRepoResult } from '../api/github';
 import { PR_MODES } from '../constants';
 
@@ -166,7 +167,7 @@ export function usePrefetch(): void {
     if (prefetchedRef.current) return;
     prefetchedRef.current = true;
 
-    const intervalMs = refreshInterval * 60 * 1000;
+    const intervalMs = refreshInterval * MS_PER_MINUTE;
 
     console.log('[Prefetch] Starting initial prefetch...', {
       accounts: accounts.length,
@@ -181,7 +182,7 @@ export function usePrefetch(): void {
   useEffect(() => {
     if (accountsLoading || settingsLoading || accounts.length === 0) return;
 
-    const intervalMs = refreshInterval * 60 * 1000;
+    const intervalMs = refreshInterval * MS_PER_MINUTE;
 
     // Check every 30 seconds if any data has gone stale
     const timer = setInterval(() => {

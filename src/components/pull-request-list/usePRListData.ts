@@ -6,6 +6,7 @@ import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConve
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
 import { dataCache } from '../../services/dataCache'
+import { formatTime } from '../../utils/dateUtils'
 
 interface LoadingProgress {
   currentAccount: number
@@ -16,6 +17,25 @@ interface LoadingProgress {
   prsFound?: number
   totalPrsFound: number
   error?: string
+}
+
+const PROGRESS_COLORS = [
+  { max: 25, color: '#4ec9b0' },
+  { max: 50, color: '#dcd34a' },
+  { max: 75, color: '#e89b3c' },
+  { max: 100, color: '#e85d5d' },
+] as const
+
+function getProgressColor(progress: number): string {
+  return (PROGRESS_COLORS.find(c => progress <= c.max) ?? PROGRESS_COLORS[PROGRESS_COLORS.length - 1]).color
+}
+
+function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {
+  return items.map(item =>
+    item.repository === pr.repository && item.id === pr.id && !item.iApproved
+      ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
+      : item
+  )
 }
 
 export function usePRListData(
@@ -65,21 +85,6 @@ export function usePRListData(
     cancelAllRef.current = cancelAll
   }, [cancelAll])
 
-  const formatTime = useCallback((timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
-  }, [])
-
-  const getProgressColor = useCallback((progress: number) => {
-    if (progress <= 25) return '#4ec9b0'
-    if (progress <= 50) return '#dcd34a'
-    if (progress <= 75) return '#e89b3c'
-    return '#e85d5d'
-  }, [])
-
   useEffect(() => {
     const unsubscribe = dataCache.subscribe(key => {
       if (key === mode) {
@@ -100,9 +105,9 @@ export function usePRListData(
       const cached = dataCache.get<PullRequest[]>(mode)
       if (cached && refreshInterval) {
         const now = Date.now()
-        const lastUpdated = formatTime(cached.fetchedAt)
+        const lastUpdated = formatTime(cached.fetchedAt, { hour12: true, numeric: true })
         const nextUpdateTimestamp = cached.fetchedAt + refreshInterval * 60 * 1000
-        const nextUpdate = formatTime(nextUpdateTimestamp)
+        const nextUpdate = formatTime(nextUpdateTimestamp, { hour12: true, numeric: true })
         const totalInterval = refreshInterval * 60 * 1000
         const elapsed = now - cached.fetchedAt
         const progress = Math.min(100, Math.max(0, (elapsed / totalInterval) * 100))
@@ -114,7 +119,7 @@ export function usePRListData(
     updateTimesDisplay()
     const interval = setInterval(updateTimesDisplay, 5000)
     return () => clearInterval(interval)
-  }, [mode, prs, refreshInterval, formatTime])
+  }, [mode, prs, refreshInterval])
 
   const handleProgress: ProgressCallback = useCallback(p => {
     setProgress(prev => {
@@ -203,25 +208,10 @@ export function usePRListData(
           },
           { name: `approve-pr-${pr.repository}-${pr.id}` }
         )
-        setPrs(prev =>
-          prev.map(item => {
-            if (item.repository !== pr.repository || item.id !== pr.id || item.iApproved) {
-              return item
-            }
-            return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
-          })
-        )
+        setPrs(prev => markApproved(prev, pr))
         const cached = dataCache.get<PullRequest[]>(mode)
         if (cached?.data) {
-          dataCache.set(
-            mode,
-            cached.data.map(item => {
-              if (item.repository !== pr.repository || item.id !== pr.id || item.iApproved) {
-                return item
-              }
-              return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
-            })
-          )
+          dataCache.set(mode, markApproved(cached.data, pr))
         }
       } catch (error) {
         console.error('Failed to approve PR:', error)

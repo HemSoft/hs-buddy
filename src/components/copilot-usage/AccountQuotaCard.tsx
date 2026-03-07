@@ -1,6 +1,7 @@
 import { RefreshCw, AlertCircle, ExternalLink, Building2, Crown, Briefcase, TrendingUp } from 'lucide-react'
 import { UsageRing } from './UsageRing'
 import { OVERAGE_COST_PER_REQUEST, formatCurrency, computeProjection } from './quotaUtils'
+import { formatTime } from '../../utils/dateUtils'
 
 function formatPlan(plan: string): string {
   const planNames: Record<string, string> = {
@@ -29,11 +30,6 @@ function daysUntilReset(dateStr: string) {
   const now = new Date()
   const diff = resetDate.getTime() - now.getTime()
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
-}
-
-function formatTime(ts: number) {
-  const d = new Date(ts)
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

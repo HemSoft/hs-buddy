@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { GitPullRequest, Calendar, Clock, Bot, Zap, User, RefreshCw, CheckCircle2, Sparkles } from 'lucide-react'
 import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
+import { formatTime } from '../utils/dateUtils'
 import './StatusBar.css'
 
 interface StatusBarProps {
@@ -30,14 +31,6 @@ export function StatusBar({
     }, 1000)
     return () => clearInterval(timer)
   }, [])
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-  }
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString(undefined, {
@@ -190,7 +183,7 @@ export function StatusBar({
           <span className="status-icon">
             <Clock size={12} />
           </span>
-          <span className="status-text">{formatTime(currentTime)}</span>
+          <span className="status-text">{formatTime(currentTime, { seconds: true })}</span>
         </div>
       </div>
     </div>

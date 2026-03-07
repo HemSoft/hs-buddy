@@ -8,25 +8,8 @@ import { OVERAGE_COST_PER_REQUEST, computeProjection } from './copilot-usage/quo
 import type { AccountQuotaState } from './copilot-usage/quotaUtils'
 import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
+import type { OrgBudgetState } from './copilot-usage/types'
 import './CopilotUsagePanel.css'
-
-interface OrgBudgetData {
-  org: string
-  budgetAmount: number | null
-  preventFurtherUsage: boolean
-  spent: number
-  spentUnavailable: boolean
-  useQuotaOverage: boolean
-  billingMonth: number
-  billingYear: number
-  fetchedAt: number
-}
-
-interface OrgBudgetState {
-  data: OrgBudgetData | null
-  loading: boolean
-  error: string | null
-}
 
 export function CopilotUsagePanel() {
   const { accounts } = useGitHubAccounts()

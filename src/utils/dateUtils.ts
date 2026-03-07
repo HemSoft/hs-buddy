@@ -148,3 +148,20 @@ export function formatDuration(ms: number): string {
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
   return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
 }
+
+export function formatTime(ts: number | Date, opts?: { seconds?: boolean; hour12?: boolean; numeric?: boolean }) {
+  const d = ts instanceof Date ? ts : new Date(ts)
+  return d.toLocaleTimeString(undefined, {
+    hour: opts?.numeric ? 'numeric' : '2-digit',
+    minute: '2-digit',
+    ...(opts?.seconds ? { second: '2-digit' } : {}),
+    ...(opts?.hour12 !== undefined ? { hour12: opts.hour12 } : {}),
+  })
+}
+
+export function formatHour12(h: number): string {
+  if (h === 0) return '12 AM'
+  if (h < 12) return `${h} AM`
+  if (h === 12) return '12 PM'
+  return `${h - 12} PM`
+}

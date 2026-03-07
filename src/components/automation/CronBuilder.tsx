@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useId } from 'react';
+import { formatHour12 } from '../../utils/dateUtils';
 import './CronBuilder.css';
 
 type Frequency = 'minute' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
@@ -92,10 +93,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
 
   // Human-readable description
   const description = useMemo(() => {
-    const formatTime = (h: number, m: number) => {
-      const period = h >= 12 ? 'PM' : 'AM';
+    const fmtTime = (h: number, m: number) => {
       const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-      return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`;
+      return `${displayHour}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
     };
 
     switch (frequency) {
@@ -104,16 +104,16 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
       case 'hourly':
         return `Runs every hour at minute ${minute}`;
       case 'daily':
-        return `Runs daily at ${formatTime(hour, minute)}`;
+        return `Runs daily at ${fmtTime(hour, minute)}`;
       case 'weekly': {
         const dayNames = selectedDays
           .sort()
           .map(d => DAYS_OF_WEEK.find(day => day.value === d)?.label)
           .filter(Boolean);
-        return `Runs every ${dayNames.join(', ')} at ${formatTime(hour, minute)}`;
+        return `Runs every ${dayNames.join(', ')} at ${fmtTime(hour, minute)}`;
       }
       case 'monthly':
-        return `Runs on day ${dayOfMonth} of every month at ${formatTime(hour, minute)}`;
+        return `Runs on day ${dayOfMonth} of every month at ${fmtTime(hour, minute)}`;
       case 'custom':
         return 'Custom cron expression';
       default:
@@ -203,7 +203,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
               {Array.from({ length: 24 }, (_, h) => (
                 <option key={h} value={h}>
-                  {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
+                  {formatHour12(h)}
                 </option>
               ))}
             </select>
@@ -240,7 +240,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
               <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
                 {Array.from({ length: 24 }, (_, h) => (
                   <option key={h} value={h}>
-                    {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
+                    {formatHour12(h)}
                   </option>
                 ))}
               </select>
@@ -271,7 +271,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
               <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
                 {Array.from({ length: 24 }, (_, h) => (
                   <option key={h} value={h}>
-                    {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
+                    {formatHour12(h)}
                   </option>
                 ))}
               </select>

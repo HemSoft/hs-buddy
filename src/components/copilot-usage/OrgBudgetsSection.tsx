@@ -1,23 +1,7 @@
 import { Building2, RefreshCw, ShieldAlert } from 'lucide-react'
 import { formatCurrency } from './quotaUtils'
-
-interface OrgBudgetData {
-  org: string
-  budgetAmount: number | null
-  preventFurtherUsage: boolean
-  spent: number
-  spentUnavailable: boolean
-  useQuotaOverage: boolean
-  billingMonth: number
-  billingYear: number
-  fetchedAt: number
-}
-
-interface OrgBudgetState {
-  data: OrgBudgetData | null
-  loading: boolean
-  error: string | null
-}
+import type { OrgBudgetState } from './types'
+import { formatTime } from '../../utils/dateUtils'
 
 interface OrgBudgetsSectionProps {
   uniqueOrgs: Map<string, string>
@@ -26,11 +10,6 @@ interface OrgBudgetsSectionProps {
 }
 
 const PERSONAL_BUDGETS: Record<string, number> = { hemsoft: 50 }
-
-function formatTime(ts: number) {
-  const d = new Date(ts)
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-}
 
 export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas }: OrgBudgetsSectionProps) {
   if (uniqueOrgs.size === 0) return null

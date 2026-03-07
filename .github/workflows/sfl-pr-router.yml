@@ -83,7 +83,14 @@ jobs:
             local marker="$1"
             awk -v marker="$marker" '
               index($0, marker) { in_block = 1; next }
-              in_block && /^### Verdict$/ { getline; print; exit }
+              in_block && /^### Verdict$/ {
+                while (getline) {
+                  if ($0 !~ /^$/) {
+                    print
+                    exit
+                  }
+                }
+              }
             ' <<<"$BODY"
           }
 

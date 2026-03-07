@@ -116,11 +116,16 @@ Write-Host "  BLOCKING verdicts: $blockCount"
 if ($issueNum) {
     Write-Host "`n--- LINKED ISSUE #$issueNum ---" -ForegroundColor Yellow
     $issue = gh issue view $issueNum --repo $Repo --json number,title,state,labels 2>&1 | ConvertFrom-Json
+    $relatedPRs = gh pr list --repo $Repo --state open --json number,headRefName,isDraft 2>&1 | ConvertFrom-Json |
+        Where-Object { $_.headRefName -match "agent-fix/issue-$issueNum-" }
     $issueLabels = ($issue.labels | ForEach-Object { $_.name }) -join ", "
     Write-Host "  State: $($issue.state)"
     Write-Host "  Labels: $issueLabels"
+    Write-Host "  Open agent PRs for issue: $((@($relatedPRs) | ForEach-Object { "#$($_.number)" }) -join ', ')"
 
-    if ($issue.state -eq "OPEN" -and ($issue.labels | ForEach-Object { $_.name }) -contains "agent:in-progress") {
+    if (@($relatedPRs).Count -gt 1) {
+        Write-Host "  Issue<->PR link: AMBIGUOUS (multiple open agent PRs)" -ForegroundColor Red
+    } elseif ($issue.state -eq "OPEN" -and ($issue.labels | ForEach-Object { $_.name }) -contains "agent:in-progress") {
         Write-Host "  Issue<->PR link: HEALTHY" -ForegroundColor Green
     } else {
         Write-Host "  Issue<->PR link: BROKEN" -ForegroundColor Red
@@ -145,6 +150,16 @@ if ($foundNew -ge 3 -and $blockCount -eq 0) {
 } elseif ($blockCount -gt 0) {
     Write-Host "  BLOCKED: Analyzer(s) found blocking issues." -ForegroundColor Yellow
     Write-Host "  Issue Processor should address these on the next run." -ForegroundColor DarkGray
+}
+
+if ($issueNum) {
+    $relatedPRs = gh pr list --repo $Repo --state open --json number,headRefName 2>&1 | ConvertFrom-Json |
+        Where-Object { $_.headRefName -match "agent-fix/issue-$issueNum-" }
+    if (@($relatedPRs).Count -gt 1) {
+        $prNumbers = (@($relatedPRs) | ForEach-Object { "#$($_.number)" }) -join ", "
+        Write-Host "  DUPLICATE STATE: Issue #$issueNum currently has multiple open agent PRs: $prNumbers" -ForegroundColor Red
+        Write-Host "  Treat this as a pipeline failure, not a healthy in-progress state." -ForegroundColor Yellow
+    }
 }
 
 Write-Host "`n=== FORENSICS COMPLETE ===" -ForegroundColor Cyan

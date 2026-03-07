@@ -22,7 +22,7 @@ $ErrorActionPreference = "Stop"
 Write-Host "`n=== WORKFLOW TIMELINE: PR #$PRNumber ===" -ForegroundColor Cyan
 
 # Get PR branch
-$pr = gh pr view $PRNumber --repo $Repo --json headRefName,createdAt 2>&1 | ConvertFrom-Json
+$pr = gh pr view $PRNumber --repo $Repo --json headRefName,createdAt,labels,body 2>&1 | ConvertFrom-Json
 $branch = $pr.headRefName
 Write-Host "PR Branch: $branch"
 Write-Host "PR Created: $($pr.createdAt)"
@@ -41,11 +41,11 @@ $allRuns = @()
 
 foreach ($wf in $workflows) {
     $shortName = $wf -replace "\.lock\.yml$", ""
-    $runs = gh run list --repo $Repo --workflow $wf --limit $Limit --json databaseId,status,conclusion,createdAt,updatedAt,displayTitle 2>&1 | ConvertFrom-Json
+    $runs = gh run list --repo $Repo --workflow $wf --limit $Limit --json databaseId,status,conclusion,createdAt,updatedAt,displayTitle,headBranch 2>&1 | ConvertFrom-Json
 
     foreach ($run in $runs) {
-        # Filter: only runs after PR creation
-        if ($run.createdAt -ge $pr.createdAt) {
+        # Filter: only runs after PR creation and tied to this exact PR branch.
+        if ($run.createdAt -ge $pr.createdAt -and $run.headBranch -eq $branch) {
             $allRuns += [PSCustomObject]@{
                 Workflow   = $shortName
                 RunId      = $run.databaseId
@@ -53,6 +53,7 @@ foreach ($wf in $workflows) {
                 Conclusion = $run.conclusion
                 StartedAt  = $run.createdAt
                 UpdatedAt  = $run.updatedAt
+                HeadBranch = $run.headBranch
                 Title      = $run.displayTitle
             }
         }
@@ -120,17 +121,17 @@ if ($routerRuns.Count -gt 0 -and $analyzerRuns.Count -gt 3) {
     Write-Host "  Check marker output and Analyzer A handoff idempotency." -ForegroundColor Yellow
 }
 
-$prBody = (gh pr view $PRNumber --repo $Repo --json body 2>&1 | ConvertFrom-Json).body
-$cycleMatches = [regex]::Matches($prBody, 'pr:cycle-(\d+)')
+$prBody = $pr.body
+$cycleMatches = $pr.labels | ForEach-Object { $_.name } | Where-Object { $_ -match '^pr:cycle-(\d+)$' }
 $currentCycle = 0
 if ($cycleMatches.Count -gt 0) {
-    $currentCycle = ($cycleMatches | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Maximum).Maximum
+    $currentCycle = ($cycleMatches | ForEach-Object { [int]($_ -replace '^pr:cycle-', '') } | Measure-Object -Maximum).Maximum
 }
 
 $analyzerCMarker = "[MARKER:sfl-analyzer-c cycle:$currentCycle]"
 $routerMarker = "[MARKER:sfl-pr-router cycle:$currentCycle]"
 
-if ($prBody -like "*${analyzerCMarker}*" -and $prBody -notlike "*${routerMarker}*") {
+if ($prBody.Contains($analyzerCMarker) -and -not $prBody.Contains($routerMarker)) {
     Write-Host "  WARNING: Analyzer C completed for cycle $currentCycle but Router marker is missing for that cycle." -ForegroundColor Red
     Write-Host "  This usually means Analyzer C wrote review state but did not emit dispatch_workflow to sfl-pr-router." -ForegroundColor Yellow
 }
@@ -138,7 +139,7 @@ if ($prBody -like "*${analyzerCMarker}*" -and $prBody -notlike "*${routerMarker}
 $latestAnalyzerC = $sorted | Where-Object { $_.Workflow -eq "sfl-analyzer-c" } | Sort-Object StartedAt -Descending | Select-Object -First 1
 $latestRouter = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-router" } | Sort-Object StartedAt -Descending | Select-Object -First 1
 if ($latestAnalyzerC -and $latestRouter) {
-    if ([datetime]$latestAnalyzerC.StartedAt -gt [datetime]$latestRouter.StartedAt -and $prBody -notlike "*${routerMarker}*") {
+    if ([datetime]$latestAnalyzerC.StartedAt -gt [datetime]$latestRouter.StartedAt -and -not $prBody.Contains($routerMarker)) {
         Write-Host "  WARNING: Latest Analyzer C run is newer than latest Router run, and no current-cycle Router marker exists." -ForegroundColor Red
         Write-Host "  The post-Analyzer-C handoff appears stuck on the current cycle." -ForegroundColor Yellow
     }

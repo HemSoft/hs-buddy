@@ -124,6 +124,11 @@ sfl-pr-router, sfl-auditor) and populate only yours.
 If `pull-request-number` is provided in the context variables, use that PR
 number directly as the target. Do NOT search for a different PR.
 
+If the `pull-request-number` field exists but the value is blank, `#`, only
+whitespace, or an unresolved placeholder token, treat that as a broken
+Analyzer B handoff. Do NOT fall back to searching for the oldest draft PR.
+Update the dashboard with a handoff-failure message and exit.
+
 Only if no `pull-request-number` is provided (e.g., manual `workflow_dispatch`),
 search for open pull requests in this repository that meet ALL criteria:
 
@@ -135,6 +140,10 @@ Sort results by creation date ascending. Take the **single oldest** result.
 
 If no PR matches, update the dashboard (see Dashboard Protocol) with:
 "No draft PRs with agent:pr label found — nothing to review." and exit.
+
+If multiple open draft `agent:pr` PRs exist for the same linked issue, treat
+that as pipeline ambiguity. Update the dashboard with a duplicate-PR failure
+message and exit instead of choosing one silently.
 
 ## Step 2 — Determine the current review cycle
 
@@ -263,6 +272,9 @@ After posting the review comment and activity log:
   - Include input `pull-request-number: <number>` so Analyzer C reviews this exact PR
 
 This action is required. Do NOT skip this step.
+
+The dispatch must carry the exact PR number you just reviewed. A blank or
+placeholder `pull-request-number` is an invalid handoff.
 
 ## Guardrails
 

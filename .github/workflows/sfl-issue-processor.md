@@ -90,9 +90,20 @@ There are two valid work item types:
 
 Always check for existing draft PR work FIRST.
 
+Determinism requirement:
+
+- One `agent:in-progress` issue must map to exactly one open draft `agent:pr` PR.
+- If you observe multiple open draft PRs for the same issue, this is a pipeline failure, not a recovery opportunity.
+- In that state, do NOT pick one, do NOT create a superseding PR, and do NOT continue implementation. Report the failure and exit.
+
 If `pull-request-number` is provided in the context variables, use that PR
 number directly as the target follow-up PR candidate. Do NOT search for a
 different PR in that case.
+
+If a `pull-request-number` field is present but the value is blank, `#`, only
+whitespace, or an unresolved placeholder token, treat that as a broken targeted
+handoff. Do NOT search for the oldest draft PR in that case. Report the failure
+and exit so the handoff bug is visible.
 
 If this run was triggered by an `issues` event and the issue already has the
 `agent:fixable` label, prefer that specific issue for **new issue** work once
@@ -112,6 +123,9 @@ If `pull-request-number` is provided:
 
 If any of those checks fail, exit — there is no eligible follow-up work for
 that specific PR.
+
+Before continuing, verify the linked issue has exactly one open draft `agent:pr`
+PR. If more than one exists, report the duplicate-PR failure and exit.
 
 If they pass, use that PR as the work item and continue at Step 3.
 
@@ -145,6 +159,10 @@ For each candidate:
    skip the candidate — this cycle has already had an implementation pass.
 
 Take the **first** candidate that still has unresolved blocking feedback.
+
+Before selecting a candidate, check whether its linked issue has multiple open
+draft `agent:pr` PRs. If it does, report the duplicate-PR failure and exit
+instead of choosing one arbitrarily.
 
 If such a PR is found, this run is a **follow-up implementation pass**.
 Use its linked issue as the canonical spec, and continue at Step 3.
@@ -263,6 +281,20 @@ Commit the changes with a descriptive commit message.
 
 ## Step 6 — Create or update the draft PR
 
+Valid vs invalid outcomes for this step:
+
+| Outcome | Valid? | Meaning |
+|---|---|---|
+| New issue with no existing draft PR → `create_pull_request` | ✅ | correct first PR creation |
+| Follow-up pass for existing draft PR → `push_to_pull_request_branch` | ✅ | correct in-place continuation |
+| Follow-up pass cannot push to existing PR branch → report failure and exit | ✅ | visible hard failure |
+| Follow-up pass creates a second/superseding PR for the same issue | ❌ | split-brain pipeline bug |
+
+Never create a second draft PR for an issue that already has an open draft
+`agent:pr` PR. There is no allowed "supersede" fallback during follow-up work.
+If the existing PR branch cannot be updated, fail loudly and leave the live
+state unchanged.
+
 ### 6a — No PR exists yet
 
 Call the `create_pull_request` safe output tool. This is the ONLY way to
@@ -295,6 +327,16 @@ the existing PR branch. Provide:
 
 - `pull_request_number`: the existing draft PR number
 - `message`: the commit message that describes the fixes from this pass
+
+If `push_to_pull_request_branch` is unavailable, rejected, or fails for any
+reason, stop immediately. Do NOT call `create_pull_request` as a fallback.
+Instead:
+
+1. Call `add_comment` on the linked issue describing that the follow-up pass
+  could not update the existing PR branch.
+2. Call `add_labels` to add `agent:pause` to the linked issue.
+3. Call `update_issue` on the PR or issue with a short failure note if needed.
+4. Exit cleanly.
 
 Then increment the cycle label:
 
@@ -346,6 +388,8 @@ This is mandatory — every run must log exactly one entry.
 - Exit after processing exactly one work item per run — never loop over multiple issues/PRs
 - Never force-push, amend commits, or modify files outside the Fix scope
 - Never run `git push` directly — always use `create_pull_request` or `push_to_pull_request_branch`
+- Never create a superseding PR for a follow-up implementation pass
+- Treat blank targeted PR input or one-issue-two-PR state as a hard failure that must be surfaced
 - If any step fails unexpectedly: call `add_labels` with `agent:pause` and
   `remove_labels` with `agent:in-progress` when appropriate, then call `update_issue`
   to append the failure reason, then exit cleanly

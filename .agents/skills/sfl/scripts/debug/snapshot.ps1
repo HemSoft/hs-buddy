@@ -64,17 +64,32 @@ if ($labelCount -gt 25) {
 Write-Host "`n--- HARMONY CHECK ---" -ForegroundColor Yellow
 $harmony = $true
 
+$agentIssuePrMap = @{}
+foreach ($pr in $prs) {
+    if ($pr.headRefName -match "agent-fix/issue-(\d+)-") {
+        $issueNumber = [int]$matches[1]
+        if (-not $agentIssuePrMap.ContainsKey($issueNumber)) {
+            $agentIssuePrMap[$issueNumber] = @()
+        }
+        $agentIssuePrMap[$issueNumber] += $pr
+    }
+}
+
 # Check: every in-progress issue has a PR
 foreach ($i in $issues) {
     $isInProgress = ($i.labels | ForEach-Object { $_.name }) -contains "agent:in-progress"
     if ($isInProgress) {
         $num = $i.number
-        $matchingPR = $prs | Where-Object { $_.headRefName -match "agent-fix/issue-$num-" }
-        if (-not $matchingPR) {
+        $matchingPRs = @($prs | Where-Object { $_.headRefName -match "agent-fix/issue-$num-" })
+        if ($matchingPRs.Count -eq 0) {
             Write-Host "  FAIL: Issue #$num (agent:in-progress) has no matching PR" -ForegroundColor Red
             $harmony = $false
+        } elseif ($matchingPRs.Count -gt 1) {
+            $prNumbers = ($matchingPRs | ForEach-Object { "#$($_.number)" }) -join ", "
+            Write-Host "  FAIL: Issue #$num (agent:in-progress) has multiple matching PRs: $prNumbers" -ForegroundColor Red
+            $harmony = $false
         } else {
-            Write-Host "  OK: Issue #$num -> PR #$($matchingPR.number)" -ForegroundColor Green
+            Write-Host "  OK: Issue #$num -> PR #$($matchingPRs[0].number)" -ForegroundColor Green
         }
     }
 }
@@ -84,6 +99,15 @@ foreach ($i in $issues) {
     $labelNames = $i.labels | ForEach-Object { $_.name }
     if (($labelNames -contains "agent:in-progress") -and ($labelNames -contains "agent:fixable")) {
         Write-Host "  FAIL: Issue #$($i.number) has BOTH agent:in-progress AND agent:fixable" -ForegroundColor Red
+        $harmony = $false
+    }
+}
+
+# Check: no issue has more than one open agent PR
+foreach ($entry in $agentIssuePrMap.GetEnumerator() | Sort-Object Name) {
+    if ($entry.Value.Count -gt 1) {
+        $prNumbers = ($entry.Value | ForEach-Object { "#$($_.number)" }) -join ", "
+        Write-Host "  FAIL: Issue #$($entry.Key) is split across multiple open agent PRs: $prNumbers" -ForegroundColor Red
         $harmony = $false
     }
 }

@@ -55,6 +55,16 @@ $issues = gh issue list --repo $Repo --state open --json number,title,labels 2>&
 $prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,labels 2>&1 | ConvertFrom-Json
 
 $harmonyFails = @()
+$agentIssuePrMap = @{}
+foreach ($pr in $prs) {
+    if ($pr.headRefName -match "agent-fix/issue-(\d+)-") {
+        $issueNumber = [int]$matches[1]
+        if (-not $agentIssuePrMap.ContainsKey($issueNumber)) {
+            $agentIssuePrMap[$issueNumber] = @()
+        }
+        $agentIssuePrMap[$issueNumber] += $pr
+    }
+}
 foreach ($i in $issues) {
     $labelNames = $i.labels | ForEach-Object { $_.name }
     $isInProgress = $labelNames -contains "agent:in-progress"
@@ -65,10 +75,20 @@ foreach ($i in $issues) {
     }
 
     if ($isInProgress) {
-        $matchingPR = $prs | Where-Object { $_.headRefName -match "agent-fix/issue-$($i.number)-" }
-        if (-not $matchingPR) {
+        $matchingPRs = @($prs | Where-Object { $_.headRefName -match "agent-fix/issue-$($i.number)-" })
+        if ($matchingPRs.Count -eq 0) {
             $harmonyFails += "Issue #$($i.number) (in-progress) has no matching PR"
+        } elseif ($matchingPRs.Count -gt 1) {
+            $prNumbers = ($matchingPRs | ForEach-Object { "#$($_.number)" }) -join ", "
+            $harmonyFails += "Issue #$($i.number) (in-progress) has multiple matching PRs: $prNumbers"
         }
+    }
+}
+
+foreach ($entry in $agentIssuePrMap.GetEnumerator()) {
+    if ($entry.Value.Count -gt 1) {
+        $prNumbers = ($entry.Value | ForEach-Object { "#$($_.number)" }) -join ", "
+        $harmonyFails += "Issue #$($entry.Key) is split across multiple open agent PRs: $prNumbers"
     }
 }
 

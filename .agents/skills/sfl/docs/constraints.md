@@ -16,11 +16,11 @@ trigger other agentic workflows that listen on the same event. For example,
 `sfl-issue-processor` creates a draft PR, but `sfl-analyzer-a/b/c` (which listen
 on `pull_request: opened`) are not triggered by that creation.
 
-**Workaround**: The `sfl-dispatcher` (standard YAML) polls every 30 minutes
-and explicitly dispatches agentic workflows via `gh workflow dispatch`.
+**Workaround**: Use explicit `dispatch-workflow` handoffs inside the hot path
+and direct event triggers for issue intake.
 
-**Impact**: Forces at least one intermediary standard YAML workflow. Adds
-latency (up to 30 minutes between issue claim and first analyzer run).
+**Impact**: The loop must be authored carefully so every next step is explicit,
+but failures freeze in place instead of being mutated by a polling recovery pass.
 
 ### 2. Safe-Output Max Limits
 
@@ -60,8 +60,7 @@ append.
 ### 6. Single Issue Processing
 
 The `issue-processor` handles exactly one issue per run. If there are 10
-`agent:fixable` issues, it takes 10 separate runs (~5 hours at 30-min
-intervals) to process all of them.
+`agent:fixable` issues, they are still processed one at a time across 10 runs.
 
 **Rationale**: Prevents resource exhaustion and makes debugging tractable.
 

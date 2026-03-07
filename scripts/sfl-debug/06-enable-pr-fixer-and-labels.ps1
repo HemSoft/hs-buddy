@@ -8,7 +8,7 @@
       - PR Fixer — Authority     — reads analyzer comments, implements fixes, increments cycle
       - PR Label Actions         — handles label-driven state transitions on PRs
 
-    The PR Fixer is dispatched by the SFL Dispatcher when ALL THREE analyzer markers
+    The PR Fixer is dispatched after Analyzer C when ALL THREE analyzer markers
     are present on a draft PR's body for the current cycle. It:
       1. Reads the analyzer review comments
       2. Implements the suggested fixes

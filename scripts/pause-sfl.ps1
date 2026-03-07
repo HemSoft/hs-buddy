@@ -6,7 +6,6 @@ $repo = "relias-engineering/hs-buddy"
 $workflows = @(
     "Agentic Maintenance"
     "Copilot Setup Steps"
-    "SFL Dispatcher"
     "SFL Auditor"
     "Issue Processor"
     "PR Fixer — Authority"

@@ -107,8 +107,8 @@ Spot-check 2-3 agentic workflows:
 ### 10. Concurrency Guards
 
 Every scheduled workflow should have a `concurrency` block to prevent
-overlapping runs. Check `sfl-dispatcher.yml`, `sfl-auditor.lock.yml`,
-and all dispatcher-triggered workflows.
+overlapping runs. Check `sfl-auditor.lock.yml`, `sfl-issue-processor.lock.yml`,
+and the analyzer chain workflows.
 
 ## Audit Output Format
 

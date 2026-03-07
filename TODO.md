@@ -136,7 +136,6 @@
 
 | Workflow | Purpose | Trigger |
 |----------|---------|---------|
-| `sfl-dispatcher.yml` | Dispatches agentic workflows on cron | Cron (30 min) |
 | `sfl-pr-label-actions.yml` | Draft flip + squash merge on label events | `pull_request: labeled` / `workflow_dispatch` |
 | `agentics-maintenance.yml` | Maintenance tasks | Various |
 | `copilot-setup-steps.yml` | Copilot setup | Various |

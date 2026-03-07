@@ -12,7 +12,6 @@
   "components": [
     "labels",
     "governance",
-    "sfl-dispatcher",
     "sfl-auditor",
     "daily-repo-status",
     "repo-audit",

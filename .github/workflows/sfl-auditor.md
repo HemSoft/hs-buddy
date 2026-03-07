@@ -160,7 +160,7 @@ to process right away.
 
 1. Call `update_issue` with ALL of these fields in a **single call**:
   - `issue_number`: the issue number
-  - `body`: "⏱️ **SFL Auditor**: This issue has been `agent:fixable` for over 15 minutes without being claimed by the Issue Processor. Immediate dispatch may have failed. Investigate recent SFL Dispatcher runs for duplicate issue events or concurrency replacement."
+  - `body`: "⏱️ **SFL Auditor**: This issue has been `agent:fixable` for over 15 minutes without being claimed by the Issue Processor. Immediate issue intake may have failed. Investigate whether the issue opened with `agent:fixable` already present or whether Issue Processor concurrency blocked the run."
   - `operation`: `"append"`
 
 Only flag each issue **once** — if the issue already has a comment containing

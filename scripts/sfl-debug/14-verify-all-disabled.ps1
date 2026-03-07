@@ -22,7 +22,6 @@ Write-Host "Checking all SFL workflow states..." -ForegroundColor Yellow
 Write-Host ""
 
 $sflWorkflows = @(
-    "SFL Dispatcher"
     "SFL Auditor"
     "Issue Processor"
     "PR Fixer — Authority"

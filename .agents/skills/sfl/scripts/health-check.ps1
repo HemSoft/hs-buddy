@@ -27,7 +27,6 @@ $wfDir = ".github/workflows"
 $wfFiles = gh api "repos/$Repo/contents/$wfDir" --jq '.[].name' 2>&1
 $mdFiles = ($wfFiles | Where-Object { $_ -match '\.md$' }).Count
 $ymlFiles = ($wfFiles | Where-Object { $_ -match '\.ya?ml$' -and $_ -notmatch '\.lock\.yml$' }).Count
-$lockFiles = ($wfFiles | Where-Object { $_ -match '\.lock\.yml$' }).Count
 $agenticCount = $mdFiles
 $standardCount = $ymlFiles
 $totalLogical = $agenticCount + $standardCount
@@ -87,8 +86,6 @@ $markerIssues = @()
 foreach ($pr in $agentPRs) {
     $prDetail = gh pr view $pr.number --repo $Repo --json body,labels 2>&1 | ConvertFrom-Json
     $body = $prDetail.body
-    $cycleLabel = ($prDetail.labels | ForEach-Object { $_.name }) | Where-Object { $_ -match "^pr:cycle-\d+$" }
-    $cycle = if ($cycleLabel) { [int]($cycleLabel -replace "pr:cycle-", "") } else { 0 }
 
     if (-not $body) {
         $markerIssues += "PR #$($pr.number) has empty body"
@@ -141,7 +138,6 @@ $results += [PSCustomObject]@{
 
 # --- Check 6: Workflow States ---
 $expectedActive = @(
-    "SFL Dispatcher",
     "SFL Auditor"
 )
 $workflowStates = gh workflow list --all --repo $Repo --json name,state 2>&1 | ConvertFrom-Json
@@ -158,7 +154,7 @@ $results += [PSCustomObject]@{
     N      = 6
     Check  = "Core workflow states"
     Result = if ($statePass) { [char]0x2705 } else { [char]0x274C }
-    Detail = if ($statePass) { "Dispatcher + Auditor active" } else { "$($stateIssues.Count) issue(s)" }
+    Detail = if ($statePass) { "Auditor active" } else { "$($stateIssues.Count) issue(s)" }
 }
 
 # --- Output Table ---

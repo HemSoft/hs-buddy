@@ -30,7 +30,6 @@ Write-Host ""
 # ── Check workflows ──────────────────────────────────────────────────────────
 
 $sflWorkflows = @(
-    "SFL Dispatcher"
     "SFL Auditor"
     "Issue Processor"
     "PR Fixer — Authority"

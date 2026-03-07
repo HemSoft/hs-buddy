@@ -29,7 +29,7 @@ What it does:
 
 1. Verifies the motherrepo clone exists (clones if missing)
 2. Copies workflow prompts (`.md` files only — NOT `.lock.yml`) to `deployment/workflows/`
-3. Copies infrastructure files (`sfl-dispatcher.yml`) to `deployment/infrastructure/`
+3. Copies shared standard infrastructure files when they exist for the current architecture
 4. Copies governance files (`labels.json`, `sfl-config.yml`) to `deployment/governance/`
 5. Copies the self-hosted workflow copies to `.github/workflows/` (motherrepo dogfoods itself)
 6. Copies documentation (`docs/SET_IT_FREE_GOVERNANCE.md`, `docs/SFL_ONBOARDING.md`)
@@ -60,8 +60,6 @@ Check sync freshness — compare timestamps between source and target:
 | `.github/workflows/{name}.md` | `deployment/workflows/{name}.md` | Canonical prompts for deployment to consumers |
 | `.github/workflows/{name}.md` | `.github/workflows/{name}.md` | Dogfood copies for motherrepo's own SFL |
 | `.github/workflows/{name}.lock.yml` | `.github/workflows/{name}.lock.yml` | Dogfood lock files |
-| `.github/workflows/sfl-dispatcher.yml` | `deployment/infrastructure/sfl-dispatcher.yml` | Standard YAML infrastructure |
-| `.github/workflows/sfl-dispatcher.yml` | `.github/workflows/sfl-dispatcher.yml` | Dogfood copy |
 | `.github/workflows/sfl-pr-label-actions.yml` | `.github/workflows/sfl-pr-label-actions.yml` | Dogfood only (not a deployable component) |
 | `.github/workflows/README.md` | `.github/workflows/README.md` | Workflow catalog |
 | `.github/sfl-config.yml` | `deployment/governance/sfl-config.yml` | Default governance config |

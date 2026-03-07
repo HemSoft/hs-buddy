@@ -136,30 +136,19 @@ These run on a cron schedule and produce **findings** as Discussions or Issues.
 
 ---
 
-### 3.3 Central Orchestrator
+### 3.3 Direct Handoff Model
 
-#### `sfl-dispatcher` — Lightweight Dispatch Gate
+The loop no longer uses a polling dispatcher. The active handoffs are:
 
-| Field | Value |
-|-------|-------|
-| **Type** | Standard YAML (no AI inference) |
-| **Schedule** | `*/30 * * * *` (every 30 minutes) |
-| **Trigger** | `schedule`, `workflow_dispatch` |
-| **Permissions** | `contents: read`, `issues: read`, `pull-requests: read`, `actions: write`, `discussions: write` |
-| **Concurrency** | Group: `sfl-dispatcher` (only one at a time) |
-| **Purpose** | Polls GitHub state and dispatches agentic workflows only when work exists |
-
-**Dispatch Logic:**
-
-| Condition | Dispatches |
-|-----------|-----------|
-| Open issues with `agent:fixable` label exist | → `sfl-issue-processor` |
-| Draft PRs with `agent:pr` + all 3 analyzer markers + not all PASS | → `pr-fixer` |
-| Draft PRs with `agent:pr` + fixer completed previous cycle | → `sfl-analyzer-a`, `sfl-analyzer-b`, `sfl-analyzer-c` |
-| Draft PRs with all analyzers PASS or non-draft PRs with `human:ready-for-review` | → `pr-promoter` |
-| Draft PRs with `human:ready-for-review` label | → `sfl-pr-label-actions` (`SFL PR Label Actions`) |
-
-**Pre-flight:** Runs a **model drift guard** that validates `sfl.json` model pins against `.lock.yml` files. Drift = hard failure.
+| Step | Next workflow |
+|------|---------------|
+| New issue opens with `agent:fixable` | `sfl-issue-processor` |
+| Issue Processor opens or advances a PR | `sfl-analyzer-a` |
+| Analyzer A completes | `sfl-analyzer-b` |
+| Analyzer B completes | `sfl-analyzer-c` |
+| Analyzer C finds blocking issues | `sfl-issue-processor` |
+| Analyzer C finds all PASS | `pr-promoter` |
+| PR Promoter adds `human:ready-for-review` | `sfl-pr-label-actions` via label event |
 
 ---
 
@@ -170,7 +159,7 @@ These run on a cron schedule and produce **findings** as Discussions or Issues.
 | Field | Value |
 |-------|-------|
 | **Type** | Agentic (`.md` + `.lock.yml`) |
-| **Trigger** | `workflow_dispatch` (dispatcher-only) |
+| **Trigger** | `issues: [opened, reopened]`, `workflow_dispatch`, Analyzer C dispatch |
 | **Model** | (platform default) |
 | **Timeout** | 60 minutes |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
@@ -236,7 +225,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | Field | Value |
 |-------|-------|
 | **Type** | Agentic (`.md` + `.lock.yml`) |
-| **Trigger** | `workflow_dispatch` (dispatcher-only) |
+| **Trigger** | `workflow_dispatch` (legacy/manual only) |
 | **Model** | `claude-opus-4.6` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Inputs** | `check-pr-merge-state` (GraphQL merge status), `resolve-pr-conflicts` (overwrite conflicting file with main) |
@@ -342,20 +331,11 @@ PHASE 3 — DISPATCH (Every 30 min)
              │
              ▼
     ┌──────────────────┐
-    │  sfl-dispatcher   │    ← Standard YAML, no AI inference
-    │  (*/30 cron)      │       Polls GitHub state, dispatches work
-    │                   │
-    │  Model drift      │    ← Pre-flight: validates sfl.json vs .lock.yml
-    │  guard runs first │
-    └────────┬──────────┘
-             │  Dispatches sfl-issue-processor when agent:fixable issues exist
-             ▼
-
-PHASE 4 — ISSUE → PR (Dispatcher-triggered)
-════════════════════════════════════════════
+PHASE 4 — ISSUE → PR (Direct issue-triggered)
+═════════════════════════════════════════════
     ┌──────────────────┐
-       │ sfl-issue-processor│    ← Claims oldest agent:fixable issue
-    │ (workflow_dispatch)│      Implements fix on new branch
+               │ sfl-issue-processor│    ← Triggered by issue open/reopen with agent:fixable
+        │ (issues/workflow_dispatch)│ Implements fix on new branch
     └────────┬──────────┘      Opens draft PR with [agent-fix] prefix
              │
              │  Issue: agent:fixable → agent:in-progress
@@ -367,8 +347,8 @@ PHASE 4 — ISSUE → PR (Dispatcher-triggered)
       │  for-review      │
       └────────┬─────────┘
 
-PHASE 5 — PARALLEL ANALYSIS (Event-driven + Dispatcher)
-════════════════════════════════════════════════════════
+PHASE 5 — SEQUENTIAL ANALYSIS (Direct handoffs)
+════════════════════════════════════════════════
              │
              │  Triggered by pull_request:opened OR dispatcher (re-analysis)
              │

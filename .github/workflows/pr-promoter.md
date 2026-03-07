@@ -111,20 +111,9 @@ Search the PR body for these exact marker texts for the target cycle (C):
 - `[MARKER:sfl-analyzer-b cycle:C]`
 - `[MARKER:sfl-analyzer-c cycle:C]`
 
-All three markers MUST be present. If any marker is missing:
-
-1. Check whether the PR was created more than **2 hours ago**. If yes, this is
-   a **stalled PR** — the analyzers should have run by now.
-
-   Search the PR body/comments for the text "missing analyzer markers". If that
-   text does NOT already exist, post a one-time warning by calling `update_issue`
-   with:
-   - `issue_number`: the PR number
-   - `operation`: `"append"`
-   - `body`: "⏰ **PR Promoter**: PR #<number> has been open for over 2 hours but is missing analyzer markers for cycle <C>. The PR Analyzers may not be running. A human should investigate."
-
-2. Regardless of PR age, update the dashboard (see Dashboard Protocol) with:
-   "PR #<number> cycle <C>: waiting for all 3 analyzers — skipping." and exit.
+All three markers MUST be present. If any marker is missing, update the
+dashboard (see Dashboard Protocol) with:
+"PR #<number> cycle <C>: waiting for all 3 analyzers — skipping." and exit.
 
 ## Step 5 — Check all analyzer verdicts
 

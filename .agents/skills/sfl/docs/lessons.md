@@ -26,8 +26,9 @@ Each entry records what happened, why, and what to do differently.
 around the agentic-cannot-trigger-agentic constraint.  
 **Root Cause**: The safe-outputs system intentionally prevents cascading agentic
 triggers for safety, but this forces standard YAML intermediaries.  
-**Resolution**: Accepted `sfl-dispatcher` as a necessary evil, established the
-14-workflow ceiling as a complexity guardrail.  
+**Resolution**: Initially accepted `sfl-dispatcher` as a temporary workaround
+and established the 14-workflow ceiling as a complexity guardrail. Later
+iterations replaced the polling dispatcher with direct handoffs.  
 **Takeaway**: Every new workflow file must be justified against this ceiling.
 Ask "can an existing workflow handle this?" before creating a new file.
 

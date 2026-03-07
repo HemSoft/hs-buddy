@@ -64,11 +64,10 @@ for deployment to other repositories.
 | pr-fixer | automation | claude-opus-4.6 | ✅ Active v1.0.0 |
 | pr-promoter | automation | claude-sonnet-4.6 | ✅ Active v1.0.0 |
 
-### Infrastructure (2 — `deployment/infrastructure/`)
+### Infrastructure (1 — standard workflow)
 
 | Component | Type | Schedule |
 |-----------|------|----------|
-| sfl-dispatcher | Standard YAML | Every 30 min |
 | sfl-auditor | Standard YAML | :15, :45 every hour |
 
 ### Governance (26 labels, policy doc, setup script)
@@ -97,7 +96,7 @@ so the SFL loop runs on its own codebase.
 
 - [x] Label taxonomy and lifecycle state machine work
 - [x] SFL Auditor catches and repairs label/PR discrepancies
-- [x] SFL Dispatcher orchestrates without wasting Copilot inference when idle
+- [x] Direct event + workflow-dispatch handoffs move the loop forward without polling
 - [x] Three-model PR review (Analyzers A/B/C) produces high-quality feedback
 - [x] PR Fixer implements suggestions and cycles correctly
 - [x] PR Promoter gates on all-PASS before un-drafting

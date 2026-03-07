@@ -30,15 +30,14 @@ That repo contains:
 | `daily-repo-status` (`SFL Repo Status`) | Daily | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `repo-audit` (`Repo Audit`) | Daily | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
-| `sfl-dispatcher` | `*/30 * * * *` + immediate issue-open / PR label triggers | Dispatches workflows only when work exists (no Copilot inference) | Local |
 | `sfl-auditor` | `15 * * * *` (hourly) | Repairs issue/PR label discrepancies | Local |
-| `sfl-issue-processor` | Dispatcher-only | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |
+| `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |
 | `sfl-analyzer-a` | `pull_request: opened` | Starts the sequential A -> B -> C review chain for draft PRs (Model A) | Local |
 | `sfl-analyzer-b` | Analyzer A dispatch | Continues the sequential full-spectrum review chain (Model B) | Local |
-| `sfl-analyzer-c` | Analyzer B dispatch | Finishes the sequential full-spectrum review chain (Model C) | Local |
-| `pr-fixer` | Dispatcher-only | Legacy workflow retained in repo during implementer migration; no longer part of the primary hot path | Local |
-| `pr-promoter` | Dispatcher-only | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label. Final merge is human-owned. | Local |
-| `sfl-pr-label-actions` (`SFL PR Label Actions`) | `pull_request: labeled` / Dispatcher | Label-driven ready-for-review flip automation | Local |
+| `sfl-analyzer-c` | Analyzer B dispatch | Finishes the sequential full-spectrum review chain and dispatches Issue Processor or PR Promoter directly | Local |
+| `pr-fixer` | Legacy only | Legacy workflow retained in repo during implementer migration; no longer part of the primary hot path | Local |
+| `pr-promoter` | Analyzer C dispatch | Un-drafts clean PRs (all analyzers PASS) and applies `human:ready-for-review` handoff label. Final merge is human-owned. | Local |
+| `sfl-pr-label-actions` (`SFL PR Label Actions`) | `pull_request: labeled` / manual dispatch | Label-driven ready-for-review flip automation | Local |
 
 ---
 

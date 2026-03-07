@@ -39,16 +39,17 @@ safe-outputs:
     target: "*"
     max: 1
   dispatch-workflow:
-    workflows: ["sfl-dispatcher"]
+    workflows: ["sfl-issue-processor", "pr-promoter"]
     max: 1
 ---
 
 # SFL Analyzer C — Full-Spectrum Review
 
 Dispatched by Analyzer B after completing its review, or dispatched manually.
-Post a structured full-spectrum review comment, then dispatch
-`sfl-dispatcher` to route the PR immediately. Exit after reviewing one PR
-per run.
+Post a structured full-spectrum review comment, then dispatch the next
+workflow directly: Issue Processor when blocking issues remain, or
+PR Promoter when the current cycle is clean. Exit after reviewing one PR per
+run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -267,12 +268,15 @@ As your **final action**, post a one-line comment to **Discussion #95** (the SFL
 
 This is mandatory — every run must log exactly one entry.
 
-## Step 7 — Dispatch SFL Dispatcher
+## Step 7 — Dispatch the next workflow directly
 
-After posting the review comment and activity log, dispatch the `sfl-dispatcher` workflow so routing
-to fixer/promoter happens immediately (no scheduler wait).
+After posting the review comment and activity log:
 
-Call `sfl_dispatcher` with no arguments.
+- If the verdict is `**PASS**`, dispatch `pr-promoter`.
+- If the verdict is `**BLOCKING ISSUES FOUND**`, dispatch `sfl-issue-processor`.
+
+Call the matching workflow directly so the loop either promotes the PR or
+starts the next implementation pass immediately.
 
 This is the LAST action in the workflow. Do NOT skip this step.
 
@@ -280,7 +284,7 @@ This is the LAST action in the workflow. Do NOT skip this step.
 
 - Review exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
-- Never modify PR code or draft status — only post review comments, add the chaining label, and dispatch `sfl-dispatcher`
+- Never modify PR code or draft status — only post review comments and dispatch the next workflow directly
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, update the dashboard with an explanation
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit

@@ -8,7 +8,7 @@ Symptom reported
   ├─ PR not progressing?
   │    ├─ Run pr-forensics.ps1 -PRNumber <n>
   │    ├─ Check: Are cycle markers present?
-  │    │   ├─ No markers → Analyzers haven't run. Check dispatcher logs.
+   │    │   ├─ No markers → Analyzers haven't run. Check the direct A -> B -> C handoff.
   │    │   ├─ Legacy markers only → Workflows need recompile (gh aw compile)
   │    │   └─ Markers present → Check verdicts (PASS vs BLOCKING)
   │    ├─ Check: Is pr-fixer running?
@@ -17,7 +17,7 @@ Symptom reported
   │        └─ Any BLOCKING verdict? Promoter only acts on all-PASS.
   │
   ├─ Issue stuck in agent:fixable?
-  │    ├─ Is sfl-dispatcher enabled and running?
+   │    ├─ Did the issue open with the `agent:fixable` label already present?
   │    ├─ Is there already an agent:in-progress issue? (one at a time)
    │    └─ Does the issue have the `agent:fixable` label and a valid issue body?
   │
@@ -49,23 +49,23 @@ reviews being posted.
 **Fix**: Verify analyzer `.md` prompts specify the correct marker format.
 Recompile with `gh aw compile`.
 
-### 2. Dispatcher Not Dispatching
+### 2. Direct Issue Intake Not Starting
 
 **Symptom**: `agent:fixable` issues sit untouched. No issue-processor runs.
 
 **Root cause options**:
 
-- Dispatcher is disabled
-- Dispatcher's `gh workflow dispatch` is failing (token permissions)
-- Model drift guard is failing (sfl.json mismatch)
+- Issue was opened before the `agent:fixable` label was present
+- Issue Processor workflow is disabled
+- Another Issue Processor run is already active due to concurrency
 
 **Diagnosis**:
 
 ```powershell
 # Check state
 & "scripts/reports/list-workflows.ps1"
-# Check recent dispatcher runs
-gh run list --workflow sfl-dispatcher.yml --limit 5 --json status,conclusion,createdAt
+# Check recent issue processor runs
+gh run list --workflow sfl-issue-processor.lock.yml --limit 5 --json status,conclusion,createdAt
 ```
 
 ### 3. Safe-Output Max Exceeded

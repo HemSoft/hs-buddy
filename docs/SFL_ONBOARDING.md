@@ -110,16 +110,13 @@ gh secret set GH_AW_GITHUB_TOKEN  --repo <owner>/<repo>
 # Confirm secrets exist
 gh secret list --repo <owner>/<repo>
 
-# Trigger the dispatcher
-gh workflow run sfl-dispatcher.yml --repo <owner>/<repo>
-
-# Check result after ~30 seconds
-gh run list --workflow="sfl-dispatcher.yml" --repo <owner>/<repo> --limit 1
+# Check recent issue processor runs
+gh run list --workflow="sfl-issue-processor.lock.yml" --repo <owner>/<repo> --limit 1
 ```
 
-A successful dispatcher run confirms `GH_AW_GITHUB_TOKEN` works.
+A successful issue-processor run confirms `GH_AW_GITHUB_TOKEN` works.
 To verify `COPILOT_GITHUB_TOKEN`, check that a downstream workflow
-(e.g., `sfl-issue-processor` or `sfl-analyzer-a`) completes without
+(e.g., `sfl-analyzer-a`) completes without
 `401` or Copilot inference errors.
 
 ---

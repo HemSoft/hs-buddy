@@ -62,8 +62,8 @@ foreach ($wf in $workflows) {
 Write-Host ""
 Write-Host "SFL Analyzers enabled." -ForegroundColor Green
 Write-Host ""
-Write-Host "Now safe to trigger the dispatcher:" -ForegroundColor Yellow
-Write-Host "  gh workflow run sfl-dispatcher.yml" -ForegroundColor Yellow
+Write-Host "Now safe to open or reopen a fixable issue:" -ForegroundColor Yellow
+Write-Host "  (Issue Processor will start from the issue event)" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "After a draft PR is opened, watch for analyzer runs:" -ForegroundColor Yellow
 Write-Host "  gh run list --workflow=sfl-analyzer-a.lock.yml --limit 1" -ForegroundColor Yellow

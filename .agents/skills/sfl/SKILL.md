@@ -135,11 +135,11 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 | Type | Files | Compilation | Example |
 |------|-------|-------------|---------|
 | **Agentic** | `.md` prompt + `.lock.yml` compiled | `gh aw compile` | sfl-issue-processor, pr-promoter |
-| **Standard** | `.yml` only | N/A | sfl-dispatcher, sfl-pr-label-actions (`SFL PR Label Actions`) |
+| **Standard** | `.yml` only | N/A | sfl-pr-label-actions (`SFL PR Label Actions`) |
 
 **Key constraint**: Agentic workflows use `safe-outputs` for all mutations
 and **cannot directly trigger other agentic workflows** via events. The
-`sfl-dispatcher` bridges this gap. However, agentic workflows CAN use the
+loop now relies on explicit `dispatch-workflow` handoffs where needed. However, agentic workflows CAN use the
 `dispatch-workflow` safe-output to trigger other workflows in the same repo.
 
 > **Important**: Always verify available safe-output types against official docs
@@ -151,26 +151,24 @@ and **cannot directly trigger other agentic workflows** via events. The
 
 | Workflow | Type | Schedule/Trigger | Purpose |
 |----------|------|------------------|---------|
-| `sfl-dispatcher` | Standard | `*/30 * * * *` | Gates agentic runs — only dispatches when work exists |
 | `sfl-auditor` | Agentic | `:15 * * * *` | Repairs issue↔PR label discrepancies |
 | `daily-repo-status` (`SFL Repo Status`) | Agentic | Daily | Produces status report Discussion |
 | `repo-audit` (`Repo Audit`) | Agentic | Daily | Finds code quality issues → Discussion |
 | `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
 | `discussion-processor` (`SFL Discussion Processor`) | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
-| `sfl-issue-processor` | Agentic | Dispatcher-only | Single implementer: creates or advances the draft PR for one issue |
+| `sfl-issue-processor` | Agentic | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: creates or advances the draft PR for one issue |
 | `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A -> B -> C review chain (claude-sonnet-4.6) |
 | `sfl-analyzer-b` | Agentic | Analyzer A dispatch | Continues the sequential review chain (gemini-3-pro-preview) |
 | `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain (gpt-5.3-codex) |
-| `pr-fixer` | Agentic | Dispatcher-only | Legacy workflow retained during implementer migration |
-| `pr-promoter` | Agentic | Dispatcher-only | Un-drafts clean PRs and hands them to humans |
+| `pr-fixer` | Agentic | Legacy only | Legacy workflow retained during implementer migration |
+| `pr-promoter` | Agentic | Analyzer C dispatch | Un-drafts clean PRs and hands them to humans |
 | `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |
 | `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
 
 ### Model Configuration
 
-Models are pinned in `sfl.json` at the repo root. The `sfl-dispatcher` runs a
-**model drift guard** that verifies lock files match the manifest on every run.
-To change a model: update `sfl.json`, recompile with `gh aw compile`.
+Models are pinned in `sfl.json` at the repo root. To change a model: update
+`sfl.json`, recompile with `gh aw compile`.
 
 ---
 

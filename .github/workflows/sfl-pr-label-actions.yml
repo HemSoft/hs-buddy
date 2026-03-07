@@ -3,7 +3,7 @@ name: SFL PR Label Actions
 on:
   pull_request:
     types: [labeled]
-  workflow_dispatch: # Dispatched by SFL Dispatcher when a draft PR is human-ready
+  workflow_dispatch: # Optional manual trigger for a draft PR that already has human:ready-for-review
 
 permissions:
   pull-requests: write

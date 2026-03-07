@@ -1,11 +1,13 @@
 ---
 description: |
-  Dispatched by the SFL Dispatcher when a new fixable issue appears or when
-  an existing draft PR has blocking analyzer feedback. Claims or resumes the
-  issue, advances the implementation on the same draft PR when one exists,
-  and dispatches Analyzer A after each implementation pass. One work item per run.
+  Triggered when a new fixable issue opens or when Analyzer C finds blocking
+  feedback on an existing draft PR. Claims or resumes the issue, advances the
+  implementation on the same draft PR when one exists, and dispatches
+  Analyzer A after each implementation pass. One work item per run.
 
 on:
+  issues:
+    types: [opened, reopened]
   workflow_dispatch:
 
 permissions:
@@ -81,6 +83,10 @@ There are two valid work item types:
 2. **New `agent:fixable` issue with no draft PR yet**
 
 Always check for existing draft PR work FIRST.
+
+If this run was triggered by an `issues` event and the issue already has the
+`agent:fixable` label, prefer that specific issue for **new issue** work once
+you confirm there is no older draft PR awaiting a follow-up implementation pass.
 
 ### 1a — Existing draft PR needing fixes
 

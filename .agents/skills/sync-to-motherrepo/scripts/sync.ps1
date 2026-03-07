@@ -42,9 +42,7 @@ $AgenticWorkflows = @(
 )
 
 # Standard YAML workflows (infrastructure)
-$InfraWorkflows = @(
-    "sfl-dispatcher.yml"
-)
+$InfraWorkflows = @()
 
 # Dogfood-only workflows (copied to .github/workflows/ but not to deployment/)
 $DogfoodOnlyWorkflows = @(

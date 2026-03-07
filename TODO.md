@@ -79,7 +79,7 @@
 - Always check whether an open draft PR already exists for that issue.
 - If no PR exists, implement the first pass and create the draft PR.
 - If a PR exists, read current PR state plus analyzer feedback and push the next fix set to the same branch.
-- After each implementation pass, explicitly dispatch Analyzer A so the review chain remains fully sequential.
+- After each follow-up implementation pass, explicitly dispatch Analyzer A; for a newly created PR, rely on `pull_request: opened` for the first review cycle.
 
 **Why**:
 
@@ -91,7 +91,7 @@
 
 - Rename `sfl-issue-processor` to something like `sfl-implementer`.
 - Retire `pr-fixer` and delete its dispatcher branch.
-- Make implementer dispatch Analyzer A both after creating a PR and after pushing follow-up fixes.
+- Make implementer rely on PR open for the first review cycle and dispatch Analyzer A only after pushing follow-up fixes.
 - Keep `pr:cycle-N` only as metadata/idempotency if still needed, not as the orchestration trigger.
 
 ## Simplisticate Workflows

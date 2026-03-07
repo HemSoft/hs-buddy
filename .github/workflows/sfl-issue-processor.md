@@ -2,8 +2,10 @@
 description: |
   Triggered when a new fixable issue opens or when Analyzer C finds blocking
   feedback on an existing draft PR. Claims or resumes the issue, advances the
-  implementation on the same draft PR when one exists, and dispatches
-  Analyzer A after each implementation pass. One work item per run.
+  implementation on the same draft PR when one exists, and re-dispatches
+  Analyzer A only after follow-up implementation passes. Newly created PRs
+  rely on the `pull_request: opened` event to start the analyzer chain. One
+  work item per run.
 
 on:
   issues:
@@ -288,11 +290,14 @@ Then append this summary marker to the PR body with `update_issue`:
 
 Use cycle `N` for the feedback cycle you just addressed, not the incremented label.
 
-## Step 7 — Dispatch Analyzer A
+## Step 7 — Handoff to Analyzer A
 
-As the next explicit handoff, dispatch `sfl-analyzer-a`.
+If you created a brand-new draft PR in Step 6a, do NOT dispatch
+`sfl-analyzer-a`. The PR open event is the intended trigger for Analyzer A on
+the first review cycle.
 
-Do this whether you created a new PR or continued an existing one.
+If you updated an existing draft PR in Step 6b, dispatch `sfl-analyzer-a` as
+the next explicit handoff for the follow-up review cycle.
 
 ## Activity Log
 

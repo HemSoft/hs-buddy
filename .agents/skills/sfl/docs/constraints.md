@@ -7,20 +7,26 @@ whenever a new constraint is discovered or an existing one is resolved.
 
 ## Agentic Workflow Constraints
 
-### 1. Agentic Cannot Trigger Agentic
+### 1. Event Triggers Are Asymmetric
 
 **Discovered**: 2026-02 (initial architecture)
 
-An agentic workflow's safe-output (e.g., `create-pull-request`) does NOT
-trigger other agentic workflows that listen on the same event. For example,
-`sfl-issue-processor` creates a draft PR, but `sfl-analyzer-a/b/c` (which listen
-on `pull_request: opened`) are not triggered by that creation.
+Agentic workflows should not assume every safe-output mutation behaves the same
+for downstream triggers.
 
-**Workaround**: Use explicit `dispatch-workflow` handoffs inside the hot path
-and direct event triggers for issue intake.
+Observed behavior in this repo:
 
-**Impact**: The loop must be authored carefully so every next step is explicit,
-but failures freeze in place instead of being mutated by a polling recovery pass.
+- `create-pull-request` DOES result in the normal `pull_request: opened` event,
+   so `sfl-analyzer-a` will start for a newly created draft PR.
+- `push-to-pull-request-branch` does NOT provide an equivalent follow-up trigger
+   for the next analyzer cycle, so later review passes still need explicit
+   `dispatch-workflow` handoffs.
+
+**Workaround**: Use the natural PR open event for the initial analyzer pass, and
+use explicit `dispatch-workflow` handoffs for follow-up cycles.
+
+**Impact**: The loop must avoid double-starting the first analyzer on new PRs
+while still explicitly handing off later cycles.
 
 ### 2. Safe-Output Max Limits
 

@@ -37,15 +37,8 @@ Determine the risk class together with the user:
 | **risk:medium** | Changes with limited behavioral impact, multiple valid approaches possible | 1 approved review |
 | **risk:high** | Significant behavioral change, cross-cutting concern, or security-adjacent | 1 human review required |
 
-For **risk:medium and above**, inform the user:
-
-> This is a `risk:<level>` change. The pipeline will still process it, but the
-> Issue Processor will add `agent:human-required` so a human can validate the
-> agent's approach before the PR proceeds. Merge will require <N> approved
-> review(s) per the governance matrix.
-
-Let the user decide whether to proceed. Never refuse — just ensure they know
-what the pipeline will do.
+Risk labels are informational for reviewer visibility and governance. They do
+not block the Issue Processor from claiming the issue.
 
 ---
 
@@ -126,6 +119,5 @@ After creation, confirm the issue number and tell the user:
   Acceptance criteria, Risk) — the Issue Processor validates this
 - Max 15 affected files per issue; if more, split into multiple issues
 - Do not add `agent:in-progress` — that is the Issue Processor's job
-- For risk:medium+, the Issue Processor will add `agent:human-required` so a
-  human validates the agent's approach — this is expected behavior, not a
-  rejection
+- Risk labels are metadata only; do not imply that `risk:medium` or
+  `risk:high` will be blocked automatically

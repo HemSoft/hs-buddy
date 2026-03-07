@@ -7,10 +7,6 @@ autonomy:
   auto-create-pr: true        # Can dispatcher/processor create PRs from issues?
   conflict-resolution: true   # Can PR Fixer resolve merge conflicts automatically?
 
-risk-tolerance: low           # Maximum risk level SFL will process autonomously
-                              # Values: trivial | low | medium | high
-                              # Issues above this level get agent:human-required
-
 cycles:
   max-fix-cycles: 15          # Max analyzer→fix cycles before human escalation
 

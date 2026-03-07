@@ -25,7 +25,7 @@
 # or dispatched manually. Claims the issue, implements the described fix on
 # a new branch, and opens a pull request. One issue per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ee7c404572892c2d7582035be4376990f89a419d2677eb4ef96746f8ec469720","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"68269bc282c9db2178120ed08f4b9de82fd10bed8f29cfec88114d9992fe33f7","compiler_version":"v0.50.4"}
 
 name: "SFL Issue Processor"
 "on":
@@ -823,7 +823,7 @@ jobs:
             "tools": [
               {
                 "name": "read-sfl-config",
-                "description": "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits.",
+                "description": "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, cycle limits, and activity log settings.",
                 "inputSchema": {
                   "properties": {},
                   "type": "object"
@@ -861,7 +861,7 @@ jobs:
           cat > /opt/gh-aw/safe-inputs/read-sfl-config.sh << 'GH_AW_SAFE_INPUTS_SH_READ-SFL-CONFIG_EOF'
           #!/bin/bash
           # Auto-generated safe-input tool: read-sfl-config
-          # Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits.
+          # Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, cycle limits, and activity log settings.
           
           set -euo pipefail
           

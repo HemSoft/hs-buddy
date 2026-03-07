@@ -26,7 +26,7 @@ tools:
 
 safe-inputs:
   read-sfl-config:
-    description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, risk-tolerance, and cycle limits."
+    description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, cycle limits, and activity log settings."
     inputs: {}
     run: |
       gh api "repos/$REPO_OWNER/$REPO_NAME/contents/.github/sfl-config.yml?ref=main" --jq '.content' | base64 -d
@@ -59,14 +59,8 @@ Process exactly one issue per run.
 
 ## Step 0 — Read SFL autonomy config
 
-Call `read_sfl_config` (no inputs). Parse the YAML and note:
-
-- `risk-tolerance` (string: `trivial`, `low`, `medium`, or `high`) — the
-  maximum risk level the agent may process autonomously
-
-The risk hierarchy is: `trivial` < `low` < `medium` < `high`.
-
-Keep this value in context for use in Step 1.
+Call `read_sfl_config` (no inputs). Parse the YAML so you have the current
+autonomy flags, cycle limits, and activity log settings in context.
 
 ## Step 1 — Identify the target issue
 
@@ -76,18 +70,9 @@ Search for open issues with label `agent:fixable` that do NOT have any of:
 Sort by creation date ascending. Take the **single oldest** result.
 If no issue matches, exit — nothing to do.
 
-### Risk tolerance check
-
-Before claiming, check the issue's `risk:*` label against `risk-tolerance`
-from Step 0:
-
-- If the issue has `risk:medium` and tolerance is `low` or `trivial` → skip it
-- If the issue has `risk:high` and tolerance is `medium`, `low`, or `trivial` → skip it
-
-When skipping due to risk: add label `agent:human-required`, post a comment
-"⚠️ Issue risk level (`risk:<level>`) exceeds SFL tolerance (`<tolerance>`).
-Requires human review.", and try the next oldest issue. If no eligible
-issues remain, exit — nothing to do.
+Risk labels are metadata for reviewer visibility only. Do NOT skip or escalate
+an otherwise actionable issue solely because it is labeled `risk:medium` or
+`risk:high`.
 
 ## Step 2 — Claim the issue
 
@@ -169,7 +154,7 @@ The tool will use your committed changes on the current branch. Provide:
   - `Closes #<issue number>`
   - One-paragraph summary of what was changed and why
   - Acceptance criteria quoted from the issue
-  - Risk confirmation: `risk:trivial` or `risk:low` with one-line justification
+  - Risk label carried from the issue with one-line justification
 
 Do NOT set labels — they are configured automatically by the safe-output.
 

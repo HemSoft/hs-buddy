@@ -328,6 +328,10 @@ the first review cycle.
 If you updated an existing draft PR in Step 6b, dispatch `sfl-analyzer-a` as
 the next explicit handoff for the follow-up review cycle.
 
+When dispatching `sfl-analyzer-a` for an existing draft PR, include input
+`pull-request-number: <number>` so Analyzer A reviews that exact PR instead of
+searching for the oldest eligible draft PR.
+
 ## Activity Log
 
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:

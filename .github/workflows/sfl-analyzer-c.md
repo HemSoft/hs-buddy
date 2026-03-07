@@ -9,6 +9,10 @@ description: |
 
 on:
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for a targeted Analyzer C review
+        required: false
 
 permissions:
   contents: read

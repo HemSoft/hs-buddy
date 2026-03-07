@@ -9,6 +9,10 @@ description: |
 
 on:
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for a targeted Analyzer B review
+        required: false
 
 permissions:
   contents: read
@@ -255,7 +259,8 @@ This is mandatory — every run must log exactly one entry.
 After posting the review comment and activity log:
 
 1. Dispatch Analyzer C to continue the review chain:
-   - Call `dispatch_workflow` with workflow `sfl-analyzer-c`
+  - Call `dispatch_workflow` with workflow `sfl-analyzer-c`
+  - Include input `pull-request-number: <number>` so Analyzer C reviews this exact PR
 
 This action is required. Do NOT skip this step.
 

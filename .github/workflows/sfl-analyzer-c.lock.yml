@@ -28,11 +28,15 @@
 # diversity — different models catch different things. Model: gpt-5.3-codex
 # (set via engine.model frontmatter — canonical value in sfl.json models section).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f1e7118176d89617f986c4e68eb3bc6cc264e29ef049d027f1d5fc62d566506b","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"2a21ba1aaf3a5441cf47955d232e04d6cbcd14f40e47903f496c655f1b5b670f","compiler_version":"v0.50.4"}
 
 name: "SFL Analyzer C — Full-Spectrum Review"
 "on":
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for a targeted Analyzer C review
+        required: false
 
 permissions: {}
 

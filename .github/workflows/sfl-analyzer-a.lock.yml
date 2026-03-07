@@ -28,7 +28,7 @@
 # diversity — different models catch different things. Model: claude-sonnet-4.6
 # (set via engine.model frontmatter — canonical value in sfl.json models section).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f748b727a4fe95ed76e3ce6f779084d7f6eb4733694b365380c980312f7f23f2","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"01d4840947e187b08bac09ff7d41119ae7dfd315dce74197bb5affd02105d65b","compiler_version":"v0.50.4"}
 
 name: "SFL Analyzer A — Full-Spectrum Review"
 "on":
@@ -36,6 +36,10 @@ name: "SFL Analyzer A — Full-Spectrum Review"
     types:
     - opened
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for a targeted Analyzer A review
+        required: false
 
 permissions: {}
 

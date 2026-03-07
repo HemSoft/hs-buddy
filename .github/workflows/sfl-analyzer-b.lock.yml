@@ -28,11 +28,15 @@
 # diversity — different models catch different things. Model: gemini-3-pro-preview
 # (set via engine.model frontmatter — canonical value in sfl.json models section).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"618419ca0788ea96e8efca1ff5c4e3d10dcb53cbf4f7ce011699593bcc4fbe8f","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"0fdde942bdd414425ea995769ede09f2dc725fe8dce583769f36d0318b436dfa","compiler_version":"v0.50.4"}
 
 name: "SFL Analyzer B — Full-Spectrum Review"
 "on":
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for a targeted Analyzer B review
+        required: false
 
 permissions: {}
 

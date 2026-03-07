@@ -11,6 +11,9 @@
 #
 # IMPORTANT: issue creation uses `issues: opened` instead of `issues: labeled` to
 # avoid one workflow run per label when a new issue is created with multiple labels.
+# Push events still run the dispatcher for model drift and PR orchestration, but
+# do NOT dispatch the Issue Processor. Immediate issue pickup comes from issue
+# open/reopen events, with the schedule remaining as a fallback.
 
 name: "SFL Dispatcher"
 
@@ -200,7 +203,7 @@ jobs:
           rm -f "$PR_BODY_FILE"
 
       - name: Dispatch Issue Processor
-        if: steps.issues.outputs.fixable_count != '0'
+        if: steps.issues.outputs.fixable_count != '0' && github.event_name != 'push'
         run: |
           echo "Dispatching Issue Processor..."
           gh workflow run sfl-issue-processor.lock.yml --repo "$REPO"
@@ -257,8 +260,10 @@ jobs:
           echo "| Workflow | Dispatched |" >> "$GITHUB_STEP_SUMMARY"
           echo "|----------|------------|" >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${{ steps.issues.outputs.fixable_count }}" != "0" ]; then
+          if [ "${{ steps.issues.outputs.fixable_count }}" != "0" ] && [ "${{ github.event_name }}" != "push" ]; then
             echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.issues.outputs.fixable_count }}" != "0" ]; then
+            echo "| Issue Processor | No (push event defers to issue-open/schedule path) |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "| Issue Processor | No (0 fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
           fi

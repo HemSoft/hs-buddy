@@ -59,7 +59,7 @@ jobs:
             exit 0
           fi
 
-          CYCLE=$(grep -Eo 'pr:cycle-[0-9]+' <<<"$LABELS" | sed 's/pr:cycle-//' | sort -n | tail -1)
+          CYCLE=$( (grep -Eo 'pr:cycle-[0-9]+' <<<"$LABELS" || true) | sed 's/pr:cycle-//' | sort -n | tail -1 )
           CYCLE=${CYCLE:-0}
 
           ROUTER_MARKER="[MARKER:sfl-pr-router cycle:$CYCLE]"

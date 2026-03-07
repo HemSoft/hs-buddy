@@ -1,9 +1,11 @@
 name: SFL PR Router
 
 on:
-  pull_request:
-    types: [edited]
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for deterministic routing
+        required: false
 
 permissions:
   actions: write
@@ -11,7 +13,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: sfl-pr-router-${{ github.event.pull_request.number || github.run_id }}
+  group: sfl-pr-router-${{ github.event.inputs.pull-request-number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -21,15 +23,15 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
       EVENT_NAME: ${{ github.event_name }}
-      EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+      INPUT_PR_NUMBER: ${{ github.event.inputs.pull-request-number }}
     steps:
       - name: Route PR deterministically
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            PR_NUMBER="$EVENT_PR_NUMBER"
+          if [[ -n "${INPUT_PR_NUMBER:-}" ]]; then
+            PR_NUMBER="$INPUT_PR_NUMBER"
           else
             PR_NUMBER=$(gh pr list --repo "$REPO" --state open --draft --label "agent:pr" --json number,updatedAt --jq 'sort_by(.updatedAt) | reverse | .[0].number // empty')
           fi

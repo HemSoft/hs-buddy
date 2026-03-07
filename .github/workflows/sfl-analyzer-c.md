@@ -269,17 +269,18 @@ As your **final action**, post a one-line comment to **Discussion #95** (the SFL
 
 This is mandatory — every run must log exactly one entry.
 
-## Step 7 — Stop after writing review state
+## Step 7 — Dispatch the deterministic router and stop
 
-After posting the review comment and activity log, stop.
+After posting the review comment and activity log, dispatch the standard
+`sfl-pr-router.yml` workflow with input `pull-request-number: <number>` so the
+router evaluates this exact PR.
 
-Do NOT dispatch any follow-up workflow yourself.
 Do NOT decide whether the PR should be promoted or sent back for another
 implementation pass.
 
 The standard `sfl-pr-router.yml` workflow owns that routing decision. Your job
-ends once the current-cycle marker, findings, verdict, and activity log entry
-have been written successfully.
+ends once the current-cycle marker, findings, verdict, activity log entry, and
+targeted router dispatch have all been completed successfully.
 
 ## Guardrails
 

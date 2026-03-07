@@ -1,12 +1,13 @@
 ---
-mode: agent
+agent: agent
 description: Create a pipeline-ready issue for the Set it Free Loop.
 ---
 
 # SFL — Add Issue to Pipeline
 
 Interactively help the user create a well-formed issue that the SFL Issue
-Processor will pick up automatically on its next 30-minute cron cycle.
+Processor can pick up immediately when it is created with `agent:fixable`.
+The 30-minute cron remains a backstop if the immediate path does not fire.
 
 ---
 
@@ -82,7 +83,7 @@ passes", "export is no longer referenced anywhere">
 `risk:<trivial|low|medium|high>` — <one-line justification>
 ```
 
-**Labels**: `agent:fixable`, `feature-request`, `risk:<trivial|low|medium|high>`
+**Labels**: `agent:fixable`, `enhancement`, `risk:<trivial|low|medium|high>`
 
 ---
 
@@ -90,8 +91,8 @@ passes", "export is no longer referenced anywhere">
 
 Show the composed title, body, and labels to the user. Ask:
 
-> Does this look good? I'll create the issue and the pipeline will pick it up
-> on its next cycle.
+> Does this look good? I'll create the issue and the pipeline should kick off
+> immediately.
 
 Wait for confirmation. If the user wants changes, revise and re-show.
 
@@ -106,15 +107,15 @@ gh issue create --repo "<owner>/<repo>" \
   --title "[sfl] <title>" \
   --body "<body>" \
   --label "agent:fixable" \
-  --label "feature-request" \
+  --label "enhancement" \
   --label "risk:<trivial|low|medium|high>"
 ```
 
 After creation, confirm the issue number and tell the user:
 
-> Issue #N created. The Issue Processor runs every 30 minutes — it will claim
-> this issue, create a draft PR, and send it through analyzer review
-> automatically.
+> Issue #N created. The dispatcher should kick off the Issue Processor
+> immediately because the issue was created with `agent:fixable`. The 30-minute
+> cron is still there as a fallback.
 
 ---
 

@@ -30,7 +30,7 @@ That repo contains:
 | `daily-repo-status` (`SFL Repo Status`) | Daily | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `repo-audit` (`Repo Audit`) | Daily | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
-| `sfl-dispatcher` | `*/30 * * * *` | Dispatches workflows only when work exists (no Copilot inference) | Local |
+| `sfl-dispatcher` | `*/30 * * * *` + immediate issue-open / PR label-edit triggers | Dispatches workflows only when work exists (no Copilot inference) | Local |
 | `sfl-auditor` | `15 * * * *` (hourly) | Repairs issue/PR label discrepancies | Local |
 | `sfl-issue-processor` | Dispatcher-only | Claims `agent:fixable` issue, opens draft PR | Local |
 | `sfl-analyzer-a` | `pull_request: opened` | Full-spectrum review comments on draft PRs (Model A) | Local |

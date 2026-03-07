@@ -1,5 +1,5 @@
 ---
-description: Audit the health of the hs-buddy agentic pipeline. Checks that GitHub Actions, Issues, and PRs are in harmony per .github/copilot-instructions.md. Always apply Standing Orders from .github/copilot-instructions.md.
+description: Audit the health of the hs-buddy agentic pipeline. Checks that GitHub Actions, Issues, and PRs are in harmony per AGENTS.md and the SFL skill. Always apply Standing Orders from AGENTS.md.
 ---
 
 # Pipeline Health Check
@@ -7,7 +7,7 @@ description: Audit the health of the hs-buddy agentic pipeline. Checks that GitH
 You are auditing the **hs-buddy agentic loop**. The single mission is:
 **GitHub Actions, GitHub Issues, and GitHub Pull Requests must be in perfect harmony at all times.**
 
-Read `.github/copilot-instructions.md` before proceeding to ensure you have the current Standing Orders.
+Read `AGENTS.md` and `.agents/skills/sfl/SKILL.md` before proceeding to ensure you have the current Standing Orders.
 
 ---
 
@@ -32,7 +32,7 @@ Run these queries in parallel:
 
 ## Step 2 — Evaluate harmony
 
-Check every harmony condition from `.github/copilot-instructions.md`:
+Check every harmony condition from the current repo guidance (`AGENTS.md`) and SFL docs:
 
 | Check | Pass Condition |
 |-------|----------------|
@@ -131,7 +131,7 @@ Produce a concise health report in this format:
 
 ## Step 6 — Apply Standing Orders
 
-**After reporting**, apply the Standing Orders from `.github/copilot-instructions.md`:
+**After reporting**, apply the Standing Orders from `AGENTS.md` and `.agents/skills/sfl/SKILL.md`:
 
 1. **If the SFL Auditor is failing** — diagnose and fix it immediately, before addressing any harmony failures. A broken auditor is always the top priority.
 

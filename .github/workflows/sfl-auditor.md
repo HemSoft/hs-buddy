@@ -152,7 +152,19 @@ close all but the most recent one using `update_issue` with:
 Search for **open** issues that have the label `agent:fixable` but do NOT have
 `agent:in-progress`, `agent:pause`, `agent:human-required`, or `agent:escalated`.
 
-For each such issue, check whether it was created more than **2 hours ago**.
+For each such issue, check how long it has remained unclaimed.
+
+If an `agent:fixable` issue is older than **15 minutes** but not older than
+**2 hours**, immediate dispatch likely failed even though the issue was ready
+to process right away.
+
+1. Call `update_issue` with ALL of these fields in a **single call**:
+  - `issue_number`: the issue number
+  - `body`: "⏱️ **SFL Auditor**: This issue has been `agent:fixable` for over 15 minutes without being claimed by the Issue Processor. Immediate dispatch may have failed. Investigate recent SFL Dispatcher runs for duplicate issue events or concurrency replacement."
+  - `operation`: `"append"`
+
+Only flag each issue **once** — if the issue already has a comment containing
+"Immediate dispatch may have failed", skip it.
 
 If an `agent:fixable` issue is older than 2 hours and has not been claimed:
 

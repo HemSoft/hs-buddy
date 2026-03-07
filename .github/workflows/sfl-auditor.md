@@ -225,6 +225,23 @@ append exactly one warning comment to that newer PR via `update_issue`:
 Only flag each newer PR once. If its body already contains the exact string
 `Potential analyzer starvation detected`, skip it.
 
+Additional current-cycle router handoff check:
+
+For each open draft agent PR in list B:
+
+1. Determine the current cycle N from `pr:cycle-N` labels (default 0).
+2. Check whether the PR body contains `[MARKER:sfl-analyzer-c cycle:N]`.
+3. Check whether the PR body contains `[MARKER:sfl-pr-router cycle:N]`.
+
+If the Analyzer C marker for cycle N exists but the Router marker for cycle N does NOT exist, append exactly one warning comment to that PR via `update_issue`:
+
+- `issue_number`: the PR number
+- `body`: "⚠️ **SFL Auditor**: Analyzer C completed for current cycle <N>, but the PR Router marker for that same cycle is missing. This suggests Analyzer C wrote review state without dispatching the deterministic router. Investigate Analyzer C safe-output behavior."
+- `operation`: `"append"`
+
+Only flag each PR once. If its body already contains the exact string
+`Analyzer C completed for current cycle` then skip it.
+
 ## Step 11 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that

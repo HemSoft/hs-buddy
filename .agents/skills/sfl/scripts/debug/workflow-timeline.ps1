@@ -120,4 +120,28 @@ if ($routerRuns.Count -gt 0 -and $analyzerRuns.Count -gt 3) {
     Write-Host "  Check marker output and Analyzer A handoff idempotency." -ForegroundColor Yellow
 }
 
+$prBody = (gh pr view $PRNumber --repo $Repo --json body 2>&1 | ConvertFrom-Json).body
+$cycleMatches = [regex]::Matches($prBody, 'pr:cycle-(\d+)')
+$currentCycle = 0
+if ($cycleMatches.Count -gt 0) {
+    $currentCycle = ($cycleMatches | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Maximum).Maximum
+}
+
+$analyzerCMarker = "[MARKER:sfl-analyzer-c cycle:$currentCycle]"
+$routerMarker = "[MARKER:sfl-pr-router cycle:$currentCycle]"
+
+if ($prBody -like "*${analyzerCMarker}*" -and $prBody -notlike "*${routerMarker}*") {
+    Write-Host "  WARNING: Analyzer C completed for cycle $currentCycle but Router marker is missing for that cycle." -ForegroundColor Red
+    Write-Host "  This usually means Analyzer C wrote review state but did not emit dispatch_workflow to sfl-pr-router." -ForegroundColor Yellow
+}
+
+$latestAnalyzerC = $sorted | Where-Object { $_.Workflow -eq "sfl-analyzer-c" } | Sort-Object StartedAt -Descending | Select-Object -First 1
+$latestRouter = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-router" } | Sort-Object StartedAt -Descending | Select-Object -First 1
+if ($latestAnalyzerC -and $latestRouter) {
+    if ([datetime]$latestAnalyzerC.StartedAt -gt [datetime]$latestRouter.StartedAt -and $prBody -notlike "*${routerMarker}*") {
+        Write-Host "  WARNING: Latest Analyzer C run is newer than latest Router run, and no current-cycle Router marker exists." -ForegroundColor Red
+        Write-Host "  The post-Analyzer-C handoff appears stuck on the current cycle." -ForegroundColor Yellow
+    }
+}
+
 Write-Host "`n=== TIMELINE COMPLETE ===" -ForegroundColor Cyan

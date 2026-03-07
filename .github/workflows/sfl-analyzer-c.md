@@ -272,6 +272,14 @@ As your **final action**, post a one-line comment to **Discussion #95** (the SFL
 
 This is mandatory — every run must log exactly one entry.
 
+Required completion checklist for a non-skip review run:
+
+1. `update_issue` appending the current-cycle Analyzer C review block to the PR body
+2. `add_comment` posting the Activity Log entry to Discussion #95
+3. `dispatch_workflow` invoking `sfl-pr-router` with `pull-request-number: <number>`
+
+Do not stop after step 1. A review run is incomplete unless all 3 actions happen.
+
 ## Step 7 — Dispatch the deterministic router and stop
 
 After posting the review comment and activity log, dispatch the standard
@@ -284,6 +292,26 @@ implementation pass.
 The standard `sfl-pr-router.yml` workflow owns that routing decision. Your job
 ends once the current-cycle marker, findings, verdict, activity log entry, and
 targeted router dispatch have all been completed successfully.
+
+Use this exact action order for a normal review run:
+
+- First: `update_issue` with the Analyzer C review block
+- Second: `add_comment` to Discussion #95
+- Third: `dispatch_workflow` to `sfl-pr-router` with `pull-request-number`
+
+Valid completion pattern:
+
+- `update_issue(...)`
+- `add_comment(...)`
+- `dispatch_workflow(workflow="sfl-pr-router", inputs={"pull-request-number":"<number>"})`
+
+Invalid completion patterns:
+
+- `update_issue(...)` and then stop
+- `update_issue(...)` + `add_comment(...)` and then stop
+- `update_issue(...)` + plain text saying Router should run next
+
+If you are about to finish the run and have not yet dispatched `sfl-pr-router`, stop and dispatch it before producing any final text.
 
 ## Guardrails
 

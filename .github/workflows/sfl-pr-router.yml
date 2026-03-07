@@ -1,0 +1,122 @@
+name: SFL PR Router
+
+on:
+  pull_request:
+    types: [edited]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: sfl-pr-router-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      EVENT_NAME: ${{ github.event_name }}
+      EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Route PR deterministically
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            PR_NUMBER="$EVENT_PR_NUMBER"
+          else
+            PR_NUMBER=$(gh pr list --repo "$REPO" --state open --draft --label "agent:pr" --json number,updatedAt --jq 'sort_by(.updatedAt) | reverse | .[0].number // empty')
+          fi
+
+          if [[ -z "${PR_NUMBER:-}" ]]; then
+            echo "No eligible PR found for routing."
+            exit 0
+          fi
+
+          PR_JSON=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json number,isDraft,body,labels)
+          BODY=$(jq -r '.body // ""' <<<"$PR_JSON")
+          IS_DRAFT=$(jq -r '.isDraft' <<<"$PR_JSON")
+          LABELS=$(jq -r '[.labels[].name] | join("\n")' <<<"$PR_JSON")
+
+          if [[ "$IS_DRAFT" != "true" ]]; then
+            echo "PR #$PR_NUMBER is already ready for review."
+            exit 0
+          fi
+
+          if ! grep -Fxq "agent:pr" <<<"$LABELS"; then
+            echo "PR #$PR_NUMBER is not an agent PR."
+            exit 0
+          fi
+
+          if grep -Fxq "agent:human-required" <<<"$LABELS"; then
+            echo "PR #$PR_NUMBER requires human intervention."
+            exit 0
+          fi
+
+          CYCLE=$(grep -Eo 'pr:cycle-[0-9]+' <<<"$LABELS" | sed 's/pr:cycle-//' | sort -n | tail -1)
+          CYCLE=${CYCLE:-0}
+
+          ROUTER_MARKER="[MARKER:sfl-pr-router cycle:$CYCLE]"
+          if grep -Fq "$ROUTER_MARKER" <<<"$BODY"; then
+            echo "PR #$PR_NUMBER cycle $CYCLE already routed."
+            exit 0
+          fi
+
+          MARKER_A="[MARKER:sfl-analyzer-a cycle:$CYCLE]"
+          MARKER_B="[MARKER:sfl-analyzer-b cycle:$CYCLE]"
+          MARKER_C="[MARKER:sfl-analyzer-c cycle:$CYCLE]"
+
+          for marker in "$MARKER_A" "$MARKER_B" "$MARKER_C"; do
+            if ! grep -Fq "$marker" <<<"$BODY"; then
+              echo "PR #$PR_NUMBER cycle $CYCLE is not ready for routing yet."
+              exit 0
+            fi
+          done
+
+          extract_verdict() {
+            local marker="$1"
+            awk -v marker="$marker" '
+              index($0, marker) { in_block = 1; next }
+              in_block && /^### Verdict$/ { getline; print; exit }
+            ' <<<"$BODY"
+          }
+
+          VERDICT_A=$(extract_verdict "$MARKER_A")
+          VERDICT_B=$(extract_verdict "$MARKER_B")
+          VERDICT_C=$(extract_verdict "$MARKER_C")
+
+          if [[ -z "$VERDICT_A" || -z "$VERDICT_B" || -z "$VERDICT_C" ]]; then
+            echo "PR #$PR_NUMBER cycle $CYCLE is missing one or more analyzer verdict lines."
+            exit 0
+          fi
+
+          if [[ "$VERDICT_A" == "**PASS** | No blocking issues found." && "$VERDICT_B" == "**PASS** | No blocking issues found." && "$VERDICT_C" == "**PASS** | No blocking issues found." ]]; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "human:ready-for-review"
+
+            printf '%s\n\n## ✅ SFL PR Router — Ready for Human Review\n\n**Router**: SFL PR Router\n**Cycle**: %s\n**PR**: #%s\n\n### Decision\n\nAll three analyzers returned **PASS** for the current cycle. Added `human:ready-for-review` to hand off to label-actions and human review.\n' "$ROUTER_MARKER" "$CYCLE" "$PR_NUMBER" >> router-marker.md
+            printf '%s' "$BODY" > pr-body.md
+            printf '\n\n' >> pr-body.md
+            cat router-marker.md >> pr-body.md
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --body-file pr-body.md
+            echo "Promoted PR #$PR_NUMBER via deterministic router."
+            exit 0
+          fi
+
+          if [[ "$VERDICT_A" == *"BLOCKING ISSUES FOUND"* || "$VERDICT_B" == *"BLOCKING ISSUES FOUND"* || "$VERDICT_C" == *"BLOCKING ISSUES FOUND"* ]]; then
+            printf '%s\n\n## 🔁 SFL PR Router — Returned for Implementation\n\n**Router**: SFL PR Router\n**Cycle**: %s\n**PR**: #%s\n\n### Decision\n\nAt least one analyzer reported **BLOCKING ISSUES FOUND** for the current cycle. Dispatching Issue Processor for the next implementation pass.\n' "$ROUTER_MARKER" "$CYCLE" "$PR_NUMBER" >> router-marker.md
+            printf '%s' "$BODY" > pr-body.md
+            printf '\n\n' >> pr-body.md
+            cat router-marker.md >> pr-body.md
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --body-file pr-body.md
+            gh workflow run "sfl-issue-processor.lock.yml" --repo "$REPO" -f pull-request-number="$PR_NUMBER"
+            echo "Dispatched Issue Processor for PR #$PR_NUMBER via deterministic router."
+            exit 0
+          fi
+
+          echo "PR #$PR_NUMBER cycle $CYCLE does not have a routable verdict state."

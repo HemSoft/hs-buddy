@@ -62,7 +62,7 @@ for deployment to other repositories.
 | sfl-analyzer-b | review | gemini-3-pro-preview | ✅ Active v1.0.0 |
 | sfl-analyzer-c | review | gpt-5.3-codex | ✅ Active v1.0.0 |
 | pr-fixer | automation | claude-opus-4.6 | ✅ Active v1.0.0 |
-| pr-promoter | automation | claude-sonnet-4.6 | ✅ Active v1.0.0 |
+| sfl-pr-router | automation | — | ✅ Active v1.0.0 |
 
 ### Infrastructure (1 — standard workflow)
 
@@ -99,7 +99,7 @@ so the SFL loop runs on its own codebase.
 - [x] Direct event + workflow-dispatch handoffs move the loop forward without polling
 - [x] Three-model PR review (Analyzers A/B/C) produces high-quality feedback
 - [x] PR Fixer implements suggestions and cycles correctly
-- [x] PR Promoter gates on all-PASS before un-drafting
+- [x] SFL PR Router deterministically routes all-PASS vs blocking review outcomes
 - [x] Repo Audit detects real issues and creates actionable agent:fixable items
 - [x] Governance policy (merge authority, retry limits, safe-write boundaries) is sound
 - [x] Workflow scheduling hygiene checks prevent duplicate/overlapping runs
@@ -116,5 +116,5 @@ so the SFL loop runs on its own codebase.
 - [ ] Build `feature-intake-normalizer` workflow for Jira/GitHub normalization
 - [ ] Port V2 architecture changes from hs-buddy to set-it-free-loop:
   - pr-fixer: `push-to-pull-request-branch` (replaces supersession model)
-  - pr-promoter/sfl-issue-processor: granular `add-labels`/`remove-labels`
+   - sfl-pr-router/sfl-issue-processor: deterministic routing + targeted follow-up dispatch
   - See `.agents/skills/sfl/docs/architecture-v2.md` for details

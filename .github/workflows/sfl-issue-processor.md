@@ -11,6 +11,10 @@ on:
   issues:
     types: [opened, reopened]
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for a follow-up implementation pass
+        required: false
 
 permissions:
   contents: read
@@ -86,11 +90,33 @@ There are two valid work item types:
 
 Always check for existing draft PR work FIRST.
 
+If `pull-request-number` is provided in the context variables, use that PR
+number directly as the target follow-up PR candidate. Do NOT search for a
+different PR in that case.
+
 If this run was triggered by an `issues` event and the issue already has the
 `agent:fixable` label, prefer that specific issue for **new issue** work once
 you confirm there is no older draft PR awaiting a follow-up implementation pass.
 
 ### 1a — Existing draft PR needing fixes
+
+If `pull-request-number` is provided:
+
+1. Read that exact PR.
+2. Verify it is an open **draft** PR with label `agent:pr` and without
+  `agent:human-required`.
+3. Determine current cycle N from the highest `pr:cycle-N` label (default `0`).
+4. Verify all three analyzer markers exist for cycle N.
+5. Verify at least one analyzer verdict for cycle N is `**BLOCKING ISSUES FOUND**`.
+6. Verify `[MARKER:sfl-issue-processor cycle:N]` is not already present.
+
+If any of those checks fail, exit — there is no eligible follow-up work for
+that specific PR.
+
+If they pass, use that PR as the work item and continue at Step 3.
+
+Only when no `pull-request-number` is provided should you search for draft PRs
+that need another implementation pass.
 
 Search for open pull requests that meet ALL criteria:
 

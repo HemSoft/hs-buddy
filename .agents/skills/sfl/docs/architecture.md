@@ -131,8 +131,9 @@ SFL uses explicit-dispatch handoffs inside the hot path:
 - Issue intake triggers `sfl-issue-processor` directly.
 - The analyzer chain uses `dispatch-workflow` to enforce a strict
   `sfl-analyzer-a -> sfl-analyzer-b -> sfl-analyzer-c` sequence.
-- Analyzer C dispatches either `sfl-issue-processor` or `pr-promoter`
-  directly based on the current-cycle verdict.
+- Analyzer C writes the current-cycle verdict into the PR body.
+- `sfl-pr-router.yml` reads that verdict deterministically and either dispatches
+  `sfl-issue-processor` or adds `human:ready-for-review`.
 
 ### The Cost of This Constraint
 
@@ -168,10 +169,10 @@ No external state store. No database. No files. GitHub IS the state store.
                   → Analyzer A starts the chain
                   → Analyzer B runs after A
                   → Analyzer C runs after B
+                  → PR Router reads current-cycle verdicts
                   → Issue Processor pushes fixes to same branch → pr:cycle-1
                   → Issue Processor dispatches Analyzer A again
-                  → All PASS → pr-promoter un-drafts
-                  → human:ready-for-review applied
+                  → All PASS → PR Router applies human:ready-for-review
                   → Human reviews and merges
 ```
 

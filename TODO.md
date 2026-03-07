@@ -14,7 +14,7 @@
 | ✅ | Critical | Simplisticate Workflows | Completed 2026-03-03: event-driven trigger path implemented and autonomous merge flow removed in favor of human review handoff. |
 | ✅ | Medium | Copilot Usage month-end projection | Per-account + aggregate trend projection with ghost arc on ring, daily rate, est. overage (2026-03) |
 | ✅ | Medium | Run 30-day Set it Free pilot | Removed — ongoing operational concern, not a dev task (2026-02) |
-| ✅ | Critical | SFL Auto-Merge mode | Implemented in sfl-config.yml + pr-promoter + sfl-pr-label-actions (2026-02) |
+| ✅ | Critical | SFL Auto-Merge mode | Implemented, then simplified to human-review handoff via sfl-pr-router + sfl-pr-label-actions (2026-02/2026-03) |
 | ✅ | Medium | Elegant status bar queue display | Shows "X of N · TaskName" with batch tracking instead of concatenating all tasks (2026-02) |
 | ✅ | Medium | Copilot enterprise budget not resetting on new billing cycle | Fixed: UTC dates for billing API query, auto-refresh on month boundary, billing period display (2026-02) |
 | ✅ | Critical | SFL Simplification — Replace supersession model | pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02) |
@@ -84,7 +84,7 @@
 **Why**:
 
 - Removes duplicated implementation logic split across `sfl-issue-processor` and `pr-fixer`.
-- Keeps the runtime model simple: dispatcher routes, implementer codes, analyzers review, promoter hands off.
+- Keeps the runtime model simple: implementer codes, analyzers review, router hands off.
 - Eliminates the confusing cycle restart bounce where fixer hands control back indirectly instead of continuing the explicit chain.
 
 **Likely follow-up changes**:
@@ -126,7 +126,7 @@
 | `sfl-analyzer-b` | Code review (Gemini Pro) | Dispatched by Dispatcher |
 | `sfl-analyzer-c` | Code review (GPT Codex) | Dispatched by Dispatcher |
 | `pr-fixer` | Applies fixes based on analyzer feedback | Dispatched by Dispatcher |
-| `pr-promoter` | Un-drafts PRs, adds `ready-to-merge` | Dispatched by Dispatcher |
+| `sfl-pr-router` | Routes all-PASS vs blocking PRs after Analyzer C | `pull_request: edited` |
 | `discussion-processor` | Processes feature intake discussions → issues | Dispatched by Dispatcher |
 | `simplisticate` | Identifies simplification opportunities | Manual dispatch |
 | `repo-audit` | Repository health audit | Manual dispatch |

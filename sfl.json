@@ -20,7 +20,8 @@
     "sfl-analyzer-a",
     "sfl-analyzer-b",
     "sfl-analyzer-c",
+    "sfl-pr-router",
     "pr-fixer",
-    "pr-promoter"
+    "sfl-pr-label-actions"
   ]
 }

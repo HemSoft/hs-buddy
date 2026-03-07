@@ -46,7 +46,7 @@ foreach ($pr in $agentPRs) {
     $cycle = if ($cycleLabel) { [int]($cycleLabel -replace "pr:cycle-", "") } else { 0 }
 
     # Check all marker types
-    $markerPattern = '\[MARKER:(pr-analyzer-[abc]|pr-fixer|pr-promoter) cycle:(\d+)\]'
+    $markerPattern = '\[MARKER:(sfl-analyzer-[abc]|pr-fixer|sfl-issue-processor|sfl-pr-router) cycle:(\d+)\]'
     $matches_found = [regex]::Matches($body, $markerPattern)
 
     if ($matches_found.Count -eq 0) {
@@ -89,13 +89,13 @@ foreach ($pr in $agentPRs) {
         # Check progression for current cycle
         $analyzersPresent = @("sfl-analyzer-a", "sfl-analyzer-b", "sfl-analyzer-c") |
             Where-Object { $markersByType[$_] -and $markersByType[$_] -contains $cycle }
-        $fixerPresent = $markersByType["pr-fixer"] -and $markersByType["pr-fixer"] -contains $cycle
-        $promoterPresent = $markersByType["pr-promoter"] -and $markersByType["pr-promoter"] -contains $cycle
+        $fixerPresent = $markersByType["sfl-issue-processor"] -and $markersByType["sfl-issue-processor"] -contains $cycle
+        $routerPresent = $markersByType["sfl-pr-router"] -and $markersByType["sfl-pr-router"] -contains $cycle
 
         Write-Host "`n  Cycle $cycle progression:"
         Write-Host "    Analyzers: $($analyzersPresent.Count)/3 $(if ($analyzersPresent.Count -eq 3) { '[COMPLETE]' } else { '[WAITING]' })"
-        Write-Host "    Fixer: $(if ($fixerPresent) { '[DONE]' } else { '[PENDING]' })"
-        Write-Host "    Promoter: $(if ($promoterPresent) { '[DONE]' } else { '[PENDING]' })"
+        Write-Host "    Issue Processor: $(if ($fixerPresent) { '[DONE]' } else { '[PENDING]' })"
+        Write-Host "    PR Router: $(if ($routerPresent) { '[DONE]' } else { '[PENDING]' })"
     }
 
     Write-Host ""

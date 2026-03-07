@@ -28,7 +28,7 @@
 # diversity — different models catch different things. Model: gpt-5.3-codex
 # (set via engine.model frontmatter — canonical value in sfl.json models section).
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"e663e38a48e2b6411bbd5dd6ee0506c129bdc76f678a069091de5804596f0018","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f1e7118176d89617f986c4e68eb3bc6cc264e29ef049d027f1d5fc62d566506b","compiler_version":"v0.50.4"}
 
 name: "SFL Analyzer C — Full-Spectrum Review"
 "on":
@@ -104,7 +104,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: add_comment, update_issue, update_discussion, add_labels, dispatch_workflow, missing_tool, missing_data
+          Tools: add_comment, update_issue, update_discussion, add_labels, missing_tool, missing_data
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -325,7 +325,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":1,"target":"*"},"dispatch_workflow":{"max":1,"workflow_files":{"pr-promoter":".lock.yml","sfl-issue-processor":".lock.yml"},"workflows":["sfl-issue-processor","pr-promoter"]},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":2}}
+          {"add_comment":{"max":1,"target":"*"},"add_labels":{"max":1,"target":"*"},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_discussion":{"max":1},"update_issue":{"max":2}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -528,26 +528,6 @@ jobs:
                 "type": "object"
               },
               "name": "missing_data"
-            },
-            {
-              "_workflow_name": "sfl-issue-processor",
-              "description": "Dispatch the 'sfl-issue-processor' workflow with workflow_dispatch trigger. This workflow must support workflow_dispatch and be in .github/workflows/ directory in the same repository.",
-              "inputSchema": {
-                "additionalProperties": false,
-                "properties": {},
-                "type": "object"
-              },
-              "name": "sfl_issue_processor"
-            },
-            {
-              "_workflow_name": "pr-promoter",
-              "description": "Dispatch the 'pr-promoter' workflow with workflow_dispatch trigger. This workflow must support workflow_dispatch and be in .github/workflows/ directory in the same repository.",
-              "inputSchema": {
-                "additionalProperties": false,
-                "properties": {},
-                "type": "object"
-              },
-              "name": "pr_promoter"
             }
           ]
           GH_AW_SAFE_OUTPUTS_TOOLS_EOF
@@ -1114,7 +1094,6 @@ jobs:
     if: (always()) && (needs.agent.result != 'skipped')
     runs-on: ubuntu-slim
     permissions:
-      actions: write
       contents: read
       discussions: write
       issues: write
@@ -1208,7 +1187,6 @@ jobs:
     if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (needs.agent.outputs.detection_success == 'true')
     runs-on: ubuntu-slim
     permissions:
-      actions: write
       contents: read
       discussions: write
       issues: write
@@ -1247,7 +1225,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":1,\"target\":\"*\"},\"dispatch_workflow\":{\"max\":1,\"workflow_files\":{\"pr-promoter\":\".lock.yml\",\"sfl-issue-processor\":\".lock.yml\"},\"workflows\":[\"sfl-issue-processor\",\"pr-promoter\"]},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":2,\"target\":\"*\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"*\"},\"add_labels\":{\"max\":1,\"target\":\"*\"},\"missing_data\":{},\"missing_tool\":{},\"update_discussion\":{\"max\":1,\"target\":\"*\"},\"update_issue\":{\"allow_body\":true,\"max\":2,\"target\":\"*\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

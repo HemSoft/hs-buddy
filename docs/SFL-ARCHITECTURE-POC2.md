@@ -43,9 +43,9 @@ There are three ways work enters the SFL pipeline:
 
 | Label | Color | Description | Applied By | Consumed By |
 |-------|-------|-------------|-----------|-------------|
-| `agent:pr` | ⬜ `#ededed` | Marks a PR as SFL-managed | sfl-issue-processor | analyzers, fixer, promoter, dispatcher |
-| `pr:cycle-1` … `pr:cycle-3` | 🔵→⬜ gradient | Tracks how many analyze→fix cycles the PR has been through | pr-fixer | dispatcher, promoter |
-| `human:ready-for-review` | 🟣 `#6f42c1` | PR is ready for human review and merge decision | pr-promoter | sfl-pr-label-actions, human |
+| `agent:pr` | ⬜ `#ededed` | Marks a PR as SFL-managed | sfl-issue-processor | analyzers, issue processor, sfl-pr-router |
+| `pr:cycle-1` … `pr:cycle-3` | 🔵→⬜ gradient | Tracks how many analyze→fix cycles the PR has been through | sfl-issue-processor | analyzers, sfl-pr-router |
+| `human:ready-for-review` | 🟣 `#6f42c1` | PR is ready for human review and merge decision | sfl-pr-router | sfl-pr-label-actions, human |
 
 ### Risk Labels
 
@@ -147,8 +147,8 @@ The loop no longer uses a polling dispatcher. The active handoffs are:
 | Analyzer A completes | `sfl-analyzer-b` |
 | Analyzer B completes | `sfl-analyzer-c` |
 | Analyzer C finds blocking issues | `sfl-issue-processor` |
-| Analyzer C finds all PASS | `pr-promoter` |
-| PR Promoter adds `human:ready-for-review` | `sfl-pr-label-actions` via label event |
+| Analyzer C finds all PASS | `sfl-pr-router` |
+| SFL PR Router adds `human:ready-for-review` | `sfl-pr-label-actions` via label event |
 
 ---
 
@@ -237,7 +237,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Max Cycles** | Configured in `sfl-config.yml` → `cycles.max-fix-cycles: 15` |
 | **Throughput** | 1 PR per run |
 
-#### `pr-promoter` — Un-draft & Merge
+#### `sfl-pr-router` — Deterministic Post-Review Routing
 
 | Field | Value |
 |-------|-------|
@@ -399,7 +399,7 @@ PHASE 6b — PROMOTION (Dispatcher-triggered, if all PASS)
                │
                ▼
     ┌──────────────────┐
-    │   pr-promoter     │    ← Phase 1: Un-drafts the PR
+       │   sfl-pr-router   │    ← Phase 1: Routes PASS vs BLOCKING
        │(workflow_dispatch)│       Adds human:ready-for-review
     │ Model: Sonnet 4.6│
     └────────┬─────────┘
@@ -444,7 +444,7 @@ CONTINUOUS — HEALTH CHECK (Hourly)
 |-------|-------------|-----------------|---------------|
 | `010-issue-created` | Finding detected, Discussion/Issue exists | Discussion or Issue with findings | `020-issue-ready` (via discussion-processor) |
 | `020-issue-ready` | Issue triaged with `agent:fixable` or `agent:human-required` | Issue with lifecycle label | `030-pr-ready-for-review` (via sfl-issue-processor) |
-| `030-pr-ready-for-review` | Draft PR opened, awaiting analyzer reviews + fix cycles | Draft PR with `agent:pr` label | `040-pr-ready-for-human-review` (via pr-promoter) |
+| `030-pr-ready-for-review` | Draft PR opened, awaiting analyzer reviews + fix cycles | Draft PR with `agent:pr` label | `040-pr-ready-for-human-review` (via sfl-pr-router) |
 | `040-pr-ready-for-human-review` | PR un-drafted, all analyzers PASS, awaiting human | Non-draft PR with `human:ready-for-review` | **Merged** (human action) |
 
 ### Issue Label State Machine
@@ -488,5 +488,5 @@ agent:pr + pr:cycle-1
 | sfl-analyzer-b | `claude-opus-4.5` | `sfl.json` |
 | sfl-analyzer-c | `gpt-5.3-codex` | `sfl.json` |
 | pr-fixer | `claude-opus-4.6` | Workflow frontmatter |
-| pr-promoter | `claude-sonnet-4.6` | Workflow frontmatter |
+| sfl-pr-router | Standard YAML | Deterministic routing logic |
 | sfl-auditor | `claude-sonnet-4.6` | Workflow frontmatter |

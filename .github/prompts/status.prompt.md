@@ -32,7 +32,7 @@ Run these queries:
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
    - `pr-fixer.lock.yml`
-   - `pr-promoter.lock.yml`
+  - `sfl-pr-router.yml`
 
    Get their conclusion (success / failure / cancelled) and timestamp.
 

@@ -115,7 +115,7 @@ delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-a -->` ...
 
 Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
-pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
+pr-fixer, sfl-pr-router, sfl-auditor) and populate only yours.
 
 ## Step 1 — Find the target PR
 

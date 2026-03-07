@@ -300,7 +300,7 @@ delimited by HTML comment markers (`<!-- SECTION:pr-fixer -->` ...
 
 Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
-pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
+pr-fixer, sfl-pr-router, sfl-auditor) and populate only yours.
 
 ## Step 0 — Read SFL autonomy config
 

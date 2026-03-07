@@ -11,10 +11,10 @@ Symptom reported
    │    │   ├─ No markers → Analyzers haven't run. Check the direct A -> B -> C handoff.
   │    │   ├─ Legacy markers only → Workflows need recompile (gh aw compile)
   │    │   └─ Markers present → Check verdicts (PASS vs BLOCKING)
-  │    ├─ Check: Is pr-fixer running?
-  │    │   └─ All 3 analyzer markers for current cycle? If not, fixer won't run.
-  │    └─ Check: Is pr-promoter skipping?
-  │        └─ Any BLOCKING verdict? Promoter only acts on all-PASS.
+   │    ├─ Check: Is Issue Processor running?
+   │    │   └─ Any BLOCKING verdict in the current cycle? If yes, router should dispatch it.
+   │    └─ Check: Is sfl-pr-router running?
+   │        └─ All 3 analyzer markers for current cycle? Router only acts once Analyzer C has written a complete verdict state.
   │
   ├─ Issue stuck in agent:fixable?
    │    ├─ Did the issue open with the `agent:fixable` label already present?

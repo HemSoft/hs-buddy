@@ -28,7 +28,7 @@
 # rely on the `pull_request: opened` event to start the analyzer chain. One
 # work item per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"c921c16205976c9d67a670048d0c3175c4ee2f81375edcf7e27097cad47bfe2f","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"4b3ebf0a38d9d6886f073cd1926d8d7f37c65b4947e951e0f25691de0aa2d861","compiler_version":"v0.50.4"}
 
 name: "SFL Issue Processor / Implementer"
 "on":
@@ -37,6 +37,10 @@ name: "SFL Issue Processor / Implementer"
     - opened
     - reopened
   workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Target draft PR number for a follow-up implementation pass
+        required: false
 
 permissions: {}
 

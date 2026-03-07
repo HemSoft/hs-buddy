@@ -38,18 +38,15 @@ safe-outputs:
   add-labels:
     target: "*"
     max: 1
-  dispatch-workflow:
-    workflows: ["sfl-issue-processor", "pr-promoter"]
-    max: 1
 ---
 
 # SFL Analyzer C — Full-Spectrum Review
 
 Dispatched by Analyzer B after completing its review, or dispatched manually.
-Post a structured full-spectrum review comment, then dispatch the next
-workflow directly: Issue Processor when blocking issues remain, or
-PR Promoter when the current cycle is clean. Exit after reviewing one PR per
-run.
+Post a structured full-spectrum review comment, then stop. The deterministic
+`sfl-pr-router.yml` workflow reads the finished review state from the PR body
+and decides whether the next step is promotion or another implementation pass.
+Exit after reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -115,7 +112,7 @@ delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-c -->` ...
 
 Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
-pr-fixer, pr-promoter, sfl-auditor) and populate only yours.
+pr-fixer, sfl-pr-router, sfl-auditor) and populate only yours.
 
 ## Step 1 — Find the target PR
 
@@ -268,46 +265,23 @@ As your **final action**, post a one-line comment to **Discussion #95** (the SFL
 
 This is mandatory — every run must log exactly one entry.
 
-## Step 7 — Dispatch the next workflow directly
+## Step 7 — Stop after writing review state
 
-After posting the review comment and activity log:
+After posting the review comment and activity log, stop.
 
-- If the verdict is `**PASS**`, dispatch `pr-promoter`.
-- If the verdict is `**BLOCKING ISSUES FOUND**`, dispatch `sfl-issue-processor`.
+Do NOT dispatch any follow-up workflow yourself.
+Do NOT decide whether the PR should be promoted or sent back for another
+implementation pass.
 
-Call the matching workflow directly so the loop either promotes the PR or
-starts the next implementation pass immediately.
-
-This is the LAST action in the workflow. Do NOT skip this step.
-
-Treat the dispatch as mandatory completion work, not as an optional follow-up.
-If you wrote a `### Verdict` section, you must also emit exactly one matching
-`dispatch_workflow` safe-output in the same run.
-
-Decision table:
-
-| Verdict | Required dispatch |
-|---------|-------------------|
-| `**PASS**` | `pr-promoter` |
-| `**BLOCKING ISSUES FOUND**` | `sfl-issue-processor` |
-
-Non-blocking suggestions do NOT prevent promotion. A review that has zero
-blocking issues and one or more non-blocking suggestions is still `**PASS**`
-and MUST dispatch `pr-promoter`.
-
-Before finishing, explicitly verify:
-
-1. Review comment appended
-2. Activity log comment posted to Discussion #95
-3. Matching workflow dispatched from the table above
-
-If item 3 did not happen, the run is incomplete.
+The standard `sfl-pr-router.yml` workflow owns that routing decision. Your job
+ends once the current-cycle marker, findings, verdict, and activity log entry
+have been written successfully.
 
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
-- Never modify PR code or draft status — only post review comments and dispatch the next workflow directly
+- Never modify PR code or draft status — only post review comments and stop after writing review state
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, update the dashboard with an explanation
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit

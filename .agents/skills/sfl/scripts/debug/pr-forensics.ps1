@@ -58,8 +58,8 @@ $markerTypes = @(
     @{ Name = "Analyzer A"; Pattern = "[MARKER:sfl-analyzer-a cycle:$cycle]" },
     @{ Name = "Analyzer B"; Pattern = "[MARKER:sfl-analyzer-b cycle:$cycle]" },
     @{ Name = "Analyzer C"; Pattern = "[MARKER:sfl-analyzer-c cycle:$cycle]" },
-    @{ Name = "Fixer";      Pattern = "[MARKER:pr-fixer cycle:$cycle]" },
-    @{ Name = "Promoter";   Pattern = "[MARKER:pr-promoter cycle:$cycle]" }
+    @{ Name = "Issue Processor"; Pattern = "[MARKER:sfl-issue-processor cycle:$cycle]" },
+    @{ Name = "PR Router";  Pattern = "[MARKER:sfl-pr-router cycle:$cycle]" }
 )
 
 # Also check legacy HTML comment markers
@@ -131,9 +131,9 @@ if ($issueNum) {
 Write-Host "`n--- DIAGNOSIS ---" -ForegroundColor Magenta
 if ($foundNew -ge 3 -and $blockCount -eq 0) {
     Write-Host "  All 3 analyzer markers present, no blocking issues." -ForegroundColor Green
-    Write-Host "  PR should be progressing to PR Promoter." -ForegroundColor Green
+    Write-Host "  PR should be progressing to SFL PR Router." -ForegroundColor Green
     if ($pr.isDraft) {
-        Write-Host "  PR is still draft — check Promoter logs." -ForegroundColor Yellow
+        Write-Host "  PR is still draft — check PR Router and label-actions logs." -ForegroundColor Yellow
     }
 } elseif ($foundNew -lt 3 -and $foundLegacy -gt 0) {
     Write-Host "  STUCK: Analyzers are producing legacy markers, not new [MARKER:] format." -ForegroundColor Red

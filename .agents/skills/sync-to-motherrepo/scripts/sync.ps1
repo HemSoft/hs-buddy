@@ -35,14 +35,15 @@ $AgenticWorkflows = @(
     "sfl-analyzer-b"
     "sfl-analyzer-c"
     "pr-fixer"
-    "pr-promoter"
     "repo-audit"
     "sfl-auditor"
     "simplisticate"
 )
 
 # Standard YAML workflows (infrastructure)
-$InfraWorkflows = @()
+$InfraWorkflows = @(
+    "sfl-pr-router.yml"
+)
 
 # Dogfood-only workflows (copied to .github/workflows/ but not to deployment/)
 $DogfoodOnlyWorkflows = @(

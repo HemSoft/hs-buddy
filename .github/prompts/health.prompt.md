@@ -25,7 +25,7 @@ Run these queries in parallel:
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
    - `pr-fixer.lock.yml`
-   - `pr-promoter.lock.yml`
+   - `sfl-pr-router.yml`
 4. **Open issues** with labels `agent:pause` or `agent:escalated` that mention workflow failures
 
 ---
@@ -66,7 +66,7 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 ## Step 4 — Evaluate other workflow health
 
 For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `sfl-analyzer-a.lock.yml`,
-`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `pr-promoter.lock.yml`:
+`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `sfl-pr-router.yml`:
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp

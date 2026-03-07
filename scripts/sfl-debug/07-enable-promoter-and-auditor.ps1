@@ -1,46 +1,45 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Stage 7 — Enable PR Promoter + SFL Auditor
+    Stage 7 — Enable SFL PR Router + SFL Auditor
 
 .DESCRIPTION
     Enables the final pipeline stage:
-      - PR Promoter     — un-drafts clean PRs, applies human:ready-for-review,
-                          merges approved PRs (squash + delete branch)
+    - SFL PR Router   — routes completed review cycles deterministically,
+                  adds human:ready-for-review for all-PASS PRs
       - SFL Auditor     — runs at :15 past every hour, repairs label/state
                           discrepancies (orphaned labels, missing markers, etc.)
 
     After this stage, the FULL SFL loop is operational:
       Findings -> Discussions -> Issues -> Draft PRs -> Analyze -> Fix -> Promote -> Merge
 
-    The PR Promoter checks:
-      - All 3 analyzers have PASS markers at current cycle
-      - No open review threads / requested changes
-      - Un-drafts and adds human:ready-for-review label
-      - Merges PRs that have been approved by a human reviewer
+        The SFL PR Router checks:
+            - All 3 analyzers have completed the current cycle
+            - All PASS -> add human:ready-for-review
+            - Any BLOCKING -> dispatch Issue Processor for another pass
 #>
 
 $ErrorActionPreference = 'Stop'
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
 Write-Host ""
-Write-Host "=== Stage 7: Enable PR Promoter + SFL Auditor ===" -ForegroundColor Cyan
+Write-Host "=== Stage 7: Enable SFL PR Router + SFL Auditor ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "This will enable:" -ForegroundColor White
-Write-Host "  - PR Promoter     (un-draft clean PRs, merge approved PRs)" -ForegroundColor White
+Write-Host "  - SFL PR Router   (route clean vs blocked PRs deterministically)" -ForegroundColor White
 Write-Host "  - SFL Auditor     (label/state hygiene, runs hourly at :15)" -ForegroundColor White
 Write-Host ""
 Write-Host "After this, the FULL SFL pipeline is operational." -ForegroundColor Green
 Write-Host ""
 
-$confirm = Read-Host "Enable PR Promoter + SFL Auditor? [y/N]"
+$confirm = Read-Host "Enable SFL PR Router + SFL Auditor? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
     Write-Host "Aborted." -ForegroundColor Yellow
     return
 }
 
 $workflows = @(
-    @{ File = "pr-promoter.lock.yml";   Name = "PR Promoter" }
+    @{ File = "sfl-pr-router.yml";      Name = "SFL PR Router" }
     @{ File = "sfl-auditor.lock.yml";   Name = "SFL Auditor" }
 )
 
@@ -69,7 +68,7 @@ Write-Host "  Discussion Processor       -> agent:fixable Issues" -ForegroundCol
 Write-Host "  Dispatcher + Issue Proc.   -> Draft PRs" -ForegroundColor DarkGray
 Write-Host "  PR Analyzers A/B/C         -> Review Comments + Markers" -ForegroundColor DarkGray
 Write-Host "  PR Fixer                   -> Fix Commits + Cycle Bump" -ForegroundColor DarkGray
-Write-Host "  PR Promoter                -> Un-draft + human:ready-for-review" -ForegroundColor DarkGray
+Write-Host "  SFL PR Router              -> Route PASS vs BLOCKING after Analyzer C" -ForegroundColor DarkGray
 Write-Host "  Human Approval             -> Merge (squash + delete branch)" -ForegroundColor DarkGray
 Write-Host "  SFL Auditor                -> Label/state hygiene" -ForegroundColor DarkGray
 Write-Host ""

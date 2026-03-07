@@ -33,8 +33,8 @@ $workflows = @(
     "sfl-analyzer-a.lock.yml",
     "sfl-analyzer-b.lock.yml",
     "sfl-analyzer-c.lock.yml",
+    "sfl-pr-router.yml",
     "pr-fixer.lock.yml",
-    "pr-promoter.lock.yml",
     "sfl-auditor.lock.yml"
 )
 
@@ -104,7 +104,7 @@ foreach ($g in $grouped) {
 
 # Detect patterns
 Write-Host "`n--- PATTERN DETECTION ---" -ForegroundColor Magenta
-$analyzerRuns = $sorted | Where-Object { $_.Workflow -match "pr-analyzer" }
+$analyzerRuns = $sorted | Where-Object { $_.Workflow -match "sfl-analyzer-[abc]" }
 if ($analyzerRuns.Count -gt 9) {
     Write-Host "  WARNING: $($analyzerRuns.Count) analyzer runs detected." -ForegroundColor Red
     Write-Host "  This suggests analyzers are re-running without progression." -ForegroundColor Red
@@ -112,13 +112,14 @@ if ($analyzerRuns.Count -gt 9) {
 }
 
 $fixerRuns = $sorted | Where-Object { $_.Workflow -eq "pr-fixer" }
-$promoterRuns = $sorted | Where-Object { $_.Workflow -eq "pr-promoter" }
+$routerRuns = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-router" }
 if ($fixerRuns.Count -eq 0 -and $analyzerRuns.Count -gt 3) {
     Write-Host "  WARNING: Analyzers have run $($analyzerRuns.Count)x but Fixer has not run." -ForegroundColor Red
-    Write-Host "  Fixer may not be finding the markers it needs." -ForegroundColor Yellow
+    Write-Host "  Issue Processor may not be finding the markers it needs." -ForegroundColor Yellow
 }
-if ($promoterRuns.Count -eq 0 -and $fixerRuns.Count -gt 0) {
-    Write-Host "  INFO: Fixer has run but Promoter has not. Expected if fixes are pending." -ForegroundColor DarkGray
+if ($routerRuns.Count -eq 0 -and $analyzerRuns.Count -ge 3) {
+    Write-Host "  WARNING: Analyzer chain completed but PR Router has not run." -ForegroundColor Red
+    Write-Host "  Check pull_request:edited routing and router marker state." -ForegroundColor Yellow
 }
 
 Write-Host "`n=== TIMELINE COMPLETE ===" -ForegroundColor Cyan

@@ -29,8 +29,9 @@ $workflows = @(
     "sfl-analyzer-a.lock.yml",
     "sfl-analyzer-b.lock.yml",
     "sfl-analyzer-c.lock.yml",
+    "sfl-pr-router.yml",
     "pr-fixer.lock.yml",
-    "pr-promoter.lock.yml"
+    "sfl-pr-label-actions.yml"
 )
 
 $wfSummary = @()

@@ -257,7 +257,35 @@ If the Analyzer C marker for cycle N exists but the Router marker for cycle N do
 Only flag each PR once. If its body already contains the exact string
 `Analyzer C completed for current cycle` then skip it.
 
-## Step 11 — Check: unexplained agent:pause
+## Step 11 — Check: invalid supersede narrative on open agent PRs
+
+For each open agent PR in list B, check the PR body for either of these
+strings:
+
+- `Supersedes #`
+- `push_to_pull_request_branch failed`
+
+These strings indicate an invalid replacement-PR narrative for the active SFL
+model. Follow-up implementation passes must update the existing draft PR in
+place or fail visibly. The Auditor cannot verify run-log evidence for a prior
+push attempt, so any open PR that advertises itself as a superseding fallback
+is itself a discrepancy that must be surfaced.
+
+If either string is present in the PR body:
+
+1. Resolve the linked issue number for that PR.
+2. Call `update_issue` with ALL of these fields in a **single call**:
+   - `issue_number`: the linked issue number
+   - `labels`: the issue's current labels with `agent:in-progress` removed and
+     `agent:pause` added (keep all other existing labels unchanged)
+   - `body`: "⚠️ **SFL Auditor**: PR #<pr-number> contains a superseding replacement-PR narrative (`Supersedes #...` or `push_to_pull_request_branch failed`). Follow-up implementation must update the existing draft PR in place or fail visibly; replacement PRs are an SFL discrepancy. Investigate the originating run artifacts before resuming automation."
+   - `operation`: `"append"`
+
+Only flag each issue once for this condition. If the issue body already
+contains the exact string `contains a superseding replacement-PR narrative`,
+skip it.
+
+## Step 12 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that
 issue contains the words "pause" or "paused" or "agent:pause".
@@ -269,9 +297,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 12 — Signal completion
+## Step 13 — Signal completion
 
-After completing all checks (Steps 2–11), you MUST always call exactly one of:
+After completing all checks (Steps 2–12), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - Update the dashboard (see Dashboard Protocol) — if ALL checks

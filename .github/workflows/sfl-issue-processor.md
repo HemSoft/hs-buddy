@@ -288,6 +288,7 @@ Valid vs invalid outcomes for this step:
 | New issue with no existing draft PR → `create_pull_request` | ✅ | correct first PR creation |
 | Follow-up pass for existing draft PR → `push_to_pull_request_branch` | ✅ | correct in-place continuation |
 | Follow-up pass cannot push to existing PR branch → report failure and exit | ✅ | visible hard failure |
+| Follow-up pass claims a push failure without an actual `push_to_pull_request_branch` attempt in this run | ❌ | invented failure narrative |
 | Follow-up pass creates a second/superseding PR for the same issue | ❌ | split-brain pipeline bug |
 
 Never create a second draft PR for an issue that already has an open draft
@@ -337,6 +338,17 @@ Instead:
 2. Call `add_labels` to add `agent:pause` to the linked issue.
 3. Call `update_issue` on the PR or issue with a short failure note if needed.
 4. Exit cleanly.
+
+Failure-reporting requirements for this path:
+
+- Only describe `push_to_pull_request_branch` as failed if this same run
+  actually called that safe output and received a concrete failure.
+- Quote the real failure reason from the tool response as precisely as possible.
+- Never claim a git auth, CI, permission, or branch-update limitation unless
+  that exact limitation was returned by the tool.
+- If no `push_to_pull_request_branch` attempt occurred in this run, do NOT
+  mention a push failure at all. Report the real discrepancy you observed
+  instead, such as invalid state selection or missing targeted PR evidence.
 
 Then increment the cycle label:
 
@@ -389,6 +401,7 @@ This is mandatory — every run must log exactly one entry.
 - Never force-push, amend commits, or modify files outside the Fix scope
 - Never run `git push` directly — always use `create_pull_request` or `push_to_pull_request_branch`
 - Never create a superseding PR for a follow-up implementation pass
+- Never write a supersede or push-failure narrative unless this run actually attempted `push_to_pull_request_branch` and you can cite the returned failure
 - Treat blank targeted PR input or one-issue-two-PR state as a hard failure that must be surfaced
 - If any step fails unexpectedly: call `add_labels` with `agent:pause` and
   `remove_labels` with `agent:in-progress` when appropriate, then call `update_issue`

@@ -52,7 +52,7 @@ $results += [PSCustomObject]@{
 
 # --- Check 3: Issue-PR Harmony ---
 $issues = gh issue list --repo $Repo --state open --json number,title,labels 2>&1 | ConvertFrom-Json
-$prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,labels 2>&1 | ConvertFrom-Json
+$prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,labels,updatedAt 2>&1 | ConvertFrom-Json
 
 $harmonyFails = @()
 $agentIssuePrMap = @{}
@@ -116,6 +116,49 @@ foreach ($pr in $agentPRs) {
     $legacyCount = ([regex]::Matches($body, '<!-- pr-(analyzer|fixer|promoter)')).Count
     if ($legacyCount -gt 0) {
         $markerIssues += "PR #$($pr.number) has $legacyCount legacy markers"
+    }
+
+    $cycleLabels = @($prDetail.labels | ForEach-Object { $_.name } | Where-Object { $_ -match '^pr:cycle-\d+$' })
+    $currentCycle = if ($cycleLabels.Count -gt 0) {
+        ($cycleLabels | ForEach-Object { [int]($_ -replace '^pr:cycle-', '') } | Measure-Object -Maximum).Maximum
+    } else {
+        0
+    }
+
+    $markerA = "[MARKER:sfl-analyzer-a cycle:$($currentCycle)]"
+    $markerB = "[MARKER:sfl-analyzer-b cycle:$($currentCycle)]"
+    $markerC = "[MARKER:sfl-analyzer-c cycle:$($currentCycle)]"
+    $routerMarker = "[MARKER:sfl-pr-router cycle:$($currentCycle)]"
+
+    $hasA = $body.Contains($markerA)
+    $hasB = $body.Contains($markerB)
+    $hasC = $body.Contains($markerC)
+    $hasRouter = $body.Contains($routerMarker)
+
+    if ($hasB -and -not $hasA) {
+        $markerIssues += "PR #$($pr.number) has Analyzer B marker without Analyzer A marker for cycle $($currentCycle)"
+    }
+    if ($hasC -and -not $hasB) {
+        $markerIssues += "PR #$($pr.number) has Analyzer C marker without Analyzer B marker for cycle $($currentCycle)"
+    }
+    if ($hasRouter -and -not $hasC) {
+        $markerIssues += "PR #$($pr.number) has PR Router marker without Analyzer C marker for cycle $($currentCycle)"
+    }
+
+    $updatedAt = [DateTimeOffset]::Parse($pr.updatedAt)
+    $ageMinutes = [math]::Round(([DateTimeOffset]::UtcNow - $updatedAt.ToUniversalTime()).TotalMinutes, 1)
+    $stuckThresholdMinutes = 15
+
+    if ($ageMinutes -ge $stuckThresholdMinutes) {
+        if ($hasA -and -not $hasB) {
+            $markerIssues += "PR #$($pr.number) is stuck after Analyzer A for $ageMinutes minute(s) in cycle $($currentCycle) (missing Analyzer B marker)"
+        }
+        if ($hasB -and -not $hasC) {
+            $markerIssues += "PR #$($pr.number) is stuck after Analyzer B for $ageMinutes minute(s) in cycle $($currentCycle) (missing Analyzer C marker)"
+        }
+        if ($hasC -and -not $hasRouter) {
+            $markerIssues += "PR #$($pr.number) is stuck after Analyzer C for $ageMinutes minute(s) in cycle $($currentCycle) (missing PR Router marker)"
+        }
     }
 }
 

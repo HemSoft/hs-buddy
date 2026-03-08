@@ -176,7 +176,21 @@ If no existing draft PR needs follow-up work, search for open issues with label
 - `agent:pause`
 - `agent:human-required`
 
-Sort by creation date ascending. Take the **single oldest** result.
+Sort by creation date ascending. Evaluate candidates in that order.
+
+For each candidate issue:
+
+1. Search for open draft PRs labeled `agent:pr` that already belong to that
+  issue (for example via branch naming `agent-fix/issue-<issue-number>-...`
+  or `Closes #<issue-number>` in the PR body).
+2. If more than one open draft `agent:pr` PR already exists for that issue,
+  report the duplicate-PR failure and exit.
+3. If exactly one open draft `agent:pr` PR already exists for that issue, do
+  NOT treat the issue as new work and do NOT create another PR. Report that the
+  new-issue path observed existing draft PR state for the issue, pause if
+  needed, and exit so the state-selection bug is visible.
+4. Only select the first candidate issue with **zero** open draft `agent:pr`
+  PRs.
 
 If no PR candidate and no issue candidate exist, exit — nothing to do.
 
@@ -297,6 +311,12 @@ If the existing PR branch cannot be updated, fail loudly and leave the live
 state unchanged.
 
 ### 6a — No PR exists yet
+
+Before calling `create_pull_request`, re-check the linked issue. If the issue
+already has any open draft `agent:pr` PR, stop immediately and report the
+failure instead of creating another PR. This is a defense-in-depth guardrail:
+the create-PR path is valid only when the linked issue has zero open draft
+agent PRs at the moment of creation.
 
 Call the `create_pull_request` safe output tool. This is the ONLY way to
 create the initial PR — it handles pushing the branch and opening the PR in

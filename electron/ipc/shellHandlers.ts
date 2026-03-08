@@ -1,8 +1,5 @@
 import { ipcMain, shell } from 'electron'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const execAsync = promisify(exec)
+import { execAsync, getErrorMessage } from '../utils'
 
 export function registerShellHandlers(): void {
   // Open external links in default browser
@@ -11,7 +8,7 @@ export function registerShellHandlers(): void {
       await shell.openExternal(url)
       return { success: true }
     } catch (error: unknown) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
+      return { success: false, error: getErrorMessage(error) }
     }
   })
 

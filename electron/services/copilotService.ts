@@ -12,8 +12,6 @@
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import {
   ensureClientStarted,
   sendPrompt,
@@ -21,12 +19,11 @@ import {
   DEFAULT_MODEL,
 } from './copilotClient'
 import { CONVEX_URL } from '../config'
-
-const execAsync = promisify(exec)
+import { execAsync, getErrorMessage } from '../utils'
 
 const HARD_TIMEOUT = 30 * 60_000 // 30 minutes — PR reviews can be lengthy
 
-export interface CopilotPromptRequest {
+interface CopilotPromptRequest {
   prompt: string
   category?: string       // "pr-review", "general", etc.
   metadata?: unknown      // Arbitrary metadata (e.g., PR info)
@@ -49,7 +46,7 @@ interface PRReviewMetadata {
   }
 }
 
-export interface CopilotPromptResult {
+interface CopilotPromptResult {
   resultId: string        // Convex document ID
   success: boolean
   error?: string
@@ -139,7 +136,7 @@ class CopilotService {
       this.currentGhAccount = ghAccount
       console.log(`[CopilotService] ✓ SDK client restarted for account: ${ghAccount}`)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err)
+      const errorMessage = getErrorMessage(err)
       console.error(`[CopilotService] ✗ Failed to switch account to ${ghAccount}:`, errorMessage)
       // Continue anyway — the active account will be used
     }
@@ -263,7 +260,7 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
 
       console.log(`[CopilotService] ✓ Completed prompt (${resultText.length} chars)`)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err)
+      const errorMessage = getErrorMessage(err)
       console.error(`[CopilotService] ✗ Failed:`, errorMessage)
 
       await this.convex.mutation(api.copilotResults.fail, {

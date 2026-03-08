@@ -23,7 +23,7 @@ const workers: Record<string, Worker> = {
   skill: skillWorker,
 }
 
-export class Dispatcher {
+class Dispatcher {
   private client: ConvexHttpClient
   private timer: ReturnType<typeof setInterval> | null = null
   private processing = false

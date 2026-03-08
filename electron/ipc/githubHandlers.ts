@@ -1,12 +1,5 @@
 import { ipcMain } from 'electron'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const execAsync = promisify(exec)
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
+import { execAsync, getErrorMessage } from '../utils'
 
 function isNotFoundError(error: unknown): boolean {
   const message = getErrorMessage(error)

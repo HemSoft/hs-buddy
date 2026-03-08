@@ -25,7 +25,7 @@ const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
  * Resolve the path to the native Copilot CLI binary.
  * Checks local node_modules first, falls back to global PATH.
  */
-export function resolveCopilotCliPath(): string {
+function resolveCopilotCliPath(): string {
   const platform = process.platform === 'win32' ? 'win32' : process.platform
   const arch = process.arch
   const binaryName = platform === 'win32' ? 'copilot.exe' : 'copilot'
@@ -150,7 +150,7 @@ function extractContent(response: AssistantMessageEvent | undefined): string {
     : JSON.stringify(response.data.content)
 }
 
-export interface SendPromptOptions {
+interface SendPromptOptions {
   prompt: string
   model?: string
   timeout?: number       // ms, for sendAndWait
@@ -214,7 +214,7 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
 
 let chatAbortController: AbortController | null = null
 
-export interface ChatRequest {
+interface ChatRequest {
   message: string
   context: string
   conversationHistory: Array<{ role: string; content: string }>

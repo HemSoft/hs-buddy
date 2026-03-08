@@ -7,4 +7,3 @@
 
 export { getDispatcher } from './dispatcher'
 export { runOfflineSync } from './offlineSync'
-export type { Worker, WorkerResult, JobConfig } from './types'

@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { getCopilotService } from '../services/copilotService'
 import { sendChatMessage, abortChat } from '../services/copilotClient'
+import { getErrorMessage } from '../utils'
 
 /**
  * IPC handlers for Copilot SDK integration.
@@ -22,7 +23,7 @@ export function registerCopilotHandlers(): void {
         })
         return result
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorMessage = getErrorMessage(error)
         console.error('[CopilotHandlers] Execute failed:', errorMessage)
         return { resultId: null, success: false, error: errorMessage }
       }
@@ -53,7 +54,7 @@ export function registerCopilotHandlers(): void {
       const service = getCopilotService()
       return await service.listModels(ghAccount)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage = getErrorMessage(error)
       console.error('[CopilotHandlers] listModels failed:', errorMessage)
       return { error: errorMessage }
     }
@@ -66,7 +67,7 @@ export function registerCopilotHandlers(): void {
       try {
         return await sendChatMessage(args)
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorMessage = getErrorMessage(error)
         console.error('[CopilotHandlers] chat-send failed:', errorMessage)
         throw new Error(errorMessage)
       }

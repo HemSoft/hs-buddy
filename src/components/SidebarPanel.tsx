@@ -9,6 +9,7 @@ import {
 import { useState, useEffect, useCallback } from 'react'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
+import { CrewSidebar } from './crew/CrewSidebar'
 import { useJobs, useSchedules } from '../hooks/useConvex'
 import { AutomationSidebarSection } from './sidebar-panel/AutomationSidebarSection'
 import './SidebarPanel.css'
@@ -67,6 +68,7 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
       { id: 'settings-advanced', label: 'Advanced' },
     ],
   },
+  crew: { title: 'The Crew', items: [] },
   copilot: { title: 'Copilot', items: [] },
 }
 
@@ -118,6 +120,10 @@ export function SidebarPanel({
         badgeProgress={badgeProgress}
       />
     )
+  }
+
+  if (section === 'crew') {
+    return <CrewSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
   }
 
   if (section === 'copilot') {

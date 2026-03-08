@@ -36,6 +36,23 @@ contextBridge.exposeInMainWorld('github', {
     ipcRenderer.invoke('github:get-copilot-budget', org, username),
 })
 
+contextBridge.exposeInMainWorld('crew', {
+  addProject: () => ipcRenderer.invoke('crew:add-project'),
+  listProjects: () => ipcRenderer.invoke('crew:list-projects'),
+  removeProject: (projectId: string) => ipcRenderer.invoke('crew:remove-project', projectId),
+  getSession: (projectId: string) => ipcRenderer.invoke('crew:get-session', projectId),
+  createSession: (projectId: string) => ipcRenderer.invoke('crew:create-session', projectId),
+  addMessage: (projectId: string, message: { role: string; content: string; timestamp: number }) =>
+    ipcRenderer.invoke('crew:add-message', projectId, message),
+  updateSessionStatus: (projectId: string, status: string) =>
+    ipcRenderer.invoke('crew:update-session-status', projectId, status),
+  updateChangedFiles: (projectId: string, files: unknown[]) =>
+    ipcRenderer.invoke('crew:update-changed-files', projectId, files),
+  clearSession: (projectId: string) => ipcRenderer.invoke('crew:clear-session', projectId),
+  undoFile: (projectId: string, filePath: string) =>
+    ipcRenderer.invoke('crew:undo-file', projectId, filePath),
+})
+
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
     ipcRenderer.invoke('copilot:execute', args),

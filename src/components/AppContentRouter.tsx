@@ -18,6 +18,7 @@ import { CopilotResultsList } from './CopilotResultsList'
 import { PRReviewPanel } from './PRReviewPanel'
 import type { PRReviewInfo } from './PRReviewPanel'
 import { CopilotUsagePanel } from './CopilotUsagePanel'
+import { CrewProjectView } from './crew/CrewProjectView'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
 
@@ -88,6 +89,10 @@ export function AppContentRouter({
     case 'copilot-usage':
       return <CopilotUsagePanel />
     default:
+      if (activeViewId.startsWith('crew-project:')) {
+        const projectId = activeViewId.replace('crew-project:', '')
+        return <CrewProjectView projectId={projectId} />
+      }
       if (activeViewId.startsWith('schedule-detail:')) {
         const scheduleId = activeViewId.replace('schedule-detail:', '')
         return <ScheduleDetailPanel scheduleId={scheduleId} />

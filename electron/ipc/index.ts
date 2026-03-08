@@ -5,6 +5,7 @@ import { registerGitHubHandlers } from './githubHandlers'
 import { registerWindowHandlers } from './windowHandlers'
 import { registerShellHandlers } from './shellHandlers'
 import { registerCopilotHandlers } from './copilotHandlers'
+import { registerCrewHandlers } from './crewHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
   registerConfigHandlers()
@@ -13,4 +14,5 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerWindowHandlers(win)
   registerShellHandlers()
   registerCopilotHandlers()
+  registerCrewHandlers()
 }

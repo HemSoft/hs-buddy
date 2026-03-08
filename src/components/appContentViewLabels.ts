@@ -21,12 +21,16 @@ export const viewLabels: Record<string, string> = {
   'settings-advanced': 'Advanced',
   'automation-schedules': 'Schedules',
   'automation-runs': 'Runs',
+  'crew-projects': 'The Crew',
   'copilot-prompt': 'Copilot Prompt',
   'copilot-all-results': 'Copilot Results',
   'copilot-usage': 'Copilot Usage',
 }
 
 export function getViewLabel(viewId: string): string {
+  if (viewId.startsWith('crew-project:')) {
+    return 'Project Session'
+  }
   if (viewId.startsWith('repo-detail:')) {
     const repoSlug = viewId.replace('repo-detail:', '')
     const repoName = repoSlug.split('/').pop() || repoSlug

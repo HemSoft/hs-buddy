@@ -1073,8 +1073,6 @@ jobs:
         with:
           name: prompt
           path: /tmp/gh-aw/aw-prompts
-      - name: Clean git credentials
-        run: bash /opt/gh-aw/actions/clean_git_credentials.sh
       - name: Execute GitHub Copilot CLI
         id: agentic_execution
         # Copilot CLI tool arguments (sorted):
@@ -1138,6 +1136,9 @@ jobs:
           GATEWAY_PID: ${{ steps.start-mcp-gateway.outputs.gateway-pid }}
         run: |
           bash /opt/gh-aw/actions/stop_mcp_gateway.sh "$GATEWAY_PID"
+      - name: Clean git credentials
+        if: always()
+        run: bash /opt/gh-aw/actions/clean_git_credentials.sh
       - name: Redact secrets in logs
         if: always()
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8

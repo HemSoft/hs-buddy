@@ -80,6 +80,8 @@ the last 7 days. For each, extract the issue number the same way as list B.
 For each issue in list A, check whether list B contains a PR whose extracted
 issue number matches this issue's number.
 
+Count the matches exactly — do not treat "one or more" as automatically healthy.
+
 If NO matching open PR exists for an in-progress issue:
 
 1. Call `update_issue` with ALL of these fields in a **single call**:
@@ -91,6 +93,19 @@ If NO matching open PR exists for an in-progress issue:
 
 **IMPORTANT**: Labels and body MUST be in the same `update_issue` call.
 Splitting them into two calls causes label changes to be silently dropped.
+
+If MORE THAN ONE matching open PR exists for an in-progress issue, this is a
+split-brain pipeline failure.
+
+1. Call `update_issue` with ALL of these fields in a **single call**:
+   - `issue_number`: the issue number
+   - `labels`: the issue's current labels with `agent:in-progress` removed and
+     `agent:pause` added (keep all other existing labels unchanged)
+   - `body`: "⚠️ **SFL Auditor**: Multiple open agent PRs were found for this issue. This violates the one-issue-one-PR invariant, so the issue is being paused for human cleanup. Investigate duplicate draft PRs before resuming automation."
+   - `operation`: `"append"`
+
+This is not a warning-only condition. It is a discrepancy that must be surfaced
+and paused.
 
 ## Step 3 — Check: conflicting labels
 
@@ -264,6 +279,15 @@ After completing all checks (Steps 2–11), you MUST always call exactly one of:
 
 Never finish the run without calling at least one safe output. A run with zero
 safe outputs is treated as a failure.
+
+Examples:
+
+| Observed state | Valid result |
+|---|---|
+| In-progress issue with zero matching PRs | reset to `agent:fixable` |
+| In-progress issue with exactly one matching PR | no discrepancy from Step 2 |
+| In-progress issue with two or more matching PRs | pause the issue and append split-brain explanation |
+| Stale draft PR already flagged for missing markers | skip duplicate warning |
 
 ## Activity Log
 

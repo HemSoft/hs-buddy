@@ -49,6 +49,11 @@ This document is the standing source of truth for SFL incidents, degraded live s
 
 The hot path is not actually single-path yet. When `push_to_pull_request_branch` fails, the implementer can still fork the live state into a new PR. That reintroduces the exact branch/PR ambiguity the simplified model was supposed to remove.
 
+Live proof from Issue `#128` and PR `#131`:
+
+- The Issue Processor comment explicitly said it opened a new draft PR to supersede `#129`.
+- PR `#131` body explicitly says it superseded `#129` because pushing to the existing PR branch failed due to CI git auth limitations.
+
 ### 2. Targeted handoff is not invariant enough
 
 Analyzer sequencing must be tied to one explicit PR number and one explicit branch throughout a cycle. Recent live evidence showed the chain could still drift, leaving the newest PR partially analyzed while older PR state remained in play.
@@ -60,6 +65,16 @@ If the scripts say duplicate PRs are healthy, the operator gets bad feedback and
 ### 4. Status discussions are too optimistic
 
 The generated status and audit discussions are useful inputs, but they are not trustworthy enough to substitute for PR markers, issue comments, branch-level workflow timelines, and explicit harmony checks.
+
+### 5. Auditor logic was checking existence, not uniqueness
+
+The live Auditor run after the hardening push still passed because its orphan check only verified that an `agent:in-progress` issue had at least one matching open PR. It did not treat multiple matching PRs as a discrepancy.
+
+Live proof from manual Auditor run `22810429594`:
+
+- It recorded that Issue `#128` had open PRs `#129` and `#131`.
+- It still concluded `All checks passed`.
+- It only posted to Discussion `#95` and did not repair or pause the issue.
 
 ## Desired Deterministic Flow
 
@@ -115,3 +130,26 @@ When resuming SFL debugging:
 - 2026-03-07 18:28 local: Added this tracker and corrected snapshot, timeline, and PR forensics so duplicate PR state is surfaced as failure.
 - 2026-03-07 18:31 local: Confirmed `health-check.ps1` still reported issue/PR harmony as clean even during the split-brain incident.
 - 2026-03-07 18:32 local: Began hardening targeted handoff rules so blank PR inputs and one-issue-two-PR state are treated as explicit workflow failures.
+- 2026-03-07 19:34 local: Confirmed manual Auditor run `22810429594` still passed split-brain state because its orphan check used existence semantics instead of uniqueness semantics.
+
+## Agentic Model Audit
+
+This is the current workflow-model inventory as observed in prompt files, compiled lockfiles, and `sfl.json`.
+
+| Workflow | Type | Model status | Evidence |
+|---|---|---|---|
+| `sfl-auditor` | Agentic | pinned to `claude-sonnet-4.6` | prompt + lockfile |
+| `sfl-issue-processor` | Agentic | pinned to `claude-opus-4.6` | prompt + lockfile |
+| `sfl-analyzer-a` | Agentic | pinned to `claude-sonnet-4.6` | prompt + lockfile |
+| `sfl-analyzer-b` | Agentic | pinned to `claude-opus-4.5` | prompt + lockfile + `sfl.json` |
+| `sfl-analyzer-c` | Agentic | pinned to `gpt-5.3-codex` | prompt + lockfile + `sfl.json` |
+| `simplisticate-audit` | Agentic | pinned to `claude-opus-4.6` | prompt + lockfile |
+| `discussion-processor` | Agentic | not explicitly pinned in prompt | compiled lock uses `${{ steps.generate_aw_info.outputs.model }}` and `GH_AW_MODEL_AGENT_COPILOT` fallback |
+| `repo-audit` | Agentic | not explicitly pinned in prompt | compiled lock uses `${{ steps.generate_aw_info.outputs.model }}` and `GH_AW_MODEL_AGENT_COPILOT` fallback |
+| `daily-repo-status` | Agentic | not explicitly pinned in prompt | compiled lock uses `${{ steps.generate_aw_info.outputs.model }}` and `GH_AW_MODEL_AGENT_COPILOT` fallback |
+
+Audit conclusion:
+
+1. The hot-path SFL workflows are pinned.
+2. Three report-style agentic workflows are not explicitly pinned in their prompt sources.
+3. Those unpinned workflows should be treated as governance drift until they are assigned explicit models and, if appropriate, recorded in `sfl.json`.

@@ -9,9 +9,18 @@ import {
   GitPullRequest,
   Loader2,
   Filter,
+  Activity,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  Circle,
+  MinusCircle,
 } from 'lucide-react'
 import type { OrgRepo, RepoCounts } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
+import type { SFLRepoStatus, SFLOverallStatus } from '../../../types/sflStatus'
+import { SFL_STATUS_LABELS } from '../../../types/sflStatus'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import type { PRDetailSection } from '../../../utils/prDetailView'
 import { dataCache } from '../../../services/dataCache'
@@ -33,6 +42,9 @@ interface OrgRepoTreeProps {
   repoCounts: Record<string, RepoCounts>
   loadingRepoCounts: Set<string>
   repoPrTreeData: Record<string, PullRequest[]>
+  sflStatusData: Record<string, SFLRepoStatus>
+  loadingSFLStatus: Set<string>
+  expandedSFLGroups: Set<string>
   bookmarkedRepoKeys: Set<string>
   showBookmarkedOnly: boolean
   selectedItem: string | null
@@ -40,6 +52,7 @@ interface OrgRepoTreeProps {
   onToggleOrg: (org: string) => void
   onToggleRepo: (org: string, repoName: string) => void
   onToggleRepoPRGroup: (org: string, repoName: string) => void
+  onToggleSFLGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
@@ -64,6 +77,29 @@ function formatUpdatedAge(fetchedAt: number): string {
   return `updated ${elapsedHours}h ago`
 }
 
+function sflOverallStatusIcon(status: SFLOverallStatus) {
+  switch (status) {
+    case 'healthy': return <CheckCircle2 size={12} className="sfl-status-icon sfl-status-success" />
+    case 'active-work': return <Clock size={12} className="sfl-status-icon sfl-status-info" />
+    case 'blocked': return <AlertTriangle size={12} className="sfl-status-icon sfl-status-warning" />
+    case 'ready-for-review': return <CircleDot size={12} className="sfl-status-icon sfl-status-info" />
+    case 'recent-failure': return <XCircle size={12} className="sfl-status-icon sfl-status-error" />
+    default: return <Circle size={12} className="sfl-status-icon sfl-status-muted" />
+  }
+}
+
+function sflWorkflowStateIcon(state: string, conclusion: string | null) {
+  if (state !== 'active') return <MinusCircle size={11} className="sfl-status-icon sfl-status-muted" title="Disabled" />
+  if (!conclusion) return <Circle size={11} className="sfl-status-icon sfl-status-muted" title="No runs" />
+  switch (conclusion) {
+    case 'success': return <CheckCircle2 size={11} className="sfl-status-icon sfl-status-success" title="Success" />
+    case 'failure':
+    case 'timed_out': return <XCircle size={11} className="sfl-status-icon sfl-status-error" title="Failed" />
+    case 'skipped': return <MinusCircle size={11} className="sfl-status-icon sfl-status-muted" title="Skipped" />
+    default: return <Clock size={11} className="sfl-status-icon sfl-status-info" title={conclusion} />
+  }
+}
+
 export function OrgRepoTree({
   uniqueOrgs,
   orgRepos,
@@ -76,6 +112,9 @@ export function OrgRepoTree({
   repoCounts,
   loadingRepoCounts,
   repoPrTreeData,
+  sflStatusData,
+  loadingSFLStatus,
+  expandedSFLGroups,
   bookmarkedRepoKeys,
   showBookmarkedOnly,
   selectedItem,
@@ -83,6 +122,7 @@ export function OrgRepoTree({
   onToggleOrg,
   onToggleRepo,
   onToggleRepoPRGroup,
+  onToggleSFLGroup,
   onTogglePRNode,
   onItemSelect,
   onContextMenu,
@@ -273,6 +313,75 @@ export function OrgRepoTree({
                                     </div>
                                   </div>
                                 )}
+                                {/* SFL Loop node */}
+                                {(() => {
+                                  const sflStatus = sflStatusData[repoKey]
+                                  const isSFLLoading = loadingSFLStatus.has(repoKey)
+                                  const isSFLExpanded = expandedSFLGroups.has(repoKey)
+                                  if (!sflStatus || !sflStatus.isSFLEnabled) {
+                                    if (isSFLLoading) {
+                                      return (
+                                        <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
+                                          <span className="sidebar-item-icon"><Activity size={12} /></span>
+                                          <span className="sidebar-item-label">SFL Loop</span>
+                                          <Loader2 size={10} className="spin" />
+                                        </div>
+                                      )
+                                    }
+                                    return null
+                                  }
+                                  return (
+                                    <>
+                                      <div
+                                        className="sidebar-item sidebar-item-disclosure sidebar-repo-child"
+                                        onClick={() => onToggleSFLGroup(org, repo.name)}
+                                      >
+                                        <span className="sidebar-item-chevron" onClick={e => { e.stopPropagation(); onToggleSFLGroup(org, repo.name) }}>
+                                          {isSFLExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                        </span>
+                                        <span className="sidebar-item-icon"><Activity size={12} /></span>
+                                        <span className="sidebar-item-label">SFL Loop</span>
+                                        {isSFLLoading && <Loader2 size={10} className="spin" />}
+                                        {sflStatus?.isSFLEnabled && !isSFLLoading && (
+                                          <span className="sidebar-sfl-status-badge" title={SFL_STATUS_LABELS[sflStatus.overallStatus]}>
+                                            {sflOverallStatusIcon(sflStatus.overallStatus)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {isSFLExpanded && sflStatus?.isSFLEnabled && (
+                                        <div className="sidebar-job-tree sidebar-sfl-tree">
+                                          <div className="sidebar-job-items">
+                                            <div className="sidebar-item sidebar-sfl-summary">
+                                              {sflOverallStatusIcon(sflStatus.overallStatus)}
+                                              <span className="sidebar-item-label">{SFL_STATUS_LABELS[sflStatus.overallStatus]}</span>
+                                              <span className="sidebar-item-count">{sflStatus.workflows.length}</span>
+                                            </div>
+                                            {sflStatus.workflows.map(wf => (
+                                              <div
+                                                key={wf.id}
+                                                className="sidebar-item sidebar-sfl-workflow"
+                                                title={`${wf.name} — ${wf.state === 'active' ? 'enabled' : 'disabled'}${wf.latestRun ? `, last: ${wf.latestRun.conclusion || wf.latestRun.status}` : ''}`}
+                                              >
+                                                {sflWorkflowStateIcon(wf.state, wf.latestRun?.conclusion ?? null)}
+                                                <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
+                                                {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {isSFLExpanded && !sflStatus?.isSFLEnabled && !isSFLLoading && (
+                                        <div className="sidebar-job-tree sidebar-sfl-tree">
+                                          <div className="sidebar-job-items">
+                                            <div className="sidebar-item sidebar-sfl-summary">
+                                              <span className="sidebar-item-label">No SFL workflows detected</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  )
+                                })()}
                               </div>
                             )}
                           </div>

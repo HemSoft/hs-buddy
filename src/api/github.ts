@@ -3,6 +3,7 @@ import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
 import { graphql } from '@octokit/graphql'
 import type { PullRequest, PRConfig } from '../types/pullRequest'
+import { type SFLRepoStatus, type SFLWorkflowInfo, SFL_CORE_WORKFLOW_FRAGMENTS, deriveSFLOverallStatus } from '../types/sflStatus'
 
 // Repository info type for org repo listing
 export interface OrgRepo {
@@ -1809,6 +1810,67 @@ export class GitHubClient {
     } catch (error) {
       console.debug(`Failed to fetch review thread stats for ${owner}/${repo}#${pullNumber}:`, error)
       return null
+    }
+  }
+
+  /**
+   * Detect SFL workflows and fetch their latest run status for a repository.
+   * Returns an SFLRepoStatus indicating whether SFL is enabled and per-workflow health.
+   */
+  async fetchSFLStatus(owner: string, repo: string): Promise<SFLRepoStatus> {
+    const octokit = await this.getOctokitForOwner(owner)
+
+    const workflowsResponse = await octokit.actions.listRepoWorkflows({
+      owner,
+      repo,
+      per_page: 100,
+    })
+
+    const allWorkflows = workflowsResponse.data.workflows
+    const sflWorkflows = allWorkflows.filter(w =>
+      SFL_CORE_WORKFLOW_FRAGMENTS.some(fragment =>
+        w.name.toLowerCase().includes(fragment)
+      )
+    )
+
+    if (sflWorkflows.length === 0) {
+      return { isSFLEnabled: false, overallStatus: 'unknown', workflows: [] }
+    }
+
+    // Fetch latest run for each SFL workflow in parallel
+    const workflowInfos: SFLWorkflowInfo[] = await Promise.all(
+      sflWorkflows.map(async (w): Promise<SFLWorkflowInfo> => {
+        try {
+          const runsResponse = await octokit.actions.listWorkflowRuns({
+            owner,
+            repo,
+            workflow_id: w.id,
+            per_page: 1,
+          })
+          const latestRun = runsResponse.data.workflow_runs[0] ?? null
+          return {
+            id: w.id,
+            name: w.name,
+            state: w.state,
+            latestRun: latestRun
+              ? {
+                  status: latestRun.status ?? 'unknown',
+                  conclusion: latestRun.conclusion ?? null,
+                  createdAt: latestRun.created_at,
+                  url: latestRun.html_url,
+                }
+              : null,
+          }
+        } catch {
+          return { id: w.id, name: w.name, state: w.state, latestRun: null }
+        }
+      })
+    )
+
+    return {
+      isSFLEnabled: true,
+      overallStatus: deriveSFLOverallStatus(workflowInfos),
+      workflows: workflowInfos,
     }
   }
 }

@@ -16,6 +16,7 @@ import {
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
 import type { PullRequest } from '../../../types/pullRequest'
+import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { MS_PER_MINUTE } from '../../../constants'
 
 export interface SidebarItem {
@@ -94,6 +95,10 @@ export function useGitHubSidebarData() {
   const [refreshTick, setRefreshTick] = useState(() => Date.now())
   const [repoPrTreeData, setRepoPrTreeData] = useState<Record<string, PullRequest[]>>({})
   const fetchedRepoPRsRef = useRef<Set<string>>(new Set())
+  const [sflStatusData, setSflStatusData] = useState<Record<string, SFLRepoStatus>>({})
+  const [loadingSFLStatus, setLoadingSFLStatus] = useState<Set<string>>(new Set())
+  const [expandedSFLGroups, setExpandedSFLGroups] = useState<Set<string>>(new Set())
+  const fetchedSFLRef = useRef<Set<string>>(new Set())
   const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(() => ({
     'pr-my-prs': dataCache.get<PullRequest[]>('my-prs')?.data || [],
     'pr-needs-review': dataCache.get<PullRequest[]>('needs-review')?.data || [],
@@ -168,6 +173,14 @@ export function useGitHubSidebarData() {
           ...prev,
           [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
         }))
+        return
+      }
+      if (key.startsWith('sfl-status:')) {
+        const repoKey = key.replace('sfl-status:', '')
+        const updated = dataCache.get<SFLRepoStatus>(key)
+        if (updated?.data) {
+          setSflStatusData(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
       }
     })
     return unsubscribe
@@ -359,10 +372,48 @@ export function useGitHubSidebarData() {
     [accounts]
   )
 
+  const fetchSFLStatusForRepo = useCallback(
+    async (org: string, repoName: string, isRefresh = false) => {
+      const key = `${org}/${repoName}`
+      const cacheKey = `sfl-status:${key}`
+      if (!isRefresh) {
+        const cached = dataCache.get<SFLRepoStatus>(cacheKey)
+        if (cached?.data) {
+          setSflStatusData(prev => ({ ...prev, [key]: cached.data }))
+          return
+        }
+      }
+      setLoadingSFLStatus(prev => new Set([...prev, key]))
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchSFLStatus(org, repoName)
+          },
+          { name: `sfl-status-${key}`, priority: -1 }
+        )
+        setSflStatusData(prev => ({ ...prev, [key]: result }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.warn(`[SFLStatus] ${key} failed:`, error)
+      } finally {
+        setLoadingSFLStatus(prev => {
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
+      }
+    },
+    [accounts]
+  )
+
   const toggleRepo = useCallback(
     (org: string, repoName: string) => {
       const key = `${org}/${repoName}`
-      const shouldFetch = !fetchedCountsRef.current.has(key)
+      const shouldFetchCounts = !fetchedCountsRef.current.has(key)
+      const shouldFetchSFL = !fetchedSFLRef.current.has(key)
       setExpandedRepos(prev => {
         const next = new Set(prev)
         if (next.has(key)) {
@@ -372,12 +423,16 @@ export function useGitHubSidebarData() {
         }
         return next
       })
-      if (shouldFetch) {
+      if (shouldFetchCounts) {
         fetchedCountsRef.current.add(key)
         fetchRepoCountsForRepo(org, repoName)
       }
+      if (shouldFetchSFL) {
+        fetchedSFLRef.current.add(key)
+        fetchSFLStatusForRepo(org, repoName)
+      }
     },
-    [fetchRepoCountsForRepo]
+    [fetchRepoCountsForRepo, fetchSFLStatusForRepo]
   )
 
   const fetchRepoPRsForRepo = useCallback(
@@ -444,6 +499,27 @@ export function useGitHubSidebarData() {
     [fetchRepoPRsForRepo]
   )
 
+  const toggleSFLGroup = useCallback(
+    (org: string, repoName: string) => {
+      const key = `${org}/${repoName}`
+      const shouldFetch = !fetchedSFLRef.current.has(key)
+      setExpandedSFLGroups(prev => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
+      })
+      if (shouldFetch) {
+        fetchedSFLRef.current.add(key)
+        fetchSFLStatusForRepo(org, repoName)
+      }
+    },
+    [fetchSFLStatusForRepo]
+  )
+
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
@@ -459,6 +535,22 @@ export function useGitHubSidebarData() {
     }, intervalMs)
     return () => clearInterval(intervalId)
   }, [accounts.length, fetchRepoPRsForRepo, refreshInterval])
+
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
+    const intervalMs = refreshInterval * MS_PER_MINUTE
+    const intervalId = setInterval(() => {
+      for (const key of fetchedSFLRef.current) {
+        const cacheKey = `sfl-status:${key}`
+        if (dataCache.isFresh(cacheKey, intervalMs)) continue
+        const [org, ...repoParts] = key.split('/')
+        const repoName = repoParts.join('/')
+        if (!org || !repoName) continue
+        fetchSFLStatusForRepo(org, repoName, true)
+      }
+    }, intervalMs)
+    return () => clearInterval(intervalId)
+  }, [accounts.length, fetchSFLStatusForRepo, refreshInterval])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
@@ -632,6 +724,9 @@ export function useGitHubSidebarData() {
     repoCounts,
     loadingRepoCounts,
     repoPrTreeData,
+    sflStatusData,
+    loadingSFLStatus,
+    expandedSFLGroups,
     showBookmarkedOnly,
     setShowBookmarkedOnly,
     refreshTick,
@@ -639,6 +734,7 @@ export function useGitHubSidebarData() {
     toggleOrg,
     toggleRepo,
     toggleRepoPRGroup,
+    toggleSFLGroup,
     togglePRGroup,
     togglePRNode,
     openTreePRContextMenu,

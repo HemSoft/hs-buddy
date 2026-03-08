@@ -36,6 +36,9 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     repoCounts,
     loadingRepoCounts,
     repoPrTreeData,
+    sflStatusData,
+    loadingSFLStatus,
+    expandedSFLGroups,
     showBookmarkedOnly,
     setShowBookmarkedOnly,
     refreshTick,
@@ -43,6 +46,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
     toggleOrg,
     toggleRepo,
     toggleRepoPRGroup,
+    toggleSFLGroup,
     togglePRGroup,
     togglePRNode,
     openTreePRContextMenu,
@@ -131,6 +135,9 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
               repoCounts={repoCounts}
               loadingRepoCounts={loadingRepoCounts}
               repoPrTreeData={repoPrTreeData}
+              sflStatusData={sflStatusData}
+              loadingSFLStatus={loadingSFLStatus}
+              expandedSFLGroups={expandedSFLGroups}
               bookmarkedRepoKeys={bookmarkedRepoKeys}
               showBookmarkedOnly={showBookmarkedOnly}
               selectedItem={selectedItem}
@@ -138,6 +145,7 @@ export function GitHubSidebar({ onItemSelect, selectedItem, counts, badgeProgres
               onToggleOrg={toggleOrg}
               onToggleRepo={toggleRepo}
               onToggleRepoPRGroup={toggleRepoPRGroup}
+              onToggleSFLGroup={toggleSFLGroup}
               onTogglePRNode={togglePRNode}
               onItemSelect={onItemSelect}
               onContextMenu={openTreePRContextMenu}

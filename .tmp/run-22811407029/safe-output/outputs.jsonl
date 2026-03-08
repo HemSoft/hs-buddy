@@ -1,2 +1,0 @@
-{"message":"Broken targeted handoff detected: pull-request-number context variable is `#` (invalid placeholder). Per SFL instructions, this is treated as a broken targeted handoff. No search for draft PRs or fixable issues was performed. The handoff bug must be fixed in the dispatching workflow.","type":"noop"}
-{"body":"2026-03-07 8:39 PM EST | Issue Processor | No target | ❌ Broken targeted handoff — `pull-request-number` context variable resolved to `#` (invalid placeholder token). Exiting without searching for work.","item_number":95,"type":"add_comment"}

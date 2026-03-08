@@ -34,7 +34,7 @@ Symptom reported
 
 ### 1. Marker Format Mismatch
 
-**Symptom**: PR stuck — fixer/promoter say "no work found" despite analyzer
+**Symptom**: PR stuck — the implementer or router says "no work found" despite analyzer
 reviews being posted.
 
 **Root cause**: Analyzers writing markers in wrong format. Expected:
@@ -89,10 +89,10 @@ start failing due to API limits.
 & ".agents/skills/sfl/scripts/debug/body-inspect.ps1" -PRNumber <n>
 ```
 
-**Fix (V2)**: The pr-fixer now uses `push-to-pull-request-branch` instead of
-creating superseding PRs. This eliminates cumulative body content. If bloat
-still occurs, check whether analyzer markers are being appended rather than
-replaced per cycle.
+**Fix**: The current single-implementer flow keeps follow-up work on the same
+draft PR branch instead of creating superseding PRs. This eliminates cumulative
+body content from PR chains. If bloat still occurs, check whether analyzer
+markers are being appended rather than replaced per cycle.
 
 ### 5. Concurrent Run Conflicts
 
@@ -110,7 +110,7 @@ concurrency:
 
 ### 6. Model Drift
 
-**Symptom**: Dispatcher fails at "Model drift guard" step.
+**Symptom**: Health checks or targeted workflow dispatches fail at the model drift guard.
 
 **Root cause**: `sfl.json` models don't match `.lock.yml` files.
 

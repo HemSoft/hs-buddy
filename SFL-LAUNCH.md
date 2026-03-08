@@ -56,12 +56,12 @@ for deployment to other repositories.
 |----------|----------|-------|--------|
 | daily-repo-status (SFL Repo Status) | reporting | — | ✅ Active v1.0.0 |
 | repo-audit (Repo Audit) | quality | — | ✅ Active v1.1.0 |
+| discussion-processor | automation | gh-aw default | ✅ Active v1.0.0 |
 | sfl-issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
-| simplisticate | quality | gh-aw default | ✅ Active v1.0.0 |
+| simplisticate-audit | quality | gh-aw default | ✅ Active v1.0.0 |
 | sfl-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
-| sfl-analyzer-b | review | gemini-3-pro-preview | ✅ Active v1.0.0 |
-| sfl-analyzer-c | review | gpt-5.3-codex | ✅ Active v1.0.0 |
-| pr-fixer | automation | claude-opus-4.6 | ✅ Active v1.0.0 |
+| sfl-analyzer-b | review | claude-opus-4.5 | ✅ Active v1.0.0 |
+| sfl-analyzer-c | review | gpt-5.4 | ✅ Active v1.0.0 |
 | sfl-pr-router | automation | — | ✅ Active v1.0.0 |
 
 ### Infrastructure (1 — standard workflow)
@@ -98,7 +98,7 @@ so the SFL loop runs on its own codebase.
 - [x] SFL Auditor catches and repairs label/PR discrepancies
 - [x] Direct event + workflow-dispatch handoffs move the loop forward without polling
 - [x] Three-model PR review (Analyzers A/B/C) produces high-quality feedback
-- [x] PR Fixer implements suggestions and cycles correctly
+- [x] The single implementer (`sfl-issue-processor`) can create and continue draft PRs across cycles
 - [x] SFL PR Router deterministically routes all-PASS vs blocking review outcomes
 - [x] Repo Audit detects real issues and creates actionable agent:fixable items
 - [x] Governance policy (merge authority, retry limits, safe-write boundaries) is sound
@@ -114,7 +114,7 @@ so the SFL loop runs on its own codebase.
 - [ ] Write onboarding guide for new consumers (quick-start)
 - [ ] Build `loop-cost-reporter` workflow for budget visibility
 - [ ] Build `feature-intake-normalizer` workflow for Jira/GitHub normalization
-- [ ] Port V2 architecture changes from hs-buddy to set-it-free-loop:
-  - pr-fixer: `push-to-pull-request-branch` (replaces supersession model)
-   - sfl-pr-router/sfl-issue-processor: deterministic routing + targeted follow-up dispatch
-  - See `.agents/skills/sfl/docs/architecture-v2.md` for details
+- [ ] Sync the current hs-buddy SFL architecture back to `set-it-free-loop`:
+   - single implementer via `sfl-issue-processor`
+   - deterministic `sfl-pr-router` + `sfl-pr-label-actions` handoff
+   - current analyzer model pins (`claude-sonnet-4.6`, `claude-opus-4.5`, `gpt-5.4`)

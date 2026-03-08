@@ -251,7 +251,7 @@ You can also run the validation script to check your GitHub org configurations:
 
 ## Set it Free Loop
 
-This repository is governed by the **Set it Free Loop™** — a recursive automation system that detects quality findings, generates fixes, reviews them with multiple AI models, and merges improvements autonomously.
+This repository is governed by the **Set it Free Loop™** — a recursive automation system that detects quality findings, implements fixes on a draft PR, reviews them with multiple AI models, and hands clean pull requests to humans for the final merge decision.
 
 <p align="center">
   <img src="assets/set-it-free-loop/sfl-architecture-flow.png" alt="Set it Free Loop Architecture" width="800" />
@@ -262,11 +262,12 @@ The loop runs continuously via GitHub Actions workflows:
 | Stage | Workflow | What it does |
 |-------|----------|--------------|
 | **Detect** | Repo Audit | Scans for documentation drift, stale artifacts, config hygiene |
+| **Group** | Discussion Processor | Converts report findings into actionable `agent:fixable` issues |
 | **Claim** | Issue Processor | Claims `agent:fixable` issues and opens draft PRs |
 | **Review** | PR Analyzers A/B/C | Three independent AI models perform full-spectrum code review |
 | **Implement / Revise** | Issue Processor | Creates the first draft PR and applies follow-up analyzer feedback on later cycles |
-| **Promote** | PR Promoter | Un-drafts clean PRs when all analyzers pass |
-| **Guard** | SFL Auditor + Dispatcher | Repairs label discrepancies, orchestrates dispatch every 30 min |
+| **Route** | SFL PR Router + PR Label Actions | Route blocked PRs back to the implementer and flip clean PRs to ready-for-review |
+| **Guard** | SFL Auditor | Repairs issue/PR label discrepancies and enforces one-issue-one-PR harmony |
 
 Human involvement is required for the final merge decision on every SFL PR. Low-risk fixes can still be prepared autonomously, but merging is human-owned.
 

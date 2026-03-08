@@ -97,13 +97,13 @@ or the [official reference](https://github.github.com/gh-aw/reference/safe-outpu
 | `create-pull-request` | Opens a new PR (always creates new branch) | issue-processor |
 | `push-to-pull-request-branch` | Pushes changes to an existing PR's branch | sfl-issue-processor |
 | `create-issue` | Creates a new issue | discussion-processor |
-| `update-issue` | Modifies an existing issue (body, state) | analyzers, promoter |
+| `update-issue` | Modifies an existing issue or PR body/state | analyzers, issue-processor, auditor |
 | `update-discussion` | Modifies an existing discussion | dashboard updates |
-| `add-labels` | Adds labels without replacing existing ones | fixer, promoter, issue-processor |
-| `remove-labels` | Removes specific labels | fixer, promoter, issue-processor |
-| `add-comment` | Posts a comment on issues/PRs/discussions | sfl-issue-processor |
+| `add-labels` | Adds labels without replacing existing ones | discussion-processor, issue-processor |
+| `remove-labels` | Removes specific labels | issue-processor |
+| `add-comment` | Posts a comment on issues/PRs/discussions | issue-processor, analyzers, reporting workflows |
 | `close-pull-request` | Closes PRs without merging | (available, not yet used) |
-| `dispatch-workflow` | Triggers another workflow (same repo, max 3) | (available, not yet used) |
+| `dispatch-workflow` | Triggers another workflow (same repo, max 3) | analyzer chain, router handoffs |
 
 ### Key Constraints
 
@@ -112,8 +112,8 @@ or the [official reference](https://github.github.com/gh-aw/reference/safe-outpu
 2. **`target` scope**: `"*"` means any issue/PR; a number targets a specific one.
 3. **`title-prefix`**: Required for traceability. All agent-created PRs use
    `"[agent-fix] "`, all agent-created issues use `"[auto] "`.
-4. **`draft: true`**: All created PRs must be draft. The PR Promoter is the
-   only workflow that un-drafts.
+4. **`draft: true`**: All created PRs must be draft. `sfl-pr-router` decides
+  when a PR is ready, and `sfl-pr-label-actions.yml` performs the ready-for-review flip.
 
 ## Event Gaps And Explicit Dispatch
 
@@ -126,16 +126,17 @@ pipeline progression on its own.
 
 ### How We Work Around This
 
-SFL uses explicit-dispatch handoffs inside the hot path:
+SFL uses explicit-dispatch handoffs inside the hot path where determinism matters:
 
 - Issue intake triggers `sfl-issue-processor` directly.
+- Newly created draft PRs start Analyzer A from the `pull_request: opened` event.
 - The analyzer chain uses `dispatch-workflow` to enforce a strict
   `sfl-analyzer-a -> sfl-analyzer-b -> sfl-analyzer-c` sequence.
 - Analyzer C writes the current-cycle verdict into the PR body and explicitly
   dispatches `sfl-pr-router.yml` for that PR.
 - `sfl-pr-router.yml` reads that verdict deterministically and either dispatches
-  `sfl-issue-processor` or adds `human:ready-for-review` and dispatches
-  `sfl-pr-label-actions.yml` once.
+  `sfl-issue-processor` for another implementation pass or triggers
+  `sfl-pr-label-actions.yml` after adding `human:ready-for-review`.
 
 ### The Cost of This Constraint
 

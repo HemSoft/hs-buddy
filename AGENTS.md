@@ -61,7 +61,7 @@ unless explicitly overridden by a human.
 
 Medium or high risk is **not** a reason to mark a finding as non-agent-fixable.
 Agents should still attempt the fix. When the resulting PR reaches human review
-(via PR Promoter), the risk level and a brief justification must be visible in
+(via the PR Router ready-for-review handoff), the risk level and a brief justification must be visible in
 the linked issue body so the reviewer knows what to scrutinize.
 
 Workflow prompts must label such issues with the appropriate `risk:medium` or

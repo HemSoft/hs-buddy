@@ -31,8 +31,8 @@ Run these queries:
    - `sfl-analyzer-a.lock.yml`
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
-   - `pr-fixer.lock.yml`
   - `sfl-pr-router.yml`
+  - `sfl-pr-label-actions.yml`
 
    Get their conclusion (success / failure / cancelled) and timestamp.
 
@@ -60,8 +60,8 @@ Print a concise report:
 | PR Analyzer A | N | 0 or list |
 | PR Analyzer B | N | 0 or list |
 | PR Analyzer C | N | 0 or list |
-| PR Fixer | N | 0 or list |
-| PR Promoter | N | 0 or list |
+| PR Router | N | 0 or list |
+| PR Label Actions | N | 0 or list |
 
 ### Verdict: ✅ ALL GOOD | ⚠️ ISSUES FOUND
 <one-line summary>

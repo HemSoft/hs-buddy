@@ -24,8 +24,8 @@ Run these queries in parallel:
    - `sfl-analyzer-a.lock.yml`
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
-   - `pr-fixer.lock.yml`
    - `sfl-pr-router.yml`
+   - `sfl-pr-label-actions.yml`
 4. **Open issues** with labels `agent:pause` or `agent:escalated` that mention workflow failures
 
 ---
@@ -42,8 +42,8 @@ Check every harmony condition from the current repo guidance (`AGENTS.md`) and S
 | **D. No orphaned PRs** | No open `agent-fix/` PR exists whose linked issue is closed or lacks `agent:in-progress` |
 | **E. No stale fixable issues** | No `agent:fixable` issue has been open longer than ~1 hour without being claimed |
 | **F. PR cycle integrity** | Every draft PR with `agent:pr` has a valid `pr:cycle-N` label (0 ≤ N ≤ 3); no PR has multiple cycle labels |
-| **G. No stuck PRs** | No draft `agent:pr` PR has been at the same cycle for more than 3 hours (analyzers + fixer should advance it within ~1h) |
-| **H. Idempotency markers** | No PR has duplicate analyzer or fixer comments for the same cycle (e.g., two `<!-- sfl-analyzer-a cycle:0 -->` markers) |
+| **G. No stuck PRs** | No draft `agent:pr` PR has been at the same cycle for more than 3 hours (analyzers + router + implementer should advance it within ~1h) |
+| **H. Idempotency markers** | No PR has duplicate analyzer or implementer markers for the same cycle |
 | **I. Promoted PRs are non-draft** | Every PR with `human:ready-for-review` label is NOT a draft |
 
 For each check, state: ✅ Pass / ❌ Fail / ⚠️ Warning — and list the specific issue/PR numbers when failing.
@@ -66,7 +66,7 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 ## Step 4 — Evaluate other workflow health
 
 For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `sfl-analyzer-a.lock.yml`,
-`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `sfl-pr-router.yml`:
+`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, `sfl-pr-router.yml`, and `sfl-pr-label-actions.yml`:
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp
@@ -115,11 +115,11 @@ Produce a concise health report in this format:
 - Analyzer C last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 
-### PR Fixer
+### PR Router
 - Last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 
-### PR Promoter
+### PR Label Actions
 - Last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 

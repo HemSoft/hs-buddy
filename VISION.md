@@ -439,10 +439,11 @@ Buddy's role here is to run the loop and dogfood the governance standard.
 
 - [x] `daily-repo-status` (`SFL Repo Status`) workflow deployed and running
 - [x] `repo-audit` (`Repo Audit`) workflow deployed and running
+- [x] `discussion-processor` deployed and grouping report findings into actionable issues
+- [x] `sfl-issue-processor` is the single implementer for first-pass and follow-up PR work
+- [x] `sfl-pr-router` + `sfl-pr-label-actions` handle deterministic ready-for-review routing
 - [x] Governance labels configured via `setup-labels.ps1`
 - [x] `featureIntakes` Convex table for intake normalization
-- [ ] `issue-to-pr-fixer` workflow — deploy from SFL catalog when ready
-- [ ] `pr-quality-analyzer` workflow — deploy from SFL catalog when ready
 - [ ] 30-day pilot metrics published to SFL repo
 
 **Deliverable**: Buddy demonstrates the full loop; metrics feed back into the SFL operating model

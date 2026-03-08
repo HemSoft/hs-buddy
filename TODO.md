@@ -4,6 +4,7 @@
 |--------|----------|------|-------|
 | 🚧 | High | [SFL Loop monitoring in Organizations tree](#sfl-loop-monitoring-in-organizations-tree) | Issue #128 is active in SFL; auto-detect SFL-enabled repos and show pipeline status node under each repo |
 | 📋 | High | [Build project-scoped Copilot workspaces](#build-project-scoped-copilot-workspaces) | Issue #130 created; new top-level section for Codex-style multi-project agents backed by local git folders and GitHub Copilot SDK |
+| 📋 | Medium | [Capture Copilot usage history](#capture-copilot-usage-history) | Scheduled snapshots of usage/spend so Buddy can show historical trends and graphs |
 | 📋 | Medium | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard) | Run counts, p50/p90 cost, monthly budget burn |
 | 📋 | Medium | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit) | Detect and delete merged/orphaned agent-fix branches |
 | 📋 | Medium | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead |
@@ -66,7 +67,7 @@
 
 ## Progress
 
-**Remaining: 7** | **Completed: 53** (88%)
+**Remaining: 8** | **Completed: 53** (87%)
 
 ---
 
@@ -254,6 +255,49 @@
 - Whether to infer SFL support from exact workflow filenames, labels, or both
 - Whether status should be purely read-only or include quick actions later
 - Whether the node appears for all repos with disabled SFL workflows or only currently active ones
+
+---
+
+### Capture Copilot usage history
+
+**Goal**: Persist usage and spend snapshots on a schedule so Buddy has time-series data for trends, month-over-month comparisons, and graphing.
+
+**Why this is separate from the dashboard task**:
+
+- The dashboard is the reporting surface.
+- This task is the data collection pipeline that makes historical charts possible.
+- Without scheduled snapshots, the app only has current-state usage totals and cannot reconstruct prior daily values reliably.
+
+**Desired behavior**:
+
+- Add a scheduled job in Buddy that runs automatically on a fixed cadence such as daily.
+- Fetch current Copilot usage and spend values for each tracked account and any aggregate totals already shown in the app.
+- Store immutable timestamped snapshots rather than overwriting the latest value.
+- Support historical queries suitable for charts: daily usage, daily spend, cumulative month-to-date, and deltas between snapshots.
+- Fail safely when the upstream usage endpoint is unavailable, without corrupting prior history.
+
+**Likely implementation areas**:
+
+- `convex/schema.ts`
+- new or existing Convex functions near `convex/githubAccounts.ts`, `convex/buddyStats.ts`, or a new usage-history file
+- worker scheduling surfaces under `convex/crons.ts`, `convex/schedules.ts`, and `convex/jobs.ts`
+- Electron/Copilot usage fetch path under `electron/services/copilotService.ts` and related IPC if the scheduler should reuse the existing client logic
+- chart/query consumers in the existing Copilot or stats UI once the history exists
+
+**Data shape to capture**:
+
+- account id / login / provider source
+- snapshot timestamp
+- billing month or period key
+- usage count metrics available from the upstream API
+- spend / budget metrics available from the upstream API
+- derived delta from prior snapshot when useful for charting
+
+**Open design choices**:
+
+- Whether the scheduler should run in Convex, Electron, or the existing Buddy job system
+- Whether cadence should be daily only or configurable later
+- Whether historical aggregation should be materialized at write time or computed at query time
 
 ---
 

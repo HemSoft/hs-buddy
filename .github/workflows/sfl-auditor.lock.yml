@@ -26,7 +26,7 @@
 # state discrepancies it finds. Keeps the agentic pipeline self-consistent
 # without human intervention.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"5458345ef92f0164515dd98e47f17a0f53a55d89b5ee7160a03990e4ffec8eb1","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"93853e3627f5bd45073b43c75feeb5f3dccf0809e2392a39f88c0403fd47547e","compiler_version":"v0.50.4"}
 
 name: "SFL Auditor"
 "on":
@@ -276,7 +276,7 @@ jobs:
             const awInfo = {
               engine_id: "copilot",
               engine_name: "GitHub Copilot CLI",
-              model: "claude-sonnet-4.6",
+              model: "gpt-5.4",
               version: "",
               agent_version: "0.0.417",
               cli_version: "v0.50.4",
@@ -784,7 +784,7 @@ jobs:
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          COPILOT_MODEL: claude-sonnet-4.6
+          COPILOT_MODEL: gpt-5.4
           GH_AW_MCP_CONFIG: /home/runner/.copilot/mcp-config.json
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
@@ -1003,7 +1003,7 @@ jobs:
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          COPILOT_MODEL: claude-sonnet-4.6
+          COPILOT_MODEL: gpt-5.4
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
@@ -1156,7 +1156,7 @@ jobs:
     timeout-minutes: 15
     env:
       GH_AW_ENGINE_ID: "copilot"
-      GH_AW_ENGINE_MODEL: "claude-sonnet-4.6"
+      GH_AW_ENGINE_MODEL: "gpt-5.4"
       GH_AW_WORKFLOW_ID: "sfl-auditor"
       GH_AW_WORKFLOW_NAME: "SFL Auditor"
     outputs:

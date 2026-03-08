@@ -159,7 +159,7 @@ loop now relies on explicit `dispatch-workflow` handoffs where needed. However, 
 | `sfl-issue-processor` | Agentic | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: creates or advances the draft PR for one issue |
 | `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A -> B -> C review chain (claude-sonnet-4.6) |
 | `sfl-analyzer-b` | Agentic | Analyzer A dispatch | Continues the sequential review chain (gemini-3-pro-preview) |
-| `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain and writes the verdict state consumed by the PR router (gpt-5.3-codex) |
+| `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain and writes the verdict state consumed by the PR router (gpt-5.4) |
 | `sfl-pr-router` (`SFL PR Router`) | Standard | `pull_request: edited` | Deterministically routes post-Analyzer-C PRs to Issue Processor or ready-for-review |
 | `pr-fixer` | Agentic | Legacy only | Legacy workflow retained during implementer migration |
 | `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |

@@ -29,7 +29,7 @@ timeout-minutes: 60
 
 engine:
   id: copilot
-  model: claude-opus-4.6
+  model: gpt-5.4
 
 network: defaults
 

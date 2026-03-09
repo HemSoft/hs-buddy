@@ -1,13 +1,13 @@
 ---
 description: |
-  Runs every 30 minutes (offset 15 min from sfl-issue-processor), audits the
+  Runs every 12 hours at 15 minutes past the hour, audits the
   relationship between issue labels and open pull requests, and repairs any
   state discrepancies it finds. Keeps the agentic pipeline self-consistent
   without human intervention.
 
 on:
   schedule:
-    - cron: "15 * * * *"
+    - cron: "15 */12 * * *"
   workflow_dispatch:
 
 permissions:
@@ -39,7 +39,7 @@ safe-outputs:
 
 # SFL Auditor
 
-Run every 30 minutes. Audit the relationship between issue labels and open
+Run every 12 hours. Audit the relationship between issue labels and open
 pull requests. Detect and repair state discrepancies to keep the agentic
 pipeline self-consistent. Never modify PR content — only update issues.
 
@@ -174,9 +174,10 @@ If an `agent:fixable` issue is older than **15 minutes** but not older than
 to process right away.
 
 1. Call `update_issue` with ALL of these fields in a **single call**:
-  - `issue_number`: the issue number
-  - `body`: "⏱️ **SFL Auditor**: This issue has been `agent:fixable` for over 15 minutes without being claimed by the Issue Processor. Immediate issue intake may have failed. Investigate whether the issue opened with `agent:fixable` already present or whether Issue Processor concurrency blocked the run."
-  - `operation`: `"append"`
+
+- `issue_number`: the issue number
+- `body`: "⏱️ **SFL Auditor**: This issue has been `agent:fixable` for over 15 minutes without being claimed by the Issue Processor. Immediate issue intake may have failed. Investigate whether the issue opened with `agent:fixable` already present or whether Issue Processor concurrency blocked the run."
+- `operation`: `"append"`
 
 Only flag each issue **once** — if the issue already has a comment containing
 "Immediate dispatch may have failed", skip it.
@@ -311,7 +312,7 @@ safe outputs is treated as a failure.
 Examples:
 
 | Observed state | Valid result |
-|---|---|
+| --- | --- |
 | In-progress issue with zero matching PRs | reset to `agent:fixable` |
 | In-progress issue with exactly one matching PR | no discrepancy from Step 2 |
 | In-progress issue with two or more matching PRs | pause the issue and append split-brain explanation |

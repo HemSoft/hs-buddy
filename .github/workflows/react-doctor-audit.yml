@@ -1,0 +1,508 @@
+name: React Doctor Audit
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  discussions: write
+
+concurrency:
+  group: react-doctor-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run React Doctor
+        id: scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp
+
+          HAS_REACT=$(node - <<'NODE'
+          const fs = require('fs');
+
+          if (!fs.existsSync('package.json')) {
+            process.stdout.write('false');
+            process.exit(0);
+          }
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const deps = {
+            ...(pkg.dependencies || {}),
+            ...(pkg.devDependencies || {}),
+          };
+
+          process.stdout.write(deps.react || deps['react-dom'] ? 'true' : 'false');
+          NODE
+          )
+
+          echo "has_react=${HAS_REACT}" >> "$GITHUB_OUTPUT"
+
+          if [ "$HAS_REACT" != "true" ]; then
+            echo "React not detected in package.json; skipping React Doctor audit."
+            exit 0
+          fi
+
+          set +e
+          npx -y react-doctor@latest . --yes --verbose --offline | tee .tmp/react-doctor.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+
+          if [ ! -s .tmp/react-doctor.txt ]; then
+            echo "React Doctor did not produce output."
+            exit 1
+          fi
+
+      - name: Create or refresh SFL issue
+        uses: actions/github-script@v8
+        env:
+          HAS_REACT: ${{ steps.scan.outputs.has_react }}
+          SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const hasReact = process.env.HAS_REACT === 'true';
+            const scanExitCode = Number(process.env.SCAN_EXIT_CODE || '0');
+            const issuePrefix = '[react-doctor] ';
+            const discussionNumber = 95;
+            const reportPath = '.tmp/react-doctor.txt';
+
+            function toEasternParts(date = new Date()) {
+              const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+                timeZoneName: 'short',
+              });
+
+              const parts = Object.fromEntries(
+                formatter.formatToParts(date)
+                  .filter((part) => part.type !== 'literal')
+                  .map((part) => [part.type, part.value]),
+              );
+
+              const isoDate = `${parts.year}-${parts.month}-${parts.day}`;
+              const time = `${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
+              return { isoDate, time, zone: parts.timeZoneName || 'ET' };
+            }
+
+            function stripAnsi(text) {
+              return text.replace(/\u001B\[[0-9;]*m/g, '');
+            }
+
+            function categoryForTitle(title) {
+              const normalized = title.toLowerCase();
+
+              if (
+                normalized.includes('keyboard event listener') ||
+                normalized.includes('event handlers require a role') ||
+                normalized.includes('label must be associated') ||
+                normalized.includes('missing `href` attribute')
+              ) {
+                return 'Accessibility';
+              }
+
+              if (normalized.includes('dangerouslysetinnerhtml')) {
+                return 'Security';
+              }
+
+              if (
+                normalized.includes('derived state in useeffect') ||
+                normalized.includes('useeffect') ||
+                normalized.includes('usestate initialized from prop') ||
+                normalized.includes('setstate') ||
+                normalized.includes('stale closures')
+              ) {
+                return 'State & Effects';
+              }
+
+              if (
+                normalized.includes('component "') ||
+                normalized.includes('in a single useeffect') ||
+                normalized.includes('inline render function') ||
+                normalized.includes('consider usereducer')
+              ) {
+                return 'Architecture';
+              }
+
+              if (
+                normalized.includes('sequential await') ||
+                normalized.includes('parallel execution')
+              ) {
+                return 'Performance';
+              }
+
+              if (
+                normalized.includes('unused file') ||
+                normalized.includes('unused export') ||
+                normalized.includes('unused type') ||
+                normalized.includes('duplicate export')
+              ) {
+                return 'Dead Code';
+              }
+
+              if (
+                normalized.includes('array index') ||
+                normalized.includes('preventdefault() on <a>')
+              ) {
+                return 'Correctness';
+              }
+
+              return 'General';
+            }
+
+            function parseReport(text) {
+              const cleaned = stripAnsi(text).replace(/\r/g, '');
+              const lines = cleaned.split('\n');
+              const diagnostics = [];
+              const summaryLine = cleaned.match(/(\d+)\s*\/\s*100\s+([A-Za-z]+)/);
+              const countsLine = cleaned.match(/(\d+) errors?\s+(\d+) warnings?\s+across\s+(\d+)\/(\d+) files/i);
+
+              for (let index = 0; index < lines.length; index += 1) {
+                const line = lines[index];
+                const match = line.match(/^\s*([✗⚠])\s+(.*?)(?:\s+\((\d+)\))?\s*$/u);
+                if (!match) {
+                  continue;
+                }
+
+                const severity = match[1] === '✗' ? 'error' : 'warning';
+                const title = match[2].trim();
+                const count = Number(match[3] || '1');
+
+                if (title.includes('/ 100') || title.toLowerCase().includes('react doctor')) {
+                  continue;
+                }
+
+                let description = '';
+                const files = [];
+
+                for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+                  const nextLine = lines[cursor];
+                  if (!nextLine.trim()) {
+                    index = cursor;
+                    break;
+                  }
+
+                  if (/^\s*[✗⚠]\s+/u.test(nextLine)) {
+                    index = cursor - 1;
+                    break;
+                  }
+
+                  const trimmed = nextLine.trim();
+                  if (/^(src|electron|convex|scripts|docs|assets)[/\\]|^[A-Za-z0-9_.-]+\.(ts|tsx|js|jsx|json|md|css)(:\s*\d+|$)/.test(trimmed)) {
+                    files.push(trimmed);
+                  } else if (!description) {
+                    description = trimmed;
+                  }
+
+                  if (cursor === lines.length - 1) {
+                    index = cursor;
+                  }
+                }
+
+                diagnostics.push({
+                  severity,
+                  title,
+                  count,
+                  description,
+                  files,
+                  category: categoryForTitle(title),
+                });
+              }
+
+              const filteredDiagnostics = diagnostics
+                .map((diagnostic) => {
+                  if (diagnostic.title.toLowerCase() !== 'unused file') {
+                    return diagnostic;
+                  }
+
+                  const filteredFiles = diagnostic.files.filter((file) => !/^electron[/\\]/.test(file));
+                  const removedCount = diagnostic.files.length - filteredFiles.length;
+
+                  return {
+                    ...diagnostic,
+                    files: filteredFiles,
+                    count: Math.max(filteredFiles.length, diagnostic.count - removedCount),
+                  };
+                })
+                .filter((diagnostic) => diagnostic.count > 0 && (diagnostic.files.length > 0 || diagnostic.description));
+
+              const categoryOrder = [
+                'Accessibility',
+                'State & Effects',
+                'Architecture',
+                'Correctness',
+                'Security',
+                'Performance',
+                'Dead Code',
+                'General',
+              ];
+
+              const grouped = new Map();
+              for (const diagnostic of filteredDiagnostics) {
+                const existing = grouped.get(diagnostic.category) || {
+                  category: diagnostic.category,
+                  severity: diagnostic.severity,
+                  totalCount: 0,
+                  diagnostics: [],
+                };
+
+                if (existing.severity !== 'error' && diagnostic.severity === 'error') {
+                  existing.severity = 'error';
+                }
+
+                existing.totalCount += diagnostic.count;
+                existing.diagnostics.push(diagnostic);
+                grouped.set(diagnostic.category, existing);
+              }
+
+              const categories = Array.from(grouped.values())
+                .sort((left, right) => {
+                  const severityDelta = (left.severity === 'error' ? 0 : 1) - (right.severity === 'error' ? 0 : 1);
+                  if (severityDelta !== 0) {
+                    return severityDelta;
+                  }
+
+                  const orderDelta = categoryOrder.indexOf(left.category) - categoryOrder.indexOf(right.category);
+                  if (orderDelta !== 0) {
+                    return orderDelta;
+                  }
+
+                  return right.totalCount - left.totalCount;
+                })
+                .map((entry) => ({
+                  ...entry,
+                  diagnostics: entry.diagnostics.sort((left, right) => {
+                    if (left.severity !== right.severity) {
+                      return left.severity === 'error' ? -1 : 1;
+                    }
+
+                    return right.count - left.count;
+                  }),
+                }));
+
+              const actionableCount = categories.reduce((sum, entry) => sum + entry.totalCount, 0);
+
+              return {
+                score: summaryLine ? Number(summaryLine[1]) : null,
+                rating: summaryLine ? summaryLine[2] : 'Unknown',
+                errors: countsLine ? Number(countsLine[1]) : filteredDiagnostics.filter((item) => item.severity === 'error').length,
+                warnings: countsLine ? Number(countsLine[2]) : filteredDiagnostics.filter((item) => item.severity === 'warning').reduce((sum, item) => sum + item.count, 0),
+                affectedFiles: countsLine ? Number(countsLine[3]) : null,
+                scannedFiles: countsLine ? Number(countsLine[4]) : null,
+                categories,
+                actionableCount,
+              };
+            }
+
+            function riskForReport(report) {
+              if (report.errors > 0 || report.actionableCount >= 100) {
+                return {
+                  label: 'risk:medium',
+                  level: '🟡 medium',
+                  acknowledgment: 'Risk Acknowledgment: This issue spans multiple UI files and behavioral touchpoints. The work is still agent-fixable because each diagnostic has a constrained, mechanical remediation path and success can be re-verified by rerunning React Doctor.',
+                };
+              }
+
+              return {
+                label: 'risk:low',
+                level: '🟢 low',
+                acknowledgment: '',
+              };
+            }
+
+            async function postActivityLog(body) {
+              try {
+                const result = await github.graphql(
+                  `query($owner: String!, $repo: String!, $number: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      discussion(number: $number) {
+                        id
+                      }
+                    }
+                  }`,
+                  { owner, repo, number: discussionNumber },
+                );
+
+                const discussionId = result.repository?.discussion?.id;
+                if (!discussionId) {
+                  core.warning(`Discussion #${discussionNumber} not found; skipping activity log comment.`);
+                  return;
+                }
+
+                await github.graphql(
+                  `mutation($discussionId: ID!, $body: String!) {
+                    addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
+                      comment {
+                        id
+                      }
+                    }
+                  }`,
+                  { discussionId, body },
+                );
+              } catch (error) {
+                core.warning(`Failed to write activity log comment: ${error.message}`);
+              }
+            }
+
+            const eastern = toEasternParts();
+
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const previousIssues = openIssues.filter(
+              (issue) => !issue.pull_request && issue.title.startsWith(issuePrefix),
+            );
+
+            for (const issue of previousIssues) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }
+
+            if (!hasReact) {
+              await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ⏭️ React not detected — no issue created`);
+              return;
+            }
+
+            if (!fs.existsSync(reportPath)) {
+              core.setFailed('React Doctor report file is missing.');
+              return;
+            }
+
+            const rawReport = fs.readFileSync(reportPath, 'utf8');
+            const report = parseReport(rawReport);
+            const risk = riskForReport(report);
+
+            if (scanExitCode !== 0 && report.categories.length === 0) {
+              core.setFailed(`React Doctor exited with code ${scanExitCode} and no diagnostics were parsed.`);
+              return;
+            }
+
+            if (report.categories.length === 0 || report.actionableCount === 0) {
+              await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ⏭️ 0 actionable findings — no issue created`);
+              return;
+            }
+
+            const title = `${issuePrefix}React Doctor Audit — ${eastern.isoDate}`;
+            const summaryLine = report.score === null
+              ? `React Doctor produced actionable findings across ${report.categories.length} diagnostic cluster(s).`
+              : `React Doctor scored the repo at ${report.score}/100 (${report.rating}) with ${report.errors} error(s) and ${report.warnings} warning(s).`;
+
+            const categorySections = report.categories.map((entry, categoryIndex) => {
+              const fileList = Array.from(new Set(entry.diagnostics.flatMap((diagnostic) => diagnostic.files))).slice(0, 10);
+              const diagnosticDetails = entry.diagnostics.map((diagnostic) => {
+                const examples = diagnostic.files.slice(0, 5).map((file) => `  - ${file}`).join('\n');
+                const fileBlock = examples ? `\n- **Representative locations**:\n${examples}` : '';
+                const fixText = diagnostic.description ? `\n- **Fix guidance**: ${diagnostic.description}` : '';
+                return `#### ${diagnostic.title}\n\n- **Severity**: ${diagnostic.severity}\n- **Count**: ${diagnostic.count}${fileBlock}${fixText}`;
+              }).join('\n\n');
+
+              const summaryFiles = fileList.length > 0
+                ? fileList.map((file) => `  - ${file}`).join('\n')
+                : '  - No representative file paths were parsed from the report.';
+
+              return `### Cluster ${categoryIndex + 1}: ${entry.category}\n\n- **Severity**: ${entry.severity}\n- **Diagnostics in cluster**: ${entry.totalCount}\n- **Representative files**:\n${summaryFiles}\n\n${diagnosticDetails}`;
+            }).join('\n\n');
+
+            const implementationOrder = report.categories.map((entry, index) => {
+              const leadingDiagnostic = entry.diagnostics[0];
+              const firstFile = leadingDiagnostic.files[0] || 'representative files listed above';
+              return `${index + 1}. ${entry.category} — start with ${firstFile} and resolve the highest-count diagnostic \"${leadingDiagnostic.title}\" before moving to the rest of the cluster.`;
+            }).join('\n');
+
+            const bodyLines = [
+              '## Summary',
+              '',
+              summaryLine,
+              '',
+              `- Score: ${report.score === null ? 'unknown' : `${report.score}/100 (${report.rating})`}`,
+              `- Parsed actionable diagnostics: ${report.actionableCount}`,
+              `- Parsed clusters: ${report.categories.length}`,
+              `- Affected files reported by React Doctor: ${report.affectedFiles ?? 'unknown'} of ${report.scannedFiles ?? 'unknown'}`,
+              `- Risk: ${risk.level}`,
+              '',
+              'False-positive exclusion: ignore `Unused file` findings for `electron/**` because those are Electron main-process files outside the React import graph unless a separate code search proves they are truly dead.',
+              '',
+              '## Finding',
+              '',
+              'React Doctor found a repo-wide set of React, accessibility, and dead-code issues. Treat each cluster below as in-scope for this issue. The goal is to remove the error-level diagnostic first, then work down the warning clusters in the listed implementation order.',
+              '',
+              categorySections,
+              '',
+              '## Fix',
+              '',
+              'Apply changes in this order to reduce risk and keep reruns interpretable:',
+              '',
+              implementationOrder,
+              '',
+              'General remediation rules:',
+              '',
+              '- Prefer semantic elements over patching `div`/`a` elements with extra handlers where a `button` is the correct control.',
+              '- Remove derived state and event-simulating effects when values can be computed during render or moved into the originating event handler.',
+              '- Use stable identifiers instead of array indexes for keys.',
+              '- Treat `dangerouslySetInnerHTML` as security-sensitive: sanitize or replace it with safe rendering before shipping.',
+              '- After each cluster, rerun `npx -y react-doctor@latest . --yes --verbose --offline` and continue until the remaining output no longer includes the resolved cluster.',
+              '',
+              '## Acceptance criteria',
+              '',
+              '- [ ] React Doctor no longer reports any error-level diagnostics.',
+              '- [ ] The accessibility cluster has been materially reduced by replacing or remediating the clickable non-semantic elements and orphaned labels reported in the audit.',
+              '- [ ] The state/effects cluster has been materially reduced by removing derived-state effects, stale-closure updates, and prop-synced local state where render-time derivation is correct.',
+              '- [ ] `dangerouslySetInnerHTML` findings are eliminated or guarded by an explicit safe sanitization path.',
+              '- [ ] A rerun of React Doctor shows the score improved from this baseline and the issue body or PR summary records the new score and remaining warning count.',
+            ];
+
+            if (risk.acknowledgment) {
+              bodyLines.splice(10, 0, risk.acknowledgment, '');
+            }
+
+            const createdIssue = await github.rest.issues.create({
+              owner,
+              repo,
+              title,
+              body: bodyLines.join('\n'),
+              labels: ['agent:fixable', risk.label],
+            });
+
+            await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ✅ ${report.actionableCount} actionable diagnostics across ${report.categories.length} cluster(s) -> #${createdIssue.data.number}`);
+
+      - name: Upload React Doctor report
+        if: steps.scan.outputs.has_react == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-doctor-report
+          path: .tmp/react-doctor.txt
+          if-no-files-found: error

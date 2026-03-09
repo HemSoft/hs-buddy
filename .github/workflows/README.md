@@ -26,11 +26,12 @@ That repo contains:
 ## Workflows active in this repo
 
 | Workflow | Schedule | Output | Source |
-|----------|----------|--------|--------|
+| ---------- | ---------- | -------- | -------- |
 | `daily-repo-status` (`SFL Repo Status`) | Daily | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `repo-audit` (`Repo Audit`) | Daily | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `react-doctor-audit` (`React Doctor Audit`) | Daily | Single rolling `agent:fixable` issue from a real React Doctor CLI run | Local |
 | `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
-| `sfl-auditor` | `15 * * * *` (hourly) | Repairs issue/PR label discrepancies | Local |
+| `sfl-auditor` | `15 */12 * * *` (every 12 hours) | Repairs issue/PR label discrepancies | Local |
 | `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |
 | `sfl-analyzer-a` | `pull_request: opened` | Starts the sequential A -> B -> C review chain for draft PRs (Model A) | Local |
 | `sfl-analyzer-b` | Analyzer A dispatch | Continues the sequential full-spectrum review chain (Model B) | Local |

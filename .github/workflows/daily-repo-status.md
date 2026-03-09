@@ -28,6 +28,7 @@ safe-outputs:
   create-discussion:
     title-prefix: "[repo-status] "
     category: "General"
+    expires: false
   update-discussion:
     target: "*"
     max: 5

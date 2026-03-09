@@ -25,7 +25,7 @@ $results = @()
 # --- Check 1: Workflow Count ---
 $wfDir = ".github/workflows"
 $wfFiles = gh api "repos/$Repo/contents/$wfDir" --jq '.[].name' 2>&1
-$mdFiles = ($wfFiles | Where-Object { $_ -match '\.md$' }).Count
+$mdFiles = ($wfFiles | Where-Object { $_ -match '\.md$' -and $_ -ne 'README.md' }).Count
 $ymlFiles = ($wfFiles | Where-Object { $_ -match '\.ya?ml$' -and $_ -notmatch '\.lock\.yml$' }).Count
 $agenticCount = $mdFiles
 $standardCount = $ymlFiles

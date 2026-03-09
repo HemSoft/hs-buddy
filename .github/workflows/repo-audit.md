@@ -25,6 +25,7 @@ safe-outputs:
     title-prefix: "[repo-audit] "
     category: "General"
     max: 1
+    expires: false
   update-discussion:
     target: "*"
     max: 5
@@ -115,9 +116,9 @@ A brief overall repo health assessment (1-3 sentences).
 
 ### Findings Table
 
-| # | Category | Finding | Severity | Confidence | Agent-Fixable? |
-|---|----------|---------|----------|------------|----------------|
-| 1 | ... | ... | High/Medium/Low | High/Medium | Yes/No |
+| # | Category | Finding | Severity        | Confidence  | Agent-Fixable? |
+| - | -------- | ------- | --------------- | ----------- | -------------- |
+| 1 | ...      | ...     | High/Medium/Low | High/Medium | Yes/No         |
 
 ### Detailed Findings
 

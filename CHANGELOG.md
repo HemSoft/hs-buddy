@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.300] - 2026-03-09
+
 ## [0.1.299] - 2026-03-09
+
+### Changed
+
+- Switch SFL issue processor to gpt-5.4
 
 ## [0.1.298] - 2026-03-09
 

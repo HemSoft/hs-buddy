@@ -26,14 +26,12 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const [hour, setHour] = useState(9)
   const [dayOfMonth, setDayOfMonth] = useState(1)
   const [selectedDays, setSelectedDays] = useState<number[]>([1]) // Monday by default
-  const [customCron, setCustomCron] = useState(value)
 
   // Parse incoming cron value to set initial state
   useEffect(() => {
     const parts = value.split(' ')
     if (parts.length !== 5) {
       setFrequency('custom')
-      setCustomCron(value)
       return
     }
 
@@ -65,7 +63,6 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
       setDayOfMonth(parseInt(dom) || 1)
     } else {
       setFrequency('custom')
-      setCustomCron(value)
     }
   }, [value])
 
@@ -83,11 +80,11 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
       case 'monthly':
         return `${minute} ${hour} ${dayOfMonth} * *`
       case 'custom':
-        return customCron
+        return value
       default:
         return '0 * * * *'
     }
-  }, [frequency, minute, hour, dayOfMonth, selectedDays, customCron])
+  }, [frequency, minute, hour, dayOfMonth, selectedDays, value])
 
   // Update parent when cron changes
   useEffect(() => {
@@ -138,7 +135,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   return (
     <div className="cron-builder">
       <div className="cron-frequency">
-        <label id={cronFreqLabelId}>Run Frequency</label>
+        <span id={cronFreqLabelId} className="cron-label">Run Frequency</span>
         <div className="frequency-buttons" role="group" aria-labelledby={cronFreqLabelId}>
           <button
             type="button"
@@ -303,8 +300,8 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
           <div className="cron-option custom">
             <input
               type="text"
-              value={customCron}
-              onChange={e => setCustomCron(e.target.value)}
+              value={value}
+              onChange={e => onChange(e.target.value)}
               placeholder="* * * * *"
               className="custom-cron-input"
             />

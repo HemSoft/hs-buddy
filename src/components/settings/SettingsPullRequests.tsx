@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { usePRSettings } from '../../hooks/useConfig'
 import { RefreshCw, Clock, Calendar, ToggleLeft, ToggleRight } from 'lucide-react'
 import './SettingsShared.css'
@@ -14,29 +13,15 @@ export function SettingsPullRequests() {
     setRecentlyMergedDays,
   } = usePRSettings()
 
-  const [localRefreshInterval, setLocalRefreshInterval] = useState(refreshInterval)
-  const [localAutoRefresh, setLocalAutoRefresh] = useState(autoRefresh)
-  const [localMergedDays, setLocalMergedDays] = useState(recentlyMergedDays)
-
-  useEffect(() => {
-    setLocalRefreshInterval(refreshInterval)
-    setLocalAutoRefresh(autoRefresh)
-    setLocalMergedDays(recentlyMergedDays)
-  }, [refreshInterval, autoRefresh, recentlyMergedDays])
-
   const handleAutoRefreshToggle = async () => {
-    const newValue = !localAutoRefresh
-    setLocalAutoRefresh(newValue)
-    await setAutoRefresh(newValue)
+    await setAutoRefresh(!autoRefresh)
   }
 
   const handleRefreshIntervalChange = async (value: number) => {
-    setLocalRefreshInterval(value)
     await setRefreshInterval(value)
   }
 
   const handleMergedDaysChange = async (value: number) => {
-    setLocalMergedDays(value)
     await setRecentlyMergedDays(value)
   }
 
@@ -81,11 +66,11 @@ export function SettingsPullRequests() {
             </div>
             <button
               id="pr-auto-refresh-toggle"
-              className={`toggle-button ${localAutoRefresh ? 'active' : ''}`}
+              className={`toggle-button ${autoRefresh ? 'active' : ''}`}
               onClick={handleAutoRefreshToggle}
-              aria-pressed={localAutoRefresh}
+              aria-pressed={autoRefresh}
             >
-              {localAutoRefresh ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+              {autoRefresh ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
             </button>
           </div>
         </div>
@@ -102,7 +87,7 @@ export function SettingsPullRequests() {
           </p>
           <div className="select-control">
             <select
-              value={localRefreshInterval}
+              value={refreshInterval}
               onChange={e => handleRefreshIntervalChange(Number(e.target.value))}
               className="settings-select"
             >
@@ -125,7 +110,7 @@ export function SettingsPullRequests() {
           <p className="section-description">How far back to look for recently merged PRs.</p>
           <div className="select-control">
             <select
-              value={localMergedDays}
+              value={recentlyMergedDays}
               onChange={e => handleMergedDaysChange(Number(e.target.value))}
               className="settings-select"
             >

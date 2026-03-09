@@ -158,6 +158,9 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
                       className={`sidebar-item ${selectedItem === viewId ? 'selected' : ''}`}
                       onClick={() => onItemSelect(viewId)}
                       title={`${project.githubSlug}\n${project.localPath}`}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(viewId); } }}
                     >
                       <span className="sidebar-item-icon">
                         {isActive ? (
@@ -191,6 +194,9 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
               <div
                 className="sidebar-item"
                 onClick={handleAddProject}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleAddProject(); } }}
                 style={{
                   opacity: isAddingProject ? 0.45 : 0.7,
                   pointerEvents: isAddingProject ? 'none' : 'auto',

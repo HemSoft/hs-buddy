@@ -39,13 +39,16 @@ const workerTypeInfo: Record<string, { label: string; icon: React.ReactNode }> =
   skill: { label: 'Claude Skills', icon: <Zap size={14} /> },
 }
 
+const EMPTY_COUNTS: Record<string, number> = {}
+const EMPTY_BADGE_PROGRESS: Record<string, { progress: number; color: string; tooltip: string }> = {}
+
 export function AutomationSidebarSection({
   jobs,
   schedules,
   selectedItem,
   onItemSelect,
-  counts = {},
-  badgeProgress = {},
+  counts = EMPTY_COUNTS,
+  badgeProgress = EMPTY_BADGE_PROGRESS,
 }: AutomationSidebarSectionProps) {
   const [expandedSubSections, setExpandedSubSections] = useState<Set<string>>(new Set())
 
@@ -78,6 +81,8 @@ export function AutomationSidebarSection({
         <div key={item.id}>
           <div
             className={`sidebar-item ${item.id === 'automation-schedules' && selectedItem === 'automation-schedules' ? 'selected' : ''} ${item.id !== 'automation-jobs' && item.id !== 'automation-schedules' && selectedItem === item.id ? 'selected' : ''} ${(item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0) || (item.id === 'automation-schedules' && schedules && schedules.length > 0) ? 'sidebar-item-disclosure' : ''}`}
+            role="button"
+            tabIndex={0}
             onClick={() => {
               if (item.id === 'automation-jobs') {
                 toggleSubSection('automation-jobs')
@@ -89,6 +94,21 @@ export function AutomationSidebarSection({
                 return
               }
               onItemSelect(item.id)
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                if (item.id === 'automation-jobs') {
+                  toggleSubSection('automation-jobs')
+                  return
+                }
+                if (item.id === 'automation-schedules') {
+                  toggleSubSection('automation-schedules')
+                  onItemSelect('automation-schedules')
+                  return
+                }
+                onItemSelect(item.id)
+              }
             }}
           >
             {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
@@ -178,6 +198,9 @@ export function AutomationSidebarSection({
                       key={schedule._id}
                       className={`sidebar-item sidebar-job-item ${selectedItem === `schedule-detail:${schedule._id}` ? 'selected' : ''}`}
                       onClick={() => onItemSelect(`schedule-detail:${schedule._id}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(`schedule-detail:${schedule._id}`); } }}
                       title={schedule.description || schedule.name}
                     >
                       <span className="sidebar-item-icon">
@@ -207,6 +230,9 @@ export function AutomationSidebarSection({
                       <div
                         className="sidebar-job-category-header"
                         onClick={() => toggleSubSection(typeKey)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubSection(typeKey); } }}
                       >
                         <span className="sidebar-item-chevron">
                           {isTypeExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -222,6 +248,9 @@ export function AutomationSidebarSection({
                               key={job._id}
                               className={`sidebar-item sidebar-job-item ${selectedItem === `job-detail:${job._id}` ? 'selected' : ''}`}
                               onClick={() => onItemSelect(`job-detail:${job._id}`)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(`job-detail:${job._id}`); } }}
                               title={job.description || job.name}
                             >
                               <span className="sidebar-item-icon">

@@ -150,6 +150,9 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
               className="repo-commit-item repo-commit-item-page"
               onClick={() => handleCommitClick(commit)}
               title={commit.message}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCommitClick(commit); } }}
             >
               <div className="repo-commit-main">
                 <span className="repo-commit-sha">{commit.sha.slice(0, 7)}</span>

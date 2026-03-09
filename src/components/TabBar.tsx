@@ -32,6 +32,10 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose }: TabBarPro
             key={tab.id}
             className={`tab ${activeTabId === tab.id ? 'active' : ''}`}
             onClick={() => onTabSelect(tab.id)}
+            role="tab"
+            tabIndex={0}
+            aria-selected={activeTabId === tab.id}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabSelect(tab.id); } }}
           >
             <span className="tab-label">{tab.label}</span>
             <button

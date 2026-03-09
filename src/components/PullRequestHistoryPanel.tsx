@@ -298,17 +298,17 @@ export function PullRequestHistoryPanel({
                 </div>
                 <div className="timeline-summary">
                   {event.url ? (
-                    <a
-                      href="#"
-                      onClick={e => {
-                        e.preventDefault()
+                    <button
+                      type="button"
+                      className="timeline-link"
+                      onClick={() => {
                         if (event.url) {
                           window.shell.openExternal(event.url)
                         }
                       }}
                     >
                       {event.summary}
-                    </a>
+                    </button>
                   ) : (
                     event.summary
                   )}

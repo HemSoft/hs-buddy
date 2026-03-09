@@ -220,7 +220,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
               )}
               {session.conversationHistory.map((msg, i) => (
                 <div
-                  key={i}
+                  key={`${msg.role}-${i}`}
                   style={{
                     marginBottom: '12px',
                     padding: '8px 12px',

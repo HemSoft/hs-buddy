@@ -207,6 +207,9 @@ export function SidebarPanel({
                     className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
                     onClick={() => onItemSelect(item.id)}
                     onContextMenu={e => handleContextMenu(e, item.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(item.id); } }}
                   >
                     <span className="sidebar-item-icon">
                       <FileText size={14} />

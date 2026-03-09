@@ -81,7 +81,10 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
     const compute = () => {
       const sessionStart = lastSessionStart ?? clientSessionStart
       const sessionElapsed = Math.max(0, Date.now() - sessionStart)
-      setLiveUptime(storedUptime + sessionElapsed)
+      setLiveUptime(prev => {
+        const newVal = storedUptime + sessionElapsed
+        return newVal !== prev ? newVal : prev
+      })
     }
 
     compute()

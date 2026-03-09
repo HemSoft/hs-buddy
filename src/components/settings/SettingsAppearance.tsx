@@ -104,12 +104,14 @@ export function SettingsAppearance() {
     root.style.removeProperty('--statusbar-fg')
 
     await api.setTheme(newTheme)
-    await api.setAccentColor(defaults.accentColor)
-    await api.setFontColor(defaults.fontColor)
-    await api.setBgPrimary(defaults.bgPrimary)
-    await api.setBgSecondary(defaults.bgSecondary)
-    await api.setStatusBarBg(defaults.statusBarBg)
-    await api.setStatusBarFg(defaults.statusBarFg)
+    await Promise.all([
+      api.setAccentColor(defaults.accentColor),
+      api.setFontColor(defaults.fontColor),
+      api.setBgPrimary(defaults.bgPrimary),
+      api.setBgSecondary(defaults.bgSecondary),
+      api.setStatusBarBg(defaults.statusBarBg),
+      api.setStatusBarFg(defaults.statusBarFg),
+    ])
   }
 
   const handleAccentChange = async (color: string) => {
@@ -164,12 +166,14 @@ export function SettingsAppearance() {
       defaults.statusBarBg,
       defaults.statusBarFg
     )
-    await api.setAccentColor(defaults.accentColor)
-    await api.setFontColor(defaults.fontColor)
-    await api.setBgPrimary(defaults.bgPrimary)
-    await api.setBgSecondary(defaults.bgSecondary)
-    await api.setStatusBarBg(defaults.statusBarBg)
-    await api.setStatusBarFg(defaults.statusBarFg)
+    await Promise.all([
+      api.setAccentColor(defaults.accentColor),
+      api.setFontColor(defaults.fontColor),
+      api.setBgPrimary(defaults.bgPrimary),
+      api.setBgSecondary(defaults.bgSecondary),
+      api.setStatusBarBg(defaults.statusBarBg),
+      api.setStatusBarFg(defaults.statusBarFg),
+    ])
   }
 
   const handleFontFamilyChange = async (font: string) => {

@@ -25,17 +25,17 @@ export function PRInfoCard({ prTitle, org, repo, prNumber, author, prUrl }: PRIn
           <User size={12} />
           {author}
         </span>
-        <a
+        <button
+          type="button"
           className="pr-review-pr-link"
-          onClick={e => {
-            e.preventDefault()
+          onClick={() => {
             window.shell?.openExternal(prUrl)
           }}
           title="Open PR in browser"
         >
           <ExternalLink size={12} />
           View PR
-        </a>
+        </button>
       </div>
     </div>
   )

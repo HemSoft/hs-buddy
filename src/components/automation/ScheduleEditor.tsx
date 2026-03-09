@@ -177,7 +177,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
           </div>
 
           <div className="form-group">
-            <label id={scheduleCronLabelId}>Schedule</label>
+            <span id={scheduleCronLabelId} className="form-label">Schedule</span>
             <div role="group" aria-labelledby={scheduleCronLabelId}>
               <CronBuilder value={cron} onChange={setCron} />
             </div>

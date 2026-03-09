@@ -98,6 +98,9 @@ export function TreeView({ onItemSelect }: TreeViewProps) {
           className={`tree-item ${isSelected ? 'selected' : ''} ${hasChildren ? 'has-children' : ''}`}
           style={{ paddingLeft: `${8 + level * 16}px` }}
           onClick={() => handleItemClick(item)}
+          role="treeitem"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleItemClick(item); } }}
         >
           {hasChildren && (
             <span className="chevron">

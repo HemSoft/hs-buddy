@@ -137,7 +137,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           </div>
 
           <div className="form-group">
-            <label id={workerTypeLabelId}>Worker Type</label>
+            <span id={workerTypeLabelId} className="form-label">Worker Type</span>
             <div className="worker-type-selector" role="group" aria-labelledby={workerTypeLabelId}>
               <button
                 type="button"

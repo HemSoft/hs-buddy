@@ -100,6 +100,27 @@ Targeted handoff requirement:
 - Do NOT scan the broader queue during a targeted run.
 - If both are provided in the same run, treat that as a broken targeted handoff. Report the failure and exit.
 
+Normalization rule for targeted identifiers:
+
+- The rendered GitHub context may show an absent identifier as a lone `#` placeholder.
+- Normalize both `pull-request-number` and `issue-number` before making any routing decision:
+  - strip leading `#`
+  - trim whitespace
+  - a value is valid only if the remaining characters are all digits
+- Treat empty strings, lone `#`, whitespace, and unresolved placeholder text as **missing**, not as a provided targeted identifier.
+- If exactly one identifier normalizes to a valid number and the other normalizes to missing, use the valid one and continue.
+- Only treat the handoff as broken when both identifiers normalize to valid numbers, or when the targeted identifier for the intended path normalizes to missing.
+
+Examples:
+
+| `pull-request-number` | `issue-number` | Meaning |
+| --- | --- | --- |
+| `#148` | `#` | Valid targeted PR run for PR 148 |
+| `148` | `` | Valid targeted PR run for PR 148 |
+| `#` | `147` | Valid targeted issue run for issue 147 |
+| `#148` | `147` | Broken handoff: both identifiers are real |
+| `#` | `#` | Broken handoff: neither identifier is real |
+
 Determinism requirement:
 
 - One `agent:in-progress` issue must map to exactly one open draft `agent:pr` PR.
@@ -114,19 +135,19 @@ If `issue-number` is provided in the context variables, use that issue number
 directly as the target new-issue candidate. Do NOT search for a different
 issue in that case.
 
-If both `pull-request-number` and `issue-number` are provided in the context
-variables, treat that as a broken targeted handoff. Do NOT guess which path to
-take. Report the failure and exit so the handoff bug is visible.
+If both `pull-request-number` and `issue-number` normalize to valid numbers,
+treat that as a broken targeted handoff. Do NOT guess which path to take.
+Report the failure and exit so the handoff bug is visible.
 
-If a `pull-request-number` field is present but the value is blank, `#`, only
-whitespace, or an unresolved placeholder token, treat that as a broken targeted
-handoff. Do NOT search for the oldest draft PR in that case. Report the failure
-and exit so the handoff bug is visible.
+If a `pull-request-number` field is present but it normalizes to missing,
+treat it as absent unless this run is clearly intended to be a targeted PR run.
+Do NOT let a lone `#` placeholder for a missing issue number invalidate an
+otherwise valid targeted PR run.
 
-If an `issue-number` field is present but the value is blank, `#`, only
-whitespace, or an unresolved placeholder token, treat that as a broken targeted
-handoff. Do NOT search for the oldest fixable issue in that case. Report the
-failure and exit so the handoff bug is visible.
+If an `issue-number` field is present but it normalizes to missing, treat it as
+absent unless this run is clearly intended to be a targeted issue run. Do NOT
+let a lone `#` placeholder for a missing PR number invalidate an otherwise
+valid targeted issue run.
 
 If this run was triggered by an `issues` event and the issue already has the
 `agent:fixable` label, prefer that specific issue for **new issue** work once

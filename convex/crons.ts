@@ -23,4 +23,17 @@ crons.interval(
   internal.scheduleScanner.scanAndDispatch
 );
 
+/**
+ * Copilot Usage Snapshot
+ *
+ * Runs once per day to mark Copilot usage snapshots as due.
+ * The actual data collection is performed by the Electron IPC layer
+ * when it sees the pending marker; this cron only coordinates timing.
+ */
+crons.daily(
+  "collect copilot usage snapshots",
+  { hourUTC: 6, minuteUTC: 0 },
+  internal.scheduleScanner.markSnapshotsDue
+);
+
 export default crons;

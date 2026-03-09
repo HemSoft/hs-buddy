@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron'
+import { ConvexHttpClient } from 'convex/browser'
+import { api } from '../../convex/_generated/api'
 import { execAsync, getErrorMessage } from '../utils'
+import { CONVEX_URL } from '../config'
 
 function isNotFoundError(error: unknown): boolean {
   const message = getErrorMessage(error)
@@ -36,6 +39,144 @@ interface BillingUsageItem {
   netAmount: number
   organizationName: string
   repositoryName: string
+}
+
+/** Aggregated Copilot usage metrics for a single org, reused by the
+ *  live IPC handler and the snapshot collection path. */
+export interface CopilotUsageMetrics {
+  org: string
+  premiumRequests: number
+  grossCost: number
+  discount: number
+  netCost: number
+  businessSeats: number
+  budgetAmount: number | null
+  spent: number
+  billingMonth: number
+  billingYear: number
+  fetchedAt: number
+}
+
+/** Fetch Copilot usage + budget metrics for an org.
+ *  Extracted so both the live IPC handler and the snapshot collector
+ *  call the same upstream path. */
+export async function fetchCopilotMetrics(
+  org: string,
+  username?: string,
+): Promise<{ success: true; data: CopilotUsageMetrics } | { success: false; error: string }> {
+  const token = await tryGetCliToken(username)
+  const execEnv = {
+    ...process.env,
+    ...(token ? { GH_TOKEN: token } : {}),
+  }
+
+  const now = new Date()
+  const year = now.getUTCFullYear()
+  const month = now.getUTCMonth() + 1
+
+  // --- usage ---
+  let premiumRequests = 0
+  let grossCost = 0
+  let discount = 0
+  let netCost = 0
+  let businessSeats = 0
+  let usageOk = false
+
+  try {
+    let stdout: string
+    try {
+      const result = await execAsync(
+        `gh api /orgs/${org}/settings/billing/usage`,
+        { encoding: 'utf8', timeout: 15000, env: execEnv },
+      )
+      stdout = result.stdout
+    } catch (orgError: unknown) {
+      if (!isNotFoundError(orgError)) throw orgError
+      const result = await execAsync(
+        `gh api /users/${org}/settings/billing/usage`,
+        { encoding: 'utf8', timeout: 15000, env: execEnv },
+      )
+      stdout = result.stdout
+    }
+
+    const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
+    const copilotItems = data.usageItems.filter(
+      (item) => item.product === 'copilot' && item.sku === 'Copilot Premium Request',
+    )
+    premiumRequests = Math.round(copilotItems.reduce((s, i) => s + i.quantity, 0))
+    grossCost = Math.round(copilotItems.reduce((s, i) => s + i.grossAmount, 0) * 100) / 100
+    discount = Math.round(copilotItems.reduce((s, i) => s + i.discountAmount, 0) * 100) / 100
+    netCost = Math.round(copilotItems.reduce((s, i) => s + i.netAmount, 0) * 100) / 100
+    const seatItems = data.usageItems.filter(
+      (item) => item.product === 'copilot' && item.sku === 'Copilot Business',
+    )
+    businessSeats = Math.round(seatItems.reduce((s, i) => s + i.quantity, 0) * 100) / 100
+    usageOk = true
+  } catch (error: unknown) {
+    const msg = getErrorMessage(error)
+    if (!isNotFoundError(error)) {
+      return { success: false, error: msg }
+    }
+  }
+
+  // --- budget & spend ---
+  let budgetAmount: number | null = null
+  let spent = 0
+
+  try {
+    const [budgetResult, spendResult] = await Promise.allSettled([
+      execAsync(
+        `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
+        { encoding: 'utf8', timeout: 15000, env: execEnv },
+      ),
+      execAsync(
+        `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+        { encoding: 'utf8', timeout: 15000, env: execEnv },
+      ),
+    ])
+
+    if (budgetResult.status === 'fulfilled') {
+      interface BudgetItem { budget_product_sku: string; budget_amount: number }
+      const parsed = JSON.parse(budgetResult.value.stdout.trim()) as { budgets?: BudgetItem[] }
+      const match = (parsed.budgets ?? []).find(
+        (b) => b.budget_product_sku?.toLowerCase().includes('premium')
+          || b.budget_product_sku?.toLowerCase().includes('copilot'),
+      )
+      if (match) budgetAmount = match.budget_amount
+    }
+
+    if (spendResult.status === 'fulfilled') {
+      const parsed = JSON.parse(spendResult.value.stdout.trim()) as {
+        usageItems?: Array<{ netAmount: number }>
+      }
+      spent = Math.round(
+        (parsed.usageItems?.reduce((s, i) => s + i.netAmount, 0) ?? 0) * 100,
+      ) / 100
+    }
+  } catch {
+    // budget/spend fetch is best-effort; usage metrics still valid
+  }
+
+  if (!usageOk && budgetAmount === null) {
+    return { success: false, error: `No billing data available for '${org}'` }
+  }
+
+  return {
+    success: true,
+    data: {
+      org,
+      premiumRequests,
+      grossCost,
+      discount,
+      netCost,
+      businessSeats,
+      budgetAmount,
+      spent,
+      billingMonth: month,
+      billingYear: year,
+      fetchedAt: Date.now(),
+    },
+  }
 }
 
 export function registerGitHubHandlers(): void {
@@ -408,4 +549,57 @@ export function registerGitHubHandlers(): void {
       return { success: false, error: errorMessage }
     }
   })
+
+  // Collect Copilot usage snapshots for a list of accounts.
+  // Returns an array of per-account results; failures are reported per-account
+  // without corrupting previously stored history.
+  ipcMain.handle(
+    'github:collect-copilot-snapshots',
+    async (
+      _event,
+      accounts: Array<{ username: string; org: string }>,
+    ): Promise<{
+      results: Array<
+        | { success: true; data: CopilotUsageMetrics }
+        | { success: false; username: string; org: string; error: string }
+      >
+    }> => {
+      const results: Array<
+        | { success: true; data: CopilotUsageMetrics }
+        | { success: false; username: string; org: string; error: string }
+      > = []
+
+      const client = new ConvexHttpClient(CONVEX_URL)
+
+      for (const { username, org } of accounts) {
+        const result = await fetchCopilotMetrics(org, username)
+        if (result.success) {
+          try {
+            await client.mutation(api.copilotUsageHistory.store, {
+              accountUsername: username,
+              org: result.data.org,
+              billingYear: result.data.billingYear,
+              billingMonth: result.data.billingMonth,
+              premiumRequests: result.data.premiumRequests,
+              grossCost: result.data.grossCost,
+              discount: result.data.discount,
+              netCost: result.data.netCost,
+              businessSeats: result.data.businessSeats,
+              ...(result.data.budgetAmount != null
+                ? { budgetAmount: result.data.budgetAmount }
+                : {}),
+              spent: result.data.spent,
+            })
+          } catch (storeErr) {
+            console.error(`[Snapshot] Failed to persist for ${username}@${org}:`, storeErr)
+          }
+          results.push(result)
+        } else {
+          results.push({ success: false, username, org, error: result.error })
+        }
+      }
+
+      return { results }
+    },
+  )
 }

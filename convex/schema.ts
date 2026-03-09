@@ -197,6 +197,29 @@ export default defineSchema({
     .index("by_key", ["key"]),
 
   /**
+   * Copilot usage history - immutable timestamped snapshots of Copilot
+   * billing/spend data per tracked account.  Never updated or deleted;
+   * each row is a point-in-time record.
+   */
+  copilotUsageHistory: defineTable({
+    accountUsername: v.string(),
+    org: v.string(),
+    billingYear: v.number(),
+    billingMonth: v.number(),
+    premiumRequests: v.number(),
+    grossCost: v.number(),
+    discount: v.number(),
+    netCost: v.number(),
+    businessSeats: v.number(),
+    budgetAmount: v.optional(v.number()),
+    spent: v.number(),
+    snapshotAt: v.number(),
+  })
+    .index("by_account_period", ["accountUsername", "org", "billingYear", "billingMonth"])
+    .index("by_org", ["org"])
+    .index("by_snapshot", ["snapshotAt"]),
+
+  /**
    * Copilot SDK results - captured output from Copilot SDK prompts
    * Generic: supports PR reviews, code analysis, or any free-text prompt.
    */

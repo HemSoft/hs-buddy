@@ -1,5 +1,15 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
+
+/**
+ * Internal: return every tracked account for snapshot collection runs.
+ */
+export const listForSnapshotRun = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("githubAccounts").collect();
+  },
+});
 
 /**
  * List all GitHub accounts

@@ -11,6 +11,7 @@ import { api } from '../../convex/_generated/api'
 import { execWorker } from './execWorker'
 import { aiWorker } from './aiWorker'
 import { skillWorker } from './skillWorker'
+import { fetchCopilotMetrics } from '../ipc/githubHandlers'
 import type { Worker, JobConfig } from './types'
 import { CONVEX_URL } from '../config'
 
@@ -117,6 +118,12 @@ class Dispatcher {
       return
     }
 
+    // Handle __copilot_snapshot__ sentinel — collect and persist usage snapshots
+    if (job.workerType === 'exec' && (job.config as JobConfig).command === '__copilot_snapshot__') {
+      await this.executeSnapshotCollection(run)
+      return
+    }
+
     // Execute with abort support
     this.abortController = new AbortController()
     try {
@@ -153,6 +160,69 @@ class Dispatcher {
     // After finishing one run, immediately check for more
     // (without waiting for next interval)
     setImmediate(() => this.poll())
+  }
+
+  /** Collect Copilot usage snapshots and persist to copilotUsageHistory */
+  private async executeSnapshotCollection(
+    run: { _id: any; input?: any },
+  ): Promise<void> {
+    const accounts = run.input?.accounts as
+      | Array<{ username: string; org: string }>
+      | undefined
+    if (!accounts || accounts.length === 0) {
+      await this.client.mutation(api.runs.fail, {
+        id: run._id,
+        error: 'No accounts provided for snapshot collection',
+      })
+      return
+    }
+
+    const start = Date.now()
+    let succeeded = 0
+    let failed = 0
+
+    for (const { username, org } of accounts) {
+      const result = await fetchCopilotMetrics(org, username)
+      if (result.success) {
+        try {
+          await this.client.mutation(api.copilotUsageHistory.store, {
+            accountUsername: username,
+            org: result.data.org,
+            billingYear: result.data.billingYear,
+            billingMonth: result.data.billingMonth,
+            premiumRequests: result.data.premiumRequests,
+            grossCost: result.data.grossCost,
+            discount: result.data.discount,
+            netCost: result.data.netCost,
+            businessSeats: result.data.businessSeats,
+            ...(result.data.budgetAmount != null
+              ? { budgetAmount: result.data.budgetAmount }
+              : {}),
+            spent: result.data.spent,
+          })
+          succeeded++
+        } catch (storeErr) {
+          const msg = storeErr instanceof Error ? storeErr.message : String(storeErr)
+          console.error(`[Dispatcher] Snapshot store failed for ${username}@${org}: ${msg}`)
+          failed++
+        }
+      } else {
+        console.warn(`[Dispatcher] Snapshot fetch failed for ${username}@${org}: ${result.error}`)
+        failed++
+      }
+    }
+
+    const duration = Date.now() - start
+    console.log(`[Dispatcher] Snapshot collection: ${succeeded} succeeded, ${failed} failed in ${duration}ms`)
+
+    await this.client.mutation(api.runs.complete, {
+      id: run._id,
+      output: {
+        stdout: `Snapshot collection: ${succeeded} succeeded, ${failed} failed`,
+        exitCode: failed > 0 ? 1 : 0,
+        duration,
+      },
+    })
   }
 }
 

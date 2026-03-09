@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.294] - 2026-03-09
 
+### Changed
+
+- Set fixed morning audit schedules
+
 ## [0.1.293] - 2026-03-09
 
 ### Fixed

@@ -16,6 +16,28 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-LinkedIssueNumber {
+    param(
+        [Parameter(Mandatory)]
+        $PullRequest
+    )
+
+    $body = [string]$PullRequest.body
+    if ($body -match 'Closes\s+#(\d+)') {
+        return [int]$matches[1]
+    }
+
+    if ($body -match '\*\*Linked Issue\*\*:\s+#(\d+)') {
+        return [int]$matches[1]
+    }
+
+    if ($PullRequest.headRefName -match 'agent-fix/issue-(\d+)') {
+        return [int]$matches[1]
+    }
+
+    return $null
+}
+
 Write-Host "`n=== PR #$PRNumber FORENSICS ===" -ForegroundColor Cyan
 
 # --- Get PR details ---
@@ -29,13 +51,16 @@ $labels = ($pr.labels | ForEach-Object { $_.name }) -join ", "
 Write-Host "Labels: $labels"
 
 # --- Extract linked issue ---
-$issueNum = $null
-if ($pr.body -match "Closes #(\d+)") {
-    $issueNum = $matches[1]
-    Write-Host "Linked Issue: #$issueNum" -ForegroundColor Green
-} elseif ($pr.headRefName -match "agent-fix/issue-(\d+)") {
-    $issueNum = $matches[1]
-    Write-Host "Linked Issue (from branch): #$issueNum" -ForegroundColor Yellow
+$issueNum = Get-LinkedIssueNumber -PullRequest $pr
+if ($null -ne $issueNum) {
+    $linkSource = if ($pr.body -match 'Closes\s+#(\d+)') {
+        'body closes reference'
+    } elseif ($pr.body -match '\*\*Linked Issue\*\*:\s+#(\d+)') {
+        'body linked-issue marker'
+    } else {
+        'branch fallback'
+    }
+    Write-Host "Linked Issue: #$issueNum ($linkSource)" -ForegroundColor Green
 } else {
     Write-Host "Linked Issue: NONE FOUND" -ForegroundColor Red
 }
@@ -171,8 +196,11 @@ if ($implementerRunId) {
 if ($issueNum) {
     Write-Host "`n--- LINKED ISSUE #$issueNum ---" -ForegroundColor Yellow
     $issue = gh issue view $issueNum --repo $Repo --json number,title,state,labels 2>&1 | ConvertFrom-Json
-    $relatedPRs = gh pr list --repo $Repo --state open --json number,headRefName,isDraft 2>&1 | ConvertFrom-Json |
-        Where-Object { $_.headRefName -match "agent-fix/issue-$issueNum-" }
+    $relatedPRs = gh pr list --repo $Repo --state open --json number,headRefName,isDraft,labels,body 2>&1 | ConvertFrom-Json |
+        Where-Object {
+            $prLabelNames = @($_.labels | ForEach-Object { $_.name })
+            ($prLabelNames -contains "agent:pr") -and ((Get-LinkedIssueNumber -PullRequest $_) -eq [int]$issueNum)
+        }
     $issueLabels = ($issue.labels | ForEach-Object { $_.name }) -join ", "
     Write-Host "  State: $($issue.state)"
     Write-Host "  Labels: $issueLabels"
@@ -180,6 +208,12 @@ if ($issueNum) {
 
     if (@($relatedPRs).Count -gt 1) {
         Write-Host "  Issue<->PR link: AMBIGUOUS (multiple open agent PRs)" -ForegroundColor Red
+    } elseif ($issue.state -eq "CLOSED" -and $pr.state -eq "MERGED") {
+        if (($issue.labels | ForEach-Object { $_.name }) -contains "agent:in-progress") {
+            Write-Host "  Issue<->PR link: RESOLVED (issue closed, stale agent:in-progress label remains)" -ForegroundColor Yellow
+        } else {
+            Write-Host "  Issue<->PR link: RESOLVED" -ForegroundColor Green
+        }
     } elseif ($issue.state -eq "OPEN" -and ($issue.labels | ForEach-Object { $_.name }) -contains "agent:in-progress") {
         Write-Host "  Issue<->PR link: HEALTHY" -ForegroundColor Green
     } else {
@@ -208,8 +242,11 @@ if ($foundNew -ge 3 -and $blockCount -eq 0) {
 }
 
 if ($issueNum) {
-    $relatedPRs = gh pr list --repo $Repo --state open --json number,headRefName 2>&1 | ConvertFrom-Json |
-        Where-Object { $_.headRefName -match "agent-fix/issue-$issueNum-" }
+    $relatedPRs = gh pr list --repo $Repo --state open --json number,headRefName,labels,body 2>&1 | ConvertFrom-Json |
+        Where-Object {
+            $prLabelNames = @($_.labels | ForEach-Object { $_.name })
+            ($prLabelNames -contains "agent:pr") -and ((Get-LinkedIssueNumber -PullRequest $_) -eq [int]$issueNum)
+        }
     if (@($relatedPRs).Count -gt 1) {
         $prNumbers = (@($relatedPRs) | ForEach-Object { "#$($_.number)" }) -join ", "
         Write-Host "  DUPLICATE STATE: Issue #$issueNum currently has multiple open agent PRs: $prNumbers" -ForegroundColor Red

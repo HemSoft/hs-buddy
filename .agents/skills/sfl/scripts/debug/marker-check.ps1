@@ -18,14 +18,14 @@ Write-Host "`n=== MARKER CHECK (All Open PRs) ===" -ForegroundColor Cyan
 
 $prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,body,labels 2>&1 | ConvertFrom-Json
 
-$agentPRs = $prs | Where-Object { $_.headRefName -match "^agent-fix/" }
+$agentPRs = $prs | Where-Object { @($_.labels | ForEach-Object { $_.name }) -contains "agent:pr" }
 
 if ($agentPRs.Count -eq 0) {
-    Write-Host "No open agent-fix PRs found." -ForegroundColor Green
+    Write-Host "No open agent PRs found." -ForegroundColor Green
     return
 }
 
-Write-Host "Found $($agentPRs.Count) open agent-fix PR(s).`n"
+Write-Host "Found $($agentPRs.Count) open agent PR(s).`n"
 
 foreach ($pr in $agentPRs) {
     Write-Host "--- PR #$($pr.number): $($pr.title) ---" -ForegroundColor Yellow

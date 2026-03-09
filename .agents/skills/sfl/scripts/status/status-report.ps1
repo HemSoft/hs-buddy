@@ -10,6 +10,28 @@ $ErrorActionPreference = "Stop"
 $data = & ".agents/skills/sfl/scripts/status/status-collect.ps1" -Repo $Repo -LastCheckUtc $LastCheckUtc
 if ($data -is [string]) { $data = $data | ConvertFrom-Json }
 
+function Get-LinkedIssueNumber {
+    param(
+        [Parameter(Mandatory)]
+        $PullRequest
+    )
+
+    $body = [string]$PullRequest.body
+    if ($body -match 'Closes\s+#(\d+)') {
+        return [int]$matches[1]
+    }
+
+    if ($body -match '\*\*Linked Issue\*\*:\s+#(\d+)') {
+        return [int]$matches[1]
+    }
+
+    if ($PullRequest.headRefName -match 'agent-fix/issue-(\d+)-') {
+        return [int]$matches[1]
+    }
+
+    return $null
+}
+
 function To-Eastern($utcText) {
     $utc = [DateTime]::Parse($utcText).ToUniversalTime()
     $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Eastern Standard Time")
@@ -36,7 +58,10 @@ foreach ($issue in $data.issues) {
     $num = [int]$issue.number
 
     if ($labels -contains "agent:in-progress") {
-        $matching = @($data.prs | Where-Object { $_.headRefName -match "agent-fix/issue-$num-" })
+        $matching = @($data.prs | Where-Object {
+            $prLabelNames = @($_.labels | ForEach-Object { $_.name })
+            ($prLabelNames -contains "agent:pr") -and ((Get-LinkedIssueNumber -PullRequest $_) -eq $num)
+        })
         if ($matching.Count -eq 1) {
             $pr = $matching[0]
             $ok = "✅"

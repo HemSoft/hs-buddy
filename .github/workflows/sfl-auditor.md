@@ -64,16 +64,22 @@ Collect two lists:
 
 **A. In-progress issues**: all open issues that have the label `agent:in-progress`.
 
-**B. Open agent PRs**: all open pull requests (including drafts) whose head
-branch name matches the pattern `agent-fix/issue-<number>-<hash>` (e.g.
-`agent-fix/issue-5-8508dd6f9171b056`).
+**B. Open agent PRs**: all open pull requests (including drafts) labeled
+`agent:pr`.
 
-For each PR in list B, extract the issue number: it is the digit(s) immediately
-after `agent-fix/issue-` and before the next `-`.
+For each PR in list B, resolve the linked issue number using this order:
+
+1. `Closes #<number>` in the PR body
+2. `**Linked Issue**: #<number>` in the PR body
+3. Fallback only: branch name pattern `agent-fix/issue-<number>-<hash>`
 
 **C. Recently merged agent PRs**: all *merged* (closed) pull requests whose head
-branch name matches the pattern `agent-fix/issue-<number>-<hash>`, merged within
-the last 7 days. For each, extract the issue number the same way as list B.
+branch or title identifies them as SFL agent PRs and whose linked issue number
+can be resolved using the same order as list B, merged within the last 7 days.
+
+Treat the PR label `agent:pr`, the standard SFL body markers, and the linked-issue
+metadata in the body as the source of truth. Branch naming is only a fallback
+for older PRs.
 
 ## Step 2 — Check: orphaned agent:in-progress labels
 
@@ -146,7 +152,23 @@ issue using the extracted issue number. If that issue is still **OPEN**:
 Skip issues that still have `agent:in-progress` AND a matching open PR in
 list B (those are handled by other steps).
 
-## Step 7 — Check: stale report issues
+## Step 7 — Check: closed issues with stale `agent:in-progress`
+
+Search for **closed** issues that still have the label `agent:in-progress`.
+
+For each such closed issue:
+
+1. Call `update_issue` with ALL of these fields in a **single call**:
+   - `issue_number`: the issue number
+   - `labels`: the issue's current labels with `agent:in-progress` removed
+     (keep all other existing labels unchanged)
+   - `body`: "🧹 **SFL Auditor**: This issue is already closed, so removing stale `agent:in-progress` state."
+   - `operation`: `"append"`
+
+This is a cleanup step for cases where the issue was closed manually or by PR
+keywords but the operational label remained behind.
+
+## Step 8 — Check: stale report issues
 
 Search for **open** issues that have the label `report`
 but do NOT have any of:
@@ -162,7 +184,7 @@ close all but the most recent one using `update_issue` with:
 - `body`: "🧹 **SFL Auditor**: Closing stale report issue — a newer report exists."
 - `operation`: `"append"`
 
-## Step 8 — Check: stale unclaimed issues
+## Step 9 — Check: stale unclaimed issues
 
 Search for **open** issues that have the label `agent:fixable` but do NOT have
 `agent:in-progress`, `agent:pause`, `agent:human-required`, or `agent:escalated`.
@@ -192,7 +214,7 @@ If an `agent:fixable` issue is older than 2 hours and has not been claimed:
 Only flag each issue **once** — if the issue already has a comment containing
 "over 2 hours without being claimed", skip it.
 
-## Step 9 — Check: stalled draft PRs without analyzer reviews
+## Step 10 — Check: stalled draft PRs without analyzer reviews
 
 For each PR in list B (open agent PRs), check whether the PR is a **draft**
 and was created more than **2 hours ago**.
@@ -215,7 +237,7 @@ Only if the string is truly absent from the body, call `update_issue` with:
 - `body`: "⏰ **SFL Auditor**: Draft PR #<pr-number> has been open for over 2 hours and is missing one or more analyzer markers. The PR Analyzers may not be dispatching for this PR. A human should investigate."
 - `operation`: `"append"`
 
-## Step 10 — Check: analyzer starvation by oldest-draft selection
+## Step 11 — Check: analyzer starvation by oldest-draft selection
 
 For open agent PRs in list B, create a draft-only subset and sort by creation
 date ascending.
@@ -258,7 +280,7 @@ If the Analyzer C marker for cycle N exists but the Router marker for cycle N do
 Only flag each PR once. If its body already contains the exact string
 `Analyzer C completed for current cycle` then skip it.
 
-## Step 11 — Check: invalid supersede narrative on open agent PRs
+## Step 12 — Check: invalid supersede narrative on open agent PRs
 
 For each open agent PR in list B, check the PR body for either of these
 strings:
@@ -286,7 +308,7 @@ Only flag each issue once for this condition. If the issue body already
 contains the exact string `contains a superseding replacement-PR narrative`,
 skip it.
 
-## Step 12 — Check: unexplained agent:pause
+## Step 13 — Check: unexplained agent:pause
 
 For each open issue with `agent:pause`, check whether any comment on that
 issue contains the words "pause" or "paused" or "agent:pause".
@@ -298,9 +320,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 13 — Signal completion
+## Step 14 — Signal completion
 
-After completing all checks (Steps 2–12), you MUST always call exactly one of:
+After completing all checks (Steps 2–13), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - Update the dashboard (see Dashboard Protocol) — if ALL checks

@@ -12,6 +12,28 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-LinkedIssueNumber {
+    param(
+        [Parameter(Mandatory)]
+        $PullRequest
+    )
+
+    $body = [string]$PullRequest.body
+    if ($body -match 'Closes\s+#(\d+)') {
+        return [int]$matches[1]
+    }
+
+    if ($body -match '\*\*Linked Issue\*\*:\s+#(\d+)') {
+        return [int]$matches[1]
+    }
+
+    if ($PullRequest.headRefName -match 'agent-fix/issue-(\d+)-') {
+        return [int]$matches[1]
+    }
+
+    return $null
+}
+
 Write-Host "`n=== ECOSYSTEM SNAPSHOT ===" -ForegroundColor Cyan
 Write-Host "Repo: $Repo"
 Write-Host "Time: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')) (local) / $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')) (UTC)"
@@ -38,7 +60,7 @@ if ($issues) {
 
 # --- PRs ---
 Write-Host "`n--- OPEN PULL REQUESTS ---" -ForegroundColor Yellow
-$prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,labels,createdAt 2>&1 | ConvertFrom-Json
+$prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,labels,createdAt,body 2>&1 | ConvertFrom-Json
 if ($prs) {
     foreach ($pr in $prs) {
         $labels = ($pr.labels | ForEach-Object { $_.name }) -join ", "
@@ -66,8 +88,12 @@ $harmony = $true
 
 $agentIssuePrMap = @{}
 foreach ($pr in $prs) {
-    if ($pr.headRefName -match "agent-fix/issue-(\d+)-") {
-        $issueNumber = [int]$matches[1]
+    $labelNames = @($pr.labels | ForEach-Object { $_.name })
+    if ($labelNames -contains "agent:pr") {
+        $issueNumber = Get-LinkedIssueNumber -PullRequest $pr
+        if ($null -eq $issueNumber) {
+            continue
+        }
         if (-not $agentIssuePrMap.ContainsKey($issueNumber)) {
             $agentIssuePrMap[$issueNumber] = @()
         }
@@ -80,7 +106,10 @@ foreach ($i in $issues) {
     $isInProgress = ($i.labels | ForEach-Object { $_.name }) -contains "agent:in-progress"
     if ($isInProgress) {
         $num = $i.number
-        $matchingPRs = @($prs | Where-Object { $_.headRefName -match "agent-fix/issue-$num-" })
+        $matchingPRs = @($prs | Where-Object {
+            $prLabelNames = @($_.labels | ForEach-Object { $_.name })
+            ($prLabelNames -contains "agent:pr") -and ((Get-LinkedIssueNumber -PullRequest $_) -eq $num)
+        })
         if ($matchingPRs.Count -eq 0) {
             Write-Host "  FAIL: Issue #$num (agent:in-progress) has no matching PR" -ForegroundColor Red
             $harmony = $false

@@ -28,13 +28,12 @@
 #
 # Source: githubnext/agentics/workflows/daily-repo-status.md@d19056381ba48cb1f7c78510c23069701fa7ae87
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"36d9991d76a9c536762d075e765cbeb56ca2028e0cbc471d3a8c5cff4819d19f","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"a2423d6d4f915796feaeff576d08f7eab0b0c75824118cfd8b3b8c1ba7909f1c","compiler_version":"v0.50.4"}
 
 name: "SFL Repo Status"
 "on":
   schedule:
-  - cron: "56 2 * * *"
-    # Friendly format: daily (scattered)
+  - cron: "5 8 * * *"
   workflow_dispatch:
 
 permissions: {}

@@ -5,7 +5,8 @@ description: |
   It creates exactly ONE consolidated report discussion with all findings.
 
 on:
-  schedule: daily
+  schedule:
+    - cron: "35 8 * * *"
   workflow_dispatch:
 
 permissions:

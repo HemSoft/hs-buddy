@@ -25,13 +25,12 @@
 # stale artifacts, configuration hygiene issues, and cross-reference mismatches.
 # It creates exactly ONE consolidated report discussion with all findings.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"05e50c53b2922198d4c9fc61ace1d2ea0469a1139b56e9f12bd4862c16d8d74f","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"f251ec50e41463e84aa4c6edeb5c6184b3a9bd73cbdeaf25821a4800149c90f4","compiler_version":"v0.50.4"}
 
 name: "Repo Audit"
 "on":
   schedule:
-  - cron: "49 2 * * *"
-    # Friendly format: daily (scattered)
+  - cron: "35 8 * * *"
   workflow_dispatch:
 
 permissions: {}

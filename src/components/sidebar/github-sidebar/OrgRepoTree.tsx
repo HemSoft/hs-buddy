@@ -274,7 +274,15 @@ export function OrgRepoTree({
                         <div key={repo.name} className="sidebar-repo-group">
                           <div
                             className="sidebar-item sidebar-item-disclosure sidebar-repo-item"
+                            role="button"
+                            tabIndex={0}
                             onClick={() => onToggleRepo(org, repo.name)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                onToggleRepo(org, repo.name)
+                              }
+                            }}
                             title={repo.description || repo.fullName}
                           >
                             <span className="sidebar-item-chevron">
@@ -303,7 +311,10 @@ export function OrgRepoTree({
                             <div className="sidebar-repo-children">
                               <div
                                 className={`sidebar-item sidebar-repo-child ${selectedItem === `repo-detail:${repoKey}` ? 'selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => onItemSelect(`repo-detail:${repoKey}`)}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(`repo-detail:${repoKey}`); } }}
                               >
                                 <span className="sidebar-item-icon">
                                   <FileText size={12} />
@@ -312,16 +323,34 @@ export function OrgRepoTree({
                               </div>
                               <div
                                 className={`sidebar-item sidebar-item-disclosure sidebar-repo-child ${isCommitSelected ? 'selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => {
                                   onItemSelect(`repo-commits:${repoKey}`)
                                   onToggleRepoCommitGroup(org, repo.name)
                                 }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onItemSelect(`repo-commits:${repoKey}`)
+                                    onToggleRepoCommitGroup(org, repo.name)
+                                  }
+                                }}
                               >
                                 <span
                                   className="sidebar-item-chevron"
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={e => {
                                     e.stopPropagation()
                                     onToggleRepoCommitGroup(org, repo.name)
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      onToggleRepoCommitGroup(org, repo.name)
+                                    }
                                   }}
                                 >
                                   {expandedRepoCommitGroups.has(repoKey) ? (
@@ -365,7 +394,10 @@ export function OrgRepoTree({
                                           <div
                                             key={childViewId}
                                             className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                                            role="button"
+                                            tabIndex={0}
                                             onClick={() => onItemSelect(childViewId)}
+                                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                                             title={commit.message}
                                           >
                                             <span className="sidebar-item-icon">
@@ -385,16 +417,34 @@ export function OrgRepoTree({
                                 )}
                               <div
                                 className={`sidebar-item sidebar-item-disclosure sidebar-repo-child ${isIssueSelected ? 'selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => {
                                   onItemSelect(`repo-issues:${repoKey}`)
                                   onToggleRepoIssueGroup(org, repo.name)
                                 }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onItemSelect(`repo-issues:${repoKey}`)
+                                    onToggleRepoIssueGroup(org, repo.name)
+                                  }
+                                }}
                               >
                                 <span
                                   className="sidebar-item-chevron"
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={e => {
                                     e.stopPropagation()
                                     onToggleRepoIssueGroup(org, repo.name)
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      onToggleRepoIssueGroup(org, repo.name)
+                                    }
                                   }}
                                 >
                                   {expandedRepoIssueGroups.has(repoKey) ? (
@@ -418,16 +468,34 @@ export function OrgRepoTree({
                                   <div className="sidebar-job-items">
                                     <div
                                       className={`sidebar-item sidebar-pr-child ${isOpenIssueSelected ? 'selected' : ''}`}
+                                      role="button"
+                                      tabIndex={0}
                                       onClick={() => {
                                         onItemSelect(`repo-issues:${repoKey}`)
                                         onToggleRepoIssueStateGroup(org, repo.name, 'open')
                                       }}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault()
+                                          onItemSelect(`repo-issues:${repoKey}`)
+                                          onToggleRepoIssueStateGroup(org, repo.name, 'open')
+                                        }
+                                      }}
                                     >
                                       <span
                                         className="sidebar-item-chevron"
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={e => {
                                           e.stopPropagation()
                                           onToggleRepoIssueStateGroup(org, repo.name, 'open')
+                                        }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            onToggleRepoIssueStateGroup(org, repo.name, 'open')
+                                          }
                                         }}
                                       >
                                         {expandedRepoIssueStateGroups.has(openIssueGroupKey) ? (
@@ -472,7 +540,10 @@ export function OrgRepoTree({
                                                   <div
                                                     key={`open-${issue.number}`}
                                                     className={`sidebar-item sidebar-pr-child ${selectedItem === issueViewId ? 'selected' : ''}`}
+                                                    role="button"
+                                                    tabIndex={0}
                                                     onClick={() => onItemSelect(issueViewId)}
+                                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(issueViewId); } }}
                                                     title={issue.title}
                                                   >
                                                     <span className="sidebar-item-icon">
@@ -489,16 +560,34 @@ export function OrgRepoTree({
                                       )}
                                     <div
                                       className={`sidebar-item sidebar-pr-child ${isClosedIssueSelected ? 'selected' : ''}`}
+                                      role="button"
+                                      tabIndex={0}
                                       onClick={() => {
                                         onItemSelect(`repo-issues-closed:${repoKey}`)
                                         onToggleRepoIssueStateGroup(org, repo.name, 'closed')
                                       }}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault()
+                                          onItemSelect(`repo-issues-closed:${repoKey}`)
+                                          onToggleRepoIssueStateGroup(org, repo.name, 'closed')
+                                        }
+                                      }}
                                     >
                                       <span
                                         className="sidebar-item-chevron"
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={e => {
                                           e.stopPropagation()
                                           onToggleRepoIssueStateGroup(org, repo.name, 'closed')
+                                        }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            onToggleRepoIssueStateGroup(org, repo.name, 'closed')
+                                          }
                                         }}
                                       >
                                         {expandedRepoIssueStateGroups.has(closedIssueGroupKey) ? (
@@ -541,7 +630,10 @@ export function OrgRepoTree({
                                                   <div
                                                     key={`closed-${issue.number}`}
                                                     className={`sidebar-item sidebar-pr-child ${selectedItem === issueViewId ? 'selected' : ''}`}
+                                                    role="button"
+                                                    tabIndex={0}
                                                     onClick={() => onItemSelect(issueViewId)}
+                                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(issueViewId); } }}
                                                     title={issue.title}
                                                   >
                                                     <span className="sidebar-item-icon">
@@ -561,16 +653,34 @@ export function OrgRepoTree({
                               )}
                               <div
                                 className={`sidebar-item sidebar-item-disclosure sidebar-repo-child sidebar-repo-pr-row ${isPRSelected ? 'selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => {
                                   onItemSelect(`repo-prs:${repoKey}`)
                                   onToggleRepoPRGroup(org, repo.name)
                                 }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onItemSelect(`repo-prs:${repoKey}`)
+                                    onToggleRepoPRGroup(org, repo.name)
+                                  }
+                                }}
                               >
                                 <span
                                   className="sidebar-item-chevron"
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={e => {
                                     e.stopPropagation()
                                     onToggleRepoPRGroup(org, repo.name)
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      onToggleRepoPRGroup(org, repo.name)
+                                    }
                                   }}
                                 >
                                   {expandedRepoPRGroups.has(repoKey) ? (
@@ -599,16 +709,34 @@ export function OrgRepoTree({
                                   <div className="sidebar-job-items">
                                     <div
                                       className={`sidebar-item sidebar-pr-child ${isOpenPRSelected ? 'selected' : ''}`}
+                                      role="button"
+                                      tabIndex={0}
                                       onClick={() => {
                                         onItemSelect(`repo-prs:${repoKey}`)
                                         onToggleRepoPRStateGroup(org, repo.name, 'open')
                                       }}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault()
+                                          onItemSelect(`repo-prs:${repoKey}`)
+                                          onToggleRepoPRStateGroup(org, repo.name, 'open')
+                                        }
+                                      }}
                                     >
                                       <span
                                         className="sidebar-item-chevron"
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={e => {
                                           e.stopPropagation()
                                           onToggleRepoPRStateGroup(org, repo.name, 'open')
+                                        }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            onToggleRepoPRStateGroup(org, repo.name, 'open')
+                                          }
                                         }}
                                       >
                                         {expandedRepoPRStateGroups.has(openPrGroupKey) ? (
@@ -652,15 +780,27 @@ export function OrgRepoTree({
                                           >
                                             <div
                                               className={`sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
+                                              role="button"
+                                              tabIndex={0}
                                               onClick={() => onItemSelect(prViewId)}
+                                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(prViewId); } }}
                                               onContextMenu={e => onContextMenu(e, pr)}
                                               title={pr.title}
                                             >
                                               <span
                                                 className="sidebar-item-chevron"
+                                                role="button"
+                                                tabIndex={0}
                                                 onClick={e => {
                                                   e.stopPropagation()
                                                   onTogglePRNode(prViewId)
+                                                }}
+                                                onKeyDown={e => {
+                                                  if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault()
+                                                    e.stopPropagation()
+                                                    onTogglePRNode(prViewId)
+                                                  }
                                                 }}
                                               >
                                                 {expandedPRNodes.has(prViewId) ? (
@@ -690,7 +830,10 @@ export function OrgRepoTree({
                                                     <div
                                                       key={childViewId}
                                                       className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                                                      role="button"
+                                                      tabIndex={0}
                                                       onClick={() => onItemSelect(childViewId)}
+                                                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                                                     >
                                                       <span className="sidebar-item-icon">
                                                         <FileText size={11} />
@@ -708,16 +851,34 @@ export function OrgRepoTree({
                                       })}
                                     <div
                                       className={`sidebar-item sidebar-pr-child ${isClosedPRSelected ? 'selected' : ''}`}
+                                      role="button"
+                                      tabIndex={0}
                                       onClick={() => {
                                         onItemSelect(`repo-prs-closed:${repoKey}`)
                                         onToggleRepoPRStateGroup(org, repo.name, 'closed')
                                       }}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault()
+                                          onItemSelect(`repo-prs-closed:${repoKey}`)
+                                          onToggleRepoPRStateGroup(org, repo.name, 'closed')
+                                        }
+                                      }}
                                     >
                                       <span
                                         className="sidebar-item-chevron"
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={e => {
                                           e.stopPropagation()
                                           onToggleRepoPRStateGroup(org, repo.name, 'closed')
+                                        }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            onToggleRepoPRStateGroup(org, repo.name, 'closed')
+                                          }
                                         }}
                                       >
                                         {expandedRepoPRStateGroups.has(closedPrGroupKey) ? (
@@ -763,15 +924,27 @@ export function OrgRepoTree({
                                           >
                                             <div
                                               className={`sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
+                                              role="button"
+                                              tabIndex={0}
                                               onClick={() => onItemSelect(prViewId)}
+                                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(prViewId); } }}
                                               onContextMenu={e => onContextMenu(e, pr)}
                                               title={pr.title}
                                             >
                                               <span
                                                 className="sidebar-item-chevron"
+                                                role="button"
+                                                tabIndex={0}
                                                 onClick={e => {
                                                   e.stopPropagation()
                                                   onTogglePRNode(prViewId)
+                                                }}
+                                                onKeyDown={e => {
+                                                  if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault()
+                                                    e.stopPropagation()
+                                                    onTogglePRNode(prViewId)
+                                                  }
                                                 }}
                                               >
                                                 {expandedPRNodes.has(prViewId) ? (
@@ -801,7 +974,10 @@ export function OrgRepoTree({
                                                     <div
                                                       key={childViewId}
                                                       className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                                                      role="button"
+                                                      tabIndex={0}
                                                       onClick={() => onItemSelect(childViewId)}
+                                                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                                                     >
                                                       <span className="sidebar-item-icon">
                                                         <FileText size={11} />
@@ -843,13 +1019,30 @@ export function OrgRepoTree({
                                   <>
                                     <div
                                       className="sidebar-item sidebar-item-disclosure sidebar-repo-child"
+                                      role="button"
+                                      tabIndex={0}
                                       onClick={() => onToggleSFLGroup(org, repo.name)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault()
+                                          onToggleSFLGroup(org, repo.name)
+                                        }
+                                      }}
                                     >
                                       <span
                                         className="sidebar-item-chevron"
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={e => {
                                           e.stopPropagation()
                                           onToggleSFLGroup(org, repo.name)
+                                        }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            onToggleSFLGroup(org, repo.name)
+                                          }
                                         }}
                                       >
                                         {isSFLExpanded ? (

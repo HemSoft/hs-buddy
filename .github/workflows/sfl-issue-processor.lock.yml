@@ -29,7 +29,7 @@
 # supports targeted `workflow_dispatch` handoffs for a specific issue or PR.
 # One work item per run.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"363ac7fe30289e6b4e16056abfae12b7e7d54838fd14391ec410972dae0b62e8","compiler_version":"v0.56.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"d531eb6faa456a5d63a3a25787a6787a511db9f4d2d00d0f2b897b423e4bb1ec","compiler_version":"v0.56.2","strict":true}
 
 name: "SFL Issue Processor / Implementer"
 "on":
@@ -137,8 +137,8 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_COMMENT_ID: ${{ github.event.comment.id }}
           GH_AW_GITHUB_EVENT_DISCUSSION_NUMBER: ${{ github.event.discussion.number }}
-          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: "${{ github.event.issue.number || github.event.inputs['issue-number'] }}"
-          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: "${{ github.event.pull_request.number || github.event.inputs['pull-request-number'] }}"
+          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: "${{ github.event.issue.number || inputs['issue-number'] || github.event.inputs['issue-number'] }}"
+          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: "${{ github.event.pull_request.number || inputs['pull-request-number'] || github.event.inputs['pull-request-number'] }}"
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -213,8 +213,8 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_COMMENT_ID: ${{ github.event.comment.id }}
           GH_AW_GITHUB_EVENT_DISCUSSION_NUMBER: ${{ github.event.discussion.number }}
-          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: "${{ github.event.issue.number || github.event.inputs['issue-number'] }}"
-          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: "${{ github.event.pull_request.number || github.event.inputs['pull-request-number'] }}"
+          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: "${{ github.event.issue.number || inputs['issue-number'] || github.event.inputs['issue-number'] }}"
+          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: "${{ github.event.pull_request.number || inputs['pull-request-number'] || github.event.inputs['pull-request-number'] }}"
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}

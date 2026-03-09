@@ -1,6 +1,5 @@
 import {
   Clock,
-  CheckCircle,
   XCircle,
   Loader,
   ChevronDown,
@@ -11,8 +10,9 @@ import {
   Calendar,
   RefreshCw,
 } from 'lucide-react'
-import { formatDistanceToNow, format } from '../../../utils/dateUtils'
+import { formatDistanceToNow, format, formatDuration } from '../../../utils/dateUtils'
 import { getWorkerIcon } from '../job-list/jobRowUtils'
+import { getStatusIcon, getStatusLabel } from '../../shared/statusDisplay'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 type TriggerType = 'manual' | 'schedule' | 'api'
@@ -48,25 +48,6 @@ export interface RunCardProps {
   onCancel: (runId: string, e: React.MouseEvent) => void
 }
 
-function getStatusIcon(status: RunStatus) {
-  switch (status) {
-    case 'pending':
-      return <Clock size={14} className="status-icon status-pending" />
-    case 'running':
-      return <Loader size={14} className="status-icon status-running" />
-    case 'completed':
-      return <CheckCircle size={14} className="status-icon status-completed" />
-    case 'failed':
-      return <XCircle size={14} className="status-icon status-failed" />
-    case 'cancelled':
-      return <Ban size={14} className="status-icon status-cancelled" />
-  }
-}
-
-function getStatusLabel(status: RunStatus): string {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
 function getTriggerIcon(triggeredBy: TriggerType) {
   switch (triggeredBy) {
     case 'manual':
@@ -76,14 +57,6 @@ function getTriggerIcon(triggeredBy: TriggerType) {
     case 'api':
       return <RefreshCw size={12} className="trigger-icon" />
   }
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  const minutes = Math.floor(ms / 60000)
-  const seconds = Math.floor((ms % 60000) / 1000)
-  return `${minutes}m ${seconds}s`
 }
 
 function formatOutput(output: unknown): string {
@@ -121,7 +94,7 @@ export function RunCard({ run, isExpanded, onToggle, onCancel }: any) {
           )}
         </div>
 
-        <div className="run-card-status">{getStatusIcon(run.status)}</div>
+        <div className="run-card-status">{getStatusIcon(run.status, 14, 'status-icon status')}</div>
 
         <div className="run-card-info">
           <div className="run-card-title">

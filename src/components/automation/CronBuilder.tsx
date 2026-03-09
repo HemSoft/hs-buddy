@@ -37,30 +37,56 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
 
     const [min, hr, dom, , dow] = parts
 
-    // Detect frequency from cron pattern
-    if (value === '* * * * *') {
-      setFrequency('minute')
-    } else if (min !== '*' && hr === '*' && dom === '*' && dow === '*') {
-      setFrequency('hourly')
-      setMinute(parseInt(min) || 0)
-    } else if (min !== '*' && hr !== '*' && dom === '*' && dow === '*') {
-      setFrequency('daily')
-      setMinute(parseInt(min) || 0)
-      setHour(parseInt(hr) || 9)
-    } else if (min !== '*' && hr !== '*' && dom === '*' && dow !== '*') {
-      setFrequency('weekly')
-      setMinute(parseInt(min) || 0)
-      setHour(parseInt(hr) || 9)
-      const days = dow
-        .split(',')
-        .map(d => parseInt(d))
-        .filter(d => !isNaN(d))
-      setSelectedDays(days.length > 0 ? days : [1])
-    } else if (min !== '*' && hr !== '*' && dom !== '*' && dow === '*') {
-      setFrequency('monthly')
-      setMinute(parseInt(min) || 0)
-      setHour(parseInt(hr) || 9)
-      setDayOfMonth(parseInt(dom) || 1)
+    type FreqDef = {
+      match: () => boolean
+      freq: typeof frequency
+      apply: () => void
+    }
+
+    const patterns: FreqDef[] = [
+      {
+        match: () => value === '* * * * *',
+        freq: 'minute',
+        apply: () => {},
+      },
+      {
+        match: () => min !== '*' && hr === '*' && dom === '*' && dow === '*',
+        freq: 'hourly',
+        apply: () => setMinute(parseInt(min) || 0),
+      },
+      {
+        match: () => min !== '*' && hr !== '*' && dom === '*' && dow === '*',
+        freq: 'daily',
+        apply: () => {
+          setMinute(parseInt(min) || 0)
+          setHour(parseInt(hr) || 9)
+        },
+      },
+      {
+        match: () => min !== '*' && hr !== '*' && dom === '*' && dow !== '*',
+        freq: 'weekly',
+        apply: () => {
+          setMinute(parseInt(min) || 0)
+          setHour(parseInt(hr) || 9)
+          const days = dow.split(',').map(d => parseInt(d)).filter(d => !isNaN(d))
+          setSelectedDays(days.length > 0 ? days : [1])
+        },
+      },
+      {
+        match: () => min !== '*' && hr !== '*' && dom !== '*' && dow === '*',
+        freq: 'monthly',
+        apply: () => {
+          setMinute(parseInt(min) || 0)
+          setHour(parseInt(hr) || 9)
+          setDayOfMonth(parseInt(dom) || 1)
+        },
+      },
+    ]
+
+    const matched = patterns.find(p => p.match())
+    if (matched) {
+      setFrequency(matched.freq)
+      matched.apply()
     } else {
       setFrequency('custom')
     }

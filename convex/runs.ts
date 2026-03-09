@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { DatabaseWriter } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { incrementStat } from "./lib/stats";
 
 // List recent runs (last N runs)
@@ -142,6 +144,33 @@ export const markRunning = mutation({
   },
 });
 
+async function finalizeRun(
+  db: DatabaseWriter,
+  runId: Id<"runs">,
+  status: "completed" | "failed",
+  statKey: "runsCompleted" | "runsFailed",
+  extraPatch: Record<string, unknown>
+) {
+  const run = await db.get(runId);
+  if (!run) {
+    throw new Error(`Run ${runId} not found`);
+  }
+  const completedAt = Date.now();
+  await db.patch(runId, {
+    status,
+    ...extraPatch,
+    completedAt,
+    duration: completedAt - run.startedAt,
+  });
+  await incrementStat(db, statKey);
+  if (run.scheduleId) {
+    await db.patch(run.scheduleId, {
+      lastRunAt: completedAt,
+      lastRunStatus: status,
+    });
+  }
+}
+
 // Complete a run successfully
 export const complete = mutation({
   args: {
@@ -150,30 +179,10 @@ export const complete = mutation({
     outputFileId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const run = await ctx.db.get("runs", args.id);
-    if (!run) {
-      throw new Error(`Run ${args.id} not found`);
-    }
-
-    const completedAt = Date.now();
-    await ctx.db.patch("runs", args.id, {
-      status: "completed",
+    await finalizeRun(ctx.db, args.id, "completed", "runsCompleted", {
       output: args.output,
       outputFileId: args.outputFileId,
-      completedAt,
-      duration: completedAt - run.startedAt,
     });
-
-    // Track the stat
-    await incrementStat(ctx.db, "runsCompleted");
-
-    // Update schedule last run status if this was a scheduled run
-    if (run.scheduleId) {
-      await ctx.db.patch("schedules", run.scheduleId, {
-        lastRunAt: completedAt,
-        lastRunStatus: "completed",
-      });
-    }
   },
 });
 
@@ -184,29 +193,9 @@ export const fail = mutation({
     error: v.string(),
   },
   handler: async (ctx, args) => {
-    const run = await ctx.db.get("runs", args.id);
-    if (!run) {
-      throw new Error(`Run ${args.id} not found`);
-    }
-
-    const completedAt = Date.now();
-    await ctx.db.patch("runs", args.id, {
-      status: "failed",
+    await finalizeRun(ctx.db, args.id, "failed", "runsFailed", {
       error: args.error,
-      completedAt,
-      duration: completedAt - run.startedAt,
     });
-
-    // Track the stat
-    await incrementStat(ctx.db, "runsFailed");
-
-    // Update schedule last run status if this was a scheduled run
-    if (run.scheduleId) {
-      await ctx.db.patch("schedules", run.scheduleId, {
-        lastRunAt: completedAt,
-        lastRunStatus: "failed",
-      });
-    }
   },
 });
 

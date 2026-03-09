@@ -114,41 +114,48 @@ export function SettingsAppearance() {
     ])
   }
 
-  const handleAccentChange = async (color: string) => {
-    setAccentColor(color)
-    applyColors(color, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
-    await api.setAccentColor(color)
+  const makeColorHandler = (
+    setter: (c: string) => void,
+    apiSetter: (c: string) => Promise<unknown>,
+    buildApplyArgs: (color: string) => Parameters<typeof applyColors>
+  ) => async (color: string) => {
+    setter(color)
+    applyColors(...buildApplyArgs(color))
+    await apiSetter(color)
   }
 
-  const handleFontColorChange = async (color: string) => {
-    setFontColor(color)
-    applyColors(accentColor, color, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
-    await api.setFontColor(color)
+  const makeStatusBarHandler = (
+    setter: (c: string) => void,
+    apiSetter: (c: string) => Promise<unknown>,
+    cssVar: string
+  ) => async (color: string) => {
+    setter(color)
+    document.documentElement.style.setProperty(cssVar, color)
+    await apiSetter(color)
   }
 
-  const handleBgPrimaryChange = async (color: string) => {
-    setBgPrimary(color)
-    applyColors(accentColor, fontColor, color, bgSecondary, statusBarBg, statusBarFg)
-    await api.setBgPrimary(color)
-  }
-
-  const handleBgSecondaryChange = async (color: string) => {
-    setBgSecondary(color)
-    applyColors(accentColor, fontColor, bgPrimary, color, statusBarBg, statusBarFg)
-    await api.setBgSecondary(color)
-  }
-
-  const handleStatusBarBgChange = async (color: string) => {
-    setStatusBarBg(color)
-    document.documentElement.style.setProperty('--statusbar-bg', color)
-    await api.setStatusBarBg(color)
-  }
-
-  const handleStatusBarFgChange = async (color: string) => {
-    setStatusBarFg(color)
-    document.documentElement.style.setProperty('--statusbar-fg', color)
-    await api.setStatusBarFg(color)
-  }
+  const handleAccentChange = makeColorHandler(
+    setAccentColor, api.setAccentColor,
+    (c) => [c, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg]
+  )
+  const handleFontColorChange = makeColorHandler(
+    setFontColor, api.setFontColor,
+    (c) => [accentColor, c, bgPrimary, bgSecondary, statusBarBg, statusBarFg]
+  )
+  const handleBgPrimaryChange = makeColorHandler(
+    setBgPrimary, api.setBgPrimary,
+    (c) => [accentColor, fontColor, c, bgSecondary, statusBarBg, statusBarFg]
+  )
+  const handleBgSecondaryChange = makeColorHandler(
+    setBgSecondary, api.setBgSecondary,
+    (c) => [accentColor, fontColor, bgPrimary, c, statusBarBg, statusBarFg]
+  )
+  const handleStatusBarBgChange = makeStatusBarHandler(
+    setStatusBarBg, api.setStatusBarBg, '--statusbar-bg'
+  )
+  const handleStatusBarFgChange = makeStatusBarHandler(
+    setStatusBarFg, api.setStatusBarFg, '--statusbar-fg'
+  )
 
   const handleResetColors = async () => {
     const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS

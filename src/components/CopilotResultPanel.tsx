@@ -3,7 +3,6 @@ import MarkdownPreview from '@uiw/react-markdown-preview'
 import {
   Sparkles,
   Clock,
-  CheckCircle2,
   XCircle,
   Loader2,
   ExternalLink,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useCopilotResult, useCopilotResultMutations } from '../hooks/useConvex'
 import { formatDateFull, formatDuration } from '../utils/dateUtils'
+import { getStatusIcon, getStatusLabel } from './shared/statusDisplay'
 import type { Id } from '../../convex/_generated/dataModel'
 import './CopilotResultPanel.css'
 
@@ -55,32 +55,6 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     )
   }
 
-  const statusIcon = () => {
-    switch (result.status) {
-      case 'pending':
-        return <Clock size={16} className="status-pending" />
-      case 'running':
-        return <Loader2 size={16} className="spin status-running" />
-      case 'completed':
-        return <CheckCircle2 size={16} className="status-completed" />
-      case 'failed':
-        return <XCircle size={16} className="status-failed" />
-    }
-  }
-
-  const statusLabel = () => {
-    switch (result.status) {
-      case 'pending':
-        return 'Pending...'
-      case 'running':
-        return 'Running...'
-      case 'completed':
-        return 'Completed'
-      case 'failed':
-        return 'Failed'
-    }
-  }
-
   const handleCopy = async () => {
     if (result.result) {
       await navigator.clipboard.writeText(result.result)
@@ -116,8 +90,8 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
             </h2>
             <div className="copilot-result-meta">
               <span className="copilot-result-status">
-                {statusIcon()}
-                {statusLabel()}
+                {getStatusIcon(result.status, 16, 'status')}
+                {getStatusLabel(result.status, true)}
               </span>
               {result.model && <span className="copilot-result-model">{result.model}</span>}
               <span className="copilot-result-date">{formatDateFull(result.createdAt)}</span>

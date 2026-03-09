@@ -1,9 +1,6 @@
 import { useState } from 'react'
 import {
   Sparkles,
-  Clock,
-  CheckCircle2,
-  XCircle,
   Loader2,
   Trash2,
   ExternalLink,
@@ -11,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotResultMutations } from '../hooks/useConvex'
 import { formatDateCompact, formatDuration } from '../utils/dateUtils'
+import { getStatusIcon } from './shared/statusDisplay'
 import './CopilotResultsList.css'
 
 interface CopilotResultsListProps {
@@ -35,21 +33,6 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
       ? results
       : results.filter(r => r.status === statusFilter)
     : []
-
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Clock size={14} className="result-status-pending" />
-      case 'running':
-        return <Loader2 size={14} className="spin result-status-running" />
-      case 'completed':
-        return <CheckCircle2 size={14} className="result-status-completed" />
-      case 'failed':
-        return <XCircle size={14} className="result-status-failed" />
-      default:
-        return null
-    }
-  }
 
   const handleDelete = async (e: React.MouseEvent, resultId: string) => {
     e.stopPropagation()
@@ -123,7 +106,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
                     className="copilot-result-row"
                     onClick={() => onOpenResult(r._id)}
                   >
-                    <td className="result-status-cell">{statusIcon(r.status)}</td>
+                    <td className="result-status-cell">{getStatusIcon(r.status, 14, 'result-status')}</td>
                     <td className="result-prompt-cell">
                       <span className="result-prompt-text">
                         {r.category === 'pr-review' && metadata?.prTitle

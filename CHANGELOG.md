@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.283] - 2026-03-09
 
+### Added
+
+- Expand repo insights and crew workspace flows
+
 ## [0.1.282] - 2026-03-08
 
 ## [0.1.281] - 2026-03-08

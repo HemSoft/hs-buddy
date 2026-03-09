@@ -1,12 +1,5 @@
 import { useRef } from 'react'
-import {
-  CheckCircle2,
-  Eye,
-  Loader2,
-  MessageCircle,
-  Send,
-  Sparkles,
-} from 'lucide-react'
+import { CheckCircle2, Eye, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { usePRThreadsPanel } from '../hooks/usePRThreadsPanel'
 import { ReviewThreadCard } from './pr-threads/ReviewThreadCard'
@@ -44,7 +37,7 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     requestReReview,
   } = usePRThreadsPanel(pr)
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="pr-threads-loading">
         <Loader2 size={24} className="spin" />
@@ -53,12 +46,23 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     )
   }
 
-  if (error || !data) {
+  if (error) {
     return (
       <div className="pr-threads-error">
         <p>Failed to load conversations</p>
         <p className="pr-threads-error-detail">{error || 'Unknown error'}</p>
-        <button className="pr-threads-retry" onClick={fetchThreads}>Retry</button>
+        <button className="pr-threads-retry" onClick={fetchThreads}>
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="pr-threads-loading">
+        <Loader2 size={24} className="spin" />
+        <p>Loading conversations…</p>
       </div>
     )
   }
@@ -66,20 +70,38 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
   return (
     <div className="pr-threads-container">
       {latestReview && (
-        <div className={`pr-thread-review-context ${needsRefresh ? 'needs-refresh' : 'up-to-date'}`}>
+        <div
+          className={`pr-thread-review-context ${needsRefresh ? 'needs-refresh' : 'up-to-date'}`}
+        >
           <div className="pr-thread-review-context-left">
             <Sparkles size={14} />
             <span>
-              Last AI review {new Date(latestReview.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              Last AI review{' '}
+              {new Date(latestReview.createdAt).toLocaleString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
             </span>
             <span className="pr-thread-review-sha">
-              {latestReview.reviewedHeadSha ? latestReview.reviewedHeadSha.slice(0, 12) : 'unknown sha'}
+              {latestReview.reviewedHeadSha
+                ? latestReview.reviewedHeadSha.slice(0, 12)
+                : 'unknown sha'}
             </span>
-            {needsRefresh ? <span className="pr-thread-review-badge">Refresh needed</span> : <span className="pr-thread-review-badge">Up to date</span>}
+            {needsRefresh ? (
+              <span className="pr-thread-review-badge">Refresh needed</span>
+            ) : (
+              <span className="pr-thread-review-badge">Up to date</span>
+            )}
           </div>
           <div className="pr-thread-review-context-actions">
-            <button className="pr-thread-review-btn" onClick={openLatestReview}>Open review</button>
-            <button className="pr-thread-review-btn" onClick={requestReReview}>Re-review</button>
+            <button className="pr-thread-review-btn" onClick={openLatestReview}>
+              Open review
+            </button>
+            <button className="pr-thread-review-btn" onClick={requestReReview}>
+              Re-review
+            </button>
           </div>
         </div>
       )}
@@ -106,20 +128,32 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         <div className="pr-threads-section">
           <div className="pr-threads-toolbar">
             <div className="pr-threads-filters">
-              <button className={`pr-threads-filter ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
+              <button
+                className={`pr-threads-filter ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
+              >
                 All ({data.threads.length})
               </button>
-              <button className={`pr-threads-filter ${filter === 'active' ? 'active' : ''}`} onClick={() => setFilter('active')}>
+              <button
+                className={`pr-threads-filter ${filter === 'active' ? 'active' : ''}`}
+                onClick={() => setFilter('active')}
+              >
                 <Eye size={11} />
                 Active ({activeThreads.length})
               </button>
-              <button className={`pr-threads-filter ${filter === 'resolved' ? 'active' : ''}`} onClick={() => setFilter('resolved')}>
+              <button
+                className={`pr-threads-filter ${filter === 'resolved' ? 'active' : ''}`}
+                onClick={() => setFilter('resolved')}
+              >
                 <CheckCircle2 size={11} />
                 Resolved ({resolvedThreads.length})
               </button>
             </div>
             {resolvedThreads.length > 0 && filter === 'all' && (
-              <button className="pr-threads-toggle-resolved" onClick={() => setShowResolved(!showResolved)}>
+              <button
+                className="pr-threads-toggle-resolved"
+                onClick={() => setShowResolved(!showResolved)}
+              >
                 {showResolved ? 'Hide' : 'Show'} resolved
               </button>
             )}

@@ -391,7 +391,7 @@
 }
 
 .diff-line.diff-range {
-  background: rgba(56, 139, 253, 0.10);
+  background: rgba(56, 139, 253, 0.1);
   color: rgba(139, 148, 158, 0.8);
   font-size: 11px;
 }

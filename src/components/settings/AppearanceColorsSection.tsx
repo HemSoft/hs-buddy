@@ -1,11 +1,12 @@
-import { Palette, RotateCcw } from 'lucide-react';
-import { type ColorDef, ColorPicker } from './AppearanceColorPicker';
+import { Palette, RotateCcw } from 'lucide-react'
+import { ColorPicker } from './AppearanceColorPicker'
+import type { ColorDef } from './appearanceUtils'
 
 interface AppearanceColorsSectionProps {
-  brandColors: ColorDef[];
-  backgroundColors: ColorDef[];
-  statusBarColors: ColorDef[];
-  onReset: () => Promise<void>;
+  brandColors: ColorDef[]
+  backgroundColors: ColorDef[]
+  statusBarColors: ColorDef[]
+  onReset: () => Promise<void>
 }
 
 export function AppearanceColorsSection({
@@ -34,23 +35,29 @@ export function AppearanceColorsSection({
       <div className="color-group">
         <h4 className="color-group-label">Brand</h4>
         <div className="color-grid">
-          {brandColors.map(c => <ColorPicker key={c.id} {...c} />)}
+          {brandColors.map(c => (
+            <ColorPicker key={c.id} {...c} />
+          ))}
         </div>
       </div>
 
       <div className="color-group">
         <h4 className="color-group-label">Backgrounds</h4>
         <div className="color-grid">
-          {backgroundColors.map(c => <ColorPicker key={c.id} {...c} />)}
+          {backgroundColors.map(c => (
+            <ColorPicker key={c.id} {...c} />
+          ))}
         </div>
       </div>
 
       <div className="color-group">
         <h4 className="color-group-label">Status Bar</h4>
         <div className="color-grid">
-          {statusBarColors.map(c => <ColorPicker key={c.id} {...c} />)}
+          {statusBarColors.map(c => (
+            <ColorPicker key={c.id} {...c} />
+          ))}
         </div>
       </div>
     </div>
-  );
+  )
 }

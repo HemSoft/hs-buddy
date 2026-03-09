@@ -1,54 +1,54 @@
-import { useState } from 'react';
-import { useGitHubAccounts } from '../../hooks/useConfig';
-import { Plus, Trash2, User, Building2, RefreshCw, AlertCircle } from 'lucide-react';
-import type { GitHubAccount } from '../../types/config';
-import './SettingsShared.css';
+import { useState } from 'react'
+import { useGitHubAccounts } from '../../hooks/useConfig'
+import { Plus, Trash2, User, Building2, RefreshCw, AlertCircle } from 'lucide-react'
+import type { GitHubAccount } from '../../types/config'
+import './SettingsShared.css'
 
 export function SettingsAccounts() {
-  const { accounts, loading, addAccount, removeAccount, refresh } = useGitHubAccounts();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
-  const [newOrg, setNewOrg] = useState('');
-  const [addError, setAddError] = useState<string | null>(null);
-  const [isAdding, setIsAdding] = useState(false);
+  const { accounts, loading, addAccount, removeAccount, refresh } = useGitHubAccounts()
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newUsername, setNewUsername] = useState('')
+  const [newOrg, setNewOrg] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
 
   const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!newUsername.trim() || !newOrg.trim()) {
-      setAddError('Both username and organization are required');
-      return;
+      setAddError('Both username and organization are required')
+      return
     }
 
     // Check for duplicate
     if (accounts.some(a => a.username === newUsername.trim() && a.org === newOrg.trim())) {
-      setAddError('This account already exists');
-      return;
+      setAddError('This account already exists')
+      return
     }
 
-    setIsAdding(true);
-    setAddError(null);
+    setIsAdding(true)
+    setAddError(null)
 
     const account: GitHubAccount = {
       username: newUsername.trim(),
       org: newOrg.trim(),
-    };
-
-    const result = await addAccount(account);
-    if (result.success) {
-      setNewUsername('');
-      setNewOrg('');
-      setShowAddForm(false);
-    } else {
-      setAddError(result.error || 'Failed to add account');
     }
-    setIsAdding(false);
-  };
+
+    const result = await addAccount(account)
+    if (result.success) {
+      setNewUsername('')
+      setNewOrg('')
+      setShowAddForm(false)
+    } else {
+      setAddError(result.error || 'Failed to add account')
+    }
+    setIsAdding(false)
+  }
 
   const handleRemove = async (username: string, org: string) => {
     if (confirm(`Remove ${username}@${org}?`)) {
-      await removeAccount(username, org);
+      await removeAccount(username, org)
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -58,7 +58,7 @@ export function SettingsAccounts() {
           <p>Loading accounts...</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -66,7 +66,8 @@ export function SettingsAccounts() {
       <div className="settings-page-header">
         <h2>GitHub Accounts</h2>
         <p className="settings-page-description">
-          Manage GitHub accounts for PR tracking. Authentication uses GitHub CLI - run <code>gh auth login</code> to authenticate.
+          Manage GitHub accounts for PR tracking. Authentication uses GitHub CLI - run{' '}
+          <code>gh auth login</code> to authenticate.
         </p>
       </div>
 
@@ -96,7 +97,7 @@ export function SettingsAccounts() {
                     id="username"
                     type="text"
                     value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
+                    onChange={e => setNewUsername(e.target.value)}
                     placeholder="your-github-username"
                     disabled={isAdding}
                   />
@@ -110,7 +111,7 @@ export function SettingsAccounts() {
                     id="org"
                     type="text"
                     value={newOrg}
-                    onChange={(e) => setNewOrg(e.target.value)}
+                    onChange={e => setNewOrg(e.target.value)}
                     placeholder="organization-name"
                     disabled={isAdding}
                   />
@@ -127,10 +128,10 @@ export function SettingsAccounts() {
                   type="button"
                   className="settings-btn settings-btn-secondary"
                   onClick={() => {
-                    setShowAddForm(false);
-                    setNewUsername('');
-                    setNewOrg('');
-                    setAddError(null);
+                    setShowAddForm(false)
+                    setNewUsername('')
+                    setNewOrg('')
+                    setAddError(null)
                   }}
                   disabled={isAdding}
                 >
@@ -158,7 +159,7 @@ export function SettingsAccounts() {
             </div>
           ) : (
             <div className="items-list">
-              {accounts.map((account) => (
+              {accounts.map(account => (
                 <div key={`${account.username}-${account.org}`} className="list-item">
                   <div className="list-item-content">
                     <div className="list-item-primary">
@@ -189,14 +190,23 @@ export function SettingsAccounts() {
         <div className="settings-section">
           <h3>Authentication</h3>
           <p className="section-description">
-            Buddy uses GitHub CLI for secure authentication. Your tokens are stored in the system keychain, not in the app.
+            Buddy uses GitHub CLI for secure authentication. Your tokens are stored in the system
+            keychain, not in the app.
           </p>
           <div className="info-box">
-            <p><strong>To authenticate:</strong></p>
+            <p>
+              <strong>To authenticate:</strong>
+            </p>
             <ol>
-              <li>Install GitHub CLI: <code>winget install GitHub.cli</code></li>
-              <li>Login: <code>gh auth login</code></li>
-              <li>Verify: <code>gh auth status</code></li>
+              <li>
+                Install GitHub CLI: <code>winget install GitHub.cli</code>
+              </li>
+              <li>
+                Login: <code>gh auth login</code>
+              </li>
+              <li>
+                Verify: <code>gh auth status</code>
+              </li>
             </ol>
           </div>
           <button className="settings-btn settings-btn-secondary" onClick={refresh}>
@@ -206,5 +216,5 @@ export function SettingsAccounts() {
         </div>
       </div>
     </div>
-  );
+  )
 }

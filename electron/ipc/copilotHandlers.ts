@@ -63,7 +63,7 @@ export function registerCopilotHandlers(): void {
   // Chat: send message with context and conversation history
   ipcMain.handle(
     'copilot:chat-send',
-    async (_event, args: { message: string; context: string; conversationHistory: Array<{ role: string; content: string }> }) => {
+    async (_event, args: { message: string; context: string; conversationHistory: Array<{ role: string; content: string }>; model?: string; ghAccount?: string }) => {
       try {
         return await sendChatMessage(args)
       } catch (error) {

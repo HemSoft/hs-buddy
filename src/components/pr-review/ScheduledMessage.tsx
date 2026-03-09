@@ -24,7 +24,10 @@ export function ScheduledMessage({ prTitle, scheduleDelay, onClose }: ScheduledM
         <Clock size={32} />
         <p>
           Review for <strong>{prTitle}</strong> has been scheduled to run in{' '}
-          <strong>{scheduleDelay} minute{scheduleDelay !== 1 ? 's' : ''}</strong>.
+          <strong>
+            {scheduleDelay} minute{scheduleDelay !== 1 ? 's' : ''}
+          </strong>
+          .
         </p>
         <p className="pr-review-scheduled-hint">
           The result will appear in the Copilot results list when complete.

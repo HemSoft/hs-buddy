@@ -1,5 +1,13 @@
 import { useMemo } from 'react'
-import { CheckCircle2, Clock, ExternalLink, Loader2, RefreshCcw, Sparkles, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Loader2,
+  RefreshCcw,
+  Sparkles,
+  XCircle,
+} from 'lucide-react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { usePRReviewRunsByPR } from '../hooks/useConvex'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
@@ -22,9 +30,12 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
 
   const latestStatusIcon = useMemo(() => {
     if (!latest) return null
-    if (latest.status === 'completed') return <CheckCircle2 size={14} className="pr-reviews-status completed" />
-    if (latest.status === 'failed') return <XCircle size={14} className="pr-reviews-status failed" />
-    if (latest.status === 'running') return <Loader2 size={14} className="spin pr-reviews-status running" />
+    if (latest.status === 'completed')
+      return <CheckCircle2 size={14} className="pr-reviews-status completed" />
+    if (latest.status === 'failed')
+      return <XCircle size={14} className="pr-reviews-status failed" />
+    if (latest.status === 'running')
+      return <Loader2 size={14} className="spin pr-reviews-status running" />
     return <Clock size={14} className="pr-reviews-status pending" />
   }, [latest])
 
@@ -114,7 +125,9 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
                 <span className={`pr-reviews-pill ${run.status}`}>{run.status}</span>
                 <span className="pr-reviews-item-time">{formatDateCompact(run.createdAt)}</span>
                 {run.reviewedHeadSha && (
-                  <span className="pr-reviews-item-sha mono">{run.reviewedHeadSha.slice(0, 12)}</span>
+                  <span className="pr-reviews-item-sha mono">
+                    {run.reviewedHeadSha.slice(0, 12)}
+                  </span>
                 )}
               </div>
               <div className="pr-reviews-item-actions">

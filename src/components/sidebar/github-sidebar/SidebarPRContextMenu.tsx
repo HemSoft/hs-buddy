@@ -49,7 +49,9 @@ export function SidebarPRContextMenu({
           Request AI Review
         </button>
         <button
-          onClick={async () => { await onApprove() }}
+          onClick={async () => {
+            await onApprove()
+          }}
           disabled={pr.iApproved || isApproving}
         >
           {isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />}

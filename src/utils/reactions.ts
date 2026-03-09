@@ -1,4 +1,8 @@
-import { type PRCommentReactionContent, type PRReviewComment, type PRThreadsResult } from '../api/github'
+import {
+  type PRCommentReactionContent,
+  type PRReviewComment,
+  type PRThreadsResult,
+} from '../api/github'
 
 // Note: This function intentionally adds a new reaction entry when the reaction
 // type is absent from the array. The original PRThreadsPanel code silently

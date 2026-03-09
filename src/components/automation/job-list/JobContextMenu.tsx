@@ -39,10 +39,7 @@ export function JobContextMenu({
           Duplicate
         </button>
         <div className="context-menu-separator" />
-        <button
-          className="danger"
-          onClick={() => onDelete(job._id, job.name)}
-        >
+        <button className="danger" onClick={() => onDelete(job._id, job.name)}>
           <Trash2 size={14} />
           Delete
         </button>

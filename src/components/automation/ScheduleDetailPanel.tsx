@@ -1,4 +1,14 @@
-import { Calendar, Clock, Play, Pause, Edit, Trash2, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import {
+  Calendar,
+  Clock,
+  Play,
+  Pause,
+  Edit,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from 'lucide-react'
 import { useSchedule, useScheduleMutations, useScheduleRuns } from '../../hooks/useConvex'
 import { formatDistanceToNow, format } from '../../utils/dateUtils'
 import { useState } from 'react'
@@ -11,8 +21,8 @@ interface ScheduleDetailPanelProps {
 }
 
 export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
-  const schedule = useSchedule(scheduleId as Id<"schedules">)
-  const runs = useScheduleRuns(scheduleId as Id<"schedules">, 10)
+  const schedule = useSchedule(scheduleId as Id<'schedules'>)
+  const runs = useScheduleRuns(scheduleId as Id<'schedules'>, 10)
   const { toggle, remove } = useScheduleMutations()
   const [editorOpen, setEditorOpen] = useState(false)
 
@@ -57,7 +67,8 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
 
   const getStatusIcon = (status?: 'completed' | 'failed') => {
     if (!status) return <AlertCircle size={14} className="status-icon status-none" />
-    if (status === 'completed') return <CheckCircle size={14} className="status-icon status-success" />
+    if (status === 'completed')
+      return <CheckCircle size={14} className="status-icon status-success" />
     return <XCircle size={14} className="status-icon status-failed" />
   }
 
@@ -66,7 +77,13 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
     if (parts.length !== 5) return cron
     const [minute, hour, dayOfMonth, month, dayOfWeek] = parts
     if (minute === '*' && hour === '*') return 'Every minute'
-    if (minute !== '*' && hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+    if (
+      minute !== '*' &&
+      hour === '*' &&
+      dayOfMonth === '*' &&
+      month === '*' &&
+      dayOfWeek === '*'
+    ) {
       return `Every hour at :${minute.padStart(2, '0')}`
     }
     if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
@@ -77,7 +94,10 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
     }
     if (dayOfMonth === '*' && month === '*' && dayOfWeek !== '*') {
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-      const dayNames = dayOfWeek.split(',').map(d => days[parseInt(d)] || d).join(', ')
+      const dayNames = dayOfWeek
+        .split(',')
+        .map(d => days[parseInt(d)] || d)
+        .join(', ')
       return `${dayNames} at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
     }
     return cron
@@ -85,22 +105,25 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
 
   const getStatusClass = (status: string) => {
     switch (status) {
-      case 'completed': return 'status-completed'
-      case 'failed': return 'status-failed'
-      case 'running': return 'status-running'
-      case 'pending': return 'status-pending'
-      case 'cancelled': return 'status-cancelled'
-      default: return ''
+      case 'completed':
+        return 'status-completed'
+      case 'failed':
+        return 'status-failed'
+      case 'running':
+        return 'status-running'
+      case 'pending':
+        return 'status-pending'
+      case 'cancelled':
+        return 'status-cancelled'
+      default:
+        return ''
     }
   }
 
   return (
     <div className="schedule-detail">
       {editorOpen && (
-        <ScheduleEditor
-          scheduleId={scheduleId}
-          onClose={() => setEditorOpen(false)}
-        />
+        <ScheduleEditor scheduleId={scheduleId} onClose={() => setEditorOpen(false)} />
       )}
 
       <div className="schedule-detail-header">
@@ -112,7 +135,11 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
           </span>
         </div>
         <div className="schedule-detail-actions">
-          <button className="btn-action" onClick={handleToggle} title={schedule.enabled ? 'Disable' : 'Enable'}>
+          <button
+            className="btn-action"
+            onClick={handleToggle}
+            title={schedule.enabled ? 'Disable' : 'Enable'}
+          >
             {schedule.enabled ? <Pause size={14} /> : <Play size={14} />}
             {schedule.enabled ? 'Disable' : 'Enable'}
           </button>
@@ -190,13 +217,18 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
         <div className="schedule-detail-config">
           <div className="config-field">
             <span className="config-label">Last Run</span>
-            <span className="config-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span
+              className="config-value"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
               {schedule.lastRunAt ? (
                 <>
                   {getStatusIcon(schedule.lastRunStatus)}
                   {formatDistanceToNow(schedule.lastRunAt)}
                 </>
-              ) : 'Never'}
+              ) : (
+                'Never'
+              )}
             </span>
           </div>
           {schedule.nextRunAt && schedule.enabled && (

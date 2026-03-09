@@ -1,11 +1,4 @@
-import {
-  Sparkles,
-  Play,
-  Clock,
-  User,
-  Cpu,
-  X,
-} from 'lucide-react'
+import { Sparkles, Play, Clock, User, Cpu, X } from 'lucide-react'
 import { AccountPicker } from './shared/AccountPicker'
 import { ModelPicker } from './shared/ModelPicker'
 import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
@@ -37,14 +30,19 @@ interface PRReviewPanelProps {
 
 export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelProps) {
   const {
-    account, setAccount,
-    model, setModel,
-    prompt, setPrompt,
-    promptExpanded, setPromptExpanded,
+    account,
+    setAccount,
+    model,
+    setModel,
+    prompt,
+    setPrompt,
+    promptExpanded,
+    setPromptExpanded,
     submitting,
     error,
     scheduled,
-    scheduleDelay, setScheduleDelay,
+    scheduleDelay,
+    setScheduleDelay,
     savingDefault,
     handleRunNow,
     handleSchedule,
@@ -54,11 +52,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
 
   if (scheduled) {
     return (
-      <ScheduledMessage
-        prTitle={prInfo.prTitle}
-        scheduleDelay={scheduleDelay}
-        onClose={onClose}
-      />
+      <ScheduledMessage prTitle={prInfo.prTitle} scheduleDelay={scheduleDelay} onClose={onClose} />
     )
   }
 

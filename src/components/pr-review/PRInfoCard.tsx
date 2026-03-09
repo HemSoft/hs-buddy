@@ -17,7 +17,9 @@ export function PRInfoCard({ prTitle, org, repo, prNumber, author, prUrl }: PRIn
         <span className="pr-review-pr-title">{prTitle}</span>
       </div>
       <div className="pr-review-pr-meta">
-        <span className="pr-review-pr-repo">{org}/{repo}</span>
+        <span className="pr-review-pr-repo">
+          {org}/{repo}
+        </span>
         <span className="pr-review-pr-number">#{prNumber}</span>
         <span className="pr-review-pr-author">
           <User size={12} />

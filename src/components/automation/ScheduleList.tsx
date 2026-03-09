@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { Calendar, Clock, Play, Pause, Trash2, Edit, Plus, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import {
+  Calendar,
+  Clock,
+  Play,
+  Pause,
+  Trash2,
+  Edit,
+  Plus,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from 'lucide-react'
 import { useSchedules, useScheduleMutations } from '../../hooks/useConvex'
 import { formatDistanceToNow, format } from '../../utils/dateUtils'
 import { ScheduleEditor } from './ScheduleEditor'
@@ -83,10 +94,7 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
             Create Schedule
           </button>
           {editorOpen && (
-            <ScheduleEditor
-              scheduleId={editingScheduleId}
-              onClose={handleEditorClose}
-            />
+            <ScheduleEditor scheduleId={editingScheduleId} onClose={handleEditorClose} />
           )}
         </div>
       </div>
@@ -113,7 +121,8 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
 
   const getStatusIcon = (lastRunStatus?: 'completed' | 'failed') => {
     if (!lastRunStatus) return <AlertCircle size={14} className="status-icon status-none" />
-    if (lastRunStatus === 'completed') return <CheckCircle size={14} className="status-icon status-success" />
+    if (lastRunStatus === 'completed')
+      return <CheckCircle size={14} className="status-icon status-success" />
     return <XCircle size={14} className="status-icon status-failed" />
   }
 
@@ -126,9 +135,15 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
 
     // Every minute
     if (minute === '*' && hour === '*') return 'Every minute'
-    
+
     // Hourly
-    if (minute !== '*' && hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+    if (
+      minute !== '*' &&
+      hour === '*' &&
+      dayOfMonth === '*' &&
+      month === '*' &&
+      dayOfWeek === '*'
+    ) {
       return `Every hour at :${minute.padStart(2, '0')}`
     }
 
@@ -145,7 +160,10 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
     // Weekly
     if (dayOfMonth === '*' && month === '*' && dayOfWeek !== '*') {
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-      const dayNames = dayOfWeek.split(',').map(d => days[parseInt(d)] || d).join(', ')
+      const dayNames = dayOfWeek
+        .split(',')
+        .map(d => days[parseInt(d)] || d)
+        .join(', ')
       return `${dayNames} at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
     }
 
@@ -161,19 +179,11 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
         </button>
       </div>
 
-      {editorOpen && (
-        <ScheduleEditor
-          scheduleId={editingScheduleId}
-          onClose={handleEditorClose}
-        />
-      )}
+      {editorOpen && <ScheduleEditor scheduleId={editingScheduleId} onClose={handleEditorClose} />}
 
       <div className="schedule-list-content">
         {(schedules as Schedule[]).map((schedule: Schedule) => (
-          <div 
-            key={schedule._id} 
-            className={`schedule-card ${schedule.enabled ? '' : 'disabled'}`}
-          >
+          <div key={schedule._id} className={`schedule-card ${schedule.enabled ? '' : 'disabled'}`}>
             <div className="schedule-card-header">
               <div className="schedule-card-title">
                 <span className="schedule-name">{schedule.name}</span>
@@ -184,21 +194,21 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
                 )}
               </div>
               <div className="schedule-card-actions">
-                <button 
+                <button
                   className={`btn-toggle ${schedule.enabled ? 'enabled' : ''}`}
                   onClick={() => handleToggle(schedule._id)}
                   title={schedule.enabled ? 'Disable' : 'Enable'}
                 >
                   {schedule.enabled ? <Pause size={14} /> : <Play size={14} />}
                 </button>
-                <button 
+                <button
                   className="btn-icon-sm"
                   onClick={() => handleEdit(schedule._id)}
                   title="Edit"
                 >
                   <Edit size={14} />
                 </button>
-                <button 
+                <button
                   className="btn-icon-sm btn-danger"
                   onClick={() => handleDelete(schedule._id, schedule.name)}
                   title="Delete"
@@ -230,9 +240,7 @@ export function ScheduleList({ createTrigger }: ScheduleListProps) {
             </div>
 
             {schedule.description && (
-              <div className="schedule-card-description">
-                {schedule.description}
-              </div>
+              <div className="schedule-card-description">{schedule.description}</div>
             )}
           </div>
         ))}

@@ -101,8 +101,8 @@
   color: var(--vscode-foreground, #cccccc);
 }
 
-.form-group input[type="text"],
-.form-group input[type="number"],
+.form-group input[type='text'],
+.form-group input[type='number'],
 .form-group textarea,
 .form-group select {
   width: 100%;
@@ -126,15 +126,15 @@
   font-size: 12px;
 }
 
-.form-group input[type="text"]:focus,
-.form-group input[type="number"]:focus,
+.form-group input[type='text']:focus,
+.form-group input[type='number']:focus,
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
   border-color: var(--vscode-focusBorder, #007fd4);
 }
 
-.form-group input[type="text"]::placeholder,
+.form-group input[type='text']::placeholder,
 .form-group textarea::placeholder {
   color: var(--vscode-input-placeholderForeground, #9d9d9d);
 }

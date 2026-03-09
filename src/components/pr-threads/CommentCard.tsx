@@ -5,18 +5,21 @@ import { GitPullRequestArrow } from 'lucide-react'
 import { type PRCommentReactionContent, type PRReviewComment } from '../../api/github'
 import { formatDistanceToNow } from '../../utils/dateUtils'
 
-const REACTION_OPTIONS: Array<{ content: PRCommentReactionContent; emoji: string; label: string }> = [
-  { content: 'THUMBS_UP', emoji: '👍', label: 'Thumbs up' },
-  { content: 'THUMBS_DOWN', emoji: '👎', label: 'Thumbs down' },
-  { content: 'LAUGH', emoji: '😄', label: 'Laugh' },
-  { content: 'HOORAY', emoji: '🎉', label: 'Hooray' },
-  { content: 'CONFUSED', emoji: '😕', label: 'Confused' },
-  { content: 'HEART', emoji: '❤️', label: 'Heart' },
-  { content: 'ROCKET', emoji: '🚀', label: 'Rocket' },
-  { content: 'EYES', emoji: '👀', label: 'Eyes' },
-]
+const REACTION_OPTIONS: Array<{ content: PRCommentReactionContent; emoji: string; label: string }> =
+  [
+    { content: 'THUMBS_UP', emoji: '👍', label: 'Thumbs up' },
+    { content: 'THUMBS_DOWN', emoji: '👎', label: 'Thumbs down' },
+    { content: 'LAUGH', emoji: '😄', label: 'Laugh' },
+    { content: 'HOORAY', emoji: '🎉', label: 'Hooray' },
+    { content: 'CONFUSED', emoji: '😕', label: 'Confused' },
+    { content: 'HEART', emoji: '❤️', label: 'Heart' },
+    { content: 'ROCKET', emoji: '🚀', label: 'Rocket' },
+    { content: 'EYES', emoji: '👀', label: 'Eyes' },
+  ]
 
-function parseCommentBody(body: string | null | undefined): Array<{ type: 'text' | 'suggestion'; content: string }> {
+function parseCommentBody(
+  body: string | null | undefined
+): Array<{ type: 'text' | 'suggestion'; content: string }> {
   const segments: Array<{ type: 'text' | 'suggestion'; content: string }> = []
   const safeBody = body ?? ''
   const regex = /```suggestion\s*\n([\s\S]*?)```/g
@@ -131,7 +134,11 @@ export function CommentCard({
     <div className={`thread-comment ${isFirst ? 'thread-comment-first' : ''}`}>
       <div className="thread-comment-avatar-col">
         {comment.authorAvatarUrl ? (
-          <img src={comment.authorAvatarUrl} alt={comment.author} className="thread-comment-avatar" />
+          <img
+            src={comment.authorAvatarUrl}
+            alt={comment.author}
+            className="thread-comment-avatar"
+          />
         ) : (
           <div className="thread-comment-avatar-placeholder">
             {comment.author.charAt(0).toUpperCase()}
@@ -141,7 +148,10 @@ export function CommentCard({
       <div className="thread-comment-content">
         <div className="thread-comment-header">
           <span className="thread-comment-username">{comment.author}</span>
-          <span className="thread-comment-time" title={new Date(comment.createdAt).toLocaleString()}>
+          <span
+            className="thread-comment-time"
+            title={new Date(comment.createdAt).toLocaleString()}
+          >
             {formatDistanceToNow(comment.createdAt)}
           </span>
         </div>

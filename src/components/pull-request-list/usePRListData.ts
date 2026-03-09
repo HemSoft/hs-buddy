@@ -28,7 +28,9 @@ const PROGRESS_COLORS = [
 ] as const
 
 function getProgressColor(progress: number): string {
-  return (PROGRESS_COLORS.find(c => progress <= c.max) ?? PROGRESS_COLORS[PROGRESS_COLORS.length - 1]).color
+  return (
+    PROGRESS_COLORS.find(c => progress <= c.max) ?? PROGRESS_COLORS[PROGRESS_COLORS.length - 1]
+  ).color
 }
 
 function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {

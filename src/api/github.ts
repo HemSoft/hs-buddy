@@ -3,7 +3,12 @@ import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
 import { graphql } from '@octokit/graphql'
 import type { PullRequest, PRConfig } from '../types/pullRequest'
-import { type SFLRepoStatus, type SFLWorkflowInfo, SFL_CORE_WORKFLOW_FRAGMENTS, deriveSFLOverallStatus } from '../types/sflStatus'
+import {
+  type SFLRepoStatus,
+  type SFLWorkflowInfo,
+  SFL_CORE_WORKFLOW_FRAGMENTS,
+  deriveSFLOverallStatus,
+} from '../types/sflStatus'
 
 // Repository info type for org repo listing
 export interface OrgRepo {
@@ -58,6 +63,38 @@ export interface RepoCommit {
   url: string
 }
 
+export interface RepoCommitFile {
+  filename: string
+  previousFilename: string | null
+  status: string
+  additions: number
+  deletions: number
+  changes: number
+  patch: string | null
+  blobUrl: string | null
+}
+
+export interface RepoCommitDetail {
+  sha: string
+  message: string
+  messageHeadline: string
+  author: string
+  authorAvatarUrl: string | null
+  authoredDate: string
+  committedDate: string
+  url: string
+  parents: Array<{
+    sha: string
+    url: string
+  }>
+  stats: {
+    additions: number
+    deletions: number
+    total: number
+  }
+  files: RepoCommitFile[]
+}
+
 export interface RepoContributor {
   login: string
   avatarUrl: string
@@ -96,6 +133,27 @@ export interface RepoIssue {
   labels: Array<{ name: string; color: string }>
   commentCount: number
   assignees: Array<{ login: string; avatarUrl: string }>
+}
+
+export interface RepoIssueComment {
+  id: number
+  author: string
+  authorAvatarUrl: string | null
+  body: string
+  createdAt: string
+  updatedAt: string
+  url: string
+}
+
+export interface RepoIssueDetail extends RepoIssue {
+  body: string
+  closedAt: string | null
+  stateReason: string | null
+  milestone: {
+    title: string
+    dueOn: string | null
+  } | null
+  comments: RepoIssueComment[]
 }
 
 // Types for repo pull request listing
@@ -371,7 +429,11 @@ export class GitHubClient {
   }
 
   private countApprovals(
-    reviews: Array<{ user?: { login?: string } | null; state: string; submitted_at?: string | null }>,
+    reviews: Array<{
+      user?: { login?: string } | null
+      state: string
+      submitted_at?: string | null
+    }>,
     viewerLogin: string | null
   ): { approvalCount: number; iApproved: boolean } {
     const latestByUser = new Map<string, { state: string; submittedAt: string }>()
@@ -398,7 +460,7 @@ export class GitHubClient {
   }
 
   private buildPRTimeline(
-    pr: NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest'] & {},
+    pr: NonNullable<NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest']>,
     pullNumber: number
   ): PRTimelineEvent[] {
     const timeline: PRTimelineEvent[] = []
@@ -466,7 +528,7 @@ export class GitHubClient {
   }
 
   private buildReviewerSummaries(
-    pr: NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest'] & {}
+    pr: NonNullable<NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest']>
   ): PRReviewerSummary[] {
     const latestReviewsByUser = new Map<
       string,
@@ -768,6 +830,64 @@ export class GitHubClient {
   }
 
   /**
+   * Fetch recent commits for a repository.
+   */
+  async fetchRepoCommits(owner: string, repo: string, perPage = 25): Promise<RepoCommit[]> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const response = await octokit.repos.listCommits({ owner, repo, per_page: perPage })
+
+    return response.data.map(commit => ({
+      sha: commit.sha,
+      message: commit.commit.message.split('\n')[0],
+      author: commit.author?.login || commit.commit.author?.name || 'unknown',
+      authorAvatarUrl: commit.author?.avatar_url || null,
+      date: commit.commit.author?.date || commit.commit.committer?.date || '',
+      url: commit.html_url,
+    }))
+  }
+
+  /**
+   * Fetch the full detail for a single commit, including changed files.
+   */
+  async fetchRepoCommitDetail(owner: string, repo: string, ref: string): Promise<RepoCommitDetail> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const response = await octokit.repos.getCommit({ owner, repo, ref })
+    const commit = response.data
+
+    return {
+      sha: commit.sha,
+      message: commit.commit.message,
+      messageHeadline: commit.commit.message.split('\n')[0] || commit.sha,
+      author: commit.author?.login || commit.commit.author?.name || 'unknown',
+      authorAvatarUrl: commit.author?.avatar_url || null,
+      authoredDate: commit.commit.author?.date || '',
+      committedDate: commit.commit.committer?.date || commit.commit.author?.date || '',
+      url: commit.html_url,
+      parents: (commit.parents || []).map(parent => ({
+        sha: parent.sha,
+        url:
+          parent.html_url ||
+          `${commit.html_url.replace(/\/commit\/[^/]+$/, '')}/commit/${parent.sha}`,
+      })),
+      stats: {
+        additions: commit.stats?.additions || 0,
+        deletions: commit.stats?.deletions || 0,
+        total: commit.stats?.total || 0,
+      },
+      files: (commit.files || []).map(file => ({
+        filename: file.filename,
+        previousFilename: file.previous_filename || null,
+        status: file.status || 'modified',
+        additions: file.additions || 0,
+        deletions: file.deletions || 0,
+        changes: file.changes || 0,
+        patch: file.patch || null,
+        blobUrl: file.blob_url || null,
+      })),
+    }
+  }
+
+  /**
    * Fetch open issue and PR counts for a specific repository.
    * Uses GitHub search API for accurate separate counts.
    */
@@ -793,12 +913,16 @@ export class GitHubClient {
    * Fetch open issues for a specific repository.
    * Filters out pull requests (GitHub includes them in the issues endpoint).
    */
-  async fetchRepoIssues(owner: string, repo: string): Promise<RepoIssue[]> {
+  async fetchRepoIssues(
+    owner: string,
+    repo: string,
+    state: 'open' | 'closed' = 'open'
+  ): Promise<RepoIssue[]> {
     const octokit = await this.getOctokitForOwner(owner)
     const response = await octokit.issues.listForRepo({
       owner,
       repo,
-      state: 'open',
+      state,
       per_page: 100,
       sort: 'updated',
       direction: 'desc',
@@ -815,7 +939,9 @@ export class GitHubClient {
         createdAt: issue.created_at,
         updatedAt: issue.updated_at,
         labels: (issue.labels || [])
-          .filter((l): l is { name?: string; color?: string | null } & object => typeof l !== 'string')
+          .filter(
+            (l): l is { name?: string; color?: string | null } & object => typeof l !== 'string'
+          )
           .map(l => ({ name: l.name || '', color: l.color || '808080' })),
         commentCount: issue.comments,
         assignees: (issue.assignees || []).map(a => ({
@@ -825,16 +951,84 @@ export class GitHubClient {
       }))
   }
 
+  async fetchRepoIssueDetail(
+    owner: string,
+    repo: string,
+    issueNumber: number
+  ): Promise<RepoIssueDetail> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const [issueResponse, commentsResponse] = await Promise.all([
+      octokit.issues.get({
+        owner,
+        repo,
+        issue_number: issueNumber,
+      }),
+      octokit.issues.listComments({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: 100,
+        direction: 'asc',
+      }),
+    ])
+
+    const issue = issueResponse.data
+
+    return {
+      number: issue.number,
+      title: issue.title,
+      state: issue.state,
+      author: issue.user?.login || 'unknown',
+      authorAvatarUrl: issue.user?.avatar_url || null,
+      url: issue.html_url,
+      createdAt: issue.created_at,
+      updatedAt: issue.updated_at,
+      labels: (issue.labels || [])
+        .filter(
+          (label): label is { name?: string; color?: string | null } & object =>
+            typeof label !== 'string'
+        )
+        .map(label => ({ name: label.name || '', color: label.color || '808080' })),
+      commentCount: issue.comments,
+      assignees: (issue.assignees || []).map(assignee => ({
+        login: assignee.login,
+        avatarUrl: assignee.avatar_url,
+      })),
+      body: issue.body || '',
+      closedAt: issue.closed_at,
+      stateReason: issue.state_reason || null,
+      milestone: issue.milestone
+        ? {
+            title: issue.milestone.title,
+            dueOn: issue.milestone.due_on,
+          }
+        : null,
+      comments: commentsResponse.data.map(comment => ({
+        id: comment.id,
+        author: comment.user?.login || 'unknown',
+        authorAvatarUrl: comment.user?.avatar_url || null,
+        body: comment.body || '',
+        createdAt: comment.created_at,
+        updatedAt: comment.updated_at,
+        url: comment.html_url,
+      })),
+    }
+  }
+
   /**
    * Fetch open pull requests for a specific repository.
    */
-  async fetchRepoPRs(owner: string, repo: string): Promise<RepoPullRequest[]> {
+  async fetchRepoPRs(
+    owner: string,
+    repo: string,
+    state: 'open' | 'closed' = 'open'
+  ): Promise<RepoPullRequest[]> {
     const octokit = await this.getOctokitForOwner(owner)
     const [response, viewer] = await Promise.all([
       octokit.pulls.list({
         owner,
         repo,
-        state: 'open',
+        state,
         per_page: 100,
         sort: 'updated',
         direction: 'desc',
@@ -1318,7 +1512,10 @@ export class GitHubClient {
   }
 
   private mapReactionGroups(
-    groups: Array<{ content: string; viewerHasReacted: boolean; users: { totalCount: number } }> | null | undefined
+    groups:
+      | Array<{ content: string; viewerHasReacted: boolean; users: { totalCount: number } }>
+      | null
+      | undefined
   ): PRCommentReaction[] {
     const supported: PRCommentReactionContent[] = [
       'THUMBS_UP',
@@ -1808,7 +2005,10 @@ export class GitHubClient {
         unaddressed: Math.max(0, total - addressed),
       }
     } catch (error) {
-      console.debug(`Failed to fetch review thread stats for ${owner}/${repo}#${pullNumber}:`, error)
+      console.debug(
+        `Failed to fetch review thread stats for ${owner}/${repo}#${pullNumber}:`,
+        error
+      )
       return null
     }
   }
@@ -1828,9 +2028,7 @@ export class GitHubClient {
 
     const allWorkflows = workflowsResponse.data.workflows
     const sflWorkflows = allWorkflows.filter(w =>
-      SFL_CORE_WORKFLOW_FRAGMENTS.some(fragment =>
-        w.name.toLowerCase().includes(fragment)
-      )
+      SFL_CORE_WORKFLOW_FRAGMENTS.some(fragment => w.name.toLowerCase().includes(fragment))
     )
 
     if (sflWorkflows.length === 0) {

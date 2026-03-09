@@ -1,4 +1,4 @@
-import { Code2, GitCommit, Users, Building2 } from 'lucide-react'
+import { Code2, Users, Building2 } from 'lucide-react'
 import type { RepoDetail } from '../../api/github'
 import { formatDistanceToNow } from '../../utils/dateUtils'
 import { getLanguageColor, formatDate, formatSize } from './repoDetailUtils'
@@ -58,42 +58,6 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
                 +{languageEntries.length - 8} more
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Recent Commits Card */}
-      {detail.recentCommits.length > 0 && (
-        <div className="repo-detail-card">
-          <div className="repo-detail-card-header">
-            <GitCommit size={16} />
-            <h3>Recent Commits</h3>
-          </div>
-          <div className="repo-commits-list">
-            {detail.recentCommits.map(commit => (
-              <div
-                key={commit.sha}
-                className="repo-commit-item"
-                onClick={() => window.shell?.openExternal(commit.url)}
-                title={commit.message}
-              >
-                <div className="repo-commit-main">
-                  <span className="repo-commit-sha">{commit.sha.slice(0, 7)}</span>
-                  <span className="repo-commit-msg">{commit.message}</span>
-                </div>
-                <div className="repo-commit-meta">
-                  {commit.authorAvatarUrl && (
-                    <img
-                      src={commit.authorAvatarUrl}
-                      alt={commit.author}
-                      className="repo-commit-avatar"
-                    />
-                  )}
-                  <span className="repo-commit-author">{commit.author}</span>
-                  <span className="repo-commit-date">{formatDistanceToNow(commit.date)}</span>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}

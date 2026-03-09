@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo, useId } from 'react';
-import { formatHour12 } from '../../utils/dateUtils';
-import './CronBuilder.css';
+import { useState, useEffect, useMemo, useId } from 'react'
+import { formatHour12 } from '../../utils/dateUtils'
+import './CronBuilder.css'
 
-type Frequency = 'minute' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
+type Frequency = 'minute' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
 
 interface CronBuilderProps {
-  value: string;
-  onChange: (cron: string) => void;
+  value: string
+  onChange: (cron: string) => void
 }
 
 const DAYS_OF_WEEK = [
@@ -17,120 +17,123 @@ const DAYS_OF_WEEK = [
   { value: 4, label: 'Thu', short: 'T' },
   { value: 5, label: 'Fri', short: 'F' },
   { value: 6, label: 'Sat', short: 'S' },
-];
+]
 
 export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const cronFreqLabelId = useId()
-  const [frequency, setFrequency] = useState<Frequency>('hourly');
-  const [minute, setMinute] = useState(0);
-  const [hour, setHour] = useState(9);
-  const [dayOfMonth, setDayOfMonth] = useState(1);
-  const [selectedDays, setSelectedDays] = useState<number[]>([1]); // Monday by default
-  const [customCron, setCustomCron] = useState(value);
+  const [frequency, setFrequency] = useState<Frequency>('hourly')
+  const [minute, setMinute] = useState(0)
+  const [hour, setHour] = useState(9)
+  const [dayOfMonth, setDayOfMonth] = useState(1)
+  const [selectedDays, setSelectedDays] = useState<number[]>([1]) // Monday by default
+  const [customCron, setCustomCron] = useState(value)
 
   // Parse incoming cron value to set initial state
   useEffect(() => {
-    const parts = value.split(' ');
+    const parts = value.split(' ')
     if (parts.length !== 5) {
-      setFrequency('custom');
-      setCustomCron(value);
-      return;
+      setFrequency('custom')
+      setCustomCron(value)
+      return
     }
 
-    const [min, hr, dom, , dow] = parts;
+    const [min, hr, dom, , dow] = parts
 
     // Detect frequency from cron pattern
     if (value === '* * * * *') {
-      setFrequency('minute');
+      setFrequency('minute')
     } else if (min !== '*' && hr === '*' && dom === '*' && dow === '*') {
-      setFrequency('hourly');
-      setMinute(parseInt(min) || 0);
+      setFrequency('hourly')
+      setMinute(parseInt(min) || 0)
     } else if (min !== '*' && hr !== '*' && dom === '*' && dow === '*') {
-      setFrequency('daily');
-      setMinute(parseInt(min) || 0);
-      setHour(parseInt(hr) || 9);
+      setFrequency('daily')
+      setMinute(parseInt(min) || 0)
+      setHour(parseInt(hr) || 9)
     } else if (min !== '*' && hr !== '*' && dom === '*' && dow !== '*') {
-      setFrequency('weekly');
-      setMinute(parseInt(min) || 0);
-      setHour(parseInt(hr) || 9);
-      const days = dow.split(',').map(d => parseInt(d)).filter(d => !isNaN(d));
-      setSelectedDays(days.length > 0 ? days : [1]);
+      setFrequency('weekly')
+      setMinute(parseInt(min) || 0)
+      setHour(parseInt(hr) || 9)
+      const days = dow
+        .split(',')
+        .map(d => parseInt(d))
+        .filter(d => !isNaN(d))
+      setSelectedDays(days.length > 0 ? days : [1])
     } else if (min !== '*' && hr !== '*' && dom !== '*' && dow === '*') {
-      setFrequency('monthly');
-      setMinute(parseInt(min) || 0);
-      setHour(parseInt(hr) || 9);
-      setDayOfMonth(parseInt(dom) || 1);
+      setFrequency('monthly')
+      setMinute(parseInt(min) || 0)
+      setHour(parseInt(hr) || 9)
+      setDayOfMonth(parseInt(dom) || 1)
     } else {
-      setFrequency('custom');
-      setCustomCron(value);
+      setFrequency('custom')
+      setCustomCron(value)
     }
-  }, [value]);
+  }, [value])
 
   // Generate cron expression when settings change
   const cronExpression = useMemo(() => {
     switch (frequency) {
       case 'minute':
-        return '* * * * *';
+        return '* * * * *'
       case 'hourly':
-        return `${minute} * * * *`;
+        return `${minute} * * * *`
       case 'daily':
-        return `${minute} ${hour} * * *`;
+        return `${minute} ${hour} * * *`
       case 'weekly':
-        return `${minute} ${hour} * * ${selectedDays.sort().join(',')}`;
+        return `${minute} ${hour} * * ${selectedDays.sort().join(',')}`
       case 'monthly':
-        return `${minute} ${hour} ${dayOfMonth} * *`;
+        return `${minute} ${hour} ${dayOfMonth} * *`
       case 'custom':
-        return customCron;
+        return customCron
       default:
-        return '0 * * * *';
+        return '0 * * * *'
     }
-  }, [frequency, minute, hour, dayOfMonth, selectedDays, customCron]);
+  }, [frequency, minute, hour, dayOfMonth, selectedDays, customCron])
 
   // Update parent when cron changes
   useEffect(() => {
-    onChange(cronExpression);
-  }, [cronExpression, onChange]);
+    onChange(cronExpression)
+  }, [cronExpression, onChange])
 
   // Human-readable description
   const description = useMemo(() => {
     const fmtTime = (h: number, m: number) => {
-      const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-      return `${displayHour}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
-    };
+      const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+      return `${displayHour}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+    }
 
     switch (frequency) {
       case 'minute':
-        return 'Runs every minute';
+        return 'Runs every minute'
       case 'hourly':
-        return `Runs every hour at minute ${minute}`;
+        return `Runs every hour at minute ${minute}`
       case 'daily':
-        return `Runs daily at ${fmtTime(hour, minute)}`;
+        return `Runs daily at ${fmtTime(hour, minute)}`
       case 'weekly': {
         const dayNames = selectedDays
           .sort()
           .map(d => DAYS_OF_WEEK.find(day => day.value === d)?.label)
-          .filter(Boolean);
-        return `Runs every ${dayNames.join(', ')} at ${fmtTime(hour, minute)}`;
+          .filter(Boolean)
+        return `Runs every ${dayNames.join(', ')} at ${fmtTime(hour, minute)}`
       }
       case 'monthly':
-        return `Runs on day ${dayOfMonth} of every month at ${fmtTime(hour, minute)}`;
+        return `Runs on day ${dayOfMonth} of every month at ${fmtTime(hour, minute)}`
       case 'custom':
-        return 'Custom cron expression';
+        return 'Custom cron expression'
       default:
-        return '';
+        return ''
     }
-  }, [frequency, minute, hour, dayOfMonth, selectedDays]);
+  }, [frequency, minute, hour, dayOfMonth, selectedDays])
 
   const toggleDay = (day: number) => {
     setSelectedDays(prev => {
       if (prev.includes(day)) {
         // Don't allow deselecting all days
-        if (prev.length === 1) return prev;
-        return prev.filter(d => d !== day);
+        if (prev.length === 1) return prev
+        return prev.filter(d => d !== day)
       }
-      return [...prev, day];
-    });
-  };
+      return [...prev, day]
+    })
+  }
 
   return (
     <div className="cron-builder">
@@ -189,7 +192,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             <span className="option-label">At minute</span>
             <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
               {Array.from({ length: 60 }, (_, min) => (
-                <option key={min} value={min}>{min.toString().padStart(2, '0')}</option>
+                <option key={min} value={min}>
+                  {min.toString().padStart(2, '0')}
+                </option>
               ))}
             </select>
             <span className="option-suffix">of every hour</span>
@@ -210,7 +215,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             <span className="option-separator">:</span>
             <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
               {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                <option key={m} value={m}>
+                  {m.toString().padStart(2, '0')}
+                </option>
               ))}
             </select>
           </div>
@@ -247,7 +254,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
               <span className="option-separator">:</span>
               <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
                 {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                  <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                  <option key={m} value={m}>
+                    {m.toString().padStart(2, '0')}
+                  </option>
                 ))}
               </select>
             </div>
@@ -261,7 +270,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
               <span className="option-label">On day</span>
               <select value={dayOfMonth} onChange={e => setDayOfMonth(parseInt(e.target.value))}>
                 {Array.from({ length: 31 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>{i + 1}</option>
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1}
+                  </option>
                 ))}
               </select>
               <span className="option-suffix">of every month</span>
@@ -278,7 +289,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
               <span className="option-separator">:</span>
               <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
                 {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                  <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                  <option key={m} value={m}>
+                    {m.toString().padStart(2, '0')}
+                  </option>
                 ))}
               </select>
             </div>
@@ -318,5 +331,5 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }

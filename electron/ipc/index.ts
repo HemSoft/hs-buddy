@@ -14,5 +14,5 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerWindowHandlers(win)
   registerShellHandlers()
   registerCopilotHandlers()
-  registerCrewHandlers()
+  registerCrewHandlers(win)
 }

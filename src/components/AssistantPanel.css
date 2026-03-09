@@ -114,7 +114,9 @@
   font-size: 12px;
   cursor: pointer;
   text-align: left;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
 .assistant-suggestion-btn:hover {
@@ -189,8 +191,12 @@
 }
 
 @keyframes assistant-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Context badge bar */

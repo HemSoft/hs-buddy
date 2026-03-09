@@ -40,6 +40,27 @@ interface Window {
   shell: {
     openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
   }
+  crew: {
+    addProject: () => Promise<import('../src/types/crew').CrewAddProjectResult>
+    listProjects: () => Promise<import('../src/types/crew').CrewProject[]>
+    removeProject: (projectId: string) => Promise<boolean>
+    getSession: (projectId: string) => Promise<import('../src/types/crew').CrewSession | null>
+    createSession: (projectId: string) => Promise<import('../src/types/crew').CrewSession>
+    addMessage: (
+      projectId: string,
+      message: import('../src/types/crew').CrewChatMessage
+    ) => Promise<import('../src/types/crew').CrewSession | null>
+    updateSessionStatus: (
+      projectId: string,
+      status: import('../src/types/crew').CrewSession['status']
+    ) => Promise<import('../src/types/crew').CrewSession | null>
+    updateChangedFiles: (
+      projectId: string,
+      files: import('../src/types/crew').CrewChangedFile[]
+    ) => Promise<import('../src/types/crew').CrewSession | null>
+    clearSession: (projectId: string) => Promise<boolean>
+    undoFile: (projectId: string, filePath: string) => Promise<boolean>
+  }
   github: {
     getCliToken: (username?: string) => Promise<string>
     getActiveAccount: () => Promise<string | null>
@@ -115,5 +136,13 @@ interface Window {
       Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>
       | { error: string }
     >
+    chatSend: (args: {
+      message: string
+      context: string
+      conversationHistory: Array<{ role: string; content: string }>
+      model?: string
+      ghAccount?: string
+    }) => Promise<{ content?: string } | string | null>
+    chatAbort: () => Promise<{ success: boolean; error?: string }>
   }
 }

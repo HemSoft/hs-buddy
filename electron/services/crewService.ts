@@ -1,4 +1,5 @@
-import { app, dialog } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
+import type { OpenDialogOptions } from 'electron'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { execFile } from 'child_process'
@@ -65,6 +66,49 @@ async function runGit(cwd: string, args: string[]): Promise<string | null> {
   }
 }
 
+function isGitHubHost(host: string): boolean {
+  const normalizedHost = host.trim().toLowerCase()
+  return normalizedHost === 'github.com' || normalizedHost.endsWith('.github.com')
+}
+
+async function resolveSshHost(host: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('ssh', ['-G', host], { timeout: 5000 })
+    const hostnameLine = stdout
+      .split(/\r?\n/)
+      .find(line => line.toLowerCase().startsWith('hostname '))
+
+    return hostnameLine?.slice('hostname '.length).trim() ?? null
+  } catch {
+    return null
+  }
+}
+
+async function getGitHubSlug(originUrl: string): Promise<string | null> {
+  const httpsMatch = originUrl.match(
+    /^https?:\/\/(?:[^@/]+@)?([^/]+)\/([^/]+\/[^/.\s]+?)(?:\.git)?$/i
+  )
+  if (httpsMatch) {
+    const [, host, slug] = httpsMatch
+    return isGitHubHost(host) ? slug : null
+  }
+
+  const sshMatch = originUrl.match(
+    /^(?:ssh:\/\/)?(?:.+@)?([^:/]+)[:/]([^/]+\/[^/.\s]+?)(?:\.git)?$/i
+  )
+  if (!sshMatch) {
+    return null
+  }
+
+  const [, host, slug] = sshMatch
+  if (isGitHubHost(host)) {
+    return slug
+  }
+
+  const resolvedHost = await resolveSshHost(host)
+  return resolvedHost && isGitHubHost(resolvedHost) ? slug : null
+}
+
 export async function validateFolder(folderPath: string): Promise<CrewValidationResult> {
   const gitRoot = await runGit(folderPath, ['rev-parse', '--show-toplevel'])
   if (!gitRoot) {
@@ -76,10 +120,7 @@ export async function validateFolder(folderPath: string): Promise<CrewValidation
     return { valid: false, error: 'No origin remote found' }
   }
 
-  // Accept github.com HTTPS or SSH URLs
-  const httpsMatch = originUrl.match(/github\.com\/([^/]+\/[^/.\s]+?)(?:\.git)?$/)
-  const sshMatch = originUrl.match(/github\.com:([^/]+\/[^/.\s]+?)(?:\.git)?$/)
-  const slug = httpsMatch?.[1] ?? sshMatch?.[1]
+  const slug = await getGitHubSlug(originUrl)
   if (!slug) {
     return { valid: false, error: 'Origin remote is not a GitHub repository' }
   }
@@ -92,11 +133,17 @@ export async function validateFolder(folderPath: string): Promise<CrewValidation
   return { valid: true, gitRoot, githubSlug: slug, defaultBranch }
 }
 
-export async function addProjectFromPicker(): Promise<CrewAddProjectResult> {
-  const result = await dialog.showOpenDialog({
+export async function addProjectFromPicker(
+  parentWindow?: BrowserWindow | null
+): Promise<CrewAddProjectResult> {
+  const dialogOptions: OpenDialogOptions = {
     properties: ['openDirectory'],
     title: 'Select a project folder',
-  })
+  }
+
+  const result = parentWindow && !parentWindow.isDestroyed()
+    ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions)
 
   if (result.canceled || result.filePaths.length === 0) {
     return { success: false, error: 'Cancelled' }

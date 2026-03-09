@@ -61,7 +61,12 @@ export function ReviewThreadCard({
         async signal => {
           if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
           const client = new GitHubClient({ accounts }, 7)
-          return await client.replyToReviewThread(ownerRepo.owner, pr.id, thread.id, replyText.trim())
+          return await client.replyToReviewThread(
+            ownerRepo.owner,
+            pr.id,
+            thread.id,
+            replyText.trim()
+          )
         },
         { name: `reply-thread-${thread.id}` }
       )
@@ -126,9 +131,7 @@ export function ReviewThreadCard({
         </span>
         <FileCode size={13} className="review-thread-file-icon" />
         <div className="review-thread-path-group">
-          <span className="review-thread-path">
-            {thread.path || 'General review comment'}
-          </span>
+          <span className="review-thread-path">{thread.path || 'General review comment'}</span>
           {thread.line != null && (
             <span className="review-thread-line-label">
               {thread.startLine != null && thread.startLine !== thread.line
@@ -161,7 +164,9 @@ export function ReviewThreadCard({
         <div className="review-thread-body">
           {diffHunk && <DiffHunk hunk={diffHunk} />}
           <div className="review-thread-comments">
-            {firstComment && <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />}
+            {firstComment && (
+              <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />
+            )}
             {remainingComments.map(c => (
               <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
             ))}
@@ -192,7 +197,10 @@ export function ReviewThreadCard({
                   <span className="thread-reply-hint">Ctrl+Enter to send · Esc to cancel</span>
                   <button
                     className="thread-reply-cancel"
-                    onClick={() => { setReplying(false); setReplyText('') }}
+                    onClick={() => {
+                      setReplying(false)
+                      setReplyText('')
+                    }}
                     disabled={sending}
                   >
                     Cancel

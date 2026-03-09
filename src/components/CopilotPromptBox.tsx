@@ -62,35 +62,38 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
    * Auto-detect the correct GitHub account from org/owner in the prompt text.
    * Only auto-switches if the user hasn't manually picked a different account.
    */
-  const resolveAccountFromPrompt = useCallback((text: string) => {
-    const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
-    const orgs: string[] = []
-    let match: RegExpExecArray | null
-    while ((match = urlPattern.exec(text)) !== null) {
-      orgs.push(match[1].toLowerCase())
-    }
-
-    if (orgs.length === 0) {
-      // No GitHub URL — if we previously auto-detected, revert to default
-      if (autoDetectedRef.current) {
-        autoDetectedRef.current = false
-        setLocalAccount(ghAccount)
+  const resolveAccountFromPrompt = useCallback(
+    (text: string) => {
+      const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
+      const orgs: string[] = []
+      let match: RegExpExecArray | null
+      while ((match = urlPattern.exec(text)) !== null) {
+        orgs.push(match[1].toLowerCase())
       }
-      return
-    }
 
-    // Find the first org that matches a configured account
-    for (const org of orgs) {
-      const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
-      if (acct) {
-        if (localAccount !== acct.username) {
-          autoDetectedRef.current = true
-          setLocalAccount(acct.username)
+      if (orgs.length === 0) {
+        // No GitHub URL — if we previously auto-detected, revert to default
+        if (autoDetectedRef.current) {
+          autoDetectedRef.current = false
+          setLocalAccount(ghAccount)
         }
         return
       }
-    }
-  }, [githubAccounts, ghAccount, localAccount])
+
+      // Find the first org that matches a configured account
+      for (const org of orgs) {
+        const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
+        if (acct) {
+          if (localAccount !== acct.username) {
+            autoDetectedRef.current = true
+            setLocalAccount(acct.username)
+          }
+          return
+        }
+      }
+    },
+    [githubAccounts, ghAccount, localAccount]
+  )
 
   // Run auto-detection when prompt text changes (debounced)
   useEffect(() => {
@@ -136,11 +139,16 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
 
   const statusEmoji = (status: string) => {
     switch (status) {
-      case 'pending': return '⏳'
-      case 'running': return '🔄'
-      case 'completed': return '✅'
-      case 'failed': return '❌'
-      default: return '•'
+      case 'pending':
+        return '⏳'
+      case 'running':
+        return '🔄'
+      case 'completed':
+        return '✅'
+      case 'failed':
+        return '❌'
+      default:
+        return '•'
     }
   }
 
@@ -181,7 +189,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
             {/* Account selector */}
             <AccountPicker
               value={localAccount}
-              onChange={(val) => { autoDetectedRef.current = false; setLocalAccount(val) }}
+              onChange={val => {
+                autoDetectedRef.current = false
+                setLocalAccount(val)
+              }}
               disabled={submitting}
               title="GitHub account for Copilot"
             />
@@ -218,11 +229,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         </div>
       </div>
 
-      {error && (
-        <div className="copilot-prompt-error">
-          {error}
-        </div>
-      )}
+      {error && <div className="copilot-prompt-error">{error}</div>}
 
       {/* Recent results */}
       {recentResults && recentResults.length > 0 && (

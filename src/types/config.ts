@@ -1,12 +1,12 @@
-import type { Schema } from 'electron-store';
+import type { Schema } from 'electron-store'
 
 /**
  * GitHub account configuration
  * Uses GitHub CLI (gh) authentication - no tokens stored!
  */
 export interface GitHubAccount {
-  username: string;
-  org: string;
+  username: string
+  org: string
 }
 
 /**
@@ -14,17 +14,17 @@ export interface GitHubAccount {
  * Uses GitHub CLI (gh) authentication - no tokens stored!
  */
 export interface BitbucketWorkspace {
-  workspace: string;
-  username: string;
-  userDisplayName: string;
+  workspace: string
+  username: string
+  userDisplayName: string
 }
 
 /** Rectangle describing display bounds or work area */
 export interface DisplayRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 /**
@@ -33,43 +33,43 @@ export interface DisplayRect {
  */
 export interface AppConfig {
   github: {
-    accounts: GitHubAccount[];
-  };
+    accounts: GitHubAccount[]
+  }
   bitbucket: {
-    workspaces: BitbucketWorkspace[];
-  };
+    workspaces: BitbucketWorkspace[]
+  }
   ui: {
-    theme: 'dark' | 'light';
-    accentColor: string; // Hex color (e.g., '#0e639c')
-    fontColor: string; // Font/text color hex (e.g., '#cccccc')
-    bgPrimary: string; // Primary background hex color
-    bgSecondary: string; // Secondary background hex color
-    statusBarBg: string; // Status bar background hex color
-    statusBarFg: string; // Status bar foreground/text hex color
-    fontFamily: string;
-    monoFontFamily: string;
-    zoomLevel: number;
-    sidebarWidth: number;
-    paneSizes: number[];
-    displayId: number; // Electron display ID for multi-monitor tracking
-    displayBounds: DisplayRect; // Saved display bounds for robust restore
-    displayWorkArea: DisplayRect; // Saved display work area for robust restore
-    showBookmarkedOnly: boolean; // Filter org repos to bookmarked only
-    assistantOpen: boolean; // Whether the Copilot Assistant pane is open
-  };
+    theme: 'dark' | 'light'
+    accentColor: string // Hex color (e.g., '#0e639c')
+    fontColor: string // Font/text color hex (e.g., '#cccccc')
+    bgPrimary: string // Primary background hex color
+    bgSecondary: string // Secondary background hex color
+    statusBarBg: string // Status bar background hex color
+    statusBarFg: string // Status bar foreground/text hex color
+    fontFamily: string
+    monoFontFamily: string
+    zoomLevel: number
+    sidebarWidth: number
+    paneSizes: number[]
+    displayId: number // Electron display ID for multi-monitor tracking
+    displayBounds: DisplayRect // Saved display bounds for robust restore
+    displayWorkArea: DisplayRect // Saved display work area for robust restore
+    showBookmarkedOnly: boolean // Filter org repos to bookmarked only
+    assistantOpen: boolean // Whether the Copilot Assistant pane is open
+  }
   pr: {
-    refreshInterval: number; // minutes
-    autoRefresh: boolean;
-    recentlyMergedDays: number; // days to look back for recently merged PRs
-  };
+    refreshInterval: number // minutes
+    autoRefresh: boolean
+    recentlyMergedDays: number // days to look back for recently merged PRs
+  }
   copilot: {
-    ghAccount: string; // GitHub CLI account username for Copilot SDK (empty = active account)
-    model: string; // LLM model to use (e.g., 'claude-sonnet-4.5', 'gpt-4o')
-    prReviewPromptTemplate: string; // Default prompt template for PR review (supports {{prUrl}})
-  };
+    ghAccount: string // GitHub CLI account username for Copilot SDK (empty = active account)
+    model: string // LLM model to use (e.g., 'claude-sonnet-4.5', 'gpt-4o')
+    prReviewPromptTemplate: string // Default prompt template for PR review (supports {{prUrl}})
+  }
   automation: {
-    scheduleForecastDays: number; // Number of days to show in schedule forecast (1-30)
-  };
+    scheduleForecastDays: number // Number of days to show in schedule forecast (1-30)
+  }
 }
 
 /**
@@ -203,7 +203,23 @@ export const configSchema: Schema<AppConfig> = {
         default: false,
       },
     },
-    required: ['theme', 'accentColor', 'fontColor', 'bgPrimary', 'bgSecondary', 'statusBarBg', 'statusBarFg', 'fontFamily', 'monoFontFamily', 'zoomLevel', 'sidebarWidth', 'paneSizes', 'displayId', 'showBookmarkedOnly', 'assistantOpen'],
+    required: [
+      'theme',
+      'accentColor',
+      'fontColor',
+      'bgPrimary',
+      'bgSecondary',
+      'statusBarBg',
+      'statusBarFg',
+      'fontFamily',
+      'monoFontFamily',
+      'zoomLevel',
+      'sidebarWidth',
+      'paneSizes',
+      'displayId',
+      'showBookmarkedOnly',
+      'assistantOpen',
+    ],
   },
   pr: {
     type: 'object',
@@ -257,7 +273,7 @@ export const configSchema: Schema<AppConfig> = {
     },
     required: ['scheduleForecastDays'],
   },
-};
+}
 
 /**
  * Default configuration values
@@ -301,4 +317,4 @@ export const defaultConfig: AppConfig = {
   automation: {
     scheduleForecastDays: 3,
   },
-};
+}

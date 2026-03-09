@@ -29,9 +29,7 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
   const menus: Menu[] = [
     {
       label: 'File',
-      items: [
-        { label: 'Exit', accelerator: 'Alt+F4', action: () => window.close() }
-      ]
+      items: [{ label: 'Exit', accelerator: 'Alt+F4', action: () => window.close() }],
     },
     {
       label: 'Edit',
@@ -43,8 +41,8 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
         { label: 'Copy', accelerator: 'Ctrl+C' },
         { label: 'Paste', accelerator: 'Ctrl+V' },
         { type: 'separator' },
-        { label: 'Select All', accelerator: 'Ctrl+A' }
-      ]
+        { label: 'Select All', accelerator: 'Ctrl+A' },
+      ],
     },
     {
       label: 'View',
@@ -54,22 +52,26 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
         { label: 'Reset Zoom', accelerator: 'Ctrl+Num0' },
         { type: 'separator' },
         { label: 'Reload', accelerator: 'Ctrl+R', action: () => window.location.reload() },
-        { label: 'Toggle DevTools', accelerator: 'Ctrl+Shift+I', action: () => window.ipcRenderer.send('toggle-devtools') },
+        {
+          label: 'Toggle DevTools',
+          accelerator: 'Ctrl+Shift+I',
+          action: () => window.ipcRenderer.send('toggle-devtools'),
+        },
         { type: 'separator' },
-        { label: 'Full Screen', accelerator: 'F11' }
-      ]
+        { label: 'Full Screen', accelerator: 'F11' },
+      ],
     },
     {
       label: 'Help',
       items: [
-        { 
-          label: 'About Buddy', 
+        {
+          label: 'About Buddy',
           action: () => {
             setShowAbout(true)
-          }
-        }
-      ]
-    }
+          },
+        },
+      ],
+    },
   ]
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
     <div className="title-bar">
       <div className="title-bar-drag-region" />
       <div className="menu-bar" ref={menuBarRef}>
-        {menus.map((menu) => (
+        {menus.map(menu => (
           <div key={menu.label} className="menu-container">
             <button
               className={`menu-button ${openMenu === menu.label ? 'active' : ''}`}
@@ -121,9 +123,12 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
             </button>
             {openMenu === menu.label && (
               <div className="menu-dropdown">
-                {menu.items.map((item, index) => (
+                {menu.items.map((item, index) =>
                   item.type === 'separator' ? (
-                    <div key={`sep-before-${menu.items.slice(index + 1).find(i => i.label)?.label ?? 'end'}`} className="menu-separator" />
+                    <div
+                      key={`sep-before-${menu.items.slice(index + 1).find(i => i.label)?.label ?? 'end'}`}
+                      className="menu-separator"
+                    />
                   ) : (
                     <button
                       key={item.label}
@@ -137,7 +142,7 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
                       )}
                     </button>
                   )
-                ))}
+                )}
               </div>
             )}
           </div>
@@ -145,9 +150,11 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
       </div>
       <div className="title-bar-title">
         <span className="title-brand">HemSoft Developments</span>
-        <span className="title-icon"><Users size={14} /></span>
+        <span className="title-icon">
+          <Users size={14} />
+        </span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.282</span>
+        <span className="title-version">V0.1.283</span>
       </div>
       <div className="window-controls">
         <button
@@ -164,7 +171,15 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
         </button>
         <button className="window-control-button" onClick={handleMaximize} title="Maximize">
           <svg width="10" height="10" viewBox="0 0 10 10">
-            <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1" />
+            <rect
+              x="0.5"
+              y="0.5"
+              width="9"
+              height="9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
           </svg>
         </button>
         <button className="window-control-button close-button" onClick={handleClose} title="Close">

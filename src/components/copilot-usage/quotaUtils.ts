@@ -49,22 +49,21 @@ export const formatCurrency = (amount: number) => {
   }).format(amount)
 }
 
-export function computeProjection(
-  premium: QuotaSnapshot,
-  resetDateStr: string
-): Projection | null {
+export function computeProjection(premium: QuotaSnapshot, resetDateStr: string): Projection | null {
   // All billing math in UTC to match GitHub Copilot billing cycle
   const resetDate = new Date(resetDateStr)
   const nowMs = Date.now()
 
   // Estimate billing period start (1 month before reset) in UTC
-  const periodStart = new Date(Date.UTC(
-    resetDate.getUTCFullYear(),
-    resetDate.getUTCMonth() - 1,
-    resetDate.getUTCDate(),
-    resetDate.getUTCHours(),
-    resetDate.getUTCMinutes()
-  ))
+  const periodStart = new Date(
+    Date.UTC(
+      resetDate.getUTCFullYear(),
+      resetDate.getUTCMonth() - 1,
+      resetDate.getUTCDate(),
+      resetDate.getUTCHours(),
+      resetDate.getUTCMinutes()
+    )
+  )
   // Handle month-length overflow: e.g. Mar 31 → "Feb 31" → rolls to Mar 3
   if (periodStart.getUTCMonth() === resetDate.getUTCMonth()) {
     periodStart.setUTCDate(0) // clamp to last day of intended month
@@ -84,9 +83,8 @@ export function computeProjection(
   const dailyRate = ratePerSecond * 86400
   const projectedOverage = Math.max(0, projectedTotal - premium.entitlement)
   const projectedOverageCost = projectedOverage * OVERAGE_COST_PER_REQUEST
-  const projectedPercent = premium.entitlement > 0
-    ? (projectedTotal / premium.entitlement) * 100
-    : 0
+  const projectedPercent =
+    premium.entitlement > 0 ? (projectedTotal / premium.entitlement) * 100 : 0
 
   return { projectedTotal, projectedOverage, projectedOverageCost, projectedPercent, dailyRate }
 }

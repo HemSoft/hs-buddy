@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { lightenColor } from '../components/settings/AppearanceColorPicker'
+import { lightenColor } from '../components/settings/appearanceUtils'
 
 export function useAppAppearance(): void {
   useEffect(() => {

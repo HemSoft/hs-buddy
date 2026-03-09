@@ -29,9 +29,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const enqueueRef = useRef(enqueue)
 
   const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(
-    pr.headBranch && pr.baseBranch
-      ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch }
-      : null
+    pr.headBranch && pr.baseBranch ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch } : null
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
@@ -90,39 +88,42 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
             ? 'Files changed'
             : section === 'ai-reviews'
               ? 'AI Reviews'
-            : null
+              : null
   const checksUrl = `${pr.url}/checks`
   const filesChangedUrl = `${pr.url}/files`
   const isFocusedSection = section !== null
   const showOverview = !isFocusedSection
 
-  const handleHistoryLoaded = useCallback((history: PRHistorySummary) => {
-    setHistoryUpdatedAt(history.updatedAt || null)
+  const handleHistoryLoaded = useCallback(
+    (history: PRHistorySummary) => {
+      setHistoryUpdatedAt(history.updatedAt || null)
 
-    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-    const namespace = pr.org || ownerRepo?.owner || ''
+      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+      const namespace = pr.org || ownerRepo?.owner || ''
 
-    const scopedAccounts = namespace
-      ? accounts.filter(account => account.org.toLowerCase() === namespace.toLowerCase())
-      : []
+      const scopedAccounts = namespace
+        ? accounts.filter(account => account.org.toLowerCase() === namespace.toLowerCase())
+        : []
 
-    const candidateLogins = new Set(
-      (scopedAccounts.length > 0 ? scopedAccounts : accounts).map(account =>
-        account.username.toLowerCase()
+      const candidateLogins = new Set(
+        (scopedAccounts.length > 0 ? scopedAccounts : accounts).map(account =>
+          account.username.toLowerCase()
+        )
       )
-    )
 
-    if (candidateLogins.size === 0) {
-      return
-    }
+      if (candidateLogins.size === 0) {
+        return
+      }
 
-    const approvedByYou = history.reviewers.some(
-      reviewer =>
-        reviewer.status === 'approved' && candidateLogins.has(reviewer.login.toLowerCase())
-    )
+      const approvedByYou = history.reviewers.some(
+        reviewer =>
+          reviewer.status === 'approved' && candidateLogins.has(reviewer.login.toLowerCase())
+      )
 
-    setYouApproved(approvedByYou)
-  }, [accounts, pr.org, pr.url])
+      setYouApproved(approvedByYou)
+    },
+    [accounts, pr.org, pr.url]
+  )
 
   return (
     <div className="pr-detail-container">
@@ -149,7 +150,8 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
                 <span className="pr-detail-dot">·</span>
                 <span className="pr-detail-branch-flow">
                   <GitBranch size={12} />
-                  into <strong>{branches.baseBranch}</strong> from <strong>{branches.headBranch}</strong>
+                  into <strong>{branches.baseBranch}</strong> from{' '}
+                  <strong>{branches.headBranch}</strong>
                 </span>
               </>
             )}
@@ -165,13 +167,19 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
         <div className="pr-detail-section-note">
           <span>Tree section: {sectionLabel}</span>
           {section === 'checks' && (
-            <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(checksUrl)}>
+            <button
+              className="pr-detail-open-btn"
+              onClick={() => window.shell.openExternal(checksUrl)}
+            >
               <ExternalLink size={14} />
               Open Checks
             </button>
           )}
           {section === 'files-changed' && (
-            <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(filesChangedUrl)}>
+            <button
+              className="pr-detail-open-btn"
+              onClick={() => window.shell.openExternal(filesChangedUrl)}
+            >
               <ExternalLink size={14} />
               Open Files Changed
             </button>
@@ -205,7 +213,9 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
                 Author
               </div>
               <div className="pr-detail-meta-value">
-                {pr.authorAvatarUrl && <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />}
+                {pr.authorAvatarUrl && (
+                  <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />
+                )}
                 <span className="pr-detail-author-text">{pr.author}</span>
               </div>
             </div>
@@ -213,7 +223,9 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               <div className="pr-detail-meta-label">
                 <Clock size={14} />
                 Created
-                {createdRelative && <span className="pr-detail-meta-relative">({createdRelative})</span>}
+                {createdRelative && (
+                  <span className="pr-detail-meta-relative">({createdRelative})</span>
+                )}
               </div>
               <div className="pr-detail-meta-value">{formatDateFull(pr.created)}</div>
             </div>
@@ -221,7 +233,9 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               <div className="pr-detail-meta-label">
                 <Check size={14} />
                 Last Activity
-                {activityRelative && <span className="pr-detail-meta-relative">({activityRelative})</span>}
+                {activityRelative && (
+                  <span className="pr-detail-meta-relative">({activityRelative})</span>
+                )}
               </div>
               <div className="pr-detail-meta-value">{formatDateFull(activityAt)}</div>
             </div>
@@ -236,7 +250,10 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
       {section === 'checks' && (
         <div className="pr-detail-focus-card">
           <p>Open GitHub checks for this pull request.</p>
-          <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(checksUrl)}>
+          <button
+            className="pr-detail-open-btn"
+            onClick={() => window.shell.openExternal(checksUrl)}
+          >
             <ExternalLink size={14} />
             Open Checks
           </button>
@@ -245,7 +262,10 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
       {section === 'files-changed' && (
         <div className="pr-detail-focus-card">
           <p>Open changed files for this pull request.</p>
-          <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(filesChangedUrl)}>
+          <button
+            className="pr-detail-open-btn"
+            onClick={() => window.shell.openExternal(filesChangedUrl)}
+          >
             <ExternalLink size={14} />
             Open Files Changed
           </button>

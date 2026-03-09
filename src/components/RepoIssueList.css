@@ -242,6 +242,18 @@
   transition: opacity 0.2s ease;
 }
 
+.repo-issue-external-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
 .repo-issue-labels {
   display: flex;
   flex-wrap: wrap;

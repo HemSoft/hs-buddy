@@ -22,6 +22,16 @@ import { useAssistantContext } from './hooks/useAssistantContext'
 import { GitHubClient } from './api/github'
 import './App.css'
 
+async function resolveCrewProjectLabel(viewId: string): Promise<string | null> {
+  if (!viewId.startsWith('crew-project:')) {
+    return null
+  }
+
+  const projectId = viewId.replace('crew-project:', '')
+  const projects = await window.crew.listProjects()
+  return projects.find(project => project.id === projectId)?.displayName ?? 'Project Session'
+}
+
 function App() {
   const [selectedSection, setSelectedSection] = useState<string>('github')
   const [tabs, setTabs] = useState<Tab[]>([])
@@ -163,7 +173,7 @@ function App() {
 
   // Open a new tab or activate existing one
   const openTab = useCallback(
-    (viewId: string) => {
+    async (viewId: string) => {
       // Track stat increments (fire-and-forget)
       incrementStatRef.current({ field: 'tabsOpened' }).catch(() => {})
       const prStatMap: Record<string, string> = {
@@ -187,9 +197,15 @@ function App() {
       // Create new tab
       let label = 'View'
       try {
-        label = getViewLabel(viewId)
+        label = (await resolveCrewProjectLabel(viewId)) ?? getViewLabel(viewId)
       } catch {
         label = 'PR Detail'
+      }
+
+      const newestExistingTab = tabs.find(t => t.viewId === viewId)
+      if (newestExistingTab) {
+        setActiveTabId(newestExistingTab.id)
+        return
       }
 
       const newTab: Tab = {
@@ -202,6 +218,49 @@ function App() {
     },
     [tabs]
   )
+
+  useEffect(() => {
+    const crewTabs = tabs.filter(tab => tab.viewId.startsWith('crew-project:'))
+    if (crewTabs.length === 0) {
+      return
+    }
+
+    let isCancelled = false
+
+    const syncCrewTabLabels = async () => {
+      const projects = await window.crew.listProjects()
+      if (isCancelled) {
+        return
+      }
+
+      const labelsById = new Map(projects.map(project => [project.id, project.displayName]))
+      setTabs(currentTabs => {
+        let hasChanges = false
+        const nextTabs = currentTabs.map(tab => {
+          if (!tab.viewId.startsWith('crew-project:')) {
+            return tab
+          }
+
+          const projectId = tab.viewId.replace('crew-project:', '')
+          const nextLabel = labelsById.get(projectId) ?? tab.label
+          if (nextLabel === tab.label) {
+            return tab
+          }
+
+          hasChanges = true
+          return { ...tab, label: nextLabel }
+        })
+
+        return hasChanges ? nextTabs : currentTabs
+      })
+    }
+
+    syncCrewTabLabels().catch(() => {})
+
+    return () => {
+      isCancelled = true
+    }
+  }, [tabs])
 
   // Listen for copilot:open-result custom events (from PR context menus, prompt box, etc.)
   useEffect(() => {
@@ -251,22 +310,22 @@ function App() {
     [activeTabId]
   )
 
-  const handlePRCountChange = useCallback((viewId: string, count: number) => {
-    setPRCount(viewId, count)
-  }, [setPRCount])
+  const handlePRCountChange = useCallback(
+    (viewId: string, count: number) => {
+      setPRCount(viewId, count)
+    },
+    [setPRCount]
+  )
 
   // Handle creating new items from sidebar context menu
-  const handleCreateNew = useCallback(
-    (type: 'schedule' | 'job') => {
-      if (type === 'schedule') {
-        setScheduleEditorOpen(true)
-      } else {
-        // Open the JobEditor modal directly (no Jobs list page)
-        setJobEditorOpen(true)
-      }
-    },
-    []
-  )
+  const handleCreateNew = useCallback((type: 'schedule' | 'job') => {
+    if (type === 'schedule') {
+      setScheduleEditorOpen(true)
+    } else {
+      // Open the JobEditor modal directly (no Jobs list page)
+      setJobEditorOpen(true)
+    }
+  }, [])
 
   const handleSectionSelect = (sectionId: string) => {
     setSelectedSection(sectionId)
@@ -316,12 +375,15 @@ function App() {
   // Show loading screen while migration is in progress
   const showLoading = migrationLoading && !migrationComplete
 
-  const handleCloseView = useCallback((viewId: string) => {
-    const tab = tabs.find(t => t.viewId === viewId)
-    if (tab) {
-      closeTab(tab.id)
-    }
-  }, [tabs, closeTab])
+  const handleCloseView = useCallback(
+    (viewId: string) => {
+      const tab = tabs.find(t => t.viewId === viewId)
+      if (tab) {
+        closeTab(tab.id)
+      }
+    },
+    [tabs, closeTab]
+  )
 
   return (
     <div className="app">
@@ -391,13 +453,9 @@ function App() {
         assistantActive={assistantOpen}
       />
       {/* App-level Job Editor modal (triggered from sidebar "New Job") */}
-      {jobEditorOpen && (
-        <JobEditor onClose={() => setJobEditorOpen(false)} />
-      )}
+      {jobEditorOpen && <JobEditor onClose={() => setJobEditorOpen(false)} />}
       {/* App-level Schedule Editor modal (triggered from sidebar "New Schedule") */}
-      {scheduleEditorOpen && (
-        <ScheduleEditor onClose={() => setScheduleEditorOpen(false)} />
-      )}
+      {scheduleEditorOpen && <ScheduleEditor onClose={() => setScheduleEditorOpen(false)} />}
     </div>
   )
 }

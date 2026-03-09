@@ -54,7 +54,12 @@ export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }
         </div>
         <div className="pr-meta">
           {pr.orgAvatarUrl ? (
-            <img src={pr.orgAvatarUrl} alt={pr.org || pr.source} className="pr-org-avatar" title={pr.org} />
+            <img
+              src={pr.orgAvatarUrl}
+              alt={pr.org || pr.source}
+              className="pr-org-avatar"
+              title={pr.org}
+            />
           ) : (
             <span className="pr-source">{pr.source === 'GitHub' ? 'GH' : 'BB'}</span>
           )}
@@ -104,11 +109,7 @@ export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }
           disabled={pr.iApproved || isApproving}
           title={pr.iApproved ? 'Already approved by you' : 'Approve PR'}
         >
-          {isApproving ? (
-            <Loader2 size={13} className="spin" />
-          ) : (
-            <ThumbsUp size={13} />
-          )}
+          {isApproving ? <Loader2 size={13} className="spin" /> : <ThumbsUp size={13} />}
           {pr.iApproved ? 'Approved' : 'Approve'}
         </button>
         <div className="pr-date">
@@ -116,8 +117,8 @@ export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }
           <span>
             {formatDistanceToNow(
               mode === 'recently-merged'
-                ? (pr.date || pr.created || Date.now())
-                : (pr.created || Date.now())
+                ? pr.date || pr.created || Date.now()
+                : pr.created || Date.now()
             )}
           </span>
         </div>

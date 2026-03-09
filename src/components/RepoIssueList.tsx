@@ -18,10 +18,17 @@ import './RepoIssueList.css'
 interface RepoIssueListProps {
   owner: string
   repo: string
+  issueState?: 'open' | 'closed'
+  onOpenIssue?: (issueNumber: number) => void
 }
 
-export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
-  const cacheKey = `repo-issues:${owner}/${repo}`
+export function RepoIssueList({
+  owner,
+  repo,
+  issueState = 'open',
+  onOpenIssue,
+}: RepoIssueListProps) {
+  const cacheKey = `repo-issues:${issueState}:${owner}/${repo}`
   const cachedEntry = dataCache.get<RepoIssue[]>(cacheKey)
   const [issues, setIssues] = useState<RepoIssue[]>(cachedEntry?.data || [])
   const [loading, setLoading] = useState(!cachedEntry?.data)
@@ -53,9 +60,9 @@ export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
             if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
             const config = { accounts }
             const client = new GitHubClient(config, 7)
-            return await client.fetchRepoIssues(owner, repo)
+            return await client.fetchRepoIssues(owner, repo, issueState)
           },
-          { name: `repo-issues-${owner}-${repo}` }
+          { name: `repo-issues-${issueState}-${owner}-${repo}` }
         )
         setIssues(result)
         dataCache.set(cacheKey, result)
@@ -66,7 +73,7 @@ export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
         setLoading(false)
       }
     },
-    [owner, repo, accounts, cacheKey]
+    [owner, repo, issueState, accounts, cacheKey]
   )
 
   useEffect(() => {
@@ -79,7 +86,7 @@ export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
         <Loader2 size={32} className="spin" />
         <p>Loading issues...</p>
         <p className="repo-issues-loading-sub">
-          {owner}/{repo}
+          {owner}/{repo} · {issueState}
         </p>
       </div>
     )
@@ -107,11 +114,15 @@ export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
             <span className="repo-issues-owner">{owner}</span>
             <span className="repo-issues-separator">/</span>
             <span className="repo-issues-name">{repo}</span>
-            <span className="repo-issues-label">Issues</span>
+            <span className="repo-issues-label">
+              {issueState === 'open' ? 'Open Issues' : 'Closed Issues'}
+            </span>
           </h2>
         </div>
         <div className="repo-issues-header-actions">
-          <span className="repo-issues-count">{issues.length} open</span>
+          <span className="repo-issues-count">
+            {issues.length} {issueState}
+          </span>
           <button
             className="repo-issues-refresh-btn"
             onClick={() => fetchIssues(true)}
@@ -126,8 +137,8 @@ export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
       {issues.length === 0 ? (
         <div className="repo-issues-empty">
           <CircleDot size={48} />
-          <p>No open issues</p>
-          <p className="empty-subtitle">This repository has no open issues right now.</p>
+          <p>No {issueState} issues</p>
+          <p className="empty-subtitle">This repository has no {issueState} issues right now.</p>
         </div>
       ) : (
         <div className="repo-issues-list">
@@ -135,13 +146,28 @@ export function RepoIssueList({ owner, repo }: RepoIssueListProps) {
             <div
               key={issue.number}
               className="repo-issue-item"
-              onClick={() => window.shell?.openExternal(issue.url)}
+              onClick={() => {
+                if (onOpenIssue) {
+                  onOpenIssue(issue.number)
+                  return
+                }
+                window.shell?.openExternal(issue.url)
+              }}
             >
               <div className="repo-issue-header">
                 <div className="repo-issue-title-row">
                   <CircleDot size={16} className="repo-issue-icon" />
                   <span className="repo-issue-title">{issue.title}</span>
-                  <ExternalLink size={14} className="external-link-icon" />
+                  <button
+                    className="repo-issue-external-link-btn"
+                    onClick={event => {
+                      event.stopPropagation()
+                      window.shell?.openExternal(issue.url)
+                    }}
+                    title="Open issue on GitHub"
+                  >
+                    <ExternalLink size={14} className="external-link-icon" />
+                  </button>
                 </div>
                 {issue.labels.length > 0 && (
                   <div className="repo-issue-labels">

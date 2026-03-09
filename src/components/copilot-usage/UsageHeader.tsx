@@ -10,7 +10,14 @@ interface UsageHeaderProps {
   onRefreshAll: () => void
 }
 
-export function UsageHeader({ totalUsed, totalOverageCost, projectedTotal, projectedOverageCost, anyLoading, onRefreshAll }: UsageHeaderProps) {
+export function UsageHeader({
+  totalUsed,
+  totalOverageCost,
+  projectedTotal,
+  projectedOverageCost,
+  anyLoading,
+  onRefreshAll,
+}: UsageHeaderProps) {
   return (
     <div className="usage-header">
       <div className="usage-header-left">
@@ -48,13 +55,20 @@ export function UsageHeader({ totalUsed, totalOverageCost, projectedTotal, proje
           <>
             <div className="usage-header-summary-divider" aria-hidden="true" />
             <div className="usage-header-summary-item usage-header-projected-overage">
-              <span className="usage-header-summary-value">{formatCurrency(projectedOverageCost)}</span>
+              <span className="usage-header-summary-value">
+                {formatCurrency(projectedOverageCost)}
+              </span>
               <span className="usage-header-summary-label">Est. Overage</span>
             </div>
           </>
         )}
       </div>
-      <button className="usage-refresh-btn" onClick={onRefreshAll} disabled={anyLoading} title="Refresh usage data">
+      <button
+        className="usage-refresh-btn"
+        onClick={onRefreshAll}
+        disabled={anyLoading}
+        title="Refresh usage data"
+      >
         <RefreshCw size={14} className={anyLoading ? 'spin' : ''} />
         Refresh
       </button>

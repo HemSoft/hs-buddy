@@ -33,7 +33,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
           <h1 className="about-app-name">Buddy</h1>
 
           {/* Version Badge */}
-          <div className="about-version-badge">Version 0.1.282</div>
+          <div className="about-version-badge">Version 0.1.283</div>
 
           {/* Tagline */}
           <div className="about-tagline">
@@ -43,9 +43,8 @@ export function AboutModal({ onClose }: AboutModalProps) {
 
           {/* Description */}
           <p className="about-description">
-            A powerful desktop app for managing GitHub PRs, 
-            automating workflows, and boosting productivity 
-            with the HemSoft skills infrastructure.
+            A powerful desktop app for managing GitHub PRs, automating workflows, and boosting
+            productivity with the HemSoft skills infrastructure.
           </p>
 
           {/* Tech Stack */}

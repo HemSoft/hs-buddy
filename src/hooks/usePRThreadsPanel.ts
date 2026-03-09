@@ -16,6 +16,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
+  const latestThreadsRequestRef = useRef(0)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
   const owner = pr.org || ownerRepo?.owner
   const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
@@ -38,14 +39,15 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
       return
     }
 
-    enqueueRef.current(
-      async signal => {
-        if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-        const client = new GitHubClient({ accounts }, 7)
-        return await client.fetchPRBranches(owner, pr.repository, pr.id)
-      },
-      { name: `pr-head-${pr.repository}-${pr.id}` }
-    )
+    enqueueRef
+      .current(
+        async signal => {
+          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          const client = new GitHubClient({ accounts }, 7)
+          return await client.fetchPRBranches(owner, pr.repository, pr.id)
+        },
+        { name: `pr-head-${pr.repository}-${pr.id}` }
+      )
       .then(result => setCurrentHeadSha(result.headSha || null))
       .catch(err => {
         if (err instanceof DOMException && err.name === 'AbortError') return
@@ -54,6 +56,9 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   }, [accounts, owner, pr.repository, pr.id])
 
   const fetchThreads = useCallback(async () => {
+    const requestId = latestThreadsRequestRef.current + 1
+    latestThreadsRequestRef.current = requestId
+
     setLoading(true)
     setError(null)
     try {
@@ -67,12 +72,24 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         },
         { name: `pr-threads-${pr.repository}-${pr.id}` }
       )
+
+      if (requestId !== latestThreadsRequestRef.current) {
+        return
+      }
+
       setData(result)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
+
+      if (requestId !== latestThreadsRequestRef.current) {
+        return
+      }
+
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setLoading(false)
+      if (requestId === latestThreadsRequestRef.current) {
+        setLoading(false)
+      }
     }
   }, [accounts, pr.id, pr.repository, ownerRepo])
 
@@ -97,9 +114,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
       if (!prev) return prev
       return {
         ...prev,
-        threads: prev.threads.map(t =>
-          t.id === threadId ? { ...t, isResolved: resolved } : t
-        ),
+        threads: prev.threads.map(t => (t.id === threadId ? { ...t, isResolved: resolved } : t)),
       }
     })
   }, [])
@@ -114,11 +129,18 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         async signal => {
           if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
           const client = new GitHubClient({ accounts }, 7)
-          return await client.addPRComment(ownerRepo.owner, ownerRepo.repo, pr.id, commentText.trim())
+          return await client.addPRComment(
+            ownerRepo.owner,
+            ownerRepo.repo,
+            pr.id,
+            commentText.trim()
+          )
         },
         { name: `add-comment-${pr.repository}-${pr.id}` }
       )
-      setData(prev => prev ? { ...prev, issueComments: [...prev.issueComments, newComment] } : prev)
+      setData(prev =>
+        prev ? { ...prev, issueComments: [...prev.issueComments, newComment] } : prev
+      )
       setCommentText('')
     } catch (err) {
       console.error('Failed to add comment:', err)
@@ -150,27 +172,44 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     [accounts, ownerRepo, pr.repository, pr.id]
   )
 
-  const activeThreads = useMemo(() => data?.threads.filter(t => !t.isResolved) ?? [], [data?.threads])
-  const resolvedThreads = useMemo(() => data?.threads.filter(t => t.isResolved) ?? [], [data?.threads])
-  const outdatedThreads = useMemo(() => data?.threads.filter(t => t.isOutdated) ?? [], [data?.threads])
+  const activeThreads = useMemo(
+    () => data?.threads.filter(t => !t.isResolved) ?? [],
+    [data?.threads]
+  )
+  const resolvedThreads = useMemo(
+    () => data?.threads.filter(t => t.isResolved) ?? [],
+    [data?.threads]
+  )
+  const outdatedThreads = useMemo(
+    () => data?.threads.filter(t => t.isOutdated) ?? [],
+    [data?.threads]
+  )
 
-  const threadSnapshotChanged = useMemo(() =>
-    !!latestReview?.reviewedThreadStats &&
-    (latestReview.reviewedThreadStats.unresolved !== activeThreads.length ||
-      latestReview.reviewedThreadStats.outdated !== outdatedThreads.length),
-    [latestReview?.reviewedThreadStats, activeThreads.length, outdatedThreads.length])
-  const needsRefresh = useMemo(() =>
-    (!!latestReview?.reviewedHeadSha &&
-      !!currentHeadSha &&
-      latestReview.reviewedHeadSha !== currentHeadSha) ||
-    threadSnapshotChanged,
-    [latestReview?.reviewedHeadSha, currentHeadSha, threadSnapshotChanged])
+  const threadSnapshotChanged = useMemo(
+    () =>
+      !!latestReview?.reviewedThreadStats &&
+      (latestReview.reviewedThreadStats.unresolved !== activeThreads.length ||
+        latestReview.reviewedThreadStats.outdated !== outdatedThreads.length),
+    [latestReview?.reviewedThreadStats, activeThreads.length, outdatedThreads.length]
+  )
+  const needsRefresh = useMemo(
+    () =>
+      (!!latestReview?.reviewedHeadSha &&
+        !!currentHeadSha &&
+        latestReview.reviewedHeadSha !== currentHeadSha) ||
+      threadSnapshotChanged,
+    [latestReview?.reviewedHeadSha, currentHeadSha, threadSnapshotChanged]
+  )
 
-  const filteredThreads = useMemo(() => data?.threads.filter(t => {
-    if (filter === 'active') return !t.isResolved
-    if (filter === 'resolved') return t.isResolved
-    return true
-  }) ?? [], [data?.threads, filter])
+  const filteredThreads = useMemo(
+    () =>
+      data?.threads.filter(t => {
+        if (filter === 'active') return !t.isResolved
+        if (filter === 'resolved') return t.isResolved
+        return true
+      }) ?? [],
+    [data?.threads, filter]
+  )
 
   const openLatestReview = useCallback(() => {
     if (!latestReview) return

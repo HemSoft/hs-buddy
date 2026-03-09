@@ -1,7 +1,7 @@
 import { Play, Edit, Copy, Trash2, Clock, Calendar } from 'lucide-react'
 import { useJob, useJobMutations, useRunMutations, useJobRuns, JobId } from '../../hooks/useConvex'
 import { formatDistanceToNow } from '../../utils/dateUtils'
-import { getWorkerIcon } from './job-list/JobRow'
+import { getWorkerIcon } from './job-list/jobRowUtils'
 import { useState } from 'react'
 import { JobEditor } from './JobEditor'
 import './JobDetailPanel.css'
@@ -42,10 +42,14 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
 
   const getWorkerLabel = (workerType: string) => {
     switch (workerType) {
-      case 'exec': return 'Shell Command'
-      case 'ai': return 'AI Prompt'
-      case 'skill': return 'Claude Skill'
-      default: return workerType
+      case 'exec':
+        return 'Shell Command'
+      case 'ai':
+        return 'AI Prompt'
+      case 'skill':
+        return 'Claude Skill'
+      default:
+        return workerType
     }
   }
 
@@ -79,12 +83,18 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
 
   const getStatusClass = (status: string) => {
     switch (status) {
-      case 'completed': return 'status-completed'
-      case 'failed': return 'status-failed'
-      case 'running': return 'status-running'
-      case 'pending': return 'status-pending'
-      case 'cancelled': return 'status-cancelled'
-      default: return ''
+      case 'completed':
+        return 'status-completed'
+      case 'failed':
+        return 'status-failed'
+      case 'running':
+        return 'status-running'
+      case 'pending':
+        return 'status-pending'
+      case 'cancelled':
+        return 'status-cancelled'
+      default:
+        return ''
     }
   }
 
@@ -133,7 +143,9 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
             {job.config.repoOwner && job.config.repoName && (
               <div className="config-field">
                 <span className="config-label">Repo</span>
-                <span className="config-value">{job.config.repoOwner}/{job.config.repoName}</span>
+                <span className="config-value">
+                  {job.config.repoOwner}/{job.config.repoName}
+                </span>
               </div>
             )}
           </div>
@@ -154,7 +166,9 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
             {job.config.params && (
               <div className="config-field">
                 <span className="config-label">Params</span>
-                <pre className="config-value config-pre">{JSON.stringify(job.config.params, null, 2)}</pre>
+                <pre className="config-value config-pre">
+                  {JSON.stringify(job.config.params, null, 2)}
+                </pre>
               </div>
             )}
           </div>
@@ -198,9 +212,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
         </div>
       </div>
 
-      {job.description && (
-        <div className="job-detail-description">{job.description}</div>
-      )}
+      {job.description && <div className="job-detail-description">{job.description}</div>}
 
       <div className="job-detail-meta">
         <span title={new Date(job.createdAt).toLocaleString()}>

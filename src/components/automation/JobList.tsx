@@ -157,11 +157,7 @@ export function JobList({ createTrigger }: JobListProps) {
       </div>
 
       {editorOpen && (
-        <JobEditor
-          jobId={editingJobId}
-          duplicateFrom={duplicateJob}
-          onClose={handleEditorClose}
-        />
+        <JobEditor jobId={editingJobId} duplicateFrom={duplicateJob} onClose={handleEditorClose} />
       )}
 
       {contextMenu && (

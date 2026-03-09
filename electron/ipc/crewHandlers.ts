@@ -1,3 +1,4 @@
+import type { BrowserWindow } from 'electron'
 import { ipcMain } from 'electron'
 import {
   addProjectFromPicker,
@@ -12,9 +13,9 @@ import {
   undoFile,
 } from '../services/crewService'
 
-export function registerCrewHandlers(): void {
+export function registerCrewHandlers(win: BrowserWindow): void {
   ipcMain.handle('crew:add-project', async () => {
-    return addProjectFromPicker()
+    return addProjectFromPicker(win)
   })
 
   ipcMain.handle('crew:list-projects', () => {

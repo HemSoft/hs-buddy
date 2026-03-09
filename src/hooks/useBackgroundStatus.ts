@@ -90,7 +90,10 @@ export function useBackgroundStatus(): BackgroundStatus {
       let activeLabel: string | null = null
 
       if (activeTasks > 0) {
-        activeLabel = TASK_LABELS[queue.getRunningTaskName() ?? ''] ?? queue.getRunningTaskName() ?? 'GitHub data'
+        activeLabel =
+          TASK_LABELS[queue.getRunningTaskName() ?? ''] ??
+          queue.getRunningTaskName() ??
+          'GitHub data'
       }
 
       // Find the oldest cache entry to compute countdown

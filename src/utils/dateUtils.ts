@@ -82,38 +82,61 @@ export function format(date: number | Date, formatStr: string): string {
   const seconds = d.getSeconds()
 
   const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ]
-  const monthShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const monthShort = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ]
 
   const hour12 = hours % 12 || 12
   const ampm = hours < 12 ? 'AM' : 'PM'
 
   const replacements: Record<string, string> = {
-    'yyyy': String(year),
-    'yy': String(year).slice(-2),
-    'MMMM': monthNames[month],
-    'MMM': monthShort[month],
-    'MM': String(month + 1).padStart(2, '0'),
-    'M': String(month + 1),
-    'dd': String(day).padStart(2, '0'),
-    'd': String(day),
-    'HH': String(hours).padStart(2, '0'),
-    'H': String(hours),
-    'hh': String(hour12).padStart(2, '0'),
-    'h': String(hour12),
-    'mm': String(minutes).padStart(2, '0'),
-    'm': String(minutes),
-    'ss': String(seconds).padStart(2, '0'),
-    's': String(seconds),
-    'a': ampm.toLowerCase(),
-    'A': ampm,
+    yyyy: String(year),
+    yy: String(year).slice(-2),
+    MMMM: monthNames[month],
+    MMM: monthShort[month],
+    MM: String(month + 1).padStart(2, '0'),
+    M: String(month + 1),
+    dd: String(day).padStart(2, '0'),
+    d: String(day),
+    HH: String(hours).padStart(2, '0'),
+    H: String(hours),
+    hh: String(hour12).padStart(2, '0'),
+    h: String(hour12),
+    mm: String(minutes).padStart(2, '0'),
+    m: String(minutes),
+    ss: String(seconds).padStart(2, '0'),
+    s: String(seconds),
+    a: ampm.toLowerCase(),
+    A: ampm,
   }
 
   // Sort by length descending to replace longer patterns first
   const patterns = Object.keys(replacements).sort((a, b) => b.length - a.length)
-  
+
   let result = formatStr
   for (const pattern of patterns) {
     result = result.replace(new RegExp(pattern, 'g'), replacements[pattern])
@@ -149,7 +172,10 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
 }
 
-export function formatTime(ts: number | Date, opts?: { seconds?: boolean; hour12?: boolean; numeric?: boolean }) {
+export function formatTime(
+  ts: number | Date,
+  opts?: { seconds?: boolean; hour12?: boolean; numeric?: boolean }
+) {
   const d = ts instanceof Date ? ts : new Date(ts)
   return d.toLocaleTimeString(undefined, {
     hour: opts?.numeric ? 'numeric' : '2-digit',

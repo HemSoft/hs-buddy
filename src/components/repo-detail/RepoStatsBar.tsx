@@ -1,6 +1,4 @@
-import {
-  Star, GitFork, Eye, CircleDot, GitPullRequest, Code2, GitBranch
-} from 'lucide-react'
+import { Star, GitFork, Eye, CircleDot, GitPullRequest, Code2, GitBranch } from 'lucide-react'
 import type { RepoDetail } from '../../api/github'
 import { formatSize } from './repoDetailUtils'
 

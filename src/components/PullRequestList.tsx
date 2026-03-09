@@ -1,9 +1,5 @@
 import './PullRequestList.css'
-import {
-  GitPullRequest,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react'
+import { GitPullRequest, Loader2, RefreshCw } from 'lucide-react'
 import { PRItem } from './pull-request-list/PRItem'
 import { PRContextMenu } from './pull-request-list/PRContextMenu'
 import { usePRListData } from './pull-request-list/usePRListData'

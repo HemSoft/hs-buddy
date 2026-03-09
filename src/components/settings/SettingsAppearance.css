@@ -92,7 +92,9 @@
   font-family: var(--font-family-mono);
   color: var(--text-muted);
   text-transform: uppercase;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .color-hex:hover {

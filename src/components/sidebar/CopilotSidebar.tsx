@@ -11,10 +11,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useState } from 'react'
-import {
-  useCopilotResultsRecent,
-  useCopilotActiveCount,
-} from '../../hooks/useConvex'
+import { useCopilotResultsRecent, useCopilotActiveCount } from '../../hooks/useConvex'
 import { formatDistanceToNow } from '../../utils/dateUtils'
 
 interface CopilotSidebarProps {
@@ -23,9 +20,7 @@ interface CopilotSidebarProps {
 }
 
 export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['copilot-prompt'])
-  )
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['copilot-prompt']))
   const recentResults = useCopilotResultsRecent(15)
   const activeCount = useCopilotActiveCount()
 
@@ -42,11 +37,16 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
 
   const statusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock size={12} style={{ color: '#e89b3c' }} />
-      case 'running': return <Loader2 size={12} className="spin" style={{ color: 'var(--accent-primary)' }} />
-      case 'completed': return <CheckCircle2 size={12} style={{ color: '#4ec9b0' }} />
-      case 'failed': return <XCircle size={12} style={{ color: '#e85d5d' }} />
-      default: return null
+      case 'pending':
+        return <Clock size={12} style={{ color: '#e89b3c' }} />
+      case 'running':
+        return <Loader2 size={12} className="spin" style={{ color: 'var(--accent-primary)' }} />
+      case 'completed':
+        return <CheckCircle2 size={12} style={{ color: '#4ec9b0' }} />
+      case 'failed':
+        return <XCircle size={12} style={{ color: '#e85d5d' }} />
+      default:
+        return null
     }
   }
 
@@ -54,14 +54,23 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
     <div className="sidebar-panel">
       <div className="sidebar-panel-header">
         <h2>COPILOT</h2>
-        {totalActive > 0 && (
-          <span className="sidebar-item-count">{totalActive}</span>
-        )}
+        {totalActive > 0 && <span className="sidebar-item-count">{totalActive}</span>}
       </div>
       <div className="sidebar-panel-content">
         {/* Prompt section */}
         <div className="sidebar-section">
-          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection('copilot-prompt')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('copilot-prompt') } }}>
+          <div
+            className="sidebar-section-header"
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleSection('copilot-prompt')}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                toggleSection('copilot-prompt')
+              }
+            }}
+          >
             <div className="sidebar-section-title">
               {expandedSections.has('copilot-prompt') ? (
                 <ChevronDown size={14} />
@@ -112,7 +121,18 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
 
         {/* Recent results section */}
         <div className="sidebar-section">
-          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection('copilot-results')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('copilot-results') } }}>
+          <div
+            className="sidebar-section-header"
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleSection('copilot-results')}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                toggleSection('copilot-results')
+              }
+            }}
+          >
             <div className="sidebar-section-title">
               {expandedSections.has('copilot-results') ? (
                 <ChevronDown size={14} />
@@ -134,11 +154,12 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
               ) : (
                 recentResults.map(r => {
                   const viewId = `copilot-result:${r._id}`
-                  const label = r.category === 'pr-review'
-                    ? `PR Review: ${((r.metadata as Record<string, unknown> | null)?.prTitle as string) || 'Untitled'}`
-                    : r.prompt.length > 40
-                      ? r.prompt.slice(0, 40) + '...'
-                      : r.prompt
+                  const label =
+                    r.category === 'pr-review'
+                      ? `PR Review: ${((r.metadata as Record<string, unknown> | null)?.prTitle as string) || 'Untitled'}`
+                      : r.prompt.length > 40
+                        ? r.prompt.slice(0, 40) + '...'
+                        : r.prompt
                   return (
                     <div
                       key={r._id}
@@ -146,9 +167,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                       onClick={() => onItemSelect(viewId)}
                       title={r.prompt}
                     >
-                      <span className="sidebar-item-icon">
-                        {statusIcon(r.status)}
-                      </span>
+                      <span className="sidebar-item-icon">{statusIcon(r.status)}</span>
                       <span className="sidebar-item-label">{label}</span>
                       <span className="sidebar-repo-lang">{formatDistanceToNow(r.createdAt)}</span>
                     </div>

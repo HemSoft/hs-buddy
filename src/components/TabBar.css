@@ -71,7 +71,9 @@
   color: var(--text-secondary);
   border-radius: 4px;
   opacity: 0;
-  transition: opacity 0.15s ease, background-color 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .tab:hover .tab-close {

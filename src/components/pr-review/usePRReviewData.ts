@@ -12,10 +12,7 @@ const PR_URL_TOKEN = '{{prUrl}}'
 const resolvePromptTemplate = (template: string, prUrl: string) =>
   template.includes(PR_URL_TOKEN) ? template.split(PR_URL_TOKEN).join(prUrl) : template
 
-export function usePRReviewData(
-  prInfo: PRReviewInfo,
-  onSubmitted?: (resultId: string) => void
-) {
+export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: string) => void) {
   const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
   const { increment: incrementStat } = useBuddyStatsMutations()
@@ -182,7 +179,16 @@ export function usePRReviewData(
     } finally {
       setSubmitting(false)
     }
-  }, [prompt, model, account, prInfo, scheduleDelay, submitting, incrementStat, buildReviewSnapshot])
+  }, [
+    prompt,
+    model,
+    account,
+    prInfo,
+    scheduleDelay,
+    submitting,
+    incrementStat,
+    buildReviewSnapshot,
+  ])
 
   const handleResetPrompt = useCallback(() => {
     setPrompt(getDefaultPrompt())
@@ -205,14 +211,19 @@ export function usePRReviewData(
   }, [prompt, prInfo.prUrl, savingDefault])
 
   return {
-    account, setAccount,
-    model, setModel,
-    prompt, setPrompt,
-    promptExpanded, setPromptExpanded,
+    account,
+    setAccount,
+    model,
+    setModel,
+    prompt,
+    setPrompt,
+    promptExpanded,
+    setPromptExpanded,
     submitting,
     error,
     scheduled,
-    scheduleDelay, setScheduleDelay,
+    scheduleDelay,
+    setScheduleDelay,
     savingDefault,
     handleRunNow,
     handleSchedule,

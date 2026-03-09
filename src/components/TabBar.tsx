@@ -36,7 +36,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose }: TabBarPro
             <span className="tab-label">{tab.label}</span>
             <button
               className="tab-close"
-              onClick={(e) => handleClose(e, tab.id)}
+              onClick={e => handleClose(e, tab.id)}
               aria-label={`Close ${tab.label}`}
             >
               <X size={14} />

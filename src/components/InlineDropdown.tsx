@@ -87,44 +87,50 @@ export function InlineDropdown({
     })
   }, [disabled, enabledOptions, value])
 
-  const handleSelect = useCallback((optValue: string) => {
-    onChange(optValue)
-    setIsOpen(false)
-  }, [onChange])
+  const handleSelect = useCallback(
+    (optValue: string) => {
+      onChange(optValue)
+      setIsOpen(false)
+    },
+    [onChange]
+  )
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (disabled) return
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (disabled) return
 
-    switch (e.key) {
-      case 'Enter':
-      case ' ':
-        e.preventDefault()
-        if (isOpen && focusIndex >= 0 && focusIndex < enabledOptions.length) {
-          handleSelect(enabledOptions[focusIndex].value)
-        } else {
-          handleToggle()
-        }
-        break
-      case 'ArrowDown':
-        e.preventDefault()
-        if (!isOpen) {
-          handleToggle()
-        } else {
-          setFocusIndex(prev => Math.min(prev + 1, enabledOptions.length - 1))
-        }
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        if (isOpen) {
-          setFocusIndex(prev => Math.max(prev - 1, 0))
-        }
-        break
-      case 'Escape':
-        e.preventDefault()
-        setIsOpen(false)
-        break
-    }
-  }, [disabled, isOpen, focusIndex, enabledOptions, handleSelect, handleToggle])
+      switch (e.key) {
+        case 'Enter':
+        case ' ':
+          e.preventDefault()
+          if (isOpen && focusIndex >= 0 && focusIndex < enabledOptions.length) {
+            handleSelect(enabledOptions[focusIndex].value)
+          } else {
+            handleToggle()
+          }
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          if (!isOpen) {
+            handleToggle()
+          } else {
+            setFocusIndex(prev => Math.min(prev + 1, enabledOptions.length - 1))
+          }
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          if (isOpen) {
+            setFocusIndex(prev => Math.max(prev - 1, 0))
+          }
+          break
+        case 'Escape':
+          e.preventDefault()
+          setIsOpen(false)
+          break
+      }
+    },
+    [disabled, isOpen, focusIndex, enabledOptions, handleSelect, handleToggle]
+  )
 
   return (
     <div
@@ -147,7 +153,10 @@ export function InlineDropdown({
       >
         {icon && <span className="idropdown-icon">{icon}</span>}
         <span className="idropdown-label">{displayLabel}</span>
-        <ChevronDown size={10} className={`idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`} />
+        <ChevronDown
+          size={10}
+          className={`idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`}
+        />
       </button>
 
       {isOpen && (
@@ -157,7 +166,7 @@ export function InlineDropdown({
           className={`idropdown-menu ${align === 'right' ? 'idropdown-menu-right' : ''} ${openUpward ? 'idropdown-menu-up' : ''}`}
           role="listbox"
         >
-          {options.map((opt) => {
+          {options.map(opt => {
             const enabledIdx = enabledOptions.indexOf(opt)
             return (
               <div

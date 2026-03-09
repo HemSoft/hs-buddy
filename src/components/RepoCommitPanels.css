@@ -1,0 +1,411 @@
+.repo-commits-container,
+.repo-commit-detail-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.repo-commits-header,
+.repo-commit-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.repo-commits-header-left,
+.repo-commit-detail-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.repo-commits-header h2,
+.repo-commit-detail-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 24px;
+  color: var(--text-heading);
+}
+
+.repo-commits-subtitle,
+.repo-commit-detail-kicker,
+.repo-commit-detail-meta-row,
+.repo-commit-detail-dates,
+.repo-commit-detail-time,
+.repo-commit-detail-time-label {
+  color: var(--text-muted);
+}
+
+.repo-commit-detail-kicker,
+.repo-commit-detail-meta-row,
+.repo-commits-header-actions,
+.repo-commit-detail-actions,
+.repo-commit-file-header-meta,
+.repo-commit-parents,
+.repo-commit-parents-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.repo-commits-owner,
+.repo-commits-name {
+  color: var(--text-primary);
+}
+
+.repo-commits-separator,
+.repo-commits-label {
+  color: var(--text-muted);
+}
+
+.repo-commits-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.repo-commits-page-list,
+.repo-commit-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.repo-commits-loading-indicator {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 8px 12px;
+  border: 1px solid rgba(88, 166, 255, 0.24);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, rgba(88, 166, 255, 0.08));
+  color: var(--text-secondary);
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.repo-commits-loading-indicator .spin {
+  color: var(--accent-primary);
+}
+
+.repo-commit-item-page {
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.repo-commit-item-page:hover {
+  border-color: var(--accent-primary);
+}
+
+.repo-commits-loading,
+.repo-commits-error,
+.repo-commits-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 320px;
+  padding: 32px;
+  color: var(--text-muted);
+}
+
+.repo-commits-loading-sub {
+  margin: 0;
+  font-size: 12px;
+}
+
+.repo-detail-card.repo-commit-detail-card,
+.repo-detail-card.repo-commit-file-card {
+  overflow: hidden;
+}
+
+.repo-detail-card.repo-commit-file-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.repo-commit-detail-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.repo-commit-detail-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.repo-commit-detail-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.repo-commit-detail-author {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.repo-commit-message-body {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.repo-commit-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.repo-commit-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.repo-commit-stat-box-added {
+  border-color: rgba(47, 129, 63, 0.35);
+}
+
+.repo-commit-stat-box-removed {
+  border-color: rgba(248, 81, 73, 0.35);
+}
+
+.repo-commit-stat-label,
+.repo-commit-file-previous {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.repo-commit-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.repo-commit-parent-link,
+.repo-commit-file-open-btn {
+  border: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.repo-commit-parent-link:hover,
+.repo-commit-file-open-btn:hover,
+.repo-commits-refresh-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.repo-commit-file-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 0;
+}
+
+.repo-commit-file-toggle {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.repo-commit-file-card-expanded .repo-commit-file-toggle {
+  padding-bottom: 10px;
+}
+
+.repo-commit-file-toggle:hover .repo-commit-file-header-main h3,
+.repo-commit-file-toggle:hover .repo-commit-file-chevron {
+  color: var(--accent-primary);
+}
+
+.repo-commit-file-toggle:focus-visible {
+  outline: 1px solid var(--accent-primary);
+  outline-offset: 6px;
+  border-radius: 10px;
+}
+
+.repo-commit-file-header-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.repo-commit-file-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.repo-commit-file-header-main h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.repo-commit-file-status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+}
+
+.repo-commit-file-status-added,
+.repo-commit-file-stat-added {
+  color: #3fb950;
+}
+
+.repo-commit-file-status-added {
+  background: rgba(63, 185, 80, 0.1);
+  border-color: rgba(63, 185, 80, 0.25);
+}
+
+.repo-commit-file-status-modified,
+.repo-commit-file-status-changed {
+  color: #d29922;
+  background: rgba(210, 153, 34, 0.12);
+  border-color: rgba(210, 153, 34, 0.25);
+}
+
+.repo-commit-file-status-removed,
+.repo-commit-file-stat-removed {
+  color: #f85149;
+}
+
+.repo-commit-file-status-removed {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: rgba(248, 81, 73, 0.25);
+}
+
+.repo-commit-file-status-renamed {
+  color: #58a6ff;
+  background: rgba(88, 166, 255, 0.12);
+  border-color: rgba(88, 166, 255, 0.25);
+}
+
+.repo-commit-file-stat {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.repo-commit-file-header-meta {
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.repo-commit-diff {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.repo-commit-diff-line {
+  padding: 0 10px;
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.repo-commit-diff-line-added {
+  background: rgba(63, 185, 80, 0.08);
+  color: #b6f0c3;
+}
+
+.repo-commit-diff-line-removed {
+  background: rgba(248, 81, 73, 0.08);
+  color: #ffd1cf;
+}
+
+.repo-commit-diff-line-hunk {
+  background: rgba(88, 166, 255, 0.1);
+  color: #8ec2ff;
+}
+
+.repo-commit-diff-empty {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.repo-commits-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.repo-commits-refresh-btn:disabled,
+.repo-detail-refresh-btn:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+@media (max-width: 900px) {
+  .repo-commits-header,
+  .repo-commit-detail-header,
+  .repo-commit-file-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .repo-commits-container,
+  .repo-commit-detail-container {
+    padding: 14px;
+  }
+}

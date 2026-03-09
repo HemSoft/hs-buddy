@@ -49,39 +49,63 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
   }
 
   const handleSendMessage = async () => {
-    if (!project || !message.trim() || sending) return
+    if (!project || !session || !message.trim() || sending) return
+
+    const trimmedMessage = message.trim()
 
     const userMsg: CrewChatMessage = {
       role: 'user',
-      content: message.trim(),
+      content: trimmedMessage,
       timestamp: Date.now(),
     }
 
     setSending(true)
     setMessage('')
+    setSession(prev =>
+      prev
+        ? {
+            ...prev,
+            status: 'active',
+            conversationHistory: [...prev.conversationHistory, userMsg],
+            updatedAt: Date.now(),
+          }
+        : prev
+    )
 
     await window.crew.addMessage(project.id, userMsg)
     await window.crew.updateSessionStatus(project.id, 'active')
 
     try {
       const response = await window.copilot.chatSend({
-        message: userMsg.content,
+        message: trimmedMessage,
         context: `Project: ${project.githubSlug} at ${project.localPath}`,
-        conversationHistory: session?.conversationHistory.map(m => ({
-          role: m.role,
-          content: m.content,
-        })) ?? [],
+        conversationHistory:
+          session.conversationHistory.map(m => ({
+            role: m.role,
+            content: m.content,
+          })) ?? [],
       })
+      const responseContent =
+        typeof response === 'string' ? response : (response?.content ?? 'No response received.')
 
       const assistantMsg: CrewChatMessage = {
         role: 'assistant',
-        content: response?.content ?? response ?? 'No response received.',
+        content: responseContent,
         timestamp: Date.now(),
       }
 
       await window.crew.addMessage(project.id, assistantMsg)
       await window.crew.updateSessionStatus(project.id, 'idle')
-      await loadData()
+      setSession(prev =>
+        prev
+          ? {
+              ...prev,
+              status: 'idle',
+              conversationHistory: [...prev.conversationHistory, assistantMsg],
+              updatedAt: Date.now(),
+            }
+          : prev
+      )
     } catch (err) {
       const errorMsg: CrewChatMessage = {
         role: 'assistant',
@@ -90,7 +114,16 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
       }
       await window.crew.addMessage(project.id, errorMsg)
       await window.crew.updateSessionStatus(project.id, 'error')
-      await loadData()
+      setSession(prev =>
+        prev
+          ? {
+              ...prev,
+              status: 'error',
+              conversationHistory: [...prev.conversationHistory, errorMsg],
+              updatedAt: Date.now(),
+            }
+          : prev
+      )
     } finally {
       setSending(false)
     }
@@ -128,13 +161,25 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Project header */}
-      <div className="content-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--bg-secondary, #333)' }}>
+      <div
+        className="content-header"
+        style={{ padding: '12px 16px', borderBottom: '1px solid var(--bg-secondary, #333)' }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <FolderGit2 size={18} />
           <h2 style={{ margin: 0, fontSize: '14px' }}>{project.displayName}</h2>
           <span style={{ opacity: 0.5, fontSize: '12px' }}>{project.githubSlug}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', fontSize: '12px', opacity: 0.6 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginTop: '4px',
+            fontSize: '12px',
+            opacity: 0.6,
+          }}
+        >
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <GitBranch size={12} /> {project.defaultBranch}
           </span>
@@ -180,10 +225,14 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
                     marginBottom: '12px',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: msg.role === 'user'
-                      ? 'var(--accent-primary, #0e639c)22'
-                      : 'var(--bg-secondary, #252526)',
-                    borderLeft: msg.role === 'assistant' ? '3px solid var(--accent-primary, #0e639c)' : 'none',
+                    background:
+                      msg.role === 'user'
+                        ? 'var(--accent-primary, #0e639c)22'
+                        : 'var(--bg-secondary, #252526)',
+                    borderLeft:
+                      msg.role === 'assistant'
+                        ? '3px solid var(--accent-primary, #0e639c)'
+                        : 'none',
                   }}
                 >
                   <div style={{ fontSize: '11px', opacity: 0.6, marginBottom: '4px' }}>
@@ -193,7 +242,15 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
                 </div>
               ))}
               {sending && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.6, padding: '8px 12px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    opacity: 0.6,
+                    padding: '8px 12px',
+                  }}
+                >
                   <Loader2 size={14} className="spin" /> Thinking…
                 </div>
               )}
@@ -202,8 +259,23 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
 
             {/* Changed files panel */}
             {session.changedFiles.length > 0 && (
-              <div style={{ borderTop: '1px solid var(--bg-secondary, #333)', padding: '8px 16px', maxHeight: '200px', overflowY: 'auto' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '6px', opacity: 0.7, textTransform: 'uppercase' }}>
+              <div
+                style={{
+                  borderTop: '1px solid var(--bg-secondary, #333)',
+                  padding: '8px 16px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    opacity: 0.7,
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Changed Files
                 </div>
                 {session.changedFiles.map(file => (
@@ -231,14 +303,26 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
                       <button
                         onClick={() => handleKeepFile(file.filePath)}
                         title="Keep"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ec9b0', padding: '2px' }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#4ec9b0',
+                          padding: '2px',
+                        }}
                       >
                         <Check size={14} />
                       </button>
                       <button
                         onClick={() => handleUndoFile(file.filePath)}
                         title="Undo"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e85d5d', padding: '2px' }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#e85d5d',
+                          padding: '2px',
+                        }}
                       >
                         <Undo2 size={14} />
                       </button>
@@ -249,7 +333,15 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
             )}
 
             {/* Input area */}
-            <div style={{ borderTop: '1px solid var(--bg-secondary, #333)', padding: '12px 16px', display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+            <div
+              style={{
+                borderTop: '1px solid var(--bg-secondary, #333)',
+                padding: '12px 16px',
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'flex-end',
+              }}
+            >
               <textarea
                 value={message}
                 onChange={e => setMessage(e.target.value)}
@@ -312,7 +404,16 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
 
             {/* Session status */}
             {session.status === 'error' && (
-              <div style={{ padding: '6px 16px', fontSize: '12px', color: '#e85d5d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div
+                style={{
+                  padding: '6px 16px',
+                  fontSize: '12px',
+                  color: '#e85d5d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
                 <AlertCircle size={12} /> Session encountered an error
               </div>
             )}

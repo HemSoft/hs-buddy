@@ -1,4 +1,12 @@
-import { RefreshCw, AlertCircle, ExternalLink, Building2, Crown, Briefcase, TrendingUp } from 'lucide-react'
+import {
+  RefreshCw,
+  AlertCircle,
+  ExternalLink,
+  Building2,
+  Crown,
+  Briefcase,
+  TrendingUp,
+} from 'lucide-react'
 import { UsageRing } from './UsageRing'
 import { OVERAGE_COST_PER_REQUEST, formatCurrency, computeProjection } from './quotaUtils'
 import { formatTime } from '../../utils/dateUtils'
@@ -44,9 +52,7 @@ export function AccountQuotaCard({ account, state }: any) {
   const overageRequests = Math.max(overageByCount, overageByRemaining)
   const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
 
-  const projection = data && premium
-    ? computeProjection(premium, data.quota_reset_date_utc)
-    : null
+  const projection = data && premium ? computeProjection(premium, data.quota_reset_date_utc) : null
 
   return (
     <div className="usage-account-card">
@@ -81,7 +87,12 @@ export function AccountQuotaCard({ account, state }: any) {
           </div>
 
           <div className="usage-account-body">
-            <UsageRing percentUsed={percentUsed} projectedPercent={projection?.projectedPercent} size={110} strokeWidth={9} />
+            <UsageRing
+              percentUsed={percentUsed}
+              projectedPercent={projection?.projectedPercent}
+              size={110}
+              strokeWidth={9}
+            />
             <div className="usage-account-stats">
               <div className="usage-stat">
                 <span className="usage-stat-value">{used.toLocaleString()}</span>
@@ -112,16 +123,22 @@ export function AccountQuotaCard({ account, state }: any) {
               </div>
               <div className="usage-projection-stats">
                 <div className="usage-projection-stat">
-                  <span className="usage-projection-value">{projection.projectedTotal.toLocaleString()}</span>
+                  <span className="usage-projection-value">
+                    {projection.projectedTotal.toLocaleString()}
+                  </span>
                   <span className="usage-projection-label">Projected</span>
                 </div>
                 <div className="usage-projection-stat">
-                  <span className="usage-projection-value">{Math.round(projection.dailyRate).toLocaleString()}</span>
+                  <span className="usage-projection-value">
+                    {Math.round(projection.dailyRate).toLocaleString()}
+                  </span>
                   <span className="usage-projection-label">Per Day</span>
                 </div>
                 {projection.projectedOverage > 0 && (
                   <div className="usage-projection-stat usage-projection-overage">
-                    <span className="usage-projection-value">{formatCurrency(projection.projectedOverageCost)}</span>
+                    <span className="usage-projection-value">
+                      {formatCurrency(projection.projectedOverageCost)}
+                    </span>
                     <span className="usage-projection-label">Est. Overage</span>
                   </div>
                 )}
@@ -132,7 +149,9 @@ export function AccountQuotaCard({ account, state }: any) {
           <div className="usage-account-footer">
             <div className="usage-account-reset">
               Resets {formatResetDate(data.quota_reset_date_utc)}
-              <span className="usage-reset-days">({daysUntilReset(data.quota_reset_date_utc)}d)</span>
+              <span className="usage-reset-days">
+                ({daysUntilReset(data.quota_reset_date_utc)}d)
+              </span>
             </div>
             <div className="usage-account-links">
               {state?.fetchedAt && (

@@ -82,8 +82,8 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
           <div className="assistant-empty-state">
             <Sparkles size={32} className="assistant-empty-icon" />
             <p className="assistant-empty-text">
-              Ask me anything about what you&apos;re viewing, or about Buddy itself.
-              I can help with PRs, repos, issues, and more.
+              Ask me anything about what you&apos;re viewing, or about Buddy itself. I can help with
+              PRs, repos, issues, and more.
             </p>
             <div className="assistant-suggestions">
               {suggestions.map(prompt => (
@@ -101,10 +101,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
         ) : (
           <>
             {messages.map(msg => (
-              <div
-                key={msg.id}
-                className={`assistant-message assistant-message-${msg.role}`}
-              >
+              <div key={msg.id} className={`assistant-message assistant-message-${msg.role}`}>
                 {msg.role === 'assistant' ? (
                   msg.content ? (
                     <div className="assistant-message-markdown" data-color-mode="dark">

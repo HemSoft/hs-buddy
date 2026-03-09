@@ -33,9 +33,8 @@ export function createPRDetailViewId(
   section: PRDetailSection | null = null
 ): string {
   const createdDate = pr.created ? new Date(pr.created as unknown as string | number | Date) : null
-  const createdIso = createdDate && Number.isFinite(createdDate.getTime())
-    ? createdDate.toISOString()
-    : null
+  const createdIso =
+    createdDate && Number.isFinite(createdDate.getTime()) ? createdDate.toISOString() : null
 
   const info: PRDetailInfo = {
     source: pr.source,
@@ -83,7 +82,13 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
     return null
   }
 
-  const VALID_SECTIONS: PRDetailSection[] = ['conversation', 'commits', 'checks', 'files-changed', 'ai-reviews']
+  const VALID_SECTIONS: PRDetailSection[] = [
+    'conversation',
+    'commits',
+    'checks',
+    'files-changed',
+    'ai-reviews',
+  ]
 
   const sectionPart = viewId.split('?section=')[1]
   const validSection = VALID_SECTIONS.includes(sectionPart as PRDetailSection)
@@ -92,4 +97,3 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
 
   return { pr, section: validSection }
 }
-

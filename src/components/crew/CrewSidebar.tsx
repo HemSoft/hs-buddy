@@ -1,11 +1,4 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  FolderGit2,
-  Plus,
-  Trash2,
-  Circle,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, FolderGit2, Plus, Trash2, Circle } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import type { CrewProject, CrewSession } from '../../types/crew'
 
@@ -15,17 +8,30 @@ interface CrewSidebarProps {
 }
 
 export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['crew-projects'])
-  )
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['crew-projects']))
   const [projects, setProjects] = useState<CrewProject[]>([])
   const [sessions, setSessions] = useState<Record<string, CrewSession | null>>({})
+  const [addProjectError, setAddProjectError] = useState<string | null>(null)
+  const [isAddingProject, setIsAddingProject] = useState(false)
 
   const loadProjects = useCallback(async () => {
     const list: CrewProject[] = await window.crew.listProjects()
-    setProjects(list)
+    const sortedProjects = [...list].sort((left, right) => {
+      const displayNameCompare = left.displayName.localeCompare(right.displayName, undefined, {
+        sensitivity: 'base',
+      })
+      if (displayNameCompare !== 0) {
+        return displayNameCompare
+      }
+
+      return left.githubSlug.localeCompare(right.githubSlug, undefined, {
+        sensitivity: 'base',
+      })
+    })
+
+    setProjects(sortedProjects)
     const sessionMap: Record<string, CrewSession | null> = {}
-    for (const p of list) {
+    for (const p of sortedProjects) {
       sessionMap[p.id] = await window.crew.getSession(p.id)
     }
     setSessions(sessionMap)
@@ -36,12 +42,28 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
   }, [loadProjects])
 
   const handleAddProject = async () => {
-    const result = await window.crew.addProject()
-    if (result.success) {
-      await loadProjects()
-      if (result.project) {
-        onItemSelect(`crew-project:${result.project.id}`)
+    if (isAddingProject) return
+
+    setAddProjectError(null)
+    setIsAddingProject(true)
+
+    try {
+      const result = await window.crew.addProject()
+      if (result.success) {
+        await loadProjects()
+        if (result.project) {
+          onItemSelect(`crew-project:${result.project.id}`)
+        }
+        return
       }
+
+      if (result.error && result.error !== 'Cancelled') {
+        setAddProjectError(result.error)
+      }
+    } catch (error) {
+      setAddProjectError(error instanceof Error ? error.message : 'Failed to add project.')
+    } finally {
+      setIsAddingProject(false)
     }
   }
 
@@ -67,15 +89,17 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
         <button
           className="sidebar-header-action"
           onClick={handleAddProject}
+          disabled={isAddingProject}
           title="Add Project"
           style={{
             background: 'none',
             border: 'none',
-            cursor: 'pointer',
+            cursor: isAddingProject ? 'wait' : 'pointer',
             color: 'inherit',
             padding: '2px',
             display: 'flex',
             alignItems: 'center',
+            opacity: isAddingProject ? 0.6 : 1,
           }}
         >
           <Plus size={16} />
@@ -105,13 +129,20 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
                 <FolderGit2 size={16} />
               </span>
               <span>Projects</span>
-              {projects.length > 0 && (
-                <span className="sidebar-item-count">{projects.length}</span>
-              )}
+              {projects.length > 0 && <span className="sidebar-item-count">{projects.length}</span>}
             </div>
           </div>
           {expandedSections.has('crew-projects') && (
             <div className="sidebar-section-items">
+              {addProjectError && (
+                <div
+                  className="sidebar-item sidebar-item-empty"
+                  role="alert"
+                  style={{ color: '#e85d5d', whiteSpace: 'normal' }}
+                >
+                  <span className="sidebar-item-label">{addProjectError}</span>
+                </div>
+              )}
               {projects.length === 0 ? (
                 <div className="sidebar-item sidebar-item-empty">
                   <span className="sidebar-item-label">No projects yet</span>
@@ -130,11 +161,7 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
                     >
                       <span className="sidebar-item-icon">
                         {isActive ? (
-                          <Circle
-                            size={10}
-                            fill="#4ec9b0"
-                            stroke="#4ec9b0"
-                          />
+                          <Circle size={10} fill="#4ec9b0" stroke="#4ec9b0" />
                         ) : (
                           <FolderGit2 size={14} />
                         )}
@@ -164,12 +191,17 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
               <div
                 className="sidebar-item"
                 onClick={handleAddProject}
-                style={{ opacity: 0.7 }}
+                style={{
+                  opacity: isAddingProject ? 0.45 : 0.7,
+                  pointerEvents: isAddingProject ? 'none' : 'auto',
+                }}
               >
                 <span className="sidebar-item-icon">
                   <Plus size={14} />
                 </span>
-                <span className="sidebar-item-label">Add Project…</span>
+                <span className="sidebar-item-label">
+                  {isAddingProject ? 'Opening folder picker…' : 'Add Project…'}
+                </span>
               </div>
             </div>
           )}

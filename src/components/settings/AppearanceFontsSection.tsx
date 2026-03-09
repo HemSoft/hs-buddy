@@ -1,13 +1,13 @@
-import { Type } from 'lucide-react';
+import { Type } from 'lucide-react'
 
 interface AppearanceFontsSectionProps {
-  fontFamily: string;
-  monoFontFamily: string;
-  uiFonts: string[];
-  monoFonts: string[];
-  fontsLoading: boolean;
-  onFontFamilyChange: (font: string) => Promise<void>;
-  onMonoFontFamilyChange: (font: string) => Promise<void>;
+  fontFamily: string
+  monoFontFamily: string
+  uiFonts: string[]
+  monoFonts: string[]
+  fontsLoading: boolean
+  onFontFamilyChange: (font: string) => Promise<void>
+  onMonoFontFamilyChange: (font: string) => Promise<void>
 }
 
 export function AppearanceFontsSection({
@@ -35,13 +35,15 @@ export function AppearanceFontsSection({
             id="ui-font"
             className="settings-select"
             value={fontFamily}
-            onChange={(e) => onFontFamilyChange(e.target.value)}
+            onChange={e => onFontFamilyChange(e.target.value)}
             disabled={fontsLoading}
           >
             <option value="Inter">Inter (Default)</option>
             <option value="system-ui">System Default</option>
             {uiFonts.map(font => (
-              <option key={font} value={font}>{font}</option>
+              <option key={font} value={font}>
+                {font}
+              </option>
             ))}
           </select>
           <div
@@ -58,14 +60,18 @@ export function AppearanceFontsSection({
             id="mono-font"
             className="settings-select"
             value={monoFontFamily}
-            onChange={(e) => onMonoFontFamilyChange(e.target.value)}
+            onChange={e => onMonoFontFamilyChange(e.target.value)}
             disabled={fontsLoading}
           >
             <option value="Cascadia Code">Cascadia Code (Default)</option>
             <option value="Consolas">Consolas</option>
-            {monoFonts.filter(f => f !== 'Cascadia Code' && f !== 'Consolas').map(font => (
-              <option key={font} value={font}>{font}</option>
-            ))}
+            {monoFonts
+              .filter(f => f !== 'Cascadia Code' && f !== 'Consolas')
+              .map(font => (
+                <option key={font} value={font}>
+                  {font}
+                </option>
+              ))}
           </select>
           <div
             className="font-preview mono"
@@ -76,5 +82,5 @@ export function AppearanceFontsSection({
         </div>
       </div>
     </div>
-  );
+  )
 }

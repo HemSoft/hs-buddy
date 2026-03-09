@@ -48,25 +48,30 @@ export function AccountPicker({
 
   // Detect currently active gh CLI account
   useEffect(() => {
-    window.ipcRenderer.invoke('github:get-active-account')
+    window.ipcRenderer
+      .invoke('github:get-active-account')
       .then((account: string | null) => setActiveCliAccount(account))
       .catch(() => {})
   }, [])
 
   const uniqueAccounts = [...new Set(githubAccounts.map(a => a.username))]
 
-  const handleChange = useCallback(async (newValue: string) => {
-    onChange(newValue)
-    if (persist) {
-      setGhAccount(newValue).catch(() => {})
-    }
-    // Re-detect active CLI account when cleared
-    if (!newValue) {
-      window.ipcRenderer.invoke('github:get-active-account')
-        .then((account: string | null) => setActiveCliAccount(account))
-        .catch(() => {})
-    }
-  }, [onChange, persist, setGhAccount])
+  const handleChange = useCallback(
+    async (newValue: string) => {
+      onChange(newValue)
+      if (persist) {
+        setGhAccount(newValue).catch(() => {})
+      }
+      // Re-detect active CLI account when cleared
+      if (!newValue) {
+        window.ipcRenderer
+          .invoke('github:get-active-account')
+          .then((account: string | null) => setActiveCliAccount(account))
+          .catch(() => {})
+      }
+    },
+    [onChange, persist, setGhAccount]
+  )
 
   if (variant === 'select') {
     return (

@@ -21,7 +21,7 @@ interface CopilotResultPanelProps {
 }
 
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
-  const result = useCopilotResult(resultId as Id<"copilotResults">)
+  const result = useCopilotResult(resultId as Id<'copilotResults'>)
   const { remove } = useCopilotResultMutations()
   const [copied, setCopied] = useState(false)
 
@@ -119,14 +119,10 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
                 {statusIcon()}
                 {statusLabel()}
               </span>
-              {result.model && (
-                <span className="copilot-result-model">{result.model}</span>
-              )}
+              {result.model && <span className="copilot-result-model">{result.model}</span>}
               <span className="copilot-result-date">{formatDateFull(result.createdAt)}</span>
               {result.duration && (
-                <span className="copilot-result-duration">
-                  {formatDuration(result.duration)}
-                </span>
+                <span className="copilot-result-duration">{formatDuration(result.duration)}</span>
               )}
             </div>
           </div>
@@ -151,11 +147,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
               {copied && <span className="copied-badge">✓</span>}
             </button>
           )}
-          <button
-            className="copilot-action-btn"
-            onClick={handleRetry}
-            title="Re-run this prompt"
-          >
+          <button className="copilot-action-btn" onClick={handleRetry} title="Re-run this prompt">
             <RotateCcw size={14} />
           </button>
           <button

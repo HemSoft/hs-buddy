@@ -8,8 +8,12 @@ interface SkillConfigSectionProps {
 }
 
 export function SkillConfigSection({
-  skillName, skillAction, skillParams,
-  onSkillNameChange, onSkillActionChange, onSkillParamsChange,
+  skillName,
+  skillAction,
+  skillParams,
+  onSkillNameChange,
+  onSkillActionChange,
+  onSkillParamsChange,
 }: SkillConfigSectionProps) {
   return (
     <>

@@ -185,7 +185,7 @@
   background-color: var(--bg-hover);
 }
 
-[data-theme="light"] .window-control-button:hover {
+[data-theme='light'] .window-control-button:hover {
   background-color: rgba(0, 0, 0, 0.1);
 }
 
@@ -196,7 +196,9 @@
 
 .copilot-toggle-button {
   color: var(--text-secondary) !important;
-  transition: color 0.15s, background-color 0.15s;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
 }
 
 .copilot-toggle-button:hover {

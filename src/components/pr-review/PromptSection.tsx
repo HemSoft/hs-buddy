@@ -38,7 +38,12 @@ export function PromptSection({
         role="button"
         tabIndex={0}
         onClick={onToggleExpanded}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpanded() } }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggleExpanded()
+          }
+        }}
       >
         <div className="pr-review-prompt-label">
           <FileText size={14} />

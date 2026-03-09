@@ -1,11 +1,4 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  Folder,
-  FolderOpen,
-  Plus,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
@@ -13,7 +6,6 @@ import { CrewSidebar } from './crew/CrewSidebar'
 import { useJobs, useSchedules } from '../hooks/useConvex'
 import { AutomationSidebarSection } from './sidebar-panel/AutomationSidebarSection'
 import './SidebarPanel.css'
-
 
 interface SidebarPanelProps {
   section: string
@@ -73,7 +65,8 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
 }
 
 const DEFAULT_COUNTS: Record<string, number> = {}
-const DEFAULT_BADGE_PROGRESS: Record<string, { progress: number; color: string; tooltip: string }> = {}
+const DEFAULT_BADGE_PROGRESS: Record<string, { progress: number; color: string; tooltip: string }> =
+  {}
 
 export function SidebarPanel({
   section,
@@ -84,7 +77,9 @@ export function SidebarPanel({
   onCreateNew,
 }: SidebarPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(
+    null
+  )
   const data = sectionData[section]
   const jobs = useJobs()
   const schedules = useSchedules()
@@ -174,7 +169,18 @@ export function SidebarPanel({
       </div>
       <div className="sidebar-panel-content">
         <div className="sidebar-section">
-          <div className="sidebar-section-header" role="button" tabIndex={0} onClick={() => toggleSection(section)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(section) } }}>
+          <div
+            className="sidebar-section-header"
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleSection(section)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                toggleSection(section)
+              }
+            }}
+          >
             <div className="sidebar-section-title">
               {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span className="sidebar-section-icon">
@@ -202,13 +208,20 @@ export function SidebarPanel({
                     onClick={() => onItemSelect(item.id)}
                     onContextMenu={e => handleContextMenu(e, item.id)}
                   >
-                    <span className="sidebar-item-icon"><FileText size={14} /></span>
+                    <span className="sidebar-item-icon">
+                      <FileText size={14} />
+                    </span>
                     <span className="sidebar-item-label">{item.label}</span>
                     {counts[item.id] !== undefined &&
                       (badgeProgress[item.id] ? (
                         <span
                           className="sidebar-item-count-ring"
-                          style={{ '--ring-progress': `${badgeProgress[item.id].progress}%`, '--ring-color': badgeProgress[item.id].color } as React.CSSProperties}
+                          style={
+                            {
+                              '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                              '--ring-color': badgeProgress[item.id].color,
+                            } as React.CSSProperties
+                          }
                           title={badgeProgress[item.id].tooltip}
                         >
                           <span className="sidebar-item-count">{counts[item.id]}</span>
@@ -226,4 +239,3 @@ export function SidebarPanel({
     </div>
   )
 }
-

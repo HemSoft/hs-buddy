@@ -6,9 +6,122 @@
   align-items: center;
   justify-content: center;
   padding: 20px 24px;
-  overflow: hidden;
+  overflow-y: auto;
   background-color: var(--bg-primary);
   height: 100%;
+}
+
+.welcome-stack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 860px;
+}
+
+.welcome-usage-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.welcome-usage-strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.welcome-usage-strip-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.welcome-usage-strip-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.welcome-usage-strip-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-heading);
+}
+
+.welcome-usage-strip-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.welcome-usage-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.welcome-usage-stat-card {
+  min-width: 0;
+}
+
+.welcome-usage-stat-card-accent {
+  border-color: rgba(232, 155, 60, 0.22);
+  background: linear-gradient(135deg, rgba(232, 155, 60, 0.08), var(--bg-secondary));
+}
+
+.welcome-stat-icon-copilot {
+  color: #5fe1ff;
+  background-color: rgba(95, 225, 255, 0.12);
+}
+
+.welcome-stat-icon-copilot-soft {
+  color: #6ad6c0;
+  background-color: rgba(78, 201, 176, 0.12);
+}
+
+.welcome-stat-icon-overage {
+  color: #f2b05e;
+  background-color: rgba(242, 176, 94, 0.14);
+}
+
+.welcome-usage-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-usage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+  font-family: var(--font-family-ui);
+}
+
+.welcome-usage-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--accent-primary);
+  background: var(--bg-hover);
+}
+
+.welcome-usage-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .welcome-card {
@@ -159,7 +272,7 @@
   background-color: rgba(14, 99, 156, 0.12);
 }
 
-[data-theme="light"] .welcome-stat-icon {
+[data-theme='light'] .welcome-stat-icon {
   background-color: rgba(0, 120, 212, 0.1);
 }
 
@@ -168,7 +281,7 @@
   background-color: rgba(78, 201, 176, 0.12);
 }
 
-[data-theme="light"] .welcome-stat-icon-live {
+[data-theme='light'] .welcome-stat-icon-live {
   background-color: rgba(16, 124, 16, 0.1);
 }
 
@@ -252,6 +365,24 @@
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
 @media (max-width: 680px) {
+  .welcome-panel {
+    align-items: flex-start;
+  }
+
+  .welcome-usage-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .welcome-usage-strip-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .welcome-usage-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .welcome-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -268,5 +399,11 @@
   .welcome-header-meta {
     flex-direction: row;
     align-items: center;
+  }
+}
+
+@media (max-width: 980px) {
+  .welcome-usage-actions {
+    justify-self: start;
   }
 }

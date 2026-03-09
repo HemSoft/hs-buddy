@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react'
-import { GitPullRequest, Calendar, Clock, Bot, Zap, User, RefreshCw, CheckCircle2, Sparkles } from 'lucide-react'
+import {
+  GitPullRequest,
+  Calendar,
+  Clock,
+  Bot,
+  Zap,
+  User,
+  RefreshCw,
+  CheckCircle2,
+  Sparkles,
+} from 'lucide-react'
 import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
 import { formatTime } from '../utils/dateUtils'
 import './StatusBar.css'

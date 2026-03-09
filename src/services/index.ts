@@ -10,11 +10,11 @@ export {
   type TaskOptions,
   type QueueOptions,
   type QueueStats,
-} from './taskQueue';
+} from './taskQueue'
 
-export { dataCache, type CacheEntry } from './dataCache';
+export { dataCache, type CacheEntry } from './dataCache'
 
-import { getTaskQueue } from './taskQueue';
+import { getTaskQueue } from './taskQueue'
 
 /**
  * Pre-configured queue instances for common use cases.
@@ -22,5 +22,4 @@ import { getTaskQueue } from './taskQueue';
  */
 
 /** Queue for GitHub API operations */
-export const githubQueue = getTaskQueue('github', { concurrency: 1 });
-
+export const githubQueue = getTaskQueue('github', { concurrency: 1 })

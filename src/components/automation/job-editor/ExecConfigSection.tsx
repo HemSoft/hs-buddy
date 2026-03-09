@@ -10,8 +10,14 @@ interface ExecConfigSectionProps {
 }
 
 export function ExecConfigSection({
-  command, shell, timeout, cwd,
-  onCommandChange, onShellChange, onTimeoutChange, onCwdChange,
+  command,
+  shell,
+  timeout,
+  cwd,
+  onCommandChange,
+  onShellChange,
+  onTimeoutChange,
+  onCwdChange,
 }: ExecConfigSectionProps) {
   return (
     <>

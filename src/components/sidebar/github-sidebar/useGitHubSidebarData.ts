@@ -9,6 +9,8 @@ import { useTaskQueue } from '../../../hooks/useTaskQueue'
 import {
   GitHubClient,
   type OrgRepo,
+  type RepoCommit,
+  type RepoIssue,
   type OrgRepoResult,
   type RepoCounts,
   type RepoPullRequest,
@@ -86,15 +88,30 @@ export function useGitHubSidebarData() {
   const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
   const fetchedCountsRef = useRef<Set<string>>(new Set())
   const [expandedPrGroups, setExpandedPrGroups] = useState<Set<string>>(new Set())
-  const [prContextMenu, setPrContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
-    null
-  )
+  const [prContextMenu, setPrContextMenu] = useState<{
+    x: number
+    y: number
+    pr: PullRequest
+  } | null>(null)
   const [approvingPrKey, setApprovingPrKey] = useState<string | null>(null)
   const [expandedPRNodes, setExpandedPRNodes] = useState<Set<string>>(new Set())
+  const [expandedRepoIssueGroups, setExpandedRepoIssueGroups] = useState<Set<string>>(new Set())
+  const [expandedRepoIssueStateGroups, setExpandedRepoIssueStateGroups] = useState<Set<string>>(
+    new Set()
+  )
   const [expandedRepoPRGroups, setExpandedRepoPRGroups] = useState<Set<string>>(new Set())
+  const [expandedRepoPRStateGroups, setExpandedRepoPRStateGroups] = useState<Set<string>>(new Set())
+  const [expandedRepoCommitGroups, setExpandedRepoCommitGroups] = useState<Set<string>>(new Set())
   const [refreshTick, setRefreshTick] = useState(() => Date.now())
   const [repoPrTreeData, setRepoPrTreeData] = useState<Record<string, PullRequest[]>>({})
+  const [repoCommitTreeData, setRepoCommitTreeData] = useState<Record<string, RepoCommit[]>>({})
+  const [repoIssueTreeData, setRepoIssueTreeData] = useState<Record<string, RepoIssue[]>>({})
   const fetchedRepoPRsRef = useRef<Set<string>>(new Set())
+  const fetchedRepoCommitsRef = useRef<Set<string>>(new Set())
+  const fetchedRepoIssuesRef = useRef<Set<string>>(new Set())
+  const [loadingRepoCommits, setLoadingRepoCommits] = useState<Set<string>>(new Set())
+  const [loadingRepoPRs, setLoadingRepoPRs] = useState<Set<string>>(new Set())
+  const [loadingRepoIssues, setLoadingRepoIssues] = useState<Set<string>>(new Set())
   const [sflStatusData, setSflStatusData] = useState<Record<string, SFLRepoStatus>>({})
   const [loadingSFLStatus, setLoadingSFLStatus] = useState<Set<string>>(new Set())
   const [expandedSFLGroups, setExpandedSFLGroups] = useState<Set<string>>(new Set())
@@ -106,7 +123,9 @@ export function useGitHubSidebarData() {
     'pr-recently-merged': dataCache.get<PullRequest[]>('recently-merged')?.data || [],
   }))
 
-  const uniqueOrgs: string[] = (Array.from(new Set(accounts.map((a: { org?: string }) => a.org))).filter(Boolean) as string[]).sort()
+  const uniqueOrgs: string[] = (
+    Array.from(new Set(accounts.map((a: { org?: string }) => a.org))).filter(Boolean) as string[]
+  ).sort()
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -166,13 +185,30 @@ export function useGitHubSidebarData() {
         const repoKey = key.replace('repo-prs:', '')
         const updated = dataCache.get<RepoPullRequest[]>(key)
         if (!updated?.data) return
-        const [org, ...repoParts] = repoKey.split('/')
+        const [, ownerRepo] = repoKey.split(':', 2)
+        const [org, ...repoParts] = ownerRepo.split('/')
         const repoName = repoParts.join('/')
         if (!org || !repoName) return
         setRepoPrTreeData(prev => ({
           ...prev,
           [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
         }))
+        return
+      }
+      if (key.startsWith('repo-commits:')) {
+        const repoKey = key.replace('repo-commits:', '')
+        const updated = dataCache.get<RepoCommit[]>(key)
+        if (updated?.data) {
+          setRepoCommitTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
+        return
+      }
+      if (key.startsWith('repo-issues:')) {
+        const repoKey = key.replace('repo-issues:', '')
+        const updated = dataCache.get<RepoIssue[]>(key)
+        if (updated?.data) {
+          setRepoIssueTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
         return
       }
       if (key.startsWith('sfl-status:')) {
@@ -190,7 +226,9 @@ export function useGitHubSidebarData() {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
     const refreshAllOrgs = () => {
-      const orgs = (Array.from(new Set(accounts.map(a => a.org))).filter(Boolean) as string[]).sort()
+      const orgs = (
+        Array.from(new Set(accounts.map(a => a.org))).filter(Boolean) as string[]
+      ).sort()
       for (const org of orgs) {
         const cacheKey = `org-repos:${org}`
         if (dataCache.isFresh(cacheKey, intervalMs)) continue
@@ -436,8 +474,8 @@ export function useGitHubSidebarData() {
   )
 
   const fetchRepoPRsForRepo = useCallback(
-    async (org: string, repoName: string, forceRefresh = false) => {
-      const key = `${org}/${repoName}`
+    async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
+      const key = `${state}:${org}/${repoName}`
       const cacheKey = `repo-prs:${key}`
       const maxAgeMs = refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
       const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
@@ -450,39 +488,62 @@ export function useGitHubSidebarData() {
           return
         }
       }
+      setLoadingRepoPRs(prev => new Set(prev).add(key))
       try {
         const result = await enqueueRef.current(
           async signal => {
             if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
             const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchRepoPRs(org, repoName)
+            return await client.fetchRepoPRs(org, repoName, state)
           },
-          { name: `repo-pr-tree-${org}-${repoName}`, priority: -1 }
+          { name: `repo-pr-tree-${state}-${org}-${repoName}`, priority: -1 }
         )
         setRepoPrTreeData(prev => ({
           ...prev,
           [key]: result.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
         }))
         dataCache.set(cacheKey, result)
-        const countsCacheKey = `repo-counts:${key}`
-        const existingCounts = dataCache.get<RepoCounts>(countsCacheKey)
-        dataCache.set(countsCacheKey, {
-          issues: existingCounts?.data?.issues ?? 0,
-          prs: result.length,
-        })
+        if (state === 'open') {
+          const countsCacheKey = `repo-counts:${org}/${repoName}`
+          const existingCounts = dataCache.get<RepoCounts>(countsCacheKey)
+          dataCache.set(countsCacheKey, {
+            issues: existingCounts?.data?.issues ?? 0,
+            prs: result.length,
+          })
+        }
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
         console.warn(`[RepoPRTree] ${key} failed:`, error)
+      } finally {
+        setLoadingRepoPRs(prev => {
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
       }
     },
     [accounts, refreshInterval]
   )
 
-  const toggleRepoPRGroup = useCallback(
-    (org: string, repoName: string) => {
-      const key = `${org}/${repoName}`
-      const shouldFetch = !fetchedRepoPRsRef.current.has(key)
-      setExpandedRepoPRGroups(prev => {
+  const toggleRepoPRGroup = useCallback((org: string, repoName: string) => {
+    const key = `${org}/${repoName}`
+    setExpandedRepoPRGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleRepoPRStateGroup = useCallback(
+    (org: string, repoName: string, state: 'open' | 'closed') => {
+      const key = `${org}/${repoName}:${state}`
+      const fetchKey = `${state}:${org}/${repoName}`
+      const shouldFetch = !fetchedRepoPRsRef.current.has(fetchKey)
+      setExpandedRepoPRStateGroups(prev => {
         const next = new Set(prev)
         if (next.has(key)) {
           next.delete(key)
@@ -492,11 +553,143 @@ export function useGitHubSidebarData() {
         return next
       })
       if (shouldFetch) {
-        fetchedRepoPRsRef.current.add(key)
-        fetchRepoPRsForRepo(org, repoName)
+        fetchedRepoPRsRef.current.add(fetchKey)
+        fetchRepoPRsForRepo(org, repoName, state)
       }
     },
     [fetchRepoPRsForRepo]
+  )
+
+  const toggleRepoIssueGroup = useCallback((org: string, repoName: string) => {
+    const key = `${org}/${repoName}`
+    setExpandedRepoIssueGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [])
+
+  const fetchRepoIssuesForRepo = useCallback(
+    async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
+      const key = `${state}:${org}/${repoName}`
+      const cacheKey = `repo-issues:${key}`
+      const maxAgeMs = refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
+      const cached = dataCache.get<RepoIssue[]>(cacheKey)
+      if (cached?.data && !forceRefresh) {
+        setRepoIssueTreeData(prev => ({ ...prev, [key]: cached.data }))
+        if (maxAgeMs && dataCache.isFresh(cacheKey, maxAgeMs)) {
+          return
+        }
+      }
+      setLoadingRepoIssues(prev => new Set(prev).add(key))
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchRepoIssues(org, repoName, state)
+          },
+          { name: `repo-issues-tree-${state}-${org}-${repoName}`, priority: -1 }
+        )
+        setRepoIssueTreeData(prev => ({ ...prev, [key]: result }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.warn(`[RepoIssueTree] ${key} failed:`, error)
+      } finally {
+        setLoadingRepoIssues(prev => {
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
+      }
+    },
+    [accounts, refreshInterval]
+  )
+
+  const toggleRepoIssueStateGroup = useCallback(
+    (org: string, repoName: string, state: 'open' | 'closed') => {
+      const key = `${org}/${repoName}:${state}`
+      const fetchKey = `${state}:${org}/${repoName}`
+      const shouldFetch = !fetchedRepoIssuesRef.current.has(fetchKey)
+      setExpandedRepoIssueStateGroups(prev => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
+      })
+      if (shouldFetch) {
+        fetchedRepoIssuesRef.current.add(fetchKey)
+        fetchRepoIssuesForRepo(org, repoName, state)
+      }
+    },
+    [fetchRepoIssuesForRepo]
+  )
+
+  const fetchRepoCommitsForRepo = useCallback(
+    async (org: string, repoName: string, forceRefresh = false) => {
+      const key = `${org}/${repoName}`
+      const cacheKey = `repo-commits:${key}`
+      const maxAgeMs = refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
+      const cached = dataCache.get<RepoCommit[]>(cacheKey)
+      if (cached?.data && !forceRefresh) {
+        setRepoCommitTreeData(prev => ({ ...prev, [key]: cached.data }))
+        if (maxAgeMs && dataCache.isFresh(cacheKey, maxAgeMs)) {
+          return
+        }
+      }
+      setLoadingRepoCommits(prev => new Set(prev).add(key))
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchRepoCommits(org, repoName)
+          },
+          { name: `repo-commit-tree-${org}-${repoName}`, priority: -1 }
+        )
+        setRepoCommitTreeData(prev => ({ ...prev, [key]: result }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.warn(`[RepoCommitTree] ${key} failed:`, error)
+      } finally {
+        setLoadingRepoCommits(prev => {
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
+      }
+    },
+    [accounts, refreshInterval]
+  )
+
+  const toggleRepoCommitGroup = useCallback(
+    (org: string, repoName: string) => {
+      const key = `${org}/${repoName}`
+      const shouldFetch = !fetchedRepoCommitsRef.current.has(key)
+      setExpandedRepoCommitGroups(prev => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
+      })
+      if (shouldFetch) {
+        fetchedRepoCommitsRef.current.add(key)
+        fetchRepoCommitsForRepo(org, repoName)
+      }
+    },
+    [fetchRepoCommitsForRepo]
   )
 
   const toggleSFLGroup = useCallback(
@@ -527,14 +720,31 @@ export function useGitHubSidebarData() {
       for (const key of fetchedRepoPRsRef.current) {
         const cacheKey = `repo-prs:${key}`
         if (dataCache.isFresh(cacheKey, intervalMs)) continue
-        const [org, ...repoParts] = key.split('/')
+        const [state, ownerRepo] = key.split(':', 2)
+        const [org, ...repoParts] = ownerRepo.split('/')
         const repoName = repoParts.join('/')
-        if (!org || !repoName) continue
-        fetchRepoPRsForRepo(org, repoName, true)
+        if (!org || !repoName || (state !== 'open' && state !== 'closed')) continue
+        fetchRepoPRsForRepo(org, repoName, state, true)
       }
     }, intervalMs)
     return () => clearInterval(intervalId)
   }, [accounts.length, fetchRepoPRsForRepo, refreshInterval])
+
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
+    const intervalMs = refreshInterval * MS_PER_MINUTE
+    const intervalId = setInterval(() => {
+      for (const key of fetchedRepoCommitsRef.current) {
+        const cacheKey = `repo-commits:${key}`
+        if (dataCache.isFresh(cacheKey, intervalMs)) continue
+        const [org, ...repoParts] = key.split('/')
+        const repoName = repoParts.join('/')
+        if (!org || !repoName) continue
+        fetchRepoCommitsForRepo(org, repoName, true)
+      }
+    }, intervalMs)
+    return () => clearInterval(intervalId)
+  }, [accounts.length, fetchRepoCommitsForRepo, refreshInterval])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
@@ -551,6 +761,23 @@ export function useGitHubSidebarData() {
     }, intervalMs)
     return () => clearInterval(intervalId)
   }, [accounts.length, fetchSFLStatusForRepo, refreshInterval])
+
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
+    const intervalMs = refreshInterval * MS_PER_MINUTE
+    const intervalId = setInterval(() => {
+      for (const key of fetchedRepoIssuesRef.current) {
+        const cacheKey = `repo-issues:${key}`
+        if (dataCache.isFresh(cacheKey, intervalMs)) continue
+        const [state, ownerRepo] = key.split(':', 2)
+        const [org, ...repoParts] = ownerRepo.split('/')
+        const repoName = repoParts.join('/')
+        if (!org || !repoName || (state !== 'open' && state !== 'closed')) continue
+        fetchRepoIssuesForRepo(org, repoName, state, true)
+      }
+    }, intervalMs)
+    return () => clearInterval(intervalId)
+  }, [accounts.length, fetchRepoIssuesForRepo, refreshInterval])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
@@ -628,7 +855,14 @@ export function useGitHubSidebarData() {
   const openPRReview = (pr: PullRequest) => {
     window.dispatchEvent(
       new CustomEvent('pr-review:open', {
-        detail: { prUrl: pr.url, prTitle: pr.title, prNumber: pr.id, repo: pr.repository, org: pr.org || '', author: pr.author },
+        detail: {
+          prUrl: pr.url,
+          prTitle: pr.title,
+          prNumber: pr.id,
+          repo: pr.repository,
+          org: pr.org || '',
+          author: pr.author,
+        },
       })
     )
   }
@@ -667,7 +901,13 @@ export function useGitHubSidebarData() {
       const next: Record<string, PullRequest[]> = { ...prev }
       for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
         next[groupId] = items.map(item => {
-          if (item.id !== target.id || item.repository !== target.repository || item.source !== target.source || item.iApproved) return item
+          if (
+            item.id !== target.id ||
+            item.repository !== target.repository ||
+            item.source !== target.source ||
+            item.iApproved
+          )
+            return item
           return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
         })
       }
@@ -720,10 +960,19 @@ export function useGitHubSidebarData() {
     loadingOrgs,
     expandedOrgs,
     expandedRepos,
+    expandedRepoIssueGroups,
+    expandedRepoIssueStateGroups,
     expandedRepoPRGroups,
+    expandedRepoPRStateGroups,
+    expandedRepoCommitGroups,
     repoCounts,
     loadingRepoCounts,
     repoPrTreeData,
+    repoCommitTreeData,
+    repoIssueTreeData,
+    loadingRepoCommits,
+    loadingRepoPRs,
+    loadingRepoIssues,
     sflStatusData,
     loadingSFLStatus,
     expandedSFLGroups,
@@ -733,7 +982,11 @@ export function useGitHubSidebarData() {
     toggleSection,
     toggleOrg,
     toggleRepo,
+    toggleRepoIssueGroup,
+    toggleRepoIssueStateGroup,
     toggleRepoPRGroup,
+    toggleRepoPRStateGroup,
+    toggleRepoCommitGroup,
     toggleSFLGroup,
     togglePRGroup,
     togglePRNode,

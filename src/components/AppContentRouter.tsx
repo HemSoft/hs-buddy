@@ -9,7 +9,10 @@ import {
 } from './settings'
 import { WelcomePanel } from './WelcomePanel'
 import { RepoDetailPanel } from './RepoDetailPanel'
+import { RepoCommitListPanel } from './RepoCommitListPanel'
+import { RepoCommitDetailPanel } from './RepoCommitDetailPanel'
 import { RepoIssueList } from './RepoIssueList'
+import { RepoIssueDetailPanel } from './RepoIssueDetailPanel'
 import { RepoPullRequestList } from './RepoPullRequestList'
 import { PullRequestDetailPanel } from './PullRequestDetailPanel'
 import { CopilotPromptBox } from './CopilotPromptBox'
@@ -26,6 +29,26 @@ function parseOwnerRepo(slug: string): { owner: string; repo: string } | null {
   const slashIdx = slug.indexOf('/')
   if (slashIdx <= 0) return null
   return { owner: slug.substring(0, slashIdx), repo: slug.substring(slashIdx + 1) }
+}
+
+function parseRepoCommitRoute(slug: string): { owner: string; repo: string; sha: string } | null {
+  const lastSlashIdx = slug.lastIndexOf('/')
+  if (lastSlashIdx <= 0) return null
+  const ownerRepo = parseOwnerRepo(slug.substring(0, lastSlashIdx))
+  const sha = slug.substring(lastSlashIdx + 1)
+  if (!ownerRepo || !sha) return null
+  return { ...ownerRepo, sha }
+}
+
+function parseRepoIssueRoute(
+  slug: string
+): { owner: string; repo: string; issueNumber: number } | null {
+  const lastSlashIdx = slug.lastIndexOf('/')
+  if (lastSlashIdx <= 0) return null
+  const ownerRepo = parseOwnerRepo(slug.substring(0, lastSlashIdx))
+  const issueNumber = Number(slug.substring(lastSlashIdx + 1))
+  if (!ownerRepo || !Number.isFinite(issueNumber)) return null
+  return { ...ownerRepo, issueNumber }
 }
 
 type AppContentRouterProps = {
@@ -49,25 +72,39 @@ export function AppContentRouter({
 }: AppContentRouterProps) {
   if (!activeViewId) {
     return (
-      <WelcomePanel
-        prCounts={prCounts}
-        onNavigate={onNavigate}
-        onSectionChange={onSectionChange}
-      />
+      <WelcomePanel prCounts={prCounts} onNavigate={onNavigate} onSectionChange={onSectionChange} />
     )
   }
 
   switch (activeViewId) {
     case 'pr-my-prs':
-      return <PullRequestList mode="my-prs" onCountChange={(count) => onPRCountChange('pr-my-prs', count)} />
+      return (
+        <PullRequestList
+          mode="my-prs"
+          onCountChange={count => onPRCountChange('pr-my-prs', count)}
+        />
+      )
     case 'pr-needs-review':
-      return <PullRequestList mode="needs-review" onCountChange={(count) => onPRCountChange('pr-needs-review', count)} />
+      return (
+        <PullRequestList
+          mode="needs-review"
+          onCountChange={count => onPRCountChange('pr-needs-review', count)}
+        />
+      )
     case 'pr-recently-merged':
       return (
-        <PullRequestList mode="recently-merged" onCountChange={(count) => onPRCountChange('pr-recently-merged', count)} />
+        <PullRequestList
+          mode="recently-merged"
+          onCountChange={count => onPRCountChange('pr-recently-merged', count)}
+        />
       )
     case 'pr-need-a-nudge':
-      return <PullRequestList mode="need-a-nudge" onCountChange={(count) => onPRCountChange('pr-need-a-nudge', count)} />
+      return (
+        <PullRequestList
+          mode="need-a-nudge"
+          onCountChange={count => onPRCountChange('pr-need-a-nudge', count)}
+        />
+      )
     case 'settings-accounts':
       return <SettingsAccounts />
     case 'settings-appearance':
@@ -79,13 +116,15 @@ export function AppContentRouter({
     case 'settings-advanced':
       return <SettingsAdvanced />
     case 'automation-schedules':
-      return <ScheduleOverviewPanel onOpenSchedule={(sId) => onOpenTab(`schedule-detail:${sId}`)} />
+      return <ScheduleOverviewPanel onOpenSchedule={sId => onOpenTab(`schedule-detail:${sId}`)} />
     case 'automation-runs':
       return <RunList />
     case 'copilot-prompt':
-      return <CopilotPromptBox onOpenResult={(resultId) => onOpenTab(`copilot-result:${resultId}`)} />
+      return <CopilotPromptBox onOpenResult={resultId => onOpenTab(`copilot-result:${resultId}`)} />
     case 'copilot-all-results':
-      return <CopilotResultsList onOpenResult={(resultId) => onOpenTab(`copilot-result:${resultId}`)} />
+      return (
+        <CopilotResultsList onOpenResult={resultId => onOpenTab(`copilot-result:${resultId}`)} />
+      )
     case 'copilot-usage':
       return <CopilotUsagePanel />
     default:
@@ -105,13 +144,89 @@ export function AppContentRouter({
         const parsed = parseOwnerRepo(activeViewId.replace('repo-detail:', ''))
         if (parsed) return <RepoDetailPanel owner={parsed.owner} repo={parsed.repo} />
       }
+      if (activeViewId.startsWith('repo-commits:')) {
+        const parsed = parseOwnerRepo(activeViewId.replace('repo-commits:', ''))
+        if (parsed) {
+          return (
+            <RepoCommitListPanel
+              owner={parsed.owner}
+              repo={parsed.repo}
+              onOpenCommit={commitSha =>
+                onOpenTab(`repo-commit:${parsed.owner}/${parsed.repo}/${commitSha}`)
+              }
+            />
+          )
+        }
+      }
+      if (activeViewId.startsWith('repo-commit:')) {
+        const parsed = parseRepoCommitRoute(activeViewId.replace('repo-commit:', ''))
+        if (parsed)
+          return <RepoCommitDetailPanel owner={parsed.owner} repo={parsed.repo} sha={parsed.sha} />
+      }
+      if (activeViewId.startsWith('repo-issues-closed:')) {
+        const parsed = parseOwnerRepo(activeViewId.replace('repo-issues-closed:', ''))
+        if (parsed) {
+          return (
+            <RepoIssueList
+              owner={parsed.owner}
+              repo={parsed.repo}
+              issueState="closed"
+              onOpenIssue={issueNumber =>
+                onOpenTab(`repo-issue:${parsed.owner}/${parsed.repo}/${issueNumber}`)
+              }
+            />
+          )
+        }
+      }
+      if (activeViewId.startsWith('repo-issue:')) {
+        const parsed = parseRepoIssueRoute(activeViewId.replace('repo-issue:', ''))
+        if (parsed)
+          return (
+            <RepoIssueDetailPanel
+              owner={parsed.owner}
+              repo={parsed.repo}
+              issueNumber={parsed.issueNumber}
+            />
+          )
+      }
       if (activeViewId.startsWith('repo-issues:')) {
         const parsed = parseOwnerRepo(activeViewId.replace('repo-issues:', ''))
-        if (parsed) return <RepoIssueList owner={parsed.owner} repo={parsed.repo} />
+        if (parsed) {
+          return (
+            <RepoIssueList
+              owner={parsed.owner}
+              repo={parsed.repo}
+              issueState="open"
+              onOpenIssue={issueNumber =>
+                onOpenTab(`repo-issue:${parsed.owner}/${parsed.repo}/${issueNumber}`)
+              }
+            />
+          )
+        }
+      }
+      if (activeViewId.startsWith('repo-prs-closed:')) {
+        const parsed = parseOwnerRepo(activeViewId.replace('repo-prs-closed:', ''))
+        if (parsed)
+          return (
+            <RepoPullRequestList
+              owner={parsed.owner}
+              repo={parsed.repo}
+              prState="closed"
+              onOpenPR={onOpenTab}
+            />
+          )
       }
       if (activeViewId.startsWith('repo-prs:')) {
         const parsed = parseOwnerRepo(activeViewId.replace('repo-prs:', ''))
-        if (parsed) return <RepoPullRequestList owner={parsed.owner} repo={parsed.repo} onOpenPR={onOpenTab} />
+        if (parsed)
+          return (
+            <RepoPullRequestList
+              owner={parsed.owner}
+              repo={parsed.repo}
+              prState="open"
+              onOpenPR={onOpenTab}
+            />
+          )
       }
       if (activeViewId.startsWith('copilot-result:')) {
         const resultId = activeViewId.replace('copilot-result:', '')
@@ -124,12 +239,16 @@ export function AppContentRouter({
           return (
             <PRReviewPanel
               prInfo={prInfo}
-              onSubmitted={(resultId) => onOpenTab(`copilot-result:${resultId}`)}
+              onSubmitted={resultId => onOpenTab(`copilot-result:${resultId}`)}
               onClose={() => onCloseView(activeViewId)}
             />
           )
         } catch {
-          return <div className="content-placeholder"><p>Invalid PR review data</p></div>
+          return (
+            <div className="content-placeholder">
+              <p>Invalid PR review data</p>
+            </div>
+          )
         }
       }
       if (activeViewId.startsWith('pr-detail:')) {
@@ -137,7 +256,11 @@ export function AppContentRouter({
         if (route) {
           return <PullRequestDetailPanel pr={route.pr} section={route.section} />
         }
-        return <div className="content-placeholder"><p>Invalid PR detail data</p></div>
+        return (
+          <div className="content-placeholder">
+            <p>Invalid PR detail data</p>
+          </div>
+        )
       }
       return (
         <div className="content-placeholder">

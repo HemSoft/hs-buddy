@@ -129,8 +129,29 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
         } else if (occDate.getTime() === tomorrow.getTime()) {
           label = 'Tomorrow'
         } else {
-          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          const dayNames = [
+            'Sunday',
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday',
+          ]
+          const monthNames = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+          ]
           label = `${dayNames[occ.time.getDay()]}, ${monthNames[occ.time.getMonth()]} ${occ.time.getDate()}`
         }
         groups.set(dateKey, { label, dateKey, occurrences: [] })
@@ -158,10 +179,14 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
 
   const getWorkerBadgeClass = (workerType: string) => {
     switch (workerType) {
-      case 'exec': return 'worker-badge-exec'
-      case 'ai': return 'worker-badge-ai'
-      case 'skill': return 'worker-badge-skill'
-      default: return ''
+      case 'exec':
+        return 'worker-badge-exec'
+      case 'ai':
+        return 'worker-badge-ai'
+      case 'skill':
+        return 'worker-badge-skill'
+      default:
+        return ''
     }
   }
 
@@ -194,7 +219,8 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
 
       <div className="schedule-overview-summary">
         <span className="summary-stat">
-          <span className="summary-number">{enabledCount}</span> active schedule{enabledCount !== 1 ? 's' : ''}
+          <span className="summary-number">{enabledCount}</span> active schedule
+          {enabledCount !== 1 ? 's' : ''}
         </span>
         {disabledCount > 0 && (
           <span className="summary-stat summary-muted">
@@ -204,7 +230,8 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
         )}
         <span className="summary-stat">
           <Play size={12} />
-          {totalOccurrences} run{totalOccurrences !== 1 ? 's' : ''} in next {forecastDays} day{forecastDays !== 1 ? 's' : ''}
+          {totalOccurrences} run{totalOccurrences !== 1 ? 's' : ''} in next {forecastDays} day
+          {forecastDays !== 1 ? 's' : ''}
         </span>
       </div>
 
@@ -212,8 +239,12 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
         {dayGroups.length === 0 ? (
           <div className="schedule-overview-empty">
             <Calendar size={32} strokeWidth={1.5} />
-            <p>No scheduled runs in the next {forecastDays} day{forecastDays !== 1 ? 's' : ''}.</p>
-            {schedules.length === 0 && <p className="empty-hint">Create a schedule to get started.</p>}
+            <p>
+              No scheduled runs in the next {forecastDays} day{forecastDays !== 1 ? 's' : ''}.
+            </p>
+            {schedules.length === 0 && (
+              <p className="empty-hint">Create a schedule to get started.</p>
+            )}
             {schedules.length > 0 && enabledCount === 0 && (
               <p className="empty-hint">All schedules are currently paused.</p>
             )}
@@ -223,10 +254,12 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
             <div key={group.dateKey} className="day-group">
               <div className="day-group-header">
                 <span className="day-group-label">{group.label}</span>
-                <span className="day-group-count">{group.occurrences.length} run{group.occurrences.length !== 1 ? 's' : ''}</span>
+                <span className="day-group-count">
+                  {group.occurrences.length} run{group.occurrences.length !== 1 ? 's' : ''}
+                </span>
               </div>
               <div className="day-group-items">
-                {group.occurrences.map((occ) => (
+                {group.occurrences.map(occ => (
                   <div
                     key={`${occ.scheduleId}-${occ.time.getTime()}`}
                     className="occurrence-row"
@@ -240,7 +273,9 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
                       <ChevronRight size={10} className="occurrence-arrow" />
                       <span className="occurrence-job-name">{occ.jobName}</span>
                     </span>
-                    <span className={`occurrence-worker-badge ${getWorkerBadgeClass(occ.workerType)}`}>
+                    <span
+                      className={`occurrence-worker-badge ${getWorkerBadgeClass(occ.workerType)}`}
+                    >
                       {occ.workerType}
                     </span>
                   </div>

@@ -1,9 +1,4 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  GitPullRequest,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, GitPullRequest } from 'lucide-react'
 import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import type { PRDetailSection } from '../../../utils/prDetailView'
@@ -97,8 +92,7 @@ export function PRTreeSection({
               <div className="sidebar-job-items">
                 {(prTreeData[item.id] || []).map(pr => {
                   const prViewId = createPRDetailViewId(pr)
-                  const isSelected =
-                    selectedItem === prViewId || selectedItem?.startsWith(`${prViewId}?section=`)
+                  const isSelected = selectedItem === prViewId
                   return (
                     <div
                       key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`}
@@ -126,7 +120,9 @@ export function PRTreeSection({
                         <span className="sidebar-item-icon">
                           <GitPullRequest size={12} />
                         </span>
-                        <span className="sidebar-item-label">#{pr.id} {pr.title}</span>
+                        <span className="sidebar-item-label">
+                          #{pr.id} {pr.title}
+                        </span>
                         <span className="sidebar-pr-meta">
                           <span className="sidebar-pr-meta-repo">{pr.repository}</span>
                           <span className="sidebar-pr-meta-author">{pr.author}</span>

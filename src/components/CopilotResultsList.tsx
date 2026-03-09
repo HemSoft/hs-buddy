@@ -123,9 +123,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
                     className="copilot-result-row"
                     onClick={() => onOpenResult(r._id)}
                   >
-                    <td className="result-status-cell">
-                      {statusIcon(r.status)}
-                    </td>
+                    <td className="result-status-cell">{statusIcon(r.status)}</td>
                     <td className="result-prompt-cell">
                       <span className="result-prompt-text">
                         {r.category === 'pr-review' && metadata?.prTitle
@@ -136,9 +134,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
                       </span>
                     </td>
                     <td className="result-category-cell">
-                      {r.category && (
-                        <span className="result-category-badge">{r.category}</span>
-                      )}
+                      {r.category && <span className="result-category-badge">{r.category}</span>}
                     </td>
                     <td className="result-model-cell">
                       {r.model && <span className="result-model-badge">{r.model}</span>}
@@ -146,9 +142,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
                     <td className="result-duration-cell">
                       {r.duration ? formatDuration(r.duration) : '—'}
                     </td>
-                    <td className="result-date-cell">
-                      {formatDateCompact(r.createdAt)}
-                    </td>
+                    <td className="result-date-cell">{formatDateCompact(r.createdAt)}</td>
                     <td className="result-actions-cell">
                       {r.category === 'pr-review' && !!metadata?.prUrl && (
                         <button

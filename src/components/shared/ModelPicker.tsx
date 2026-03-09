@@ -115,12 +115,15 @@ export function ModelPicker({
     }
   }, [sdkModels, value, onChange, persist, persistModel])
 
-  const handleChange = useCallback(async (newValue: string) => {
-    onChange(newValue)
-    if (persist) {
-      await persistModel(newValue)
-    }
-  }, [onChange, persist, persistModel])
+  const handleChange = useCallback(
+    async (newValue: string) => {
+      onChange(newValue)
+      if (persist) {
+        await persistModel(newValue)
+      }
+    },
+    [onChange, persist, persistModel]
+  )
 
   const enabledModels = sdkModels.filter(m => !m.isDisabled)
   const disabledModels = sdkModels.filter(m => m.isDisabled)
@@ -134,7 +137,16 @@ export function ModelPicker({
   // Loading state
   if (modelsLoading && variant === 'inline') {
     return (
-      <div className={`copilot-model-loading ${className}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+      <div
+        className={`copilot-model-loading ${className}`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '11px',
+          color: 'var(--text-secondary)',
+        }}
+      >
         <Loader2 size={11} className="spin" /> Loading...
       </div>
     )
@@ -144,7 +156,16 @@ export function ModelPicker({
     return (
       <div className={className}>
         {modelsLoading ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 0',
+              color: 'var(--text-secondary)',
+              fontSize: '13px',
+            }}
+          >
             <Loader2 size={16} className="spin" />
             Fetching available models...
           </div>
@@ -153,7 +174,16 @@ export function ModelPicker({
             Failed to fetch models: {modelsError}
           </div>
         ) : sdkModels.length === 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 0',
+              color: 'var(--text-secondary)',
+              fontSize: '13px',
+            }}
+          >
             No models loaded.{' '}
             {showRefresh && (
               <button
@@ -179,7 +209,8 @@ export function ModelPicker({
                   <optgroup label="Available Models">
                     {enabledModels.map(m => (
                       <option key={m.id} value={m.id}>
-                        {m.name}{billingLabel(m.billingMultiplier)}
+                        {m.name}
+                        {billingLabel(m.billingMultiplier)}
                       </option>
                     ))}
                   </optgroup>
@@ -214,13 +245,14 @@ export function ModelPicker({
   }
 
   // Inline variant
-  const modelOptions: DropdownOption[] = enabledModels.length > 0
-    ? enabledModels.map(m => ({
-        value: m.id,
-        label: m.name,
-        hint: m.billingMultiplier > 1 ? `${m.billingMultiplier}x` : undefined,
-      }))
-    : [{ value: value, label: value }]
+  const modelOptions: DropdownOption[] =
+    enabledModels.length > 0
+      ? enabledModels.map(m => ({
+          value: m.id,
+          label: m.name,
+          hint: m.billingMultiplier > 1 ? `${m.billingMultiplier}x` : undefined,
+        }))
+      : [{ value: value, label: value }]
 
   return (
     <InlineDropdown

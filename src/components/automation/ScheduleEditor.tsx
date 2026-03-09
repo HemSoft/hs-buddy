@@ -1,7 +1,13 @@
 import { useState, useEffect, useId } from 'react'
 import { X, Save, Calendar, AlertCircle } from 'lucide-react'
 import { CronBuilder } from './CronBuilder'
-import { useJobs, useScheduleMutations, useSchedule, JobId, useBuddyStatsMutations } from '../../hooks/useConvex'
+import {
+  useJobs,
+  useScheduleMutations,
+  useSchedule,
+  JobId,
+  useBuddyStatsMutations,
+} from '../../hooks/useConvex'
 import { Id } from '../../../convex/_generated/dataModel'
 import './ScheduleEditor.css'
 
@@ -14,7 +20,7 @@ interface ScheduleEditorProps {
 export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorProps) {
   const scheduleCronLabelId = useId()
   const jobs = useJobs()
-  const existingSchedule = useSchedule(scheduleId as Id<"schedules"> | undefined)
+  const existingSchedule = useSchedule(scheduleId as Id<'schedules'> | undefined)
   const { create, update } = useScheduleMutations()
   const { increment: incrementStat } = useBuddyStatsMutations()
 
@@ -74,7 +80,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
     try {
       if (isEditing && scheduleId) {
         await update({
-          id: scheduleId as Id<"schedules">,
+          id: scheduleId as Id<'schedules'>,
           name: name.trim(),
           description: description.trim() || undefined,
           cron,
@@ -152,9 +158,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
             {jobs === undefined ? (
               <div className="form-loading">Loading jobs...</div>
             ) : jobs.length === 0 ? (
-              <div className="form-empty">
-                No jobs available. Create a job first.
-              </div>
+              <div className="form-empty">No jobs available. Create a job first.</div>
             ) : (
               <select
                 id="schedule-job"
@@ -169,9 +173,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
                 ))}
               </select>
             )}
-            {selectedJob?.description && (
-              <div className="form-hint">{selectedJob.description}</div>
-            )}
+            {selectedJob?.description && <div className="form-hint">{selectedJob.description}</div>}
           </div>
 
           <div className="form-group">

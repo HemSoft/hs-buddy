@@ -90,11 +90,7 @@ export function RunList() {
       <div className="run-list-header">
         <h2>Runs</h2>
         <div className="run-list-header-actions">
-          <button
-            className="btn-icon"
-            onClick={handleCleanup}
-            title="Cleanup old runs (7+ days)"
-          >
+          <button className="btn-icon" onClick={handleCleanup} title="Cleanup old runs (7+ days)">
             <Trash2 size={16} />
           </button>
         </div>

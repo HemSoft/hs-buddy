@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Clock, ExternalLink, GitCommit, History, Loader2, MessageCircle, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  GitCommit,
+  History,
+  Loader2,
+  MessageCircle,
+  XCircle,
+} from 'lucide-react'
 import { GitHubClient, type PRHistorySummary } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
@@ -15,8 +24,6 @@ interface PullRequestHistoryPanelProps {
   onLoaded?: (history: PRHistorySummary) => void
 }
 
-
-
 export function PullRequestHistoryPanel({
   pr,
   embedded = false,
@@ -26,6 +33,7 @@ export function PullRequestHistoryPanel({
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
+  const latestRequestRef = useRef(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<PRHistorySummary | null>(null)
@@ -35,6 +43,9 @@ export function PullRequestHistoryPanel({
   }, [enqueue])
 
   const fetchHistory = useCallback(async () => {
+    const requestId = latestRequestRef.current + 1
+    latestRequestRef.current = requestId
+
     setLoading(true)
     setError(null)
 
@@ -53,15 +64,26 @@ export function PullRequestHistoryPanel({
         { name: `pr-history-${pr.repository}-${pr.id}` }
       )
 
+      if (requestId !== latestRequestRef.current) {
+        return
+      }
+
       setHistory(result)
       onLoaded?.(result)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return
       }
+
+      if (requestId !== latestRequestRef.current) {
+        return
+      }
+
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setLoading(false)
+      if (requestId === latestRequestRef.current) {
+        setLoading(false)
+      }
     }
   }, [accounts, pr.id, pr.repository, pr.url, onLoaded])
 
@@ -69,7 +91,7 @@ export function PullRequestHistoryPanel({
     fetchHistory()
   }, [fetchHistory])
 
-  if (loading) {
+  if (loading && !history) {
     return (
       <div className="pr-history-loading">
         <Loader2 size={28} className="spin" />
@@ -78,12 +100,23 @@ export function PullRequestHistoryPanel({
     )
   }
 
-  if (error || !history) {
+  if (error) {
     return (
       <div className="pr-history-error">
         <p className="error-message">Failed to load PR history</p>
         <p className="error-detail">{error || 'Unknown error'}</p>
-        <button className="pr-history-retry" onClick={fetchHistory}>Retry</button>
+        <button className="pr-history-retry" onClick={fetchHistory}>
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (!history) {
+    return (
+      <div className="pr-history-loading">
+        <Loader2 size={28} className="spin" />
+        <p>Loading PR history…</p>
       </div>
     )
   }
@@ -140,11 +173,15 @@ export function PullRequestHistoryPanel({
 
           <div className="pr-history-metrics">
             <div className="metric-row">
-              <span className="metric-label"><GitCommit size={14} /> Commits</span>
+              <span className="metric-label">
+                <GitCommit size={14} /> Commits
+              </span>
               <span className="metric-value">{history.commitCount}</span>
             </div>
             <div className="metric-row">
-              <span className="metric-label"><MessageCircle size={14} /> Comments (Total)</span>
+              <span className="metric-label">
+                <MessageCircle size={14} /> Comments (Total)
+              </span>
               <span className="metric-value">{history.totalComments}</span>
             </div>
             <div className="metric-row nested">
@@ -201,7 +238,11 @@ export function PullRequestHistoryPanel({
                   <div key={reviewer.login} className="reviewer-item">
                     <div className="reviewer-left">
                       {reviewer.avatarUrl ? (
-                        <img src={reviewer.avatarUrl} alt={reviewer.login} className="reviewer-avatar" />
+                        <img
+                          src={reviewer.avatarUrl}
+                          alt={reviewer.login}
+                          className="reviewer-avatar"
+                        />
                       ) : (
                         <div className="reviewer-avatar reviewer-avatar-fallback">
                           {reviewer.login.charAt(0).toUpperCase()}
@@ -214,7 +255,9 @@ export function PullRequestHistoryPanel({
                         {reviewer.status}
                       </span>
                       {reviewer.updatedAt && (
-                        <span className="reviewer-time">{formatDistanceToNow(reviewer.updatedAt)}</span>
+                        <span className="reviewer-time">
+                          {formatDistanceToNow(reviewer.updatedAt)}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -228,7 +271,9 @@ export function PullRequestHistoryPanel({
       {focus === 'commits' && (
         <div className="pr-history-metrics">
           <div className="metric-row">
-            <span className="metric-label"><GitCommit size={14} /> Commits</span>
+            <span className="metric-label">
+              <GitCommit size={14} /> Commits
+            </span>
             <span className="metric-value">{history.commitCount}</span>
           </div>
         </div>

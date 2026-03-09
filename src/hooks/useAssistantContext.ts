@@ -43,6 +43,56 @@ export function useAssistantContext(activeViewId: string | null): AssistantConte
       }
     }
 
+    if (activeViewId.startsWith('repo-commits:')) {
+      const parts = activeViewId.replace('repo-commits:', '').split('/')
+      const owner = parts[0] || ''
+      const repo = parts[1] || ''
+      return {
+        viewType: 'repo-commits',
+        viewId: activeViewId,
+        summary: `Commits for ${owner}/${repo}`,
+        metadata: { owner, repo },
+      }
+    }
+
+    if (activeViewId.startsWith('repo-commit:')) {
+      const parts = activeViewId.replace('repo-commit:', '').split('/')
+      const owner = parts[0] || ''
+      const repo = parts[1] || ''
+      const sha = parts[2] || ''
+      return {
+        viewType: 'repo-commit',
+        viewId: activeViewId,
+        summary: `Commit ${sha.slice(0, 7)} in ${owner}/${repo}`,
+        metadata: { owner, repo, sha },
+      }
+    }
+
+    if (activeViewId.startsWith('repo-issue:')) {
+      const parts = activeViewId.replace('repo-issue:', '').split('/')
+      const owner = parts[0] || ''
+      const repo = parts[1] || ''
+      const issueNumber = parts[2] || ''
+      return {
+        viewType: 'repo-issue',
+        viewId: activeViewId,
+        summary: `Issue #${issueNumber} in ${owner}/${repo}`,
+        metadata: { owner, repo, issueNumber },
+      }
+    }
+
+    if (activeViewId.startsWith('repo-issues-closed:')) {
+      const parts = activeViewId.replace('repo-issues-closed:', '').split('/')
+      const owner = parts[0] || ''
+      const repo = parts[1] || ''
+      return {
+        viewType: 'repo-issues',
+        viewId: activeViewId,
+        summary: `Closed issues for ${owner}/${repo}`,
+        metadata: { owner, repo, issueState: 'closed' },
+      }
+    }
+
     // Repo issues view: repo-issues:owner/repo
     if (activeViewId.startsWith('repo-issues:')) {
       const parts = activeViewId.replace('repo-issues:', '').split('/')
@@ -51,8 +101,32 @@ export function useAssistantContext(activeViewId: string | null): AssistantConte
       return {
         viewType: 'repo-issues',
         viewId: activeViewId,
-        summary: `Issues for ${owner}/${repo}`,
-        metadata: { owner, repo },
+        summary: `Open issues for ${owner}/${repo}`,
+        metadata: { owner, repo, issueState: 'open' },
+      }
+    }
+
+    if (activeViewId.startsWith('repo-prs-closed:')) {
+      const parts = activeViewId.replace('repo-prs-closed:', '').split('/')
+      const owner = parts[0] || ''
+      const repo = parts[1] || ''
+      return {
+        viewType: 'repo-prs',
+        viewId: activeViewId,
+        summary: `Closed pull requests for ${owner}/${repo}`,
+        metadata: { owner, repo, prState: 'closed' },
+      }
+    }
+
+    if (activeViewId.startsWith('repo-prs:')) {
+      const parts = activeViewId.replace('repo-prs:', '').split('/')
+      const owner = parts[0] || ''
+      const repo = parts[1] || ''
+      return {
+        viewType: 'repo-prs',
+        viewId: activeViewId,
+        summary: `Open pull requests for ${owner}/${repo}`,
+        metadata: { owner, repo, prState: 'open' },
       }
     }
 
@@ -104,7 +178,7 @@ export function serializeContext(ctx: AssistantContext): string {
   }
 
   lines.push('')
-  lines.push('Answer questions about what\'s on screen, the app itself, or anything else.')
+  lines.push("Answer questions about what's on screen, the app itself, or anything else.")
 
   return lines.join('\n')
 }

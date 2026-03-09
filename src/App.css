@@ -33,10 +33,10 @@
 .sash:hover,
 .sash.active,
 .sash:active,
-.sash[class*="active"],
-[class*="split-view"] .sash:hover,
-[class*="split-view"] .sash.active,
-[class*="split-view"] .sash:active {
+.sash[class*='active'],
+[class*='split-view'] .sash:hover,
+[class*='split-view'] .sash.active,
+[class*='split-view'] .sash:active {
   background-color: var(--sash-hover) !important;
 }
 

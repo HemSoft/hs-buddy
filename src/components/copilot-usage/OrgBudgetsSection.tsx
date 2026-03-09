@@ -11,7 +11,11 @@ interface OrgBudgetsSectionProps {
 
 const PERSONAL_BUDGETS: Record<string, number> = { hemsoft: 50 }
 
-export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas }: OrgBudgetsSectionProps) {
+export function OrgBudgetsSection({
+  uniqueOrgs,
+  orgBudgets,
+  orgOverageFromQuotas,
+}: OrgBudgetsSectionProps) {
   if (uniqueOrgs.size === 0) return null
 
   return (
@@ -29,15 +33,21 @@ export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas
           const displaySpent = d?.useQuotaOverage ? quotaOverage : (d?.spent ?? 0)
           const pct = effectiveBudget ? Math.min((displaySpent / effectiveBudget) * 100, 100) : null
           const myShare = !d?.useQuotaOverage ? Math.min(quotaOverage, displaySpent) : 0
-          const mySharePct = effectiveBudget && myShare > 0
-            ? Math.min((myShare / effectiveBudget) * 100, pct ?? 100)
-            : null
+          const mySharePct =
+            effectiveBudget && myShare > 0
+              ? Math.min((myShare / effectiveBudget) * 100, pct ?? 100)
+              : null
 
-          const barColor = pct === null ? '#4ec9b0'
-            : pct >= 90 ? '#e85d5d'
-            : pct >= 75 ? '#e89b3c'
-            : pct >= 50 ? '#dcd34a'
-            : '#4ec9b0'
+          const barColor =
+            pct === null
+              ? '#4ec9b0'
+              : pct >= 90
+                ? '#e85d5d'
+                : pct >= 75
+                  ? '#e89b3c'
+                  : pct >= 50
+                    ? '#dcd34a'
+                    : '#4ec9b0'
 
           return (
             <div key={org} className="usage-budget-card">
@@ -57,14 +67,19 @@ export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas
 
               {state?.error && !d && (
                 <p className="usage-budget-error">
-                  {state.error.includes('enhanced billing') ? 'Not on enhanced billing' : 'Failed to load'}
+                  {state.error.includes('enhanced billing')
+                    ? 'Not on enhanced billing'
+                    : 'Failed to load'}
                 </p>
               )}
 
               {d && (
                 <>
                   <div className="usage-budget-bar-track">
-                    <div className="usage-budget-bar-fill" style={{ width: `${pct ?? 0}%`, background: barColor }} />
+                    <div
+                      className="usage-budget-bar-fill"
+                      style={{ width: `${pct ?? 0}%`, background: barColor }}
+                    />
                     {mySharePct !== null && mySharePct > 0 && (
                       <div
                         className="usage-budget-bar-myshare"
@@ -75,8 +90,7 @@ export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas
                   </div>
                   <div className="usage-budget-amounts">
                     <span className="usage-budget-spent" style={{ color: barColor }}>
-                      {formatCurrency(displaySpent)}{' '}
-                      {d.useQuotaOverage ? 'overage' : 'spent'}
+                      {formatCurrency(displaySpent)} {d.useQuotaOverage ? 'overage' : 'spent'}
                     </span>
                     {myShare > 0 && !d.useQuotaOverage && (
                       <span className="usage-budget-myshare-label">
@@ -84,7 +98,9 @@ export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas
                       </span>
                     )}
                     {effectiveBudget !== null ? (
-                      <span className="usage-budget-limit">of {formatCurrency(effectiveBudget)}</span>
+                      <span className="usage-budget-limit">
+                        of {formatCurrency(effectiveBudget)}
+                      </span>
                     ) : (
                       <span className="usage-budget-limit">
                         {d.useQuotaOverage ? 'from quota' : 'no budget set'}
@@ -93,7 +109,10 @@ export function OrgBudgetsSection({ uniqueOrgs, orgBudgets, orgOverageFromQuotas
                   </div>
                   <div className="usage-budget-footer">
                     <span className="usage-budget-period">
-                      {new Date(d.billingYear, d.billingMonth - 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                      {new Date(d.billingYear, d.billingMonth - 1).toLocaleDateString(undefined, {
+                        month: 'short',
+                        year: 'numeric',
+                      })}
                     </span>
                     <span className="usage-fetched-at">{formatTime(d.fetchedAt)}</span>
                   </div>

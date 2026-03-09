@@ -171,10 +171,18 @@
   text-align: center;
 }
 
-.result-status-pending { color: #e89b3c; }
-.result-status-running { color: var(--accent-primary); }
-.result-status-completed { color: #4ec9b0; }
-.result-status-failed { color: #e85d5d; }
+.result-status-pending {
+  color: #e89b3c;
+}
+.result-status-running {
+  color: var(--accent-primary);
+}
+.result-status-completed {
+  color: #4ec9b0;
+}
+.result-status-failed {
+  color: #e85d5d;
+}
 
 /* Prompt cell */
 .result-prompt-cell {

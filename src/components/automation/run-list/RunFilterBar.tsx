@@ -19,7 +19,12 @@ const filterButtons: { label: string; value: StatusFilter }[] = [
   { label: 'Cancelled', value: 'cancelled' },
 ]
 
-export function RunFilterBar({ statusFilter, totalCount, statusCounts, onFilterChange }: RunFilterBarProps) {
+export function RunFilterBar({
+  statusFilter,
+  totalCount,
+  statusCounts,
+  onFilterChange,
+}: RunFilterBarProps) {
   return (
     <div className="run-filter-bar">
       <Filter size={14} className="filter-icon" />

@@ -14,8 +14,14 @@ interface AiConfigSectionProps {
 }
 
 export function AiConfigSection({
-  prompt, ghAccount, model, targetRepo,
-  onPromptChange, onGhAccountChange, onModelChange, onTargetRepoChange,
+  prompt,
+  ghAccount,
+  model,
+  targetRepo,
+  onPromptChange,
+  onGhAccountChange,
+  onModelChange,
+  onTargetRepoChange,
 }: AiConfigSectionProps) {
   return (
     <>

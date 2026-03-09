@@ -13,7 +13,7 @@ dataCache.initialize().then(() => {
       <ConvexClientProvider>
         <App />
       </ConvexClientProvider>
-    </React.StrictMode>,
+    </React.StrictMode>
   )
 
   // Remove Preload scripts loading

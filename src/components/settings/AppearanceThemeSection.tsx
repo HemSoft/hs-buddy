@@ -1,8 +1,8 @@
-import { Moon, Palette, Sun } from 'lucide-react';
+import { Moon, Palette, Sun } from 'lucide-react'
 
 interface AppearanceThemeSectionProps {
-  theme: 'dark' | 'light';
-  onThemeChange: (theme: 'dark' | 'light') => Promise<void>;
+  theme: 'dark' | 'light'
+  onThemeChange: (theme: 'dark' | 'light') => Promise<void>
 }
 
 export function AppearanceThemeSection({ theme, onThemeChange }: AppearanceThemeSectionProps) {
@@ -31,5 +31,5 @@ export function AppearanceThemeSection({ theme, onThemeChange }: AppearanceTheme
         </button>
       </div>
     </div>
-  );
+  )
 }

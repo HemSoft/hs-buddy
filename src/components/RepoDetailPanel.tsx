@@ -159,7 +159,10 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
             )}
             {detail.language && (
               <span className="repo-badge repo-badge-lang">
-                <span className="lang-dot" style={{ backgroundColor: getLanguageColor(detail.language) }} />
+                <span
+                  className="lang-dot"
+                  style={{ backgroundColor: getLanguageColor(detail.language) }}
+                />
                 {detail.language}
               </span>
             )}
@@ -171,7 +174,10 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
             )}
             {detail.latestWorkflowRun &&
               (() => {
-                const info = getWorkflowStatusInfo(detail.latestWorkflowRun.status, detail.latestWorkflowRun.conclusion)
+                const info = getWorkflowStatusInfo(
+                  detail.latestWorkflowRun.status,
+                  detail.latestWorkflowRun.conclusion
+                )
                 const StatusIcon = info.icon
                 return (
                   <span

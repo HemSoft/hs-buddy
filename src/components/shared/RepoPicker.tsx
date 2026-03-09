@@ -52,7 +52,10 @@ export function RepoPicker({
   // Group bookmarks by folder, sort repos within each
   const { options, selectGroups } = useMemo(() => {
     if (!bookmarks || bookmarks.length === 0) {
-      return { options: [] as DropdownOption[], selectGroups: [] as { folder: string; repos: typeof bookmarks }[] }
+      return {
+        options: [] as DropdownOption[],
+        selectGroups: [] as { folder: string; repos: typeof bookmarks }[],
+      }
     }
 
     const sorted = [...bookmarks].sort((a, b) => {

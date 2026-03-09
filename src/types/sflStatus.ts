@@ -42,22 +42,22 @@ export interface SFLRepoStatus {
 
 /** Map workflow conclusions to display labels. */
 export const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {
-  'healthy': 'Healthy',
+  healthy: 'Healthy',
   'active-work': 'Active work',
-  'blocked': 'Blocked',
+  blocked: 'Blocked',
   'ready-for-review': 'Ready for review',
   'recent-failure': 'Recent failure',
-  'unknown': 'Unknown',
+  unknown: 'Unknown',
 }
 
 /** Map workflow conclusions to display colors (CSS class suffixes). */
 export const SFL_STATUS_COLORS: Record<SFLOverallStatus, string> = {
-  'healthy': 'success',
+  healthy: 'success',
   'active-work': 'info',
-  'blocked': 'warning',
+  blocked: 'warning',
   'ready-for-review': 'info',
   'recent-failure': 'error',
-  'unknown': 'muted',
+  unknown: 'muted',
 }
 
 /**
@@ -76,16 +76,15 @@ export function deriveSFLOverallStatus(workflows: SFLWorkflowInfo[]): SFLOverall
   )
   if (hasRunning) return 'active-work'
 
-  const hasActionRequired = workflows.some(
-    w => w.latestRun?.conclusion === 'action_required'
-  )
+  const hasActionRequired = workflows.some(w => w.latestRun?.conclusion === 'action_required')
   if (hasActionRequired) return 'ready-for-review'
 
   const allDisabled = workflows.every(w => w.state !== 'active')
   if (allDisabled) return 'blocked'
 
   const allSuccess = workflows.every(
-    w => !w.latestRun || w.latestRun.conclusion === 'success' || w.latestRun.conclusion === 'skipped'
+    w =>
+      !w.latestRun || w.latestRun.conclusion === 'success' || w.latestRun.conclusion === 'skipped'
   )
   if (allSuccess) return 'healthy'
 

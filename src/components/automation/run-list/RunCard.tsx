@@ -12,7 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { formatDistanceToNow, format } from '../../../utils/dateUtils'
-import { getWorkerIcon } from '../job-list/JobRow'
+import { getWorkerIcon } from '../job-list/jobRowUtils'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 type TriggerType = 'manual' | 'schedule' | 'api'
@@ -111,15 +111,17 @@ export function RunCard({ run, isExpanded, onToggle, onCancel }: any) {
       >
         <div className="run-card-expand">
           {hasDetails ? (
-            isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+            isExpanded ? (
+              <ChevronDown size={14} />
+            ) : (
+              <ChevronRight size={14} />
+            )
           ) : (
             <span className="expand-spacer" />
           )}
         </div>
 
-        <div className="run-card-status">
-          {getStatusIcon(run.status)}
-        </div>
+        <div className="run-card-status">{getStatusIcon(run.status)}</div>
 
         <div className="run-card-info">
           <div className="run-card-title">
@@ -131,9 +133,7 @@ export function RunCard({ run, isExpanded, onToggle, onCancel }: any) {
             ) : (
               <span className="run-job-name deleted">Deleted Job</span>
             )}
-            {run.schedule && (
-              <span className="run-schedule-badge">via {run.schedule.name}</span>
-            )}
+            {run.schedule && <span className="run-schedule-badge">via {run.schedule.name}</span>}
           </div>
 
           <div className="run-card-meta">
@@ -163,7 +163,7 @@ export function RunCard({ run, isExpanded, onToggle, onCancel }: any) {
           {canCancel && (
             <button
               className="btn-icon-sm btn-danger"
-              onClick={(e) => onCancel(run._id, e)}
+              onClick={e => onCancel(run._id, e)}
               title="Cancel Run"
             >
               <Ban size={14} />

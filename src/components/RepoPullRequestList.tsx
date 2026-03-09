@@ -20,6 +20,7 @@ import './RepoPullRequestList.css'
 interface RepoPullRequestListProps {
   owner: string
   repo: string
+  prState?: 'open' | 'closed'
   onOpenPR?: (viewId: string) => void
 }
 
@@ -45,8 +46,13 @@ function mapToPRDetailId(pr: RepoPullRequest, owner: string): string {
   })
 }
 
-export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestListProps) {
-  const cacheKey = `repo-prs:${owner}/${repo}`
+export function RepoPullRequestList({
+  owner,
+  repo,
+  prState = 'open',
+  onOpenPR,
+}: RepoPullRequestListProps) {
+  const cacheKey = `repo-prs:${prState}:${owner}/${repo}`
   const cachedEntry = dataCache.get<RepoPullRequest[]>(cacheKey)
   const [prs, setPrs] = useState<RepoPullRequest[]>(cachedEntry?.data || [])
   const [loading, setLoading] = useState(!cachedEntry?.data)
@@ -57,6 +63,13 @@ export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestLi
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
+
+  useEffect(() => {
+    const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
+    setPrs(cached?.data || [])
+    setLoading(!cached?.data)
+    setError(null)
+  }, [cacheKey])
 
   const fetchPRs = useCallback(
     async (forceRefresh = false) => {
@@ -78,9 +91,9 @@ export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestLi
             if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
             const config = { accounts }
             const client = new GitHubClient(config, 7)
-            return await client.fetchRepoPRs(owner, repo)
+            return await client.fetchRepoPRs(owner, repo, prState)
           },
-          { name: `repo-prs-${owner}-${repo}` }
+          { name: `repo-prs-${prState}-${owner}-${repo}` }
         )
         setPrs(result)
         dataCache.set(cacheKey, result)
@@ -91,7 +104,7 @@ export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestLi
         setLoading(false)
       }
     },
-    [owner, repo, accounts, cacheKey]
+    [owner, repo, prState, accounts, cacheKey]
   )
 
   useEffect(() => {
@@ -143,11 +156,15 @@ export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestLi
             <span className="repo-prs-owner">{owner}</span>
             <span className="repo-prs-separator">/</span>
             <span className="repo-prs-name">{repo}</span>
-            <span className="repo-prs-label">Pull Requests</span>
+            <span className="repo-prs-label">
+              {prState === 'open' ? 'Open Pull Requests' : 'Closed Pull Requests'}
+            </span>
           </h2>
         </div>
         <div className="repo-prs-header-actions">
-          <span className="repo-prs-count">{prs.length} open</span>
+          <span className="repo-prs-count">
+            {prs.length} {prState}
+          </span>
           <button
             className="repo-prs-refresh-btn"
             onClick={() => fetchPRs(true)}
@@ -159,11 +176,20 @@ export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestLi
         </div>
       </div>
 
-      {prs.length === 0 ? (
+      {loading && prs.length > 0 && (
+        <div className="repo-prs-loading-indicator" role="status" aria-live="polite">
+          <Loader2 size={14} className="spin" />
+          <span>Refreshing pull requests...</span>
+        </div>
+      )}
+
+      {!loading && prs.length === 0 ? (
         <div className="repo-prs-empty">
           <GitPullRequest size={48} />
-          <p>No open pull requests</p>
-          <p className="empty-subtitle">This repository has no open pull requests right now.</p>
+          <p>No {prState} pull requests</p>
+          <p className="empty-subtitle">
+            This repository has no {prState} pull requests right now.
+          </p>
         </div>
       ) : (
         <div className="repo-prs-list">
@@ -208,11 +234,7 @@ export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestLi
                 <span className="repo-pr-number">#{pr.number}</span>
                 <span className="repo-pr-author">
                   {pr.authorAvatarUrl && (
-                    <img
-                      src={pr.authorAvatarUrl}
-                      alt={pr.author}
-                      className="repo-pr-avatar"
-                    />
+                    <img src={pr.authorAvatarUrl} alt={pr.author} className="repo-pr-avatar" />
                   )}
                   {pr.author}
                 </span>
@@ -220,9 +242,7 @@ export function RepoPullRequestList({ owner, repo, onOpenPR }: RepoPullRequestLi
                   <Clock size={12} />
                   {formatDistanceToNow(pr.createdAt)}
                 </span>
-                <span className="repo-pr-updated">
-                  updated {formatDistanceToNow(pr.updatedAt)}
-                </span>
+                <span className="repo-pr-updated">updated {formatDistanceToNow(pr.updatedAt)}</span>
                 {(pr.approvalCount ?? 0) > 0 && (
                   <span className="repo-pr-approvals">
                     <ThumbsUp size={12} />

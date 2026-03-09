@@ -4,14 +4,18 @@ description: |
   feedback on an existing draft PR. Claims or resumes the issue, advances the
   implementation on the same draft PR when one exists, and re-dispatches
   Analyzer A only after follow-up implementation passes. Newly created PRs
-  rely on the `pull_request: opened` event to start the analyzer chain. One
-  work item per run.
+  rely on the `pull_request: opened` event to start the analyzer chain. Also
+  supports targeted `workflow_dispatch` handoffs for a specific issue or PR.
+  One work item per run.
 
 on:
   issues:
     types: [opened, reopened]
   workflow_dispatch:
     inputs:
+      issue-number:
+        description: Target issue number for a new-issue implementation pass
+        required: false
       pull-request-number:
         description: Target draft PR number for a follow-up implementation pass
         required: false
@@ -88,7 +92,13 @@ There are two valid work item types:
 1. **Existing draft PR that needs another implementation pass**
 2. **New `agent:fixable` issue with no draft PR yet**
 
-Always check for existing draft PR work FIRST.
+Untargeted runs should check for existing draft PR work FIRST.
+
+Targeted handoff requirement:
+
+- If `pull-request-number` or `issue-number` is provided in the context variables, process only that exact work item.
+- Do NOT scan the broader queue during a targeted run.
+- If both are provided in the same run, treat that as a broken targeted handoff. Report the failure and exit.
 
 Determinism requirement:
 
@@ -100,10 +110,23 @@ If `pull-request-number` is provided in the context variables, use that PR
 number directly as the target follow-up PR candidate. Do NOT search for a
 different PR in that case.
 
+If `issue-number` is provided in the context variables, use that issue number
+directly as the target new-issue candidate. Do NOT search for a different
+issue in that case.
+
+If both `pull-request-number` and `issue-number` are provided in the context
+variables, treat that as a broken targeted handoff. Do NOT guess which path to
+take. Report the failure and exit so the handoff bug is visible.
+
 If a `pull-request-number` field is present but the value is blank, `#`, only
 whitespace, or an unresolved placeholder token, treat that as a broken targeted
 handoff. Do NOT search for the oldest draft PR in that case. Report the failure
 and exit so the handoff bug is visible.
+
+If an `issue-number` field is present but the value is blank, `#`, only
+whitespace, or an unresolved placeholder token, treat that as a broken targeted
+handoff. Do NOT search for the oldest fixable issue in that case. Report the
+failure and exit so the handoff bug is visible.
 
 If this run was triggered by an `issues` event and the issue already has the
 `agent:fixable` label, prefer that specific issue for **new issue** work once
@@ -176,6 +199,31 @@ If no existing draft PR needs follow-up work, search for open issues with label
 - `agent:pause`
 - `agent:human-required`
 
+If `issue-number` is provided:
+
+1. Read that exact issue.
+
+2. Verify it is open, has label `agent:fixable`, and does NOT have any of these labels: `agent:in-progress`, `agent:pause`, `agent:human-required`.
+
+3. Search for open draft PRs labeled `agent:pr` that already belong to that
+  issue.
+
+4. If more than one open draft `agent:pr` PR already exists for that issue,
+  report the duplicate-PR failure and exit.
+
+5. If exactly one open draft `agent:pr` PR already exists for that issue, do
+  NOT treat the issue as new work and do NOT create another PR. Report that the
+  targeted new-issue path observed existing draft PR state for the issue and
+  exit so the handoff bug is visible.
+
+6. If any validation above fails, exit — there is no eligible new-issue work
+  for that specific issue.
+
+If those checks pass, use that issue as the work item and continue at Step 2.
+
+Only when no `issue-number` is provided should you search for the oldest open
+fixable issue.
+
 Sort by creation date ascending. Evaluate candidates in that order.
 
 For each candidate issue:
@@ -203,10 +251,10 @@ or `risk:high`.
 If this is a **new issue** from Step 1b:
 
 1. Call `add_labels` to add `agent:in-progress` to the issue.
+
 2. Call `remove_labels` to remove `agent:fixable` from the issue.
-3. Call `add_comment` with:
-   - `issue_number`: the issue number from Step 1b
-   - `body`: "🤖 Issue Processor claimed this issue. Working on a fix."
+
+3. Call `add_comment` with `issue_number` set to the issue number from Step 1b and `body` set to "🤖 Issue Processor claimed this issue. Working on a fix."
 
 Do NOT append progress updates to the issue body. Keep the issue body as the
 canonical implementation spec and put operational status in comments.
@@ -248,10 +296,9 @@ Always read all of the following before writing code:
 
 1. The linked issue body — this is the canonical source of intent and
   acceptance criteria.
-2. If a draft PR already exists:
-  - the PR description/body
-  - the PR diff
-  - the three analyzer reviews for the current cycle
+
+2. If a draft PR already exists, read the PR description/body, the PR diff, and the three analyzer reviews for the current cycle.
+
 3. The target file(s) in full and any surrounding context needed to implement safely.
 
 For new issues without a PR yet, confirm the described problem actually exists.
@@ -298,7 +345,7 @@ Commit the changes with a descriptive commit message.
 Valid vs invalid outcomes for this step:
 
 | Outcome | Valid? | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | New issue with no existing draft PR → `create_pull_request` | ✅ | correct first PR creation |
 | Follow-up pass for existing draft PR → `push_to_pull_request_branch` | ✅ | correct in-place continuation |
 | Follow-up pass cannot push to existing PR branch → report failure and exit | ✅ | visible hard failure |

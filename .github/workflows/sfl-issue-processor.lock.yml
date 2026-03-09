@@ -25,10 +25,11 @@
 # feedback on an existing draft PR. Claims or resumes the issue, advances the
 # implementation on the same draft PR when one exists, and re-dispatches
 # Analyzer A only after follow-up implementation passes. Newly created PRs
-# rely on the `pull_request: opened` event to start the analyzer chain. One
-# work item per run.
+# rely on the `pull_request: opened` event to start the analyzer chain. Also
+# supports targeted `workflow_dispatch` handoffs for a specific issue or PR.
+# One work item per run.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ed16ceb756fd7bee66a52ea638d40ccca62e7b06dad664e362962622387df87c","compiler_version":"v0.50.4"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"363ac7fe30289e6b4e16056abfae12b7e7d54838fd14391ec410972dae0b62e8","compiler_version":"v0.50.4"}
 
 name: "SFL Issue Processor / Implementer"
 "on":
@@ -38,6 +39,9 @@ name: "SFL Issue Processor / Implementer"
     - reopened
   workflow_dispatch:
     inputs:
+      issue-number:
+        description: Target issue number for a new-issue implementation pass
+        required: false
       pull-request-number:
         description: Target draft PR number for a follow-up implementation pass
         required: false
@@ -109,7 +113,7 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_COMMENT_ID: ${{ github.event.comment.id }}
           GH_AW_GITHUB_EVENT_DISCUSSION_NUMBER: ${{ github.event.discussion.number }}
-          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs['issue-number'] }}
           GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || github.event.inputs['pull-request-number'] }}
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
@@ -185,7 +189,7 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_COMMENT_ID: ${{ github.event.comment.id }}
           GH_AW_GITHUB_EVENT_DISCUSSION_NUMBER: ${{ github.event.discussion.number }}
-          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs['issue-number'] }}
           GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || github.event.inputs['pull-request-number'] }}
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
@@ -1288,7 +1292,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "SFL Issue Processor / Implementer"
-          WORKFLOW_DESCRIPTION: "Triggered when a new fixable issue opens or when Analyzer C finds blocking\nfeedback on an existing draft PR. Claims or resumes the issue, advances the\nimplementation on the same draft PR when one exists, and re-dispatches\nAnalyzer A only after follow-up implementation passes. Newly created PRs\nrely on the `pull_request: opened` event to start the analyzer chain. One\nwork item per run."
+          WORKFLOW_DESCRIPTION: "Triggered when a new fixable issue opens or when Analyzer C finds blocking\nfeedback on an existing draft PR. Claims or resumes the issue, advances the\nimplementation on the same draft PR when one exists, and re-dispatches\nAnalyzer A only after follow-up implementation passes. Newly created PRs\nrely on the `pull_request: opened` event to start the analyzer chain. Also\nsupports targeted `workflow_dispatch` handoffs for a specific issue or PR.\nOne work item per run."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |

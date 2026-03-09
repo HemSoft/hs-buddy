@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: read
   issues: write
   discussions: write
@@ -72,6 +73,7 @@ jobs:
           fi
 
       - name: Create or refresh SFL issue
+        id: create_issue
         uses: actions/github-script@v8
         env:
           HAS_REACT: ${{ steps.scan.outputs.has_react }}
@@ -497,7 +499,26 @@ jobs:
               labels: ['agent:fixable', risk.label],
             });
 
+            core.setOutput('issue_number', String(createdIssue.data.number));
+
             await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ✅ ${report.actionableCount} actionable diagnostics across ${report.categories.length} cluster(s) -> #${createdIssue.data.number}`);
+
+      - name: Dispatch SFL Issue Processor
+        if: steps.create_issue.outputs.issue_number != ''
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.create_issue.outputs.issue_number }}
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sfl-issue-processor.lock.yml',
+              ref: 'main',
+              inputs: {
+                'issue-number': process.env.ISSUE_NUMBER,
+              },
+            });
 
       - name: Upload React Doctor report
         if: steps.scan.outputs.has_react == 'true'

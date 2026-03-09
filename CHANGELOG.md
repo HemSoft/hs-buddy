@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.284] - 2026-03-09
 
+### Changed
+
+- Update todo tracking and fix markdownlint config
+
 ## [0.1.283] - 2026-03-09
 
 ### Added

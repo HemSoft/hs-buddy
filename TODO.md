@@ -2,7 +2,6 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 🚧     | Medium   | [Capture Copilot usage history](#capture-copilot-usage-history)                                              | SFL issue #137 created 2026-03-08: scheduled usage/spend snapshots for historical trends and graphs                                   |
 | 📋     | Medium   | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard)                                          | Run counts, p50/p90 cost, monthly budget burn                                                                                         |
 | 📋     | Medium   | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit)                                        | Detect and delete merged/orphaned agent-fix branches                                                                                  |
 | 📋     | Medium   | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead  |
@@ -60,6 +59,7 @@
 | ✅     | Medium   | Build Schedules sidebar + list                                                                               | ScheduleList component with status badges (2025-01)                                                                                   |
 | ✅     | Medium   | Port CronBuilder component                                                                                   | From hs-conductor with visual builder (2025-01)                                                                                       |
 | ✅     | Medium   | Implement schedule toggles                                                                                   | Toggle mutation in useConvex hooks (2025-02)                                                                                          |
+| ✅     | Medium   | Capture Copilot usage history                                                                                | Completed 2026-03-09: issue #137 / PR #138 merged; snapshots now persist for historical trends.                                      |
 | ✅     | Medium   | Fix taskbar app name                                                                                         | "HS-body" → "Buddy" (2025-01)                                                                                                         |
 | ✅     | Medium   | Create Help menu with About window                                                                           | Beautiful About dialog with branding (2025-01)                                                                                        |
 | ✅     | Medium   | Design and create app icon                                                                                   | Gold/orange gradient Users icon (2025-01)                                                                                             |
@@ -67,54 +67,11 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 55** (90%)
+**Remaining: 5** | **Completed: 56** (92%)
 
 ---
 
 ## Remaining Items
-
-### Capture Copilot usage history
-
-**Goal**: Persist usage and spend snapshots on a schedule so Buddy has time-series data for trends, month-over-month comparisons, and graphing.
-
-**Why this is separate from the dashboard task**:
-
-- The dashboard is the reporting surface.
-- This task is the data collection pipeline that makes historical charts possible.
-- Without scheduled snapshots, the app only has current-state usage totals and cannot reconstruct prior daily values reliably.
-
-**Desired behavior**:
-
-- Add a scheduled job in Buddy that runs automatically on a fixed cadence such as daily.
-- Fetch current Copilot usage and spend values for each tracked account and any aggregate totals already shown in the app.
-- Store immutable timestamped snapshots rather than overwriting the latest value.
-- Support historical queries suitable for charts: daily usage, daily spend, cumulative month-to-date, and deltas between snapshots.
-- Fail safely when the upstream usage endpoint is unavailable, without corrupting prior history.
-
-**Likely implementation areas**:
-
-- `convex/schema.ts`
-- new or existing Convex functions near `convex/githubAccounts.ts`, `convex/buddyStats.ts`, or a new usage-history file
-- worker scheduling surfaces under `convex/crons.ts`, `convex/schedules.ts`, and `convex/jobs.ts`
-- Electron/Copilot usage fetch path under `electron/services/copilotService.ts` and related IPC if the scheduler should reuse the existing client logic
-- chart/query consumers in the existing Copilot or stats UI once the history exists
-
-**Data shape to capture**:
-
-- account id / login / provider source
-- snapshot timestamp
-- billing month or period key
-- usage count metrics available from the upstream API
-- spend / budget metrics available from the upstream API
-- derived delta from prior snapshot when useful for charting
-
-**Open design choices**:
-
-- Whether the scheduler should run in Convex, Electron, or the existing Buddy job system
-- Whether cadence should be daily only or configurable later
-- Whether historical aggregation should be materialized at write time or computed at query time
-
----
 
 ### Create cost telemetry dashboard
 

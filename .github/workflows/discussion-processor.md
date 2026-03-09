@@ -95,7 +95,7 @@ For each group, call `create_issue` with:
   (the `[auto]` prefix is added automatically by safe-output config)
 - **Body** structured as:
 
-  ```
+  ```md
   ## Source
 
   Discussion #<number>: <discussion title>
@@ -141,7 +141,7 @@ Perform **two** separate safe-output calls in this exact order:
    the discussion number and `body` set to the **full existing body** with this
    appended at the very end:
 
-   ```
+  ```md
    ---
   **Processed by SFL Discussion Processor** — Created <N> issue(s): #<num1>, #<num2>, ...
    ```
@@ -155,7 +155,15 @@ The receipt text is a secondary guard checked in Step 1. Do NOT skip any call �
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EST | SFL Discussion Processor | Discussion #<number> | ✅ Created N issue(s)` or `⏭️ No discussions to process`
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Discussion Processor | Discussion #<number> | ✅ Created N issue(s)` or `⏭️ No discussions to process`; use `EST` instead of `EDT` only when standard time is actually in effect
+
+Timestamp rule for Discussion #95 entries:
+
+- Convert the current workflow time to `America/New_York` before writing the log line.
+- Use the converted local **date and time**, not the UTC date.
+- Use `EDT` when daylight saving time is in effect and `EST` otherwise.
+- Valid: `2026-03-08 10:56 PM EDT | ...`
+- Invalid: `2026-03-09 2:56 AM EST | ...` when the workflow ran at `2026-03-09T02:56:00Z`
 
 This is mandatory — every run must log exactly one entry.
 

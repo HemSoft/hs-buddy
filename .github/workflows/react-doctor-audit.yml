@@ -110,7 +110,10 @@ jobs:
 
               const isoDate = `${parts.year}-${parts.month}-${parts.day}`;
               const time = `${parts.hour}:${parts.minute} ${parts.dayPeriod}`;
-              return { isoDate, time, zone: parts.timeZoneName || 'ET' };
+              const zone = parts.timeZoneName === 'EST' || parts.timeZoneName === 'EDT'
+                ? parts.timeZoneName
+                : 'ET';
+              return { isoDate, time, zone };
             }
 
             function stripAnsi(text) {

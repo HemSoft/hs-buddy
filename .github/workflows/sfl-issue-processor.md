@@ -458,7 +458,15 @@ searching for the oldest eligible draft PR.
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EST | Issue Processor | Issue #<number> → PR #<pr> | ✅ Created PR`, `✅ Continued PR`, or `⏭️ No eligible work`
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | Issue Processor | Issue #<number> → PR #<pr> | ✅ Created PR`, `✅ Continued PR`, or `⏭️ No eligible work`; use `EST` instead of `EDT` only when standard time is actually in effect
+
+Timestamp rule for Discussion #95 entries:
+
+- Convert the current workflow time to `America/New_York` before writing the log line.
+- Use the converted local **date and time**, not the UTC date.
+- Use `EDT` when daylight saving time is in effect and `EST` otherwise.
+- Valid: `2026-03-08 10:56 PM EDT | ...`
+- Invalid: `2026-03-09 2:56 AM EST | ...` when the workflow ran at `2026-03-09T02:56:00Z`
 
 This is mandatory — every run must log exactly one entry.
 

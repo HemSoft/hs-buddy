@@ -148,4 +148,12 @@ For each finding in the table, include a detail section:
 3. Compile findings with severity, confidence, and agent-fixability assessment
 4. Close any previous open `[repo-audit]` report issues
 5. Create the single consolidated report issue
-6. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Repo Audit | Audit | ✅ N findings (M agent-fixable)`
+6. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | Repo Audit | Audit | ✅ N findings (M agent-fixable)` or `YYYY-MM-DD h:mm AM/PM EST | ...` when standard time is actually in effect
+
+Timestamp rule for Discussion #95 entries:
+
+- Convert the current workflow time to `America/New_York` before writing the log line.
+- Use the converted local **date and time**, not the UTC date.
+- Use `EDT` when daylight saving time is in effect and `EST` otherwise.
+- Valid: `2026-03-08 10:56 PM EDT | ...`
+- Invalid: `2026-03-09 2:56 AM EST | ...` when the workflow ran at `2026-03-09T02:56:00Z`

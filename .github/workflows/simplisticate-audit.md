@@ -65,7 +65,7 @@ starts with `[simplisticate]`. For each one found, close it using
 ## Complexity Signals to Detect
 
 | Signal | Description |
-|--------|-------------|
+| ------ | ----------- |
 | Deep nesting | >3 levels of indentation |
 | Long methods | Functions >30 lines |
 | Too many parameters | 4+ parameters |
@@ -242,4 +242,12 @@ Do NOT include findings that:
 8. Create the single consolidated issue (or skip if zero findings)
 9. Rely on the new issue's `issues: opened` event to start `sfl-issue-processor`.
   Do NOT dispatch the Issue Processor explicitly from this workflow.
-10. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EST | Simplisticate | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`
+10. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | Simplisticate | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`; use `EST` instead of `EDT` only when standard time is actually in effect
+
+Timestamp rule for Discussion #95 entries:
+
+- Convert the current workflow time to `America/New_York` before writing the log line.
+- Use the converted local **date and time**, not the UTC date.
+- Use `EDT` when daylight saving time is in effect and `EST` otherwise.
+- Valid: `2026-03-08 10:56 PM EDT | ...`
+- Invalid: `2026-03-09 2:56 AM EST | ...` when the workflow ran at `2026-03-09T02:56:00Z`

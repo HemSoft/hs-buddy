@@ -1,5 +1,8 @@
 # Copilot Instructions for hs-buddy
 
+> **Start here → [GOAL-AND-GUIDING-PRINCIPLES.md](GOAL-AND-GUIDING-PRINCIPLES.md)** — the goal and guiding principles
+> for this repository. Everything in this file serves that goal.
+>
 > **This file should ideally be empty until the architecture changes.**
 > Standing orders and guidelines below exist only because the agentic loop
 > needs guardrails. If every workflow is correct and self-documenting,
@@ -61,7 +64,7 @@ unless explicitly overridden by a human.
 
 Medium or high risk is **not** a reason to mark a finding as non-agent-fixable.
 Agents should still attempt the fix. When the resulting PR reaches human review
-(via the PR Router ready-for-review handoff), the risk level and a brief justification must be visible in
+(via the label-actions ready-for-review handoff), the risk level and a brief justification must be visible in
 the linked issue body so the reviewer knows what to scrutinize.
 
 Workflow prompts must label such issues with the appropriate `risk:medium` or
@@ -72,6 +75,13 @@ Workflow prompts must label such issues with the appropriate `risk:medium` or
 When an interactive session produces a new insight, instruction, or correction
 that would improve future runs, update the relevant skill file — not just
 this document. AGENTS.md is for standing orders; skills carry domain knowledge.
+
+### 11. Never Edit `.lock.yml` Files Directly
+
+Files matching `.github/workflows/*.lock.yml` are **auto-generated** by the
+gh-aw compiler from their corresponding `.md` source files. Any manual edits
+will be silently overwritten on the next compile. Always edit the `.md` source
+and recompile.
 
 ---
 

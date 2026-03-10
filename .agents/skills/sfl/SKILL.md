@@ -127,7 +127,7 @@ The Set it Free Loop is a **minimal, autonomous pipeline** that:
 3. **Implements** one issue at a time and either opens or advances its draft PR (sfl-issue-processor)
 4. **Reviews** the PR with three independent AI models (sfl-analyzer-a/b/c)
 5. **Loops** back through the implementer until the current cycle is clean
-6. **Routes** post-review PRs deterministically after Analyzer C and promotes clean PRs to ready-for-review when all analyzers PASS (sfl-pr-router)
+6. **Aggregates** analyzer verdicts via label-actions and promotes clean PRs to ready-for-review when all analyzers PASS
 7. **Hands off** clean PRs for human review and merge decision
 
 ### Two Workflow Types
@@ -159,10 +159,8 @@ loop now relies on explicit `dispatch-workflow` handoffs where needed. However, 
 | `sfl-issue-processor` | Agentic | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: creates or advances the draft PR for one issue |
 | `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A -> B -> C review chain (claude-sonnet-4.6) |
 | `sfl-analyzer-b` | Agentic | Analyzer A dispatch | Continues the sequential review chain (gemini-3-pro-preview) |
-| `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain and writes the verdict state consumed by the PR router (gpt-5.4) |
-| `sfl-pr-router` (`SFL PR Router`) | Standard | `pull_request: edited` | Deterministically routes post-Analyzer-C PRs to Issue Processor or ready-for-review |
-| `pr-fixer` | Agentic | Legacy only | Legacy workflow retained during implementer migration |
-| `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | `pull_request: labeled` | Label-driven automation |
+| `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain and dispatches label-actions for verdict aggregation (gpt-5.4) |
+| `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | Analyzer C dispatch / manual dispatch | Deterministic aggregator: checks labels, flips draft → ready or dispatches issue-processor for fix cycle |
 | `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
 
 ### Model Configuration
@@ -253,7 +251,7 @@ Beyond automated checks, manually verify:
 
 ### Audit Output Format
 
-```
+```text
 ## SFL Audit — <date in EST/EDT>
 
 | # | Check | Result | Detail |
@@ -303,7 +301,7 @@ $est = [System.TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
 
 Fast, checkpointed pipeline status with clear verdicts.
 
-### Scripts
+### Status Scripts
 
 ```powershell
 # Full status report from last checkpoint
@@ -341,7 +339,7 @@ are worth noting:
 
 Format:
 
-```
+```text
 ### Observations
 - {emoji} {observation}
 ```
@@ -458,7 +456,7 @@ Update this skill when:
 
 ## All Scripts Reference
 
-### Preflight
+### Preflight Scripts
 
 | Script | Purpose |
 |--------|---------|

@@ -68,15 +68,13 @@ if ($agentPRs -and $agentPRs.Count -gt 0) {
             $analyzerB = $body.Contains("[MARKER:sfl-analyzer-b cycle:$cycle]")
             $analyzerC = $body.Contains("[MARKER:sfl-analyzer-c cycle:$cycle]")
             $issueProcessor = $body.Contains("[MARKER:sfl-issue-processor cycle:$cycle]")
-            $router = $body.Contains("[MARKER:sfl-pr-router cycle:$cycle]")
 
             $aIcon = if ($analyzerA) { [char]0x2705 } else { [char]0x23F3 }
             $bIcon = if ($analyzerB) { [char]0x2705 } else { [char]0x23F3 }
             $cIcon = if ($analyzerC) { [char]0x2705 } else { [char]0x23F3 }
             $iIcon = if ($issueProcessor) { [char]0x2705 } else { [char]0x23F3 }
-            $rIcon = if ($router) { [char]0x2705 } else { [char]0x23F3 }
 
-            Write-Host "    Cycle $cycle: A=$aIcon B=$bIcon C=$cIcon Router=$rIcon Implementer=$iIcon" -ForegroundColor DarkGray
+            Write-Host "    Cycle $cycle: A=$aIcon B=$bIcon C=$cIcon Implementer=$iIcon" -ForegroundColor DarkGray
 
             # Check verdicts
             if ($analyzerA -and $analyzerB -and $analyzerC) {

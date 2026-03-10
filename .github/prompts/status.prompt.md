@@ -31,8 +31,7 @@ Run these queries:
    - `sfl-analyzer-a.lock.yml`
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
-  - `sfl-pr-router.yml`
-  - `sfl-pr-label-actions.yml`
+   - `sfl-pr-label-actions.yml`
 
    Get their conclusion (success / failure / cancelled) and timestamp.
 
@@ -42,7 +41,7 @@ Run these queries:
 
 Print a concise report:
 
-```
+```text
 ## Status — <current date/time>
 (last checked: <LAST_CHECK or "first run">)
 

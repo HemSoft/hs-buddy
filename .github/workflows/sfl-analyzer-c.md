@@ -33,26 +33,23 @@ safe-outputs:
   update-discussion:
     target: "*"
     max: 1
-  update-issue:
-    target: "*"
-    max: 2
   add-comment:
     target: "*"
-    max: 1
+    max: 2
   add-labels:
     target: "*"
     max: 1
   dispatch-workflow:
-    workflows: ["sfl-pr-router"]
+    workflows: ["sfl-pr-label-actions"]
     max: 1
 ---
 
 # SFL Analyzer C — Full-Spectrum Review
 
-Dispatched by the deterministic router after Analyzer B, or dispatched
-manually. Post a structured full-spectrum review comment, then dispatch the
-deterministic router. The router reads the finished review state from the PR
-body and decides whether the next step is promotion or another implementation
+Dispatched by Analyzer B, or dispatched
+manually. Post a structured full-spectrum review comment, then dispatch
+label-actions (the aggregator). Label-actions reads the finished review state
+and decides whether the next step is promotion or another implementation
 pass. Exit after reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
@@ -118,8 +115,8 @@ delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-c -->` ...
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
 
 Never discard other workflows' sections. If the body is empty or missing
-markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
-sfl-pr-router, sfl-auditor) and populate only yours.
+markers, write the full template with all 5 sections (sfl-analyzer-a/b/c,
+sfl-auditor) and populate only yours.
 
 ## Tooling Rules
 
@@ -129,9 +126,9 @@ Use the MCP tool names that are exposed in this runtime. Do not invent aliases.
 - For linked issue reads, use `github-issue_read`
 - For repository file reads, use `github-get_file_contents`
 - For dashboard updates, use `safeoutputs-update_discussion`
-- For PR body updates, use `safeoutputs-update_issue`
-- For activity-log comments, use `safeoutputs-add_comment`
-- For router dispatch, use `safeoutputs-sfl_pr_router`
+- For review comments and activity-log entries, use `safeoutputs-add_comment`
+- For adding labels (e.g., `analyzer:blocked`), use `safeoutputs-add_labels`
+- For label-actions dispatch, use `safeoutputs-sfl_pr_label_actions`
 - For no-action exits, use `safeoutputs-noop`
 
 Do NOT use `bash`, `write_bash`, `sql`, `view`, `web_fetch`, or planning tools
@@ -143,16 +140,19 @@ safe-output tools are unavailable. Retry using the exact MCP tool names above.
 
 ## Step 1 — Find the target PR
 
-If `pull-request-number` is provided in the context variables, use that PR
-number directly as the target. Do NOT search for a different PR.
+{{#if github.event.inputs.pull-request-number}}
+The dispatched `pull-request-number` input is **#${{ github.event.inputs.pull-request-number }}**.
+Use this PR number directly as the target. Do NOT search for a different PR.
 
-If the `pull-request-number` field exists but the value is blank, `#`, only
-whitespace, or an unresolved placeholder token, treat that as a broken
-Analyzer C handoff. Do NOT fall back to searching for the oldest draft PR.
-Update the dashboard with a handoff-failure message and exit.
-
-Only if no `pull-request-number` is provided (e.g., manual `workflow_dispatch`),
-search for open pull requests in this repository that meet ALL criteria:
+If the value is blank, `#`, only whitespace, or an unresolved placeholder
+token, treat that as a broken Analyzer C handoff. Do NOT fall back to
+searching for the oldest draft PR. Update the dashboard with a
+handoff-failure message, log to the Activity Log (see below), and exit.
+{{else}}
+No `pull-request-number` input was provided (e.g., manual `workflow_dispatch`
+without input). Search for open pull requests in this repository that meet
+ALL criteria:
+{{/if}}
 
 - Is a **draft** PR
 - Has the label `agent:pr`
@@ -163,8 +163,8 @@ to find the first PR that still needs Analyzer C for its current cycle:
 
 1. For each candidate PR, determine current cycle N from `pr:cycle-N` labels
   (default N=0 if none).
-2. Check whether the PR body already contains `[MARKER:sfl-analyzer-c cycle:N]`.
-3. Skip candidates where that marker already exists.
+2. Check whether the PR **comments** already contain `[MARKER:sfl-analyzer-c cycle:N]`.
+3. Skip candidates where that marker already exists in a comment.
 4. Select the first candidate where the marker does NOT exist.
 
 This prevents starvation where the oldest draft PR is repeatedly selected even
@@ -172,16 +172,18 @@ though Analyzer C already reviewed it for the current cycle.
 
 If no draft PR matches the base criteria, update the dashboard (see Dashboard
 Protocol) with:
-"No draft PRs with agent:pr label found — nothing to review." and exit.
+"No draft PRs with agent:pr label found — nothing to review.", log to the
+Activity Log (see below), and exit.
 
 If draft PRs match the base criteria but ALL already have the current-cycle
 Analyzer C marker, update the dashboard with:
-"All eligible draft PRs already reviewed by Analyzer C for their current cycle — nothing to review."
-and exit.
+"All eligible draft PRs already reviewed by Analyzer C for their current cycle — nothing to review.",
+log to the Activity Log (see below), and exit.
 
 If multiple open draft `agent:pr` PRs exist for the same linked issue, treat
 that as pipeline ambiguity. Update the dashboard with a duplicate-PR failure
-message and exit instead of choosing one silently.
+message, log to the Activity Log (see below), and exit instead of choosing
+one silently.
 
 ## Step 2 — Determine the current review cycle
 
@@ -191,14 +193,14 @@ cycle is `0`.
 
 ## Step 3 — Check if already reviewed
 
-Search the PR body for the exact marker text:
+Search the PR **comments** for any comment containing the exact marker text:
 `[MARKER:sfl-analyzer-c cycle:N]` where N is the current cycle number from
 Step 2.
 
-If the marker exists, this analyzer has already reviewed this PR in the
-current cycle. Update the dashboard with:
-"PR #<number> already reviewed by Analyzer C in cycle <N> — skipping."
-and exit.
+If a comment with the marker exists, this analyzer has already reviewed this
+PR in the current cycle. Update the dashboard with:
+"PR #<number> already reviewed by Analyzer C in cycle <N> — skipping.",
+log to the Activity Log (see below), and exit.
 
 ## Step 4 — Read the PR content
 
@@ -246,17 +248,25 @@ Classify each finding as:
 - **NON-BLOCKING** 🟡: Improvement suggestion — minor optimization, style
   preference, readability improvement, hardening suggestion
 
-## Step 6 — Post the review comment
+## Step 6 — Post the review comment and label
 
-Call `update_issue` with:
+Post the review as a **PR comment** using `add_comment`:
 
 - `issue_number`: the PR number
-- `operation`: `"append"`
 - `body`: the structured review in the exact format below
 
 **CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
-be the very first line of your output, exactly as shown. Without it, the
+be the very first line of your comment, exactly as shown. Without it, the
 pipeline will re-review this PR every 30 minutes forever.
+
+If your verdict is **BLOCKING ISSUES FOUND**, also add the `analyzer:blocked`
+label to the PR using `add_labels`:
+
+- `issue_number`: the PR number
+- `labels`: `["analyzer:blocked"]`
+
+Do NOT add `analyzer:blocked` if your verdict is PASS. Do NOT remove
+`analyzer:blocked` if it is already present — that is label-actions' job.
 
 ```markdown
 [MARKER:sfl-analyzer-c cycle:N]
@@ -300,6 +310,10 @@ As your **final action**, post a one-line comment to **Discussion #95** (the SFL
 - `issue_number`: `95`
 - `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Analyzer C | PR #<number> | :white_check_mark: PASS` or `:x: BLOCKING ISSUES FOUND`; use `EST` instead of `EDT` only when standard time is actually in effect
 
+For early exits (no review performed), use this format instead:
+
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Analyzer C | :fast_forward: SKIPPED — <reason>` where `<reason>` is a short phrase like "no eligible PRs", "already reviewed", "broken handoff", or "duplicate PRs"
+
 Timestamp rule for Discussion #95 entries:
 
 - Convert the current workflow time to `America/New_York` before writing the log line.
@@ -312,50 +326,54 @@ This is mandatory — every run must log exactly one entry.
 
 Required completion checklist for a non-skip review run:
 
-1. `update_issue` appending the current-cycle Analyzer C review block to the PR body
-2. `add_comment` posting the Activity Log entry to Discussion #95
-3. `dispatch_workflow` invoking `sfl-pr-router` with `pull-request-number: <number>`
+1. `add_comment` posting the current-cycle Analyzer C review as a PR comment
+2. `add_labels` adding `analyzer:blocked` (only if verdict is BLOCKING ISSUES FOUND)
+3. `add_comment` posting the Activity Log entry to Discussion #95
+4. `dispatch_workflow` invoking `sfl-pr-label-actions` with `pull-request-number: <number>`
 
 Do not stop after step 1. A review run is incomplete unless all 3 actions happen.
 
-## Step 7 — Dispatch the deterministic router and stop
+## Step 7 — Dispatch label-actions and stop
 
-After posting the review comment and activity log, dispatch the standard
-`sfl-pr-router.yml` workflow with input `pull-request-number: <number>` so the
-router evaluates this exact PR.
+After posting the review comment and activity log, dispatch the
+`sfl-pr-label-actions.yml` workflow with input `pull-request-number: <number>`
+so label-actions evaluates this exact PR.
 
 Do NOT decide whether the PR should be promoted or sent back for another
 implementation pass.
 
-The standard `sfl-pr-router.yml` workflow owns that routing decision. Your job
+The `sfl-pr-label-actions.yml` workflow owns that aggregation decision. Your job
 ends once the current-cycle marker, findings, verdict, activity log entry, and
-targeted router dispatch have all been completed successfully.
+targeted label-actions dispatch have all been completed successfully.
 
 Use this exact action order for a normal review run:
 
-- First: `update_issue` with the Analyzer C review block
-- Second: `add_comment` to Discussion #95
-- Third: `dispatch_workflow` to `sfl-pr-router` with `pull-request-number`
+- First: `add_comment` with the Analyzer C review as a PR comment
+- Second: `add_labels` with `analyzer:blocked` (only if BLOCKING verdict)
+- Third: `add_comment` to Discussion #95
+- Fourth: `dispatch_workflow` to `sfl-pr-label-actions` with `pull-request-number`
 
 Valid completion pattern:
 
-- `update_issue(...)`
-- `add_comment(...)`
-- `dispatch_workflow(workflow="sfl-pr-router", inputs={"pull-request-number":"<number>"})`
+- `add_comment(...)` (review)
+- `add_labels(...)` (only if BLOCKING)
+- `add_comment(...)` (activity log)
+- `dispatch_workflow(workflow="sfl-pr-label-actions", inputs={"pull-request-number":"<number>"})`
 
 Invalid completion patterns:
 
-- `update_issue(...)` and then stop
-- `update_issue(...)` + `add_comment(...)` and then stop
-- `update_issue(...)` + plain text saying Router should run next
+- `add_comment(...)` and then stop
+- `add_comment(...)` + `add_comment(...)` and then stop
+- `add_comment(...)` + plain text saying label-actions should run next
 
-If you are about to finish the run and have not yet dispatched `sfl-pr-router`, stop and dispatch it before producing any final text.
+If you are about to finish the run and have not yet dispatched `sfl-pr-label-actions`, stop and dispatch it before producing any final text.
 
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
 - Never modify PR code or draft status — only post review comments and stop after writing review state
+- Never write to the PR body — the PR body is sacred, written once by the issue-processor
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, update the dashboard with an explanation
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit

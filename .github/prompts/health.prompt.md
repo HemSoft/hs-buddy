@@ -24,7 +24,6 @@ Run these queries in parallel:
    - `sfl-analyzer-a.lock.yml`
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
-   - `sfl-pr-router.yml`
    - `sfl-pr-label-actions.yml`
 4. **Open issues** with labels `agent:pause` or `agent:escalated` that mention workflow failures
 
@@ -66,7 +65,7 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 ## Step 4 — Evaluate other workflow health
 
 For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `sfl-analyzer-a.lock.yml`,
-`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, `sfl-pr-router.yml`, and `sfl-pr-label-actions.yml`:
+`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, and `sfl-pr-label-actions.yml`:
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp
@@ -79,7 +78,7 @@ For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `sfl-analyzer
 
 Produce a concise health report in this format:
 
-```
+```text
 ## Pipeline Health Report — <timestamp>
 
 ### Overall Status: ✅ HEALTHY | ⚠️ DEGRADED | ❌ UNHEALTHY

@@ -33,7 +33,7 @@ $workflows = @(
     "sfl-analyzer-a.lock.yml",
     "sfl-analyzer-b.lock.yml",
     "sfl-analyzer-c.lock.yml",
-    "sfl-pr-router.yml",
+    "sfl-pr-label-actions.yml",
     "sfl-auditor.lock.yml"
 )
 
@@ -111,12 +111,12 @@ if ($analyzerRuns.Count -gt 9) {
     Write-Host "  Check marker output in PR body." -ForegroundColor Yellow
 }
 
-$routerRuns = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-router" }
-if ($routerRuns.Count -eq 0 -and $analyzerRuns.Count -ge 3) {
-    Write-Host "  WARNING: Analyzer chain completed but PR Router has not run." -ForegroundColor Red
-    Write-Host "  Check explicit Analyzer C -> PR Router dispatch and router marker state." -ForegroundColor Yellow
+$labelActionsRuns = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-label-actions" }
+if ($labelActionsRuns.Count -eq 0 -and $analyzerRuns.Count -ge 3) {
+    Write-Host "  WARNING: Analyzer chain completed but label-actions has not run." -ForegroundColor Red
+    Write-Host "  Check explicit Analyzer C -> label-actions dispatch." -ForegroundColor Yellow
 }
-if ($routerRuns.Count -gt 0 -and $analyzerRuns.Count -gt 3) {
+if ($labelActionsRuns.Count -gt 0 -and $analyzerRuns.Count -gt 3) {
     Write-Host "  WARNING: Multiple analyzer runs detected for one PR cycle." -ForegroundColor Yellow
     Write-Host "  Check marker output and Analyzer A handoff idempotency." -ForegroundColor Yellow
 }
@@ -129,18 +129,17 @@ if ($cycleMatches.Count -gt 0) {
 }
 
 $analyzerCMarker = "[MARKER:sfl-analyzer-c cycle:$currentCycle]"
-$routerMarker = "[MARKER:sfl-pr-router cycle:$currentCycle]"
 
-if ($prBody.Contains($analyzerCMarker) -and -not $prBody.Contains($routerMarker)) {
-    Write-Host "  WARNING: Analyzer C completed for cycle $currentCycle but Router marker is missing for that cycle." -ForegroundColor Red
-    Write-Host "  This usually means Analyzer C wrote review state but did not emit dispatch_workflow to sfl-pr-router." -ForegroundColor Yellow
+if ($prBody.Contains($analyzerCMarker) -and $labelActionsRuns.Count -eq 0) {
+    Write-Host "  WARNING: Analyzer C completed for cycle $currentCycle but label-actions has not run." -ForegroundColor Red
+    Write-Host "  This usually means Analyzer C wrote review state but did not emit dispatch_workflow to sfl-pr-label-actions." -ForegroundColor Yellow
 }
 
 $latestAnalyzerC = $sorted | Where-Object { $_.Workflow -eq "sfl-analyzer-c" } | Sort-Object StartedAt -Descending | Select-Object -First 1
-$latestRouter = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-router" } | Sort-Object StartedAt -Descending | Select-Object -First 1
-if ($latestAnalyzerC -and $latestRouter) {
-    if ([datetime]$latestAnalyzerC.StartedAt -gt [datetime]$latestRouter.StartedAt -and -not $prBody.Contains($routerMarker)) {
-        Write-Host "  WARNING: Latest Analyzer C run is newer than latest Router run, and no current-cycle Router marker exists." -ForegroundColor Red
+$latestLabelActions = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-label-actions" } | Sort-Object StartedAt -Descending | Select-Object -First 1
+if ($latestAnalyzerC -and $latestLabelActions) {
+    if ([datetime]$latestAnalyzerC.StartedAt -gt [datetime]$latestLabelActions.StartedAt) {
+        Write-Host "  WARNING: Latest Analyzer C run is newer than latest label-actions run." -ForegroundColor Red
         Write-Host "  The post-Analyzer-C handoff appears stuck on the current cycle." -ForegroundColor Yellow
     }
 }

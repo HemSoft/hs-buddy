@@ -9,11 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.305] - 2026-03-10
+
+## [0.1.304] - 2026-03-10
+
 ## [0.1.303] - 2026-03-10
 
-## [0.1.302] - 2026-03-10
+### Changed
 
-## [0.1.301] - 2026-03-10
+- Clean up SFL Session Tracking document and remove outdated entries
 
 ## [0.1.300] - 2026-03-09
 
@@ -26,14 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Switch SFL issue processor to gpt-5.4
-
-## [0.1.298] - 2026-03-09
-
-## [0.1.297] - 2026-03-09
-
-## [0.1.296] - 2026-03-09
-
-## [0.1.295] - 2026-03-09
 
 ## [0.1.294] - 2026-03-09
 
@@ -59,8 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove expiring maintenance cleanup
 
-## [0.1.290] - 2026-03-09
-
 ## [0.1.289] - 2026-03-09
 
 ### Changed
@@ -73,15 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dispatch issue processor after react doctor audit
 
-## [0.1.287] - 2026-03-09
-
 ## [0.1.286] - 2026-03-09
 
 ### Added
 
 - Add React Doctor audit and adjust auditor cadence
-
-## [0.1.285] - 2026-03-09
 
 ## [0.1.284] - 2026-03-09
 
@@ -95,87 +85,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Expand repo insights and crew workspace flows
 
-## [0.1.282] - 2026-03-08
-
-## [0.1.281] - 2026-03-08
-
-## [0.1.280] - 2026-03-07
-
-## [0.1.279] - 2026-03-07
-
-## [0.1.278] - 2026-03-07
-
-## [0.1.277] - 2026-03-06
-
-## [0.1.276] - 2026-03-06
-
-## [0.1.275] - 2026-03-06
-
-## [0.1.274] - 2026-03-06
-
-## [0.1.273] - 2026-03-06
-
-## [0.1.272] - 2026-03-06
-
-## [0.1.271] - 2026-03-05
-
-## [0.1.270] - 2026-03-05
-
-## [0.1.269] - 2026-03-05
-
-## [0.1.268] - 2026-03-05
-
-## [0.1.267] - 2026-03-04
-
-## [0.1.266] - 2026-03-04
-
-## [0.1.265] - 2026-03-04
-
-## [0.1.264] - 2026-03-04
-
-## [0.1.263] - 2026-03-04
-
-## [0.1.262] - 2026-03-04
-
-## [0.1.261] - 2026-03-04
-
-## [0.1.260] - 2026-03-04
-
-## [0.1.259] - 2026-03-04
-
-## [0.1.258] - 2026-03-04
-
-## [0.1.257] - 2026-03-04
-
-## [0.1.256] - 2026-03-04
-
-## [0.1.255] - 2026-03-04
-
-## [0.1.254] - 2026-03-04
-
-## [0.1.253] - 2026-03-04
-
-## [0.1.252] - 2026-03-03
-
-## [0.1.251] - 2026-03-03
-
-## [0.1.250] - 2026-03-03
-
-## [0.1.249] - 2026-03-03
-
-## [0.1.248] - 2026-03-03
-
 ## [0.1.247] - 2026-03-03
 
 ### Fixed
 
 - Switch analyzer-b model from gemini-3-pro-preview to claude-opus-4.5
-
-## [0.1.246] - 2026-03-03
-
-## [0.1.245] - 2026-03-03
-
-## [0.1.244] - 2026-03-03
 
 ## [0.1.243] - 2026-03-03
 
@@ -195,8 +109,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Set claude-opus-4.6 on Issue Processor and Simplisticate Audit
 
-## [0.1.240] - 2026-03-03
-
 ## [0.1.239] - 2026-03-03
 
 ### Fixed
@@ -208,8 +120,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Sequential analyzer chain, event-driven triggers, simplisticate rewrite
-
-## [0.1.237] - 2026-03-03
 
 ## [0.1.236] - 2026-03-03
 
@@ -336,14 +246,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Increment runsTriggered stat in schedule scanner & improve status bar batch display
 
-## [0.1.208] - 2026-03-01
-
-## [0.1.207] - 2026-03-01
-
-## [0.1.206] - 2026-03-01
-
-## [0.1.205] - 2026-02-28
-
 ## [0.1.204] - 2026-02-28
 
 ### Changed
@@ -358,8 +260,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Accept BLOCKED mergeStateStatus when auto-merge is true
-
-## [0.1.202] - 2026-02-28
 
 ## [0.1.201] - 2026-02-28
 
@@ -379,8 +279,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Gate PR Promoter dispatch behind fixer marker to prevent race condition
 
-## [0.1.198] - 2026-02-28
-
 ## [0.1.197] - 2026-02-28
 
 ### Added
@@ -392,8 +290,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add SFL config reader to pr-promoter, pr-fixer, issue-processor workflows
-
-## [0.1.195] - 2026-02-28
 
 ## [0.1.194] - 2026-02-28
 
@@ -407,10 +303,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add SFL config reader POC test workflow + sfl-config.yml
 
-## [0.1.192] - 2026-02-28
-
-## [0.1.191] - 2026-02-28
-
 ## [0.1.190] - 2026-02-28
 
 ### Changed
@@ -422,8 +314,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add resolve-pr-conflicts safe-input to pr-fixer
-
-## [0.1.188] - 2026-02-28
 
 ## [0.1.187] - 2026-02-28
 
@@ -437,8 +327,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add REPO_OWNER/REPO_NAME env vars to test-conflict-resolver safe-inputs
 
-## [0.1.185] - 2026-02-28
-
 ## [0.1.184] - 2026-02-28
 
 ### Changed
@@ -450,10 +338,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add safe-input for GraphQL merge state + upgrade gh-aw v0.50.7
-
-## [0.1.182] - 2026-02-28
-
-## [0.1.181] - 2026-02-28
 
 ## [0.1.180] - 2026-02-28
 
@@ -497,8 +381,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - SFL V2 architecture - push-to-branch, granular labels, doc overhaul
 
-## [0.1.173] - 2026-02-28
-
 ## [0.1.172] - 2026-02-28
 
 ### Fixed
@@ -511,33 +393,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Restructure PR Fixer to work with create_pull_request platform constraint
 
-## [0.1.170] - 2026-02-28
-
-## [0.1.169] - 2026-02-28
-
-## [0.1.168] - 2026-02-28
-
-## [0.1.167] - 2026-02-28
-
-## [0.1.166] - 2026-02-28
-
-## [0.1.165] - 2026-02-28
-
 ## [0.1.164] - 2026-02-28
 
 ### Added
 
 - Consolidate audit, debug, status skills into SFL V2.0
-
-## [0.1.163] - 2026-02-26
-
-## [0.1.162] - 2026-02-26
-
-## [0.1.161] - 2026-02-26
-
-## [0.1.160] - 2026-02-26
-
-## [0.1.159] - 2026-02-26
 
 ## [0.1.158] - 2026-02-26
 
@@ -630,15 +490,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add status field to labels-only update_issue calls to pass gh-aw validation
 
-## [0.1.143] - 2026-02-25
-
 ## [0.1.142] - 2026-02-25
 
 ### Added
 
 - Label-triggered draft flip and merge via sfl-pr-label-actions.yml
-
-## [0.1.141] - 2026-02-25
 
 ## [0.1.140] - 2026-02-25
 
@@ -646,21 +502,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - PR Promoter uses gh pr ready instead of create_pull_request
 
-## [0.1.139] - 2026-02-25
-
 ## [0.1.138] - 2026-02-25
 
 ### Added
 
 - Repurpose Discussion #51 as live SFL dashboard
-
-## [0.1.137] - 2026-02-25
-
-## [0.1.136] - 2026-02-25
-
-## [0.1.135] - 2026-02-25
-
-## [0.1.134] - 2026-02-25
 
 ## [0.1.133] - 2026-02-25
 
@@ -686,19 +532,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Clean up TODO.md formatting and remove duplicate entry
 
-## [0.1.129] - 2026-02-25
-
-## [0.1.128] - 2026-02-25
-
-## [0.1.127] - 2026-02-25
-
 ## [0.1.126] - 2026-02-25
 
 ### Added
 
 - Add Copilot org budget cards with personal budget fallback
-
-## [0.1.125] - 2026-02-25
 
 ## [0.1.124] - 2026-02-25
 
@@ -706,25 +544,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Unblock SFL pipeline — 4 root causes of infinite no-op loop
 
-## [0.1.123] - 2026-02-25
-
 ## [0.1.122] - 2026-02-24
 
 ### Fixed
 
 - Strengthen temporary_id guidance to prevent 2-char suffix failures
 
-## [0.1.121] - 2026-02-24
-
-## [0.1.120] - 2026-02-24
-
 ## [0.1.119] - 2026-02-23
 
 ### Changed
 
 - Migrate repo from HemSoft to relias-engineering
-
-## [0.1.118] - 2026-02-23
 
 ## [0.1.117] - 2026-02-23
 
@@ -755,8 +585,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Flag stalled PRs missing analyzer markers after 2 hours
-
-## [0.1.112] - 2026-02-23
 
 ## [0.1.111] - 2026-02-23
 
@@ -800,8 +628,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add SFL auditor check for action items missing agent:fixable label
 
-## [0.1.104] - 2026-02-23
-
 ## [0.1.103] - 2026-02-23
 
 ### Changed
@@ -813,8 +639,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add merge job to PR Promoter for approved PRs
-
-## [0.1.101] - 2026-02-23
 
 ## [0.1.100] - 2026-02-23
 

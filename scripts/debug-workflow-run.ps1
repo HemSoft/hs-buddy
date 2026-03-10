@@ -23,7 +23,7 @@
   The workflow run ID to debug. If omitted, shows recent runs to pick from.
 
 .PARAMETER Workflow
-    Workflow file name filter (e.g., "sfl-pr-router"). Shows recent runs for that workflow.
+    Workflow file name filter (e.g., "sfl-analyzer-c"). Shows recent runs for that workflow.
 
 .PARAMETER Repo
   Repository (default: relias-engineering/hs-buddy).
@@ -33,7 +33,7 @@
 
 .EXAMPLE
   .\debug-workflow-run.ps1 -RunId 22528612554
-    .\debug-workflow-run.ps1 -Workflow sfl-pr-router
+    .\debug-workflow-run.ps1 -Workflow sfl-analyzer-c
   .\debug-workflow-run.ps1 -Workflow pr-fixer -Full
 #>
 param(

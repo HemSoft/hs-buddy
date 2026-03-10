@@ -62,7 +62,6 @@ for deployment to other repositories.
 | sfl-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
 | sfl-analyzer-b | review | claude-opus-4.5 | ✅ Active v1.0.0 |
 | sfl-analyzer-c | review | gpt-5.4 | ✅ Active v1.0.0 |
-| sfl-pr-router | automation | — | ✅ Active v1.0.0 |
 
 ### Infrastructure (1 — standard workflow)
 
@@ -99,7 +98,7 @@ so the SFL loop runs on its own codebase.
 - [x] Direct event + workflow-dispatch handoffs move the loop forward without polling
 - [x] Three-model PR review (Analyzers A/B/C) produces high-quality feedback
 - [x] The single implementer (`sfl-issue-processor`) can create and continue draft PRs across cycles
-- [x] SFL PR Router deterministically routes all-PASS vs blocking review outcomes
+- [x] SFL PR Router deterministically routes all-PASS vs blocking review outcomes → **replaced by direct chain (A→B→C→label-actions) + label-based aggregation in V2**
 - [x] Repo Audit detects real issues and creates actionable agent:fixable items
 - [x] Governance policy (merge authority, retry limits, safe-write boundaries) is sound
 - [x] Workflow scheduling hygiene checks prevent duplicate/overlapping runs
@@ -115,6 +114,6 @@ so the SFL loop runs on its own codebase.
 - [ ] Build `loop-cost-reporter` workflow for budget visibility
 - [ ] Build `feature-intake-normalizer` workflow for Jira/GitHub normalization
 - [ ] Sync the current hs-buddy SFL architecture back to `set-it-free-loop`:
-   - single implementer via `sfl-issue-processor`
-   - deterministic `sfl-pr-router` + `sfl-pr-label-actions` handoff
-   - current analyzer model pins (`claude-sonnet-4.6`, `claude-opus-4.5`, `gpt-5.4`)
+  - single implementer via `sfl-issue-processor`
+  - direct chain pattern (A→B→C→label-actions) replacing sfl-pr-router
+  - current analyzer model pins (`claude-sonnet-4.6`, `claude-opus-4.5`, `gpt-5.4`)

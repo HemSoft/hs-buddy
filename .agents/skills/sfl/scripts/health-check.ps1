@@ -157,21 +157,16 @@ foreach ($pr in $agentPRs) {
     $markerA = "[MARKER:sfl-analyzer-a cycle:$($currentCycle)]"
     $markerB = "[MARKER:sfl-analyzer-b cycle:$($currentCycle)]"
     $markerC = "[MARKER:sfl-analyzer-c cycle:$($currentCycle)]"
-    $routerMarker = "[MARKER:sfl-pr-router cycle:$($currentCycle)]"
 
     $hasA = $body.Contains($markerA)
     $hasB = $body.Contains($markerB)
     $hasC = $body.Contains($markerC)
-    $hasRouter = $body.Contains($routerMarker)
 
     if ($hasB -and -not $hasA) {
         $markerIssues += "PR #$($pr.number) has Analyzer B marker without Analyzer A marker for cycle $($currentCycle)"
     }
     if ($hasC -and -not $hasB) {
         $markerIssues += "PR #$($pr.number) has Analyzer C marker without Analyzer B marker for cycle $($currentCycle)"
-    }
-    if ($hasRouter -and -not $hasC) {
-        $markerIssues += "PR #$($pr.number) has PR Router marker without Analyzer C marker for cycle $($currentCycle)"
     }
 
     $updatedAt = [DateTimeOffset]::Parse($pr.updatedAt)

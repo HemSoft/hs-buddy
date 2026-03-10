@@ -42,13 +42,11 @@ $AgenticWorkflows = @(
 
 # Standard YAML workflows (infrastructure)
 $InfraWorkflows = @(
-    "sfl-pr-router.yml"
+    "sfl-pr-label-actions.yml"
 )
 
 # Dogfood-only workflows (copied to .github/workflows/ but not to deployment/)
-$DogfoodOnlyWorkflows = @(
-    "sfl-pr-label-actions.yml"
-)
+$DogfoodOnlyWorkflows = @()
 
 # Documentation files
 $DocFiles = @(

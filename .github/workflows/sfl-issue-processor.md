@@ -37,7 +37,7 @@ tools:
   github:
     lockdown: false
 
-safe-inputs:
+mcp-scripts:
   read-sfl-config:
     description: "Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, cycle limits, and activity log settings."
     inputs: {}
@@ -166,9 +166,13 @@ If `pull-request-number` is provided:
 2. Verify it is an open **draft** PR with label `agent:pr` and without
   `agent:human-required`.
 3. Determine current cycle N from the highest `pr:cycle-N` label (default `0`).
-4. Verify all three analyzer markers exist for cycle N.
-5. Verify at least one analyzer verdict for cycle N is `**BLOCKING ISSUES FOUND**`.
-6. Verify `[MARKER:sfl-issue-processor cycle:N]` is not already present.
+4. Search the PR **comments** for all three analyzer markers for cycle N:
+   `[MARKER:sfl-analyzer-a cycle:N]`, `[MARKER:sfl-analyzer-b cycle:N]`,
+   `[MARKER:sfl-analyzer-c cycle:N]`. Verify all three exist.
+5. From the same PR comments, check the analyzer verdicts. Verify at least one
+   verdict for cycle N is `**BLOCKING ISSUES FOUND**`.
+6. Search the PR comments for `[MARKER:sfl-issue-processor cycle:N]`.
+   Verify it is not already present.
 
 If any of those checks fail, exit — there is no eligible follow-up work for
 that specific PR.
@@ -195,17 +199,18 @@ For each candidate:
    skip the candidate.
 2. Determine the current cycle N from the highest `pr:cycle-N` label
    (default `0` if none exist).
-3. Verify that ALL three analyzer markers exist for the current cycle:
+3. Search the PR **comments** for ALL three analyzer markers for the current cycle:
    - `[MARKER:sfl-analyzer-a cycle:N]`
    - `[MARKER:sfl-analyzer-b cycle:N]`
    - `[MARKER:sfl-analyzer-c cycle:N]`
-4. Check the three analyzer verdicts for cycle N.
+4. From the same PR comments, check the three analyzer verdicts for cycle N.
    - If all three verdicts are `**PASS**`, skip the candidate — promotion,
      not implementation, is the next step.
    - If any verdict is `**BLOCKING ISSUES FOUND**`, this PR needs another
      implementation pass.
-5. If the PR body already contains `[MARKER:sfl-issue-processor cycle:N]`,
-   skip the candidate — this cycle has already had an implementation pass.
+5. Search the PR comments for `[MARKER:sfl-issue-processor cycle:N]`.
+   If present, skip the candidate — this cycle has already had an
+   implementation pass.
 
 Take the **first** candidate that still has unresolved blocking feedback.
 
@@ -242,10 +247,11 @@ If `issue-number` is provided:
     - read that PR
     - verify it is an open **draft** PR without `agent:human-required`
     - determine current cycle N from the highest `pr:cycle-N` label (default `0`)
-    - verify all three analyzer markers exist for cycle N
-    - verify at least one analyzer verdict for cycle N is
+    - search the PR **comments** for all three analyzer markers for cycle N
+    - verify at least one analyzer verdict for cycle N (from PR comments) is
       `**BLOCKING ISSUES FOUND**`
-    - verify `[MARKER:sfl-issue-processor cycle:N]` is not already present
+    - search the PR comments for `[MARKER:sfl-issue-processor cycle:N]` —
+      verify it is not already present
     - if all checks pass, use that PR as the work item and continue at Step 3
     - if any check fails, exit — there is no eligible follow-up work for that
       specific issue/PR pair
@@ -334,7 +340,8 @@ Always read all of the following before writing code:
 1. The linked issue body — this is the canonical source of intent and
   acceptance criteria.
 
-2. If a draft PR already exists, read the PR description/body, the PR diff, and the three analyzer reviews for the current cycle.
+2. If a draft PR already exists, read the PR description/body, the PR diff,
+   and the three analyzer review **comments** for the current cycle.
 
 3. The target file(s) in full and any surrounding context needed to implement safely.
 
@@ -459,7 +466,11 @@ Then increment the cycle label:
 1. Call `remove_labels` to remove the current `pr:cycle-N` label if one exists.
 2. Call `add_labels` to add the next cycle label `pr:cycle-(N+1)`.
 
-Then append this summary marker to the PR body with `update_issue`:
+Then post the implementation summary as a **PR comment** using `add_comment`
+(do NOT append to the PR body — the PR body is sacred, written once):
+
+- `issue_number`: the PR number
+- `body`: the structured summary in the exact format below
 
 ```markdown
 [MARKER:sfl-issue-processor cycle:N]

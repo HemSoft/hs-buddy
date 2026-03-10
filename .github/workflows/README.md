@@ -35,9 +35,8 @@ That repo contains:
 | `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |
 | `sfl-analyzer-a` | `pull_request: opened` | Starts the sequential A -> B -> C review chain for draft PRs (Model A) | Local |
 | `sfl-analyzer-b` | Analyzer A dispatch | Continues the sequential full-spectrum review chain (Model B) | Local |
-| `sfl-analyzer-c` | Analyzer B dispatch | Finishes the sequential full-spectrum review chain and writes the verdict state that the PR Router consumes | Local |
-| `sfl-pr-router` (`SFL PR Router`) | Analyzer C dispatch / manual dispatch | Deterministically reads Analyzer C's current-cycle verdicts and either dispatches label-actions for ready-for-review or dispatches the Issue Processor for the next pass | Local |
-| `sfl-pr-label-actions` (`SFL PR Label Actions`) | PR Router dispatch / manual dispatch | Deterministic ready-for-review flip automation | Local |
+| `sfl-analyzer-c` | Analyzer B dispatch | Finishes the sequential full-spectrum review chain; dispatches label-actions for ready-for-review or fix-cycle decisions | Local |
+| `sfl-pr-label-actions` (`SFL PR Label Actions`) | Analyzer C dispatch / manual dispatch | Deterministic aggregator: checks labels, flips draft → ready or dispatches issue-processor for fix cycle | Local |
 
 ---
 

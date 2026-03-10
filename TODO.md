@@ -2,6 +2,7 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 📋     | High     | [Add GitHub organization metrics detail view](#add-github-organization-metrics-detail-view)                | Org rows currently expand only; add a real detail page for the selected org with budget and usage metrics                            |
 | 📋     | Medium   | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard)                                          | Run counts, p50/p90 cost, monthly budget burn                                                                                         |
 | 📋     | Medium   | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit)                                        | Detect and delete merged/orphaned agent-fix branches                                                                                  |
 | 📋     | Medium   | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead  |
@@ -15,7 +16,7 @@
 | ✅     | Critical | Simplisticate Workflows                                                                                      | Completed 2026-03-03: event-driven trigger path implemented and autonomous merge flow removed in favor of human review handoff.       |
 | ✅     | Medium   | Copilot Usage month-end projection                                                                           | Per-account + aggregate trend projection with ghost arc on ring, daily rate, est. overage (2026-03)                                   |
 | ✅     | Medium   | Run 30-day Set it Free pilot                                                                                 | Removed — ongoing operational concern, not a dev task (2026-02)                                                                       |
-| ✅     | Critical | SFL Auto-Merge mode                                                                                          | Implemented, then simplified to human-review handoff via sfl-pr-router + sfl-pr-label-actions (2026-02/2026-03)                       |
+| ✅     | Critical | SFL Auto-Merge mode                                                                                          | Implemented, then simplified to human-review handoff via direct chain pattern A→B→C→label-actions (2026-02/2026-03)                   |
 | ✅     | Medium   | Elegant status bar queue display                                                                             | Shows "X of N · TaskName" with batch tracking instead of concatenating all tasks (2026-02)                                            |
 | ✅     | Medium   | Copilot enterprise budget not resetting on new billing cycle                                                 | Fixed: UTC dates for billing API query, auto-refresh on month boundary, billing period display (2026-02)                              |
 | ✅     | Critical | SFL Simplification — Replace supersession model                                                              | pr-fixer rewritten to use `push-to-pull-request-branch` (2026-02)                                                                     |
@@ -67,11 +68,52 @@
 
 ## Progress
 
-**Remaining: 5** | **Completed: 56** (92%)
+**Remaining: 6** | **Completed: 56** (90%)
 
 ---
 
 ## Remaining Items
+
+### Add GitHub organization metrics detail view
+
+**Goal**: When a GitHub organization is selected in the sidebar, open a real detail page instead of leaving the main content area empty or on a generic placeholder.
+
+**Current gap**:
+
+- The org row in `OrgRepoTree` only expands/collapses; it does not open an org-scoped route.
+- `AppContentRouter` has repo-level detail panels and the global `copilot-usage` panel, but no organization detail route.
+- Org-level metrics already exist in the app via `useCopilotUsage()` and the Copilot usage components, so this feature should reuse those data surfaces instead of introducing a separate metrics pipeline.
+
+**Desired behavior**:
+
+- Selecting an organization in the GitHub sidebar opens an org-scoped detail route such as `org-detail:{org}`.
+- The detail page shows metrics for the selected organization, starting with the existing org budget and Copilot usage data.
+- The page should clearly indicate which GitHub account authenticated the org data and whether the namespace is a user account.
+- The view should include loading, empty, and error states comparable to the existing Copilot usage panels.
+- Repo expansion under the org should continue to work independently of opening the org detail view.
+
+**Candidate metrics**:
+
+- Current budget or overage spend for the org
+- Billing period and last refreshed timestamp
+- My share vs overall org usage when available
+- Rollup of configured account quota usage for accounts mapped to that org
+
+**Likely implementation areas**:
+
+- `src/components/sidebar/github-sidebar/OrgRepoTree.tsx` — make org rows selectable in addition to expandable
+- `src/components/AppContentRouter.tsx` — add org detail route handling
+- `src/components/appContentViewLabels.ts` — label org detail tabs
+- New org metrics panel component(s), likely reusing logic/presentation from `CopilotUsagePanel` and `copilot-usage/*`
+- Possibly a small org-scoped hook to adapt `useCopilotUsage()` data for a single selected org
+
+**Open questions**:
+
+- Should the org detail page focus only on Copilot metrics first, or also include repo counts, PR counts, and SFL health rollups?
+- Should selecting the org name open the page directly, or should there be an explicit child node like `Overview` or `Metrics` under each org?
+- Should user namespaces reuse the same page, or get a slightly different label/treatment than true organizations?
+
+---
 
 ### Create cost telemetry dashboard
 

@@ -55,8 +55,8 @@ delimited by HTML comment markers (`<!-- SECTION:sfl-auditor -->` ...
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
 
 Never discard other workflows' sections. If the body is empty or missing
-markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
-sfl-pr-router, sfl-auditor) and populate only yours.
+markers, write the full template with all 5 sections (sfl-analyzer-a/b/c,
+sfl-auditor) and populate only yours.
 
 ## Step 1 — Gather current state
 
@@ -283,21 +283,23 @@ append exactly one warning comment to that newer PR via `update_issue`:
 Only flag each newer PR once. If its body already contains the exact string
 `Potential analyzer starvation detected`, skip it.
 
-Additional current-cycle router handoff check:
+Additional current-cycle label-actions handoff check:
 
 For each open draft agent PR in list B:
 
 1. Determine the current cycle N from `pr:cycle-N` labels (default 0).
-2. Check whether the PR body contains `[MARKER:sfl-analyzer-c cycle:N]`.
-3. Check whether the PR body contains `[MARKER:sfl-pr-router cycle:N]`.
+2. Check whether the PR **comments** contain `[MARKER:sfl-analyzer-c cycle:N]`.
 
-If the Analyzer C marker for cycle N exists but the Router marker for cycle N does NOT exist, append exactly one warning comment to that PR via `update_issue`:
+If the Analyzer C marker for cycle N exists in a comment, check the PR's labels:
+
+- If the PR has neither `analyzer:blocked` nor `human:ready-for-review`, this
+  suggests Analyzer C completed but `sfl-pr-label-actions` did not run or did
+  not apply labels. Append exactly one warning comment to that PR via `add_comment`:
 
 - `issue_number`: the PR number
-- `body`: "⚠️ **SFL Auditor**: Analyzer C completed for current cycle <N>, but the PR Router marker for that same cycle is missing. This suggests Analyzer C wrote review state without dispatching the deterministic router. Investigate Analyzer C safe-output behavior."
-- `operation`: `"append"`
+- `body`: "⚠️ **SFL Auditor**: Analyzer C completed for current cycle <N>, but neither `analyzer:blocked` nor `human:ready-for-review` label is present. This suggests Analyzer C dispatched label-actions but it did not complete. Investigate the Analyzer C → label-actions handoff."
 
-Only flag each PR once. If its body already contains the exact string
+Only flag each PR once. If its comments already contain the exact string
 `Analyzer C completed for current cycle` then skip it.
 
 ## Step 12 — Check: invalid supersede narrative on open agent PRs

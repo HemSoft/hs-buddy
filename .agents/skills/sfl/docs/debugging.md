@@ -2,7 +2,7 @@
 
 ## Triage Flowchart
 
-```
+```text
 Symptom reported
   │
   ├─ PR not progressing?
@@ -12,9 +12,9 @@ Symptom reported
   │    │   ├─ Legacy markers only → Workflows need recompile (gh aw compile)
   │    │   └─ Markers present → Check verdicts (PASS vs BLOCKING)
    │    ├─ Check: Is Issue Processor running?
-   │    │   └─ Any BLOCKING verdict in the current cycle? If yes, router should dispatch it.
-   │    └─ Check: Is sfl-pr-router running?
-   │        └─ All 3 analyzer markers for current cycle? Router only acts once Analyzer C has written a complete verdict state.
+   │    │   └─ Any BLOCKING verdict in the current cycle? If yes, label-actions dispatches issue-processor.
+   │    └─ Check: Is label-actions running?
+   │        └─ All 3 analyzer markers for current cycle? Label-actions checks for `analyzer:blocked` label to decide fix-cycle vs ready-for-review.
   │
   ├─ Issue stuck in agent:fixable?
    │    ├─ Did the issue open with the `agent:fixable` label already present?

@@ -40,7 +40,7 @@ Buddy's `.github/workflows/` deploys from that library. Its governance labels ar
 
 ### Current State (hs-conductor)
 
-```
+```text
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │  Admin UI       │────▶│  Express Server │────▶│  Inngest Dev    │
 │  (Electron)     │     │  (Port 2900)    │     │  (Port 2901)    │
@@ -62,7 +62,7 @@ Buddy's `.github/workflows/` deploys from that library. Its governance labels ar
 
 ### Target State (hs-buddy + Convex)
 
-```
+```text
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │  Buddy Desktop  │────▶│                 │◀────│  Buddy Mobile   │
 │  (Electron)     │     │   Convex Cloud  │     │  (Future)       │
@@ -267,7 +267,7 @@ When the machine is offline:
 
 Add "Workflows" icon to the activity bar (alongside PRs, Settings):
 
-```
+```text
 ┌──────────────────────────────────────────────────────────┐
 │ [≡] Buddy                               [−] [□] [×]     │
 ├────┬─────────────────────────────────────────────────────┤
@@ -295,7 +295,7 @@ Add "Workflows" icon to the activity bar (alongside PRs, Settings):
 
 Port the visual cron builder from hs-conductor:
 
-```
+```text
 ┌─────────────────────────────────────────────────────┐
 │ Schedule Frequency                                   │
 │ ┌────────┐ ┌────────┐ ┌───────┐ ┌────────┐ ┌──────┐│
@@ -441,7 +441,7 @@ Buddy's role here is to run the loop and dogfood the governance standard.
 - [x] `repo-audit` (`Repo Audit`) workflow deployed and running
 - [x] `discussion-processor` deployed and grouping report findings into actionable issues
 - [x] `sfl-issue-processor` is the single implementer for first-pass and follow-up PR work
-- [x] `sfl-pr-router` + `sfl-pr-label-actions` handle deterministic ready-for-review routing
+- [x] Direct chain pattern (A→B→C→label-actions) handles deterministic ready-for-review routing
 - [x] Governance labels configured via `setup-labels.ps1`
 - [x] `featureIntakes` Convex table for intake normalization
 - [ ] 30-day pilot metrics published to SFL repo

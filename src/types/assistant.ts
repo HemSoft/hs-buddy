@@ -16,8 +16,3 @@ export interface AssistantContext {
   summary: string
   metadata: Record<string, unknown>
 }
-
-export interface ChatChunk {
-  chunk: string
-  done: boolean
-}

@@ -133,11 +133,6 @@ export function useScheduleRuns(scheduleId: Id<'schedules'> | undefined, limit?:
   return useQuery(api.runs.listBySchedule, scheduleId ? { scheduleId, limit } : 'skip')
 }
 
-// Get single run by ID
-export function useRun(id: Id<'runs'> | undefined) {
-  return useQuery(api.runs.get, id ? { id } : 'skip')
-}
-
 // Run mutations
 export function useRunMutations() {
   const create = useMutation(api.runs.create)

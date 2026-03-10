@@ -20,7 +20,6 @@ import {
 import type { OrgRepo, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus, SFLOverallStatus } from '../../../types/sflStatus'
-import { SFL_STATUS_LABELS } from '../../../types/sflStatus'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import type { PRDetailSection } from '../../../utils/prDetailView'
 import { dataCache } from '../../../services/dataCache'
@@ -79,6 +78,15 @@ const prSubNodes: Array<{ key: PRDetailSection; label: string }> = [
   { key: 'files-changed', label: 'Files changed' },
   { key: 'ai-reviews', label: 'AI Reviews' },
 ]
+
+const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {
+  healthy: 'Healthy',
+  'active-work': 'Active work',
+  blocked: 'Blocked',
+  'ready-for-review': 'Ready for review',
+  'recent-failure': 'Recent failure',
+  unknown: 'Unknown',
+}
 
 function formatUpdatedAge(fetchedAt: number): string {
   const elapsedMs = Date.now() - fetchedAt

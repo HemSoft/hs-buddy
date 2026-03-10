@@ -5,6 +5,7 @@ import { useGitHubAccounts, usePRSettings } from '../../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConvex'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
+import { getProgressColor } from '../../utils/progressColors'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
@@ -18,19 +19,6 @@ interface LoadingProgress {
   prsFound?: number
   totalPrsFound: number
   error?: string
-}
-
-const PROGRESS_COLORS = [
-  { max: 25, color: '#4ec9b0' },
-  { max: 50, color: '#dcd34a' },
-  { max: 75, color: '#e89b3c' },
-  { max: 100, color: '#e85d5d' },
-] as const
-
-function getProgressColor(progress: number): string {
-  return (
-    PROGRESS_COLORS.find(c => progress <= c.max) ?? PROGRESS_COLORS[PROGRESS_COLORS.length - 1]
-  ).color
 }
 
 function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {

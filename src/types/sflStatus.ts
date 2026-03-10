@@ -40,26 +40,6 @@ export interface SFLRepoStatus {
   workflows: SFLWorkflowInfo[]
 }
 
-/** Map workflow conclusions to display labels. */
-export const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {
-  healthy: 'Healthy',
-  'active-work': 'Active work',
-  blocked: 'Blocked',
-  'ready-for-review': 'Ready for review',
-  'recent-failure': 'Recent failure',
-  unknown: 'Unknown',
-}
-
-/** Map workflow conclusions to display colors (CSS class suffixes). */
-export const SFL_STATUS_COLORS: Record<SFLOverallStatus, string> = {
-  healthy: 'success',
-  'active-work': 'info',
-  blocked: 'warning',
-  'ready-for-review': 'info',
-  'recent-failure': 'error',
-  unknown: 'muted',
-}
-
 /**
  * Derive the overall SFL pipeline status from individual workflow states.
  */

@@ -3,6 +3,7 @@ import { usePRSettings } from './useConfig'
 import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE } from '../constants'
+import { getProgressColor } from '../utils/progressColors'
 
 type BadgeProgress = { progress: number; color: string; tooltip: string }
 
@@ -17,13 +18,6 @@ const PR_MODES: PRMode[] = [
   { key: 'recently-merged', id: 'pr-recently-merged' },
   { key: 'need-a-nudge', id: 'pr-need-a-nudge' },
 ]
-
-function getProgressColor(percent: number): string {
-  if (percent <= 25) return '#4ec9b0'
-  if (percent <= 50) return '#dcd34a'
-  if (percent <= 75) return '#e89b3c'
-  return '#e85d5d'
-}
 
 function getInitialCounts(): Record<string, number> {
   const initial: Record<string, number> = {}

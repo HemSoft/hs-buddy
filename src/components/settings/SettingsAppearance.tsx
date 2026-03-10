@@ -82,11 +82,11 @@ export function SettingsAppearance() {
   )
 
   const handleThemeChange = async (newTheme: 'dark' | 'light') => {
-    setTheme(newTheme)
     document.documentElement.setAttribute('data-theme', newTheme)
 
     // Reset colors to theme defaults when switching themes
     const defaults = newTheme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
+    setTheme(newTheme)
     setColors({
       accentColor: defaults.accentColor,
       fontColor: defaults.fontColor,

@@ -194,13 +194,11 @@ export function RepoPullRequestList({
       ) : (
         <div className="repo-prs-list">
           {prs.map(pr => (
-            <div
+            <button
               key={pr.number}
+              type="button"
               className={`repo-pr-item${pr.draft ? ' repo-pr-item--draft' : ''}`}
-              role="button"
-              tabIndex={0}
               onClick={() => handlePRClick(pr)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handlePRClick(pr); } }}
             >
               <div className="repo-pr-header">
                 <div className="repo-pr-title-row">
@@ -253,7 +251,7 @@ export function RepoPullRequestList({
                   </span>
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

@@ -19,76 +19,65 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Sat', short: 'S' },
 ]
 
+interface CronState {
+  frequency: Frequency
+  minute: number
+  hour: number
+  dayOfMonth: number
+  selectedDays: number[]
+}
+
 export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const cronFreqLabelId = useId()
-  const [frequency, setFrequency] = useState<Frequency>('hourly')
-  const [minute, setMinute] = useState(0)
-  const [hour, setHour] = useState(9)
-  const [dayOfMonth, setDayOfMonth] = useState(1)
-  const [selectedDays, setSelectedDays] = useState<number[]>([1]) // Monday by default
+  const [cronState, setCronState] = useState<CronState>({
+    frequency: 'hourly',
+    minute: 0,
+    hour: 9,
+    dayOfMonth: 1,
+    selectedDays: [1],
+  })
+  const { frequency, minute, hour, dayOfMonth, selectedDays } = cronState
+  const updateCron = (patch: Partial<CronState>) => setCronState(prev => ({ ...prev, ...patch }))
 
   // Parse incoming cron value to set initial state
   useEffect(() => {
     const parts = value.split(' ')
     if (parts.length !== 5) {
-      setFrequency('custom')
+      setCronState(prev => ({ ...prev, frequency: 'custom' }))
       return
     }
 
     const [min, hr, dom, , dow] = parts
 
-    type FreqDef = {
-      match: () => boolean
-      freq: typeof frequency
-      apply: () => void
-    }
-
-    const patterns: FreqDef[] = [
-      {
-        match: () => value === '* * * * *',
-        freq: 'minute',
-        apply: () => {},
-      },
-      {
-        match: () => min !== '*' && hr === '*' && dom === '*' && dow === '*',
-        freq: 'hourly',
-        apply: () => setMinute(parseInt(min) || 0),
-      },
-      {
-        match: () => min !== '*' && hr !== '*' && dom === '*' && dow === '*',
-        freq: 'daily',
-        apply: () => {
-          setMinute(parseInt(min) || 0)
-          setHour(parseInt(hr) || 9)
-        },
-      },
-      {
-        match: () => min !== '*' && hr !== '*' && dom === '*' && dow !== '*',
-        freq: 'weekly',
-        apply: () => {
-          setMinute(parseInt(min) || 0)
-          setHour(parseInt(hr) || 9)
-          const days = dow.split(',').map(d => parseInt(d)).filter(d => !isNaN(d))
-          setSelectedDays(days.length > 0 ? days : [1])
-        },
-      },
-      {
-        match: () => min !== '*' && hr !== '*' && dom !== '*' && dow === '*',
-        freq: 'monthly',
-        apply: () => {
-          setMinute(parseInt(min) || 0)
-          setHour(parseInt(hr) || 9)
-          setDayOfMonth(parseInt(dom) || 1)
-        },
-      },
-    ]
-
-    const matched = patterns.find(p => p.match())
-    if (matched) {
-      setFrequency(matched.freq)
-      matched.apply()
+    // Detect frequency from cron pattern
+    if (value === '* * * * *') {
+      setCronState(prev => ({ ...prev, frequency: 'minute' }))
+    } else if (min !== '*' && hr === '*' && dom === '*' && dow === '*') {
+      setCronState(prev => ({ ...prev, frequency: 'hourly', minute: parseInt(min) || 0 }))
+    } else if (min !== '*' && hr !== '*' && dom === '*' && dow === '*') {
+      setCronState(prev => ({ ...prev, frequency: 'daily', minute: parseInt(min) || 0, hour: parseInt(hr) || 9 }))
+    } else if (min !== '*' && hr !== '*' && dom === '*' && dow !== '*') {
+      const days = dow
+        .split(',')
+        .map(d => parseInt(d))
+        .filter(d => !isNaN(d))
+      setCronState(prev => ({
+        ...prev,
+        frequency: 'weekly',
+        minute: parseInt(min) || 0,
+        hour: parseInt(hr) || 9,
+        selectedDays: days.length > 0 ? days : [1],
+      }))
+    } else if (min !== '*' && hr !== '*' && dom !== '*' && dow === '*') {
+      setCronState(prev => ({
+        ...prev,
+        frequency: 'monthly',
+        minute: parseInt(min) || 0,
+        hour: parseInt(hr) || 9,
+        dayOfMonth: parseInt(dom) || 1,
+      }))
     } else {
-      setFrequency('custom')
+      setCronState(prev => ({ ...prev, frequency: 'custom' }))
     }
   }, [value])
 
@@ -148,13 +137,14 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   }, [frequency, minute, hour, dayOfMonth, selectedDays])
 
   const toggleDay = (day: number) => {
-    setSelectedDays(prev => {
-      if (prev.includes(day)) {
+    setCronState(prev => {
+      const prevDays = prev.selectedDays
+      if (prevDays.includes(day)) {
         // Don't allow deselecting all days
-        if (prev.length === 1) return prev
-        return prev.filter(d => d !== day)
+        if (prevDays.length === 1) return prev
+        return { ...prev, selectedDays: prevDays.filter(d => d !== day) }
       }
-      return [...prev, day]
+      return { ...prev, selectedDays: [...prevDays, day] }
     })
   }
 
@@ -166,42 +156,42 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
           <button
             type="button"
             className={`freq-btn ${frequency === 'minute' ? 'active' : ''}`}
-            onClick={() => setFrequency('minute')}
+            onClick={() => updateCron({ frequency: 'minute' })}
           >
             Every Minute
           </button>
           <button
             type="button"
             className={`freq-btn ${frequency === 'hourly' ? 'active' : ''}`}
-            onClick={() => setFrequency('hourly')}
+            onClick={() => updateCron({ frequency: 'hourly' })}
           >
             Hourly
           </button>
           <button
             type="button"
             className={`freq-btn ${frequency === 'daily' ? 'active' : ''}`}
-            onClick={() => setFrequency('daily')}
+            onClick={() => updateCron({ frequency: 'daily' })}
           >
             Daily
           </button>
           <button
             type="button"
             className={`freq-btn ${frequency === 'weekly' ? 'active' : ''}`}
-            onClick={() => setFrequency('weekly')}
+            onClick={() => updateCron({ frequency: 'weekly' })}
           >
             Weekly
           </button>
           <button
             type="button"
             className={`freq-btn ${frequency === 'monthly' ? 'active' : ''}`}
-            onClick={() => setFrequency('monthly')}
+            onClick={() => updateCron({ frequency: 'monthly' })}
           >
             Monthly
           </button>
           <button
             type="button"
             className={`freq-btn ${frequency === 'custom' ? 'active' : ''}`}
-            onClick={() => setFrequency('custom')}
+            onClick={() => updateCron({ frequency: 'custom' })}
           >
             Custom
           </button>
@@ -213,7 +203,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
         {frequency === 'hourly' && (
           <div className="cron-option">
             <span className="option-label">At minute</span>
-            <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
+            <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
               {Array.from({ length: 60 }, (_, min) => (
                 <option key={min} value={min}>
                   {min.toString().padStart(2, '0')}
@@ -228,7 +218,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
         {frequency === 'daily' && (
           <div className="cron-option">
             <span className="option-label">At</span>
-            <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
+            <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
               {Array.from({ length: 24 }, (_, h) => (
                 <option key={h} value={h}>
                   {formatHour12(h)}
@@ -236,7 +226,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
               ))}
             </select>
             <span className="option-separator">:</span>
-            <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
+            <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
               {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
                 <option key={m} value={m}>
                   {m.toString().padStart(2, '0')}
@@ -267,7 +257,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             </div>
             <div className="cron-option">
               <span className="option-label">At</span>
-              <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
+              <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
                 {Array.from({ length: 24 }, (_, h) => (
                   <option key={h} value={h}>
                     {formatHour12(h)}
@@ -275,7 +265,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
                 ))}
               </select>
               <span className="option-separator">:</span>
-              <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
+              <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
                 {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
                   <option key={m} value={m}>
                     {m.toString().padStart(2, '0')}
@@ -291,7 +281,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
           <>
             <div className="cron-option">
               <span className="option-label">On day</span>
-              <select value={dayOfMonth} onChange={e => setDayOfMonth(parseInt(e.target.value))}>
+              <select value={dayOfMonth} onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}>
                 {Array.from({ length: 31 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>
                     {i + 1}
@@ -302,7 +292,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             </div>
             <div className="cron-option">
               <span className="option-label">At</span>
-              <select value={hour} onChange={e => setHour(parseInt(e.target.value))}>
+              <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
                 {Array.from({ length: 24 }, (_, h) => (
                   <option key={h} value={h}>
                     {formatHour12(h)}
@@ -310,7 +300,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
                 ))}
               </select>
               <span className="option-separator">:</span>
-              <select value={minute} onChange={e => setMinute(parseInt(e.target.value))}>
+              <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
                 {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
                   <option key={m} value={m}>
                     {m.toString().padStart(2, '0')}

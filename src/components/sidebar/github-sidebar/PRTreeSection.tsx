@@ -47,9 +47,7 @@ export function PRTreeSection({
     <>
       {prItems.map(item => (
         <div key={item.id}>
-          <div
-            className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''}`}
-          >
+          <div className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''}`}>
             <button
               type="button"
               className="sidebar-item-chevron"
@@ -100,11 +98,11 @@ export function PRTreeSection({
                     <div
                       key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`}
                       className="sidebar-pr-group"
+                      onContextMenu={e => onContextMenu(e, pr)}
+                      title={pr.title}
                     >
                       <div
                         className={`sidebar-item sidebar-item-disclosure sidebar-pr-item ${isSelected ? 'selected' : ''}`}
-                        onContextMenu={e => onContextMenu(e, pr)}
-                        title={pr.title}
                       >
                         <button
                           type="button"
@@ -144,19 +142,17 @@ export function PRTreeSection({
                           {prSubNodes.map(node => {
                             const childViewId = createPRDetailViewId(pr, node.key)
                             return (
-                              <div
+                              <button
                                 key={childViewId}
+                                type="button"
                                 className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
-                                role="button"
-                                tabIndex={0}
                                 onClick={() => onItemSelect(childViewId)}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                               >
                                 <span className="sidebar-item-icon">
                                   <FileText size={11} />
                                 </span>
                                 <span className="sidebar-item-label">{node.label}</span>
-                              </div>
+                              </button>
                             )
                           })}
                         </div>

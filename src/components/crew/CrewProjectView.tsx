@@ -218,9 +218,9 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
                   <p>Send a message to start the conversation.</p>
                 </div>
               )}
-              {session.conversationHistory.map((msg, i) => (
+              {session.conversationHistory.map((msg) => (
                 <div
-                  key={`${msg.role}-${msg.timestamp}-${i}`}
+                  key={`${msg.role}-${msg.timestamp}`}
                   style={{
                     marginBottom: '12px',
                     padding: '8px 12px',

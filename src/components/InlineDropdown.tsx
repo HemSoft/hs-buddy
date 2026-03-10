@@ -175,10 +175,21 @@ export function InlineDropdown({
                 role="option"
                 aria-selected={opt.value === value}
                 aria-disabled={opt.disabled}
+                tabIndex={opt.disabled ? -1 : enabledIdx === focusIndex ? 0 : -1}
                 onClick={() => {
                   if (!opt.disabled) handleSelect(opt.value)
                 }}
+                onKeyDown={e => {
+                  if (opt.disabled) return
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleSelect(opt.value)
+                  }
+                }}
                 onMouseEnter={() => {
+                  if (!opt.disabled) setFocusIndex(enabledIdx)
+                }}
+                onFocus={() => {
                   if (!opt.disabled) setFocusIndex(enabledIdx)
                 }}
               >

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
 import MarkdownPreview from '@uiw/react-markdown-preview'
 import { GitPullRequestArrow } from 'lucide-react'
@@ -61,7 +61,7 @@ function SuggestionBlock({ content }: { content: string }) {
       </div>
       <div className="suggestion-diff">
         {lines.map((line, i) => (
-          <div key={`${i}-${line.slice(0, 30)}`} className="diff-line diff-add">
+          <div key={`suggestion-line-${i}-${line.slice(0, 30)}`} className="diff-line diff-add">
             <span className="diff-line-content">{`  ${line}`}</span>
           </div>
         ))}
@@ -70,15 +70,25 @@ function SuggestionBlock({ content }: { content: string }) {
   )
 }
 
+function SafeHtml({ html, className, ...props }: { html: string; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.innerHTML = DOMPurify.sanitize(html)
+    }
+  }, [html])
+  return <div ref={ref} className={className} {...props} />
+}
+
 function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null }) {
   const hasSuggestionBlock = /```suggestion\s*\n[\s\S]*?```/.test(body)
 
   if (!hasSuggestionBlock && bodyHtml && bodyHtml.trim()) {
     return (
-      <div
+      <SafeHtml
+        html={bodyHtml}
         className="thread-comment-body thread-comment-markdown thread-comment-markdown-html"
         data-color-mode="dark"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(bodyHtml) }}
       />
     )
   }
@@ -88,11 +98,12 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
   return (
     <div className="thread-comment-body">
       {segments.map((segment, i) => {
+        const segKey = `${segment.type}-${i}-${segment.content.length}-${segment.content.slice(0, 40)}`
         if (segment.type === 'suggestion') {
-          return <SuggestionBlock key={`suggestion-${segment.content.slice(0, 30)}-${i}`} content={segment.content} />
+          return <SuggestionBlock key={segKey} content={segment.content} />
         }
         return (
-          <div key={`text-${segment.content.slice(0, 30)}-${i}`} className="thread-comment-markdown" data-color-mode="dark">
+          <div key={segKey} className="thread-comment-markdown" data-color-mode="dark">
             <MarkdownPreview
               source={segment.content}
               style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: '13px' }}

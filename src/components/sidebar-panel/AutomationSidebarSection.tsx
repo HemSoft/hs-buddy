@@ -189,13 +189,11 @@ export function AutomationSidebarSection({
               <div className="sidebar-job-tree">
                 <div className="sidebar-job-items">
                   {schedules.map(schedule => (
-                    <div
+                    <button
                       key={schedule._id}
+                      type="button"
                       className={`sidebar-item sidebar-job-item ${selectedItem === `schedule-detail:${schedule._id}` ? 'selected' : ''}`}
                       onClick={() => onItemSelect(`schedule-detail:${schedule._id}`)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(`schedule-detail:${schedule._id}`); } }}
                       title={schedule.description || schedule.name}
                     >
                       <span className="sidebar-item-icon">
@@ -203,7 +201,7 @@ export function AutomationSidebarSection({
                       </span>
                       <span className="sidebar-item-label">{schedule.name}</span>
                       {!schedule.enabled && <span className="sidebar-schedule-disabled">off</span>}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -222,12 +220,10 @@ export function AutomationSidebarSection({
                   const isTypeExpanded = expandedSubSections.has(typeKey)
                   return (
                     <div key={type} className="sidebar-job-category">
-                      <div
+                      <button
+                        type="button"
                         className="sidebar-job-category-header"
                         onClick={() => toggleSubSection(typeKey)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubSection(typeKey); } }}
                       >
                         <span className="sidebar-item-chevron">
                           {isTypeExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -235,24 +231,22 @@ export function AutomationSidebarSection({
                         <span className="sidebar-item-icon">{info.icon}</span>
                         <span className="sidebar-item-label">{info.label}</span>
                         <span className="sidebar-item-count">{typeJobs.length}</span>
-                      </div>
+                      </button>
                       {isTypeExpanded && (
                         <div className="sidebar-job-items">
                           {typeJobs.map(job => (
-                            <div
+                            <button
                               key={job._id}
+                              type="button"
                               className={`sidebar-item sidebar-job-item ${selectedItem === `job-detail:${job._id}` ? 'selected' : ''}`}
                               onClick={() => onItemSelect(`job-detail:${job._id}`)}
-                              role="button"
-                              tabIndex={0}
-                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(`job-detail:${job._id}`); } }}
                               title={job.description || job.name}
                             >
                               <span className="sidebar-item-icon">
                                 <FileText size={12} />
                               </span>
                               <span className="sidebar-item-label">{job.name}</span>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       )}

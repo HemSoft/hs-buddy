@@ -90,7 +90,12 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect('copilot-prompt')}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect('copilot-prompt'); } }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onItemSelect('copilot-prompt')
+                  }
+                }}
               >
                 <span className="sidebar-item-icon">
                   <Sparkles size={14} />
@@ -102,7 +107,12 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect('copilot-all-results')}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect('copilot-all-results'); } }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onItemSelect('copilot-all-results')
+                  }
+                }}
               >
                 <span className="sidebar-item-icon">
                   <FileText size={14} />
@@ -117,7 +127,12 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect('copilot-usage')}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect('copilot-usage'); } }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onItemSelect('copilot-usage')
+                  }
+                }}
               >
                 <span className="sidebar-item-icon">
                   <Zap size={14} />
@@ -176,7 +191,12 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                       role="button"
                       tabIndex={0}
                       onClick={() => onItemSelect(viewId)}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(viewId); } }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onItemSelect(viewId)
+                        }
+                      }}
                       title={r.prompt}
                     >
                       <span className="sidebar-item-icon">{statusIcon(r.status)}</span>

@@ -71,13 +71,11 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
           </div>
           <div className="repo-contributors-list">
             {detail.topContributors.map(contributor => (
-              <div
+              <button
                 key={contributor.login}
+                type="button"
                 className="repo-contributor-item"
-                role="button"
-                tabIndex={0}
                 onClick={() => window.shell?.openExternal(contributor.url)}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.shell?.openExternal(contributor.url); } }}
                 title={`${contributor.login}: ${contributor.contributions} commits`}
               >
                 <img
@@ -91,7 +89,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
                     {contributor.contributions.toLocaleString()} commits
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

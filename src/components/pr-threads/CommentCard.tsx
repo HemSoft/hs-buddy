@@ -89,6 +89,7 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
         html={bodyHtml}
         className="thread-comment-body thread-comment-markdown thread-comment-markdown-html"
         data-color-mode="dark"
+
       />
     )
   }

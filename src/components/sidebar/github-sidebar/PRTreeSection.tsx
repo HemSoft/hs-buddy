@@ -51,6 +51,8 @@ export function PRTreeSection({
             <button
               type="button"
               className="sidebar-item-chevron"
+              role="button"
+              tabIndex={0}
               onClick={e => {
                 e.stopPropagation()
                 onTogglePRGroup(item.id)
@@ -107,6 +109,8 @@ export function PRTreeSection({
                         <button
                           type="button"
                           className="sidebar-item-chevron"
+                          role="button"
+                          tabIndex={0}
                           onClick={e => {
                             e.stopPropagation()
                             onTogglePRNode(prViewId)

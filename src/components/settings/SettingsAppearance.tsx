@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useReducer } from 'react'
 import { useConfig } from '../../hooks/useConfig'
 import { RefreshCw } from 'lucide-react'
 import { DARK_DEFAULTS, LIGHT_DEFAULTS, type ColorDef, lightenColor } from './appearanceUtils'
@@ -8,19 +8,47 @@ import { AppearanceFontsSection } from './AppearanceFontsSection'
 import './SettingsShared.css'
 import './SettingsAppearance.css'
 
+interface AppearanceState {
+  theme: 'dark' | 'light'
+  accentColor: string
+  fontColor: string
+  bgPrimary: string
+  bgSecondary: string
+  statusBarBg: string
+  statusBarFg: string
+  fontFamily: string
+  monoFontFamily: string
+}
+
+const INITIAL_STATE: AppearanceState = {
+  theme: 'dark',
+  accentColor: '#0e639c',
+  fontColor: '#cccccc',
+  bgPrimary: '#1e1e1e',
+  bgSecondary: '#252526',
+  statusBarBg: '#181818',
+  statusBarFg: '#9d9d9d',
+  fontFamily: 'Inter',
+  monoFontFamily: 'Cascadia Code',
+}
+
+type AppearanceAction =
+  | { type: 'SET_ALL'; payload: Partial<AppearanceState> }
+  | { type: 'SET_FIELD'; field: keyof AppearanceState; value: string }
+
+function appearanceReducer(state: AppearanceState, action: AppearanceAction): AppearanceState {
+  switch (action.type) {
+    case 'SET_ALL':
+      return { ...state, ...action.payload }
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value }
+  }
+}
+
 export function SettingsAppearance() {
   const { config, loading, api } = useConfig()
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [colors, setColors] = useState({
-    accentColor: '#0e639c',
-    fontColor: '#cccccc',
-    bgPrimary: '#1e1e1e',
-    bgSecondary: '#252526',
-    statusBarBg: '#181818',
-    statusBarFg: '#9d9d9d',
-  })
-  const [fontFamily, setFontFamily] = useState('Inter')
-  const [monoFontFamily, setMonoFontFamily] = useState('Cascadia Code')
+  const [state, dispatch] = useReducer(appearanceReducer, INITIAL_STATE)
+  const { theme, accentColor, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg, fontFamily, monoFontFamily } = state
   const [systemFonts, setSystemFonts] = useState<string[]>([])
   const [fontsLoading, setFontsLoading] = useState(true)
 
@@ -38,21 +66,22 @@ export function SettingsAppearance() {
 
   useEffect(() => {
     if (config) {
-      setTheme(config.ui.theme)
-      setColors({
-        accentColor: config.ui.accentColor || '#0e639c',
-        fontColor: config.ui.fontColor || '#cccccc',
-        bgPrimary: config.ui.bgPrimary || '#1e1e1e',
-        bgSecondary: config.ui.bgSecondary || '#252526',
-        statusBarBg: config.ui.statusBarBg || '#181818',
-        statusBarFg: config.ui.statusBarFg || '#9d9d9d',
+      dispatch({
+        type: 'SET_ALL',
+        payload: {
+          theme: config.ui.theme,
+          accentColor: config.ui.accentColor || '#0e639c',
+          fontColor: config.ui.fontColor || '#cccccc',
+          bgPrimary: config.ui.bgPrimary || '#1e1e1e',
+          bgSecondary: config.ui.bgSecondary || '#252526',
+          statusBarBg: config.ui.statusBarBg || '#181818',
+          statusBarFg: config.ui.statusBarFg || '#9d9d9d',
+          fontFamily: config.ui.fontFamily || 'Inter',
+          monoFontFamily: config.ui.monoFontFamily || 'Cascadia Code',
+        },
       })
-      setFontFamily(config.ui.fontFamily || 'Inter')
-      setMonoFontFamily(config.ui.monoFontFamily || 'Cascadia Code')
     }
   }, [config])
-
-  const { accentColor, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg } = colors
 
   // Apply colors to CSS variables
   const applyColors = useCallback(
@@ -84,16 +113,18 @@ export function SettingsAppearance() {
   const handleThemeChange = async (newTheme: 'dark' | 'light') => {
     document.documentElement.setAttribute('data-theme', newTheme)
 
-    // Reset colors to theme defaults when switching themes
     const defaults = newTheme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
-    setTheme(newTheme)
-    setColors({
-      accentColor: defaults.accentColor,
-      fontColor: defaults.fontColor,
-      bgPrimary: defaults.bgPrimary,
-      bgSecondary: defaults.bgSecondary,
-      statusBarBg: defaults.statusBarBg,
-      statusBarFg: defaults.statusBarFg,
+    dispatch({
+      type: 'SET_ALL',
+      payload: {
+        theme: newTheme,
+        accentColor: defaults.accentColor,
+        fontColor: defaults.fontColor,
+        bgPrimary: defaults.bgPrimary,
+        bgSecondary: defaults.bgSecondary,
+        statusBarBg: defaults.statusBarBg,
+        statusBarFg: defaults.statusBarFg,
+      },
     })
 
     // Clear inline styles so CSS variables take effect
@@ -123,50 +154,53 @@ export function SettingsAppearance() {
   }
 
   const handleAccentChange = async (color: string) => {
-    setColors(prev => ({ ...prev, accentColor: color }))
+    dispatch({ type: 'SET_FIELD', field: 'accentColor', value: color })
     applyColors(color, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
     await api.setAccentColor(color)
   }
 
   const handleFontColorChange = async (color: string) => {
-    setColors(prev => ({ ...prev, fontColor: color }))
+    dispatch({ type: 'SET_FIELD', field: 'fontColor', value: color })
     applyColors(accentColor, color, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
     await api.setFontColor(color)
   }
 
   const handleBgPrimaryChange = async (color: string) => {
-    setColors(prev => ({ ...prev, bgPrimary: color }))
+    dispatch({ type: 'SET_FIELD', field: 'bgPrimary', value: color })
     applyColors(accentColor, fontColor, color, bgSecondary, statusBarBg, statusBarFg)
     await api.setBgPrimary(color)
   }
 
   const handleBgSecondaryChange = async (color: string) => {
-    setColors(prev => ({ ...prev, bgSecondary: color }))
+    dispatch({ type: 'SET_FIELD', field: 'bgSecondary', value: color })
     applyColors(accentColor, fontColor, bgPrimary, color, statusBarBg, statusBarFg)
     await api.setBgSecondary(color)
   }
 
   const handleStatusBarBgChange = async (color: string) => {
-    setColors(prev => ({ ...prev, statusBarBg: color }))
+    dispatch({ type: 'SET_FIELD', field: 'statusBarBg', value: color })
     document.documentElement.style.setProperty('--statusbar-bg', color)
     await api.setStatusBarBg(color)
   }
 
   const handleStatusBarFgChange = async (color: string) => {
-    setColors(prev => ({ ...prev, statusBarFg: color }))
+    dispatch({ type: 'SET_FIELD', field: 'statusBarFg', value: color })
     document.documentElement.style.setProperty('--statusbar-fg', color)
     await api.setStatusBarFg(color)
   }
 
   const handleResetColors = async () => {
     const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
-    setColors({
-      accentColor: defaults.accentColor,
-      fontColor: defaults.fontColor,
-      bgPrimary: defaults.bgPrimary,
-      bgSecondary: defaults.bgSecondary,
-      statusBarBg: defaults.statusBarBg,
-      statusBarFg: defaults.statusBarFg,
+    dispatch({
+      type: 'SET_ALL',
+      payload: {
+        accentColor: defaults.accentColor,
+        fontColor: defaults.fontColor,
+        bgPrimary: defaults.bgPrimary,
+        bgSecondary: defaults.bgSecondary,
+        statusBarBg: defaults.statusBarBg,
+        statusBarFg: defaults.statusBarFg,
+      },
     })
     applyColors(
       defaults.accentColor,
@@ -187,7 +221,7 @@ export function SettingsAppearance() {
   }
 
   const handleFontFamilyChange = async (font: string) => {
-    setFontFamily(font)
+    dispatch({ type: 'SET_FIELD', field: 'fontFamily', value: font })
     document.documentElement.style.setProperty(
       '--font-family-ui',
       `'${font}', system-ui, sans-serif`
@@ -196,7 +230,7 @@ export function SettingsAppearance() {
   }
 
   const handleMonoFontFamilyChange = async (font: string) => {
-    setMonoFontFamily(font)
+    dispatch({ type: 'SET_FIELD', field: 'monoFontFamily', value: font })
     document.documentElement.style.setProperty(
       '--font-family-mono',
       `'${font}', Consolas, monospace`

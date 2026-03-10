@@ -11,12 +11,14 @@ import './SettingsAppearance.css'
 export function SettingsAppearance() {
   const { config, loading, api } = useConfig()
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [accentColor, setAccentColor] = useState('#0e639c')
-  const [fontColor, setFontColor] = useState('#cccccc')
-  const [bgPrimary, setBgPrimary] = useState('#1e1e1e')
-  const [bgSecondary, setBgSecondary] = useState('#252526')
-  const [statusBarBg, setStatusBarBg] = useState('#181818')
-  const [statusBarFg, setStatusBarFg] = useState('#9d9d9d')
+  const [colors, setColors] = useState({
+    accentColor: '#0e639c',
+    fontColor: '#cccccc',
+    bgPrimary: '#1e1e1e',
+    bgSecondary: '#252526',
+    statusBarBg: '#181818',
+    statusBarFg: '#9d9d9d',
+  })
   const [fontFamily, setFontFamily] = useState('Inter')
   const [monoFontFamily, setMonoFontFamily] = useState('Cascadia Code')
   const [systemFonts, setSystemFonts] = useState<string[]>([])
@@ -37,16 +39,20 @@ export function SettingsAppearance() {
   useEffect(() => {
     if (config) {
       setTheme(config.ui.theme)
-      setAccentColor(config.ui.accentColor || '#0e639c')
-      setFontColor(config.ui.fontColor || '#cccccc')
-      setBgPrimary(config.ui.bgPrimary || '#1e1e1e')
-      setBgSecondary(config.ui.bgSecondary || '#252526')
-      setStatusBarBg(config.ui.statusBarBg || '#181818')
-      setStatusBarFg(config.ui.statusBarFg || '#9d9d9d')
+      setColors({
+        accentColor: config.ui.accentColor || '#0e639c',
+        fontColor: config.ui.fontColor || '#cccccc',
+        bgPrimary: config.ui.bgPrimary || '#1e1e1e',
+        bgSecondary: config.ui.bgSecondary || '#252526',
+        statusBarBg: config.ui.statusBarBg || '#181818',
+        statusBarFg: config.ui.statusBarFg || '#9d9d9d',
+      })
       setFontFamily(config.ui.fontFamily || 'Inter')
       setMonoFontFamily(config.ui.monoFontFamily || 'Cascadia Code')
     }
   }, [config])
+
+  const { accentColor, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg } = colors
 
   // Apply colors to CSS variables
   const applyColors = useCallback(
@@ -81,12 +87,14 @@ export function SettingsAppearance() {
 
     // Reset colors to theme defaults when switching themes
     const defaults = newTheme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
-    setAccentColor(defaults.accentColor)
-    setFontColor(defaults.fontColor)
-    setBgPrimary(defaults.bgPrimary)
-    setBgSecondary(defaults.bgSecondary)
-    setStatusBarBg(defaults.statusBarBg)
-    setStatusBarFg(defaults.statusBarFg)
+    setColors({
+      accentColor: defaults.accentColor,
+      fontColor: defaults.fontColor,
+      bgPrimary: defaults.bgPrimary,
+      bgSecondary: defaults.bgSecondary,
+      statusBarBg: defaults.statusBarBg,
+      statusBarFg: defaults.statusBarFg,
+    })
 
     // Clear inline styles so CSS variables take effect
     const root = document.documentElement
@@ -114,57 +122,52 @@ export function SettingsAppearance() {
     ])
   }
 
-  const makeColorHandler = (
-    setter: (c: string) => void,
-    apiSetter: (c: string) => Promise<unknown>,
-    buildApplyArgs: (color: string) => Parameters<typeof applyColors>
-  ) => async (color: string) => {
-    setter(color)
-    applyColors(...buildApplyArgs(color))
-    await apiSetter(color)
+  const handleAccentChange = async (color: string) => {
+    setColors(prev => ({ ...prev, accentColor: color }))
+    applyColors(color, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
+    await api.setAccentColor(color)
   }
 
-  const makeStatusBarHandler = (
-    setter: (c: string) => void,
-    apiSetter: (c: string) => Promise<unknown>,
-    cssVar: string
-  ) => async (color: string) => {
-    setter(color)
-    document.documentElement.style.setProperty(cssVar, color)
-    await apiSetter(color)
+  const handleFontColorChange = async (color: string) => {
+    setColors(prev => ({ ...prev, fontColor: color }))
+    applyColors(accentColor, color, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
+    await api.setFontColor(color)
   }
 
-  const handleAccentChange = makeColorHandler(
-    setAccentColor, api.setAccentColor,
-    (c) => [c, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg]
-  )
-  const handleFontColorChange = makeColorHandler(
-    setFontColor, api.setFontColor,
-    (c) => [accentColor, c, bgPrimary, bgSecondary, statusBarBg, statusBarFg]
-  )
-  const handleBgPrimaryChange = makeColorHandler(
-    setBgPrimary, api.setBgPrimary,
-    (c) => [accentColor, fontColor, c, bgSecondary, statusBarBg, statusBarFg]
-  )
-  const handleBgSecondaryChange = makeColorHandler(
-    setBgSecondary, api.setBgSecondary,
-    (c) => [accentColor, fontColor, bgPrimary, c, statusBarBg, statusBarFg]
-  )
-  const handleStatusBarBgChange = makeStatusBarHandler(
-    setStatusBarBg, api.setStatusBarBg, '--statusbar-bg'
-  )
-  const handleStatusBarFgChange = makeStatusBarHandler(
-    setStatusBarFg, api.setStatusBarFg, '--statusbar-fg'
-  )
+  const handleBgPrimaryChange = async (color: string) => {
+    setColors(prev => ({ ...prev, bgPrimary: color }))
+    applyColors(accentColor, fontColor, color, bgSecondary, statusBarBg, statusBarFg)
+    await api.setBgPrimary(color)
+  }
+
+  const handleBgSecondaryChange = async (color: string) => {
+    setColors(prev => ({ ...prev, bgSecondary: color }))
+    applyColors(accentColor, fontColor, bgPrimary, color, statusBarBg, statusBarFg)
+    await api.setBgSecondary(color)
+  }
+
+  const handleStatusBarBgChange = async (color: string) => {
+    setColors(prev => ({ ...prev, statusBarBg: color }))
+    document.documentElement.style.setProperty('--statusbar-bg', color)
+    await api.setStatusBarBg(color)
+  }
+
+  const handleStatusBarFgChange = async (color: string) => {
+    setColors(prev => ({ ...prev, statusBarFg: color }))
+    document.documentElement.style.setProperty('--statusbar-fg', color)
+    await api.setStatusBarFg(color)
+  }
 
   const handleResetColors = async () => {
     const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
-    setAccentColor(defaults.accentColor)
-    setFontColor(defaults.fontColor)
-    setBgPrimary(defaults.bgPrimary)
-    setBgSecondary(defaults.bgSecondary)
-    setStatusBarBg(defaults.statusBarBg)
-    setStatusBarFg(defaults.statusBarFg)
+    setColors({
+      accentColor: defaults.accentColor,
+      fontColor: defaults.fontColor,
+      bgPrimary: defaults.bgPrimary,
+      bgSecondary: defaults.bgSecondary,
+      statusBarBg: defaults.statusBarBg,
+      statusBarFg: defaults.statusBarFg,
+    })
     applyColors(
       defaults.accentColor,
       defaults.fontColor,

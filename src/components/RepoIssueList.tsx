@@ -143,91 +143,92 @@ export function RepoIssueList({
       ) : (
         <div className="repo-issues-list">
           {issues.map(issue => (
-            <div
-              key={issue.number}
-              className="repo-issue-item"
-              onClick={() => {
-                if (onOpenIssue) {
-                  onOpenIssue(issue.number)
-                  return
-                }
-                window.shell?.openExternal(issue.url)
-              }}
-            >
-              <div className="repo-issue-header">
-                <div className="repo-issue-title-row">
-                  <CircleDot size={16} className="repo-issue-icon" />
-                  <span className="repo-issue-title">{issue.title}</span>
-                  <button
-                    className="repo-issue-external-link-btn"
-                    onClick={event => {
-                      event.stopPropagation()
-                      window.shell?.openExternal(issue.url)
-                    }}
-                    title="Open issue on GitHub"
-                  >
-                    <ExternalLink size={14} className="external-link-icon" />
-                  </button>
-                </div>
-                {issue.labels.length > 0 && (
-                  <div className="repo-issue-labels">
-                    {issue.labels.map(label => (
-                      <span
-                        key={label.name}
-                        className="repo-issue-label"
-                        style={{
-                          backgroundColor: `#${label.color}20`,
-                          color: `#${label.color}`,
-                          borderColor: `#${label.color}40`,
-                        }}
-                      >
-                        {label.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="repo-issue-meta">
-                <span className="repo-issue-number">#{issue.number}</span>
-                <span className="repo-issue-author">
-                  {issue.authorAvatarUrl && (
-                    <img
-                      src={issue.authorAvatarUrl}
-                      alt={issue.author}
-                      className="repo-issue-avatar"
-                    />
+            <div key={issue.number} className="repo-issue-item">
+              <button
+                type="button"
+                className="repo-issue-main"
+                onClick={() => {
+                  if (onOpenIssue) {
+                    onOpenIssue(issue.number)
+                    return
+                  }
+                  window.shell?.openExternal(issue.url)
+                }}
+                title={issue.title}
+              >
+                <span className="repo-issue-header">
+                  <span className="repo-issue-title-row">
+                    <CircleDot size={16} className="repo-issue-icon" />
+                    <span className="repo-issue-title">{issue.title}</span>
+                  </span>
+                  {issue.labels.length > 0 && (
+                    <span className="repo-issue-labels">
+                      {issue.labels.map(label => (
+                        <span
+                          key={label.name}
+                          className="repo-issue-label"
+                          style={{
+                            backgroundColor: `#${label.color}20`,
+                            color: `#${label.color}`,
+                            borderColor: `#${label.color}40`,
+                          }}
+                        >
+                          {label.name}
+                        </span>
+                      ))}
+                    </span>
                   )}
-                  {issue.author}
                 </span>
-                <span className="repo-issue-date">
-                  <Clock size={12} />
-                  {formatDistanceToNow(issue.createdAt)}
-                </span>
-                {issue.commentCount > 0 && (
-                  <span className="repo-issue-comments">
-                    <MessageSquare size={12} />
-                    {issue.commentCount}
-                  </span>
-                )}
-                {issue.assignees.length > 0 && (
-                  <span className="repo-issue-assignees">
-                    {issue.assignees.slice(0, 3).map(a => (
+                <span className="repo-issue-meta">
+                  <span className="repo-issue-number">#{issue.number}</span>
+                  <span className="repo-issue-author">
+                    {issue.authorAvatarUrl && (
                       <img
-                        key={a.login}
-                        src={a.avatarUrl}
-                        alt={a.login}
-                        className="repo-issue-assignee-avatar"
-                        title={a.login}
+                        src={issue.authorAvatarUrl}
+                        alt={issue.author}
+                        className="repo-issue-avatar"
                       />
-                    ))}
-                    {issue.assignees.length > 3 && (
-                      <span className="repo-issue-assignee-more">
-                        +{issue.assignees.length - 3}
-                      </span>
                     )}
+                    {issue.author}
                   </span>
-                )}
-              </div>
+                  <span className="repo-issue-date">
+                    <Clock size={12} />
+                    {formatDistanceToNow(issue.createdAt)}
+                  </span>
+                  {issue.commentCount > 0 && (
+                    <span className="repo-issue-comments">
+                      <MessageSquare size={12} />
+                      {issue.commentCount}
+                    </span>
+                  )}
+                  {issue.assignees.length > 0 && (
+                    <span className="repo-issue-assignees">
+                      {issue.assignees.slice(0, 3).map(a => (
+                        <img
+                          key={a.login}
+                          src={a.avatarUrl}
+                          alt={a.login}
+                          className="repo-issue-assignee-avatar"
+                          title={a.login}
+                        />
+                      ))}
+                      {issue.assignees.length > 3 && (
+                        <span className="repo-issue-assignee-more">
+                          +{issue.assignees.length - 3}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="repo-issue-external-link-btn"
+                onClick={() => window.shell?.openExternal(issue.url)}
+                title="Open issue on GitHub"
+              >
+                <ExternalLink size={14} className="external-link-icon" />
+              </button>
             </div>
           ))}
         </div>

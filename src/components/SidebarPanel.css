@@ -93,6 +93,21 @@
   background-color: var(--accent-primary);
 }
 
+.sidebar-item-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .sidebar-item-icon {
   display: flex;
   align-items: center;
@@ -389,6 +404,10 @@
   align-items: center;
   justify-content: center;
   width: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
   flex-shrink: 0;
   opacity: 0.6;
   cursor: pointer;
@@ -441,6 +460,10 @@
   font-size: 12px !important;
   align-items: flex-start;
   min-height: 30px;
+}
+
+.sidebar-pr-item .sidebar-item-main {
+  align-items: flex-start;
 }
 
 .sidebar-pr-tree {

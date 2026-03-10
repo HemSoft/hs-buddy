@@ -311,7 +311,7 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
               file.patch ? (
                 <div className="repo-commit-diff" role="presentation">
                   {file.patch.split('\n').map((line, index) => (
-                    <Fragment key={`${file.filename}-${index}`}>
+                    <Fragment key={`${file.filename}-line-${index}-${line.slice(0, 20)}`}>
                       <div className={getDiffLineClass(line)}>{line || ' '}</div>
                     </Fragment>
                   ))}

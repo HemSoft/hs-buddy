@@ -32,21 +32,22 @@ export function JobRow({
     <div
       className="job-row"
       onContextMenu={e => onContextMenu(e, job)}
-      onClick={() => onEdit(job._id)}
       title={job.description || job.name}
     >
-      {getWorkerIcon(job.workerType)}
-      <span className="job-row-name">{job.name}</span>
-      <span className="job-row-preview">{getConfigPreview(job)}</span>
-      {runCounts && runCounts.total > 0 && (
-        <span
-          className="job-row-run-count"
-          title={`${runCounts.total} runs (${runCounts.completed} completed${runCounts.failed > 0 ? `, ${runCounts.failed} failed` : ''})`}
-        >
-          <Play size={10} />
-          {runCounts.total}
-        </span>
-      )}
+      <button type="button" className="job-row-main" onClick={() => onEdit(job._id)}>
+        {getWorkerIcon(job.workerType)}
+        <span className="job-row-name">{job.name}</span>
+        <span className="job-row-preview">{getConfigPreview(job)}</span>
+        {runCounts && runCounts.total > 0 && (
+          <span
+            className="job-row-run-count"
+            title={`${runCounts.total} runs (${runCounts.completed} completed${runCounts.failed > 0 ? `, ${runCounts.failed} failed` : ''})`}
+          >
+            <Play size={10} />
+            {runCounts.total}
+          </span>
+        )}
+      </button>
       <div className="job-row-actions">
         <button
           className="btn-icon-sm"

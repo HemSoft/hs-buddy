@@ -49,42 +49,45 @@ export function PRTreeSection({
         <div key={item.id}>
           <div
             className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''}`}
-            onClick={() => onItemSelect(item.id)}
           >
-            <span
+            <button
+              type="button"
               className="sidebar-item-chevron"
               onClick={e => {
                 e.stopPropagation()
                 onTogglePRGroup(item.id)
               }}
+              aria-label={expandedPrGroups.has(item.id) ? `Collapse ${item.label}` : `Expand ${item.label}`}
             >
               {expandedPrGroups.has(item.id) ? (
                 <ChevronDown size={12} />
               ) : (
                 <ChevronRight size={12} />
               )}
-            </span>
-            <span className="sidebar-item-icon">
-              <FileText size={14} />
-            </span>
-            <span className="sidebar-item-label">{item.label}</span>
-            {counts[item.id] !== undefined &&
-              (badgeProgress[item.id] ? (
-                <span
-                  className="sidebar-item-count-ring"
-                  style={
-                    {
-                      '--ring-progress': `${badgeProgress[item.id].progress}%`,
-                      '--ring-color': badgeProgress[item.id].color,
-                    } as React.CSSProperties
-                  }
-                  title={badgeProgress[item.id].tooltip}
-                >
+            </button>
+            <button type="button" className="sidebar-item-main" onClick={() => onItemSelect(item.id)}>
+              <span className="sidebar-item-icon">
+                <FileText size={14} />
+              </span>
+              <span className="sidebar-item-label">{item.label}</span>
+              {counts[item.id] !== undefined &&
+                (badgeProgress[item.id] ? (
+                  <span
+                    className="sidebar-item-count-ring"
+                    style={
+                      {
+                        '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                        '--ring-color': badgeProgress[item.id].color,
+                      } as React.CSSProperties
+                    }
+                    title={badgeProgress[item.id].tooltip}
+                  >
+                    <span className="sidebar-item-count">{counts[item.id]}</span>
+                  </span>
+                ) : (
                   <span className="sidebar-item-count">{counts[item.id]}</span>
-                </span>
-              ) : (
-                <span className="sidebar-item-count">{counts[item.id]}</span>
-              ))}
+                ))}
+            </button>
           </div>
 
           {expandedPrGroups.has(item.id) && (prTreeData[item.id] || []).length > 0 && (
@@ -100,33 +103,40 @@ export function PRTreeSection({
                     >
                       <div
                         className={`sidebar-item sidebar-item-disclosure sidebar-pr-item ${isSelected ? 'selected' : ''}`}
-                        onClick={() => onItemSelect(prViewId)}
                         onContextMenu={e => onContextMenu(e, pr)}
                         title={pr.title}
                       >
-                        <span
+                        <button
+                          type="button"
                           className="sidebar-item-chevron"
                           onClick={e => {
                             e.stopPropagation()
                             onTogglePRNode(prViewId)
                           }}
+                          aria-label={
+                            expandedPRNodes.has(prViewId)
+                              ? `Collapse pull request #${pr.id}`
+                              : `Expand pull request #${pr.id}`
+                          }
                         >
                           {expandedPRNodes.has(prViewId) ? (
                             <ChevronDown size={12} />
                           ) : (
                             <ChevronRight size={12} />
                           )}
-                        </span>
-                        <span className="sidebar-item-icon">
-                          <GitPullRequest size={12} />
-                        </span>
-                        <span className="sidebar-item-label">
-                          #{pr.id} {pr.title}
-                        </span>
-                        <span className="sidebar-pr-meta">
-                          <span className="sidebar-pr-meta-repo">{pr.repository}</span>
-                          <span className="sidebar-pr-meta-author">{pr.author}</span>
-                        </span>
+                        </button>
+                        <button type="button" className="sidebar-item-main" onClick={() => onItemSelect(prViewId)}>
+                          <span className="sidebar-item-icon">
+                            <GitPullRequest size={12} />
+                          </span>
+                          <span className="sidebar-item-label">
+                            #{pr.id} {pr.title}
+                          </span>
+                          <span className="sidebar-pr-meta">
+                            <span className="sidebar-pr-meta-repo">{pr.repository}</span>
+                            <span className="sidebar-pr-meta-author">{pr.author}</span>
+                          </span>
+                        </button>
                       </div>
 
                       {expandedPRNodes.has(prViewId) && (
@@ -137,7 +147,10 @@ export function PRTreeSection({
                               <div
                                 key={childViewId}
                                 className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => onItemSelect(childViewId)}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                               >
                                 <span className="sidebar-item-icon">
                                   <FileText size={11} />

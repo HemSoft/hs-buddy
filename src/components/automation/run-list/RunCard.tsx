@@ -77,60 +77,63 @@ export function RunCard({ run, isExpanded, onToggle, onCancel }: any) {
   return (
     <div className={`run-card run-status-${run.status}`}>
       {/* Main Row */}
-      <div
-        className="run-card-header"
-        onClick={() => hasDetails && onToggle(run._id)}
-        style={{ cursor: hasDetails ? 'pointer' : 'default' }}
-      >
-        <div className="run-card-expand">
-          {hasDetails ? (
-            isExpanded ? (
-              <ChevronDown size={14} />
+      <div className="run-card-header">
+        <button
+          type="button"
+          className="run-card-main"
+          onClick={() => hasDetails && onToggle(run._id)}
+          disabled={!hasDetails}
+        >
+          <span className="run-card-expand">
+            {hasDetails ? (
+              isExpanded ? (
+                <ChevronDown size={14} />
+              ) : (
+                <ChevronRight size={14} />
+              )
             ) : (
-              <ChevronRight size={14} />
-            )
-          ) : (
-            <span className="expand-spacer" />
-          )}
-        </div>
-
-        <div className="run-card-status">{getStatusIcon(run.status, 14, 'status-icon status')}</div>
-
-        <div className="run-card-info">
-          <div className="run-card-title">
-            {run.job ? (
-              <>
-                {getWorkerIcon(run.job.workerType, 14)}
-                <span className="run-job-name">{run.job.name}</span>
-              </>
-            ) : (
-              <span className="run-job-name deleted">Deleted Job</span>
+              <span className="expand-spacer" />
             )}
-            {run.schedule && <span className="run-schedule-badge">via {run.schedule.name}</span>}
-          </div>
+          </span>
 
-          <div className="run-card-meta">
-            <span className="run-meta-item" title={format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}>
-              {getTriggerIcon(run.triggeredBy)}
-              {formatDistanceToNow(run.startedAt)}
+          <span className="run-card-status">{getStatusIcon(run.status)}</span>
+
+          <span className="run-card-info">
+            <span className="run-card-title">
+              {run.job ? (
+                <>
+                  {getWorkerIcon(run.job.workerType, 14)}
+                  <span className="run-job-name">{run.job.name}</span>
+                </>
+              ) : (
+                <span className="run-job-name deleted">Deleted Job</span>
+              )}
+              {run.schedule && <span className="run-schedule-badge">via {run.schedule.name}</span>}
             </span>
-            {run.duration !== undefined && (
-              <span className="run-meta-item">
-                <Clock size={12} />
-                {formatDuration(run.duration)}
+
+            <span className="run-card-meta">
+              <span className="run-meta-item" title={format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}>
+                {getTriggerIcon(run.triggeredBy)}
+                {formatDistanceToNow(run.startedAt)}
               </span>
-            )}
-            {run.status === 'running' && (
-              <span className="run-meta-item running-indicator">
-                <Loader size={12} className="spin" />
-                Running...
+              {run.duration !== undefined && (
+                <span className="run-meta-item">
+                  <Clock size={12} />
+                  {formatDuration(run.duration)}
+                </span>
+              )}
+              {run.status === 'running' && (
+                <span className="run-meta-item running-indicator">
+                  <Loader size={12} className="spin" />
+                  Running...
+                </span>
+              )}
+              <span className={`run-status-badge status-${run.status}`}>
+                {getStatusLabel(run.status)}
               </span>
-            )}
-            <span className={`run-status-badge status-${run.status}`}>
-              {getStatusLabel(run.status)}
             </span>
-          </div>
-        </div>
+          </span>
+        </button>
 
         <div className="run-card-actions">
           {canCancel && (

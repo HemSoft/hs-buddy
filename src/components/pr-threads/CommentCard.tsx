@@ -61,7 +61,7 @@ function SuggestionBlock({ content }: { content: string }) {
       </div>
       <div className="suggestion-diff">
         {lines.map((line, i) => (
-          <div key={`${i}-${line}`} className="diff-line diff-add">
+          <div key={`${i}-${line.slice(0, 30)}`} className="diff-line diff-add">
             <span className="diff-line-content">{`  ${line}`}</span>
           </div>
         ))}
@@ -89,10 +89,10 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
     <div className="thread-comment-body">
       {segments.map((segment, i) => {
         if (segment.type === 'suggestion') {
-          return <SuggestionBlock key={`suggestion-${i}`} content={segment.content} />
+          return <SuggestionBlock key={`suggestion-${segment.content.slice(0, 30)}-${i}`} content={segment.content} />
         }
         return (
-          <div key={`text-${i}`} className="thread-comment-markdown" data-color-mode="dark">
+          <div key={`text-${segment.content.slice(0, 30)}-${i}`} className="thread-comment-markdown" data-color-mode="dark">
             <MarkdownPreview
               source={segment.content}
               style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: '13px' }}

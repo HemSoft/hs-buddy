@@ -74,7 +74,10 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
               <div
                 key={contributor.login}
                 className="repo-contributor-item"
+                role="button"
+                tabIndex={0}
                 onClick={() => window.shell?.openExternal(contributor.url)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.shell?.openExternal(contributor.url); } }}
                 title={`${contributor.login}: ${contributor.contributions} commits`}
               >
                 <img

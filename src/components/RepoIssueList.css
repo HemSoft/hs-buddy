@@ -186,11 +186,23 @@
 /* ── Issue Card ─────────────────────────────────────────────────────────── */
 
 .repo-issue-item {
+  position: relative;
   background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
   border: 1px solid var(--border-secondary);
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 14px 44px 14px 16px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.repo-issue-main {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -243,6 +255,9 @@
 }
 
 .repo-issue-external-link-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

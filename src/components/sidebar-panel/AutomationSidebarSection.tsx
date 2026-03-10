@@ -81,23 +81,48 @@ export function AutomationSidebarSection({
         <div key={item.id}>
           <div
             className={`sidebar-item ${item.id === 'automation-schedules' && selectedItem === 'automation-schedules' ? 'selected' : ''} ${item.id !== 'automation-jobs' && item.id !== 'automation-schedules' && selectedItem === item.id ? 'selected' : ''} ${(item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0) || (item.id === 'automation-schedules' && schedules && schedules.length > 0) ? 'sidebar-item-disclosure' : ''}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              if (item.id === 'automation-jobs') {
-                toggleSubSection('automation-jobs')
-                return
-              }
-              if (item.id === 'automation-schedules') {
-                toggleSubSection('automation-schedules')
-                onItemSelect('automation-schedules')
-                return
-              }
-              onItemSelect(item.id)
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
+          >
+            {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
+              <button
+                type="button"
+                className="sidebar-item-chevron"
+                onClick={e => {
+                  e.stopPropagation()
+                  toggleSubSection('automation-jobs')
+                }}
+                aria-label={expandedSubSections.has('automation-jobs') ? 'Collapse Jobs' : 'Expand Jobs'}
+              >
+                {expandedSubSections.has('automation-jobs') ? (
+                  <ChevronDown size={12} />
+                ) : (
+                  <ChevronRight size={12} />
+                )}
+              </button>
+            ) : item.id === 'automation-schedules' && schedules && schedules.length > 0 ? (
+              <button
+                type="button"
+                className="sidebar-item-chevron"
+                onClick={e => {
+                  e.stopPropagation()
+                  toggleSubSection('automation-schedules')
+                }}
+                aria-label={
+                  expandedSubSections.has('automation-schedules')
+                    ? 'Collapse Schedules'
+                    : 'Expand Schedules'
+                }
+              >
+                {expandedSubSections.has('automation-schedules') ? (
+                  <ChevronDown size={12} />
+                ) : (
+                  <ChevronRight size={12} />
+                )}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="sidebar-item-main"
+              onClick={() => {
                 if (item.id === 'automation-jobs') {
                   toggleSubSection('automation-jobs')
                   return
@@ -108,83 +133,53 @@ export function AutomationSidebarSection({
                   return
                 }
                 onItemSelect(item.id)
-              }
-            }}
-          >
-            {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
-              <span
-                className="sidebar-item-chevron"
-                onClick={e => {
-                  e.stopPropagation()
-                  toggleSubSection('automation-jobs')
-                }}
-              >
-                {expandedSubSections.has('automation-jobs') ? (
-                  <ChevronDown size={12} />
-                ) : (
-                  <ChevronRight size={12} />
-                )}
-              </span>
-            ) : item.id === 'automation-schedules' && schedules && schedules.length > 0 ? (
-              <span
-                className="sidebar-item-chevron"
-                onClick={e => {
-                  e.stopPropagation()
-                  toggleSubSection('automation-schedules')
-                }}
-              >
-                {expandedSubSections.has('automation-schedules') ? (
-                  <ChevronDown size={12} />
-                ) : (
-                  <ChevronRight size={12} />
-                )}
-              </span>
-            ) : null}
-
-            {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
-              <span className="sidebar-item-icon">
-                <FolderOpen size={14} />
-              </span>
-            ) : item.id === 'automation-schedules' && schedules && schedules.length > 0 ? (
-              <span className="sidebar-item-icon">
-                {expandedSubSections.has('automation-schedules') ? (
+              }}
+            >
+              {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
+                <span className="sidebar-item-icon">
                   <FolderOpen size={14} />
-                ) : (
-                  <Folder size={14} />
-                )}
-              </span>
-            ) : (
-              <span className="sidebar-item-icon">
-                <FileText size={14} />
-              </span>
-            )}
-
-            <span className="sidebar-item-label">{item.label}</span>
-
-            {counts[item.id] !== undefined &&
-              (badgeProgress[item.id] ? (
-                <span
-                  className="sidebar-item-count-ring"
-                  style={
-                    {
-                      '--ring-progress': `${badgeProgress[item.id].progress}%`,
-                      '--ring-color': badgeProgress[item.id].color,
-                    } as React.CSSProperties
-                  }
-                  title={badgeProgress[item.id].tooltip}
-                >
-                  <span className="sidebar-item-count">{counts[item.id]}</span>
+                </span>
+              ) : item.id === 'automation-schedules' && schedules && schedules.length > 0 ? (
+                <span className="sidebar-item-icon">
+                  {expandedSubSections.has('automation-schedules') ? (
+                    <FolderOpen size={14} />
+                  ) : (
+                    <Folder size={14} />
+                  )}
                 </span>
               ) : (
-                <span className="sidebar-item-count">{counts[item.id]}</span>
-              ))}
+                <span className="sidebar-item-icon">
+                  <FileText size={14} />
+                </span>
+              )}
 
-            {item.id === 'automation-jobs' && jobs && jobs.length > 0 && (
-              <span className="sidebar-item-count">{jobs.length}</span>
-            )}
-            {item.id === 'automation-schedules' && schedules && schedules.length > 0 && (
-              <span className="sidebar-item-count">{schedules.length}</span>
-            )}
+              <span className="sidebar-item-label">{item.label}</span>
+
+              {counts[item.id] !== undefined &&
+                (badgeProgress[item.id] ? (
+                  <span
+                    className="sidebar-item-count-ring"
+                    style={
+                      {
+                        '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                        '--ring-color': badgeProgress[item.id].color,
+                      } as React.CSSProperties
+                    }
+                    title={badgeProgress[item.id].tooltip}
+                  >
+                    <span className="sidebar-item-count">{counts[item.id]}</span>
+                  </span>
+                ) : (
+                  <span className="sidebar-item-count">{counts[item.id]}</span>
+                ))}
+
+              {item.id === 'automation-jobs' && jobs && jobs.length > 0 && (
+                <span className="sidebar-item-count">{jobs.length}</span>
+              )}
+              {item.id === 'automation-schedules' && schedules && schedules.length > 0 && (
+                <span className="sidebar-item-count">{schedules.length}</span>
+              )}
+            </button>
           </div>
 
           {/* Schedule sub-tree */}

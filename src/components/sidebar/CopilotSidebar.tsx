@@ -87,7 +87,10 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
             <div className="sidebar-section-items">
               <div
                 className={`sidebar-item ${selectedItem === 'copilot-prompt' ? 'selected' : ''}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => onItemSelect('copilot-prompt')}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect('copilot-prompt'); } }}
               >
                 <span className="sidebar-item-icon">
                   <Sparkles size={14} />
@@ -96,7 +99,10 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
               </div>
               <div
                 className={`sidebar-item ${selectedItem === 'copilot-all-results' ? 'selected' : ''}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => onItemSelect('copilot-all-results')}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect('copilot-all-results'); } }}
               >
                 <span className="sidebar-item-icon">
                   <FileText size={14} />
@@ -108,7 +114,10 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
               </div>
               <div
                 className={`sidebar-item ${selectedItem === 'copilot-usage' ? 'selected' : ''}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => onItemSelect('copilot-usage')}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect('copilot-usage'); } }}
               >
                 <span className="sidebar-item-icon">
                   <Zap size={14} />
@@ -164,7 +173,10 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                     <div
                       key={r._id}
                       className={`sidebar-item ${selectedItem === viewId ? 'selected' : ''}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onItemSelect(viewId)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(viewId); } }}
                       title={r.prompt}
                     >
                       <span className="sidebar-item-icon">{statusIcon(r.status)}</span>

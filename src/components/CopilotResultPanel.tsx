@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
 import {
   Sparkles,
@@ -24,14 +24,15 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const result = useCopilotResult(resultId as Id<'copilotResults'>)
   const { remove } = useCopilotResultMutations()
   const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Reset copied state after 2 seconds
   useEffect(() => {
-    if (copied) {
-      const timer = setTimeout(() => setCopied(false), 2000)
-      return () => clearTimeout(timer)
+    return () => {
+      if (copiedTimerRef.current) {
+        clearTimeout(copiedTimerRef.current)
+      }
     }
-  }, [copied])
+  }, [])
 
   if (result === undefined) {
     return (
@@ -59,6 +60,8 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     if (result.result) {
       await navigator.clipboard.writeText(result.result)
       setCopied(true)
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     }
   }
 

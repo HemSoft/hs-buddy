@@ -263,7 +263,10 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
                   <div
                     key={`${occ.scheduleId}-${occ.time.getTime()}`}
                     className="occurrence-row"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onOpenSchedule?.(occ.scheduleId)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSchedule?.(occ.scheduleId); } }}
                     title={`Schedule: ${occ.scheduleName}\nJob: ${occ.jobName}\nCron: ${occ.cron}`}
                   >
                     <span className="occurrence-time">{formatTime(occ.time)}</span>

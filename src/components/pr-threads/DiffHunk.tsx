@@ -71,7 +71,7 @@ export function DiffHunk({ hunk }: { hunk: string }) {
           if (line.startsWith('@@')) {
             lineClass += ' diff-range'
             return (
-              <div key={`hunk-header-${i}`} className={lineClass}>
+              <div key={`hunk-header-${line}`} className={lineClass}>
                 <span className="diff-line-num" />
                 <span className="diff-line-num" />
                 <span className="diff-line-content">{line}</span>
@@ -89,7 +89,7 @@ export function DiffHunk({ hunk }: { hunk: string }) {
           }
 
           return (
-            <div key={`${leftNum ?? 'n'}-${rightNum ?? 'n'}`} className={lineClass}>
+            <div key={`${leftNum ?? 'n'}-${rightNum ?? 'n'}-${i}`} className={lineClass}>
               <span className="diff-line-num">{leftNum ?? ''}</span>
               <span className="diff-line-num">{rightNum ?? ''}</span>
               <span className="diff-line-content">{line}</span>

@@ -49,11 +49,11 @@ safe-outputs:
 
 # SFL Analyzer C — Full-Spectrum Review
 
-Dispatched by Analyzer B after completing its review, or dispatched manually.
-Post a structured full-spectrum review comment, then stop. The deterministic
-`sfl-pr-router.yml` workflow reads the finished review state from the PR body
-and decides whether the next step is promotion or another implementation pass.
-Exit after reviewing one PR per run.
+Dispatched by the deterministic router after Analyzer B, or dispatched
+manually. Post a structured full-spectrum review comment, then dispatch the
+deterministic router. The router reads the finished review state from the PR
+body and decides whether the next step is promotion or another implementation
+pass. Exit after reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -120,6 +120,26 @@ delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-c -->` ...
 Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 sfl-pr-router, sfl-auditor) and populate only yours.
+
+## Tooling Rules
+
+Use the MCP tool names that are exposed in this runtime. Do not invent aliases.
+
+- For PR reads, use `github-pull_request_read`
+- For linked issue reads, use `github-issue_read`
+- For repository file reads, use `github-get_file_contents`
+- For dashboard updates, use `safeoutputs-update_discussion`
+- For PR body updates, use `safeoutputs-update_issue`
+- For activity-log comments, use `safeoutputs-add_comment`
+- For router dispatch, use `safeoutputs-sfl_pr_router`
+- For no-action exits, use `safeoutputs-noop`
+
+Do NOT use `bash`, `write_bash`, `sql`, `view`, `web_fetch`, or planning tools
+for this workflow. They are unnecessary for Analyzer C and have caused false
+failures in prior runs.
+
+If any tool call fails validation, do not conclude that the GitHub or
+safe-output tools are unavailable. Retry using the exact MCP tool names above.
 
 ## Step 1 — Find the target PR
 
@@ -240,14 +260,14 @@ pipeline will re-review this PR every 30 minutes forever.
 
 ```markdown
 [MARKER:sfl-analyzer-c cycle:N]
-## 📊 SFL Analysis C — Full-Spectrum Review
+## :bar_chart: SFL Analysis C &mdash; Full-Spectrum Review
 
 **Analyzer**: C
 **Cycle**: N
 **PR**: #<number>
 **Linked Issue**: #<issue-number>
 
-### Blocking Issues 🔴
+### Blocking Issues :red_circle:
 
 > Issues that MUST be fixed before this PR can merge.
 
@@ -255,7 +275,7 @@ pipeline will re-review this PR every 30 minutes forever.
 
 _None found._ (use this if no blocking issues)
 
-### Non-Blocking Suggestions 🟡
+### Non-Blocking Suggestions :yellow_circle:
 
 > Improvements that would be nice but are not required for merge.
 
@@ -271,13 +291,14 @@ _None found._ (use this if no suggestions)
 
 Replace N with the current cycle number, and fill in actual findings.
 Use checkboxes (`- [ ]`) for blocking issues so the Issue Processor can track them.
+Use GitHub-safe Markdown shortcodes and HTML entities for decorative characters in the emitted body text so the rendered PR stays decorated without relying on raw Unicode bytes in the workflow write path.
 
 ## Activity Log
 
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Analyzer C | PR #<number> | ✅ PASS` or `❌ BLOCKING ISSUES FOUND`; use `EST` instead of `EDT` only when standard time is actually in effect
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Analyzer C | PR #<number> | :white_check_mark: PASS` or `:x: BLOCKING ISSUES FOUND`; use `EST` instead of `EDT` only when standard time is actually in effect
 
 Timestamp rule for Discussion #95 entries:
 

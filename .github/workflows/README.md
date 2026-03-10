@@ -29,7 +29,7 @@ That repo contains:
 | ---------- | ---------- | -------- | -------- |
 | `daily-repo-status` (`SFL Repo Status`) | Daily | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `repo-audit` (`Repo Audit`) | Daily | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `react-doctor-audit` (`React Doctor Audit`) | Daily | Single rolling `agent:fixable` issue from a real React Doctor CLI run | Local |
+| `react-doctor-audit` (`React Doctor Audit`) | Daily | Rolling React Doctor issue stream; older issues stay open while an active agent PR still depends on them | Local |
 | `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
 | `sfl-auditor` | `15 */12 * * *` (every 12 hours) | Repairs issue/PR label discrepancies | Local |
 | `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |

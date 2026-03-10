@@ -149,9 +149,14 @@ absent unless this run is clearly intended to be a targeted issue run. Do NOT
 let a lone `#` placeholder for a missing PR number invalidate an otherwise
 valid targeted issue run.
 
-If this run was triggered by an `issues` event and the issue already has the
-`agent:fixable` label, prefer that specific issue for **new issue** work once
-you confirm there is no older draft PR awaiting a follow-up implementation pass.
+If this run was triggered by an `issues` event:
+
+- when the reopened issue already has exactly one open draft `agent:pr` PR,
+  prefer resuming that PR deterministically instead of treating the issue as
+  new work
+- when the issue has `agent:fixable` and no draft PR yet, prefer that specific
+  issue for **new issue** work once you confirm there is no older draft PR
+  awaiting a follow-up implementation pass
 
 ### 1a — Existing draft PR needing fixes
 
@@ -224,21 +229,32 @@ If `issue-number` is provided:
 
 1. Read that exact issue.
 
-2. Verify it is open, has label `agent:fixable`, and does NOT have any of these labels: `agent:in-progress`, `agent:pause`, `agent:human-required`.
-
-3. Search for open draft PRs labeled `agent:pr` that already belong to that
+2. Search for open draft PRs labeled `agent:pr` that already belong to that
   issue.
 
-4. If more than one open draft `agent:pr` PR already exists for that issue,
-  report the duplicate-PR failure and exit.
+3. If more than one open draft `agent:pr` PR already exists for that issue,
+   report the duplicate-PR failure and exit.
 
-5. If exactly one open draft `agent:pr` PR already exists for that issue, do
-  NOT treat the issue as new work and do NOT create another PR. Report that the
-  targeted new-issue path observed existing draft PR state for the issue and
-  exit so the handoff bug is visible.
+4. If exactly one open draft `agent:pr` PR already exists for that issue,
+   treat this targeted issue run as a deterministic resume path instead of a
+   new-issue path:
+
+    - read that PR
+    - verify it is an open **draft** PR without `agent:human-required`
+    - determine current cycle N from the highest `pr:cycle-N` label (default `0`)
+    - verify all three analyzer markers exist for cycle N
+    - verify at least one analyzer verdict for cycle N is
+      `**BLOCKING ISSUES FOUND**`
+    - verify `[MARKER:sfl-issue-processor cycle:N]` is not already present
+    - if all checks pass, use that PR as the work item and continue at Step 3
+    - if any check fails, exit — there is no eligible follow-up work for that
+      specific issue/PR pair
+
+5. Verify it is open, has label `agent:fixable`, and does NOT have any of
+   these labels: `agent:in-progress`, `agent:pause`, `agent:human-required`.
 
 6. If any validation above fails, exit — there is no eligible new-issue work
-  for that specific issue.
+   for that specific issue.
 
 If those checks pass, use that issue as the work item and continue at Step 2.
 
@@ -447,7 +463,7 @@ Then append this summary marker to the PR body with `update_issue`:
 
 ```markdown
 [MARKER:sfl-issue-processor cycle:N]
-## 🔧 Issue Processor — Cycle N Implementation Pass
+## :wrench: Issue Processor &mdash; Cycle N Implementation Pass
 
 **PR**: #<number>
 **Linked Issue**: #<issue-number>
@@ -479,7 +495,7 @@ searching for the oldest eligible draft PR.
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EDT | Issue Processor | Issue #<number> → PR #<pr> | ✅ Created PR`, `✅ Continued PR`, or `⏭️ No eligible work`; use `EST` instead of `EDT` only when standard time is actually in effect
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | Issue Processor | Issue #<number> -> PR #<pr> | :white_check_mark: Created PR`, `:white_check_mark: Continued PR`, or `:fast_forward: No eligible work`; use `EST` instead of `EDT` only when standard time is actually in effect
 
 Timestamp rule for Discussion #95 entries:
 
@@ -490,6 +506,12 @@ Timestamp rule for Discussion #95 entries:
 - Invalid: `2026-03-09 2:56 AM EST | ...` when the workflow ran at `2026-03-09T02:56:00Z`
 
 This is mandatory — every run must log exactly one entry.
+
+UTF-8 safety rule for PR body writes:
+
+- For decorative characters in PR body content, use GitHub-safe Markdown shortcodes and HTML entities instead of raw glyphs when an equivalent exists.
+- Preferred examples: `:wrench:` instead of `🔧`, `&mdash;` instead of `—`, `:white_check_mark:` instead of `✅`.
+- Keep the body visually rich on GitHub, but avoid raw decorative Unicode that can be mojibake-corrupted by intermediate workflow write paths.
 
 ## Guardrails
 

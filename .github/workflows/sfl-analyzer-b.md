@@ -43,15 +43,15 @@ safe-outputs:
     target: "*"
     max: 1
   dispatch-workflow:
-    workflows: ["sfl-analyzer-c"]
+    workflows: ["sfl-pr-router"]
     max: 1
 ---
 
 # SFL Analyzer B — Full-Spectrum Review
 
-Dispatched by Analyzer A after completing its review, or dispatched manually.
-Post a structured full-spectrum review comment, then dispatch Analyzer C.
-Exit after reviewing one PR per run.
+Dispatched by the deterministic router after Analyzer A, or dispatched
+manually. Post a structured full-spectrum review comment, then dispatch the
+deterministic router. Exit after reviewing one PR per run.
 
 You are one of three independent analyzers. All three review the same
 dimensions; the value comes from **model diversity** — different AI models
@@ -118,6 +118,22 @@ delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-b -->` ...
 Never discard other workflows' sections. If the body is empty or missing
 markers, write the full template with all 6 sections (sfl-analyzer-a/b/c,
 sfl-pr-router, sfl-auditor) and populate only yours.
+
+## Tooling Rules
+
+Use the MCP tool names that are exposed in this runtime. Do not invent aliases.
+
+- For PR reads, use `github-pull_request_read`
+- For linked issue reads, use `github-issue_read`
+- For repository file reads, use `github-get_file_contents`
+- For dashboard updates, use `safeoutputs-update_discussion`
+- For PR body updates, use `safeoutputs-update_issue`
+- For activity-log comments, use `safeoutputs-add_comment`
+- For router dispatch, use `safeoutputs-sfl_pr_router`
+- For no-action exits, use `safeoutputs-noop`
+
+Do NOT use `bash`, `write_bash`, `sql`, `view`, `web_fetch`, or planning tools
+for this workflow.
 
 ## Step 1 — Find the target PR
 
@@ -222,14 +238,14 @@ pipeline will re-review this PR every 30 minutes forever.
 
 ```markdown
 [MARKER:sfl-analyzer-b cycle:N]
-## 📊 SFL Analysis B — Full-Spectrum Review
+## :bar_chart: SFL Analysis B &mdash; Full-Spectrum Review
 
 **Analyzer**: B
 **Cycle**: N
 **PR**: #<number>
 **Linked Issue**: #<issue-number>
 
-### Blocking Issues 🔴
+### Blocking Issues :red_circle:
 
 > Issues that MUST be fixed before this PR can merge.
 
@@ -237,7 +253,7 @@ pipeline will re-review this PR every 30 minutes forever.
 
 _None found._ (use this if no blocking issues)
 
-### Non-Blocking Suggestions 🟡
+### Non-Blocking Suggestions :yellow_circle:
 
 > Improvements that would be nice but are not required for merge.
 
@@ -253,13 +269,14 @@ _None found._ (use this if no suggestions)
 
 Replace N with the current cycle number, and fill in actual findings.
 Use checkboxes (`- [ ]`) for blocking issues so the Issue Processor can track them.
+Use GitHub-safe Markdown shortcodes and HTML entities for decorative characters in the emitted body text so the rendered PR stays decorated without relying on raw Unicode bytes in the workflow write path.
 
 ## Activity Log
 
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Analyzer B | PR #<number> | ✅ PASS` or `❌ BLOCKING ISSUES FOUND`; use `EST` instead of `EDT` only when standard time is actually in effect
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Analyzer B | PR #<number> | :white_check_mark: PASS` or `:x: BLOCKING ISSUES FOUND`; use `EST` instead of `EDT` only when standard time is actually in effect
 
 Timestamp rule for Discussion #95 entries:
 
@@ -271,25 +288,19 @@ Timestamp rule for Discussion #95 entries:
 
 This is mandatory — every run must log exactly one entry.
 
-## Step 7 — Chain to Analyzer C
+## Step 7 — Dispatch the deterministic router
 
-After posting the review comment and activity log:
+After posting the review comment and activity log, dispatch `sfl-pr-router`
+with input `pull-request-number: <number>`.
 
-1. Dispatch Analyzer C to continue the review chain:
-
-- Call `dispatch_workflow` with workflow `sfl-analyzer-c`
-- Include input `pull-request-number: <number>` so Analyzer C reviews this exact PR
-
-This action is required. Do NOT skip this step.
-
-The dispatch must carry the exact PR number you just reviewed. A blank or
-placeholder `pull-request-number` is an invalid handoff.
+Do NOT decide whether Analyzer C or the Issue Processor should run next. The
+router owns that decision.
 
 ## Guardrails
 
 - Review exactly ONE PR per run — never loop over multiple PRs
 - For every skip path, you MUST update the dashboard (see Dashboard Protocol) — do not only write plain text
-- Never modify PR code or draft status — only post review comments and dispatch the next analyzer
+- Never modify PR code or draft status — only post review comments and dispatch the router
 - Never re-review a PR that already has your marker for the current cycle
 - If the PR diff is empty or cannot be read, update the dashboard with an explanation
 - If any step fails unexpectedly, update the dashboard with the failure reason and exit

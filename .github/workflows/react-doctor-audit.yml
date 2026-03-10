@@ -120,6 +120,27 @@ jobs:
               return text.replace(/\u001B\[[0-9;]*m/g, '');
             }
 
+            function linkedIssueFromPullRequest(pullRequest) {
+              const body = pullRequest.body || '';
+              const closesMatch = body.match(/Closes\s+#(\d+)/i);
+              if (closesMatch) {
+                return Number(closesMatch[1]);
+              }
+
+              const linkedIssueMatch = body.match(/\*\*Linked Issue\*\*:\s+#(\d+)/i);
+              if (linkedIssueMatch) {
+                return Number(linkedIssueMatch[1]);
+              }
+
+              const headRef = pullRequest.head?.ref || '';
+              const branchMatch = headRef.match(/agent-fix\/issue-(\d+)(?:-|$)/i);
+              if (branchMatch) {
+                return Number(branchMatch[1]);
+              }
+
+              return null;
+            }
+
             function categoryForTitle(title) {
               const normalized = title.toLowerCase();
 
@@ -384,11 +405,34 @@ jobs:
               per_page: 100,
             });
 
+            const openPullRequests = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const activeReactDoctorIssueNumbers = new Set(
+              openPullRequests
+                .filter((pullRequest) => Array.isArray(pullRequest.labels) && pullRequest.labels.some((label) => label.name === 'agent:pr'))
+                .map((pullRequest) => linkedIssueFromPullRequest(pullRequest))
+                .filter((issueNumber) => Number.isInteger(issueNumber)),
+            );
+
             const previousIssues = openIssues.filter(
               (issue) => !issue.pull_request && issue.title.startsWith(issuePrefix),
             );
 
             for (const issue of previousIssues) {
+              const labelNames = Array.isArray(issue.labels) ? issue.labels.map((label) => label.name) : [];
+              const hasOpenAgentPr = activeReactDoctorIssueNumbers.has(issue.number);
+              const isActiveImplementation = hasOpenAgentPr || labelNames.includes('agent:in-progress') || labelNames.includes('agent:pause');
+
+              if (isActiveImplementation) {
+                core.info(`Keeping React Doctor issue #${issue.number} open because it still has active implementation state.`);
+                continue;
+              }
+
               await github.rest.issues.update({
                 owner,
                 repo,

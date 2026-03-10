@@ -137,8 +137,8 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_COMMENT_ID: ${{ github.event.comment.id }}
           GH_AW_GITHUB_EVENT_DISCUSSION_NUMBER: ${{ github.event.discussion.number }}
-          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: "${{ github.event.issue.number || inputs['issue-number'] || github.event.inputs['issue-number'] }}"
-          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: "${{ github.event.pull_request.number || inputs['pull-request-number'] || github.event.inputs['pull-request-number'] }}"
+          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -213,8 +213,8 @@ jobs:
           GH_AW_GITHUB_ACTOR: ${{ github.actor }}
           GH_AW_GITHUB_EVENT_COMMENT_ID: ${{ github.event.comment.id }}
           GH_AW_GITHUB_EVENT_DISCUSSION_NUMBER: ${{ github.event.discussion.number }}
-          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: "${{ github.event.issue.number || inputs['issue-number'] || github.event.inputs['issue-number'] }}"
-          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: "${{ github.event.pull_request.number || inputs['pull-request-number'] || github.event.inputs['pull-request-number'] }}"
+          GH_AW_GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -1133,6 +1133,8 @@ jobs:
         with:
           name: activation
           path: /tmp/gh-aw
+      - name: Clean git credentials
+        run: bash /opt/gh-aw/actions/clean_git_credentials.sh
       - name: Execute GitHub Copilot CLI
         id: agentic_execution
         # Copilot CLI tool arguments (sorted):
@@ -1170,9 +1172,6 @@ jobs:
         if: always()
         continue-on-error: true
         run: bash /opt/gh-aw/actions/detect_inference_access_error.sh
-      - name: Clean git credentials
-        if: always()
-        run: bash /opt/gh-aw/actions/clean_git_credentials.sh
       - name: Configure Git credentials
         env:
           REPO_NAME: ${{ github.repository }}
@@ -1668,27 +1667,6 @@ jobs:
           SERVER_URL_STRIPPED="${SERVER_URL#https://}"
           git remote set-url origin "https://x-access-token:${GIT_TOKEN}@${SERVER_URL_STRIPPED}/${REPO_NAME}.git"
           echo "Git configured with standard GitHub Actions identity"
-      - name: Verify PR branch fetch auth
-        if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (contains(needs.agent.outputs.output_types, 'push_to_pull_request_branch'))
-        env:
-          GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-        run: |
-          TARGET_BRANCH="$(node <<'NODE'
-          const fs = require("fs");
-          const path = process.env.GH_AW_AGENT_OUTPUT;
-          const data = JSON.parse(fs.readFileSync(path, "utf8"));
-          const item = (data.items || []).find((entry) => entry.type === "push_to_pull_request_branch");
-          if (item?.branch) process.stdout.write(item.branch);
-          NODE
-          )"
-          if [ -z "$TARGET_BRANCH" ]; then
-            echo "No push_to_pull_request_branch target found in agent output"
-            exit 1
-          fi
-          git ls-remote origin HEAD > /dev/null
-          git fetch --no-tags --depth=1 origin "refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
-          git rev-parse --verify "refs/remotes/origin/${TARGET_BRANCH}" > /dev/null
-          echo "Verified authenticated fetch for ${TARGET_BRANCH}"
       - name: Process Safe Outputs
         id: process_safe_outputs
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8

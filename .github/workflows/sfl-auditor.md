@@ -125,10 +125,29 @@ simultaneously:
 
 ## Step 4 — (Removed — consolidated into agent:fixable)
 
-## Step 5 — Check: orphaned agent PRs
+## Step 5 — Check: open agent PRs whose linked issue state is invalid
 
 For each PR in list B, look up the corresponding issue (using the number
-extracted in Step 1). If that issue does NOT have `agent:in-progress`:
+extracted in Step 1).
+
+If that issue is **CLOSED**, this is a broken state. An open `agent:pr` PR
+cannot belong to a closed issue.
+
+1. Build repaired labels from the issue's current labels.
+2. If the repaired labels do NOT already contain any of `agent:in-progress`,
+  `agent:pause`, `agent:human-required`, or `agent:escalated`, add
+  `agent:in-progress`.
+3. Call `update_issue` with ALL of these fields in a **single call**:
+
+    - `issue_number`: the issue number
+    - `status`: `"open"`
+    - `labels`: the repaired labels
+    - `body`: "⚠️ **SFL Auditor**: PR #<pr-number> is still open on branch `<branch-name>` but this issue was closed. Reopening the issue so PR and issue state stay aligned."
+    - `operation`: `"append"`
+
+Skip the rest of Step 5 for that issue after reopening it.
+
+If the issue is OPEN but does NOT have `agent:in-progress`:
 
 1. Call `update_issue` with:
    - `issue_number`: the issue number
@@ -166,7 +185,8 @@ For each such closed issue:
    - `operation`: `"append"`
 
 This is a cleanup step for cases where the issue was closed manually or by PR
-keywords but the operational label remained behind.
+keywords but no open agent PR still depends on it. If Step 5 already reopened
+the issue because an open agent PR still points at it, skip this cleanup.
 
 ## Step 8 — Check: stale report issues
 

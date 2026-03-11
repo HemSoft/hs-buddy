@@ -434,6 +434,21 @@ Call the `create_pull_request` safe output tool. This is the ONLY way to
 create the initial PR — it handles pushing the branch and opening the PR in
 one step.
 
+**CRITICAL — Deferred execution**: All safe-output tools (`create_pull_request`,
+`add_labels`, `remove_labels`, `add_comment`, etc.) are **deferred**. They are
+queued during your run and executed by a separate `safe_outputs` job AFTER your
+agent step finishes. This means:
+
+- You CANNOT verify a PR was created by reading the GitHub API after calling
+  `create_pull_request`. The PR does not exist yet during your run.
+- You CANNOT verify labels changed by reading the issue after calling
+  `add_labels`. The label change has not happened yet.
+- Do NOT attempt any post-call verification reads for safe-output tools.
+  Trust that the tool call was accepted and will be processed.
+- **Never emit contradictory safe-output sequences.** If you called
+  `create_pull_request`, do NOT also emit `add_labels` with `agent:pause`
+  in the same run. Pick one path (success or failure) and commit to it.
+
 The tool will use your committed changes on the current branch. Provide:
 
 - Title: `<issue title, stripped of any [repo-audit] prefix>`
@@ -566,3 +581,8 @@ UTF-8 safety rule for PR body writes:
 - If any step fails unexpectedly: call `add_labels` with `agent:pause` and
   `remove_labels` with `agent:in-progress` when appropriate, then call `update_issue`
   to append the failure reason, then exit cleanly
+- **Never emit contradictory safe-output sequences.** If you already called
+  `create_pull_request` or `push_to_pull_request_branch`, you have committed to
+  the success path. Do NOT also emit pause/failure labels in the same run.
+  Safe-output tools are deferred — you cannot verify their result by reading
+  GitHub API during your run. Trust the call and let safe_outputs handle it.

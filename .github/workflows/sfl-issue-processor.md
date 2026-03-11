@@ -25,6 +25,9 @@ permissions:
   issues: read
   pull-requests: read
 
+checkout:
+  fetch: ["agent-fix/*"]
+
 timeout-minutes: 60
 
 engine:
@@ -171,15 +174,16 @@ If they pass, use that PR as the work item.
 
 **Branch checkout** (dispatch runs only): When this run was triggered by
 `workflow_dispatch`, the workspace starts on `main` and the PR branch is not
-checked out automatically. Before continuing to Step 3, fetch and switch to
-the PR's head branch:
+checked out automatically. The workflow pre-fetches all `agent-fix/*` branches
+before the agent starts, so they are available locally. Before continuing to
+Step 3, switch to the PR's head branch:
 
 ```bash
-git fetch origin <pr-head-branch>
 git checkout <pr-head-branch>
 ```
 
 Replace `<pr-head-branch>` with the `headRefName` from the PR you just read.
+Do NOT run `git fetch` — the branch is already available as a local remote ref.
 If the checkout fails, report the failure and exit.
 
 Continue at Step 3.
@@ -223,11 +227,11 @@ instead of choosing one arbitrarily.
 If such a PR is found, this run is a **follow-up implementation pass**.
 Use its linked issue as the canonical spec.
 
-**Branch checkout**: If the workspace is on `main` (not the PR branch), fetch
-and switch to the PR's head branch before continuing:
+**Branch checkout**: If the workspace is on `main` (not the PR branch),
+switch to the PR's head branch before continuing (`agent-fix/*` branches are
+pre-fetched by the workflow — do NOT run `git fetch`):
 
 ```bash
-git fetch origin <pr-head-branch>
 git checkout <pr-head-branch>
 ```
 
@@ -264,8 +268,9 @@ If `issue-number` is provided:
       `**BLOCKING ISSUES FOUND**`
     - search the PR comments for `[MARKER:sfl-issue-processor cycle:N]` —
       verify it is not already present
-    - if all checks pass, use that PR as the work item — fetch and checkout
-      the PR's head branch if not already on it, then continue at Step 3
+    - if all checks pass, use that PR as the work item — checkout
+      the PR's head branch if not already on it (do NOT `git fetch`;
+      `agent-fix/*` branches are pre-fetched), then continue at Step 3
     - if any check fails, exit — there is no eligible follow-up work for that
       specific issue/PR pair
 

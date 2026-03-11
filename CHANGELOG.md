@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.321] - 2026-03-11
+
 ## [0.1.320] - 2026-03-11
+
+### Fixed
+
+- Wire dispatch inputs to prompt via Handlebars blocks
 
 ## [0.1.319] - 2026-03-11
 

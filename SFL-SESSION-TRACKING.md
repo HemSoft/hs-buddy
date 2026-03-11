@@ -32,6 +32,7 @@
 | 11:15 AM | 22959834329 | Analyzer C | success | Reviewed PR #175. **BLOCKING**: README.md update skipped (`.github/` protected). |
 | 11:21 AM | 22960096857 | Label Actions | success | Detected blocking, removed `analyzer:blocked`, dispatched Issue Processor for fix cycle. |
 | 11:21 AM | 22960108718 | Issue Processor | success | No-op — #173 was incorrectly `agent:pause` from contradictory emit in run 22958664401. |
+| ~12:44 PM | 22964044907 | Issue Processor | success | **Failure #6**: `pull-request-number=175` dispatched but input wasn't wired to prompt (blank). "No eligible work." |
 
 ## Fixes Applied
 
@@ -42,6 +43,7 @@
 | 3 | v0.1.314 | f277226 | Removed `allowed-files`, added protected-path guardrail in prompt | Yes — agent skipped README finding |
 | 4 | v0.1.315 | 49773ad | Deferred label changes to after `create_pull_request` | Yes — labels not stuck on PR failure |
 | 5 | v0.1.316 | 37a327a | Deferred safe-output guardrail — prevent contradictory emit sequences | Pending — next run will validate |
+| 6 | v0.1.320 | e6efa85 | Handlebars blocks for dispatch inputs — matching Analyzer pattern | Pending — next run will validate |
 
 ## Platform Discoveries
 
@@ -50,6 +52,7 @@
 3. safe_outputs processes messages in emission order; already-processed messages are NOT rolled back
 4. Safe-output tools are DEFERRED — agent cannot verify their result during its run
 5. `.github/` is always in `protected_path_prefixes`
+6. `github.event.inputs.*` needs `{{#if}}` Handlebars blocks in `.md` to be wired to prompt — `<github-context>` env vars don't cover dispatch inputs
 
 ## Manual Interventions
 
@@ -64,5 +67,5 @@
 - **Issue #173**: OPEN, `agent:in-progress`
 - **PR #175**: OPEN, draft, `agent:pr` — all 3 analyzer markers present (cycle 0)
 - **Analyzer C verdict**: BLOCKING (README.md update can't be done by agent)
-- **Waiting on**: Follow-up Issue Processor run to address Analyzer C feedback on PR #175
+- **Waiting on**: Fix #6 pushed (v0.1.320) — ready for re-dispatch to validate
 - **Timeline doc**: `docs/timeline/2026-03-11-issue-173-pipeline.md`

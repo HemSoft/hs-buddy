@@ -61,7 +61,7 @@ export function createPRDetailViewId(
   return section ? `${base}?section=${section}` : base
 }
 
-export function parsePRLinkInfo(viewId: string): PRDetailInfo | null {
+function parsePRLinkInfo(viewId: string): PRDetailInfo | null {
   const prefix = 'pr-detail:'
   if (!viewId.startsWith(prefix)) {
     return null

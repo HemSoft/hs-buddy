@@ -6,7 +6,7 @@
  */
 
 export type TaskId = string
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'cancelled' | 'failed'
+type TaskStatus = 'pending' | 'running' | 'completed' | 'cancelled' | 'failed'
 
 export interface TaskOptions {
   /** Priority level (higher = more urgent, default: 0) */

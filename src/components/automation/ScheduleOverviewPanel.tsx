@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Calendar, Clock, Play, Pause, ChevronRight } from 'lucide-react'
 import { CronExpressionParser } from 'cron-parser'
 import { useSchedules } from '../../hooks/useConvex'
+import { formatTime } from '../../utils/dateUtils'
 import { InlineDropdown } from '../InlineDropdown'
 import type { DropdownOption } from '../InlineDropdown'
 import './ScheduleOverviewPanel.css'
@@ -188,14 +189,6 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
       default:
         return ''
     }
-  }
-
-  const formatTime = (date: Date) => {
-    const h = date.getHours()
-    const m = date.getMinutes()
-    const ampm = h >= 12 ? 'PM' : 'AM'
-    const h12 = h % 12 || 12
-    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
   }
 
   return (

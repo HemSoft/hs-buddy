@@ -75,6 +75,25 @@ safe-outputs:
 
 Advance exactly one implementation work item per run.
 
+## Tool-calling budget
+
+You have multiple MCP tool types, each with its own independent per-run quota.
+Calling one type does NOT reduce the quota of another type.
+
+| Tool | Per-run max | When to use |
+| --- | --- | --- |
+| `add_labels` | 3 | Claim issue, set cycle labels |
+| `remove_labels` | 3 | Release `agent:fixable`, clear old cycle label |
+| `add_comment` | 3 | Claim comment, PR-link comment, activity log |
+| `update_issue` | 4 | Failure notes |
+| `create_pull_request` | 1 | First draft PR for a new issue |
+| `push_to_pull_request_branch` | 1 | Follow-up fix on existing PR |
+| `dispatch_workflow` | 1 | Re-dispatch Analyzer A after follow-up pass |
+
+A typical new-issue flow uses **6 calls across 4 types** — this is normal and
+expected. Never emit `missing_tool` because you think the budget is 1 call
+total; it is 1 **per type** where marked, and up to 3–4 for the others.
+
 The linked issue is always the canonical source of intent and acceptance
 criteria. If that issue already has an open draft PR, continue work on that PR
 using the current analyzer feedback. If no PR exists yet, create the first

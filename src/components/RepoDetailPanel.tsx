@@ -184,7 +184,15 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
                     className="repo-badge repo-badge-ci"
                     style={{ borderColor: info.color, color: info.color }}
                     title={`${detail.latestWorkflowRun.name} — ${info.label}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => window.shell?.openExternal(detail.latestWorkflowRun!.url)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        window.shell?.openExternal(detail.latestWorkflowRun!.url)
+                      }
+                    }}
                   >
                     <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
                     {info.label}

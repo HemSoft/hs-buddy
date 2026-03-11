@@ -47,17 +47,20 @@ export function PRTreeSection({
     <>
       {prItems.map(item => (
         <div key={item.id}>
-          <div className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''}`}>
+          <div
+            className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''}`}
+          >
             <button
               type="button"
               className="sidebar-item-chevron"
-              role="button"
               tabIndex={0}
               onClick={e => {
                 e.stopPropagation()
                 onTogglePRGroup(item.id)
               }}
-              aria-label={expandedPrGroups.has(item.id) ? `Collapse ${item.label}` : `Expand ${item.label}`}
+              aria-label={
+                expandedPrGroups.has(item.id) ? `Collapse ${item.label}` : `Expand ${item.label}`
+              }
             >
               {expandedPrGroups.has(item.id) ? (
                 <ChevronDown size={12} />
@@ -65,7 +68,11 @@ export function PRTreeSection({
                 <ChevronRight size={12} />
               )}
             </button>
-            <button type="button" className="sidebar-item-main" onClick={() => onItemSelect(item.id)}>
+            <button
+              type="button"
+              className="sidebar-item-main"
+              onClick={() => onItemSelect(item.id)}
+            >
               <span className="sidebar-item-icon">
                 <FileText size={14} />
               </span>
@@ -109,7 +116,6 @@ export function PRTreeSection({
                         <button
                           type="button"
                           className="sidebar-item-chevron"
-                          role="button"
                           tabIndex={0}
                           onClick={e => {
                             e.stopPropagation()
@@ -127,7 +133,11 @@ export function PRTreeSection({
                             <ChevronRight size={12} />
                           )}
                         </button>
-                        <button type="button" className="sidebar-item-main" onClick={() => onItemSelect(prViewId)}>
+                        <button
+                          type="button"
+                          className="sidebar-item-main"
+                          onClick={() => onItemSelect(prViewId)}
+                        >
                           <span className="sidebar-item-icon">
                             <GitPullRequest size={12} />
                           </span>

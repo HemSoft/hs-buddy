@@ -1,4 +1,5 @@
 import { Play, Edit, Copy, Trash2, Clock, Calendar } from 'lucide-react'
+import type { Doc } from '../../../convex/_generated/dataModel'
 import { useJob, useJobMutations, useRunMutations, useJobRuns, JobId } from '../../hooks/useConvex'
 import { formatDistanceToNow } from '../../utils/dateUtils'
 import { getWorkerIcon } from './job-list/jobRowUtils'
@@ -9,6 +10,86 @@ import './JobDetailPanel.css'
 interface JobDetailPanelProps {
   jobId: string
   onOpenJobList?: () => void
+}
+
+function ConfigDetails({ job }: { job: Doc<'jobs'> }) {
+  switch (job.workerType) {
+    case 'exec':
+      return (
+        <div className="job-detail-config">
+          <div className="config-field">
+            <span className="config-label">Command</span>
+            <code className="config-value">{job.config.command || '—'}</code>
+          </div>
+          {job.config.shell && (
+            <div className="config-field">
+              <span className="config-label">Shell</span>
+              <span className="config-value">{job.config.shell}</span>
+            </div>
+          )}
+          {job.config.cwd && (
+            <div className="config-field">
+              <span className="config-label">Working Dir</span>
+              <span className="config-value">{job.config.cwd}</span>
+            </div>
+          )}
+          {job.config.timeout && (
+            <div className="config-field">
+              <span className="config-label">Timeout</span>
+              <span className="config-value">{(job.config.timeout / 1000).toFixed(0)}s</span>
+            </div>
+          )}
+        </div>
+      )
+    case 'ai':
+      return (
+        <div className="job-detail-config">
+          <div className="config-field">
+            <span className="config-label">Prompt</span>
+            <pre className="config-value config-pre">{job.config.prompt || '—'}</pre>
+          </div>
+          {job.config.model && (
+            <div className="config-field">
+              <span className="config-label">Model</span>
+              <span className="config-value">{job.config.model}</span>
+            </div>
+          )}
+          {job.config.repoOwner && job.config.repoName && (
+            <div className="config-field">
+              <span className="config-label">Repo</span>
+              <span className="config-value">
+                {job.config.repoOwner}/{job.config.repoName}
+              </span>
+            </div>
+          )}
+        </div>
+      )
+    case 'skill':
+      return (
+        <div className="job-detail-config">
+          <div className="config-field">
+            <span className="config-label">Skill</span>
+            <span className="config-value">{job.config.skillName || '—'}</span>
+          </div>
+          {job.config.action && (
+            <div className="config-field">
+              <span className="config-label">Action</span>
+              <span className="config-value">{job.config.action}</span>
+            </div>
+          )}
+          {job.config.params && (
+            <div className="config-field">
+              <span className="config-label">Params</span>
+              <pre className="config-value config-pre">
+                {JSON.stringify(job.config.params, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )
+    default:
+      return null
+  }
 }
 
 export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
@@ -98,86 +179,6 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
     }
   }
 
-  const renderConfigDetails = () => {
-    switch (job.workerType) {
-      case 'exec':
-        return (
-          <div className="job-detail-config">
-            <div className="config-field">
-              <span className="config-label">Command</span>
-              <code className="config-value">{job.config.command || '—'}</code>
-            </div>
-            {job.config.shell && (
-              <div className="config-field">
-                <span className="config-label">Shell</span>
-                <span className="config-value">{job.config.shell}</span>
-              </div>
-            )}
-            {job.config.cwd && (
-              <div className="config-field">
-                <span className="config-label">Working Dir</span>
-                <span className="config-value">{job.config.cwd}</span>
-              </div>
-            )}
-            {job.config.timeout && (
-              <div className="config-field">
-                <span className="config-label">Timeout</span>
-                <span className="config-value">{(job.config.timeout / 1000).toFixed(0)}s</span>
-              </div>
-            )}
-          </div>
-        )
-      case 'ai':
-        return (
-          <div className="job-detail-config">
-            <div className="config-field">
-              <span className="config-label">Prompt</span>
-              <pre className="config-value config-pre">{job.config.prompt || '—'}</pre>
-            </div>
-            {job.config.model && (
-              <div className="config-field">
-                <span className="config-label">Model</span>
-                <span className="config-value">{job.config.model}</span>
-              </div>
-            )}
-            {job.config.repoOwner && job.config.repoName && (
-              <div className="config-field">
-                <span className="config-label">Repo</span>
-                <span className="config-value">
-                  {job.config.repoOwner}/{job.config.repoName}
-                </span>
-              </div>
-            )}
-          </div>
-        )
-      case 'skill':
-        return (
-          <div className="job-detail-config">
-            <div className="config-field">
-              <span className="config-label">Skill</span>
-              <span className="config-value">{job.config.skillName || '—'}</span>
-            </div>
-            {job.config.action && (
-              <div className="config-field">
-                <span className="config-label">Action</span>
-                <span className="config-value">{job.config.action}</span>
-              </div>
-            )}
-            {job.config.params && (
-              <div className="config-field">
-                <span className="config-label">Params</span>
-                <pre className="config-value config-pre">
-                  {JSON.stringify(job.config.params, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        )
-      default:
-        return null
-    }
-  }
-
   return (
     <div className="job-detail">
       {editorOpen && (
@@ -227,7 +228,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
 
       <div className="job-detail-section">
         <h3>Configuration</h3>
-        {renderConfigDetails()}
+        <ConfigDetails job={job} />
       </div>
 
       <div className="job-detail-section">

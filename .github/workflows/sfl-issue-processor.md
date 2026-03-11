@@ -312,11 +312,13 @@ or `risk:high`.
 
 If this is a **new issue** from Step 1b:
 
-1. Call `add_labels` to add `agent:in-progress` to the issue.
+1. Call `add_comment` with `issue_number` set to the issue number from Step 1b and `body` set to "🤖 Issue Processor claimed this issue. Working on a fix."
 
-2. Call `remove_labels` to remove `agent:fixable` from the issue.
-
-3. Call `add_comment` with `issue_number` set to the issue number from Step 1b and `body` set to "🤖 Issue Processor claimed this issue. Working on a fix."
+Do NOT call `add_labels` or `remove_labels` yet. The label change from
+`agent:fixable` to `agent:in-progress` MUST happen **after** `create_pull_request`
+succeeds in Step 6a. This is critical: if the PR creation fails, the issue
+must remain `agent:fixable` so it can be retried. See Step 6a for where to
+emit the label changes.
 
 Do NOT append progress updates to the issue body. Keep the issue body as the
 canonical implementation spec and put operational status in comments.
@@ -444,7 +446,16 @@ The tool will use your committed changes on the current branch. Provide:
 
 Do NOT set labels — they are configured automatically by the safe-output.
 
-After the PR is created, call `add_comment` on the linked issue with:
+After the PR is created, update the issue labels to reflect the claimed state:
+
+1. Call `add_labels` to add `agent:in-progress` to the linked issue.
+2. Call `remove_labels` to remove `agent:fixable` from the linked issue.
+
+These label calls MUST come after `create_pull_request` in your output. Safe
+outputs processes messages in order — if the PR creation fails, subsequent
+messages are cancelled, keeping the issue labeled `agent:fixable` for retry.
+
+Then call `add_comment` on the linked issue with:
 
 - `issue_number`: the issue number
 - `body`: "🔀 Opened PR #<number> — ready for analyzer review."

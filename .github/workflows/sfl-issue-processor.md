@@ -53,13 +53,9 @@ safe-outputs:
     title-prefix: "[agent-fix] "
     labels: [agent:pr]
     draft: true
-    allowed-files:
-      - ".github/workflows/README.md"
   push-to-pull-request-branch:
     target: "*"
     max: 1
-    allowed-files:
-      - ".github/workflows/README.md"
   add-labels:
     max: 3
   remove-labels:
@@ -551,6 +547,7 @@ UTF-8 safety rule for PR body writes:
 
 - Exit after processing exactly one work item per run — never loop over multiple issues/PRs
 - Never force-push, amend commits, or modify files outside the Fix scope
+- **Never create, edit, or delete files under `.github/` or `.agents/`** — these are protected paths and will cause the PR to be rejected by safe-outputs. If an issue finding targets a file in these directories, skip that finding and note it as non-agent-fixable in the activity log.
 - Never run `git push` directly — always use `create_pull_request` or `push_to_pull_request_branch`
 - Never create a superseding PR for a follow-up implementation pass
 - Never write a supersede or push-failure narrative unless this run actually attempted `push_to_pull_request_branch` and you can cite the returned failure

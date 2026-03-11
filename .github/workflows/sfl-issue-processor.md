@@ -53,9 +53,13 @@ safe-outputs:
     title-prefix: "[agent-fix] "
     labels: [agent:pr]
     draft: true
+    allowed-files:
+      - ".github/workflows/README.md"
   push-to-pull-request-branch:
     target: "*"
     max: 1
+    allowed-files:
+      - ".github/workflows/README.md"
   add-labels:
     max: 3
   remove-labels:

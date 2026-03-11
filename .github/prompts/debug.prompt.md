@@ -14,7 +14,7 @@ its Debugging guidance and Debug Checklist systematically.
 
 ## Step 1 — Read Context
 
-1. Read `AGENTS.md` and `.github/workflows/README.md` for pipeline architecture and standing orders
+1. Read `AGENTS.md` and `docs/WORKFLOW-README.md` for pipeline architecture and standing orders
 2. Read `VISION.md` for architectural alignment checks
 
 ---
@@ -68,7 +68,7 @@ Capture in the report:
 
 Print a structured report:
 
-```
+```text
 ## Debug Report — <current date/time>
 
 ### Ecosystem Health

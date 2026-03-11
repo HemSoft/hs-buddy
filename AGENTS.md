@@ -15,7 +15,7 @@ The agentic loop lives in `.github/workflows/`. Its mission:
 **GitHub Actions, GitHub Issues, and GitHub Pull Requests must be in**
 **perfect harmony at all times.**
 
-See [.github/workflows/README.md](.github/workflows/README.md) for the
+See [docs/WORKFLOW-README.md](docs/WORKFLOW-README.md) for the
 workflow schedule and catalog.
 
 ### 1. SFL Auditor is First

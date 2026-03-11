@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.328] - 2026-03-11
+
+## [0.1.327] - 2026-03-11
+
+### Fixed
+
+- Pre-checkout PR branch for dispatch runs via custom step
+
 ## [0.1.326] - 2026-03-11
+
+### Fixed
+
+- Pre-fetch agent-fix/* branches for dispatch runs
 
 ## [0.1.325] - 2026-03-11
 

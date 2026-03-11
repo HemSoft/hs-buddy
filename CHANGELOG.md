@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.317] - 2026-03-11
+
 ## [0.1.316] - 2026-03-11
+
+### Fixed
+
+- Add deferred safe-output guardrail to prevent contradictory emit sequences
 
 ## [0.1.315] - 2026-03-11
 

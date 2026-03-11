@@ -2,7 +2,8 @@
 description: |
   This workflow runs a repository audit to detect documentation drift,
   stale artifacts, configuration hygiene issues, and cross-reference mismatches.
-  It creates exactly ONE consolidated report discussion with all findings.
+  It creates exactly one agent-fixable issue containing all findings and
+  detailed fix instructions for the SFL pipeline to process.
 
 on:
   schedule:
@@ -13,7 +14,6 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
-  discussions: read
 
 network: defaults
 
@@ -22,12 +22,11 @@ tools:
     lockdown: false
 
 safe-outputs:
-  create-discussion:
+  create-issue:
     title-prefix: "[repo-audit] "
-    category: "General"
+    labels: [agent:fixable]
     max: 1
-    expires: false
-  update-discussion:
+  update-issue:
     target: "*"
     max: 5
   add-comment:
@@ -37,23 +36,18 @@ safe-outputs:
 
 # Repo Audit
 
-Run a high-signal repository audit. Produce **exactly one Discussion**
-containing all findings. Do NOT create multiple discussions — every finding goes
-into a single consolidated report.
+Run a high-signal repository audit. Produce **exactly one issue**
+containing all findings with detailed, step-by-step fix instructions. This
+single issue enters the SFL pipeline and must give the Issue Processor
+everything it needs to implement all fixes in one pass.
 
-## CRITICAL — Single Discussion Output
+## Step 0 — Close previous repo-audit issues
 
-This workflow creates **ONE discussion and one discussion only**. All findings —
-regardless of category, severity, or fixability — are reported in that
-single discussion (category: General). Do NOT create separate agent-fixable issues,
-per-finding discussions, or per-category discussions. Everything belongs in one report.
+Before creating today's audit, search for all **open** issues whose title
+starts with `[repo-audit]`. For each one found, close it using
+`update_issue` with:
 
-## Step 0 — Close previous audit summary reports
-
-Before creating today's audit, search for all **open** discussions whose title
-starts with `[repo-audit]`. For each one found, close it using `update_discussion` with:
-
-- `discussion_number`: the discussion number
+- `issue_number`: the issue number
 - `status`: `"closed"`
 
 ## Goals
@@ -106,50 +100,113 @@ starts with `[repo-audit]`. For each one found, close it using `update_discussio
 
 ## Output — Single Consolidated Issue
 
-Create **exactly one issue** titled `[repo-audit] Repo Audit — <date>`
-with labels `report` and `audit`. This is the ONLY issue this workflow creates.
+Create **exactly one issue** using `create_issue`. The safe-output config
+automatically adds the `[repo-audit]` title prefix and `agent:fixable` label.
 
-The issue body must contain:
+If the audit found zero actionable findings, do NOT create an issue — skip
+straight to the activity log entry (Process step 6) and report `0 findings`.
 
-### Executive Summary
+### Title
 
-A brief overall repo health assessment (1-3 sentences).
+`Repo Audit — YYYY-MM-DD`
 
-### Findings Table
+(The `[repo-audit]` prefix is added automatically.)
 
-| # | Category | Finding | Severity        | Confidence  | Agent-Fixable? |
-| - | -------- | ------- | --------------- | ----------- | -------------- |
-| 1 | ...      | ...     | High/Medium/Low | High/Medium | Yes/No         |
+### Risk in body
 
-### Detailed Findings
+Each finding already includes a severity and risk assessment in its body text.
+Do NOT apply any risk labels (`risk:low`, `risk:medium`, etc.) — the only
+label applied is `agent:fixable` (enforced by safe-outputs).
 
-For each finding in the table, include a detail section:
+For Medium or High risk findings, include a **Risk Acknowledgment** line in the
+issue body stating what could go wrong and why the fixes are still worth pursuing.
 
-#### Finding N: <title>
+### Issue body structure
 
-- **Category**: e.g., Accessibility, Dead Code, Configuration
-- **Severity**: High / Medium / Low
-- **Confidence**: High / Medium
-- **Agent-Fixable**: Yes / No (with brief justification)
-- **Affected files**: List of files and lines involved
-- **Recommended fix**: What should be done
-- **Risk**: trivial / low / medium / high
+The issue body must give the Issue Processor a complete, self-contained
+implementation guide. Use this exact structure:
 
-### Summary
+```markdown
+## Summary
 
-- Total findings: N
-- Agent-fixable: N (these can be addressed by creating `agent:fixable` issues manually)
-- Requires human review: N
-- No action required (if clean)
+<Executive summary — overall repo health, total findings count,
+estimated total lines changed>
+
+## Findings
+
+<For EACH finding, create a numbered section:>
+
+### Finding 1: <short description>
+
+- **File(s)**: `<file path>` (lines X–Y)
+- **Category**: <e.g., Documentation Drift, Dead Code, Configuration, Accessibility>
+- **Severity**: <low / medium / high>
+- **Risk**: low/medium/high — <one-line justification>
+
+**Problem**: <What is wrong and why it should be fixed>
+
+**Fix**: <Precise, unambiguous instructions — what to delete, rename, update,
+or rewrite. Include exact code when the change is non-obvious.>
+
+<Repeat for each finding>
+
+## Implementation Order
+
+Apply changes in this order to avoid conflicts:
+
+1. <file:line — brief description>
+2. <file:line — brief description>
+...
+
+## Acceptance Criteria
+
+- [ ] <Criterion 1 — e.g., "no TypeScript errors after changes">
+- [ ] <Criterion 2 — e.g., "removed file is not referenced anywhere">
+- [ ] <Criterion 3>
+...
+```
+
+Formatting requirements for the issue body:
+
+- Leave a blank line after every heading.
+- Leave a blank line before and after every list.
+- Leave a blank line before and after every fenced code block.
+- Do NOT collapse headings, paragraphs, and lists onto the same line.
+- Prefer plain Markdown over decorative formatting.
+
+### Writing effective fix instructions
+
+The Issue Processor is an AI agent that will read this issue and implement
+every fix in a single PR. To maximize its success:
+
+- **Be exact**: Specify file paths, line numbers, function names. Say
+  "delete lines 45–52 of `src/utils/helpers.ts`" not "remove the helper."
+- **Show code**: For non-trivial changes, include before/after code snippets.
+- **Order matters**: List an implementation order that avoids merge conflicts
+  (e.g., delete from bottom-of-file upward, rename before removing imports).
+- **One direction**: Don't offer alternatives. State the single correct change.
+- **Scope guard**: Every finding must be scoped to 1–3 files. If a finding
+  would touch more than 3 files, split it or exclude it.
+
+### What to exclude
+
+Do NOT include findings that:
+
+- Require architectural decisions with multiple valid approaches
+- Would alter external/user-facing behavior
+- Need human judgment to resolve (flag these in the summary as informational)
 
 ## Process
 
-1. Inspect repository structure and key docs
+1. Inspect repository file structure and key docs
 2. Cross-check docs/config claims against implementation
 3. Compile findings with severity, confidence, and agent-fixability assessment
-4. Close any previous open `[repo-audit]` report issues
-5. Create the single consolidated report issue
-6. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | Repo Audit | Audit | ✅ N findings (M agent-fixable)` or `YYYY-MM-DD h:mm AM/PM EST | ...` when standard time is actually in effect
+4. Filter out findings that require human judgment or broad refactors
+5. Close any previous open `[repo-audit]` issues
+6. Create the single consolidated issue (or skip if zero findings)
+7. Rely on the new issue's `issues: opened` event to start `sfl-issue-processor`.
+   Do NOT dispatch the Issue Processor explicitly from this workflow.
+8. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | Repo Audit | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`; use `EST` instead of `EDT` only when standard time is actually in effect
 
 Timestamp rule for Discussion #95 entries:
 

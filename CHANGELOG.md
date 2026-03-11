@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.310] - 2026-03-11
+
+## [0.1.309] - 2026-03-11
+
+### Changed
+
+- Reset session tracking after successful repo audit E2E
+
 ## [0.1.308] - 2026-03-11
+
+### Fixed
+
+- Rewire repo-audit to create issue instead of discussion
 
 ## [0.1.307] - 2026-03-10
 

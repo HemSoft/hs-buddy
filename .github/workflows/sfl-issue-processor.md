@@ -111,22 +111,26 @@ There are two valid work item types:
 1. **Existing draft PR that needs another implementation pass**
 2. **New `agent:fixable` issue with no draft PR yet**
 
-{{#if github.event.inputs.pull-request-number}}
-**Targeted follow-up PR run.** The dispatched `pull-request-number` input is `${{ github.event.inputs.pull-request-number }}`.
-Use PR #${{ github.event.inputs.pull-request-number }} directly as the target.
-Do NOT search for a different PR or issue. Skip to Step 1a.
-{{else}}
-{{#if github.event.inputs.issue-number}}
-**Targeted new-issue run.** The dispatched `issue-number` input is `${{ github.event.inputs.issue-number }}`.
-Use issue #${{ github.event.inputs.issue-number }} directly as the target.
-Do NOT search for a different issue or PR. Skip to Step 1b.
-{{else}}
-**Untargeted run.** No dispatch inputs were provided (event trigger or manual dispatch without
-inputs). Check for existing draft PR work FIRST (Step 1a), then new issues
-(Step 1b).
+**Dispatch inputs** (may be blank):
 
-If the `issue-number` context variable is available (from an `issues` event),
-prefer that issue:
+- `pull-request-number`: `${{ github.event.inputs.pull-request-number }}`
+- `issue-number`: `${{ github.event.inputs.issue-number }}`
+
+If a value above still shows raw template syntax (dollar-brace notation)
+instead of a number, that input was not provided — treat it as blank.
+
+**Routing rules:**
+
+1. If `pull-request-number` above is a valid number (not blank, not `#`, not
+   whitespace), this is a **targeted follow-up PR run**. Use that PR directly
+   as the target. Skip to Step 1a.
+2. Else if `issue-number` above is a valid number, this is a **targeted
+   new-issue run**. Use that issue directly as the target. Skip to Step 1b.
+3. Else this is an **untargeted run**. Check for existing draft PR work FIRST
+   (Step 1a), then new issues (Step 1b).
+
+For untargeted runs, if the `issue-number` context variable is available (from
+an `issues` event), prefer that issue:
 
 - when the reopened issue already has exactly one open draft `agent:pr` PR,
   prefer resuming that PR deterministically instead of treating the issue as
@@ -134,8 +138,6 @@ prefer that issue:
 - when the issue has `agent:fixable` and no draft PR yet, prefer that specific
   issue for **new issue** work once you confirm there is no older draft PR
   awaiting a follow-up implementation pass
-{{/if}}
-{{/if}}
 
 Determinism requirement:
 
@@ -165,7 +167,22 @@ that specific PR.
 Before continuing, verify the linked issue has exactly one open draft `agent:pr`
 PR. If more than one exists, report the duplicate-PR failure and exit.
 
-If they pass, use that PR as the work item and continue at Step 3.
+If they pass, use that PR as the work item.
+
+**Branch checkout** (dispatch runs only): When this run was triggered by
+`workflow_dispatch`, the workspace starts on `main` and the PR branch is not
+checked out automatically. Before continuing to Step 3, fetch and switch to
+the PR's head branch:
+
+```bash
+git fetch origin <pr-head-branch>
+git checkout <pr-head-branch>
+```
+
+Replace `<pr-head-branch>` with the `headRefName` from the PR you just read.
+If the checkout fails, report the failure and exit.
+
+Continue at Step 3.
 
 Only when no `pull-request-number` is provided should you search for draft PRs
 that need another implementation pass.
@@ -204,7 +221,17 @@ draft `agent:pr` PRs. If it does, report the duplicate-PR failure and exit
 instead of choosing one arbitrarily.
 
 If such a PR is found, this run is a **follow-up implementation pass**.
-Use its linked issue as the canonical spec, and continue at Step 3.
+Use its linked issue as the canonical spec.
+
+**Branch checkout**: If the workspace is on `main` (not the PR branch), fetch
+and switch to the PR's head branch before continuing:
+
+```bash
+git fetch origin <pr-head-branch>
+git checkout <pr-head-branch>
+```
+
+Continue at Step 3.
 
 ### 1b — New issue with no draft PR yet
 
@@ -237,7 +264,8 @@ If `issue-number` is provided:
       `**BLOCKING ISSUES FOUND**`
     - search the PR comments for `[MARKER:sfl-issue-processor cycle:N]` —
       verify it is not already present
-    - if all checks pass, use that PR as the work item and continue at Step 3
+    - if all checks pass, use that PR as the work item — fetch and checkout
+      the PR's head branch if not already on it, then continue at Step 3
     - if any check fails, exit — there is no eligible follow-up work for that
       specific issue/PR pair
 

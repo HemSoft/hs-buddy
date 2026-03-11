@@ -111,64 +111,22 @@ There are two valid work item types:
 1. **Existing draft PR that needs another implementation pass**
 2. **New `agent:fixable` issue with no draft PR yet**
 
-Untargeted runs should check for existing draft PR work FIRST.
+{{#if github.event.inputs.pull-request-number}}
+**Targeted follow-up PR run.** The dispatched `pull-request-number` input is `${{ github.event.inputs.pull-request-number }}`.
+Use PR #${{ github.event.inputs.pull-request-number }} directly as the target.
+Do NOT search for a different PR or issue. Skip to Step 1a.
+{{else}}
+{{#if github.event.inputs.issue-number}}
+**Targeted new-issue run.** The dispatched `issue-number` input is `${{ github.event.inputs.issue-number }}`.
+Use issue #${{ github.event.inputs.issue-number }} directly as the target.
+Do NOT search for a different issue or PR. Skip to Step 1b.
+{{else}}
+**Untargeted run.** No dispatch inputs were provided (event trigger or manual dispatch without
+inputs). Check for existing draft PR work FIRST (Step 1a), then new issues
+(Step 1b).
 
-Targeted handoff requirement:
-
-- If `pull-request-number` or `issue-number` is provided in the context variables, process only that exact work item.
-- Do NOT scan the broader queue during a targeted run.
-- If both are provided in the same run, treat that as a broken targeted handoff. Report the failure and exit.
-
-Normalization rule for targeted identifiers:
-
-- The rendered GitHub context may show an absent identifier as a lone `#` placeholder.
-- Normalize both `pull-request-number` and `issue-number` before making any routing decision:
-  - strip leading `#`
-  - trim whitespace
-  - a value is valid only if the remaining characters are all digits
-- Treat empty strings, lone `#`, whitespace, and unresolved placeholder text as **missing**, not as a provided targeted identifier.
-- If exactly one identifier normalizes to a valid number and the other normalizes to missing, use the valid one and continue.
-- Only treat the handoff as broken when both identifiers normalize to valid numbers, or when the targeted identifier for the intended path normalizes to missing.
-
-Examples:
-
-| `pull-request-number` | `issue-number` | Meaning |
-| --- | --- | --- |
-| `#148` | `#` | Valid targeted PR run for PR 148 |
-| `148` | `` | Valid targeted PR run for PR 148 |
-| `#` | `147` | Valid targeted issue run for issue 147 |
-| `#148` | `147` | Broken handoff: both identifiers are real |
-| `#` | `#` | Broken handoff: neither identifier is real |
-
-Determinism requirement:
-
-- One `agent:in-progress` issue must map to exactly one open draft `agent:pr` PR.
-- If you observe multiple open draft PRs for the same issue, this is a pipeline failure, not a recovery opportunity.
-- In that state, do NOT pick one, do NOT create a superseding PR, and do NOT continue implementation. Report the failure and exit.
-
-If `pull-request-number` is provided in the context variables, use that PR
-number directly as the target follow-up PR candidate. Do NOT search for a
-different PR in that case.
-
-If `issue-number` is provided in the context variables, use that issue number
-directly as the target new-issue candidate. Do NOT search for a different
-issue in that case.
-
-If both `pull-request-number` and `issue-number` normalize to valid numbers,
-treat that as a broken targeted handoff. Do NOT guess which path to take.
-Report the failure and exit so the handoff bug is visible.
-
-If a `pull-request-number` field is present but it normalizes to missing,
-treat it as absent unless this run is clearly intended to be a targeted PR run.
-Do NOT let a lone `#` placeholder for a missing issue number invalidate an
-otherwise valid targeted PR run.
-
-If an `issue-number` field is present but it normalizes to missing, treat it as
-absent unless this run is clearly intended to be a targeted issue run. Do NOT
-let a lone `#` placeholder for a missing PR number invalidate an otherwise
-valid targeted issue run.
-
-If this run was triggered by an `issues` event:
+If the `issue-number` context variable is available (from an `issues` event),
+prefer that issue:
 
 - when the reopened issue already has exactly one open draft `agent:pr` PR,
   prefer resuming that PR deterministically instead of treating the issue as
@@ -176,6 +134,14 @@ If this run was triggered by an `issues` event:
 - when the issue has `agent:fixable` and no draft PR yet, prefer that specific
   issue for **new issue** work once you confirm there is no older draft PR
   awaiting a follow-up implementation pass
+{{/if}}
+{{/if}}
+
+Determinism requirement:
+
+- One `agent:in-progress` issue must map to exactly one open draft `agent:pr` PR.
+- If you observe multiple open draft PRs for the same issue, this is a pipeline failure, not a recovery opportunity.
+- In that state, do NOT pick one, do NOT create a superseding PR, and do NOT continue implementation. Report the failure and exit.
 
 ### 1a — Existing draft PR needing fixes
 

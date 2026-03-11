@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.320] - 2026-03-11
+
+## [0.1.319] - 2026-03-11
+
+## [0.1.318] - 2026-03-11
+
 ## [0.1.317] - 2026-03-11
+
+### Changed
+
+- Track Issue #173 pipeline debugging session with 5 fixes
 
 ## [0.1.316] - 2026-03-11
 

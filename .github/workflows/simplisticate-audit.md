@@ -6,7 +6,7 @@ description: |
   findings and detailed fix instructions for the SFL pipeline to process.
 
 on:
-  schedule: "0 6 * * *"   # 1:00 AM EST
+  schedule: "0 6 * * *"   # 2:00 AM EDT
   workflow_dispatch:
 
 permissions:

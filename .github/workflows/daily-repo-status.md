@@ -7,7 +7,7 @@ description: |
 
 on:
   schedule:
-    - cron: "5 8 * * *"
+    - cron: "0 7 * * *"  # 3:00 AM EDT
   workflow_dispatch:
 
 permissions:

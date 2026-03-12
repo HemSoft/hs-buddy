@@ -26,12 +26,12 @@
 # It creates exactly one agent-fixable issue containing all findings and
 # detailed fix instructions for the SFL pipeline to process.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"1a05b83cd0b12d396f7076d29706d3457bac901d078ce6e34d4aebadf890af6c","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"76c5b0581559240ba901bec7005fae6bf30d7bd341f5e6924822c09a0e7ea765","compiler_version":"v0.57.2","strict":true}
 
 name: "Repo Audit"
 "on":
   schedule:
-  - cron: "35 8 * * *"
+  - cron: "0 8 * * *"
   workflow_dispatch:
 
 permissions: {}

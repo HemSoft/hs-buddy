@@ -26,7 +26,7 @@
 # simplification. It creates exactly one agent-fixable issue containing all
 # findings and detailed fix instructions for the SFL pipeline to process.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"9bbcf85c1190e4008cf97f0940b3d3bf10efd9886ae722a38ab12711a9c324be","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"e22928cfa829562d8caa127cc1c74f786e8ebc22ea72e107cfc9568e971f2d93","compiler_version":"v0.57.2","strict":true}
 
 name: "Simplisticate Audit"
 "on":

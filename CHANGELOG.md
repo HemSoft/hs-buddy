@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.335] - 2026-03-12
+
 ## [0.1.334] - 2026-03-12
+
+### Changed
+
+- Space daily workflow schedules 1h apart starting 1AM EDT
 
 ## [0.1.333] - 2026-03-12
 

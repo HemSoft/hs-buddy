@@ -175,6 +175,24 @@ export interface RepoPullRequest {
   iApproved: boolean
 }
 
+export interface PRFileChange {
+  filename: string
+  previousFilename: string | null
+  status: string
+  additions: number
+  deletions: number
+  changes: number
+  patch: string | null
+  blobUrl: string | null
+}
+
+export interface PRFilesChangedSummary {
+  files: PRFileChange[]
+  additions: number
+  deletions: number
+  changes: number
+}
+
 // Lightweight issue + PR counts for sidebar badges
 export interface RepoCounts {
   issues: number
@@ -257,6 +275,39 @@ export interface PRReviewThread {
 export interface PRThreadsResult {
   threads: PRReviewThread[]
   issueComments: PRReviewComment[]
+}
+
+export interface PRCheckRunSummary {
+  id: number
+  name: string
+  status: string
+  conclusion: string | null
+  detailsUrl: string | null
+  startedAt: string | null
+  completedAt: string | null
+  appName: string | null
+}
+
+export interface PRStatusContextSummary {
+  id: number
+  context: string
+  state: string
+  description: string | null
+  targetUrl: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface PRChecksSummary {
+  headSha: string
+  overallState: 'passing' | 'failing' | 'pending' | 'neutral' | 'none'
+  totalCount: number
+  successfulCount: number
+  failedCount: number
+  pendingCount: number
+  neutralCount: number
+  checkRuns: PRCheckRunSummary[]
+  statusContexts: PRStatusContextSummary[]
 }
 
 const PR_HISTORY_QUERY = `
@@ -1107,6 +1158,41 @@ export class GitHubClient {
   }
 
   /**
+   * Fetch changed files for a pull request, including patch hunks when GitHub provides them.
+   */
+  async fetchPRFilesChanged(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<PRFilesChangedSummary> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const files = await octokit.paginate(octokit.pulls.listFiles, {
+      owner,
+      repo,
+      pull_number: pullNumber,
+      per_page: 100,
+    })
+
+    const normalizedFiles: PRFileChange[] = files.map(file => ({
+      filename: file.filename,
+      previousFilename: file.previous_filename || null,
+      status: file.status || 'modified',
+      additions: file.additions || 0,
+      deletions: file.deletions || 0,
+      changes: file.changes || 0,
+      patch: file.patch || null,
+      blobUrl: file.blob_url || null,
+    }))
+
+    return {
+      files: normalizedFiles,
+      additions: normalizedFiles.reduce((sum, file) => sum + file.additions, 0),
+      deletions: normalizedFiles.reduce((sum, file) => sum + file.deletions, 0),
+      changes: normalizedFiles.reduce((sum, file) => sum + file.changes, 0),
+    }
+  }
+
+  /**
    * Fetch detailed PR history stats for context menus and history panel.
    */
   async fetchPRHistory(owner: string, repo: string, pullNumber: number): Promise<PRHistorySummary> {
@@ -1152,6 +1238,139 @@ export class GitHubClient {
       threadsUnaddressed,
       reviewers,
       timeline,
+    }
+  }
+
+  /**
+   * Fetch status checks and commit status contexts for a pull request head SHA.
+   */
+  async fetchPRChecks(owner: string, repo: string, pullNumber: number): Promise<PRChecksSummary> {
+    const octokit = await this.getOctokitForOwner(owner)
+
+    const pullResponse = await octokit.pulls.get({
+      owner,
+      repo,
+      pull_number: pullNumber,
+    })
+
+    const headSha = pullResponse.data.head?.sha || ''
+    if (!headSha) {
+      throw new Error(`PR #${pullNumber} in ${owner}/${repo} is missing a head SHA`)
+    }
+
+    const [checkRunsResponse, combinedStatusResponse] = await Promise.all([
+      octokit.checks.listForRef({
+        owner,
+        repo,
+        ref: headSha,
+        per_page: 100,
+      }),
+      octokit.repos.getCombinedStatusForRef({
+        owner,
+        repo,
+        ref: headSha,
+        per_page: 100,
+      }),
+    ])
+
+    const checkRuns: PRCheckRunSummary[] = (checkRunsResponse.data.check_runs || []).map(run => ({
+      id: run.id,
+      name: run.name,
+      status: run.status,
+      conclusion: run.conclusion,
+      detailsUrl: run.details_url || run.html_url || null,
+      startedAt: run.started_at || null,
+      completedAt: run.completed_at || null,
+      appName: run.app?.name || null,
+    }))
+
+    const statusContexts: PRStatusContextSummary[] = (combinedStatusResponse.data.statuses || []).map(
+      status => ({
+        id: status.id,
+        context: status.context,
+        state: status.state,
+        description: status.description || null,
+        targetUrl: status.target_url || null,
+        createdAt: status.created_at || null,
+        updatedAt: status.updated_at || null,
+      })
+    )
+
+    let successfulCount = 0
+    let failedCount = 0
+    let pendingCount = 0
+    let neutralCount = 0
+
+    for (const run of checkRuns) {
+      if (run.status !== 'completed') {
+        pendingCount += 1
+        continue
+      }
+
+      switch (run.conclusion) {
+        case 'success':
+          successfulCount += 1
+          break
+        case 'neutral':
+        case 'skipped':
+          neutralCount += 1
+          break
+        case 'cancelled':
+        case 'timed_out':
+        case 'action_required':
+        case 'startup_failure':
+        case 'stale':
+        case 'failure':
+          failedCount += 1
+          break
+        default:
+          neutralCount += 1
+          break
+      }
+    }
+
+    for (const status of statusContexts) {
+      switch (status.state) {
+        case 'success':
+          successfulCount += 1
+          break
+        case 'pending':
+          pendingCount += 1
+          break
+        case 'failure':
+        case 'error':
+          failedCount += 1
+          break
+        default:
+          neutralCount += 1
+          break
+      }
+    }
+
+    const totalCount = checkRuns.length + statusContexts.length
+    const overallState: PRChecksSummary['overallState'] =
+      totalCount === 0
+        ? 'none'
+        : failedCount > 0 ||
+            combinedStatusResponse.data.state === 'failure' ||
+            combinedStatusResponse.data.state === 'error'
+          ? 'failing'
+          : pendingCount > 0 || combinedStatusResponse.data.state === 'pending'
+            ? 'pending'
+            : successfulCount > 0
+              ? 'passing'
+              : 'neutral'
+
+    return {
+      headSha,
+      overallState,
+      totalCount,
+      successfulCount,
+      failedCount,
+      pendingCount,
+      neutralCount,
+      checkRuns,
+      statusContexts,
     }
   }
 

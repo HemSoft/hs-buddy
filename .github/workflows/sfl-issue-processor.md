@@ -25,6 +25,10 @@ permissions:
   issues: read
   pull-requests: read
 
+checkout:
+  fetch: ["*"]
+  fetch-depth: 0
+
 steps:
   - name: Checkout PR branch for dispatch runs
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.pull-request-number != ''

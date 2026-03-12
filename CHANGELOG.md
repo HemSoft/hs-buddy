@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.338] - 2026-03-12
+
 ## [0.1.337] - 2026-03-12
+
+### Fixed
+
+- Add dead-code guardrails to audit workflows and improve PR sidebar icons
 
 ## [0.1.336] - 2026-03-12
 

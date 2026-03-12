@@ -9,6 +9,8 @@ import type { PRHistorySummary } from '../api/github'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
+import { PRChecksPanel } from './PRChecksPanel'
+import { PRFilesChangedPanel } from './PRFilesChangedPanel'
 import { PRThreadsPanel } from './PRThreadsPanel'
 import { PRReviewsPanel } from './PRReviewsPanel'
 import './PullRequestDetailPanel.css'
@@ -247,30 +249,8 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
       {section === 'commits' && (
         <PullRequestHistoryPanel pr={pr} embedded focus="commits" onLoaded={handleHistoryLoaded} />
       )}
-      {section === 'checks' && (
-        <div className="pr-detail-focus-card">
-          <p>Open GitHub checks for this pull request.</p>
-          <button
-            className="pr-detail-open-btn"
-            onClick={() => window.shell.openExternal(checksUrl)}
-          >
-            <ExternalLink size={14} />
-            Open Checks
-          </button>
-        </div>
-      )}
-      {section === 'files-changed' && (
-        <div className="pr-detail-focus-card">
-          <p>Open changed files for this pull request.</p>
-          <button
-            className="pr-detail-open-btn"
-            onClick={() => window.shell.openExternal(filesChangedUrl)}
-          >
-            <ExternalLink size={14} />
-            Open Files Changed
-          </button>
-        </div>
-      )}
+      {section === 'checks' && <PRChecksPanel pr={pr} />}
+      {section === 'files-changed' && <PRFilesChangedPanel pr={pr} />}
       {section === 'ai-reviews' && <PRReviewsPanel pr={pr} />}
 
       {!isFocusedSection && (

@@ -5,7 +5,8 @@
 > repository as a deployable, versioned product.
 
 **Created**: 2026-02-22
-**Status**: ✅ Operational — v2.0.0
+**Archived**: 2026-03-12
+**Status**: ✅ Operational — v2.0.0 (archived — see `sfl.json` and `docs/WORKFLOW-README.md` for live state)
 
 ---
 
@@ -57,17 +58,29 @@ for deployment to other repositories.
 | daily-repo-status (SFL Repo Status) | reporting | — | ✅ Active v1.0.0 |
 | repo-audit (Repo Audit) | quality | — | ✅ Active v1.1.0 |
 | discussion-processor | automation | gh-aw default | ✅ Active v1.0.0 |
-| sfl-issue-processor | automation | gh-aw default | ✅ Active v1.0.0 |
+| sfl-issue-processor | automation | gpt-5.4 | ✅ Active v1.0.0 |
 | simplisticate-audit | quality | gh-aw default | ✅ Active v1.0.0 |
 | sfl-analyzer-a | review | claude-sonnet-4.6 | ✅ Active v1.0.0 |
-| sfl-analyzer-b | review | claude-opus-4.5 | ✅ Active v1.0.0 |
+| sfl-analyzer-b | review | gemini-3-pro-preview | ✅ Active v1.0.0 |
 | sfl-analyzer-c | review | gpt-5.4 | ✅ Active v1.0.0 |
+
+> **Note (2026-03-12):** Analyzer B model changed from `claude-opus-4.5` to
+> `gemini-3-pro-preview` in hs-buddy's deployed workflow. The `sfl.json` manifest
+> still reads `claude-opus-4.5` — that manifest is stale for this field.
+
+### Additional hs-buddy workflows (not in set-it-free-loop)
+
+| Workflow | Category | Notes |
+|----------|----------|-------|
+| sfl-pr-label-actions | automation | Deterministic label aggregator (A→B→C→label-actions chain) |
+| react-doctor-audit | quality | React-specific health checks |
+| copilot-setup-steps | infrastructure | GitHub Copilot Agent environment setup |
 
 ### Infrastructure (1 — standard workflow)
 
 | Component | Type | Schedule |
 |-----------|------|----------|
-| sfl-auditor | Standard YAML | :15, :45 every hour |
+| sfl-auditor | Standard YAML | Daily 5:00 AM EDT (was :15/:45 hourly, consolidated) |
 
 ### Governance (26 labels, policy doc, setup script)
 
@@ -106,7 +119,10 @@ so the SFL loop runs on its own codebase.
 
 ---
 
-## Remaining Work
+## Remaining Work (as of archive date 2026-03-12)
+
+These items were still open when this document was archived. Track future
+progress in `set-it-free-loop`'s own TODO/backlog.
 
 - [ ] Test deployment on a second repo (not hs-buddy) via `deploy-workflow.ps1`
 - [ ] Create dynamic badge service or GitHub Action for version currency color coding
@@ -116,4 +132,5 @@ so the SFL loop runs on its own codebase.
 - [ ] Sync the current hs-buddy SFL architecture back to `set-it-free-loop`:
   - single implementer via `sfl-issue-processor`
   - direct chain pattern (A→B→C→label-actions) replacing sfl-pr-router
-  - current analyzer model pins (`claude-sonnet-4.6`, `claude-opus-4.5`, `gpt-5.4`)
+  - current analyzer model pins (`claude-sonnet-4.6`, `gemini-3-pro-preview`, `gpt-5.4`)
+  - `sfl-pr-label-actions` workflow (not yet in motherrepo)

@@ -5,6 +5,7 @@ import { formatDistanceToNow } from '../../utils/dateUtils'
 import { getWorkerIcon } from './job-list/jobRowUtils'
 import { useState } from 'react'
 import { JobEditor } from './JobEditor'
+import { getStatusClass } from '../shared/statusDisplay'
 import './JobDetailPanel.css'
 
 interface JobDetailPanelProps {
@@ -159,23 +160,6 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
       } catch (error) {
         console.error('Failed to delete job:', error)
       }
-    }
-  }
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'status-completed'
-      case 'failed':
-        return 'status-failed'
-      case 'running':
-        return 'status-running'
-      case 'pending':
-        return 'status-pending'
-      case 'cancelled':
-        return 'status-cancelled'
-      default:
-        return ''
     }
   }
 

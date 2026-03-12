@@ -8,8 +8,19 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { UsageRing } from './UsageRing'
-import { OVERAGE_COST_PER_REQUEST, formatCurrency, computeProjection } from './quotaUtils'
+import {
+  OVERAGE_COST_PER_REQUEST,
+  formatCurrency,
+  computeProjection,
+  type AccountQuotaState,
+} from './quotaUtils'
+import type { GitHubAccount } from '../../types/config'
 import { formatTime } from '../../utils/dateUtils'
+
+interface AccountQuotaCardProps {
+  account: GitHubAccount
+  state: AccountQuotaState
+}
 
 function formatPlan(plan: string): string {
   const planNames: Record<string, string> = {
@@ -40,8 +51,7 @@ function daysUntilReset(dateStr: string) {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function AccountQuotaCard({ account, state }: any) {
+export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
   const data = state?.data
   const premium = data?.quota_snapshots?.premium_interactions
   const percentUsed = premium ? 100 - premium.percent_remaining : 0

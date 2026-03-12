@@ -14,6 +14,7 @@ import { formatDistanceToNow, format } from '../../utils/dateUtils'
 import { useState } from 'react'
 import { ScheduleEditor } from './ScheduleEditor'
 import type { Id } from '../../../convex/_generated/dataModel'
+import { getStatusClass } from '../shared/statusDisplay'
 import './ScheduleDetailPanel.css'
 
 interface ScheduleDetailPanelProps {
@@ -101,23 +102,6 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
       return `${dayNames} at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
     }
     return cron
-  }
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'status-completed'
-      case 'failed':
-        return 'status-failed'
-      case 'running':
-        return 'status-running'
-      case 'pending':
-        return 'status-pending'
-      case 'cancelled':
-        return 'status-cancelled'
-      default:
-        return ''
-    }
   }
 
   return (

@@ -10,6 +10,7 @@ import {
   Calendar,
   RefreshCw,
 } from 'lucide-react'
+import type { MouseEvent } from 'react'
 import { formatDistanceToNow, format, formatDuration } from '../../../utils/dateUtils'
 import { getWorkerIcon } from '../job-list/jobRowUtils'
 import { getStatusIcon, getStatusLabel } from '../../shared/statusDisplay'
@@ -45,7 +46,7 @@ export interface RunCardProps {
   run: RunWithJob
   isExpanded: boolean
   onToggle: (runId: string) => void
-  onCancel: (runId: string, e: React.MouseEvent) => void
+  onCancel: (runId: string, e: MouseEvent) => void
 }
 
 function getTriggerIcon(triggeredBy: TriggerType) {
@@ -69,8 +70,7 @@ function formatOutput(output: unknown): string {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function RunCard({ run, isExpanded, onToggle, onCancel }: any) {
+export function RunCard({ run, isExpanded, onToggle, onCancel }: RunCardProps) {
   const hasDetails = run.output !== undefined || run.error !== undefined || run.input !== undefined
   const canCancel = run.status === 'pending' || run.status === 'running'
 

@@ -88,3 +88,11 @@ export function computeProjection(premium: QuotaSnapshot, resetDateStr: string):
 
   return { projectedTotal, projectedOverage, projectedOverageCost, projectedPercent, dailyRate }
 }
+
+export function getQuotaColor(pct: number | null): string {
+  if (pct === null) return '#4ec9b0'
+  if (pct >= 90) return '#e85d5d'
+  if (pct >= 75) return '#e89b3c'
+  if (pct >= 50) return '#dcd34a'
+  return '#4ec9b0'
+}

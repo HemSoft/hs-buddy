@@ -1,3 +1,5 @@
+import { getQuotaColor } from './quotaUtils'
+
 /** SVG circular progress ring with optional projected ghost arc */
 export function UsageRing({
   percentUsed,
@@ -14,20 +16,13 @@ export function UsageRing({
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (Math.min(percentUsed, 100) / 100) * circumference
 
-  const getColor = (pct: number) => {
-    if (pct >= 90) return '#e85d5d'
-    if (pct >= 75) return '#e89b3c'
-    if (pct >= 50) return '#dcd34a'
-    return '#4ec9b0'
-  }
-
-  const color = getColor(percentUsed)
+  const color = getQuotaColor(percentUsed)
 
   // Projected arc: show where usage will be at month-end (capped at 100% visually)
   const showProjected = projectedPercent != null && projectedPercent > percentUsed
   const projectedCapped = Math.min(projectedPercent ?? 0, 100)
   const projectedOffset = circumference - (projectedCapped / 100) * circumference
-  const projectedColor = getColor(projectedCapped)
+  const projectedColor = getQuotaColor(projectedCapped)
 
   return (
     <svg width={size} height={size} className="usage-ring">

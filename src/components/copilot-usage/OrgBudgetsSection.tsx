@@ -1,5 +1,5 @@
 import { Building2, RefreshCw, ShieldAlert } from 'lucide-react'
-import { formatCurrency } from './quotaUtils'
+import { formatCurrency, getQuotaColor } from './quotaUtils'
 import type { OrgBudgetState } from './types'
 import { formatTime } from '../../utils/dateUtils'
 
@@ -38,16 +38,7 @@ export function OrgBudgetsSection({
               ? Math.min((myShare / effectiveBudget) * 100, pct ?? 100)
               : null
 
-          const barColor =
-            pct === null
-              ? '#4ec9b0'
-              : pct >= 90
-                ? '#e85d5d'
-                : pct >= 75
-                  ? '#e89b3c'
-                  : pct >= 50
-                    ? '#dcd34a'
-                    : '#4ec9b0'
+          const barColor = getQuotaColor(pct)
 
           return (
             <div key={org} className="usage-budget-card">

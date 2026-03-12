@@ -20,3 +20,20 @@ export function getStatusLabel(status: string, includeInProgressEllipsis = false
 
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
+
+export function getStatusClass(status: string): string {
+  switch (status) {
+    case 'completed':
+      return 'status-completed'
+    case 'failed':
+      return 'status-failed'
+    case 'running':
+      return 'status-running'
+    case 'pending':
+      return 'status-pending'
+    case 'cancelled':
+      return 'status-cancelled'
+    default:
+      return ''
+  }
+}

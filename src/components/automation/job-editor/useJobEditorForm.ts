@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useJob, useJobMutations, useBuddyStatsMutations } from '../../../hooks/useConvex'
+import {
+  useJob,
+  useJobMutations,
+  useBuddyStatsMutations,
+  type JobId,
+} from '../../../hooks/useConvex'
 import { useCopilotSettings } from '../../../hooks/useConfig'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type JobId = any
 
 export interface JobConfig {
   // exec-worker

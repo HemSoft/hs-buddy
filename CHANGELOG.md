@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.339] - 2026-03-12
+
 ## [0.1.338] - 2026-03-12
+
+### Fixed
+
+- Add checkout fetch config for push-to-pull-request-branch
 
 ## [0.1.337] - 2026-03-12
 

@@ -25,7 +25,7 @@
 # Triggers on workflow_dispatch with a PR number.
 # The agent checks out the PR branch, adds a timestamp file, and pushes.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"7c283659b97203b2ccb5e6f793f231791da934b1eb1b7aad16c78461542012e8","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"4781e85516f4098917e43c42484b2b98d7fe3e7095546facb583f1a016f9cb7b","compiler_version":"v0.57.2","strict":true}
 
 name: "Test: Push to PR Branch"
 "on":
@@ -278,8 +278,9 @@ jobs:
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       - env:
           FETCH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        name: Fetch all remote branches
-        run: "header=$(printf \"x-access-token:%s\" \"${FETCH_TOKEN}\" | base64 -w 0)\ngit -c \"http.extraheader=Authorization: Basic ${header}\" fetch origin '+refs/heads/*:refs/remotes/origin/*'\n"
+          SERVER_URL: ${{ github.server_url }}
+        name: Fetch all remote branches and configure git auth
+        run: "header=$(printf \"x-access-token:%s\" \"${FETCH_TOKEN}\" | base64 -w 0)\ngit -c \"http.extraheader=Authorization: Basic ${header}\" fetch origin '+refs/heads/*:refs/remotes/origin/*'\necho \"GIT_CONFIG_COUNT=1\" >> \"$GITHUB_ENV\"\necho \"GIT_CONFIG_KEY_0=http.${SERVER_URL}/.extraheader\" >> \"$GITHUB_ENV\"\necho \"GIT_CONFIG_VALUE_0=Authorization: basic ${header}\" >> \"$GITHUB_ENV\"\n"
 
       - name: Configure Git credentials
         env:

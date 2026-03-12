@@ -20,12 +20,16 @@ checkout:
   fetch-depth: 0
 
 steps:
-  - name: Fetch all remote branches
+  - name: Fetch all remote branches and configure git auth
     env:
       FETCH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SERVER_URL: ${{ github.server_url }}
     run: |
       header=$(printf "x-access-token:%s" "${FETCH_TOKEN}" | base64 -w 0)
       git -c "http.extraheader=Authorization: Basic ${header}" fetch origin '+refs/heads/*:refs/remotes/origin/*'
+      echo "GIT_CONFIG_COUNT=1" >> "$GITHUB_ENV"
+      echo "GIT_CONFIG_KEY_0=http.${SERVER_URL}/.extraheader" >> "$GITHUB_ENV"
+      echo "GIT_CONFIG_VALUE_0=Authorization: basic ${header}" >> "$GITHUB_ENV"
 
 timeout-minutes: 10
 

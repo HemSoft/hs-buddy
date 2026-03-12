@@ -18,7 +18,14 @@ permissions:
 
 checkout:
   fetch-depth: 0
-  fetch: ["*"]
+
+steps:
+  - name: Fetch all remote branches
+    env:
+      FETCH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    run: |
+      header=$(printf "x-access-token:%s" "${FETCH_TOKEN}" | base64 -w 0)
+      git -c "http.extraheader=Authorization: Basic ${header}" fetch origin '+refs/heads/*:refs/remotes/origin/*'
 
 timeout-minutes: 10
 

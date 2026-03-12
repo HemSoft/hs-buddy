@@ -528,19 +528,17 @@
 }
 
 .sidebar-pr-children {
-  margin-left: 14px;
+  /* Container for PR child items */
 }
 
 .sidebar-pr-child {
-  padding-left: 64px !important;
-  font-size: 11px !important;
-  min-height: 24px;
+  padding-left: 62px !important;
+  font-size: 12px !important;
 }
 
 .sidebar-pr-child .sidebar-item-icon svg {
-  width: 11px;
-  height: 11px;
-  opacity: 0.65;
+  width: 12px;
+  height: 12px;
 }
 
 .sidebar-item-updated-age {

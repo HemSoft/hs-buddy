@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Star,
   GitCommit,
+  GitCommitHorizontal,
   GitPullRequest,
   Loader2,
   Activity,
@@ -16,6 +17,9 @@ import {
   Clock,
   Circle,
   MinusCircle,
+  MessageSquare,
+  FileDiff,
+  Sparkles,
 } from 'lucide-react'
 import type { OrgRepo, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
@@ -78,6 +82,14 @@ const prSubNodes: Array<{ key: PRDetailSection; label: string }> = [
   { key: 'files-changed', label: 'Files changed' },
   { key: 'ai-reviews', label: 'AI Reviews' },
 ]
+
+const sectionIcons: Record<PRDetailSection, React.ElementType> = {
+  conversation: MessageSquare,
+  commits: GitCommitHorizontal,
+  checks: CheckCircle2,
+  'files-changed': FileDiff,
+  'ai-reviews': Sparkles,
+}
 
 const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {
   healthy: 'Healthy',
@@ -834,6 +846,7 @@ export function OrgRepoTree({
                                                     pr,
                                                     node.key
                                                   )
+                                                  const Icon = sectionIcons[node.key]
                                                   return (
                                                     <div
                                                       key={childViewId}
@@ -844,7 +857,7 @@ export function OrgRepoTree({
                                                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                                                     >
                                                       <span className="sidebar-item-icon">
-                                                        <FileText size={11} />
+                                                        <Icon size={12} />
                                                       </span>
                                                       <span className="sidebar-item-label">
                                                         {node.label}
@@ -978,6 +991,7 @@ export function OrgRepoTree({
                                                     pr,
                                                     node.key
                                                   )
+                                                  const Icon = sectionIcons[node.key]
                                                   return (
                                                     <div
                                                       key={childViewId}
@@ -988,7 +1002,7 @@ export function OrgRepoTree({
                                                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                                                     >
                                                       <span className="sidebar-item-icon">
-                                                        <FileText size={11} />
+                                                        <Icon size={12} />
                                                       </span>
                                                       <span className="sidebar-item-label">
                                                         {node.label}

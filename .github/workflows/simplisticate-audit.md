@@ -230,6 +230,29 @@ Do NOT include findings that:
 - Would alter external/user-facing behavior
 - Need human judgment to resolve (flag these in the summary as informational)
 
+### Dead code false-positive guardrails
+
+Before flagging any export as dead code, verify it has **zero consumers
+across the entire `src/` directory**, including indirect consumption through
+other hooks, wrapper modules, or re-export chains.
+
+Known patterns that cause false positives:
+
+- **Hook-to-hook chains**: `src/hooks/useConvex.ts` exports are consumed by
+  `src/hooks/useConfig.ts`, which wraps them into higher-level hooks.
+  A grep for direct component imports will miss this. Always check whether
+  another hook file imports the export before flagging it as dead.
+- **Entry-point hooks**: Hooks imported only by `App.tsx` (e.g., `usePrefetch`,
+  `useBackgroundStatus`, `useAppAppearance`) are application lifecycle hooks —
+  a single consumer does not make them dead.
+- **Convex wrapper layer**: All exports from `src/hooks/useConvex.ts` are thin
+  wrappers around Convex `useQuery`/`useMutation` and are consumed either
+  directly by components or indirectly via `useConfig.ts`. Never flag
+  `useConvex.ts` exports as dead without verifying the full import chain.
+- **Type-only exports**: For `export type` or `export interface` declarations
+  that are used only within their own file, do not flag as a finding —
+  removing `export` from a file-private type is too low-signal.
+
 ## Process
 
 1. Inspect repository file structure and identify key source directories

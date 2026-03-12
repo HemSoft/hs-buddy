@@ -331,6 +331,24 @@
   line-height: 1.35;
 }
 
+.timeline-link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+}
+
+.timeline-link:hover {
+  text-decoration: underline;
+}
+
 .timeline-summary a {
   color: var(--accent-primary);
   text-decoration: none;

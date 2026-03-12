@@ -1,7 +1,25 @@
-import { ChevronDown, ChevronRight, FileText, GitPullRequest } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  GitCommitHorizontal,
+  GitPullRequest,
+  MessageSquare,
+  CheckCircle2,
+  FileDiff,
+  Sparkles,
+} from 'lucide-react'
 import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import type { PRDetailSection } from '../../../utils/prDetailView'
+
+const sectionIcons: Record<PRDetailSection, React.ElementType> = {
+  conversation: MessageSquare,
+  commits: GitCommitHorizontal,
+  checks: CheckCircle2,
+  'files-changed': FileDiff,
+  'ai-reviews': Sparkles,
+}
 
 interface SidebarItem {
   id: string
@@ -155,18 +173,21 @@ export function PRTreeSection({
                         <div className="sidebar-pr-children">
                           {prSubNodes.map(node => {
                             const childViewId = createPRDetailViewId(pr, node.key)
+                            const Icon = sectionIcons[node.key]
                             return (
-                              <button
+                              <div
                                 key={childViewId}
-                                type="button"
                                 className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => onItemSelect(childViewId)}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
                               >
                                 <span className="sidebar-item-icon">
-                                  <FileText size={11} />
+                                  <Icon size={12} />
                                 </span>
                                 <span className="sidebar-item-label">{node.label}</span>
-                              </button>
+                              </div>
                             )
                           })}
                         </div>

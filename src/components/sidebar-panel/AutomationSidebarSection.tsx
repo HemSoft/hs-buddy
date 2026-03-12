@@ -77,11 +77,17 @@ export function AutomationSidebarSection({
 
   return (
     <>
-      {items.map(item => (
-        <div key={item.id}>
-          <div
-            className={`sidebar-item ${item.id === 'automation-schedules' && selectedItem === 'automation-schedules' ? 'selected' : ''} ${item.id !== 'automation-jobs' && item.id !== 'automation-schedules' && selectedItem === item.id ? 'selected' : ''} ${(item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0) || (item.id === 'automation-schedules' && schedules && schedules.length > 0) ? 'sidebar-item-disclosure' : ''}`}
-          >
+      {items.map(item => {
+        const isSelected = selectedItem === item.id
+        const hasDisclosure =
+          (item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0) ||
+          (item.id === 'automation-schedules' && schedules && schedules.length > 0)
+
+        return (
+          <div key={item.id}>
+            <div
+              className={`sidebar-item ${isSelected ? 'selected' : ''} ${hasDisclosure ? 'sidebar-item-disclosure' : ''}`}
+            >
             {item.id === 'automation-jobs' && jobsByType && jobs && jobs.length > 0 ? (
               <button
                 type="button"
@@ -180,83 +186,84 @@ export function AutomationSidebarSection({
                 <span className="sidebar-item-count">{schedules.length}</span>
               )}
             </button>
-          </div>
+            </div>
 
-          {/* Schedule sub-tree */}
-          {item.id === 'automation-schedules' &&
-            expandedSubSections.has('automation-schedules') &&
-            schedules && (
-              <div className="sidebar-job-tree">
-                <div className="sidebar-job-items">
-                  {schedules.map(schedule => (
-                    <button
-                      key={schedule._id}
-                      type="button"
-                      className={`sidebar-item sidebar-job-item ${selectedItem === `schedule-detail:${schedule._id}` ? 'selected' : ''}`}
-                      onClick={() => onItemSelect(`schedule-detail:${schedule._id}`)}
-                      title={schedule.description || schedule.name}
-                    >
-                      <span className="sidebar-item-icon">
-                        <FileText size={12} />
-                      </span>
-                      <span className="sidebar-item-label">{schedule.name}</span>
-                      {!schedule.enabled && <span className="sidebar-schedule-disabled">off</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          {/* Job sub-tree */}
-          {item.id === 'automation-jobs' &&
-            expandedSubSections.has('automation-jobs') &&
-            jobsByType && (
-              <div className="sidebar-job-tree">
-                {(['exec', 'ai', 'skill'] as const).map(type => {
-                  const typeJobs = jobsByType[type]
-                  if (typeJobs.length === 0) return null
-                  const info = workerTypeInfo[type]
-                  const typeKey = `jobs-${type}`
-                  const isTypeExpanded = expandedSubSections.has(typeKey)
-                  return (
-                    <div key={type} className="sidebar-job-category">
+            {/* Schedule sub-tree */}
+            {item.id === 'automation-schedules' &&
+              expandedSubSections.has('automation-schedules') &&
+              schedules && (
+                <div className="sidebar-job-tree">
+                  <div className="sidebar-job-items">
+                    {schedules.map(schedule => (
                       <button
+                        key={schedule._id}
                         type="button"
-                        className="sidebar-job-category-header"
-                        onClick={() => toggleSubSection(typeKey)}
+                        className={`sidebar-item sidebar-job-item ${selectedItem === `schedule-detail:${schedule._id}` ? 'selected' : ''}`}
+                        onClick={() => onItemSelect(`schedule-detail:${schedule._id}`)}
+                        title={schedule.description || schedule.name}
                       >
-                        <span className="sidebar-item-chevron">
-                          {isTypeExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        <span className="sidebar-item-icon">
+                          <FileText size={12} />
                         </span>
-                        <span className="sidebar-item-icon">{info.icon}</span>
-                        <span className="sidebar-item-label">{info.label}</span>
-                        <span className="sidebar-item-count">{typeJobs.length}</span>
+                        <span className="sidebar-item-label">{schedule.name}</span>
+                        {!schedule.enabled && <span className="sidebar-schedule-disabled">off</span>}
                       </button>
-                      {isTypeExpanded && (
-                        <div className="sidebar-job-items">
-                          {typeJobs.map(job => (
-                            <button
-                              key={job._id}
-                              type="button"
-                              className={`sidebar-item sidebar-job-item ${selectedItem === `job-detail:${job._id}` ? 'selected' : ''}`}
-                              onClick={() => onItemSelect(`job-detail:${job._id}`)}
-                              title={job.description || job.name}
-                            >
-                              <span className="sidebar-item-icon">
-                                <FileText size={12} />
-                              </span>
-                              <span className="sidebar-item-label">{job.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-        </div>
-      ))}
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Job sub-tree */}
+            {item.id === 'automation-jobs' &&
+              expandedSubSections.has('automation-jobs') &&
+              jobsByType && (
+                <div className="sidebar-job-tree">
+                  {(['exec', 'ai', 'skill'] as const).map(type => {
+                    const typeJobs = jobsByType[type]
+                    if (typeJobs.length === 0) return null
+                    const info = workerTypeInfo[type]
+                    const typeKey = `jobs-${type}`
+                    const isTypeExpanded = expandedSubSections.has(typeKey)
+                    return (
+                      <div key={type} className="sidebar-job-category">
+                        <button
+                          type="button"
+                          className="sidebar-job-category-header"
+                          onClick={() => toggleSubSection(typeKey)}
+                        >
+                          <span className="sidebar-item-chevron">
+                            {isTypeExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                          </span>
+                          <span className="sidebar-item-icon">{info.icon}</span>
+                          <span className="sidebar-item-label">{info.label}</span>
+                          <span className="sidebar-item-count">{typeJobs.length}</span>
+                        </button>
+                        {isTypeExpanded && (
+                          <div className="sidebar-job-items">
+                            {typeJobs.map(job => (
+                              <button
+                                key={job._id}
+                                type="button"
+                                className={`sidebar-item sidebar-job-item ${selectedItem === `job-detail:${job._id}` ? 'selected' : ''}`}
+                                onClick={() => onItemSelect(`job-detail:${job._id}`)}
+                                title={job.description || job.name}
+                              >
+                                <span className="sidebar-item-icon">
+                                  <FileText size={12} />
+                                </span>
+                                <span className="sidebar-item-label">{job.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+          </div>
+        )
+      })}
     </>
   )
 }

@@ -40,7 +40,7 @@ export function CopilotUsagePanel() {
           accounts.map((account: { username: string; org?: string }) => (
             <AccountQuotaCard
               key={account.username}
-              account={{ username: account.username }}
+              account={{ username: account.username, org: account.org ?? '' }}
               state={quotas[account.username]}
             />
           ))

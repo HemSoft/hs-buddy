@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.333] - 2026-03-12
+
+## [0.1.332] - 2026-03-12
+
+## [0.1.331] - 2026-03-12
+
+### Fixed
+
+- Add pull-requests read permission to React Doctor Audit workflow
+
 ## [0.1.330] - 2026-03-11
+
+### Changed
+
+- Move workflow README out of protected .github/ path
 
 ## [0.1.329] - 2026-03-11
 

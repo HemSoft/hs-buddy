@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.344] - 2026-03-12
+
 ## [0.1.343] - 2026-03-12
+
+### Fixed
+
+- Set GIT_CONFIG env vars for MCP tool git auth
 
 ## [0.1.342] - 2026-03-12
 

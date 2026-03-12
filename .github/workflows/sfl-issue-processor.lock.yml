@@ -29,7 +29,7 @@
 # supports targeted `workflow_dispatch` handoffs for a specific issue or PR.
 # One work item per run.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"87409d7cb3d95785edf61051c6e5f59c767c777f7164718eec602c4a9aa6adeb","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"dc886c6419eb81d0572d775cbb1280fb6a4b5bac55a6cb0297b72879ff63d84e","compiler_version":"v0.57.2","strict":true}
 
 name: "SFL Issue Processor / Implementer"
 "on":
@@ -188,6 +188,9 @@ jobs:
           {{#if __GH_AW_GITHUB_RUN_ID__ }}
           - **workflow-run-id**: __GH_AW_GITHUB_RUN_ID__
           {{/if}}
+          - **checkouts**: The following repositories have been checked out and are available in the workspace:
+            - `$GITHUB_WORKSPACE` → `__GH_AW_GITHUB_REPOSITORY__` (cwd) [full history, all branches available as remote-tracking refs]
+            - **Note**: If a branch you need is not in the list above and is not listed as an additional fetched ref, it has NOT been checked out. For private repositories you cannot fetch it without proper authentication. If the branch is required and not available, exit with an error and ask the user to add it to the `fetch:` option of the `checkout:` configuration (e.g., `fetch: ["refs/pulls/open/*"]` for all open PR refs, or `fetch: ["main", "feature/my-branch"]` for specific branches).
           </github-context>
           
           GH_AW_PROMPT_EOF
@@ -302,8 +305,14 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
+      - env:
+          FETCH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER_URL: ${{ github.server_url }}
+        name: Fetch all remote branches and configure git auth
+        run: "header=$(printf \"x-access-token:%s\" \"${FETCH_TOKEN}\" | base64 -w 0)\ngit -c \"http.extraheader=Authorization: Basic ${header}\" fetch origin '+refs/heads/*:refs/remotes/origin/*'\necho \"GIT_CONFIG_COUNT=1\" >> \"$GITHUB_ENV\"\necho \"GIT_CONFIG_KEY_0=http.${SERVER_URL}/.extraheader\" >> \"$GITHUB_ENV\"\necho \"GIT_CONFIG_VALUE_0=Authorization: basic ${header}\" >> \"$GITHUB_ENV\"\n"
       - env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.inputs.pull-request-number }}

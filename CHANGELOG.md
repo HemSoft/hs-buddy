@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.345] - 2026-03-12
+
 ## [0.1.344] - 2026-03-12
+
+### Fixed
+
+- Enable push_to_pull_request_branch in sfl-issue-processor
 
 ## [0.1.343] - 2026-03-12
 

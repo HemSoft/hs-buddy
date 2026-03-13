@@ -122,6 +122,12 @@ sfl-auditor) and populate only yours.
 
 Use the MCP tool names that are exposed in this runtime. Do not invent aliases.
 
+**You have MULTIPLE safe-output slots.** This workflow is configured with:
+`add_comment` (max 2), `add_labels` (max 1), `update_discussion` (max 1),
+`dispatch_workflow` (max 1). You MUST use all required slots to complete the
+review protocol. A run that produces only a `missing_tool` or `noop` instead
+of performing the review is a **failed run**.
+
 - For PR reads, use `github-pull_request_read`
 - For linked issue reads, use `github-issue_read`
 - For repository file reads, use `github-get_file_contents`

@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.347] - 2026-03-13
+
+## [0.1.346] - 2026-03-13
+
 ## [0.1.345] - 2026-03-12
+
+### Changed
+
+- Remove test-push-to-pr workflow (test passed)
 
 ## [0.1.344] - 2026-03-12
 

@@ -20,7 +20,7 @@ Built on the same architecture as [hs-conductor](https://github.com/HemSoft/hs-c
 - **Tree View Navigation**: Organize tools and views in a familiar left-sidebar structure
 - **Pull Request Viewer**: Beautiful UI for viewing and managing your GitHub PRs
 - **Skills Management**: Browse and interact with 110+ automation skills
-- **Task Integration**: Connect with Todoist, GitHub, and other productivity tools
+- **GitHub Integration**: Deep integration with GitHub pull requests, issues, and repositories
 - **Unified Dashboard**: All your important information in one place
 
 ## Tech Stack
@@ -266,7 +266,7 @@ The loop runs continuously via GitHub Actions workflows:
 | **Claim** | Issue Processor | Claims `agent:fixable` issues and opens draft PRs |
 | **Review** | PR Analyzers A/B/C | Three independent AI models perform full-spectrum code review |
 | **Implement / Revise** | Issue Processor | Creates the first draft PR and applies follow-up analyzer feedback on later cycles |
-| **Route** | SFL PR Router + PR Label Actions | Route blocked PRs back to the implementer and flip clean PRs to ready-for-review |
+| **Route** | PR Label Actions | Route blocked PRs back to the implementer and flip clean PRs to ready-for-review |
 | **Guard** | SFL Auditor | Repairs issue/PR label discrepancies and enforces one-issue-one-PR harmony |
 
 Human involvement is required for the final merge decision on every SFL PR. Low-risk fixes can still be prepared autonomously, but merging is human-owned.

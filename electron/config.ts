@@ -84,7 +84,7 @@ class ConfigManager {
   }
 
   private getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {
-    return this.store.get(`ui.${key}`, defaultConfig.ui[key]) as AppConfig['ui'][K];
+    return this.store.get(`ui.${key}` as keyof AppConfig, defaultConfig.ui[key] as unknown as AppConfig[keyof AppConfig]) as unknown as AppConfig['ui'][K];
   }
 
   private setUiValue<K extends keyof AppConfig['ui']>(key: K, value: AppConfig['ui'][K]): void {

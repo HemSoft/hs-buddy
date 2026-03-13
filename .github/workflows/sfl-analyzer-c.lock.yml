@@ -517,6 +517,9 @@ jobs:
                     "type": "string"
                   }
                 },
+                "required": [
+                  "pull-request-number"
+                ],
                 "type": "object"
               },
               "name": "sfl_pr_label_actions"

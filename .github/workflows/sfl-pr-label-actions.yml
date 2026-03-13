@@ -5,7 +5,7 @@ on:
     inputs:
       pull-request-number:
         description: Target PR number for label-based actions
-        required: false
+        required: true
 
 permissions:
   pull-requests: write
@@ -27,37 +27,10 @@ jobs:
         run: |
           PR="${{ github.event.inputs.pull-request-number }}"
           if [ -z "$PR" ]; then
-            PR=$(gh pr list --repo ${{ github.repository }} --state open --draft --label "agent:in-progress" --json number --jq '.[0].number // empty')
+            echo "::error::pull-request-number input is required but was empty"
+            exit 1
           fi
           echo "pr_number=${PR}" >> "$GITHUB_OUTPUT"
-
-      - name: Log no-op exit to Discussion #95
-        if: steps.find.outputs.pr_number == ''
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
-          script: |
-            const body = `⏭️ **Label Actions → No-Op** — no eligible draft PR found, exiting silently`;
-            try {
-              const { repository } = await github.graphql(
-                `query($owner: String!, $repo: String!, $number: Int!) {
-                  repository(owner: $owner, name: $repo) {
-                    discussion(number: $number) { id }
-                  }
-                }`,
-                { owner: context.repo.owner, repo: context.repo.repo, number: 95 }
-              );
-              await github.graphql(
-                `mutation($discussionId: ID!, $body: String!) {
-                  addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
-                    comment { id }
-                  }
-                }`,
-                { discussionId: repository.discussion.id, body }
-              );
-            } catch (err) {
-              core.warning(`Failed to post to Discussion #95: ${err.message}`);
-            }
 
       - name: Check labels and decide action
         if: steps.find.outputs.pr_number != ''

@@ -46,7 +46,7 @@ safe-outputs:
 jobs:
   ensure-label-actions-dispatch:
     needs: [agent]
-    if: "!cancelled()"
+    if: "(!cancelled())"
     runs-on: ubuntu-latest
     permissions:
       actions: write

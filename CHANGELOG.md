@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.358] - 2026-03-13
+
 ## [0.1.357] - 2026-03-13
+
+### Changed
+
+- Bump to v0.1.356, pin download-artifact@v4 for deterministic dispatch job
 
 ## [0.1.356] - 2026-03-13
 

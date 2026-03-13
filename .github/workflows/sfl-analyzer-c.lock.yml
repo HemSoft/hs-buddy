@@ -30,7 +30,7 @@
 #
 # Source: relias-engineering/set-it-free-loop/workflows/sfl-analyzer-c.md@e441260656008f767cf67a816219c0713623f8e8
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"dcd0dc742c078eccd3f228138edd895cc7edf5faf331bfaef0e5103f26a20160","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"3c273eecfae175bc95d6dfe4ae45f9d730740b9d74cb05fd4f820dd97171e0f3","compiler_version":"v0.57.2","strict":true}
 
 name: "SFL Analyzer C — Full-Spectrum Review"
 "on":
@@ -1166,7 +1166,7 @@ jobs:
 
   ensure-label-actions-dispatch:
     needs: agent
-    if: !cancelled()
+    if: (!cancelled())
     runs-on: ubuntu-latest
     permissions:
       actions: write

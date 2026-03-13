@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.357] - 2026-03-13
+
 ## [0.1.356] - 2026-03-13
+
+### Fixed
+
+- Deterministic dispatch in Analyzer C via top-level jobs
 
 ## [0.1.355] - 2026-03-13
 

@@ -4,6 +4,15 @@ import { api } from '../../convex/_generated/api'
 import { execAsync, getErrorMessage } from '../utils'
 import { CONVEX_URL } from '../config'
 
+/** Timeout for local CLI commands (auth token, auth status, account switch). */
+const CLI_TIMEOUT_MS = 5000
+
+/** Timeout for single GitHub API calls. */
+const API_TIMEOUT_MS = 15000
+
+/** Timeout for paginated / enterprise-wide API calls. */
+const API_TIMEOUT_LONG_MS = 20000
+
 function isNotFoundError(error: unknown): boolean {
   const message = getErrorMessage(error)
   return message.includes('404') || message.includes('Not Found')
@@ -17,12 +26,21 @@ async function tryGetCliToken(username?: string): Promise<string | null> {
   try {
     const { stdout } = await execAsync(`gh auth token --user ${username}`, {
       encoding: 'utf8',
-      timeout: 5000,
+      timeout: CLI_TIMEOUT_MS,
     })
     const token = stdout.trim()
     return token.length > 0 ? token : null
   } catch {
     return null
+  }
+}
+
+/** Build an exec env with an optional per-account GH_TOKEN. */
+async function getTokenEnv(username?: string): Promise<NodeJS.ProcessEnv> {
+  const token = await tryGetCliToken(username)
+  return {
+    ...process.env,
+    ...(token ? { GH_TOKEN: token } : {}),
   }
 }
 
@@ -39,6 +57,35 @@ interface BillingUsageItem {
   netAmount: number
   organizationName: string
   repositoryName: string
+}
+
+function roundCents(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+interface ParsedBillingUsage {
+  premiumRequests: number
+  grossCost: number
+  discount: number
+  netCost: number
+  businessSeats: number
+}
+
+function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
+  const premiumItems = items.filter(
+    (item) => item.product === 'copilot' && item.sku === 'Copilot Premium Request',
+  )
+  const seatItems = items.filter(
+    (item) => item.product === 'copilot' && item.sku === 'Copilot Business',
+  )
+
+  return {
+    premiumRequests: Math.round(premiumItems.reduce((sum, item) => sum + item.quantity, 0)),
+    grossCost: roundCents(premiumItems.reduce((sum, item) => sum + item.grossAmount, 0)),
+    discount: roundCents(premiumItems.reduce((sum, item) => sum + item.discountAmount, 0)),
+    netCost: roundCents(premiumItems.reduce((sum, item) => sum + item.netAmount, 0)),
+    businessSeats: roundCents(seatItems.reduce((sum, item) => sum + item.quantity, 0)),
+  }
 }
 
 /** Aggregated Copilot usage metrics for a single org, reused by the
@@ -64,11 +111,7 @@ export async function fetchCopilotMetrics(
   org: string,
   username?: string,
 ): Promise<{ success: true; data: CopilotUsageMetrics } | { success: false; error: string }> {
-  const token = await tryGetCliToken(username)
-  const execEnv = {
-    ...process.env,
-    ...(token ? { GH_TOKEN: token } : {}),
-  }
+  const execEnv = await getTokenEnv(username)
 
   const now = new Date()
   const year = now.getUTCFullYear()
@@ -87,30 +130,25 @@ export async function fetchCopilotMetrics(
     try {
       const result = await execAsync(
         `gh api /orgs/${org}/settings/billing/usage`,
-        { encoding: 'utf8', timeout: 15000, env: execEnv },
+        { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv },
       )
       stdout = result.stdout
     } catch (orgError: unknown) {
       if (!isNotFoundError(orgError)) throw orgError
       const result = await execAsync(
         `gh api /users/${org}/settings/billing/usage`,
-        { encoding: 'utf8', timeout: 15000, env: execEnv },
+        { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv },
       )
       stdout = result.stdout
     }
 
     const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-    const copilotItems = data.usageItems.filter(
-      (item) => item.product === 'copilot' && item.sku === 'Copilot Premium Request',
-    )
-    premiumRequests = Math.round(copilotItems.reduce((s, i) => s + i.quantity, 0))
-    grossCost = Math.round(copilotItems.reduce((s, i) => s + i.grossAmount, 0) * 100) / 100
-    discount = Math.round(copilotItems.reduce((s, i) => s + i.discountAmount, 0) * 100) / 100
-    netCost = Math.round(copilotItems.reduce((s, i) => s + i.netAmount, 0) * 100) / 100
-    const seatItems = data.usageItems.filter(
-      (item) => item.product === 'copilot' && item.sku === 'Copilot Business',
-    )
-    businessSeats = Math.round(seatItems.reduce((s, i) => s + i.quantity, 0) * 100) / 100
+    const parsed = parseBillingUsage(data.usageItems)
+    premiumRequests = parsed.premiumRequests
+    grossCost = parsed.grossCost
+    discount = parsed.discount
+    netCost = parsed.netCost
+    businessSeats = parsed.businessSeats
     usageOk = true
   } catch (error: unknown) {
     const msg = getErrorMessage(error)
@@ -127,11 +165,11 @@ export async function fetchCopilotMetrics(
     const [budgetResult, spendResult] = await Promise.allSettled([
       execAsync(
         `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
-        { encoding: 'utf8', timeout: 15000, env: execEnv },
+        { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv },
       ),
       execAsync(
         `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-        { encoding: 'utf8', timeout: 15000, env: execEnv },
+        { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv },
       ),
     ])
 
@@ -149,9 +187,7 @@ export async function fetchCopilotMetrics(
       const parsed = JSON.parse(spendResult.value.stdout.trim()) as {
         usageItems?: Array<{ netAmount: number }>
       }
-      spent = Math.round(
-        (parsed.usageItems?.reduce((s, i) => s + i.netAmount, 0) ?? 0) * 100,
-      ) / 100
+      spent = roundCents(parsed.usageItems?.reduce((s, i) => s + i.netAmount, 0) ?? 0)
     }
   } catch {
     // budget/spend fetch is best-effort; usage metrics still valid
@@ -187,7 +223,7 @@ export function registerGitHubHandlers(): void {
       const command = username ? `gh auth token --user ${username}` : 'gh auth token'
       const { stdout, stderr } = await execAsync(command, {
         encoding: 'utf8',
-        timeout: 5000,
+        timeout: CLI_TIMEOUT_MS,
       })
 
       if (stderr && !stderr.includes('Logging in to')) {
@@ -229,7 +265,7 @@ export function registerGitHubHandlers(): void {
       // `gh auth status` outputs account info to stderr; parse for "Active account: true"
       const { stderr } = await execAsync('gh auth status', {
         encoding: 'utf8',
-        timeout: 5000,
+        timeout: CLI_TIMEOUT_MS,
       })
 
       // Parse lines: look for "Logged in to ... account <name>" followed by "Active account: true"
@@ -258,19 +294,14 @@ export function registerGitHubHandlers(): void {
     async (_event, org: string, username?: string) => {
       try {
         // Get a per-account token so we don't have to switch the global active account
-        const token = await tryGetCliToken(username)
-
-        const execEnv = {
-          ...process.env,
-          ...(token ? { GH_TOKEN: token } : {}),
-        }
+        const execEnv = await getTokenEnv(username)
 
         // Try org endpoint first, then fall back to user endpoint
         let stdout: string
         try {
           const result = await execAsync(
             `gh api /orgs/${org}/settings/billing/usage`,
-            { encoding: 'utf8', timeout: 15000, env: execEnv }
+            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
           )
           stdout = result.stdout
         } catch (orgError: unknown) {
@@ -282,7 +313,7 @@ export function registerGitHubHandlers(): void {
           try {
             const result = await execAsync(
               `gh api /users/${org}/settings/billing/usage`,
-              { encoding: 'utf8', timeout: 15000, env: execEnv }
+              { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
             )
             stdout = result.stdout
           } catch (userError: unknown) {
@@ -297,33 +328,13 @@ export function registerGitHubHandlers(): void {
         }
 
         const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-
-        // Filter for Copilot Premium Request items
-        const copilotItems = data.usageItems.filter(
-          item => item.product === 'copilot' && item.sku === 'Copilot Premium Request'
-        )
-
-        // Sum up quantity across all billing entries
-        const totalPremiumRequests = copilotItems.reduce((sum, item) => sum + item.quantity, 0)
-        const totalCost = copilotItems.reduce((sum, item) => sum + item.grossAmount, 0)
-        const totalDiscount = copilotItems.reduce((sum, item) => sum + item.discountAmount, 0)
-        const totalNet = copilotItems.reduce((sum, item) => sum + item.netAmount, 0)
-
-        // Also extract Copilot Business seat info
-        const seatItems = data.usageItems.filter(
-          item => item.product === 'copilot' && item.sku === 'Copilot Business'
-        )
-        const seatCount = seatItems.reduce((sum, item) => sum + item.quantity, 0)
+        const parsed = parseBillingUsage(data.usageItems)
 
         return {
           success: true,
           data: {
             org,
-            premiumRequests: Math.round(totalPremiumRequests),
-            grossCost: Math.round(totalCost * 100) / 100,
-            discount: Math.round(totalDiscount * 100) / 100,
-            netCost: Math.round(totalNet * 100) / 100,
-            businessSeats: Math.round(seatCount * 100) / 100,
+            ...parsed,
             // Include raw items for detailed view
             allItems: data.usageItems.filter(item => item.product === 'copilot'),
             fetchedAt: Date.now(),
@@ -352,7 +363,7 @@ export function registerGitHubHandlers(): void {
           'gh api /copilot_internal/user',
           {
             encoding: 'utf8',
-            timeout: 15000,
+            timeout: API_TIMEOUT_MS,
             env: { ...process.env, GH_TOKEN: token },
           }
         )
@@ -372,11 +383,7 @@ export function registerGitHubHandlers(): void {
     'github:get-copilot-budget',
     async (_event, org: string, username?: string) => {
       try {
-        const token = await tryGetCliToken(username)
-        const execEnv = {
-          ...process.env,
-          ...(token ? { GH_TOKEN: token } : {}),
-        }
+        const execEnv = await getTokenEnv(username)
 
         const now = new Date()
         const year = now.getUTCFullYear()
@@ -386,11 +393,11 @@ export function registerGitHubHandlers(): void {
         const [budgetResult, usageResult] = await Promise.allSettled([
           execAsync(
             `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: 15000, env: execEnv }
+            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
           ),
           execAsync(
             `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: 15000, env: execEnv }
+            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
           ),
         ])
 
@@ -452,7 +459,7 @@ export function registerGitHubHandlers(): void {
           try {
             const entResult = await execAsync(
               `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets" -H "X-GitHub-Api-Version: 2022-11-28" --paginate`,
-              { encoding: 'utf8', timeout: 20000, env: execEnv }
+              { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
             )
             const entData = JSON.parse(entResult.stdout.trim()) as { budgets?: BudgetItem[] }
             const match = findCopilotBudget(entData.budgets ?? [], org)
@@ -473,7 +480,7 @@ export function registerGitHubHandlers(): void {
             usageItems?: Array<{ netAmount: number }>
           }
           spent = usageData.usageItems?.reduce((sum, item) => sum + item.netAmount, 0) ?? 0
-          spent = Math.round(spent * 100) / 100
+          spent = roundCents(spent)
         } else {
           spentError = getErrorMessage(usageResult.reason)
           console.warn(`Usage fetch failed for '${org}':`, spentError)
@@ -486,7 +493,7 @@ export function registerGitHubHandlers(): void {
               try {
                 const quotaResult = await execAsync(
                   'gh api /copilot_internal/user',
-                  { encoding: 'utf8', timeout: 15000, env: { ...process.env, GH_TOKEN: quotaToken } }
+                  { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: { ...process.env, GH_TOKEN: quotaToken } }
                 )
                 const quotaData = JSON.parse(quotaResult.stdout.trim())
                 const premium = quotaData?.quota_snapshots?.premium_interactions
@@ -494,7 +501,7 @@ export function registerGitHubHandlers(): void {
                   const overageByCount = Math.max(0, premium.overage_count ?? 0)
                   const overageByRemaining = Math.max(0, -(premium.remaining ?? 0))
                   const overageRequests = Math.max(overageByCount, overageByRemaining)
-                  spent = Math.round(overageRequests * 0.04 * 100) / 100
+                  spent = roundCents(overageRequests * 0.04)
                   spentError = null
                 }
               } catch (quotaError) {
@@ -540,7 +547,7 @@ export function registerGitHubHandlers(): void {
     try {
       await execAsync(`gh auth switch --user ${username}`, {
         encoding: 'utf8',
-        timeout: 5000,
+        timeout: CLI_TIMEOUT_MS,
       })
       return { success: true }
     } catch (error: unknown) {

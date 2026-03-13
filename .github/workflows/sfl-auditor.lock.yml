@@ -21,19 +21,19 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# Runs daily at 5:00 AM EDT, audits the
+# Runs daily at ~5:57 AM EDT, audits the
 # relationship between issue labels and open pull requests, and repairs any
 # state discrepancies it finds. Keeps the agentic pipeline self-consistent
 # without human intervention.
 #
 # Source: relias-engineering/set-it-free-loop/workflows/sfl-auditor.md@e441260656008f767cf67a816219c0713623f8e8
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"2917463a1ec15ff995fff0e6c8b17de97e01652f0ced6c87fe2fca04bd53a7f7","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"6305899f81abbcb3126f4b47da61b4d045ed70fd8d767dfd64f9f0ee6d1573b3","compiler_version":"v0.57.2","strict":true}
 
 name: "SFL Auditor"
 "on":
   schedule:
-  - cron: "0 9 * * *"
+  - cron: "57 9 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -1017,7 +1017,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "SFL Auditor"
-          WORKFLOW_DESCRIPTION: "Runs daily at 5:00 AM EDT, audits the\nrelationship between issue labels and open pull requests, and repairs any\nstate discrepancies it finds. Keeps the agentic pipeline self-consistent\nwithout human intervention."
+          WORKFLOW_DESCRIPTION: "Runs daily at ~5:57 AM EDT, audits the\nrelationship between issue labels and open pull requests, and repairs any\nstate discrepancies it finds. Keeps the agentic pipeline self-consistent\nwithout human intervention."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |

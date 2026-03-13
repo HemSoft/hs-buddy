@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.353] - 2026-03-13
+
 ## [0.1.352] - 2026-03-13
+
+### Changed
+
+- Post-migration cleanup - remove stale refs and obsolete skill
 
 ## [0.1.351] - 2026-03-13
 

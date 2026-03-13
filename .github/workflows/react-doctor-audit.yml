@@ -2,7 +2,7 @@ name: React Doctor Audit
 
 on:
   schedule:
-    - cron: "0 5 * * *"  # 1:00 AM EDT
+    - cron: "17 5 * * *"  # ~1:17 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:

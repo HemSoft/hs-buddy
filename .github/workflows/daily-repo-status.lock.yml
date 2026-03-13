@@ -28,12 +28,12 @@
 #
 # Source: relias-engineering/set-it-free-loop/workflows/daily-repo-status.md@e441260656008f767cf67a816219c0713623f8e8
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"2669921442e9fb74ed14fd6faac664067f19d98283e6deeca4977153a2c71ece","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"c14b6a09659344adf91d68810dbf8786a2c7134a038b7e6187a384a72179032a","compiler_version":"v0.57.2","strict":true}
 
 name: "SFL Repo Status"
 "on":
   schedule:
-  - cron: "0 7 * * *"
+  - cron: "37 7 * * *"
   workflow_dispatch:
 
 permissions: {}

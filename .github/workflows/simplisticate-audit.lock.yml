@@ -28,12 +28,12 @@
 #
 # Source: relias-engineering/set-it-free-loop/workflows/simplisticate-audit.md@e441260656008f767cf67a816219c0713623f8e8
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"5f41f867457c92109dab26a4aa81b8d8112fc100aa210fffb4a4085aac42b673","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"00e57d0b7c830af620a09f9b5f85bcb361cfcf290cbba3e7262246e43b85cec8","compiler_version":"v0.57.2","strict":true}
 
 name: "Simplisticate Audit"
 "on":
   schedule:
-  - cron: "0 6 * * *"
+  - cron: "27 6 * * *"
   workflow_dispatch:
 
 permissions: {}

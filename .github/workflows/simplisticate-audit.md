@@ -6,7 +6,7 @@ description: |
   findings and detailed fix instructions for the SFL pipeline to process.
 
 on:
-  schedule: "0 6 * * *"   # 2:00 AM EDT
+  schedule: "27 6 * * *"   # ~2:27 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:

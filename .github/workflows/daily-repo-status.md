@@ -7,7 +7,7 @@ description: |
 
 on:
   schedule:
-    - cron: "0 7 * * *"  # 3:00 AM EDT
+    - cron: "37 7 * * *"  # ~3:37 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:

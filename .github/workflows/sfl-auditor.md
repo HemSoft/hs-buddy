@@ -1,13 +1,13 @@
 ---
 description: |
-  Runs daily at 5:00 AM EDT, audits the
+  Runs daily at ~5:57 AM EDT, audits the
   relationship between issue labels and open pull requests, and repairs any
   state discrepancies it finds. Keeps the agentic pipeline self-consistent
   without human intervention.
 
 on:
   schedule:
-    - cron: "0 9 * * *"  # 5:00 AM EDT
+    - cron: "57 9 * * *"  # ~5:57 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:

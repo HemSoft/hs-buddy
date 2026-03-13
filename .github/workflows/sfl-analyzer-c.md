@@ -42,6 +42,41 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["sfl-pr-label-actions"]
     max: 1
+
+jobs:
+  ensure-label-actions-dispatch:
+    needs: [agent]
+    if: "!cancelled()"
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-output
+          path: /opt/gh-aw/safe-jobs/
+      - name: Check agent output and dispatch if needed
+        run: |
+          AGENT_OUTPUT="/opt/gh-aw/safe-jobs/agent_output.json"
+          if [ -z "$PR_NUM" ]; then
+            echo "No PR number — skipping deterministic dispatch"
+            exit 0
+          fi
+          if [ -f "$AGENT_OUTPUT" ]; then
+            DISPATCHED=$(jq -r '.items[]? | select(.type == "dispatch_workflow") | .workflow' "$AGENT_OUTPUT" 2>/dev/null || echo "")
+            if [ -n "$DISPATCHED" ]; then
+              echo "Agent already dispatched: $DISPATCHED — skipping fallback"
+              exit 0
+            fi
+          fi
+          echo "Deterministic fallback: dispatching sfl-pr-label-actions for PR #$PR_NUM"
+          gh workflow run sfl-pr-label-actions.yml -f pull-request-number="$PR_NUM"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.inputs.pull-request-number }}
+
 source: relias-engineering/set-it-free-loop/workflows/sfl-analyzer-c.md@e441260656008f767cf67a816219c0713623f8e8
 ---
 

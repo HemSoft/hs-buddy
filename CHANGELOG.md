@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.356] - 2026-03-13
+
+## [0.1.355] - 2026-03-13
+
+### Fixed
+
+- Analyzer C: deterministic dispatch via top-level `jobs:` — always dispatches sfl-pr-label-actions after analysis, even if agent omits dispatch_workflow call
+
 ## [0.1.354] - 2026-03-13
+
+### Fixed
+
+- Add deterministic workflow_run fallback to Label Actions
 
 ## [0.1.353] - 2026-03-13
 

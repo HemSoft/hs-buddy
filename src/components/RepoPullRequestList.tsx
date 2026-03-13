@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useReducer, useRef } from 'react'
 import {
   GitPullRequest,
   ExternalLink,
@@ -22,6 +22,47 @@ interface RepoPullRequestListProps {
   repo: string
   prState?: 'open' | 'closed'
   onOpenPR?: (viewId: string) => void
+}
+
+interface RepoPullRequestListState {
+  prs: RepoPullRequest[]
+  loading: boolean
+  error: string | null
+}
+
+type RepoPullRequestListAction =
+  | { type: 'RESET_FROM_CACHE'; payload: RepoPullRequestListState }
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; payload: RepoPullRequest[] }
+  | { type: 'FETCH_ERROR'; payload: string }
+  | { type: 'FETCH_FINISH' }
+
+function getRepoPullRequestListState(cacheKey: string): RepoPullRequestListState {
+  const cachedEntry = dataCache.get<RepoPullRequest[]>(cacheKey)
+
+  return {
+    prs: cachedEntry?.data || [],
+    loading: !cachedEntry?.data,
+    error: null,
+  }
+}
+
+function repoPullRequestListReducer(
+  state: RepoPullRequestListState,
+  action: RepoPullRequestListAction
+): RepoPullRequestListState {
+  switch (action.type) {
+    case 'RESET_FROM_CACHE':
+      return action.payload
+    case 'FETCH_START':
+      return { ...state, loading: true, error: null }
+    case 'FETCH_SUCCESS':
+      return { prs: action.payload, loading: false, error: null }
+    case 'FETCH_ERROR':
+      return { ...state, error: action.payload }
+    case 'FETCH_FINISH':
+      return { ...state, loading: false }
+  }
 }
 
 function mapToPRDetailId(pr: RepoPullRequest, owner: string): string {
@@ -53,10 +94,12 @@ export function RepoPullRequestList({
   onOpenPR,
 }: RepoPullRequestListProps) {
   const cacheKey = `repo-prs:${prState}:${owner}/${repo}`
-  const cachedEntry = dataCache.get<RepoPullRequest[]>(cacheKey)
-  const [prs, setPrs] = useState<RepoPullRequest[]>(cachedEntry?.data || [])
-  const [loading, setLoading] = useState(!cachedEntry?.data)
-  const [error, setError] = useState<string | null>(null)
+  const [state, dispatch] = useReducer(
+    repoPullRequestListReducer,
+    cacheKey,
+    getRepoPullRequestListState
+  )
+  const { prs, loading, error } = state
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
@@ -65,10 +108,10 @@ export function RepoPullRequestList({
   }, [enqueue])
 
   useEffect(() => {
-    const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
-    setPrs(cached?.data || [])
-    setLoading(!cached?.data)
-    setError(null)
+    dispatch({
+      type: 'RESET_FROM_CACHE',
+      payload: getRepoPullRequestListState(cacheKey),
+    })
   }, [cacheKey])
 
   const fetchPRs = useCallback(
@@ -76,14 +119,12 @@ export function RepoPullRequestList({
       if (!forceRefresh) {
         const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
         if (cached?.data) {
-          setPrs(cached.data)
-          setLoading(false)
+          dispatch({ type: 'FETCH_SUCCESS', payload: cached.data })
           return
         }
       }
 
-      setLoading(true)
-      setError(null)
+      dispatch({ type: 'FETCH_START' })
 
       try {
         const result = await enqueueRef.current(
@@ -95,13 +136,16 @@ export function RepoPullRequestList({
           },
           { name: `repo-prs-${prState}-${owner}-${repo}` }
         )
-        setPrs(result)
+        dispatch({ type: 'FETCH_SUCCESS', payload: result })
         dataCache.set(cacheKey, result)
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof Error ? err.message : String(err))
+        dispatch({
+          type: 'FETCH_ERROR',
+          payload: err instanceof Error ? err.message : String(err),
+        })
       } finally {
-        setLoading(false)
+        dispatch({ type: 'FETCH_FINISH' })
       }
     },
     [owner, repo, prState, accounts, cacheKey]

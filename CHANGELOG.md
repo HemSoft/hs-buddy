@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.354] - 2026-03-13
+
 ## [0.1.353] - 2026-03-13
+
+### Changed
+
+- Offset cron schedules from :00 to reduce GHA queue delays
 
 ## [0.1.352] - 2026-03-13
 

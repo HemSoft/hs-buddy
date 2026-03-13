@@ -6,6 +6,9 @@ on:
       pull-request-number:
         description: Target PR number for label-based actions
         required: true
+  workflow_run:
+    workflows: ["SFL Analyzer C — Full-Spectrum Review"]
+    types: [completed]
 
 permissions:
   pull-requests: write
@@ -19,21 +22,64 @@ concurrency:
 jobs:
   label-actions:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'agent-fix/'))
     steps:
       - name: Resolve target PR
         id: find
         env:
           GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
-          PR="${{ github.event.inputs.pull-request-number }}"
-          if [ -z "$PR" ]; then
-            echo "::error::pull-request-number input is required but was empty"
-            exit 1
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR="${{ github.event.inputs.pull-request-number }}"
+            if [ -z "$PR" ]; then
+              echo "::error::pull-request-number input is required but was empty"
+              exit 1
+            fi
+            echo "trigger=dispatch" >> "$GITHUB_OUTPUT"
+          else
+            # workflow_run trigger: find PR from the branch that Analyzer C ran on
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            echo "Analyzer C completed on branch: ${BRANCH}"
+            PR=$(gh pr list --repo ${{ github.repository }} --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+            if [ -z "$PR" ]; then
+              echo "No open PR found for branch ${BRANCH} — skipping"
+              exit 0
+            fi
+            echo "trigger=workflow_run" >> "$GITHUB_OUTPUT"
+            echo "Resolved PR #${PR} from branch ${BRANCH}"
           fi
           echo "pr_number=${PR}" >> "$GITHUB_OUTPUT"
 
+      - name: Check for duplicate run (workflow_run only)
+        if: steps.find.outputs.trigger == 'workflow_run' && steps.find.outputs.pr_number != ''
+        id: dedup
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+        run: |
+          # If Analyzer C already dispatched label-actions via safe-output, a
+          # workflow_dispatch run is already in flight for this PR. Check if
+          # a dispatch-triggered run started within the last 5 minutes.
+          PR_NUM="${{ steps.find.outputs.pr_number }}"
+          RECENT=$(gh run list \
+            --workflow sfl-pr-label-actions.yml \
+            --repo ${{ github.repository }} \
+            --limit 5 \
+            --json databaseId,event,createdAt,status \
+            --jq "[.[] | select(.event == \"workflow_dispatch\" and .status != \"completed\")] | length")
+          if [ "$RECENT" -gt 0 ]; then
+            echo "A dispatch-triggered label-actions run is already active — this workflow_run trigger is redundant"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No active dispatch-triggered run found — this workflow_run trigger will proceed as fallback"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check labels and decide action
-        if: steps.find.outputs.pr_number != ''
+        if: steps.find.outputs.pr_number != '' && steps.dedup.outputs.skip != 'true'
         id: decide
         env:
           GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
@@ -80,24 +126,27 @@ jobs:
           fi
 
       - name: Log decision to Discussion #95
-        if: always() && steps.find.outputs.pr_number != ''
+        if: always() && steps.find.outputs.pr_number != '' && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         env:
           PR_NUM: ${{ steps.find.outputs.pr_number }}
           ACTION: ${{ steps.decide.outputs.action }}
           PR_TITLE: ${{ steps.decide.outputs.title }}
+          TRIGGER: ${{ steps.find.outputs.trigger }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           script: |
             const prNum = process.env.PR_NUM;
             const action = process.env.ACTION;
             const title = process.env.PR_TITLE;
+            const trigger = process.env.TRIGGER;
+            const fallbackTag = trigger === 'workflow_run' ? ' *(deterministic fallback)*' : '';
 
             let body;
             if (action === 'fix-cycle') {
-              body = `🔄 **Label Actions → Fix Cycle** | PR #${prNum} (*${title}*) — \`analyzer:blocked\` detected, dispatched issue-processor for fix cycle`;
+              body = `🔄 **Label Actions → Fix Cycle** | PR #${prNum} (*${title}*) — \`analyzer:blocked\` detected, dispatched issue-processor for fix cycle${fallbackTag}`;
             } else if (action === 'ready-for-review') {
-              body = `✅ **Label Actions → Ready for Review** | PR #${prNum} (*${title}*) — all analyzers passed, marked ready for human review`;
+              body = `✅ **Label Actions → Ready for Review** | PR #${prNum} (*${title}*) — all analyzers passed, marked ready for human review${fallbackTag}`;
             } else {
               body = `ℹ️ **Label Actions** | PR #${prNum} — no actionable state detected`;
             }

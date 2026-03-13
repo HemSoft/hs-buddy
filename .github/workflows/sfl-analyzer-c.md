@@ -42,6 +42,7 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["sfl-pr-label-actions"]
     max: 1
+source: relias-engineering/set-it-free-loop/workflows/sfl-analyzer-c.md@e441260656008f767cf67a816219c0713623f8e8
 ---
 
 # SFL Analyzer C — Full-Spectrum Review

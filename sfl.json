@@ -1,9 +1,10 @@
 {
-  "version": "2.0.0",
-  "deployedAt": "2026-02-22T22:00:00Z",
+  "version": "1.0.0",
+  "deployedAt": "2026-03-13T00:00:00Z",
   "tier": "full",
   "source": "relias-engineering/set-it-free-loop",
-  "sourceSha": "d696d3dd371bb3742ace24fddc5d85f08f7e4e97",
+  "sourceSha": "e441260656008f767cf67a816219c0713623f8e8",
+  "distribution": "gh-aw-add",
   "models": {
     "sfl-analyzer-a": "claude-sonnet-4.6",
     "sfl-analyzer-b": "claude-opus-4.5",
@@ -17,11 +18,11 @@
     "daily-repo-status",
     "repo-audit",
     "sfl-issue-processor",
-    "simplisticate",
+    "simplisticate-audit",
     "sfl-analyzer-a",
     "sfl-analyzer-b",
     "sfl-analyzer-c",
-    "pr-fixer",
-    "sfl-pr-label-actions"
+    "sfl-pr-label-actions",
+    "discussion-processor"
   ]
 }

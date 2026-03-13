@@ -32,6 +32,7 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
+source: relias-engineering/set-it-free-loop/workflows/repo-audit.md@e441260656008f767cf67a816219c0713623f8e8
 ---
 
 # Repo Audit

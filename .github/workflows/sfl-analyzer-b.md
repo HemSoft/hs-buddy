@@ -42,6 +42,7 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["sfl-analyzer-c"]
     max: 1
+source: relias-engineering/set-it-free-loop/workflows/sfl-analyzer-b.md@main
 ---
 
 # SFL Analyzer B — Full-Spectrum Review

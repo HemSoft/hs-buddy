@@ -91,6 +91,7 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["sfl-analyzer-a"]
     max: 1
+source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@e441260656008f767cf67a816219c0713623f8e8
 ---
 
 # SFL Issue Processor / Implementer

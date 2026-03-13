@@ -36,7 +36,7 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
-source: githubnext/agentics/workflows/daily-repo-status.md@d19056381ba48cb1f7c78510c23069701fa7ae87
+source: relias-engineering/set-it-free-loop/workflows/daily-repo-status.md@e441260656008f767cf67a816219c0713623f8e8
 ---
 
 # SFL Repo Status

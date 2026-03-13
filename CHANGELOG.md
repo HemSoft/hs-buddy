@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.352] - 2026-03-13
+
+## [0.1.351] - 2026-03-13
+
 ## [0.1.350] - 2026-03-13
+
+### Added
+
+- Convert hs-buddy to SFL consumer via gh aw add
 
 ## [0.1.349] - 2026-03-13
 

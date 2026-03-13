@@ -86,7 +86,7 @@ is the #1 cause of confusing errors in SFL sessions.
 # Ensures the correct gh account is active for the target repo
 & ".agents/skills/sfl/scripts/ensure-auth.ps1"
 # For a different repo:
-& ".agents/skills/sfl/scripts/ensure-auth.ps1" -Repo "HemSoft/set-it-free-loop"
+& ".agents/skills/sfl/scripts/ensure-auth.ps1" -Repo "relias-engineering/set-it-free-loop"
 ```
 
 The agent has 4 gh accounts. Each org requires a specific one:

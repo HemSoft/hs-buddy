@@ -61,7 +61,7 @@ function SuggestionBlock({ content }: { content: string }) {
       </div>
       <div className="suggestion-diff">
         {lines.map((line, i) => (
-          <div key={`suggestion-line-${i}-${line.slice(0, 30)}`} className="diff-line diff-add">
+          <div key={`suggestion-line-${i}-${encodeURIComponent(line)}`} className="diff-line diff-add">
             <span className="diff-line-content">{`  ${line}`}</span>
           </div>
         ))}

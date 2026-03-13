@@ -33,7 +33,6 @@ That repo contains:
 | `repo-audit` (`Repo Audit`) | Daily 4:00 AM EDT | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `sfl-auditor` | Daily 5:00 AM EDT | Repairs issue/PR label discrepancies | Local |
 | `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
-| `sfl-auditor` | Daily 5:00 AM EDT | Repairs issue/PR label discrepancies | Local |
 | `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |
 | `sfl-analyzer-a` | `pull_request: opened` | Starts the sequential A -> B -> C review chain for draft PRs (Model A) | Local |
 | `sfl-analyzer-b` | Analyzer A dispatch | Continues the sequential full-spectrum review chain (Model B) | Local |

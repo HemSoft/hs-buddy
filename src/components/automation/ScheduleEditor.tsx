@@ -11,6 +11,17 @@ import {
 import { Id } from '../../../convex/_generated/dataModel'
 import './ScheduleEditor.css'
 
+type MissedPolicy = 'skip' | 'catchup' | 'last'
+
+interface ScheduleFormState {
+  name: string
+  description: string
+  jobId: string
+  cron: string
+  enabled: boolean
+  missedPolicy: MissedPolicy
+}
+
 interface ScheduleEditorProps {
   scheduleId?: string // If provided, editing; otherwise creating
   onClose: () => void
@@ -24,36 +35,41 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
   const { create, update } = useScheduleMutations()
   const { increment: incrementStat } = useBuddyStatsMutations()
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [jobId, setJobId] = useState<string>('')
-  const [cron, setCron] = useState('0 9 * * *') // Default: daily at 9 AM
-  const [enabled, setEnabled] = useState(true)
-  const [missedPolicy, setMissedPolicy] = useState<'skip' | 'catchup' | 'last'>('skip')
+  const [formState, setFormState] = useState<ScheduleFormState>({
+    name: '',
+    description: '',
+    jobId: '',
+    cron: '0 9 * * *',
+    enabled: true,
+    missedPolicy: 'skip',
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const isEditing = !!scheduleId
+  const { name, description, jobId, cron, enabled, missedPolicy } = formState
 
   // Populate form when editing
   useEffect(() => {
     if (existingSchedule) {
-      setName(existingSchedule.name)
-      setDescription(existingSchedule.description || '')
-      setJobId(existingSchedule.jobId)
-      setCron(existingSchedule.cron)
-      setEnabled(existingSchedule.enabled)
-      // missedPolicy may not exist on old schedules
-      if ('missedPolicy' in existingSchedule) {
-        setMissedPolicy(existingSchedule.missedPolicy as 'skip' | 'catchup' | 'last')
-      }
+      setFormState({
+        name: existingSchedule.name,
+        description: existingSchedule.description || '',
+        jobId: existingSchedule.jobId,
+        cron: existingSchedule.cron,
+        enabled: existingSchedule.enabled,
+        missedPolicy:
+          'missedPolicy' in existingSchedule
+            ? (existingSchedule.missedPolicy as MissedPolicy)
+            : 'skip',
+      })
     }
   }, [existingSchedule])
 
   // Set default job when loaded
   useEffect(() => {
     if (!jobId && jobs && jobs.length > 0) {
-      setJobId(jobs[0]._id)
+      setFormState(prev => ({ ...prev, jobId: jobs[0]._id }))
     }
   }, [jobs, jobId])
 
@@ -137,7 +153,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
               id="schedule-name"
               type="text"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => setFormState(prev => ({ ...prev, name: e.target.value }))}
               placeholder="e.g., Daily PR Check"
             />
           </div>
@@ -147,7 +163,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
             <textarea
               id="schedule-description"
               value={description}
-              onChange={e => setDescription(e.target.value)}
+              onChange={e => setFormState(prev => ({ ...prev, description: e.target.value }))}
               placeholder="Optional description of what this schedule does"
               rows={2}
             />
@@ -163,7 +179,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
               <select
                 id="schedule-job"
                 value={jobId}
-                onChange={e => setJobId(e.target.value)}
+                onChange={e => setFormState(prev => ({ ...prev, jobId: e.target.value }))}
                 disabled={isEditing} // Can't change job when editing
               >
                 {jobs.map(j => (
@@ -179,7 +195,10 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
           <div className="form-group">
             <span id={scheduleCronLabelId} className="form-label">Schedule</span>
             <div role="group" aria-labelledby={scheduleCronLabelId}>
-              <CronBuilder value={cron} onChange={setCron} />
+              <CronBuilder
+                value={cron}
+                onChange={value => setFormState(prev => ({ ...prev, cron: value }))}
+              />
             </div>
           </div>
 
@@ -188,7 +207,9 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
             <select
               id="missed-policy"
               value={missedPolicy}
-              onChange={e => setMissedPolicy(e.target.value as 'skip' | 'catchup' | 'last')}
+              onChange={e =>
+                setFormState(prev => ({ ...prev, missedPolicy: e.target.value as MissedPolicy }))
+              }
             >
               <option value="skip">Skip missed runs</option>
               <option value="catchup">Catch up all missed runs</option>
@@ -207,7 +228,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
                 id="schedule-enabled"
                 type="checkbox"
                 checked={enabled}
-                onChange={e => setEnabled(e.target.checked)}
+                onChange={e => setFormState(prev => ({ ...prev, enabled: e.target.checked }))}
               />
               <span>Enabled</span>
             </label>

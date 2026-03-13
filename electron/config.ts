@@ -83,141 +83,149 @@ class ConfigManager {
     this.store.set('bitbucket.workspaces', filtered);
   }
 
+  private getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {
+    return this.store.get(`ui.${key}`, defaultConfig.ui[key]) as AppConfig['ui'][K];
+  }
+
+  private setUiValue<K extends keyof AppConfig['ui']>(key: K, value: AppConfig['ui'][K]): void {
+    this.store.set(`ui.${key}`, value);
+  }
+
   // UI Settings
   getTheme(): 'dark' | 'light' {
-    return this.store.get('ui.theme', 'dark');
+    return this.getUiValue('theme');
   }
 
   setTheme(theme: 'dark' | 'light'): void {
-    this.store.set('ui.theme', theme);
+    this.setUiValue('theme', theme);
   }
 
   getAccentColor(): string {
-    return this.store.get('ui.accentColor', '#0e639c');
+    return this.getUiValue('accentColor');
   }
 
   setAccentColor(color: string): void {
-    this.store.set('ui.accentColor', color);
+    this.setUiValue('accentColor', color);
   }
 
   getBgPrimary(): string {
-    return this.store.get('ui.bgPrimary', '#1e1e1e');
+    return this.getUiValue('bgPrimary');
   }
 
   setBgPrimary(color: string): void {
-    this.store.set('ui.bgPrimary', color);
+    this.setUiValue('bgPrimary', color);
   }
 
   getBgSecondary(): string {
-    return this.store.get('ui.bgSecondary', '#252526');
+    return this.getUiValue('bgSecondary');
   }
 
   setBgSecondary(color: string): void {
-    this.store.set('ui.bgSecondary', color);
+    this.setUiValue('bgSecondary', color);
   }
 
   getStatusBarBg(): string {
-    return this.store.get('ui.statusBarBg', '#181818');
+    return this.getUiValue('statusBarBg');
   }
 
   setStatusBarBg(color: string): void {
-    this.store.set('ui.statusBarBg', color);
+    this.setUiValue('statusBarBg', color);
   }
 
   getStatusBarFg(): string {
-    return this.store.get('ui.statusBarFg', '#9d9d9d');
+    return this.getUiValue('statusBarFg');
   }
 
   setStatusBarFg(color: string): void {
-    this.store.set('ui.statusBarFg', color);
+    this.setUiValue('statusBarFg', color);
   }
 
   getFontColor(): string {
-    return this.store.get('ui.fontColor', '#cccccc');
+    return this.getUiValue('fontColor');
   }
 
   setFontColor(color: string): void {
-    this.store.set('ui.fontColor', color);
+    this.setUiValue('fontColor', color);
   }
 
   getFontFamily(): string {
-    return this.store.get('ui.fontFamily', 'Inter');
+    return this.getUiValue('fontFamily');
   }
 
   setFontFamily(font: string): void {
-    this.store.set('ui.fontFamily', font);
+    this.setUiValue('fontFamily', font);
   }
 
   getMonoFontFamily(): string {
-    return this.store.get('ui.monoFontFamily', 'Cascadia Code');
+    return this.getUiValue('monoFontFamily');
   }
 
   setMonoFontFamily(font: string): void {
-    this.store.set('ui.monoFontFamily', font);
+    this.setUiValue('monoFontFamily', font);
   }
 
   getZoomLevel(): number {
-    return this.store.get('ui.zoomLevel', 100);
+    return this.getUiValue('zoomLevel');
   }
 
   setZoomLevel(level: number): void {
-    this.store.set('ui.zoomLevel', level);
+    this.setUiValue('zoomLevel', level);
   }
 
   getSidebarWidth(): number {
-    return this.store.get('ui.sidebarWidth', 300);
+    return this.getUiValue('sidebarWidth');
   }
 
   setSidebarWidth(width: number): void {
-    this.store.set('ui.sidebarWidth', width);
+    this.setUiValue('sidebarWidth', width);
   }
 
   getPaneSizes(): number[] {
-    return this.store.get('ui.paneSizes', [300, 900]) as number[];
+    return this.getUiValue('paneSizes');
   }
 
   setPaneSizes(sizes: number[]): void {
-    this.store.set('ui.paneSizes', sizes);
+    this.setUiValue('paneSizes', sizes);
   }
 
   getDisplayId(): number {
-    return this.store.get('ui.displayId', 0);
+    return this.getUiValue('displayId');
   }
 
   setDisplayId(id: number): void {
-    this.store.set('ui.displayId', id);
+    this.setUiValue('displayId', id);
   }
 
   getDisplayBounds(): DisplayRect {
-    return this.store.get('ui.displayBounds', { x: 0, y: 0, width: 0, height: 0 });
+    return this.getUiValue('displayBounds');
   }
 
   setDisplayBounds(bounds: DisplayRect): void {
-    this.store.set('ui.displayBounds', bounds);
+    this.setUiValue('displayBounds', bounds);
   }
 
   getDisplayWorkArea(): DisplayRect {
-    return this.store.get('ui.displayWorkArea', { x: 0, y: 0, width: 0, height: 0 });
+    return this.getUiValue('displayWorkArea');
   }
 
   setDisplayWorkArea(workArea: DisplayRect): void {
-    this.store.set('ui.displayWorkArea', workArea);
+    this.setUiValue('displayWorkArea', workArea);
   }
 
   getShowBookmarkedOnly(): boolean {
-    return this.store.get('ui.showBookmarkedOnly', false);
+    return this.getUiValue('showBookmarkedOnly');
   }
 
   setShowBookmarkedOnly(value: boolean): void {
-    this.store.set('ui.showBookmarkedOnly', value);
+    this.setUiValue('showBookmarkedOnly', value);
   }
 
   getAssistantOpen(): boolean {
-    return this.store.get('ui.assistantOpen', false);
+    return this.getUiValue('assistantOpen');
   }
 
   setAssistantOpen(value: boolean): void {
-    this.store.set('ui.assistantOpen', value);
+    this.setUiValue('assistantOpen', value);
   }
 
   // Copilot Settings (PR Review Prompt Template — still used via IPC)

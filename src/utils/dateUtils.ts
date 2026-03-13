@@ -145,25 +145,40 @@ export function format(date: number | Date, formatStr: string): string {
   return result
 }
 
+function formatDateLocale(
+  date: string | number | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+  nullLabel: string
+): string {
+  if (date == null) return nullLabel
+  return new Date(date).toLocaleString(undefined, options)
+}
+
 export function formatDateFull(date: string | number | null | undefined): string {
-  if (date == null) return 'N/A'
-  return new Date(date).toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  return formatDateLocale(
+    date,
+    {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    },
+    'N/A'
+  )
 }
 
 export function formatDateCompact(date: string | number | null | undefined): string {
-  if (date == null) return '—'
-  return new Date(date).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  return formatDateLocale(
+    date,
+    {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    },
+    '—'
+  )
 }
 
 export function formatDuration(ms: number): string {

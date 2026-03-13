@@ -27,6 +27,34 @@ interface CronState {
   selectedDays: number[]
 }
 
+type CronSignature = 'v***' | 'vv**' | 'vv*v' | 'vvv*'
+
+const CRON_SIGNATURE_RESOLVERS: Record<
+  CronSignature,
+  (min: string, hr: string, dom: string, dow: string) => Partial<CronState>
+> = {
+  'v***': min => ({ frequency: 'hourly', minute: parseInt(min) || 0 }),
+  'vv**': (min, hr) => ({ frequency: 'daily', minute: parseInt(min) || 0, hour: parseInt(hr) || 9 }),
+  'vv*v': (min, hr, _dom, dow) => {
+    const days = dow
+      .split(',')
+      .map(day => parseInt(day))
+      .filter(day => !isNaN(day))
+    return {
+      frequency: 'weekly',
+      minute: parseInt(min) || 0,
+      hour: parseInt(hr) || 9,
+      selectedDays: days.length > 0 ? days : [1],
+    }
+  },
+  'vvv*': (min, hr, dom) => ({
+    frequency: 'monthly',
+    minute: parseInt(min) || 0,
+    hour: parseInt(hr) || 9,
+    dayOfMonth: parseInt(dom) || 1,
+  }),
+}
+
 export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const cronFreqLabelId = useId()
   const [cronState, setCronState] = useState<CronState>({
@@ -49,36 +77,23 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
 
     const [min, hr, dom, , dow] = parts
 
-    // Detect frequency from cron pattern
     if (value === '* * * * *') {
       setCronState(prev => ({ ...prev, frequency: 'minute' }))
-    } else if (min !== '*' && hr === '*' && dom === '*' && dow === '*') {
-      setCronState(prev => ({ ...prev, frequency: 'hourly', minute: parseInt(min) || 0 }))
-    } else if (min !== '*' && hr !== '*' && dom === '*' && dow === '*') {
-      setCronState(prev => ({ ...prev, frequency: 'daily', minute: parseInt(min) || 0, hour: parseInt(hr) || 9 }))
-    } else if (min !== '*' && hr !== '*' && dom === '*' && dow !== '*') {
-      const days = dow
-        .split(',')
-        .map(d => parseInt(d))
-        .filter(d => !isNaN(d))
-      setCronState(prev => ({
-        ...prev,
-        frequency: 'weekly',
-        minute: parseInt(min) || 0,
-        hour: parseInt(hr) || 9,
-        selectedDays: days.length > 0 ? days : [1],
-      }))
-    } else if (min !== '*' && hr !== '*' && dom !== '*' && dow === '*') {
-      setCronState(prev => ({
-        ...prev,
-        frequency: 'monthly',
-        minute: parseInt(min) || 0,
-        hour: parseInt(hr) || 9,
-        dayOfMonth: parseInt(dom) || 1,
-      }))
-    } else {
-      setCronState(prev => ({ ...prev, frequency: 'custom' }))
+      return
     }
+
+    const signature = [min, hr, dom, dow].map(part => (part === '*' ? '*' : 'v')).join('')
+    const resolver = CRON_SIGNATURE_RESOLVERS[signature as CronSignature]
+
+    if (!resolver) {
+      setCronState(prev => ({ ...prev, frequency: 'custom' }))
+      return
+    }
+
+    setCronState(prev => ({
+      ...prev,
+      ...resolver(min, hr, dom, dow),
+    }))
   }, [value])
 
   // Generate cron expression when settings change

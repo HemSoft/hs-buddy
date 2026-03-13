@@ -36,6 +36,21 @@ type AppearanceAction =
   | { type: 'SET_ALL'; payload: Partial<AppearanceState> }
   | { type: 'SET_FIELD'; field: keyof AppearanceState; value: string }
 
+const CUSTOM_CSS_PROPS = [
+  '--accent-primary',
+  '--accent-primary-hover',
+  '--border-focus',
+  '--text-primary',
+  '--text-heading',
+  '--bg-primary',
+  '--panel-bg',
+  '--input-bg',
+  '--bg-secondary',
+  '--sidebar-bg',
+  '--statusbar-bg',
+  '--statusbar-fg',
+] as const
+
 function appearanceReducer(state: AppearanceState, action: AppearanceAction): AppearanceState {
   switch (action.type) {
     case 'SET_ALL':
@@ -94,18 +109,26 @@ export function SettingsAppearance() {
       sbFg?: string
     ) => {
       const root = document.documentElement
-      root.style.setProperty('--accent-primary', accent)
-      root.style.setProperty('--accent-primary-hover', lightenColor(accent, 15))
-      root.style.setProperty('--border-focus', accent)
-      root.style.setProperty('--text-primary', fontClr)
-      root.style.setProperty('--text-heading', lightenColor(fontClr, 20))
-      root.style.setProperty('--bg-primary', primary)
-      root.style.setProperty('--panel-bg', primary)
-      root.style.setProperty('--input-bg', primary)
-      root.style.setProperty('--bg-secondary', secondary)
-      root.style.setProperty('--sidebar-bg', secondary)
-      if (sbBg) root.style.setProperty('--statusbar-bg', sbBg)
-      if (sbFg) root.style.setProperty('--statusbar-fg', sbFg)
+      const customColors: Partial<Record<(typeof CUSTOM_CSS_PROPS)[number], string>> = {
+        '--accent-primary': accent,
+        '--accent-primary-hover': lightenColor(accent, 15),
+        '--border-focus': accent,
+        '--text-primary': fontClr,
+        '--text-heading': lightenColor(fontClr, 20),
+        '--bg-primary': primary,
+        '--panel-bg': primary,
+        '--input-bg': primary,
+        '--bg-secondary': secondary,
+        '--sidebar-bg': secondary,
+        ...(sbBg ? { '--statusbar-bg': sbBg } : {}),
+        ...(sbFg ? { '--statusbar-fg': sbFg } : {}),
+      }
+
+      for (const [prop, value] of Object.entries(customColors)) {
+        if (value) {
+          root.style.setProperty(prop, value)
+        }
+      }
     },
     []
   )
@@ -129,18 +152,9 @@ export function SettingsAppearance() {
 
     // Clear inline styles so CSS variables take effect
     const root = document.documentElement
-    root.style.removeProperty('--accent-primary')
-    root.style.removeProperty('--accent-primary-hover')
-    root.style.removeProperty('--border-focus')
-    root.style.removeProperty('--text-primary')
-    root.style.removeProperty('--text-heading')
-    root.style.removeProperty('--bg-primary')
-    root.style.removeProperty('--panel-bg')
-    root.style.removeProperty('--input-bg')
-    root.style.removeProperty('--bg-secondary')
-    root.style.removeProperty('--sidebar-bg')
-    root.style.removeProperty('--statusbar-bg')
-    root.style.removeProperty('--statusbar-fg')
+    for (const prop of CUSTOM_CSS_PROPS) {
+      root.style.removeProperty(prop)
+    }
 
     await api.setTheme(newTheme)
     await Promise.all([

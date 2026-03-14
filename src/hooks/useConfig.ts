@@ -15,56 +15,25 @@ import {
  * - Business data (accounts, PR settings) → Convex (reactive, synced)
  */
 const configAPI = {
-  // UI Settings (kept in electron-store for instant startup)
-  getTheme: () => window.ipcRenderer.invoke('config:get-theme') as Promise<'dark' | 'light'>,
   setTheme: (theme: 'dark' | 'light') =>
     window.ipcRenderer.invoke('config:set-theme', theme) as Promise<{ success: boolean }>,
-  getAccentColor: () => window.ipcRenderer.invoke('config:get-accent-color') as Promise<string>,
   setAccentColor: (color: string) =>
     window.ipcRenderer.invoke('config:set-accent-color', color) as Promise<{ success: boolean }>,
-  getBgPrimary: () => window.ipcRenderer.invoke('config:get-bg-primary') as Promise<string>,
   setBgPrimary: (color: string) =>
     window.ipcRenderer.invoke('config:set-bg-primary', color) as Promise<{ success: boolean }>,
-  getBgSecondary: () => window.ipcRenderer.invoke('config:get-bg-secondary') as Promise<string>,
   setBgSecondary: (color: string) =>
     window.ipcRenderer.invoke('config:set-bg-secondary', color) as Promise<{ success: boolean }>,
-  getFontColor: () => window.ipcRenderer.invoke('config:get-font-color') as Promise<string>,
   setFontColor: (color: string) =>
     window.ipcRenderer.invoke('config:set-font-color', color) as Promise<{ success: boolean }>,
-  getFontFamily: () => window.ipcRenderer.invoke('config:get-font-family') as Promise<string>,
   setFontFamily: (font: string) =>
     window.ipcRenderer.invoke('config:set-font-family', font) as Promise<{ success: boolean }>,
-  getMonoFontFamily: () =>
-    window.ipcRenderer.invoke('config:get-mono-font-family') as Promise<string>,
   setMonoFontFamily: (font: string) =>
     window.ipcRenderer.invoke('config:set-mono-font-family', font) as Promise<{ success: boolean }>,
-  getZoomLevel: () => window.ipcRenderer.invoke('config:get-zoom-level') as Promise<number>,
-  setZoomLevel: (level: number) =>
-    window.ipcRenderer.invoke('config:set-zoom-level', level) as Promise<{ success: boolean }>,
-  getSidebarWidth: () => window.ipcRenderer.invoke('config:get-sidebar-width') as Promise<number>,
-  setSidebarWidth: (width: number) =>
-    window.ipcRenderer.invoke('config:set-sidebar-width', width) as Promise<{ success: boolean }>,
-  getPaneSizes: () => window.ipcRenderer.invoke('config:get-pane-sizes') as Promise<number[]>,
-  setPaneSizes: (sizes: number[]) =>
-    window.ipcRenderer.invoke('config:set-pane-sizes', sizes) as Promise<{ success: boolean }>,
-  getStatusBarBg: () => window.ipcRenderer.invoke('config:get-statusbar-bg') as Promise<string>,
   setStatusBarBg: (color: string) =>
     window.ipcRenderer.invoke('config:set-statusbar-bg', color) as Promise<{ success: boolean }>,
-  getStatusBarFg: () => window.ipcRenderer.invoke('config:get-statusbar-fg') as Promise<string>,
   setStatusBarFg: (color: string) =>
     window.ipcRenderer.invoke('config:set-statusbar-fg', color) as Promise<{ success: boolean }>,
-  getShowBookmarkedOnly: () =>
-    window.ipcRenderer.invoke('config:get-show-bookmarked-only') as Promise<boolean>,
-  setShowBookmarkedOnly: (value: boolean) =>
-    window.ipcRenderer.invoke('config:set-show-bookmarked-only', value) as Promise<{
-      success: boolean
-    }>,
-
-  // System Fonts
   getSystemFonts: () => window.ipcRenderer.invoke('system:get-fonts') as Promise<string[]>,
-
-  // Full Config (for legacy/UI settings)
-  getConfig: () => window.ipcRenderer.invoke('config:get-config') as Promise<AppConfig>,
   getStorePath: () => window.ipcRenderer.invoke('config:get-store-path') as Promise<string>,
   openInEditor: () =>
     window.ipcRenderer.invoke('config:open-in-editor') as Promise<{ success: boolean }>,
@@ -88,7 +57,7 @@ export function useConfig() {
   const loadConfig = async () => {
     try {
       setLoading(true)
-      const fullConfig = await configAPI.getConfig()
+      const fullConfig = (await window.ipcRenderer.invoke('config:get-config')) as AppConfig
       setConfig(fullConfig)
       setError(null)
     } catch (err: unknown) {
@@ -212,7 +181,6 @@ export function useGitHubAccounts() {
     addAccount,
     removeAccount,
     updateAccount,
-    refresh: () => {}, // Convex auto-refreshes via reactivity
   }
 }
 

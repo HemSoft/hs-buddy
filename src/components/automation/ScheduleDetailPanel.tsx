@@ -5,8 +5,6 @@ import {
   Pause,
   Edit,
   Trash2,
-  CheckCircle,
-  XCircle,
   AlertCircle,
 } from 'lucide-react'
 import { useSchedule, useScheduleMutations, useScheduleRuns } from '../../hooks/useConvex'
@@ -14,7 +12,7 @@ import { formatDistanceToNow, format } from '../../utils/dateUtils'
 import { useState } from 'react'
 import { ScheduleEditor } from './ScheduleEditor'
 import type { Id } from '../../../convex/_generated/dataModel'
-import { getStatusClass } from '../shared/statusDisplay'
+import { getStatusClass, getStatusIcon } from '../shared/statusDisplay'
 import './ScheduleDetailPanel.css'
 
 interface ScheduleDetailPanelProps {
@@ -64,13 +62,6 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
         console.error('Failed to delete schedule:', error)
       }
     }
-  }
-
-  const getStatusIcon = (status?: 'completed' | 'failed') => {
-    if (!status) return <AlertCircle size={14} className="status-icon status-none" />
-    if (status === 'completed')
-      return <CheckCircle size={14} className="status-icon status-success" />
-    return <XCircle size={14} className="status-icon status-failed" />
   }
 
   const formatCron = (cron: string): string => {
@@ -207,7 +198,11 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
             >
               {schedule.lastRunAt ? (
                 <>
-                  {getStatusIcon(schedule.lastRunStatus)}
+                  {schedule.lastRunStatus ? (
+                    getStatusIcon(schedule.lastRunStatus)
+                  ) : (
+                    <AlertCircle size={14} className="status-icon status-none" />
+                  )}
                   {formatDistanceToNow(schedule.lastRunAt)}
                 </>
               ) : (

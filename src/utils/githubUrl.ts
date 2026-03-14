@@ -3,3 +3,7 @@ export function parseOwnerRepoFromUrl(url: string): { owner: string; repo: strin
   if (!match || !match[1] || !match[2]) return null
   return { owner: match[1], repo: match[2] }
 }
+
+export function formatFileStatus(status: string): string {
+  return status.replace(/-/g, ' ')
+}

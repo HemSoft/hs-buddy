@@ -12,8 +12,8 @@ import { GitHubClient, type PRFilesChangedSummary } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { dataCache } from '../services/dataCache'
+import { formatFileStatus, parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import type { PRDetailInfo } from '../utils/prDetailView'
-import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import './RepoDetailPanel.css'
 import './RepoCommitPanels.css'
 import './PRFilesChangedPanel.css'
@@ -27,10 +27,6 @@ function getDiffLineClass(line: string): string {
   if (line.startsWith('+')) return 'repo-commit-diff-line repo-commit-diff-line-added'
   if (line.startsWith('-')) return 'repo-commit-diff-line repo-commit-diff-line-removed'
   return 'repo-commit-diff-line'
-}
-
-function formatFileStatus(status: string): string {
-  return status.replace(/-/g, ' ')
 }
 
 export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {

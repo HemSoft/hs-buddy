@@ -16,6 +16,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoCommitDetail } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import { formatDistanceToNow } from '../utils/dateUtils'
+import { formatFileStatus } from '../utils/githubUrl'
 import './RepoDetailPanel.css'
 import './RepoCommitPanels.css'
 
@@ -30,10 +31,6 @@ function getDiffLineClass(line: string): string {
   if (line.startsWith('+')) return 'repo-commit-diff-line repo-commit-diff-line-added'
   if (line.startsWith('-')) return 'repo-commit-diff-line repo-commit-diff-line-removed'
   return 'repo-commit-diff-line'
-}
-
-function formatFileStatus(status: string): string {
-  return status.replace(/-/g, ' ')
 }
 
 export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPanelProps) {

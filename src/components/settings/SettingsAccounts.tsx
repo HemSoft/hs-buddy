@@ -5,7 +5,7 @@ import type { GitHubAccount } from '../../types/config'
 import './SettingsShared.css'
 
 export function SettingsAccounts() {
-  const { accounts, loading, addAccount, removeAccount, refresh } = useGitHubAccounts()
+  const { accounts, loading, addAccount, removeAccount } = useGitHubAccounts()
   const [showAddForm, setShowAddForm] = useState(false)
   const [newUsername, setNewUsername] = useState('')
   const [newOrg, setNewOrg] = useState('')
@@ -209,10 +209,6 @@ export function SettingsAccounts() {
               </li>
             </ol>
           </div>
-          <button className="settings-btn settings-btn-secondary" onClick={refresh}>
-            <RefreshCw size={14} />
-            Refresh Accounts
-          </button>
         </div>
       </div>
     </div>

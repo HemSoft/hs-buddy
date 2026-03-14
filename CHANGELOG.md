@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.360] - 2026-03-14
+
 ## [0.1.359] - 2026-03-14
+
+### Added
+
+- Add org detail views and externalize Copilot links
 
 ## [0.1.358] - 2026-03-13
 

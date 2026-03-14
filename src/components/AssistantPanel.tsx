@@ -3,6 +3,7 @@ import { Sparkles, Trash2, Send, Loader2, StopCircle } from 'lucide-react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
 import type { AssistantContext } from '../types/assistant'
 import { useAssistantConversation } from '../hooks/useAssistantConversation'
+import { useExternalMarkdownLinks } from '../hooks/useExternalMarkdownLinks'
 import './AssistantPanel.css'
 
 interface AssistantPanelProps {
@@ -21,36 +22,10 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
     useAssistantConversation(context)
   const [input, setInput] = useState('')
   const conversationEndRef = useRef<HTMLDivElement>(null)
+  const conversationRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const handleMarkdownActivate = (
-    event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement>
-  ) => {
-    if ('key' in event && event.key !== 'Enter' && event.key !== ' ') {
-      return
-    }
-
-    const target = event.target
-    if (!(target instanceof HTMLElement)) {
-      return
-    }
-
-    const anchor = target.closest('a')
-    if (!(anchor instanceof HTMLAnchorElement)) {
-      return
-    }
-
-    const href = anchor.getAttribute('href')?.trim()
-    if (!href) {
-      return
-    }
-
-    if (/^(https?:|mailto:)/i.test(href)) {
-      event.preventDefault()
-      event.stopPropagation()
-      void window.shell.openExternal(href)
-    }
-  }
+  useExternalMarkdownLinks(conversationRef)
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -106,7 +81,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
       </div>
 
       {/* Conversation area */}
-      <div className="assistant-conversation">
+      <div ref={conversationRef} className="assistant-conversation">
         {messages.length === 0 ? (
           <div className="assistant-empty-state">
             <Sparkles size={32} className="assistant-empty-icon" />
@@ -136,9 +111,6 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
                     <div
                       className="assistant-message-markdown"
                       data-color-mode="dark"
-                      role="presentation"
-                      onClick={handleMarkdownActivate}
-                      onKeyDown={handleMarkdownActivate}
                     >
                       <MarkdownPreview
                         source={msg.content}

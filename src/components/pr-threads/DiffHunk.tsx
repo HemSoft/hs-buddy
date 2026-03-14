@@ -53,6 +53,8 @@ export function DiffHunk({ hunk }: { hunk: string }) {
     }
   }
 
+  let charOffset = 0
+
   return (
     <div className="diff-hunk">
       <div className="diff-hunk-lines">
@@ -64,6 +66,8 @@ export function DiffHunk({ hunk }: { hunk: string }) {
           </div>
         )}
         {lines.map(line => {
+          const lineKey = `diff-line-${charOffset}-${line.slice(0, 40)}`
+          charOffset += line.length + 1
           let lineClass = 'diff-line'
           let leftNum: number | null = null
           let rightNum: number | null = null
@@ -71,7 +75,7 @@ export function DiffHunk({ hunk }: { hunk: string }) {
           if (line.startsWith('@@')) {
             lineClass += ' diff-range'
             return (
-              <div key={`hunk-header-${line}`} className={lineClass}>
+              <div key={lineKey} className={lineClass}>
                 <span className="diff-line-num" />
                 <span className="diff-line-num" />
                 <span className="diff-line-content">{line}</span>
@@ -89,7 +93,7 @@ export function DiffHunk({ hunk }: { hunk: string }) {
           }
 
           return (
-            <div key={`${leftNum ?? 'n'}-${rightNum ?? 'n'}`} className={lineClass}>
+            <div key={lineKey} className={lineClass}>
               <span className="diff-line-num">{leftNum ?? ''}</span>
               <span className="diff-line-num">{rightNum ?? ''}</span>
               <span className="diff-line-content">{line}</span>

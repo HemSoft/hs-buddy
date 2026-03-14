@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useReducer } from 'react'
 import { useConfig } from '../../hooks/useConfig'
 import { RefreshCw } from 'lucide-react'
+import type { AppConfig } from '../../types/config'
 import { DARK_DEFAULTS, LIGHT_DEFAULTS, type ColorDef, lightenColor } from './appearanceUtils'
 import { AppearanceThemeSection } from './AppearanceThemeSection'
 import { AppearanceColorsSection } from './AppearanceColorsSection'
@@ -18,6 +19,11 @@ interface AppearanceState {
   statusBarFg: string
   fontFamily: string
   monoFontFamily: string
+}
+
+interface FontsState {
+  systemFonts: string[]
+  loading: boolean
 }
 
 const INITIAL_STATE: AppearanceState = {
@@ -60,45 +66,67 @@ function appearanceReducer(state: AppearanceState, action: AppearanceAction): Ap
   }
 }
 
-export function SettingsAppearance() {
-  const { config, loading, api } = useConfig()
-  const [state, dispatch] = useReducer(appearanceReducer, INITIAL_STATE)
-  const { theme, accentColor, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg, fontFamily, monoFontFamily } = state
-  const [systemFonts, setSystemFonts] = useState<string[]>([])
-  const [fontsLoading, setFontsLoading] = useState(true)
+function buildAppearanceState(config: AppConfig | null): AppearanceState {
+  if (!config) {
+    return INITIAL_STATE
+  }
+
+  return {
+    theme: config.ui.theme,
+    accentColor: config.ui.accentColor || '#0e639c',
+    fontColor: config.ui.fontColor || '#cccccc',
+    bgPrimary: config.ui.bgPrimary || '#1e1e1e',
+    bgSecondary: config.ui.bgSecondary || '#252526',
+    statusBarBg: config.ui.statusBarBg || '#181818',
+    statusBarFg: config.ui.statusBarFg || '#9d9d9d',
+    fontFamily: config.ui.fontFamily || 'Inter',
+    monoFontFamily: config.ui.monoFontFamily || 'Cascadia Code',
+  }
+}
+
+type ConfigApi = ReturnType<typeof useConfig>['api']
+
+interface SettingsAppearanceEditorProps {
+  api: ConfigApi
+  initialState: AppearanceState
+}
+
+function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEditorProps) {
+  const [state, dispatch] = useReducer(appearanceReducer, initialState)
+  const {
+    theme,
+    accentColor,
+    fontColor,
+    bgPrimary,
+    bgSecondary,
+    statusBarBg,
+    statusBarFg,
+    fontFamily,
+    monoFontFamily,
+  } = state
+  const [fontsState, setFontsState] = useState<FontsState>({
+    systemFonts: [],
+    loading: true,
+  })
+  const { systemFonts, loading: fontsLoading } = fontsState
 
   useEffect(() => {
     api
       .getSystemFonts()
-      .then(fonts => {
-        setSystemFonts(fonts)
-        setFontsLoading(false)
-      })
-      .catch(() => {
-        setFontsLoading(false)
-      })
+      .then(fonts =>
+        setFontsState({
+          systemFonts: fonts,
+          loading: false,
+        })
+      )
+      .catch(() =>
+        setFontsState({
+          systemFonts: [],
+          loading: false,
+        })
+      )
   }, [api])
 
-  useEffect(() => {
-    if (config) {
-      dispatch({
-        type: 'SET_ALL',
-        payload: {
-          theme: config.ui.theme,
-          accentColor: config.ui.accentColor || '#0e639c',
-          fontColor: config.ui.fontColor || '#cccccc',
-          bgPrimary: config.ui.bgPrimary || '#1e1e1e',
-          bgSecondary: config.ui.bgSecondary || '#252526',
-          statusBarBg: config.ui.statusBarBg || '#181818',
-          statusBarFg: config.ui.statusBarFg || '#9d9d9d',
-          fontFamily: config.ui.fontFamily || 'Inter',
-          monoFontFamily: config.ui.monoFontFamily || 'Cascadia Code',
-        },
-      })
-    }
-  }, [config])
-
-  // Apply colors to CSS variables
   const applyColors = useCallback(
     (
       accent: string,
@@ -150,7 +178,6 @@ export function SettingsAppearance() {
       },
     })
 
-    // Clear inline styles so CSS variables take effect
     const root = document.documentElement
     for (const prop of CUSTOM_CSS_PROPS) {
       root.style.removeProperty(prop)
@@ -332,17 +359,6 @@ export function SettingsAppearance() {
     },
   ]
 
-  if (loading) {
-    return (
-      <div className="settings-page">
-        <div className="settings-loading">
-          <RefreshCw className="spin" size={24} />
-          <p>Loading appearance settings...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="settings-page">
       <div className="settings-page-header">
@@ -372,4 +388,34 @@ export function SettingsAppearance() {
       </div>
     </div>
   )
+}
+
+export function SettingsAppearance() {
+  const { config, loading, api } = useConfig()
+
+  if (loading) {
+    return (
+      <div className="settings-page">
+        <div className="settings-loading">
+          <RefreshCw className="spin" size={24} />
+          <p>Loading appearance settings...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const initialState = buildAppearanceState(config)
+  const configKey = [
+    initialState.theme,
+    initialState.accentColor,
+    initialState.fontColor,
+    initialState.bgPrimary,
+    initialState.bgSecondary,
+    initialState.statusBarBg,
+    initialState.statusBarFg,
+    initialState.fontFamily,
+    initialState.monoFontFamily,
+  ].join('|')
+
+  return <SettingsAppearanceEditor key={configKey} api={api} initialState={initialState} />
 }

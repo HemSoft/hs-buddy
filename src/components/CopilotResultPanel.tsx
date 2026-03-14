@@ -11,6 +11,7 @@ import {
   Copy,
 } from 'lucide-react'
 import { useCopilotResult, useCopilotResultMutations } from '../hooks/useConvex'
+import { useExternalMarkdownLinks } from '../hooks/useExternalMarkdownLinks'
 import { formatDateFull, formatDuration } from '../utils/dateUtils'
 import { getStatusIcon, getStatusLabel } from './shared/statusDisplay'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -22,34 +23,8 @@ interface CopilotResultPanelProps {
 
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const result = useCopilotResult(resultId as Id<'copilotResults'>)
-  const handleMarkdownActivate = (
-    event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement>
-  ) => {
-    if ('key' in event && event.key !== 'Enter' && event.key !== ' ') {
-      return
-    }
-
-    const target = event.target
-    if (!(target instanceof HTMLElement)) {
-      return
-    }
-
-    const anchor = target.closest('a')
-    if (!(anchor instanceof HTMLAnchorElement)) {
-      return
-    }
-
-    const href = anchor.getAttribute('href')?.trim()
-    if (!href) {
-      return
-    }
-
-    if (/^(https?:|mailto:)/i.test(href)) {
-      event.preventDefault()
-      event.stopPropagation()
-      void window.shell.openExternal(href)
-    }
-  }
+  const contentRef = useRef<HTMLDivElement>(null)
+  useExternalMarkdownLinks(contentRef)
   const { remove } = useCopilotResultMutations()
   const [copied, setCopied] = useState(false)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -172,7 +147,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       </div>
 
       {/* Content */}
-      <div className="copilot-result-content">
+      <div ref={contentRef} className="copilot-result-content">
         {result.status === 'pending' && (
           <div className="copilot-result-waiting">
             <Clock size={48} />
@@ -195,9 +170,6 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
           <div
             className="copilot-result-markdown"
             data-color-mode="dark"
-            role="presentation"
-            onClick={handleMarkdownActivate}
-            onKeyDown={handleMarkdownActivate}
           >
             <MarkdownPreview
               source={result.result}

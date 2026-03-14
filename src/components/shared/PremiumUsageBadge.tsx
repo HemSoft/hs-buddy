@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 import { Zap } from 'lucide-react'
 
 import './PremiumUsageBadge.css'
@@ -17,6 +17,30 @@ interface QuotaCache {
   fetchedAt: number
 }
 
+interface QuotaState {
+  data: QuotaCache | null
+  loading: boolean
+}
+
+type QuotaAction =
+  | { type: 'RESET' }
+  | { type: 'SET_CACHED'; payload: QuotaCache }
+  | { type: 'START_LOADING' }
+  | { type: 'SET_RESULT'; payload: QuotaCache | null }
+
+function quotaReducer(state: QuotaState, action: QuotaAction): QuotaState {
+  switch (action.type) {
+    case 'RESET':
+      return { data: null, loading: false }
+    case 'SET_CACHED':
+      return { data: action.payload, loading: false }
+    case 'START_LOADING':
+      return { data: null, loading: true }
+    case 'SET_RESULT':
+      return { data: action.payload, loading: false }
+  }
+}
+
 // Module-level cache so switching back to an account doesn't re-fetch
 const quotaCache = new Map<string, QuotaCache>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -26,25 +50,28 @@ const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
  * Renders a tiny progress bar with percentage — designed to sit next to an AccountPicker.
  */
 export function PremiumUsageBadge({ username, className }: PremiumUsageBadgeProps) {
-  const [data, setData] = useState<QuotaCache | null>(quotaCache.get(username) ?? null)
-  const [loading, setLoading] = useState(false)
+  const [quotaState, dispatch] = useReducer(quotaReducer, {
+    data: quotaCache.get(username) ?? null,
+    loading: false,
+  })
   const fetchRef = useRef(0)
+  const { data, loading } = quotaState
 
   useEffect(() => {
     if (!username) {
-      setData(null)
+      dispatch({ type: 'RESET' })
       return
     }
 
     // Use cache if fresh
     const cached = quotaCache.get(username)
     if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
-      setData(cached)
+      dispatch({ type: 'SET_CACHED', payload: cached })
       return
     }
 
     const id = ++fetchRef.current
-    setLoading(true)
+    dispatch({ type: 'START_LOADING' })
 
     window.github
       .getCopilotQuota(username)
@@ -59,16 +86,15 @@ export function PremiumUsageBadge({ username, className }: PremiumUsageBadgeProp
             fetchedAt: Date.now(),
           }
           quotaCache.set(username, entry)
-          setData(entry)
+          dispatch({ type: 'SET_RESULT', payload: entry })
         } else {
-          setData(null)
+          dispatch({ type: 'SET_RESULT', payload: null })
         }
       })
       .catch(() => {
-        if (id === fetchRef.current) setData(null)
-      })
-      .finally(() => {
-        if (id === fetchRef.current) setLoading(false)
+        if (id === fetchRef.current) {
+          dispatch({ type: 'SET_RESULT', payload: null })
+        }
       })
   }, [username])
 

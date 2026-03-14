@@ -307,11 +307,18 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
             {expandedFiles.has(file.filename) ? (
               file.patch ? (
                 <div className="repo-commit-diff" role="presentation">
-                  {file.patch.split('\n').map((line, index) => (
-                    <Fragment key={`${file.filename}-line-${index}-${line.slice(0, 20)}`}>
-                      <div className={getDiffLineClass(line)}>{line || ' '}</div>
-                    </Fragment>
-                  ))}
+                  {(() => {
+                    let charOffset = 0
+                    return file.patch.split('\n').map(line => {
+                      const key = `${file.filename}-line-${charOffset}-${line.slice(0, 20)}`
+                      charOffset += line.length + 1
+                      return (
+                        <Fragment key={key}>
+                          <div className={getDiffLineClass(line)}>{line || ' '}</div>
+                        </Fragment>
+                      )
+                    })
+                  })()}
                 </div>
               ) : (
                 <div className="repo-commit-diff-empty">

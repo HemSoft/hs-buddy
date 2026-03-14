@@ -32,6 +32,30 @@ async function resolveCrewProjectLabel(viewId: string): Promise<string | null> {
   return projects.find(project => project.id === projectId)?.displayName ?? 'Project Session'
 }
 
+const DEFAULT_PANE_SIZES = [300, 900] as const
+const DEFAULT_ASSISTANT_PANE_SIZE = 350
+
+interface LayoutState {
+  paneSizes: number[]
+  assistantOpen: boolean
+}
+
+function normalizePaneSizes(sizes: number[] | null | undefined): number[] {
+  if (
+    !Array.isArray(sizes) ||
+    sizes.length < 2 ||
+    !sizes.every(size => typeof size === 'number' && size > 0)
+  ) {
+    return [...DEFAULT_PANE_SIZES]
+  }
+
+  if (sizes.length === 2) {
+    return [sizes[0], sizes[1], DEFAULT_ASSISTANT_PANE_SIZE]
+  }
+
+  return sizes
+}
+
 function App() {
   const [selectedSection, setSelectedSection] = useState<string>('github')
   const [tabs, setTabs] = useState<Tab[]>([])
@@ -43,11 +67,12 @@ function App() {
   const [jobEditorOpen, setJobEditorOpen] = useState(false)
 
   // Pane sizes (persisted to electron-store via IPC)
-  const [paneSizes, setPaneSizes] = useState<number[]>([300, 900])
+  const [layoutState, setLayoutState] = useState<LayoutState>({
+    paneSizes: [...DEFAULT_PANE_SIZES],
+    assistantOpen: false,
+  })
+  const { paneSizes, assistantOpen } = layoutState
   const paneSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Assistant panel toggle state (persisted to electron-store)
-  const [assistantOpen, setAssistantOpen] = useState(false)
 
   // Get schedule and job counts from Convex for status bar
   const schedules = useSchedules()
@@ -125,42 +150,45 @@ function App() {
 
   // Load pane sizes from electron-store on mount
   useEffect(() => {
-    window.ipcRenderer
-      .invoke('config:get-pane-sizes')
-      .then((sizes: number[]) => {
-        if (
-          Array.isArray(sizes) &&
-          sizes.length >= 2 &&
-          sizes.every(n => typeof n === 'number' && n > 0)
-        ) {
-          // Gracefully handle migration from 2-element to 3-element array
-          if (sizes.length === 2) {
-            setPaneSizes([sizes[0], sizes[1], 350])
-          } else {
-            setPaneSizes(sizes)
-          }
-        }
-      })
-      .catch(() => {
-        // Use default sizes on error
-      })
+    let isCancelled = false
 
-    // Load assistant open state
-    window.ipcRenderer
-      .invoke('config:get-assistant-open')
-      .then((open: boolean) => {
-        if (typeof open === 'boolean') {
-          setAssistantOpen(open)
-        }
+    Promise.allSettled([
+      window.ipcRenderer.invoke('config:get-pane-sizes') as Promise<number[]>,
+      window.ipcRenderer.invoke('config:get-assistant-open') as Promise<boolean>,
+    ]).then(([paneSizesResult, assistantOpenResult]) => {
+      if (isCancelled) {
+        return
+      }
+
+      const nextPaneSizes =
+        paneSizesResult.status === 'fulfilled'
+          ? normalizePaneSizes(paneSizesResult.value)
+          : [...DEFAULT_PANE_SIZES]
+
+      const nextAssistantOpen =
+        assistantOpenResult.status === 'fulfilled' && typeof assistantOpenResult.value === 'boolean'
+          ? assistantOpenResult.value
+          : false
+
+      setLayoutState({
+        paneSizes: nextPaneSizes,
+        assistantOpen: nextAssistantOpen,
       })
-      .catch(() => {})
+    })
+
+    return () => {
+      isCancelled = true
+    }
   }, [])
 
   // Save pane sizes when changed (debounced)
   const handlePaneChange = useCallback((sizes: number[]) => {
     // Only save if we have valid sizes (2 or 3 panes)
     if (sizes.length >= 2 && sizes.every(s => s > 0)) {
-      setPaneSizes(sizes)
+      setLayoutState(currentState => ({
+        ...currentState,
+        paneSizes: sizes,
+      }))
       // Debounce saving to electron-store
       if (paneSaveTimeoutRef.current) {
         clearTimeout(paneSaveTimeoutRef.current)
@@ -356,10 +384,13 @@ function App() {
 
   // Toggle assistant panel
   const toggleAssistant = useCallback(() => {
-    setAssistantOpen(prev => {
-      const next = !prev
+    setLayoutState(currentState => {
+      const next = !currentState.assistantOpen
       window.ipcRenderer.invoke('config:set-assistant-open', next).catch(() => {})
-      return next
+      return {
+        ...currentState,
+        assistantOpen: next,
+      }
     })
   }, [])
 
@@ -447,7 +478,11 @@ function App() {
               </div>
             </Allotment.Pane>
             {assistantOpen && (
-              <Allotment.Pane minSize={280} maxSize={600} preferredSize={paneSizes[2] || 350}>
+              <Allotment.Pane
+                minSize={280}
+                maxSize={600}
+                preferredSize={paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE}
+              >
                 <AssistantPanel context={assistantContext} />
               </Allotment.Pane>
             )}

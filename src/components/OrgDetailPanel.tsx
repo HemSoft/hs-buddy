@@ -112,10 +112,22 @@ function buildSeedOverview(org: string): OrgOverviewResult | null {
   }
 }
 
+function resolveRefreshPhase(
+  phase: LoadPhase,
+  isTaskActive: boolean,
+  settledPhase: Exclude<LoadPhase, 'refreshing'>
+): LoadPhase {
+  if (phase !== 'refreshing' || isTaskActive) {
+    return phase
+  }
+
+  return settledPhase
+}
+
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
-  const { enqueue } = useTaskQueue('github')
+  const { enqueue, stats } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
   const overviewCacheKey = `org-overview:${org}`
   const membersCacheKey = `org-members:${org}`
@@ -136,7 +148,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const [overviewPhase, setOverviewPhase] = useState<LoadPhase>(() =>
     hasCachedFullOverview || initialOverview ? 'ready' : 'loading'
   )
-  const [membersPhase, setMembersPhase] = useState<LoadPhase>(() => (hasCachedMembers ? 'ready' : 'loading'))
+  const [membersPhase, setMembersPhase] = useState<LoadPhase>(() =>
+    hasCachedMembers ? 'ready' : 'loading'
+  )
   const [copilotPhase, setCopilotPhase] = useState<LoadPhase>('loading')
   const [error, setError] = useState<string | null>(null)
   const shouldRefreshOnMount = Boolean(initialOverview || hasCachedMembers || hasCachedCopilot)
@@ -152,7 +166,8 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   useEffect(() => {
     hasOverviewRef.current = Boolean(overview)
-    preferredAccountRef.current = accounts.find(account => account.org === org)?.username ?? overview?.authenticatedAs
+    preferredAccountRef.current =
+      accounts.find(account => account.org === org)?.username ?? overview?.authenticatedAs
     isUserNamespaceRef.current = Boolean(overview?.isUserNamespace)
   }, [accounts, org, overview])
 
@@ -164,11 +179,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     hasCopilotRef.current = Boolean(copilotUsage)
   }, [copilotUsage])
 
-  const {
-    quotas,
-    orgBudgets,
-    orgOverageFromQuotas,
-  } = useCopilotUsage()
+  const { quotas, orgBudgets, orgOverageFromQuotas } = useCopilotUsage()
 
   const configuredAccounts = useMemo(
     () => accounts.filter(account => account.org === org),
@@ -178,9 +189,8 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const personalQuotaSummary = useMemo(() => {
     const relevantStates = configuredAccounts
       .map(account => quotas[account.username])
-      .filter(
-        (state): state is NonNullable<typeof state> =>
-          Boolean(state?.data?.quota_snapshots?.premium_interactions)
+      .filter((state): state is NonNullable<typeof state> =>
+        Boolean(state?.data?.quota_snapshots?.premium_interactions)
       )
 
     if (relevantStates.length === 0) {
@@ -230,28 +240,43 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     setCopilotPhase(personalQuotaSummary ? 'ready' : 'error')
   }, [personalQuotaLoading, personalQuotaSummary])
 
-  useEffect(() => {
-    const queue = getTaskQueue('github')
-    const reconcile = () => {
-      if (overviewPhase === 'refreshing' && !queue.hasTaskWithName(overviewTaskName)) {
-        setOverviewPhase(overview ? 'ready' : 'loading')
-      }
-      if (membersPhase === 'refreshing' && !queue.hasTaskWithName(membersTaskName)) {
-        setMembersPhase(members ? 'ready' : 'loading')
-      }
-      if (copilotPhase === 'refreshing' && !queue.hasTaskWithName(copilotTaskName)) {
-        if (isUserNamespaceRef.current) {
-          setCopilotPhase(personalQuotaSummary ? 'ready' : personalQuotaLoading ? 'loading' : 'error')
-        } else {
-          setCopilotPhase(copilotUsage ? 'ready' : 'error')
-        }
-      }
-    }
-
-    reconcile()
-    const timer = setInterval(reconcile, 1000)
-    return () => clearInterval(timer)
-  }, [copilotPhase, copilotTaskName, copilotUsage, members, membersPhase, membersTaskName, overview, overviewPhase, overviewTaskName, personalQuotaLoading, personalQuotaSummary])
+  const githubQueue = getTaskQueue('github')
+  const queueSnapshot = `${stats.pending}:${stats.running}`
+  const isOverviewTaskActive = useMemo(
+    () => githubQueue.hasTaskWithName(overviewTaskName),
+    [githubQueue, overviewTaskName, queueSnapshot]
+  )
+  const isMembersTaskActive = useMemo(
+    () => githubQueue.hasTaskWithName(membersTaskName),
+    [githubQueue, membersTaskName, queueSnapshot]
+  )
+  const isCopilotTaskActive = useMemo(
+    () => githubQueue.hasTaskWithName(copilotTaskName),
+    [githubQueue, copilotTaskName, queueSnapshot]
+  )
+  const liveOverviewPhase = resolveRefreshPhase(
+    overviewPhase,
+    isOverviewTaskActive,
+    overview ? 'ready' : 'loading'
+  )
+  const liveMembersPhase = resolveRefreshPhase(
+    membersPhase,
+    isMembersTaskActive,
+    members ? 'ready' : 'loading'
+  )
+  const liveCopilotPhase = resolveRefreshPhase(
+    copilotPhase,
+    isCopilotTaskActive,
+    isUserNamespaceRef.current
+      ? personalQuotaSummary
+        ? 'ready'
+        : personalQuotaLoading
+          ? 'loading'
+          : 'error'
+      : copilotUsage
+        ? 'ready'
+        : 'error'
+  )
 
   const selectedMember = useMemo(
     () => members?.members.find(member => member.login === memberLogin) ?? null,
@@ -266,12 +291,15 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const contributorMap = useMemo(
     () =>
       new Map(
-        (overview?.metrics.topContributorsToday ?? []).map(contributor => [contributor.login, contributor])
+        (overview?.metrics.topContributorsToday ?? []).map(contributor => [
+          contributor.login,
+          contributor,
+        ])
       ),
     [overview]
   )
 
-  const selectedContributor = memberLogin ? contributorMap.get(memberLogin) ?? null : null
+  const selectedContributor = memberLogin ? (contributorMap.get(memberLogin) ?? null) : null
   const budgetState = orgBudgets[org]
   const quotaOverage = orgOverageFromQuotas.get(org) ?? 0
 
@@ -440,9 +468,11 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     return () => clearInterval(timer)
   }, [fetchAll, refreshInterval])
 
-  const isInitialLoading = !overview && overviewPhase === 'loading'
+  const isInitialLoading = !overview && liveOverviewPhase === 'loading'
   const isUpdating =
-    overviewPhase === 'refreshing' || membersPhase === 'refreshing' || copilotPhase === 'refreshing'
+    liveOverviewPhase === 'refreshing' ||
+    liveMembersPhase === 'refreshing' ||
+    liveCopilotPhase === 'refreshing'
 
   if (isInitialLoading) {
     return (
@@ -490,9 +520,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
             {selectedMember ? ` · spotlight on ${selectedMember.login}` : ''}
           </p>
           <div className="org-detail-status-row">
-            <LivePill label="Overview" phase={overviewPhase} />
-            <LivePill label="Members" phase={membersPhase} />
-            <LivePill label="Copilot" phase={copilotPhase} />
+            <LivePill label="Overview" phase={liveOverviewPhase} />
+            <LivePill label="Members" phase={liveMembersPhase} />
+            <LivePill label="Copilot" phase={liveCopilotPhase} />
           </div>
         </div>
         <div className="org-detail-actions">
@@ -511,17 +541,50 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
       </div>
 
       <div className="org-detail-metric-grid">
-        <MetricCard icon={FolderKanban} label="Repositories" value={overview.metrics.repoCount.toLocaleString()} detail={`${overview.metrics.privateRepoCount} private · ${overview.metrics.archivedRepoCount} archived`} />
-        <MetricCard icon={GitCommitHorizontal} label="Commits Today" value={overview.metrics.commitsToday.toLocaleString()} detail={`${overview.metrics.activeReposToday} active repos`} accent="warm" />
-        <MetricCard icon={Star} label="Stars" value={overview.metrics.totalStars.toLocaleString()} detail={`${overview.metrics.totalForks.toLocaleString()} forks`} accent="cool" />
-        <MetricCard icon={GitPullRequest} label="Open PRs" value={overview.metrics.openPullRequestCount.toLocaleString()} detail={`${overview.metrics.openIssueCount.toLocaleString()} open issues`} />
-        <MetricCard icon={Users} label="Members" value={memberCount.toLocaleString()} detail={overview.metrics.lastPushAt ? `last push ${formatDistanceToNow(overview.metrics.lastPushAt)}` : 'no recent pushes'} />
+        <MetricCard
+          icon={FolderKanban}
+          label="Repositories"
+          value={overview.metrics.repoCount.toLocaleString()}
+          detail={`${overview.metrics.privateRepoCount} private · ${overview.metrics.archivedRepoCount} archived`}
+        />
+        <MetricCard
+          icon={GitCommitHorizontal}
+          label="Commits Today"
+          value={overview.metrics.commitsToday.toLocaleString()}
+          detail={`${overview.metrics.activeReposToday} active repos`}
+          accent="warm"
+        />
+        <MetricCard
+          icon={Star}
+          label="Stars"
+          value={overview.metrics.totalStars.toLocaleString()}
+          detail={`${overview.metrics.totalForks.toLocaleString()} forks`}
+          accent="cool"
+        />
+        <MetricCard
+          icon={GitPullRequest}
+          label="Open PRs"
+          value={overview.metrics.openPullRequestCount.toLocaleString()}
+          detail={`${overview.metrics.openIssueCount.toLocaleString()} open issues`}
+        />
+        <MetricCard
+          icon={Users}
+          label="Members"
+          value={memberCount.toLocaleString()}
+          detail={
+            overview.metrics.lastPushAt
+              ? `last push ${formatDistanceToNow(overview.metrics.lastPushAt)}`
+              : 'no recent pushes'
+          }
+        />
       </div>
 
       {isUpdating && (
         <div className="org-detail-update-banner">
           <RefreshCw size={14} className="spin" />
-          <span>Updating live organization signals in the background. Existing data stays interactive.</span>
+          <span>
+            Updating live organization signals in the background. Existing data stays interactive.
+          </span>
         </div>
       )}
 
@@ -536,27 +599,57 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
               <span className="org-detail-fetched-at">{formatTime(copilotUsage.fetchedAt)}</span>
             )}
             {overview.isUserNamespace && personalQuotaSummary?.fetchedAt ? (
-              <span className="org-detail-fetched-at">{formatTime(personalQuotaSummary.fetchedAt)}</span>
+              <span className="org-detail-fetched-at">
+                {formatTime(personalQuotaSummary.fetchedAt)}
+              </span>
             ) : null}
           </div>
           <div className="org-detail-copilot-grid">
             {shouldShowPersonalQuotaPulse ? (
               <>
-                <MiniMetric label="Used Premium" value={personalQuotaSummary!.used.toLocaleString()} />
-                <MiniMetric label="Remaining" value={personalQuotaSummary!.remaining.toLocaleString()} accent="cool" />
-                <MiniMetric label="Entitlement" value={personalQuotaSummary!.entitlement.toLocaleString()} />
-                <MiniMetric label="Overage Cost" value={formatCurrency(personalQuotaSummary!.overageCost)} accent="warm" />
+                <MiniMetric
+                  label="Used Premium"
+                  value={personalQuotaSummary!.used.toLocaleString()}
+                />
+                <MiniMetric
+                  label="Remaining"
+                  value={personalQuotaSummary!.remaining.toLocaleString()}
+                  accent="cool"
+                />
+                <MiniMetric
+                  label="Entitlement"
+                  value={personalQuotaSummary!.entitlement.toLocaleString()}
+                />
+                <MiniMetric
+                  label="Overage Cost"
+                  value={formatCurrency(personalQuotaSummary!.overageCost)}
+                  accent="warm"
+                />
               </>
             ) : (
               <>
-                <MiniMetric label="Premium Requests" value={(copilotUsage?.premiumRequests ?? 0).toLocaleString()} />
-                <MiniMetric label="Net Cost" value={formatCurrency(copilotUsage?.netCost ?? 0)} accent="warm" />
-                <MiniMetric label="Gross Cost" value={formatCurrency(copilotUsage?.grossCost ?? 0)} />
-                <MiniMetric label="Business Seats" value={(copilotUsage?.businessSeats ?? 0).toLocaleString()} accent="cool" />
+                <MiniMetric
+                  label="Premium Requests"
+                  value={(copilotUsage?.premiumRequests ?? 0).toLocaleString()}
+                />
+                <MiniMetric
+                  label="Net Cost"
+                  value={formatCurrency(copilotUsage?.netCost ?? 0)}
+                  accent="warm"
+                />
+                <MiniMetric
+                  label="Gross Cost"
+                  value={formatCurrency(copilotUsage?.grossCost ?? 0)}
+                />
+                <MiniMetric
+                  label="Business Seats"
+                  value={(copilotUsage?.businessSeats ?? 0).toLocaleString()}
+                  accent="cool"
+                />
               </>
             )}
           </div>
-          {copilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse && (
+          {liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse && (
             <div className="org-detail-empty org-detail-empty-inline">
               {overview.isUserNamespace
                 ? 'Waiting for personal quota data.'
@@ -583,7 +676,8 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
               <div>
                 <span className="org-detail-budget-label">Budget</span>
                 <strong>
-                  {budgetState?.data?.budgetAmount !== null && budgetState?.data?.budgetAmount !== undefined
+                  {budgetState?.data?.budgetAmount !== null &&
+                  budgetState?.data?.budgetAmount !== undefined
                     ? formatCurrency(budgetState.data.budgetAmount)
                     : 'Not set'}
                 </strong>
@@ -647,7 +741,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
               <div className="org-detail-member-name">{selectedMember.login}</div>
               <div className="org-detail-member-meta">
                 {selectedMember.type}
-                {selectedContributor ? ` · ${selectedContributor.commits} commits today` : ' · no commits today'}
+                {selectedContributor
+                  ? ` · ${selectedContributor.commits} commits today`
+                  : ' · no commits today'}
               </div>
             </div>
             <button
@@ -666,7 +762,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
               />
             </div>
           ) : (
-            <div className="org-detail-empty">No configured Copilot quota card for this member.</div>
+            <div className="org-detail-empty">
+              No configured Copilot quota card for this member.
+            </div>
           )}
         </section>
       )}
@@ -702,7 +800,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
           <div className="org-detail-roster">
             {members.members.map(member => {
               const contributor = contributorMap.get(member.login)
-              const isConfigured = configuredAccounts.some(account => account.username === member.login)
+              const isConfigured = configuredAccounts.some(
+                account => account.username === member.login
+              )
               return (
                 <button
                   key={member.login}

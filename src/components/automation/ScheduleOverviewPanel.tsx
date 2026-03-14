@@ -37,28 +37,48 @@ interface ScheduleOverviewPanelProps {
   onOpenSchedule?: (scheduleId: string) => void
 }
 
+interface ForecastConfigState {
+  forecastDays: number
+  loaded: boolean
+}
+
+function normalizeForecastDays(days: number): number {
+  return days >= 1 && days <= 30 ? days : 3
+}
+
 export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelProps) {
   const schedules = useSchedules()
-  const [forecastDays, setForecastDays] = useState(3)
-  const [loadedConfig, setLoadedConfig] = useState(false)
+  const [configState, setConfigState] = useState<ForecastConfigState>({
+    forecastDays: 3,
+    loaded: false,
+  })
+  const { forecastDays, loaded: loadedConfig } = configState
 
   // Load config from electron-store
   useEffect(() => {
     window.ipcRenderer
       .invoke('config:get-schedule-forecast-days')
-      .then((days: number) => {
-        if (days && days >= 1 && days <= 30) {
-          setForecastDays(days)
-        }
-        setLoadedConfig(true)
-      })
-      .catch(() => setLoadedConfig(true))
+      .then((days: number) =>
+        setConfigState({
+          forecastDays: normalizeForecastDays(days),
+          loaded: true,
+        })
+      )
+      .catch(() =>
+        setConfigState(currentState => ({
+          ...currentState,
+          loaded: true,
+        }))
+      )
   }, [])
 
   // Save config when changed
   const handleDaysChange = (value: string) => {
-    const days = parseInt(value, 10)
-    setForecastDays(days)
+    const days = normalizeForecastDays(parseInt(value, 10))
+    setConfigState(currentState => ({
+      ...currentState,
+      forecastDays: days,
+    }))
     window.ipcRenderer.invoke('config:set-schedule-forecast-days', days).catch(() => {})
   }
 

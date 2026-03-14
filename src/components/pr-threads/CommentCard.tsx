@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import DOMPurify from 'dompurify'
+import { useCallback, useState } from 'react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
 import { GitPullRequestArrow } from 'lucide-react'
 import { type PRCommentReactionContent, type PRReviewComment } from '../../api/github'
@@ -53,8 +52,6 @@ function SuggestionBlock({ content }: { content: string }) {
     lines.pop()
   }
 
-  const lineOccurrences = new Map<string, number>()
-
   return (
     <div className="suggestion-block">
       <div className="suggestion-header">
@@ -62,32 +59,21 @@ function SuggestionBlock({ content }: { content: string }) {
         <span>Suggested change</span>
       </div>
       <div className="suggestion-diff">
-        {lines.map(line => {
-          const occurrence = lineOccurrences.get(line) ?? 0
-          lineOccurrences.set(line, occurrence + 1)
-
-          return (
-            <div
-              key={`suggestion-line-${encodeURIComponent(line)}-${occurrence}`}
-              className="diff-line diff-add"
-            >
-              <span className="diff-line-content">{`  ${line}`}</span>
-            </div>
-          )
-        })}
+        {(() => {
+          let charOffset = 0
+          return lines.map(line => {
+            const key = `suggestion-line-${charOffset}-${encodeURIComponent(line)}`
+            charOffset += line.length + 1
+            return (
+              <div key={key} className="diff-line diff-add">
+                <span className="diff-line-content">{`  ${line}`}</span>
+              </div>
+            )
+          })
+        })()}
       </div>
     </div>
   )
-}
-
-function SafeHtml({ html, className, ...props }: { html: string; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.innerHTML = DOMPurify.sanitize(html)
-    }
-  }, [html])
-  return <div ref={ref} className={className} {...props} />
 }
 
 function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null }) {
@@ -95,12 +81,12 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
 
   if (!hasSuggestionBlock && bodyHtml && bodyHtml.trim()) {
     return (
-      <SafeHtml
-        html={bodyHtml}
-        className="thread-comment-body thread-comment-markdown thread-comment-markdown-html"
-        data-color-mode="dark"
-
-      />
+      <div className="thread-comment-body thread-comment-markdown" data-color-mode="dark">
+        <MarkdownPreview
+          source={body}
+          style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: '13px' }}
+        />
+      </div>
     )
   }
 

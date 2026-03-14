@@ -1,4 +1,4 @@
-import { useState, useEffect, useId } from 'react'
+import { useId, useReducer, useState } from 'react'
 import { X, Save, Calendar, AlertCircle } from 'lucide-react'
 import { CronBuilder } from './CronBuilder'
 import {
@@ -23,64 +23,99 @@ interface ScheduleFormState {
 }
 
 interface ScheduleEditorProps {
-  scheduleId?: string // If provided, editing; otherwise creating
+  scheduleId?: string
   onClose: () => void
   onSaved?: () => void
 }
 
-export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorProps) {
-  const scheduleCronLabelId = useId()
-  const jobs = useJobs()
-  const existingSchedule = useSchedule(scheduleId as Id<'schedules'> | undefined)
-  const { create, update } = useScheduleMutations()
-  const { increment: incrementStat } = useBuddyStatsMutations()
+interface ScheduleOption {
+  _id: string
+  name: string
+  workerType: string
+  description?: string
+}
 
-  const [formState, setFormState] = useState<ScheduleFormState>({
-    name: '',
-    description: '',
-    jobId: '',
-    cron: '0 9 * * *',
-    enabled: true,
-    missedPolicy: 'skip',
-  })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+interface ExistingScheduleData {
+  _id: string
+  name: string
+  description?: string
+  jobId: string
+  cron: string
+  enabled: boolean
+  missedPolicy?: string
+}
 
-  const isEditing = !!scheduleId
-  const { name, description, jobId, cron, enabled, missedPolicy } = formState
+interface ScheduleEditorFormProps {
+  scheduleId?: string
+  isEditing: boolean
+  jobs: ScheduleOption[] | undefined
+  initialFormState: ScheduleFormState
+  onClose: () => void
+  onSaved?: () => void
+}
 
-  // Populate form when editing
-  useEffect(() => {
-    if (existingSchedule) {
-      setFormState({
-        name: existingSchedule.name,
-        description: existingSchedule.description || '',
-        jobId: existingSchedule.jobId,
-        cron: existingSchedule.cron,
-        enabled: existingSchedule.enabled,
-        missedPolicy:
-          'missedPolicy' in existingSchedule
-            ? (existingSchedule.missedPolicy as MissedPolicy)
-            : 'skip',
-      })
-    }
-  }, [existingSchedule])
+type ScheduleFormAction =
+  | { type: 'SET_FIELD'; field: keyof ScheduleFormState; value: string | boolean }
+  | { type: 'RESET'; payload: ScheduleFormState }
 
-  // Set default job when loaded
-  useEffect(() => {
-    if (!jobId && jobs && jobs.length > 0) {
-      setFormState(prev => ({ ...prev, jobId: jobs[0]._id }))
-    }
-  }, [jobs, jobId])
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
+function buildInitialScheduleFormState(
+  existingSchedule: ExistingScheduleData | null | undefined,
+  defaultJobId: string
+): ScheduleFormState {
+  if (!existingSchedule) {
+    return {
+      name: '',
+      description: '',
+      jobId: defaultJobId,
+      cron: '0 9 * * *',
+      enabled: true,
+      missedPolicy: 'skip',
     }
   }
 
+  return {
+    name: existingSchedule.name,
+    description: existingSchedule.description || '',
+    jobId: existingSchedule.jobId,
+    cron: existingSchedule.cron,
+    enabled: existingSchedule.enabled,
+    missedPolicy:
+      existingSchedule.missedPolicy === 'catchup' || existingSchedule.missedPolicy === 'last'
+        ? existingSchedule.missedPolicy
+        : 'skip',
+  }
+}
+
+function scheduleFormReducer(
+  state: ScheduleFormState,
+  action: ScheduleFormAction
+): ScheduleFormState {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value }
+    case 'RESET':
+      return action.payload
+  }
+}
+
+function ScheduleEditorForm({
+  scheduleId,
+  isEditing,
+  jobs,
+  initialFormState,
+  onClose,
+  onSaved,
+}: ScheduleEditorFormProps) {
+  const scheduleCronLabelId = useId()
+  const { create, update } = useScheduleMutations()
+  const { increment: incrementStat } = useBuddyStatsMutations()
+  const [formState, dispatch] = useReducer(scheduleFormReducer, initialFormState)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { name, description, jobId, cron, enabled, missedPolicy } = formState
+  const selectedJob = jobs?.find(job => job._id === jobId)
+
   const handleSave = async () => {
-    // Validate
     if (!name.trim()) {
       setError('Schedule name is required')
       return
@@ -112,7 +147,6 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
           enabled,
           missedPolicy,
         })
-        // Track stat: schedule created (fire-and-forget)
         incrementStat({ field: 'schedulesCreated' }).catch(() => {})
       }
       onSaved?.()
@@ -124,7 +158,139 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
     }
   }
 
-  const selectedJob = jobs?.find(j => j._id === jobId)
+  return (
+    <>
+      <div className="schedule-editor-content">
+        {error && (
+          <div className="schedule-editor-error">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="form-group">
+          <label htmlFor="schedule-name">Name</label>
+          <input
+            id="schedule-name"
+            type="text"
+            value={name}
+            onChange={e => dispatch({ type: 'SET_FIELD', field: 'name', value: e.target.value })}
+            placeholder="e.g., Daily PR Check"
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="schedule-description">Description</label>
+          <textarea
+            id="schedule-description"
+            value={description}
+            onChange={e =>
+              dispatch({ type: 'SET_FIELD', field: 'description', value: e.target.value })
+            }
+            placeholder="Optional description of what this schedule does"
+            rows={2}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="schedule-job">Job</label>
+          {jobs === undefined ? (
+            <div className="form-loading">Loading jobs...</div>
+          ) : jobs.length === 0 ? (
+            <div className="form-empty">No jobs available. Create a job first.</div>
+          ) : (
+            <select
+              id="schedule-job"
+              value={jobId}
+              onChange={e => dispatch({ type: 'SET_FIELD', field: 'jobId', value: e.target.value })}
+              disabled={isEditing}
+            >
+              {jobs.map(job => (
+                <option key={job._id} value={job._id}>
+                  [{job.workerType}] {job.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {selectedJob?.description && <div className="form-hint">{selectedJob.description}</div>}
+        </div>
+
+        <div className="form-group">
+          <span id={scheduleCronLabelId} className="form-label">
+            Schedule
+          </span>
+          <div role="group" aria-labelledby={scheduleCronLabelId}>
+            <CronBuilder
+              value={cron}
+              onChange={value => dispatch({ type: 'SET_FIELD', field: 'cron', value })}
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="missed-policy">When Missed</label>
+          <select
+            id="missed-policy"
+            value={missedPolicy}
+            onChange={e =>
+              dispatch({ type: 'SET_FIELD', field: 'missedPolicy', value: e.target.value })
+            }
+          >
+            <option value="skip">Skip missed runs</option>
+            <option value="catchup">Catch up all missed runs</option>
+            <option value="last">Run once for all missed</option>
+          </select>
+          <div className="form-hint">
+            {missedPolicy === 'skip' && 'If the app was closed, missed runs are ignored.'}
+            {missedPolicy === 'catchup' && 'All missed runs execute when the app restarts.'}
+            {missedPolicy === 'last' && 'One run executes to cover all missed intervals.'}
+          </div>
+        </div>
+
+        <div className="form-group form-row">
+          <label htmlFor="schedule-enabled" className="checkbox-label">
+            <input
+              id="schedule-enabled"
+              type="checkbox"
+              checked={enabled}
+              onChange={e =>
+                dispatch({ type: 'SET_FIELD', field: 'enabled', value: e.target.checked })
+              }
+            />
+            <span>Enabled</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="schedule-editor-footer">
+        <button className="btn-secondary" onClick={onClose} disabled={saving}>
+          Cancel
+        </button>
+        <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          <Save size={16} />
+          {saving ? 'Saving...' : isEditing ? 'Update Schedule' : 'Create Schedule'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorProps) {
+  const jobs = useJobs()
+  const existingSchedule = useSchedule(scheduleId as Id<'schedules'> | undefined)
+  const isEditing = !!scheduleId
+  const defaultJobId = jobs?.[0]?._id ?? ''
+  const initialFormState = buildInitialScheduleFormState(existingSchedule, defaultJobId)
+  const formKey = isEditing
+    ? `edit-${existingSchedule?._id ?? scheduleId}`
+    : `create-${defaultJobId || 'none'}`
+  const waitingForExistingSchedule = isEditing && !existingSchedule
+
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
 
   return (
     <div className="schedule-editor-overlay" role="presentation" onClick={handleOverlayClick}>
@@ -138,112 +304,32 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
             <X size={18} />
           </button>
         </div>
-
-        <div className="schedule-editor-content">
-          {error && (
-            <div className="schedule-editor-error">
-              <AlertCircle size={16} />
-              <span>{error}</span>
+        {waitingForExistingSchedule ? (
+          <>
+            <div className="schedule-editor-content">
+              <div className="form-loading">Loading schedule...</div>
             </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="schedule-name">Name</label>
-            <input
-              id="schedule-name"
-              type="text"
-              value={name}
-              onChange={e => setFormState(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="e.g., Daily PR Check"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="schedule-description">Description</label>
-            <textarea
-              id="schedule-description"
-              value={description}
-              onChange={e => setFormState(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Optional description of what this schedule does"
-              rows={2}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="schedule-job">Job</label>
-            {jobs === undefined ? (
-              <div className="form-loading">Loading jobs...</div>
-            ) : jobs.length === 0 ? (
-              <div className="form-empty">No jobs available. Create a job first.</div>
-            ) : (
-              <select
-                id="schedule-job"
-                value={jobId}
-                onChange={e => setFormState(prev => ({ ...prev, jobId: e.target.value }))}
-                disabled={isEditing} // Can't change job when editing
-              >
-                {jobs.map(j => (
-                  <option key={j._id} value={j._id}>
-                    [{j.workerType}] {j.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {selectedJob?.description && <div className="form-hint">{selectedJob.description}</div>}
-          </div>
-
-          <div className="form-group">
-            <span id={scheduleCronLabelId} className="form-label">Schedule</span>
-            <div role="group" aria-labelledby={scheduleCronLabelId}>
-              <CronBuilder
-                value={cron}
-                onChange={value => setFormState(prev => ({ ...prev, cron: value }))}
-              />
+            <div className="schedule-editor-footer">
+              <button className="btn-secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button className="btn-primary" disabled>
+                <Save size={16} />
+                Update Schedule
+              </button>
             </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="missed-policy">When Missed</label>
-            <select
-              id="missed-policy"
-              value={missedPolicy}
-              onChange={e =>
-                setFormState(prev => ({ ...prev, missedPolicy: e.target.value as MissedPolicy }))
-              }
-            >
-              <option value="skip">Skip missed runs</option>
-              <option value="catchup">Catch up all missed runs</option>
-              <option value="last">Run once for all missed</option>
-            </select>
-            <div className="form-hint">
-              {missedPolicy === 'skip' && 'If the app was closed, missed runs are ignored.'}
-              {missedPolicy === 'catchup' && 'All missed runs execute when the app restarts.'}
-              {missedPolicy === 'last' && 'One run executes to cover all missed intervals.'}
-            </div>
-          </div>
-
-          <div className="form-group form-row">
-            <label htmlFor="schedule-enabled" className="checkbox-label">
-              <input
-                id="schedule-enabled"
-                type="checkbox"
-                checked={enabled}
-                onChange={e => setFormState(prev => ({ ...prev, enabled: e.target.checked }))}
-              />
-              <span>Enabled</span>
-            </label>
-          </div>
-        </div>
-
-        <div className="schedule-editor-footer">
-          <button className="btn-secondary" onClick={onClose} disabled={saving}>
-            Cancel
-          </button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>
-            <Save size={16} />
-            {saving ? 'Saving...' : isEditing ? 'Update Schedule' : 'Create Schedule'}
-          </button>
-        </div>
+          </>
+        ) : (
+          <ScheduleEditorForm
+            key={formKey}
+            scheduleId={scheduleId}
+            isEditing={isEditing}
+            jobs={jobs}
+            initialFormState={initialFormState}
+            onClose={onClose}
+            onSaved={onSaved}
+          />
+        )}
       </div>
     </div>
   )

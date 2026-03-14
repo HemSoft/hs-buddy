@@ -53,6 +53,8 @@ function SuggestionBlock({ content }: { content: string }) {
     lines.pop()
   }
 
+  const lineOccurrences = new Map<string, number>()
+
   return (
     <div className="suggestion-block">
       <div className="suggestion-header">
@@ -60,11 +62,19 @@ function SuggestionBlock({ content }: { content: string }) {
         <span>Suggested change</span>
       </div>
       <div className="suggestion-diff">
-        {lines.map((line, i) => (
-          <div key={`suggestion-line-${i}-${encodeURIComponent(line)}`} className="diff-line diff-add">
-            <span className="diff-line-content">{`  ${line}`}</span>
-          </div>
-        ))}
+        {lines.map(line => {
+          const occurrence = lineOccurrences.get(line) ?? 0
+          lineOccurrences.set(line, occurrence + 1)
+
+          return (
+            <div
+              key={`suggestion-line-${encodeURIComponent(line)}-${occurrence}`}
+              className="diff-line diff-add"
+            >
+              <span className="diff-line-content">{`  ${line}`}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

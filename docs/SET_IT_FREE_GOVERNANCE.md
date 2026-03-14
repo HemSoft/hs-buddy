@@ -243,5 +243,4 @@ the active hs-buddy workflow set.
 ## References
 
 - [VISION.md](../VISION.md) — Set it Free loop architecture
-- [SOLVING-SOFTWARE-ENGINEERING.md](../SOLVING-SOFTWARE-ENGINEERING.md) — Strategic context
 - [scripts/setup-github-labels.ps1](../scripts/setup-github-labels.ps1) — Label creation script

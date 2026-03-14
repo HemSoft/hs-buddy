@@ -23,7 +23,13 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
   const conversationEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const handleMarkdownClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleMarkdownActivate = (
+    event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement>
+  ) => {
+    if ('key' in event && event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
     const target = event.target
     if (!(target instanceof HTMLElement)) {
       return
@@ -130,7 +136,9 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
                     <div
                       className="assistant-message-markdown"
                       data-color-mode="dark"
-                      onClick={handleMarkdownClick}
+                      role="presentation"
+                      onClick={handleMarkdownActivate}
+                      onKeyDown={handleMarkdownActivate}
                     >
                       <MarkdownPreview
                         source={msg.content}

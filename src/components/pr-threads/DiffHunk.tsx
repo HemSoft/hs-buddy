@@ -63,7 +63,7 @@ export function DiffHunk({ hunk }: { hunk: string }) {
             <span className="diff-line-content">⋯</span>
           </div>
         )}
-        {lines.map((line, i) => {
+        {lines.map(line => {
           let lineClass = 'diff-line'
           let leftNum: number | null = null
           let rightNum: number | null = null
@@ -89,7 +89,7 @@ export function DiffHunk({ hunk }: { hunk: string }) {
           }
 
           return (
-            <div key={`${leftNum ?? 'n'}-${rightNum ?? 'n'}-${i}`} className={lineClass}>
+            <div key={`${leftNum ?? 'n'}-${rightNum ?? 'n'}`} className={lineClass}>
               <span className="diff-line-num">{leftNum ?? ''}</span>
               <span className="diff-line-num">{rightNum ?? ''}</span>
               <span className="diff-line-content">{line}</span>

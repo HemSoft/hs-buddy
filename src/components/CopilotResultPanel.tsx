@@ -22,7 +22,13 @@ interface CopilotResultPanelProps {
 
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const result = useCopilotResult(resultId as Id<'copilotResults'>)
-  const handleMarkdownClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleMarkdownActivate = (
+    event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement>
+  ) => {
+    if ('key' in event && event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
     const target = event.target
     if (!(target instanceof HTMLElement)) {
       return
@@ -189,7 +195,9 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
           <div
             className="copilot-result-markdown"
             data-color-mode="dark"
-            onClick={handleMarkdownClick}
+            role="presentation"
+            onClick={handleMarkdownActivate}
+            onKeyDown={handleMarkdownActivate}
           >
             <MarkdownPreview
               source={result.result}

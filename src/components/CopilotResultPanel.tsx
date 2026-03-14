@@ -22,6 +22,28 @@ interface CopilotResultPanelProps {
 
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const result = useCopilotResult(resultId as Id<'copilotResults'>)
+  const handleMarkdownClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (!(target instanceof HTMLElement)) {
+      return
+    }
+
+    const anchor = target.closest('a')
+    if (!(anchor instanceof HTMLAnchorElement)) {
+      return
+    }
+
+    const href = anchor.getAttribute('href')?.trim()
+    if (!href) {
+      return
+    }
+
+    if (/^(https?:|mailto:)/i.test(href)) {
+      event.preventDefault()
+      event.stopPropagation()
+      void window.shell.openExternal(href)
+    }
+  }
   const { remove } = useCopilotResultMutations()
   const [copied, setCopied] = useState(false)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -164,7 +186,11 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
         )}
 
         {result.status === 'completed' && result.result && (
-          <div className="copilot-result-markdown" data-color-mode="dark">
+          <div
+            className="copilot-result-markdown"
+            data-color-mode="dark"
+            onClick={handleMarkdownClick}
+          >
             <MarkdownPreview
               source={result.result}
               style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}

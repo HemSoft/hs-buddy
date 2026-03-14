@@ -286,6 +286,20 @@
   /* Repos nested under an org */
 }
 
+.sidebar-org-users-item {
+  padding-left: 44px !important;
+  font-size: 12px !important;
+}
+
+.sidebar-org-users-list {
+  margin-left: 6px;
+}
+
+.sidebar-org-user-child {
+  padding-left: 62px !important;
+  font-size: 12px !important;
+}
+
 .sidebar-repo-item {
   padding-left: 44px !important;
   font-size: 12px !important;

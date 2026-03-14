@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.359] - 2026-03-14
+
 ## [0.1.358] - 2026-03-13
+
+### Fixed
+
+- Quote !cancelled() with parens to fix YAML tag parse error in lock.yml
 
 ## [0.1.357] - 2026-03-13
 

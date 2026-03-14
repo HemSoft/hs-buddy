@@ -287,6 +287,17 @@ function App() {
     return () => window.removeEventListener('pr-review:open', handler)
   }, [openTab])
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ viewId?: string }>).detail
+      if (detail?.viewId) {
+        openTab(detail.viewId)
+      }
+    }
+    window.addEventListener('app:navigate', handler)
+    return () => window.removeEventListener('app:navigate', handler)
+  }, [openTab])
+
   // Close a tab
   const closeTab = useCallback(
     (tabId: string) => {

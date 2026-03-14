@@ -36,6 +36,20 @@ export function getViewLabel(viewId: string): string {
     const repoName = repoSlug.split('/').pop() || repoSlug
     return repoName
   }
+  if (viewId.startsWith('org-detail:')) {
+    const org = viewId.replace('org-detail:', '')
+    return `${org} Overview`
+  }
+  if (viewId.startsWith('org-user:')) {
+    const orgUser = viewId.replace('org-user:', '')
+    const slashIdx = orgUser.indexOf('/')
+    if (slashIdx > 0) {
+      const org = orgUser.substring(0, slashIdx)
+      const user = orgUser.substring(slashIdx + 1)
+      return `${org} · ${user}`
+    }
+    return orgUser
+  }
   if (viewId.startsWith('repo-commits:')) {
     const repoSlug = viewId.replace('repo-commits:', '')
     const repoName = repoSlug.split('/').pop() || repoSlug

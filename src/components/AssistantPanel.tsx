@@ -23,6 +23,29 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
   const conversationEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const handleMarkdownClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (!(target instanceof HTMLElement)) {
+      return
+    }
+
+    const anchor = target.closest('a')
+    if (!(anchor instanceof HTMLAnchorElement)) {
+      return
+    }
+
+    const href = anchor.getAttribute('href')?.trim()
+    if (!href) {
+      return
+    }
+
+    if (/^(https?:|mailto:)/i.test(href)) {
+      event.preventDefault()
+      event.stopPropagation()
+      void window.shell.openExternal(href)
+    }
+  }
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -104,7 +127,11 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
               <div key={msg.id} className={`assistant-message assistant-message-${msg.role}`}>
                 {msg.role === 'assistant' ? (
                   msg.content ? (
-                    <div className="assistant-message-markdown" data-color-mode="dark">
+                    <div
+                      className="assistant-message-markdown"
+                      data-color-mode="dark"
+                      onClick={handleMarkdownClick}
+                    >
                       <MarkdownPreview
                         source={msg.content}
                         style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}

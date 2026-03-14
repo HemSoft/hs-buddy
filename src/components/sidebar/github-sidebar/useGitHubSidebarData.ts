@@ -9,9 +9,12 @@ import { useTaskQueue } from '../../../hooks/useTaskQueue'
 import {
   GitHubClient,
   type OrgRepo,
+  type OrgMember,
   type RepoCommit,
   type RepoIssue,
   type OrgRepoResult,
+  type OrgMemberResult,
+  type OrgOverviewResult,
   type RepoCounts,
   type RepoPullRequest,
 } from '../../../api/github'
@@ -70,6 +73,10 @@ export function useGitHubSidebarData() {
   const [orgMeta, setOrgMeta] = useState<
     Record<string, { authenticatedAs: string; isUserNamespace: boolean }>
   >({})
+  const [orgMembers, setOrgMembers] = useState<Record<string, OrgMember[]>>({})
+  const [loadingOrgMembers, setLoadingOrgMembers] = useState<Set<string>>(new Set())
+  const [expandedOrgUserGroups, setExpandedOrgUserGroups] = useState<Set<string>>(new Set())
+  const [orgContributorCounts, setOrgContributorCounts] = useState<Record<string, Record<string, number>>>({})
   const [loadingOrgs, setLoadingOrgs] = useState<Set<string>>(new Set())
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
@@ -84,6 +91,8 @@ export function useGitHubSidebarData() {
   const { increment: incrementStat } = useBuddyStatsMutations()
 
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set())
+  const fetchedOrgMembersRef = useRef<Set<string>>(new Set())
+  const fetchedOrgOverviewRef = useRef<Set<string>>(new Set())
   const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
   const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
   const fetchedCountsRef = useRef<Set<string>>(new Set())
@@ -340,6 +349,106 @@ export function useGitHubSidebarData() {
       })
     },
     [orgRepos, fetchOrgRepos, incrementStat]
+  )
+
+  const fetchOrgMembers = useCallback(
+    async (org: string, forceRefresh = false) => {
+      const cacheKey = `org-members:${org}`
+      const cached = dataCache.get<OrgMemberResult>(cacheKey)
+      if (cached?.data && !forceRefresh) {
+        setOrgMembers(prev => ({ ...prev, [org]: cached.data.members }))
+        return
+      }
+
+      setLoadingOrgMembers(prev => new Set(prev).add(org))
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchOrgMembers(org)
+          },
+          { name: `org-members-${org}`, priority: -1 }
+        )
+        setOrgMembers(prev => ({ ...prev, [org]: result.members }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.warn(`[OrgMembers] ${org} failed:`, error)
+      } finally {
+        setLoadingOrgMembers(prev => {
+          const next = new Set(prev)
+          next.delete(org)
+          return next
+        })
+      }
+    },
+    [accounts]
+  )
+
+  const fetchOrgOverview = useCallback(
+    async (org: string, forceRefresh = false) => {
+      const cacheKey = `org-overview:${org}`
+      const cached = dataCache.get<OrgOverviewResult>(cacheKey)
+      if (cached?.data && !forceRefresh) {
+        setOrgContributorCounts(prev => ({
+          ...prev,
+          [org]: Object.fromEntries(
+            cached.data.metrics.topContributorsToday.map(contributor => [contributor.login, contributor.commits])
+          ),
+        }))
+        return
+      }
+
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchOrgOverview(org)
+          },
+          { name: `org-overview-${org}`, priority: -1 }
+        )
+        setOrgContributorCounts(prev => ({
+          ...prev,
+          [org]: Object.fromEntries(
+            result.metrics.topContributorsToday.map(contributor => [contributor.login, contributor.commits])
+          ),
+        }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.warn(`[OrgOverview] ${org} failed:`, error)
+      }
+    },
+    [accounts]
+  )
+
+  const toggleOrgUserGroup = useCallback(
+    (org: string) => {
+      const shouldFetchMembers = !fetchedOrgMembersRef.current.has(org)
+      const shouldFetchOverview = !fetchedOrgOverviewRef.current.has(org)
+
+      setExpandedOrgUserGroups(prev => {
+        const next = new Set(prev)
+        if (next.has(org)) {
+          next.delete(org)
+        } else {
+          next.add(org)
+        }
+        return next
+      })
+
+      if (shouldFetchMembers) {
+        fetchedOrgMembersRef.current.add(org)
+        fetchOrgMembers(org)
+      }
+      if (shouldFetchOverview) {
+        fetchedOrgOverviewRef.current.add(org)
+        fetchOrgOverview(org)
+      }
+    },
+    [fetchOrgMembers, fetchOrgOverview]
   )
 
   const toggleBookmarkRepoByValues = useCallback(
@@ -957,6 +1066,10 @@ export function useGitHubSidebarData() {
     uniqueOrgs,
     orgRepos,
     orgMeta,
+    orgMembers,
+    loadingOrgMembers,
+    expandedOrgUserGroups,
+    orgContributorCounts,
     loadingOrgs,
     expandedOrgs,
     expandedRepos,
@@ -981,6 +1094,7 @@ export function useGitHubSidebarData() {
     refreshTick,
     toggleSection,
     toggleOrg,
+    toggleOrgUserGroup,
     toggleRepo,
     toggleRepoIssueGroup,
     toggleRepoIssueStateGroup,

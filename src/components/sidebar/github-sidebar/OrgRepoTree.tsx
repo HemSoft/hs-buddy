@@ -20,8 +20,10 @@ import {
   MessageSquare,
   FileDiff,
   Sparkles,
+  Users,
+  UserRound,
 } from 'lucide-react'
-import type { OrgRepo, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
+import type { OrgRepo, OrgMember, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus, SFLOverallStatus } from '../../../types/sflStatus'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
@@ -37,6 +39,10 @@ interface OrgRepoTreeProps {
   uniqueOrgs: string[]
   orgRepos: Record<string, OrgRepo[]>
   orgMeta: Record<string, OrgMeta>
+  orgMembers: Record<string, OrgMember[]>
+  loadingOrgMembers: Set<string>
+  expandedOrgUserGroups: Set<string>
+  orgContributorCounts: Record<string, Record<string, number>>
   loadingOrgs: Set<string>
   expandedOrgs: Set<string>
   expandedRepos: Set<string>
@@ -62,6 +68,7 @@ interface OrgRepoTreeProps {
   selectedItem: string | null
   refreshTick: number
   onToggleOrg: (org: string) => void
+  onToggleOrgUserGroup: (org: string) => void
   onToggleRepo: (org: string, repoName: string) => void
   onToggleRepoIssueGroup: (org: string, repoName: string) => void
   onToggleRepoIssueStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
@@ -147,6 +154,10 @@ export function OrgRepoTree({
   uniqueOrgs,
   orgRepos,
   orgMeta,
+  orgMembers,
+  loadingOrgMembers,
+  expandedOrgUserGroups,
+  orgContributorCounts,
   loadingOrgs,
   expandedOrgs,
   expandedRepos,
@@ -172,6 +183,7 @@ export function OrgRepoTree({
   selectedItem,
   refreshTick,
   onToggleOrg,
+  onToggleOrgUserGroup,
   onToggleRepo,
   onToggleRepoIssueGroup,
   onToggleRepoIssueStateGroup,
@@ -194,8 +206,14 @@ export function OrgRepoTree({
         uniqueOrgs.map(org => {
           const isOrgExpanded = expandedOrgs.has(org)
           const isLoading = loadingOrgs.has(org)
+          const isOrgSelected = selectedItem === `org-detail:${org}`
+          const isOrgUserSelected = selectedItem?.startsWith(`org-user:${org}/`) ?? false
           const repos = orgRepos[org] ?? []
+          const members = orgMembers[org] ?? []
           const meta = orgMeta[org]
+          const isUserGroupExpanded = expandedOrgUserGroups.has(org)
+          const isUserGroupLoading = loadingOrgMembers.has(org)
+          const contributorCounts = orgContributorCounts[org] ?? {}
           const filteredRepos = showBookmarkedOnly
             ? repos.filter(r => bookmarkedRepoKeys.has(`${org}/${r.name}`))
             : repos
@@ -203,18 +221,33 @@ export function OrgRepoTree({
           return (
             <div key={org} className="sidebar-org-group">
               <div
-                className="sidebar-item sidebar-item-disclosure sidebar-org-item"
+                className={`sidebar-item sidebar-item-disclosure sidebar-org-item ${isOrgSelected ? 'selected' : ''}`}
                 role="button"
                 tabIndex={0}
-                onClick={() => onToggleOrg(org)}
+                onClick={() => onItemSelect(`org-detail:${org}`)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    onToggleOrg(org)
+                    onItemSelect(`org-detail:${org}`)
                   }
                 }}
               >
-                <span className="sidebar-item-chevron">
+                <span
+                  className="sidebar-item-chevron"
+                  role="button"
+                  tabIndex={0}
+                  onClick={e => {
+                    e.stopPropagation()
+                    onToggleOrg(org)
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onToggleOrg(org)
+                    }
+                  }}
+                >
                   {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </span>
                 <span className="sidebar-item-icon">
@@ -248,14 +281,82 @@ export function OrgRepoTree({
                       <Loader2 size={12} className="spin" />
                       <span className="sidebar-item-label">Loading repos...</span>
                     </div>
-                  ) : filteredRepos.length === 0 ? (
-                    <div className="sidebar-item sidebar-item-empty">
-                      <span className="sidebar-item-label">
-                        {showBookmarkedOnly ? 'No bookmarked repos' : 'No repos found'}
-                      </span>
-                    </div>
                   ) : (
-                    filteredRepos.map(repo => {
+                    <>
+                      <div
+                        className={`sidebar-item sidebar-item-disclosure sidebar-org-users-item ${isOrgUserSelected ? 'selected' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onToggleOrgUserGroup(org)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            onToggleOrgUserGroup(org)
+                          }
+                        }}
+                      >
+                        <span className="sidebar-item-chevron">
+                          {isUserGroupExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        </span>
+                        <span className="sidebar-item-icon">
+                          <Users size={12} />
+                        </span>
+                        <span className="sidebar-item-label">Users</span>
+                        {isUserGroupLoading ? (
+                          <Loader2 size={10} className="spin" />
+                        ) : members.length > 0 ? (
+                          <span className="sidebar-item-count">{members.length}</span>
+                        ) : null}
+                      </div>
+                      {isUserGroupExpanded && isUserGroupLoading && (
+                        <div className="sidebar-org-users-list">
+                          <div className="sidebar-item sidebar-pr-child">
+                            <span className="sidebar-item-icon">
+                              <Loader2 size={11} className="spin" />
+                            </span>
+                            <span className="sidebar-item-label">Loading users...</span>
+                          </div>
+                        </div>
+                      )}
+                      {isUserGroupExpanded && !isUserGroupLoading && members.length > 0 && (
+                        <div className="sidebar-org-users-list">
+                          {members.map(member => {
+                            const userViewId = `org-user:${org}/${member.login}`
+                            const userCommitCount = contributorCounts[member.login] ?? 0
+                            return (
+                              <div
+                                key={userViewId}
+                                className={`sidebar-item sidebar-org-user-child ${selectedItem === userViewId ? 'selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => onItemSelect(userViewId)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onItemSelect(userViewId)
+                                  }
+                                }}
+                              >
+                                <span className="sidebar-item-icon">
+                                  <UserRound size={11} />
+                                </span>
+                                <span className="sidebar-item-label">{member.login}</span>
+                                {userCommitCount > 0 && (
+                                  <span className="sidebar-item-count">{userCommitCount}</span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {filteredRepos.length === 0 ? (
+                        <div className="sidebar-item sidebar-item-empty">
+                          <span className="sidebar-item-label">
+                            {showBookmarkedOnly ? 'No bookmarked repos' : 'No repos found'}
+                          </span>
+                        </div>
+                      ) : (
+                        filteredRepos.map(repo => {
                       const isBookmarked = bookmarkedRepoKeys.has(`${org}/${repo.name}`)
                       const repoKey = `${org}/${repo.name}`
                       const isRepoExpanded = expandedRepos.has(repoKey)
@@ -1140,7 +1241,9 @@ export function OrgRepoTree({
                           )}
                         </div>
                       )
-                    })
+                        })
+                      )}
+                    </>
                   )}
                 </div>
               )}

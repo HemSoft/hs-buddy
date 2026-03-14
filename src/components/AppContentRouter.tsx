@@ -21,6 +21,7 @@ import { CopilotResultsList } from './CopilotResultsList'
 import { PRReviewPanel } from './PRReviewPanel'
 import type { PRReviewInfo } from './PRReviewPanel'
 import { CopilotUsagePanel } from './CopilotUsagePanel'
+import { OrgDetailPanel } from './OrgDetailPanel'
 import { CrewProjectView } from './crew/CrewProjectView'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -29,6 +30,12 @@ function parseOwnerRepo(slug: string): { owner: string; repo: string } | null {
   const slashIdx = slug.indexOf('/')
   if (slashIdx <= 0) return null
   return { owner: slug.substring(0, slashIdx), repo: slug.substring(slashIdx + 1) }
+}
+
+function parseOrgMemberRoute(slug: string): { org: string; memberLogin: string } | null {
+  const slashIdx = slug.indexOf('/')
+  if (slashIdx <= 0) return null
+  return { org: slug.substring(0, slashIdx), memberLogin: slug.substring(slashIdx + 1) }
 }
 
 function parseRepoCommitRoute(slug: string): { owner: string; repo: string; sha: string } | null {
@@ -143,6 +150,16 @@ export function AppContentRouter({
       if (activeViewId.startsWith('repo-detail:')) {
         const parsed = parseOwnerRepo(activeViewId.replace('repo-detail:', ''))
         if (parsed) return <RepoDetailPanel owner={parsed.owner} repo={parsed.repo} />
+      }
+      if (activeViewId.startsWith('org-user:')) {
+        const parsed = parseOrgMemberRoute(activeViewId.replace('org-user:', ''))
+        if (parsed) {
+          return <OrgDetailPanel org={parsed.org} memberLogin={parsed.memberLogin} />
+        }
+      }
+      if (activeViewId.startsWith('org-detail:')) {
+        const org = activeViewId.replace('org-detail:', '')
+        if (org) return <OrgDetailPanel org={org} />
       }
       if (activeViewId.startsWith('repo-commits:')) {
         const parsed = parseOwnerRepo(activeViewId.replace('repo-commits:', ''))

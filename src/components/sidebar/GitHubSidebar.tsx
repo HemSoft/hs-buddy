@@ -30,6 +30,10 @@ export function GitHubSidebar({
     uniqueOrgs,
     orgRepos,
     orgMeta,
+    orgMembers,
+    loadingOrgMembers,
+    expandedOrgUserGroups,
+    orgContributorCounts,
     loadingOrgs,
     expandedOrgs,
     expandedRepos,
@@ -54,6 +58,7 @@ export function GitHubSidebar({
     refreshTick,
     toggleSection,
     toggleOrg,
+    toggleOrgUserGroup,
     toggleRepo,
     toggleRepoIssueGroup,
     toggleRepoIssueStateGroup,
@@ -206,6 +211,10 @@ export function GitHubSidebar({
               uniqueOrgs={uniqueOrgs}
               orgRepos={orgRepos}
               orgMeta={orgMeta}
+              orgMembers={orgMembers}
+              loadingOrgMembers={loadingOrgMembers}
+              expandedOrgUserGroups={expandedOrgUserGroups}
+              orgContributorCounts={orgContributorCounts}
               loadingOrgs={loadingOrgs}
               expandedOrgs={expandedOrgs}
               expandedRepos={expandedRepos}
@@ -231,6 +240,7 @@ export function GitHubSidebar({
               selectedItem={selectedItem}
               refreshTick={refreshTick}
               onToggleOrg={toggleOrg}
+              onToggleOrgUserGroup={toggleOrgUserGroup}
               onToggleRepo={toggleRepo}
               onToggleRepoIssueGroup={toggleRepoIssueGroup}
               onToggleRepoIssueStateGroup={toggleRepoIssueStateGroup}

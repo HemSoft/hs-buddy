@@ -16,6 +16,7 @@ export interface OrgRepo {
   fullName: string
   description: string | null
   url: string
+  defaultBranch: string
   language: string | null
   stargazersCount: number
   forksCount: number
@@ -117,6 +118,47 @@ export interface OrgRepoResult {
   /** The GitHub username whose token authenticated this request */
   authenticatedAs: string
   /** True when the namespace is a user account rather than an organization */
+  isUserNamespace: boolean
+}
+
+export interface OrgMember {
+  login: string
+  avatarUrl: string | null
+  url: string
+  type: string
+}
+
+export interface OrgMemberResult {
+  members: OrgMember[]
+  authenticatedAs: string
+  isUserNamespace: boolean
+}
+
+export interface OrgContributorToday {
+  login: string
+  avatarUrl: string | null
+  url: string | null
+  commits: number
+}
+
+export interface OrgOverviewMetrics {
+  org: string
+  repoCount: number
+  privateRepoCount: number
+  archivedRepoCount: number
+  openIssueCount: number
+  openPullRequestCount: number
+  totalStars: number
+  totalForks: number
+  activeReposToday: number
+  commitsToday: number
+  lastPushAt: string | null
+  topContributorsToday: OrgContributorToday[]
+}
+
+export interface OrgOverviewResult {
+  metrics: OrgOverviewMetrics
+  authenticatedAs: string
   isUserNamespace: boolean
 }
 
@@ -1780,6 +1822,113 @@ export class GitHubClient {
     throw new Error(`Could not fetch repos for '${org}' - no authenticated account available`)
   }
 
+  async fetchOrgMembers(org: string): Promise<OrgMemberResult> {
+    for (const account of this.getAccountsByOwnerPriority(org)) {
+      const octokit = await this.getOctokit(account.username)
+      if (!octokit) continue
+
+      try {
+        const result = await this.fetchAllOrgOrUserMembers(octokit, org)
+        return { ...result, authenticatedAs: account.username }
+      } catch (error) {
+        console.warn(`Failed to fetch members for ${org} with account ${account.username}:`, error)
+        continue
+      }
+    }
+
+    throw new Error(`Could not fetch members for '${org}' - no authenticated account available`)
+  }
+
+  async fetchOrgOverview(org: string): Promise<OrgOverviewResult> {
+    for (const account of this.getAccountsByOwnerPriority(org)) {
+      const octokit = await this.getOctokit(account.username)
+      if (!octokit) continue
+
+      try {
+        const { repos, isUserNamespace } = await this.fetchAllOrgOrUserRepos(octokit, org)
+        const startOfDay = new Date()
+        startOfDay.setHours(0, 0, 0, 0)
+        const startOfDayIso = startOfDay.toISOString()
+
+        const [openIssuesResult, openPrsResult] = await Promise.allSettled([
+          octokit.search.issuesAndPullRequests({ q: `org:${org} is:issue is:open`, per_page: 1 }),
+          octokit.search.issuesAndPullRequests({ q: `org:${org} is:pr is:open`, per_page: 1 }),
+        ])
+
+        const recentlyPushedRepos = repos.filter(repo => {
+          if (!repo.pushedAt) return false
+          return new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
+        })
+
+        let activeReposToday = 0
+        let commitsToday = 0
+        const contributorMap = new Map<string, OrgContributorToday>()
+
+        for (const repo of recentlyPushedRepos) {
+          const commits = await octokit.paginate(octokit.repos.listCommits, {
+            owner: org,
+            repo: repo.name,
+            since: startOfDayIso,
+            per_page: 100,
+          })
+
+          if (commits.length === 0) {
+            continue
+          }
+
+          activeReposToday++
+          commitsToday += commits.length
+
+          for (const commit of commits) {
+            const login = commit.author?.login || commit.commit.author?.name || 'unknown'
+            const existing = contributorMap.get(login)
+            contributorMap.set(login, {
+              login,
+              avatarUrl: commit.author?.avatar_url || existing?.avatarUrl || null,
+              url: commit.author?.html_url || existing?.url || null,
+              commits: (existing?.commits || 0) + 1,
+            })
+          }
+        }
+
+        return {
+          metrics: {
+            org,
+            repoCount: repos.length,
+            privateRepoCount: repos.filter(repo => repo.isPrivate).length,
+            archivedRepoCount: repos.filter(repo => repo.isArchived).length,
+            openIssueCount:
+              openIssuesResult.status === 'fulfilled' ? openIssuesResult.value.data.total_count : 0,
+            openPullRequestCount:
+              openPrsResult.status === 'fulfilled' ? openPrsResult.value.data.total_count : 0,
+            totalStars: repos.reduce((sum, repo) => sum + repo.stargazersCount, 0),
+            totalForks: repos.reduce((sum, repo) => sum + repo.forksCount, 0),
+            activeReposToday,
+            commitsToday,
+            lastPushAt:
+              repos
+                .map(repo => repo.pushedAt)
+                .filter((value): value is string => Boolean(value))
+                .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ||
+              null,
+            topContributorsToday: Array.from(contributorMap.values())
+              .sort(
+                (left, right) => right.commits - left.commits || left.login.localeCompare(right.login)
+              )
+              .slice(0, 10),
+          },
+          authenticatedAs: account.username,
+          isUserNamespace,
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch overview for ${org} with account ${account.username}:`, error)
+        continue
+      }
+    }
+
+    throw new Error(`Could not fetch overview for '${org}' - no authenticated account available`)
+  }
+
   /**
    * Try org API first, fall back to user API on 404.
    */
@@ -1800,6 +1949,46 @@ export class GitHubClient {
       console.info(`Namespace '${namespace}' is not an org, trying user repos...`)
       const repos = await this.paginateRepos(octokit, namespace, 'user')
       return { repos, isUserNamespace: true }
+    }
+  }
+
+  private async fetchAllOrgOrUserMembers(
+    octokit: Octokit,
+    namespace: string
+  ): Promise<{ members: OrgMember[]; isUserNamespace: boolean }> {
+    try {
+      const members = await octokit.paginate(octokit.orgs.listMembers, {
+        org: namespace,
+        per_page: 100,
+      })
+
+      return {
+        members: members.map(member => ({
+          login: member.login,
+          avatarUrl: member.avatar_url,
+          url: member.html_url,
+          type: member.type,
+        })),
+        isUserNamespace: false,
+      }
+    } catch (error: unknown) {
+      const is404 =
+        error instanceof Error &&
+        (error.message.includes('404') || error.message.includes('Not Found'))
+      if (!is404) throw error
+
+      const user = await octokit.users.getByUsername({ username: namespace })
+      return {
+        members: [
+          {
+            login: user.data.login,
+            avatarUrl: user.data.avatar_url,
+            url: user.data.html_url,
+            type: user.data.type,
+          },
+        ],
+        isUserNamespace: true,
+      }
     }
   }
 
@@ -1841,6 +2030,7 @@ export class GitHubClient {
           fullName: repo.full_name,
           description: repo.description ?? null,
           url: repo.html_url,
+          defaultBranch: repo.default_branch || 'main',
           language: repo.language ?? null,
           stargazersCount: repo.stargazers_count ?? 0,
           forksCount: repo.forks_count ?? 0,

@@ -2,7 +2,7 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | High     | [Add GitHub organization metrics detail view](#add-github-organization-metrics-detail-view)                | Org rows currently expand only; add a real detail page for the selected org with budget and usage metrics                            |
+| 🚧     | High     | [Add GitHub organization metrics detail view](#add-github-organization-metrics-detail-view)                | In progress: org overview route and users subtree are live; next is hardening cache/loading behavior and expanding member metrics     |
 | 📋     | Medium   | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard)                                          | Run counts, p50/p90 cost, monthly budget burn                                                                                         |
 | 📋     | Medium   | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit)                                        | Detect and delete merged/orphaned agent-fix branches                                                                                  |
 | 📋     | Medium   | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead  |
@@ -112,6 +112,13 @@
 - Should the org detail page focus only on Copilot metrics first, or also include repo counts, PR counts, and SFL health rollups?
 - Should selecting the org name open the page directly, or should there be an explicit child node like `Overview` or `Metrics` under each org?
 - Should user namespaces reuse the same page, or get a slightly different label/treatment than true organizations?
+
+**Next steps**:
+
+- Harden `OrgDetailPanel` against stale cached overview payloads so new metrics can be added without tab crashes.
+- Move the expensive commits-today rollup behind a dedicated cached path so the overview shell paints fast and refreshes progressively.
+- Expand the member spotlight into a real per-user activity slice with commits today, configured-account status, and richer quota context.
+- Add sort and filter controls for the Users subtree so the org tree can be navigated by activity, configured accounts, or idle members.
 
 ---
 

@@ -44,6 +44,16 @@ const TASK_LABELS: Record<string, string> = {
   'need-a-nudge': 'Needs a nudge',
 }
 
+function getFriendlyTaskLabel(taskName: string | null): string | null {
+  if (!taskName) return null
+  if (TASK_LABELS[taskName]) return TASK_LABELS[taskName]
+  if (taskName.startsWith('org-detail-overview-')) return 'Org Overview'
+  if (taskName.startsWith('org-detail-members-')) return 'Org Members'
+  if (taskName.startsWith('org-detail-copilot-')) return 'Org Copilot'
+  if (taskName.startsWith('refresh-org-')) return 'Organizations'
+  return taskName
+}
+
 function formatCountdown(secs: number): string {
   if (secs <= 0) return 'now'
   const m = Math.floor(secs / 60)
@@ -90,10 +100,7 @@ export function useBackgroundStatus(): BackgroundStatus {
       let activeLabel: string | null = null
 
       if (activeTasks > 0) {
-        activeLabel =
-          TASK_LABELS[queue.getRunningTaskName() ?? ''] ??
-          queue.getRunningTaskName() ??
-          'GitHub data'
+        activeLabel = getFriendlyTaskLabel(queue.getRunningTaskName()) ?? 'GitHub data'
       }
 
       // Find the oldest cache entry to compute countdown

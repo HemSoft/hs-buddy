@@ -303,6 +303,29 @@ If the Analyzer C marker for cycle N exists in a comment, check the PR's labels:
 Only flag each PR once. If its comments already contain the exact string
 `Analyzer C completed for current cycle` then skip it.
 
+## Step 11b — Check: contradictory promotion after blocking analyzer verdicts
+
+For each open agent PR in list B:
+
+1. Determine the current cycle N from `pr:cycle-N` labels (default 0).
+1. Check whether any PR comment for cycle N contains one of these markers:
+
+- `[MARKER:sfl-analyzer-a cycle:N]`
+- `[MARKER:sfl-analyzer-b cycle:N]`
+- `[MARKER:sfl-analyzer-c cycle:N]`
+
+1. If any such current-cycle analyzer comment also contains the exact string
+   `**BLOCKING ISSUES FOUND**`, check the PR state.
+
+If the PR has label `human:ready-for-review` OR is no longer draft, append
+exactly one warning comment to that PR via `add_comment`:
+
+- `issue_number`: the PR number
+- `body`: "⚠️ **SFL Auditor**: Current-cycle analyzer comments for cycle <N> still contain `BLOCKING ISSUES FOUND`, but this PR is marked `human:ready-for-review` or is no longer draft. This indicates contradictory label-actions state, often caused by duplicate or out-of-order label-actions runs. Investigate before merge."
+
+Only flag each PR once. If its comments already contain the exact string
+`Current-cycle analyzer comments for cycle` then skip it.
+
 ## Step 12 — Check: invalid supersede narrative on open agent PRs
 
 For each open agent PR in list B, check the PR body for either of these

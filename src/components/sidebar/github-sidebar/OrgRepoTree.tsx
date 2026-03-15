@@ -207,7 +207,6 @@ export function OrgRepoTree({
           const isOrgExpanded = expandedOrgs.has(org)
           const isLoading = loadingOrgs.has(org)
           const isOrgSelected = selectedItem === `org-detail:${org}`
-          const isOrgUserSelected = selectedItem?.startsWith(`org-user:${org}/`) ?? false
           const repos = orgRepos[org] ?? []
           const members = orgMembers[org] ?? []
           const meta = orgMeta[org]
@@ -284,7 +283,7 @@ export function OrgRepoTree({
                   ) : (
                     <>
                       <div
-                        className={`sidebar-item sidebar-item-disclosure sidebar-org-users-item ${isOrgUserSelected ? 'selected' : ''}`}
+                        className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
                         role="button"
                         tabIndex={0}
                         onClick={() => onToggleOrgUserGroup(org)}

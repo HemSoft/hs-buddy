@@ -2480,4 +2480,19 @@ export class GitHubClient {
       workflows: workflowInfos,
     }
   }
+
+  async getRateLimit(org: string): Promise<{ limit: number; remaining: number; reset: number; used: number }> {
+    for (const account of this.getAccountsByOwnerPriority(org)) {
+      const octokit = await this.getOctokit(account.username)
+      if (!octokit) continue
+      try {
+        const { data } = await octokit.rateLimit.get()
+        const core = data.resources.core
+        return { limit: core.limit, remaining: core.remaining, reset: core.reset, used: core.used }
+      } catch {
+        continue
+      }
+    }
+    throw new Error(`Could not fetch rate limit for '${org}' - no authenticated account available`)
+  }
 }

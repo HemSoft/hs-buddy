@@ -22,6 +22,7 @@ import { PRReviewPanel } from './PRReviewPanel'
 import type { PRReviewInfo } from './PRReviewPanel'
 import { CopilotUsagePanel } from './CopilotUsagePanel'
 import { OrgDetailPanel } from './OrgDetailPanel'
+import { UserDetailPanel } from './UserDetailPanel'
 import { CrewProjectView } from './crew/CrewProjectView'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -154,7 +155,7 @@ export function AppContentRouter({
       if (activeViewId.startsWith('org-user:')) {
         const parsed = parseOrgMemberRoute(activeViewId.replace('org-user:', ''))
         if (parsed) {
-          return <OrgDetailPanel org={parsed.org} memberLogin={parsed.memberLogin} />
+          return <UserDetailPanel org={parsed.org} memberLogin={parsed.memberLogin} />
         }
       }
       if (activeViewId.startsWith('org-detail:')) {

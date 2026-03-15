@@ -29,6 +29,7 @@ import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OVERAGE_COST_PER_REQUEST, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
+import { RateLimitGauge } from './RateLimitGauge'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
 
@@ -152,6 +153,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     hasCachedMembers ? 'ready' : 'loading'
   )
   const [copilotPhase, setCopilotPhase] = useState<LoadPhase>('loading')
+  const [rateLimit, setRateLimit] = useState<{ limit: number; remaining: number; reset: number; used: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const shouldRefreshOnMount = Boolean(initialOverview || hasCachedMembers || hasCachedCopilot)
   const hasOverviewRef = useRef(Boolean(initialOverview))
@@ -241,19 +243,10 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   }, [personalQuotaLoading, personalQuotaSummary])
 
   const githubQueue = getTaskQueue('github')
-  const queueSnapshot = `${stats.pending}:${stats.running}`
-  const isOverviewTaskActive = useMemo(
-    () => githubQueue.hasTaskWithName(overviewTaskName),
-    [githubQueue, overviewTaskName, queueSnapshot]
-  )
-  const isMembersTaskActive = useMemo(
-    () => githubQueue.hasTaskWithName(membersTaskName),
-    [githubQueue, membersTaskName, queueSnapshot]
-  )
-  const isCopilotTaskActive = useMemo(
-    () => githubQueue.hasTaskWithName(copilotTaskName),
-    [githubQueue, copilotTaskName, queueSnapshot]
-  )
+  void stats // referenced to preserve reactivity from useTaskQueue
+  const isOverviewTaskActive = githubQueue.hasTaskWithName(overviewTaskName)
+  const isMembersTaskActive = githubQueue.hasTaskWithName(membersTaskName)
+  const isCopilotTaskActive = githubQueue.hasTaskWithName(copilotTaskName)
   const liveOverviewPhase = resolveRefreshPhase(
     overviewPhase,
     isOverviewTaskActive,
@@ -457,9 +450,25 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     [fetchCopilot, fetchMembers, fetchOverview]
   )
 
+  const fetchRateLimit = useCallback(async () => {
+    try {
+      const client = new GitHubClient({ accounts }, 7)
+      const result = await client.getRateLimit(org)
+      setRateLimit(result)
+    } catch {
+      // silently ignore — gauge just won't render
+    }
+  }, [accounts, org])
+
   useEffect(() => {
     fetchAll(shouldRefreshOnMount)
-  }, [fetchAll, shouldRefreshOnMount])
+    fetchRateLimit()
+  }, [fetchAll, fetchRateLimit, shouldRefreshOnMount])
+
+  useEffect(() => {
+    const timer = setInterval(fetchRateLimit, 60_000)
+    return () => clearInterval(timer)
+  }, [fetchRateLimit])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return
@@ -525,18 +534,23 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
             <LivePill label="Copilot" phase={liveCopilotPhase} />
           </div>
         </div>
-        <div className="org-detail-actions">
-          <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
-            <RefreshCw size={14} />
-            {isUpdating ? 'Updating…' : 'Refresh'}
-          </button>
-          <button
-            className="org-detail-link-btn"
-            onClick={() => window.shell.openExternal(`https://github.com/${org}`)}
-          >
-            <ExternalLink size={14} />
-            Open GitHub
-          </button>
+        <div className="org-detail-hero-right">
+          {rateLimit && (
+            <RateLimitGauge remaining={rateLimit.remaining} limit={rateLimit.limit} reset={rateLimit.reset} />
+          )}
+          <div className="org-detail-actions">
+            <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
+              <RefreshCw size={14} />
+              {isUpdating ? 'Updating…' : 'Refresh'}
+            </button>
+            <button
+              className="org-detail-link-btn"
+              onClick={() => window.shell.openExternal(`https://github.com/${org}`)}
+            >
+              <ExternalLink size={14} />
+              Open GitHub
+            </button>
+          </div>
         </div>
       </div>
 

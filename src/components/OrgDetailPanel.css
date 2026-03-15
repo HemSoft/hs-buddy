@@ -118,6 +118,14 @@
   border-color: rgba(224, 93, 93, 0.35);
 }
 
+.org-detail-hero-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .org-detail-actions {
   display: flex;
   gap: 8px;
@@ -379,6 +387,10 @@
   .org-detail-hero,
   .org-detail-member-card {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .org-detail-hero-right {
     align-items: stretch;
   }
 

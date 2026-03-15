@@ -28,7 +28,7 @@ type QuotaAction =
   | { type: 'START_LOADING' }
   | { type: 'SET_RESULT'; payload: QuotaCache | null }
 
-function quotaReducer(state: QuotaState, action: QuotaAction): QuotaState {
+function quotaReducer(_state: QuotaState, action: QuotaAction): QuotaState {
   switch (action.type) {
     case 'RESET':
       return { data: null, loading: false }

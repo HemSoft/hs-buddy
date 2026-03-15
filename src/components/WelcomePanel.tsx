@@ -155,14 +155,24 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
             </div>
           </div>
 
-          <section className="welcome-usage-strip" aria-label="Copilot usage overview">
+          <section className="welcome-section welcome-section-copilot" aria-label="Copilot usage overview">
+            <div className="welcome-section-heading">
+              <div className="welcome-section-heading-copy">
+                <span className="welcome-section-kicker">Copilot usage</span>
+                <h2 className="welcome-section-title">Command Center</h2>
+              </div>
+              <span className="welcome-section-caption">
+                Live spend, projection, and account health at a glance
+              </span>
+            </div>
+
             <div className="welcome-usage-strip-header">
               <div className="welcome-usage-strip-title">
                 <div className="welcome-stat-icon welcome-stat-icon-copilot">
                   <Sparkles size={18} />
                 </div>
                 <div className="welcome-usage-strip-copy">
-                  <span className="welcome-usage-strip-name">Copilot Usage</span>
+                  <span className="welcome-usage-strip-name">Connected Accounts</span>
                   <span className="welcome-usage-strip-description">
                     {hasCopilotAccounts
                       ? `${accounts.length} connected account${accounts.length === 1 ? '' : 's'}`
@@ -242,7 +252,18 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
             </div>
           </section>
 
-          <div className="welcome-stats-grid">
+          <section className="welcome-section welcome-section-activity" aria-label="Buddy activity overview">
+            <div className="welcome-section-heading">
+              <div className="welcome-section-heading-copy">
+                <span className="welcome-section-kicker">Buddy activity</span>
+                <h2 className="welcome-section-title">Workspace Pulse</h2>
+              </div>
+              <span className="welcome-section-caption">
+                Pull requests, runs, bookmarks, and session history in one panel
+              </span>
+            </div>
+
+            <div className="welcome-stats-grid">
             <div className="welcome-stat-card">
               <div className="welcome-stat-icon">
                 <GitPullRequest size={18} />
@@ -318,7 +339,8 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
                 )}
               </div>
             </div>
-          </div>
+            </div>
+          </section>
 
           <div className="welcome-quick-actions">
             <button className="welcome-action-btn" onClick={() => handleQuickAction('my-prs')}>

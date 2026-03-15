@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.372] - 2026-03-15
+
 ## [0.1.371] - 2026-03-15
+
+### Changed
+
+- Add 13 test files, ~230 tests, coverage 1.96→7%
 
 ## [0.1.370] - 2026-03-15
 

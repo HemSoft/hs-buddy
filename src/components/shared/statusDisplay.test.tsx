@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { getStatusLabel, getStatusClass } from './statusDisplay'
+import { render } from '@testing-library/react'
+import { getStatusLabel, getStatusClass, getStatusIcon } from './statusDisplay'
+
+describe('getStatusIcon', () => {
+  it.each(['pending', 'running', 'completed', 'failed', 'cancelled'])('returns an icon for %s', (status) => {
+    const icon = getStatusIcon(status)
+    const { container } = render(icon as React.ReactElement)
+    expect(container.querySelector('svg')).toBeTruthy()
+  })
+
+  it('returns null for unknown status', () => {
+    expect(getStatusIcon('unknown')).toBeNull()
+  })
+
+  it('respects custom size', () => {
+    const { container } = render(getStatusIcon('completed', 20) as React.ReactElement)
+    const svg = container.querySelector('svg')
+    expect(svg?.getAttribute('width')).toBe('20')
+  })
+
+  it('respects custom classPrefix', () => {
+    const { container } = render(getStatusIcon('failed', 14, 'job') as React.ReactElement)
+    const svg = container.querySelector('svg')
+    expect(svg?.classList.contains('job-failed')).toBe(true)
+  })
+})
 
 describe('getStatusLabel', () => {
   it('capitalizes the first letter', () => {

@@ -15,6 +15,14 @@ files; ET equivalents assume EDT (UTC-4). During EST (winter), subtract 1 hour.
 | **~4:47 AM** | `47 8 * * *` | Repo Audit | Motherrepo `.md` | Consolidated `report` Discussion |
 | **~5:57 AM** | `57 9 * * *` | SFL Auditor | Local `.md` | Repairs issue/PR label discrepancies |
 
+---
+
+## Scheduled Workflows (Every 4 Hours)
+
+| Time (ET) | UTC Cron | Workflow | Source | Output |
+|---|---|---|---|---|
+| **Every 4h at :17** | `17 */4 * * *` | Test Coverage Audit | Local `.md` (gh-aw) | `agent:fixable` issue for uncovered file |
+
 > **Note on cron delays:** GitHub Actions scheduled workflows can start 5–30+
 > minutes after their cron time during periods of high runner load. This is
 > documented behavior and not a bug. All cron times are offset from `:00` to
@@ -40,7 +48,7 @@ These fire in response to GitHub events or are dispatched by other workflows.
 ## Pipeline Flow
 
 ```text
-Audit (~1:17–5:57 AM ET)
+Audit (~1:17–5:57 AM ET daily, every 4h for Test Coverage)
   ↓ creates issue with agent:fixable
 Discussion Processor (if from Discussion)
   ↓ groups findings into agent:fixable issue

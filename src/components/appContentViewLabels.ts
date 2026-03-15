@@ -27,14 +27,21 @@ export const viewLabels: Record<string, string> = {
   'copilot-usage': 'Copilot Usage',
 }
 
+function parseRepoViewId(viewId: string, prefix: string): { repoName: string; suffix: string } {
+  const slug = viewId.slice(prefix.length + 1)
+  const segments = slug.split('/')
+  return {
+    repoName: segments.length >= 2 ? segments[1] : segments[0],
+    suffix: segments.length > 2 ? segments.slice(2).join('/') : '',
+  }
+}
+
 export function getViewLabel(viewId: string): string {
   if (viewId.startsWith('crew-project:')) {
     return 'Project Session'
   }
   if (viewId.startsWith('repo-detail:')) {
-    const repoSlug = viewId.replace('repo-detail:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return repoName
+    return parseRepoViewId(viewId, 'repo-detail').repoName
   }
   if (viewId.startsWith('org-detail:')) {
     const org = viewId.replace('org-detail:', '')
@@ -51,45 +58,27 @@ export function getViewLabel(viewId: string): string {
     return orgUser
   }
   if (viewId.startsWith('repo-commits:')) {
-    const repoSlug = viewId.replace('repo-commits:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return `${repoName} Commits`
+    return `${parseRepoViewId(viewId, 'repo-commits').repoName} Commits`
   }
   if (viewId.startsWith('repo-commit:')) {
-    const commitSlug = viewId.replace('repo-commit:', '')
-    const lastSlashIdx = commitSlug.lastIndexOf('/')
-    const repoSlug = lastSlashIdx > 0 ? commitSlug.substring(0, lastSlashIdx) : commitSlug
-    const sha = lastSlashIdx > 0 ? commitSlug.substring(lastSlashIdx + 1) : ''
-    const repoName = repoSlug.split('/').pop() || repoSlug
+    const { repoName, suffix: sha } = parseRepoViewId(viewId, 'repo-commit')
     return `${repoName} · ${sha.slice(0, 7)}`
   }
   if (viewId.startsWith('repo-issue:')) {
-    const issueSlug = viewId.replace('repo-issue:', '')
-    const lastSlashIdx = issueSlug.lastIndexOf('/')
-    const repoSlug = lastSlashIdx > 0 ? issueSlug.substring(0, lastSlashIdx) : issueSlug
-    const issueNumber = lastSlashIdx > 0 ? issueSlug.substring(lastSlashIdx + 1) : ''
-    const repoName = repoSlug.split('/').pop() || repoSlug
+    const { repoName, suffix: issueNumber } = parseRepoViewId(viewId, 'repo-issue')
     return `${repoName} · #${issueNumber}`
   }
   if (viewId.startsWith('repo-issues:')) {
-    const repoSlug = viewId.replace('repo-issues:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return `${repoName} Issues`
+    return `${parseRepoViewId(viewId, 'repo-issues').repoName} Issues`
   }
   if (viewId.startsWith('repo-issues-closed:')) {
-    const repoSlug = viewId.replace('repo-issues-closed:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return `${repoName} Closed Issues`
+    return `${parseRepoViewId(viewId, 'repo-issues-closed').repoName} Closed Issues`
   }
   if (viewId.startsWith('repo-prs:')) {
-    const repoSlug = viewId.replace('repo-prs:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return `${repoName} PRs`
+    return `${parseRepoViewId(viewId, 'repo-prs').repoName} PRs`
   }
   if (viewId.startsWith('repo-prs-closed:')) {
-    const repoSlug = viewId.replace('repo-prs-closed:', '')
-    const repoName = repoSlug.split('/').pop() || repoSlug
-    return `${repoName} Closed PRs`
+    return `${parseRepoViewId(viewId, 'repo-prs-closed').repoName} Closed PRs`
   }
   if (viewId.startsWith('copilot-result:')) {
     return 'Copilot Result'

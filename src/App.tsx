@@ -230,12 +230,6 @@ function App() {
         label = 'PR Detail'
       }
 
-      const newestExistingTab = tabs.find(t => t.viewId === viewId)
-      if (newestExistingTab) {
-        setActiveTabId(newestExistingTab.id)
-        return
-      }
-
       const newTab: Tab = {
         id: `tab-${Date.now()}`,
         label,

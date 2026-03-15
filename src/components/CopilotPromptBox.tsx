@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useReducer } from 'react'
 import { Send, Loader2, Sparkles, History } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../hooks/useConvex'
 import { useCopilotSettings, useGitHubAccounts } from '../hooks/useConfig'
@@ -22,21 +22,47 @@ const CATEGORY_OPTIONS: DropdownOption[] = [
   { value: 'documentation', label: 'Documentation' },
 ]
 
-export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
-  const [prompt, setPrompt] = useState('')
-  const [category, setCategory] = useState('general')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+interface CopilotPromptState {
+  prompt: string
+  category: string
+  submitting: boolean
+  error: string | null
+  localAccount: string
+  localModel: string
+}
 
-  const recentResults = useCopilotResultsRecent(10)
-  const activeCount = useCopilotActiveCount()
+type CopilotPromptAction = {
+  type: 'PATCH_STATE'
+  payload: Partial<CopilotPromptState>
+}
+
+function copilotPromptReducer(
+  state: CopilotPromptState,
+  action: CopilotPromptAction
+): CopilotPromptState {
+  switch (action.type) {
+    case 'PATCH_STATE':
+      return { ...state, ...action.payload }
+    default:
+      return state
+  }
+}
+
+export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
   const { model: configuredModel, ghAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
-
-  // Local state for account/model
-  const [localAccount, setLocalAccount] = useState(ghAccount)
-  const [localModel, setLocalModel] = useState(configuredModel)
+  const [state, dispatch] = useReducer(copilotPromptReducer, {
+    prompt: '',
+    category: 'general',
+    submitting: false,
+    error: null,
+    localAccount: ghAccount,
+    localModel: configuredModel,
+  })
+  const { prompt, category, submitting, error, localAccount, localModel } = state
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const recentResults = useCopilotResultsRecent(10)
+  const activeCount = useCopilotActiveCount()
   // Track whether the account was auto-detected (vs. manually chosen)
   const autoDetectedRef = useRef(false)
 
@@ -45,8 +71,13 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
   useEffect(() => {
     if (!initializedRef.current && configuredModel) {
       initializedRef.current = true
-      setLocalAccount(ghAccount)
-      setLocalModel(configuredModel)
+      dispatch({
+        type: 'PATCH_STATE',
+        payload: {
+          localAccount: ghAccount,
+          localModel: configuredModel,
+        },
+      })
     }
   }, [ghAccount, configuredModel])
 
@@ -75,7 +106,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         // No GitHub URL — if we previously auto-detected, revert to default
         if (autoDetectedRef.current) {
           autoDetectedRef.current = false
-          setLocalAccount(ghAccount)
+          dispatch({
+            type: 'PATCH_STATE',
+            payload: { localAccount: ghAccount },
+          })
         }
         return
       }
@@ -86,7 +120,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         if (acct) {
           if (localAccount !== acct.username) {
             autoDetectedRef.current = true
-            setLocalAccount(acct.username)
+            dispatch({
+              type: 'PATCH_STATE',
+              payload: { localAccount: acct.username },
+            })
           }
           return
         }
@@ -105,8 +142,13 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     const trimmed = prompt.trim()
     if (!trimmed || submitting) return
 
-    setSubmitting(true)
-    setError(null)
+    dispatch({
+      type: 'PATCH_STATE',
+      payload: {
+        submitting: true,
+        error: null,
+      },
+    })
 
     try {
       const result = await window.copilot.execute({
@@ -117,16 +159,31 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       })
 
       if (result.success && result.resultId) {
-        setPrompt('')
+        dispatch({
+          type: 'PATCH_STATE',
+          payload: {
+            prompt: '',
+            error: null,
+          },
+        })
         // Open the result tab
         onOpenResult?.(result.resultId)
       } else {
-        setError(result.error ?? 'Unknown error')
+        dispatch({
+          type: 'PATCH_STATE',
+          payload: { error: result.error ?? 'Unknown error' },
+        })
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      dispatch({
+        type: 'PATCH_STATE',
+        payload: { error: err instanceof Error ? err.message : String(err) },
+      })
     } finally {
-      setSubmitting(false)
+      dispatch({
+        type: 'PATCH_STATE',
+        payload: { submitting: false },
+      })
     }
   }
 
@@ -178,7 +235,12 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
           ref={textareaRef}
           className="copilot-prompt-textarea"
           value={prompt}
-          onChange={e => setPrompt(e.target.value)}
+          onChange={e =>
+            dispatch({
+              type: 'PATCH_STATE',
+              payload: { prompt: e.target.value },
+            })
+          }
           onKeyDown={handleKeyDown}
           placeholder="Ask Copilot anything... (Ctrl+Enter to send)"
           rows={3}
@@ -191,7 +253,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
               value={localAccount}
               onChange={val => {
                 autoDetectedRef.current = false
-                setLocalAccount(val)
+                dispatch({
+                  type: 'PATCH_STATE',
+                  payload: { localAccount: val },
+                })
               }}
               disabled={submitting}
               title="GitHub account for Copilot"
@@ -201,7 +266,12 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
             {/* Model selector */}
             <ModelPicker
               value={localModel}
-              onChange={setLocalModel}
+              onChange={val =>
+                dispatch({
+                  type: 'PATCH_STATE',
+                  payload: { localModel: val },
+                })
+              }
               ghAccount={localAccount}
               disabled={submitting}
               title="Copilot model"
@@ -213,7 +283,12 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
             <InlineDropdown
               value={category}
               options={CATEGORY_OPTIONS}
-              onChange={setCategory}
+              onChange={val =>
+                dispatch({
+                  type: 'PATCH_STATE',
+                  payload: { category: val },
+                })
+              }
               disabled={submitting}
               align="right"
             />

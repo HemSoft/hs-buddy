@@ -3,6 +3,7 @@ import MarkdownPreview from '@uiw/react-markdown-preview'
 import { GitPullRequestArrow } from 'lucide-react'
 import { type PRCommentReactionContent, type PRReviewComment } from '../../api/github'
 import { formatDistanceToNow } from '../../utils/dateUtils'
+import { parseCommentBody } from './commentCardUtils'
 
 const REACTION_OPTIONS: Array<{ content: PRCommentReactionContent; emoji: string; label: string }> =
   [
@@ -15,36 +16,6 @@ const REACTION_OPTIONS: Array<{ content: PRCommentReactionContent; emoji: string
     { content: 'ROCKET', emoji: '🚀', label: 'Rocket' },
     { content: 'EYES', emoji: '👀', label: 'Eyes' },
   ]
-
-function parseCommentBody(
-  body: string | null | undefined
-): Array<{ type: 'text' | 'suggestion'; content: string }> {
-  const segments: Array<{ type: 'text' | 'suggestion'; content: string }> = []
-  const safeBody = body ?? ''
-  const regex = /```suggestion\s*\n([\s\S]*?)```/g
-  let lastIndex = 0
-  let match: RegExpExecArray | null
-
-  while ((match = regex.exec(safeBody)) !== null) {
-    if (match.index > lastIndex) {
-      const text = safeBody.slice(lastIndex, match.index).trim()
-      if (text) segments.push({ type: 'text', content: text })
-    }
-    segments.push({ type: 'suggestion', content: match[1] })
-    lastIndex = match.index + match[0].length
-  }
-
-  if (lastIndex < safeBody.length) {
-    const text = safeBody.slice(lastIndex).trim()
-    if (text) segments.push({ type: 'text', content: text })
-  }
-
-  if (segments.length === 0 && safeBody.trim()) {
-    segments.push({ type: 'text', content: safeBody })
-  }
-
-  return segments
-}
 
 function SuggestionBlock({ content }: { content: string }) {
   const lines = content.split('\n')

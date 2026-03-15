@@ -20,6 +20,7 @@ import { useAppAppearance } from './hooks/useAppAppearance'
 import { usePRSidebarBadges } from './hooks/usePRSidebarBadges'
 import { useAssistantContext } from './hooks/useAssistantContext'
 import { GitHubClient } from './api/github'
+import { normalizePaneSizes, DEFAULT_PANE_SIZES, DEFAULT_ASSISTANT_PANE_SIZE } from './appUtils'
 import './App.css'
 
 async function resolveCrewProjectLabel(viewId: string): Promise<string | null> {
@@ -32,28 +33,9 @@ async function resolveCrewProjectLabel(viewId: string): Promise<string | null> {
   return projects.find(project => project.id === projectId)?.displayName ?? 'Project Session'
 }
 
-const DEFAULT_PANE_SIZES = [300, 900] as const
-const DEFAULT_ASSISTANT_PANE_SIZE = 350
-
 interface LayoutState {
   paneSizes: number[]
   assistantOpen: boolean
-}
-
-function normalizePaneSizes(sizes: number[] | null | undefined): number[] {
-  if (
-    !Array.isArray(sizes) ||
-    sizes.length < 2 ||
-    !sizes.every(size => typeof size === 'number' && size > 0)
-  ) {
-    return [...DEFAULT_PANE_SIZES]
-  }
-
-  if (sizes.length === 2) {
-    return [sizes[0], sizes[1], DEFAULT_ASSISTANT_PANE_SIZE]
-  }
-
-  return sizes
 }
 
 function App() {

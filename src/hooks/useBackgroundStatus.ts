@@ -44,7 +44,7 @@ const TASK_LABELS: Record<string, string> = {
   'need-a-nudge': 'Needs a nudge',
 }
 
-function getFriendlyTaskLabel(taskName: string | null): string | null {
+export function getFriendlyTaskLabel(taskName: string | null): string | null {
   if (!taskName) return null
   if (TASK_LABELS[taskName]) return TASK_LABELS[taskName]
   if (taskName.startsWith('org-detail-overview-')) return 'Org Overview'
@@ -54,7 +54,7 @@ function getFriendlyTaskLabel(taskName: string | null): string | null {
   return taskName
 }
 
-function formatCountdown(secs: number): string {
+export function formatCountdown(secs: number): string {
   if (secs <= 0) return 'now'
   const m = Math.floor(secs / 60)
   const s = Math.floor(secs % 60)
@@ -62,7 +62,7 @@ function formatCountdown(secs: number): string {
   return `${m}m ${s.toString().padStart(2, '0')}s`
 }
 
-function formatAge(ms: number): string {
+export function formatAge(ms: number): string {
   if (ms < 60_000) return 'just now'
   const minutes = Math.floor(ms / 60_000)
   if (minutes < 60) return `${minutes}m ago`

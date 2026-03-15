@@ -28,6 +28,7 @@ import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus, SFLOverallStatus } from '../../../types/sflStatus'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import type { PRDetailSection } from '../../../utils/prDetailView'
+import { formatUpdatedAge } from './orgRepoTreeUtils'
 import { dataCache } from '../../../services/dataCache'
 
 interface OrgMeta {
@@ -105,15 +106,6 @@ const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {
   'ready-for-review': 'Ready for review',
   'recent-failure': 'Recent failure',
   unknown: 'Unknown',
-}
-
-function formatUpdatedAge(fetchedAt: number): string {
-  const elapsedMs = Date.now() - fetchedAt
-  if (elapsedMs < 60_000) return 'updated now'
-  const elapsedMinutes = Math.floor(elapsedMs / 60_000)
-  if (elapsedMinutes < 60) return `updated ${elapsedMinutes}m ago`
-  const elapsedHours = Math.floor(elapsedMinutes / 60)
-  return `updated ${elapsedHours}h ago`
 }
 
 function sflOverallStatusIcon(status: SFLOverallStatus) {

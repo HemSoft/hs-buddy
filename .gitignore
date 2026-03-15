@@ -7,6 +7,9 @@ yarn.lock
 # Build outputs (created by `bun run build` or `npm run build`)
 dist/
 dist-electron/
+
+# Test coverage
+coverage/
 release/
 *.local
 

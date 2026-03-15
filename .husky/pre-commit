@@ -13,5 +13,8 @@ else
 	exit 1
 fi
 
+# Block commits when tests fail or coverage drops below threshold
+bun run test:coverage
+
 # Block commits when the repo has TypeScript errors
 bun run typecheck

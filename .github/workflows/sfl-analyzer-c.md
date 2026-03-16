@@ -72,10 +72,11 @@ jobs:
             fi
           fi
           echo "Deterministic fallback: dispatching sfl-pr-label-actions for PR #$PR_NUM"
-          gh workflow run sfl-pr-label-actions.yml -f pull-request-number="$PR_NUM"
+          gh workflow run sfl-pr-label-actions.yml -f pull-request-number="$PR_NUM" --repo "$REPO"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUM: ${{ github.event.inputs.pull-request-number }}
+          REPO: ${{ github.repository }}
 
 source: relias-engineering/set-it-free-loop/workflows/sfl-analyzer-c.md@e441260656008f767cf67a816219c0713623f8e8
 ---

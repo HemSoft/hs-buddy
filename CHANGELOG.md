@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.377] - 2026-03-16
+
+## [0.1.376] - 2026-03-16
+
+### Added
+
+- Rewrite UserDetailPanel with live GitHub API data
+
 ## [0.1.375] - 2026-03-15
+
+### Changed
+
+- Extract+test pure helpers across 6 files (10.58% -> 12.78%)
 
 ## [0.1.374] - 2026-03-15
 

@@ -9,6 +9,13 @@ import { registerAllHandlers } from './ipc'
 import { getDispatcher, runOfflineSync } from './workers'
 import { stopSharedClient } from './services/copilotClient'
 
+// Enable CDP remote debugging when BUDDY_DEBUG_PORT is set (e.g. via runApp.debug.ps1)
+const debugPort = process.env.BUDDY_DEBUG_PORT
+if (debugPort) {
+  app.commandLine.appendSwitch('remote-debugging-port', debugPort)
+  console.log(`[Debug] CDP remote debugging enabled on port ${debugPort}`)
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // The built directory structure

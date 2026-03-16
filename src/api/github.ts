@@ -141,6 +141,40 @@ export interface OrgContributorToday {
   commits: number
 }
 
+/** Summary of a user's recent activity within an org, fetched on-demand. */
+export interface UserActivitySummary {
+  /** PRs authored by the user (recent, across the org) */
+  recentPRsAuthored: UserPRSummary[]
+  /** PRs reviewed by the user (recent, across the org) */
+  recentPRsReviewed: UserPRSummary[]
+  /** Recent public events for the user */
+  recentEvents: UserEvent[]
+  /** Total open PRs authored */
+  openPRCount: number
+  /** Total merged PRs authored (last 90 days) */
+  mergedPRCount: number
+  /** Repos the user has pushed to recently */
+  activeRepos: string[]
+}
+
+export interface UserPRSummary {
+  number: number
+  title: string
+  repo: string
+  state: 'open' | 'closed' | 'merged'
+  createdAt: string
+  updatedAt: string
+  url: string
+}
+
+export interface UserEvent {
+  type: string
+  repo: string
+  createdAt: string
+  /** Short human-readable description */
+  summary: string
+}
+
 export interface OrgOverviewMetrics {
   org: string
   repoCount: number
@@ -2478,6 +2512,137 @@ export class GitHubClient {
       isSFLEnabled: true,
       overallStatus: deriveSFLOverallStatus(workflowInfos),
       workflows: workflowInfos,
+    }
+  }
+
+  /**
+   * Fetch a summary of a user's recent activity within an org.
+   * Uses the search API for PRs and the events API for recent activity.
+   */
+  async fetchUserActivity(org: string, username: string): Promise<UserActivitySummary> {
+    const octokit = await this.getOctokitForOwner(org)
+
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0]
+
+    const emptySearch = { data: { total_count: 0, items: [] } } as const
+
+    // Parallel: authored PRs (open + recently merged), reviewed PRs, events
+    const [authoredOpen, authoredMerged, reviewed, events] = await Promise.all([
+      octokit.search.issuesAndPullRequests({
+        q: `org:${org} is:pr author:${username} is:open`,
+        per_page: 15,
+        sort: 'updated',
+        order: 'desc',
+      }).catch(() => emptySearch),
+      octokit.search.issuesAndPullRequests({
+        q: `org:${org} is:pr author:${username} is:merged merged:>=${ninetyDaysAgo}`,
+        per_page: 15,
+        sort: 'updated',
+        order: 'desc',
+      }).catch(() => emptySearch),
+      octokit.search.issuesAndPullRequests({
+        q: `org:${org} is:pr reviewed-by:${username} -author:${username} sort:updated`,
+        per_page: 10,
+        sort: 'updated',
+        order: 'desc',
+      }).catch(() => emptySearch),
+      octokit.activity.listPublicEventsForUser({
+        username,
+        per_page: 30,
+      }).catch(() => ({ data: [] as Array<Record<string, unknown>> })),
+    ])
+
+    const extractRepo = (repoUrl: string) => {
+      const parts = repoUrl.split('/')
+      return parts.slice(-2).join('/')
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapPR = (item: any): UserPRSummary => ({
+      number: item.number,
+      title: item.title,
+      repo: extractRepo(item.repository_url),
+      state: item.pull_request?.merged_at ? 'merged' : item.state === 'open' ? 'open' : 'closed',
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+      url: item.html_url,
+    })
+
+    const recentPRsAuthored = [
+      ...authoredOpen.data.items.map(mapPR),
+      ...authoredMerged.data.items.map(mapPR),
+    ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 15)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const eventSummary = (evt: any): string => {
+      switch (evt.type) {
+        case 'PushEvent': {
+          const size = evt.payload?.size ?? 0
+          return `Pushed ${size} commit${size !== 1 ? 's' : ''}`
+        }
+        case 'PullRequestEvent': {
+          const action = evt.payload?.action ?? 'updated'
+          return `${action.charAt(0).toUpperCase() + action.slice(1)} pull request`
+        }
+        case 'PullRequestReviewEvent':
+          return 'Reviewed a pull request'
+        case 'IssuesEvent': {
+          const action = evt.payload?.action ?? 'updated'
+          return `${action.charAt(0).toUpperCase() + action.slice(1)} an issue`
+        }
+        case 'IssueCommentEvent':
+          return 'Commented on an issue'
+        case 'CreateEvent': {
+          const refType = evt.payload?.ref_type ?? 'ref'
+          return `Created a ${refType}`
+        }
+        case 'DeleteEvent': {
+          const refType = evt.payload?.ref_type ?? 'ref'
+          return `Deleted a ${refType}`
+        }
+        case 'WatchEvent':
+          return 'Starred a repository'
+        case 'ForkEvent':
+          return 'Forked a repository'
+        case 'ReleaseEvent':
+          return 'Published a release'
+        default:
+          return evt.type?.replace(/Event$/, '') ?? 'Activity'
+      }
+    }
+
+    // Filter events to only those in the org
+    const orgPrefix = `${org}/`
+    const recentEvents: UserEvent[] = (events.data as Array<Record<string, unknown>>)
+      .filter(evt => {
+        const repo = evt.repo as { name?: string } | undefined
+        return repo?.name?.startsWith(orgPrefix)
+      })
+      .map(evt => {
+        const repo = evt.repo as { name?: string } | undefined
+        return {
+          type: (evt.type as string) ?? 'Unknown',
+          repo: repo?.name ?? '',
+          createdAt: (evt.created_at as string) ?? '',
+          summary: eventSummary(evt),
+        }
+      })
+
+    // Collect unique repos from events + authored PRs
+    const activeRepoSet = new Set<string>()
+    recentEvents.forEach(e => { if (e.repo) activeRepoSet.add(e.repo) })
+    recentPRsAuthored.forEach(pr => { if (pr.repo) activeRepoSet.add(pr.repo) })
+
+    return {
+      recentPRsAuthored,
+      recentPRsReviewed: reviewed.data.items.map(mapPR),
+      recentEvents,
+      openPRCount: authoredOpen.data.total_count,
+      mergedPRCount: authoredMerged.data.total_count,
+      activeRepos: Array.from(activeRepoSet),
     }
   }
 

@@ -311,8 +311,8 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
             <SectionLoader label="activity" />
           ) : (
             <div className="ud-event-list">
-              {activity!.recentEvents.slice(0, 12).map((event, i) => (
-                <EventRow key={`${event.createdAt}-${i}`} event={event} />
+              {activity!.recentEvents.slice(0, 15).map((event) => (
+                <EventRow key={`${event.type}-${event.repo}-${event.createdAt}`} event={event} />
               ))}
             </div>
           )}
@@ -369,4 +369,3 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     </div>
   )
 }
-

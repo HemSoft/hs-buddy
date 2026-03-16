@@ -20,6 +20,14 @@ interface PullRequestDetailPanelProps {
   section?: PRDetailSection | null
 }
 
+const SECTION_LABELS: Record<PRDetailSection, string> = {
+  conversation: 'Conversation',
+  commits: 'Commits',
+  checks: 'Checks',
+  'files-changed': 'Files changed',
+  'ai-reviews': 'AI Reviews',
+}
+
 function formatRelative(date: string | null): string {
   if (!date) return ''
   return formatDistanceToNow(date)
@@ -87,7 +95,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const activityRelative = formatRelative(activityAt)
   const createdRelative = formatRelative(pr.created)
   const stateLabel = pr.state?.trim() || 'open'
-  const sectionLabel = section ? SECTION_LABELS[section] : null
+  const sectionLabel = section ? SECTION_LABELS[section] ?? null : null
   const checksUrl = `${pr.url}/checks`
   const filesChangedUrl = `${pr.url}/files`
   const isFocusedSection = section !== null

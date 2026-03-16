@@ -29,6 +29,17 @@ export interface SidebarItem {
   label: string
 }
 
+const ABORT_ERROR_MESSAGE = 'Cancelled'
+const ABORT_ERROR_NAME = 'AbortError'
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) throw new DOMException(ABORT_ERROR_MESSAGE, ABORT_ERROR_NAME)
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === ABORT_ERROR_NAME
+}
+
 function mapRepoPRToPullRequest(pr: RepoPullRequest, org: string): PullRequest {
   return {
     source: 'GitHub',
@@ -246,7 +257,7 @@ export function useGitHubSidebarData() {
           .current(
             async signal => {
               if (dataCache.isFresh(cacheKey, intervalMs)) return
-              if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+              throwIfAborted(signal)
               const config = { accounts }
               const client = new GitHubClient(config, 7)
               const result = await client.fetchOrgRepos(org)
@@ -256,7 +267,7 @@ export function useGitHubSidebarData() {
             { name: `refresh-org-${org}`, priority: -1 }
           )
           .catch(err => {
-            if (err instanceof DOMException && err.name === 'AbortError') return
+            if (isAbortError(err)) return
             console.warn(`[OrgRefresh] ${org} failed:`, err)
           })
       }
@@ -301,7 +312,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             return await client.fetchOrgRepos(org)
@@ -318,7 +329,7 @@ export function useGitHubSidebarData() {
         }))
         dataCache.set(`org-repos:${org}`, result)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.error(`Failed to fetch repos for ${org}:`, error)
         setOrgRepos(prev => ({ ...prev, [org]: [] }))
       } finally {
@@ -364,7 +375,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchOrgMembers(org)
           },
@@ -373,7 +384,7 @@ export function useGitHubSidebarData() {
         setOrgMembers(prev => ({ ...prev, [org]: result.members }))
         dataCache.set(cacheKey, result)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.warn(`[OrgMembers] ${org} failed:`, error)
       } finally {
         setLoadingOrgMembers(prev => {
@@ -403,7 +414,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchOrgOverview(org)
           },
@@ -417,7 +428,7 @@ export function useGitHubSidebarData() {
         }))
         dataCache.set(cacheKey, result)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.warn(`[OrgOverview] ${org} failed:`, error)
       }
     },
@@ -496,7 +507,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             return await client.fetchRepoCounts(org, repoName)
@@ -506,7 +517,7 @@ export function useGitHubSidebarData() {
         setRepoCounts(prev => ({ ...prev, [key]: result }))
         dataCache.set(cacheKey, result)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.warn(`Failed to fetch counts for ${key}:`, error)
       } finally {
         setLoadingRepoCounts(prev => {
@@ -534,7 +545,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchSFLStatus(org, repoName)
           },
@@ -543,7 +554,7 @@ export function useGitHubSidebarData() {
         setSflStatusData(prev => ({ ...prev, [key]: result }))
         dataCache.set(cacheKey, result)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.warn(`[SFLStatus] ${key} failed:`, error)
       } finally {
         setLoadingSFLStatus(prev => {
@@ -601,7 +612,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchRepoPRs(org, repoName, state)
           },
@@ -621,7 +632,7 @@ export function useGitHubSidebarData() {
           })
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.warn(`[RepoPRTree] ${key} failed:`, error)
       } finally {
         setLoadingRepoPRs(prev => {
@@ -698,7 +709,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchRepoIssues(org, repoName, state)
           },
@@ -707,7 +718,7 @@ export function useGitHubSidebarData() {
         setRepoIssueTreeData(prev => ({ ...prev, [key]: result }))
         dataCache.set(cacheKey, result)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.warn(`[RepoIssueTree] ${key} failed:`, error)
       } finally {
         setLoadingRepoIssues(prev => {
@@ -758,7 +769,7 @@ export function useGitHubSidebarData() {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchRepoCommits(org, repoName)
           },
@@ -767,7 +778,7 @@ export function useGitHubSidebarData() {
         setRepoCommitTreeData(prev => ({ ...prev, [key]: result }))
         dataCache.set(cacheKey, result)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.warn(`[RepoCommitTree] ${key} failed:`, error)
       } finally {
         setLoadingRepoCommits(prev => {
@@ -903,7 +914,7 @@ export function useGitHubSidebarData() {
         enqueueRef
           .current(
             async signal => {
-              if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+              throwIfAborted(signal)
               const client = new GitHubClient({ accounts }, 7)
               const result = await client.fetchRepoCounts(org, repoName)
               dataCache.set(cacheKey, result)
@@ -911,7 +922,7 @@ export function useGitHubSidebarData() {
             { name: `refresh-repo-counts-${key}`, priority: -1 }
           )
           .catch(error => {
-            if (error instanceof DOMException && error.name === 'AbortError') return
+            if (isAbortError(error)) return
             console.warn(`[RepoCountsRefresh] ${key} failed:`, error)
           })
       }
@@ -1036,7 +1047,7 @@ export function useGitHubSidebarData() {
       try {
         await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             await client.approvePullRequest(owner, repo, pr.id)
           },
@@ -1044,7 +1055,7 @@ export function useGitHubSidebarData() {
         )
         applyApproveToTree(pr)
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (isAbortError(error)) return
         console.error('Failed to approve PR from sidebar:', error)
       } finally {
         setApprovingPrKey(null)

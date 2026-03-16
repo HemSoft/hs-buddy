@@ -195,8 +195,6 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const profileUrl = member?.url ?? `https://github.com/${memberLogin}`
   const avatarUrl = member?.avatarUrl ?? `https://github.com/${memberLogin}.png?size=96`
 
-  const cacheKey = `user-activity:${org}/${memberLogin}`
-
   // Fetch directly on mount — user-initiated action, don't wait behind background tasks
   useEffect(() => {
     const cached = dataCache.get<UserActivitySummary>(cacheKey)

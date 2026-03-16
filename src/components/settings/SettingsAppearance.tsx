@@ -128,28 +128,28 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
   }, [api])
 
   const applyColors = useCallback(
-    (
-      accent: string,
-      fontClr: string,
-      primary: string,
-      secondary: string,
-      sbBg?: string,
+    (colors: {
+      accent: string
+      fontColor: string
+      primary: string
+      secondary: string
+      sbBg?: string
       sbFg?: string
-    ) => {
+    }) => {
       const root = document.documentElement
       const customColors: Partial<Record<(typeof CUSTOM_CSS_PROPS)[number], string>> = {
-        '--accent-primary': accent,
-        '--accent-primary-hover': lightenColor(accent, 15),
-        '--border-focus': accent,
-        '--text-primary': fontClr,
-        '--text-heading': lightenColor(fontClr, 20),
-        '--bg-primary': primary,
-        '--panel-bg': primary,
-        '--input-bg': primary,
-        '--bg-secondary': secondary,
-        '--sidebar-bg': secondary,
-        ...(sbBg ? { '--statusbar-bg': sbBg } : {}),
-        ...(sbFg ? { '--statusbar-fg': sbFg } : {}),
+        '--accent-primary': colors.accent,
+        '--accent-primary-hover': lightenColor(colors.accent, 15),
+        '--border-focus': colors.accent,
+        '--text-primary': colors.fontColor,
+        '--text-heading': lightenColor(colors.fontColor, 20),
+        '--bg-primary': colors.primary,
+        '--panel-bg': colors.primary,
+        '--input-bg': colors.primary,
+        '--bg-secondary': colors.secondary,
+        '--sidebar-bg': colors.secondary,
+        ...(colors.sbBg ? { '--statusbar-bg': colors.sbBg } : {}),
+        ...(colors.sbFg ? { '--statusbar-fg': colors.sbFg } : {}),
       }
 
       for (const [prop, value] of Object.entries(customColors)) {
@@ -183,6 +183,15 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
       root.style.removeProperty(prop)
     }
 
+    applyColors({
+      accent: defaults.accentColor,
+      fontColor: defaults.fontColor,
+      primary: defaults.bgPrimary,
+      secondary: defaults.bgSecondary,
+      sbBg: defaults.statusBarBg,
+      sbFg: defaults.statusBarFg,
+    })
+
     await api.setTheme(newTheme)
     await Promise.all([
       api.setAccentColor(defaults.accentColor),
@@ -194,29 +203,26 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
     ])
   }
 
-  const handleAccentChange = async (color: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'accentColor', value: color })
-    applyColors(color, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
-    await api.setAccentColor(color)
+  const makeColorHandler = (
+    field: 'accentColor' | 'fontColor' | 'bgPrimary' | 'bgSecondary',
+    apiMethod: (color: string) => Promise<unknown>
+  ) => async (color: string) => {
+    dispatch({ type: 'SET_FIELD', field, value: color })
+    applyColors({
+      accent: field === 'accentColor' ? color : accentColor,
+      fontColor: field === 'fontColor' ? color : fontColor,
+      primary: field === 'bgPrimary' ? color : bgPrimary,
+      secondary: field === 'bgSecondary' ? color : bgSecondary,
+      sbBg: statusBarBg,
+      sbFg: statusBarFg,
+    })
+    await apiMethod(color)
   }
 
-  const handleFontColorChange = async (color: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'fontColor', value: color })
-    applyColors(accentColor, color, bgPrimary, bgSecondary, statusBarBg, statusBarFg)
-    await api.setFontColor(color)
-  }
-
-  const handleBgPrimaryChange = async (color: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'bgPrimary', value: color })
-    applyColors(accentColor, fontColor, color, bgSecondary, statusBarBg, statusBarFg)
-    await api.setBgPrimary(color)
-  }
-
-  const handleBgSecondaryChange = async (color: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'bgSecondary', value: color })
-    applyColors(accentColor, fontColor, bgPrimary, color, statusBarBg, statusBarFg)
-    await api.setBgSecondary(color)
-  }
+  const handleAccentChange = makeColorHandler('accentColor', api.setAccentColor)
+  const handleFontColorChange = makeColorHandler('fontColor', api.setFontColor)
+  const handleBgPrimaryChange = makeColorHandler('bgPrimary', api.setBgPrimary)
+  const handleBgSecondaryChange = makeColorHandler('bgSecondary', api.setBgSecondary)
 
   const handleStatusBarBgChange = async (color: string) => {
     dispatch({ type: 'SET_FIELD', field: 'statusBarBg', value: color })
@@ -243,14 +249,14 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
         statusBarFg: defaults.statusBarFg,
       },
     })
-    applyColors(
-      defaults.accentColor,
-      defaults.fontColor,
-      defaults.bgPrimary,
-      defaults.bgSecondary,
-      defaults.statusBarBg,
-      defaults.statusBarFg
-    )
+    applyColors({
+      accent: defaults.accentColor,
+      fontColor: defaults.fontColor,
+      primary: defaults.bgPrimary,
+      secondary: defaults.bgSecondary,
+      sbBg: defaults.statusBarBg,
+      sbFg: defaults.statusBarFg,
+    })
     await Promise.all([
       api.setAccentColor(defaults.accentColor),
       api.setFontColor(defaults.fontColor),

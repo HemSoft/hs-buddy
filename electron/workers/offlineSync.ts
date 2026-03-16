@@ -15,6 +15,7 @@ import { api } from '../../convex/_generated/api'
 import { CronExpressionParser, type CronExpressionOptions } from 'cron-parser'
 import { CONVEX_URL } from '../config'
 import { calculateNextRunAt } from '../../convex/lib/cronUtils'
+import { getErrorMessage } from '../utils'
 
 interface Schedule {
   _id: string
@@ -218,7 +219,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
           `[OfflineSync] "${schedule.name}" → ${action}`
         )
       } catch (err) {
-        const msg = `Failed to process "${schedule.name}": ${err instanceof Error ? err.message : String(err)}`
+        const msg = `Failed to process "${schedule.name}": ${getErrorMessage(err)}`
         result.errors.push(msg)
         console.error(`[OfflineSync] ${msg}`)
       }
@@ -230,7 +231,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
       (result.errors.length > 0 ? `, ${result.errors.length} errors` : '')
     )
   } catch (err) {
-    const msg = `Offline sync failed: ${err instanceof Error ? err.message : String(err)}`
+    const msg = `Offline sync failed: ${getErrorMessage(err)}`
     result.errors.push(msg)
     console.error(`[OfflineSync] ${msg}`)
   }

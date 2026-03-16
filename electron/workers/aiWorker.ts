@@ -5,6 +5,7 @@
  */
 
 import { sendPrompt, truncateOutput, DEFAULT_MODEL } from '../services/copilotClient'
+import { getErrorMessage } from '../utils'
 import type { Worker, WorkerResult, JobConfig } from './types'
 
 const DEFAULT_TIMEOUT = 120_000
@@ -34,7 +35,7 @@ export const aiWorker: Worker = {
     } catch (err) {
       return {
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
         duration: Date.now() - start,
       }
     }

@@ -25,6 +25,14 @@ function formatRelative(date: string | null): string {
   return formatDistanceToNow(date)
 }
 
+const SECTION_LABELS: Record<PRDetailSection, string> = {
+  conversation: 'Conversation',
+  commits: 'Commits',
+  checks: 'Checks',
+  'files-changed': 'Files changed',
+  'ai-reviews': 'AI Reviews',
+}
+
 export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -79,18 +87,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const activityRelative = formatRelative(activityAt)
   const createdRelative = formatRelative(pr.created)
   const stateLabel = pr.state?.trim() || 'open'
-  const sectionLabel =
-    section === 'conversation'
-      ? 'Conversation'
-      : section === 'commits'
-        ? 'Commits'
-        : section === 'checks'
-          ? 'Checks'
-          : section === 'files-changed'
-            ? 'Files changed'
-            : section === 'ai-reviews'
-              ? 'AI Reviews'
-              : null
+  const sectionLabel = section ? SECTION_LABELS[section] : null
   const checksUrl = `${pr.url}/checks`
   const filesChangedUrl = `${pr.url}/files`
   const isFocusedSection = section !== null

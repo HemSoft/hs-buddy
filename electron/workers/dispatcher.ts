@@ -14,6 +14,7 @@ import { skillWorker } from './skillWorker'
 import { fetchCopilotMetrics } from '../ipc/githubHandlers'
 import type { Worker, JobConfig } from './types'
 import { CONVEX_URL } from '../config'
+import { getErrorMessage } from '../utils'
 
 const POLL_INTERVAL = 10_000 // 10 seconds
 
@@ -87,7 +88,7 @@ class Dispatcher {
       this.lastErrorTime = Date.now()
       // Only log first error and every 6th after (once per minute at 10s interval)
       if (this.consecutiveErrors === 1 || this.consecutiveErrors % 6 === 0) {
-        const msg = err instanceof Error ? err.message : String(err)
+        const msg = getErrorMessage(err)
         console.warn(
           `[Dispatcher] Convex unreachable (attempt ${this.consecutiveErrors}): ${msg}`
         )
@@ -147,7 +148,7 @@ class Dispatcher {
         })
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err)
+      const errorMessage = getErrorMessage(err)
       console.error(`[Dispatcher] Run ${run._id} threw:`, errorMessage)
       await this.client.mutation(api.runs.fail, {
         id: run._id,
@@ -202,7 +203,7 @@ class Dispatcher {
           })
           succeeded++
         } catch (storeErr) {
-          const msg = storeErr instanceof Error ? storeErr.message : String(storeErr)
+          const msg = getErrorMessage(storeErr)
           console.error(`[Dispatcher] Snapshot store failed for ${username}@${org}: ${msg}`)
           failed++
         }

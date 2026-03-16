@@ -48,6 +48,19 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
     setSession(s)
   }
 
+  const appendMessageToSession = (msg: CrewChatMessage, status: CrewSession['status']) => {
+    setSession(prev =>
+      prev
+        ? {
+            ...prev,
+            status,
+            conversationHistory: [...prev.conversationHistory, msg],
+            updatedAt: Date.now(),
+          }
+        : prev
+    )
+  }
+
   const handleSendMessage = async () => {
     if (!project || !session || !message.trim() || sending) return
 
@@ -61,16 +74,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
 
     setSending(true)
     setMessage('')
-    setSession(prev =>
-      prev
-        ? {
-            ...prev,
-            status: 'active',
-            conversationHistory: [...prev.conversationHistory, userMsg],
-            updatedAt: Date.now(),
-          }
-        : prev
-    )
+    appendMessageToSession(userMsg, 'active')
 
     await window.crew.addMessage(project.id, userMsg)
     await window.crew.updateSessionStatus(project.id, 'active')
@@ -96,16 +100,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
 
       await window.crew.addMessage(project.id, assistantMsg)
       await window.crew.updateSessionStatus(project.id, 'idle')
-      setSession(prev =>
-        prev
-          ? {
-              ...prev,
-              status: 'idle',
-              conversationHistory: [...prev.conversationHistory, assistantMsg],
-              updatedAt: Date.now(),
-            }
-          : prev
-      )
+      appendMessageToSession(assistantMsg, 'idle')
     } catch (err) {
       const errorMsg: CrewChatMessage = {
         role: 'assistant',
@@ -114,16 +109,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
       }
       await window.crew.addMessage(project.id, errorMsg)
       await window.crew.updateSessionStatus(project.id, 'error')
-      setSession(prev =>
-        prev
-          ? {
-              ...prev,
-              status: 'error',
-              conversationHistory: [...prev.conversationHistory, errorMsg],
-              updatedAt: Date.now(),
-            }
-          : prev
-      )
+      appendMessageToSession(errorMsg, 'error')
     } finally {
       setSending(false)
     }

@@ -18,6 +18,8 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Sat', short: 'S' },
 ]
 
+const MINUTE_INCREMENTS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+
 export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const cronFreqLabelId = useId()
   const cronState = useMemo(() => parseCronValue(value), [value])
@@ -69,6 +71,26 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
 
     updateCron({ selectedDays: [...selectedDays, day] })
   }
+
+  const hourSelect = (
+    <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
+      {Array.from({ length: 24 }, (_, h) => (
+        <option key={h} value={h}>
+          {formatHour12(h)}
+        </option>
+      ))}
+    </select>
+  )
+
+  const minuteSelect = (
+    <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
+      {MINUTE_INCREMENTS.map(m => (
+        <option key={m} value={m}>
+          {m.toString().padStart(2, '0')}
+        </option>
+      ))}
+    </select>
+  )
 
   return (
     <div className="cron-builder">
@@ -140,21 +162,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
         {frequency === 'daily' && (
           <div className="cron-option">
             <span className="option-label">At</span>
-            <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
-              {Array.from({ length: 24 }, (_, h) => (
-                <option key={h} value={h}>
-                  {formatHour12(h)}
-                </option>
-              ))}
-            </select>
+            {hourSelect}
             <span className="option-separator">:</span>
-            <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
-              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                <option key={m} value={m}>
-                  {m.toString().padStart(2, '0')}
-                </option>
-              ))}
-            </select>
+            {minuteSelect}
           </div>
         )}
 
@@ -179,21 +189,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             </div>
             <div className="cron-option">
               <span className="option-label">At</span>
-              <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
-                {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h}>
-                    {formatHour12(h)}
-                  </option>
-                ))}
-              </select>
+              {hourSelect}
               <span className="option-separator">:</span>
-              <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
-                {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                  <option key={m} value={m}>
-                    {m.toString().padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
+              {minuteSelect}
             </div>
           </>
         )}
@@ -214,21 +212,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
             </div>
             <div className="cron-option">
               <span className="option-label">At</span>
-              <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
-                {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h}>
-                    {formatHour12(h)}
-                  </option>
-                ))}
-              </select>
+              {hourSelect}
               <span className="option-separator">:</span>
-              <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
-                {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                  <option key={m} value={m}>
-                    {m.toString().padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
+              {minuteSelect}
             </div>
           </>
         )}

@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   ExternalLink,
+  GitCommitHorizontal,
   GitMerge,
   GitPullRequest,
   Eye,
   Loader2,
   Shield,
   Sparkles,
-  UserRound,
   FolderGit2,
   Activity,
 } from 'lucide-react'
@@ -58,7 +58,7 @@ function PRRow({ pr }: { pr: UserPRSummary }) {
       <span className="ud-pr-meta">
         {pr.repo.split('/')[1]}#{pr.number}
       </span>
-      <span className="ud-pr-age">{formatDistanceToNow(pr.updatedAt)} ago</span>
+      <span className="ud-pr-age">{formatDistanceToNow(pr.updatedAt)}</span>
     </button>
   )
 }
@@ -68,7 +68,7 @@ function EventRow({ event }: { event: UserEvent }) {
     <div className="ud-event-row">
       <span className="ud-event-type">{event.summary}</span>
       <span className="ud-event-repo">{event.repo.split('/')[1] ?? event.repo}</span>
-      <span className="ud-event-age">{formatDistanceToNow(event.createdAt)} ago</span>
+      <span className="ud-event-age">{formatDistanceToNow(event.createdAt)}</span>
     </div>
   )
 }
@@ -78,6 +78,23 @@ function SectionLoader({ label }: { label: string }) {
     <div className="ud-section-loader">
       <Loader2 size={15} className="spin" />
       <span>Loading {label}…</span>
+    </div>
+  )
+}
+
+function MetricCard({ icon, label, children, variant }: {
+  icon: React.ReactNode
+  label: string
+  children: React.ReactNode
+  variant?: 'warm' | 'cool'
+}) {
+  return (
+    <div className={`ud-metric-card ${variant ? `ud-metric-card-${variant}` : ''}`}>
+      <div className="ud-metric-icon">{icon}</div>
+      <div>
+        <span className="ud-metric-label">{label}</span>
+        <strong className="ud-metric-value">{children}</strong>
+      </div>
     </div>
   )
 }
@@ -118,12 +135,11 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const quotaState = configuredAccount ? quotas[configuredAccount.username] : null
 
   const profileUrl = member?.url ?? `https://github.com/${memberLogin}`
+  const avatarUrl = member?.avatarUrl ?? `https://github.com/${memberLogin}.png?size=96`
 
   const cacheKey = `user-activity:${org}/${memberLogin}`
 
-  // Fetch directly on mount — user-initiated action, don't wait behind background tasks
   useEffect(() => {
-    // Check cache first (covers HMR and fast re-mount scenarios)
     const cached = dataCache.get<UserActivitySummary>(cacheKey)
     if (cached?.data) {
       setActivity(cached.data)
@@ -143,7 +159,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     }
 
     doFetch().then(result => {
-      dataCache.set(cacheKey, result, 5 * 60 * 1000) // 5 min TTL
+      dataCache.set(cacheKey, result, 5 * 60 * 1000)
       if (cancelled) return
       setActivity(result)
       setActivityPhase('ready')
@@ -159,37 +175,38 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     }
   }, [accounts, org, memberLogin, cacheKey])
 
+  const commitsToday = contributor?.commits ?? 0
+
   return (
     <div className="user-detail-container">
-      {/* Hero */}
-      <div className="user-detail-hero">
-        <div>
-          <div className="user-detail-kicker">
-            <UserRound size={14} />
-            <span>Member of {org}</span>
-          </div>
-          <h2 className="user-detail-title">
-            {memberLogin}
-            {member?.type && (
-              <span className="user-detail-type-badge">{member.type}</span>
-            )}
-          </h2>
-          <p className="user-detail-subtitle">
-            {contributor
-              ? `${contributor.commits} commit${contributor.commits !== 1 ? 's' : ''} today`
+      {/* ── Hero ── */}
+      <div className="ud-hero">
+        <img
+          className="ud-hero-avatar"
+          src={avatarUrl}
+          alt={memberLogin}
+          width={56}
+          height={56}
+        />
+        <div className="ud-hero-info">
+          <span className="ud-hero-kicker">Member of {org}</span>
+          <h2 className="ud-hero-title">{memberLogin}</h2>
+          <p className="ud-hero-subtitle">
+            {commitsToday > 0
+              ? `${commitsToday} commit${commitsToday !== 1 ? 's' : ''} today`
               : 'No commits today'}
           </p>
         </div>
-        <div className="user-detail-actions">
+        <div className="ud-hero-actions">
           <button
-            className="user-detail-link-btn"
+            className="ud-action-btn"
             onClick={() => window.shell.openExternal(profileUrl)}
           >
             <ExternalLink size={14} />
-            GitHub Profile
+            Profile
           </button>
           <button
-            className="user-detail-link-btn"
+            className="ud-action-btn"
             onClick={() =>
               window.dispatchEvent(
                 new CustomEvent('app:navigate', {
@@ -199,133 +216,116 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
             }
           >
             <Shield size={14} />
-            {org} Overview
+            {org}
           </button>
         </div>
       </div>
 
-      {/* Stat cards — always visible, progressive data */}
-      <div className="user-detail-metric-row">
-        <div className={`user-detail-metric ${contributor ? 'user-detail-metric-warm' : ''}`}>
-          <span className="user-detail-metric-label">Commits Today</span>
-          <strong className="user-detail-metric-value">
-            {contributor?.commits ?? 0}
-          </strong>
-        </div>
-        <div className="user-detail-metric">
-          <span className="user-detail-metric-label">Open PRs</span>
-          <strong className="user-detail-metric-value">
-            {activityPhase === 'ready' ? activity!.openPRCount : (
-              activityPhase === 'loading' ? <Loader2 size={14} className="spin" /> : '—'
-            )}
-          </strong>
-        </div>
-        <div className="user-detail-metric">
-          <span className="user-detail-metric-label">Merged (90d)</span>
-          <strong className="user-detail-metric-value">
-            {activityPhase === 'ready' ? activity!.mergedPRCount : (
-              activityPhase === 'loading' ? <Loader2 size={14} className="spin" /> : '—'
-            )}
-          </strong>
-        </div>
-        <div className="user-detail-metric">
-          <span className="user-detail-metric-label">Active Repos</span>
-          <strong className="user-detail-metric-value">
-            {activityPhase === 'ready' ? activity!.activeRepos.length : (
-              activityPhase === 'loading' ? <Loader2 size={14} className="spin" /> : '—'
-            )}
-          </strong>
-        </div>
-        <div className="user-detail-metric">
-          <span className="user-detail-metric-label">Account Type</span>
-          <strong className="user-detail-metric-value">
-            {member?.type ?? 'Unknown'}
-          </strong>
-        </div>
+      {/* ── Metrics ── */}
+      <div className="ud-metric-grid">
+        <MetricCard
+          icon={<GitCommitHorizontal size={18} />}
+          label="Commits Today"
+          variant={commitsToday > 0 ? 'warm' : undefined}
+        >
+          {commitsToday}
+        </MetricCard>
+        <MetricCard icon={<GitPullRequest size={18} />} label="Open PRs">
+          {activityPhase === 'ready'
+            ? activity!.openPRCount
+            : activityPhase === 'loading'
+              ? <Loader2 size={14} className="spin" />
+              : '—'}
+        </MetricCard>
+        <MetricCard icon={<GitMerge size={18} />} label="Merged (90d)" variant="cool">
+          {activityPhase === 'ready'
+            ? activity!.mergedPRCount
+            : activityPhase === 'loading'
+              ? <Loader2 size={14} className="spin" />
+              : '—'}
+        </MetricCard>
+        <MetricCard icon={<FolderGit2 size={18} />} label="Active Repos">
+          {activityPhase === 'ready'
+            ? activity!.activeRepos.length
+            : activityPhase === 'loading'
+              ? <Loader2 size={14} className="spin" />
+              : '—'}
+        </MetricCard>
       </div>
 
-      {/* Error banner */}
+      {/* ── Error ── */}
       {activityPhase === 'error' && activityError && (
         <div className="ud-error-banner">
           Failed to load activity: {activityError}
         </div>
       )}
 
-      {/* Content grid — PRs + Events */}
-      <div className="user-detail-section-grid">
-        {/* Authored PRs */}
-        <section className="user-detail-section">
-          <div className="user-detail-section-header">
-            <h3>
-              <GitPullRequest size={15} />
-              Pull Requests Authored
-            </h3>
-          </div>
+      {/* ── PR Grid (Authored + Reviewed) ── */}
+      <div className="ud-section-grid">
+        <section className="ud-section">
+          <h3 className="ud-section-title">
+            <GitPullRequest size={15} />
+            Authored
+          </h3>
           {activityPhase === 'loading' ? (
             <SectionLoader label="pull requests" />
           ) : activityPhase === 'ready' && activity!.recentPRsAuthored.length > 0 ? (
             <div className="ud-pr-list">
               {activity!.recentPRsAuthored.map(pr => (
-                <PRRow key={`${pr.repo}#${pr.number}`} pr={pr} />
+                <PRRow key={`a-${pr.repo}#${pr.number}`} pr={pr} />
               ))}
             </div>
           ) : activityPhase === 'ready' ? (
-            <div className="user-detail-empty">No recent pull requests authored in {org}.</div>
+            <p className="ud-empty">No recent pull requests.</p>
           ) : null}
         </section>
 
-        {/* Reviewed PRs */}
-        <section className="user-detail-section">
-          <div className="user-detail-section-header">
-            <h3>
-              <Eye size={15} />
-              Pull Requests Reviewed
-            </h3>
-          </div>
+        <section className="ud-section">
+          <h3 className="ud-section-title">
+            <Eye size={15} />
+            Reviewed
+          </h3>
           {activityPhase === 'loading' ? (
             <SectionLoader label="reviews" />
           ) : activityPhase === 'ready' && activity!.recentPRsReviewed.length > 0 ? (
             <div className="ud-pr-list">
               {activity!.recentPRsReviewed.map(pr => (
-                <PRRow key={`${pr.repo}#${pr.number}`} pr={pr} />
+                <PRRow key={`r-${pr.repo}#${pr.number}`} pr={pr} />
               ))}
             </div>
           ) : activityPhase === 'ready' ? (
-            <div className="user-detail-empty">No recent reviews in {org}.</div>
+            <p className="ud-empty">No recent reviews.</p>
           ) : null}
         </section>
       </div>
 
-      {/* Recent Events */}
-      <section className="user-detail-section">
-        <div className="user-detail-section-header">
-          <h3>
+      {/* ── Recent Activity (only when there are events) ── */}
+      {(activityPhase === 'loading' ||
+        (activityPhase === 'ready' && activity!.recentEvents.length > 0)) && (
+        <section className="ud-section">
+          <h3 className="ud-section-title">
             <Activity size={15} />
             Recent Activity
           </h3>
-        </div>
-        {activityPhase === 'loading' ? (
-          <SectionLoader label="activity" />
-        ) : activityPhase === 'ready' && activity!.recentEvents.length > 0 ? (
-          <div className="ud-event-list">
-            {activity!.recentEvents.slice(0, 15).map((event, i) => (
-              <EventRow key={`${event.createdAt}-${i}`} event={event} />
-            ))}
-          </div>
-        ) : activityPhase === 'ready' ? (
-          <div className="user-detail-empty">No recent public activity found for {memberLogin} in {org}.</div>
-        ) : null}
-      </section>
+          {activityPhase === 'loading' ? (
+            <SectionLoader label="activity" />
+          ) : (
+            <div className="ud-event-list">
+              {activity!.recentEvents.slice(0, 12).map((event, i) => (
+                <EventRow key={`${event.createdAt}-${i}`} event={event} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-      {/* Active Repos */}
+      {/* ── Active Repos ── */}
       {activityPhase === 'ready' && activity!.activeRepos.length > 0 && (
-        <section className="user-detail-section">
-          <div className="user-detail-section-header">
-            <h3>
-              <FolderGit2 size={15} />
-              Active Repositories
-            </h3>
-          </div>
+        <section className="ud-section">
+          <h3 className="ud-section-title">
+            <FolderGit2 size={15} />
+            Active Repositories
+          </h3>
           <div className="ud-repo-chips">
             {activity!.activeRepos.map(repo => (
               <button
@@ -339,6 +339,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
                   )
                 }
               >
+                <FolderGit2 size={12} />
                 {repo.split('/')[1] ?? repo}
               </button>
             ))}
@@ -346,26 +347,22 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
         </section>
       )}
 
-      {/* Copilot Quota — only shown if the user is a configured account */}
+      {/* ── Copilot Quota ── */}
       {configuredAccount && (
-        <section className="user-detail-section">
-          <div className="user-detail-section-header">
-            <h3>
-              <Sparkles size={15} />
-              Copilot Quota
-            </h3>
-          </div>
+        <section className="ud-section">
+          <h3 className="ud-section-title">
+            <Sparkles size={15} />
+            Copilot Quota
+          </h3>
           {quotaState ? (
-            <div className="user-detail-account-grid">
+            <div className="ud-quota-grid">
               <AccountQuotaCard
                 account={configuredAccount as GitHubAccount}
                 state={quotaState}
               />
             </div>
           ) : (
-            <div className="user-detail-empty">
-              Copilot quota data is not yet available for this account.
-            </div>
+            <p className="ud-empty">Copilot quota data is not yet available.</p>
           )}
         </section>
       )}

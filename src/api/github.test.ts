@@ -13,6 +13,7 @@ const mockOctokit = {
     get: vi.fn(),
     listReviews: vi.fn(),
     listFiles: vi.fn(),
+    createReview: vi.fn(),
   },
   users: {
     getAuthenticated: vi.fn(),
@@ -24,9 +25,12 @@ const mockOctokit = {
     listContributors: vi.fn(),
     getCombinedStatusForRef: vi.fn(),
     getCommit: vi.fn(),
+    listForOrg: vi.fn(),
   },
   actions: {
     listWorkflowRunsForRepo: vi.fn(),
+    listRepoWorkflows: vi.fn(),
+    listWorkflowRuns: vi.fn(),
   },
   checks: {
     listForRef: vi.fn(),
@@ -38,6 +42,18 @@ const mockOctokit = {
   orgs: {
     listMembers: vi.fn(),
     get: vi.fn(),
+  },
+  issues: {
+    listForRepo: vi.fn(),
+    get: vi.fn(),
+    listComments: vi.fn(),
+    createComment: vi.fn(),
+  },
+  rateLimit: {
+    get: vi.fn(),
+  },
+  activity: {
+    listPublicEventsForUser: vi.fn(),
   },
 }
 
@@ -786,6 +802,433 @@ describe('GitHubClient', () => {
 
     it('fetchNeedANudge delegates correctly', () => {
       expect(typeof client.fetchNeedANudge).toBe('function')
+    })
+  })
+
+  describe('fetchRepoIssues', () => {
+    it('returns mapped issues filtering out PRs', async () => {
+      mockOctokit.issues.listForRepo.mockResolvedValue({
+        data: [
+          {
+            number: 10,
+            title: 'Bug report',
+            state: 'open',
+            user: { login: 'reporter', avatar_url: 'https://av' },
+            html_url: 'https://github.com/myorg/repo/issues/10',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-02T00:00:00Z',
+            labels: [{ name: 'bug', color: 'ff0000' }],
+            comments: 3,
+            assignees: [{ login: 'dev1', avatar_url: 'https://av2' }],
+          },
+          {
+            number: 11,
+            title: 'PR disguised as issue',
+            state: 'open',
+            user: { login: 'author' },
+            html_url: 'h',
+            created_at: 'c',
+            updated_at: 'u',
+            labels: [],
+            comments: 0,
+            assignees: [],
+            pull_request: { url: 'https://api.github.com/repos/myorg/repo/pulls/11' },
+          },
+        ],
+      })
+
+      const result = await client.fetchRepoIssues('myorg', 'repo')
+      expect(result).toHaveLength(1)
+      expect(result[0].number).toBe(10)
+      expect(result[0].title).toBe('Bug report')
+      expect(result[0].author).toBe('reporter')
+      expect(result[0].labels).toEqual([{ name: 'bug', color: 'ff0000' }])
+      expect(result[0].commentCount).toBe(3)
+      expect(result[0].assignees[0].login).toBe('dev1')
+    })
+
+    it('handles missing user and assignees', async () => {
+      mockOctokit.issues.listForRepo.mockResolvedValue({
+        data: [
+          {
+            number: 20,
+            title: 'No user',
+            state: 'open',
+            user: null,
+            html_url: 'h',
+            created_at: 'c',
+            updated_at: 'u',
+            labels: ['string-label'],
+            comments: 0,
+            assignees: null,
+          },
+        ],
+      })
+
+      const result = await client.fetchRepoIssues('myorg', 'repo')
+      expect(result[0].author).toBe('unknown')
+      expect(result[0].assignees).toEqual([])
+    })
+  })
+
+  describe('fetchRepoIssueDetail', () => {
+    it('returns issue detail with comments', async () => {
+      mockOctokit.issues.get.mockResolvedValue({
+        data: {
+          number: 10,
+          title: 'Bug report',
+          state: 'open',
+          user: { login: 'reporter', avatar_url: 'https://av' },
+          html_url: 'https://github.com/myorg/repo/issues/10',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-02T00:00:00Z',
+          labels: [{ name: 'bug', color: 'ff0000' }],
+          body: 'Description of the bug',
+          comments: 1,
+          assignees: [],
+          milestone: null,
+          closed_at: null,
+          closed_by: null,
+        },
+      })
+
+      mockOctokit.issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: 100,
+            user: { login: 'commenter', avatar_url: 'https://av3' },
+            body: 'I can reproduce this',
+            created_at: '2026-01-01T12:00:00Z',
+            updated_at: '2026-01-01T12:00:00Z',
+          },
+        ],
+      })
+
+      const result = await client.fetchRepoIssueDetail('myorg', 'repo', 10)
+      expect(result.number).toBe(10)
+      expect(result.title).toBe('Bug report')
+      expect(result.body).toBe('Description of the bug')
+      expect(result.comments).toHaveLength(1)
+      expect(result.comments[0].author).toBe('commenter')
+    })
+  })
+
+  describe('replyToReviewThread', () => {
+    it('sends GraphQL mutation and returns mapped comment', async () => {
+      mockGraphql.mockResolvedValue({
+        addPullRequestReviewThreadReply: {
+          comment: {
+            id: 'comment-id-1',
+            author: { login: 'user1', avatarUrl: 'https://av' },
+            body: 'My reply',
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+            url: 'https://github.com/myorg/repo/pull/1#comment-1',
+          },
+        },
+      })
+
+      const result = await client.replyToReviewThread('myorg', 1, 'thread-id', 'My reply')
+      expect(result.id).toBe('comment-id-1')
+      expect(result.author).toBe('user1')
+      expect(result.body).toBe('My reply')
+      expect(result.reactions).toEqual([])
+      expect(mockGraphql).toHaveBeenCalledWith(
+        expect.stringContaining('addPullRequestReviewThreadReply'),
+        expect.objectContaining({ threadId: 'thread-id', body: 'My reply' })
+      )
+    })
+
+    it('handles null author', async () => {
+      mockGraphql.mockResolvedValue({
+        addPullRequestReviewThreadReply: {
+          comment: {
+            id: 'c2',
+            author: null,
+            body: 'reply',
+            createdAt: 'c',
+            updatedAt: 'u',
+            url: 'url',
+          },
+        },
+      })
+
+      const result = await client.replyToReviewThread('myorg', 1, 'tid', 'reply')
+      expect(result.author).toBe('unknown')
+      expect(result.authorAvatarUrl).toBeNull()
+    })
+  })
+
+  describe('resolveReviewThread', () => {
+    it('sends GraphQL mutation', async () => {
+      mockGraphql.mockResolvedValue({
+        resolveReviewThread: { thread: { id: 'tid', isResolved: true } },
+      })
+
+      await client.resolveReviewThread('myorg', 'thread-id')
+      expect(mockGraphql).toHaveBeenCalledWith(
+        expect.stringContaining('resolveReviewThread'),
+        expect.objectContaining({ threadId: 'thread-id' })
+      )
+    })
+  })
+
+  describe('unresolveReviewThread', () => {
+    it('sends GraphQL mutation', async () => {
+      mockGraphql.mockResolvedValue({
+        unresolveReviewThread: { thread: { id: 'tid', isResolved: false } },
+      })
+
+      await client.unresolveReviewThread('myorg', 'thread-id')
+      expect(mockGraphql).toHaveBeenCalledWith(
+        expect.stringContaining('unresolveReviewThread'),
+        expect.objectContaining({ threadId: 'thread-id' })
+      )
+    })
+  })
+
+  describe('addPRComment', () => {
+    it('creates issue comment and returns mapped result', async () => {
+      mockOctokit.issues.createComment.mockResolvedValue({
+        data: {
+          id: 999,
+          node_id: 'IC_kwDOabc',
+          user: { login: 'user1', avatar_url: 'https://av' },
+          body: 'Great work!',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          html_url: 'https://github.com/myorg/repo/pull/1#issuecomment-999',
+        },
+      })
+
+      const result = await client.addPRComment('myorg', 'repo', 1, 'Great work!')
+      expect(result.id).toBe('IC_kwDOabc')
+      expect(result.author).toBe('user1')
+      expect(result.body).toBe('Great work!')
+      expect(result.reactions).toEqual([])
+    })
+
+    it('falls back to string id when node_id is missing', async () => {
+      mockOctokit.issues.createComment.mockResolvedValue({
+        data: {
+          id: 888,
+          node_id: '',
+          user: null,
+          body: '',
+          created_at: 'c',
+          updated_at: 'u',
+          html_url: 'h',
+        },
+      })
+
+      const result = await client.addPRComment('myorg', 'repo', 1, 'test')
+      expect(result.id).toBe('888')
+      expect(result.author).toBe('unknown')
+    })
+  })
+
+  describe('addCommentReaction', () => {
+    it('sends GraphQL mutation with correct content', async () => {
+      mockGraphql.mockResolvedValue({
+        addReaction: { reaction: { content: 'THUMBS_UP' } },
+      })
+
+      await client.addCommentReaction('myorg', 'subject-id', 'THUMBS_UP')
+      expect(mockGraphql).toHaveBeenCalledWith(
+        expect.stringContaining('addReaction'),
+        expect.objectContaining({ subjectId: 'subject-id', content: 'THUMBS_UP' })
+      )
+    })
+  })
+
+  describe('approvePullRequest', () => {
+    it('creates an APPROVE review', async () => {
+      mockOctokit.pulls.createReview = vi.fn().mockResolvedValue({ data: {} })
+
+      await client.approvePullRequest('myorg', 'repo', 42)
+      expect(mockOctokit.pulls.createReview).toHaveBeenCalledWith({
+        owner: 'myorg',
+        repo: 'repo',
+        pull_number: 42,
+        event: 'APPROVE',
+        body: 'Approved',
+      })
+    })
+
+    it('accepts custom body', async () => {
+      mockOctokit.pulls.createReview = vi.fn().mockResolvedValue({ data: {} })
+
+      await client.approvePullRequest('myorg', 'repo', 42, 'LGTM!')
+      expect(mockOctokit.pulls.createReview).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'LGTM!' })
+      )
+    })
+  })
+
+  describe('getRateLimit', () => {
+    it('returns rate limit info', async () => {
+      mockOctokit.rateLimit.get.mockResolvedValue({
+        data: {
+          resources: {
+            core: { limit: 5000, remaining: 4999, reset: 1234567890, used: 1 },
+          },
+        },
+      })
+
+      const result = await client.getRateLimit('myorg')
+      expect(result.limit).toBe(5000)
+      expect(result.remaining).toBe(4999)
+      expect(result.used).toBe(1)
+    })
+  })
+
+  describe('fetchOrgRepos', () => {
+    it('returns repos for org', async () => {
+      mockOctokit.repos.listForOrg.mockResolvedValue({
+        data: [{ name: 'repo1', full_name: 'myorg/repo1', description: 'Test repo',
+          private: false, default_branch: 'main', language: 'TypeScript',
+          updated_at: '2026-01-01T00:00:00Z', html_url: 'https://github.com/myorg/repo1',
+          archived: false, stargazers_count: 5, forks_count: 1 }],
+      })
+      const result = await client.fetchOrgRepos('myorg')
+      expect(result.authenticatedAs).toBeDefined()
+      expect(result.repos.length).toBeGreaterThanOrEqual(1)
+      expect(result.repos[0].name).toBe('repo1')
+    })
+  })
+
+  describe('fetchOrgMembers', () => {
+    it('returns members for org', async () => {
+      mockOctokit.paginate.mockResolvedValue([
+        { login: 'member1', avatar_url: 'https://avatar', html_url: 'https://github.com/member1', type: 'User' },
+      ])
+      const result = await client.fetchOrgMembers('myorg')
+      expect(result.authenticatedAs).toBeDefined()
+      expect(result.members.length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('fetchSFLStatus', () => {
+    it('returns isSFLEnabled false when no SFL workflows found', async () => {
+      mockOctokit.actions.listRepoWorkflows = vi.fn().mockResolvedValue({
+        data: { workflows: [{ name: 'CI Build', id: 1, state: 'active' }] },
+      })
+      const result = await client.fetchSFLStatus('myorg', 'my-repo')
+      expect(result.isSFLEnabled).toBe(false)
+      expect(result.workflows).toHaveLength(0)
+    })
+
+    it('returns isSFLEnabled true when SFL workflows exist', async () => {
+      mockOctokit.actions.listRepoWorkflows = vi.fn().mockResolvedValue({
+        data: { workflows: [
+          { name: 'SFL Issue Processor', id: 10, state: 'active' },
+          { name: 'SFL PR Router', id: 11, state: 'active' },
+        ]},
+      })
+      mockOctokit.actions.listWorkflowRuns = vi.fn().mockResolvedValue({
+        data: { workflow_runs: [{
+          status: 'completed', conclusion: 'success',
+          created_at: '2026-01-01T00:00:00Z', html_url: 'https://github.com/myorg/repo/actions/runs/1',
+        }]},
+      })
+      const result = await client.fetchSFLStatus('myorg', 'my-repo')
+      expect(result.isSFLEnabled).toBe(true)
+      expect(result.workflows.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('fetchUserActivity', () => {
+    it('returns user activity summary', async () => {
+      const mockSearchResult = (items: unknown[], total_count = 1) => ({
+        data: { total_count, items },
+      })
+
+      const prItem = {
+        number: 42,
+        title: 'Fix bug',
+        repository_url: 'https://api.github.com/repos/myorg/repo1',
+        state: 'open',
+        pull_request: {},
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-02T00:00:00Z',
+        html_url: 'https://github.com/myorg/repo1/pull/42',
+      }
+
+      const mergedItem = {
+        number: 40,
+        title: 'Add feature',
+        repository_url: 'https://api.github.com/repos/myorg/repo2',
+        state: 'closed',
+        pull_request: { merged_at: '2026-01-01T00:00:00Z' },
+        created_at: '2025-12-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        html_url: 'https://github.com/myorg/repo2/pull/40',
+      }
+
+      let searchCallCount = 0
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(() => {
+        searchCallCount++
+        if (searchCallCount === 1) return Promise.resolve(mockSearchResult([prItem], 1))
+        if (searchCallCount === 2) return Promise.resolve(mockSearchResult([mergedItem], 1))
+        return Promise.resolve(mockSearchResult([], 0))
+      })
+
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({
+        data: [
+          { type: 'PushEvent', repo: { name: 'myorg/repo1' }, created_at: '2026-01-02T00:00:00Z', payload: { size: 3 } },
+          { type: 'PullRequestReviewEvent', repo: { name: 'myorg/repo1' }, created_at: '2026-01-01T00:00:00Z', payload: {} },
+        ],
+      })
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.recentPRsAuthored.length).toBeGreaterThanOrEqual(1)
+      expect(result.recentPRsAuthored[0].number).toBe(42)
+      expect(result.openPRCount).toBe(1)
+      expect(result.mergedPRCount).toBe(1)
+      expect(result.recentEvents.length).toBe(2)
+      expect(result.recentEvents[0].summary).toBe('Pushed 3 commits')
+      expect(result.activeRepos).toContain('myorg/repo1')
+    })
+
+    it('handles API errors gracefully', async () => {
+      mockOctokit.search.issuesAndPullRequests.mockRejectedValue(new Error('API error'))
+      mockOctokit.activity.listPublicEventsForUser.mockRejectedValue(new Error('API error'))
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.recentPRsAuthored).toEqual([])
+      expect(result.recentPRsReviewed).toEqual([])
+      expect(result.recentEvents).toEqual([])
+      expect(result.openPRCount).toBe(0)
+      expect(result.mergedPRCount).toBe(0)
+    })
+  })
+
+  describe('fetchOrgOverview', () => {
+    it('returns org overview metrics', async () => {
+      mockOctokit.repos.listForOrg.mockResolvedValue({
+        data: [{
+          name: 'repo1', full_name: 'myorg/repo1', description: 'Test',
+          private: false, default_branch: 'main', language: 'TypeScript',
+          updated_at: '2026-01-01T00:00:00Z', pushed_at: new Date().toISOString(),
+          html_url: 'https://github.com/myorg/repo1', archived: false,
+          stargazers_count: 5, forks_count: 1,
+        }],
+      })
+
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 3, items: [] },
+      })
+
+      mockOctokit.paginate.mockResolvedValue([{
+        sha: 'abc123',
+        author: { login: 'dev1', avatar_url: 'https://avatar', html_url: 'https://github.com/dev1' },
+        commit: { author: { name: 'dev1' }, message: 'fix bug' },
+      }])
+
+      const result = await client.fetchOrgOverview('myorg')
+      expect(result.metrics.org).toBe('myorg')
+      expect(result.metrics.repoCount).toBeGreaterThanOrEqual(1)
+      expect(result.authenticatedAs).toBeDefined()
     })
   })
 })

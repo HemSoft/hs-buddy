@@ -1,5 +1,27 @@
-import { describe, expect, it } from 'vitest'
-import { getFriendlyTaskLabel, formatCountdown, formatAge } from './useBackgroundStatus'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { renderHook } from '@testing-library/react'
+import { getFriendlyTaskLabel, formatCountdown, formatAge, useBackgroundStatus } from './useBackgroundStatus'
+
+// Mock dependencies for hook tests
+const mockQueue = {
+  runningCount: 0,
+  pendingCount: 0,
+  getRunningTaskName: vi.fn((): string | null => null),
+  getStats: vi.fn(() => ({ pending: 0, running: 0, completed: 0, failed: 0, cancelled: 0 })),
+}
+
+vi.mock('../services/taskQueue', () => ({
+  getTaskQueue: vi.fn(() => mockQueue),
+}))
+
+vi.mock('./useConfig', () => ({
+  usePRSettings: vi.fn(() => ({ refreshInterval: 5, loading: false })),
+}))
+
+const mockDataCacheGet = vi.fn()
+vi.mock('../services/dataCache', () => ({
+  dataCache: { get: (...args: unknown[]) => mockDataCacheGet(...args) },
+}))
 
 describe('getFriendlyTaskLabel', () => {
   it('returns null for null input', () => {
@@ -66,5 +88,53 @@ describe('formatAge', () => {
     expect(formatAge(3_600_000)).toBe('1h 0m ago')
     expect(formatAge(5_400_000)).toBe('1h 30m ago')
     expect(formatAge(7_260_000)).toBe('2h 1m ago')
+  })
+})
+
+describe('useBackgroundStatus', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    mockQueue.runningCount = 0
+    mockQueue.pendingCount = 0
+    mockQueue.getRunningTaskName.mockReturnValue(null)
+    mockDataCacheGet.mockReturnValue(null)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('returns idle phase when no tasks running', () => {
+    const { result } = renderHook(() => useBackgroundStatus())
+    expect(result.current.phase).toBe('idle')
+    expect(result.current.activeTasks).toBe(0)
+    expect(result.current.activeLabel).toBeNull()
+  })
+
+  it('returns syncing phase when tasks are active', () => {
+    mockQueue.runningCount = 1
+    mockQueue.pendingCount = 2
+    mockQueue.getRunningTaskName.mockReturnValue('my-prs')
+    const { result } = renderHook(() => useBackgroundStatus())
+    expect(result.current.phase).toBe('syncing')
+    expect(result.current.activeTasks).toBe(3)
+    expect(result.current.activeLabel).toBe('My PRs')
+  })
+
+  it('computes countdown from cache entries', () => {
+    mockDataCacheGet.mockReturnValue({ fetchedAt: Date.now() - 120_000, data: [] })
+    const { result } = renderHook(() => useBackgroundStatus())
+    expect(result.current.nextRefreshSecs).toBeDefined()
+    expect(result.current.lastRefreshedAt).toBeDefined()
+    expect(result.current.lastRefreshedLabel).toBeDefined()
+  })
+
+  it('shows null countdown when syncing', () => {
+    mockQueue.runningCount = 1
+    mockQueue.getRunningTaskName.mockReturnValue('needs-review')
+    const { result } = renderHook(() => useBackgroundStatus())
+    expect(result.current.nextRefreshSecs).toBeNull()
+    expect(result.current.nextRefreshLabel).toBeNull()
   })
 })

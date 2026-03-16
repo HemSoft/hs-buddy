@@ -179,4 +179,70 @@ describe('dataCache', () => {
       expect(mockInvoke).toHaveBeenCalledWith('cache:clear') // from beforeEach
     })
   })
+
+  describe('isInitialized', () => {
+    it('returns true after initialize() is called', async () => {
+      mockInvoke.mockResolvedValueOnce({}) // cache:read-all
+      await dataCache.initialize()
+      expect(dataCache.isInitialized()).toBe(true)
+    })
+  })
+
+  describe('set - error path', () => {
+    it('logs error when disk persist fails', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke.mockRejectedValueOnce(new Error('disk write failed'))
+
+      dataCache.set('fail-key', 'data', 1)
+
+      // Wait for the async disk persist to reject
+      await vi.waitFor(() => {
+        expect(spy).toHaveBeenCalledWith('[DataCache] Failed to persist to disk:', expect.any(Error))
+      })
+
+      spy.mockRestore()
+    })
+  })
+
+  describe('set - default fetchedAt', () => {
+    it('uses Date.now() when fetchedAt is not provided', () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const before = Date.now()
+      dataCache.set('auto-time', 'data')
+      const after = Date.now()
+
+      const entry = dataCache.get('auto-time')
+      expect(entry!.fetchedAt).toBeGreaterThanOrEqual(before)
+      expect(entry!.fetchedAt).toBeLessThanOrEqual(after)
+    })
+  })
+
+  describe('delete - error path', () => {
+    it('logs error when disk delete fails', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke.mockResolvedValueOnce(undefined) // set write
+      dataCache.set('del-err', 'data', 1)
+
+      mockInvoke.mockRejectedValueOnce(new Error('disk delete failed'))
+      dataCache.delete('del-err')
+
+      await vi.waitFor(() => {
+        expect(spy).toHaveBeenCalledWith('[DataCache] Failed to delete from disk:', expect.any(Error))
+      })
+
+      spy.mockRestore()
+    })
+  })
+
+  describe('clear - error path', () => {
+    it('logs error when disk clear fails', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke.mockRejectedValueOnce(new Error('disk clear failed'))
+
+      await dataCache.clear()
+
+      expect(spy).toHaveBeenCalledWith('[DataCache] Failed to clear disk cache:', expect.any(Error))
+      spy.mockRestore()
+    })
+  })
 })

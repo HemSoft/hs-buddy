@@ -168,6 +168,7 @@ export interface UserPRSummary {
 }
 
 export interface UserEvent {
+  id: string
   type: string
   repo: string
   createdAt: string
@@ -2624,6 +2625,7 @@ export class GitHubClient {
       .map(evt => {
         const repo = evt.repo as { name?: string } | undefined
         return {
+          id: String(evt.id ?? `${evt.type ?? 'Unknown'}:${repo?.name ?? ''}:${evt.created_at ?? ''}`),
           type: (evt.type as string) ?? 'Unknown',
           repo: repo?.name ?? '',
           createdAt: (evt.created_at as string) ?? '',

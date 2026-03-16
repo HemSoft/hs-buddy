@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import {
   Users,
   GitPullRequest,
@@ -27,6 +27,17 @@ interface WelcomePanelProps {
   onSectionChange: (sectionId: string) => void
 }
 
+type QuickAction = 'my-prs' | 'organizations' | 'jobs' | 'settings'
+
+interface WelcomeStatCardProps {
+  icon: ReactNode
+  value: string
+  label: string
+  subtitle?: string
+  cardClassName?: string
+  iconClassName?: string
+}
+
 function formatNumber(n: number): string {
   return n.toLocaleString()
 }
@@ -49,6 +60,299 @@ function formatMemberSince(epochMs: number): string {
   if (!epochMs) return 'Today'
   const date = new Date(epochMs)
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
+function WelcomeHeader({ liveUptime }: { liveUptime: number }) {
+  return (
+    <div className="welcome-header">
+      <div className="welcome-header-row">
+        <div className="welcome-icon">
+          <Users size={32} strokeWidth={2.5} />
+        </div>
+        <div className="welcome-header-text">
+          <h1 className="welcome-app-name">Buddy</h1>
+          <div className="welcome-tagline">
+            <span className="welcome-tagline-emoji">🤝</span>
+            <span>Your Universal Productivity Companion</span>
+          </div>
+        </div>
+        <div className="welcome-header-meta">
+          <div className="welcome-version-badge">v0.1.3</div>
+          {liveUptime > 0 && (
+            <div className="welcome-uptime-badge">
+              <Clock size={12} />
+              <span>{formatUptime(liveUptime)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WelcomeSectionHeading({
+  kicker,
+  title,
+  caption,
+}: {
+  kicker: string
+  title: string
+  caption: string
+}) {
+  return (
+    <div className="welcome-section-heading">
+      <div className="welcome-section-heading-copy">
+        <span className="welcome-section-kicker">{kicker}</span>
+        <h2 className="welcome-section-title">{title}</h2>
+      </div>
+      <span className="welcome-section-caption">{caption}</span>
+    </div>
+  )
+}
+
+function WelcomeStatCard({
+  icon,
+  value,
+  label,
+  subtitle,
+  cardClassName,
+  iconClassName,
+}: WelcomeStatCardProps) {
+  const cardClasses = ['welcome-stat-card', cardClassName].filter(Boolean).join(' ')
+  const iconClasses = ['welcome-stat-icon', iconClassName].filter(Boolean).join(' ')
+
+  return (
+    <div className={cardClasses}>
+      <div className={iconClasses}>{icon}</div>
+      <div className="welcome-stat-info">
+        <span className="welcome-stat-value">{value}</span>
+        <span className="welcome-stat-label">{label}</span>
+        {subtitle && <span className="welcome-stat-subtitle">{subtitle}</span>}
+      </div>
+    </div>
+  )
+}
+
+function CopilotUsageSection({
+  accountCount,
+  hasCopilotAccounts,
+  anyLoading,
+  onRefresh,
+  onOpenUsage,
+  totalUsed,
+  totalOverage,
+  projectedTotal,
+  projectedOverageCost,
+}: {
+  accountCount: number
+  hasCopilotAccounts: boolean
+  anyLoading: boolean
+  onRefresh: () => void
+  onOpenUsage: () => void
+  totalUsed: number
+  totalOverage: number
+  projectedTotal: number | null | undefined
+  projectedOverageCost: number | null | undefined
+}) {
+  return (
+    <section
+      className="welcome-section welcome-section-copilot"
+      aria-label="Copilot usage overview"
+    >
+      <WelcomeSectionHeading
+        kicker="Copilot usage"
+        title="Command Center"
+        caption="Live spend, projection, and account health at a glance"
+      />
+
+      <div className="welcome-usage-strip-header">
+        <div className="welcome-usage-strip-title">
+          <div className="welcome-stat-icon welcome-stat-icon-copilot">
+            <Sparkles size={18} />
+          </div>
+          <div className="welcome-usage-strip-copy">
+            <span className="welcome-usage-strip-name">Connected Accounts</span>
+            <span className="welcome-usage-strip-description">
+              {hasCopilotAccounts
+                ? `${accountCount} connected account${accountCount === 1 ? '' : 's'}`
+                : 'No accounts configured'}
+            </span>
+          </div>
+        </div>
+
+        <div className="welcome-usage-actions">
+          <button
+            type="button"
+            className="welcome-usage-btn"
+            onClick={onRefresh}
+            disabled={anyLoading || !hasCopilotAccounts}
+            title="Refresh Copilot usage data"
+          >
+            <RefreshCw size={14} className={anyLoading ? 'spin' : ''} />
+            <span>Refresh</span>
+          </button>
+          <button type="button" className="welcome-usage-btn" onClick={onOpenUsage}>
+            <span>{hasCopilotAccounts ? 'Open Usage' : 'Configure Accounts'}</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="welcome-usage-stats" aria-live="polite">
+        <WelcomeStatCard
+          icon={<Zap size={18} />}
+          value={totalUsed.toLocaleString()}
+          label="Total Used"
+          cardClassName="welcome-usage-stat-card"
+          iconClassName="welcome-stat-icon-copilot-soft"
+        />
+        <WelcomeStatCard
+          icon={<Sparkles size={18} />}
+          value={formatCurrency(totalOverage)}
+          label="Total Overage"
+          cardClassName="welcome-usage-stat-card"
+          iconClassName="welcome-stat-icon-copilot-soft"
+        />
+        <WelcomeStatCard
+          icon={<Activity size={18} />}
+          value={projectedTotal?.toLocaleString() ?? '...'}
+          label="Projected"
+          cardClassName="welcome-usage-stat-card"
+          iconClassName="welcome-stat-icon-copilot-soft"
+        />
+        <WelcomeStatCard
+          icon={<ArrowRight size={18} />}
+          value={
+            projectedOverageCost != null && projectedOverageCost > 0
+              ? formatCurrency(projectedOverageCost)
+              : '$0.00'
+          }
+          label="Est. Overage"
+          cardClassName="welcome-usage-stat-card welcome-usage-stat-card-accent"
+          iconClassName="welcome-stat-icon-overage"
+        />
+      </div>
+    </section>
+  )
+}
+
+function ActivityOverviewSection({
+  totalPrsViewed,
+  activePrs,
+  copilotPrReviews,
+  reposBrowsed,
+  runsTriggered,
+  totalFinished,
+  successRate,
+  bookmarks,
+  firstLaunch,
+  appLaunches,
+}: {
+  totalPrsViewed: number
+  activePrs: number
+  copilotPrReviews: number
+  reposBrowsed: number
+  runsTriggered: number
+  totalFinished: number
+  successRate: number
+  bookmarks: number
+  firstLaunch: number
+  appLaunches: number
+}) {
+  return (
+    <section
+      className="welcome-section welcome-section-activity"
+      aria-label="Buddy activity overview"
+    >
+      <WelcomeSectionHeading
+        kicker="Buddy activity"
+        title="Workspace Pulse"
+        caption="Pull requests, runs, bookmarks, and session history in one panel"
+      />
+
+      <div className="welcome-stats-grid">
+        <WelcomeStatCard
+          icon={<GitPullRequest size={18} />}
+          value={formatNumber(totalPrsViewed)}
+          label="PRs Viewed"
+        />
+        <WelcomeStatCard
+          icon={<Activity size={18} />}
+          value={formatNumber(activePrs)}
+          label="Active PRs"
+          iconClassName="welcome-stat-icon-live"
+        />
+        <WelcomeStatCard
+          icon={<Sparkles size={18} />}
+          value={formatNumber(copilotPrReviews)}
+          label="PRs Reviewed"
+        />
+        <WelcomeStatCard
+          icon={<FolderGit2 size={18} />}
+          value={formatNumber(reposBrowsed)}
+          label="Repos Browsed"
+        />
+        <WelcomeStatCard
+          icon={<Play size={18} />}
+          value={formatNumber(runsTriggered)}
+          label="Runs Executed"
+          subtitle={totalFinished > 0 ? `${successRate}%` : undefined}
+        />
+        <WelcomeStatCard
+          icon={<Star size={18} />}
+          value={formatNumber(bookmarks)}
+          label="Bookmarks"
+        />
+        <WelcomeStatCard
+          icon={<Calendar size={18} />}
+          value={formatMemberSince(firstLaunch)}
+          label="Member Since"
+          subtitle={
+            appLaunches > 0
+              ? `${formatNumber(appLaunches)} session${appLaunches !== 1 ? 's' : ''}`
+              : undefined
+          }
+        />
+      </div>
+    </section>
+  )
+}
+
+function QuickActionsBar({ onQuickAction }: { onQuickAction: (action: QuickAction) => void }) {
+  return (
+    <div className="welcome-quick-actions">
+      <button type="button" className="welcome-action-btn" onClick={() => onQuickAction('my-prs')}>
+        <GitPullRequest size={16} />
+        <span>My PRs</span>
+      </button>
+      <button
+        type="button"
+        className="welcome-action-btn"
+        onClick={() => onQuickAction('organizations')}
+      >
+        <Building2 size={16} />
+        <span>Organizations</span>
+      </button>
+      <button type="button" className="welcome-action-btn" onClick={() => onQuickAction('jobs')}>
+        <Zap size={16} />
+        <span>Jobs</span>
+      </button>
+      <button type="button" className="welcome-action-btn" onClick={() => onQuickAction('settings')}>
+        <Settings size={16} />
+        <span>Settings</span>
+      </button>
+    </div>
+  )
+}
+
+function WelcomeFooter() {
+  return (
+    <div className="welcome-footer">
+      <span>Made with</span>
+      <Heart size={12} className="welcome-heart" />
+      <span>by HemSoft Developments</span>
+    </div>
+  )
 }
 
 export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomePanelProps) {
@@ -96,7 +400,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   const successRate = totalFinished > 0 ? Math.round((runsCompleted / totalFinished) * 100) : 0
   const hasCopilotAccounts = accounts.length > 0
 
-  const handleQuickAction = (action: string) => {
+  const handleQuickAction = (action: QuickAction) => {
     switch (action) {
       case 'my-prs':
         onSectionChange('github')
@@ -131,244 +435,32 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
     <div className="welcome-panel">
       <div className="welcome-stack">
         <div className="welcome-card">
-          <div className="welcome-header">
-            <div className="welcome-header-row">
-              <div className="welcome-icon">
-                <Users size={32} strokeWidth={2.5} />
-              </div>
-              <div className="welcome-header-text">
-                <h1 className="welcome-app-name">Buddy</h1>
-                <div className="welcome-tagline">
-                  <span className="welcome-tagline-emoji">🤝</span>
-                  <span>Your Universal Productivity Companion</span>
-                </div>
-              </div>
-              <div className="welcome-header-meta">
-                <div className="welcome-version-badge">v0.1.3</div>
-                {liveUptime > 0 && (
-                  <div className="welcome-uptime-badge">
-                    <Clock size={12} />
-                    <span>{formatUptime(liveUptime)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <section className="welcome-section welcome-section-copilot" aria-label="Copilot usage overview">
-            <div className="welcome-section-heading">
-              <div className="welcome-section-heading-copy">
-                <span className="welcome-section-kicker">Copilot usage</span>
-                <h2 className="welcome-section-title">Command Center</h2>
-              </div>
-              <span className="welcome-section-caption">
-                Live spend, projection, and account health at a glance
-              </span>
-            </div>
-
-            <div className="welcome-usage-strip-header">
-              <div className="welcome-usage-strip-title">
-                <div className="welcome-stat-icon welcome-stat-icon-copilot">
-                  <Sparkles size={18} />
-                </div>
-                <div className="welcome-usage-strip-copy">
-                  <span className="welcome-usage-strip-name">Connected Accounts</span>
-                  <span className="welcome-usage-strip-description">
-                    {hasCopilotAccounts
-                      ? `${accounts.length} connected account${accounts.length === 1 ? '' : 's'}`
-                      : 'No accounts configured'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="welcome-usage-actions">
-                <button
-                  className="welcome-usage-btn"
-                  onClick={refreshAll}
-                  disabled={anyLoading || !hasCopilotAccounts}
-                  title="Refresh Copilot usage data"
-                >
-                  <RefreshCw size={14} className={anyLoading ? 'spin' : ''} />
-                  <span>Refresh</span>
-                </button>
-                <button className="welcome-usage-btn" onClick={handleCopilotUsageAction}>
-                  <span>{hasCopilotAccounts ? 'Open Usage' : 'Configure Accounts'}</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className="welcome-usage-stats" aria-live="polite">
-              <div className="welcome-stat-card welcome-usage-stat-card">
-                <div className="welcome-stat-icon welcome-stat-icon-copilot-soft">
-                  <Zap size={18} />
-                </div>
-                <div className="welcome-stat-info">
-                  <span className="welcome-stat-value">
-                    {aggregateTotals.totalUsed.toLocaleString()}
-                  </span>
-                  <span className="welcome-stat-label">Total Used</span>
-                </div>
-              </div>
-
-              <div className="welcome-stat-card welcome-usage-stat-card">
-                <div className="welcome-stat-icon welcome-stat-icon-copilot-soft">
-                  <Sparkles size={18} />
-                </div>
-                <div className="welcome-stat-info">
-                  <span className="welcome-stat-value">
-                    {formatCurrency(aggregateTotals.totalOverageCost)}
-                  </span>
-                  <span className="welcome-stat-label">Total Overage</span>
-                </div>
-              </div>
-
-              <div className="welcome-stat-card welcome-usage-stat-card">
-                <div className="welcome-stat-icon welcome-stat-icon-copilot-soft">
-                  <Activity size={18} />
-                </div>
-                <div className="welcome-stat-info">
-                  <span className="welcome-stat-value">
-                    {aggregateProjections?.projectedTotal?.toLocaleString() ?? '...'}
-                  </span>
-                  <span className="welcome-stat-label">Projected</span>
-                </div>
-              </div>
-
-              <div className="welcome-stat-card welcome-usage-stat-card welcome-usage-stat-card-accent">
-                <div className="welcome-stat-icon welcome-stat-icon-overage">
-                  <ArrowRight size={18} />
-                </div>
-                <div className="welcome-stat-info">
-                  <span className="welcome-stat-value">
-                    {aggregateProjections?.projectedOverageCost != null &&
-                    aggregateProjections.projectedOverageCost > 0
-                      ? formatCurrency(aggregateProjections.projectedOverageCost)
-                      : '$0.00'}
-                  </span>
-                  <span className="welcome-stat-label">Est. Overage</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="welcome-section welcome-section-activity" aria-label="Buddy activity overview">
-            <div className="welcome-section-heading">
-              <div className="welcome-section-heading-copy">
-                <span className="welcome-section-kicker">Buddy activity</span>
-                <h2 className="welcome-section-title">Workspace Pulse</h2>
-              </div>
-              <span className="welcome-section-caption">
-                Pull requests, runs, bookmarks, and session history in one panel
-              </span>
-            </div>
-
-            <div className="welcome-stats-grid">
-            <div className="welcome-stat-card">
-              <div className="welcome-stat-icon">
-                <GitPullRequest size={18} />
-              </div>
-              <div className="welcome-stat-info">
-                <span className="welcome-stat-value">{formatNumber(totalPrsViewed)}</span>
-                <span className="welcome-stat-label">PRs Viewed</span>
-              </div>
-            </div>
-
-            <div className="welcome-stat-card">
-              <div className="welcome-stat-icon welcome-stat-icon-live">
-                <Activity size={18} />
-              </div>
-              <div className="welcome-stat-info">
-                <span className="welcome-stat-value">{formatNumber(activePrs)}</span>
-                <span className="welcome-stat-label">Active PRs</span>
-              </div>
-            </div>
-
-            <div className="welcome-stat-card">
-              <div className="welcome-stat-icon">
-                <Sparkles size={18} />
-              </div>
-              <div className="welcome-stat-info">
-                <span className="welcome-stat-value">{formatNumber(copilotPrReviews)}</span>
-                <span className="welcome-stat-label">PRs Reviewed</span>
-              </div>
-            </div>
-
-            <div className="welcome-stat-card">
-              <div className="welcome-stat-icon">
-                <FolderGit2 size={18} />
-              </div>
-              <div className="welcome-stat-info">
-                <span className="welcome-stat-value">{formatNumber(reposBrowsed)}</span>
-                <span className="welcome-stat-label">Repos Browsed</span>
-              </div>
-            </div>
-
-            <div className="welcome-stat-card">
-              <div className="welcome-stat-icon">
-                <Play size={18} />
-              </div>
-              <div className="welcome-stat-info">
-                <span className="welcome-stat-value">{formatNumber(runsTriggered)}</span>
-                <span className="welcome-stat-label">Runs Executed</span>
-                {totalFinished > 0 && <span className="welcome-stat-subtitle">{successRate}%</span>}
-              </div>
-            </div>
-
-            <div className="welcome-stat-card">
-              <div className="welcome-stat-icon">
-                <Star size={18} />
-              </div>
-              <div className="welcome-stat-info">
-                <span className="welcome-stat-value">{formatNumber(bookmarks)}</span>
-                <span className="welcome-stat-label">Bookmarks</span>
-              </div>
-            </div>
-
-            <div className="welcome-stat-card">
-              <div className="welcome-stat-icon">
-                <Calendar size={18} />
-              </div>
-              <div className="welcome-stat-info">
-                <span className="welcome-stat-value">{formatMemberSince(firstLaunch)}</span>
-                <span className="welcome-stat-label">Member Since</span>
-                {appLaunches > 0 && (
-                  <span className="welcome-stat-subtitle">
-                    {formatNumber(appLaunches)} session{appLaunches !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-            </div>
-            </div>
-          </section>
-
-          <div className="welcome-quick-actions">
-            <button className="welcome-action-btn" onClick={() => handleQuickAction('my-prs')}>
-              <GitPullRequest size={16} />
-              <span>My PRs</span>
-            </button>
-            <button
-              className="welcome-action-btn"
-              onClick={() => handleQuickAction('organizations')}
-            >
-              <Building2 size={16} />
-              <span>Organizations</span>
-            </button>
-            <button className="welcome-action-btn" onClick={() => handleQuickAction('jobs')}>
-              <Zap size={16} />
-              <span>Jobs</span>
-            </button>
-            <button className="welcome-action-btn" onClick={() => handleQuickAction('settings')}>
-              <Settings size={16} />
-              <span>Settings</span>
-            </button>
-          </div>
-
-          <div className="welcome-footer">
-            <span>Made with</span>
-            <Heart size={12} className="welcome-heart" />
-            <span>by HemSoft Developments</span>
-          </div>
+          <WelcomeHeader liveUptime={liveUptime} />
+          <CopilotUsageSection
+            accountCount={accounts.length}
+            hasCopilotAccounts={hasCopilotAccounts}
+            anyLoading={anyLoading}
+            onRefresh={refreshAll}
+            onOpenUsage={handleCopilotUsageAction}
+            totalUsed={aggregateTotals.totalUsed}
+            totalOverage={aggregateTotals.totalOverageCost}
+            projectedTotal={aggregateProjections?.projectedTotal}
+            projectedOverageCost={aggregateProjections?.projectedOverageCost}
+          />
+          <ActivityOverviewSection
+            totalPrsViewed={totalPrsViewed}
+            activePrs={activePrs}
+            copilotPrReviews={copilotPrReviews}
+            reposBrowsed={reposBrowsed}
+            runsTriggered={runsTriggered}
+            totalFinished={totalFinished}
+            successRate={successRate}
+            bookmarks={bookmarks}
+            firstLaunch={firstLaunch}
+            appLaunches={appLaunches}
+          />
+          <QuickActionsBar onQuickAction={handleQuickAction} />
+          <WelcomeFooter />
         </div>
       </div>
     </div>

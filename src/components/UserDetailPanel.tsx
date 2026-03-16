@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useReducer } from 'react'
 import {
   ExternalLink,
   GitCommitHorizontal,
@@ -35,6 +35,64 @@ interface UserDetailPanelProps {
 
 type LoadPhase = 'idle' | 'loading' | 'ready' | 'error'
 
+interface ActivityState {
+  activity: UserActivitySummary | null
+  phase: LoadPhase
+  error: string | null
+}
+
+type ActivityAction =
+  | { type: 'RESET_FROM_CACHE'; payload: UserActivitySummary }
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; payload: UserActivitySummary }
+  | { type: 'FETCH_ERROR'; payload: string }
+
+function createInitialActivityState(cacheKey: string): ActivityState {
+  const cached = dataCache.get<UserActivitySummary>(cacheKey)
+  if (cached?.data) {
+    return {
+      activity: cached.data,
+      phase: 'ready',
+      error: null,
+    }
+  }
+
+  return {
+    activity: null,
+    phase: 'idle',
+    error: null,
+  }
+}
+
+function activityReducer(state: ActivityState, action: ActivityAction): ActivityState {
+  switch (action.type) {
+    case 'RESET_FROM_CACHE':
+      return {
+        activity: action.payload,
+        phase: 'ready',
+        error: null,
+      }
+    case 'FETCH_START':
+      return {
+        ...state,
+        phase: 'loading',
+        error: null,
+      }
+    case 'FETCH_SUCCESS':
+      return {
+        activity: action.payload,
+        phase: 'ready',
+        error: null,
+      }
+    case 'FETCH_ERROR':
+      return {
+        ...state,
+        phase: 'error',
+        error: action.payload,
+      }
+  }
+}
+
 function PRStateIcon({ state }: { state: string }) {
   switch (state) {
     case 'merged':
@@ -49,6 +107,7 @@ function PRStateIcon({ state }: { state: string }) {
 function PRRow({ pr }: { pr: UserPRSummary }) {
   return (
     <button
+      type="button"
       className="ud-pr-row"
       onClick={() => window.shell.openExternal(pr.url)}
       title={`${pr.repo}#${pr.number}`}
@@ -102,10 +161,9 @@ function MetricCard({ icon, label, children, variant }: {
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { quotas } = useCopilotUsage()
-
-  const [activity, setActivity] = useState<UserActivitySummary | null>(null)
-  const [activityPhase, setActivityPhase] = useState<LoadPhase>('idle')
-  const [activityError, setActivityError] = useState<string | null>(null)
+  const cacheKey = `user-activity:${org}/${memberLogin}`
+  const [activityState, dispatch] = useReducer(activityReducer, cacheKey, createInitialActivityState)
+  const { activity, phase: activityPhase, error: activityError } = activityState
 
   const members = useMemo(
     () => dataCache.get<OrgMemberResult>(`org-members:${org}`)?.data ?? null,
@@ -139,39 +197,39 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
 
   const cacheKey = `user-activity:${org}/${memberLogin}`
 
+  // Fetch directly on mount — user-initiated action, don't wait behind background tasks
   useEffect(() => {
     const cached = dataCache.get<UserActivitySummary>(cacheKey)
     if (cached?.data) {
-      setActivity(cached.data)
-      setActivityPhase('ready')
+      dispatch({ type: 'RESET_FROM_CACHE', payload: cached.data })
       return
     }
 
-    setActivityPhase('loading')
-    setActivityError(null)
+    dispatch({ type: 'FETCH_START' })
 
     let cancelled = false
-    const controller = new AbortController()
 
     const doFetch = async () => {
       const client = new GitHubClient({ accounts }, 7)
       return await client.fetchUserActivity(org, memberLogin)
     }
 
-    doFetch().then(result => {
-      dataCache.set(cacheKey, result, 5 * 60 * 1000)
-      if (cancelled) return
-      setActivity(result)
-      setActivityPhase('ready')
-    }).catch(err => {
-      if (cancelled) return
-      setActivityPhase('error')
-      setActivityError(err instanceof Error ? err.message : String(err))
-    })
+    doFetch()
+      .then(result => {
+        dataCache.set(cacheKey, result, 5 * 60 * 1000) // 5 min TTL
+        if (cancelled) return
+        dispatch({ type: 'FETCH_SUCCESS', payload: result })
+      })
+      .catch(err => {
+        if (cancelled) return
+        dispatch({
+          type: 'FETCH_ERROR',
+          payload: err instanceof Error ? err.message : String(err),
+        })
+      })
 
     return () => {
       cancelled = true
-      controller.abort()
     }
   }, [accounts, org, memberLogin, cacheKey])
 
@@ -199,14 +257,16 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
         </div>
         <div className="ud-hero-actions">
           <button
-            className="ud-action-btn"
+            type="button"
+            className="user-detail-link-btn"
             onClick={() => window.shell.openExternal(profileUrl)}
           >
             <ExternalLink size={14} />
             Profile
           </button>
           <button
-            className="ud-action-btn"
+            type="button"
+            className="user-detail-link-btn"
             onClick={() =>
               window.dispatchEvent(
                 new CustomEvent('app:navigate', {
@@ -329,6 +389,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
           <div className="ud-repo-chips">
             {activity!.activeRepos.map(repo => (
               <button
+                type="button"
                 key={repo}
                 className="ud-repo-chip"
                 onClick={() =>

@@ -50,6 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
     steps:
       - name: Download agent output artifact
         continue-on-error: true

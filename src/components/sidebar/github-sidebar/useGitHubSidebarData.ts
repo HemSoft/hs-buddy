@@ -40,6 +40,10 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === ABORT_ERROR_NAME
 }
 
+function getUniqueOrgs(accounts: Array<{ org?: string }>): string[] {
+  return (Array.from(new Set(accounts.map(a => a.org))).filter(Boolean) as string[]).sort()
+}
+
 function mapRepoPRToPullRequest(pr: RepoPullRequest, org: string): PullRequest {
   return {
     source: 'GitHub',
@@ -143,9 +147,7 @@ export function useGitHubSidebarData() {
     'pr-recently-merged': dataCache.get<PullRequest[]>('recently-merged')?.data || [],
   }))
 
-  const uniqueOrgs: string[] = (
-    Array.from(new Set(accounts.map((a: { org?: string }) => a.org))).filter(Boolean) as string[]
-  ).sort()
+  const uniqueOrgs = getUniqueOrgs(accounts)
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -246,9 +248,7 @@ export function useGitHubSidebarData() {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
     const refreshAllOrgs = () => {
-      const orgs = (
-        Array.from(new Set(accounts.map(a => a.org))).filter(Boolean) as string[]
-      ).sort()
+      const orgs = getUniqueOrgs(accounts)
       for (const org of orgs) {
         const cacheKey = `org-repos:${org}`
         if (dataCache.isFresh(cacheKey, intervalMs)) continue

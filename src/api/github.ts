@@ -10,6 +10,18 @@ import {
   deriveSFLOverallStatus,
 } from '../types/sflStatus'
 
+/** Max retries when the primary rate limit is hit. */
+const PRIMARY_RATE_LIMIT_RETRIES = 3
+
+/** Max retries when a secondary (abuse) rate limit is hit. */
+const SECONDARY_RATE_LIMIT_RETRIES = 2
+
+/** Total automatic retries for transient errors. */
+const TOTAL_RETRIES = 3
+
+/** Status codes that should never be retried. */
+const DO_NOT_RETRY_CODES = ['404', '429']
+
 // Repository info type for org repo listing
 export interface OrgRepo {
   name: string
@@ -547,6 +559,58 @@ export type ProgressCallback = (progress: {
   error?: string
 }) => void
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function eventSummary(evt: any): string {
+  switch (evt.type) {
+    case 'PushEvent': {
+      const size = evt.payload?.size ?? 0
+      return `Pushed ${size} commit${size !== 1 ? 's' : ''}`
+    }
+    case 'PullRequestEvent': {
+      const action = evt.payload?.action ?? 'updated'
+      return `${action.charAt(0).toUpperCase() + action.slice(1)} pull request`
+    }
+    case 'PullRequestReviewEvent':
+      return 'Reviewed a pull request'
+    case 'IssuesEvent': {
+      const action = evt.payload?.action ?? 'updated'
+      return `${action.charAt(0).toUpperCase() + action.slice(1)} an issue`
+    }
+    case 'IssueCommentEvent':
+      return 'Commented on an issue'
+    case 'CreateEvent': {
+      const refType = evt.payload?.ref_type ?? 'ref'
+      return `Created a ${refType}`
+    }
+    case 'DeleteEvent': {
+      const refType = evt.payload?.ref_type ?? 'ref'
+      return `Deleted a ${refType}`
+    }
+    case 'WatchEvent':
+      return 'Starred a repository'
+    case 'ForkEvent':
+      return 'Forked a repository'
+    case 'ReleaseEvent':
+      return 'Published a release'
+    default:
+      return evt.type?.replace(/Event$/, '') ?? 'Activity'
+  }
+}
+
+function determineCheckOverallState(
+  totalCount: number,
+  failedCount: number,
+  pendingCount: number,
+  successfulCount: number,
+  combinedState: string
+): PRChecksSummary['overallState'] {
+  if (totalCount === 0) return 'none'
+  if (failedCount > 0 || combinedState === 'failure' || combinedState === 'error') return 'failing'
+  if (pendingCount > 0 || combinedState === 'pending') return 'pending'
+  if (successfulCount > 0) return 'passing'
+  return 'neutral'
+}
+
 export class GitHubClient {
   private config: PRConfig['github']
   private recentlyMergedDays: number = 7
@@ -774,24 +838,28 @@ export class GitHubClient {
       throttle: {
         onRateLimit: (retryAfter, options, _octokit, retryCount) => {
           console.warn(`Rate limit hit for ${options.method} ${options.url}`)
-          if (retryCount < 3) {
-            console.info(`Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/3)`)
+          if (retryCount < PRIMARY_RATE_LIMIT_RETRIES) {
+            console.info(
+              `Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/${PRIMARY_RATE_LIMIT_RETRIES})`
+            )
             return true
           }
           return false
         },
         onSecondaryRateLimit: (retryAfter, options, _octokit, retryCount) => {
           console.warn(`Secondary rate limit hit for ${options.method} ${options.url}`)
-          if (retryCount < 2) {
-            console.info(`Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/2)`)
+          if (retryCount < SECONDARY_RATE_LIMIT_RETRIES) {
+            console.info(
+              `Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/${SECONDARY_RATE_LIMIT_RETRIES})`
+            )
             return true
           }
           return false
         },
       },
       retry: {
-        doNotRetry: ['404', '429'],
-        retries: 3,
+        doNotRetry: DO_NOT_RETRY_CODES,
+        retries: TOTAL_RETRIES,
       },
     })
   }
@@ -1425,18 +1493,13 @@ export class GitHubClient {
     }
 
     const totalCount = checkRuns.length + statusContexts.length
-    const overallState: PRChecksSummary['overallState'] =
-      totalCount === 0
-        ? 'none'
-        : failedCount > 0 ||
-            combinedStatusResponse.data.state === 'failure' ||
-            combinedStatusResponse.data.state === 'error'
-          ? 'failing'
-          : pendingCount > 0 || combinedStatusResponse.data.state === 'pending'
-            ? 'pending'
-            : successfulCount > 0
-              ? 'passing'
-              : 'neutral'
+    const overallState = determineCheckOverallState(
+      totalCount,
+      failedCount,
+      pendingCount,
+      successfulCount,
+      combinedStatusResponse.data.state
+    )
 
     return {
       headSha,
@@ -2576,44 +2639,6 @@ export class GitHubClient {
       ...authoredMerged.data.items.map(mapPR),
     ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 15)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const eventSummary = (evt: any): string => {
-      switch (evt.type) {
-        case 'PushEvent': {
-          const size = evt.payload?.size ?? 0
-          return `Pushed ${size} commit${size !== 1 ? 's' : ''}`
-        }
-        case 'PullRequestEvent': {
-          const action = evt.payload?.action ?? 'updated'
-          return `${action.charAt(0).toUpperCase() + action.slice(1)} pull request`
-        }
-        case 'PullRequestReviewEvent':
-          return 'Reviewed a pull request'
-        case 'IssuesEvent': {
-          const action = evt.payload?.action ?? 'updated'
-          return `${action.charAt(0).toUpperCase() + action.slice(1)} an issue`
-        }
-        case 'IssueCommentEvent':
-          return 'Commented on an issue'
-        case 'CreateEvent': {
-          const refType = evt.payload?.ref_type ?? 'ref'
-          return `Created a ${refType}`
-        }
-        case 'DeleteEvent': {
-          const refType = evt.payload?.ref_type ?? 'ref'
-          return `Deleted a ${refType}`
-        }
-        case 'WatchEvent':
-          return 'Starred a repository'
-        case 'ForkEvent':
-          return 'Forked a repository'
-        case 'ReleaseEvent':
-          return 'Published a release'
-        default:
-          return evt.type?.replace(/Event$/, '') ?? 'Activity'
-      }
-    }
 
     // Filter events to only those in the org
     const orgPrefix = `${org}/`

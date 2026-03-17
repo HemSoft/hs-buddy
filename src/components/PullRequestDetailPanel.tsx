@@ -33,14 +33,6 @@ function formatRelative(date: string | null): string {
   return formatDistanceToNow(date)
 }
 
-const SECTION_LABELS: Record<PRDetailSection, string> = {
-  conversation: 'Conversation',
-  commits: 'Commits',
-  checks: 'Checks',
-  'files-changed': 'Files changed',
-  'ai-reviews': 'AI Reviews',
-}
-
 export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')

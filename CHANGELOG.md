@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.379] - 2026-03-17
+
+### Fixed
+
+- Remove duplicate SECTION_LABELS and fix SettingsAppearance type mismatch
+
+## [0.1.378] - 2026-03-17
+
+### Fixed
+
+- Remove duplicate SECTION_LABELS and fix SettingsAppearance type mismatch
+
 ## [0.1.377] - 2026-03-16
 
 ## [0.1.376] - 2026-03-16

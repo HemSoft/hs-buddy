@@ -204,7 +204,7 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
 
   const makeColorHandler = (
     field: 'accentColor' | 'fontColor' | 'bgPrimary' | 'bgSecondary',
-    apiMethod: (color: string) => Promise<void>
+    apiMethod: (color: string) => Promise<unknown>
   ) => {
     return async (color: string) => {
       dispatch({ type: 'SET_FIELD', field, value: color })

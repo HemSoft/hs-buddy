@@ -28,6 +28,7 @@ That repo contains:
 | Workflow | Schedule | Output | Source |
 | ---------- | ---------- | -------- | -------- |
 | `react-doctor-audit` (`React Doctor Audit`) | Daily 1:00 AM EDT | Rolling React Doctor issue stream; older issues stay open while an active agent PR still depends on them | Local |
+| `test-coverage-audit` (`Test Coverage Audit`) | Every 4 hours | Single `agent:fixable` test-coverage issue | Local |
 | `simplisticate-audit` (`Simplisticate Audit`) | Daily 2:00 AM EDT | Single `agent:fixable` simplification issue | Local |
 | `daily-repo-status` (`SFL Repo Status`) | Daily 3:00 AM EDT | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `repo-audit` (`Repo Audit`) | Daily 4:00 AM EDT | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |

@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as bitbucketWorkspaces from "../bitbucketWorkspaces.js";
 import type * as buddyStats from "../buddyStats.js";
 import type * as copilotResults from "../copilotResults.js";
 import type * as copilotUsageHistory from "../copilotUsageHistory.js";
@@ -32,7 +31,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  bitbucketWorkspaces: typeof bitbucketWorkspaces;
   buddyStats: typeof buddyStats;
   copilotResults: typeof copilotResults;
   copilotUsageHistory: typeof copilotUsageHistory;

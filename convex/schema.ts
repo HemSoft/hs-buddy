@@ -6,7 +6,6 @@ import { v } from "convex/values";
  * 
  * Tables:
  * - githubAccounts: GitHub account configurations
- * - bitbucketWorkspaces: Bitbucket workspace configurations
  * - settings: Application settings (non-UI, synced across sessions)
  * - jobs: Task definitions (name, worker type, config)
  * - schedules: Cron config, enabled state, linked job
@@ -26,19 +25,6 @@ export default defineSchema({
   })
     .index("by_username", ["username"])
     .index("by_org", ["org"]),
-
-  /**
-   * Bitbucket workspace configurations
-   * Note: Tokens are NOT stored - uses app passwords via keychain
-   */
-  bitbucketWorkspaces: defineTable({
-    workspace: v.string(),
-    username: v.string(),
-    userDisplayName: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_workspace", ["workspace"]),
 
   /**
    * Application settings (non-UI settings that should persist)

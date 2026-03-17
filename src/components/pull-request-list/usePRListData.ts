@@ -276,7 +276,6 @@ export function usePRListData(
         }
         const config = {
           github: { accounts },
-          bitbucket: { workspaces: [] },
         }
         const githubClient = new GitHubClient(config.github, recentlyMergedDays)
         console.log(

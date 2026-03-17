@@ -1,5 +1,5 @@
 import Store from 'electron-store';
-import type { AppConfig, GitHubAccount, BitbucketWorkspace, DisplayRect } from '../src/types/config';
+import type { AppConfig, GitHubAccount, DisplayRect } from '../src/types/config';
 import { configSchema, defaultConfig } from '../src/types/config';
 
 /** Shared Convex URL — single source of truth for the main process. */
@@ -60,27 +60,6 @@ class ConfigManager {
     }
     accounts[index] = { ...accounts[index], ...updates };
     this.store.set('github.accounts', accounts);
-  }
-
-  // Bitbucket Workspace Management
-  getBitbucketWorkspaces(): BitbucketWorkspace[] {
-    return this.store.get('bitbucket.workspaces', []);
-  }
-
-  addBitbucketWorkspace(workspace: BitbucketWorkspace): void {
-    const workspaces = this.getBitbucketWorkspaces();
-    const exists = workspaces.some((w) => w.workspace === workspace.workspace);
-    if (exists) {
-      throw new Error(`Bitbucket workspace ${workspace.workspace} already exists`);
-    }
-    workspaces.push(workspace);
-    this.store.set('bitbucket.workspaces', workspaces);
-  }
-
-  removeBitbucketWorkspace(workspace: string): void {
-    const workspaces = this.getBitbucketWorkspaces();
-    const filtered = workspaces.filter((w) => w.workspace !== workspace);
-    this.store.set('bitbucket.workspaces', filtered);
   }
 
   private getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {

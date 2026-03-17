@@ -9,16 +9,6 @@ export interface GitHubAccount {
   org: string
 }
 
-/**
- * Bitbucket workspace configuration
- * Uses GitHub CLI (gh) authentication - no tokens stored!
- */
-export interface BitbucketWorkspace {
-  workspace: string
-  username: string
-  userDisplayName: string
-}
-
 /** Rectangle describing display bounds or work area */
 export interface DisplayRect {
   x: number
@@ -34,9 +24,6 @@ export interface DisplayRect {
 export interface AppConfig {
   github: {
     accounts: GitHubAccount[]
-  }
-  bitbucket: {
-    workspaces: BitbucketWorkspace[]
   }
   ui: {
     theme: 'dark' | 'light'
@@ -93,25 +80,6 @@ export const configSchema: Schema<AppConfig> = {
       },
     },
     required: ['accounts'],
-  },
-  bitbucket: {
-    type: 'object',
-    properties: {
-      workspaces: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            workspace: { type: 'string' },
-            username: { type: 'string' },
-            userDisplayName: { type: 'string' },
-          },
-          required: ['workspace', 'username', 'userDisplayName'],
-        },
-        default: [],
-      },
-    },
-    required: ['workspaces'],
   },
   ui: {
     type: 'object',
@@ -281,9 +249,6 @@ export const configSchema: Schema<AppConfig> = {
 export const defaultConfig: AppConfig = {
   github: {
     accounts: [],
-  },
-  bitbucket: {
-    workspaces: [],
   },
   ui: {
     theme: 'dark',

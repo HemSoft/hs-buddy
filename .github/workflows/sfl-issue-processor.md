@@ -75,9 +75,11 @@ safe-outputs:
     title-prefix: "[agent-fix] "
     labels: [agent:pr]
     draft: true
+    allowed-files: ["AGENTS.md"]
   push-to-pull-request-branch:
     target: "*"
     max: 1
+    allowed-files: ["AGENTS.md"]
   add-labels:
     max: 3
   remove-labels:
@@ -91,7 +93,7 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["sfl-analyzer-a"]
     max: 1
-source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@e441260656008f767cf67a816219c0713623f8e8
+source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@f9bffbbe4a4bec2a35c978b6f544b513e2d173d2
 ---
 
 # SFL Issue Processor / Implementer

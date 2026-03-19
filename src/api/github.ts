@@ -20,7 +20,7 @@ const SECONDARY_RATE_LIMIT_RETRIES = 2
 const TOTAL_RETRIES = 3
 
 /** Status codes that should never be retried. */
-const DO_NOT_RETRY_CODES = ['404', '429']
+const DO_NOT_RETRY_CODES = [404, 429]
 
 // Repository info type for org repo listing
 export interface OrgRepo {

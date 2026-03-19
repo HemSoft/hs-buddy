@@ -494,7 +494,7 @@ Buddy's role here is to run the loop and dogfood the governance standard.
 ## References
 
 - [relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop) — SFL operating model, workflow library, governance
-- [hs-conductor]((hs-conductor-repo)) — Source codebase for migration
+- [hs-conductor](https://github.com/HemSoft/hs-conductor) — Source codebase for migration
 - [Convex Documentation](https://docs.convex.dev) — Backend platform
 - [Convex File Storage](https://docs.convex.dev/file-storage) — For run outputs
 - [Convex Cron Jobs](https://docs.convex.dev/scheduling/cron-jobs) — For schedule scanning

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.382] - 2026-03-19
+
+### Fixed
+
+- Resolve repo audit findings and fix copilot SDK import (#277)
+
 ## [0.1.381] - 2026-03-19
 
 ### Added

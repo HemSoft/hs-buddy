@@ -11,7 +11,7 @@
  * it as `cliPath` to bypass this.
  */
 
-import { CopilotClient, approveAll, type AssistantMessageEvent } from '@github/copilot-sdk'
+import { CopilotClient, type AssistantMessageEvent } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
 
@@ -191,7 +191,7 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
     if (signal?.aborted) throw new Error('Cancelled before session creation')
 
     const session = await Promise.race([
-      client.createSession({ model, onPermissionRequest: approveAll }),
+      client.createSession({ model, onPermissionRequest: () => ({ kind: 'approved' as const }) }),
       rejectAfter(SESSION_TIMEOUT, 'Timeout creating Copilot session'),
     ])
 

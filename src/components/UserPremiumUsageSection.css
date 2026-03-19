@@ -1,0 +1,409 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   UserPremiumUsageSection — Copilot premium request usage on user detail
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ud-premium-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Loading / Error ── */
+
+.ud-premium-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.ud-premium-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(224, 95, 95, 0.08);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.ud-premium-error svg {
+  color: #e05f5f;
+  flex-shrink: 0;
+}
+
+/* ── Header row ── */
+
+.ud-premium-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ud-premium-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.ud-premium-pct {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ud-premium-used-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ud-premium-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ud-premium-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ud-premium-reset-days {
+  color: var(--text-secondary);
+}
+
+.ud-premium-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+.ud-premium-refresh-btn:hover:not(:disabled) {
+  border-color: rgba(129, 178, 154, 0.42);
+  color: var(--text-primary);
+}
+
+.ud-premium-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Progress bar ── */
+
+.ud-premium-bar-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ud-premium-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease, background 0.3s ease;
+}
+
+.ud-premium-bar-projected {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.12) 0px,
+    rgba(255, 255, 255, 0.12) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+  border-radius: 0 4px 4px 0;
+  transition: width 0.5s ease, left 0.5s ease;
+}
+
+/* ── Stats grid ── */
+
+.ud-premium-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 2px;
+}
+
+.ud-premium-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ud-premium-stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-heading);
+  line-height: 1.2;
+}
+
+.ud-premium-stat-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.ud-premium-stat-overage .ud-premium-stat-value {
+  color: #e85d5d;
+}
+
+/* ── Projection row ── */
+
+.ud-premium-projection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(129, 178, 154, 0.06);
+  border: 1px solid rgba(129, 178, 154, 0.12);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.ud-premium-projection svg {
+  color: #81b29a;
+  flex-shrink: 0;
+}
+
+.ud-premium-projection-label {
+  color: var(--text-muted);
+}
+
+.ud-premium-projection-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ud-premium-projection-divider {
+  color: var(--text-muted);
+}
+
+.ud-premium-projection-rate {
+  color: var(--text-secondary);
+}
+
+.ud-premium-projection-overage {
+  color: #e89b3c;
+  font-weight: 500;
+}
+
+/* ── Seat view — redesigned layout ── */
+
+.ud-prem {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Hero stats row */
+.ud-prem-hero {
+  display: flex;
+  align-items: center;
+  padding: 12px 8px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(129, 178, 154, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(129, 178, 154, 0.10);
+}
+
+.ud-prem-hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 3px;
+}
+
+.ud-prem-hero-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.ud-prem-hero-stat--primary .ud-prem-hero-value {
+  font-size: 28px;
+  color: #81b29a;
+}
+
+.ud-prem-hero-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.ud-prem-hero-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.ud-prem-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 6px;
+  margin-right: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.ud-prem-refresh:hover:not(:disabled) {
+  border-color: rgba(129, 178, 154, 0.35);
+  color: var(--text-primary);
+  background: rgba(129, 178, 154, 0.08);
+}
+
+.ud-prem-refresh:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Seat metadata pills */
+.ud-prem-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ud-prem-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(129, 178, 154, 0.14);
+  color: #81b29a;
+}
+
+.ud-prem-pill--muted {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-weight: 400;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ud-prem-pill--warn {
+  background: rgba(224, 95, 95, 0.10);
+  color: #e85d5d;
+  font-weight: 500;
+}
+
+/* Model breakdown */
+.ud-prem-models {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ud-prem-model {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ud-prem-model-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ud-prem-model-name {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ud-prem-model-count {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.ud-prem-model-track {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ud-prem-model-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #81b29a, #6a9e85);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 3px;
+}
+
+.ud-prem-model:nth-child(2) .ud-prem-model-fill { background: linear-gradient(90deg, #7eaac8, #6593b3); }
+.ud-prem-model:nth-child(3) .ud-prem-model-fill { background: linear-gradient(90deg, #c49a6c, #b0864f); }
+.ud-prem-model:nth-child(4) .ud-prem-model-fill { background: linear-gradient(90deg, #b8899a, #a07386); }
+.ud-prem-model:nth-child(5) .ud-prem-model-fill { background: linear-gradient(90deg, #8fadaa, #779993); }
+.ud-prem-model:nth-child(6) .ud-prem-model-fill { background: linear-gradient(90deg, #9e9ec4, #8585b0); }
+
+/* Footer */
+.ud-prem-footer {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ud-prem-footer-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+.ud-prem-footer-text strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}

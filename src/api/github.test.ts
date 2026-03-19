@@ -1175,7 +1175,7 @@ describe('GitHubClient', () => {
 
       mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({
         data: [
-          { type: 'PushEvent', repo: { name: 'myorg/repo1' }, created_at: '2026-01-02T00:00:00Z', payload: { size: 3 } },
+          { type: 'PushEvent', repo: { name: 'myorg/repo1' }, created_at: new Date().toISOString(), payload: { size: 3 } },
           { type: 'PullRequestReviewEvent', repo: { name: 'myorg/repo1' }, created_at: '2026-01-01T00:00:00Z', payload: {} },
         ],
       })
@@ -1188,6 +1188,7 @@ describe('GitHubClient', () => {
       expect(result.recentEvents.length).toBe(2)
       expect(result.recentEvents[0].summary).toBe('Pushed 3 commits')
       expect(result.activeRepos).toContain('myorg/repo1')
+      expect(result.commitsToday).toBe(3)
     })
 
     it('handles API errors gracefully', async () => {
@@ -1200,6 +1201,7 @@ describe('GitHubClient', () => {
       expect(result.recentEvents).toEqual([])
       expect(result.openPRCount).toBe(0)
       expect(result.mergedPRCount).toBe(0)
+      expect(result.commitsToday).toBe(0)
     })
   })
 

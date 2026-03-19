@@ -167,6 +167,8 @@ export interface UserActivitySummary {
   mergedPRCount: number
   /** Repos the user has pushed to recently */
   activeRepos: string[]
+  /** Number of commits authored today in the org */
+  commitsToday: number
 }
 
 export interface UserPRSummary {
@@ -2590,6 +2592,10 @@ export class GitHubClient {
       .toISOString()
       .split('T')[0]
 
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+    const startOfDayIso = startOfDay.toISOString()
+
     const emptySearch = { data: { total_count: 0, items: [] } } as const
 
     // Parallel: authored PRs (open + recently merged), reviewed PRs, events
@@ -2658,6 +2664,20 @@ export class GitHubClient {
         }
       })
 
+    // Count commits today from PushEvents in the org
+    const commitsToday = (events.data as Array<Record<string, unknown>>)
+      .filter(evt => {
+        const repo = evt.repo as { name?: string } | undefined
+        return evt.type === 'PushEvent'
+          && repo?.name?.startsWith(orgPrefix)
+          && typeof evt.created_at === 'string'
+          && evt.created_at >= startOfDayIso
+      })
+      .reduce((sum, evt) => {
+        const size = (evt.payload as Record<string, unknown> | undefined)?.size
+        return sum + (typeof size === 'number' ? size : 1)
+      }, 0)
+
     // Collect unique repos from events + authored PRs
     const activeRepoSet = new Set<string>()
     recentEvents.forEach(e => { if (e.repo) activeRepoSet.add(e.repo) })
@@ -2670,6 +2690,7 @@ export class GitHubClient {
       openPRCount: authoredOpen.data.total_count,
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
+      commitsToday,
     }
   }
 

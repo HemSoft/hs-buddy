@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld('github', {
     ipcRenderer.invoke('github:get-copilot-quota', username),
   getCopilotBudget: (org: string, username?: string) =>
     ipcRenderer.invoke('github:get-copilot-budget', org, username),
+  getCopilotMemberUsage: (org: string, memberLogin: string, username?: string) =>
+    ipcRenderer.invoke('github:get-copilot-member-usage', org, memberLogin, username),
+  getUserPremiumRequests: (org: string, memberLogin: string, username?: string) =>
+    ipcRenderer.invoke('github:get-user-premium-requests', org, memberLogin, username),
 })
 
 contextBridge.exposeInMainWorld('crew', {

@@ -122,6 +122,33 @@ interface Window {
         fetchedAt: number
       }
     }>
+    getCopilotMemberUsage: (org: string, memberLogin: string, username?: string) => Promise<{
+      success: boolean
+      error?: string
+      data?: {
+        login: string
+        planType: string | null
+        lastActivityAt: string | null
+        lastActivityEditor: string | null
+        createdAt: string | null
+        pendingCancellation: string | null
+      } | null
+    }>
+    getUserPremiumRequests: (org: string, memberLogin: string, username?: string) => Promise<{
+      success: boolean
+      error?: string
+      data?: {
+        memberLogin: string
+        org: string
+        userMonthlyRequests: number
+        userTodayRequests: number
+        userMonthlyModels: Array<{ model: string; requests: number }>
+        orgMonthlyRequests: number
+        orgMonthlyNetCost: number
+        billingYear: number
+        billingMonth: number
+      }
+    }>
   }
   copilot: {
     execute: (args: {

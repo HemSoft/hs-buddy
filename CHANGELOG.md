@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.381] - 2026-03-19
+
+### Added
+
+- Add per-user premium request usage to user detail panel
+
+## [0.1.380] - 2026-03-19
+
+### Added
+
+- Add per-user premium request usage to user detail panel
+
 ## [0.1.379] - 2026-03-17
 
 ### Fixed

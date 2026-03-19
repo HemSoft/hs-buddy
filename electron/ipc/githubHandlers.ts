@@ -542,6 +542,131 @@ export function registerGitHubHandlers(): void {
     }
   )
 
+  // Get Copilot seat/usage data for a specific org member
+  ipcMain.handle(
+    'github:get-copilot-member-usage',
+    async (_event, org: string, memberLogin: string, username?: string) => {
+      try {
+        const execEnv = await getTokenEnv(username)
+        const { stdout } = await execAsync(
+          `gh api "/orgs/${org}/members/${memberLogin}/copilot"`,
+          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+        )
+        const seat = JSON.parse(stdout.trim()) as {
+          assignee?: { login: string }
+          plan_type?: string
+          last_activity_at?: string | null
+          last_activity_editor?: string | null
+          created_at?: string
+          pending_cancellation_date?: string | null
+        }
+        return {
+          success: true,
+          data: {
+            login: seat.assignee?.login ?? memberLogin,
+            planType: seat.plan_type ?? null,
+            lastActivityAt: seat.last_activity_at ?? null,
+            lastActivityEditor: seat.last_activity_editor ?? null,
+            createdAt: seat.created_at ?? null,
+            pendingCancellation: seat.pending_cancellation_date ?? null,
+          },
+        }
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error)
+        // 404 means user doesn't have a Copilot seat
+        if (isNotFoundError(error)) {
+          return { success: true, data: null }
+        }
+        console.error(`Failed to get Copilot member usage for '${memberLogin}' in '${org}':`, errorMessage)
+        return { success: false, error: errorMessage }
+      }
+    }
+  )
+
+  // Get per-user premium request usage from enterprise billing API (this month + today)
+  // Also returns org-level totals for context.
+  ipcMain.handle(
+    'github:get-user-premium-requests',
+    async (_event, org: string, memberLogin: string, username?: string) => {
+      try {
+        const execEnv = await getTokenEnv(username)
+        const now = new Date()
+        const year = now.getUTCFullYear()
+        const month = now.getUTCMonth() + 1
+        const day = now.getUTCDate()
+        const ENTERPRISE_SLUG = 'Bertelsmann'
+        const encodedLogin = encodeURIComponent(memberLogin)
+
+        // Fetch per-user month + per-user today + org month in parallel
+        const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
+          execAsync(
+            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+          ),
+          execAsync(
+            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+          ),
+          execAsync(
+            `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+          ),
+        ])
+
+        interface UsageItem { grossQuantity: number; netQuantity: number; netAmount: number; model?: string }
+        const sumGross = (items: UsageItem[]) =>
+          Math.round(items.reduce((s, i) => s + i.grossQuantity, 0))
+        const sumNet = (items: UsageItem[]) =>
+          roundCents(items.reduce((s, i) => s + i.netAmount, 0))
+
+        let userMonthlyRequests = 0
+        let userMonthlyModels: Array<{ model: string; requests: number }> = []
+        if (userMonthResult.status === 'fulfilled') {
+          const data = JSON.parse(userMonthResult.value.stdout.trim()) as { usageItems?: UsageItem[] }
+          const items = data.usageItems ?? []
+          userMonthlyRequests = sumGross(items)
+          userMonthlyModels = items
+            .filter(i => i.grossQuantity > 0)
+            .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
+            .sort((a, b) => b.requests - a.requests)
+        }
+
+        let userTodayRequests = 0
+        if (userTodayResult.status === 'fulfilled') {
+          const data = JSON.parse(userTodayResult.value.stdout.trim()) as { usageItems?: UsageItem[] }
+          userTodayRequests = sumGross(data.usageItems ?? [])
+        }
+
+        let orgMonthlyRequests = 0
+        let orgMonthlyNetCost = 0
+        if (orgMonthResult.status === 'fulfilled') {
+          const data = JSON.parse(orgMonthResult.value.stdout.trim()) as { usageItems?: UsageItem[] }
+          orgMonthlyRequests = sumGross(data.usageItems ?? [])
+          orgMonthlyNetCost = sumNet(data.usageItems ?? [])
+        }
+
+        return {
+          success: true,
+          data: {
+            memberLogin,
+            org,
+            userMonthlyRequests,
+            userTodayRequests,
+            userMonthlyModels,
+            orgMonthlyRequests,
+            orgMonthlyNetCost,
+            billingYear: year,
+            billingMonth: month,
+          },
+        }
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error)
+        console.error(`Failed to get user premium requests for '${memberLogin}' in '${org}':`, errorMessage)
+        return { success: false, error: errorMessage }
+      }
+    }
+  )
+
   // Switch the active GitHub CLI account
   ipcMain.handle('github:switch-account', async (_event, username: string) => {
     try {

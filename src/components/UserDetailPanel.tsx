@@ -12,7 +12,6 @@ import {
   Activity,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
-import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import { dataCache } from '../services/dataCache'
 
 import {
@@ -23,8 +22,7 @@ import {
   type UserPRSummary,
   type UserEvent,
 } from '../api/github'
-import type { GitHubAccount } from '../types/config'
-import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
+import { UserPremiumUsageSection } from './UserPremiumUsageSection'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import './UserDetailPanel.css'
 
@@ -160,7 +158,6 @@ function MetricCard({ icon, label, children, variant }: {
 
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
-  const { quotas } = useCopilotUsage()
   const cacheKey = `user-activity:${org}/${memberLogin}`
   const [activityState, dispatch] = useReducer(activityReducer, cacheKey, createInitialActivityState)
   const { activity, phase: activityPhase, error: activityError } = activityState
@@ -184,13 +181,6 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     if (!overview) return null
     return overview.metrics.topContributorsToday.find(c => c.login === memberLogin) ?? null
   }, [overview, memberLogin])
-
-  const configuredAccount = useMemo(
-    () => accounts.find(a => a.username === memberLogin) ?? null,
-    [accounts, memberLogin]
-  )
-
-  const quotaState = configuredAccount ? quotas[configuredAccount.username] : null
 
   const profileUrl = member?.url ?? `https://github.com/${memberLogin}`
   const avatarUrl = member?.avatarUrl ?? `https://github.com/${memberLogin}.png?size=96`
@@ -231,7 +221,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     }
   }, [accounts, org, memberLogin, cacheKey])
 
-  const commitsToday = contributor?.commits ?? 0
+  const commitsToday = activity?.commitsToday ?? contributor?.commits ?? 0
 
   return (
     <div className="user-detail-container">
@@ -406,25 +396,14 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
         </section>
       )}
 
-      {/* ── Copilot Quota ── */}
-      {configuredAccount && (
-        <section className="ud-section">
-          <h3 className="ud-section-title">
-            <Sparkles size={15} />
-            Copilot Quota
-          </h3>
-          {quotaState ? (
-            <div className="ud-quota-grid">
-              <AccountQuotaCard
-                account={configuredAccount as GitHubAccount}
-                state={quotaState}
-              />
-            </div>
-          ) : (
-            <p className="ud-empty">Copilot quota data is not yet available.</p>
-          )}
-        </section>
-      )}
+      {/* ── Copilot Premium Requests ── */}
+      <section className="ud-section">
+        <h3 className="ud-section-title">
+          <Sparkles size={15} />
+          Premium Requests
+        </h3>
+        <UserPremiumUsageSection username={memberLogin} org={org} />
+      </section>
     </div>
   )
 }

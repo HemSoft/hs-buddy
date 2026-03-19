@@ -19,7 +19,6 @@ Built on the same architecture as [hs-conductor](https://github.com/HemSoft/hs-c
 
 - **Tree View Navigation**: Organize tools and views in a familiar left-sidebar structure
 - **Pull Request Viewer**: Beautiful UI for viewing and managing your GitHub PRs
-- **Skills Management**: Browse and interact with 110+ automation skills
 - **GitHub Integration**: Deep integration with GitHub pull requests, issues, and repositories
 - **Unified Dashboard**: All your important information in one place
 
@@ -30,7 +29,6 @@ Built on the same architecture as [hs-conductor](https://github.com/HemSoft/hs-c
 - **TypeScript** - Type-safe development
 - **Vite** - Lightning-fast build tool
 - **Monaco Editor** - VSCode's editor component
-- **React Complex Tree** - Tree view navigation
 - **Allotment** - Resizable split panes
 
 ## Installation

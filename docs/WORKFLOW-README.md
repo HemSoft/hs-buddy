@@ -31,7 +31,7 @@ That repo contains:
 | `test-coverage-audit` (`Test Coverage Audit`) | Every 4 hours | Single `agent:fixable` test-coverage issue | Local |
 | `simplisticate-audit` (`Simplisticate Audit`) | Daily 2:00 AM EDT | Single `agent:fixable` simplification issue | Local |
 | `daily-repo-status` (`SFL Repo Status`) | Daily 3:00 AM EDT | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `repo-audit` (`Repo Audit`) | Daily 4:00 AM EDT | Single consolidated `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `repo-audit` (`Repo Audit`) | Daily 4:00 AM EDT | Single consolidated `agent:fixable` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 | `sfl-auditor` | Daily 5:00 AM EDT | Repairs issue/PR label discrepancies | Local |
 | `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
 | `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |

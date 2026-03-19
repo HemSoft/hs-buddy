@@ -92,7 +92,6 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
   const latestRequestRef = useRef(0)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [checks, setChecks] = useState<PRChecksSummary | null>(null)
 
@@ -104,7 +103,6 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
     const requestId = latestRequestRef.current + 1
     latestRequestRef.current = requestId
 
-    setLoading(true)
     setError(null)
 
     try {
@@ -137,10 +135,6 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
       }
 
       setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      if (requestId === latestRequestRef.current) {
-        setLoading(false)
-      }
     }
   }, [accounts, pr.id, pr.repository, pr.url])
 

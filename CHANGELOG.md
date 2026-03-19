@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.384] - 2026-03-19
+
+## [0.1.383] - 2026-03-19
+
+### Fixed
+
+- Remove repo audit drift, including stale artifacts and outdated docs
+
 ## [0.1.382] - 2026-03-19
 
 ### Fixed

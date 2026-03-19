@@ -44,3 +44,6 @@ out/
 
 # Prompt checkpoints (local state, not tracked)
 .github/prompts/.status-checkpoint
+
+# Local debug helpers
+_cdp.cjs

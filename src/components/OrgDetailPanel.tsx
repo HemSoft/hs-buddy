@@ -51,6 +51,25 @@ interface OrgCopilotUsageData {
 const EMPTY_COPILOT_USAGE: OrgCopilotUsageData | null = null
 
 type LoadPhase = 'idle' | 'loading' | 'refreshing' | 'ready' | 'error'
+type OrgContributor = OrgOverviewResult['metrics']['topContributorsToday'][number]
+type OrgMember = OrgMemberResult['members'][number]
+type CopilotBudgetState = ReturnType<typeof useCopilotUsage>['orgBudgets'][string]
+type CopilotQuotaState = ReturnType<typeof useCopilotUsage>['quotas'][string]
+
+interface PersonalQuotaSummary {
+  used: number
+  remaining: number
+  entitlement: number
+  overageCost: number
+  fetchedAt: number
+}
+
+interface RateLimitSnapshot {
+  limit: number
+  remaining: number
+  reset: number
+  used: number
+}
 
 function normalizeOverview(result: OrgOverviewResult | null): OrgOverviewResult | null {
   if (!result) {
@@ -125,7 +144,411 @@ function resolveRefreshPhase(
   return settledPhase
 }
 
-export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
+function navigateToOrgUser(org: string, login: string) {
+  window.dispatchEvent(
+    new CustomEvent('app:navigate', {
+      detail: { viewId: `org-user:${org}/${login}` },
+    })
+  )
+}
+
+function OrgDetailHero({
+  org,
+  overview,
+  highlightedMemberLogin,
+  liveOverviewPhase,
+  liveMembersPhase,
+  liveCopilotPhase,
+  rateLimit,
+  isUpdating,
+  onRefresh,
+}: {
+  org: string
+  overview: OrgOverviewResult
+  highlightedMemberLogin: string | null
+  liveOverviewPhase: LoadPhase
+  liveMembersPhase: LoadPhase
+  liveCopilotPhase: LoadPhase
+  rateLimit: RateLimitSnapshot | null
+  isUpdating: boolean
+  onRefresh: () => void
+}) {
+  return (
+    <div className="org-detail-hero">
+      <div className="org-detail-hero-copy">
+        <div className="org-detail-kicker">
+          <Building2 size={14} />
+          <span>{overview.isUserNamespace ? 'User Namespace' : 'Organization Overview'}</span>
+        </div>
+        <h2 className="org-detail-title">{org}</h2>
+        <p className="org-detail-subtitle">
+          Authenticated via @{overview.authenticatedAs}
+          {highlightedMemberLogin ? ` · spotlight on ${highlightedMemberLogin}` : ''}
+        </p>
+        <div className="org-detail-status-row">
+          <LivePill label="Overview" phase={liveOverviewPhase} />
+          <LivePill label="Members" phase={liveMembersPhase} />
+          <LivePill label="Copilot" phase={liveCopilotPhase} />
+        </div>
+      </div>
+      <div className="org-detail-hero-right">
+        {rateLimit && (
+          <RateLimitGauge remaining={rateLimit.remaining} limit={rateLimit.limit} reset={rateLimit.reset} />
+        )}
+        <div className="org-detail-actions">
+          <button className="org-detail-refresh-btn" onClick={onRefresh}>
+            <RefreshCw size={14} />
+            {isUpdating ? 'Updating…' : 'Refresh'}
+          </button>
+          <button
+            className="org-detail-link-btn"
+            onClick={() => window.shell.openExternal(`https://github.com/${org}`)}
+          >
+            <ExternalLink size={14} />
+            Open GitHub
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OrgMetricsGrid({
+  overview,
+  memberCount,
+}: {
+  overview: OrgOverviewResult
+  memberCount: number
+}) {
+  return (
+    <div className="org-detail-metric-grid">
+      <MetricCard
+        icon={FolderKanban}
+        label="Repositories"
+        value={overview.metrics.repoCount.toLocaleString()}
+        detail={`${overview.metrics.privateRepoCount} private · ${overview.metrics.archivedRepoCount} archived`}
+      />
+      <MetricCard
+        icon={GitCommitHorizontal}
+        label="Commits Today"
+        value={overview.metrics.commitsToday.toLocaleString()}
+        detail={`${overview.metrics.activeReposToday} active repos`}
+        accent="warm"
+      />
+      <MetricCard
+        icon={Star}
+        label="Stars"
+        value={overview.metrics.totalStars.toLocaleString()}
+        detail={`${overview.metrics.totalForks.toLocaleString()} forks`}
+        accent="cool"
+      />
+      <MetricCard
+        icon={GitPullRequest}
+        label="Open PRs"
+        value={overview.metrics.openPullRequestCount.toLocaleString()}
+        detail={`${overview.metrics.openIssueCount.toLocaleString()} open issues`}
+      />
+      <MetricCard
+        icon={Users}
+        label="Members"
+        value={memberCount.toLocaleString()}
+        detail={
+          overview.metrics.lastPushAt
+            ? `last push ${formatDistanceToNow(overview.metrics.lastPushAt)}`
+            : 'no recent pushes'
+        }
+      />
+    </div>
+  )
+}
+
+function OrgCopilotSection({
+  overview,
+  copilotUsage,
+  personalQuotaSummary,
+  configuredAccountsCount,
+  budgetState,
+  quotaOverage,
+  liveCopilotPhase,
+  shouldShowPersonalQuotaPulse,
+}: {
+  overview: OrgOverviewResult
+  copilotUsage: OrgCopilotUsageData | null
+  personalQuotaSummary: PersonalQuotaSummary | null
+  configuredAccountsCount: number
+  budgetState: CopilotBudgetState
+  quotaOverage: number
+  liveCopilotPhase: LoadPhase
+  shouldShowPersonalQuotaPulse: boolean
+}) {
+  return (
+    <section className="org-detail-section org-detail-copilot-section">
+      <div className="org-detail-section-header">
+        <h3>
+          <Sparkles size={15} />
+          {overview.isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
+        </h3>
+        {!overview.isUserNamespace && copilotUsage?.fetchedAt && (
+          <span className="org-detail-fetched-at">{formatTime(copilotUsage.fetchedAt)}</span>
+        )}
+        {overview.isUserNamespace && personalQuotaSummary?.fetchedAt ? (
+          <span className="org-detail-fetched-at">{formatTime(personalQuotaSummary.fetchedAt)}</span>
+        ) : null}
+      </div>
+      <div className="org-detail-copilot-grid">
+        {shouldShowPersonalQuotaPulse && personalQuotaSummary ? (
+          <>
+            <MiniMetric label="Used Premium" value={personalQuotaSummary.used.toLocaleString()} />
+            <MiniMetric
+              label="Remaining"
+              value={personalQuotaSummary.remaining.toLocaleString()}
+              accent="cool"
+            />
+            <MiniMetric
+              label="Entitlement"
+              value={personalQuotaSummary.entitlement.toLocaleString()}
+            />
+            <MiniMetric
+              label="Overage Cost"
+              value={formatCurrency(personalQuotaSummary.overageCost)}
+              accent="warm"
+            />
+          </>
+        ) : (
+          <>
+            <MiniMetric
+              label="Premium Requests"
+              value={(copilotUsage?.premiumRequests ?? 0).toLocaleString()}
+            />
+            <MiniMetric
+              label="Net Cost"
+              value={formatCurrency(copilotUsage?.netCost ?? 0)}
+              accent="warm"
+            />
+            <MiniMetric
+              label="Gross Cost"
+              value={formatCurrency(copilotUsage?.grossCost ?? 0)}
+            />
+            <MiniMetric
+              label="Business Seats"
+              value={(copilotUsage?.businessSeats ?? 0).toLocaleString()}
+              accent="cool"
+            />
+          </>
+        )}
+      </div>
+      {liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse && (
+        <div className="org-detail-empty org-detail-empty-inline">
+          {overview.isUserNamespace
+            ? 'Waiting for personal quota data.'
+            : 'Copilot metrics are still warming up.'}
+        </div>
+      )}
+      {overview.isUserNamespace ? (
+        <div className="org-detail-budget-band">
+          <div>
+            <span className="org-detail-budget-label">Namespace Type</span>
+            <strong>Personal quota</strong>
+          </div>
+          <div>
+            <span className="org-detail-budget-label">Configured Accounts</span>
+            <strong>{configuredAccountsCount.toLocaleString()}</strong>
+          </div>
+          <div>
+            <span className="org-detail-budget-label">My Share</span>
+            <strong>{formatCurrency(personalQuotaSummary?.overageCost ?? quotaOverage)}</strong>
+          </div>
+        </div>
+      ) : (
+        <div className="org-detail-budget-band">
+          <div>
+            <span className="org-detail-budget-label">Budget</span>
+            <strong>
+              {budgetState?.data?.budgetAmount !== null && budgetState?.data?.budgetAmount !== undefined
+                ? formatCurrency(budgetState.data.budgetAmount)
+                : 'Not set'}
+            </strong>
+          </div>
+          <div>
+            <span className="org-detail-budget-label">Spent</span>
+            <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
+          </div>
+          <div>
+            <span className="org-detail-budget-label">My Share</span>
+            <strong>{formatCurrency(quotaOverage)}</strong>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function OrgLeadersSection({
+  org,
+  contributors,
+  memberLogin,
+  hasFullOverview,
+}: {
+  org: string
+  contributors: OrgContributor[]
+  memberLogin?: string
+  hasFullOverview: boolean
+}) {
+  return (
+    <section className="org-detail-section">
+      <div className="org-detail-section-header">
+        <h3>
+          <GitBranch size={15} />
+          Today&apos;s Leaders
+        </h3>
+      </div>
+      {contributors.length === 0 && !hasFullOverview ? (
+        <div className="org-detail-empty">Activity ranking is still being computed.</div>
+      ) : contributors.length === 0 ? (
+        <div className="org-detail-empty">No commits recorded yet today.</div>
+      ) : (
+        <div className="org-detail-leaderboard">
+          {contributors.map(contributor => (
+            <button
+              key={contributor.login}
+              className={`org-detail-leader ${memberLogin === contributor.login ? 'active' : ''}`}
+              onClick={() => navigateToOrgUser(org, contributor.login)}
+            >
+              <span className="org-detail-leader-rank">{contributor.commits}</span>
+              <span className="org-detail-leader-name">{contributor.login}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function OrgMemberSpotlightSection({
+  selectedMember,
+  selectedContributor,
+  selectedConfiguredAccount,
+  selectedMemberQuotaState,
+}: {
+  selectedMember: OrgMember
+  selectedContributor: OrgContributor | null
+  selectedConfiguredAccount: GitHubAccount | null
+  selectedMemberQuotaState: CopilotQuotaState | null
+}) {
+  return (
+    <section className="org-detail-section org-detail-member-spotlight">
+      <div className="org-detail-section-header">
+        <h3>
+          <Shield size={15} />
+          Member Spotlight
+        </h3>
+      </div>
+      <div className="org-detail-member-card">
+        <div>
+          <div className="org-detail-member-name">{selectedMember.login}</div>
+          <div className="org-detail-member-meta">
+            {selectedMember.type}
+            {selectedContributor
+              ? ` · ${selectedContributor.commits} commits today`
+              : ' · no commits today'}
+          </div>
+        </div>
+        <button
+          className="org-detail-link-btn"
+          onClick={() => window.shell.openExternal(selectedMember.url)}
+        >
+          <ExternalLink size={14} />
+          Profile
+        </button>
+      </div>
+      {selectedConfiguredAccount && selectedMemberQuotaState ? (
+        <div className="org-detail-account-grid org-detail-account-grid-single">
+          <AccountQuotaCard account={selectedConfiguredAccount} state={selectedMemberQuotaState} />
+        </div>
+      ) : (
+        <div className="org-detail-empty">No configured Copilot quota card for this member.</div>
+      )}
+    </section>
+  )
+}
+
+function OrgConfiguredAccountsSection({
+  configuredAccounts,
+  quotas,
+}: {
+  configuredAccounts: GitHubAccount[]
+  quotas: ReturnType<typeof useCopilotUsage>['quotas']
+}) {
+  if (configuredAccounts.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="org-detail-section">
+      <div className="org-detail-section-header">
+        <h3>
+          <Users size={15} />
+          Configured Accounts
+        </h3>
+      </div>
+      <div className="org-detail-account-grid">
+        {configuredAccounts.map(account => (
+          <AccountQuotaCard key={account.username} account={account} state={quotas[account.username]} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function OrgMemberRosterSection({
+  org,
+  members,
+  contributorMap,
+  configuredAccounts,
+  memberLogin,
+}: {
+  org: string
+  members: OrgMember[]
+  contributorMap: Map<string, OrgContributor>
+  configuredAccounts: GitHubAccount[]
+  memberLogin?: string
+}) {
+  return (
+    <section className="org-detail-section">
+      <div className="org-detail-section-header">
+        <h3>
+          <Users size={15} />
+          Member Roster
+        </h3>
+      </div>
+      {members.length > 0 ? (
+        <div className="org-detail-roster">
+          {members.map(member => {
+            const contributor = contributorMap.get(member.login)
+            const isConfigured = configuredAccounts.some(account => account.username === member.login)
+            return (
+              <button
+                key={member.login}
+                className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
+                onClick={() => navigateToOrgUser(org, member.login)}
+              >
+                <span className="org-detail-roster-name">{member.login}</span>
+                <span className="org-detail-roster-meta">
+                  {contributor ? `${contributor.commits} today` : 'idle today'}
+                  {isConfigured ? ' · configured' : ''}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="org-detail-empty">No members returned for this namespace.</div>
+      )}
+    </section>
+  )
+}
+
+function useOrgDetailData(org: string, memberLogin?: string) {
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
   const { enqueue, stats } = useTaskQueue('github')
@@ -153,7 +576,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     hasCachedMembers ? 'ready' : 'loading'
   )
   const [copilotPhase, setCopilotPhase] = useState<LoadPhase>('loading')
-  const [rateLimit, setRateLimit] = useState<{ limit: number; remaining: number; reset: number; used: number } | null>(null)
+  const [rateLimit, setRateLimit] = useState<RateLimitSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
   const shouldRefreshOnMount = Boolean(initialOverview || hasCachedMembers || hasCachedCopilot)
   const hasOverviewRef = useRef(Boolean(initialOverview))
@@ -188,7 +611,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     [accounts, org]
   )
 
-  const personalQuotaSummary = useMemo(() => {
+  const personalQuotaSummary = useMemo<PersonalQuotaSummary | null>(() => {
     const relevantStates = configuredAccounts
       .map(account => quotas[account.username])
       .filter((state): state is NonNullable<typeof state> =>
@@ -243,7 +666,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   }, [personalQuotaLoading, personalQuotaSummary])
 
   const githubQueue = getTaskQueue('github')
-  void stats // referenced to preserve reactivity from useTaskQueue
+  void stats
   const isOverviewTaskActive = githubQueue.hasTaskWithName(overviewTaskName)
   const isMembersTaskActive = githubQueue.hasTaskWithName(membersTaskName)
   const isCopilotTaskActive = githubQueue.hasTaskWithName(copilotTaskName)
@@ -295,7 +718,6 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const selectedContributor = memberLogin ? (contributorMap.get(memberLogin) ?? null) : null
   const budgetState = orgBudgets[org]
   const quotaOverage = orgOverageFromQuotas.get(org) ?? 0
-
   const hasFullOverview = hasCachedFullOverview || overviewPhase === 'ready'
 
   const fetchOverview = useCallback(
@@ -483,6 +905,68 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     liveMembersPhase === 'refreshing' ||
     liveCopilotPhase === 'refreshing'
 
+  const memberCount = members?.members.length ?? 0
+  const selectedMemberQuotaState = selectedConfiguredAccount
+    ? quotas[selectedConfiguredAccount.username]
+    : null
+  const shouldShowPersonalQuotaPulse = Boolean(overview?.isUserNamespace && personalQuotaSummary)
+
+  return {
+    budgetState,
+    configuredAccounts,
+    contributorMap,
+    copilotUsage,
+    error,
+    fetchAll,
+    hasFullOverview,
+    isInitialLoading,
+    isUpdating,
+    liveCopilotPhase,
+    liveMembersPhase,
+    liveOverviewPhase,
+    memberCount,
+    members: members?.members ?? [],
+    overview,
+    personalQuotaSummary,
+    quotaOverage,
+    quotas,
+    rateLimit,
+    selectedConfiguredAccount,
+    selectedContributor,
+    selectedMember,
+    selectedMemberQuotaState,
+    shouldShowPersonalQuotaPulse,
+  }
+}
+
+export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
+  const {
+    budgetState,
+    configuredAccounts,
+    contributorMap,
+    copilotUsage,
+    error,
+    fetchAll,
+    hasFullOverview,
+    isInitialLoading,
+    isUpdating,
+    liveCopilotPhase,
+    liveMembersPhase,
+    liveOverviewPhase,
+    memberCount,
+    members,
+    overview,
+    personalQuotaSummary,
+    quotaOverage,
+    quotas,
+    rateLimit,
+    selectedConfiguredAccount,
+    selectedContributor,
+    selectedMember,
+    selectedMemberQuotaState,
+    shouldShowPersonalQuotaPulse,
+  } = useOrgDetailData(org, memberLogin)
+
   if (isInitialLoading) {
     return (
       <div className="org-detail-loading">
@@ -509,89 +993,21 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   if (!overview) return null
 
-  const memberCount = members?.members.length ?? 0
-  const selectedMemberQuotaState = selectedConfiguredAccount
-    ? quotas[selectedConfiguredAccount.username]
-    : null
-  const shouldShowPersonalQuotaPulse = overview.isUserNamespace && Boolean(personalQuotaSummary)
-
   return (
     <div className="org-detail-container">
-      <div className="org-detail-hero">
-        <div className="org-detail-hero-copy">
-          <div className="org-detail-kicker">
-            <Building2 size={14} />
-            <span>{overview.isUserNamespace ? 'User Namespace' : 'Organization Overview'}</span>
-          </div>
-          <h2 className="org-detail-title">{org}</h2>
-          <p className="org-detail-subtitle">
-            Authenticated via @{overview.authenticatedAs}
-            {selectedMember ? ` · spotlight on ${selectedMember.login}` : ''}
-          </p>
-          <div className="org-detail-status-row">
-            <LivePill label="Overview" phase={liveOverviewPhase} />
-            <LivePill label="Members" phase={liveMembersPhase} />
-            <LivePill label="Copilot" phase={liveCopilotPhase} />
-          </div>
-        </div>
-        <div className="org-detail-hero-right">
-          {rateLimit && (
-            <RateLimitGauge remaining={rateLimit.remaining} limit={rateLimit.limit} reset={rateLimit.reset} />
-          )}
-          <div className="org-detail-actions">
-            <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
-              <RefreshCw size={14} />
-              {isUpdating ? 'Updating…' : 'Refresh'}
-            </button>
-            <button
-              className="org-detail-link-btn"
-              onClick={() => window.shell.openExternal(`https://github.com/${org}`)}
-            >
-              <ExternalLink size={14} />
-              Open GitHub
-            </button>
-          </div>
-        </div>
-      </div>
+      <OrgDetailHero
+        org={org}
+        overview={overview}
+        highlightedMemberLogin={selectedMember?.login ?? null}
+        liveOverviewPhase={liveOverviewPhase}
+        liveMembersPhase={liveMembersPhase}
+        liveCopilotPhase={liveCopilotPhase}
+        rateLimit={rateLimit}
+        isUpdating={isUpdating}
+        onRefresh={() => fetchAll(true)}
+      />
 
-      <div className="org-detail-metric-grid">
-        <MetricCard
-          icon={FolderKanban}
-          label="Repositories"
-          value={overview.metrics.repoCount.toLocaleString()}
-          detail={`${overview.metrics.privateRepoCount} private · ${overview.metrics.archivedRepoCount} archived`}
-        />
-        <MetricCard
-          icon={GitCommitHorizontal}
-          label="Commits Today"
-          value={overview.metrics.commitsToday.toLocaleString()}
-          detail={`${overview.metrics.activeReposToday} active repos`}
-          accent="warm"
-        />
-        <MetricCard
-          icon={Star}
-          label="Stars"
-          value={overview.metrics.totalStars.toLocaleString()}
-          detail={`${overview.metrics.totalForks.toLocaleString()} forks`}
-          accent="cool"
-        />
-        <MetricCard
-          icon={GitPullRequest}
-          label="Open PRs"
-          value={overview.metrics.openPullRequestCount.toLocaleString()}
-          detail={`${overview.metrics.openIssueCount.toLocaleString()} open issues`}
-        />
-        <MetricCard
-          icon={Users}
-          label="Members"
-          value={memberCount.toLocaleString()}
-          detail={
-            overview.metrics.lastPushAt
-              ? `last push ${formatDistanceToNow(overview.metrics.lastPushAt)}`
-              : 'no recent pushes'
-          }
-        />
-      </div>
+      <OrgMetricsGrid overview={overview} memberCount={memberCount} />
 
       {isUpdating && (
         <div className="org-detail-update-banner">
@@ -603,245 +1019,43 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
       )}
 
       <div className="org-detail-section-grid">
-        <section className="org-detail-section org-detail-copilot-section">
-          <div className="org-detail-section-header">
-            <h3>
-              <Sparkles size={15} />
-              {overview.isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
-            </h3>
-            {!overview.isUserNamespace && copilotUsage?.fetchedAt && (
-              <span className="org-detail-fetched-at">{formatTime(copilotUsage.fetchedAt)}</span>
-            )}
-            {overview.isUserNamespace && personalQuotaSummary?.fetchedAt ? (
-              <span className="org-detail-fetched-at">
-                {formatTime(personalQuotaSummary.fetchedAt)}
-              </span>
-            ) : null}
-          </div>
-          <div className="org-detail-copilot-grid">
-            {shouldShowPersonalQuotaPulse ? (
-              <>
-                <MiniMetric
-                  label="Used Premium"
-                  value={personalQuotaSummary!.used.toLocaleString()}
-                />
-                <MiniMetric
-                  label="Remaining"
-                  value={personalQuotaSummary!.remaining.toLocaleString()}
-                  accent="cool"
-                />
-                <MiniMetric
-                  label="Entitlement"
-                  value={personalQuotaSummary!.entitlement.toLocaleString()}
-                />
-                <MiniMetric
-                  label="Overage Cost"
-                  value={formatCurrency(personalQuotaSummary!.overageCost)}
-                  accent="warm"
-                />
-              </>
-            ) : (
-              <>
-                <MiniMetric
-                  label="Premium Requests"
-                  value={(copilotUsage?.premiumRequests ?? 0).toLocaleString()}
-                />
-                <MiniMetric
-                  label="Net Cost"
-                  value={formatCurrency(copilotUsage?.netCost ?? 0)}
-                  accent="warm"
-                />
-                <MiniMetric
-                  label="Gross Cost"
-                  value={formatCurrency(copilotUsage?.grossCost ?? 0)}
-                />
-                <MiniMetric
-                  label="Business Seats"
-                  value={(copilotUsage?.businessSeats ?? 0).toLocaleString()}
-                  accent="cool"
-                />
-              </>
-            )}
-          </div>
-          {liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse && (
-            <div className="org-detail-empty org-detail-empty-inline">
-              {overview.isUserNamespace
-                ? 'Waiting for personal quota data.'
-                : 'Copilot metrics are still warming up.'}
-            </div>
-          )}
-          {overview.isUserNamespace ? (
-            <div className="org-detail-budget-band">
-              <div>
-                <span className="org-detail-budget-label">Namespace Type</span>
-                <strong>Personal quota</strong>
-              </div>
-              <div>
-                <span className="org-detail-budget-label">Configured Accounts</span>
-                <strong>{configuredAccounts.length.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span className="org-detail-budget-label">My Share</span>
-                <strong>{formatCurrency(personalQuotaSummary?.overageCost ?? quotaOverage)}</strong>
-              </div>
-            </div>
-          ) : (
-            <div className="org-detail-budget-band">
-              <div>
-                <span className="org-detail-budget-label">Budget</span>
-                <strong>
-                  {budgetState?.data?.budgetAmount !== null &&
-                  budgetState?.data?.budgetAmount !== undefined
-                    ? formatCurrency(budgetState.data.budgetAmount)
-                    : 'Not set'}
-                </strong>
-              </div>
-              <div>
-                <span className="org-detail-budget-label">Spent</span>
-                <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
-              </div>
-              <div>
-                <span className="org-detail-budget-label">My Share</span>
-                <strong>{formatCurrency(quotaOverage)}</strong>
-              </div>
-            </div>
-          )}
-        </section>
+        <OrgCopilotSection
+          overview={overview}
+          copilotUsage={copilotUsage}
+          personalQuotaSummary={personalQuotaSummary}
+          configuredAccountsCount={configuredAccounts.length}
+          budgetState={budgetState}
+          quotaOverage={quotaOverage}
+          liveCopilotPhase={liveCopilotPhase}
+          shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse}
+        />
 
-        <section className="org-detail-section">
-          <div className="org-detail-section-header">
-            <h3>
-              <GitBranch size={15} />
-              Today&apos;s Leaders
-            </h3>
-          </div>
-          {overview.metrics.topContributorsToday.length === 0 && !hasFullOverview ? (
-            <div className="org-detail-empty">Activity ranking is still being computed.</div>
-          ) : overview.metrics.topContributorsToday.length === 0 ? (
-            <div className="org-detail-empty">No commits recorded yet today.</div>
-          ) : (
-            <div className="org-detail-leaderboard">
-              {overview.metrics.topContributorsToday.map(contributor => (
-                <button
-                  key={contributor.login}
-                  className={`org-detail-leader ${memberLogin === contributor.login ? 'active' : ''}`}
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent('app:navigate', {
-                        detail: { viewId: `org-user:${org}/${contributor.login}` },
-                      })
-                    )
-                  }
-                >
-                  <span className="org-detail-leader-rank">{contributor.commits}</span>
-                  <span className="org-detail-leader-name">{contributor.login}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
+        <OrgLeadersSection
+          org={org}
+          contributors={overview.metrics.topContributorsToday}
+          memberLogin={memberLogin}
+          hasFullOverview={hasFullOverview}
+        />
       </div>
 
       {selectedMember && (
-        <section className="org-detail-section org-detail-member-spotlight">
-          <div className="org-detail-section-header">
-            <h3>
-              <Shield size={15} />
-              Member Spotlight
-            </h3>
-          </div>
-          <div className="org-detail-member-card">
-            <div>
-              <div className="org-detail-member-name">{selectedMember.login}</div>
-              <div className="org-detail-member-meta">
-                {selectedMember.type}
-                {selectedContributor
-                  ? ` · ${selectedContributor.commits} commits today`
-                  : ' · no commits today'}
-              </div>
-            </div>
-            <button
-              className="org-detail-link-btn"
-              onClick={() => window.shell.openExternal(selectedMember.url)}
-            >
-              <ExternalLink size={14} />
-              Profile
-            </button>
-          </div>
-          {selectedConfiguredAccount && selectedMemberQuotaState ? (
-            <div className="org-detail-account-grid org-detail-account-grid-single">
-              <AccountQuotaCard
-                account={selectedConfiguredAccount as GitHubAccount}
-                state={selectedMemberQuotaState}
-              />
-            </div>
-          ) : (
-            <div className="org-detail-empty">
-              No configured Copilot quota card for this member.
-            </div>
-          )}
-        </section>
+        <OrgMemberSpotlightSection
+          selectedMember={selectedMember}
+          selectedContributor={selectedContributor}
+          selectedConfiguredAccount={selectedConfiguredAccount}
+          selectedMemberQuotaState={selectedMemberQuotaState}
+        />
       )}
 
-      {configuredAccounts.length > 0 && (
-        <section className="org-detail-section">
-          <div className="org-detail-section-header">
-            <h3>
-              <Users size={15} />
-              Configured Accounts
-            </h3>
-          </div>
-          <div className="org-detail-account-grid">
-            {configuredAccounts.map(account => (
-              <AccountQuotaCard
-                key={account.username}
-                account={account as GitHubAccount}
-                state={quotas[account.username]}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
 
-      <section className="org-detail-section">
-        <div className="org-detail-section-header">
-          <h3>
-            <Users size={15} />
-            Member Roster
-          </h3>
-        </div>
-        {members?.members.length ? (
-          <div className="org-detail-roster">
-            {members.members.map(member => {
-              const contributor = contributorMap.get(member.login)
-              const isConfigured = configuredAccounts.some(
-                account => account.username === member.login
-              )
-              return (
-                <button
-                  key={member.login}
-                  className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent('app:navigate', {
-                        detail: { viewId: `org-user:${org}/${member.login}` },
-                      })
-                    )
-                  }
-                >
-                  <span className="org-detail-roster-name">{member.login}</span>
-                  <span className="org-detail-roster-meta">
-                    {contributor ? `${contributor.commits} today` : 'idle today'}
-                    {isConfigured ? ' · configured' : ''}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="org-detail-empty">No members returned for this namespace.</div>
-        )}
-      </section>
+      <OrgMemberRosterSection
+        org={org}
+        members={members}
+        contributorMap={contributorMap}
+        configuredAccounts={configuredAccounts}
+        memberLogin={memberLogin}
+      />
     </div>
   )
 }

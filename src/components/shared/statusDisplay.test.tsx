@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
-import { getStatusLabel, getStatusClass, getStatusIcon } from './statusDisplay'
+import { getStatusLabel, getStatusClass, getStatusEmoji, getStatusIcon } from './statusDisplay'
 
 describe('getStatusIcon', () => {
   it.each(['pending', 'running', 'completed', 'failed', 'cancelled'])('returns an icon for %s', (status) => {
@@ -59,5 +59,19 @@ describe('getStatusClass', () => {
   it('returns empty string for unknown status', () => {
     expect(getStatusClass('unknown')).toBe('')
     expect(getStatusClass('')).toBe('')
+  })
+})
+
+describe('getStatusEmoji', () => {
+  it('returns the correct emoji for known statuses', () => {
+    expect(getStatusEmoji('pending')).toBe('⏳')
+    expect(getStatusEmoji('running')).toBe('🔄')
+    expect(getStatusEmoji('completed')).toBe('✅')
+    expect(getStatusEmoji('failed')).toBe('❌')
+    expect(getStatusEmoji('cancelled')).toBe('🚫')
+  })
+
+  it('returns a fallback emoji for unknown statuses', () => {
+    expect(getStatusEmoji('unknown')).toBe('•')
   })
 })

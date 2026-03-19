@@ -1,5 +1,4 @@
 import { internalMutation } from "./_generated/server";
-import { v } from "convex/values";
 import { calculateNextRunAt } from "./lib/cronUtils";
 import { incrementStat } from "./lib/stats";
 
@@ -126,36 +125,6 @@ export const scanAndDispatch = internalMutation({
       schedulesUpdated,
       scannedAt: now,
     };
-  },
-});
-
-/**
- * Initialize nextRunAt for a schedule.
- *
- * Called when a schedule is created or enabled to set the initial nextRunAt.
- * This is a public mutation so the UI can trigger it when creating schedules.
- */
-export const initializeNextRun = internalMutation({
-  args: {
-    scheduleId: v.id("schedules"),
-  },
-  handler: async (ctx, args) => {
-    const schedule = await ctx.db.get("schedules", args.scheduleId);
-    if (!schedule) {
-      throw new Error(`Schedule ${args.scheduleId} not found`);
-    }
-
-    const nextRunAt = calculateNextRunAt(
-      schedule.cron,
-      schedule.timezone ?? "America/New_York"
-    );
-
-    await ctx.db.patch("schedules", args.scheduleId, {
-      nextRunAt,
-      updatedAt: Date.now(),
-    });
-
-    return { nextRunAt };
   },
 });
 

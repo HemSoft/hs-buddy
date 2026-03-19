@@ -7,7 +7,6 @@ import {
   FolderOpen,
   Star,
   GitCommit,
-  GitCommitHorizontal,
   GitPullRequest,
   Loader2,
   Activity,
@@ -17,9 +16,6 @@ import {
   Clock,
   Circle,
   MinusCircle,
-  MessageSquare,
-  FileDiff,
-  Sparkles,
   Users,
   UserRound,
 } from 'lucide-react'
@@ -27,8 +23,8 @@ import type { OrgRepo, OrgMember, RepoCounts, RepoCommit, RepoIssue } from '../.
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus, SFLOverallStatus } from '../../../types/sflStatus'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
-import type { PRDetailSection } from '../../../utils/prDetailView'
 import { formatUpdatedAge } from './orgRepoTreeUtils'
+import { prSubNodes, sectionIcons } from './prConstants'
 import { dataCache } from '../../../services/dataCache'
 
 interface OrgMeta {
@@ -81,22 +77,6 @@ interface OrgRepoTreeProps {
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
-}
-
-const prSubNodes: Array<{ key: PRDetailSection; label: string }> = [
-  { key: 'conversation', label: 'Conversation' },
-  { key: 'commits', label: 'Commits' },
-  { key: 'checks', label: 'Checks' },
-  { key: 'files-changed', label: 'Files changed' },
-  { key: 'ai-reviews', label: 'AI Reviews' },
-]
-
-const sectionIcons: Record<PRDetailSection, React.ElementType> = {
-  conversation: MessageSquare,
-  commits: GitCommitHorizontal,
-  checks: CheckCircle2,
-  'files-changed': FileDiff,
-  'ai-reviews': Sparkles,
 }
 
 const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {

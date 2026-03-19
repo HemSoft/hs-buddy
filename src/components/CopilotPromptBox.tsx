@@ -8,6 +8,7 @@ import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
 import { InlineDropdown } from './InlineDropdown'
 import type { DropdownOption } from './InlineDropdown'
 import { formatDistanceToNow } from '../utils/dateUtils'
+import { getStatusEmoji } from './shared/statusDisplay'
 import './CopilotPromptBox.css'
 
 interface CopilotPromptBoxProps {
@@ -194,21 +195,6 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     }
   }
 
-  const statusEmoji = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '⏳'
-      case 'running':
-        return '🔄'
-      case 'completed':
-        return '✅'
-      case 'failed':
-        return '❌'
-      default:
-        return '•'
-    }
-  }
-
   const pendingCount = activeCount?.pending ?? 0
   const runningCount = activeCount?.running ?? 0
   const totalActive = pendingCount + runningCount
@@ -324,7 +310,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
                 tabIndex={0}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenResult?.(r._id); } }}
               >
-                <span className="copilot-recent-status">{statusEmoji(r.status)}</span>
+                <span className="copilot-recent-status">{getStatusEmoji(r.status)}</span>
                 <span className="copilot-recent-prompt">
                   {r.prompt.length > 80 ? r.prompt.slice(0, 80) + '...' : r.prompt}
                 </span>

@@ -5,14 +5,12 @@ import {
   Sparkles,
   Send,
   Clock,
-  CheckCircle2,
-  XCircle,
-  Loader2,
   Zap,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../../hooks/useConvex'
 import { formatDistanceToNow } from '../../utils/dateUtils'
+import { getStatusIcon } from '../shared/statusDisplay'
 
 interface CopilotSidebarProps {
   onItemSelect: (itemId: string) => void
@@ -33,21 +31,6 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
       else next.add(sectionId)
       return next
     })
-  }
-
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Clock size={12} style={{ color: '#e89b3c' }} />
-      case 'running':
-        return <Loader2 size={12} className="spin" style={{ color: 'var(--accent-primary)' }} />
-      case 'completed':
-        return <CheckCircle2 size={12} style={{ color: '#4ec9b0' }} />
-      case 'failed':
-        return <XCircle size={12} style={{ color: '#e85d5d' }} />
-      default:
-        return null
-    }
   }
 
   return (
@@ -199,7 +182,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                       }}
                       title={r.prompt}
                     >
-                      <span className="sidebar-item-icon">{statusIcon(r.status)}</span>
+                      <span className="sidebar-item-icon">{getStatusIcon(r.status, 12)}</span>
                       <span className="sidebar-item-label">{label}</span>
                       <span className="sidebar-repo-lang">{formatDistanceToNow(r.createdAt)}</span>
                     </div>

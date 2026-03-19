@@ -2,29 +2,12 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
-  GitCommitHorizontal,
   GitPullRequest,
-  MessageSquare,
-  CheckCircle2,
-  FileDiff,
-  Sparkles,
 } from 'lucide-react'
 import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
-import type { PRDetailSection } from '../../../utils/prDetailView'
-
-const sectionIcons: Record<PRDetailSection, React.ElementType> = {
-  conversation: MessageSquare,
-  commits: GitCommitHorizontal,
-  checks: CheckCircle2,
-  'files-changed': FileDiff,
-  'ai-reviews': Sparkles,
-}
-
-interface SidebarItem {
-  id: string
-  label: string
-}
+import { prSubNodes, sectionIcons } from './prConstants'
+import type { SidebarItem } from './useGitHubSidebarData'
 
 interface PRTreeSectionProps {
   prItems: SidebarItem[]
@@ -39,14 +22,6 @@ interface PRTreeSectionProps {
   onTogglePRNode: (prViewId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
 }
-
-const prSubNodes: Array<{ key: PRDetailSection; label: string }> = [
-  { key: 'conversation', label: 'Conversation' },
-  { key: 'commits', label: 'Commits' },
-  { key: 'checks', label: 'Checks' },
-  { key: 'files-changed', label: 'Files changed' },
-  { key: 'ai-reviews', label: 'AI Reviews' },
-]
 
 export function PRTreeSection({
   prItems,

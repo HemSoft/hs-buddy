@@ -2,7 +2,7 @@ import { parseHunkHeader, trimDiffHunk } from './diffHunkUtils'
 
 /** Render a diff hunk as styled code lines with line numbers */
 export function DiffHunk({ hunk }: { hunk: string }) {
-  const { lines, wasTrimmed, skipCount } = trimDiffHunk(hunk)
+  const { lines, wasTrimmed, skippedLines } = trimDiffHunk(hunk)
 
   const headerLine = lines.find(l => l.startsWith('@@'))
   const parsed = headerLine ? parseHunkHeader(headerLine) : null
@@ -10,9 +10,6 @@ export function DiffHunk({ hunk }: { hunk: string }) {
   let newLine = parsed?.newStart ?? 1
 
   if (wasTrimmed && parsed) {
-    const allContentLines = hunk.split('\n').filter(l => l.length > 0)
-    const headerIdx = allContentLines.findIndex(l => l.startsWith('@@'))
-    const skippedLines = allContentLines.slice(headerIdx + 1, headerIdx + 1 + skipCount)
     for (const sl of skippedLines) {
       if (sl.startsWith('+')) newLine++
       else if (sl.startsWith('-')) oldLine++

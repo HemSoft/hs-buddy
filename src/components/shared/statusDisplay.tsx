@@ -37,3 +37,15 @@ export function getStatusClass(status: string): string {
       return ''
   }
 }
+
+const STATUS_EMOJIS: Record<string, string> = {
+  pending: '⏳',
+  running: '🔄',
+  completed: '✅',
+  failed: '❌',
+  cancelled: '🚫',
+}
+
+export function getStatusEmoji(status: string): string {
+  return STATUS_EMOJIS[status] ?? '•'
+}

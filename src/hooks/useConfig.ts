@@ -7,6 +7,31 @@ import {
   useSettingsMutations,
 } from './useConvex'
 
+function useElectronStoreFallback<T>(
+  convexValue: T | undefined,
+  extractor: (config: AppConfig) => T,
+  defaultValue: T
+): { value: T; loading: boolean } {
+  const [electronStoreValue, setElectronStoreValue] = useState<T>(defaultValue)
+  const [fallbackLoaded, setFallbackLoaded] = useState(true)
+
+  useEffect(() => {
+    window.ipcRenderer
+      .invoke('config:get-config')
+      .then((config: AppConfig) => {
+        setElectronStoreValue(extractor(config))
+        setFallbackLoaded(true)
+      })
+      .catch(() => setFallbackLoaded(true))
+  }, [])
+
+  const convexConnected = convexValue !== undefined
+  const value = convexConnected ? convexValue : electronStoreValue
+  const loading = !convexConnected && !fallbackLoaded
+
+  return { value, loading }
+}
+
 /**
  * Type-safe wrapper around window.ipcRenderer for UI settings only
  *
@@ -191,32 +216,15 @@ export function useGitHubAccounts() {
 export function usePRSettings() {
   const settings = useSettings()
   const { updatePR } = useSettingsMutations()
-  const [electronStoreSettings, setElectronStoreSettings] = useState({
-    refreshInterval: 15,
-    autoRefresh: true,
-    recentlyMergedDays: 7,
-  })
-  const [fallbackLoaded, setFallbackLoaded] = useState(true) // Start true - we have defaults
-
-  // Load electron-store settings as fallback
-  useEffect(() => {
-    window.ipcRenderer
-      .invoke('config:get-config')
-      .then((config: AppConfig) => {
-        setElectronStoreSettings({
-          refreshInterval: config.pr?.refreshInterval ?? 15,
-          autoRefresh: config.pr?.autoRefresh ?? false,
-          recentlyMergedDays: config.pr?.recentlyMergedDays ?? 7,
-        })
-        setFallbackLoaded(true)
-      })
-      .catch(() => setFallbackLoaded(true))
-  }, [])
-
-  // Use Convex if connected, otherwise electron-store
-  const convexConnected = settings !== undefined
-  const currentSettings = convexConnected ? settings.pr : electronStoreSettings
-  const loading = !convexConnected && !fallbackLoaded
+  const { value: currentSettings, loading } = useElectronStoreFallback(
+    settings?.pr,
+    config => ({
+      refreshInterval: config.pr?.refreshInterval ?? 15,
+      autoRefresh: config.pr?.autoRefresh ?? false,
+      recentlyMergedDays: config.pr?.recentlyMergedDays ?? 7,
+    }),
+    { refreshInterval: 15, autoRefresh: true, recentlyMergedDays: 7 }
+  )
 
   const setRefreshInterval = async (minutes: number) => {
     await updatePR({ refreshInterval: minutes })
@@ -248,32 +256,14 @@ export function usePRSettings() {
 export function useCopilotSettings() {
   const settings = useSettings()
   const { updateCopilot } = useSettingsMutations()
-  const [electronStoreSettings, setElectronStoreSettings] = useState({
-    ghAccount: '',
-    model: 'claude-sonnet-4.5',
-  })
-  const [fallbackLoaded, setFallbackLoaded] = useState(true)
-
-  // Load electron-store settings as fallback
-  useEffect(() => {
-    window.ipcRenderer
-      .invoke('config:get-config')
-      .then((config: AppConfig) => {
-        setElectronStoreSettings({
-          ghAccount: config.copilot?.ghAccount ?? '',
-          model: config.copilot?.model ?? 'claude-sonnet-4.5',
-        })
-        setFallbackLoaded(true)
-      })
-      .catch(() => setFallbackLoaded(true))
-  }, [])
-
-  // Use Convex if connected, otherwise electron-store
-  const convexConnected = settings !== undefined
-  const currentSettings = convexConnected
-    ? (settings.copilot ?? { ghAccount: '', model: 'claude-sonnet-4.5' })
-    : electronStoreSettings
-  const loading = !convexConnected && !fallbackLoaded
+  const { value: currentSettings, loading } = useElectronStoreFallback(
+    settings?.copilot ?? undefined,
+    config => ({
+      ghAccount: config.copilot?.ghAccount ?? '',
+      model: config.copilot?.model ?? 'claude-sonnet-4.5',
+    }),
+    { ghAccount: '', model: 'claude-sonnet-4.5' }
+  )
 
   const setGhAccount = async (account: string) => {
     await updateCopilot({ ghAccount: account })

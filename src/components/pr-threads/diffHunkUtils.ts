@@ -12,7 +12,12 @@ export function parseHunkHeader(header: string): { oldStart: number; newStart: n
  * Trim a diff hunk to show only the most relevant lines around the
  * commented position.
  */
-export function trimDiffHunk(hunk: string): { lines: string[]; wasTrimmed: boolean; skipCount: number } {
+export function trimDiffHunk(hunk: string): {
+  lines: string[]
+  wasTrimmed: boolean
+  skipCount: number
+  skippedLines: string[]
+} {
   const MAX_CONTEXT = 6
   const allLines = hunk.split('\n').filter(l => l.length > 0)
 
@@ -21,11 +26,12 @@ export function trimDiffHunk(hunk: string): { lines: string[]; wasTrimmed: boole
   const contentLines = headerIdx >= 0 ? allLines.slice(headerIdx + 1) : allLines
 
   if (contentLines.length <= MAX_CONTEXT) {
-    return { lines: allLines, wasTrimmed: false, skipCount: 0 }
+    return { lines: allLines, wasTrimmed: false, skipCount: 0, skippedLines: [] }
   }
 
   const skipCount = contentLines.length - MAX_CONTEXT
+  const skippedLines = contentLines.slice(0, skipCount)
   const trimmed = contentLines.slice(-MAX_CONTEXT)
   const result = headerLine ? [headerLine, ...trimmed] : trimmed
-  return { lines: result, wasTrimmed: true, skipCount }
+  return { lines: result, wasTrimmed: true, skipCount, skippedLines }
 }

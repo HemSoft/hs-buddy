@@ -5,6 +5,7 @@ import { GitHubSidebar } from './sidebar/GitHubSidebar'
 import { CrewSidebar } from './crew/CrewSidebar'
 import { useJobs, useSchedules } from '../hooks/useConvex'
 import { AutomationSidebarSection } from './sidebar-panel/AutomationSidebarSection'
+import type { SidebarItem } from './sidebar/github-sidebar/useGitHubSidebarData'
 import './SidebarPanel.css'
 
 interface SidebarPanelProps {
@@ -14,11 +15,6 @@ interface SidebarPanelProps {
   counts?: Record<string, number>
   badgeProgress?: Record<string, { progress: number; color: string; tooltip: string }>
   onCreateNew?: (type: 'schedule' | 'job') => void
-}
-
-interface SidebarItem {
-  id: string
-  label: string
 }
 
 const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {

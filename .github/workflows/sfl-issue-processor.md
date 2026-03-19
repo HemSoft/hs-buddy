@@ -47,7 +47,7 @@ steps:
     run: |
       gh pr checkout "$PR_NUMBER"
 
-timeout-minutes: 60
+timeout-minutes: 120
 
 engine:
   id: copilot
@@ -93,7 +93,7 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["sfl-analyzer-a"]
     max: 1
-source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@f9bffbbe4a4bec2a35c978b6f544b513e2d173d2
+source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@76e2aa1e2469618388de71f64ffb6b53f513494c
 ---
 
 # SFL Issue Processor / Implementer

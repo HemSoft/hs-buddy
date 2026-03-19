@@ -1,11 +1,5 @@
 import { useState } from 'react'
-import {
-  Sparkles,
-  Loader2,
-  Trash2,
-  ExternalLink,
-  Filter,
-} from 'lucide-react'
+import { Sparkles, Loader2, Trash2, ExternalLink, Filter } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotResultMutations } from '../hooks/useConvex'
 import { formatDateCompact, formatDuration } from '../utils/dateUtils'
 import { getStatusIcon } from './shared/statusDisplay'
@@ -22,6 +16,8 @@ const STATUS_FILTERS = [
   { value: 'pending', label: 'Pending' },
   { value: 'failed', label: 'Failed' },
 ]
+
+const PROMPT_PREVIEW_MAX_LENGTH = 80
 
 export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
   const [statusFilter, setStatusFilter] = useState('all')
@@ -106,13 +102,15 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
                     className="copilot-result-row"
                     onClick={() => onOpenResult(r._id)}
                   >
-                    <td className="result-status-cell">{getStatusIcon(r.status, 14, 'result-status')}</td>
+                    <td className="result-status-cell">
+                      {getStatusIcon(r.status, 14, 'result-status')}
+                    </td>
                     <td className="result-prompt-cell">
                       <span className="result-prompt-text">
                         {r.category === 'pr-review' && metadata?.prTitle
                           ? `PR Review: ${metadata.prTitle as string}`
-                          : r.prompt.length > 80
-                            ? r.prompt.slice(0, 80) + '...'
+                          : r.prompt.length > PROMPT_PREVIEW_MAX_LENGTH
+                            ? r.prompt.slice(0, PROMPT_PREVIEW_MAX_LENGTH) + '…'
                             : r.prompt}
                       </span>
                     </td>

@@ -23,6 +23,10 @@ import { GitHubClient } from './api/github'
 import { normalizePaneSizes, DEFAULT_PANE_SIZES, DEFAULT_ASSISTANT_PANE_SIZE } from './appUtils'
 import './App.css'
 
+const UPTIME_CHECKPOINT_MS = 5 * 60 * 1000
+const CLI_ACCOUNT_POLL_MS = 30_000
+const PANE_SAVE_DEBOUNCE_MS = 300
+
 async function resolveCrewProjectLabel(viewId: string): Promise<string | null> {
   if (!viewId.startsWith('crew-project:')) {
     return null
@@ -94,12 +98,9 @@ function App() {
     recordSessionStart().catch(() => {})
 
     // Periodic uptime checkpoint every 5 minutes (guards against crashes)
-    const checkpointTimer = setInterval(
-      () => {
-        checkpointUptime().catch(() => {})
-      },
-      5 * 60 * 1000
-    )
+    const checkpointTimer = setInterval(() => {
+      checkpointUptime().catch(() => {})
+    }, UPTIME_CHECKPOINT_MS)
 
     // Flush uptime on window close
     const handleBeforeUnload = () => {
@@ -126,7 +127,7 @@ function App() {
       GitHubClient.getActiveCliAccount()
         .then(setActiveGitHubAccount)
         .catch(() => {})
-    }, 30_000)
+    }, CLI_ACCOUNT_POLL_MS)
     return () => clearInterval(timer)
   }, [])
 
@@ -177,7 +178,7 @@ function App() {
       }
       paneSaveTimeoutRef.current = setTimeout(() => {
         window.ipcRenderer.invoke('config:set-pane-sizes', sizes)
-      }, 300)
+      }, PANE_SAVE_DEBOUNCE_MS)
     }
   }, [])
 

@@ -39,25 +39,22 @@ function useElectronStoreFallback<T>(
  * - UI settings (theme, colors, fonts, zoom) → electron-store (device-specific, instant startup)
  * - Business data (accounts, PR settings) → Convex (reactive, synced)
  */
+function ipcConfigSetter(channel: string) {
+  return (value: string) =>
+    window.ipcRenderer.invoke(`config:${channel}`, value) as Promise<{ success: boolean }>
+}
+
 const configAPI = {
   setTheme: (theme: 'dark' | 'light') =>
     window.ipcRenderer.invoke('config:set-theme', theme) as Promise<{ success: boolean }>,
-  setAccentColor: (color: string) =>
-    window.ipcRenderer.invoke('config:set-accent-color', color) as Promise<{ success: boolean }>,
-  setBgPrimary: (color: string) =>
-    window.ipcRenderer.invoke('config:set-bg-primary', color) as Promise<{ success: boolean }>,
-  setBgSecondary: (color: string) =>
-    window.ipcRenderer.invoke('config:set-bg-secondary', color) as Promise<{ success: boolean }>,
-  setFontColor: (color: string) =>
-    window.ipcRenderer.invoke('config:set-font-color', color) as Promise<{ success: boolean }>,
-  setFontFamily: (font: string) =>
-    window.ipcRenderer.invoke('config:set-font-family', font) as Promise<{ success: boolean }>,
-  setMonoFontFamily: (font: string) =>
-    window.ipcRenderer.invoke('config:set-mono-font-family', font) as Promise<{ success: boolean }>,
-  setStatusBarBg: (color: string) =>
-    window.ipcRenderer.invoke('config:set-statusbar-bg', color) as Promise<{ success: boolean }>,
-  setStatusBarFg: (color: string) =>
-    window.ipcRenderer.invoke('config:set-statusbar-fg', color) as Promise<{ success: boolean }>,
+  setAccentColor: ipcConfigSetter('set-accent-color'),
+  setBgPrimary: ipcConfigSetter('set-bg-primary'),
+  setBgSecondary: ipcConfigSetter('set-bg-secondary'),
+  setFontColor: ipcConfigSetter('set-font-color'),
+  setFontFamily: ipcConfigSetter('set-font-family'),
+  setMonoFontFamily: ipcConfigSetter('set-mono-font-family'),
+  setStatusBarBg: ipcConfigSetter('set-statusbar-bg'),
+  setStatusBarFg: ipcConfigSetter('set-statusbar-fg'),
   getSystemFonts: () => window.ipcRenderer.invoke('system:get-fonts') as Promise<string[]>,
   getStorePath: () => window.ipcRenderer.invoke('config:get-store-path') as Promise<string>,
   openInEditor: () =>

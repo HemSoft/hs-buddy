@@ -7,20 +7,23 @@ interface RateLimitGaugeProps {
   reset: number
 }
 
+const HEALTHY_THRESHOLD = 0.6
+const WARNING_THRESHOLD = 0.3
+
 function getGaugeColor(ratio: number): string {
-  if (ratio > 0.6) {
-    const t = (ratio - 0.6) / 0.4
+  if (ratio > HEALTHY_THRESHOLD) {
+    const t = (ratio - HEALTHY_THRESHOLD) / (1 - HEALTHY_THRESHOLD)
     const r = Math.round(80 + (1 - t) * 140)
     const g = Math.round(200 - (1 - t) * 30)
     return `rgb(${r}, ${g}, 80)`
   }
-  if (ratio > 0.3) {
-    const t = (ratio - 0.3) / 0.3
+  if (ratio > WARNING_THRESHOLD) {
+    const t = (ratio - WARNING_THRESHOLD) / WARNING_THRESHOLD
     const r = Math.round(240 - t * 20)
     const g = Math.round(120 + t * 50)
     return `rgb(${r}, ${g}, 50)`
   }
-  const t = ratio / 0.3
+  const t = ratio / WARNING_THRESHOLD
   const r = Math.round(220 + (1 - t) * 20)
   const g = Math.round(t * 120)
   return `rgb(${r}, ${g}, 40)`

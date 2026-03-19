@@ -148,20 +148,11 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
     fetchChecks()
   }, [fetchChecks])
 
-  if (loading && !checks) {
-    return (
-      <div className="pr-checks-loading">
-        <Loader2 size={28} className="spin" />
-        <p>Loading checks…</p>
-      </div>
-    )
-  }
-
   if (error) {
     return (
       <div className="pr-checks-error">
         <p className="pr-checks-error-title">Failed to load checks</p>
-        <p className="pr-checks-error-detail">{error || 'Unknown error'}</p>
+        <p className="pr-checks-error-detail">{error}</p>
         <button className="pr-checks-retry" onClick={fetchChecks}>
           Retry
         </button>
@@ -208,7 +199,10 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
           <span className="pr-checks-headline-label">Head SHA</span>
           <code className="pr-checks-headline-sha">{checks.headSha.slice(0, 12)}</code>
         </div>
-        <button className="pr-checks-open-btn" onClick={() => window.shell.openExternal(`${pr.url}/checks`)}>
+        <button
+          className="pr-checks-open-btn"
+          onClick={() => window.shell.openExternal(`${pr.url}/checks`)}
+        >
           <ExternalLink size={14} />
           Open on GitHub
         </button>
@@ -246,7 +240,9 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
                         {finishedAt && (
                           <>
                             <span className="pr-checks-dot">•</span>
-                            <span title={formatDateFull(finishedAt)}>{formatDistanceToNow(finishedAt)}</span>
+                            <span title={formatDateFull(finishedAt)}>
+                              {formatDistanceToNow(finishedAt)}
+                            </span>
                           </>
                         )}
                       </div>
@@ -292,7 +288,9 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
                         {updatedAt && (
                           <>
                             <span className="pr-checks-dot">•</span>
-                            <span title={formatDateFull(updatedAt)}>{formatDistanceToNow(updatedAt)}</span>
+                            <span title={formatDateFull(updatedAt)}>
+                              {formatDistanceToNow(updatedAt)}
+                            </span>
                           </>
                         )}
                       </div>

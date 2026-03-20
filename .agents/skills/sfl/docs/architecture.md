@@ -103,7 +103,7 @@ or the [official reference](https://github.github.com/gh-aw/reference/safe-outpu
 | `remove-labels` | Removes specific labels | issue-processor |
 | `add-comment` | Posts a comment on issues/PRs/discussions | issue-processor, analyzers, reporting workflows |
 | `reply-to-pull-request-review-comment` | Reply to a specific review comment thread | issue-processor (thread resolution) |
-| `resolve-pull-request-review-thread` | Mark a review thread as resolved | issue-processor (thread resolution) |
+| `resolve-pull-request-review-thread` | Mark a review thread as resolved (PR events only) | pr-label-actions (deterministic GraphQL) |
 | `close-pull-request` | Closes PRs without merging | (available, not yet used) |
 | `dispatch-workflow` | Triggers another workflow (same repo, max 3) | analyzer chain, router handoffs |
 
@@ -161,11 +161,13 @@ Example: `sfl-issue-processor` precomputes unresolved review threads into
 `/tmp/gh-aw/agent/review-threads.json` with thread IDs, comment IDs,
 author, body, path, and line number.
 
-**Deterministic Fallback Jobs**: Post-agent jobs (`needs: [agent]`,
+**Deterministic Fallback Jobs**: Post-agent jobs (`needs: [agent, safe_outputs]`,
 `if: "(!cancelled())"`) that check the agent's NDJSON output artifact and
 perform fallback actions if the agent didn't. These download the
 `agent-output` artifact and verify whether expected entries like
-`dispatch_workflow` were emitted.
+`dispatch_workflow` were emitted. The `needs: [agent, safe_outputs]`
+dependency ensures the fallback runs after safe outputs are processed,
+so the agent-output artifact is available.
 
 Example: Both `sfl-analyzer-c` and `sfl-issue-processor` have
 `ensure-label-actions-dispatch` fallback jobs that dispatch
@@ -174,17 +176,25 @@ Example: Both `sfl-analyzer-c` and `sfl-issue-processor` have
 ### Review Thread Resolution
 
 When PR Label Actions detects all 3 analyzers passed but unresolved review
-threads exist (e.g., from `copilot-pull-request-reviewer[bot]`), it dispatches
-`sfl-issue-processor` via the `review-comments-pending` path.
+threads exist (e.g., from `copilot-pull-request-reviewer[bot]`), it resolves
+them **deterministically** using a direct GraphQL `resolveReviewThread`
+mutation in a shell step — no agent dispatch needed. After resolving all
+threads, it promotes the PR to ready-for-review.
 
-The issue-processor handles this with 3 layers:
+For the issue-processor, when dispatched for a fix cycle on a PR with
+unresolved review threads:
 
 1. **Precomputation** — Shell step fetches unresolved threads via GraphQL →
    `/tmp/gh-aw/agent/review-threads.json`
 2. **Agent** — Reads JSON, addresses each thread, calls
-   `reply_to_pull_request_review_comment` + `resolve_pull_request_review_thread`
-3. **Fallback** — `ensure-label-actions-dispatch` verifies threads resolved,
-   dispatches `sfl-pr-label-actions` if agent didn't
+   `reply_to_pull_request_review_comment` (replies only — no resolve)
+3. **Fallback** — `ensure-label-actions-dispatch` dispatches
+   `sfl-pr-label-actions` which resolves threads deterministically
+
+**Important**: `resolve_pull_request_review_thread` safe output only works
+in PR event context (e.g., `pull_request` trigger). It does NOT work on
+`workflow_dispatch` runs. Thread resolution on dispatch runs is handled
+by `sfl-pr-label-actions` deterministically.
 
 ## State Machine
 

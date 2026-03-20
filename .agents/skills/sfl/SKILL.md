@@ -160,7 +160,7 @@ loop now relies on explicit `dispatch-workflow` handoffs where needed. However, 
 | `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A -> B -> C review chain (claude-sonnet-4.6) |
 | `sfl-analyzer-b` | Agentic | Analyzer A dispatch | Continues the sequential review chain (gemini-3-pro-preview) |
 | `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain and dispatches label-actions for verdict aggregation (gpt-5.4) |
-| `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | Analyzer C dispatch / manual dispatch | Deterministic aggregator: checks labels, flips draft → ready or dispatches issue-processor for fix cycle |
+| `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | Analyzer C dispatch / manual dispatch | Deterministic aggregator: checks labels, resolves review threads via GraphQL, flips draft → ready or dispatches issue-processor for fix cycle |
 | `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
 
 ### Model Configuration
@@ -179,11 +179,13 @@ to reduce non-deterministic surface area:
    than constructing API queries at runtime. Files placed in this directory are
    auto-uploaded as artifacts and accessible to the agent during execution.
 
-2. **Deterministic Fallback Jobs** — Post-agent `jobs:` blocks (`needs: [agent]`,
+2. **Deterministic Fallback Jobs** — Post-agent `jobs:` blocks (`needs: [agent, safe_outputs]`,
    `if: "(!cancelled())"`) that check the agent's NDJSON output artifact and
    perform fallback actions if the agent failed to do so. These use
    `actions/download-artifact@v4` to read agent output, then verify whether
    expected safe-output entries (like `dispatch_workflow`) were emitted.
+   The `needs: [agent, safe_outputs]` dependency ensures the fallback runs
+   after safe outputs are processed, so the agent-output artifact is available.
 
    Example: Analyzers C and the issue-processor both have `ensure-label-actions-dispatch`
    fallback jobs that dispatch `sfl-pr-label-actions` if the agent didn't.
@@ -192,21 +194,26 @@ to reduce non-deterministic surface area:
 
 When PR Label Actions detects all 3 analyzers passed but unresolved review
 threads exist (e.g., from `copilot-pull-request-reviewer[bot]` or human
-reviewers), it dispatches `sfl-issue-processor` with the PR number via the
-`review-comments-pending` path.
+reviewers), it resolves them **deterministically** using a direct GraphQL
+`resolveReviewThread` mutation in a shell step — no agent dispatch needed.
+After resolving all threads, it promotes the PR to ready-for-review.
 
-The issue-processor handles this with a 3-layer deterministic approach:
+For the issue-processor, when dispatched for a fix cycle on a PR with
+unresolved review threads:
 
 1. **Precomputation** — A shell step fetches all unresolved threads via GraphQL
    and writes structured data to `/tmp/gh-aw/agent/review-threads.json`
 2. **Agent execution** — The agent reads the JSON, addresses each thread (code
-   fix or explanation), calls `reply_to_pull_request_review_comment` and
-   `resolve_pull_request_review_thread` safe outputs with exact IDs from the
-   pre-computed data
-3. **Deterministic fallback** — The `ensure-label-actions-dispatch` job verifies
-   threads are resolved and dispatches `sfl-pr-label-actions` if the agent didn't
+   fix or explanation), calls `reply_to_pull_request_review_comment` safe
+   output with exact IDs from the pre-computed data
+3. **Deterministic fallback** — The `ensure-label-actions-dispatch` job
+   (runs after `safe_outputs`) dispatches `sfl-pr-label-actions` which
+   resolves threads and promotes the PR
 
-This ensures the pipeline never gets stuck on unresolved review threads.
+**Important**: `resolve_pull_request_review_thread` safe output only works
+in PR event context (e.g., `pull_request` trigger). It does NOT work on
+`workflow_dispatch` runs. Thread resolution on dispatch runs is handled
+by `sfl-pr-label-actions` deterministically.
 
 ### Safe Outputs Quick Reference
 
@@ -217,7 +224,7 @@ This ensures the pipeline never gets stuck on unresolved review threads.
 | `add_comment` | Comment on issue/PR/discussion | 1 |
 | `add_labels` / `remove_labels` | Manage labels granularly | 3 each |
 | `reply_to_pull_request_review_comment` | Reply to review comment | 10 |
-| `resolve_pull_request_review_thread` | Mark review thread resolved | 10 |
+| `resolve_pull_request_review_thread` | Mark review thread resolved (PR events only) | 10 |
 | `dispatch_workflow` | Trigger another workflow | 3 |
 | `mark_pull_request_as_ready_for_review` | Convert draft to ready | 1 |
 

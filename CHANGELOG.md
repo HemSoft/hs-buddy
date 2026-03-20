@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.387] - 2026-03-20
+
 ## [0.1.386] - 2026-03-20
+
+### Changed
+
+- Add deterministic patterns and review thread resolution knowledge
 
 ## [0.1.385] - 2026-03-20
 

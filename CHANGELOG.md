@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.389] - 2026-03-20
+
+## [0.1.388] - 2026-03-20
+
+### Changed
+
+- Remove deprecated history-logging hooks from SKILL.md frontmatter
+
 ## [0.1.387] - 2026-03-20
+
+### Changed
+
+- Update for deterministic thread resolution architecture
 
 ## [0.1.386] - 2026-03-20
 

@@ -1,12 +1,12 @@
 ---
 description: |
-  This workflow runs a test coverage audit every 4 hours to identify source
+  This workflow runs a daily test coverage audit to identify source
   files with zero or low test coverage and creates exactly one agent-fixable
   issue containing specific tests to write. Each issue targets a single file
   to keep scope manageable for the SFL Issue Processor.
 
 on:
-  schedule: "17 */4 * * *"   # Every 4 hours at :17 (offset to reduce GHA queue delays)
+  schedule: "17 11 * * *"   # Daily at 6:17 AM EST (11:17 UTC)
   workflow_dispatch:
 
 permissions:

@@ -69,7 +69,7 @@ natural language processing of issues/discussions, review comment synthesis.
 
 ## The Compilation Flow
 
-```
+```text
 Author .md prompt → gh aw compile → .lock.yml generated → GitHub Actions runs .lock.yml
 ```
 
@@ -102,6 +102,8 @@ or the [official reference](https://github.github.com/gh-aw/reference/safe-outpu
 | `add-labels` | Adds labels without replacing existing ones | discussion-processor, issue-processor |
 | `remove-labels` | Removes specific labels | issue-processor |
 | `add-comment` | Posts a comment on issues/PRs/discussions | issue-processor, analyzers, reporting workflows |
+| `reply-to-pull-request-review-comment` | Reply to a specific review comment thread | issue-processor (thread resolution) |
+| `resolve-pull-request-review-thread` | Mark a review thread as resolved | issue-processor (thread resolution) |
 | `close-pull-request` | Closes PRs without merging | (available, not yet used) |
 | `dispatch-workflow` | Triggers another workflow (same repo, max 3) | analyzer chain, router handoffs |
 
@@ -144,6 +146,46 @@ Every extra intermediary adds another failure mode and makes the original
 fault harder to reconstruct. This is why the guiding principle is:
 **prefer direct handoffs and let failures freeze in place**.
 
+### Deterministic Patterns
+
+Beyond explicit dispatch, SFL uses two additional patterns to reduce the
+non-deterministic surface area of agentic workflows:
+
+**Precomputation Steps**: Deterministic shell `steps:` blocks run BEFORE the
+AI agent. They fetch data via GitHub API / GraphQL and write structured JSON
+to `/tmp/gh-aw/agent/`. The agent reads pre-computed data rather than
+constructing queries at runtime. Files placed here are auto-uploaded as
+artifacts and accessible to the agent during execution.
+
+Example: `sfl-issue-processor` precomputes unresolved review threads into
+`/tmp/gh-aw/agent/review-threads.json` with thread IDs, comment IDs,
+author, body, path, and line number.
+
+**Deterministic Fallback Jobs**: Post-agent jobs (`needs: [agent]`,
+`if: "(!cancelled())"`) that check the agent's NDJSON output artifact and
+perform fallback actions if the agent didn't. These download the
+`agent-output` artifact and verify whether expected entries like
+`dispatch_workflow` were emitted.
+
+Example: Both `sfl-analyzer-c` and `sfl-issue-processor` have
+`ensure-label-actions-dispatch` fallback jobs that dispatch
+`sfl-pr-label-actions` if the agent failed to do so.
+
+### Review Thread Resolution
+
+When PR Label Actions detects all 3 analyzers passed but unresolved review
+threads exist (e.g., from `copilot-pull-request-reviewer[bot]`), it dispatches
+`sfl-issue-processor` via the `review-comments-pending` path.
+
+The issue-processor handles this with 3 layers:
+
+1. **Precomputation** — Shell step fetches unresolved threads via GraphQL →
+   `/tmp/gh-aw/agent/review-threads.json`
+2. **Agent** — Reads JSON, addresses each thread, calls
+   `reply_to_pull_request_review_comment` + `resolve_pull_request_review_thread`
+3. **Fallback** — `ensure-label-actions-dispatch` verifies threads resolved,
+   dispatches `sfl-pr-label-actions` if agent didn't
+
 ## State Machine
 
 The pipeline state is encoded entirely in GitHub primitives:
@@ -158,7 +200,7 @@ No external state store. No database. No files. GitHub IS the state store.
 
 ### Issue Lifecycle
 
-```
+```text
 [finding detected] → agent:fixable
                    → agent:in-progress  (issue-processor claims it)
                    → human:ready-for-review  (PR ready for review)
@@ -167,7 +209,7 @@ No external state store. No database. No files. GitHub IS the state store.
 
 ### PR Lifecycle
 
-```
+```text
 [draft PR opened] → agent:pr + pr:cycle-0
                   → Analyzer A starts the chain
                   → Analyzer B runs after A

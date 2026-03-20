@@ -168,6 +168,67 @@ loop now relies on explicit `dispatch-workflow` handoffs where needed. However, 
 Models are pinned in `sfl.json` at the repo root. To change a model: update
 `sfl.json`, recompile with `gh aw compile`.
 
+### Deterministic Patterns
+
+The SFL pipeline uses two key deterministic patterns from the gh-aw platform
+to reduce non-deterministic surface area:
+
+1. **Precomputation Steps** — Deterministic shell `steps:` blocks that run BEFORE
+   the AI agent. These fetch data via GitHub API / GraphQL and write structured
+   JSON to `/tmp/gh-aw/agent/`. The agent reads this pre-computed data rather
+   than constructing API queries at runtime. Files placed in this directory are
+   auto-uploaded as artifacts and accessible to the agent during execution.
+
+2. **Deterministic Fallback Jobs** — Post-agent `jobs:` blocks (`needs: [agent]`,
+   `if: "(!cancelled())"`) that check the agent's NDJSON output artifact and
+   perform fallback actions if the agent failed to do so. These use
+   `actions/download-artifact@v4` to read agent output, then verify whether
+   expected safe-output entries (like `dispatch_workflow`) were emitted.
+
+   Example: Analyzers C and the issue-processor both have `ensure-label-actions-dispatch`
+   fallback jobs that dispatch `sfl-pr-label-actions` if the agent didn't.
+
+### Review Thread Resolution Flow
+
+When PR Label Actions detects all 3 analyzers passed but unresolved review
+threads exist (e.g., from `copilot-pull-request-reviewer[bot]` or human
+reviewers), it dispatches `sfl-issue-processor` with the PR number via the
+`review-comments-pending` path.
+
+The issue-processor handles this with a 3-layer deterministic approach:
+
+1. **Precomputation** — A shell step fetches all unresolved threads via GraphQL
+   and writes structured data to `/tmp/gh-aw/agent/review-threads.json`
+2. **Agent execution** — The agent reads the JSON, addresses each thread (code
+   fix or explanation), calls `reply_to_pull_request_review_comment` and
+   `resolve_pull_request_review_thread` safe outputs with exact IDs from the
+   pre-computed data
+3. **Deterministic fallback** — The `ensure-label-actions-dispatch` job verifies
+   threads are resolved and dispatches `sfl-pr-label-actions` if the agent didn't
+
+This ensures the pipeline never gets stuck on unresolved review threads.
+
+### Safe Outputs Quick Reference
+
+| Safe Output | Purpose | Typical Max |
+|-------------|---------|-------------|
+| `create_pull_request` | Create a new draft PR | 1 |
+| `push_to_pull_request_branch` | Push commits to existing PR branch | 1 |
+| `add_comment` | Comment on issue/PR/discussion | 1 |
+| `add_labels` / `remove_labels` | Manage labels granularly | 3 each |
+| `reply_to_pull_request_review_comment` | Reply to review comment | 10 |
+| `resolve_pull_request_review_thread` | Mark review thread resolved | 10 |
+| `dispatch_workflow` | Trigger another workflow | 3 |
+| `mark_pull_request_as_ready_for_review` | Convert draft to ready | 1 |
+
+### gh-aw Platform Reference
+
+| Resource | URL |
+|----------|-----|
+| Safe Outputs Spec | `https://github.github.com/gh-aw/reference/safe-outputs-specification/` |
+| Custom Safe Outputs | `https://github.github.com/gh-aw/reference/custom-safe-outputs/` |
+| Deterministic Patterns | `https://github.github.com/gh-aw/guides/deterministic-agentic-patterns/` |
+
 ---
 
 ## Debugging

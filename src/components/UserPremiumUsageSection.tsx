@@ -118,7 +118,7 @@ function formatPlanType(plan: string | null): string {
 
 // ── Full quota view (configured accounts) ──
 
-function QuotaView({ username }: { username: string }) {
+function QuotaView({ username, org }: { username: string; org: string }) {
   const fetchRef = useRef(0)
   const cached = quotaCache.get(username)
   const [state, dispatch] = useReducer(quotaReducer, {
@@ -127,6 +127,34 @@ function QuotaView({ username }: { username: string }) {
     error: null,
     fetchedAt: cached?.fetchedAt ?? null,
   })
+
+  // Premium model data (shared with SeatView)
+  const premCacheKey = `${org}/${username}`
+  const [premium, setPremium] = useState<UserPremiumData | null>(premiumCache.get(premCacheKey)?.data ?? null)
+
+  const fetchPremium = () => {
+    const c = premiumCache.get(premCacheKey)
+    if (c && Date.now() - c.fetchedAt < CACHE_TTL) {
+      setPremium(c.data)
+      return
+    }
+    window.github
+      .getUserPremiumRequests(org, username, username)
+      .then(result => {
+        if (result.success && result.data) {
+          const d: UserPremiumData = {
+            userMonthlyRequests: result.data.userMonthlyRequests,
+            userTodayRequests: result.data.userTodayRequests,
+            userMonthlyModels: result.data.userMonthlyModels,
+            orgMonthlyRequests: result.data.orgMonthlyRequests,
+            orgMonthlyNetCost: result.data.orgMonthlyNetCost,
+          }
+          premiumCache.set(premCacheKey, { data: d, fetchedAt: Date.now() })
+          setPremium(d)
+        }
+      })
+      .catch(() => {/* best effort */})
+  }
 
   const fetchQuota = () => {
     const id = ++fetchRef.current
@@ -150,18 +178,25 @@ function QuotaView({ username }: { username: string }) {
       })
   }
 
+  const refreshAll = () => {
+    fetchQuota()
+    premiumCache.delete(premCacheKey)
+    fetchPremium()
+  }
+
   useEffect(() => {
     if (!username) return
     const c = quotaCache.get(username)
     if (c && Date.now() - c.fetchedAt < CACHE_TTL) {
       dispatch({ type: 'FETCH_SUCCESS', payload: c.data, fetchedAt: c.fetchedAt })
-      return
+    } else {
+      fetchQuota()
     }
-    fetchQuota()
+    fetchPremium()
   }, [username]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, loading, error } = state
-  const premium = data?.quota_snapshots?.premium_interactions
+  const quotaPremium = data?.quota_snapshots?.premium_interactions
 
   if (loading && !data) {
     return (
@@ -181,17 +216,17 @@ function QuotaView({ username }: { username: string }) {
     )
   }
 
-  if (!data || !premium) return null
+  if (!data || !quotaPremium) return null
 
-  const used = premium.entitlement - premium.remaining
-  const total = premium.entitlement
+  const used = quotaPremium.entitlement - quotaPremium.remaining
+  const total = quotaPremium.entitlement
   const percentUsed = total > 0 ? (used / total) * 100 : 0
-  const overageByCount = Math.max(0, premium.overage_count ?? 0)
-  const overageByRemaining = Math.max(0, -(premium.remaining ?? 0))
+  const overageByCount = Math.max(0, quotaPremium.overage_count ?? 0)
+  const overageByRemaining = Math.max(0, -(quotaPremium.remaining ?? 0))
   const overageRequests = Math.max(overageByCount, overageByRemaining)
   const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
   const color = getQuotaColor(percentUsed)
-  const projection = computeProjection(premium, data.quota_reset_date_utc)
+  const projection = computeProjection(quotaPremium, data.quota_reset_date_utc)
   const resetDays = daysUntilReset(data.quota_reset_date_utc)
 
   return (
@@ -211,7 +246,7 @@ function QuotaView({ username }: { username: string }) {
           </span>
           <button
             className="ud-premium-refresh-btn"
-            onClick={fetchQuota}
+            onClick={refreshAll}
             disabled={loading}
             title="Refresh"
           >
@@ -242,7 +277,7 @@ function QuotaView({ username }: { username: string }) {
           <span className="ud-premium-stat-label">Used</span>
         </div>
         <div className="ud-premium-stat">
-          <span className="ud-premium-stat-value">{premium.remaining.toLocaleString()}</span>
+          <span className="ud-premium-stat-value">{quotaPremium.remaining.toLocaleString()}</span>
           <span className="ud-premium-stat-label">Remaining</span>
         </div>
         <div className="ud-premium-stat">
@@ -276,6 +311,43 @@ function QuotaView({ username }: { username: string }) {
               </span>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Model breakdown with proportional bars ── */}
+      {premium && premium.userMonthlyModels.length > 0 && (
+        <div className="ud-prem-models">
+          {premium.userMonthlyModels.slice(0, 6).map(m => {
+            const pct = premium.userMonthlyRequests > 0
+              ? (m.requests / premium.userMonthlyRequests) * 100
+              : 0
+            return (
+              <div key={m.model} className="ud-prem-model">
+                <div className="ud-prem-model-head">
+                  <span className="ud-prem-model-name">{m.model}</span>
+                  <span className="ud-prem-model-count">{m.requests.toLocaleString()}</span>
+                </div>
+                <div className="ud-prem-model-track">
+                  <div
+                    className="ud-prem-model-fill"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Org context footer ── */}
+      {premium && premium.orgMonthlyRequests > 0 && (
+        <div className="ud-prem-footer">
+          <span className="ud-prem-footer-text">
+            Org total: <strong>{premium.orgMonthlyRequests.toLocaleString()}</strong> requests
+            {premium.orgMonthlyNetCost > 0 && (
+              <> · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost</>
+            )}
+          </span>
         </div>
       )}
     </>
@@ -502,7 +574,7 @@ export function UserPremiumUsageSection({ username, org }: UserPremiumUsageSecti
   return (
     <div className="ud-premium-section">
       {isConfigured ? (
-        <QuotaView username={username} />
+        <QuotaView username={username} org={org} />
       ) : (
         <SeatView org={org} memberLogin={username} authUsername={authAccount} />
       )}

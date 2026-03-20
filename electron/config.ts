@@ -207,6 +207,14 @@ class ConfigManager {
     this.setUiValue('assistantOpen', value);
   }
 
+  getFavoriteUsers(): string[] {
+    return this.getUiValue('favoriteUsers');
+  }
+
+  setFavoriteUsers(users: string[]): void {
+    this.setUiValue('favoriteUsers', users);
+  }
+
   // Copilot Settings (PR Review Prompt Template — still used via IPC)
   getCopilotPRReviewPromptTemplate(): string {
     return this.store.get('copilot.prReviewPromptTemplate', '');

@@ -236,7 +236,7 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
                 {detail.assignees.map(assignee => (
                   <div key={assignee.login} className="repo-issue-detail-assignee">
                     <img src={assignee.avatarUrl} alt={assignee.login} />
-                    <span>{assignee.login}</span>
+                    <span title={assignee.login}>{assignee.name ?? assignee.login}</span>
                   </div>
                 ))}
               </div>

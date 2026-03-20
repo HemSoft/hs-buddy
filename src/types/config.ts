@@ -43,6 +43,7 @@ export interface AppConfig {
     displayWorkArea: DisplayRect // Saved display work area for robust restore
     showBookmarkedOnly: boolean // Filter org repos to bookmarked only
     assistantOpen: boolean // Whether the Copilot Assistant pane is open
+    favoriteUsers: string[] // Favorite user keys ('org/login') that sort to the top
   }
   pr: {
     refreshInterval: number // minutes
@@ -170,6 +171,11 @@ export const configSchema: Schema<AppConfig> = {
         type: 'boolean',
         default: false,
       },
+      favoriteUsers: {
+        type: 'array',
+        items: { type: 'string' },
+        default: [],
+      },
     },
     required: [
       'theme',
@@ -187,6 +193,7 @@ export const configSchema: Schema<AppConfig> = {
       'displayId',
       'showBookmarkedOnly',
       'assistantOpen',
+      'favoriteUsers',
     ],
   },
   pr: {
@@ -268,6 +275,7 @@ export const defaultConfig: AppConfig = {
     displayWorkArea: { x: 0, y: 0, width: 0, height: 0 },
     showBookmarkedOnly: false,
     assistantOpen: false,
+    favoriteUsers: [],
   },
   pr: {
     refreshInterval: 15,

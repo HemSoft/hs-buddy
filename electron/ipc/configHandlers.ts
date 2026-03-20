@@ -130,6 +130,16 @@ export function registerConfigHandlers(): void {
     return { success: true }
   })
 
+  // Favorite Users
+  ipcMain.handle('config:get-favorite-users', () => {
+    return configManager.getFavoriteUsers()
+  })
+
+  ipcMain.handle('config:set-favorite-users', (_event, users) => {
+    configManager.setFavoriteUsers(users)
+    return { success: true }
+  })
+
   // Assistant Open
   ipcMain.handle('config:get-assistant-open', () => {
     return configManager.getAssistantOpen()

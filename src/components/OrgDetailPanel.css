@@ -267,6 +267,13 @@
   font-size: 14px;
 }
 
+.org-detail-section-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .org-detail-copilot-grid {
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }

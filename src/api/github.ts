@@ -110,6 +110,7 @@ export interface RepoCommitDetail {
 
 export interface RepoContributor {
   login: string
+  name: string | null
   avatarUrl: string
   contributions: number
   url: string
@@ -135,6 +136,7 @@ export interface OrgRepoResult {
 
 export interface OrgMember {
   login: string
+  name: string | null
   avatarUrl: string | null
   url: string
   type: string
@@ -146,6 +148,29 @@ export interface OrgMemberResult {
   isUserNamespace: boolean
 }
 
+export interface OrgTeam {
+  slug: string
+  name: string
+  description: string | null
+  memberCount: number
+  repoCount: number
+  url: string
+}
+
+export interface OrgTeamResult {
+  teams: OrgTeam[]
+}
+
+export interface TeamMember {
+  login: string
+  name: string | null
+  avatarUrl: string | null
+}
+
+export interface TeamMembersResult {
+  members: TeamMember[]
+}
+
 export interface OrgContributorToday {
   login: string
   avatarUrl: string | null
@@ -153,8 +178,20 @@ export interface OrgContributorToday {
   commits: number
 }
 
+export interface ContributionDay {
+  date: string
+  contributionCount: number
+  color: string
+}
+
+export interface ContributionWeek {
+  contributionDays: ContributionDay[]
+}
+
 /** Summary of a user's recent activity within an org, fetched on-demand. */
 export interface UserActivitySummary {
+  /** The user's full display name (from their GitHub profile) */
+  name: string | null
   /** PRs authored by the user (recent, across the org) */
   recentPRsAuthored: UserPRSummary[]
   /** PRs reviewed by the user (recent, across the org) */
@@ -169,6 +206,10 @@ export interface UserActivitySummary {
   activeRepos: string[]
   /** Number of commits authored today in the org */
   commitsToday: number
+  /** Total contributions in the last year */
+  totalContributions: number | null
+  /** Weekly contribution calendar data for the heatmap */
+  contributionWeeks: ContributionWeek[] | null
 }
 
 export interface UserPRSummary {
@@ -223,7 +264,7 @@ export interface RepoIssue {
   updatedAt: string
   labels: Array<{ name: string; color: string }>
   commentCount: number
-  assignees: Array<{ login: string; avatarUrl: string }>
+  assignees: Array<{ login: string; name: string | null; avatarUrl: string }>
 }
 
 export interface RepoIssueComment {
@@ -308,6 +349,7 @@ export interface PRHistorySummary {
 
 export interface PRReviewerSummary {
   login: string
+  name: string | null
   avatarUrl: string | null
   status: 'pending' | 'approved' | 'changes-requested' | 'commented' | 'reviewed'
   updatedAt: string | null
@@ -446,6 +488,7 @@ const PR_HISTORY_QUERY = `
               __typename
               ... on User {
                 login
+                name
                 avatarUrl
               }
             }
@@ -459,6 +502,7 @@ const PR_HISTORY_QUERY = `
             url
             author {
               login
+              name
               avatarUrl
             }
           }
@@ -726,22 +770,31 @@ export class GitHubClient {
   ): PRReviewerSummary[] {
     const latestReviewsByUser = new Map<
       string,
-      { state: string; submittedAt: string | null; avatarUrl: string | null }
+      { state: string; submittedAt: string | null; avatarUrl: string | null; name: string | null }
     >()
     for (const review of pr.reviews.nodes || []) {
       const login = review.author?.login
       if (!login) continue
+      const reviewAuthor = review.author as
+        | {
+            login?: string
+            avatarUrl?: string | null
+            name?: string | null
+          }
+        | null
+        | undefined
       const existing = latestReviewsByUser.get(login)
       if (!existing || (review.submittedAt || '') > (existing.submittedAt || '')) {
         latestReviewsByUser.set(login, {
           state: review.state,
           submittedAt: review.submittedAt,
-          avatarUrl: review.author?.avatarUrl || null,
+          avatarUrl: reviewAuthor?.avatarUrl || null,
+          name: reviewAuthor?.name || null,
         })
       }
     }
 
-    const requestedReviewers = new Map<string, { avatarUrl: string | null }>()
+    const requestedReviewers = new Map<string, { avatarUrl: string | null; name: string | null }>()
     for (const req of pr.reviewRequests.nodes || []) {
       const reviewer = req.requestedReviewer
       if (
@@ -750,7 +803,15 @@ export class GitHubClient {
         'login' in reviewer &&
         'avatarUrl' in reviewer
       ) {
-        requestedReviewers.set(reviewer.login, { avatarUrl: reviewer.avatarUrl || null })
+        const requestedReviewer = reviewer as {
+          login: string
+          avatarUrl?: string | null
+          name?: string | null
+        }
+        requestedReviewers.set(requestedReviewer.login, {
+          avatarUrl: requestedReviewer.avatarUrl || null,
+          name: requestedReviewer.name || null,
+        })
       }
     }
 
@@ -774,6 +835,7 @@ export class GitHubClient {
 
       return {
         login,
+        name: latest?.name || requested?.name || null,
         avatarUrl: latest?.avatarUrl || requested?.avatarUrl || null,
         status,
         updatedAt: latest?.submittedAt || null,
@@ -964,15 +1026,21 @@ export class GitHubClient {
         : []
 
     // Contributors (optional)
-    const topContributors: RepoContributor[] =
+    let topContributors: RepoContributor[] =
       contributorsData.status === 'fulfilled' && Array.isArray(contributorsData.value.data)
         ? contributorsData.value.data.map(c => ({
             login: c.login ?? 'unknown',
+            name: null as string | null,
             avatarUrl: c.avatar_url ?? '',
             contributions: c.contributions ?? 0,
             url: c.html_url ?? '',
           }))
         : []
+
+    if (topContributors.length > 0) {
+      const nameMap = await this.fetchUserNames(topContributors.map(c => c.login), owner)
+      topContributors = topContributors.map(c => ({ ...c, name: nameMap.get(c.login) ?? null }))
+    }
 
     // Open PR count (optional) — GitHub returns total_count in search,
     // but for pulls.list we check response headers or just count length.
@@ -1125,7 +1193,7 @@ export class GitHubClient {
       sort: 'updated',
       direction: 'desc',
     })
-    return response.data
+    const issues = response.data
       .filter(issue => !issue.pull_request)
       .map(issue => ({
         number: issue.number,
@@ -1144,9 +1212,20 @@ export class GitHubClient {
         commentCount: issue.comments,
         assignees: (issue.assignees || []).map(a => ({
           login: a.login,
+          name: null as string | null,
           avatarUrl: a.avatar_url,
         })),
       }))
+
+    const allAssigneeLogins = [...new Set(issues.flatMap(i => i.assignees.map(a => a.login)))]
+    if (allAssigneeLogins.length > 0) {
+      const nameMap = await this.fetchUserNames(allAssigneeLogins, owner)
+      for (const issue of issues) {
+        issue.assignees = issue.assignees.map(a => ({ ...a, name: nameMap.get(a.login) ?? null }))
+      }
+    }
+
+    return issues
   }
 
   async fetchRepoIssueDetail(
@@ -1172,6 +1251,9 @@ export class GitHubClient {
 
     const issue = issueResponse.data
 
+    const assigneeLogins = (issue.assignees || []).map(a => a.login)
+    const nameMap = assigneeLogins.length > 0 ? await this.fetchUserNames(assigneeLogins, owner) : new Map<string, string>()
+
     return {
       number: issue.number,
       title: issue.title,
@@ -1190,6 +1272,7 @@ export class GitHubClient {
       commentCount: issue.comments,
       assignees: (issue.assignees || []).map(assignee => ({
         login: assignee.login,
+        name: nameMap.get(assignee.login) ?? null,
         avatarUrl: assignee.avatar_url,
       })),
       body: issue.body || '',
@@ -1939,6 +2022,67 @@ export class GitHubClient {
     throw new Error(`Could not fetch members for '${org}' - no authenticated account available`)
   }
 
+  async fetchOrgTeams(org: string): Promise<OrgTeamResult> {
+    for (const account of this.getAccountsByOwnerPriority(org)) {
+      const octokit = await this.getOctokit(account.username)
+      if (!octokit) continue
+
+      try {
+        const teams = await octokit.paginate(octokit.teams.list, {
+          org,
+          per_page: 100,
+        })
+
+        return {
+          teams: teams.map(team => ({
+            slug: team.slug,
+            name: team.name,
+            description: team.description ?? null,
+            memberCount: (team as { members_count?: number }).members_count ?? 0,
+            repoCount: (team as { repos_count?: number }).repos_count ?? 0,
+            url: team.html_url,
+          })),
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch teams for ${org} with account ${account.username}:`, error)
+        continue
+      }
+    }
+
+    // Teams may not be available for user namespaces — return empty
+    return { teams: [] }
+  }
+
+  async fetchTeamMembers(org: string, teamSlug: string): Promise<TeamMembersResult> {
+    for (const account of this.getAccountsByOwnerPriority(org)) {
+      const octokit = await this.getOctokit(account.username)
+      if (!octokit) continue
+
+      try {
+        const members = await octokit.paginate(octokit.teams.listMembersInOrg, {
+          org,
+          team_slug: teamSlug,
+          per_page: 100,
+        })
+
+        const names = await this.fetchUserNames(members.map(m => m.login), org)
+
+        return {
+          members: members.map(m => ({
+            login: m.login,
+            name: names.get(m.login) ?? null,
+            avatarUrl: m.avatar_url ?? null,
+          })),
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch members for ${org}/${teamSlug} with account ${account.username}:`, error)
+        continue
+      }
+    }
+
+    return { members: [] }
+  }
+
   async fetchOrgOverview(org: string): Promise<OrgOverviewResult> {
     for (const account of this.getAccountsByOwnerPriority(org)) {
       const octokit = await this.getOctokit(account.username)
@@ -2062,9 +2206,12 @@ export class GitHubClient {
         per_page: 100,
       })
 
+      const names = await this.fetchUserNames(members.map(m => m.login), namespace)
+
       return {
         members: members.map(member => ({
           login: member.login,
+          name: names.get(member.login) ?? null,
           avatarUrl: member.avatar_url,
           url: member.html_url,
           type: member.type,
@@ -2082,6 +2229,7 @@ export class GitHubClient {
         members: [
           {
             login: user.data.login,
+            name: user.data.name ?? null,
             avatarUrl: user.data.avatar_url,
             url: user.data.html_url,
             type: user.data.type,
@@ -2090,6 +2238,40 @@ export class GitHubClient {
         isUserNamespace: true,
       }
     }
+  }
+
+  /**
+   * Batch-fetch real names for a list of GitHub logins via GraphQL aliases.
+   * Returns a Map<login, name>. Logins without a name are omitted.
+   */
+  private async fetchUserNames(logins: string[], org: string): Promise<Map<string, string>> {
+    const names = new Map<string, string>()
+    if (logins.length === 0) return names
+
+    try {
+      const token = await this.getTokenForOwner(org)
+      // GraphQL aliases must be valid identifiers — prefix with 'u' and replace non-alnum
+      const sanitize = (login: string) => 'u' + login.replace(/[^a-zA-Z0-9]/g, '_')
+      // Process in chunks of 50 to stay within query size limits
+      for (let i = 0; i < logins.length; i += 50) {
+        const chunk = logins.slice(i, i + 50)
+        const fragments = chunk.map(
+          login => `${sanitize(login)}: user(login: "${login}") { login name }`
+        ).join('\n')
+        const query = `query { ${fragments} }`
+        const result = await graphql<Record<string, { login: string; name: string | null } | null>>(
+          query,
+          { headers: { authorization: `token ${token}` } }
+        )
+        for (const data of Object.values(result)) {
+          if (data?.name) names.set(data.login, data.name)
+        }
+      }
+    } catch (error) {
+      console.warn('[fetchUserNames] GraphQL batch name lookup failed:', error)
+    }
+
+    return names
   }
 
   /**
@@ -2598,8 +2780,8 @@ export class GitHubClient {
 
     const emptySearch = { data: { total_count: 0, items: [] } } as const
 
-    // Parallel: authored PRs (open + recently merged), reviewed PRs, events
-    const [authoredOpen, authoredMerged, reviewed, events] = await Promise.all([
+    // Parallel: authored PRs (open + recently merged), reviewed PRs, events, user profile + contributions
+    const [authoredOpen, authoredMerged, reviewed, events, userProfile] = await Promise.all([
       octokit.search.issuesAndPullRequests({
         q: `org:${org} is:pr author:${username} is:open`,
         per_page: 15,
@@ -2622,6 +2804,52 @@ export class GitHubClient {
         username,
         per_page: 30,
       }).catch(() => ({ data: [] as Array<Record<string, unknown>> })),
+      (async () => {
+        try {
+          const token = await this.getTokenForOwner(org)
+          return await graphql<{
+            user: {
+              name: string | null
+              contributionsCollection: {
+                contributionCalendar: {
+                  totalContributions: number
+                  weeks: Array<{
+                    contributionDays: Array<{
+                      contributionCount: number
+                      date: string
+                      color: string
+                    }>
+                  }>
+                }
+              }
+            } | null
+          }>(
+            `query($login: String!) {
+              user(login: $login) {
+                name
+                contributionsCollection {
+                  contributionCalendar {
+                    totalContributions
+                    weeks {
+                      contributionDays {
+                        contributionCount
+                        date
+                        color
+                      }
+                    }
+                  }
+                }
+              }
+            }`,
+            {
+              login: username,
+              headers: { authorization: `token ${token}` },
+            }
+          )
+        } catch {
+          return null
+        }
+      })(),
     ])
 
     const extractRepo = (repoUrl: string) => {
@@ -2684,6 +2912,7 @@ export class GitHubClient {
     recentPRsAuthored.forEach(pr => { if (pr.repo) activeRepoSet.add(pr.repo) })
 
     return {
+      name: userProfile?.user?.name ?? null,
       recentPRsAuthored,
       recentPRsReviewed: reviewed.data.items.map(mapPR),
       recentEvents,
@@ -2691,6 +2920,8 @@ export class GitHubClient {
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
+      totalContributions: userProfile?.user?.contributionsCollection.contributionCalendar.totalContributions ?? null,
+      contributionWeeks: userProfile?.user?.contributionsCollection.contributionCalendar.weeks ?? null,
     }
   }
 

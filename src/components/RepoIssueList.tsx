@@ -209,7 +209,7 @@ export function RepoIssueList({
                           src={a.avatarUrl}
                           alt={a.login}
                           className="repo-issue-assignee-avatar"
-                          title={a.login}
+                          title={a.name ?? a.login}
                         />
                       ))}
                       {issue.assignees.length > 3 && (

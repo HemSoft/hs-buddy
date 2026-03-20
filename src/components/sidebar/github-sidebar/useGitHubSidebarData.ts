@@ -10,6 +10,10 @@ import {
   GitHubClient,
   type OrgRepo,
   type OrgMember,
+  type OrgTeam,
+  type OrgTeamResult,
+  type TeamMember,
+  type TeamMembersResult,
   type RepoCommit,
   type RepoIssue,
   type OrgRepoResult,
@@ -72,12 +76,21 @@ export function useGitHubSidebarData() {
   )
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set())
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false)
+  const [favoriteUsers, setFavoriteUsers] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     window.ipcRenderer
       .invoke('config:get-show-bookmarked-only')
       .then((value: boolean) => {
         setShowBookmarkedOnly(value)
+      })
+      .catch(() => {
+        /* use default */
+      })
+    window.ipcRenderer
+      .invoke('config:get-favorite-users')
+      .then((users: string[]) => {
+        setFavoriteUsers(new Set(users))
       })
       .catch(() => {
         /* use default */
@@ -91,6 +104,12 @@ export function useGitHubSidebarData() {
   const [orgMembers, setOrgMembers] = useState<Record<string, OrgMember[]>>({})
   const [loadingOrgMembers, setLoadingOrgMembers] = useState<Set<string>>(new Set())
   const [expandedOrgUserGroups, setExpandedOrgUserGroups] = useState<Set<string>>(new Set())
+  const [orgTeams, setOrgTeams] = useState<Record<string, OrgTeam[]>>({})
+  const [loadingOrgTeams, setLoadingOrgTeams] = useState<Set<string>>(new Set())
+  const [expandedOrgTeamGroups, setExpandedOrgTeamGroups] = useState<Set<string>>(new Set())
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set())
+  const [teamMembers, setTeamMembers] = useState<Record<string, TeamMember[]>>({})
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState<Set<string>>(new Set())
   const [orgContributorCounts, setOrgContributorCounts] = useState<Record<string, Record<string, number>>>({})
   const [loadingOrgs, setLoadingOrgs] = useState<Set<string>>(new Set())
   const { accounts } = useGitHubAccounts()
@@ -108,6 +127,8 @@ export function useGitHubSidebarData() {
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set())
   const fetchedOrgMembersRef = useRef<Set<string>>(new Set())
   const fetchedOrgOverviewRef = useRef<Set<string>>(new Set())
+  const fetchedOrgTeamsRef = useRef<Set<string>>(new Set())
+  const fetchedTeamMembersRef = useRef<Set<string>>(new Set())
   const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
   const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
   const fetchedCountsRef = useRef<Set<string>>(new Set())
@@ -460,6 +481,116 @@ export function useGitHubSidebarData() {
       }
     },
     [fetchOrgMembers, fetchOrgOverview]
+  )
+
+  const fetchOrgTeams = useCallback(
+    async (org: string, forceRefresh = false) => {
+      const cacheKey = `org-teams:${org}`
+      const cached = dataCache.get<OrgTeamResult>(cacheKey)
+      if (cached?.data && !forceRefresh) {
+        setOrgTeams(prev => ({ ...prev, [org]: cached.data.teams }))
+        return
+      }
+
+      setLoadingOrgTeams(prev => new Set(prev).add(org))
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            throwIfAborted(signal)
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchOrgTeams(org)
+          },
+          { name: `org-teams-${org}`, priority: -1 }
+        )
+        setOrgTeams(prev => ({ ...prev, [org]: result.teams }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (isAbortError(error)) return
+        console.warn(`[OrgTeams] ${org} failed:`, error)
+      } finally {
+        setLoadingOrgTeams(prev => {
+          const next = new Set(prev)
+          next.delete(org)
+          return next
+        })
+      }
+    },
+    [accounts]
+  )
+
+  const toggleOrgTeamGroup = useCallback(
+    (org: string) => {
+      const shouldFetch = !fetchedOrgTeamsRef.current.has(org)
+
+      setExpandedOrgTeamGroups(prev => {
+        const next = new Set(prev)
+        if (next.has(org)) next.delete(org)
+        else next.add(org)
+        return next
+      })
+
+      if (shouldFetch) {
+        fetchedOrgTeamsRef.current.add(org)
+        fetchOrgTeams(org)
+      }
+    },
+    [fetchOrgTeams]
+  )
+
+  const fetchTeamMembers = useCallback(
+    async (org: string, teamSlug: string) => {
+      const key = `${org}/${teamSlug}`
+      const cacheKey = `team-members:${key}`
+      const cached = dataCache.get<TeamMembersResult>(cacheKey)
+      if (cached?.data) {
+        setTeamMembers(prev => ({ ...prev, [key]: cached.data.members }))
+        return
+      }
+
+      setLoadingTeamMembers(prev => new Set(prev).add(key))
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            throwIfAborted(signal)
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchTeamMembers(org, teamSlug)
+          },
+          { name: `team-members-${key}`, priority: -1 }
+        )
+        setTeamMembers(prev => ({ ...prev, [key]: result.members }))
+        dataCache.set(cacheKey, result)
+      } catch (error) {
+        if (isAbortError(error)) return
+        console.warn(`[TeamMembers] ${key} failed:`, error)
+      } finally {
+        setLoadingTeamMembers(prev => {
+          const next = new Set(prev)
+          next.delete(key)
+          return next
+        })
+      }
+    },
+    [accounts]
+  )
+
+  const toggleTeam = useCallback(
+    (org: string, teamSlug: string) => {
+      const key = `${org}/${teamSlug}`
+      const shouldFetch = !fetchedTeamMembersRef.current.has(key)
+
+      setExpandedTeams(prev => {
+        const next = new Set(prev)
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
+        return next
+      })
+
+      if (shouldFetch) {
+        fetchedTeamMembersRef.current.add(key)
+        fetchTeamMembers(org, teamSlug)
+      }
+    },
+    [fetchTeamMembers]
   )
 
   const toggleBookmarkRepoByValues = useCallback(
@@ -1064,6 +1195,47 @@ export function useGitHubSidebarData() {
     [accounts, applyApproveToTree]
   )
 
+  // ── User context menu ──
+  const [userContextMenu, setUserContextMenu] = useState<{
+    x: number; y: number; login: string; org: string
+  } | null>(null)
+
+  const openUserContextMenu = useCallback((e: React.MouseEvent, org: string, login: string) => {
+    e.preventDefault()
+    setUserContextMenu({ x: e.clientX, y: e.clientY, login, org })
+  }, [])
+
+  useEffect(() => {
+    if (!userContextMenu) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setUserContextMenu(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [userContextMenu])
+
+  const toggleFavoriteUser = useCallback((org: string, login: string) => {
+    const key = `${org}/${login}`
+    setFavoriteUsers(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      window.ipcRenderer.invoke('config:set-favorite-users', Array.from(next)).catch(() => {})
+      return next
+    })
+  }, [])
+
+  const refreshUser = useCallback((org: string, login: string) => {
+    const cacheKey = `user-activity:v2:${org}/${login}`
+    dataCache.delete(cacheKey)
+    // Re-navigate to force a re-fetch on the detail panel
+    window.dispatchEvent(
+      new CustomEvent('app:navigate', {
+        detail: { viewId: `org-user:${org}/${login}` },
+      })
+    )
+  }, [])
+
   return {
     prContextMenu,
     setPrContextMenu,
@@ -1080,6 +1252,12 @@ export function useGitHubSidebarData() {
     orgMembers,
     loadingOrgMembers,
     expandedOrgUserGroups,
+    orgTeams,
+    loadingOrgTeams,
+    expandedOrgTeamGroups,
+    expandedTeams,
+    teamMembers,
+    loadingTeamMembers,
     orgContributorCounts,
     loadingOrgs,
     expandedOrgs,
@@ -1106,6 +1284,8 @@ export function useGitHubSidebarData() {
     toggleSection,
     toggleOrg,
     toggleOrgUserGroup,
+    toggleOrgTeamGroup,
+    toggleTeam,
     toggleRepo,
     toggleRepoIssueGroup,
     toggleRepoIssueStateGroup,
@@ -1121,5 +1301,11 @@ export function useGitHubSidebarData() {
     copyToClipboard,
     openPRReview,
     toggleBookmarkRepoByValues,
+    userContextMenu,
+    setUserContextMenu,
+    favoriteUsers,
+    openUserContextMenu,
+    toggleFavoriteUser,
+    refreshUser,
   }
 }

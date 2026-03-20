@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, GitPullRequest, Building2, Filter } from 'lucide-react'
 import { SidebarPRContextMenu } from './github-sidebar/SidebarPRContextMenu'
+import { SidebarUserContextMenu } from './github-sidebar/SidebarUserContextMenu'
 import { PRTreeSection } from './github-sidebar/PRTreeSection'
 import { OrgRepoTree } from './github-sidebar/OrgRepoTree'
 import { useGitHubSidebarData } from './github-sidebar/useGitHubSidebarData'
@@ -33,6 +34,12 @@ export function GitHubSidebar({
     orgMembers,
     loadingOrgMembers,
     expandedOrgUserGroups,
+    orgTeams,
+    loadingOrgTeams,
+    expandedOrgTeamGroups,
+    expandedTeams,
+    teamMembers,
+    loadingTeamMembers,
     orgContributorCounts,
     loadingOrgs,
     expandedOrgs,
@@ -59,6 +66,8 @@ export function GitHubSidebar({
     toggleSection,
     toggleOrg,
     toggleOrgUserGroup,
+    toggleOrgTeamGroup,
+    toggleTeam,
     toggleRepo,
     toggleRepoIssueGroup,
     toggleRepoIssueStateGroup,
@@ -74,6 +83,12 @@ export function GitHubSidebar({
     copyToClipboard,
     openPRReview,
     toggleBookmarkRepoByValues,
+    userContextMenu,
+    setUserContextMenu,
+    favoriteUsers,
+    openUserContextMenu,
+    toggleFavoriteUser,
+    refreshUser,
   } = useGitHubSidebarData()
 
   return (
@@ -115,6 +130,31 @@ export function GitHubSidebar({
             setPrContextMenu(null)
           }}
           onClose={() => setPrContextMenu(null)}
+        />
+      )}
+      {userContextMenu && (
+        <SidebarUserContextMenu
+          displayName={
+            orgMembers[userContextMenu.org]?.find(m => m.login === userContextMenu.login)?.name
+            ?? userContextMenu.login
+          }
+          org={userContextMenu.org}
+          x={userContextMenu.x}
+          y={userContextMenu.y}
+          isFavorite={favoriteUsers.has(`${userContextMenu.org}/${userContextMenu.login}`)}
+          onOpenProfile={() => {
+            window.shell.openExternal(`https://github.com/${userContextMenu.login}`)
+            setUserContextMenu(null)
+          }}
+          onRefresh={() => {
+            refreshUser(userContextMenu.org, userContextMenu.login)
+            setUserContextMenu(null)
+          }}
+          onToggleFavorite={() => {
+            toggleFavoriteUser(userContextMenu.org, userContextMenu.login)
+            setUserContextMenu(null)
+          }}
+          onClose={() => setUserContextMenu(null)}
         />
       )}
       <div className="sidebar-panel-header">
@@ -214,6 +254,12 @@ export function GitHubSidebar({
               orgMembers={orgMembers}
               loadingOrgMembers={loadingOrgMembers}
               expandedOrgUserGroups={expandedOrgUserGroups}
+              orgTeams={orgTeams}
+              loadingOrgTeams={loadingOrgTeams}
+              expandedOrgTeamGroups={expandedOrgTeamGroups}
+              expandedTeams={expandedTeams}
+              teamMembers={teamMembers}
+              loadingTeamMembers={loadingTeamMembers}
               orgContributorCounts={orgContributorCounts}
               loadingOrgs={loadingOrgs}
               expandedOrgs={expandedOrgs}
@@ -241,6 +287,8 @@ export function GitHubSidebar({
               refreshTick={refreshTick}
               onToggleOrg={toggleOrg}
               onToggleOrgUserGroup={toggleOrgUserGroup}
+              onToggleOrgTeamGroup={toggleOrgTeamGroup}
+              onToggleTeam={toggleTeam}
               onToggleRepo={toggleRepo}
               onToggleRepoIssueGroup={toggleRepoIssueGroup}
               onToggleRepoIssueStateGroup={toggleRepoIssueStateGroup}
@@ -252,6 +300,8 @@ export function GitHubSidebar({
               onItemSelect={onItemSelect}
               onContextMenu={openTreePRContextMenu}
               onBookmarkToggle={handleBookmarkToggle}
+              favoriteUsers={favoriteUsers}
+              onUserContextMenu={openUserContextMenu}
             />
           )}
         </div>

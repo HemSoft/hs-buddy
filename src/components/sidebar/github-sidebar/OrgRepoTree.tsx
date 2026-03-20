@@ -18,8 +18,9 @@ import {
   MinusCircle,
   Users,
   UserRound,
+  UsersRound,
 } from 'lucide-react'
-import type { OrgRepo, OrgMember, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
+import type { OrgRepo, OrgMember, OrgTeam, TeamMember, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus, SFLOverallStatus } from '../../../types/sflStatus'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
@@ -39,6 +40,12 @@ interface OrgRepoTreeProps {
   orgMembers: Record<string, OrgMember[]>
   loadingOrgMembers: Set<string>
   expandedOrgUserGroups: Set<string>
+  orgTeams: Record<string, OrgTeam[]>
+  loadingOrgTeams: Set<string>
+  expandedOrgTeamGroups: Set<string>
+  expandedTeams: Set<string>
+  teamMembers: Record<string, TeamMember[]>
+  loadingTeamMembers: Set<string>
   orgContributorCounts: Record<string, Record<string, number>>
   loadingOrgs: Set<string>
   expandedOrgs: Set<string>
@@ -66,6 +73,8 @@ interface OrgRepoTreeProps {
   refreshTick: number
   onToggleOrg: (org: string) => void
   onToggleOrgUserGroup: (org: string) => void
+  onToggleOrgTeamGroup: (org: string) => void
+  onToggleTeam: (org: string, teamSlug: string) => void
   onToggleRepo: (org: string, repoName: string) => void
   onToggleRepoIssueGroup: (org: string, repoName: string) => void
   onToggleRepoIssueStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
@@ -77,6 +86,8 @@ interface OrgRepoTreeProps {
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
+  favoriteUsers: Set<string>
+  onUserContextMenu: (e: React.MouseEvent, org: string, login: string) => void
 }
 
 const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {
@@ -129,6 +140,12 @@ export function OrgRepoTree({
   orgMembers,
   loadingOrgMembers,
   expandedOrgUserGroups,
+  orgTeams,
+  loadingOrgTeams,
+  expandedOrgTeamGroups,
+  expandedTeams,
+  teamMembers,
+  loadingTeamMembers,
   orgContributorCounts,
   loadingOrgs,
   expandedOrgs,
@@ -156,6 +173,8 @@ export function OrgRepoTree({
   refreshTick,
   onToggleOrg,
   onToggleOrgUserGroup,
+  onToggleOrgTeamGroup,
+  onToggleTeam,
   onToggleRepo,
   onToggleRepoIssueGroup,
   onToggleRepoIssueStateGroup,
@@ -167,6 +186,8 @@ export function OrgRepoTree({
   onItemSelect,
   onContextMenu,
   onBookmarkToggle,
+  favoriteUsers,
+  onUserContextMenu,
 }: OrgRepoTreeProps) {
   return (
     <div className="sidebar-section-items">
@@ -184,6 +205,9 @@ export function OrgRepoTree({
           const meta = orgMeta[org]
           const isUserGroupExpanded = expandedOrgUserGroups.has(org)
           const isUserGroupLoading = loadingOrgMembers.has(org)
+          const teams = orgTeams[org] ?? []
+          const isTeamGroupExpanded = expandedOrgTeamGroups.has(org)
+          const isTeamGroupLoading = loadingOrgTeams.has(org)
           const contributorCounts = orgContributorCounts[org] ?? {}
           const filteredRepos = showBookmarkedOnly
             ? repos.filter(r => bookmarkedRepoKeys.has(`${org}/${r.name}`))
@@ -254,6 +278,135 @@ export function OrgRepoTree({
                     </div>
                   ) : (
                     <>
+                      {/* ── Teams ── */}
+                      <div
+                        className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onToggleOrgTeamGroup(org)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            onToggleOrgTeamGroup(org)
+                          }
+                        }}
+                      >
+                        <span className="sidebar-item-chevron">
+                          {isTeamGroupExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        </span>
+                        <span className="sidebar-item-icon">
+                          <UsersRound size={12} />
+                        </span>
+                        <span className="sidebar-item-label">Teams</span>
+                        {isTeamGroupLoading ? (
+                          <Loader2 size={10} className="spin" />
+                        ) : teams.length > 0 ? (
+                          <span className="sidebar-item-count">{teams.length}</span>
+                        ) : null}
+                      </div>
+                      {isTeamGroupExpanded && isTeamGroupLoading && (
+                        <div className="sidebar-org-users-list">
+                          <div className="sidebar-item sidebar-pr-child">
+                            <span className="sidebar-item-icon">
+                              <Loader2 size={11} className="spin" />
+                            </span>
+                            <span className="sidebar-item-label">Loading teams...</span>
+                          </div>
+                        </div>
+                      )}
+                      {isTeamGroupExpanded && !isTeamGroupLoading && teams.length > 0 && (
+                        <div className="sidebar-org-users-list">
+                          {teams.map(team => {
+                            const teamKey = `${org}/${team.slug}`
+                            const isTeamExpanded = expandedTeams.has(teamKey)
+                            const members = teamMembers[teamKey] ?? []
+                            const isLoadingMembers = loadingTeamMembers.has(teamKey)
+                            return (
+                              <div key={team.slug}>
+                                <div
+                                  className="sidebar-item sidebar-item-disclosure sidebar-org-user-child"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => onToggleTeam(org, team.slug)}
+                                  title={team.description ?? team.name}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      onToggleTeam(org, team.slug)
+                                    }
+                                  }}
+                                >
+                                  <span className="sidebar-item-chevron">
+                                    {isTeamExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                                  </span>
+                                  <span className="sidebar-item-icon">
+                                    <UsersRound size={11} />
+                                  </span>
+                                  <span className="sidebar-item-label">{team.name}</span>
+                                  {isLoadingMembers ? (
+                                    <Loader2 size={10} className="spin" />
+                                  ) : team.memberCount > 0 ? (
+                                    <span className="sidebar-item-count">{team.memberCount}</span>
+                                  ) : null}
+                                </div>
+                                {isTeamExpanded && isLoadingMembers && (
+                                  <div className="sidebar-team-members-list">
+                                    <div className="sidebar-item sidebar-pr-child">
+                                      <span className="sidebar-item-icon">
+                                        <Loader2 size={11} className="spin" />
+                                      </span>
+                                      <span className="sidebar-item-label">Loading members...</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {isTeamExpanded && !isLoadingMembers && members.length > 0 && (
+                                  <div className="sidebar-team-members-list">
+                                    {members.map(member => {
+                                      const userViewId = `org-user:${org}/${member.login}`
+                                      return (
+                                        <div
+                                          key={member.login}
+                                          className={`sidebar-item sidebar-team-member-child ${selectedItem === userViewId ? 'selected' : ''}`}
+                                          role="button"
+                                          tabIndex={0}
+                                          onClick={() => onItemSelect(userViewId)}
+                                          onKeyDown={e => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                              e.preventDefault()
+                                              onItemSelect(userViewId)
+                                            }
+                                          }}
+                                        >
+                                          <span className="sidebar-item-icon">
+                                            <UserRound size={10} />
+                                          </span>
+                                          <span className="sidebar-item-label" title={member.login}>{member.name ?? member.login}</span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                                {isTeamExpanded && !isLoadingMembers && members.length === 0 && (
+                                  <div className="sidebar-team-members-list">
+                                    <div className="sidebar-item sidebar-pr-child">
+                                      <span className="sidebar-item-label">No members</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {isTeamGroupExpanded && !isTeamGroupLoading && teams.length === 0 && (
+                        <div className="sidebar-org-users-list">
+                          <div className="sidebar-item sidebar-pr-child">
+                            <span className="sidebar-item-label">No teams found</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── Users ── */}
                       <div
                         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
                         role="button"
@@ -291,9 +444,15 @@ export function OrgRepoTree({
                       )}
                       {isUserGroupExpanded && !isUserGroupLoading && members.length > 0 && (
                         <div className="sidebar-org-users-list">
-                          {members.map(member => {
+                          {[...members].sort((a, b) => {
+                            const aFav = favoriteUsers.has(`${org}/${a.login}`) ? 0 : 1
+                            const bFav = favoriteUsers.has(`${org}/${b.login}`) ? 0 : 1
+                            if (aFav !== bFav) return aFav - bFav
+                            return a.login.localeCompare(b.login)
+                          }).map(member => {
                             const userViewId = `org-user:${org}/${member.login}`
                             const userCommitCount = contributorCounts[member.login] ?? 0
+                            const isFav = favoriteUsers.has(`${org}/${member.login}`)
                             return (
                               <div
                                 key={userViewId}
@@ -301,6 +460,7 @@ export function OrgRepoTree({
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => onItemSelect(userViewId)}
+                                onContextMenu={e => onUserContextMenu(e, org, member.login)}
                                 onKeyDown={e => {
                                   if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault()
@@ -309,9 +469,9 @@ export function OrgRepoTree({
                                 }}
                               >
                                 <span className="sidebar-item-icon">
-                                  <UserRound size={11} />
+                                  {isFav ? <Star size={11} fill="currentColor" className="sidebar-fav-star" /> : <UserRound size={11} />}
                                 </span>
-                                <span className="sidebar-item-label">{member.login}</span>
+                                <span className="sidebar-item-label" title={member.login}>{member.name ?? member.login}</span>
                                 {userCommitCount > 0 && (
                                   <span className="sidebar-item-count">{userCommitCount}</span>
                                 )}

@@ -256,6 +256,10 @@
   color: var(--accent-primary);
 }
 
+.sidebar-fav-star {
+  color: #e3b341;
+}
+
 .sidebar-section-header {
   display: flex;
   align-items: center;
@@ -313,6 +317,15 @@
 .sidebar-org-user-child {
   padding-left: 62px !important;
   font-size: 12px !important;
+}
+
+.sidebar-team-members-list {
+  margin-left: 6px;
+}
+
+.sidebar-team-member-child {
+  padding-left: 80px !important;
+  font-size: 11px !important;
 }
 
 .sidebar-repo-item {

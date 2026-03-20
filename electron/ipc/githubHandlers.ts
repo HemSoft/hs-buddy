@@ -3,6 +3,7 @@ import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
 import { execAsync, getErrorMessage } from '../utils'
 import { CONVEX_URL } from '../config'
+import { findCopilotBudget, findBudgetAcrossPages, type BudgetItem } from '../../src/utils/budgetUtils'
 
 /** Timeout for local CLI commands (auth token, auth status, account switch). */
 const CLI_TIMEOUT_MS = 5000
@@ -174,12 +175,8 @@ export async function fetchCopilotMetrics(
     ])
 
     if (budgetResult.status === 'fulfilled') {
-      interface BudgetItem { budget_product_sku: string; budget_amount: number }
       const parsed = JSON.parse(budgetResult.value.stdout.trim()) as { budgets?: BudgetItem[] }
-      const match = (parsed.budgets ?? []).find(
-        (b) => b.budget_product_sku?.toLowerCase().includes('premium')
-          || b.budget_product_sku?.toLowerCase().includes('copilot'),
-      )
+      const match = findCopilotBudget(parsed.budgets ?? [])
       if (match) budgetAmount = match.budget_amount
     }
 
@@ -402,30 +399,9 @@ export function registerGitHubHandlers(): void {
         ])
 
         // Parse budget — try org-level first, then fall back to enterprise-level
-        interface BudgetItem {
-          budget_product_sku: string
-          budget_amount: number
-          prevent_further_usage: boolean
-          budget_entity_name?: string
-        }
         let budgetAmount: number | null = null
         let preventFurtherUsage = false
         let budgetError: string | null = null
-
-        const findCopilotBudget = (budgets: BudgetItem[], entityFilter?: string) => {
-          const candidates = entityFilter
-            ? budgets.filter(b => {
-                const entity = b.budget_entity_name?.toLowerCase() ?? ''
-                const orgLower = entityFilter.toLowerCase()
-                return entity === orgLower || orgLower.includes(entity) || entity.includes(orgLower)
-              })
-            : budgets
-          const sku = (b: BudgetItem) => b.budget_product_sku?.toLowerCase() ?? ''
-          return (
-            candidates.find(b => sku(b).includes('premium')) ??
-            candidates.find(b => sku(b).includes('copilot'))
-          )
-        }
 
         if (budgetResult.status === 'fulfilled') {
           const budgetData = JSON.parse(budgetResult.value.stdout.trim()) as { budgets?: BudgetItem[] }
@@ -454,15 +430,18 @@ export function registerGitHubHandlers(): void {
 
         // Fall back to enterprise-level budget if still no copilot budget found
         // TODO: make enterprise slug configurable instead of hardcoding
+        // NOTE: gh api --paginate doesn't work reliably with this endpoint
+        // (page 1 can return an empty budgets array). Iterate pages manually.
         if (budgetAmount === null) {
           const ENTERPRISE_SLUG = 'Bertelsmann'
           try {
-            const entResult = await execAsync(
-              `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets" -H "X-GitHub-Api-Version: 2022-11-28" --paginate`,
-              { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
-            )
-            const entData = JSON.parse(entResult.stdout.trim()) as { budgets?: BudgetItem[] }
-            const match = findCopilotBudget(entData.budgets ?? [], org)
+            const match = await findBudgetAcrossPages(async (page) => {
+              const entResult = await execAsync(
+                `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+                { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+              )
+              return JSON.parse(entResult.stdout.trim())
+            }, org)
             if (match) {
               budgetAmount = match.budget_amount
               preventFurtherUsage = match.prevent_further_usage

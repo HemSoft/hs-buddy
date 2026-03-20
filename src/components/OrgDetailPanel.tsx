@@ -386,11 +386,13 @@ function OrgCopilotSection({
 function OrgLeadersSection({
   org,
   contributors,
+  nameMap,
   memberLogin,
   hasFullOverview,
 }: {
   org: string
   contributors: OrgContributor[]
+  nameMap: Map<string, string>
   memberLogin?: string
   hasFullOverview: boolean
 }) {
@@ -401,6 +403,7 @@ function OrgLeadersSection({
           <GitBranch size={15} />
           Today&apos;s Leaders
         </h3>
+        <span className="org-detail-section-subtitle">Commits</span>
       </div>
       {contributors.length === 0 && !hasFullOverview ? (
         <div className="org-detail-empty">Activity ranking is still being computed.</div>
@@ -415,7 +418,7 @@ function OrgLeadersSection({
               onClick={() => navigateToOrgUser(org, contributor.login)}
             >
               <span className="org-detail-leader-rank">{contributor.commits}</span>
-              <span className="org-detail-leader-name">{contributor.login}</span>
+              <span className="org-detail-leader-name">{nameMap.get(contributor.login) ?? contributor.login}</span>
             </button>
           ))}
         </div>
@@ -445,9 +448,9 @@ function OrgMemberSpotlightSection({
       </div>
       <div className="org-detail-member-card">
         <div>
-          <div className="org-detail-member-name">{selectedMember.login}</div>
+          <div className="org-detail-member-name">{selectedMember.name ?? selectedMember.login}</div>
           <div className="org-detail-member-meta">
-            {selectedMember.type}
+            {selectedMember.name ? `@${selectedMember.login} · ` : ''}{selectedMember.type}
             {selectedContributor
               ? ` · ${selectedContributor.commits} commits today`
               : ' · no commits today'}
@@ -532,8 +535,9 @@ function OrgMemberRosterSection({
                 className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
                 onClick={() => navigateToOrgUser(org, member.login)}
               >
-                <span className="org-detail-roster-name">{member.login}</span>
+                <span className="org-detail-roster-name">{member.name ?? member.login}</span>
                 <span className="org-detail-roster-meta">
+                  {member.name ? `@${member.login} · ` : ''}
                   {contributor ? `${contributor.commits} today` : 'idle today'}
                   {isConfigured ? ' · configured' : ''}
                 </span>
@@ -967,6 +971,14 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     shouldShowPersonalQuotaPulse,
   } = useOrgDetailData(org, memberLogin)
 
+  const nameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of members) {
+      if (m.name) map.set(m.login, m.name)
+    }
+    return map
+  }, [members])
+
   if (isInitialLoading) {
     return (
       <div className="org-detail-loading">
@@ -1033,6 +1045,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         <OrgLeadersSection
           org={org}
           contributors={overview.metrics.topContributorsToday}
+          nameMap={nameMap}
           memberLogin={memberLogin}
           hasFullOverview={hasFullOverview}
         />

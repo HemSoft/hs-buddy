@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import {
   ExternalLink,
   GitCommitHorizontal,
@@ -6,10 +6,12 @@ import {
   GitPullRequest,
   Eye,
   Loader2,
+  RefreshCw,
   Shield,
   Sparkles,
   FolderGit2,
   Activity,
+  Calendar,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { dataCache } from '../services/dataCache'
@@ -23,6 +25,7 @@ import {
   type UserEvent,
 } from '../api/github'
 import { UserPremiumUsageSection } from './UserPremiumUsageSection'
+import { ContributionGraph } from './ContributionGraph'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import './UserDetailPanel.css'
 
@@ -158,9 +161,15 @@ function MetricCard({ icon, label, children, variant }: {
 
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
-  const cacheKey = `user-activity:${org}/${memberLogin}`
+  const cacheKey = `user-activity:v2:${org}/${memberLogin}`
   const [activityState, dispatch] = useReducer(activityReducer, cacheKey, createInitialActivityState)
   const { activity, phase: activityPhase, error: activityError } = activityState
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleRefresh = useCallback(() => {
+    dataCache.delete(cacheKey)
+    setRefreshKey(k => k + 1)
+  }, [cacheKey])
 
   const members = useMemo(
     () => dataCache.get<OrgMemberResult>(`org-members:${org}`)?.data ?? null,
@@ -187,8 +196,9 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
 
   // Fetch directly on mount — user-initiated action, don't wait behind background tasks
   useEffect(() => {
+    const forceRefresh = refreshKey > 0
     const cached = dataCache.get<UserActivitySummary>(cacheKey)
-    if (cached?.data) {
+    if (cached?.data && !forceRefresh) {
       dispatch({ type: 'RESET_FROM_CACHE', payload: cached.data })
       return
     }
@@ -219,7 +229,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     return () => {
       cancelled = true
     }
-  }, [accounts, org, memberLogin, cacheKey])
+  }, [accounts, org, memberLogin, cacheKey, refreshKey])
 
   const commitsToday = activity?.commitsToday ?? contributor?.commits ?? 0
 
@@ -236,8 +246,11 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
         />
         <div className="ud-hero-info">
           <span className="ud-hero-kicker">Member of {org}</span>
-          <h2 className="ud-hero-title">{memberLogin}</h2>
+          <h2 className="ud-hero-title">
+            {activity?.name ?? memberLogin}
+          </h2>
           <p className="ud-hero-subtitle">
+            {activity?.name ? `${memberLogin} · ` : ''}
             {commitsToday > 0
               ? `${commitsToday} commit${commitsToday !== 1 ? 's' : ''} today`
               : 'No commits today'}
@@ -246,7 +259,16 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
         <div className="ud-hero-actions">
           <button
             type="button"
-            className="user-detail-link-btn"
+            className="ud-action-btn"
+            onClick={handleRefresh}
+            disabled={activityPhase === 'loading'}
+            title="Refresh user data"
+          >
+            <RefreshCw size={14} className={activityPhase === 'loading' ? 'spin' : ''} />
+          </button>
+          <button
+            type="button"
+            className="ud-action-btn"
             onClick={() => window.shell.openExternal(profileUrl)}
           >
             <ExternalLink size={14} />
@@ -254,7 +276,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
           </button>
           <button
             type="button"
-            className="user-detail-link-btn"
+            className="ud-action-btn"
             onClick={() =>
               window.dispatchEvent(
                 new CustomEvent('app:navigate', {
@@ -306,6 +328,29 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
         <div className="ud-error-banner">
           Failed to load activity: {activityError}
         </div>
+      )}
+
+      {/* ── Contribution Graph ── */}
+      {activityPhase === 'ready' && activity!.contributionWeeks && activity!.totalContributions != null && (
+        <section className="ud-section">
+          <h3 className="ud-section-title">
+            <Calendar size={15} />
+            Contributions
+          </h3>
+          <ContributionGraph
+            weeks={activity!.contributionWeeks}
+            totalContributions={activity!.totalContributions}
+          />
+        </section>
+      )}
+      {activityPhase === 'loading' && (
+        <section className="ud-section">
+          <h3 className="ud-section-title">
+            <Calendar size={15} />
+            Contributions
+          </h3>
+          <SectionLoader label="contributions" />
+        </section>
       )}
 
       {/* ── PR Grid (Authored + Reviewed) ── */}

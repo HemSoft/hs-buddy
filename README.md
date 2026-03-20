@@ -179,18 +179,25 @@ npm run build
 ```text
 hs-buddy/
 ├── electron/               # Main process (Electron)
-│   ├── ipc/               # IPC handlers (6 modules)
-│   ├── services/          # Copilot client/service
+│   ├── ipc/               # IPC handlers (7 modules)
+│   ├── services/          # Copilot & crew client services
 │   ├── workers/           # AI/exec/dispatcher workers
 │   ├── main.ts            # Window management, menus, IPC
 │   └── preload.ts         # Secure context bridge
 ├── src/                   # Renderer process (React)
 │   ├── api/               # GitHub API client
 │   ├── components/        # React components
-│   │   ├── automation/    # Automation/schedule UI
-│   │   ├── settings/      # Settings panels
-│   │   ├── shared/        # Shared components
-│   │   └── sidebar/       # Sidebar components
+│   │   ├── automation/        # Automation/schedule UI
+│   │   ├── copilot-usage/     # Copilot usage panels
+│   │   ├── crew/              # Crew (multi-agent) UI
+│   │   ├── pr-review/         # PR review panels
+│   │   ├── pr-threads/        # PR thread panels
+│   │   ├── pull-request-list/ # Pull request list panels
+│   │   ├── repo-detail/       # Repository detail panels
+│   │   ├── settings/          # Settings panels
+│   │   ├── shared/            # Shared components
+│   │   ├── sidebar/           # Sidebar components
+│   │   └── sidebar-panel/     # Sidebar panel containers
 │   ├── hooks/             # React hooks
 │   ├── providers/         # React context providers
 │   ├── services/          # Renderer-side services
@@ -260,7 +267,7 @@ The loop runs continuously via GitHub Actions workflows:
 | Stage | Workflow | What it does |
 |-------|----------|--------------|
 | **Detect** | Repo Audit | Scans for documentation drift, stale artifacts, config hygiene |
-| **Group** | Discussion Processor | Converts report findings into actionable `agent:fixable` issues |
+| **Detect** | Simplisticate Audit | Identifies unnecessary complexity and dead code |
 | **Claim** | Issue Processor | Claims `agent:fixable` issues and opens draft PRs |
 | **Review** | PR Analyzers A/B/C | Three independent AI models perform full-spectrum code review |
 | **Implement / Revise** | Issue Processor | Creates the first draft PR and applies follow-up analyzer feedback on later cycles |
@@ -268,6 +275,8 @@ The loop runs continuously via GitHub Actions workflows:
 | **Guard** | SFL Auditor | Repairs issue/PR label discrepancies and enforces one-issue-one-PR harmony |
 
 Human involvement is required for the final merge decision on every SFL PR. Low-risk fixes can still be prepared autonomously, but merging is human-owned.
+
+> **Note**: The Discussion Processor is an event-driven workflow triggered when a GitHub Discussion is labeled. It is not a scheduled pipeline stage — audit workflows create `agent:fixable` issues directly.
 
 See [SET_IT_FREE_GOVERNANCE.md](docs/SET_IT_FREE_GOVERNANCE.md) for the full policy including label taxonomy, retry limits, merge authority matrix, and escalation paths.
 

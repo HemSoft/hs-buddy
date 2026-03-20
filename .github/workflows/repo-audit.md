@@ -32,8 +32,8 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
-source: relias-engineering/set-it-free-loop/workflows/repo-audit.md@e441260656008f767cf67a816219c0713623f8e8
 ---
+source: relias-engineering/set-it-free-loop/workflows/repo-audit.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 
 # Repo Audit
 
@@ -74,7 +74,23 @@ starts with `[repo-audit]`. For each one found, close it using
 4. Cross-Reference Accuracy
    - Mismatches between type/config docs and real usage patterns
 
-5. Workflow Scheduling Hygiene
+5. React Health (react-doctor)
+   - Run `npx -y react-doctor@latest . --yes` if a `package.json` with React
+     dependencies exists at repo root
+   - Parse the terminal output for errors and warnings
+   - Group findings by category (Accessibility, Dead Code, State & Effects,
+     Performance, Security, Architecture)
+   - **False positive exclusion**: Files under `electron/` are Electron main
+     process files — they are NOT part of the React import graph. Ignore any
+     "Unused file" findings for `electron/**` paths.
+   - **False positive exclusion**: Hook files consumed indirectly through
+     wrapper hooks are NOT dead code. `src/hooks/useConvex.ts` exports are
+     consumed by `src/hooks/useConfig.ts` which re-exports them as
+     higher-level hooks. Hooks imported only by `App.tsx` are entry-point
+     hooks by design. Verify the full import chain before flagging any
+     `src/hooks/` file as unused.
+
+6. Workflow Scheduling Hygiene
    - **Duplicate names**: Two or more `.yml` files in `.github/workflows/` that
      share the same `name:` value — they will appear identical in the Actions UI
      and may indicate redundant work

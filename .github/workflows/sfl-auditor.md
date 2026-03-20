@@ -1,6 +1,6 @@
 ---
 description: |
-  Runs daily at ~5:57 AM EDT, audits the
+  Runs daily at 5:00 AM EDT, audits the
   relationship between issue labels and open pull requests, and repairs any
   state discrepancies it finds. Keeps the agentic pipeline self-consistent
   without human intervention.
@@ -35,8 +35,8 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
-source: relias-engineering/set-it-free-loop/workflows/sfl-auditor.md@e441260656008f767cf67a816219c0713623f8e8
 ---
+source: relias-engineering/set-it-free-loop/workflows/sfl-auditor.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 
 # SFL Auditor
 
@@ -50,7 +50,7 @@ Discussion #51 is a **live status dashboard**. Its body has named sections
 delimited by HTML comment markers (`<!-- SECTION:sfl-auditor -->` ...
 `<!-- /SECTION:sfl-auditor -->`). When posting a status message:
 
-1. Read discussion #51's current body
+1. Read Discussion #51's current body
 2. Find your section between the markers
 3. Replace ONLY the line(s) between your markers with your new status
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
@@ -302,29 +302,6 @@ If the Analyzer C marker for cycle N exists in a comment, check the PR's labels:
 
 Only flag each PR once. If its comments already contain the exact string
 `Analyzer C completed for current cycle` then skip it.
-
-## Step 11b — Check: contradictory promotion after blocking analyzer verdicts
-
-For each open agent PR in list B:
-
-1. Determine the current cycle N from `pr:cycle-N` labels (default 0).
-1. Check whether any PR comment for cycle N contains one of these markers:
-
-- `[MARKER:sfl-analyzer-a cycle:N]`
-- `[MARKER:sfl-analyzer-b cycle:N]`
-- `[MARKER:sfl-analyzer-c cycle:N]`
-
-1. If any such current-cycle analyzer comment also contains the exact string
-   `**BLOCKING ISSUES FOUND**`, check the PR state.
-
-If the PR has label `human:ready-for-review` OR is no longer draft, append
-exactly one warning comment to that PR via `add_comment`:
-
-- `issue_number`: the PR number
-- `body`: "⚠️ **SFL Auditor**: Current-cycle analyzer comments for cycle <N> still contain `BLOCKING ISSUES FOUND`, but this PR is marked `human:ready-for-review` or is no longer draft. This indicates contradictory label-actions state, often caused by duplicate or out-of-order label-actions runs. Investigate before merge."
-
-Only flag each PR once. If its comments already contain the exact string
-`Current-cycle analyzer comments for cycle` then skip it.
 
 ## Step 12 — Check: invalid supersede narrative on open agent PRs
 

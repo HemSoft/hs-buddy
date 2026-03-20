@@ -44,8 +44,8 @@ safe-outputs:
   dispatch-workflow:
     workflows: ["sfl-analyzer-b"]
     max: 1
-source: relias-engineering/set-it-free-loop/workflows/sfl-analyzer-a.md@e441260656008f767cf67a816219c0713623f8e8
 ---
+source: relias-engineering/set-it-free-loop/workflows/sfl-analyzer-a.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 
 # SFL Analyzer A — Full-Spectrum Review
 
@@ -110,7 +110,7 @@ Discussion #51 is a **live status dashboard**. Its body has named sections
 delimited by HTML comment markers (`<!-- SECTION:sfl-analyzer-a -->` ...
 `<!-- /SECTION:sfl-analyzer-a -->`). When posting a skip or status message:
 
-1. Read discussion #51's current body
+1. Read Discussion #51's current body
 2. Find your section between the markers
 3. Replace ONLY the line(s) between your markers with your new status
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body

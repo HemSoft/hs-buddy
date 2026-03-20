@@ -1,0 +1,18 @@
+# SFL Configuration — relias-engineering/hs-buddy
+# Customize these settings for your repository.
+# This file is user-owned — the SFL installer will never overwrite it.
+
+# Auto-merge behavior for agent-generated PRs
+auto-merge: false
+
+# Whether agents can auto-create PRs from issues
+auto-create-pr: true
+
+# Maximum fix cycles before escalating to human review
+max-fix-cycles: 15
+
+# GitHub Discussion number for SFL activity log (0 = disabled)
+activity-log-discussion: 95
+
+# GitHub Discussion number for SFL dashboard (0 = disabled, full tier only)
+dashboard-discussion: 51

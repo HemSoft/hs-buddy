@@ -35,8 +35,8 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
-source: relias-engineering/set-it-free-loop/workflows/simplisticate-audit.md@e441260656008f767cf67a816219c0713623f8e8
 ---
+source: relias-engineering/set-it-free-loop/workflows/simplisticate-audit.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 
 # Simplisticate Audit
 

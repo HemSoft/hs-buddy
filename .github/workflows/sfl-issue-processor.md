@@ -1,11 +1,12 @@
 ---
 description: |
-  Triggered when a new fixable issue opens or when Analyzer C finds blocking
-  feedback on an existing draft PR. Claims or resumes the issue, advances the
-  implementation on the same draft PR when one exists, and re-dispatches
-  Analyzer A only after follow-up implementation passes. Newly created PRs
-  rely on the `pull_request: opened` event to start the analyzer chain. Also
-  supports targeted `workflow_dispatch` handoffs for a specific issue or PR.
+  Triggered when a new fixable issue opens, when Analyzer C finds blocking
+  feedback on an existing draft PR, or when unresolved review comments
+  (from Copilot review or human reviewers) are detected by PR Label Actions.
+  Claims or resumes the issue, advances the implementation on the same draft
+  PR when one exists, and dispatches Analyzer A after creating or updating
+  the draft PR. Also supports targeted `workflow_dispatch` handoffs for a
+  specific issue or PR.
   One work item per run.
 
 on:
@@ -46,6 +47,42 @@ steps:
       PR_NUMBER: ${{ github.event.inputs.pull-request-number }}
     run: |
       gh pr checkout "$PR_NUMBER"
+  - name: Precompute unresolved review threads for PR dispatch runs
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.pull-request-number != ''
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.inputs.pull-request-number }}
+    run: |
+      mkdir -p /tmp/gh-aw/agent
+      gh api graphql -f query='
+        query($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              reviewThreads(first: 100) {
+                nodes {
+                  id
+                  isResolved
+                  comments(first: 5) {
+                    nodes {
+                      id
+                      author { login }
+                      body
+                      path
+                      line
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }' \
+        -f owner="${{ github.repository_owner }}" \
+        -f repo="$(echo ${{ github.repository }} | cut -d/ -f2)" \
+        -F number="$PR_NUMBER" \
+        --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | { thread_id: .id, first_comment_id: .comments.nodes[0].id, author: .comments.nodes[0].author.login, body: .comments.nodes[0].body, path: .comments.nodes[0].path, line: .comments.nodes[0].line }]' \
+        > /tmp/gh-aw/agent/review-threads.json
+      COUNT=$(jq 'length' /tmp/gh-aw/agent/review-threads.json)
+      echo "Precomputed $COUNT unresolved review thread(s) for PR #$PR_NUMBER"
 
 timeout-minutes: 120
 
@@ -53,7 +90,10 @@ engine:
   id: copilot
   model: gpt-5.4
 
-network: defaults
+network:
+  allowed:
+    - defaults
+    - dotnet
 
 tools:
   github:
@@ -88,11 +128,71 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 3
+  reply-to-pull-request-review-comment:
+    target: "*"
+    max: 10
   dispatch-workflow:
-    workflows: ["sfl-analyzer-a"]
+    workflows: ["sfl-analyzer-a", "sfl-pr-label-actions"]
     max: 1
-source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@b13a12d705e96d5d0e8988dd6f41424d3aa0f42e
+jobs:
+  ensure-label-actions-dispatch:
+    needs: [agent, safe_outputs]
+    if: "(!cancelled())"
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-output
+          path: /opt/gh-aw/safe-jobs/
+      - name: Check agent output and dispatch label-actions if needed
+        run: |
+          AGENT_OUTPUT="/opt/gh-aw/safe-jobs/agent_output.json"
+          if [ -z "$PR_NUM" ]; then
+            echo "No PR number — skipping deterministic dispatch"
+            exit 0
+          fi
+          if [ -f "$AGENT_OUTPUT" ]; then
+            DISPATCHED=$(jq -r '.items[]? | select(.type == "dispatch_workflow") | .workflow' "$AGENT_OUTPUT" 2>/dev/null || echo "")
+            if [ -n "$DISPATCHED" ]; then
+              echo "Agent already dispatched: $DISPATCHED — skipping fallback"
+              exit 0
+            fi
+          fi
+          # Check if PR still has unresolved threads — only dispatch label-actions
+          # if the agent resolved threads but failed to dispatch
+          UNRESOLVED=$(gh api graphql -f query='
+            query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $number) {
+                  reviewThreads(first: 100) {
+                    nodes { isResolved }
+                  }
+                }
+              }
+            }' \
+            -f owner="${REPO%/*}" \
+            -f repo="${REPO#*/}" \
+            -F number="$PR_NUM" \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' 2>/dev/null || echo "0")
+          if [ "$UNRESOLVED" -eq 0 ]; then
+            echo "Deterministic fallback: all threads resolved, dispatching sfl-pr-label-actions for PR #$PR_NUM"
+            gh workflow run sfl-pr-label-actions.yml -f pull-request-number="$PR_NUM" --repo "$REPO"
+          else
+            echo "PR #$PR_NUM still has $UNRESOLVED unresolved thread(s) — agent may not have resolved them. Skipping dispatch."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.inputs.pull-request-number }}
+          REPO: ${{ github.repository }}
+source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 ---
+source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 
 # SFL Issue Processor / Implementer
 
@@ -111,6 +211,7 @@ Calling one type does NOT reduce the quota of another type.
 | `update_issue` | 4 | Failure notes |
 | `create_pull_request` | 1 | First draft PR for a new issue |
 | `push_to_pull_request_branch` | 1 | Follow-up fix on existing PR |
+| `reply_to_pull_request_review_comment` | 10 | Reply to review comments explaining how feedback was addressed |
 | `dispatch_workflow` | 1 | Re-dispatch Analyzer A after follow-up pass |
 
 A typical new-issue flow uses **6 calls across 4 types** — this is normal and
@@ -179,8 +280,14 @@ If `pull-request-number` is provided:
 4. Search the PR **comments** for all three analyzer markers for cycle N:
    `[MARKER:sfl-analyzer-a cycle:N]`, `[MARKER:sfl-analyzer-b cycle:N]`,
    `[MARKER:sfl-analyzer-c cycle:N]`. Verify all three exist.
-5. From the same PR comments, check the analyzer verdicts. Verify at least one
-   verdict for cycle N is `**BLOCKING ISSUES FOUND**`.
+5. From the same PR comments, check the analyzer verdicts. The PR is eligible
+   if either condition is met:
+   - At least one verdict for cycle N is `**BLOCKING ISSUES FOUND**`
+     (blocking feedback needs code fixes), OR
+   - All three verdicts are `**PASS**` but the PR has unresolved review
+     threads (query `reviewThreads` with `isResolved: false`). This means
+     PR Label Actions dispatched this run for review-comment resolution,
+     not for blocking analyzer findings.
 6. Search the PR comments for `[MARKER:sfl-issue-processor cycle:N]`.
    Verify it is not already present.
 
@@ -229,8 +336,12 @@ For each candidate:
    - `[MARKER:sfl-analyzer-b cycle:N]`
    - `[MARKER:sfl-analyzer-c cycle:N]`
 4. From the same PR comments, check the three analyzer verdicts for cycle N.
-   - If all three verdicts are `**PASS**`, skip the candidate — promotion,
-     not implementation, is the next step.
+   - If all three verdicts are `**PASS**` and the PR has no unresolved review
+     threads, skip the candidate — promotion, not implementation, is the
+     next step.
+   - If all three verdicts are `**PASS**` but the PR has unresolved review
+     threads (`reviewThreads` with `isResolved: false`), this PR needs
+     review-comment resolution (thread-only path).
    - If any verdict is `**BLOCKING ISSUES FOUND**`, this PR needs another
      implementation pass.
 5. Search the PR comments for `[MARKER:sfl-issue-processor cycle:N]`.
@@ -381,7 +492,21 @@ Always read all of the following before writing code:
 2. If a draft PR already exists, read the PR description/body, the PR diff,
    and the three analyzer review **comments** for the current cycle.
 
-3. The target file(s) in full and any surrounding context needed to implement safely.
+3. If a draft PR already exists, check for pre-fetched review thread data at
+   `/tmp/gh-aw/agent/review-threads.json`. This file is populated by a
+   deterministic precomputation step that runs before the agent. It contains
+   a JSON array of unresolved review threads with these fields per entry:
+   - `thread_id`: GraphQL node ID (for reference only — thread resolution is handled deterministically by PR Label Actions)
+   - `first_comment_id`: Comment ID for `reply_to_pull_request_review_comment`
+   - `author`: Login of the reviewer (e.g., `copilot-pull-request-reviewer[bot]`)
+   - `body`: The review comment text
+   - `path`: File path the comment targets
+   - `line`: Line number the comment targets
+
+   If the file does not exist or is empty (`[]`), there are no unresolved
+   review threads to address.
+
+4. The target file(s) in full and any surrounding context needed to implement safely.
 
 For new issues without a PR yet, confirm the described problem actually exists.
 If the problem has already been fixed and there is no draft PR to continue,
@@ -399,7 +524,8 @@ Implementation priorities:
 
 1. The issue's acceptance criteria and explicit implementation scope
 2. Blocking analyzer findings for the current cycle
-3. Non-blocking analyzer suggestions only after blocking items are addressed
+3. Unresolved review comments from Copilot review or human reviewers
+4. Non-blocking analyzer suggestions only after blocking items are addressed
 
 Apply the minimal change that satisfies the acceptance criteria:
 
@@ -414,6 +540,19 @@ Apply the minimal change that satisfies the acceptance criteria:
 For follow-up PR work:
 
 - Fix the exact analyzer findings that are still unresolved in the current cycle.
+- Address unresolved review comments from Copilot review or human reviewers.
+  Use the pre-fetched data in `/tmp/gh-aw/agent/review-threads.json` (from
+  Step 4) as the authoritative list of threads to process. For each entry:
+  1. Read the `body` and `path`/`line` to understand the feedback.
+  2. Apply the requested fix or improvement in code. If it is a false positive
+     or subjective suggestion that cannot be meaningfully addressed, note it in
+     the summary marker rather than ignoring it.
+  3. Call `reply_to_pull_request_review_comment` with `comment_id` set to the
+     entry's `first_comment_id` and a brief explanation of how the feedback was
+     addressed (or why no change is needed).
+  This is mandatory — every entry in the pre-fetched array must be replied to.
+  Do NOT call `resolve_pull_request_review_thread` — thread resolution is handled
+  deterministically by PR Label Actions after this run completes.
 - If analyzer findings conflict, prefer safety (security > correctness > style).
 - If a finding cannot be fully resolved in one pass, make real progress and note
   what remains in your summary marker.
@@ -496,6 +635,10 @@ Do NOT append this status to the issue body.
 
 ### 6b — Draft PR already exists
 
+There are two sub-paths depending on whether code changes are needed:
+
+#### 6b-i — Code changes needed
+
 Call `push_to_pull_request_branch` to push your committed changes directly to
 the existing PR branch. Provide:
 
@@ -550,18 +693,50 @@ Then post the implementation summary as a **PR comment** using `add_comment`
 
 Use cycle `N` for the feedback cycle you just addressed, not the incremented label.
 
-## Step 7 — Handoff to Analyzer A
+#### 6b-ii — Thread-only resolution (no code changes needed)
+
+When all unresolved review threads have been addressed by replying
+(via `reply_to_pull_request_review_comment`), but no code changes were necessary:
+
+- Do NOT call `push_to_pull_request_branch` — there is nothing to push.
+- Do NOT increment the cycle label — no new code means no new analysis cycle.
+- Post the implementation summary as a **PR comment** using `add_comment`:
+
+```markdown
+[MARKER:sfl-issue-processor cycle:N]
+## :wrench: Issue Processor &mdash; Cycle N Review Thread Resolution
+
+**PR**: #<number>
+**Linked Issue**: #<issue-number>
+
+### Summary
+
+- Replied to <count> unresolved review thread(s).
+- No code changes required — all feedback was non-blocking or already addressed.
+- PR Label Actions has been re-dispatched for thread resolution and promotion check.
+```
+
+Then proceed to Step 7 (thread-only dispatch path).
+
+## Step 7 — Handoff to Analyzer A or PR Label Actions
 
 If you created a brand-new draft PR in Step 6a, do NOT dispatch
 `sfl-analyzer-a`. The PR open event is the intended trigger for Analyzer A on
 the first review cycle.
 
-If you updated an existing draft PR in Step 6b, dispatch `sfl-analyzer-a` as
-the next explicit handoff for the follow-up review cycle.
+If you updated an existing draft PR in Step 6b (code changes were pushed),
+dispatch `sfl-analyzer-a` as the next explicit handoff for the follow-up
+review cycle.
 
 When dispatching `sfl-analyzer-a` for an existing draft PR, include input
 `pull-request-number: <number>` so Analyzer A reviews that exact PR instead of
 searching for the oldest eligible draft PR.
+
+If this was a **thread-only resolution** (you replied to unresolved review
+threads but made no code changes and did not push), dispatch
+`sfl-pr-label-actions` instead of `sfl-analyzer-a`. Include input
+`pull-request-number: <number>`. PR Label Actions will resolve the threads
+deterministically and promote the PR to ready-for-review.
 
 ## Activity Log
 

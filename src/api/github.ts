@@ -2765,7 +2765,7 @@ export class GitHubClient {
 
   /**
    * Fetch a summary of a user's recent activity within an org.
-   * Uses the search API for PRs and the events API for recent activity.
+   * Uses the search API for PRs, repo history for commit counts, and the events API for recent activity.
    */
   async fetchUserActivity(org: string, username: string): Promise<UserActivitySummary> {
     const octokit = await this.getOctokitForOwner(org)
@@ -2780,8 +2780,8 @@ export class GitHubClient {
 
     const emptySearch = { data: { total_count: 0, items: [] } } as const
 
-    // Parallel: authored PRs (open + recently merged), reviewed PRs, events, user profile + contributions
-    const [authoredOpen, authoredMerged, reviewed, events, userProfile] = await Promise.all([
+    // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile + contributions
+    const [authoredOpen, authoredMerged, reviewed, events, repoSource, userProfile] = await Promise.all([
       octokit.search.issuesAndPullRequests({
         q: `org:${org} is:pr author:${username} is:open`,
         per_page: 15,
@@ -2804,6 +2804,7 @@ export class GitHubClient {
         username,
         per_page: 30,
       }).catch(() => ({ data: [] as Array<Record<string, unknown>> })),
+      this.fetchAllOrgOrUserRepos(octokit, org).catch(() => null),
       (async () => {
         try {
           const token = await this.getTokenForOwner(org)
@@ -2893,7 +2894,7 @@ export class GitHubClient {
       })
 
     // Count commits today from PushEvents in the org
-    const commitsToday = (events.data as Array<Record<string, unknown>>)
+    const eventCommitsToday = (events.data as Array<Record<string, unknown>>)
       .filter(evt => {
         const repo = evt.repo as { name?: string } | undefined
         return evt.type === 'PushEvent'
@@ -2905,6 +2906,29 @@ export class GitHubClient {
         const size = (evt.payload as Record<string, unknown> | undefined)?.size
         return sum + (typeof size === 'number' ? size : 1)
       }, 0)
+
+    const recentlyPushedRepos = (repoSource?.repos ?? []).filter(repo => {
+      if (!repo.pushedAt) return false
+      return new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
+    })
+
+    let repoCommitsToday = 0
+    for (const repo of recentlyPushedRepos) {
+      try {
+        const commits = await octokit.paginate(octokit.repos.listCommits, {
+          owner: org,
+          repo: repo.name,
+          since: startOfDayIso,
+          per_page: 100,
+        })
+
+        repoCommitsToday += commits.filter(commit => commit.author?.login === username).length
+      } catch {
+        // Ignore per-repo failures and fall back to the events feed if needed.
+      }
+    }
+
+    const commitsToday = Math.max(repoCommitsToday, eventCommitsToday)
 
     // Collect unique repos from events + authored PRs
     const activeRepoSet = new Set<string>()

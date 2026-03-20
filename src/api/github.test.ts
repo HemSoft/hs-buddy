@@ -1143,6 +1143,43 @@ describe('GitHubClient', () => {
         data: { total_count, items },
       })
 
+      mockOctokit.repos.listForOrg.mockResolvedValue({
+        data: [
+          {
+            name: 'repo1',
+            full_name: 'myorg/repo1',
+            description: 'Test',
+            private: false,
+            default_branch: 'main',
+            language: 'TypeScript',
+            updated_at: '2026-01-01T00:00:00Z',
+            pushed_at: new Date().toISOString(),
+            html_url: 'https://github.com/myorg/repo1',
+            archived: false,
+            stargazers_count: 5,
+            forks_count: 1,
+          },
+        ],
+      })
+
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          sha: 'abc123',
+          author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
+          commit: { author: { name: 'user1', date: new Date().toISOString() }, message: 'fix bug' },
+        },
+        {
+          sha: 'def456',
+          author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
+          commit: { author: { name: 'user1', date: new Date().toISOString() }, message: 'refine logic' },
+        },
+        {
+          sha: 'ghi789',
+          author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
+          commit: { author: { name: 'user1', date: new Date().toISOString() }, message: 'add tests' },
+        },
+      ])
+
       const prItem = {
         number: 42,
         title: 'Fix bug',
@@ -1175,7 +1212,7 @@ describe('GitHubClient', () => {
 
       mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({
         data: [
-          { type: 'PushEvent', repo: { name: 'myorg/repo1' }, created_at: new Date().toISOString(), payload: { size: 3 } },
+          { type: 'PushEvent', repo: { name: 'myorg/repo1' }, created_at: new Date().toISOString(), payload: { size: 0 } },
           { type: 'PullRequestReviewEvent', repo: { name: 'myorg/repo1' }, created_at: '2026-01-01T00:00:00Z', payload: {} },
         ],
       })
@@ -1186,12 +1223,13 @@ describe('GitHubClient', () => {
       expect(result.openPRCount).toBe(1)
       expect(result.mergedPRCount).toBe(1)
       expect(result.recentEvents.length).toBe(2)
-      expect(result.recentEvents[0].summary).toBe('Pushed 3 commits')
+      expect(result.recentEvents[0].summary).toBe('Pushed 0 commits')
       expect(result.activeRepos).toContain('myorg/repo1')
       expect(result.commitsToday).toBe(3)
     })
 
     it('handles API errors gracefully', async () => {
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
       mockOctokit.search.issuesAndPullRequests.mockRejectedValue(new Error('API error'))
       mockOctokit.activity.listPublicEventsForUser.mockRejectedValue(new Error('API error'))
 

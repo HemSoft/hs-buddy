@@ -1,5 +1,15 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type DatabaseReader } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+
+async function getRunByResult(db: DatabaseReader, resultId: Id<"copilotResults">) {
+  const rows = await db
+    .query("prReviewRuns")
+    .withIndex("by_result", (q) => q.eq("resultId", resultId))
+    .take(1);
+
+  return rows[0] ?? null;
+}
 
 // List recent review runs for a specific PR (newest first)
 export const listByPr = query({
@@ -85,12 +95,7 @@ export const markRunningByResult = mutation({
     model: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query("prReviewRuns")
-      .withIndex("by_result", q => q.eq("resultId", args.resultId))
-      .take(1);
-
-    const row = rows[0];
+    const row = await getRunByResult(ctx.db, args.resultId);
     if (!row) return;
 
     await ctx.db.patch(row._id, {
@@ -107,12 +112,7 @@ export const completeByResult = mutation({
     model: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query("prReviewRuns")
-      .withIndex("by_result", q => q.eq("resultId", args.resultId))
-      .take(1);
-
-    const row = rows[0];
+    const row = await getRunByResult(ctx.db, args.resultId);
     if (!row) return;
 
     const now = Date.now();
@@ -132,12 +132,7 @@ export const failByResult = mutation({
     error: v.string(),
   },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query("prReviewRuns")
-      .withIndex("by_result", q => q.eq("resultId", args.resultId))
-      .take(1);
-
-    const row = rows[0];
+    const row = await getRunByResult(ctx.db, args.resultId);
     if (!row) return;
 
     const now = Date.now();

@@ -5,6 +5,12 @@ import { mutation, query } from "./_generated/server";
  * Job CRUD operations
  */
 
+const workerTypeValidator = v.union(
+  v.literal("exec"),
+  v.literal("ai"),
+  v.literal("skill")
+);
+
 // List all jobs
 export const list = query({
   args: {},
@@ -16,11 +22,7 @@ export const list = query({
 // List jobs by worker type
 export const listByType = query({
   args: {
-    workerType: v.union(
-      v.literal("exec"),
-      v.literal("ai"),
-      v.literal("skill")
-    ),
+    workerType: workerTypeValidator,
   },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -54,11 +56,7 @@ export const create = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
-    workerType: v.union(
-      v.literal("exec"),
-      v.literal("ai"),
-      v.literal("skill")
-    ),
+    workerType: workerTypeValidator,
     config: v.object({
       // exec-worker
       command: v.optional(v.string()),
@@ -125,11 +123,7 @@ export const update = mutation({
     id: v.id("jobs"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
-    workerType: v.optional(v.union(
-      v.literal("exec"),
-      v.literal("ai"),
-      v.literal("skill")
-    )),
+    workerType: v.optional(workerTypeValidator),
     config: v.optional(v.object({
       command: v.optional(v.string()),
       cwd: v.optional(v.string()),

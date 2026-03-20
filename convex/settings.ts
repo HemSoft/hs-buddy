@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, type DatabaseReader } from "./_generated/server";
 
 // Default settings values
 const DEFAULT_SETTINGS = {
@@ -14,16 +14,20 @@ const DEFAULT_SETTINGS = {
   },
 };
 
+async function getDefaultSettings(db: DatabaseReader) {
+  return db
+    .query("settings")
+    .withIndex("by_key", (q) => q.eq("key", "default"))
+    .first();
+}
+
 /**
  * Get the application settings (creates defaults if not exists)
  */
 export const get = query({
   args: {},
   handler: async (ctx) => {
-    const settings = await ctx.db
-      .query("settings")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const settings = await getDefaultSettings(ctx.db);
 
     // Return settings or defaults
     return settings ?? {
@@ -45,10 +49,7 @@ export const updatePR = mutation({
     recentlyMergedDays: v.optional(v.number()),
   },
   handler: async (ctx, updates) => {
-    const existing = await ctx.db
-      .query("settings")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultSettings(ctx.db);
 
     const now = Date.now();
 
@@ -90,10 +91,7 @@ export const updateCopilot = mutation({
     model: v.optional(v.string()),
   },
   handler: async (ctx, updates) => {
-    const existing = await ctx.db
-      .query("settings")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultSettings(ctx.db);
 
     const now = Date.now();
     const currentCopilot = existing?.copilot ?? DEFAULT_SETTINGS.copilot;
@@ -130,10 +128,7 @@ export const updateCopilot = mutation({
 export const reset = mutation({
   args: {},
   handler: async (ctx) => {
-    const existing = await ctx.db
-      .query("settings")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultSettings(ctx.db);
 
     const now = Date.now();
 
@@ -165,10 +160,7 @@ export const initFromMigration = mutation({
     }),
   },
   handler: async (ctx, { pr }) => {
-    const existing = await ctx.db
-      .query("settings")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultSettings(ctx.db);
 
     // Only initialize if settings don't exist
     if (!existing) {

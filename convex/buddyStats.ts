@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type DatabaseReader } from "./_generated/server";
 
 /**
  * Buddy Stats — centralized usage statistics (singleton pattern)
@@ -50,6 +50,13 @@ const COUNTER_FIELDS = new Set([
   "copilotPrReviews",
 ]);
 
+async function getDefaultStats(db: DatabaseReader) {
+  return db
+    .query("buddyStats")
+    .withIndex("by_key", (q) => q.eq("key", "default"))
+    .first();
+}
+
 // ── Queries ───────────────────────────────────────────────────────────────
 
 /**
@@ -58,10 +65,7 @@ const COUNTER_FIELDS = new Set([
 export const get = query({
   args: {},
   handler: async (ctx) => {
-    const doc = await ctx.db
-      .query("buddyStats")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const doc = await getDefaultStats(ctx.db);
 
     if (doc) return doc;
 
@@ -94,10 +98,7 @@ export const increment = mutation({
     const amt = amount ?? 1;
     const now = Date.now();
 
-    const existing = await ctx.db
-      .query("buddyStats")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultStats(ctx.db);
 
     if (existing) {
       const current = (existing as Record<string, unknown>)[field] as number ?? 0;
@@ -138,10 +139,7 @@ export const batchIncrement = mutation({
 
     const now = Date.now();
 
-    const existing = await ctx.db
-      .query("buddyStats")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultStats(ctx.db);
 
     if (existing) {
       const patch: Record<string, unknown> = { updatedAt: now };
@@ -178,10 +176,7 @@ export const recordSessionStart = mutation({
   handler: async (ctx) => {
     const now = Date.now();
 
-    const existing = await ctx.db
-      .query("buddyStats")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultStats(ctx.db);
 
     if (existing) {
       // If a session is already active, don't double-count
@@ -223,10 +218,7 @@ export const recordSessionEnd = mutation({
   handler: async (ctx) => {
     const now = Date.now();
 
-    const existing = await ctx.db
-      .query("buddyStats")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultStats(ctx.db);
 
     if (!existing || !existing.lastSessionStart) return;
 
@@ -250,10 +242,7 @@ export const checkpointUptime = mutation({
   handler: async (ctx) => {
     const now = Date.now();
 
-    const existing = await ctx.db
-      .query("buddyStats")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
+    const existing = await getDefaultStats(ctx.db);
 
     if (!existing || !existing.lastSessionStart) return;
 

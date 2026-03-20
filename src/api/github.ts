@@ -644,17 +644,85 @@ function eventSummary(evt: any): string {
 }
 
 function determineCheckOverallState(
-  totalCount: number,
-  failedCount: number,
-  pendingCount: number,
-  successfulCount: number,
-  combinedState: string
+  counts: {
+    total: number
+    failed: number
+    pending: number
+    successful: number
+    combinedState: string
+  }
 ): PRChecksSummary['overallState'] {
-  if (totalCount === 0) return 'none'
-  if (failedCount > 0 || combinedState === 'failure' || combinedState === 'error') return 'failing'
-  if (pendingCount > 0 || combinedState === 'pending') return 'pending'
-  if (successfulCount > 0) return 'passing'
+  if (counts.total === 0) return 'none'
+  if (counts.failed > 0 || counts.combinedState === 'failure' || counts.combinedState === 'error') {
+    return 'failing'
+  }
+  if (counts.pending > 0 || counts.combinedState === 'pending') return 'pending'
+  if (counts.successful > 0) return 'passing'
   return 'neutral'
+}
+
+function countCheckStatuses(
+  checkRuns: Array<{ status: string; conclusion: string | null }>,
+  statusContexts: Array<{ state: string }>
+): { total: number; failed: number; pending: number; successful: number; neutral: number } {
+  let successful = 0
+  let failed = 0
+  let pending = 0
+  let neutral = 0
+
+  for (const run of checkRuns) {
+    if (run.status !== 'completed') {
+      pending += 1
+      continue
+    }
+
+    switch (run.conclusion) {
+      case 'success':
+        successful += 1
+        break
+      case 'neutral':
+      case 'skipped':
+        neutral += 1
+        break
+      case 'cancelled':
+      case 'timed_out':
+      case 'action_required':
+      case 'startup_failure':
+      case 'stale':
+      case 'failure':
+        failed += 1
+        break
+      default:
+        neutral += 1
+        break
+    }
+  }
+
+  for (const status of statusContexts) {
+    switch (status.state) {
+      case 'success':
+        successful += 1
+        break
+      case 'pending':
+        pending += 1
+        break
+      case 'failure':
+      case 'error':
+        failed += 1
+        break
+      default:
+        neutral += 1
+        break
+    }
+  }
+
+  return {
+    total: checkRuns.length + statusContexts.length,
+    failed,
+    pending,
+    successful,
+    neutral,
+  }
 }
 
 export class GitHubClient {
@@ -1526,65 +1594,20 @@ export class GitHubClient {
       })
     )
 
-    let successfulCount = 0
-    let failedCount = 0
-    let pendingCount = 0
-    let neutralCount = 0
-
-    for (const run of checkRuns) {
-      if (run.status !== 'completed') {
-        pendingCount += 1
-        continue
-      }
-
-      switch (run.conclusion) {
-        case 'success':
-          successfulCount += 1
-          break
-        case 'neutral':
-        case 'skipped':
-          neutralCount += 1
-          break
-        case 'cancelled':
-        case 'timed_out':
-        case 'action_required':
-        case 'startup_failure':
-        case 'stale':
-        case 'failure':
-          failedCount += 1
-          break
-        default:
-          neutralCount += 1
-          break
-      }
-    }
-
-    for (const status of statusContexts) {
-      switch (status.state) {
-        case 'success':
-          successfulCount += 1
-          break
-        case 'pending':
-          pendingCount += 1
-          break
-        case 'failure':
-        case 'error':
-          failedCount += 1
-          break
-        default:
-          neutralCount += 1
-          break
-      }
-    }
-
-    const totalCount = checkRuns.length + statusContexts.length
-    const overallState = determineCheckOverallState(
-      totalCount,
-      failedCount,
-      pendingCount,
-      successfulCount,
-      combinedStatusResponse.data.state
-    )
+    const {
+      total: totalCount,
+      failed: failedCount,
+      pending: pendingCount,
+      successful: successfulCount,
+      neutral: neutralCount,
+    } = countCheckStatuses(checkRuns, statusContexts)
+    const overallState = determineCheckOverallState({
+      total: totalCount,
+      failed: failedCount,
+      pending: pendingCount,
+      successful: successfulCount,
+      combinedState: combinedStatusResponse.data.state,
+    })
 
     return {
       headSha,

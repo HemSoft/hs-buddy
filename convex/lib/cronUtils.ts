@@ -1,5 +1,7 @@
 import { CronExpressionParser, type CronExpressionOptions } from "cron-parser";
 
+export const DEFAULT_TIMEZONE = "America/New_York";
+
 /**
  * Calculate the next run time for a cron expression.
  *

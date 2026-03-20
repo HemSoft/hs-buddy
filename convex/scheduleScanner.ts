@@ -1,5 +1,5 @@
 import { internalMutation } from "./_generated/server";
-import { calculateNextRunAt } from "./lib/cronUtils";
+import { calculateNextRunAt, DEFAULT_TIMEZONE } from "./lib/cronUtils";
 import { incrementStat } from "./lib/stats";
 
 /**
@@ -72,7 +72,7 @@ export const scanAndDispatch = internalMutation({
         // Just update nextRunAt to prevent re-triggering
         const nextRunAt = calculateNextRunAt(
           schedule.cron,
-          schedule.timezone ?? "America/New_York",
+          schedule.timezone ?? DEFAULT_TIMEZONE,
           new Date(now)
         );
         await ctx.db.patch("schedules", schedule._id, {
@@ -100,7 +100,7 @@ export const scanAndDispatch = internalMutation({
       // Calculate next run time (from now, not from the missed time)
       const nextRunAt = calculateNextRunAt(
         schedule.cron,
-        schedule.timezone ?? "America/New_York",
+        schedule.timezone ?? DEFAULT_TIMEZONE,
         new Date(now)
       );
 

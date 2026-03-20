@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { calculateNextRunAt } from "./lib/cronUtils";
+import { calculateNextRunAt, DEFAULT_TIMEZONE } from "./lib/cronUtils";
 
 /**
  * Schedule CRUD operations
@@ -86,7 +86,7 @@ export const create = mutation({
     }
 
     const now = Date.now();
-    const timezone = args.timezone ?? "America/New_York";
+    const timezone = args.timezone ?? DEFAULT_TIMEZONE;
 
     // Calculate nextRunAt if schedule is enabled
     const nextRunAt = args.enabled
@@ -158,7 +158,7 @@ export const update = mutation({
 
     if (isEnabled && (cronChanged || timezoneChanged || enabledChanged)) {
       const newCron = updates.cron ?? existing.cron;
-      const newTimezone = updates.timezone ?? existing.timezone ?? "America/New_York";
+      const newTimezone = updates.timezone ?? existing.timezone ?? DEFAULT_TIMEZONE;
       updateData.nextRunAt = calculateNextRunAt(newCron, newTimezone);
     } else if (!isEnabled) {
       updateData.nextRunAt = undefined;
@@ -197,7 +197,7 @@ export const toggle = mutation({
 
     // Calculate nextRunAt if being enabled
     const nextRunAt = newEnabled
-      ? calculateNextRunAt(schedule.cron, schedule.timezone ?? "America/New_York")
+      ? calculateNextRunAt(schedule.cron, schedule.timezone ?? DEFAULT_TIMEZONE)
       : undefined;
 
     await ctx.db.patch("schedules", args.id, {

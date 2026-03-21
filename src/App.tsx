@@ -39,7 +39,7 @@ function App() {
   const { activeTabId, activeViewId, closeTab, closeView, openTab, setActiveTabId, tabs } = useAppTabs({
     onViewOpen: trackViewOpen,
   })
-  const { assistantOpen, handlePaneChange, paneSizes, toggleAssistant } = useAppLayout()
+  const { assistantOpen, handlePaneChange, loaded: layoutLoaded, paneSizes, toggleAssistant } = useAppLayout()
   const activeGitHubAccount = useActiveGitHubAccount()
 
   const handlePRCountChange = useCallback(
@@ -66,7 +66,7 @@ function App() {
   }, [openTab])
 
   const assistantContext = useAssistantContext(activeViewId)
-  const showLoading = migrationLoading && !migrationComplete
+  const showLoading = !layoutLoaded || (migrationLoading && !migrationComplete)
 
   return (
     <div className="app">

@@ -7,6 +7,7 @@
  */
 
 import { ConvexHttpClient } from 'convex/browser'
+import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
 import { execWorker } from './execWorker'
 import { aiWorker } from './aiWorker'
@@ -165,7 +166,7 @@ class Dispatcher {
 
   /** Collect Copilot usage snapshots and persist to copilotUsageHistory */
   private async executeSnapshotCollection(
-    run: { _id: string; input?: { accounts?: Array<{ username: string; org: string }> } },
+    run: { _id: Id<"runs">; input?: { accounts?: Array<{ username: string; org: string }> } },
   ): Promise<void> {
     const accounts = run.input?.accounts as
       | Array<{ username: string; org: string }>

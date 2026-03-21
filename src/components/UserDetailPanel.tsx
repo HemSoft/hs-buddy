@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { dataCache } from '../services/dataCache'
+import { activityReducer, createInitialActivityState } from './userDetailReducer'
 
 import {
   GitHubClient,
@@ -36,66 +37,6 @@ import './UserDetailPanel.css'
 interface UserDetailPanelProps {
   org: string
   memberLogin: string
-}
-
-type LoadPhase = 'idle' | 'loading' | 'ready' | 'error'
-
-interface ActivityState {
-  activity: UserActivitySummary | null
-  phase: LoadPhase
-  error: string | null
-}
-
-type ActivityAction =
-  | { type: 'RESET_FROM_CACHE'; payload: UserActivitySummary }
-  | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: UserActivitySummary }
-  | { type: 'FETCH_ERROR'; payload: string }
-
-function createInitialActivityState(cacheKey: string): ActivityState {
-  const cached = dataCache.get<UserActivitySummary>(cacheKey)
-  if (cached?.data) {
-    return {
-      activity: cached.data,
-      phase: 'ready',
-      error: null,
-    }
-  }
-
-  return {
-    activity: null,
-    phase: 'idle',
-    error: null,
-  }
-}
-
-function activityReducer(state: ActivityState, action: ActivityAction): ActivityState {
-  switch (action.type) {
-    case 'RESET_FROM_CACHE':
-      return {
-        activity: action.payload,
-        phase: 'ready',
-        error: null,
-      }
-    case 'FETCH_START':
-      return {
-        ...state,
-        phase: 'loading',
-        error: null,
-      }
-    case 'FETCH_SUCCESS':
-      return {
-        activity: action.payload,
-        phase: 'ready',
-        error: null,
-      }
-    case 'FETCH_ERROR':
-      return {
-        ...state,
-        phase: 'error',
-        error: action.payload,
-      }
-  }
 }
 
 function PRStateIcon({ state }: { state: string }) {

@@ -13,6 +13,7 @@ export function useAppLayout() {
     paneSizes: [...DEFAULT_PANE_SIZES],
     assistantOpen: false,
   })
+  const [loaded, setLoaded] = useState(false)
   const { paneSizes, assistantOpen } = layoutState
   const paneSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -41,6 +42,7 @@ export function useAppLayout() {
         paneSizes: nextPaneSizes,
         assistantOpen: nextAssistantOpen,
       })
+      setLoaded(true)
     })
 
     return () => {
@@ -108,6 +110,7 @@ export function useAppLayout() {
   return {
     assistantOpen,
     handlePaneChange,
+    loaded,
     paneSizes,
     toggleAssistant,
   }

@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.395] - 2026-03-21
+
 ## [0.1.394] - 2026-03-21
+
+### Added
+
+- Add profile meta display to UserDetailPanel + new GitHub API functions
 
 ## [0.1.393] - 2026-03-20
 

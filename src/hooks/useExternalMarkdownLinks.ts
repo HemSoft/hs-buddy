@@ -33,5 +33,6 @@ export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement>) {
     return () => {
       container.removeEventListener('click', handleClick)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }

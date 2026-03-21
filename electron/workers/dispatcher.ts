@@ -165,7 +165,7 @@ class Dispatcher {
 
   /** Collect Copilot usage snapshots and persist to copilotUsageHistory */
   private async executeSnapshotCollection(
-    run: { _id: any; input?: any },
+    run: { _id: string; input?: { accounts?: Array<{ username: string; org: string }> } },
   ): Promise<void> {
     const accounts = run.input?.accounts as
       | Array<{ username: string; org: string }>

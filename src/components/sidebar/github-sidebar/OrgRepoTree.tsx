@@ -380,7 +380,7 @@ export function OrgRepoTree({
                                           <span className="sidebar-item-icon">
                                             <UserRound size={10} />
                                           </span>
-                                          <span className="sidebar-item-label" title={member.login}>{member.name ?? member.login}</span>
+                                          <span className="sidebar-item-label" title={member.login}>{member.name ? `${member.name} (${member.login})` : member.login}</span>
                                         </div>
                                       )
                                     })}
@@ -471,7 +471,7 @@ export function OrgRepoTree({
                                 <span className="sidebar-item-icon">
                                   {isFav ? <Star size={11} fill="currentColor" className="sidebar-fav-star" /> : <UserRound size={11} />}
                                 </span>
-                                <span className="sidebar-item-label" title={member.login}>{member.name ?? member.login}</span>
+                                <span className="sidebar-item-label" title={member.login}>{member.name ? `${member.name} (${member.login})` : member.login}</span>
                                 {userCommitCount > 0 && (
                                   <span className="sidebar-item-count">{userCommitCount}</span>
                                 )}

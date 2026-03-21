@@ -448,7 +448,7 @@ function OrgMemberSpotlightSection({
       </div>
       <div className="org-detail-member-card">
         <div>
-          <div className="org-detail-member-name">{selectedMember.name ?? selectedMember.login}</div>
+          <div className="org-detail-member-name">{selectedMember.name ? `${selectedMember.name} (${selectedMember.login})` : selectedMember.login}</div>
           <div className="org-detail-member-meta">
             {selectedMember.name ? `@${selectedMember.login} · ` : ''}{selectedMember.type}
             {selectedContributor
@@ -535,7 +535,7 @@ function OrgMemberRosterSection({
                 className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
                 onClick={() => navigateToOrgUser(org, member.login)}
               >
-                <span className="org-detail-roster-name">{member.name ?? member.login}</span>
+                <span className="org-detail-roster-name">{member.name ? `${member.name} (${member.login})` : member.login}</span>
                 <span className="org-detail-roster-meta">
                   {member.name ? `@${member.login} · ` : ''}
                   {contributor ? `${contributor.commits} today` : 'idle today'}

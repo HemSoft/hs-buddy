@@ -12,6 +12,10 @@ import {
   FolderGit2,
   Activity,
   Calendar,
+  MapPin,
+  Building2,
+  Users,
+  Clock,
 } from 'lucide-react'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { dataCache } from '../services/dataCache'
@@ -161,7 +165,7 @@ function MetricCard({ icon, label, children, variant }: {
 
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
-  const cacheKey = `user-activity:v2:${org}/${memberLogin}`
+  const cacheKey = `user-activity:v3:${org}/${memberLogin}`
   const [activityState, dispatch] = useReducer(activityReducer, cacheKey, createInitialActivityState)
   const { activity, phase: activityPhase, error: activityError } = activityState
   const [refreshKey, setRefreshKey] = useState(0)
@@ -245,9 +249,16 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
           height={56}
         />
         <div className="ud-hero-info">
-          <span className="ud-hero-kicker">Member of {org}</span>
+          <span className="ud-hero-kicker">
+            {activity?.orgRole === 'admin' ? 'Admin' : 'Member'} of {org}
+          </span>
           <h2 className="ud-hero-title">
-            {activity?.name ?? memberLogin}
+            {activity?.name ? `${activity.name} (${memberLogin})` : memberLogin}
+            {activity?.statusEmoji && (
+              <span className="ud-status-emoji" title={activity.statusMessage ?? undefined}>
+                {activity.statusEmoji}
+              </span>
+            )}
           </h2>
           <p className="ud-hero-subtitle">
             {activity?.name ? `${memberLogin} · ` : ''}
@@ -290,6 +301,44 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
           </button>
         </div>
       </div>
+
+      {/* ── Profile Metadata ── */}
+      {activityPhase === 'ready' && (
+        <div className="ud-profile-meta">
+          {(activity!.teams?.length ?? 0) > 0 && (
+            <span className="ud-meta-item">
+              <Users size={13} />
+              {activity!.teams.join(', ')}
+            </span>
+          )}
+          {activity!.company && (
+            <span className="ud-meta-item">
+              <Building2 size={13} />
+              {activity!.company}
+            </span>
+          )}
+          {activity!.location && (
+            <span className="ud-meta-item">
+              <MapPin size={13} />
+              {activity!.location}
+            </span>
+          )}
+          {activity!.createdAt && (
+            <span className="ud-meta-item">
+              <Clock size={13} />
+              GitHub since {new Date(activity!.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </span>
+          )}
+          {activity!.bio && (
+            <p className="ud-meta-bio">{activity!.bio}</p>
+          )}
+          {activity!.statusMessage && (
+            <span className="ud-meta-item ud-meta-status">
+              {activity!.statusEmoji ?? '💬'} {activity!.statusMessage}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── Metrics ── */}
       <div className="ud-metric-grid">

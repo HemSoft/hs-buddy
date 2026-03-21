@@ -42,6 +42,7 @@ const mockOctokit = {
   orgs: {
     listMembers: vi.fn(),
     get: vi.fn(),
+    getMembershipForUser: vi.fn(),
   },
   issues: {
     listForRepo: vi.fn(),
@@ -54,6 +55,10 @@ const mockOctokit = {
   },
   activity: {
     listPublicEventsForUser: vi.fn(),
+  },
+  teams: {
+    list: vi.fn(),
+    getMembershipForUserInOrg: vi.fn(),
   },
 }
 
@@ -1162,7 +1167,7 @@ describe('GitHubClient', () => {
         ],
       })
 
-      mockOctokit.paginate.mockResolvedValue([
+      const commitData = [
         {
           sha: 'abc123',
           author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
@@ -1178,7 +1183,11 @@ describe('GitHubClient', () => {
           author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
           commit: { author: { name: 'user1', date: new Date().toISOString() }, message: 'add tests' },
         },
-      ])
+      ]
+      mockOctokit.paginate.mockImplementation((fn: unknown) => {
+        if (fn === mockOctokit.teams.list) return Promise.resolve([{ slug: 'eng', name: 'Engineering' }])
+        return Promise.resolve(commitData)
+      })
 
       const prItem = {
         number: 42,
@@ -1217,6 +1226,13 @@ describe('GitHubClient', () => {
         ],
       })
 
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+      mockOctokit.teams.getMembershipForUserInOrg.mockResolvedValue({
+        data: { state: 'active', role: 'member' },
+      })
+
       const result = await client.fetchUserActivity('myorg', 'user1')
       expect(result.recentPRsAuthored.length).toBeGreaterThanOrEqual(1)
       expect(result.recentPRsAuthored[0].number).toBe(42)
@@ -1226,12 +1242,16 @@ describe('GitHubClient', () => {
       expect(result.recentEvents[0].summary).toBe('Pushed 0 commits')
       expect(result.activeRepos).toContain('myorg/repo1')
       expect(result.commitsToday).toBe(3)
+      expect(result.orgRole).toBe('member')
+      expect(result.teams).toEqual(['Engineering'])
     })
 
     it('handles API errors gracefully', async () => {
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
       mockOctokit.search.issuesAndPullRequests.mockRejectedValue(new Error('API error'))
       mockOctokit.activity.listPublicEventsForUser.mockRejectedValue(new Error('API error'))
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockRejectedValue(new Error('API error'))
 
       const result = await client.fetchUserActivity('myorg', 'user1')
       expect(result.recentPRsAuthored).toEqual([])
@@ -1240,6 +1260,8 @@ describe('GitHubClient', () => {
       expect(result.openPRCount).toBe(0)
       expect(result.mergedPRCount).toBe(0)
       expect(result.commitsToday).toBe(0)
+      expect(result.orgRole).toBeNull()
+      expect(result.teams).toEqual([])
     })
   })
 

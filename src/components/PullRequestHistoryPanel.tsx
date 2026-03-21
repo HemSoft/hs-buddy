@@ -248,7 +248,7 @@ export function PullRequestHistoryPanel({
                           {reviewer.login.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <span className="reviewer-name" title={reviewer.login}>{reviewer.name ?? reviewer.login}</span>
+                      <span className="reviewer-name" title={reviewer.login}>{reviewer.name ? `${reviewer.name} (${reviewer.login})` : reviewer.login}</span>
                     </div>
                     <div className="reviewer-right">
                       <span className={`reviewer-status reviewer-status-${reviewer.status}`}>

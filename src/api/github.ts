@@ -192,6 +192,22 @@ export interface ContributionWeek {
 export interface UserActivitySummary {
   /** The user's full display name (from their GitHub profile) */
   name: string | null
+  /** Profile bio */
+  bio: string | null
+  /** Company field from profile */
+  company: string | null
+  /** Location field from profile */
+  location: string | null
+  /** GitHub status message (e.g. "On vacation") */
+  statusMessage: string | null
+  /** GitHub status emoji */
+  statusEmoji: string | null
+  /** When the GitHub account was created */
+  createdAt: string | null
+  /** Org role: admin | member */
+  orgRole: string | null
+  /** Team names the user belongs to in this org */
+  teams: string[]
   /** PRs authored by the user (recent, across the org) */
   recentPRsAuthored: UserPRSummary[]
   /** PRs reviewed by the user (recent, across the org) */
@@ -2803,8 +2819,8 @@ export class GitHubClient {
 
     const emptySearch = { data: { total_count: 0, items: [] } } as const
 
-    // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile + contributions
-    const [authoredOpen, authoredMerged, reviewed, events, repoSource, userProfile] = await Promise.all([
+    // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile + contributions, org membership, teams
+    const [authoredOpen, authoredMerged, reviewed, events, repoSource, userProfile, orgMembership, userTeams] = await Promise.all([
       octokit.search.issuesAndPullRequests({
         q: `org:${org} is:pr author:${username} is:open`,
         per_page: 15,
@@ -2834,6 +2850,11 @@ export class GitHubClient {
           return await graphql<{
             user: {
               name: string | null
+              bio: string | null
+              company: string | null
+              location: string | null
+              createdAt: string
+              status: { emoji: string | null; message: string | null } | null
               contributionsCollection: {
                 contributionCalendar: {
                   totalContributions: number
@@ -2851,6 +2872,14 @@ export class GitHubClient {
             `query($login: String!) {
               user(login: $login) {
                 name
+                bio
+                company
+                location
+                createdAt
+                status {
+                  emoji
+                  message
+                }
                 contributionsCollection {
                   contributionCalendar {
                     totalContributions
@@ -2874,6 +2903,17 @@ export class GitHubClient {
           return null
         }
       })(),
+      octokit.orgs.getMembershipForUser({ org, username }).catch(() => null),
+      octokit.paginate(octokit.teams.list, { org, per_page: 100 }).then(async (teams) => {
+        const memberTeams: string[] = []
+        for (const team of teams) {
+          try {
+            await octokit.teams.getMembershipForUserInOrg({ org, team_slug: team.slug, username })
+            memberTeams.push(team.name)
+          } catch { /* not a member of this team */ }
+        }
+        return memberTeams
+      }).catch(() => [] as string[]),
     ])
 
     const extractRepo = (repoUrl: string) => {
@@ -2960,6 +3000,14 @@ export class GitHubClient {
 
     return {
       name: userProfile?.user?.name ?? null,
+      bio: userProfile?.user?.bio ?? null,
+      company: userProfile?.user?.company ?? null,
+      location: userProfile?.user?.location ?? null,
+      statusMessage: userProfile?.user?.status?.message ?? null,
+      statusEmoji: userProfile?.user?.status?.emoji ?? null,
+      createdAt: userProfile?.user?.createdAt ?? null,
+      orgRole: orgMembership?.data?.role ?? null,
+      teams: userTeams,
       recentPRsAuthored,
       recentPRsReviewed: reviewed.data.items.map(mapPR),
       recentEvents,

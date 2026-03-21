@@ -85,7 +85,7 @@ function App() {
         <div className="app-body">
           <ActivityBar selectedSection={selectedSection} onSectionSelect={handleSectionSelect} />
           <Allotment onChange={handlePaneChange} defaultSizes={paneSizes}>
-            <Allotment.Pane minSize={200} maxSize={500}>
+            <Allotment.Pane minSize={200}>
               <SidebarPanel
                 section={selectedSection}
                 onItemSelect={handleItemSelect}

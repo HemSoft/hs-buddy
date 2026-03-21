@@ -134,10 +134,10 @@ export function GitHubSidebar({
       )}
       {userContextMenu && (
         <SidebarUserContextMenu
-          displayName={
-            orgMembers[userContextMenu.org]?.find(m => m.login === userContextMenu.login)?.name
-            ?? userContextMenu.login
-          }
+          displayName={(() => {
+            const m = orgMembers[userContextMenu.org]?.find(m => m.login === userContextMenu.login)
+            return m?.name ? `${m.name} (${m.login})` : userContextMenu.login
+          })()}
           org={userContextMenu.org}
           x={userContextMenu.x}
           y={userContextMenu.y}

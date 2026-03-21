@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.400] - 2026-03-21
 
+### Fixed
+
+- Restore splitter position on app restart + add user-switch tests
+
 ## [0.1.399] - 2026-03-21
 
 ## [0.1.398] - 2026-03-21

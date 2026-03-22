@@ -1,3 +1,4 @@
+import { execSync } from 'child_process'
 import { getErrorMessage } from '../utils'
 import type {
   TempoApiWorklog,
@@ -20,16 +21,40 @@ let accountsCachedAt = 0
 const ACCOUNTS_CACHE_TTL = 5 * 60 * 1000 // 5 min
 const issueKeyCache = new Map<number, { key: string; summary: string }>()
 
+/** Read an env var, falling back to the Windows Machine-scope registry */
+function getEnv(name: string): string | undefined {
+  if (process.env[name]) return process.env[name]
+  if (process.platform === 'win32') {
+    try {
+      const val = execSync(
+        `powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('${name}','Machine')"`,
+        { encoding: 'utf8', timeout: 5000 }
+      ).trim()
+      if (val) {
+        process.env[name] = val // cache for subsequent calls
+        return val
+      }
+    } catch { /* fall through */ }
+  }
+  return undefined
+}
+
 function getTempoToken(): string {
-  const token = process.env.TEMPO_API_TOKEN
+  const token = getEnv('TEMPO_API_TOKEN')
   if (!token) throw new Error('TEMPO_API_TOKEN environment variable not set')
   return token
 }
 
-function getJiraHeaders(): Record<string, string> {
-  const email = process.env.ATLASSIAN_EMAIL
-  const token = process.env.ATLASSIAN_API_TOKEN
-  if (!email || !token) throw new Error('ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN required')
+let jiraAvailable: boolean | null = null // null=unknown, true/false=tested
+
+function getJiraHeaders(): Record<string, string> | null {
+  if (jiraAvailable === false) return null
+  const email = getEnv('ATLASSIAN_EMAIL')
+  const token = getEnv('ATLASSIAN_API_TOKEN')
+  if (!email || !token) {
+    jiraAvailable = false
+    return null
+  }
   const basic = Buffer.from(`${email}:${token}`).toString('base64')
   return { Authorization: `Basic ${basic}`, Accept: 'application/json' }
 }
@@ -51,36 +76,65 @@ async function fetchJson<T>(url: string, headers: Record<string, string>, init?:
   return res.json() as Promise<T>
 }
 
+/** Get current user's Jira accountId — tries Jira first, falls back to Tempo API */
 async function getAccountId(): Promise<string> {
   if (cachedAccountId) return cachedAccountId
-  const user = await fetchJson<{ accountId: string }>(
-    `${JIRA_BASE}/rest/api/3/myself`,
-    getJiraHeaders()
+
+  // Try Jira /myself first
+  const jiraHeaders = getJiraHeaders()
+  if (jiraHeaders) {
+    try {
+      const user = await fetchJson<{ accountId: string }>(
+        `${JIRA_BASE}/rest/api/3/myself`,
+        jiraHeaders
+      )
+      cachedAccountId = user.accountId
+      jiraAvailable = true
+      return cachedAccountId
+    } catch {
+      jiraAvailable = false
+    }
+  }
+
+  // Fallback: fetch any recent worklog from Tempo API and extract author.accountId
+  const now = new Date()
+  const to = now.toISOString().slice(0, 10)
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).toISOString().slice(0, 10)
+  const resp = await fetchJson<{ results: Array<{ author: { accountId: string } }> }>(
+    `${TEMPO_BASE}/worklogs?from=${from}&to=${to}&limit=1`,
+    getTempoHeaders()
   )
-  cachedAccountId = user.accountId
-  return cachedAccountId
+  if (resp.results.length > 0) {
+    cachedAccountId = resp.results[0].author.accountId
+    return cachedAccountId
+  }
+  throw new Error('Could not determine your Jira account ID. Log at least one worklog via the Tempo web app first.')
 }
 
 async function resolveIssueKey(issueId: number): Promise<{ key: string; summary: string }> {
   const cached = issueKeyCache.get(issueId)
   if (cached) return cached
+  const jiraHeaders = getJiraHeaders()
+  if (!jiraHeaders) return { key: `#${issueId}`, summary: '' }
   try {
     const issue = await fetchJson<{ key: string; fields: { summary: string } }>(
       `${JIRA_BASE}/rest/api/3/issue/${issueId}?fields=key,summary`,
-      getJiraHeaders()
+      jiraHeaders
     )
     const result = { key: issue.key, summary: issue.fields.summary }
     issueKeyCache.set(issueId, result)
     return result
   } catch {
-    return { key: `#${issueId}`, summary: '(unknown)' }
+    return { key: `#${issueId}`, summary: '' }
   }
 }
 
 async function resolveIssueId(issueKey: string): Promise<number> {
+  const jiraHeaders = getJiraHeaders()
+  if (!jiraHeaders) throw new Error('Jira credentials not available — cannot create worklogs by issue key')
   const issue = await fetchJson<{ id: string; fields: { summary: string } }>(
     `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=id,summary`,
-    getJiraHeaders()
+    jiraHeaders
   )
   const id = Number(issue.id)
   issueKeyCache.set(id, { key: issueKey, summary: issue.fields.summary })
@@ -98,7 +152,7 @@ function enrichWorklog(
   issueInfo: { key: string; summary: string },
   accountMap: Map<string, string>
 ): TempoWorklog {
-  const accountAttr = raw.attributes?.find(a => a.key === '_Account_')
+  const accountAttr = raw.attributes?.values?.find(a => a.key === '_Account_')
   const accountKey = accountAttr?.value || ''
   return {
     id: raw.tempoWorklogId,

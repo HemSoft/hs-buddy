@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.406] - 2026-03-22
+
 ## [0.1.405] - 2026-03-22
+
+### Added
+
+- Add Tempo time tracking dashboard with timesheet grid
 
 ## [0.1.404] - 2026-03-22
 

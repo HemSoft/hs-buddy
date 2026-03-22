@@ -6,8 +6,8 @@ export interface TempoApiWorklog {
   startDate: string // YYYY-MM-DD
   startTime: string // HH:mm:ss
   description: string
-  authorAccountId: string
-  attributes: { key: string; value: string }[]
+  author: { accountId: string }
+  attributes: { values: { key: string; value: string }[] }
 }
 
 /** Enriched worklog for display */

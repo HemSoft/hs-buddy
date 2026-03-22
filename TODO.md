@@ -2,7 +2,7 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | Medium   | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit)                                        | Detect and delete merged/orphaned agent-fix branches                                                                                  |
+| ✅     | Medium   | Add branch cleanup to repo-audit                                        | Completed 2026-03-22: added Branch Hygiene scope (#7) to repo-audit + stale branch detection (Step 14) to sfl-auditor                |
 | 📋     | Medium   | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead  |
 | 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
 | 📋     | Medium   | [Tempo tracking](#tempo-tracking)                                                                            | New tree-view section for time tracking with Tempo API calls, daily/weekly summaries, and fast worklog actions                        |
@@ -72,25 +72,6 @@
 ---
 
 ## Remaining Items
-
-### Add branch cleanup to repo-audit
-
-**Goal**: Extend repo-audit so it can identify stale agent branches and propose or perform safe cleanup for merged or orphaned `agent-fix/*` branches.
-
-**Desired behavior**:
-
-- Detect merged `agent-fix/*` branches that are no longer needed.
-- Detect orphaned branches whose issue/PR pair has already been closed.
-- Avoid touching active draft PR branches or anything without clear SFL ownership.
-- Report cleanup candidates clearly, with enough evidence for safe automation or human review.
-
-**Likely implementation areas**:
-
-- `repo-audit.md` / `repo-audit.lock.yml`
-- GitHub branch and PR lookup utilities
-- SFL auditor/reporting surfaces if cleanup findings should be visible elsewhere
-
----
 
 ### Task Planner (Todoist Integration)
 

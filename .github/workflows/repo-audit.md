@@ -1,7 +1,8 @@
 ---
 description: |
   This workflow runs a repository audit to detect documentation drift,
-  stale artifacts, configuration hygiene issues, and cross-reference mismatches.
+  stale artifacts, configuration hygiene issues, cross-reference mismatches,
+  and stale agent-fix branches.
   It creates exactly one agent-fixable issue containing all findings and
   detailed fix instructions for the SFL pipeline to process.
 
@@ -56,6 +57,7 @@ starts with `[repo-audit]`. For each one found, close it using
 - Detect documentation vs implementation drift
 - Surface stale/dead artifacts and outdated references
 - Identify configuration or dependency hygiene risks
+- Detect stale agent-fix branches from merged or orphaned PRs
 - Recommend small, prioritized next actions
 
 ## Audit Scope
@@ -104,6 +106,31 @@ starts with `[repo-audit]`. For each one found, close it using
    - **Stale `.disabled` files**: A `.lock.yml.disabled` sitting alongside an
      active `.lock.yml` or `.yml` of the same base name — the disabled copy
      should be deleted to avoid confusion
+
+7. Branch Hygiene
+   - List all remote branches matching the pattern `agent-fix/*`
+   - For each branch, determine its status by searching for a pull request
+     whose `head.ref` matches the branch name:
+     - **Merged**: A merged (closed) PR exists for the branch → the branch is
+       safe to delete. Include PR number and merge date.
+     - **Orphaned**: No pull request (open or closed) references the branch →
+       the branch has no associated work. Include branch creation date if
+       available.
+     - **Active draft**: An open draft PR exists for the branch → skip it,
+       this branch is in use by the SFL pipeline.
+     - **Open non-draft**: An open non-draft PR exists → skip it, this branch
+       is under review.
+   - Only report branches in the **Merged** or **Orphaned** categories.
+     Active branches are healthy and should be excluded from findings.
+   - gh-aw safe-outputs cannot delete branches, so fix instructions should
+     state: "Delete branch `<name>` via the GitHub UI or CLI
+     (`git push origin --delete <branch>`)."
+   - Group all stale branches into a single finding with a table of branch
+     names, statuses, evidence (PR link or "no PR found"), and recommended
+     action.
+   - Mark this finding as **Category: Manual** — the Issue Processor cannot
+     delete branches via safe-outputs. The finding is informational and
+     should be listed after all actionable findings in the issue body.
 
 ## Output — Single Consolidated Issue
 

@@ -343,9 +343,28 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 14 — Signal completion
+## Step 14 — Check: stale agent-fix branches
 
-After completing all checks (Steps 2–13), you MUST always call exactly one of:
+For each PR in list C (recently merged agent PRs), check whether the PR's
+head branch (the `head.ref` field) still exists as a remote branch. Use the
+GitHub API: `GET /repos/{owner}/{repo}/branches/{branch}` — URL-encode the
+branch name (e.g., `agent-fix/issue-42-abc` → `agent-fix%2Fissue-42-abc`)
+since `agent-fix/*` names always contain a `/`. A 404 response means the
+branch was already deleted — skip it.
+
+Count the branches that still exist. These are stale — the PR is merged, the
+branch serves no purpose.
+
+Do NOT call `update_issue` or consume safe-output slots for branch findings.
+Instead, store the count and branch names for inclusion in the activity log
+(Step 15). This keeps the auditor lightweight and reserves `update_issue` slots
+for state repairs.
+
+If there are zero stale branches, skip silently.
+
+## Step 15 — Signal completion
+
+After completing all checks (Steps 2–14), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - Update the dashboard (see Dashboard Protocol) — if ALL checks
@@ -368,7 +387,7 @@ Examples:
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Auditor | Audit | ✅ All checks passed` or `⚠️ N discrepancies repaired`; use `EST` instead of `EDT` only when standard time is actually in effect
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Auditor | Audit | ✅ All checks passed` or `⚠️ N discrepancies repaired`; if Step 14 found stale branches, append `| 🌿 N stale agent-fix branches`; use `EST` instead of `EDT` only when standard time is actually in effect
 
 Timestamp rule for Discussion #95 entries:
 

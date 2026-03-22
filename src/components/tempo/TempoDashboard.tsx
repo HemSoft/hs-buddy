@@ -10,6 +10,7 @@ import {
   getMonthRange,
 } from '../../hooks/useTempo'
 import type { TempoWorklog, CreateWorklogPayload } from '../../types/tempo'
+import { formatDateKey } from '../../utils/dateUtils'
 import {
   RefreshCw,
   ChevronLeft,
@@ -161,7 +162,7 @@ export function TempoDashboard() {
           </div>
           <button
             className="tempo-action-btn"
-            onClick={() => handleAddForDate(new Date().toISOString().slice(0, 10))}
+            onClick={() => handleAddForDate(formatDateKey(new Date()))}
             title="New worklog"
           >
             <Plus size={14} />
@@ -261,7 +262,7 @@ export function TempoDashboard() {
       {editorOpen && (
         <TempoWorklogEditor
           worklog={editingWorklog}
-          defaultDate={editorDate || new Date().toISOString().slice(0, 10)}
+          defaultDate={editorDate || formatDateKey(new Date())}
           onSave={handleEditorSave}
           onCancel={() => {
             setEditorOpen(false)

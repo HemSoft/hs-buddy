@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CreateWorklogPayload, TempoQuickLogPreset } from '../../types/tempo'
+import { formatDateKey } from '../../utils/dateUtils'
 import { Zap } from 'lucide-react'
 
 const PRESETS: TempoQuickLogPreset[] = [
@@ -27,7 +28,7 @@ export function TempoQuickLog({ onLog, pending }: TempoQuickLogProps) {
     await onLog({
       issueKey: preset.issueKey,
       hours: h,
-      date: new Date().toISOString().slice(0, 10),
+      date: formatDateKey(new Date()),
       accountKey: preset.defaultAccount,
       description: preset.description,
     })

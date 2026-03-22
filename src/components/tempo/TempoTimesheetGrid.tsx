@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { TempoIssueSummary, TempoWorklog } from '../../types/tempo'
+import { formatDateKey } from '../../utils/dateUtils'
 
 interface TempoTimesheetGridProps {
   issueSummaries: TempoIssueSummary[]
@@ -25,20 +26,20 @@ const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 function buildDayColumns(monthDate: Date): DayColumn[] {
   const y = monthDate.getFullYear()
   const m = monthDate.getMonth()
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const today = formatDateKey(new Date())
   const daysInMonth = new Date(y, m + 1, 0).getDate()
   const cols: DayColumn[] = []
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(y, m, d)
     const dow = dt.getDay()
-    const dateStr = dt.toISOString().slice(0, 10)
+    const dateStr = formatDateKey(dt)
     cols.push({
       date: dateStr,
       dayNum: d,
       dayLabel: DAY_LABELS[dow],
       isWeekend: dow === 0 || dow === 6,
-      isToday: dateStr === todayStr,
+      isToday: dateStr === today,
     })
   }
   return cols

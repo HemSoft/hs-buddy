@@ -1,5 +1,5 @@
 import { execSync } from 'child_process'
-import { getErrorMessage } from '../utils'
+import { getErrorMessage, formatDateKey } from '../utils'
 import type {
   TempoApiWorklog,
   TempoWorklog,
@@ -98,8 +98,8 @@ async function getAccountId(): Promise<string> {
 
   // Fallback: fetch any recent worklog from Tempo API and extract author.accountId
   const now = new Date()
-  const to = now.toISOString().slice(0, 10)
-  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).toISOString().slice(0, 10)
+  const to = formatDateKey(now)
+  const from = formatDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30))
   const resp = await fetchJson<{ results: Array<{ author: { accountId: string } }> }>(
     `${TEMPO_BASE}/worklogs?from=${from}&to=${to}&limit=1`,
     getTempoHeaders()
@@ -111,21 +111,23 @@ async function getAccountId(): Promise<string> {
   throw new Error('Could not determine your Jira account ID. Log at least one worklog via the Tempo web app first.')
 }
 
-async function resolveIssueKey(issueId: number): Promise<{ key: string; summary: string }> {
+async function resolveIssueKey(issueId: number, apiKey?: string): Promise<{ key: string; summary: string }> {
   const cached = issueKeyCache.get(issueId)
   if (cached) return cached
   const jiraHeaders = getJiraHeaders()
-  if (!jiraHeaders) return { key: `#${issueId}`, summary: '' }
+  if (!jiraHeaders) return { key: apiKey || `#${issueId}`, summary: '' }
   try {
+    // Use the API-provided key when available for a more reliable Jira lookup
+    const lookupId = apiKey || String(issueId)
     const issue = await fetchJson<{ key: string; fields: { summary: string } }>(
-      `${JIRA_BASE}/rest/api/3/issue/${issueId}?fields=key,summary`,
+      `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(lookupId)}?fields=key,summary`,
       jiraHeaders
     )
     const result = { key: issue.key, summary: issue.fields.summary }
     issueKeyCache.set(issueId, result)
     return result
   } catch {
-    return { key: `#${issueId}`, summary: '' }
+    return { key: apiKey || `#${issueId}`, summary: '' }
   }
 }
 
@@ -204,9 +206,16 @@ export async function getWorklogsForRange(
       `${TEMPO_BASE}/worklogs/user/${accountId}?from=${from}&to=${to}&limit=1000`,
       getTempoHeaders()
     )
+    // Collect API-provided issue keys for fallback
+    const apiKeys = new Map<number, string>()
+    for (const w of resp.results) {
+      if (w.issue.key && !apiKeys.has(w.issue.id)) {
+        apiKeys.set(w.issue.id, w.issue.key)
+      }
+    }
     // Resolve issue keys in parallel
     const issueIds = [...new Set(resp.results.map(w => w.issue.id))]
-    const issueInfos = await Promise.all(issueIds.map(id => resolveIssueKey(id)))
+    const issueInfos = await Promise.all(issueIds.map(id => resolveIssueKey(id, apiKeys.get(id))))
     const issueMap = new Map(issueIds.map((id, i) => [id, issueInfos[i]]))
 
     const worklogs = resp.results

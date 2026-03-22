@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.408] - 2026-03-22
+
 ## [0.1.407] - 2026-03-22
+
+### Added
+
+- Add refresh button to PR detail panel
 
 ## [0.1.406] - 2026-03-22
 

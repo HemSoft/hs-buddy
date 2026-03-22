@@ -206,3 +206,15 @@ export function formatHour12(h: number): string {
   if (h === 12) return '12 PM'
   return `${h - 12} PM`
 }
+
+/**
+ * Format a Date as YYYY-MM-DD using local timezone (avoids UTC conversion via toISOString).
+ * Use this instead of `date.toISOString().slice(0, 10)` to prevent date shifts in
+ * timezones where midnight local → UTC crosses a date boundary.
+ */
+export function formatDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}

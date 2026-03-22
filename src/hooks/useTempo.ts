@@ -7,9 +7,10 @@ import type {
   CreateWorklogPayload,
   UpdateWorklogPayload,
 } from '../types/tempo'
+import { formatDateKey } from '../utils/dateUtils'
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  return formatDateKey(new Date())
 }
 
 /** Get Monday of the week containing `date` */
@@ -18,7 +19,7 @@ export function getWeekStart(date: Date): string {
   const day = d.getDay() // 0=Sun
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
-  return d.toISOString().slice(0, 10)
+  return formatDateKey(d)
 }
 
 /** Get Friday (or Sunday if you want 7 days) of the week containing `date` */
@@ -27,7 +28,7 @@ export function getWeekEnd(date: Date): string {
   const day = d.getDay()
   const diff = day === 0 ? 0 : 5 - day
   d.setDate(d.getDate() + diff)
-  return d.toISOString().slice(0, 10)
+  return formatDateKey(d)
 }
 
 /** Get first and last day of the month containing `date` */
@@ -36,7 +37,7 @@ export function getMonthRange(date: Date): { from: string; to: string } {
   const m = date.getMonth()
   const first = new Date(y, m, 1)
   const last = new Date(y, m + 1, 0)
-  return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) }
+  return { from: formatDateKey(first), to: formatDateKey(last) }
 }
 
 // --- useTempoToday ---

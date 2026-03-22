@@ -8,13 +8,13 @@ import {
   deleteWorklog,
   getAccounts,
 } from '../services/tempoClient'
-import { getErrorMessage } from '../utils'
+import { getErrorMessage, formatDateKey } from '../utils'
 import type { CreateWorklogPayload, UpdateWorklogPayload } from '../../src/types/tempo'
 
 export function registerTempoHandlers(): void {
   ipcMain.handle('tempo:get-today', async (_event, date?: string) => {
     try {
-      const d = date || new Date().toISOString().slice(0, 10)
+      const d = date || formatDateKey(new Date())
       return await getWorklogsForDate(d)
     } catch (error) {
       return { success: false, error: getErrorMessage(error) }

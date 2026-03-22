@@ -1,8 +1,46 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type Dispatch, type SetStateAction } from 'react'
 import { useGitHubAccounts } from './useConfig'
 import { OVERAGE_COST_PER_REQUEST, computeProjection } from '../components/copilot-usage/quotaUtils'
 import type { AccountQuotaState } from '../components/copilot-usage/quotaUtils'
 import type { OrgBudgetState } from '../components/copilot-usage/types'
+import { getErrorMessage } from '../utils/errorUtils'
+
+type FetchResult<T> = {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+function applyFetchResult<K extends string, TState, TData>(
+  setter: Dispatch<SetStateAction<Record<K, TState>>>,
+  key: K,
+  toLoading: (previous: TState | undefined) => TState,
+  toSuccess: (data: TData) => TState,
+  toError: (error: string) => TState,
+  fetcher: () => Promise<FetchResult<TData>>
+) {
+  setter(prev => ({
+    ...prev,
+    [key]: toLoading(prev[key]),
+  }))
+
+  fetcher()
+    .then(result => {
+      setter(prev => ({
+        ...prev,
+        [key]:
+          result.success && result.data
+            ? toSuccess(result.data)
+            : toError(result.error || 'Unknown error'),
+      }))
+    })
+    .catch(error => {
+      setter(prev => ({
+        ...prev,
+        [key]: toError(getErrorMessage(error)),
+      }))
+    })
+}
 
 export function useCopilotUsage() {
   const { accounts } = useGitHubAccounts()
@@ -20,78 +58,30 @@ export function useCopilotUsage() {
   }, [accounts])
 
   const fetchQuota = useCallback(async (username: string) => {
-    setQuotas(prev => ({
-      ...prev,
-      [username]: {
-        data: prev[username]?.data ?? null,
+    applyFetchResult(
+      setQuotas,
+      username,
+      previous => ({
+        data: previous?.data ?? null,
         loading: true,
         error: null,
-        fetchedAt: prev[username]?.fetchedAt ?? null,
-      },
-    }))
-
-    try {
-      const result = await window.github.getCopilotQuota(username)
-      if (result.success && result.data) {
-        const data = result.data
-        setQuotas(prev => ({
-          ...prev,
-          [username]: { data, loading: false, error: null, fetchedAt: Date.now() },
-        }))
-      } else {
-        setQuotas(prev => ({
-          ...prev,
-          [username]: {
-            data: null,
-            loading: false,
-            error: result.error || 'Unknown error',
-            fetchedAt: null,
-          },
-        }))
-      }
-    } catch (error) {
-      setQuotas(prev => ({
-        ...prev,
-        [username]: {
-          data: null,
-          loading: false,
-          error: error instanceof Error ? error.message : String(error),
-          fetchedAt: null,
-        },
-      }))
-    }
+        fetchedAt: previous?.fetchedAt ?? null,
+      }),
+      data => ({ data, loading: false, error: null, fetchedAt: Date.now() }),
+      error => ({ data: null, loading: false, error, fetchedAt: null }),
+      () => window.github.getCopilotQuota(username)
+    )
   }, [])
 
   const fetchBudget = useCallback(async (org: string, username?: string) => {
-    setOrgBudgets(prev => ({
-      ...prev,
-      [org]: { data: prev[org]?.data ?? null, loading: true, error: null },
-    }))
-
-    try {
-      const result = await window.github.getCopilotBudget(org, username)
-      if (result.success && result.data) {
-        const data = result.data
-        setOrgBudgets(prev => ({
-          ...prev,
-          [org]: { data, loading: false, error: null },
-        }))
-      } else {
-        setOrgBudgets(prev => ({
-          ...prev,
-          [org]: { data: null, loading: false, error: result.error || 'Unknown error' },
-        }))
-      }
-    } catch (error) {
-      setOrgBudgets(prev => ({
-        ...prev,
-        [org]: {
-          data: null,
-          loading: false,
-          error: error instanceof Error ? error.message : String(error),
-        },
-      }))
-    }
+    applyFetchResult(
+      setOrgBudgets,
+      org,
+      previous => ({ data: previous?.data ?? null, loading: true, error: null }),
+      data => ({ data, loading: false, error: null }),
+      error => ({ data: null, loading: false, error }),
+      () => window.github.getCopilotBudget(org, username)
+    )
   }, [])
 
   const accountUsernamesKey = useMemo(

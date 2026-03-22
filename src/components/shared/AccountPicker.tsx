@@ -43,7 +43,7 @@ export function AccountPicker({
   id,
 }: AccountPickerProps) {
   const { setGhAccount } = useCopilotSettings()
-  const { accounts: githubAccounts } = useGitHubAccounts()
+  const { uniqueUsernames: uniqueAccounts } = useGitHubAccounts()
   const [activeCliAccount, setActiveCliAccount] = useState<string | null>(null)
 
   // Detect currently active gh CLI account
@@ -53,8 +53,6 @@ export function AccountPicker({
       .then((account: string | null) => setActiveCliAccount(account))
       .catch(() => {})
   }, [])
-
-  const uniqueAccounts = [...new Set(githubAccounts.map(a => a.username))]
 
   const handleChange = useCallback(
     async (newValue: string) => {

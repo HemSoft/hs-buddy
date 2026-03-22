@@ -8,7 +8,7 @@ import './SettingsShared.css'
 export function SettingsCopilot() {
   const { ghAccount, model, loading, setGhAccount, setModel } = useCopilotSettings()
 
-  const { accounts: githubAccounts } = useGitHubAccounts()
+  const { uniqueUsernames: uniqueAccounts } = useGitHubAccounts()
 
   const [localAccount, setLocalAccount] = useState(ghAccount)
   const [localModel, setLocalModel] = useState(model)
@@ -74,8 +74,6 @@ export function SettingsCopilot() {
       </div>
     )
   }
-
-  const uniqueAccounts = [...new Set(githubAccounts.map(a => a.username))]
 
   return (
     <div className="settings-page">

@@ -86,6 +86,18 @@ describe('useConfig', () => {
       await waitFor(() => expect(result.current.accounts).toBeDefined())
     })
 
+    it('exposes unique usernames derived from accounts', () => {
+      mockConvexAccounts = [
+        { _id: '1', username: 'user1', org: 'org-a' },
+        { _id: '2', username: 'user1', org: 'org-b' },
+        { _id: '3', username: 'user2', org: 'org-a' },
+      ]
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      expect(result.current.uniqueUsernames).toEqual(['user1', 'user2'])
+    })
+
     it('addAccount calls Convex create', async () => {
       mockConvexAccounts = []
       mockCreate.mockResolvedValue(undefined)

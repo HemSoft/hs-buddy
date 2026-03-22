@@ -6,6 +6,7 @@ import {
   useSettings,
   useSettingsMutations,
 } from './useConvex'
+import { getErrorMessage } from '../utils/errorUtils'
 
 function useElectronStoreFallback<T>(
   convexValue: T | undefined,
@@ -160,46 +161,51 @@ export function useGitHubAccounts() {
   }
 
   const accounts = accountsRef.current
+  const uniqueUsernames = [...new Set(accounts.map(account => account.username))]
 
   const loading = !convexConnected && !fallbackLoaded
+
+  const findAccount = (username: string, org: string) =>
+    convexAccounts?.find(account => account.username === username && account.org === org)
 
   const addAccount = async (account: GitHubAccount) => {
     try {
       await create({ username: account.username, org: account.org })
       return { success: true }
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
   const removeAccount = async (username: string, org: string) => {
     try {
-      const account = convexAccounts?.find(a => a.username === username && a.org === org)
+      const account = findAccount(username, org)
       if (!account) {
         return { success: false, error: 'Account not found' }
       }
       await remove({ id: account._id })
       return { success: true }
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
   const updateAccount = async (username: string, org: string, updates: Partial<GitHubAccount>) => {
     try {
-      const account = convexAccounts?.find(a => a.username === username && a.org === org)
+      const account = findAccount(username, org)
       if (!account) {
         return { success: false, error: 'Account not found' }
       }
       await update({ id: account._id, ...updates })
       return { success: true }
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
   return {
     accounts,
+    uniqueUsernames,
     loading,
     addAccount,
     removeAccount,

@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.407] - 2026-03-22
+
 ## [0.1.406] - 2026-03-22
+
+### Fixed
+
+- Make Jira optional — get accountId from Tempo API fallback
 
 ## [0.1.405] - 2026-03-22
 

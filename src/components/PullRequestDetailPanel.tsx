@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, Clock, ExternalLink, GitBranch, GitPullRequest, User } from 'lucide-react'
+import { Check, Clock, ExternalLink, GitBranch, GitPullRequest, RefreshCw, User } from 'lucide-react'
 import { GitHubClient } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
@@ -43,6 +43,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     enqueueRef.current = enqueue
@@ -156,10 +157,15 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
             )}
           </div>
         </div>
-        <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(pr.url)}>
-          <ExternalLink size={14} />
-          Open on GitHub
-        </button>
+        <div className="pr-detail-header-actions">
+          <button className="pr-detail-refresh-btn" onClick={() => setRefreshKey(k => k + 1)} title="Refresh PR data">
+            <RefreshCw size={14} />
+          </button>
+          <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(pr.url)}>
+            <ExternalLink size={14} />
+            Open on GitHub
+          </button>
+        </div>
       </div>
 
       {sectionLabel && (
@@ -242,18 +248,18 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
         </>
       )}
 
-      {section === 'conversation' && <PRThreadsPanel pr={pr} />}
+      {section === 'conversation' && <PRThreadsPanel key={refreshKey} pr={pr} />}
       {section === 'commits' && (
-        <PullRequestHistoryPanel pr={pr} embedded focus="commits" onLoaded={handleHistoryLoaded} />
+        <PullRequestHistoryPanel key={refreshKey} pr={pr} embedded focus="commits" onLoaded={handleHistoryLoaded} />
       )}
-      {section === 'checks' && <PRChecksPanel pr={pr} />}
-      {section === 'files-changed' && <PRFilesChangedPanel pr={pr} />}
-      {section === 'ai-reviews' && <PRReviewsPanel pr={pr} />}
+      {section === 'checks' && <PRChecksPanel key={refreshKey} pr={pr} />}
+      {section === 'files-changed' && <PRFilesChangedPanel key={refreshKey} pr={pr} />}
+      {section === 'ai-reviews' && <PRReviewsPanel key={refreshKey} pr={pr} />}
 
       {!isFocusedSection && (
         <>
-          <PullRequestHistoryPanel pr={pr} embedded onLoaded={handleHistoryLoaded} />
-          <PRThreadsPanel pr={pr} />
+          <PullRequestHistoryPanel key={refreshKey} pr={pr} embedded onLoaded={handleHistoryLoaded} />
+          <PRThreadsPanel key={`threads-${refreshKey}`} pr={pr} />
         </>
       )}
     </div>

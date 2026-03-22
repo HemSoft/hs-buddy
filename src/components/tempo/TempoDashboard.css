@@ -1,0 +1,783 @@
+/* ==========================================================================
+   Tempo Dashboard — Grid-forward dark timesheet UI
+   Designed to match the Tempo web app's dark-mode grid aesthetic
+   ========================================================================== */
+
+/* --- Dashboard Shell --- */
+.tempo-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #ccc);
+}
+
+/* --- Header Bar --- */
+.tempo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color, #333);
+  min-height: 44px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.tempo-header-left h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #e0e0e0);
+  white-space: nowrap;
+}
+
+.tempo-header-center {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tempo-nav-btn {
+  background: none;
+  border: 1px solid var(--border-color, #444);
+  color: var(--text-secondary, #999);
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.tempo-nav-btn:hover {
+  background: var(--bg-hover, #2a2a2a);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.tempo-month-label {
+  background: none;
+  border: 1px solid var(--border-color, #444);
+  color: var(--text-primary, #e0e0e0);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tempo-month-label:hover {
+  background: var(--bg-hover, #2a2a2a);
+}
+
+.tempo-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tempo-view-toggle {
+  display: flex;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tempo-view-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #888);
+  padding: 4px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.tempo-view-btn:not(:last-child) {
+  border-right: 1px solid var(--border-color, #444);
+}
+.tempo-view-btn.active {
+  background: var(--accent-bg, #264f78);
+  color: #fff;
+}
+.tempo-view-btn:hover:not(.active) {
+  background: var(--bg-hover, #2a2a2a);
+}
+
+.tempo-action-btn {
+  background: none;
+  border: 1px solid var(--border-color, #444);
+  color: var(--text-secondary, #bbb);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.tempo-action-btn:hover {
+  background: var(--bg-hover, #2a2a2a);
+  color: var(--text-primary, #e0e0e0);
+}
+.tempo-refresh.spinning svg {
+  animation: tempo-spin 0.8s linear infinite;
+}
+@keyframes tempo-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- Summary Cards --- */
+.tempo-summary-cards {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.tempo-card {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-secondary, #252526);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.tempo-card-icon {
+  color: var(--text-secondary, #888);
+}
+
+.tempo-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tempo-card-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary, #e0e0e0);
+  font-variant-numeric: tabular-nums;
+}
+
+.tempo-card-unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary, #888);
+}
+
+.tempo-card-label {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tempo-card-meter {
+  height: 3px;
+  background: var(--bg-tertiary, #333);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tempo-card-meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #4fc3f7;
+  transition: width 0.4s ease;
+}
+.tempo-card-meter-fill.month-fill {
+  background: #66bb6a;
+}
+
+.tempo-card-today .tempo-card-icon { color: #4fc3f7; }
+.tempo-card-month .tempo-card-icon { color: #66bb6a; }
+.tempo-card-remaining .tempo-card-icon { color: #ffa726; }
+.tempo-card-top .tempo-card-icon { color: #ab47bc; }
+
+/* --- Grid View (the star) --- */
+.tempo-grid-wrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.tempo-grid-scroll {
+  overflow: auto;
+  height: 100%;
+  padding: 0 16px 80px;
+}
+
+.tempo-grid {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+/* Header row */
+.tempo-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-secondary, #252526);
+  padding: 6px 4px;
+  text-align: center;
+  font-weight: 500;
+  color: var(--text-secondary, #999);
+  border-bottom: 2px solid var(--border-color, #444);
+  white-space: nowrap;
+}
+
+.tempo-grid-issue-header {
+  text-align: left !important;
+  min-width: 180px;
+  max-width: 260px;
+  padding-left: 10px !important;
+  position: sticky;
+  left: 0;
+  z-index: 3 !important;
+}
+
+.tempo-grid-key-header {
+  min-width: 80px;
+  text-align: center !important;
+  position: sticky;
+  left: 180px;
+  z-index: 3 !important;
+}
+
+.tempo-grid-logged-header {
+  min-width: 56px;
+  text-align: center !important;
+  position: sticky;
+  left: 260px;
+  z-index: 3 !important;
+}
+
+.tempo-grid-day-header {
+  min-width: 40px;
+  width: 40px;
+}
+
+.tempo-grid-day-header .tempo-grid-day-num {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #ccc);
+}
+
+.tempo-grid-day-header .tempo-grid-day-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+}
+
+.tempo-grid-day-header.weekend {
+  opacity: 0.45;
+}
+
+.tempo-grid-day-header.today {
+  color: #4fc3f7;
+}
+.tempo-grid-day-header.today .tempo-grid-day-num {
+  color: #4fc3f7;
+}
+
+/* Body rows */
+.tempo-grid-row td {
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.tempo-grid-issue-cell {
+  text-align: left !important;
+  padding-left: 10px !important;
+  color: var(--text-primary, #ccc);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+  position: sticky;
+  left: 0;
+  background: var(--bg-primary, #1e1e1e);
+  z-index: 1;
+}
+
+.tempo-grid-key-cell {
+  position: sticky;
+  left: 180px;
+  background: var(--bg-primary, #1e1e1e);
+  z-index: 1;
+}
+
+.tempo-grid-logged-cell {
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  font-variant-numeric: tabular-nums;
+  position: sticky;
+  left: 260px;
+  background: var(--bg-primary, #1e1e1e);
+  z-index: 1;
+}
+
+.tempo-grid-cell {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  transition: background 0.15s;
+  min-width: 40px;
+}
+
+.tempo-grid-cell:hover {
+  background: var(--bg-hover, #2a2a2a);
+}
+
+.tempo-grid-cell.has-hours {
+  color: #4fc3f7;
+  font-weight: 600;
+}
+
+.tempo-grid-cell.weekend {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tempo-grid-cell.today {
+  border-left: 2px solid #4fc3f7;
+  border-right: 2px solid #4fc3f7;
+}
+
+/* Totals row */
+.tempo-grid-totals td {
+  padding: 6px 4px;
+  font-weight: 700;
+  border-top: 2px solid var(--border-color, #444);
+  color: var(--text-primary, #e0e0e0);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.tempo-grid-total-label {
+  text-align: left !important;
+  padding-left: 10px !important;
+  position: sticky;
+  left: 0;
+  background: var(--bg-primary, #1e1e1e);
+  z-index: 1;
+}
+
+.tempo-grid-total-logged {
+  position: sticky;
+  left: 260px;
+  background: var(--bg-primary, #1e1e1e);
+  z-index: 1;
+}
+
+.tempo-grid-total-cell.full {
+  color: #66bb6a;
+}
+.tempo-grid-total-cell.partial {
+  color: #ffa726;
+}
+.tempo-grid-total-cell.weekend {
+  opacity: 0.45;
+}
+.tempo-grid-total-cell.today {
+  border-left: 2px solid #4fc3f7;
+  border-right: 2px solid #4fc3f7;
+}
+
+/* --- Issue pill and account badge --- */
+.tempo-issue-pill {
+  display: inline-block;
+  background: var(--accent-bg, #264f78);
+  color: #8ecaf6;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.tempo-account-badge {
+  display: inline-block;
+  background: rgba(255, 167, 38, 0.15);
+  color: #ffa726;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* --- Timeline (list) view --- */
+.tempo-timeline-view {
+  flex: 1;
+  overflow: auto;
+  padding: 0 16px 80px;
+}
+
+.tempo-timeline-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tempo-timeline-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 500;
+  color: var(--text-secondary, #999);
+  border-bottom: 2px solid var(--border-color, #444);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tempo-timeline-table tbody tr {
+  border-bottom: 1px solid var(--border-color, #2a2a2a);
+}
+.tempo-timeline-table tbody tr:hover {
+  background: var(--bg-hover, #2a2a2a);
+}
+
+.tempo-timeline-table td {
+  padding: 6px 10px;
+  vertical-align: middle;
+}
+
+.tempo-tl-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #999);
+  white-space: nowrap;
+}
+.tempo-tl-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #999);
+}
+.tempo-tl-hours {
+  font-weight: 600;
+  color: #4fc3f7;
+  font-variant-numeric: tabular-nums;
+}
+.tempo-tl-desc {
+  color: var(--text-primary, #ccc);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tempo-tl-actions {
+  white-space: nowrap;
+}
+.tempo-tl-actions button {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 14px;
+  border-radius: 3px;
+}
+.tempo-tl-actions button:hover {
+  background: var(--bg-hover, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+/* --- Quick Log --- */
+.tempo-quick-log {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary, #252526);
+  border-top: 1px solid var(--border-color, #444);
+  z-index: 10;
+}
+
+.tempo-quick-log-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #bbb);
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tempo-quick-log-toggle:hover {
+  background: var(--bg-hover, #2a2a2a);
+}
+.tempo-quick-log-arrow {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.tempo-quick-log-panel {
+  padding: 8px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tempo-quick-log-hours {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tempo-quick-log-hours label {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+.tempo-quick-log-input {
+  width: 60px;
+  padding: 3px 6px;
+  background: var(--bg-tertiary, #333);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  text-align: center;
+}
+
+.tempo-quick-log-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tempo-quick-log-btn {
+  background: var(--bg-tertiary, #333);
+  border: 1px solid var(--border-color, #444);
+  color: var(--text-primary, #ccc);
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  transition: all 0.15s;
+}
+.tempo-quick-log-btn:hover:not(:disabled) {
+  background: var(--accent-bg, #264f78);
+  border-color: #4fc3f7;
+}
+.tempo-quick-log-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tempo-ql-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+.tempo-ql-key {
+  font-size: 10px;
+  color: var(--text-secondary, #888);
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+}
+
+/* --- Error state --- */
+.tempo-error {
+  margin: 0 16px;
+  padding: 8px 12px;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 4px;
+  color: #ef9a9a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.tempo-error button {
+  background: none;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  color: #ef9a9a;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+/* --- Empty state --- */
+.tempo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  color: var(--text-secondary, #888);
+  font-size: 13px;
+}
+
+/* --- Loading skeleton --- */
+.tempo-grid-loading {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tempo-grid-skeleton {
+  height: 32px;
+  background: linear-gradient(90deg, var(--bg-secondary, #252526) 25%, var(--bg-tertiary, #333) 50%, var(--bg-secondary, #252526) 75%);
+  background-size: 200% 100%;
+  animation: tempo-shimmer 1.5s ease infinite;
+  border-radius: 4px;
+}
+@keyframes tempo-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* --- Editor Modal --- */
+.tempo-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.tempo-editor-modal {
+  background: var(--bg-secondary, #252526);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.tempo-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+.tempo-editor-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+}
+.tempo-editor-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+}
+.tempo-editor-close:hover {
+  background: var(--bg-hover, #333);
+}
+
+.tempo-editor-form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tempo-editor-row label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tempo-editor-row input {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-tertiary, #333);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.tempo-editor-row input:focus {
+  outline: none;
+  border-color: #4fc3f7;
+}
+.tempo-editor-row input:disabled {
+  opacity: 0.5;
+}
+
+.tempo-editor-row-pair {
+  display: flex;
+  gap: 12px;
+}
+.tempo-editor-row-pair .tempo-editor-row {
+  flex: 1;
+}
+
+.tempo-editor-error {
+  font-size: 12px;
+  color: #ef9a9a;
+  padding: 6px 8px;
+  background: rgba(244, 67, 54, 0.1);
+  border-radius: 4px;
+}
+
+.tempo-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.tempo-btn-secondary {
+  background: none;
+  border: 1px solid var(--border-color, #555);
+  color: var(--text-secondary, #999);
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.tempo-btn-secondary:hover {
+  background: var(--bg-hover, #333);
+}
+
+.tempo-btn-primary {
+  background: var(--accent-bg, #264f78);
+  border: 1px solid #4fc3f7;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tempo-btn-primary:hover:not(:disabled) {
+  background: #1a6caa;
+}
+.tempo-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

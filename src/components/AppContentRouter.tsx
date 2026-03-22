@@ -24,6 +24,7 @@ import { CopilotUsagePanel } from './CopilotUsagePanel'
 import { OrgDetailPanel } from './OrgDetailPanel'
 import { UserDetailPanel } from './UserDetailPanel'
 import { CrewProjectView } from './crew/CrewProjectView'
+import { TempoDashboard } from './tempo/TempoDashboard'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
 
@@ -135,6 +136,10 @@ export function AppContentRouter({
       )
     case 'copilot-usage':
       return <CopilotUsagePanel />
+    case 'tempo-timesheet':
+    case 'tempo-today':
+    case 'tempo-quick-log':
+      return <TempoDashboard />
     default:
       if (activeViewId.startsWith('crew-project:')) {
         const projectId = activeViewId.replace('crew-project:', '')

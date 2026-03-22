@@ -172,4 +172,17 @@ interface Window {
     }) => Promise<{ content?: string } | string | null>
     chatAbort: () => Promise<{ success: boolean; error?: string }>
   }
+  tempo: {
+    getToday: (date?: string) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoDaySummary>>
+    getRange: (from: string, to: string) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoWorklog[]>>
+    getWeek: (weekStart: string, weekEnd: string) => Promise<import('../src/types/tempo').TempoResult<{
+      worklogs: import('../src/types/tempo').TempoWorklog[]
+      issueSummaries: import('../src/types/tempo').TempoIssueSummary[]
+      totalHours: number
+    }>>
+    createWorklog: (payload: import('../src/types/tempo').CreateWorklogPayload) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoWorklog>>
+    updateWorklog: (worklogId: number, payload: import('../src/types/tempo').UpdateWorklogPayload) => Promise<import('../src/types/tempo').TempoResult<void>>
+    deleteWorklog: (worklogId: number) => Promise<import('../src/types/tempo').TempoResult<void>>
+    getAccounts: () => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoAccount[]>>
+  }
 }

@@ -57,6 +57,14 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
     ],
   },
   crew: { title: 'The Crew', items: [] },
+  tempo: {
+    title: 'Tempo',
+    items: [
+      { id: 'tempo-timesheet', label: 'Timesheet' },
+      { id: 'tempo-today', label: 'Today' },
+      { id: 'tempo-quick-log', label: 'Quick Log' },
+    ],
+  },
   copilot: { title: 'Copilot', items: [] },
 }
 

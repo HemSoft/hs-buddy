@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.405] - 2026-03-22
+
+## [0.1.404] - 2026-03-22
+
 ## [0.1.403] - 2026-03-22
+
+### Added
+
+- Add branch hygiene to repo-audit and sfl-auditor
 
 ## [0.1.402] - 2026-03-22
 

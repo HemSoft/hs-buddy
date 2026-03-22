@@ -6,6 +6,7 @@ import { registerWindowHandlers } from './windowHandlers'
 import { registerShellHandlers } from './shellHandlers'
 import { registerCopilotHandlers } from './copilotHandlers'
 import { registerCrewHandlers } from './crewHandlers'
+import { registerTempoHandlers } from './tempoHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
   registerConfigHandlers()
@@ -15,4 +16,5 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerShellHandlers()
   registerCopilotHandlers()
   registerCrewHandlers(win)
+  registerTempoHandlers()
 }

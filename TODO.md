@@ -2,10 +2,10 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅     | Medium   | Add branch cleanup to repo-audit                                        | Completed 2026-03-22: added Branch Hygiene scope (#7) to repo-audit + stale branch detection (Step 14) to sfl-auditor                |
-| 📋     | Medium   | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead  |
 | 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
 | 📋     | Medium   | [Tempo tracking](#tempo-tracking)                                                                            | New tree-view section for time tracking with Tempo API calls, daily/weekly summaries, and fast worklog actions                        |
+| ✅     | Medium   | PR Analyzers should post reviews, not update PR body                                                         | Completed 2026-03-22: all 3 analyzers already use `add_comment`; `update_issue` not in safe-outputs config                           |
+| ✅     | Medium   | Add branch cleanup to repo-audit                                                                             | Completed 2026-03-22: added Branch Hygiene scope (#7) to repo-audit + stale branch detection (Step 14) to sfl-auditor                |
 | ✅     | High     | Add GitHub organization metrics detail view                                                                  | Completed 2026-03-22: skeleton loader, per-phase error handling, roster filter/sort controls                                         |
 | ✅     | High     | Build project-scoped Copilot workspaces                                                                      | Completed 2026-03-08: The Crew ships with local project registration and project-scoped sessions.                                     |
 | ✅     | High     | SFL Loop monitoring in Organizations tree                                                                    | Completed 2026-03-08: Organizations tree now shows SFL workflow health per repo.                                                      |
@@ -67,7 +67,7 @@
 
 ## Progress
 
-**Remaining: 4** | **Completed: 57** (93%)
+**Remaining: 2** | **Completed: 59** (97%)
 
 ---
 
@@ -372,7 +372,3 @@
 **Documentation**: See `docs/TEMPO_TRACKING_FEATURE.md` for full architecture, payload examples, and phased rollout details.
 
 ---
-
-### PR Analyzers should post reviews, not update PR body
-
-**Goal**: Migrate analyzer verdicts from PR body updates (`update_issue`) to proper PR review comments (`add_comment` or `submit-pull-request-review`), keeping the PR body clean.

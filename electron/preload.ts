@@ -57,6 +57,19 @@ contextBridge.exposeInMainWorld('crew', {
     ipcRenderer.invoke('crew:undo-file', projectId, filePath),
 })
 
+contextBridge.exposeInMainWorld('tempo', {
+  getToday: (date?: string) => ipcRenderer.invoke('tempo:get-today', date),
+  getRange: (from: string, to: string) => ipcRenderer.invoke('tempo:get-range', { from, to }),
+  getWeek: (weekStart: string, weekEnd: string) =>
+    ipcRenderer.invoke('tempo:get-week', { weekStart, weekEnd }),
+  createWorklog: (payload: { issueKey: string; hours: number; date: string; startTime?: string; description?: string; accountKey?: string }) =>
+    ipcRenderer.invoke('tempo:create-worklog', payload),
+  updateWorklog: (worklogId: number, payload: { hours?: number; startTime?: string; description?: string; accountKey?: string }) =>
+    ipcRenderer.invoke('tempo:update-worklog', { worklogId, payload }),
+  deleteWorklog: (worklogId: number) => ipcRenderer.invoke('tempo:delete-worklog', worklogId),
+  getAccounts: () => ipcRenderer.invoke('tempo:get-accounts'),
+})
+
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
     ipcRenderer.invoke('copilot:execute', args),

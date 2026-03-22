@@ -1,7 +1,7 @@
 /** Raw worklog from Tempo API v4 */
 export interface TempoApiWorklog {
   tempoWorklogId: number
-  issue: { id: number; key?: string }
+  issue: { id: number }
   timeSpentSeconds: number
   startDate: string // YYYY-MM-DD
   startTime: string // HH:mm:ss

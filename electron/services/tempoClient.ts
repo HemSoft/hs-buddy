@@ -1,5 +1,6 @@
 import { execSync } from 'child_process'
-import { getErrorMessage, formatDateKey } from '../utils'
+import { getErrorMessage } from '../utils'
+import { readDataCache, writeDataCacheEntry } from '../cache'
 import type {
   TempoApiWorklog,
   TempoWorklog,
@@ -76,7 +77,7 @@ async function fetchJson<T>(url: string, headers: Record<string, string>, init?:
   return res.json() as Promise<T>
 }
 
-/** Get current user's Jira accountId — tries Jira first, falls back to Tempo API */
+/** Get current user's Jira accountId — tries Jira, then disk cache */
 async function getAccountId(): Promise<string> {
   if (cachedAccountId) return cachedAccountId
 
@@ -90,44 +91,57 @@ async function getAccountId(): Promise<string> {
       )
       cachedAccountId = user.accountId
       jiraAvailable = true
+      // Persist to disk so we survive Jira outages
+      writeDataCacheEntry('tempo:accountId', { data: cachedAccountId, fetchedAt: Date.now() })
       return cachedAccountId
     } catch {
       jiraAvailable = false
     }
   }
 
-  // Fallback: fetch any recent worklog from Tempo API and extract author.accountId
-  const now = new Date()
-  const to = formatDateKey(now)
-  const from = formatDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30))
-  const resp = await fetchJson<{ results: Array<{ author: { accountId: string } }> }>(
-    `${TEMPO_BASE}/worklogs?from=${from}&to=${to}&limit=1`,
-    getTempoHeaders()
-  )
-  if (resp.results.length > 0) {
-    cachedAccountId = resp.results[0].author.accountId
+  // Fallback: read from disk cache (set by a previous successful Jira call)
+  const diskCache = readDataCache()
+  const cached = diskCache['tempo:accountId']
+  if (cached?.data && typeof cached.data === 'string') {
+    cachedAccountId = cached.data
     return cachedAccountId
   }
-  throw new Error('Could not determine your Jira account ID. Log at least one worklog via the Tempo web app first.')
+
+  throw new Error(
+    'Could not determine your Jira account ID. '
+    + 'Your Atlassian API token may be expired — please update ATLASSIAN_API_TOKEN '
+    + 'and restart the app.'
+  )
 }
 
-async function resolveIssueKey(issueId: number, apiKey?: string): Promise<{ key: string; summary: string }> {
-  const cached = issueKeyCache.get(issueId)
-  if (cached) return cached
+async function resolveIssueKey(issueId: number): Promise<{ key: string; summary: string }> {
+  // 1. In-memory cache
+  const memCached = issueKeyCache.get(issueId)
+  if (memCached) return memCached
+
+  // 2. Disk cache
+  const diskCache = readDataCache()
+  const diskEntry = diskCache[`tempo:issue:${issueId}`]
+  if (diskEntry?.data) {
+    const entry = diskEntry.data as { key: string; summary: string }
+    issueKeyCache.set(issueId, entry)
+    return entry
+  }
+
+  // 3. Live Jira lookup
   const jiraHeaders = getJiraHeaders()
-  if (!jiraHeaders) return { key: apiKey || `#${issueId}`, summary: '' }
+  if (!jiraHeaders) return { key: `#${issueId}`, summary: '' }
   try {
-    // Use the API-provided key when available for a more reliable Jira lookup
-    const lookupId = apiKey || String(issueId)
     const issue = await fetchJson<{ key: string; fields: { summary: string } }>(
-      `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(lookupId)}?fields=key,summary`,
+      `${JIRA_BASE}/rest/api/3/issue/${issueId}?fields=key,summary`,
       jiraHeaders
     )
     const result = { key: issue.key, summary: issue.fields.summary }
     issueKeyCache.set(issueId, result)
+    writeDataCacheEntry(`tempo:issue:${issueId}`, { data: result, fetchedAt: Date.now() })
     return result
   } catch {
-    return { key: apiKey || `#${issueId}`, summary: '' }
+    return { key: `#${issueId}`, summary: '' }
   }
 }
 
@@ -206,16 +220,9 @@ export async function getWorklogsForRange(
       `${TEMPO_BASE}/worklogs/user/${accountId}?from=${from}&to=${to}&limit=1000`,
       getTempoHeaders()
     )
-    // Collect API-provided issue keys for fallback
-    const apiKeys = new Map<number, string>()
-    for (const w of resp.results) {
-      if (w.issue.key && !apiKeys.has(w.issue.id)) {
-        apiKeys.set(w.issue.id, w.issue.key)
-      }
-    }
-    // Resolve issue keys in parallel
+    // Resolve issue keys in parallel (uses mem + disk cache + live Jira as needed)
     const issueIds = [...new Set(resp.results.map(w => w.issue.id))]
-    const issueInfos = await Promise.all(issueIds.map(id => resolveIssueKey(id, apiKeys.get(id))))
+    const issueInfos = await Promise.all(issueIds.map(id => resolveIssueKey(id)))
     const issueMap = new Map(issueIds.map((id, i) => [id, issueInfos[i]]))
 
     const worklogs = resp.results

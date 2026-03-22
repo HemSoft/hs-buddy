@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import {
   Check,
   CheckCircle2,
@@ -25,6 +25,48 @@ import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
 import { DiffHunk } from './DiffHunk'
 import { CommentCard } from './CommentCard'
 
+interface ThreadState {
+  expanded: boolean
+  replying: boolean
+  replyText: string
+  sending: boolean
+  resolving: boolean
+}
+
+type ThreadAction =
+  | { type: 'toggle_expand' }
+  | { type: 'start_reply' }
+  | { type: 'cancel_reply' }
+  | { type: 'set_reply_text'; text: string }
+  | { type: 'start_sending' }
+  | { type: 'finish_sending' }
+  | { type: 'send_failed' }
+  | { type: 'start_resolving' }
+  | { type: 'done_resolving' }
+
+function threadReducer(state: ThreadState, action: ThreadAction): ThreadState {
+  switch (action.type) {
+    case 'toggle_expand':
+      return { ...state, expanded: !state.expanded }
+    case 'start_reply':
+      return { ...state, replying: true }
+    case 'cancel_reply':
+      return { ...state, replying: false, replyText: '' }
+    case 'set_reply_text':
+      return { ...state, replyText: action.text }
+    case 'start_sending':
+      return { ...state, sending: true }
+    case 'finish_sending':
+      return { ...state, sending: false, replying: false, replyText: '' }
+    case 'send_failed':
+      return { ...state, sending: false }
+    case 'start_resolving':
+      return { ...state, resolving: true }
+    case 'done_resolving':
+      return { ...state, resolving: false }
+  }
+}
+
 export function ReviewThreadCard({
   thread,
   pr,
@@ -38,11 +80,14 @@ export function ReviewThreadCard({
   onResolveToggled: (threadId: string, resolved: boolean) => void
   onReactToComment: (commentId: string, content: PRCommentReactionContent) => Promise<void>
 }) {
-  const [expanded, setExpanded] = useState(!thread.isResolved && !thread.isOutdated)
-  const [replying, setReplying] = useState(false)
-  const [replyText, setReplyText] = useState('')
-  const [sending, setSending] = useState(false)
-  const [resolving, setResolving] = useState(false)
+  const [state, dispatch] = useReducer(threadReducer, {
+    expanded: !thread.isResolved && !thread.isOutdated,
+    replying: false,
+    replyText: '',
+    sending: false,
+    resolving: false,
+  })
+  const { expanded, replying, replyText, sending, resolving } = state
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -55,7 +100,8 @@ export function ReviewThreadCard({
 
   const handleSendReply = useCallback(async () => {
     if (!replyText.trim() || !ownerRepo || sending) return
-    setSending(true)
+
+    dispatch({ type: 'start_sending' })
     try {
       const newComment = await enqueue(
         async signal => {
@@ -71,18 +117,17 @@ export function ReviewThreadCard({
         { name: `reply-thread-${thread.id}` }
       )
       onReplyAdded(thread.id, newComment)
-      setReplyText('')
-      setReplying(false)
+      dispatch({ type: 'finish_sending' })
     } catch (err) {
       console.error('Failed to reply:', err)
-    } finally {
-      setSending(false)
+      dispatch({ type: 'send_failed' })
     }
   }, [replyText, ownerRepo, sending, enqueue, accounts, pr.id, thread.id, onReplyAdded])
 
   const handleResolveToggle = useCallback(async () => {
     if (!ownerRepo || resolving) return
-    setResolving(true)
+
+    dispatch({ type: 'start_resolving' })
     try {
       await enqueue(
         async signal => {
@@ -100,14 +145,14 @@ export function ReviewThreadCard({
     } catch (err) {
       console.error('Failed to toggle resolve:', err)
     } finally {
-      setResolving(false)
+      dispatch({ type: 'done_resolving' })
     }
   }, [ownerRepo, resolving, enqueue, accounts, thread.id, thread.isResolved, onResolveToggled])
 
   const handleHeaderKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      setExpanded(prev => !prev)
+      dispatch({ type: 'toggle_expand' })
     }
   }, [])
 
@@ -123,7 +168,7 @@ export function ReviewThreadCard({
         className="review-thread-header"
         role="button"
         tabIndex={0}
-        onClick={() => setExpanded(prev => !prev)}
+        onClick={() => dispatch({ type: 'toggle_expand' })}
         onKeyDown={handleHeaderKeyDown}
       >
         <span className="review-thread-chevron">
@@ -164,9 +209,7 @@ export function ReviewThreadCard({
         <div className="review-thread-body">
           {diffHunk && <DiffHunk hunk={diffHunk} />}
           <div className="review-thread-comments">
-            {firstComment && (
-              <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />
-            )}
+            {firstComment && <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />}
             {remainingComments.map(c => (
               <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
             ))}
@@ -177,30 +220,26 @@ export function ReviewThreadCard({
                 <textarea
                   ref={textareaRef}
                   className="thread-reply-input"
-                  placeholder="Write a reply…"
+                  placeholder="Write a reply..."
                   value={replyText}
-                  onChange={e => setReplyText(e.target.value)}
+                  onChange={e => dispatch({ type: 'set_reply_text', text: e.target.value })}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                       e.preventDefault()
                       handleSendReply()
                     }
                     if (e.key === 'Escape') {
-                      setReplying(false)
-                      setReplyText('')
+                      dispatch({ type: 'cancel_reply' })
                     }
                   }}
                   rows={3}
                   disabled={sending}
                 />
                 <div className="thread-reply-buttons">
-                  <span className="thread-reply-hint">Ctrl+Enter to send · Esc to cancel</span>
+                  <span className="thread-reply-hint">Ctrl+Enter to send - Esc to cancel</span>
                   <button
                     className="thread-reply-cancel"
-                    onClick={() => {
-                      setReplying(false)
-                      setReplyText('')
-                    }}
+                    onClick={() => dispatch({ type: 'cancel_reply' })}
                     disabled={sending}
                   >
                     Cancel
@@ -217,7 +256,7 @@ export function ReviewThreadCard({
               </div>
             ) : (
               <div className="thread-action-row">
-                <button className="thread-reply-btn" onClick={() => setReplying(true)}>
+                <button className="thread-reply-btn" onClick={() => dispatch({ type: 'start_reply' })}>
                   <MessageSquarePlus size={13} />
                   Reply
                 </button>

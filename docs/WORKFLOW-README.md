@@ -29,10 +29,10 @@ That repo contains:
 | ---------- | ---------- | -------- | -------- |
 | `react-doctor-audit` (`React Doctor Audit`) | Daily 1:00 AM EDT | Rolling React Doctor issue stream; older issues stay open while an active agent PR still depends on them | Local |
 | `test-coverage-audit` (`Test Coverage Audit`) | Daily 7:17 AM EDT | Single `agent:fixable` test-coverage issue | Local |
-| `simplisticate-audit` (`Simplisticate Audit`) | Daily 2:00 AM EDT | Single `agent:fixable` simplification issue | Local |
-| `daily-repo-status` (`SFL Repo Status`) | Daily 3:00 AM EDT | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `repo-audit` (`Repo Audit`) | Daily 4:00 AM EDT | Single consolidated `agent:fixable` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `sfl-auditor` | Daily 5:00 AM EDT | Repairs issue/PR label discrepancies | Local |
+| `simplisticate-audit` (`Simplisticate Audit`) | Daily ~2:27 AM EDT | Single `agent:fixable` simplification issue | Local |
+| `daily-repo-status` (`SFL Repo Status`) | Daily ~3:37 AM EDT | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `repo-audit` (`Repo Audit`) | Daily ~4:47 AM EDT | Single consolidated `agent:fixable` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `sfl-auditor` | Daily ~5:57 AM EDT | Repairs issue/PR label discrepancies | Local |
 | `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
 | `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |
 | `sfl-analyzer-a` | `pull_request: opened` | Starts the sequential A -> B -> C review chain for draft PRs (Model A) | Local |

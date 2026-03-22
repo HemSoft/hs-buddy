@@ -1,66 +1,132 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { RefreshCw, User, Sparkles, Cpu, AlertCircle, CheckCircle } from 'lucide-react'
 import { AccountPicker } from '../shared/AccountPicker'
 import { ModelPicker } from '../shared/ModelPicker'
 import './SettingsShared.css'
 
+interface SettingsState {
+  localAccount: string
+  localModel: string
+  customModel: string
+  isCustomModel: boolean
+  saveStatus: 'idle' | 'saving' | 'saved'
+}
+
+type SettingsAction =
+  | { type: 'initialize'; account: string; model: string }
+  | { type: 'set_account'; value: string }
+  | { type: 'set_model'; value: string }
+  | { type: 'set_custom_model'; value: string }
+  | { type: 'toggle_custom_model'; enabled: boolean }
+  | { type: 'saving' }
+  | { type: 'saved' }
+  | { type: 'reset_save' }
+
+function settingsReducer(state: SettingsState, action: SettingsAction): SettingsState {
+  switch (action.type) {
+    case 'initialize':
+      return {
+        ...state,
+        localAccount: action.account,
+        localModel: action.model,
+      }
+    case 'set_account':
+      return { ...state, localAccount: action.value }
+    case 'set_model':
+      return { ...state, localModel: action.value }
+    case 'set_custom_model':
+      return { ...state, customModel: action.value }
+    case 'toggle_custom_model':
+      return { ...state, isCustomModel: action.enabled }
+    case 'saving':
+      return { ...state, saveStatus: 'saving' }
+    case 'saved':
+      return { ...state, saveStatus: 'saved' }
+    case 'reset_save':
+      return { ...state, saveStatus: 'idle' }
+  }
+}
+
 export function SettingsCopilot() {
   const { ghAccount, model, loading, setGhAccount, setModel } = useCopilotSettings()
 
   const { uniqueUsernames: uniqueAccounts } = useGitHubAccounts()
-
-  const [localAccount, setLocalAccount] = useState(ghAccount)
-  const [localModel, setLocalModel] = useState(model)
-  const [customModel, setCustomModel] = useState('')
-  const [isCustomModel, setIsCustomModel] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [state, dispatch] = useReducer(settingsReducer, {
+    localAccount: ghAccount,
+    localModel: model,
+    customModel: '',
+    isCustomModel: false,
+    saveStatus: 'idle',
+  })
+  const { localAccount, localModel, customModel, isCustomModel, saveStatus } = state
 
   // Sync local state from Convex once it loads (one-time initialization)
   const initializedRef = useRef(false)
+  const saveResetTimerRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (!loading && !initializedRef.current) {
       initializedRef.current = true
-      setLocalAccount(ghAccount)
-      setLocalModel(model)
+      dispatch({ type: 'initialize', account: ghAccount, model })
     }
   }, [loading, ghAccount, model])
 
+  useEffect(() => {
+    return () => {
+      if (saveResetTimerRef.current != null) {
+        window.clearTimeout(saveResetTimerRef.current)
+      }
+    }
+  }, [])
+
+  const scheduleSaveStatusReset = () => {
+    if (saveResetTimerRef.current != null) {
+      window.clearTimeout(saveResetTimerRef.current)
+    }
+    saveResetTimerRef.current = window.setTimeout(() => {
+      dispatch({ type: 'reset_save' })
+      saveResetTimerRef.current = null
+    }, 2000)
+  }
+
   const handleAccountChange = async (value: string) => {
-    setLocalAccount(value)
-    setSaveStatus('saving')
+    dispatch({ type: 'set_account', value })
+    dispatch({ type: 'saving' })
     setGhAccount(value).catch(() => {})
-    setSaveStatus('saved')
-    setTimeout(() => setSaveStatus('idle'), 2000)
+    dispatch({ type: 'saved' })
+    scheduleSaveStatusReset()
   }
 
   const handleModelChange = async (value: string) => {
     if (value === '__custom__') {
-      setIsCustomModel(true)
+      dispatch({ type: 'toggle_custom_model', enabled: true })
       return
     }
-    setIsCustomModel(false)
-    setLocalModel(value)
-    setSaveStatus('saving')
+
+    dispatch({ type: 'toggle_custom_model', enabled: false })
+    dispatch({ type: 'set_model', value })
+    dispatch({ type: 'saving' })
     await setModel(value)
-    setSaveStatus('saved')
-    setTimeout(() => setSaveStatus('idle'), 2000)
+    dispatch({ type: 'saved' })
+    scheduleSaveStatusReset()
   }
 
   const handleCustomModelSave = async () => {
     const trimmed = customModel.trim()
     if (!trimmed) return
-    setLocalModel(trimmed)
-    setSaveStatus('saving')
+
+    dispatch({ type: 'set_model', value: trimmed })
+    dispatch({ type: 'saving' })
     await setModel(trimmed)
-    setSaveStatus('saved')
-    setTimeout(() => setSaveStatus('idle'), 2000)
+    dispatch({ type: 'saved' })
+    scheduleSaveStatusReset()
   }
 
   const handleCustomModelKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      handleCustomModelSave()
+      void handleCustomModelSave()
     }
   }
 
@@ -153,7 +219,7 @@ export function SettingsCopilot() {
               <input
                 type="text"
                 value={customModel}
-                onChange={e => setCustomModel(e.target.value)}
+                onChange={e => dispatch({ type: 'set_custom_model', value: e.target.value })}
                 onKeyDown={handleCustomModelKeyDown}
                 placeholder="Enter custom model name"
                 className="settings-input"
@@ -161,7 +227,7 @@ export function SettingsCopilot() {
               />
               <button
                 className="settings-btn settings-btn-primary"
-                onClick={handleCustomModelSave}
+                onClick={() => void handleCustomModelSave()}
                 disabled={!customModel.trim()}
               >
                 Apply

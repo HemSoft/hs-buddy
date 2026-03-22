@@ -115,6 +115,15 @@
   color: #e85d5d;
 }
 
+.copilot-action-btn.success {
+  color: #4ec9b0;
+}
+
+.copilot-action-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .copied-badge {
   position: absolute;
   top: -4px;

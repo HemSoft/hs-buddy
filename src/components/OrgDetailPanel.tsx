@@ -1,8 +1,10 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
+  ArrowUpDown,
   Building2,
   ExternalLink,
+  Filter,
   FolderKanban,
   GitBranch,
   GitCommitHorizontal,
@@ -51,6 +53,8 @@ interface OrgCopilotUsageData {
 const EMPTY_COPILOT_USAGE: OrgCopilotUsageData | null = null
 
 type LoadPhase = 'idle' | 'loading' | 'refreshing' | 'ready' | 'error'
+type RosterFilter = 'all' | 'active' | 'configured' | 'idle'
+type RosterSort = 'name' | 'commits'
 type OrgContributor = OrgOverviewResult['metrics']['topContributorsToday'][number]
 type OrgMember = OrgMemberResult['members'][number]
 type CopilotBudgetState = ReturnType<typeof useCopilotUsage>['orgBudgets'][string]
@@ -503,55 +507,6 @@ function OrgConfiguredAccountsSection({
   )
 }
 
-function OrgMemberRosterSection({
-  org,
-  members,
-  contributorMap,
-  configuredAccounts,
-  memberLogin,
-}: {
-  org: string
-  members: OrgMember[]
-  contributorMap: Map<string, OrgContributor>
-  configuredAccounts: GitHubAccount[]
-  memberLogin?: string
-}) {
-  return (
-    <section className="org-detail-section">
-      <div className="org-detail-section-header">
-        <h3>
-          <Users size={15} />
-          Member Roster
-        </h3>
-      </div>
-      {members.length > 0 ? (
-        <div className="org-detail-roster">
-          {members.map(member => {
-            const contributor = contributorMap.get(member.login)
-            const isConfigured = configuredAccounts.some(account => account.username === member.login)
-            return (
-              <button
-                key={member.login}
-                className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
-                onClick={() => navigateToOrgUser(org, member.login)}
-              >
-                <span className="org-detail-roster-name">{member.name ? `${member.name} (${member.login})` : member.login}</span>
-                <span className="org-detail-roster-meta">
-                  {member.name ? `@${member.login} · ` : ''}
-                  {contributor ? `${contributor.commits} today` : 'idle today'}
-                  {isConfigured ? ' · configured' : ''}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      ) : (
-        <div className="org-detail-empty">No members returned for this namespace.</div>
-      )}
-    </section>
-  )
-}
-
 function useOrgDetailData(org: string, memberLogin?: string) {
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
@@ -581,7 +536,9 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   )
   const [copilotPhase, setCopilotPhase] = useState<LoadPhase>('loading')
   const [rateLimit, setRateLimit] = useState<RateLimitSnapshot | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [overviewError, setOverviewError] = useState<string | null>(null)
+  const [membersError, setMembersError] = useState<string | null>(null)
+  const [copilotError, setCopilotError] = useState<string | null>(null)
   const shouldRefreshOnMount = Boolean(initialOverview || hasCachedMembers || hasCachedCopilot)
   const hasOverviewRef = useRef(Boolean(initialOverview))
   const hasMembersRef = useRef(Boolean(dataCache.get<OrgMemberResult>(membersCacheKey)?.data))
@@ -761,7 +718,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
         setOverviewPhase('error')
-        setError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+        setOverviewError(fetchError instanceof Error ? fetchError.message : String(fetchError))
       }
     },
     [accounts, org, overviewCacheKey, overviewTaskName]
@@ -802,7 +759,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
         setMembersPhase('error')
-        setError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+        setMembersError(fetchError instanceof Error ? fetchError.message : String(fetchError))
       }
     },
     [accounts, membersCacheKey, membersTaskName, org]
@@ -858,7 +815,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
         setCopilotPhase('error')
-        setError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+        setCopilotError(fetchError instanceof Error ? fetchError.message : String(fetchError))
       }
     },
     [copilotCacheKey, copilotTaskName, org]
@@ -866,7 +823,9 @@ function useOrgDetailData(org: string, memberLogin?: string) {
 
   const fetchAll = useCallback(
     async (forceRefresh = false) => {
-      setError(null)
+      setOverviewError(null)
+      setMembersError(null)
+      setCopilotError(null)
       const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh)]
       if (!isUserNamespaceRef.current) {
         work.push(fetchCopilot(forceRefresh))
@@ -919,8 +878,8 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     budgetState,
     configuredAccounts,
     contributorMap,
+    copilotError,
     copilotUsage,
-    error,
     fetchAll,
     hasFullOverview,
     isInitialLoading,
@@ -930,7 +889,9 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     liveOverviewPhase,
     memberCount,
     members: members?.members ?? [],
+    membersError,
     overview,
+    overviewError,
     personalQuotaSummary,
     quotaOverage,
     quotas,
@@ -943,13 +904,126 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   }
 }
 
+function OrgDetailSkeleton({ org }: { org: string }) {
+  return (
+    <div className="org-detail-container">
+      <div className="org-detail-hero org-detail-skeleton-hero">
+        <div className="org-detail-hero-copy">
+          <div className="org-detail-kicker">
+            <Building2 size={14} />
+            <span>Loading…</span>
+          </div>
+          <h2 className="org-detail-title">{org}</h2>
+          <div className="org-detail-status-row">
+            <LivePill label="Overview" phase="loading" />
+            <LivePill label="Members" phase="loading" />
+            <LivePill label="Copilot" phase="loading" />
+          </div>
+        </div>
+      </div>
+      <div className="org-detail-metric-grid">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="org-detail-metric-card org-detail-skeleton-card">
+            <div className="org-detail-metric-icon org-detail-skeleton-shimmer" />
+            <div>
+              <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '60%' }} />
+              <div className="org-detail-skeleton-line org-detail-skeleton-line-lg org-detail-skeleton-shimmer" style={{ width: '40%' }} />
+              <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '80%' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="org-detail-section-grid">
+        <div className="org-detail-section org-detail-skeleton-section">
+          <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '50%', height: 16 }} />
+          <div className="org-detail-skeleton-block org-detail-skeleton-shimmer" />
+        </div>
+        <div className="org-detail-section org-detail-skeleton-section">
+          <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '50%', height: 16 }} />
+          <div className="org-detail-skeleton-block org-detail-skeleton-shimmer" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InlineErrorBanner({
+  label,
+  message,
+  onRetry,
+}: {
+  label: string
+  message: string
+  onRetry?: () => void
+}) {
+  return (
+    <div className="org-detail-inline-error">
+      <AlertCircle size={14} />
+      <span>
+        <strong>{label}</strong>: {message}
+      </span>
+      {onRetry && (
+        <button className="org-detail-inline-error-retry" onClick={onRetry}>
+          Retry
+        </button>
+      )}
+    </div>
+  )
+}
+
+function RosterFilterBar({
+  filter,
+  sort,
+  onFilterChange,
+  onSortChange,
+  counts,
+}: {
+  filter: RosterFilter
+  sort: RosterSort
+  onFilterChange: (f: RosterFilter) => void
+  onSortChange: (s: RosterSort) => void
+  counts: { all: number; active: number; configured: number; idle: number }
+}) {
+  const filters: { key: RosterFilter; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: counts.all },
+    { key: 'active', label: 'Active', count: counts.active },
+    { key: 'configured', label: 'Configured', count: counts.configured },
+    { key: 'idle', label: 'Idle', count: counts.idle },
+  ]
+
+  return (
+    <div className="org-detail-roster-controls">
+      <div className="org-detail-roster-filters">
+        <Filter size={12} />
+        {filters.map(f => (
+          <button
+            key={f.key}
+            className={`org-detail-roster-filter-btn ${filter === f.key ? 'active' : ''}`}
+            onClick={() => onFilterChange(f.key)}
+          >
+            {f.label} <span className="org-detail-roster-filter-count">{f.count}</span>
+          </button>
+        ))}
+      </div>
+      <button
+        className="org-detail-roster-sort-btn"
+        onClick={() => onSortChange(sort === 'name' ? 'commits' : 'name')}
+        title={sort === 'name' ? 'Sort by commits' : 'Sort by name'}
+      >
+        <ArrowUpDown size={12} />
+        {sort === 'name' ? 'Name' : 'Commits'}
+      </button>
+    </div>
+  )
+}
+
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const {
     budgetState,
     configuredAccounts,
     contributorMap,
+    copilotError,
     copilotUsage,
-    error,
     fetchAll,
     hasFullOverview,
     isInitialLoading,
@@ -959,7 +1033,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     liveOverviewPhase,
     memberCount,
     members,
+    membersError,
     overview,
+    overviewError,
     personalQuotaSummary,
     quotaOverage,
     quotas,
@@ -971,6 +1047,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     shouldShowPersonalQuotaPulse,
   } = useOrgDetailData(org, memberLogin)
 
+  const [rosterFilter, setRosterFilter] = useState<RosterFilter>('all')
+  const [rosterSort, setRosterSort] = useState<RosterSort>('name')
+
   const nameMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of members) {
@@ -979,22 +1058,61 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     return map
   }, [members])
 
+  const configuredLogins = useMemo(
+    () => new Set(configuredAccounts.map(a => a.username)),
+    [configuredAccounts]
+  )
+
+  const rosterCounts = useMemo(() => {
+    const active = members.filter(m => contributorMap.has(m.login)).length
+    const configured = members.filter(m => configuredLogins.has(m.login)).length
+    return {
+      all: members.length,
+      active,
+      configured,
+      idle: members.length - active,
+    }
+  }, [members, contributorMap, configuredLogins])
+
+  const filteredMembers = useMemo(() => {
+    let result = members
+    switch (rosterFilter) {
+      case 'active':
+        result = result.filter(m => contributorMap.has(m.login))
+        break
+      case 'configured':
+        result = result.filter(m => configuredLogins.has(m.login))
+        break
+      case 'idle':
+        result = result.filter(m => !contributorMap.has(m.login))
+        break
+    }
+    if (rosterSort === 'commits') {
+      result = [...result].sort((a, b) => {
+        const ac = contributorMap.get(a.login)?.commits ?? 0
+        const bc = contributorMap.get(b.login)?.commits ?? 0
+        return bc - ac
+      })
+    } else {
+      result = [...result].sort((a, b) => {
+        const an = a.name ?? a.login
+        const bn = b.name ?? b.login
+        return an.localeCompare(bn)
+      })
+    }
+    return result
+  }, [members, rosterFilter, rosterSort, contributorMap, configuredLogins])
+
   if (isInitialLoading) {
-    return (
-      <div className="org-detail-loading">
-        <RefreshCw size={32} className="spin" />
-        <p>Building organization overview...</p>
-        <p className="org-detail-loading-sub">{org}</p>
-      </div>
-    )
+    return <OrgDetailSkeleton org={org} />
   }
 
-  if (error && !overview) {
+  if (overviewError && !overview) {
     return (
       <div className="org-detail-error">
         <AlertCircle size={32} />
         <p className="org-detail-error-title">Failed to load organization overview</p>
-        <p className="org-detail-error-detail">{error}</p>
+        <p className="org-detail-error-detail">{overviewError}</p>
         <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
           <RefreshCw size={14} />
           Retry
@@ -1030,6 +1148,13 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         </div>
       )}
 
+      {membersError && liveMembersPhase === 'error' && (
+        <InlineErrorBanner label="Members" message={membersError} onRetry={() => fetchAll(true)} />
+      )}
+      {copilotError && liveCopilotPhase === 'error' && (
+        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={() => fetchAll(true)} />
+      )}
+
       <div className="org-detail-section-grid">
         <OrgCopilotSection
           overview={overview}
@@ -1062,13 +1187,47 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
       <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
 
-      <OrgMemberRosterSection
-        org={org}
-        members={members}
-        contributorMap={contributorMap}
-        configuredAccounts={configuredAccounts}
-        memberLogin={memberLogin}
-      />
+      <section className="org-detail-section">
+        <div className="org-detail-section-header">
+          <h3>
+            <Users size={15} />
+            Member Roster
+          </h3>
+        </div>
+        <RosterFilterBar
+          filter={rosterFilter}
+          sort={rosterSort}
+          onFilterChange={setRosterFilter}
+          onSortChange={setRosterSort}
+          counts={rosterCounts}
+        />
+        {filteredMembers.length > 0 ? (
+          <div className="org-detail-roster">
+            {filteredMembers.map(member => {
+              const contributor = contributorMap.get(member.login)
+              const isConfigured = configuredLogins.has(member.login)
+              return (
+                <button
+                  key={member.login}
+                  className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
+                  onClick={() => navigateToOrgUser(org, member.login)}
+                >
+                  <span className="org-detail-roster-name">{member.name ? `${member.name} (${member.login})` : member.login}</span>
+                  <span className="org-detail-roster-meta">
+                    {member.name ? `@${member.login} · ` : ''}
+                    {contributor ? `${contributor.commits} today` : 'idle today'}
+                    {isConfigured ? ' · configured' : ''}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ) : members.length === 0 ? (
+          <div className="org-detail-empty">No members returned for this namespace.</div>
+        ) : (
+          <div className="org-detail-empty">No members match the current filter.</div>
+        )}
+      </section>
     </div>
   )
 }

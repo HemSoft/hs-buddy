@@ -1,13 +1,19 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   CheckCircle2,
   Clock,
   ExternalLink,
   Loader2,
+  MessageSquareShare,
   RefreshCcw,
   Sparkles,
   XCircle,
 } from 'lucide-react'
+import { useConvex } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
+import { GitHubClient } from '../api/github'
+import { useGitHubAccounts } from '../hooks/useConfig'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { usePRReviewRunsByPR } from '../hooks/useConvex'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
@@ -22,6 +28,11 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
   const parsed = parseOwnerRepoFromUrl(pr.url)
   const owner = pr.org || parsed?.owner
   const repo = pr.repository || parsed?.repo
+
+  const convex = useConvex()
+  const { accounts } = useGitHubAccounts()
+  const [publishingRunId, setPublishingRunId] = useState<string | null>(null)
+  const [publishedRunIds, setPublishedRunIds] = useState<Set<string>>(new Set())
 
   const runs = usePRReviewRunsByPR(owner, repo, pr.id, 25)
 
@@ -41,6 +52,23 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
 
   const handleOpenResult = (resultId: string) => {
     window.dispatchEvent(new CustomEvent('copilot:open-result', { detail: { resultId } }))
+  }
+
+  const handlePublishToPR = async (runId: string, resultId: string, model?: string) => {
+    if (publishingRunId || !owner || !repo) return
+    setPublishingRunId(runId)
+    try {
+      const result = await convex.query(api.copilotResults.get, { id: resultId as Id<'copilotResults'> })
+      if (!result?.result) return
+      const client = new GitHubClient({ accounts }, 7)
+      const body = `## \u{1F916} AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy \u2014 ${model || result.model || 'AI'} review*`
+      await client.addPRComment(owner, repo, pr.id, body)
+      setPublishedRunIds(prev => new Set(prev).add(runId))
+    } catch (err) {
+      console.error('Failed to publish review to PR:', err)
+    } finally {
+      setPublishingRunId(null)
+    }
   }
 
   const handleReReview = () => {
@@ -131,6 +159,16 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
                 )}
               </div>
               <div className="pr-reviews-item-actions">
+                {run.status === 'completed' && (
+                  <button
+                    className={`pr-reviews-icon-btn${publishedRunIds.has(run._id) ? ' published' : ''}`}
+                    onClick={() => handlePublishToPR(run._id, run.resultId, run.model)}
+                    disabled={!!publishingRunId || publishedRunIds.has(run._id)}
+                    title={publishedRunIds.has(run._id) ? 'Published to PR' : 'Publish review as PR comment'}
+                  >
+                    {publishingRunId === run._id ? <Loader2 size={12} className="spin" /> : <MessageSquareShare size={12} />}
+                  </button>
+                )}
                 <button
                   className="pr-reviews-icon-btn"
                   onClick={() => handleOpenResult(run.resultId)}

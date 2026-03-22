@@ -68,6 +68,22 @@
   justify-content: center;
 }
 
+.pr-reviews-icon-btn.published {
+  color: var(--accent-success);
+  opacity: 0.7;
+}
+
+.pr-reviews-icon-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.pr-reviews-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .pr-reviews-latest {
   border: 1px solid var(--border-primary);
   border-radius: 8px;

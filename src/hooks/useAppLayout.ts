@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DEFAULT_PANE_SIZES, normalizePaneSizes } from '../appUtils'
+import { DEFAULT_ASSISTANT_PANE_SIZE, DEFAULT_PANE_SIZES, normalizePaneSizes } from '../appUtils'
 
 const PANE_SAVE_DEBOUNCE_MS = 300
 
@@ -63,17 +63,25 @@ export function useAppLayout() {
       return
     }
 
-    setLayoutState(currentState => ({
-      ...currentState,
-      paneSizes: sizes,
-    }))
+    setLayoutState(currentState => {
+      // When assistant is closed, Allotment reports 2 sizes — preserve the saved assistant size
+      const fullSizes =
+        sizes.length === 2
+          ? [sizes[0], sizes[1], currentState.paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE]
+          : sizes
+
+      return { ...currentState, paneSizes: fullSizes }
+    })
 
     if (paneSaveTimeoutRef.current) {
       clearTimeout(paneSaveTimeoutRef.current)
     }
 
     paneSaveTimeoutRef.current = setTimeout(() => {
-      window.ipcRenderer.invoke('config:set-pane-sizes', sizes)
+      setLayoutState(currentState => {
+        window.ipcRenderer.invoke('config:set-pane-sizes', currentState.paneSizes)
+        return currentState
+      })
     }, PANE_SAVE_DEBOUNCE_MS)
   }, [])
 

@@ -9,7 +9,10 @@ import {
   Trash2,
   RotateCcw,
   Copy,
+  MessageSquareShare,
 } from 'lucide-react'
+import { GitHubClient } from '../api/github'
+import { useGitHubAccounts } from '../hooks/useConfig'
 import { useCopilotResult, useCopilotResultMutations } from '../hooks/useConvex'
 import { useExternalMarkdownLinks } from '../hooks/useExternalMarkdownLinks'
 import { formatDateFull, formatDuration } from '../utils/dateUtils'
@@ -26,7 +29,10 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   useExternalMarkdownLinks(contentRef)
   const { remove } = useCopilotResultMutations()
+  const { accounts } = useGitHubAccounts()
   const [copied, setCopied] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [published, setPublished] = useState(false)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -80,7 +86,35 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     }
   }
 
+  const handlePublishToPR = async () => {
+    if (!result.result || publishing) return
+    const meta = result.metadata as Record<string, unknown> | null
+    const org = meta?.org as string | undefined
+    const repo = meta?.repo as string | undefined
+    const prNumber = meta?.prNumber as number | undefined
+    if (!org || !repo || !prNumber) return
+
+    setPublishing(true)
+    try {
+      const client = new GitHubClient({ accounts }, 7)
+      const body = `## 🤖 AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy — ${result.model || 'AI'} review*`
+      await client.addPRComment(org, repo, prNumber, body)
+      setPublished(true)
+    } catch (err) {
+      console.error('Failed to publish review to PR:', err)
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   const metadata = result.metadata as Record<string, unknown> | null
+  const canPublish =
+    result.category === 'pr-review' &&
+    result.status === 'completed' &&
+    !!result.result &&
+    !!metadata?.org &&
+    !!metadata?.repo &&
+    !!metadata?.prNumber
 
   return (
     <div className="copilot-result-panel">
@@ -115,6 +149,17 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
               title="Open PR on GitHub"
             >
               <ExternalLink size={14} />
+            </button>
+          )}
+          {canPublish && (
+            <button
+              className={`copilot-action-btn${published ? ' success' : ''}`}
+              onClick={handlePublishToPR}
+              disabled={publishing || published}
+              title={published ? 'Published to PR' : 'Publish review as PR comment'}
+            >
+              {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
+              {published && <span className="copied-badge">✓</span>}
             </button>
           )}
           {result.result && (

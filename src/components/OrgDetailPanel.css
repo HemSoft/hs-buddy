@@ -409,4 +409,163 @@
   .org-detail-link-btn {
     flex: 1;
   }
+
+  .org-detail-roster-controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* ── Skeleton loader ── */
+
+@keyframes org-shimmer {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+  100% { opacity: 0.3; }
+}
+
+.org-detail-skeleton-shimmer {
+  animation: org-shimmer 1.5s ease-in-out infinite;
+}
+
+.org-detail-skeleton-hero {
+  pointer-events: none;
+}
+
+.org-detail-skeleton-card {
+  pointer-events: none;
+}
+
+.org-detail-skeleton-line {
+  height: 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 6px 0;
+}
+
+.org-detail-skeleton-line-lg {
+  height: 18px;
+}
+
+.org-detail-skeleton-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.org-detail-skeleton-block {
+  height: 80px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Inline error banner ── */
+
+.org-detail-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(224, 93, 93, 0.25);
+  background: rgba(224, 93, 93, 0.08);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.org-detail-inline-error svg {
+  flex-shrink: 0;
+  color: var(--accent-error, #e05d5d);
+}
+
+.org-detail-inline-error strong {
+  color: var(--accent-error, #e05d5d);
+}
+
+.org-detail-inline-error-retry {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid rgba(224, 93, 93, 0.3);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.org-detail-inline-error-retry:hover {
+  background: rgba(224, 93, 93, 0.12);
+}
+
+/* ── Roster filter/sort controls ── */
+
+.org-detail-roster-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.org-detail-roster-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
+.org-detail-roster-filters > svg {
+  margin-right: 4px;
+}
+
+.org-detail-roster-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.org-detail-roster-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.org-detail-roster-filter-btn.active {
+  border-color: rgba(242, 204, 143, 0.35);
+  background: rgba(242, 204, 143, 0.1);
+  color: var(--text-heading);
+}
+
+.org-detail-roster-filter-count {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.org-detail-roster-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.org-detail-roster-sort-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
 }

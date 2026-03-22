@@ -2,12 +2,11 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 🚧     | High     | [Add GitHub organization metrics detail view](#add-github-organization-metrics-detail-view)                | In progress: org overview route and users subtree are live; next is hardening cache/loading behavior and expanding member metrics     |
-| 📋     | Medium   | [Create cost telemetry dashboard](#create-cost-telemetry-dashboard)                                          | Run counts, p50/p90 cost, monthly budget burn                                                                                         |
 | 📋     | Medium   | [Add branch cleanup to repo-audit](#add-branch-cleanup-to-repo-audit)                                        | Detect and delete merged/orphaned agent-fix branches                                                                                  |
 | 📋     | Medium   | [PR Analyzers should post reviews, not update PR body](#pr-analyzers-should-post-reviews-not-update-pr-body) | Analyzers currently append verdicts to the PR body via `update_issue`; should use `add_comment` or proper PR review comments instead  |
 | 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
 | 📋     | Medium   | [Tempo tracking](#tempo-tracking)                                                                            | New tree-view section for time tracking with Tempo API calls, daily/weekly summaries, and fast worklog actions                        |
+| ✅     | High     | Add GitHub organization metrics detail view                                                                  | Completed 2026-03-22: skeleton loader, per-phase error handling, roster filter/sort controls                                         |
 | ✅     | High     | Build project-scoped Copilot workspaces                                                                      | Completed 2026-03-08: The Crew ships with local project registration and project-scoped sessions.                                     |
 | ✅     | High     | SFL Loop monitoring in Organizations tree                                                                    | Completed 2026-03-08: Organizations tree now shows SFL workflow health per repo.                                                      |
 | ✅     | High     | Unify issue processor and fixer into a single implementer                                                    | Completed 2026-03-07: retired `pr-fixer`; `sfl-issue-processor` is now the single implementer across first-pass and follow-up cycles. |
@@ -68,71 +67,11 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 56** (90%)
+**Remaining: 4** | **Completed: 57** (93%)
 
 ---
 
 ## Remaining Items
-
-### Add GitHub organization metrics detail view
-
-**Goal**: When a GitHub organization is selected in the sidebar, open a real detail page instead of leaving the main content area empty or on a generic placeholder.
-
-**Current gap**:
-
-- The org row in `OrgRepoTree` only expands/collapses; it does not open an org-scoped route.
-- `AppContentRouter` has repo-level detail panels and the global `copilot-usage` panel, but no organization detail route.
-- Org-level metrics already exist in the app via `useCopilotUsage()` and the Copilot usage components, so this feature should reuse those data surfaces instead of introducing a separate metrics pipeline.
-
-**Desired behavior**:
-
-- Selecting an organization in the GitHub sidebar opens an org-scoped detail route such as `org-detail:{org}`.
-- The detail page shows metrics for the selected organization, starting with the existing org budget and Copilot usage data.
-- The page should clearly indicate which GitHub account authenticated the org data and whether the namespace is a user account.
-- The view should include loading, empty, and error states comparable to the existing Copilot usage panels.
-- Repo expansion under the org should continue to work independently of opening the org detail view.
-
-**Candidate metrics**:
-
-- Current budget or overage spend for the org
-- Billing period and last refreshed timestamp
-- My share vs overall org usage when available
-- Rollup of configured account quota usage for accounts mapped to that org
-
-**Likely implementation areas**:
-
-- `src/components/sidebar/github-sidebar/OrgRepoTree.tsx` — make org rows selectable in addition to expandable
-- `src/components/AppContentRouter.tsx` — add org detail route handling
-- `src/components/appContentViewLabels.ts` — label org detail tabs
-- New org metrics panel component(s), likely reusing logic/presentation from `CopilotUsagePanel` and `copilot-usage/*`
-- Possibly a small org-scoped hook to adapt `useCopilotUsage()` data for a single selected org
-
-**Open questions**:
-
-- Should the org detail page focus only on Copilot metrics first, or also include repo counts, PR counts, and SFL health rollups?
-- Should selecting the org name open the page directly, or should there be an explicit child node like `Overview` or `Metrics` under each org?
-- Should user namespaces reuse the same page, or get a slightly different label/treatment than true organizations?
-
-**Next steps**:
-
-- Harden `OrgDetailPanel` against stale cached overview payloads so new metrics can be added without tab crashes.
-- Move the expensive commits-today rollup behind a dedicated cached path so the overview shell paints fast and refreshes progressively.
-- Expand the member spotlight into a real per-user activity slice with commits today, configured-account status, and richer quota context.
-- Add sort and filter controls for the Users subtree so the org tree can be navigated by activity, configured accounts, or idle members.
-
----
-
-### Create cost telemetry dashboard
-
-**Goal**: Make spend predictable at repo and portfolio level.
-
-**Deliverables**:
-
-- Per-workflow run and cost metrics
-- p50/p90 cost-per-run reporting
-- Monthly cap alerts and throttle policies
-
----
 
 ### Add branch cleanup to repo-audit
 

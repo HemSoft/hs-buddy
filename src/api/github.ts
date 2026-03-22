@@ -518,8 +518,10 @@ const PR_HISTORY_QUERY = `
             url
             author {
               login
-              name
               avatarUrl
+              ... on User {
+                name
+              }
             }
           }
         }
@@ -2472,7 +2474,15 @@ export class GitHubClient {
       })
     }
 
-    return allPrs
+    // Deduplicate across accounts — the same PR can appear from multiple accounts
+    const seenUrls = new Set<string>()
+    const dedupedPrs = allPrs.filter(pr => {
+      if (seenUrls.has(pr.url)) return false
+      seenUrls.add(pr.url)
+      return true
+    })
+
+    return dedupedPrs
   }
 
   /**

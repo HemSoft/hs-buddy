@@ -50,9 +50,9 @@ bun install
 # or with npm
 npm install
 
-# Configure environment variables (for tokens)
+# Optional: copy .env.example to .env for first-launch account auto-migration
 cp .env.example .env
-# Edit .env with your GitHub token
+# Edit VITE_GITHUB_USERNAME and VITE_GITHUB_ORG if you want auto-migration on first launch
 
 # Start development
 npm run dev

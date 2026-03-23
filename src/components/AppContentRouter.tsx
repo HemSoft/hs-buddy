@@ -137,8 +137,6 @@ export function AppContentRouter({
     case 'copilot-usage':
       return <CopilotUsagePanel />
     case 'tempo-timesheet':
-    case 'tempo-today':
-    case 'tempo-quick-log':
       return <TempoDashboard />
     default:
       if (activeViewId.startsWith('crew-project:')) {

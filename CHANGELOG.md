@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.412] - 2026-03-23
+
+## [0.1.411] - 2026-03-23
+
 ## [0.1.410] - 2026-03-23
+
+### Fixed
+
+- Prefer Machine-scope env vars over stale process.env
 
 ## [0.1.409] - 2026-03-22
 

@@ -1,24 +1,31 @@
-import type { TempoIssueSummary } from '../../types/tempo'
-import { Clock, Target, TrendingUp, Zap } from 'lucide-react'
+import type { TempoWorklog } from '../../types/tempo'
+import { Clock, Target, TrendingUp, Landmark } from 'lucide-react'
 
 interface TempoSummaryCardsProps {
   todayHours: number
   monthHours: number
   monthTarget: number
-  issueSummaries: TempoIssueSummary[]
   isCurrentMonth: boolean
+  worklogs: TempoWorklog[]
+  capexMap: Record<string, boolean>
 }
 
 export function TempoSummaryCards({
   todayHours,
   monthHours,
   monthTarget,
-  issueSummaries,
   isCurrentMonth,
+  worklogs,
+  capexMap,
 }: TempoSummaryCardsProps) {
   const remaining = Math.max(0, monthTarget - monthHours)
   const pct = monthTarget > 0 ? Math.min(100, Math.round((monthHours / monthTarget) * 100)) : 0
-  const topIssue = issueSummaries[0]
+
+  const capexHours = worklogs
+    .filter(w => capexMap[w.issueKey])
+    .reduce((sum, w) => sum + w.hours, 0)
+  const nonCapexHours = Math.round((monthHours - capexHours) * 100) / 100
+  const capexPct = monthHours > 0 ? Math.round((capexHours / monthHours) * 100) : 0
 
   return (
     <div className="tempo-summary-cards">
@@ -66,16 +73,23 @@ export function TempoSummaryCards({
         </div>
       </div>
 
-      {topIssue && (
-        <div className="tempo-card tempo-card-top">
+      {monthHours > 0 && (
+        <div className="tempo-card tempo-card-capex">
           <div className="tempo-card-icon">
-            <Zap size={18} />
+            <Landmark size={18} />
           </div>
           <div className="tempo-card-body">
-            <span className="tempo-card-value">{topIssue.issueKey}</span>
-            <span className="tempo-card-label">
-              Top Issue · {topIssue.totalHours}h
+            <span className="tempo-card-value">
+              {capexHours}h
+              <span className="tempo-card-unit"> capex ({capexPct}%)</span>
             </span>
+            <span className="tempo-card-label">{nonCapexHours}h non-capex</span>
+          </div>
+          <div className="tempo-card-meter">
+            <div
+              className="tempo-card-meter-fill capex-fill"
+              style={{ width: `${capexPct}%` }}
+            />
           </div>
         </div>
       )}

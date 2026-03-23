@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from 'react'
 import { TempoSummaryCards } from './TempoSummaryCards'
 import { TempoTimesheetGrid } from './TempoTimesheetGrid'
-import { TempoQuickLog } from './TempoQuickLog'
 import { TempoWorklogEditor } from './TempoWorklogEditor'
+import { nextStartTime } from './tempoUtils'
 import {
   useTempoMonth,
   useTempoToday,
   useTempoActions,
+  useCapexMap,
   getMonthRange,
 } from '../../hooks/useTempo'
 import type { TempoWorklog, CreateWorklogPayload } from '../../types/tempo'
@@ -61,6 +62,12 @@ export function TempoDashboard() {
 
   const actions = useTempoActions(refreshAll)
 
+  const issueKeys = useMemo(
+    () => [...new Set(month.worklogs.map(w => w.issueKey))],
+    [month.worklogs]
+  )
+  const capexMap = useCapexMap(issueKeys)
+
   const prevMonth = () =>
     setViewMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))
 
@@ -109,11 +116,28 @@ export function TempoDashboard() {
     setEditorDate(null)
   }
 
-  const handleQuickLog = async (payload: CreateWorklogPayload) => {
+  const handleCopyToToday = async (sourceWorklogs: TempoWorklog[]) => {
     setActionError(null)
-    const result = await actions.create(payload)
-    if (!result.success) setActionError(result.error || 'Quick log failed')
-    return result
+    const today = formatDateKey(new Date())
+    const todayWorklogs = month.worklogs.filter(w => w.date === today)
+    let offset = todayWorklogs.slice() // track cumulative for start time stacking
+    for (const src of sourceWorklogs) {
+      const startTime = nextStartTime(offset)
+      const result = await actions.create({
+        issueKey: src.issueKey,
+        hours: src.hours,
+        date: today,
+        startTime,
+        description: src.description,
+        accountKey: src.accountKey,
+      })
+      if (!result.success) {
+        setActionError(result.error || 'Copy failed')
+        return
+      }
+      // Add a synthetic entry so next iteration stacks correctly
+      offset = [...offset, { ...src, date: today, startTime }]
+    }
   }
 
   const isCurrentMonth =
@@ -183,8 +207,9 @@ export function TempoDashboard() {
         todayHours={today.data?.totalHours || 0}
         monthHours={month.totalHours}
         monthTarget={monthTarget}
-        issueSummaries={month.issueSummaries}
         isCurrentMonth={isCurrentMonth}
+        worklogs={month.worklogs}
+        capexMap={capexMap}
       />
 
       {/* Error State */}
@@ -210,6 +235,7 @@ export function TempoDashboard() {
           onCellClick={handleAddForDate}
           onWorklogEdit={handleEdit}
           onWorklogDelete={handleDelete}
+          onCopyToToday={handleCopyToToday}
         />
       ) : (
         <div className="tempo-timeline-view">
@@ -255,14 +281,14 @@ export function TempoDashboard() {
         </div>
       )}
 
-      {/* Quick Log */}
-      <TempoQuickLog onLog={handleQuickLog} pending={actions.pending} />
-
       {/* Editor Modal */}
       {editorOpen && (
         <TempoWorklogEditor
           worklog={editingWorklog}
           defaultDate={editorDate || formatDateKey(new Date())}
+          existingWorklogs={month.worklogs.filter(
+            w => w.date === (editorDate || editingWorklog?.date || formatDateKey(new Date()))
+          )}
           onSave={handleEditorSave}
           onCancel={() => {
             setEditorOpen(false)

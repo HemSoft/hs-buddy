@@ -11,6 +11,7 @@ interface TempoTimesheetGridProps {
   onCellClick: (date: string) => void
   onWorklogEdit: (worklog: TempoWorklog) => void
   onWorklogDelete: (worklog: TempoWorklog) => void
+  onCopyToToday: (worklogs: TempoWorklog[]) => void
 }
 
 interface DayColumn {
@@ -62,6 +63,7 @@ export function TempoTimesheetGrid({
   onCellClick,
   onWorklogEdit,
   onWorklogDelete,
+  onCopyToToday,
 }: TempoTimesheetGridProps) {
   const columns = useMemo(() => buildDayColumns(monthDate), [monthDate])
 
@@ -132,8 +134,10 @@ export function TempoTimesheetGrid({
                     <td
                       key={col.date}
                       className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''}`}
-                      onClick={() => {
-                        if (cellWorklogs.length === 1) {
+                      onClick={e => {
+                        if (e.ctrlKey && cellWorklogs.length > 0) {
+                          onCopyToToday(cellWorklogs)
+                        } else if (cellWorklogs.length === 1) {
                           onWorklogEdit(cellWorklogs[0])
                         } else if (hours === 0) {
                           onCellClick(col.date)
@@ -147,7 +151,7 @@ export function TempoTimesheetGrid({
                       }}
                       title={
                         hours > 0
-                          ? `${issue.issueKey} · ${hours}h on ${col.date}`
+                          ? `${issue.issueKey} · ${hours}h on ${col.date}\nCtrl+click to copy to today`
                           : `Click to log time on ${col.date}`
                       }
                     >
@@ -168,6 +172,13 @@ export function TempoTimesheetGrid({
                   <td
                     key={col.date}
                     className={`tempo-grid-total-cell ${col.isWeekend ? 'weekend' : ''} ${col.isToday ? 'today' : ''} ${dayTotal >= 8 ? 'full' : dayTotal > 0 ? 'partial' : ''}`}
+                    onClick={e => {
+                      if (e.ctrlKey && dayTotal > 0) {
+                        onCopyToToday(worklogs.filter(w => w.date === col.date))
+                      }
+                    }}
+                    title={dayTotal > 0 ? `Ctrl+click to copy this day to today` : undefined}
+                    style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
                   >
                     {dayTotal > 0 ? dayTotal : 0}
                   </td>

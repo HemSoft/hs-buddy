@@ -201,7 +201,8 @@
 .tempo-card-today .tempo-card-icon { color: #4fc3f7; }
 .tempo-card-month .tempo-card-icon { color: #66bb6a; }
 .tempo-card-remaining .tempo-card-icon { color: #ffa726; }
-.tempo-card-top .tempo-card-icon { color: #ab47bc; }
+.tempo-card-capex .tempo-card-icon { color: #7e57c2; }
+.tempo-card-meter-fill.capex-fill { background: #7e57c2; }
 
 /* --- Grid View (the star) --- */
 .tempo-grid-wrapper {

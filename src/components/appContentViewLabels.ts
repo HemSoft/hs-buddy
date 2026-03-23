@@ -26,8 +26,6 @@ export const viewLabels: Record<string, string> = {
   'copilot-all-results': 'Copilot Results',
   'copilot-usage': 'Copilot Usage',
   'tempo-timesheet': 'Timesheet',
-  'tempo-today': 'Today',
-  'tempo-quick-log': 'Quick Log',
 }
 
 function parseRepoViewId(viewId: string, prefix: string): { repoName: string; suffix: string } {

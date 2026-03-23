@@ -371,3 +371,80 @@ export async function deleteWorklog(worklogId: number): Promise<TempoResult<void
     return { success: false, error: getErrorMessage(err) }
   }
 }
+
+// --- Capex map (Capitalization field from Jira) ---
+
+const CAPITALIZATION_FIELD = 'customfield_11702'
+const capexCache = new Map<string, boolean>()
+
+/** Resolve Capitalization for a single issue key, with parent-epic fallback */
+async function resolveCapex(issueKey: string): Promise<boolean> {
+  const cached = capexCache.get(issueKey)
+  if (cached !== undefined) return cached
+
+  // Check disk cache
+  const diskCache = readDataCache()
+  const diskEntry = diskCache[`tempo:capex:${issueKey}`]
+  if (diskEntry?.data !== undefined) {
+    const val = diskEntry.data as boolean
+    capexCache.set(issueKey, val)
+    return val
+  }
+
+  const jiraHeaders = getJiraHeaders()
+  if (!jiraHeaders) {
+    capexCache.set(issueKey, false)
+    return false
+  }
+
+  try {
+    const issue = await fetchJson<{
+      fields: {
+        [CAPITALIZATION_FIELD]?: { value: string } | null
+        parent?: { key: string }
+      }
+    }>(
+      `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${CAPITALIZATION_FIELD},parent`,
+      jiraHeaders
+    )
+
+    const capVal = issue.fields[CAPITALIZATION_FIELD]
+    if (capVal?.value) {
+      const isCapex = capVal.value === 'Yes'
+      capexCache.set(issueKey, isCapex)
+      writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: isCapex, fetchedAt: Date.now() })
+      return isCapex
+    }
+
+    // Fallback to parent epic
+    const parentKey = issue.fields.parent?.key
+    if (parentKey) {
+      const result = await resolveCapex(parentKey)
+      capexCache.set(issueKey, result)
+      writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: result, fetchedAt: Date.now() })
+      return result
+    }
+
+    capexCache.set(issueKey, false)
+    writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: false, fetchedAt: Date.now() })
+    return false
+  } catch {
+    capexCache.set(issueKey, false)
+    return false
+  }
+}
+
+/** Batch-resolve capitalization for a list of issue keys */
+export async function getCapexMap(
+  issueKeys: string[]
+): Promise<TempoResult<Record<string, boolean>>> {
+  try {
+    const unique = [...new Set(issueKeys)]
+    const entries = await Promise.all(
+      unique.map(async key => [key, await resolveCapex(key)] as const)
+    )
+    return { success: true, data: Object.fromEntries(entries) }
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) }
+  }
+}

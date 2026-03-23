@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import type { TempoWorklog, CreateWorklogPayload } from '../../types/tempo'
+import { nextStartTime } from './tempoUtils'
 import { X } from 'lucide-react'
 
 interface TempoWorklogEditorProps {
   worklog: TempoWorklog | null // null = create mode
   defaultDate: string
+  existingWorklogs: TempoWorklog[] // worklogs already on the target date
   onSave: (payload: CreateWorklogPayload) => Promise<void>
   onCancel: () => void
 }
@@ -12,13 +14,13 @@ interface TempoWorklogEditorProps {
 export function TempoWorklogEditor({
   worklog,
   defaultDate,
+  existingWorklogs,
   onSave,
   onCancel,
 }: TempoWorklogEditorProps) {
   const [issueKey, setIssueKey] = useState(worklog?.issueKey || '')
   const [hours, setHours] = useState(String(worklog?.hours || 1))
   const [date, setDate] = useState(worklog?.date || defaultDate)
-  const [startTime, setStartTime] = useState(worklog?.startTime || '08:00')
   const [description, setDescription] = useState(worklog?.description || '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +45,7 @@ export function TempoWorklogEditor({
     setSaving(true)
     setError(null)
     try {
+      const startTime = worklog?.startTime || nextStartTime(existingWorklogs)
       await onSave({ issueKey: issueKey.trim().toUpperCase(), hours: h, date, startTime, description })
     } catch (err) {
       setError(String(err))
@@ -92,14 +95,6 @@ export function TempoWorklogEditor({
                 onChange={e => setDate(e.target.value)}
               />
             </div>
-          </div>
-          <div className="tempo-editor-row">
-            <label>Start Time</label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={e => setStartTime(e.target.value)}
-            />
           </div>
           <div className="tempo-editor-row">
             <label>Description</label>

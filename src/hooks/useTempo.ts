@@ -137,6 +137,27 @@ export function useTempoAccounts() {
   return accounts
 }
 
+// --- useCapexMap ---
+
+export function useCapexMap(issueKeys: string[]) {
+  const [capexMap, setCapexMap] = useState<Record<string, boolean>>({})
+  const keysKey = issueKeys.slice().sort().join(',')
+
+  useEffect(() => {
+    if (!issueKeys.length) {
+      setCapexMap({})
+      return
+    }
+    let stale = false
+    window.tempo.getCapexMap(issueKeys).then(result => {
+      if (!stale && result.success && result.data) setCapexMap(result.data)
+    })
+    return () => { stale = true }
+  }, [keysKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return capexMap
+}
+
 // --- useTempoActions ---
 
 export function useTempoActions(onMutated?: () => void) {

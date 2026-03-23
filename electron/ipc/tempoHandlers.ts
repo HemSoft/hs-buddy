@@ -7,6 +7,7 @@ import {
   updateWorklog,
   deleteWorklog,
   getAccounts,
+  getCapexMap,
 } from '../services/tempoClient'
 import { getErrorMessage, formatDateKey } from '../utils'
 import type { CreateWorklogPayload, UpdateWorklogPayload } from '../../src/types/tempo'
@@ -73,6 +74,14 @@ export function registerTempoHandlers(): void {
   ipcMain.handle('tempo:get-accounts', async () => {
     try {
       return await getAccounts()
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) }
+    }
+  })
+
+  ipcMain.handle('tempo:get-capex-map', async (_event, issueKeys: string[]) => {
+    try {
+      return await getCapexMap(issueKeys)
     } catch (error) {
       return { success: false, error: getErrorMessage(error) }
     }

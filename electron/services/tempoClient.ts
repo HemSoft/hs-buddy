@@ -22,20 +22,39 @@ let accountsCachedAt = 0
 const ACCOUNTS_CACHE_TTL = 5 * 60 * 1000 // 5 min
 const issueKeyCache = new Map<number, { key: string; summary: string }>()
 
-/** Read an env var, falling back to the Windows Machine-scope registry */
+/** Env-var names that are safe to read from Machine scope */
+const ALLOWED_ENV_NAMES = new Set([
+  'TEMPO_API_TOKEN',
+  'ATLASSIAN_API_TOKEN',
+  'ATLASSIAN_EMAIL',
+])
+
+const envCache = new Map<string, string>()
+
 function getEnv(name: string): string | undefined {
-  if (process.env[name]) return process.env[name]
-  if (process.platform === 'win32') {
+  // Fast path: already resolved and cached
+  if (envCache.has(name)) return envCache.get(name)
+
+  // On Windows, prefer Machine-scope value (user saves tokens there)
+  // because the parent terminal may hold a stale process.env copy.
+  if (process.platform === 'win32' && ALLOWED_ENV_NAMES.has(name)) {
     try {
       const val = execSync(
         `powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('${name}','Machine')"`,
         { encoding: 'utf8', timeout: 5000 }
       ).trim()
       if (val) {
-        process.env[name] = val // cache for subsequent calls
+        envCache.set(name, val)
         return val
       }
     } catch { /* fall through */ }
+  }
+
+  // Fall back to process.env
+  const val = process.env[name]
+  if (val) {
+    envCache.set(name, val)
+    return val
   }
   return undefined
 }

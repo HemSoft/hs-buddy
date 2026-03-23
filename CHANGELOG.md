@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.410] - 2026-03-23
+
 ## [0.1.409] - 2026-03-22
+
+### Fixed
+
+- Resolve wrong-user data, persist issue cache, fix status bar overlap
 
 ## [0.1.408] - 2026-03-22
 

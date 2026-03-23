@@ -209,6 +209,7 @@ export function TempoDashboard() {
         monthHours={month.totalHours}
         monthTarget={monthTarget}
         isCurrentMonth={isCurrentMonth}
+        viewMonth={viewMonth}
         worklogs={month.worklogs}
         capexMap={capexMap}
       />

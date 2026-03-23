@@ -91,7 +91,12 @@ export function SidebarPanel({
       if (prev.has(section)) return prev
       return new Set([...prev, section])
     })
-  }, [section])
+    // Auto-select when a section has exactly one item
+    const items = sectionData[section]?.items
+    if (items?.length === 1) {
+      onItemSelect(items[0].id)
+    }
+  }, [section, onItemSelect])
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null)

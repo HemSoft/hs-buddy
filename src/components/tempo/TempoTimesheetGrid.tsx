@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import type { TempoIssueSummary, TempoWorklog } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
+import { Check } from 'lucide-react'
 
 interface TempoTimesheetGridProps {
   issueSummaries: TempoIssueSummary[]
@@ -82,6 +83,20 @@ export function TempoTimesheetGrid({
     return map
   }, [worklogs])
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const todayRef = useRef<HTMLTableCellElement>(null)
+
+  useEffect(() => {
+    if (todayRef.current && scrollRef.current) {
+      const container = scrollRef.current
+      const cell = todayRef.current
+      const cellRect = cell.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
+      const relativeLeft = cellRect.left - containerRect.left + container.scrollLeft
+      container.scrollLeft = Math.max(0, relativeLeft - 20)
+    }
+  }, [columns])
+
   if (loading && issueSummaries.length === 0) {
     return (
       <div className="tempo-grid-loading">
@@ -102,7 +117,7 @@ export function TempoTimesheetGrid({
 
   return (
     <div className="tempo-grid-wrapper">
-      <div className="tempo-grid-scroll">
+      <div className="tempo-grid-scroll" ref={scrollRef}>
         <table className="tempo-grid">
           <thead>
             <tr>
@@ -112,6 +127,7 @@ export function TempoTimesheetGrid({
               {columns.map(col => (
                 <th
                   key={col.date}
+                  ref={col.isToday ? todayRef : undefined}
                   className={`tempo-grid-day-header ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''}`}
                   title={col.holidayName}
                 >
@@ -175,19 +191,20 @@ export function TempoTimesheetGrid({
               <td className="tempo-grid-total-logged">{totalHours}</td>
               {columns.map(col => {
                 const dayTotal = dailyTotals[col.date] || 0
+                const isDayComplete = dayTotal >= 8
                 return (
                   <td
                     key={col.date}
-                    className={`tempo-grid-total-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${dayTotal >= 8 ? 'full' : dayTotal > 0 ? 'partial' : ''}`}
+                    className={`tempo-grid-total-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${isDayComplete ? 'full' : dayTotal > 0 ? 'partial' : ''}`}
                     onClick={e => {
                       if (e.ctrlKey && dayTotal > 0) {
                         onCopyToToday(worklogs.filter(w => w.date === col.date))
                       }
                     }}
-                    title={dayTotal > 0 ? `Ctrl+click to copy this day to today` : undefined}
+                    title={dayTotal > 0 ? `${dayTotal}h — Ctrl+click to copy this day to today` : undefined}
                     style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
                   >
-                    {dayTotal > 0 ? dayTotal : 0}
+                    {isDayComplete ? <Check size={14} className="tempo-day-check" /> : dayTotal > 0 ? dayTotal : 0}
                   </td>
                 )
               })}

@@ -201,8 +201,17 @@
 .tempo-card-today .tempo-card-icon { color: #4fc3f7; }
 .tempo-card-month .tempo-card-icon { color: #66bb6a; }
 .tempo-card-remaining .tempo-card-icon { color: #ffa726; }
+.tempo-card-complete .tempo-card-icon { color: #66bb6a; }
+.tempo-card-complete .tempo-card-value { color: #66bb6a; }
 .tempo-card-capex .tempo-card-icon { color: #7e57c2; }
 .tempo-card-meter-fill.capex-fill { background: #7e57c2; }
+
+.tempo-card-badge-missing {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #ef5350;
+}
 
 /* --- Grid View (the star) --- */
 .tempo-grid-wrapper {
@@ -401,6 +410,10 @@
 
 .tempo-grid-total-cell.full {
   color: #66bb6a;
+}
+.tempo-grid-total-cell.full .tempo-day-check {
+  color: #66bb6a;
+  vertical-align: middle;
 }
 .tempo-grid-total-cell.partial {
   color: #ffa726;

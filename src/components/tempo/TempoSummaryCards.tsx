@@ -1,11 +1,12 @@
 import type { TempoWorklog } from '../../types/tempo'
-import { Clock, Target, TrendingUp, Landmark } from 'lucide-react'
+import { Clock, Target, TrendingUp, Landmark, CheckCircle2, XCircle } from 'lucide-react'
 
 interface TempoSummaryCardsProps {
   todayHours: number
   monthHours: number
   monthTarget: number
   isCurrentMonth: boolean
+  viewMonth: Date
   worklogs: TempoWorklog[]
   capexMap: Record<string, boolean>
 }
@@ -15,11 +16,15 @@ export function TempoSummaryCards({
   monthHours,
   monthTarget,
   isCurrentMonth,
+  viewMonth,
   worklogs,
   capexMap,
 }: TempoSummaryCardsProps) {
   const remaining = Math.max(0, monthTarget - monthHours)
   const pct = monthTarget > 0 ? Math.min(100, Math.round((monthHours / monthTarget) * 100)) : 0
+  const isMonthComplete = monthTarget > 0 && monthHours >= monthTarget
+  const now = new Date()
+  const isPastMonth = !isCurrentMonth && viewMonth < new Date(now.getFullYear(), now.getMonth(), 1)
 
   const capexHours = worklogs
     .filter(w => capexMap[w.issueKey])
@@ -63,14 +68,28 @@ export function TempoSummaryCards({
         </div>
       </div>
 
-      <div className="tempo-card tempo-card-remaining">
+      <div className={`tempo-card ${isMonthComplete ? 'tempo-card-complete' : 'tempo-card-remaining'}`}>
         <div className="tempo-card-icon">
-          <Target size={18} />
+          {isMonthComplete ? <CheckCircle2 size={18} /> : <Target size={18} />}
         </div>
         <div className="tempo-card-body">
-          <span className="tempo-card-value">{remaining}h</span>
-          <span className="tempo-card-label">Remaining</span>
+          {isMonthComplete ? (
+            <>
+              <span className="tempo-card-value">Complete</span>
+              <span className="tempo-card-label">All hours logged</span>
+            </>
+          ) : (
+            <>
+              <span className="tempo-card-value">{remaining}h</span>
+              <span className="tempo-card-label">{isPastMonth && monthTarget > 0 ? 'Missing' : 'Remaining'}</span>
+            </>
+          )}
         </div>
+        {isPastMonth && monthTarget > 0 && !isMonthComplete && (
+          <div className="tempo-card-badge-missing">
+            <XCircle size={14} />
+          </div>
+        )}
       </div>
 
       {monthHours > 0 && (

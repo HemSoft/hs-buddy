@@ -289,6 +289,14 @@
   opacity: 0.45;
 }
 
+.tempo-grid-day-header.holiday {
+  opacity: 0.55;
+  color: #ef9a9a;
+}
+.tempo-grid-day-header.holiday .tempo-grid-day-num {
+  color: #ef9a9a;
+}
+
 .tempo-grid-day-header.today {
   color: #4fc3f7;
 }
@@ -356,6 +364,10 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.tempo-grid-cell.holiday {
+  background: rgba(239, 154, 154, 0.06);
+}
+
 .tempo-grid-cell.today {
   border-left: 2px solid #4fc3f7;
   border-right: 2px solid #4fc3f7;
@@ -395,6 +407,9 @@
 }
 .tempo-grid-total-cell.weekend {
   opacity: 0.45;
+}
+.tempo-grid-total-cell.holiday {
+  opacity: 0.55;
 }
 .tempo-grid-total-cell.today {
   border-left: 2px solid #4fc3f7;

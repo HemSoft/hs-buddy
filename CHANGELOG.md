@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.414] - 2026-03-23
+
+## [0.1.413] - 2026-03-23
+
 ## [0.1.412] - 2026-03-23
+
+### Added
+
+- Simplify to Timesheet-only, add capex/non-capex summary
 
 ## [0.1.411] - 2026-03-23
 

@@ -7,6 +7,7 @@ interface TempoTimesheetGridProps {
   worklogs: TempoWorklog[]
   totalHours: number
   monthDate: Date
+  holidays: Record<string, string>
   loading: boolean
   onCellClick: (date: string) => void
   onWorklogEdit: (worklog: TempoWorklog) => void
@@ -20,11 +21,13 @@ interface DayColumn {
   dayLabel: string // MON, TUE, ...
   isWeekend: boolean
   isToday: boolean
+  isHoliday: boolean
+  holidayName?: string
 }
 
 const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
-function buildDayColumns(monthDate: Date): DayColumn[] {
+function buildDayColumns(monthDate: Date, holidays: Record<string, string>): DayColumn[] {
   const y = monthDate.getFullYear()
   const m = monthDate.getMonth()
   const today = formatDateKey(new Date())
@@ -41,6 +44,8 @@ function buildDayColumns(monthDate: Date): DayColumn[] {
       dayLabel: DAY_LABELS[dow],
       isWeekend: dow === 0 || dow === 6,
       isToday: dateStr === today,
+      isHoliday: dateStr in holidays,
+      holidayName: holidays[dateStr],
     })
   }
   return cols
@@ -59,13 +64,14 @@ export function TempoTimesheetGrid({
   worklogs,
   totalHours,
   monthDate,
+  holidays,
   loading,
   onCellClick,
   onWorklogEdit,
   onWorklogDelete,
   onCopyToToday,
 }: TempoTimesheetGridProps) {
-  const columns = useMemo(() => buildDayColumns(monthDate), [monthDate])
+  const columns = useMemo(() => buildDayColumns(monthDate, holidays), [monthDate, holidays])
 
   // Compute daily totals
   const dailyTotals = useMemo(() => {
@@ -106,10 +112,11 @@ export function TempoTimesheetGrid({
               {columns.map(col => (
                 <th
                   key={col.date}
-                  className={`tempo-grid-day-header ${col.isWeekend ? 'weekend' : ''} ${col.isToday ? 'today' : ''}`}
+                  className={`tempo-grid-day-header ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''}`}
+                  title={col.holidayName}
                 >
                   <span className="tempo-grid-day-num">{String(col.dayNum).padStart(2, '0')}</span>
-                  <span className="tempo-grid-day-label">{col.dayLabel}</span>
+                  <span className="tempo-grid-day-label">{col.isHoliday ? '🎉' : col.dayLabel}</span>
                 </th>
               ))}
             </tr>
@@ -133,7 +140,7 @@ export function TempoTimesheetGrid({
                   return (
                     <td
                       key={col.date}
-                      className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''}`}
+                      className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''}`}
                       onClick={e => {
                         if (e.ctrlKey && cellWorklogs.length > 0) {
                           onCopyToToday(cellWorklogs)
@@ -171,7 +178,7 @@ export function TempoTimesheetGrid({
                 return (
                   <td
                     key={col.date}
-                    className={`tempo-grid-total-cell ${col.isWeekend ? 'weekend' : ''} ${col.isToday ? 'today' : ''} ${dayTotal >= 8 ? 'full' : dayTotal > 0 ? 'partial' : ''}`}
+                    className={`tempo-grid-total-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${dayTotal >= 8 ? 'full' : dayTotal > 0 ? 'partial' : ''}`}
                     onClick={e => {
                       if (e.ctrlKey && dayTotal > 0) {
                         onCopyToToday(worklogs.filter(w => w.date === col.date))

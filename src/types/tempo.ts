@@ -71,6 +71,14 @@ export interface TempoQuickLogPreset {
   description: string
 }
 
+/** A single day from the Tempo user-schedule API */
+export interface TempoScheduleDay {
+  date: string
+  requiredSeconds: number
+  type: 'WORKING_DAY' | 'NON_WORKING_DAY' | 'HOLIDAY'
+  holidayName?: string
+}
+
 /** Tempo API response wrapper */
 export interface TempoResult<T> {
   success: boolean

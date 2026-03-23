@@ -434,6 +434,34 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
   }
 }
 
+/** Fetch user schedule (working days, holidays, non-working days) for a date range */
+export async function getUserSchedule(
+  from: string,
+  to: string
+): Promise<TempoResult<{ date: string; requiredSeconds: number; type: 'WORKING_DAY' | 'NON_WORKING_DAY' | 'HOLIDAY'; holidayName?: string }[]>> {
+  try {
+    const accountId = await getAccountId()
+    const url = `${TEMPO_BASE}/user-schedule/${accountId}?from=${from}&to=${to}`
+    const data = await fetchJson<{
+      results: {
+        date: string
+        requiredSeconds: number
+        type: string
+        holiday?: { name: string }
+      }[]
+    }>(url, await getTempoHeaders())
+    const days = data.results.map(d => ({
+      date: d.date,
+      requiredSeconds: d.requiredSeconds,
+      type: d.type as 'WORKING_DAY' | 'NON_WORKING_DAY' | 'HOLIDAY',
+      ...(d.holiday ? { holidayName: d.holiday.name } : {}),
+    }))
+    return { success: true, data: days }
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) }
+  }
+}
+
 /** Batch-resolve capitalization for a list of issue keys */
 export async function getCapexMap(
   issueKeys: string[]

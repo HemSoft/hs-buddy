@@ -4,6 +4,7 @@ import type {
   TempoWorklog,
   TempoIssueSummary,
   TempoAccount,
+  TempoScheduleDay,
   CreateWorklogPayload,
   UpdateWorklogPayload,
 } from '../types/tempo'
@@ -156,6 +157,34 @@ export function useCapexMap(issueKeys: string[]) {
   }, [keysKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return capexMap
+}
+
+// --- useUserSchedule ---
+
+export function useUserSchedule(from: string, to: string) {
+  const [schedule, setSchedule] = useState<TempoScheduleDay[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    const result = await window.tempo.getSchedule(from, to)
+    if (result.success && result.data) {
+      setSchedule(result.data)
+    } else {
+      setError(result.error || 'Failed to load schedule')
+    }
+    setLoading(false)
+  }, [from, to])
+
+  useEffect(() => {
+    let stale = false
+    load().then(() => { if (stale) return })
+    return () => { stale = true }
+  }, [load])
+
+  return { schedule, loading, error, refresh: load }
 }
 
 // --- useTempoActions ---

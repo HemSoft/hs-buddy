@@ -8,6 +8,7 @@ import {
   useTempoToday,
   useTempoActions,
   useCapexMap,
+  useUserSchedule,
   getMonthRange,
 } from '../../hooks/useTempo'
 import type { TempoWorklog, CreateWorklogPayload } from '../../types/tempo'
@@ -29,19 +30,6 @@ function formatMonthLabel(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-function getMonthTarget(date: Date): number {
-  const y = date.getFullYear()
-  const m = date.getMonth()
-  let count = 0
-  const d = new Date(y, m, 1)
-  while (d.getMonth() === m) {
-    const dow = d.getDay()
-    if (dow >= 1 && dow <= 5) count++
-    d.setDate(d.getDate() + 1)
-  }
-  return count * 8
-}
-
 export function TempoDashboard() {
   const [viewMonth, setViewMonth] = useState(() => new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
@@ -50,10 +38,23 @@ export function TempoDashboard() {
   const [editorDate, setEditorDate] = useState<string | null>(null)
 
   const { from, to } = useMemo(() => getMonthRange(viewMonth), [viewMonth])
-  const monthTarget = useMemo(() => getMonthTarget(viewMonth), [viewMonth])
 
   const month = useTempoMonth(from, to)
   const today = useTempoToday()
+  const { schedule } = useUserSchedule(from, to)
+
+  const monthTarget = useMemo(
+    () => schedule.reduce((sum, d) => sum + d.requiredSeconds, 0) / 3600,
+    [schedule]
+  )
+
+  const holidays = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const d of schedule) {
+      if (d.type === 'HOLIDAY' && d.holidayName) map[d.date] = d.holidayName
+    }
+    return map
+  }, [schedule])
 
   const refreshAll = useCallback(() => {
     month.refresh()
@@ -231,6 +232,7 @@ export function TempoDashboard() {
           worklogs={month.worklogs}
           totalHours={month.totalHours}
           monthDate={viewMonth}
+          holidays={holidays}
           loading={month.loading}
           onCellClick={handleAddForDate}
           onWorklogEdit={handleEdit}

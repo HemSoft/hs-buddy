@@ -8,6 +8,7 @@ import {
   deleteWorklog,
   getAccounts,
   getCapexMap,
+  getUserSchedule,
 } from '../services/tempoClient'
 import { getErrorMessage, formatDateKey } from '../utils'
 import type { CreateWorklogPayload, UpdateWorklogPayload } from '../../src/types/tempo'
@@ -86,4 +87,15 @@ export function registerTempoHandlers(): void {
       return { success: false, error: getErrorMessage(error) }
     }
   })
+
+  ipcMain.handle(
+    'tempo:get-schedule',
+    async (_event, args: { from: string; to: string }) => {
+      try {
+        return await getUserSchedule(args.from, args.to)
+      } catch (error) {
+        return { success: false, error: getErrorMessage(error) }
+      }
+    }
+  )
 }

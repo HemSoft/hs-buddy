@@ -2852,7 +2852,7 @@ export class GitHubClient {
       }).catch(() => emptySearch),
       octokit.activity.listPublicEventsForUser({
         username,
-        per_page: 30,
+        per_page: 100,
       }).catch(() => ({ data: [] as Array<Record<string, unknown>> })),
       this.fetchAllOrgOrUserRepos(octokit, org).catch(() => null),
       (async () => {
@@ -3004,10 +3004,14 @@ export class GitHubClient {
 
     const commitsToday = Math.max(repoCommitsToday, eventCommitsToday)
 
-    // Collect unique repos from events + authored PRs
+    // Collect unique repos from events + authored PRs + reviewed PRs
     const activeRepoSet = new Set<string>()
     recentEvents.forEach(e => { if (e.repo) activeRepoSet.add(e.repo) })
     recentPRsAuthored.forEach(pr => { if (pr.repo) activeRepoSet.add(pr.repo) })
+    reviewed.data.items.forEach((item: Record<string, unknown>) => {
+      const repo = extractRepo(item.repository_url as string)
+      if (repo) activeRepoSet.add(repo)
+    })
 
     return {
       name: userProfile?.user?.name ?? null,

@@ -8,6 +8,7 @@ import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { prSubNodes, sectionIcons } from './prConstants'
 import type { SidebarItem } from './useGitHubSidebarData'
+import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 
 interface PRTreeSectionProps {
   prItems: SidebarItem[]
@@ -16,11 +17,22 @@ interface PRTreeSectionProps {
   expandedPRNodes: Set<string>
   counts: Record<string, number>
   badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+  refreshIndicators?: RefreshIndicators
   selectedItem: string | null
   onItemSelect: (itemId: string) => void
   onTogglePRGroup: (itemId: string) => void
   onTogglePRNode: (prViewId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
+}
+
+/** Map sidebar item id (e.g. 'pr-my-prs') to the data-source key used by the task queue ('my-prs'). */
+function refreshClass(itemId: string, indicators?: RefreshIndicators): string {
+  if (!indicators) return ''
+  const key = itemId.replace(/^pr-/, '')
+  const state = indicators[key]
+  if (state === 'active') return 'refresh-active'
+  if (state === 'pending') return 'refresh-pending'
+  return ''
 }
 
 export function PRTreeSection({
@@ -30,6 +42,7 @@ export function PRTreeSection({
   expandedPRNodes,
   counts,
   badgeProgress,
+  refreshIndicators,
   selectedItem,
   onItemSelect,
   onTogglePRGroup,
@@ -41,7 +54,7 @@ export function PRTreeSection({
       {prItems.map(item => (
         <div key={item.id}>
           <div
-            className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''}`}
+            className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''} ${refreshClass(item.id, refreshIndicators)}`}
           >
             <button
               type="button"

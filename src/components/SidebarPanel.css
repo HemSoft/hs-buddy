@@ -508,6 +508,66 @@
   align-items: flex-start;
 }
 
+/* ── Refresh Indicators ─────────────────────────────────────── */
+
+/* Active (currently fetching): icon pulses with accent glow */
+.sidebar-item.refresh-active .sidebar-item-icon {
+  opacity: 1;
+  animation: refresh-icon-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes refresh-icon-pulse {
+  0%, 100% { opacity: 0.5; filter: drop-shadow(0 0 0px transparent); }
+  50%      { opacity: 1;   filter: drop-shadow(0 0 4px var(--accent-primary, #0078d4)); }
+}
+
+/* Active badge: shimmer sweep across the count pill */
+.sidebar-item.refresh-active .sidebar-item-count {
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-item.refresh-active .sidebar-item-count::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 70%
+  );
+  animation: badge-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes badge-shimmer {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* Pending (queued, waiting): small dot pulses after the label */
+.sidebar-item.refresh-pending .sidebar-item-label::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-secondary, #888);
+  margin-left: 6px;
+  vertical-align: middle;
+  animation: pending-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes pending-dot {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 0.8; }
+}
+
+/* Pending badge: dim slightly to show it's stale / waiting */
+.sidebar-item.refresh-pending .sidebar-item-count {
+  opacity: 0.6;
+}
+
 .sidebar-pr-tree {
   padding-left: 0;
 }

@@ -4,6 +4,7 @@ import { SidebarUserContextMenu } from './github-sidebar/SidebarUserContextMenu'
 import { PRTreeSection } from './github-sidebar/PRTreeSection'
 import { OrgRepoTree } from './github-sidebar/OrgRepoTree'
 import { useGitHubSidebarData } from './github-sidebar/useGitHubSidebarData'
+import { useRefreshIndicators } from '../../hooks/useRefreshIndicators'
 
 interface GitHubSidebarProps {
   onItemSelect: (itemId: string) => void
@@ -18,6 +19,7 @@ export function GitHubSidebar({
   counts,
   badgeProgress,
 }: GitHubSidebarProps) {
+  const refreshIndicators = useRefreshIndicators()
   const {
     prContextMenu,
     setPrContextMenu,
@@ -196,6 +198,7 @@ export function GitHubSidebar({
                 expandedPRNodes={expandedPRNodes}
                 counts={counts}
                 badgeProgress={badgeProgress}
+                refreshIndicators={refreshIndicators}
                 selectedItem={selectedItem}
                 onItemSelect={onItemSelect}
                 onTogglePRGroup={togglePRGroup}
@@ -302,6 +305,7 @@ export function GitHubSidebar({
               onBookmarkToggle={handleBookmarkToggle}
               favoriteUsers={favoriteUsers}
               onUserContextMenu={openUserContextMenu}
+              refreshIndicators={refreshIndicators}
             />
           )}
         </div>

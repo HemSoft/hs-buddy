@@ -12,7 +12,16 @@ import {
 import type { OrgRepo, OrgMember, OrgTeam, TeamMember, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
+import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { RepoNode } from './RepoNode'
+
+function orgRefreshClass(org: string, indicators?: RefreshIndicators): string {
+  if (!indicators) return ''
+  const state = indicators[`org-repos:${org}`]
+  if (state === 'active') return 'refresh-active'
+  if (state === 'pending') return 'refresh-pending'
+  return ''
+}
 
 interface OrgMeta {
   authenticatedAs: string
@@ -74,6 +83,7 @@ interface OrgRepoTreeProps {
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
   favoriteUsers: Set<string>
   onUserContextMenu: (e: React.MouseEvent, org: string, login: string) => void
+  refreshIndicators?: RefreshIndicators
 }
 
 export function OrgRepoTree({
@@ -131,6 +141,7 @@ export function OrgRepoTree({
   onBookmarkToggle,
   favoriteUsers,
   onUserContextMenu,
+  refreshIndicators,
 }: OrgRepoTreeProps) {
   return (
     <div className="sidebar-section-items">
@@ -159,7 +170,7 @@ export function OrgRepoTree({
           return (
             <div key={org} className="sidebar-org-group">
               <div
-                className={`sidebar-item sidebar-item-disclosure sidebar-org-item ${isOrgSelected ? 'selected' : ''}`}
+                className={`sidebar-item sidebar-item-disclosure sidebar-org-item ${isOrgSelected ? 'selected' : ''} ${orgRefreshClass(org, refreshIndicators)}`}
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect(`org-detail:${org}`)}

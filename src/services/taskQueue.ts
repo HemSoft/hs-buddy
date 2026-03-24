@@ -208,6 +208,17 @@ export class TaskQueue {
   }
 
   /**
+   * Get names of all currently running tasks.
+   */
+  getRunningTaskNames(): string[] {
+    const names: string[] = []
+    for (const task of this.runningTasks.values()) {
+      if (task.name) names.push(task.name)
+    }
+    return names
+  }
+
+  /**
    * Get names of all pending tasks in queue order.
    */
   getPendingTaskNames(): string[] {

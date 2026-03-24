@@ -358,6 +358,8 @@ function UserActivitySection({
     return null
   }
 
+  const recentEvents = activity?.recentEvents ?? []
+
   return (
     <section className="ud-section">
       <h3 className="ud-section-title">
@@ -368,7 +370,7 @@ function UserActivitySection({
         <SectionLoader label="activity" />
       ) : (
         <div className="ud-event-list">
-          {activity.recentEvents.slice(0, 15).map(event => (
+          {recentEvents.slice(0, 15).map(event => (
             <EventRow key={`${event.type}-${event.repo}-${event.createdAt}`} event={event} />
           ))}
         </div>

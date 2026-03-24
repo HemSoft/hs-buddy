@@ -39,6 +39,14 @@ interface UserDetailPanelProps {
   memberLogin: string
 }
 
+function navigateToView(viewId: string) {
+  window.dispatchEvent(
+    new CustomEvent('app:navigate', {
+      detail: { viewId },
+    })
+  )
+}
+
 function PRStateIcon({ state }: { state: string }) {
   switch (state) {
     case 'merged':
@@ -84,6 +92,316 @@ function SectionLoader({ label }: { label: string }) {
       <Loader2 size={15} className="spin" />
       <span>Loading {label}…</span>
     </div>
+  )
+}
+
+function UserDetailHero({
+  activity,
+  activityPhase,
+  avatarUrl,
+  commitsToday,
+  memberLogin,
+  org,
+  profileUrl,
+  onRefresh,
+}: {
+  activity: UserActivitySummary | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+  avatarUrl: string
+  commitsToday: number
+  memberLogin: string
+  org: string
+  profileUrl: string
+  onRefresh: () => void
+}) {
+  return (
+    <div className="ud-hero">
+      <img
+        className="ud-hero-avatar"
+        src={avatarUrl}
+        alt={memberLogin}
+        width={56}
+        height={56}
+      />
+      <div className="ud-hero-info">
+        <span className="ud-hero-kicker">
+          {activity?.orgRole === 'admin' ? 'Admin' : 'Member'} of {org}
+        </span>
+        <h2 className="ud-hero-title">
+          {activity?.name ? `${activity.name} (${memberLogin})` : memberLogin}
+          {activity?.statusEmoji && (
+            <span className="ud-status-emoji" title={activity.statusMessage ?? undefined}>
+              {activity.statusEmoji}
+            </span>
+          )}
+        </h2>
+        <p className="ud-hero-subtitle">
+          {activity?.name ? `${memberLogin} · ` : ''}
+          {commitsToday > 0
+            ? `${commitsToday} commit${commitsToday !== 1 ? 's' : ''} today`
+            : 'No commits today'}
+        </p>
+      </div>
+      <div className="ud-hero-actions">
+        <button
+          type="button"
+          className="ud-action-btn"
+          onClick={onRefresh}
+          disabled={activityPhase === 'loading'}
+          title="Refresh user data"
+        >
+          <RefreshCw size={14} className={activityPhase === 'loading' ? 'spin' : ''} />
+        </button>
+        <button
+          type="button"
+          className="ud-action-btn"
+          onClick={() => window.shell.openExternal(profileUrl)}
+        >
+          <ExternalLink size={14} />
+          Profile
+        </button>
+        <button
+          type="button"
+          className="ud-action-btn"
+          onClick={() => navigateToView(`org-detail:${org}`)}
+        >
+          <Shield size={14} />
+          {org}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
+  return (
+    <div className="ud-profile-meta">
+      {(activity.teams?.length ?? 0) > 0 && (
+        <span className="ud-meta-item">
+          <Users size={13} />
+          {activity.teams.join(', ')}
+        </span>
+      )}
+      {activity.company && (
+        <span className="ud-meta-item">
+          <Building2 size={13} />
+          {activity.company}
+        </span>
+      )}
+      {activity.location && (
+        <span className="ud-meta-item">
+          <MapPin size={13} />
+          {activity.location}
+        </span>
+      )}
+      {activity.createdAt && (
+        <span className="ud-meta-item">
+          <Clock size={13} />
+          GitHub since{' '}
+          {new Date(activity.createdAt).toLocaleDateString('en-US', {
+            month: 'short',
+            year: 'numeric',
+          })}
+        </span>
+      )}
+      {activity.bio && (
+        <p className="ud-meta-bio">{activity.bio}</p>
+      )}
+      {activity.statusMessage && (
+        <span className="ud-meta-item ud-meta-status">
+          {activity.statusEmoji ?? '💬'} {activity.statusMessage}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function UserMetricsGrid({
+  activity,
+  activityPhase,
+  commitsToday,
+}: {
+  activity: UserActivitySummary | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+  commitsToday: number
+}) {
+  return (
+    <div className="ud-metric-grid">
+      <MetricCard
+        icon={<GitCommitHorizontal size={18} />}
+        label="Commits Today"
+        variant={commitsToday > 0 ? 'warm' : undefined}
+      >
+        {commitsToday}
+      </MetricCard>
+      <MetricCard icon={<GitPullRequest size={18} />} label="Open PRs">
+        {activityPhase === 'ready' && activity
+          ? activity.openPRCount
+          : activityPhase === 'loading'
+            ? <Loader2 size={14} className="spin" />
+            : '—'}
+      </MetricCard>
+      <MetricCard icon={<GitMerge size={18} />} label="Merged (90d)" variant="cool">
+        {activityPhase === 'ready' && activity
+          ? activity.mergedPRCount
+          : activityPhase === 'loading'
+            ? <Loader2 size={14} className="spin" />
+            : '—'}
+      </MetricCard>
+      <MetricCard icon={<FolderGit2 size={18} />} label="Active Repos">
+        {activityPhase === 'ready' && activity
+          ? activity.activeRepos.length
+          : activityPhase === 'loading'
+            ? <Loader2 size={14} className="spin" />
+            : '—'}
+      </MetricCard>
+    </div>
+  )
+}
+
+function UserContributionSection({
+  activity,
+  activityPhase,
+}: {
+  activity: UserActivitySummary | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+}) {
+  if (activityPhase === 'ready' && activity?.contributionWeeks && activity.totalContributions != null) {
+    return (
+      <section className="ud-section">
+        <h3 className="ud-section-title">
+          <Calendar size={15} />
+          Contributions
+        </h3>
+        <ContributionGraph
+          weeks={activity.contributionWeeks}
+          totalContributions={activity.totalContributions}
+        />
+      </section>
+    )
+  }
+
+  if (activityPhase === 'loading') {
+    return (
+      <section className="ud-section">
+        <h3 className="ud-section-title">
+          <Calendar size={15} />
+          Contributions
+        </h3>
+        <SectionLoader label="contributions" />
+      </section>
+    )
+  }
+
+  return null
+}
+
+function UserPullRequestSections({
+  activity,
+  activityPhase,
+}: {
+  activity: UserActivitySummary | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+}) {
+  const authoredPRs = activity?.recentPRsAuthored ?? []
+  const reviewedPRs = activity?.recentPRsReviewed ?? []
+
+  return (
+    <div className="ud-section-grid">
+      <section className="ud-section">
+        <h3 className="ud-section-title">
+          <GitPullRequest size={15} />
+          Authored
+        </h3>
+        {activityPhase === 'loading' ? (
+          <SectionLoader label="pull requests" />
+        ) : activityPhase === 'ready' && authoredPRs.length > 0 ? (
+          <div className="ud-pr-list">
+            {authoredPRs.map(pr => (
+              <PRRow key={`a-${pr.repo}#${pr.number}`} pr={pr} />
+            ))}
+          </div>
+        ) : activityPhase === 'ready' ? (
+          <p className="ud-empty">No recent pull requests.</p>
+        ) : null}
+      </section>
+
+      <section className="ud-section">
+        <h3 className="ud-section-title">
+          <Eye size={15} />
+          Reviewed
+        </h3>
+        {activityPhase === 'loading' ? (
+          <SectionLoader label="reviews" />
+        ) : activityPhase === 'ready' && reviewedPRs.length > 0 ? (
+          <div className="ud-pr-list">
+            {reviewedPRs.map(pr => (
+              <PRRow key={`r-${pr.repo}#${pr.number}`} pr={pr} />
+            ))}
+          </div>
+        ) : activityPhase === 'ready' ? (
+          <p className="ud-empty">No recent reviews.</p>
+        ) : null}
+      </section>
+    </div>
+  )
+}
+
+function UserActivitySection({
+  activity,
+  activityPhase,
+}: {
+  activity: UserActivitySummary | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+}) {
+  if (activityPhase !== 'loading' && (activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0)) {
+    return null
+  }
+
+  return (
+    <section className="ud-section">
+      <h3 className="ud-section-title">
+        <Activity size={15} />
+        Recent Activity
+      </h3>
+      {activityPhase === 'loading' ? (
+        <SectionLoader label="activity" />
+      ) : (
+        <div className="ud-event-list">
+          {activity.recentEvents.slice(0, 15).map(event => (
+            <EventRow key={`${event.type}-${event.repo}-${event.createdAt}`} event={event} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function UserRepositoriesSection({ activeRepos }: { activeRepos: string[] }) {
+  if (activeRepos.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="ud-section">
+      <h3 className="ud-section-title">
+        <FolderGit2 size={15} />
+        Active Repositories
+      </h3>
+      <div className="ud-repo-chips">
+        {activeRepos.map(repo => (
+          <button
+            type="button"
+            key={repo}
+            className="ud-repo-chip"
+            onClick={() => navigateToView(`repo-detail:${repo}`)}
+          >
+            <FolderGit2 size={12} />
+            {repo.split('/')[1] ?? repo}
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -177,141 +495,26 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   }, [accounts, org, memberLogin, cacheKey, refreshKey])
 
   const commitsToday = activity?.commitsToday ?? contributor?.commits ?? 0
+  const readyActivity = activityPhase === 'ready' ? activity : null
 
   return (
     <div className="user-detail-container">
-      {/* ── Hero ── */}
-      <div className="ud-hero">
-        <img
-          className="ud-hero-avatar"
-          src={avatarUrl}
-          alt={memberLogin}
-          width={56}
-          height={56}
-        />
-        <div className="ud-hero-info">
-          <span className="ud-hero-kicker">
-            {activity?.orgRole === 'admin' ? 'Admin' : 'Member'} of {org}
-          </span>
-          <h2 className="ud-hero-title">
-            {activity?.name ? `${activity.name} (${memberLogin})` : memberLogin}
-            {activity?.statusEmoji && (
-              <span className="ud-status-emoji" title={activity.statusMessage ?? undefined}>
-                {activity.statusEmoji}
-              </span>
-            )}
-          </h2>
-          <p className="ud-hero-subtitle">
-            {activity?.name ? `${memberLogin} · ` : ''}
-            {commitsToday > 0
-              ? `${commitsToday} commit${commitsToday !== 1 ? 's' : ''} today`
-              : 'No commits today'}
-          </p>
-        </div>
-        <div className="ud-hero-actions">
-          <button
-            type="button"
-            className="ud-action-btn"
-            onClick={handleRefresh}
-            disabled={activityPhase === 'loading'}
-            title="Refresh user data"
-          >
-            <RefreshCw size={14} className={activityPhase === 'loading' ? 'spin' : ''} />
-          </button>
-          <button
-            type="button"
-            className="ud-action-btn"
-            onClick={() => window.shell.openExternal(profileUrl)}
-          >
-            <ExternalLink size={14} />
-            Profile
-          </button>
-          <button
-            type="button"
-            className="ud-action-btn"
-            onClick={() =>
-              window.dispatchEvent(
-                new CustomEvent('app:navigate', {
-                  detail: { viewId: `org-detail:${org}` },
-                })
-              )
-            }
-          >
-            <Shield size={14} />
-            {org}
-          </button>
-        </div>
-      </div>
+      <UserDetailHero
+        activity={activity}
+        activityPhase={activityPhase}
+        avatarUrl={avatarUrl}
+        commitsToday={commitsToday}
+        memberLogin={memberLogin}
+        org={org}
+        profileUrl={profileUrl}
+        onRefresh={handleRefresh}
+      />
 
       {/* ── Profile Metadata ── */}
-      {activityPhase === 'ready' && (
-        <div className="ud-profile-meta">
-          {(activity!.teams?.length ?? 0) > 0 && (
-            <span className="ud-meta-item">
-              <Users size={13} />
-              {activity!.teams.join(', ')}
-            </span>
-          )}
-          {activity!.company && (
-            <span className="ud-meta-item">
-              <Building2 size={13} />
-              {activity!.company}
-            </span>
-          )}
-          {activity!.location && (
-            <span className="ud-meta-item">
-              <MapPin size={13} />
-              {activity!.location}
-            </span>
-          )}
-          {activity!.createdAt && (
-            <span className="ud-meta-item">
-              <Clock size={13} />
-              GitHub since {new Date(activity!.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-            </span>
-          )}
-          {activity!.bio && (
-            <p className="ud-meta-bio">{activity!.bio}</p>
-          )}
-          {activity!.statusMessage && (
-            <span className="ud-meta-item ud-meta-status">
-              {activity!.statusEmoji ?? '💬'} {activity!.statusMessage}
-            </span>
-          )}
-        </div>
-      )}
+      {readyActivity && <UserProfileMeta activity={readyActivity} />}
 
       {/* ── Metrics ── */}
-      <div className="ud-metric-grid">
-        <MetricCard
-          icon={<GitCommitHorizontal size={18} />}
-          label="Commits Today"
-          variant={commitsToday > 0 ? 'warm' : undefined}
-        >
-          {commitsToday}
-        </MetricCard>
-        <MetricCard icon={<GitPullRequest size={18} />} label="Open PRs">
-          {activityPhase === 'ready'
-            ? activity!.openPRCount
-            : activityPhase === 'loading'
-              ? <Loader2 size={14} className="spin" />
-              : '—'}
-        </MetricCard>
-        <MetricCard icon={<GitMerge size={18} />} label="Merged (90d)" variant="cool">
-          {activityPhase === 'ready'
-            ? activity!.mergedPRCount
-            : activityPhase === 'loading'
-              ? <Loader2 size={14} className="spin" />
-              : '—'}
-        </MetricCard>
-        <MetricCard icon={<FolderGit2 size={18} />} label="Active Repos">
-          {activityPhase === 'ready'
-            ? activity!.activeRepos.length
-            : activityPhase === 'loading'
-              ? <Loader2 size={14} className="spin" />
-              : '—'}
-        </MetricCard>
-      </div>
+      <UserMetricsGrid activity={activity} activityPhase={activityPhase} commitsToday={commitsToday} />
 
       {/* ── Error ── */}
       {activityPhase === 'error' && activityError && (
@@ -321,115 +524,16 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       )}
 
       {/* ── Contribution Graph ── */}
-      {activityPhase === 'ready' && activity!.contributionWeeks && activity!.totalContributions != null && (
-        <section className="ud-section">
-          <h3 className="ud-section-title">
-            <Calendar size={15} />
-            Contributions
-          </h3>
-          <ContributionGraph
-            weeks={activity!.contributionWeeks}
-            totalContributions={activity!.totalContributions}
-          />
-        </section>
-      )}
-      {activityPhase === 'loading' && (
-        <section className="ud-section">
-          <h3 className="ud-section-title">
-            <Calendar size={15} />
-            Contributions
-          </h3>
-          <SectionLoader label="contributions" />
-        </section>
-      )}
+      <UserContributionSection activity={activity} activityPhase={activityPhase} />
 
       {/* ── PR Grid (Authored + Reviewed) ── */}
-      <div className="ud-section-grid">
-        <section className="ud-section">
-          <h3 className="ud-section-title">
-            <GitPullRequest size={15} />
-            Authored
-          </h3>
-          {activityPhase === 'loading' ? (
-            <SectionLoader label="pull requests" />
-          ) : activityPhase === 'ready' && activity!.recentPRsAuthored.length > 0 ? (
-            <div className="ud-pr-list">
-              {activity!.recentPRsAuthored.map(pr => (
-                <PRRow key={`a-${pr.repo}#${pr.number}`} pr={pr} />
-              ))}
-            </div>
-          ) : activityPhase === 'ready' ? (
-            <p className="ud-empty">No recent pull requests.</p>
-          ) : null}
-        </section>
-
-        <section className="ud-section">
-          <h3 className="ud-section-title">
-            <Eye size={15} />
-            Reviewed
-          </h3>
-          {activityPhase === 'loading' ? (
-            <SectionLoader label="reviews" />
-          ) : activityPhase === 'ready' && activity!.recentPRsReviewed.length > 0 ? (
-            <div className="ud-pr-list">
-              {activity!.recentPRsReviewed.map(pr => (
-                <PRRow key={`r-${pr.repo}#${pr.number}`} pr={pr} />
-              ))}
-            </div>
-          ) : activityPhase === 'ready' ? (
-            <p className="ud-empty">No recent reviews.</p>
-          ) : null}
-        </section>
-      </div>
+      <UserPullRequestSections activity={activity} activityPhase={activityPhase} />
 
       {/* ── Recent Activity (only when there are events) ── */}
-      {(activityPhase === 'loading' ||
-        (activityPhase === 'ready' && activity!.recentEvents.length > 0)) && (
-        <section className="ud-section">
-          <h3 className="ud-section-title">
-            <Activity size={15} />
-            Recent Activity
-          </h3>
-          {activityPhase === 'loading' ? (
-            <SectionLoader label="activity" />
-          ) : (
-            <div className="ud-event-list">
-              {activity!.recentEvents.slice(0, 15).map((event) => (
-                <EventRow key={`${event.type}-${event.repo}-${event.createdAt}`} event={event} />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      <UserActivitySection activity={activity} activityPhase={activityPhase} />
 
       {/* ── Active Repos ── */}
-      {activityPhase === 'ready' && activity!.activeRepos.length > 0 && (
-        <section className="ud-section">
-          <h3 className="ud-section-title">
-            <FolderGit2 size={15} />
-            Active Repositories
-          </h3>
-          <div className="ud-repo-chips">
-            {activity!.activeRepos.map(repo => (
-              <button
-                type="button"
-                key={repo}
-                className="ud-repo-chip"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent('app:navigate', {
-                      detail: { viewId: `repo-detail:${repo}` },
-                    })
-                  )
-                }
-              >
-                <FolderGit2 size={12} />
-                {repo.split('/')[1] ?? repo}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      <UserRepositoriesSection activeRepos={readyActivity?.activeRepos ?? []} />
 
       {/* ── Copilot Premium Requests ── */}
       <section className="ud-section">

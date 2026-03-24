@@ -22,6 +22,16 @@ const TOTAL_RETRIES = 3
 /** Status codes that should never be retried. */
 const DO_NOT_RETRY_CODES = [404, 429]
 
+const DEFAULT_LABEL_COLOR = '808080'
+
+type LabelWithColor = { name?: string; color?: string | null }
+
+function parseLabels(raw: Array<string | LabelWithColor>): Array<{ name: string; color: string }> {
+  return raw
+    .filter((label): label is LabelWithColor => typeof label !== 'string')
+    .map(label => ({ name: label.name || '', color: label.color || DEFAULT_LABEL_COLOR }))
+}
+
 // Repository info type for org repo listing
 export interface OrgRepo {
   name: string
@@ -1290,11 +1300,7 @@ export class GitHubClient {
         url: issue.html_url,
         createdAt: issue.created_at,
         updatedAt: issue.updated_at,
-        labels: (issue.labels || [])
-          .filter(
-            (l): l is { name?: string; color?: string | null } & object => typeof l !== 'string'
-          )
-          .map(l => ({ name: l.name || '', color: l.color || '808080' })),
+        labels: parseLabels(issue.labels || []),
         commentCount: issue.comments,
         assignees: (issue.assignees || []).map(a => ({
           login: a.login,
@@ -1349,12 +1355,7 @@ export class GitHubClient {
       url: issue.html_url,
       createdAt: issue.created_at,
       updatedAt: issue.updated_at,
-      labels: (issue.labels || [])
-        .filter(
-          (label): label is { name?: string; color?: string | null } & object =>
-            typeof label !== 'string'
-        )
-        .map(label => ({ name: label.name || '', color: label.color || '808080' })),
+      labels: parseLabels(issue.labels || []),
       commentCount: issue.comments,
       assignees: (issue.assignees || []).map(assignee => ({
         login: assignee.login,
@@ -1416,7 +1417,7 @@ export class GitHubClient {
       updatedAt: pr.updated_at,
       labels: (pr.labels || []).map(l => ({
         name: typeof l === 'string' ? l : l.name || '',
-        color: typeof l === 'string' ? '808080' : l.color || '808080',
+        color: typeof l === 'string' ? DEFAULT_LABEL_COLOR : l.color || DEFAULT_LABEL_COLOR,
       })),
       draft: pr.draft || false,
       headBranch: pr.head?.ref || '',

@@ -46,6 +46,21 @@ interface PRReviewMetadata {
   }
 }
 
+function hasPRReviewMetadata(
+  request: CopilotPromptRequest,
+  metadata: PRReviewMetadata | undefined,
+): metadata is PRReviewMetadata &
+  Required<Pick<PRReviewMetadata, 'org' | 'repo' | 'prNumber' | 'prUrl' | 'prTitle'>> {
+  return (
+    request.category === 'pr-review' &&
+    !!metadata?.org &&
+    !!metadata.repo &&
+    typeof metadata.prNumber === 'number' &&
+    !!metadata.prUrl &&
+    !!metadata.prTitle
+  )
+}
+
 interface CopilotPromptResult {
   resultId: string        // Convex document ID
   success: boolean
@@ -173,14 +188,7 @@ class CopilotService {
       metadata: request.metadata,
     })
 
-    if (
-      request.category === 'pr-review' &&
-      metadata?.org &&
-      metadata.repo &&
-      typeof metadata.prNumber === 'number' &&
-      metadata.prUrl &&
-      metadata.prTitle
-    ) {
+    if (hasPRReviewMetadata(request, metadata)) {
       await this.convex.mutation(api.prReviewRuns.create, {
         owner: metadata.org,
         repo: metadata.repo,

@@ -72,6 +72,10 @@ interface ParsedBillingUsage {
   businessSeats: number
 }
 
+function sumBy<T>(items: T[], fn: (item: T) => number): number {
+  return items.reduce((sum, item) => sum + fn(item), 0)
+}
+
 function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
   const premiumItems = items.filter(
     (item) => item.product === 'copilot' && item.sku === 'Copilot Premium Request',
@@ -81,11 +85,11 @@ function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
   )
 
   return {
-    premiumRequests: Math.round(premiumItems.reduce((sum, item) => sum + item.quantity, 0)),
-    grossCost: roundCents(premiumItems.reduce((sum, item) => sum + item.grossAmount, 0)),
-    discount: roundCents(premiumItems.reduce((sum, item) => sum + item.discountAmount, 0)),
-    netCost: roundCents(premiumItems.reduce((sum, item) => sum + item.netAmount, 0)),
-    businessSeats: roundCents(seatItems.reduce((sum, item) => sum + item.quantity, 0)),
+    premiumRequests: Math.round(sumBy(premiumItems, item => item.quantity)),
+    grossCost: roundCents(sumBy(premiumItems, item => item.grossAmount)),
+    discount: roundCents(sumBy(premiumItems, item => item.discountAmount)),
+    netCost: roundCents(sumBy(premiumItems, item => item.netAmount)),
+    businessSeats: roundCents(sumBy(seatItems, item => item.quantity)),
   }
 }
 

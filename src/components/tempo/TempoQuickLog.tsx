@@ -1,15 +1,45 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { CreateWorklogPayload, TempoQuickLogPreset } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
 import { Zap } from 'lucide-react'
 
 const PRESETS: TempoQuickLogPreset[] = [
-  { label: 'Meetings', issueKey: 'INT-14', defaultAccount: 'INT', description: 'Company/Team Meetings & Events' },
-  { label: 'PE Support', issueKey: 'PE-869', defaultAccount: 'GEN-DEV', description: 'Productivity Engineering Support' },
-  { label: 'Relias Assistant', issueKey: 'PE-992', defaultAccount: 'GEN-DEV', description: 'Relias Assistant -- second milestone' },
-  { label: 'AI Chapter', issueKey: 'PE-931', defaultAccount: 'GEN-MAINT', description: 'AI Chapter (Foundation & Engineering)' },
-  { label: 'Prof. Dev', issueKey: 'INT-5', defaultAccount: 'INT', description: 'Professional Development' },
-  { label: 'SFL Dev', issueKey: 'PE-1160', defaultAccount: 'GEN-DEV', description: 'SFL -- Initial Alpha Release' },
+  {
+    label: 'Meetings',
+    issueKey: 'INT-14',
+    defaultAccount: 'INT',
+    description: 'Company/Team Meetings & Events',
+  },
+  {
+    label: 'PE Support',
+    issueKey: 'PE-869',
+    defaultAccount: 'GEN-DEV',
+    description: 'Productivity Engineering Support',
+  },
+  {
+    label: 'Relias Assistant',
+    issueKey: 'PE-992',
+    defaultAccount: 'GEN-DEV',
+    description: 'Relias Assistant -- second milestone',
+  },
+  {
+    label: 'AI Chapter',
+    issueKey: 'PE-931',
+    defaultAccount: 'GEN-MAINT',
+    description: 'AI Chapter (Foundation & Engineering)',
+  },
+  {
+    label: 'Prof. Dev',
+    issueKey: 'INT-5',
+    defaultAccount: 'INT',
+    description: 'Professional Development',
+  },
+  {
+    label: 'SFL Dev',
+    issueKey: 'PE-1160',
+    defaultAccount: 'GEN-DEV',
+    description: 'SFL -- Initial Alpha Release',
+  },
   { label: 'PTO / Sick', issueKey: 'INT-8', defaultAccount: 'INT', description: 'Time Off' },
 ]
 
@@ -21,6 +51,7 @@ interface TempoQuickLogProps {
 export function TempoQuickLog({ onLog, pending }: TempoQuickLogProps) {
   const [hours, setHours] = useState('1')
   const [expanded, setExpanded] = useState(false)
+  const hoursId = useId()
 
   const handleQuickLog = async (preset: TempoQuickLogPreset) => {
     const h = parseFloat(hours)
@@ -36,10 +67,7 @@ export function TempoQuickLog({ onLog, pending }: TempoQuickLogProps) {
 
   return (
     <div className="tempo-quick-log">
-      <button
-        className="tempo-quick-log-toggle"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <button className="tempo-quick-log-toggle" onClick={() => setExpanded(!expanded)}>
         <Zap size={14} />
         <span>Quick Log</span>
         <span className="tempo-quick-log-arrow">{expanded ? '▾' : '▸'}</span>
@@ -47,8 +75,9 @@ export function TempoQuickLog({ onLog, pending }: TempoQuickLogProps) {
       {expanded && (
         <div className="tempo-quick-log-panel">
           <div className="tempo-quick-log-hours">
-            <label>Hours:</label>
+            <label htmlFor={hoursId}>Hours:</label>
             <input
+              id={hoursId}
               type="number"
               min="0.25"
               max="24"

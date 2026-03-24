@@ -9,7 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.419] - 2026-03-24
+
+### Fixed
+
+- Capex cache bust, env-var refinement, grid polish
+
+## [0.1.418] - 2026-03-24
+
+### Fixed
+
+- Capex cache bust, env-var refinement, grid polish
+
+## [0.1.417] - 2026-03-24
+
 ## [0.1.416] - 2026-03-23
+
+### Added
+
+- UX polish — auto-select, auto-scroll, checkmarks, completion indicator
 
 ## [0.1.415] - 2026-03-23
 

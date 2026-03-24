@@ -65,7 +65,7 @@ function getTempoToken(): string {
   return token
 }
 
-let jiraAvailable: boolean | null = null // null=unknown, true/false=tested
+let jiraAvailable: boolean | null = null // null=unknown, true/false=credentials tested
 
 function getJiraHeaders(): Record<string, string> | null {
   if (jiraAvailable === false) return null
@@ -75,6 +75,7 @@ function getJiraHeaders(): Record<string, string> | null {
     jiraAvailable = false
     return null
   }
+  jiraAvailable = true
   const basic = Buffer.from(`${email}:${token}`).toString('base64')
   return { Authorization: `Basic ${basic}`, Accept: 'application/json' }
 }
@@ -109,12 +110,11 @@ async function getAccountId(): Promise<string> {
         jiraHeaders
       )
       cachedAccountId = user.accountId
-      jiraAvailable = true
       // Persist to disk so we survive Jira outages
       writeDataCacheEntry('tempo:accountId', { data: cachedAccountId, fetchedAt: Date.now() })
       return cachedAccountId
-    } catch {
-      jiraAvailable = false
+    } catch (err) {
+      console.warn('[Tempo] Jira /myself failed, trying disk cache:', err instanceof Error ? err.message : err)
     }
   }
 
@@ -382,10 +382,10 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
   const cached = capexCache.get(issueKey)
   if (cached !== undefined) return cached
 
-  // Check disk cache
+  // Check disk cache (24h TTL — stale false entries from Jira outages must expire)
   const diskCache = readDataCache()
   const diskEntry = diskCache[`tempo:capex:${issueKey}`]
-  if (diskEntry?.data !== undefined) {
+  if (diskEntry?.data !== undefined && diskEntry.fetchedAt && Date.now() - diskEntry.fetchedAt < 86_400_000) {
     const val = diskEntry.data as boolean
     capexCache.set(issueKey, val)
     return val
@@ -399,16 +399,15 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
 
   try {
     const issue = await fetchJson<{
-      fields: {
-        [CAPITALIZATION_FIELD]?: { value: string } | null
-        parent?: { key: string }
-      }
+      fields: Record<string, unknown>
     }>(
       `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${CAPITALIZATION_FIELD},parent`,
       jiraHeaders
     )
 
-    const capVal = issue.fields[CAPITALIZATION_FIELD]
+    // Field can be { value: string }, [{ value: string }], or null
+    const rawCapVal = issue.fields[CAPITALIZATION_FIELD]
+    const capVal = Array.isArray(rawCapVal) ? rawCapVal[0] : rawCapVal
     if (capVal?.value) {
       const isCapex = capVal.value === 'Yes'
       capexCache.set(issueKey, isCapex)
@@ -417,7 +416,8 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
     }
 
     // Fallback to parent epic
-    const parentKey = issue.fields.parent?.key
+    const parent = issue.fields.parent as { key: string } | undefined
+    const parentKey = parent?.key
     if (parentKey) {
       const result = await resolveCapex(parentKey)
       capexCache.set(issueKey, result)
@@ -428,7 +428,8 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
     capexCache.set(issueKey, false)
     writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: false, fetchedAt: Date.now() })
     return false
-  } catch {
+  } catch (err) {
+    console.error(`[CapEx] Failed to resolve ${issueKey}:`, err instanceof Error ? err.message : err)
     capexCache.set(issueKey, false)
     return false
   }

@@ -3,7 +3,7 @@
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
-| 📋     | Medium   | [Tempo tracking](#tempo-tracking)                                                                            | New tree-view section for time tracking with Tempo API calls, daily/weekly summaries, and fast worklog actions                        |
+| ✅     | Medium   | Tempo tracking                                                                                               | Completed 2026-03-23: monthly grid, capex/non-capex split, holiday support, green capex highlighting, auto-scroll to today            |
 | ✅     | Medium   | PR Analyzers should post reviews, not update PR body                                                         | Completed 2026-03-22: all 3 analyzers already use `add_comment`; `update_issue` not in safe-outputs config                           |
 | ✅     | Medium   | Add branch cleanup to repo-audit                                                                             | Completed 2026-03-22: added Branch Hygiene scope (#7) to repo-audit + stale branch detection (Step 14) to sfl-auditor                |
 | ✅     | High     | Add GitHub organization metrics detail view                                                                  | Completed 2026-03-22: skeleton loader, per-phase error handling, roster filter/sort controls                                         |
@@ -67,7 +67,7 @@
 
 ## Progress
 
-**Remaining: 2** | **Completed: 59** (97%)
+**Remaining: 1** | **Completed: 60** (98%)
 
 ---
 
@@ -252,102 +252,6 @@
 
 ---
 
-### Tempo tracking
-
-**Goal**: Add a visually rich **Tempo Tracking** section in the tree view so users can log, inspect, and manage time entries without leaving Buddy.
-
-**Primary UX Concept**: Treat Tempo as a first-class workspace view (like PRs/Issues), with fast actions and high-information cards.
-
-**Tree View Placement**:
-
-- Add a new top-level tree section: **Tempo Tracking**
-- Child nodes:
-  - `tempo-today` — Today's entries and remaining hours
-  - `tempo-week` — Weekly grid (Mon-Fri) with total vs target
-  - `tempo-quick-log` — Fast-add panel for common entries
-  - `tempo-recent` — Recent worklogs and edits
-
-**Visual Direction (cool + polished)**:
-
-- Use a strong, data-forward layout with compact stat cards and timeline rows.
-- Header cards:
-  - `Today Hours`
-  - `Week Hours`
-  - `Remaining to Target`
-  - `Top Issue This Week`
-- Timeline style rows for each worklog with:
-  - Issue key pill (`PE-992`, `INT-14`)
-  - Account badge (`GEN-DEV`, `INT`)
-  - Duration chip (`1.5h`)
-  - Editable note preview
-- Include subtle motion for state changes (add/edit/delete) and optimistic UI transitions.
-
-**Feature Scope**:
-
-1. Read daily and date-range worklogs from Tempo.
-2. Add/edit/delete worklogs from the UI.
-3. Quick-log presets inspired by the Tempo skill aliases.
-4. Daily target meter (8h) and weekly target meter (40h).
-5. Account auto-suggestion by issue prefix (`INT-*` -> `INT`, `PE-*` -> `GEN-DEV`).
-
-**Tempo API Integration**:
-
-- Base URL: `https://api.tempo.io/4`
-- Endpoints:
-  - `GET /worklogs/user/{accountId}?from={date}&to={date}`
-  - `POST /worklogs`
-  - `PUT /worklogs/{id}`
-  - `DELETE /worklogs/{id}`
-  - `GET /accounts`
-- Required env vars (main process only):
-  - `TEMPO_API_TOKEN`
-  - `ATLASSIAN_EMAIL`
-  - `ATLASSIAN_API_TOKEN`
-
-**Electron IPC Architecture**:
-
-- `electron/services/tempoClient.ts`
-  - `getWorklogsForDate(date)`
-  - `getWorklogsForRange(from, to)`
-  - `createWorklog(payload)`
-  - `updateWorklog(id, payload)`
-  - `deleteWorklog(id)`
-  - `getAccounts()`
-- `electron/ipc/tempoHandlers.ts`
-  - `tempo:get-today`
-  - `tempo:get-week`
-  - `tempo:create-worklog`
-  - `tempo:update-worklog`
-  - `tempo:delete-worklog`
-  - `tempo:get-accounts`
-- `electron/preload.ts`
-  - expose typed `window.electronAPI.tempo.*` methods
-
-**React UI Components**:
-
-- `src/components/tempo/TempoDashboard.tsx` — shell view for cards + tabs
-- `src/components/tempo/TempoSummaryCards.tsx` — today/week/remaining metrics
-- `src/components/tempo/TempoTimeline.tsx` — chronological worklog rows
-- `src/components/tempo/TempoQuickLog.tsx` — one-click common-entry logging
-- `src/components/tempo/TempoWorklogEditor.tsx` — modal/drawer for add/edit
-- `src/components/tempo/TempoDashboard.css` — unified visual styling
-
-**Hooks & Types**:
-
-- `src/hooks/useTempo.ts`
-  - `useTempoToday()`
-  - `useTempoWeek()`
-  - `useTempoActions()` (create/update/delete)
-- `src/types/tempo.ts`
-  - `TempoWorklog`, `TempoAccount`, `TempoIssueSummary`, `TempoDaySummary`
-
-**Quick-Log Presets (initial)**:
-
-- Meetings -> `INT-14`
-- PE Support -> `PE-869`
-- Relias Assistant -> `PE-992`
-- AI Chapter -> `PE-931`
-- Professional Development -> `INT-5`
 - PTO / Sick / Holiday -> `INT-8`
 
 **Implementation Plan**:

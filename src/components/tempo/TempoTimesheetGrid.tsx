@@ -10,6 +10,7 @@ interface TempoTimesheetGridProps {
   monthDate: Date
   holidays: Record<string, string>
   loading: boolean
+  capexMap: Record<string, boolean>
   onCellClick: (date: string) => void
   onWorklogEdit: (worklog: TempoWorklog) => void
   onWorklogDelete: (worklog: TempoWorklog) => void
@@ -67,6 +68,7 @@ export function TempoTimesheetGrid({
   monthDate,
   holidays,
   loading,
+  capexMap,
   onCellClick,
   onWorklogEdit,
   onWorklogDelete,
@@ -90,12 +92,16 @@ export function TempoTimesheetGrid({
     if (todayRef.current && scrollRef.current) {
       const container = scrollRef.current
       const cell = todayRef.current
+      // Get the cell's absolute position in the scrollable content
       const cellRect = cell.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
-      const relativeLeft = cellRect.left - containerRect.left + container.scrollLeft
-      container.scrollLeft = Math.max(0, relativeLeft - 20)
+      const absoluteLeft = cellRect.left - containerRect.left + container.scrollLeft
+      // Sticky columns (Issue + Key + Logged) overlay ~320px of the visible area
+      // Scroll so today appears just right of them
+      const stickyWidth = 320
+      container.scrollLeft = Math.max(0, absoluteLeft - stickyWidth)
     }
-  }, [columns])
+  }, [columns, loading, issueSummaries.length])
 
   if (loading && issueSummaries.length === 0) {
     return (
@@ -138,13 +144,15 @@ export function TempoTimesheetGrid({
             </tr>
           </thead>
           <tbody>
-            {issueSummaries.map(issue => (
-              <tr key={issue.issueKey} className="tempo-grid-row">
+            {issueSummaries.map(issue => {
+              const isCapex = capexMap[issue.issueKey]
+              return (
+              <tr key={issue.issueKey} className={`tempo-grid-row ${isCapex ? 'capex' : ''}`}>
                 <td className="tempo-grid-issue-cell" title={issue.issueSummary}>
                   {issue.issueSummary}
                 </td>
                 <td className="tempo-grid-key-cell">
-                  <span className="tempo-issue-pill">{issue.issueKey}</span>
+                  <span className={`tempo-issue-pill ${isCapex ? 'capex' : ''}`}>{issue.issueKey}</span>
                 </td>
                 <td className="tempo-grid-logged-cell">{issue.totalHours}</td>
                 {columns.map(col => {
@@ -156,7 +164,7 @@ export function TempoTimesheetGrid({
                   return (
                     <td
                       key={col.date}
-                      className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''}`}
+                      className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''} ${hours > 0 && isCapex ? 'capex' : ''}`}
                       onClick={e => {
                         if (e.ctrlKey && cellWorklogs.length > 0) {
                           onCopyToToday(cellWorklogs)
@@ -183,7 +191,8 @@ export function TempoTimesheetGrid({
                   )
                 })}
               </tr>
-            ))}
+              )
+            })}
           </tbody>
           <tfoot>
             <tr className="tempo-grid-totals">

@@ -369,6 +369,15 @@
   font-weight: 600;
 }
 
+.tempo-grid-cell.has-hours.capex {
+  color: #66bb6a;
+}
+
+.tempo-grid-row.capex .tempo-grid-issue-cell,
+.tempo-grid-row.capex .tempo-grid-logged-cell {
+  color: #81c784;
+}
+
 .tempo-grid-cell.weekend {
   background: rgba(255, 255, 255, 0.02);
 }
@@ -441,6 +450,11 @@
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
   letter-spacing: 0.3px;
   white-space: nowrap;
+}
+
+.tempo-issue-pill.capex {
+  background: rgba(76, 175, 80, 0.18);
+  color: #66bb6a;
 }
 
 .tempo-account-badge {

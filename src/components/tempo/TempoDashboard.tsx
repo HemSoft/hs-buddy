@@ -235,6 +235,7 @@ export function TempoDashboard() {
           monthDate={viewMonth}
           holidays={holidays}
           loading={month.loading}
+          capexMap={capexMap}
           onCellClick={handleAddForDate}
           onWorklogEdit={handleEdit}
           onWorklogDelete={handleDelete}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useCallback, useMemo, useReducer } from 'react'
 import { TempoSummaryCards } from './TempoSummaryCards'
 import { TempoTimesheetGrid } from './TempoTimesheetGrid'
 import { TempoWorklogEditor } from './TempoWorklogEditor'
@@ -13,31 +13,98 @@ import {
 } from '../../hooks/useTempo'
 import type { TempoWorklog, CreateWorklogPayload } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
-import {
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Calendar,
-  Grid3X3,
-  List,
-} from 'lucide-react'
+import { RefreshCw, ChevronLeft, ChevronRight, Plus, Calendar, Grid3X3, List } from 'lucide-react'
 import './TempoDashboard.css'
 
 type ViewMode = 'grid' | 'timeline'
+
+interface TempoDashboardState {
+  viewMonth: Date
+  viewMode: ViewMode
+  editorOpen: boolean
+  editingWorklog: TempoWorklog | null
+  editorDate: string | null
+  actionError: string | null
+}
+
+type TempoDashboardAction =
+  | { type: 'setViewMode'; viewMode: ViewMode }
+  | { type: 'openCreate'; date: string }
+  | { type: 'openEdit'; worklog: TempoWorklog }
+  | { type: 'closeEditor' }
+  | { type: 'setActionError'; error: string | null }
+  | { type: 'shiftMonth'; delta: number }
+  | { type: 'goToCurrentMonth' }
+
+function createInitialDashboardState(): TempoDashboardState {
+  return {
+    viewMonth: new Date(),
+    viewMode: 'grid',
+    editorOpen: false,
+    editingWorklog: null,
+    editorDate: null,
+    actionError: null,
+  }
+}
+
+function tempoDashboardReducer(
+  state: TempoDashboardState,
+  action: TempoDashboardAction
+): TempoDashboardState {
+  switch (action.type) {
+    case 'setViewMode':
+      return { ...state, viewMode: action.viewMode }
+    case 'openCreate':
+      return {
+        ...state,
+        editorOpen: true,
+        editingWorklog: null,
+        editorDate: action.date,
+      }
+    case 'openEdit':
+      return {
+        ...state,
+        editorOpen: true,
+        editingWorklog: action.worklog,
+        editorDate: null,
+      }
+    case 'closeEditor':
+      return {
+        ...state,
+        editorOpen: false,
+        editingWorklog: null,
+        editorDate: null,
+      }
+    case 'setActionError':
+      return { ...state, actionError: action.error }
+    case 'shiftMonth':
+      return {
+        ...state,
+        viewMonth: new Date(
+          state.viewMonth.getFullYear(),
+          state.viewMonth.getMonth() + action.delta,
+          1
+        ),
+      }
+    case 'goToCurrentMonth':
+      return { ...state, viewMonth: new Date() }
+  }
+}
 
 function formatMonthLabel(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
 export function TempoDashboard() {
-  const [viewMonth, setViewMonth] = useState(() => new Date())
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editingWorklog, setEditingWorklog] = useState<TempoWorklog | null>(null)
-  const [editorDate, setEditorDate] = useState<string | null>(null)
+  const [state, dispatch] = useReducer(
+    tempoDashboardReducer,
+    undefined,
+    createInitialDashboardState
+  )
+  const todayKey = formatDateKey(new Date())
+  const activeEditorDate = state.editorDate || state.editingWorklog?.date || todayKey
 
-  const { from, to } = useMemo(() => getMonthRange(viewMonth), [viewMonth])
+  const { from, to } = useMemo(() => getMonthRange(state.viewMonth), [state.viewMonth])
 
   const month = useTempoMonth(from, to)
   const today = useTempoToday()
@@ -69,38 +136,30 @@ export function TempoDashboard() {
   )
   const capexMap = useCapexMap(issueKeys)
 
-  const prevMonth = () =>
-    setViewMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))
-
-  const nextMonth = () =>
-    setViewMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))
-
-  const goToCurrentMonth = () => setViewMonth(new Date())
+  const prevMonth = () => dispatch({ type: 'shiftMonth', delta: -1 })
+  const nextMonth = () => dispatch({ type: 'shiftMonth', delta: 1 })
+  const goToCurrentMonth = () => dispatch({ type: 'goToCurrentMonth' })
 
   const handleEdit = (worklog: TempoWorklog) => {
-    setEditingWorklog(worklog)
-    setEditorDate(null)
-    setEditorOpen(true)
+    dispatch({ type: 'openEdit', worklog })
   }
 
-  const [actionError, setActionError] = useState<string | null>(null)
-
   const handleDelete = async (worklog: TempoWorklog) => {
-    setActionError(null)
+    dispatch({ type: 'setActionError', error: null })
     const result = await actions.remove(worklog.id)
-    if (!result.success) setActionError(result.error || 'Delete failed')
+    if (!result.success) {
+      dispatch({ type: 'setActionError', error: result.error || 'Delete failed' })
+    }
   }
 
   const handleAddForDate = (date: string) => {
-    setEditingWorklog(null)
-    setEditorDate(date)
-    setEditorOpen(true)
+    dispatch({ type: 'openCreate', date })
   }
 
   const handleEditorSave = async (payload: CreateWorklogPayload) => {
     let result
-    if (editingWorklog) {
-      result = await actions.update(editingWorklog.id, {
+    if (state.editingWorklog) {
+      result = await actions.update(state.editingWorklog.id, {
         hours: payload.hours,
         startTime: payload.startTime,
         description: payload.description,
@@ -112,42 +171,38 @@ export function TempoDashboard() {
     if (!result.success) {
       throw new Error(result.error || 'Save failed')
     }
-    setEditorOpen(false)
-    setEditingWorklog(null)
-    setEditorDate(null)
+    dispatch({ type: 'closeEditor' })
   }
 
   const handleCopyToToday = async (sourceWorklogs: TempoWorklog[]) => {
-    setActionError(null)
-    const today = formatDateKey(new Date())
-    const todayWorklogs = month.worklogs.filter(w => w.date === today)
-    let offset = todayWorklogs.slice() // track cumulative for start time stacking
+    dispatch({ type: 'setActionError', error: null })
+    const todayWorklogs = month.worklogs.filter(w => w.date === todayKey)
+    let offset = todayWorklogs.slice()
+
     for (const src of sourceWorklogs) {
       const startTime = nextStartTime(offset)
       const result = await actions.create({
         issueKey: src.issueKey,
         hours: src.hours,
-        date: today,
+        date: todayKey,
         startTime,
         description: src.description,
         accountKey: src.accountKey,
       })
       if (!result.success) {
-        setActionError(result.error || 'Copy failed')
+        dispatch({ type: 'setActionError', error: result.error || 'Copy failed' })
         return
       }
-      // Add a synthetic entry so next iteration stacks correctly
-      offset = [...offset, { ...src, date: today, startTime }]
+      offset = [...offset, { ...src, date: todayKey, startTime }]
     }
   }
 
   const isCurrentMonth =
-    viewMonth.getFullYear() === new Date().getFullYear() &&
-    viewMonth.getMonth() === new Date().getMonth()
+    state.viewMonth.getFullYear() === new Date().getFullYear() &&
+    state.viewMonth.getMonth() === new Date().getMonth()
 
   return (
     <div className="tempo-dashboard">
-      {/* Header Bar */}
       <div className="tempo-header">
         <div className="tempo-header-left">
           <h2>Tempo Tracking</h2>
@@ -162,7 +217,7 @@ export function TempoDashboard() {
             title="Go to current month"
           >
             <Calendar size={14} />
-            <span>{formatMonthLabel(viewMonth)}</span>
+            <span>{formatMonthLabel(state.viewMonth)}</span>
           </button>
           <button className="tempo-nav-btn" onClick={nextMonth} title="Next month">
             <ChevronRight size={16} />
@@ -171,15 +226,15 @@ export function TempoDashboard() {
         <div className="tempo-header-right">
           <div className="tempo-view-toggle">
             <button
-              className={`tempo-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              onClick={() => setViewMode('grid')}
+              className={`tempo-view-btn ${state.viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => dispatch({ type: 'setViewMode', viewMode: 'grid' })}
               title="Grid view"
             >
               <Grid3X3 size={14} />
             </button>
             <button
-              className={`tempo-view-btn ${viewMode === 'timeline' ? 'active' : ''}`}
-              onClick={() => setViewMode('timeline')}
+              className={`tempo-view-btn ${state.viewMode === 'timeline' ? 'active' : ''}`}
+              onClick={() => dispatch({ type: 'setViewMode', viewMode: 'timeline' })}
               title="List view"
             >
               <List size={14} />
@@ -187,7 +242,7 @@ export function TempoDashboard() {
           </div>
           <button
             className="tempo-action-btn"
-            onClick={() => handleAddForDate(formatDateKey(new Date()))}
+            onClick={() => handleAddForDate(todayKey)}
             title="New worklog"
           >
             <Plus size={14} />
@@ -203,36 +258,35 @@ export function TempoDashboard() {
         </div>
       </div>
 
-      {/* Summary Cards */}
       <TempoSummaryCards
         todayHours={today.data?.totalHours || 0}
         monthHours={month.totalHours}
         monthTarget={monthTarget}
         isCurrentMonth={isCurrentMonth}
-        viewMonth={viewMonth}
+        viewMonth={state.viewMonth}
         worklogs={month.worklogs}
         capexMap={capexMap}
       />
 
-      {/* Error State */}
-      {(month.error || actionError) && (
+      {(month.error || state.actionError) && (
         <div className="tempo-error">
-          <span>⚠ {month.error || actionError}</span>
+          <span>⚠ {month.error || state.actionError}</span>
           {month.error ? (
             <button onClick={refreshAll}>Retry</button>
           ) : (
-            <button onClick={() => setActionError(null)}>Dismiss</button>
+            <button onClick={() => dispatch({ type: 'setActionError', error: null })}>
+              Dismiss
+            </button>
           )}
         </div>
       )}
 
-      {/* Main Content */}
-      {viewMode === 'grid' ? (
+      {state.viewMode === 'grid' ? (
         <TempoTimesheetGrid
           issueSummaries={month.issueSummaries}
           worklogs={month.worklogs}
           totalHours={month.totalHours}
-          monthDate={viewMonth}
+          monthDate={state.viewMonth}
           holidays={holidays}
           loading={month.loading}
           capexMap={capexMap}
@@ -245,7 +299,7 @@ export function TempoDashboard() {
         <div className="tempo-timeline-view">
           {month.worklogs.length === 0 && !month.loading ? (
             <div className="tempo-empty">
-              <p>No worklogs for {formatMonthLabel(viewMonth)}</p>
+              <p>No worklogs for {formatMonthLabel(state.viewMonth)}</p>
             </div>
           ) : (
             <table className="tempo-timeline-table">
@@ -274,8 +328,12 @@ export function TempoDashboard() {
                       <span className="tempo-account-badge">{w.accountKey}</span>
                     </td>
                     <td className="tempo-tl-actions">
-                      <button onClick={() => handleEdit(w)} title="Edit">✎</button>
-                      <button onClick={() => handleDelete(w)} title="Delete">✕</button>
+                      <button onClick={() => handleEdit(w)} title="Edit">
+                        ✎
+                      </button>
+                      <button onClick={() => handleDelete(w)} title="Delete">
+                        ✕
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -285,20 +343,13 @@ export function TempoDashboard() {
         </div>
       )}
 
-      {/* Editor Modal */}
-      {editorOpen && (
+      {state.editorOpen && (
         <TempoWorklogEditor
-          worklog={editingWorklog}
-          defaultDate={editorDate || formatDateKey(new Date())}
-          existingWorklogs={month.worklogs.filter(
-            w => w.date === (editorDate || editingWorklog?.date || formatDateKey(new Date()))
-          )}
+          worklog={state.editingWorklog}
+          defaultDate={state.editorDate || todayKey}
+          existingWorklogs={month.worklogs.filter(w => w.date === activeEditorDate)}
           onSave={handleEditorSave}
-          onCancel={() => {
-            setEditorOpen(false)
-            setEditingWorklog(null)
-            setEditorDate(null)
-          }}
+          onCancel={() => dispatch({ type: 'closeEditor' })}
         />
       )}
     </div>

@@ -24,6 +24,225 @@ interface PullRequestHistoryPanelProps {
   onLoaded?: (history: PRHistorySummary) => void
 }
 
+function PullRequestHistoryLoadingState() {
+  return (
+    <div className="pr-history-loading">
+      <Loader2 size={28} className="spin" />
+      <p>Loading PR history…</p>
+    </div>
+  )
+}
+
+function PullRequestHistoryErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <div className="pr-history-error">
+      <p className="error-message">Failed to load PR history</p>
+      <p className="error-detail">{error || 'Unknown error'}</p>
+      <button className="pr-history-retry" onClick={onRetry}>
+        Retry
+      </button>
+    </div>
+  )
+}
+
+function PullRequestHistoryHeader({ pr, embedded }: { pr: PRDetailInfo; embedded: boolean }) {
+  if (embedded) {
+    return (
+      <div className="pr-history-inline-title">
+        <History size={16} />
+        PR History
+      </div>
+    )
+  }
+
+  return (
+    <div className="pr-history-header">
+      <div className="pr-history-title-wrap">
+        <h2 className="pr-history-title">
+          <History size={18} />
+          PR History
+        </h2>
+        <div className="pr-history-subtitle">
+          <span>{pr.org || pr.source}</span>
+          <span className="pr-history-dot">·</span>
+          <span>{pr.repository}</span>
+          <span className="pr-history-dot">·</span>
+          <span>#{pr.id}</span>
+        </div>
+      </div>
+      <button className="pr-history-open" onClick={() => window.shell.openExternal(pr.url)}>
+        <ExternalLink size={14} />
+        Open PR
+      </button>
+    </div>
+  )
+}
+
+function PullRequestHistoryOverview({ history }: { history: PRHistorySummary }) {
+  return (
+    <>
+      <div className="pr-history-grid">
+        <div className="pr-history-card">
+          <div className="label">Created</div>
+          <div className="value">{formatDateFull(history.createdAt)}</div>
+        </div>
+        <div className="pr-history-card">
+          <div className="label">Last Updated</div>
+          <div className="value">{formatDateFull(history.updatedAt)}</div>
+        </div>
+        <div className="pr-history-card">
+          <div className="label">Merged</div>
+          <div className="value">{formatDateFull(history.mergedAt)}</div>
+        </div>
+      </div>
+
+      <div className="pr-history-metrics">
+        <div className="metric-row">
+          <span className="metric-label">
+            <GitCommit size={14} /> Commits
+          </span>
+          <span className="metric-value">{history.commitCount}</span>
+        </div>
+        <div className="metric-row">
+          <span className="metric-label">
+            <MessageCircle size={14} /> Comments (Total)
+          </span>
+          <span className="metric-value">{history.totalComments}</span>
+        </div>
+        <div className="metric-row nested">
+          <span className="metric-label">Issue comments</span>
+          <span className="metric-value">{history.issueCommentCount}</span>
+        </div>
+        <div className="metric-row nested">
+          <span className="metric-label">Review comments</span>
+          <span className="metric-value">{history.reviewCommentCount}</span>
+        </div>
+      </div>
+
+      <div className="pr-history-thread-status">
+        <h3>Review Thread Status</h3>
+        <div className="thread-grid">
+          <div className="thread-card">
+            <div className="thread-label">Total</div>
+            <div className="thread-value">{history.threadsTotal}</div>
+          </div>
+          <div className="thread-card">
+            <div className="thread-label">Outdated</div>
+            <div className="thread-value">{history.threadsOutdated}</div>
+          </div>
+          <div className="thread-card">
+            <div className="thread-label-row">
+              <div className="thread-label">Addressed</div>
+              <div className="thread-indicator good" aria-label="Addressed">
+                <CheckCircle2 size={12} />
+                Good
+              </div>
+            </div>
+            <div className="thread-value">{history.threadsAddressed}</div>
+          </div>
+          <div className="thread-card">
+            <div className="thread-label-row">
+              <div className="thread-label">Unaddressed</div>
+              <div className="thread-indicator bad" aria-label="Unaddressed">
+                <XCircle size={12} />
+                Bad
+              </div>
+            </div>
+            <div className="thread-value">{history.threadsUnaddressed}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function PullRequestReviewers({ history }: { history: PRHistorySummary }) {
+  return (
+    <div className="pr-history-reviewers">
+      <h3>Assigned Reviewers</h3>
+      {history.reviewers.length === 0 ? (
+        <div className="pr-history-empty">No assigned reviewers</div>
+      ) : (
+        <div className="reviewer-list">
+          {history.reviewers.map(reviewer => (
+            <div key={reviewer.login} className="reviewer-item">
+              <div className="reviewer-left">
+                {reviewer.avatarUrl ? (
+                  <img src={reviewer.avatarUrl} alt={reviewer.login} className="reviewer-avatar" />
+                ) : (
+                  <div className="reviewer-avatar reviewer-avatar-fallback">
+                    {reviewer.login.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="reviewer-name" title={reviewer.login}>
+                  {reviewer.name ? `${reviewer.name} (${reviewer.login})` : reviewer.login}
+                </span>
+              </div>
+              <div className="reviewer-right">
+                <span className={`reviewer-status reviewer-status-${reviewer.status}`}>
+                  {reviewer.status}
+                </span>
+                {reviewer.updatedAt && (
+                  <span className="reviewer-time">{formatDistanceToNow(reviewer.updatedAt)}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PullRequestTimeline({
+  focus,
+  timeline,
+}: {
+  focus: 'all' | 'commits'
+  timeline: NonNullable<PRHistorySummary['timeline']>
+}) {
+  return (
+    <div className="pr-history-timeline">
+      <h3>{focus === 'commits' ? 'Commit Timeline' : 'Activity Timeline'}</h3>
+      {timeline.length === 0 ? (
+        <div className="pr-history-empty">No timeline events</div>
+      ) : (
+        <div className="timeline-list">
+          {timeline.map(event => {
+            const url = event.url
+            return (
+              <div key={event.id} className="timeline-item">
+                <div className="timeline-meta">
+                  <span className="timeline-type">{event.type}</span>
+                  <span className="timeline-dot">•</span>
+                  <span className="timeline-author">{event.author}</span>
+                  <span className="timeline-dot">•</span>
+                  <span className="timeline-time" title={formatDateFull(event.occurredAt)}>
+                    {formatDistanceToNow(event.occurredAt)}
+                  </span>
+                </div>
+                <div className="timeline-summary">
+                  {url ? (
+                    <button
+                      type="button"
+                      className="timeline-link"
+                      onClick={() => window.shell.openExternal(url)}
+                    >
+                      {event.summary}
+                    </button>
+                  ) : (
+                    event.summary
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function PullRequestHistoryPanel({
   pr,
   embedded = false,
@@ -92,179 +311,29 @@ export function PullRequestHistoryPanel({
   }, [fetchHistory])
 
   if (loading && !history) {
-    return (
-      <div className="pr-history-loading">
-        <Loader2 size={28} className="spin" />
-        <p>Loading PR history…</p>
-      </div>
-    )
+    return <PullRequestHistoryLoadingState />
   }
 
   if (error) {
-    return (
-      <div className="pr-history-error">
-        <p className="error-message">Failed to load PR history</p>
-        <p className="error-detail">{error || 'Unknown error'}</p>
-        <button className="pr-history-retry" onClick={fetchHistory}>
-          Retry
-        </button>
-      </div>
-    )
+    return <PullRequestHistoryErrorState error={error} onRetry={fetchHistory} />
   }
 
   if (!history) {
-    return (
-      <div className="pr-history-loading">
-        <Loader2 size={28} className="spin" />
-        <p>Loading PR history…</p>
-      </div>
-    )
+    return <PullRequestHistoryLoadingState />
   }
 
   const timeline = history.timeline ?? []
-  const commitTimeline = timeline.filter(event => event.type === 'commit')
+  const activeTimeline =
+    focus === 'commits' ? timeline.filter(event => event.type === 'commit') : timeline
 
   return (
     <div className={`pr-history-container ${embedded ? 'embedded' : ''}`}>
-      {!embedded && (
-        <div className="pr-history-header">
-          <div className="pr-history-title-wrap">
-            <h2 className="pr-history-title">
-              <History size={18} />
-              PR History
-            </h2>
-            <div className="pr-history-subtitle">
-              <span>{pr.org || pr.source}</span>
-              <span className="pr-history-dot">·</span>
-              <span>{pr.repository}</span>
-              <span className="pr-history-dot">·</span>
-              <span>#{pr.id}</span>
-            </div>
-          </div>
-          <button className="pr-history-open" onClick={() => window.shell.openExternal(pr.url)}>
-            <ExternalLink size={14} />
-            Open PR
-          </button>
-        </div>
-      )}
-      {embedded && (
-        <div className="pr-history-inline-title">
-          <History size={16} />
-          PR History
-        </div>
-      )}
+      <PullRequestHistoryHeader pr={pr} embedded={embedded} />
 
       {focus === 'all' && (
         <>
-          <div className="pr-history-grid">
-            <div className="pr-history-card">
-              <div className="label">Created</div>
-              <div className="value">{formatDateFull(history.createdAt)}</div>
-            </div>
-            <div className="pr-history-card">
-              <div className="label">Last Updated</div>
-              <div className="value">{formatDateFull(history.updatedAt)}</div>
-            </div>
-            <div className="pr-history-card">
-              <div className="label">Merged</div>
-              <div className="value">{formatDateFull(history.mergedAt)}</div>
-            </div>
-          </div>
-
-          <div className="pr-history-metrics">
-            <div className="metric-row">
-              <span className="metric-label">
-                <GitCommit size={14} /> Commits
-              </span>
-              <span className="metric-value">{history.commitCount}</span>
-            </div>
-            <div className="metric-row">
-              <span className="metric-label">
-                <MessageCircle size={14} /> Comments (Total)
-              </span>
-              <span className="metric-value">{history.totalComments}</span>
-            </div>
-            <div className="metric-row nested">
-              <span className="metric-label">Issue comments</span>
-              <span className="metric-value">{history.issueCommentCount}</span>
-            </div>
-            <div className="metric-row nested">
-              <span className="metric-label">Review comments</span>
-              <span className="metric-value">{history.reviewCommentCount}</span>
-            </div>
-          </div>
-
-          <div className="pr-history-thread-status">
-            <h3>Review Thread Status</h3>
-            <div className="thread-grid">
-              <div className="thread-card">
-                <div className="thread-label">Total</div>
-                <div className="thread-value">{history.threadsTotal}</div>
-              </div>
-              <div className="thread-card">
-                <div className="thread-label">Outdated</div>
-                <div className="thread-value">{history.threadsOutdated}</div>
-              </div>
-              <div className="thread-card">
-                <div className="thread-label-row">
-                  <div className="thread-label">Addressed</div>
-                  <div className="thread-indicator good" aria-label="Addressed">
-                    <CheckCircle2 size={12} />
-                    Good
-                  </div>
-                </div>
-                <div className="thread-value">{history.threadsAddressed}</div>
-              </div>
-              <div className="thread-card">
-                <div className="thread-label-row">
-                  <div className="thread-label">Unaddressed</div>
-                  <div className="thread-indicator bad" aria-label="Unaddressed">
-                    <XCircle size={12} />
-                    Bad
-                  </div>
-                </div>
-                <div className="thread-value">{history.threadsUnaddressed}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pr-history-reviewers">
-            <h3>Assigned Reviewers</h3>
-            {history.reviewers.length === 0 ? (
-              <div className="pr-history-empty">No assigned reviewers</div>
-            ) : (
-              <div className="reviewer-list">
-                {history.reviewers.map(reviewer => (
-                  <div key={reviewer.login} className="reviewer-item">
-                    <div className="reviewer-left">
-                      {reviewer.avatarUrl ? (
-                        <img
-                          src={reviewer.avatarUrl}
-                          alt={reviewer.login}
-                          className="reviewer-avatar"
-                        />
-                      ) : (
-                        <div className="reviewer-avatar reviewer-avatar-fallback">
-                          {reviewer.login.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="reviewer-name" title={reviewer.login}>{reviewer.name ? `${reviewer.name} (${reviewer.login})` : reviewer.login}</span>
-                    </div>
-                    <div className="reviewer-right">
-                      <span className={`reviewer-status reviewer-status-${reviewer.status}`}>
-                        {reviewer.status}
-                      </span>
-                      {reviewer.updatedAt && (
-                        <span className="reviewer-time">
-                          {formatDistanceToNow(reviewer.updatedAt)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <PullRequestHistoryOverview history={history} />
+          <PullRequestReviewers history={history} />
         </>
       )}
 
@@ -279,45 +348,7 @@ export function PullRequestHistoryPanel({
         </div>
       )}
 
-      <div className="pr-history-timeline">
-        <h3>{focus === 'commits' ? 'Commit Timeline' : 'Activity Timeline'}</h3>
-        {(focus === 'commits' ? commitTimeline : timeline).length === 0 ? (
-          <div className="pr-history-empty">No timeline events</div>
-        ) : (
-          <div className="timeline-list">
-            {(focus === 'commits' ? commitTimeline : timeline).map(event => (
-              <div key={event.id} className="timeline-item">
-                <div className="timeline-meta">
-                  <span className="timeline-type">{event.type}</span>
-                  <span className="timeline-dot">•</span>
-                  <span className="timeline-author">{event.author}</span>
-                  <span className="timeline-dot">•</span>
-                  <span className="timeline-time" title={formatDateFull(event.occurredAt)}>
-                    {formatDistanceToNow(event.occurredAt)}
-                  </span>
-                </div>
-                <div className="timeline-summary">
-                  {event.url ? (
-                    <button
-                      type="button"
-                      className="timeline-link"
-                      onClick={() => {
-                        if (event.url) {
-                          window.shell.openExternal(event.url)
-                        }
-                      }}
-                    >
-                      {event.summary}
-                    </button>
-                  ) : (
-                    event.summary
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <PullRequestTimeline focus={focus} timeline={activeTimeline} />
 
       {focus === 'all' && (
         <div className="pr-history-footer">

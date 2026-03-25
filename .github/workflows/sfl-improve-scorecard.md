@@ -19,14 +19,12 @@ engine:
   id: copilot
   model: claude-opus-4.6
 
-network:
-  allowed:
-    - defaults
-    - "upgraded-adventure-j192emp.pages.github.io"
+network: defaults
 
 tools:
   github:
     lockdown: false
+    github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
 
 safe-outputs:
   create-issue:
@@ -62,16 +60,21 @@ with:
 
 ## Step 1 — Fetch the scorecard
 
-Fetch the scorecard report from the org-metrics GitHub Pages site. The report
-is a static HTML file. The scorecard data is embedded as a JSON blob in a
-`<script>` tag at the end of the page.
+Fetch the scorecard report from the `relias-engineering/org-metrics` repository.
+The report is a static HTML file with scorecard data embedded as a JSON blob
+in a `<script>` tag at the end of the page.
 
-**Report URL**: `https://upgraded-adventure-j192emp.pages.github.io/scorecard-hs-buddy.html`
+Use `get_file_contents` to read the file directly:
 
-This domain is in the `network.allowed` list. Fetch the page and extract the
-JSON data blob from the HTML. If the fetch fails, emit a `missing_data`
-safe output and post the activity log entry — do NOT fall back to the GitHub
-API (the workflow token is scoped to this repo and cannot read cross-repo).
+- **Owner**: `relias-engineering`
+- **Repo**: `org-metrics`
+- **Path**: `reports/scorecard-hs-buddy.html`
+
+The `github-token` in the tools config grants cross-repo read access.
+Parse the returned HTML content and extract the JSON data blob.
+
+If the fetch fails, emit a `missing_data` safe output and post the
+activity log entry — do NOT attempt alternative fetch methods.
 
 The JSON data blob has this structure (key fields):
 

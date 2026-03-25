@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.434] - 2026-03-25
 
+### Changed
+
+- Add 0.1.433 entry for coverage artifact upload
+
 ## [0.1.433] - 2026-03-25
 
 ### Changed

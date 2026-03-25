@@ -13,6 +13,7 @@ files; ET equivalents assume EDT (UTC-4). During EST (winter), subtract 1 hour.
 | **~2:27 AM** | `27 6 * * *` | Simplisticate Audit | Local `.md` (gh-aw) | `agent:fixable` simplification issue |
 | **~3:37 AM** | `37 7 * * *` | Daily Repo Status | Motherrepo `.md` | `report` Discussion |
 | **~4:47 AM** | `47 8 * * *` | Repo Audit | Motherrepo `.md` | Consolidated `report` Discussion |
+| **~5:37 AM** | `37 9 * * *` | Scorecard Improvement | Local `.md` (gh-aw) | `agent:fixable` issue for highest-impact failing scorecard rule |
 | **~5:57 AM** | `57 9 * * *` | SFL Auditor | Local `.md` | Repairs issue/PR label discrepancies |
 
 ---

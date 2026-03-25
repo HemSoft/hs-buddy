@@ -19,7 +19,10 @@ engine:
   id: copilot
   model: claude-opus-4.6
 
-network: defaults
+network:
+  allowed:
+    - defaults
+    - "upgraded-adventure-j192emp.pages.github.io"
 
 tools:
   github:
@@ -59,20 +62,16 @@ with:
 
 ## Step 1 — Fetch the scorecard
 
-Fetch the scorecard report from the org-metrics repository. The report is a
-static HTML file hosted on GitHub Pages. The scorecard data is embedded as a
-JSON blob in a `<script>` tag at the end of the page.
+Fetch the scorecard report from the org-metrics GitHub Pages site. The report
+is a static HTML file. The scorecard data is embedded as a JSON blob in a
+`<script>` tag at the end of the page.
 
 **Report URL**: `https://upgraded-adventure-j192emp.pages.github.io/scorecard-hs-buddy.html`
 
-If the page requires authentication or cannot be fetched, try the raw file
-from the repository API as a fallback:
-
-```text
-GET https://api.github.com/repos/relias-engineering/org-metrics/contents/reports/scorecard-hs-buddy.html
-```
-
-Decode the base64 content and extract the JSON data blob from the HTML.
+This domain is in the `network.allowed` list. Fetch the page and extract the
+JSON data blob from the HTML. If the fetch fails, emit a `missing_data`
+safe output and post the activity log entry — do NOT fall back to the GitHub
+API (the workflow token is scoped to this repo and cannot read cross-repo).
 
 The JSON data blob has this structure (key fields):
 

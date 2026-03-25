@@ -28,7 +28,6 @@ Built on the same architecture as [hs-conductor](https://github.com/HemSoft/hs-c
 - **React 18** - UI framework
 - **TypeScript** - Type-safe development
 - **Vite** - Lightning-fast build tool
-- **Monaco Editor** - VSCode's editor component
 - **Allotment** - Resizable split panes
 
 ## Installation

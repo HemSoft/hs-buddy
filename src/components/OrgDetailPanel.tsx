@@ -674,7 +674,6 @@ function useOrgMembersData({
 }
 
 function useOrgCopilotData({
-  accounts,
   org,
   enqueue,
   preferredAccount,
@@ -682,7 +681,6 @@ function useOrgCopilotData({
   copilotCacheKey,
   copilotTaskName,
 }: {
-  accounts: GitHubAccount[]
   org: string
   enqueue: ReturnType<typeof useTaskQueue>['enqueue']
   preferredAccount?: string
@@ -880,7 +878,6 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   )
   const isUserNamespace = Boolean(overviewData.overview?.isUserNamespace)
   const copilotData = useOrgCopilotData({
-    accounts,
     org,
     enqueue,
     preferredAccount,
@@ -908,15 +905,19 @@ function useOrgDetailData(org: string, memberLogin?: string) {
         : 'error'
     : resolveRefreshPhase(copilotData.copilotPhase, isCopilotTaskActive, copilotData.copilotUsage ? 'ready' : 'error')
 
+  const { fetchOverview } = overviewData
+  const { fetchMembers } = membersData
+  const { fetchCopilot } = copilotData
+
   const fetchAll = useCallback(
     async (forceRefresh = false) => {
-      const work = [overviewData.fetchOverview(forceRefresh), membersData.fetchMembers(forceRefresh)]
+      const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh)]
       if (!isUserNamespace) {
-        work.push(copilotData.fetchCopilot(forceRefresh))
+        work.push(fetchCopilot(forceRefresh))
       }
       await Promise.allSettled(work)
     },
-    [copilotData.fetchCopilot, isUserNamespace, membersData.fetchMembers, overviewData.fetchOverview]
+    [fetchCopilot, isUserNamespace, fetchMembers, fetchOverview]
   )
 
   useEffect(() => {

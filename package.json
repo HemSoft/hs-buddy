@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.428",
+  "version": "0.1.432",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -37,14 +37,12 @@
   "dependencies": {
     "@github/copilot-sdk": "^0.1.23",
     "@github/copilot-win32-x64": "^0.0.406",
-    "@monaco-editor/react": "^4.7.0",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.0.3",
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/rest": "^22.0.1",
     "@types/dompurify": "^3.0.5",
     "@uiw/react-markdown-preview": "^5.1.5",
-    "@vscode/webview-ui-toolkit": "^1.4.0",
     "allotment": "^1.20.5",
     "convex": "^1.31.7",
     "cron-parser": "^5.5.0",

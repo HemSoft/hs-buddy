@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.432] - 2026-03-25
+
+## [0.1.431] - 2026-03-25
+
+## [0.1.430] - 2026-03-25
+
+## [0.1.429] - 2026-03-25
+
 ## [0.1.428] - 2026-03-25
+
+### Fixed
+
+- Add protected-files fallback-to-issue policy
 
 ## [0.1.427] - 2026-03-25
 

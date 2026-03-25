@@ -122,6 +122,7 @@ loop now relies on explicit `dispatch-workflow` handoffs where needed. However, 
 | `daily-repo-status` (`SFL Repo Status`) | Agentic | Daily | Produces status report Discussion |
 | `repo-audit` (`Repo Audit`) | Agentic | Daily | Finds code quality issues → Discussion |
 | `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
+| `sfl-improve-scorecard` | Agentic | Daily | Fetches org-metrics scorecard, creates issue for highest-impact failing rule |
 | `discussion-processor` (`SFL Discussion Processor`) | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
 | `sfl-issue-processor` | Agentic | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: creates or advances the draft PR for one issue |
 | `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A -> B -> C review chain (claude-sonnet-4.6) |

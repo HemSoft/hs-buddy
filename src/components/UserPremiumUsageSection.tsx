@@ -116,6 +116,37 @@ function formatPlanType(plan: string | null): string {
   return labels[plan] ?? plan
 }
 
+function fetchPremiumData(
+  org: string,
+  targetUser: string,
+  authUser: string | undefined,
+  cacheKey: string,
+  setPremium: (data: UserPremiumData | null) => void
+) {
+  const cached = premiumCache.get(cacheKey)
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+    setPremium(cached.data)
+    return
+  }
+
+  window.github
+    .getUserPremiumRequests(org, targetUser, authUser)
+    .then(result => {
+      if (result.success && result.data) {
+        const data: UserPremiumData = {
+          userMonthlyRequests: result.data.userMonthlyRequests,
+          userTodayRequests: result.data.userTodayRequests,
+          userMonthlyModels: result.data.userMonthlyModels,
+          orgMonthlyRequests: result.data.orgMonthlyRequests,
+          orgMonthlyNetCost: result.data.orgMonthlyNetCost,
+        }
+        premiumCache.set(cacheKey, { data, fetchedAt: Date.now() })
+        setPremium(data)
+      }
+    })
+    .catch(() => {/* best effort */})
+}
+
 // ── Full quota view (configured accounts) ──
 
 function QuotaView({ username, org }: { username: string; org: string }) {
@@ -132,29 +163,7 @@ function QuotaView({ username, org }: { username: string; org: string }) {
   const premCacheKey = `${org}/${username}`
   const [premium, setPremium] = useState<UserPremiumData | null>(premiumCache.get(premCacheKey)?.data ?? null)
 
-  const fetchPremium = () => {
-    const c = premiumCache.get(premCacheKey)
-    if (c && Date.now() - c.fetchedAt < CACHE_TTL) {
-      setPremium(c.data)
-      return
-    }
-    window.github
-      .getUserPremiumRequests(org, username, username)
-      .then(result => {
-        if (result.success && result.data) {
-          const d: UserPremiumData = {
-            userMonthlyRequests: result.data.userMonthlyRequests,
-            userTodayRequests: result.data.userTodayRequests,
-            userMonthlyModels: result.data.userMonthlyModels,
-            orgMonthlyRequests: result.data.orgMonthlyRequests,
-            orgMonthlyNetCost: result.data.orgMonthlyNetCost,
-          }
-          premiumCache.set(premCacheKey, { data: d, fetchedAt: Date.now() })
-          setPremium(d)
-        }
-      })
-      .catch(() => {/* best effort */})
-  }
+  const fetchPremium = () => fetchPremiumData(org, username, username, premCacheKey, setPremium)
 
   const fetchQuota = () => {
     const id = ++fetchRef.current
@@ -390,29 +399,7 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
       })
   }
 
-  const fetchPremium = () => {
-    const c = premiumCache.get(cacheKey)
-    if (c && Date.now() - c.fetchedAt < CACHE_TTL) {
-      setPremium(c.data)
-      return
-    }
-    window.github
-      .getUserPremiumRequests(org, memberLogin, authUsername)
-      .then(result => {
-        if (result.success && result.data) {
-          const d: UserPremiumData = {
-            userMonthlyRequests: result.data.userMonthlyRequests,
-            userTodayRequests: result.data.userTodayRequests,
-            userMonthlyModels: result.data.userMonthlyModels,
-            orgMonthlyRequests: result.data.orgMonthlyRequests,
-            orgMonthlyNetCost: result.data.orgMonthlyNetCost,
-          }
-          premiumCache.set(cacheKey, { data: d, fetchedAt: Date.now() })
-          setPremium(d)
-        }
-      })
-      .catch(() => {/* best effort */})
-  }
+  const fetchPremium = () => fetchPremiumData(org, memberLogin, authUsername, cacheKey, setPremium)
 
   useEffect(() => {
     const c = seatCache.get(cacheKey)

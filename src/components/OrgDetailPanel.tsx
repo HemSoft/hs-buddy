@@ -507,44 +507,29 @@ function OrgConfiguredAccountsSection({
   )
 }
 
-function useOrgDetailData(org: string, memberLogin?: string) {
-  const { accounts } = useGitHubAccounts()
-  const { refreshInterval } = usePRSettings()
-  const { enqueue, stats } = useTaskQueue('github')
+function useOrgOverviewData({
+  accounts,
+  org,
+  enqueue,
+  initialOverview,
+  overviewCacheKey,
+  overviewTaskName,
+}: {
+  accounts: GitHubAccount[]
+  org: string
+  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
+  initialOverview: OrgOverviewResult | null
+  overviewCacheKey: string
+  overviewTaskName: string
+}) {
   const enqueueRef = useRef(enqueue)
-  const overviewCacheKey = `org-overview:${org}`
-  const membersCacheKey = `org-members:${org}`
-  const copilotCacheKey = `org-copilot:${org}`
-  const overviewTaskName = `org-detail-overview-${org}`
-  const membersTaskName = `org-detail-members-${org}`
-  const copilotTaskName = `org-detail-copilot-${org}`
-  const initialOverview = buildSeedOverview(org)
   const hasCachedFullOverview = Boolean(dataCache.get<OrgOverviewResult>(overviewCacheKey)?.data)
-  const hasCachedMembers = Boolean(dataCache.get<OrgMemberResult>(membersCacheKey)?.data)
-  const hasCachedCopilot = Boolean(dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data)
-
   const [overview, setOverview] = useState<OrgOverviewResult | null>(() => initialOverview)
-  const [members, setMembers] = useState<OrgMemberResult | null>(
-    () => dataCache.get<OrgMemberResult>(membersCacheKey)?.data ?? null
-  )
-  const [copilotUsage, setCopilotUsage] = useState<OrgCopilotUsageData | null>(EMPTY_COPILOT_USAGE)
   const [overviewPhase, setOverviewPhase] = useState<LoadPhase>(() =>
     hasCachedFullOverview || initialOverview ? 'ready' : 'loading'
   )
-  const [membersPhase, setMembersPhase] = useState<LoadPhase>(() =>
-    hasCachedMembers ? 'ready' : 'loading'
-  )
-  const [copilotPhase, setCopilotPhase] = useState<LoadPhase>('loading')
-  const [rateLimit, setRateLimit] = useState<RateLimitSnapshot | null>(null)
   const [overviewError, setOverviewError] = useState<string | null>(null)
-  const [membersError, setMembersError] = useState<string | null>(null)
-  const [copilotError, setCopilotError] = useState<string | null>(null)
-  const shouldRefreshOnMount = Boolean(initialOverview || hasCachedMembers || hasCachedCopilot)
   const hasOverviewRef = useRef(Boolean(initialOverview))
-  const hasMembersRef = useRef(Boolean(dataCache.get<OrgMemberResult>(membersCacheKey)?.data))
-  const hasCopilotRef = useRef(Boolean(dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data))
-  const preferredAccountRef = useRef<string | undefined>(undefined)
-  const isUserNamespaceRef = useRef(Boolean(initialOverview?.isUserNamespace))
 
   useEffect(() => {
     enqueueRef.current = enqueue
@@ -552,26 +537,283 @@ function useOrgDetailData(org: string, memberLogin?: string) {
 
   useEffect(() => {
     hasOverviewRef.current = Boolean(overview)
-    preferredAccountRef.current =
-      accounts.find(account => account.org === org)?.username ?? overview?.authenticatedAs
-    isUserNamespaceRef.current = Boolean(overview?.isUserNamespace)
-  }, [accounts, org, overview])
+  }, [overview])
+
+  const fetchOverview = useCallback(
+    async (forceRefresh = false) => {
+      const queue = getTaskQueue('github')
+      const cachedOverview = normalizeOverview(
+        dataCache.get<OrgOverviewResult>(overviewCacheKey)?.data ?? null
+      )
+      if (cachedOverview && !forceRefresh) {
+        setOverview(cachedOverview)
+        setOverviewError(null)
+        setOverviewPhase('ready')
+        return
+      }
+
+      if (queue.hasTaskWithName(overviewTaskName)) {
+        return
+      }
+
+      setOverviewError(null)
+      setOverviewPhase(hasOverviewRef.current ? 'refreshing' : 'loading')
+
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchOrgOverview(org)
+          },
+          { name: overviewTaskName, priority: -1 }
+        )
+
+        startTransition(() => {
+          setOverview(normalizeOverview(result))
+          setOverviewPhase('ready')
+        })
+        dataCache.set(overviewCacheKey, normalizeOverview(result))
+      } catch (fetchError) {
+        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
+        setOverviewPhase('error')
+        setOverviewError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+      }
+    },
+    [accounts, org, overviewCacheKey, overviewTaskName]
+  )
+
+  return {
+    fetchOverview,
+    hasFullOverview: hasCachedFullOverview || overviewPhase === 'ready',
+    overview,
+    overviewError,
+    overviewPhase,
+  }
+}
+
+function useOrgMembersData({
+  accounts,
+  org,
+  enqueue,
+  membersCacheKey,
+  membersTaskName,
+}: {
+  accounts: GitHubAccount[]
+  org: string
+  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
+  membersCacheKey: string
+  membersTaskName: string
+}) {
+  const enqueueRef = useRef(enqueue)
+  const cachedMembers = dataCache.get<OrgMemberResult>(membersCacheKey)?.data ?? null
+  const [membersResult, setMembersResult] = useState<OrgMemberResult | null>(() => cachedMembers)
+  const [membersPhase, setMembersPhase] = useState<LoadPhase>(() =>
+    cachedMembers ? 'ready' : 'loading'
+  )
+  const [membersError, setMembersError] = useState<string | null>(null)
+  const hasMembersRef = useRef(Boolean(cachedMembers))
 
   useEffect(() => {
-    hasMembersRef.current = Boolean(members)
-  }, [members])
+    enqueueRef.current = enqueue
+  }, [enqueue])
+
+  useEffect(() => {
+    hasMembersRef.current = Boolean(membersResult)
+  }, [membersResult])
+
+  const fetchMembers = useCallback(
+    async (forceRefresh = false) => {
+      const queue = getTaskQueue('github')
+      const cached = dataCache.get<OrgMemberResult>(membersCacheKey)?.data ?? null
+      if (cached && !forceRefresh) {
+        setMembersResult(cached)
+        setMembersError(null)
+        setMembersPhase('ready')
+        return
+      }
+
+      if (queue.hasTaskWithName(membersTaskName)) {
+        return
+      }
+
+      setMembersError(null)
+      setMembersPhase(hasMembersRef.current ? 'refreshing' : 'loading')
+
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            const client = new GitHubClient({ accounts }, 7)
+            return await client.fetchOrgMembers(org)
+          },
+          { name: membersTaskName, priority: -1 }
+        )
+
+        startTransition(() => {
+          setMembersResult(result)
+          setMembersPhase('ready')
+        })
+        dataCache.set(membersCacheKey, result)
+      } catch (fetchError) {
+        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
+        setMembersPhase('error')
+        setMembersError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+      }
+    },
+    [accounts, membersCacheKey, membersTaskName, org]
+  )
+
+  return {
+    fetchMembers,
+    hasCachedMembers: Boolean(cachedMembers),
+    membersError,
+    membersPhase,
+    membersResult,
+  }
+}
+
+function useOrgCopilotData({
+  accounts,
+  org,
+  enqueue,
+  preferredAccount,
+  isUserNamespace,
+  copilotCacheKey,
+  copilotTaskName,
+}: {
+  accounts: GitHubAccount[]
+  org: string
+  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
+  preferredAccount?: string
+  isUserNamespace: boolean
+  copilotCacheKey: string
+  copilotTaskName: string
+}) {
+  const enqueueRef = useRef(enqueue)
+  const cachedCopilot = dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data ?? null
+  const [copilotUsage, setCopilotUsage] = useState<OrgCopilotUsageData | null>(cachedCopilot)
+  const [copilotPhase, setCopilotPhase] = useState<LoadPhase>(() =>
+    cachedCopilot ? 'ready' : 'loading'
+  )
+  const [copilotError, setCopilotError] = useState<string | null>(null)
+  const hasCopilotRef = useRef(Boolean(cachedCopilot))
+
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
 
   useEffect(() => {
     hasCopilotRef.current = Boolean(copilotUsage)
   }, [copilotUsage])
 
-  const { quotas, orgBudgets, orgOverageFromQuotas } = useCopilotUsage()
+  useEffect(() => {
+    if (!isUserNamespace) {
+      return
+    }
 
-  const configuredAccounts = useMemo(
-    () => accounts.filter(account => account.org === org),
-    [accounts, org]
+    setCopilotUsage(EMPTY_COPILOT_USAGE)
+    setCopilotError(null)
+    setCopilotPhase('loading')
+  }, [isUserNamespace])
+
+  const fetchCopilot = useCallback(
+    async (forceRefresh = false) => {
+      if (isUserNamespace) {
+        return
+      }
+
+      const queue = getTaskQueue('github')
+      const cached = dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data ?? null
+      if (cached && !forceRefresh) {
+        setCopilotUsage(cached)
+        setCopilotError(null)
+        setCopilotPhase('ready')
+        return
+      }
+
+      if (queue.hasTaskWithName(copilotTaskName)) {
+        return
+      }
+
+      setCopilotError(null)
+      setCopilotPhase(hasCopilotRef.current ? 'refreshing' : 'loading')
+
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            return await window.github.getCopilotUsage(org, preferredAccount)
+          },
+          { name: copilotTaskName, priority: -1 }
+        )
+        if (result.success && result.data) {
+          const metrics: OrgCopilotUsageData = {
+            org: result.data.org,
+            premiumRequests: result.data.premiumRequests,
+            grossCost: result.data.grossCost,
+            discount: result.data.discount,
+            netCost: result.data.netCost,
+            businessSeats: result.data.businessSeats,
+            fetchedAt: result.data.fetchedAt,
+          }
+          startTransition(() => {
+            setCopilotUsage(metrics)
+            setCopilotPhase('ready')
+          })
+          dataCache.set(copilotCacheKey, metrics)
+        } else {
+          setCopilotPhase('error')
+        }
+      } catch (fetchError) {
+        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
+        setCopilotPhase('error')
+        setCopilotError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+      }
+    },
+    [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]
   )
 
+  return {
+    copilotError,
+    copilotPhase,
+    copilotUsage,
+    fetchCopilot,
+    hasCachedCopilot: Boolean(cachedCopilot),
+  }
+}
+
+function useOrgRateLimit(accounts: GitHubAccount[], org: string) {
+  const [rateLimit, setRateLimit] = useState<RateLimitSnapshot | null>(null)
+
+  const fetchRateLimit = useCallback(async () => {
+    try {
+      const client = new GitHubClient({ accounts }, 7)
+      const result = await client.getRateLimit(org)
+      setRateLimit(result)
+    } catch {
+      // silently ignore — gauge just won't render
+    }
+  }, [accounts, org])
+
+  useEffect(() => {
+    void fetchRateLimit()
+  }, [fetchRateLimit])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void fetchRateLimit()
+    }, 60_000)
+    return () => clearInterval(timer)
+  }, [fetchRateLimit])
+
+  return rateLimit
+}
+
+function usePersonalQuotaSummary(
+  configuredAccounts: GitHubAccount[],
+  quotas: ReturnType<typeof useCopilotUsage>['quotas']
+) {
   const personalQuotaSummary = useMemo<PersonalQuotaSummary | null>(() => {
     const relevantStates = configuredAccounts
       .map(account => quotas[account.username])
@@ -613,285 +855,119 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     [configuredAccounts, quotas]
   )
 
-  useEffect(() => {
-    if (!isUserNamespaceRef.current) {
-      return
-    }
+  return { personalQuotaLoading, personalQuotaSummary }
+}
 
-    if (personalQuotaLoading) {
-      setCopilotPhase('loading')
-      return
-    }
-
-    setCopilotPhase(personalQuotaSummary ? 'ready' : 'error')
-  }, [personalQuotaLoading, personalQuotaSummary])
+function useOrgDetailData(org: string, memberLogin?: string) {
+  const { accounts } = useGitHubAccounts()
+  const { refreshInterval } = usePRSettings()
+  const { enqueue, stats } = useTaskQueue('github')
+  const overviewCacheKey = `org-overview:${org}`
+  const membersCacheKey = `org-members:${org}`
+  const copilotCacheKey = `org-copilot:${org}`
+  const overviewTaskName = `org-detail-overview-${org}`
+  const membersTaskName = `org-detail-members-${org}`
+  const copilotTaskName = `org-detail-copilot-${org}`
+  const initialOverview = buildSeedOverview(org)
+  const { quotas, orgBudgets, orgOverageFromQuotas } = useCopilotUsage()
+  const configuredAccounts = useMemo(() => accounts.filter(account => account.org === org), [accounts, org])
+  const { personalQuotaLoading, personalQuotaSummary } = usePersonalQuotaSummary(configuredAccounts, quotas)
+  const overviewData = useOrgOverviewData({ accounts, org, enqueue, initialOverview, overviewCacheKey, overviewTaskName })
+  const membersData = useOrgMembersData({ accounts, org, enqueue, membersCacheKey, membersTaskName })
+  const preferredAccount = useMemo(
+    () => accounts.find(account => account.org === org)?.username ?? overviewData.overview?.authenticatedAs,
+    [accounts, org, overviewData.overview]
+  )
+  const isUserNamespace = Boolean(overviewData.overview?.isUserNamespace)
+  const copilotData = useOrgCopilotData({
+    accounts,
+    org,
+    enqueue,
+    preferredAccount,
+    isUserNamespace,
+    copilotCacheKey,
+    copilotTaskName,
+  })
+  const rateLimit = useOrgRateLimit(accounts, org)
+  const shouldRefreshOnMount = Boolean(
+    initialOverview || membersData.hasCachedMembers || copilotData.hasCachedCopilot
+  )
 
   const githubQueue = getTaskQueue('github')
   void stats
   const isOverviewTaskActive = githubQueue.hasTaskWithName(overviewTaskName)
   const isMembersTaskActive = githubQueue.hasTaskWithName(membersTaskName)
   const isCopilotTaskActive = githubQueue.hasTaskWithName(copilotTaskName)
-  const liveOverviewPhase = resolveRefreshPhase(
-    overviewPhase,
-    isOverviewTaskActive,
-    overview ? 'ready' : 'loading'
-  )
-  const liveMembersPhase = resolveRefreshPhase(
-    membersPhase,
-    isMembersTaskActive,
-    members ? 'ready' : 'loading'
-  )
-  const liveCopilotPhase = resolveRefreshPhase(
-    copilotPhase,
-    isCopilotTaskActive,
-    isUserNamespaceRef.current
-      ? personalQuotaSummary
-        ? 'ready'
-        : personalQuotaLoading
-          ? 'loading'
-          : 'error'
-      : copilotUsage
-        ? 'ready'
+  const liveOverviewPhase = resolveRefreshPhase(overviewData.overviewPhase, isOverviewTaskActive, overviewData.overview ? 'ready' : 'loading')
+  const liveMembersPhase = resolveRefreshPhase(membersData.membersPhase, isMembersTaskActive, membersData.membersResult ? 'ready' : 'loading')
+  const liveCopilotPhase = isUserNamespace
+    ? personalQuotaSummary
+      ? 'ready'
+      : personalQuotaLoading
+        ? 'loading'
         : 'error'
+    : resolveRefreshPhase(copilotData.copilotPhase, isCopilotTaskActive, copilotData.copilotUsage ? 'ready' : 'error')
+
+  const fetchAll = useCallback(
+    async (forceRefresh = false) => {
+      const work = [overviewData.fetchOverview(forceRefresh), membersData.fetchMembers(forceRefresh)]
+      if (!isUserNamespace) {
+        work.push(copilotData.fetchCopilot(forceRefresh))
+      }
+      await Promise.allSettled(work)
+    },
+    [copilotData.fetchCopilot, isUserNamespace, membersData.fetchMembers, overviewData.fetchOverview]
   )
+
+  useEffect(() => {
+    void fetchAll(shouldRefreshOnMount)
+  }, [fetchAll, shouldRefreshOnMount])
+
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0) return
+    const timer = setInterval(() => {
+      void fetchAll(true)
+    }, refreshInterval * MS_PER_MINUTE)
+    return () => clearInterval(timer)
+  }, [fetchAll, refreshInterval])
 
   const selectedMember = useMemo(
-    () => members?.members.find(member => member.login === memberLogin) ?? null,
-    [memberLogin, members]
+    () => membersData.membersResult?.members.find(member => member.login === memberLogin) ?? null,
+    [memberLogin, membersData.membersResult]
   )
-
   const selectedConfiguredAccount = useMemo(
     () => configuredAccounts.find(account => account.username === memberLogin) ?? null,
     [configuredAccounts, memberLogin]
   )
-
   const contributorMap = useMemo(
-    () =>
-      new Map(
-        (overview?.metrics.topContributorsToday ?? []).map(contributor => [
-          contributor.login,
-          contributor,
-        ])
-      ),
-    [overview]
+    () => new Map((overviewData.overview?.metrics.topContributorsToday ?? []).map(contributor => [contributor.login, contributor])),
+    [overviewData.overview]
   )
-
-  const selectedContributor = memberLogin ? (contributorMap.get(memberLogin) ?? null) : null
   const budgetState = orgBudgets[org]
   const quotaOverage = orgOverageFromQuotas.get(org) ?? 0
-  const hasFullOverview = hasCachedFullOverview || overviewPhase === 'ready'
-
-  const fetchOverview = useCallback(
-    async (forceRefresh = false) => {
-      const queue = getTaskQueue('github')
-      const taskName = overviewTaskName
-      const cachedOverview = normalizeOverview(
-        dataCache.get<OrgOverviewResult>(overviewCacheKey)?.data ?? null
-      )
-      if (cachedOverview && !forceRefresh) {
-        setOverview(cachedOverview)
-        setOverviewPhase('ready')
-        return
-      }
-
-      if (queue.hasTaskWithName(taskName)) {
-        return
-      }
-
-      setOverviewPhase(hasOverviewRef.current ? 'refreshing' : 'loading')
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgOverview(org)
-          },
-          { name: taskName, priority: -1 }
-        )
-
-        startTransition(() => {
-          setOverview(normalizeOverview(result))
-          setOverviewPhase('ready')
-        })
-        dataCache.set(overviewCacheKey, normalizeOverview(result))
-      } catch (fetchError) {
-        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
-        setOverviewPhase('error')
-        setOverviewError(fetchError instanceof Error ? fetchError.message : String(fetchError))
-      }
-    },
-    [accounts, org, overviewCacheKey, overviewTaskName]
-  )
-
-  const fetchMembers = useCallback(
-    async (forceRefresh = false) => {
-      const queue = getTaskQueue('github')
-      const taskName = membersTaskName
-      const cachedMembers = dataCache.get<OrgMemberResult>(membersCacheKey)?.data ?? null
-      if (cachedMembers && !forceRefresh) {
-        setMembers(cachedMembers)
-        setMembersPhase('ready')
-        return
-      }
-
-      if (queue.hasTaskWithName(taskName)) {
-        return
-      }
-
-      setMembersPhase(hasMembersRef.current ? 'refreshing' : 'loading')
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgMembers(org)
-          },
-          { name: taskName, priority: -1 }
-        )
-
-        startTransition(() => {
-          setMembers(result)
-          setMembersPhase('ready')
-        })
-        dataCache.set(membersCacheKey, result)
-      } catch (fetchError) {
-        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
-        setMembersPhase('error')
-        setMembersError(fetchError instanceof Error ? fetchError.message : String(fetchError))
-      }
-    },
-    [accounts, membersCacheKey, membersTaskName, org]
-  )
-
-  const fetchCopilot = useCallback(
-    async (forceRefresh = false) => {
-      if (isUserNamespaceRef.current) {
-        return
-      }
-
-      const queue = getTaskQueue('github')
-      const taskName = copilotTaskName
-      const cachedCopilot = dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data ?? null
-      if (cachedCopilot && !forceRefresh) {
-        setCopilotUsage(cachedCopilot)
-        setCopilotPhase('ready')
-        return
-      }
-
-      if (queue.hasTaskWithName(taskName)) {
-        return
-      }
-
-      setCopilotPhase(hasCopilotRef.current ? 'refreshing' : 'loading')
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-            return await window.github.getCopilotUsage(org, preferredAccountRef.current)
-          },
-          { name: taskName, priority: -1 }
-        )
-        if (result.success && result.data) {
-          const metrics: OrgCopilotUsageData = {
-            org: result.data.org,
-            premiumRequests: result.data.premiumRequests,
-            grossCost: result.data.grossCost,
-            discount: result.data.discount,
-            netCost: result.data.netCost,
-            businessSeats: result.data.businessSeats,
-            fetchedAt: result.data.fetchedAt,
-          }
-          startTransition(() => {
-            setCopilotUsage(metrics)
-            setCopilotPhase('ready')
-          })
-          dataCache.set(copilotCacheKey, metrics)
-        } else {
-          setCopilotPhase('error')
-        }
-      } catch (fetchError) {
-        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
-        setCopilotPhase('error')
-        setCopilotError(fetchError instanceof Error ? fetchError.message : String(fetchError))
-      }
-    },
-    [copilotCacheKey, copilotTaskName, org]
-  )
-
-  const fetchAll = useCallback(
-    async (forceRefresh = false) => {
-      setOverviewError(null)
-      setMembersError(null)
-      setCopilotError(null)
-      const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh)]
-      if (!isUserNamespaceRef.current) {
-        work.push(fetchCopilot(forceRefresh))
-      }
-      await Promise.allSettled(work)
-    },
-    [fetchCopilot, fetchMembers, fetchOverview]
-  )
-
-  const fetchRateLimit = useCallback(async () => {
-    try {
-      const client = new GitHubClient({ accounts }, 7)
-      const result = await client.getRateLimit(org)
-      setRateLimit(result)
-    } catch {
-      // silently ignore — gauge just won't render
-    }
-  }, [accounts, org])
-
-  useEffect(() => {
-    fetchAll(shouldRefreshOnMount)
-    fetchRateLimit()
-  }, [fetchAll, fetchRateLimit, shouldRefreshOnMount])
-
-  useEffect(() => {
-    const timer = setInterval(fetchRateLimit, 60_000)
-    return () => clearInterval(timer)
-  }, [fetchRateLimit])
-
-  useEffect(() => {
-    if (!refreshInterval || refreshInterval <= 0) return
-    const intervalMs = refreshInterval * MS_PER_MINUTE
-    const timer = setInterval(() => fetchAll(true), intervalMs)
-    return () => clearInterval(timer)
-  }, [fetchAll, refreshInterval])
-
-  const isInitialLoading = !overview && liveOverviewPhase === 'loading'
-  const isUpdating =
-    liveOverviewPhase === 'refreshing' ||
-    liveMembersPhase === 'refreshing' ||
-    liveCopilotPhase === 'refreshing'
-
-  const memberCount = members?.members.length ?? 0
-  const selectedMemberQuotaState = selectedConfiguredAccount
-    ? quotas[selectedConfiguredAccount.username]
-    : null
-  const shouldShowPersonalQuotaPulse = Boolean(overview?.isUserNamespace && personalQuotaSummary)
+  const isInitialLoading = !overviewData.overview && liveOverviewPhase === 'loading'
+  const isUpdating = [liveOverviewPhase, liveMembersPhase, liveCopilotPhase].includes('refreshing')
+  const selectedContributor = memberLogin ? (contributorMap.get(memberLogin) ?? null) : null
+  const selectedMemberQuotaState = selectedConfiguredAccount ? quotas[selectedConfiguredAccount.username] : null
 
   return {
     budgetState,
     configuredAccounts,
     contributorMap,
-    copilotError,
-    copilotUsage,
+    copilotError: copilotData.copilotError,
+    copilotUsage: copilotData.copilotUsage,
     fetchAll,
-    hasFullOverview,
+    hasFullOverview: overviewData.hasFullOverview,
     isInitialLoading,
     isUpdating,
     liveCopilotPhase,
     liveMembersPhase,
     liveOverviewPhase,
-    memberCount,
-    members: members?.members ?? [],
-    membersError,
-    overview,
-    overviewError,
+    memberCount: membersData.membersResult?.members.length ?? 0,
+    members: membersData.membersResult?.members ?? [],
+    membersError: membersData.membersError,
+    overview: overviewData.overview,
+    overviewError: overviewData.overviewError,
     personalQuotaSummary,
     quotaOverage,
     quotas,
@@ -900,7 +976,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     selectedContributor,
     selectedMember,
     selectedMemberQuotaState,
-    shouldShowPersonalQuotaPulse,
+    shouldShowPersonalQuotaPulse: Boolean(isUserNamespace && personalQuotaSummary),
   }
 }
 

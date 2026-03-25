@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useReducer } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { Send, Loader2, Sparkles, History } from 'lucide-react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../hooks/useConvex'
 import { useCopilotSettings, useGitHubAccounts } from '../hooks/useConfig'
@@ -32,27 +32,10 @@ interface CopilotPromptState {
   localModel: string
 }
 
-type CopilotPromptAction = {
-  type: 'PATCH_STATE'
-  payload: Partial<CopilotPromptState>
-}
-
-function copilotPromptReducer(
-  state: CopilotPromptState,
-  action: CopilotPromptAction
-): CopilotPromptState {
-  switch (action.type) {
-    case 'PATCH_STATE':
-      return { ...state, ...action.payload }
-    default:
-      return state
-  }
-}
-
 export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
   const { model: configuredModel, ghAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
-  const [state, dispatch] = useReducer(copilotPromptReducer, {
+  const [state, setState] = useState<CopilotPromptState>({
     prompt: '',
     category: 'general',
     submitting: false,
@@ -72,13 +55,11 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
   useEffect(() => {
     if (!initializedRef.current && configuredModel) {
       initializedRef.current = true
-      dispatch({
-        type: 'PATCH_STATE',
-        payload: {
-          localAccount: ghAccount,
-          localModel: configuredModel,
-        },
-      })
+      setState(previousState => ({
+        ...previousState,
+        localAccount: ghAccount,
+        localModel: configuredModel,
+      }))
     }
   }, [ghAccount, configuredModel])
 
@@ -107,10 +88,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         // No GitHub URL — if we previously auto-detected, revert to default
         if (autoDetectedRef.current) {
           autoDetectedRef.current = false
-          dispatch({
-            type: 'PATCH_STATE',
-            payload: { localAccount: ghAccount },
-          })
+          setState(previousState => ({
+            ...previousState,
+            localAccount: ghAccount,
+          }))
         }
         return
       }
@@ -121,10 +102,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         if (acct) {
           if (localAccount !== acct.username) {
             autoDetectedRef.current = true
-            dispatch({
-              type: 'PATCH_STATE',
-              payload: { localAccount: acct.username },
-            })
+            setState(previousState => ({
+              ...previousState,
+              localAccount: acct.username,
+            }))
           }
           return
         }
@@ -143,13 +124,11 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     const trimmed = prompt.trim()
     if (!trimmed || submitting) return
 
-    dispatch({
-      type: 'PATCH_STATE',
-      payload: {
-        submitting: true,
-        error: null,
-      },
-    })
+    setState(previousState => ({
+      ...previousState,
+      submitting: true,
+      error: null,
+    }))
 
     try {
       const result = await window.copilot.execute({
@@ -160,31 +139,29 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       })
 
       if (result.success && result.resultId) {
-        dispatch({
-          type: 'PATCH_STATE',
-          payload: {
-            prompt: '',
-            error: null,
-          },
-        })
+        setState(previousState => ({
+          ...previousState,
+          prompt: '',
+          error: null,
+        }))
         // Open the result tab
         onOpenResult?.(result.resultId)
       } else {
-        dispatch({
-          type: 'PATCH_STATE',
-          payload: { error: result.error ?? 'Unknown error' },
-        })
+        setState(previousState => ({
+          ...previousState,
+          error: result.error ?? 'Unknown error',
+        }))
       }
     } catch (err) {
-      dispatch({
-        type: 'PATCH_STATE',
-        payload: { error: err instanceof Error ? err.message : String(err) },
-      })
+      setState(previousState => ({
+        ...previousState,
+        error: err instanceof Error ? err.message : String(err),
+      }))
     } finally {
-      dispatch({
-        type: 'PATCH_STATE',
-        payload: { submitting: false },
-      })
+      setState(previousState => ({
+        ...previousState,
+        submitting: false,
+      }))
     }
   }
 
@@ -222,10 +199,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
           className="copilot-prompt-textarea"
           value={prompt}
           onChange={e =>
-            dispatch({
-              type: 'PATCH_STATE',
-              payload: { prompt: e.target.value },
-            })
+            setState(previousState => ({
+              ...previousState,
+              prompt: e.target.value,
+            }))
           }
           onKeyDown={handleKeyDown}
           placeholder="Ask Copilot anything... (Ctrl+Enter to send)"
@@ -239,10 +216,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
               value={localAccount}
               onChange={val => {
                 autoDetectedRef.current = false
-                dispatch({
-                  type: 'PATCH_STATE',
-                  payload: { localAccount: val },
-                })
+                setState(previousState => ({
+                  ...previousState,
+                  localAccount: val,
+                }))
               }}
               disabled={submitting}
               title="GitHub account for Copilot"
@@ -253,10 +230,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
             <ModelPicker
               value={localModel}
               onChange={val =>
-                dispatch({
-                  type: 'PATCH_STATE',
-                  payload: { localModel: val },
-                })
+                setState(previousState => ({
+                  ...previousState,
+                  localModel: val,
+                }))
               }
               ghAccount={localAccount}
               disabled={submitting}
@@ -270,10 +247,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
               value={category}
               options={CATEGORY_OPTIONS}
               onChange={val =>
-                dispatch({
-                  type: 'PATCH_STATE',
-                  payload: { category: val },
-                })
+                setState(previousState => ({
+                  ...previousState,
+                  category: val,
+                }))
               }
               disabled={submitting}
               align="right"

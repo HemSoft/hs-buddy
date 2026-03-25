@@ -37,36 +37,11 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
     activeTabId: null,
   })
   const { tabs, activeTabId } = tabState
-  const tabsRef = useRef<Tab[]>([])
-  const activeTabIdRef = useRef<string | null>(null)
   const nextTabIdRef = useRef(0)
-
-  useEffect(() => {
-    tabsRef.current = tabs
-  }, [tabs])
-
-  useEffect(() => {
-    activeTabIdRef.current = activeTabId
-  }, [activeTabId])
 
   const openTab = useCallback(
     async (viewId: string) => {
       onViewOpen(viewId)
-
-      const existingTab = tabsRef.current.find(tab => tab.viewId === viewId)
-      if (existingTab) {
-        setTabState(previousState => {
-          if (previousState.activeTabId === existingTab.id) {
-            return previousState
-          }
-
-          return {
-            ...previousState,
-            activeTabId: existingTab.id,
-          }
-        })
-        return
-      }
 
       let label = 'View'
       try {
@@ -77,15 +52,15 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
 
       const newTabId = createTabId(nextTabIdRef)
       setTabState(previousState => {
-        const matchingTab = previousState.tabs.find(tab => tab.viewId === viewId)
-        if (matchingTab) {
-          if (previousState.activeTabId === matchingTab.id) {
+        const existingTab = previousState.tabs.find(tab => tab.viewId === viewId)
+        if (existingTab) {
+          if (previousState.activeTabId === existingTab.id) {
             return previousState
           }
 
           return {
             ...previousState,
-            activeTabId: matchingTab.id,
+            activeTabId: existingTab.id,
           }
         }
 
@@ -205,7 +180,7 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
           return previousState
         }
 
-        if (activeTabIdRef.current === tabId && nextTabs.length > 0) {
+        if (previousState.activeTabId === tabId && nextTabs.length > 0) {
           const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
           const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
           return {
@@ -230,12 +205,12 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
 
   const closeView = useCallback(
     (viewId: string) => {
-      const tab = tabsRef.current.find(currentTab => currentTab.viewId === viewId)
+      const tab = tabs.find(currentTab => currentTab.viewId === viewId)
       if (tab) {
         closeTab(tab.id)
       }
     },
-    [closeTab]
+    [closeTab, tabs]
   )
 
   const selectTab = useCallback((tabId: string) => {

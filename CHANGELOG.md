@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.426] - 2026-03-25
+
 ## [0.1.425] - 2026-03-25
+
+### Fixed
+
+- Use GH_AW_GITHUB_TOKEN for cross-repo read access
 
 ## [0.1.424] - 2026-03-25
 

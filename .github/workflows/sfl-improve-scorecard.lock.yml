@@ -27,7 +27,7 @@
 # creates exactly one agent-fixable issue with detailed fix instructions
 # for the SFL pipeline to process.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"0975532fd50ab801cf933f186c87c84ced2a060e6632c2b81743cf2b8e4fe55a","compiler_version":"v0.58.3","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"d7c5be1d9bd32a233062d6b9bf90b4e7362cb2d1d3af03e8a0e3d0c13732ffb8","compiler_version":"v0.58.3","strict":true}
 
 name: "Scorecard Improvement Audit"
 "on":
@@ -157,6 +157,9 @@ jobs:
           {{#if __GH_AW_GITHUB_RUN_ID__ }}
           - **workflow-run-id**: __GH_AW_GITHUB_RUN_ID__
           {{/if}}
+          - **checkouts**: The following repositories have been checked out and are available in the workspace:
+            - `$GITHUB_WORKSPACE/org-metrics` → `relias-engineering/org-metrics` [shallow clone, fetch-depth=1 (default)]
+            - **Note**: If a branch you need is not in the list above and is not listed as an additional fetched ref, it has NOT been checked out. For private repositories you cannot fetch it without proper authentication. If the branch is required and not available, exit with an error and ask the user to add it to the `fetch:` option of the `checkout:` configuration (e.g., `fetch: ["refs/pulls/open/*"]` for all open PR refs, or `fetch: ["main", "feature/my-branch"]` for specific branches).
           </github-context>
           
           GH_AW_PROMPT_EOF
@@ -265,6 +268,15 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+      - name: Checkout relias-engineering/org-metrics into ./org-metrics
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          repository: relias-engineering/org-metrics
+          path: ./org-metrics
+          token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          sparse-checkout: |
+            reports/scorecard-hs-buddy.html
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       - name: Configure Git credentials
@@ -299,6 +311,16 @@ jobs:
           GH_HOST: github.com
       - name: Install AWF binary
         run: bash /opt/gh-aw/actions/install_awf_binary.sh v0.24.1
+      - name: Determine automatic lockdown mode for GitHub MCP Server
+        id: determine-automatic-lockdown
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN }}
+        with:
+          script: |
+            const determineAutomaticLockdown = require('/opt/gh-aw/actions/determine_automatic_lockdown.cjs');
+            await determineAutomaticLockdown(github, context, core);
       - name: Download container images
         run: bash /opt/gh-aw/actions/download_docker_images.sh ghcr.io/github/gh-aw-firewall/agent:0.24.1 ghcr.io/github/gh-aw-firewall/api-proxy:0.24.1 ghcr.io/github/gh-aw-firewall/squid:0.24.1 ghcr.io/github/gh-aw-mcpg:v0.1.15 ghcr.io/github/github-mcp-server:v0.32.0 node:lts-alpine
       - name: Write Safe Outputs Config
@@ -776,7 +798,8 @@ jobs:
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
           GH_AW_SAFE_OUTPUTS_API_KEY: ${{ steps.safe-outputs-start.outputs.api_key }}
           GH_AW_SAFE_OUTPUTS_PORT: ${{ steps.safe-outputs-start.outputs.port }}
-          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GITHUB_MCP_LOCKDOWN: ${{ steps.determine-automatic-lockdown.outputs.lockdown == 'true' && '1' || '0' }}
+          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -eo pipefail
           mkdir -p /tmp/gh-aw/mcp-config
@@ -804,6 +827,7 @@ jobs:
                 "container": "ghcr.io/github/github-mcp-server:v0.32.0",
                 "env": {
                   "GITHUB_HOST": "\${GITHUB_SERVER_URL}",
+                  "GITHUB_LOCKDOWN_MODE": "$GITHUB_MCP_LOCKDOWN",
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "\${GITHUB_MCP_SERVER_TOKEN}",
                   "GITHUB_READ_ONLY": "1",
                   "GITHUB_TOOLSETS": "context,repos,issues,pull_requests"
@@ -854,7 +878,7 @@ jobs:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_AW: true
           GITHUB_HEAD_REF: ${{ github.head_ref }}
-          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_STEP_SUMMARY: /tmp/gh-aw/agent-step-summary.md

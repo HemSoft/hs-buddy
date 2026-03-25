@@ -21,10 +21,12 @@ engine:
 
 network: defaults
 
-tools:
-  github:
-    lockdown: false
+checkout:
+  - repository: relias-engineering/org-metrics
+    path: ./org-metrics
     github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+    sparse-checkout: |
+      reports/scorecard-hs-buddy.html
 
 safe-outputs:
   create-issue:
@@ -58,23 +60,18 @@ with:
 - `issue_number`: the issue number
 - `status`: `"closed"`
 
-## Step 1 — Fetch the scorecard
+## Step 1 — Read the scorecard
 
-Fetch the scorecard report from the `relias-engineering/org-metrics` repository.
+The scorecard report from `relias-engineering/org-metrics` is already checked
+out into the workspace at `./org-metrics/reports/scorecard-hs-buddy.html`.
+Read this local file directly.
+
 The report is a static HTML file with scorecard data embedded as a JSON blob
-in a `<script>` tag at the end of the page.
+in a `<script>` tag at the end of the page. Parse the HTML content and
+extract the JSON data blob.
 
-Use `get_file_contents` to read the file directly:
-
-- **Owner**: `relias-engineering`
-- **Repo**: `org-metrics`
-- **Path**: `reports/scorecard-hs-buddy.html`
-
-The `github-token` in the tools config grants cross-repo read access.
-Parse the returned HTML content and extract the JSON data blob.
-
-If the fetch fails, emit a `missing_data` safe output and post the
-activity log entry — do NOT attempt alternative fetch methods.
+If the file is missing or empty, emit a `missing_data` safe output and post
+the activity log entry — do NOT attempt alternative fetch methods.
 
 The JSON data blob has this structure (key fields):
 
@@ -268,7 +265,7 @@ When fixing lint warnings/errors:
 
 ## Process
 
-1. Fetch the scorecard report (Step 1)
+1. Read the local scorecard report (Step 1)
 2. Parse the JSON data and collect failing rules (Step 2)
 3. Select the highest-impact agent-fixable rule (Step 3)
 4. Inspect the repository to gather specific file/line details for the fix

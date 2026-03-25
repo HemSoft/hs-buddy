@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.433] - 2026-03-25
+
 ## [0.1.432] - 2026-03-25
+
+### Fixed
+
+- Remove dead deps, update docs, fix unused param (closes #350)
 
 ## [0.1.431] - 2026-03-25
 

@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import {
   AlertCircle,
   ArrowUpDown,
@@ -73,6 +73,64 @@ interface RateLimitSnapshot {
   remaining: number
   reset: number
   used: number
+}
+
+interface OrgCopilotState {
+  usage: OrgCopilotUsageData | null
+  phase: LoadPhase
+  error: string | null
+}
+
+type OrgCopilotAction =
+  | { type: 'reset-for-user-namespace' }
+  | { type: 'hydrate-cache'; usage: OrgCopilotUsageData | null }
+  | { type: 'start-loading'; hasUsage: boolean }
+  | { type: 'success'; usage: OrgCopilotUsageData }
+  | { type: 'error'; error: string | null }
+
+function createOrgCopilotState(cachedCopilot: OrgCopilotUsageData | null): OrgCopilotState {
+  return {
+    usage: cachedCopilot,
+    phase: cachedCopilot ? 'ready' : 'loading',
+    error: null,
+  }
+}
+
+function orgCopilotReducer(state: OrgCopilotState, action: OrgCopilotAction): OrgCopilotState {
+  switch (action.type) {
+    case 'reset-for-user-namespace':
+      return {
+        usage: EMPTY_COPILOT_USAGE,
+        phase: 'loading',
+        error: null,
+      }
+    case 'hydrate-cache':
+      return {
+        usage: action.usage,
+        phase: 'ready',
+        error: null,
+      }
+    case 'start-loading':
+      return {
+        ...state,
+        phase: action.hasUsage ? 'refreshing' : 'loading',
+        error: null,
+      }
+    case 'success':
+      return {
+        usage: action.usage,
+        phase: 'ready',
+        error: null,
+      }
+    case 'error':
+      return {
+        ...state,
+        phase: 'error',
+        error: action.error,
+      }
+    default:
+      return state
+  }
 }
 
 function normalizeOverview(result: OrgOverviewResult | null): OrgOverviewResult | null {
@@ -690,11 +748,11 @@ function useOrgCopilotData({
 }) {
   const enqueueRef = useRef(enqueue)
   const cachedCopilot = dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data ?? null
-  const [copilotUsage, setCopilotUsage] = useState<OrgCopilotUsageData | null>(cachedCopilot)
-  const [copilotPhase, setCopilotPhase] = useState<LoadPhase>(() =>
-    cachedCopilot ? 'ready' : 'loading'
+  const [copilotState, dispatchCopilot] = useReducer(
+    orgCopilotReducer,
+    cachedCopilot,
+    createOrgCopilotState
   )
-  const [copilotError, setCopilotError] = useState<string | null>(null)
   const hasCopilotRef = useRef(Boolean(cachedCopilot))
 
   useEffect(() => {
@@ -702,17 +760,15 @@ function useOrgCopilotData({
   }, [enqueue])
 
   useEffect(() => {
-    hasCopilotRef.current = Boolean(copilotUsage)
-  }, [copilotUsage])
+    hasCopilotRef.current = Boolean(copilotState.usage)
+  }, [copilotState.usage])
 
   useEffect(() => {
     if (!isUserNamespace) {
       return
     }
 
-    setCopilotUsage(EMPTY_COPILOT_USAGE)
-    setCopilotError(null)
-    setCopilotPhase('loading')
+    dispatchCopilot({ type: 'reset-for-user-namespace' })
   }, [isUserNamespace])
 
   const fetchCopilot = useCallback(
@@ -724,9 +780,7 @@ function useOrgCopilotData({
       const queue = getTaskQueue('github')
       const cached = dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data ?? null
       if (cached && !forceRefresh) {
-        setCopilotUsage(cached)
-        setCopilotError(null)
-        setCopilotPhase('ready')
+        dispatchCopilot({ type: 'hydrate-cache', usage: cached })
         return
       }
 
@@ -734,8 +788,7 @@ function useOrgCopilotData({
         return
       }
 
-      setCopilotError(null)
-      setCopilotPhase(hasCopilotRef.current ? 'refreshing' : 'loading')
+      dispatchCopilot({ type: 'start-loading', hasUsage: hasCopilotRef.current })
 
       try {
         const result = await enqueueRef.current(
@@ -756,26 +809,27 @@ function useOrgCopilotData({
             fetchedAt: result.data.fetchedAt,
           }
           startTransition(() => {
-            setCopilotUsage(metrics)
-            setCopilotPhase('ready')
+            dispatchCopilot({ type: 'success', usage: metrics })
           })
           dataCache.set(copilotCacheKey, metrics)
         } else {
-          setCopilotPhase('error')
+          dispatchCopilot({ type: 'error', error: null })
         }
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
-        setCopilotPhase('error')
-        setCopilotError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+        dispatchCopilot({
+          type: 'error',
+          error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        })
       }
     },
     [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]
   )
 
   return {
-    copilotError,
-    copilotPhase,
-    copilotUsage,
+    copilotError: copilotState.error,
+    copilotPhase: copilotState.phase,
+    copilotUsage: copilotState.usage,
     fetchCopilot,
     hasCachedCopilot: Boolean(cachedCopilot),
   }

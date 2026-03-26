@@ -98,6 +98,19 @@ ALL of the following areas:
 - Are TypeScript types used correctly (no unnecessary `any` or `as` casts)?
 - Are imports organized consistently?
 
+### Warning & Error Suppression (always BLOCKING)
+
+- Does the change add `#pragma warning disable`, `[SuppressMessage]`,
+  `[ExcludeFromCodeCoverage]`, `// ReSharper disable`, `// @ts-ignore`,
+  `// @ts-expect-error`, `// eslint-disable`, `// noinspection`,
+  `<!-- markdownlint-disable -->`, or `dotnet_diagnostic.*.severity = none`?
+- Does the change add `/p:NoWarn`, `/p:WarningLevel=0`, `--no-warn`, or
+  similar build-time warning suppression flags?
+- Does the change weaken an `.editorconfig` or linter rule to avoid fixing
+  the underlying code issue?
+- **Any** form of warning or error suppression is a **BLOCKING** issue.
+  The fix must address the root cause, not silence the diagnostic.
+
 ### Best Practices
 
 - Are there missing tests for the changed behavior?
@@ -226,6 +239,12 @@ Review every changed line across ALL dimensions:
 14. **Unnecessary complexity**: Are there simpler ways to express the logic?
 15. **TypeScript types**: No unnecessary `any` or `as` casts?
 16. **Missing tests**: Are tests needed for the changed behavior?
+17. **Warning/error suppression** (always BLOCKING): Does the change add
+    `#pragma warning disable`, `[SuppressMessage]`, `[ExcludeFromCodeCoverage]`,
+    `// @ts-ignore`, `// eslint-disable`, `<!-- markdownlint-disable -->`,
+    `.editorconfig` severity downgrades, or build-flag suppressions like
+    `/p:NoWarn`? Any mechanism that silences a warning instead of fixing the
+    root cause is BLOCKING — no exceptions.
 
 Classify each finding as:
 

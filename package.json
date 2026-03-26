@@ -92,7 +92,8 @@
   "packageManager": "bun@1.2.0",
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --max-warnings 0 --no-ignore"
+      "eslint --max-warnings 0 --no-ignore",
+      "knip --no-exit-code --files"
     ],
     "*.md": [
       "markdownlint-cli2"

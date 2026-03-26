@@ -18,5 +18,11 @@
     "@github/copilot-win32-x64",
     "@types/sharp",
     "lint-staged"
-  ]
+  ],
+  "rules": {
+    "binaries": "warn",
+    "exports": "warn",
+    "types": "warn",
+    "duplicates": "warn"
+  }
 }

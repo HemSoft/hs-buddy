@@ -15,6 +15,7 @@ import {
   type AccountQuotaState,
 } from './quotaUtils'
 import type { GitHubAccount } from '../../types/config'
+import { daysUntilReset, formatCopilotPlan, formatResetDate } from '../../utils/copilotFormatUtils'
 import { formatTime } from '../../utils/dateUtils'
 
 interface AccountQuotaCardProps {
@@ -22,33 +23,10 @@ interface AccountQuotaCardProps {
   state: AccountQuotaState
 }
 
-function formatPlan(plan: string): string {
-  const planNames: Record<string, string> = {
-    enterprise: 'Enterprise',
-    business: 'Business',
-    individual_pro: 'Pro+',
-    individual: 'Pro',
-    free: 'Free',
-  }
-  return planNames[plan] || plan
-}
-
 function PlanIcon({ plan }: { plan: string }) {
   if (plan === 'enterprise') return <Building2 size={13} />
   if (plan === 'business') return <Briefcase size={13} />
   return <Crown size={13} />
-}
-
-function formatResetDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function daysUntilReset(dateStr: string) {
-  const resetDate = new Date(dateStr)
-  const now = new Date()
-  const diff = resetDate.getTime() - now.getTime()
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
 export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
@@ -90,7 +68,7 @@ export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
               <span className="usage-account-name">{data.login}</span>
               <span className="usage-account-plan">
                 <PlanIcon plan={data.copilot_plan} />
-                {formatPlan(data.copilot_plan)}
+                {formatCopilotPlan(data.copilot_plan)}
               </span>
             </div>
             {state?.loading && <RefreshCw size={12} className="spin" />}
@@ -158,7 +136,7 @@ export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
 
           <div className="usage-account-footer">
             <div className="usage-account-reset">
-              Resets {formatResetDate(data.quota_reset_date_utc)}
+              Resets {formatResetDate(data.quota_reset_date_utc, true)}
               <span className="usage-reset-days">
                 ({daysUntilReset(data.quota_reset_date_utc)}d)
               </span>

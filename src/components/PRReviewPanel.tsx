@@ -19,6 +19,24 @@ export interface PRReviewInfo {
   initialPrompt?: string
 }
 
+export function parsePRReviewInfo(viewId: string): PRReviewInfo | null {
+  const prefix = 'pr-review:'
+  if (!viewId.startsWith(prefix)) {
+    return null
+  }
+
+  try {
+    const encoded = viewId.replace(prefix, '')
+    if (!encoded) {
+      return null
+    }
+
+    return JSON.parse(decodeURIComponent(encoded)) as PRReviewInfo
+  } catch {
+    return null
+  }
+}
+
 interface PRReviewPanelProps {
   /** PR metadata to review */
   prInfo: PRReviewInfo

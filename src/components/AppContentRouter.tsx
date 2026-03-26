@@ -18,8 +18,7 @@ import { PullRequestDetailPanel } from './PullRequestDetailPanel'
 import { CopilotPromptBox } from './CopilotPromptBox'
 import { CopilotResultPanel } from './CopilotResultPanel'
 import { CopilotResultsList } from './CopilotResultsList'
-import { PRReviewPanel } from './PRReviewPanel'
-import type { PRReviewInfo } from './PRReviewPanel'
+import { PRReviewPanel, parsePRReviewInfo } from './PRReviewPanel'
 import { CopilotUsagePanel } from './CopilotUsagePanel'
 import { OrgDetailPanel } from './OrgDetailPanel'
 import { UserDetailPanel } from './UserDetailPanel'
@@ -254,9 +253,8 @@ export function AppContentRouter({
         return <CopilotResultPanel resultId={resultId} />
       }
       if (activeViewId.startsWith('pr-review:')) {
-        try {
-          const encoded = activeViewId.replace('pr-review:', '')
-          const prInfo = JSON.parse(decodeURIComponent(encoded)) as PRReviewInfo
+        const prInfo = parsePRReviewInfo(activeViewId)
+        if (prInfo) {
           return (
             <PRReviewPanel
               prInfo={prInfo}
@@ -264,13 +262,13 @@ export function AppContentRouter({
               onClose={() => onCloseView(activeViewId)}
             />
           )
-        } catch {
-          return (
-            <div className="content-placeholder">
-              <p>Invalid PR review data</p>
-            </div>
-          )
         }
+
+        return (
+          <div className="content-placeholder">
+            <p>Invalid PR review data</p>
+          </div>
+        )
       }
       if (activeViewId.startsWith('pr-detail:')) {
         const route = parsePRDetailRoute(activeViewId)

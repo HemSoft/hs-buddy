@@ -7,6 +7,7 @@ import {
   getQuotaColor,
   type QuotaData,
 } from './copilot-usage/quotaUtils'
+import { daysUntilReset, formatCopilotPlan, formatResetDate } from '../utils/copilotFormatUtils'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import './UserPremiumUsageSection.css'
@@ -90,31 +91,6 @@ interface UserPremiumData {
 }
 
 const premiumCache = new Map<string, { data: UserPremiumData; fetchedAt: number }>()
-
-// ── Helpers ──
-
-function formatResetDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-function daysUntilReset(dateStr: string) {
-  const resetDate = new Date(dateStr)
-  const diff = resetDate.getTime() - Date.now()
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
-}
-
-function formatPlanType(plan: string | null): string {
-  if (!plan) return 'Unknown'
-  const labels: Record<string, string> = {
-    business: 'Business',
-    enterprise: 'Enterprise',
-    individual: 'Pro',
-    individual_pro: 'Pro+',
-    free: 'Free',
-  }
-  return labels[plan] ?? plan
-}
 
 function fetchPremiumData(
   org: string,
@@ -483,7 +459,7 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
 
       {/* ── Seat metadata pills ── */}
       <div className="ud-prem-meta">
-        <span className="ud-prem-pill">{formatPlanType(data.planType)}</span>
+        <span className="ud-prem-pill">{formatCopilotPlan(data.planType)}</span>
         {data.lastActivityAt && (
           <span className="ud-prem-pill ud-prem-pill--muted">
             <Clock size={10} />

@@ -1,5 +1,5 @@
 import { parsePRDetailRoute } from '../utils/prDetailView'
-import type { PRReviewInfo } from './PRReviewPanel'
+import { parsePRReviewInfo } from './PRReviewPanel'
 
 export const viewLabels: Record<string, string> = {
   'pr-my-prs': 'My PRs',
@@ -91,12 +91,12 @@ export function getViewLabel(viewId: string): string {
     return 'Schedule Detail'
   }
   if (viewId.startsWith('pr-review:')) {
-    try {
-      const info = JSON.parse(decodeURIComponent(viewId.replace('pr-review:', ''))) as PRReviewInfo
+    const info = parsePRReviewInfo(viewId)
+    if (info) {
       return `Review: ${info.prTitle.length > 30 ? info.prTitle.slice(0, 30) + '…' : info.prTitle}`
-    } catch {
-      return 'PR Review'
     }
+
+    return 'PR Review'
   }
   if (viewId.startsWith('pr-detail:')) {
     const route = parsePRDetailRoute(viewId)

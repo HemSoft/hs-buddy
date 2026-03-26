@@ -24,6 +24,7 @@ import {
 } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
+import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { MS_PER_MINUTE } from '../../../constants'
@@ -31,17 +32,6 @@ import { MS_PER_MINUTE } from '../../../constants'
 export interface SidebarItem {
   id: string
   label: string
-}
-
-const ABORT_ERROR_MESSAGE = 'Cancelled'
-const ABORT_ERROR_NAME = 'AbortError'
-
-function throwIfAborted(signal: AbortSignal): void {
-  if (signal.aborted) throw new DOMException(ABORT_ERROR_MESSAGE, ABORT_ERROR_NAME)
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === ABORT_ERROR_NAME
 }
 
 function getUniqueOrgs(accounts: Array<{ org?: string }>): string[] {

@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.436] - 2026-03-26
+
 ## [0.1.435] - 2026-03-26
+
+### Added
+
+- Add knip v6 for unused code and dependency detection
 
 ## [0.1.434] - 2026-03-25
 

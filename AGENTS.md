@@ -85,6 +85,33 @@ and recompile.
 
 ---
 
+## Code Quality Tooling
+
+This project enforces code health with two complementary tools. Both run in
+CI and should be run locally before pushing.
+
+### Knip (dead code & unused dependencies)
+
+- **Run**: `bun run knip`
+- **Config**: `knip.json` — entry points for Electron, Convex, scripts.
+- **Policy**: zero suppressions. Every finding must be fixed (remove the dead
+  code, unused export, or unused dependency). Never add `ignoreDependencies`,
+  `ignoreBinaries`, or `rules` to knip.json.
+- **CI**: runs in the `test` job and blocks the build on failure.
+
+### e18e (dependency health & migration)
+
+- **Analyze**: `bun run e18e` — reports duplicate transitive dependencies,
+  bloated packages, and packaging suggestions.
+- **Migrate**: `bun run e18e:migrate` — auto-replaces heavy packages with
+  lighter alternatives where possible (e.g. `chalk` → native, `rimraf` →
+  `fs.rm`). Run periodically and review the diff.
+- **CI**: runs in the `test` job as an informational step (`continue-on-error:
+  true`) since most findings are in transitive dependencies we don't control
+  directly. Treat direct-dependency findings as actionable.
+
+---
+
 ## App Guardrail
 
 For broader product and architecture direction, prefer [VISION.md](VISION.md)

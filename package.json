@@ -20,6 +20,8 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "knip": "knip",
+    "e18e": "npx --yes @e18e/cli analyze",
+    "e18e:migrate": "npx --yes @e18e/cli migrate --all",
     "preview": "vite preview",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",

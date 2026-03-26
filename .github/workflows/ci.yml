@@ -35,6 +35,10 @@ jobs:
       - name: Check for unused code and dependencies
         run: bun run knip
 
+      - name: Analyze dependency health
+        run: npx --yes @e18e/cli analyze
+        continue-on-error: true
+
       - name: Run tests with coverage
         run: bun run test:coverage
 

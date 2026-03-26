@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.441] - 2026-03-26
+
 ## [0.1.440] - 2026-03-26
+
+### Changed
+
+- Add 0.1.439 entry for myshare bar color fix
 
 ## [0.1.439] - 2026-03-26
 

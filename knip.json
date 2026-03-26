@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "electron/main.ts",
+    "electron/preload.ts",
+    "scripts/*.ts",
+    "generate-icons.ts",
+    "convex/*.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "electron/**/*.ts",
+    "convex/**/*.ts",
+    "scripts/**/*.ts",
+    "*.ts"
+  ],
+  "ignoreDependencies": [
+    "@github/copilot-win32-x64",
+    "@types/sharp",
+    "lint-staged"
+  ]
+}

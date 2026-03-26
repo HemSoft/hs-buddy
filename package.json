@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.437",
+  "version": "0.1.439",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -89,8 +89,7 @@
   "packageManager": "bun@1.2.0",
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --max-warnings 0 --no-ignore",
-      "knip --no-exit-code --files"
+      "eslint --max-warnings 0 --no-ignore"
     ],
     "*.md": [
       "markdownlint-cli2"

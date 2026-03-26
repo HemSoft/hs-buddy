@@ -430,7 +430,7 @@
 .usage-budget-bar-myshare {
   height: 100%;
   border-radius: 3px;
-  background: #dcd34a;
+  background: #5babe3;
   position: absolute;
   top: 0;
   left: 0;
@@ -459,7 +459,7 @@
 .usage-budget-myshare-label {
   font-size: 11px;
   font-weight: 600;
-  color: #dcd34a;
+  color: #5babe3;
 }
 
 .usage-budget-error {

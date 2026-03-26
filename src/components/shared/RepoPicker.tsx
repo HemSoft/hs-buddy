@@ -5,7 +5,7 @@ import { InlineDropdown } from '../InlineDropdown'
 import type { DropdownOption } from '../InlineDropdown'
 import './RepoPicker.css'
 
-export interface RepoPickerProps {
+interface RepoPickerProps {
   /** Currently selected repo value as "owner/repo" (empty = none) */
   value: string
   /** Called when repo changes */

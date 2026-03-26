@@ -9,7 +9,7 @@ export interface ActivityState {
   error: string | null
 }
 
-export type ActivityAction =
+type ActivityAction =
   | { type: 'RESET_FROM_CACHE'; payload: UserActivitySummary }
   | { type: 'FETCH_START' }
   | { type: 'FETCH_SUCCESS'; payload: UserActivitySummary }

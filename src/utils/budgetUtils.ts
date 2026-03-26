@@ -10,7 +10,7 @@ export interface BudgetPageResponse {
   has_next_page?: boolean
 }
 
-export interface BudgetMatch {
+interface BudgetMatch {
   budget_amount: number
   prevent_further_usage: boolean
 }

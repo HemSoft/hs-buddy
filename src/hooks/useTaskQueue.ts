@@ -13,7 +13,7 @@ import {
   type QueueStats,
 } from '../services/taskQueue'
 
-export interface UseTaskQueueResult {
+interface UseTaskQueueResult {
   /**
    * Enqueue a task for execution.
    * The task will be automatically cancelled on component unmount.
@@ -160,5 +160,3 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
     runningCount: queue.runningCount,
   }
 }
-
-export default useTaskQueue

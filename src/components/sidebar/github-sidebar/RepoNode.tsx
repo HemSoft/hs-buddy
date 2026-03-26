@@ -86,7 +86,7 @@ function handleItemKeyDown(
   action()
 }
 
-export interface RepoNodeProps {
+interface RepoNodeProps {
   org: string
   repo: OrgRepo
   bookmarkedRepoKeys: Set<string>

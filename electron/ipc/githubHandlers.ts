@@ -95,7 +95,7 @@ function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
 
 /** Aggregated Copilot usage metrics for a single org, reused by the
  *  live IPC handler and the snapshot collection path. */
-export interface CopilotUsageMetrics {
+interface CopilotUsageMetrics {
   org: string
   premiumRequests: number
   grossCost: number

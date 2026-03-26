@@ -3,7 +3,7 @@ import { Zap } from 'lucide-react'
 
 import './PremiumUsageBadge.css'
 
-export interface PremiumUsageBadgeProps {
+interface PremiumUsageBadgeProps {
   /** GitHub username to fetch quota for */
   username: string
   /** Optional className */

@@ -90,4 +90,4 @@ export function buildCronExpression({ frequency, minute, hour, dayOfMonth, selec
   }
 }
 
-export type { Frequency, CronState }
+export type { CronState }

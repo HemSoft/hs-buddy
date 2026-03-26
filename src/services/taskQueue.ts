@@ -15,7 +15,7 @@ export interface TaskOptions {
   name?: string
 }
 
-export interface Task<T = unknown> {
+interface Task<T = unknown> {
   id: TaskId
   name?: string
   priority: number

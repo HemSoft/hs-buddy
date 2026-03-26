@@ -12,7 +12,7 @@
  *   dataCache.isFresh('my-prs', 15 * 60 * 1000)  // Check staleness
  */
 
-export interface CacheEntry<T = unknown> {
+interface CacheEntry<T = unknown> {
   data: T
   fetchedAt: number
 }

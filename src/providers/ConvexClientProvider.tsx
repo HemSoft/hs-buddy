@@ -30,5 +30,4 @@ export function ConvexClientProvider({ children }: ConvexClientProviderProps) {
   return <ConvexProvider client={client}>{children}</ConvexProvider>
 }
 
-// Export the client type for use in hooks
-export type { ConvexReactClient }
+

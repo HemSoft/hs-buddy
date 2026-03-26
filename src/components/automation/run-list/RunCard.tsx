@@ -42,7 +42,7 @@ export interface RunWithJob {
   }
 }
 
-export interface RunCardProps {
+interface RunCardProps {
   run: RunWithJob
   isExpanded: boolean
   onToggle: (runId: string) => void

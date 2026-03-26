@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type {
   TempoDaySummary,
   TempoWorklog,
   TempoIssueSummary,
-  TempoAccount,
   TempoScheduleDay,
   CreateWorklogPayload,
   UpdateWorklogPayload,
@@ -12,24 +11,6 @@ import { formatDateKey } from '../utils/dateUtils'
 
 function todayStr(): string {
   return formatDateKey(new Date())
-}
-
-/** Get Monday of the week containing `date` */
-export function getWeekStart(date: Date): string {
-  const d = new Date(date)
-  const day = d.getDay() // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + diff)
-  return formatDateKey(d)
-}
-
-/** Get Friday (or Sunday if you want 7 days) of the week containing `date` */
-export function getWeekEnd(date: Date): string {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = day === 0 ? 0 : 5 - day
-  d.setDate(d.getDate() + diff)
-  return formatDateKey(d)
 }
 
 /** Get first and last day of the month containing `date` */
@@ -65,34 +46,6 @@ export function useTempoToday(date?: string) {
   return { data, loading, error, refresh: load }
 }
 
-// --- useTempoWeek ---
-
-export function useTempoWeek(weekStart: string, weekEnd: string) {
-  const [worklogs, setWorklogs] = useState<TempoWorklog[]>([])
-  const [issueSummaries, setIssueSummaries] = useState<TempoIssueSummary[]>([])
-  const [totalHours, setTotalHours] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    const result = await window.tempo.getWeek(weekStart, weekEnd)
-    if (result.success && result.data) {
-      setWorklogs(result.data.worklogs)
-      setIssueSummaries(result.data.issueSummaries)
-      setTotalHours(result.data.totalHours)
-    } else {
-      setError(result.error || 'Failed to load week data')
-    }
-    setLoading(false)
-  }, [weekStart, weekEnd])
-
-  useEffect(() => { load() }, [load])
-
-  return { worklogs, issueSummaries, totalHours, loading, error, refresh: load }
-}
-
 // --- useTempoMonth ---
 
 export function useTempoMonth(from: string, to: string) {
@@ -119,23 +72,6 @@ export function useTempoMonth(from: string, to: string) {
   useEffect(() => { load() }, [load])
 
   return { worklogs, issueSummaries, totalHours, loading, error, refresh: load }
-}
-
-// --- useTempoAccounts ---
-
-export function useTempoAccounts() {
-  const [accounts, setAccounts] = useState<TempoAccount[]>([])
-  const loaded = useRef(false)
-
-  useEffect(() => {
-    if (loaded.current) return
-    loaded.current = true
-    window.tempo.getAccounts().then(result => {
-      if (result.success && result.data) setAccounts(result.data)
-    })
-  }, [])
-
-  return accounts
 }
 
 // --- useCapexMap ---

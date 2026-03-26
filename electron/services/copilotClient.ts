@@ -26,22 +26,22 @@ const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
  * Checks local node_modules first, falls back to global PATH.
  */
 function resolveCopilotCliPath(): string {
-  const platform = process.platform === 'win32' ? 'win32' : process.platform
-  const arch = process.arch
-  const binaryName = platform === 'win32' ? 'copilot.exe' : 'copilot'
+  const binaryName = process.platform === 'win32' ? 'copilot.exe' : 'copilot'
 
-  const appRoot = process.env.APP_ROOT || path.join(__dirname, '..')
-  const localNative = path.join(
-    appRoot, 'node_modules', '@github',
-    `copilot-${platform}-${arch}`, binaryName
-  )
-
-  if (existsSync(localNative)) {
-    console.log(`[CopilotClient] Using native CLI: ${localNative}`)
-    return localNative
+  // Use require.resolve so the dependency is traceable by static analysis (knip)
+  try {
+    const pkgJson = require.resolve('@github/copilot-win32-x64/package.json')
+    const pkgDir = path.dirname(pkgJson)
+    const nativePath = path.join(pkgDir, binaryName)
+    if (existsSync(nativePath)) {
+      console.log(`[CopilotClient] Using native CLI: ${nativePath}`)
+      return nativePath
+    }
+  } catch {
+    // Package not installed — fall through to PATH lookup
   }
 
-  const fallback = platform === 'win32' ? 'copilot.cmd' : 'copilot'
+  const fallback = process.platform === 'win32' ? 'copilot.cmd' : 'copilot'
   console.log(`[CopilotClient] Native binary not found, falling back to PATH: ${fallback}`)
   return fallback
 }
@@ -58,7 +58,7 @@ let startPromise: Promise<void> | null = null
  * Uses `autoStart: true` so the server starts lazily on first use,
  * and `autoRestart: true` so it recovers from crashes automatically.
  */
-export function getSharedClient(): CopilotClient {
+function getSharedClient(): CopilotClient {
   if (!sharedClient) {
     const cliPath = resolveCopilotCliPath()
     sharedClient = new CopilotClient({

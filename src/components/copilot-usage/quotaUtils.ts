@@ -30,7 +30,7 @@ export interface AccountQuotaState {
   fetchedAt: number | null
 }
 
-export interface Projection {
+interface Projection {
   projectedTotal: number
   projectedOverage: number
   projectedOverageCost: number

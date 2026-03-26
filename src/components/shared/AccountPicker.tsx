@@ -4,7 +4,7 @@ import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { InlineDropdown } from '../InlineDropdown'
 import type { DropdownOption } from '../InlineDropdown'
 
-export interface AccountPickerProps {
+interface AccountPickerProps {
   /** Currently selected account (empty = use active CLI account) */
   value: string
   /** Called when account changes */

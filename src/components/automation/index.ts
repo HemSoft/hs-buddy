@@ -1,6 +1,5 @@
 export { ScheduleDetailPanel } from './ScheduleDetailPanel'
 export { ScheduleOverviewPanel } from './ScheduleOverviewPanel'
-export { CronBuilder } from './CronBuilder'
 export { ScheduleEditor } from './ScheduleEditor'
 export { JobDetailPanel } from './JobDetailPanel'
 export { JobEditor } from './JobEditor'

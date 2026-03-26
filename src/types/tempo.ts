@@ -63,14 +63,6 @@ export interface UpdateWorklogPayload {
   accountKey?: string
 }
 
-/** Quick-log preset */
-export interface TempoQuickLogPreset {
-  label: string
-  issueKey: string
-  defaultAccount: string
-  description: string
-}
-
 /** A single day from the Tempo user-schedule API */
 export interface TempoScheduleDay {
   date: string

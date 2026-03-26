@@ -109,7 +109,7 @@ async function getGitHubSlug(originUrl: string): Promise<string | null> {
   return resolvedHost && isGitHubHost(resolvedHost) ? slug : null
 }
 
-export async function validateFolder(folderPath: string): Promise<CrewValidationResult> {
+async function validateFolder(folderPath: string): Promise<CrewValidationResult> {
   const gitRoot = await runGit(folderPath, ['rev-parse', '--show-toplevel'])
   if (!gitRoot) {
     return { valid: false, error: 'Not a git repository' }

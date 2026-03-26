@@ -23,7 +23,7 @@ export interface PRDetailInfo {
 
 export type PRDetailSection = 'conversation' | 'commits' | 'checks' | 'files-changed' | 'ai-reviews'
 
-export interface PRDetailRoute {
+interface PRDetailRoute {
   pr: PRDetailInfo
   section: PRDetailSection | null
 }

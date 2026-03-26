@@ -5,14 +5,14 @@ import { InlineDropdown } from '../InlineDropdown'
 import type { DropdownOption } from '../InlineDropdown'
 
 /** Model info returned from the Copilot SDK */
-export interface SdkModel {
+interface SdkModel {
   id: string
   name: string
   isDisabled: boolean
   billingMultiplier: number
 }
 
-export interface ModelPickerProps {
+interface ModelPickerProps {
   /** Currently selected model ID */
   value: string
   /** Called when model changes */

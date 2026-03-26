@@ -267,8 +267,8 @@ an `issues` event), prefer that issue:
 
 Determinism requirement:
 
-- One `agent:in-progress` issue must map to exactly one open draft `agent:pr` PR.
-- If you observe multiple open draft PRs for the same issue, this is a pipeline failure, not a recovery opportunity.
+- One `agent:in-progress` issue must map to exactly one open `agent:pr` PR (draft or non-draft).
+- If you observe multiple open `agent:pr` PRs (draft or non-draft) for the same issue, this is a pipeline failure, not a recovery opportunity.
 - In that state, do NOT pick one, do NOT create a superseding PR, and do NOT continue implementation. Report the failure and exit.
 
 ### 1a — Existing draft PR needing fixes
@@ -296,8 +296,8 @@ If `pull-request-number` is provided:
 If any of those checks fail, exit — there is no eligible follow-up work for
 that specific PR.
 
-Before continuing, verify the linked issue has exactly one open draft `agent:pr`
-PR. If more than one exists, report the duplicate-PR failure and exit.
+Before continuing, verify the linked issue has exactly one open `agent:pr`
+PR (draft or non-draft). If more than one exists, report the duplicate-PR failure and exit.
 
 If they pass, use that PR as the work item.
 
@@ -353,8 +353,8 @@ For each candidate:
 Take the **first** candidate that still has unresolved blocking feedback.
 
 Before selecting a candidate, check whether its linked issue has multiple open
-draft `agent:pr` PRs. If it does, report the duplicate-PR failure and exit
-instead of choosing one arbitrarily.
+`agent:pr` PRs (draft or non-draft). If it does, report the duplicate-PR
+failure and exit instead of choosing one arbitrarily.
 
 If such a PR is found, this run is a **follow-up implementation pass**.
 Use its linked issue as the canonical spec.
@@ -381,15 +381,15 @@ If `issue-number` is provided:
 
 1. Read that exact issue.
 
-2. Search for open draft PRs labeled `agent:pr` that already belong to that
-  issue.
+2. Search for open PRs labeled `agent:pr` (draft or non-draft) that already
+  belong to that issue.
 
-3. If more than one open draft `agent:pr` PR already exists for that issue,
-   report the duplicate-PR failure and exit.
+3. If more than one open `agent:pr` PR (draft or non-draft) already exists
+   for that issue, report the duplicate-PR failure and exit.
 
-4. If exactly one open draft `agent:pr` PR already exists for that issue,
-   treat this targeted issue run as a deterministic resume path instead of a
-   new-issue path:
+4. If exactly one open `agent:pr` PR (draft or non-draft) already exists for
+   that issue, treat this targeted issue run as a deterministic resume path
+   instead of a new-issue path:
 
     - read that PR
     - verify it is an open **draft** PR without `agent:human-required`
@@ -420,17 +420,18 @@ Sort by creation date ascending. Evaluate candidates in that order.
 
 For each candidate issue:
 
-1. Search for open draft PRs labeled `agent:pr` that already belong to that
-  issue (for example via branch naming `agent-fix/issue-<issue-number>-...`
-  or `Closes #<issue-number>` in the PR body).
-2. If more than one open draft `agent:pr` PR already exists for that issue,
-  report the duplicate-PR failure and exit.
-3. If exactly one open draft `agent:pr` PR already exists for that issue, do
-  NOT treat the issue as new work and do NOT create another PR. Report that the
-  new-issue path observed existing draft PR state for the issue, pause if
-  needed, and exit so the state-selection bug is visible.
-4. Only select the first candidate issue with **zero** open draft `agent:pr`
-  PRs.
+1. Search for open PRs labeled `agent:pr` (draft or non-draft) that already
+  belong to that issue (for example via branch naming
+  `agent-fix/issue-<issue-number>-...` or `Closes #<issue-number>` in the PR
+  body).
+2. If more than one open `agent:pr` PR (draft or non-draft) already exists
+  for that issue, report the duplicate-PR failure and exit.
+3. If exactly one open `agent:pr` PR (draft or non-draft) already exists for
+  that issue, do NOT treat the issue as new work and do NOT create another PR. Report that the
+  new-issue path observed existing PR state for the issue, pause if needed,
+  and exit so the state-selection bug is visible.
+4. Only select the first candidate issue with **zero** open `agent:pr` PRs
+  (draft or non-draft).
 
 If no PR candidate and no issue candidate exist, exit — nothing to do.
 
@@ -575,18 +576,18 @@ Valid vs invalid outcomes for this step:
 | Follow-up pass claims a push failure without an actual `push_to_pull_request_branch` attempt in this run | ❌ | invented failure narrative |
 | Follow-up pass creates a second/superseding PR for the same issue | ❌ | split-brain pipeline bug |
 
-Never create a second draft PR for an issue that already has an open draft
-`agent:pr` PR. There is no allowed "supersede" fallback during follow-up work.
-If the existing PR branch cannot be updated, fail loudly and leave the live
-state unchanged.
+Never create a second PR for an issue that already has an open `agent:pr` PR
+(draft or non-draft). There is no allowed "supersede" fallback during
+follow-up work. If the existing PR branch cannot be updated, fail loudly and
+leave the live state unchanged.
 
 ### 6a — No PR exists yet
 
 Before calling `create_pull_request`, re-check the linked issue. If the issue
-already has any open draft `agent:pr` PR, stop immediately and report the
-failure instead of creating another PR. This is a defense-in-depth guardrail:
-the create-PR path is valid only when the linked issue has zero open draft
-agent PRs at the moment of creation.
+already has any open `agent:pr` PR (draft or non-draft), stop immediately and
+report the failure instead of creating another PR. This is a defense-in-depth
+guardrail: the create-PR path is valid only when the linked issue has zero open
+`agent:pr` PRs (draft or non-draft) at the moment of creation.
 
 Call the `create_pull_request` safe output tool. This is the ONLY way to
 create the initial PR — it handles pushing the branch and opening the PR in

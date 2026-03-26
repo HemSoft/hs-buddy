@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.443] - 2026-03-26
+
 ## [0.1.442] - 2026-03-26
+
+### Fixed
+
+- Widen duplicate-PR guard to catch promoted (non-draft) PRs
 
 ## [0.1.441] - 2026-03-26
 

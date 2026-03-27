@@ -47,3 +47,4 @@ out/
 
 # Local debug helpers
 _cdp.cjs
+.playwright-mcp/

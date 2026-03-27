@@ -104,6 +104,8 @@ export function TempoWorklogEditor({
   const descriptionId = useId()
   const accountId = useId()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestVersionRef = useRef(0)
+  const userPickedAccountRef = useRef(Boolean(worklog?.accountKey))
 
   // Fetch all accounts on mount
   useEffect(() => {
@@ -121,14 +123,17 @@ export function TempoWorklogEditor({
       dispatch({ type: 'setProjectAccounts', projectAccounts: [] })
       return
     }
+    userPickedAccountRef.current = false
+    const version = ++requestVersionRef.current
     debounceRef.current = setTimeout(() => {
       dispatch({ type: 'setAccountsLoading', value: true })
       window.tempo.getProjectAccounts(projectKey).then(res => {
+        if (requestVersionRef.current !== version) return // stale response
         dispatch({ type: 'setAccountsLoading', value: false })
         if (res.data) {
           dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
-          // Auto-select default account if no account is set yet
-          if (!state.accountKey) {
+          // Auto-select default only if user hasn't manually picked
+          if (!userPickedAccountRef.current) {
             const defaultAccount = res.data.find(a => a.isDefault)
             if (defaultAccount) {
               dispatch({ type: 'setAccountKey', value: defaultAccount.key })
@@ -139,6 +144,17 @@ export function TempoWorklogEditor({
     }, 400)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [state.issueKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // For edit mode, fetch project accounts on mount
+  useEffect(() => {
+    if (!isEdit) return
+    const key = state.issueKey.trim().toUpperCase()
+    const projectKey = key.split('-')[0]
+    if (!projectKey || !key.includes('-')) return
+    window.tempo.getProjectAccounts(projectKey).then(res => {
+      if (res.data) dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
+    })
+  }, [isEdit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -259,7 +275,10 @@ export function TempoWorklogEditor({
             <select
               id={accountId}
               value={state.accountKey}
-              onChange={e => dispatch({ type: 'setAccountKey', value: e.target.value })}
+              onChange={e => {
+                userPickedAccountRef.current = true
+                dispatch({ type: 'setAccountKey', value: e.target.value })
+              }}
             >
               <option value="">— select account —</option>
               {(state.projectAccounts.length > 0

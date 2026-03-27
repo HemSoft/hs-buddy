@@ -211,10 +211,9 @@ export async function getProjectAccountLinks(
     const accountMap = await getAccountMap()
     const links = resp.results.map(link => {
       // Extract account key from self URL: https://api.tempo.io/4/accounts/GEN-DEV
-      const selfUrl = link.account.self
-      const key = selfUrl.substring(selfUrl.lastIndexOf('/') + 1)
+      const key = link.account.self?.split('/').pop()?.trim() || ''
       return { key, name: accountMap.get(key) || key, isDefault: link.default }
-    })
+    }).filter(link => link.key !== '')
     return { success: true, data: links }
   } catch (err) {
     return { success: false, error: getErrorMessage(err) }

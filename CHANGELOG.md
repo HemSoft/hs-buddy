@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.452] - 2026-03-27
+
+## [0.1.451] - 2026-03-27
+
 ## [0.1.450] - 2026-03-27
+
+### Changed
+
+- Add 0.1.449 entry for project-scoped account selector
 
 ## [0.1.449] - 2026-03-27
 

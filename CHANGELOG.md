@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.453] - 2026-03-27
+
 ## [0.1.452] - 2026-03-27
+
+### Fixed
+
+- Harden account dropdown against race conditions and stale responses
 
 ## [0.1.451] - 2026-03-27
 

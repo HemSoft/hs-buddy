@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.446] - 2026-03-27
 
+### Changed
+
+- Gitignore .playwright-mcp directory
+
 ## [0.1.445] - 2026-03-26
 
 ### Added

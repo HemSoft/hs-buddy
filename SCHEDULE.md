@@ -12,17 +12,12 @@ files; ET equivalents assume EDT (UTC-4). During EST (winter), subtract 1 hour.
 | **~1:17 AM** | `17 5 * * *` | React Doctor Audit | Local `.yml` | `agent:fixable` issues for React health findings |
 | **~2:27 AM** | `27 6 * * *` | Simplisticate Audit | Local `.md` (gh-aw) | `agent:fixable` simplification issue |
 | **~3:37 AM** | `37 7 * * *` | Daily Repo Status | Motherrepo `.md` | `report` Discussion |
-| **~4:47 AM** | `47 8 * * *` | Repo Audit | Motherrepo `.md` | Consolidated `report` Discussion |
+| **~4:47 AM** | `47 8 * * *` | Repo Audit | Motherrepo `.md` | Single consolidated `agent:fixable` issue |
 | **~5:37 AM** | `37 9 * * *` | Scorecard Improvement | Local `.md` (gh-aw) | `agent:fixable` issue for highest-impact failing scorecard rule |
 | **~5:57 AM** | `57 9 * * *` | SFL Auditor | Local `.md` | Repairs issue/PR label discrepancies |
+| **~7:17 AM** | `17 11 * * *` | Test Coverage Audit | Local `.md` (gh-aw) | `agent:fixable` issue for uncovered file |
 
 ---
-
-## Scheduled Workflows (Every 4 Hours)
-
-| Time (ET) | UTC Cron | Workflow | Source | Output |
-|---|---|---|---|---|
-| **Every 4h at :17** | `17 */4 * * *` | Test Coverage Audit | Local `.md` (gh-aw) | `agent:fixable` issue for uncovered file |
 
 > **Note on cron delays:** GitHub Actions scheduled workflows can start 5–30+
 > minutes after their cron time during periods of high runner load. This is
@@ -49,7 +44,7 @@ These fire in response to GitHub events or are dispatched by other workflows.
 ## Pipeline Flow
 
 ```text
-Audit (~1:17–5:57 AM ET daily, every 4h for Test Coverage)
+Audit (~1:17–7:17 AM ET daily)
   ↓ creates issue with agent:fixable
 Discussion Processor (if from Discussion)
   ↓ groups findings into agent:fixable issue

@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.450] - 2026-03-27
+
 ## [0.1.449] - 2026-03-27
+
+### Added
+
+- Add project-scoped account selector to worklog editor
 
 ## [0.1.448] - 2026-03-27
 

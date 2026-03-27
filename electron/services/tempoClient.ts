@@ -203,15 +203,18 @@ export async function getProjectAccountLinks(
   try {
     const projectId = await resolveProjectId(projectKey)
     const resp = await fetchJson<{
-      results: { id: number; account: { self: string }; default: boolean; scope: { id: number; type: string } }[]
+      results: { id: number; account: { id: number; self: string }; default: boolean; scope: { id: number; type: string } }[]
     }>(
       `${TEMPO_BASE}/account-links/project/${projectId}?includeGlobalAccounts=true`,
       getTempoHeaders()
     )
+    // Ensure accounts are loaded so accountIdToKey is populated
+    await getAccounts()
     const accountMap = await getAccountMap()
     const links = resp.results.map(link => {
-      // Extract account key from self URL: https://api.tempo.io/4/accounts/GEN-DEV
-      const key = link.account.self?.split('/').pop()?.trim() || ''
+      // Resolve account key from numeric ID in the self URL
+      const numericId = link.account.id ?? Number(link.account.self?.split('/').pop())
+      const key = accountIdToKey.get(numericId) || ''
       return { key, name: accountMap.get(key) || key, isDefault: link.default }
     }).filter(link => link.key !== '')
     return { success: true, data: links }
@@ -242,16 +245,20 @@ function enrichWorklog(
 
 // --------------- Public API ---------------
 
+/** Map of numeric account ID → account key, built alongside getAccounts() */
+let accountIdToKey = new Map<number, string>()
+
 export async function getAccounts(): Promise<TempoResult<TempoAccount[]>> {
   try {
     if (cachedAccounts && Date.now() - accountsCachedAt < ACCOUNTS_CACHE_TTL) {
       return { success: true, data: cachedAccounts }
     }
-    const resp = await fetchJson<{ results: { key: string; name: string }[] }>(
+    const resp = await fetchJson<{ results: { id: number; key: string; name: string }[] }>(
       `${TEMPO_BASE}/accounts`,
       getTempoHeaders()
     )
     cachedAccounts = resp.results.map(a => ({ key: a.key, name: a.name }))
+    accountIdToKey = new Map(resp.results.map(a => [a.id, a.key]))
     accountsCachedAt = Date.now()
     return { success: true, data: cachedAccounts }
   } catch (err) {

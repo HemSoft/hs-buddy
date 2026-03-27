@@ -801,6 +801,21 @@
   opacity: 0.5;
 }
 
+.tempo-editor-row select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-tertiary, #333);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.tempo-editor-row select:focus {
+  outline: none;
+  border-color: #4fc3f7;
+}
+
 .tempo-editor-row-pair {
   display: flex;
   gap: 12px;

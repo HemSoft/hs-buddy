@@ -7,6 +7,7 @@ import {
   updateWorklog,
   deleteWorklog,
   getAccounts,
+  getProjectAccountLinks,
   getCapexMap,
   getUserSchedule,
 } from '../services/tempoClient'
@@ -75,6 +76,14 @@ export function registerTempoHandlers(): void {
   ipcMain.handle('tempo:get-accounts', async () => {
     try {
       return await getAccounts()
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) }
+    }
+  })
+
+  ipcMain.handle('tempo:get-project-accounts', async (_event, projectKey: string) => {
+    try {
+      return await getProjectAccountLinks(projectKey)
     } catch (error) {
       return { success: false, error: getErrorMessage(error) }
     }

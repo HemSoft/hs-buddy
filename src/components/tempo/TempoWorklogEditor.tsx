@@ -1,5 +1,5 @@
-import { useEffect, useId, useReducer } from 'react'
-import type { TempoWorklog, CreateWorklogPayload } from '../../types/tempo'
+import { useEffect, useId, useReducer, useRef } from 'react'
+import type { TempoWorklog, CreateWorklogPayload, TempoAccount } from '../../types/tempo'
 import { nextStartTime } from './tempoUtils'
 import { X } from 'lucide-react'
 
@@ -16,6 +16,10 @@ interface TempoWorklogEditorState {
   hours: string
   date: string
   description: string
+  accountKey: string
+  accounts: TempoAccount[]
+  projectAccounts: { key: string; name: string; isDefault: boolean }[]
+  accountsLoading: boolean
   saving: boolean
   error: string | null
 }
@@ -25,6 +29,10 @@ type TempoWorklogEditorAction =
   | { type: 'setHours'; value: string }
   | { type: 'setDate'; value: string }
   | { type: 'setDescription'; value: string }
+  | { type: 'setAccountKey'; value: string }
+  | { type: 'setAccounts'; accounts: TempoAccount[] }
+  | { type: 'setProjectAccounts'; projectAccounts: { key: string; name: string; isDefault: boolean }[] }
+  | { type: 'setAccountsLoading'; value: boolean }
   | { type: 'submit:start' }
   | { type: 'submit:error'; value: string }
   | { type: 'submit:finish' }
@@ -38,6 +46,10 @@ function createInitialState(
     hours: String(worklog?.hours || 1),
     date: worklog?.date || defaultDate,
     description: worklog?.description || '',
+    accountKey: worklog?.accountKey || '',
+    accounts: [],
+    projectAccounts: [],
+    accountsLoading: false,
     saving: false,
     error: null,
   }
@@ -56,6 +68,14 @@ function tempoWorklogEditorReducer(
       return { ...state, date: action.value }
     case 'setDescription':
       return { ...state, description: action.value }
+    case 'setAccountKey':
+      return { ...state, accountKey: action.value }
+    case 'setAccounts':
+      return { ...state, accounts: action.accounts }
+    case 'setProjectAccounts':
+      return { ...state, projectAccounts: action.projectAccounts }
+    case 'setAccountsLoading':
+      return { ...state, accountsLoading: action.value }
     case 'submit:start':
       return { ...state, saving: true, error: null }
     case 'submit:error':
@@ -82,6 +102,43 @@ export function TempoWorklogEditor({
   const hoursId = useId()
   const dateId = useId()
   const descriptionId = useId()
+  const accountId = useId()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Fetch all accounts on mount
+  useEffect(() => {
+    window.tempo.getAccounts().then(res => {
+      if (res.data) dispatch({ type: 'setAccounts', accounts: res.data })
+    })
+  }, [])
+
+  // Fetch project-specific account links when issue key changes (debounced)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    const key = state.issueKey.trim().toUpperCase()
+    const projectKey = key.split('-')[0]
+    if (!projectKey || !key.includes('-')) {
+      dispatch({ type: 'setProjectAccounts', projectAccounts: [] })
+      return
+    }
+    debounceRef.current = setTimeout(() => {
+      dispatch({ type: 'setAccountsLoading', value: true })
+      window.tempo.getProjectAccounts(projectKey).then(res => {
+        dispatch({ type: 'setAccountsLoading', value: false })
+        if (res.data) {
+          dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
+          // Auto-select default account if no account is set yet
+          if (!state.accountKey) {
+            const defaultAccount = res.data.find(a => a.isDefault)
+            if (defaultAccount) {
+              dispatch({ type: 'setAccountKey', value: defaultAccount.key })
+            }
+          }
+        }
+      })
+    }, 400)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [state.issueKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -116,6 +173,7 @@ export function TempoWorklogEditor({
         date: state.date,
         startTime,
         description: state.description,
+        accountKey: state.accountKey || undefined,
       })
     } catch (err) {
       dispatch({ type: 'submit:error', value: String(err) })
@@ -193,6 +251,26 @@ export function TempoWorklogEditor({
               onChange={e => dispatch({ type: 'setDescription', value: e.target.value })}
               placeholder="Working on issue..."
             />
+          </div>
+          <div className="tempo-editor-row">
+            <label htmlFor={accountId}>
+              Account{state.accountsLoading ? ' (loading…)' : ''}
+            </label>
+            <select
+              id={accountId}
+              value={state.accountKey}
+              onChange={e => dispatch({ type: 'setAccountKey', value: e.target.value })}
+            >
+              <option value="">— select account —</option>
+              {(state.projectAccounts.length > 0
+                ? state.projectAccounts
+                : state.accounts
+              ).map(a => (
+                <option key={a.key} value={a.key}>
+                  {a.name} ({a.key})
+                </option>
+              ))}
+            </select>
           </div>
           {state.error && <div className="tempo-editor-error">{state.error}</div>}
           <div className="tempo-editor-actions">

@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld('tempo', {
     ipcRenderer.invoke('tempo:update-worklog', { worklogId, payload }),
   deleteWorklog: (worklogId: number) => ipcRenderer.invoke('tempo:delete-worklog', worklogId),
   getAccounts: () => ipcRenderer.invoke('tempo:get-accounts'),
+  getProjectAccounts: (projectKey: string) => ipcRenderer.invoke('tempo:get-project-accounts', projectKey),
   getCapexMap: (issueKeys: string[]) => ipcRenderer.invoke('tempo:get-capex-map', issueKeys),
   getSchedule: (from: string, to: string) => ipcRenderer.invoke('tempo:get-schedule', { from, to }),
 })

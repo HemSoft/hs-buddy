@@ -21,6 +21,7 @@ let cachedAccounts: TempoAccount[] | null = null
 let accountsCachedAt = 0
 const ACCOUNTS_CACHE_TTL = 5 * 60 * 1000 // 5 min
 const issueKeyCache = new Map<number, { key: string; summary: string }>()
+const projectIdCache = new Map<string, number>()
 
 /** Env-var names that are safe to read from Machine scope */
 const ALLOWED_ENV_NAMES = new Set([
@@ -180,6 +181,44 @@ function inferAccount(issueKey: string): string {
   const prefix = issueKey.split('-')[0]
   if (prefix === 'INT') return 'INT'
   return 'GEN-DEV'
+}
+
+async function resolveProjectId(projectKey: string): Promise<number> {
+  const cached = projectIdCache.get(projectKey)
+  if (cached) return cached
+  const jiraHeaders = getJiraHeaders()
+  if (!jiraHeaders) throw new Error('Jira credentials not available')
+  const project = await fetchJson<{ id: string }>(
+    `${JIRA_BASE}/rest/api/3/project/${encodeURIComponent(projectKey)}`,
+    jiraHeaders
+  )
+  const id = Number(project.id)
+  projectIdCache.set(projectKey, id)
+  return id
+}
+
+export async function getProjectAccountLinks(
+  projectKey: string
+): Promise<TempoResult<{ key: string; name: string; isDefault: boolean }[]>> {
+  try {
+    const projectId = await resolveProjectId(projectKey)
+    const resp = await fetchJson<{
+      results: { id: number; account: { self: string }; default: boolean; scope: { id: number; type: string } }[]
+    }>(
+      `${TEMPO_BASE}/account-links/project/${projectId}?includeGlobalAccounts=true`,
+      getTempoHeaders()
+    )
+    const accountMap = await getAccountMap()
+    const links = resp.results.map(link => {
+      // Extract account key from self URL: https://api.tempo.io/4/accounts/GEN-DEV
+      const selfUrl = link.account.self
+      const key = selfUrl.substring(selfUrl.lastIndexOf('/') + 1)
+      return { key, name: accountMap.get(key) || key, isDefault: link.default }
+    })
+    return { success: true, data: links }
+  } catch (err) {
+    return { success: false, error: getErrorMessage(err) }
+  }
 }
 
 function enrichWorklog(

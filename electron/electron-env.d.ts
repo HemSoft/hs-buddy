@@ -184,6 +184,7 @@ interface Window {
     updateWorklog: (worklogId: number, payload: import('../src/types/tempo').UpdateWorklogPayload) => Promise<import('../src/types/tempo').TempoResult<void>>
     deleteWorklog: (worklogId: number) => Promise<import('../src/types/tempo').TempoResult<void>>
     getAccounts: () => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoAccount[]>>
+    getProjectAccounts: (projectKey: string) => Promise<import('../src/types/tempo').TempoResult<{ key: string; name: string; isDefault: boolean }[]>>
     getCapexMap: (issueKeys: string[]) => Promise<import('../src/types/tempo').TempoResult<Record<string, boolean>>>
     getSchedule: (from: string, to: string) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoScheduleDay[]>>
   }

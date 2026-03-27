@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { History, Trash2 } from 'lucide-react'
 import { useRecentRuns, useRunMutations } from '../../hooks/useConvex'
+import { useConfirm } from '../../hooks/useConfirm'
+import { ConfirmDialog } from '../ConfirmDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { RunCard, type RunWithJob } from './run-list/RunCard'
 import { RunFilterBar, type StatusFilter } from './run-list/RunFilterBar'
@@ -35,8 +37,15 @@ export function RunList() {
     }
   }
 
+  const { confirm, confirmDialog } = useConfirm()
+
   const handleCleanup = async () => {
-    if (confirm('Delete all completed and failed runs older than 7 days?')) {
+    const confirmed = await confirm({
+      message: 'Delete all completed and failed runs older than 7 days?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (confirmed) {
       try {
         const result = await cleanup({ olderThanDays: 7 })
         console.log(`Cleaned up ${result.deleted} old runs`)
@@ -86,6 +95,7 @@ export function RunList() {
   }
 
   return (
+    <>
     <div className="run-list">
       <div className="run-list-header">
         <h2>Runs</h2>
@@ -121,5 +131,7 @@ export function RunList() {
         ))}
       </div>
     </div>
+    {confirmDialog && <ConfirmDialog {...confirmDialog} />}
+    </>
   )
 }

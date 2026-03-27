@@ -1,5 +1,7 @@
 import { useReducer } from 'react'
 import { useGitHubAccounts } from '../../hooks/useConfig'
+import { useConfirm } from '../../hooks/useConfirm'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { Plus, Trash2, User, Building2, RefreshCw, AlertCircle } from 'lucide-react'
 import type { GitHubAccount } from '../../types/config'
 import './SettingsShared.css'
@@ -93,8 +95,15 @@ export function SettingsAccounts() {
     }
   }
 
+  const { confirm, confirmDialog } = useConfirm()
+
   const handleRemove = async (username: string, org: string) => {
-    if (confirm(`Remove ${username}@${org}?`)) {
+    const confirmed = await confirm({
+      message: `Remove ${username}@${org}?`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    })
+    if (confirmed) {
       await removeAccount(username, org)
     }
   }
@@ -111,7 +120,8 @@ export function SettingsAccounts() {
   }
 
   return (
-    <div className="settings-page">
+    <>
+      <div className="settings-page">
       <div className="settings-page-header">
         <h2>GitHub Accounts</h2>
         <p className="settings-page-description">
@@ -256,5 +266,7 @@ export function SettingsAccounts() {
         </div>
       </div>
     </div>
+    {confirmDialog && <ConfirmDialog {...confirmDialog} />}
+    </>
   )
 }

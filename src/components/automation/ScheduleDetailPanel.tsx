@@ -11,6 +11,8 @@ import { useSchedule, useScheduleMutations, useScheduleRuns } from '../../hooks/
 import { formatDistanceToNow, format } from '../../utils/dateUtils'
 import { useState } from 'react'
 import { ScheduleEditor } from './ScheduleEditor'
+import { useConfirm } from '../../hooks/useConfirm'
+import { ConfirmDialog } from '../ConfirmDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { getStatusClass, getStatusIcon } from '../shared/statusDisplay'
 import './ScheduleDetailPanel.css'
@@ -54,8 +56,15 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
     }
   }
 
+  const { confirm, confirmDialog } = useConfirm()
+
   const handleDelete = async () => {
-    if (confirm(`Delete schedule "${schedule.name}"?`)) {
+    const confirmed = await confirm({
+      message: `Delete schedule "${schedule.name}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (confirmed) {
       try {
         await remove({ id: schedule._id })
       } catch (error) {
@@ -96,6 +105,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   }
 
   return (
+    <>
     <div className="schedule-detail">
       {editorOpen && (
         <ScheduleEditor scheduleId={scheduleId} onClose={() => setEditorOpen(false)} />
@@ -247,5 +257,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
         )}
       </div>
     </div>
+    {confirmDialog && <ConfirmDialog {...confirmDialog} />}
+    </>
   )
 }

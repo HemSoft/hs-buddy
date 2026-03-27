@@ -5,6 +5,8 @@ import { formatDistanceToNow } from '../../utils/dateUtils'
 import { getWorkerIcon } from './job-list/jobRowUtils'
 import { useState } from 'react'
 import { JobEditor } from './JobEditor'
+import { useConfirm } from '../../hooks/useConfirm'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { getStatusClass } from '../shared/statusDisplay'
 import './JobDetailPanel.css'
 
@@ -153,8 +155,16 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
     setEditorOpen(true)
   }
 
+  const { confirm, confirmDialog } = useConfirm()
+
   const handleDelete = async () => {
-    if (confirm(`Delete job "${job.name}"?\n\nThis will also delete all associated schedules.`)) {
+    const confirmed = await confirm({
+      message: `Delete job "${job.name}"?`,
+      description: 'This will also delete all associated schedules.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })
+    if (confirmed) {
       try {
         await remove({ id: job._id })
       } catch (error) {
@@ -164,6 +174,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   }
 
   return (
+    <>
     <div className="job-detail">
       {editorOpen && (
         <JobEditor
@@ -243,5 +254,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
         )}
       </div>
     </div>
+    {confirmDialog && <ConfirmDialog {...confirmDialog} />}
+    </>
   )
 }

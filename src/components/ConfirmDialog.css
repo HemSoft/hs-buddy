@@ -1,0 +1,123 @@
+.confirm-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  backdrop-filter: blur(2px);
+  -webkit-app-region: no-drag;
+  animation: confirm-fade-in 0.12s ease-out;
+}
+
+@keyframes confirm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes confirm-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-dialog {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 380px;
+  overflow: hidden;
+  animation: confirm-slide-in 0.15s ease-out;
+}
+
+.confirm-dialog-body {
+  display: flex;
+  gap: 12px;
+  padding: 20px 20px 16px;
+}
+
+.confirm-dialog-icon {
+  flex-shrink: 0;
+  color: var(--accent-error);
+  margin-top: 1px;
+}
+
+.confirm-dialog-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.confirm-dialog-message {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+  line-height: 1.4;
+}
+
+.confirm-dialog-description {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+}
+
+.confirm-dialog-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+  outline: none;
+}
+
+.confirm-dialog-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--border-focus);
+}
+
+.confirm-dialog-btn-cancel {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.confirm-dialog-btn-cancel:hover {
+  background-color: var(--bg-hover);
+}
+
+.confirm-dialog-btn-confirm {
+  background-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.confirm-dialog-btn-confirm:hover {
+  background-color: var(--accent-primary-hover);
+}
+
+.confirm-dialog-btn-danger {
+  background-color: var(--accent-error);
+  color: #ffffff;
+}
+
+.confirm-dialog-btn-danger:hover {
+  opacity: 0.9;
+}

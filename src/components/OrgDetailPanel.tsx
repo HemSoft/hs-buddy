@@ -50,8 +50,6 @@ interface OrgCopilotUsageData {
   fetchedAt: number
 }
 
-const EMPTY_COPILOT_USAGE: OrgCopilotUsageData | null = null
-
 type LoadPhase = 'idle' | 'loading' | 'refreshing' | 'ready' | 'error'
 type RosterFilter = 'all' | 'active' | 'configured' | 'idle'
 type RosterSort = 'name' | 'commits'
@@ -100,7 +98,7 @@ function orgCopilotReducer(state: OrgCopilotState, action: OrgCopilotAction): Or
   switch (action.type) {
     case 'reset-for-user-namespace':
       return {
-        usage: EMPTY_COPILOT_USAGE,
+        usage: null,
         phase: 'loading',
         error: null,
       }
@@ -204,6 +202,15 @@ function resolveRefreshPhase(
   }
 
   return settledPhase
+}
+
+function resolvePersonalCopilotPhase(
+  personalQuotaSummary: PersonalQuotaSummary | null,
+  personalQuotaLoading: boolean
+): LoadPhase {
+  if (personalQuotaSummary) return 'ready'
+  if (personalQuotaLoading) return 'loading'
+  return 'error'
 }
 
 function navigateToOrgUser(org: string, login: string) {
@@ -627,11 +634,12 @@ function useOrgOverviewData({
           { name: overviewTaskName, priority: -1 }
         )
 
+        const normalized = normalizeOverview(result)
         startTransition(() => {
-          setOverview(normalizeOverview(result))
+          setOverview(normalized)
           setOverviewPhase('ready')
         })
-        dataCache.set(overviewCacheKey, normalizeOverview(result))
+        dataCache.set(overviewCacheKey, normalized)
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
         setOverviewPhase('error')
@@ -952,11 +960,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const liveOverviewPhase = resolveRefreshPhase(overviewData.overviewPhase, isOverviewTaskActive, overviewData.overview ? 'ready' : 'loading')
   const liveMembersPhase = resolveRefreshPhase(membersData.membersPhase, isMembersTaskActive, membersData.membersResult ? 'ready' : 'loading')
   const liveCopilotPhase = isUserNamespace
-    ? personalQuotaSummary
-      ? 'ready'
-      : personalQuotaLoading
-        ? 'loading'
-        : 'error'
+    ? resolvePersonalCopilotPhase(personalQuotaSummary, personalQuotaLoading)
     : resolveRefreshPhase(copilotData.copilotPhase, isCopilotTaskActive, copilotData.copilotUsage ? 'ready' : 'error')
 
   const { fetchOverview } = overviewData

@@ -24,6 +24,7 @@ import { OrgDetailPanel } from './OrgDetailPanel'
 import { UserDetailPanel } from './UserDetailPanel'
 import { CrewProjectView } from './crew/CrewProjectView'
 import { TempoDashboard } from './tempo/TempoDashboard'
+import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
 
@@ -31,12 +32,6 @@ function parseOwnerRepo(slug: string): { owner: string; repo: string } | null {
   const slashIdx = slug.indexOf('/')
   if (slashIdx <= 0) return null
   return { owner: slug.substring(0, slashIdx), repo: slug.substring(slashIdx + 1) }
-}
-
-function parseOrgMemberRoute(slug: string): { org: string; memberLogin: string } | null {
-  const slashIdx = slug.indexOf('/')
-  if (slashIdx <= 0) return null
-  return { org: slug.substring(0, slashIdx), memberLogin: slug.substring(slashIdx + 1) }
 }
 
 function parseRepoCommitRoute(slug: string): { owner: string; repo: string; sha: string } | null {
@@ -86,33 +81,14 @@ export function AppContentRouter({
 
   switch (activeViewId) {
     case 'pr-my-prs':
-      return (
-        <PullRequestList
-          mode="my-prs"
-          onCountChange={count => onPRCountChange('pr-my-prs', count)}
-        />
-      )
     case 'pr-needs-review':
-      return (
-        <PullRequestList
-          mode="needs-review"
-          onCountChange={count => onPRCountChange('pr-needs-review', count)}
-        />
-      )
     case 'pr-recently-merged':
+    case 'pr-need-a-nudge': {
+      const mode = activeViewId.slice(3) as (typeof PR_MODES)[number]
       return (
-        <PullRequestList
-          mode="recently-merged"
-          onCountChange={count => onPRCountChange('pr-recently-merged', count)}
-        />
+        <PullRequestList mode={mode} onCountChange={count => onPRCountChange(activeViewId, count)} />
       )
-    case 'pr-need-a-nudge':
-      return (
-        <PullRequestList
-          mode="need-a-nudge"
-          onCountChange={count => onPRCountChange('pr-need-a-nudge', count)}
-        />
-      )
+    }
     case 'settings-accounts':
       return <SettingsAccounts />
     case 'settings-appearance':
@@ -155,9 +131,9 @@ export function AppContentRouter({
         if (parsed) return <RepoDetailPanel owner={parsed.owner} repo={parsed.repo} />
       }
       if (activeViewId.startsWith('org-user:')) {
-        const parsed = parseOrgMemberRoute(activeViewId.replace('org-user:', ''))
+        const parsed = parseOwnerRepo(activeViewId.replace('org-user:', ''))
         if (parsed) {
-          return <UserDetailPanel org={parsed.org} memberLogin={parsed.memberLogin} />
+          return <UserDetailPanel org={parsed.owner} memberLogin={parsed.repo} />
         }
       }
       if (activeViewId.startsWith('org-detail:')) {

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { useBuddyStatsMutations } from '../../hooks/useConvex'
 import { GitHubClient } from '../../api/github'
-import type { PRReviewInfo } from '../PRReviewPanel'
+import type { PRReviewInfo } from './PRReviewInfo'
 
 const DEFAULT_PROMPT_TEMPLATE = (url: string) =>
   `Please do a thorough PR review on ${url}. Analyze the code changes for bugs, security issues, performance problems, and code quality. Categorize findings by severity: 🔴 Critical, 🟡 Medium, 🟢 Nitpick.`

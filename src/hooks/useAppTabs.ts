@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PRReviewInfo } from '../components/PRReviewPanel'
+import type { PRReviewInfo } from '../components/pr-review/PRReviewInfo'
 import type { Tab } from '../components/TabBar'
 import { getViewLabel } from '../components/appContentViewLabels'
 

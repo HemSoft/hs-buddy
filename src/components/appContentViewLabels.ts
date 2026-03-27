@@ -1,5 +1,5 @@
 import { parsePRDetailRoute } from '../utils/prDetailView'
-import { parsePRReviewInfo } from './PRReviewPanel'
+import { parsePRReviewInfo } from './pr-review/PRReviewInfo'
 
 export const viewLabels: Record<string, string> = {
   'pr-my-prs': 'My PRs',

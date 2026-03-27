@@ -4,38 +4,10 @@ import { ModelPicker } from './shared/ModelPicker'
 import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
 import { PRInfoCard } from './pr-review/PRInfoCard'
 import { PromptSection } from './pr-review/PromptSection'
+import type { PRReviewInfo } from './pr-review/PRReviewInfo'
 import { ScheduledMessage } from './pr-review/ScheduledMessage'
 import { usePRReviewData } from './pr-review/usePRReviewData'
 import './PRReviewPanel.css'
-
-/** Metadata shape passed from PR list/tree context actions */
-export interface PRReviewInfo {
-  prUrl: string
-  prTitle: string
-  prNumber: number
-  repo: string
-  org: string
-  author: string
-  initialPrompt?: string
-}
-
-export function parsePRReviewInfo(viewId: string): PRReviewInfo | null {
-  const prefix = 'pr-review:'
-  if (!viewId.startsWith(prefix)) {
-    return null
-  }
-
-  try {
-    const encoded = viewId.replace(prefix, '')
-    if (!encoded) {
-      return null
-    }
-
-    return JSON.parse(decodeURIComponent(encoded)) as PRReviewInfo
-  } catch {
-    return null
-  }
-}
 
 interface PRReviewPanelProps {
   /** PR metadata to review */

@@ -13,17 +13,23 @@ const SAMPLE_TABS: Tab[] = [
 function renderTabBar(props: Partial<ComponentProps<typeof TabBar>> = {}) {
   const onTabSelect = vi.fn()
   const onTabClose = vi.fn()
+  const onCloseOtherTabs = vi.fn()
+  const onCloseTabsToRight = vi.fn()
+  const onCloseAllTabs = vi.fn()
   const view = render(
     <TabBar
       tabs={SAMPLE_TABS}
       activeTabId="tab-1"
       onTabSelect={onTabSelect}
       onTabClose={onTabClose}
+      onCloseOtherTabs={onCloseOtherTabs}
+      onCloseTabsToRight={onCloseTabsToRight}
+      onCloseAllTabs={onCloseAllTabs}
       {...props}
     />
   )
 
-  return { ...view, onTabSelect, onTabClose }
+  return { ...view, onTabSelect, onTabClose, onCloseOtherTabs, onCloseTabsToRight, onCloseAllTabs }
 }
 
 describe('TabBar', () => {
@@ -137,5 +143,112 @@ describe('TabBar', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(1)
     expect(screen.getByText('Only Tab')).toBeInTheDocument()
     expect(screen.getByRole('tab')).toHaveClass('active')
+  })
+
+  describe('context menu', () => {
+    it('opens a context menu on right-click', async () => {
+      renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      fireEvent.contextMenu(tabs[1])
+
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Close Others' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Close to the Right' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Close All' })).toBeInTheDocument()
+    })
+
+    it('calls onTabClose for Close', async () => {
+      const user = userEvent.setup()
+      const { onTabClose } = renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      fireEvent.contextMenu(tabs[1])
+      await user.click(screen.getByRole('menuitem', { name: 'Close' }))
+
+      expect(onTabClose).toHaveBeenCalledWith('tab-2')
+    })
+
+    it('calls onCloseOtherTabs for Close Others', async () => {
+      const user = userEvent.setup()
+      const { onCloseOtherTabs } = renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      fireEvent.contextMenu(tabs[0])
+      await user.click(screen.getByRole('menuitem', { name: 'Close Others' }))
+
+      expect(onCloseOtherTabs).toHaveBeenCalledWith('tab-1')
+    })
+
+    it('calls onCloseTabsToRight for Close to the Right', async () => {
+      const user = userEvent.setup()
+      const { onCloseTabsToRight } = renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      fireEvent.contextMenu(tabs[0])
+      await user.click(screen.getByRole('menuitem', { name: 'Close to the Right' }))
+
+      expect(onCloseTabsToRight).toHaveBeenCalledWith('tab-1')
+    })
+
+    it('calls onCloseAllTabs for Close All', async () => {
+      const user = userEvent.setup()
+      const { onCloseAllTabs } = renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      fireEvent.contextMenu(tabs[0])
+      await user.click(screen.getByRole('menuitem', { name: 'Close All' }))
+
+      expect(onCloseAllTabs).toHaveBeenCalled()
+    })
+
+    it('disables Close Others when only one tab exists', () => {
+      const singleTab: Tab[] = [{ id: 'only', label: 'Only Tab', viewId: 'view-only' }]
+      renderTabBar({ tabs: singleTab, activeTabId: 'only' })
+
+      fireEvent.contextMenu(screen.getByRole('tab'))
+
+      expect(screen.getByRole('menuitem', { name: 'Close Others' })).toBeDisabled()
+    })
+
+    it('disables Close to the Right on the last tab', () => {
+      renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      fireEvent.contextMenu(tabs[2])
+
+      expect(screen.getByRole('menuitem', { name: 'Close to the Right' })).toBeDisabled()
+    })
+
+    it('enables Close to the Right when not the last tab', () => {
+      renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      fireEvent.contextMenu(tabs[0])
+
+      expect(screen.getByRole('menuitem', { name: 'Close to the Right' })).not.toBeDisabled()
+    })
+
+    it('closes the context menu when clicking the overlay', async () => {
+      const user = userEvent.setup()
+      renderTabBar()
+
+      fireEvent.contextMenu(screen.getAllByRole('tab')[0])
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+
+      await user.click(document.querySelector('.tab-context-menu-overlay')!)
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    it('closes the context menu on Escape', () => {
+      renderTabBar()
+
+      fireEvent.contextMenu(screen.getAllByRole('tab')[0])
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
   })
 })

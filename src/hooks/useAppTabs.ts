@@ -226,10 +226,44 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
     })
   }, [])
 
+  const closeOtherTabs = useCallback(
+    (keepTabId: string) => {
+      setTabState(previousState => {
+        const kept = previousState.tabs.filter(tab => tab.id === keepTabId)
+        if (kept.length === 0) return previousState
+        return { tabs: kept, activeTabId: keepTabId }
+      })
+    },
+    []
+  )
+
+  const closeTabsToRight = useCallback(
+    (tabId: string) => {
+      setTabState(previousState => {
+        const index = previousState.tabs.findIndex(tab => tab.id === tabId)
+        if (index === -1) return previousState
+        const kept = previousState.tabs.slice(0, index + 1)
+        const activeStillOpen = kept.some(tab => tab.id === previousState.activeTabId)
+        return {
+          tabs: kept,
+          activeTabId: activeStillOpen ? previousState.activeTabId : tabId,
+        }
+      })
+    },
+    []
+  )
+
+  const closeAllTabs = useCallback(() => {
+    setTabState({ tabs: [], activeTabId: null })
+  }, [])
+
   return {
     activeTabId,
     activeViewId,
+    closeAllTabs,
+    closeOtherTabs,
     closeTab,
+    closeTabsToRight,
     closeView,
     openTab,
     setActiveTabId: selectTab,

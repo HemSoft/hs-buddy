@@ -36,7 +36,7 @@ function App() {
   useAppAppearance()
   const backgroundStatus = useBackgroundStatus()
   const { trackViewOpen } = useAppSessionStats()
-  const { activeTabId, activeViewId, closeTab, closeView, openTab, setActiveTabId, tabs } = useAppTabs({
+  const { activeTabId, activeViewId, closeAllTabs, closeOtherTabs, closeTab, closeTabsToRight, closeView, openTab, setActiveTabId, tabs } = useAppTabs({
     onViewOpen: trackViewOpen,
   })
   const { assistantOpen, handlePaneChange, loaded: layoutLoaded, paneSizes, toggleAssistant } = useAppLayout()
@@ -102,6 +102,9 @@ function App() {
                   activeTabId={activeTabId}
                   onTabSelect={setActiveTabId}
                   onTabClose={closeTab}
+                  onCloseOtherTabs={closeOtherTabs}
+                  onCloseTabsToRight={closeTabsToRight}
+                  onCloseAllTabs={closeAllTabs}
                 />
                 <div className="main-content">
                   <AppErrorBoundary resetKey={activeViewId}>

@@ -2,6 +2,7 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 📋     | Medium   | [Copilot Session Explorer](#copilot-session-explorer)                                                        | Research & build a view into Copilot's session DB/files/logs — token usage, prompts, tool calls, model costs                          |
 | 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
 | ✅     | Medium   | Tempo tracking                                                                                               | Completed 2026-03-23: monthly grid, capex/non-capex split, holiday support, green capex highlighting, auto-scroll to today            |
 | ✅     | Medium   | PR Analyzers should post reviews, not update PR body                                                         | Completed 2026-03-22: all 3 analyzers already use `add_comment`; `update_issue` not in safe-outputs config                           |
@@ -67,11 +68,97 @@
 
 ## Progress
 
-**Remaining: 1** | **Completed: 60** (98%)
+**Remaining: 2** | **Completed: 60** (97%)
 
 ---
 
 ## Remaining Items
+
+### Copilot Session Explorer
+
+**Goal**: Add a new Activity Bar section "Sessions" that provides visibility into GitHub Copilot's session data — token usage, prompt history, tool call analytics, model costs, and session timelines. Leverages existing work in the `hs-buddy-vscode-extension` (`D:\github\HemSoft\hs-buddy-vscode-extension`) and the `prompt-db` skill.
+
+**Prior Art & Existing Code**:
+
+| Source | What It Has |
+|--------|------------|
+| `hs-buddy-vscode-extension/src/chatSessionParser.ts` | Parses `chatSessions/*.jsonl` — real token counts, tool calls, model info, session init |
+| `hs-buddy-vscode-extension/src/transcriptParser.ts` | Parses legacy `transcripts/*.jsonl` — 7 event types, turn assembly, tool call records |
+| `hs-buddy-vscode-extension/src/sessionTracker.ts` | Real-time tracking with polling watcher, incremental parsing, aggregate totals |
+| `hs-buddy-vscode-extension/src/storageReader.ts` | Finds VS Code workspace storage dirs, detects Insiders vs Stable |
+| `hs-buddy-vscode-extension/src/tokenEstimator.ts` | Token estimation via `vscode.lm.countTokens` with char-based fallback |
+| `hs-buddy-vscode-extension/src/types.ts` | Full TypeScript types: `CopilotSession`, `Turn`, `ToolCallRecord`, `SessionTotals`, `ModelInfo` |
+| `prompt-db` skill | Recovery from `state.vscdb` SQLite — session index, prompt extraction, schema docs |
+
+**Copilot Session Data Architecture** (confirmed via code + docs):
+
+| Data Source | Location | Persistence | Token Data? | Key Info |
+|-------------|----------|-------------|------------|----------|
+| `state.vscdb` SQLite | `%APPDATA%\{Code variant}\User\workspaceStorage\{id}\state.vscdb` | Persisted, 50-session cap | No | Session metadata (title, dates, state), prompt input history |
+| `chatSessions/*.jsonl` | Same workspace storage dir | Persisted per-session | **Yes** — real `promptTokens`/`outputTokens` | Current format. Kind-based line classification. Token counts, tool call rounds, model metadata, timing |
+| `transcripts/*.jsonl` | `GitHub.copilot-chat/transcripts/` | Persisted per-session | No (char counts only) | Legacy format. 7 event types with timestamps. User messages, assistant turns, tool executions |
+| Agent Debug Buffer | In-memory (`ChatDebugServiceImpl`) | **Wiped on restart** | Yes — live events | 10,000-event ring buffer. Exportable to OTLP JSON |
+| Copilot Extension Provider | Internal to extension | Survives restart | Yes — replayed on demand | Historical session traces, token data for past sessions |
+
+**Key SQLite Schema** (`ItemTable` in `state.vscdb`):
+
+- `memento/interactive-session` → `data.history.copilot[]` — array of `{ inputText, selectedModel, mode }` — verbatim user prompts
+- `chat.ChatSessionStore.index` → `data.entries{}` — dict of sessions with `sessionId`, `title`, `lastMessageDate`, `timing`, `isEmpty`, `lastResponseState`
+- Session count cap: **50 sessions** (oldest trimmed on save)
+- Empty sessions cleaned on window close
+- Images cleaned after 7 days (not sessions)
+
+**chatSessions JSONL Line Format** (kind-based):
+
+- `kind: 0` — Session initialization (sessionId, creationDate, selectedModel with id/name/family/vendor/multiplier/maxTokens)
+- `kind: 1, keyPath: ["customTitle"]` — Title update
+- `kind: 1, keyPath: [*, *, "result"]` — Request result with `metadata.promptTokens`, `metadata.outputTokens`, `timings.firstProgress`, `timings.totalElapsed`, `metadata.toolCallRounds[].toolCalls[].name`
+- `kind: 2, keyPath: ["requests"]` — New user request count
+
+**VS Code Debug Tools** (official, as of 2026-03-25):
+
+- **Agent Debug Log panel** (Preview): Chrono event log with Logs view, Summary view (total tool calls, tokens, errors, duration), and Agent Flow Chart view. Enable via `github.copilot.chat.agentDebugLog.enabled`. Export to OTLP JSON.
+- **Chat Debug view**: Raw LLM request/response details — system prompt, user prompt, context, tool payloads.
+- **`/troubleshoot` command**: Ask questions about current session (requires debug log setting enabled).
+- **Export**: `Chat: Export Chat...` command saves session as JSON.
+
+**Implementation Plan**:
+
+1. **Port & adapt types** from `hs-buddy-vscode-extension/src/types.ts` — `CopilotSession`, `Turn`, `ToolCallRecord`, `SessionTotals`, `ModelInfo`, `CurrentSessionStats`.
+2. **Build Electron service** `electron/services/copilotSessionService.ts`:
+   - Discover workspace storage dirs (Insiders → Stable fallback)
+   - Parse `chatSessions/*.jsonl` using kind-based line classification (port from `chatSessionParser.ts`)
+   - Parse `transcripts/*.jsonl` as legacy fallback (port from `transcriptParser.ts`)
+   - Read `state.vscdb` via Python subprocess for prompt history + session index
+   - Aggregate into session list with totals
+3. **Build IPC handlers** `electron/ipc/copilotSessionHandlers.ts`:
+   - `copilot-sessions:scan` — Full scan of all workspace storage dirs
+   - `copilot-sessions:get-session` — Single session detail by ID
+   - `copilot-sessions:get-totals` — Aggregate totals
+   - `copilot-sessions:get-prompts` — Prompt history from SQLite
+   - `copilot-sessions:export` — Export session to JSON
+4. **Build React views**:
+   - `SessionExplorerView.tsx` — Main dashboard: session list, aggregate stats, cost estimates
+   - `SessionDetailView.tsx` — Single session: timeline, prompts, tool calls, token breakdown
+   - `SessionStatsCard.tsx` — Summary cards: total tokens, model usage, tool frequency
+5. **Add Activity Bar section** "Sessions" with items: Overview, History, Analytics.
+6. **Optional: File watcher** for real-time updates (port `TranscriptWatcher` polling approach).
+
+**Research Questions to Resolve**:
+
+- Can Electron access `state.vscdb` while VS Code has it open? (SQLite supports concurrent readers)
+- Should we use Python subprocess (like `prompt-db`) or bundle `better-sqlite3` native module?
+- Can we tap into the Agent Debug OTLP export format for richer data?
+- What's the best way to correlate `chatSessions` data with `state.vscdb` session index?
+- Premium request tracking: can we derive cost from multiplier + token counts?
+
+**Acceptance Criteria**:
+
+- User can see a list of recent Copilot sessions with title, date, model, and token counts.
+- User can drill into a session to see prompt history, tool calls, and timing.
+- Aggregate stats show total tokens consumed, model usage breakdown, and tool frequency.
+- Data is read-only — no mutations to Copilot's storage files.
+- Works with both VS Code Insiders and Stable storage paths.
 
 ### Task Planner (Todoist Integration)
 

@@ -146,7 +146,6 @@ function parseChatSessionFile(filePath: string, workspaceHash: string): CopilotS
   let init: SessionInitData | null = null
   let title = ''
   const results: SessionRequestResult[] = []
-  let requestCount = 0
 
   for (const line of lines) {
     const kindMatch = /^\{"kind":(\d+)/.exec(line)
@@ -166,8 +165,6 @@ function parseChatSessionFile(filePath: string, workspaceHash: string): CopilotS
     } else if (kind === 1 && keyPath.length === 3 && keyPath[2] === 'result') {
       const result = extractResultData(line)
       if (result) results.push(result)
-    } else if (kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests') {
-      requestCount++
     }
   }
 
@@ -187,12 +184,16 @@ function parseChatSessionFile(filePath: string, workspaceHash: string): CopilotS
     for (const name of r.toolNames) allToolNames.add(name)
   }
 
+  // Use results.length as the authoritative count — requestCount from kind=2
+  // may diverge if some result lines fail to parse
+  const effectiveRequestCount = results.length
+
   return {
     sessionId: init.sessionId,
     title: title || `Session ${init.sessionId.slice(0, 8)}`,
     startTime: init.creationDate,
     model: init.model,
-    requestCount,
+    requestCount: effectiveRequestCount,
     results,
     totalPromptTokens,
     totalOutputTokens,
@@ -205,6 +206,10 @@ function parseChatSessionFile(filePath: string, workspaceHash: string): CopilotS
 }
 
 // ─── Public API ───────────────────────────────────────────
+
+let cachedResult: SessionScanResult | null = null
+let cacheTime = 0
+const CACHE_TTL_MS = 5_000
 
 export function scanCopilotSessions(): SessionScanResult {
   const storagePath = getVSCodeStoragePath()
@@ -233,12 +238,25 @@ export function scanCopilotSessions(): SessionScanResult {
   // Sort newest first
   sessions.sort((a, b) => b.startTime - a.startTime)
 
-  return { sessions, totals: computeTotals(sessions) }
+  const result = { sessions, totals: computeTotals(sessions) }
+  cachedResult = result
+  cacheTime = Date.now()
+  return result
 }
 
 export function getSessionDetail(sessionId: string): CopilotSession | null {
-  const { sessions } = scanCopilotSessions()
-  return sessions.find(s => s.sessionId === sessionId) ?? null
+  // Use cache if fresh, avoiding full rescan for detail views
+  if (cachedResult && Date.now() - cacheTime < CACHE_TTL_MS) {
+    return cachedResult.sessions.find(s => s.sessionId === sessionId) ?? null
+  }
+  try {
+    const { sessions } = scanCopilotSessions()
+    return sessions.find(s => s.sessionId === sessionId) ?? null
+  } catch {
+    cachedResult = null
+    cacheTime = 0
+    return null
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────

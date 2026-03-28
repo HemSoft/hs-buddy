@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { CopilotSession, SessionScanResult, SessionTotals } from '../types/copilotSession'
 
 const EMPTY_TOTALS: SessionTotals = {
@@ -17,18 +17,27 @@ export function useCopilotSessions() {
   const [totals, setTotals] = useState<SessionTotals>(EMPTY_TOTALS)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => { mountedRef.current = false }
+  }, [])
 
   const scan = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const result: SessionScanResult = await window.copilotSessions.scan()
-      setSessions(result.sessions)
-      setTotals(result.totals)
+      if (mountedRef.current) {
+        setSessions(result.sessions)
+        setTotals(result.totals)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to scan sessions')
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to scan sessions')
+      }
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }, [])
 
@@ -39,17 +48,25 @@ export function useCopilotSessionDetail() {
   const [session, setSession] = useState<CopilotSession | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
 
   const load = useCallback(async (sessionId: string) => {
+    const thisRequest = ++requestIdRef.current
     setIsLoading(true)
     setError(null)
     try {
       const result = await window.copilotSessions.getSession(sessionId)
-      setSession(result)
+      if (requestIdRef.current === thisRequest) {
+        setSession(result)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load session')
+      if (requestIdRef.current === thisRequest) {
+        setError(err instanceof Error ? err.message : 'Failed to load session')
+      }
     } finally {
-      setIsLoading(false)
+      if (requestIdRef.current === thisRequest) {
+        setIsLoading(false)
+      }
     }
   }, [])
 

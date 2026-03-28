@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.475] - 2026-03-28
+
 ## [0.1.474] - 2026-03-28
+
+### Changed
+
+- Add v0.1.473 Changed section for session explorer cascade
 
 ## [0.1.473] - 2026-03-28
 

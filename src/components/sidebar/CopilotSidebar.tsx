@@ -6,6 +6,7 @@ import {
   Send,
   Clock,
   Zap,
+  Database,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../../hooks/useConvex'
@@ -121,6 +122,23 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                   <Zap size={14} />
                 </span>
                 <span className="sidebar-item-label">Copilot Usage</span>
+              </div>
+              <div
+                className={`sidebar-item ${selectedItem === 'copilot-sessions' ? 'selected' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => onItemSelect('copilot-sessions')}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onItemSelect('copilot-sessions')
+                  }
+                }}
+              >
+                <span className="sidebar-item-icon">
+                  <Database size={14} />
+                </span>
+                <span className="sidebar-item-label">Session Explorer</span>
               </div>
             </div>
           )}

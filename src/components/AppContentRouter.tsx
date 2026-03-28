@@ -25,6 +25,8 @@ import { OrgDetailPanel } from './OrgDetailPanel'
 import { UserDetailPanel } from './UserDetailPanel'
 import { CrewProjectView } from './crew/CrewProjectView'
 import { TempoDashboard } from './tempo/TempoDashboard'
+import { SessionExplorer } from './sessions/SessionExplorer'
+import { SessionDetail } from './sessions/SessionDetail'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -112,12 +114,18 @@ export function AppContentRouter({
       )
     case 'copilot-usage':
       return <CopilotUsagePanel />
+    case 'copilot-sessions':
+      return <SessionExplorer onSelectSession={sessionId => onOpenTab(`copilot-session-detail:${sessionId}`)} />
     case 'tempo-timesheet':
       return <TempoDashboard />
     default:
       if (activeViewId.startsWith('crew-project:')) {
         const projectId = activeViewId.replace('crew-project:', '')
         return <CrewProjectView projectId={projectId} />
+      }
+      if (activeViewId.startsWith('copilot-session-detail:')) {
+        const sessionId = activeViewId.replace('copilot-session-detail:', '')
+        return <SessionDetail sessionId={sessionId} onBack={() => onNavigate('copilot-sessions')} />
       }
       if (activeViewId.startsWith('schedule-detail:')) {
         const scheduleId = activeViewId.replace('schedule-detail:', '')

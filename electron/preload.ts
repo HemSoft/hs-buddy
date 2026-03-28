@@ -73,6 +73,11 @@ contextBridge.exposeInMainWorld('tempo', {
   getSchedule: (from: string, to: string) => ipcRenderer.invoke('tempo:get-schedule', { from, to }),
 })
 
+contextBridge.exposeInMainWorld('copilotSessions', {
+  scan: () => ipcRenderer.invoke('copilot-sessions:scan'),
+  getSession: (sessionId: string) => ipcRenderer.invoke('copilot-sessions:get-session', sessionId),
+})
+
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
     ipcRenderer.invoke('copilot:execute', args),

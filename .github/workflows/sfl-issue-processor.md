@@ -192,6 +192,74 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUM: ${{ github.event.inputs.pull-request-number }}
           REPO: ${{ github.repository }}
+  ensure-issue-labels:
+    needs: [agent, safe_outputs]
+    if: "(!cancelled())"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-output
+          path: /opt/gh-aw/safe-jobs/
+      - name: Verify and repair issue labels after PR creation
+        run: |
+          AGENT_OUTPUT="/opt/gh-aw/safe-jobs/agent_output.json"
+
+          # Determine target issue number — prefer event context, fall back to agent output
+          ISSUE_NUM="${ISSUE_NUM_EVENT:-$ISSUE_NUM_INPUT}"
+          if [ -z "$ISSUE_NUM" ] && [ -f "$AGENT_OUTPUT" ]; then
+            ISSUE_NUM=$(jq -r '.items[]? | select(.type == "create_pull_request") | .body' \
+              "$AGENT_OUTPUT" 2>/dev/null \
+              | grep -oE 'Closes #[0-9]+' | head -1 | sed 's/Closes #//' || echo "")
+          fi
+
+          if [ -z "$ISSUE_NUM" ]; then
+            echo "No issue number available — skipping label verification"
+            exit 0
+          fi
+
+          echo "Checking label state for issue #$ISSUE_NUM..."
+
+          # Verify a PR was actually created for this issue
+          PR_NUM=$(gh pr list --state open --label "agent:pr" --json number,body --repo "$REPO" \
+            | jq -r ".[] | select(.body | contains(\"Closes #${ISSUE_NUM}\")) | .number" 2>/dev/null \
+            | head -1 || echo "")
+
+          if [ -z "$PR_NUM" ]; then
+            echo "No open agent:pr PR found for issue #$ISSUE_NUM — labels remain unchanged"
+            exit 0
+          fi
+
+          # Check current issue labels
+          LABELS=$(gh api "repos/$REPO/issues/$ISSUE_NUM/labels" --jq '.[].name' 2>/dev/null || echo "")
+
+          if echo "$LABELS" | grep -q "^agent:in-progress$"; then
+            echo "Issue #$ISSUE_NUM already has agent:in-progress — labels are correct"
+            exit 0
+          fi
+
+          if echo "$LABELS" | grep -q "^agent:fixable$"; then
+            echo "Deterministic fallback: issue #$ISSUE_NUM still has agent:fixable after PR #$PR_NUM was created"
+            if echo '{"labels":["agent:in-progress"]}' | gh api "repos/$REPO/issues/$ISSUE_NUM/labels" --method POST --input - --silent; then
+              gh api "repos/$REPO/issues/$ISSUE_NUM/labels/agent%3Afixable" --method DELETE --silent 2>/dev/null || true
+              echo "Label repair complete: agent:fixable → agent:in-progress on issue #$ISSUE_NUM"
+            else
+              echo "Label repair failed: could not add agent:in-progress to issue #$ISSUE_NUM"
+            fi
+          else
+            echo "Issue #$ISSUE_NUM has no agent:fixable label — no repair needed"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUM_EVENT: ${{ github.event.issue.number }}
+          ISSUE_NUM_INPUT: ${{ github.event.inputs.issue-number }}
+          REPO: ${{ github.repository }}
 source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 ---
 source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@79100291d171fa15d82a21338d23a2cf4f6063b6

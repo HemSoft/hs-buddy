@@ -196,6 +196,11 @@ by `sfl-pr-label-actions` deterministically.
 | `dispatch_workflow` | Trigger another workflow | 3 |
 | `mark_pull_request_as_ready_for_review` | Convert draft to ready | 1 |
 
+> **Known issue**: `add_labels`/`remove_labels` are best-effort (Safe Outputs
+> Spec §10.1). When batched after `create_pull_request`, they can be silently
+> dropped. The `ensure-issue-labels` fallback job in `sfl-issue-processor`
+> repairs label state via direct GitHub API after `safe_outputs` completes.
+
 ### gh-aw Platform Reference
 
 | Resource | URL |

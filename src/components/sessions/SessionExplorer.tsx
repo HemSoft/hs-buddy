@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { MessageSquare, RefreshCw, Database, HardDrive } from 'lucide-react'
 import { useCopilotSessions } from '../../hooks/useCopilotSessions'
 import type { SessionSummary } from '../../types/copilotSession'
@@ -15,19 +15,56 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function getDisplayTitle(session: SessionSummary): string {
+  if (session.title) return session.title
+  if (session.firstPrompt) {
+    const text = session.firstPrompt.slice(0, 80)
+    return text.length < session.firstPrompt.length ? text + '…' : text
+  }
+  return `Session ${session.sessionId.slice(0, 8)}`
+}
+
+function getDateGroup(ts: number): string {
+  const now = new Date()
+  const date = new Date(ts)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today.getTime() - 86400000)
+  const weekAgo = new Date(today.getTime() - 7 * 86400000)
+
+  if (date >= today) return 'Today'
+  if (date >= yesterday) return 'Yesterday'
+  if (date >= weekAgo) return 'This Week'
+  return 'Older'
+}
+
+function groupByDate(sessions: SessionSummary[]): { label: string; items: SessionSummary[] }[] {
+  const order = ['Today', 'Yesterday', 'This Week', 'Older']
+  const groups: Record<string, SessionSummary[]> = {}
+  for (const s of sessions) {
+    const label = getDateGroup(s.modifiedAt)
+    if (!groups[label]) groups[label] = []
+    groups[label].push(s)
+  }
+  return order.filter(l => groups[l]?.length).map(label => ({ label, items: groups[label] }))
+}
+
 function SessionListItem({ session, onSelect }: { session: SessionSummary; onSelect: (filePath: string) => void }) {
+  const displayTitle = getDisplayTitle(session)
+  const showPromptPreview = session.title && session.firstPrompt && session.firstPrompt !== session.title
+
   return (
     <div className="session-list-item" onClick={() => onSelect(session.filePath)}>
       <MessageSquare size={16} className="session-list-item-icon" />
       <div className="session-list-item-content">
-        <div className="session-list-item-title">{session.sessionId.slice(0, 8)}…</div>
+        <div className="session-list-item-title">{displayTitle}</div>
+        {showPromptPreview && (
+          <div className="session-list-item-prompt">{session.firstPrompt.slice(0, 100)}</div>
+        )}
         <div className="session-list-item-meta">
           <span>{formatDate(session.modifiedAt)}</span>
-          <span>{session.workspaceHash.slice(0, 8)}…</span>
+          {session.requestCount > 0 && <span>{session.requestCount} requests</span>}
+          <span>{formatSize(session.sizeBytes)}</span>
         </div>
-      </div>
-      <div className="session-list-item-tokens">
-        {formatSize(session.sizeBytes)}
       </div>
     </div>
   )
@@ -45,6 +82,7 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
   }, [scan])
 
   const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
+  const groups = useMemo(() => groupByDate(sessions), [sessions])
 
   return (
     <div className="session-explorer">
@@ -78,8 +116,13 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
             <p>Click Scan to search VS Code workspace storage.</p>
           </div>
         )}
-        {sessions.map(s => (
-          <SessionListItem key={s.filePath} session={s} onSelect={onSelectSession} />
+        {groups.map(group => (
+          <div key={group.label} className="session-date-group">
+            <div className="session-date-group-label">{group.label}</div>
+            {group.items.map(s => (
+              <SessionListItem key={s.filePath} session={s} onSelect={onSelectSession} />
+            ))}
+          </div>
         ))}
       </div>
     </div>

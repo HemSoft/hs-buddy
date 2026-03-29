@@ -114,6 +114,16 @@
   text-overflow: ellipsis;
 }
 
+.session-list-item-prompt {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+  font-style: italic;
+}
+
 .session-list-item-meta {
   font-size: 11px;
   color: var(--text-muted);
@@ -126,6 +136,22 @@
   font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+
+/* Date groups */
+.session-date-group {
+  margin-bottom: 12px;
+}
+
+.session-date-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--border-primary);
+  margin-bottom: 6px;
 }
 
 .session-empty {

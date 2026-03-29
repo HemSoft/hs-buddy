@@ -11,7 +11,7 @@ import type {
 
 // ─── VS Code Storage Discovery ────────────────────────────
 
-function getVSCodeStoragePath(): string {
+export function getVSCodeStoragePath(): string {
   const appData = process.env.APPDATA
   if (!appData) return ''
 
@@ -24,7 +24,52 @@ function getVSCodeStoragePath(): string {
   return ''
 }
 
-// ─── Scan: filesystem metadata only (instant) ─────────────
+// ─── Scan: fs metadata + first-line init parse (fast) ─────
+
+function extractScanInfo(filePath: string): { title: string; firstPrompt: string; agent: string; createdAt: number; requestCount: number } {
+  const fallback = { title: '', firstPrompt: '', agent: '', createdAt: 0, requestCount: 0 }
+  try {
+    const fd = fs.openSync(filePath, 'r')
+    try {
+      // Read the first 32 KB — enough to reach title/agent/first prompt even in large init lines.
+      // The init line can be huge (contains full response data), so JSON.parse may fail on
+      // truncated content. Use regex to extract key fields without requiring a complete parse.
+      const buf = Buffer.alloc(32768)
+      const bytesRead = fs.readSync(fd, buf, 0, 32768, 0)
+      if (bytesRead === 0) return fallback
+      const chunk = buf.toString('utf8', 0, bytesRead)
+
+      // Only process kind=0 lines
+      if (!chunk.startsWith('{"kind":0')) return fallback
+
+      // Extract fields via regex — works on truncated JSON
+      const titleMatch = /"customTitle":"((?:[^"\\]|\\.)*)"/.exec(chunk)
+      const title = titleMatch ? titleMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : ''
+
+      const agentMatch = /"responderUsername":"((?:[^"\\]|\\.)*)"/.exec(chunk)
+      const agent = agentMatch ? agentMatch[1] : ''
+
+      const dateMatch = /"creationDate":(\d+)/.exec(chunk)
+      const createdAt = dateMatch ? parseInt(dateMatch[1]) : 0
+
+      // First user prompt: message.text in the requests array
+      const promptMatch = /"message":\{"text":"((?:[^"\\]|\\.)*)"/.exec(chunk)
+      const firstPrompt = promptMatch
+        ? promptMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').slice(0, 200)
+        : ''
+
+      // Count requests (approximate — count "requestId" occurrences)
+      const reqMatches = chunk.match(/"requestId"/g)
+      const requestCount = reqMatches ? reqMatches.length : 0
+
+      return { title, firstPrompt, agent, createdAt, requestCount }
+    } finally {
+      fs.closeSync(fd)
+    }
+  } catch {
+    return fallback
+  }
+}
 
 export function scanCopilotSessions(): SessionScanResult {
   const storagePath = getVSCodeStoragePath()
@@ -54,12 +99,18 @@ export function scanCopilotSessions(): SessionScanResult {
       try {
         const stat = fs.statSync(filePath)
         if (stat.size === 0) continue
+        const info = extractScanInfo(filePath)
         sessions.push({
           sessionId: path.basename(file, '.jsonl'),
           filePath,
           workspaceHash: hash,
           modifiedAt: stat.mtimeMs,
           sizeBytes: stat.size,
+          title: info.title,
+          firstPrompt: info.firstPrompt,
+          agent: info.agent,
+          createdAt: info.createdAt,
+          requestCount: info.requestCount,
         })
       } catch {
         // skip unreadable
@@ -141,12 +192,13 @@ function extractResultData(line: string): SessionRequestResult | null {
       }
     }
 
-    return { promptTokens, outputTokens, firstProgressMs, totalElapsedMs, toolCallCount, toolNames: [...toolNames] }
+    return { prompt: '', promptTokens, outputTokens, firstProgressMs, totalElapsedMs, toolCallCount, toolNames: [...toolNames] }
   } catch {
     const pt = /"promptTokens":(\d+)/.exec(line)
     const ot = /"outputTokens":(\d+)/.exec(line)
     if (!pt || !ot) return null
     return {
+      prompt: '',
       promptTokens: parseInt(pt[1]),
       outputTokens: parseInt(ot[1]),
       firstProgressMs: 0,
@@ -165,7 +217,8 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
   return new Promise((resolve) => {
     let init: SessionInitData | null = null
     let title = ''
-    const results: SessionRequestResult[] = []
+    const resultsByIndex: Map<number, SessionRequestResult> = new Map()
+    const prompts: Map<number, string> = new Map()
 
     const stream = fs.createReadStream(filePath, { encoding: 'utf8' })
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
@@ -182,12 +235,35 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
 
       if (kind === 0) {
         init = extractSessionInit(line)
+        // Extract title from init if present
+        try {
+          const obj = JSON.parse(line)
+          if (obj.v?.customTitle) title = obj.v.customTitle
+          const reqs = obj.v?.requests ?? []
+          for (let i = 0; i < reqs.length; i++) {
+            const msg = reqs[i]?.message?.text
+            if (msg) prompts.set(i, msg)
+          }
+        } catch { /* regex fallback already handled init */ }
       } else if (kind === 1 && keyPath.length === 1 && keyPath[0] === 'customTitle') {
         const t = extractTitle(line)
         if (t) title = t
       } else if (kind === 1 && keyPath.length === 3 && keyPath[2] === 'result') {
+        const reqIndex = parseInt(keyPath[1])
         const result = extractResultData(line)
-        if (result) results.push(result)
+        if (result && !isNaN(reqIndex)) resultsByIndex.set(reqIndex, result)
+      } else if (kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests') {
+        // kind=2 requests snapshot — extract prompts for newly appended requests
+        try {
+          const obj = JSON.parse(line)
+          const reqs = obj.v ?? []
+          if (Array.isArray(reqs)) {
+            for (let i = 0; i < reqs.length; i++) {
+              const msg = reqs[i]?.message?.text
+              if (msg && !prompts.has(i)) prompts.set(i, msg)
+            }
+          }
+        } catch { /* skip unparseable */ }
       }
     })
 
@@ -195,6 +271,15 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
       if (!init || !init.sessionId) {
         resolve(null)
         return
+      }
+
+      // Build results sorted by request index, with prompts assigned
+      const results: SessionRequestResult[] = []
+      const sortedIndices = [...resultsByIndex.keys()].sort((a, b) => a - b)
+      for (const idx of sortedIndices) {
+        const r = resultsByIndex.get(idx)!
+        r.prompt = prompts.get(idx) ?? ''
+        results.push(r)
       }
 
       const allToolNames = new Set<string>()

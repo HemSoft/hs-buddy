@@ -12,6 +12,7 @@ export interface SessionModelInfo {
 
 /** A single completed request result extracted from a chatSession JSONL */
 export interface SessionRequestResult {
+  prompt: string
   promptTokens: number
   outputTokens: number
   firstProgressMs: number
@@ -20,13 +21,18 @@ export interface SessionRequestResult {
   toolNames: string[]
 }
 
-/** Lightweight session entry from filesystem metadata only — no file content read */
+/** Lightweight session entry from filesystem metadata + first-line init */
 export interface SessionSummary {
   sessionId: string
   filePath: string
   workspaceHash: string
   modifiedAt: number
   sizeBytes: number
+  title: string
+  firstPrompt: string
+  agent: string
+  createdAt: number
+  requestCount: number
 }
 
 /** Full session detail parsed from JSONL content */

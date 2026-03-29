@@ -29,6 +29,9 @@ function RequestItem({ result, index }: { result: SessionRequestResult; index: n
     <div className="session-request-item">
       <span className="session-request-index">#{index + 1}</span>
       <div className="session-request-body">
+        {result.prompt && (
+          <div className="session-request-prompt">{result.prompt}</div>
+        )}
         <div className="session-request-tokens">
           <span>↑ {formatTokenCount(result.promptTokens)} prompt</span>
           <span>↓ {formatTokenCount(result.outputTokens)} output</span>
@@ -67,7 +70,7 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         <ArrowLeft size={14} /> Back to Sessions
       </button>
 
-      <h2 className="session-detail-title">{session.title}</h2>
+      <h2 className="session-detail-title">{session.title || `Session ${session.sessionId.slice(0, 8)}`}</h2>
       <div className="session-detail-subtitle">
         <span>{formatDate(session.startTime)}</span>
         {session.model && <span>{session.model.name || session.model.id}</span>}

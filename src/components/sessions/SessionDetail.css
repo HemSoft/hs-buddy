@@ -98,6 +98,15 @@
   flex: 1;
 }
 
+.session-request-prompt {
+  font-size: 13px;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .session-request-tokens {
   font-size: 12px;
   color: var(--text-secondary);

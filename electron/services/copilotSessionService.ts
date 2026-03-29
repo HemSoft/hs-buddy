@@ -30,12 +30,22 @@ function readWorkspaceName(wsDir: string): string {
   try {
     const raw = fs.readFileSync(path.join(wsDir, 'workspace.json'), 'utf8')
     const parsed = JSON.parse(raw)
+
+    // Single-folder workspace: { "folder": "file:///d%3A/github/..." }
     const folder: string = parsed.folder ?? ''
-    if (!folder) return ''
-    // folder is a file URI like "file:///d%3A/github/HemSoft/tickdown"
-    const decoded = decodeURIComponent(folder.replace(/^file:\/\/\//, ''))
-    // Return the last path segment as the project name
-    return path.basename(decoded) || decoded
+    if (folder) {
+      const decoded = decodeURIComponent(folder.replace(/^file:\/\/\//, ''))
+      return path.basename(decoded) || decoded
+    }
+
+    // Multi-root workspace: { "workspace": "file:///path/to/name.code-workspace" }
+    const workspace: string = parsed.workspace ?? ''
+    if (workspace) {
+      const decoded = decodeURIComponent(workspace.replace(/^file:\/\/\//, ''))
+      return path.basename(decoded, '.code-workspace') || decoded
+    }
+
+    return ''
   } catch {
     return ''
   }

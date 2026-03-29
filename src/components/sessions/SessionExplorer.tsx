@@ -54,7 +54,7 @@ function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] 
   // Build workspace groups with date sub-groups
   const groups: WorkspaceGroup[] = []
   for (const [hash, wsSessions] of byWorkspace) {
-    const name = wsSessions[0].workspaceName || hash.slice(0, 8)
+    const name = wsSessions[0].workspaceName || `(unnamed — ${hash.slice(0, 8)})`
     const latestModified = Math.max(...wsSessions.map(s => s.modifiedAt))
 
     // Sub-group by date

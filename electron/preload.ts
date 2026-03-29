@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld('tempo', {
 contextBridge.exposeInMainWorld('copilotSessions', {
   scan: () => ipcRenderer.invoke('copilot-sessions:scan'),
   getSession: (filePath: string) => ipcRenderer.invoke('copilot-sessions:get-session', filePath),
+  computeDigest: (filePath: string) =>
+    ipcRenderer.invoke('copilot-sessions:compute-digest', filePath),
 })
 
 contextBridge.exposeInMainWorld('copilot', {

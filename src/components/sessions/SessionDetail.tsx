@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
-import { ArrowLeft, Clock, Cpu, Hash, Zap } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, Clock, Cpu, Hash, Zap, BarChart3 } from 'lucide-react'
 import { useCopilotSessionDetail } from '../../hooks/useCopilotSessions'
-import type { SessionRequestResult } from '../../types/copilotSession'
+import type { SessionRequestResult, SessionDigest } from '../../types/copilotSession'
 import './SessionDetail.css'
 
 function formatTokenCount(n: number): string {
@@ -55,10 +55,23 @@ interface SessionDetailProps {
 
 export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   const { session, isLoading, error, load } = useCopilotSessionDetail()
+  const [digest, setDigest] = useState<SessionDigest | null>(null)
+  const [digestLoading, setDigestLoading] = useState(false)
 
   useEffect(() => {
     load(filePath)
+    setDigest(null)
   }, [filePath, load])
+
+  const computeDigest = async () => {
+    setDigestLoading(true)
+    try {
+      const result = await window.copilotSessions.computeDigest(filePath)
+      setDigest(result)
+    } finally {
+      setDigestLoading(false)
+    }
+  }
 
   if (isLoading) return <div className="session-detail-loading">Loading session…</div>
   if (error) return <div className="session-detail-error">{error}</div>
@@ -98,6 +111,43 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
           <div className="session-detail-meta-label"><Clock size={11} /> Duration</div>
           <div className="session-detail-meta-value">{formatDuration(session.totalDurationMs)}</div>
         </div>
+      </div>
+
+      <div className="session-digest-section">
+        {!digest ? (
+          <button className="session-digest-btn" onClick={computeDigest} disabled={digestLoading}>
+            <BarChart3 size={14} /> {digestLoading ? 'Computing…' : 'Compute Efficiency Digest'}
+          </button>
+        ) : (
+          <div className="session-digest-grid">
+            <div className="session-digest-card">
+              <div className="session-detail-meta-label">Token Efficiency</div>
+              <div className="session-detail-meta-value">{digest.tokenEfficiency.toFixed(2)}</div>
+              <div className="session-digest-hint">output / prompt ratio</div>
+            </div>
+            <div className="session-digest-card">
+              <div className="session-detail-meta-label">Tool Density</div>
+              <div className="session-detail-meta-value">{digest.toolDensity.toFixed(1)}</div>
+              <div className="session-digest-hint">tools per request</div>
+            </div>
+            <div className="session-digest-card">
+              <div className="session-detail-meta-label">Search Churn</div>
+              <div className={`session-detail-meta-value ${digest.searchChurn > 10 ? 'session-digest-warn' : ''}`}>{digest.searchChurn}</div>
+              <div className="session-digest-hint">search/grep calls</div>
+            </div>
+            <div className="session-digest-card">
+              <div className="session-detail-meta-label">Est. Cost</div>
+              <div className="session-detail-meta-value">${digest.estimatedCost.toFixed(4)}</div>
+              <div className="session-digest-hint">token × multiplier</div>
+            </div>
+            {digest.dominantTools.length > 0 && (
+              <div className="session-digest-card session-digest-wide">
+                <div className="session-detail-meta-label">Dominant Tools</div>
+                <div className="session-digest-tools">{digest.dominantTools.join(', ')}</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {session.toolsUsed.length > 0 && (

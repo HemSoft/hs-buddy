@@ -58,3 +58,29 @@ export interface SessionScanResult {
   sessions: SessionSummary[]
   totalCount: number
 }
+
+/** Efficiency digest computed from a full CopilotSession parse */
+export interface SessionDigest {
+  sessionId: string
+  workspaceName: string
+  model: string
+  agentMode: string
+  requestCount: number
+  totalPromptTokens: number
+  totalOutputTokens: number
+  totalToolCalls: number
+  totalDurationMs: number
+  /** outputTokens / promptTokens — low ratio = model thinking more than producing */
+  tokenEfficiency: number
+  /** toolCalls / requests — high = agentic, low = chatty */
+  toolDensity: number
+  /** Repeated search/grep tool calls hinting at blind exploration */
+  searchChurn: number
+  /** (promptTokens + outputTokens) × multiplier × base rate */
+  estimatedCost: number
+  /** Top 3 tools by frequency */
+  dominantTools: string[]
+  firstPrompt: string
+  sessionDate: number
+  digestedAt: number
+}

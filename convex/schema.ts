@@ -346,4 +346,31 @@ export default defineSchema({
     .index("by_schedule", ["scheduleId"])
     .index("by_status", ["status"])
     .index("by_started", ["startedAt"]),
+
+  /**
+   * Session digests — efficiency metrics computed from Copilot session JSONL files.
+   * Idempotent by sessionId — upserted on each digest computation run.
+   */
+  sessionDigests: defineTable({
+    sessionId: v.string(),
+    workspaceName: v.string(),
+    model: v.optional(v.string()),
+    agentMode: v.optional(v.string()),
+    requestCount: v.number(),
+    totalPromptTokens: v.number(),
+    totalOutputTokens: v.number(),
+    totalToolCalls: v.number(),
+    totalDurationMs: v.number(),
+    tokenEfficiency: v.number(),
+    toolDensity: v.number(),
+    searchChurn: v.number(),
+    estimatedCost: v.number(),
+    dominantTools: v.array(v.string()),
+    firstPrompt: v.optional(v.string()),
+    sessionDate: v.number(),
+    digestedAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceName", "sessionDate"])
+    .index("by_session", ["sessionId"])
+    .index("by_date", ["sessionDate"]),
 });

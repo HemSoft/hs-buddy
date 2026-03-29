@@ -3,6 +3,7 @@ import * as path from 'path'
 import * as readline from 'readline'
 import type {
   CopilotSession,
+  SessionDigest,
   SessionModelInfo,
   SessionRequestResult,
   SessionScanResult,
@@ -26,7 +27,7 @@ export function getVSCodeStoragePath(): string {
 
 // ─── Workspace name resolution ────────────────────────────
 
-function readWorkspaceName(wsDir: string): string {
+export function resolveWorkspaceName(wsDir: string): string {
   try {
     const raw = fs.readFileSync(path.join(wsDir, 'workspace.json'), 'utf8')
     const parsed = JSON.parse(raw)
@@ -122,7 +123,7 @@ export function scanCopilotSessions(): SessionScanResult {
     }
 
     // Resolve workspace name from workspace.json
-    const workspaceName = readWorkspaceName(path.join(wsRoot, hash))
+    const workspaceName = resolveWorkspaceName(path.join(wsRoot, hash))
 
     for (const file of files) {
       const filePath = path.join(chatDir, file)
@@ -350,4 +351,67 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
       resolve(null)
     })
   })
+}
+
+// ─── Digest: compute efficiency metrics from parsed session ──
+
+/** Base rate per token for cost estimation (USD per token, approximate) */
+const BASE_TOKEN_RATE = 0.000001
+
+/** Tool name patterns that indicate search/exploration behavior */
+const SEARCH_TOOL_PATTERNS = ['grep_search', 'semantic_search', 'file_search', 'search_subagent']
+
+function countSearchChurn(results: SessionRequestResult[]): number {
+  // Count total search tool calls across all results.
+  // High counts relative to request count indicate blind exploration.
+  let searchCalls = 0
+  for (const r of results) {
+    for (const tool of r.toolNames) {
+      if (SEARCH_TOOL_PATTERNS.some(p => tool.includes(p))) {
+        searchCalls += Math.max(1, r.toolCallCount > r.toolNames.length
+          ? Math.round(r.toolCallCount / r.toolNames.length)
+          : 1)
+      }
+    }
+  }
+  return searchCalls
+}
+
+function computeDominantTools(results: SessionRequestResult[]): string[] {
+  const freq = new Map<string, number>()
+  for (const r of results) {
+    for (const tool of r.toolNames) {
+      freq.set(tool, (freq.get(tool) ?? 0) + 1)
+    }
+  }
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name]) => name)
+}
+
+export function computeSessionDigest(session: CopilotSession, workspaceName: string, agentMode: string): SessionDigest {
+  const { totalPromptTokens, totalOutputTokens, totalToolCalls, requestCount, results } = session
+  const multiplier = session.model?.multiplierNumeric ?? 1
+  const totalTokens = totalPromptTokens + totalOutputTokens
+
+  return {
+    sessionId: session.sessionId,
+    workspaceName,
+    model: session.model?.name || session.model?.id || '',
+    agentMode,
+    requestCount,
+    totalPromptTokens,
+    totalOutputTokens,
+    totalToolCalls,
+    totalDurationMs: session.totalDurationMs,
+    tokenEfficiency: totalPromptTokens > 0 ? totalOutputTokens / totalPromptTokens : 0,
+    toolDensity: requestCount > 0 ? totalToolCalls / requestCount : 0,
+    searchChurn: countSearchChurn(results),
+    estimatedCost: totalTokens * multiplier * BASE_TOKEN_RATE,
+    dominantTools: computeDominantTools(results),
+    firstPrompt: results[0]?.prompt?.slice(0, 200) ?? '',
+    sessionDate: session.startTime || Date.now(),
+    digestedAt: Date.now(),
+  }
 }

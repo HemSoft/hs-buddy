@@ -22,6 +22,7 @@ import type * as repoBookmarks from "../repoBookmarks.js";
 import type * as runs from "../runs.js";
 import type * as scheduleScanner from "../scheduleScanner.js";
 import type * as schedules from "../schedules.js";
+import type * as sessionDigests from "../sessionDigests.js";
 import type * as settings from "../settings.js";
 
 import type {
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   runs: typeof runs;
   scheduleScanner: typeof scheduleScanner;
   schedules: typeof schedules;
+  sessionDigests: typeof sessionDigests;
   settings: typeof settings;
 }>;
 

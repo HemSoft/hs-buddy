@@ -191,5 +191,6 @@ interface Window {
   copilotSessions: {
     scan: () => Promise<import('../src/types/copilotSession').SessionScanResult>
     getSession: (filePath: string) => Promise<import('../src/types/copilotSession').CopilotSession | null>
+    computeDigest: (filePath: string) => Promise<import('../src/types/copilotSession').SessionDigest | null>
   }
 }

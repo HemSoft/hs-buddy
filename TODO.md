@@ -3,6 +3,7 @@
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | 📋     | Medium   | [Copilot Session Explorer](#copilot-session-explorer)                                                        | Research & build a view into Copilot's session DB/files/logs — token usage, prompts, tool calls, model costs                          |
+| 📋     | Medium   | [Session Insights & Feedback Loop](#session-insights--feedback-loop)                                         | Compute per-session efficiency digests, persist to Convex, surface improvement suggestions for instructions/skills                    |
 | 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
 | ✅     | Medium   | Tempo tracking                                                                                               | Completed 2026-03-23: monthly grid, capex/non-capex split, holiday support, green capex highlighting, auto-scroll to today            |
 | ✅     | Medium   | PR Analyzers should post reviews, not update PR body                                                         | Completed 2026-03-22: all 3 analyzers already use `add_comment`; `update_issue` not in safe-outputs config                           |
@@ -68,7 +69,7 @@
 
 ## Progress
 
-**Remaining: 2** | **Completed: 60** (97%)
+**Remaining: 3** | **Completed: 60** (95%)
 
 ---
 
@@ -159,6 +160,68 @@
 - Aggregate stats show total tokens consumed, model usage breakdown, and tool frequency.
 - Data is read-only — no mutations to Copilot's storage files.
 - Works with both VS Code Insiders and Stable storage paths.
+
+### Session Insights & Feedback Loop
+
+**Goal**: Turn Copilot session data into a closed-loop optimization signal. Compute per-session efficiency metrics, persist digests to Convex for historical queries, and surface actionable improvement suggestions for instructions, skills, and repo memory. Depends on Session Explorer (viewer) being merged first.
+
+**Prerequisite**: Merge `anvil/copilot-session-explorer` branch to `main`.
+
+**Session Digest Metrics** (computed per session from existing JSONL data):
+
+| Metric | Formula | What It Reveals |
+|--------|---------|-----------------|
+| `tokenEfficiency` | `totalOutputTokens / totalPromptTokens` | Low ratio = model thinking more than producing. Instructions need more direction. |
+| `toolDensity` | `totalToolCalls / requestCount` | High = agentic (good). Low = chatty, not using tools. |
+| `searchChurn` | Count of repeated grep/search calls with similar args | High = blind searching. Codebase conventions or file structure undocumented. |
+| `avgTimePerRequest` | `totalDurationMs / requestCount` | Baseline for comparing models and task types. |
+| `dominantTools` | Top 3 tool names by frequency | Fingerprint of session behavior. |
+| `estimatedCost` | `(promptTokens + outputTokens) × multiplierNumeric × baseRate` | Cost attribution per project/session. |
+
+**Convex Schema** — `sessionDigests` table:
+
+```typescript
+sessionDigests: defineTable({
+  sessionId: v.string(),
+  workspaceName: v.string(),
+  model: v.optional(v.string()),
+  agentMode: v.optional(v.string()),
+  requestCount: v.number(),
+  totalPromptTokens: v.number(),
+  totalOutputTokens: v.number(),
+  totalToolCalls: v.number(),
+  totalDurationMs: v.number(),
+  tokenEfficiency: v.number(),
+  toolDensity: v.number(),
+  searchChurn: v.number(),
+  estimatedCost: v.number(),
+  dominantTools: v.array(v.string()),
+  firstPrompt: v.optional(v.string()),
+  sessionDate: v.number(),
+  digestedAt: v.number(),
+})
+  .index("by_workspace", ["workspaceName", "sessionDate"])
+  .index("by_session", ["sessionId"])
+  .index("by_date", ["sessionDate"])
+```
+
+**Implementation Plan**:
+
+1. **Merge Session Explorer branch** — prerequisite, brings in service + types + IPC + UI.
+2. **Add digest types** to `src/types/copilotSession.ts` — `SessionDigest` interface.
+3. **Add `computeDigest()` function** to `copilotSessionService.ts` — takes a `CopilotSession`, returns `SessionDigest`. Computes all 6 metrics. Search churn requires analyzing the `toolNames` arrays across results for repeated patterns.
+4. **Add Convex table + mutations** — `sessionDigests` table in schema, `upsertDigest` mutation (idempotent by sessionId), `getDigests` query with workspace/date filters.
+5. **Add IPC handler** `copilot-sessions:compute-digests` — scans sessions, computes digests for any not yet in Convex, pushes new digests.
+6. **Add digest display to Session Detail** — show efficiency metrics alongside existing token/tool data.
+7. **Future (P2)**: Insights View with trend charts, worst-session highlighting, and "what would have helped" suggestions.
+
+**Acceptance Criteria**:
+
+- Every parsed session gets a digest with all 6 metrics computed.
+- Digests persist to Convex and are queryable by workspace and date range.
+- Session Detail view displays efficiency score, tool density, and search churn.
+- Digest computation is idempotent — re-scanning doesn't create duplicates.
+- Cost estimation uses the model's `multiplierNumeric` from JSONL metadata.
 
 ### Task Planner (Todoist Integration)
 

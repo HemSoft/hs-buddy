@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.492] - 2026-03-29
+
 ## [0.1.491] - 2026-03-29
+
+### Changed
+
+- Add Session Explorer v2 entry to v0.1.490
 
 ## [0.1.490] - 2026-03-29
 

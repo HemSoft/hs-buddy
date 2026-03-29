@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react'
-import { MessageSquare, RefreshCw, Database, HardDrive } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { MessageSquare, RefreshCw, Database, HardDrive, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react'
 import { useCopilotSessions } from '../../hooks/useCopilotSessions'
 import type { SessionSummary } from '../../types/copilotSession'
 import './SessionExplorer.css'
@@ -37,15 +37,41 @@ function getDateGroup(ts: number): string {
   return 'Older'
 }
 
-function groupByDate(sessions: SessionSummary[]): { label: string; items: SessionSummary[] }[] {
-  const order = ['Today', 'Yesterday', 'This Week', 'Older']
-  const groups: Record<string, SessionSummary[]> = {}
+interface DateGroup { label: string; items: SessionSummary[] }
+interface WorkspaceGroup { name: string; hash: string; dateGroups: DateGroup[]; sessionCount: number; latestModified: number }
+
+function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] {
+  const dateOrder = ['Today', 'Yesterday', 'This Week', 'Older']
+
+  // Group sessions by workspace
+  const byWorkspace = new Map<string, SessionSummary[]>()
   for (const s of sessions) {
-    const label = getDateGroup(s.modifiedAt)
-    if (!groups[label]) groups[label] = []
-    groups[label].push(s)
+    const key = s.workspaceHash
+    if (!byWorkspace.has(key)) byWorkspace.set(key, [])
+    byWorkspace.get(key)!.push(s)
   }
-  return order.filter(l => groups[l]?.length).map(label => ({ label, items: groups[label] }))
+
+  // Build workspace groups with date sub-groups
+  const groups: WorkspaceGroup[] = []
+  for (const [hash, wsSessions] of byWorkspace) {
+    const name = wsSessions[0].workspaceName || hash.slice(0, 8)
+    const latestModified = Math.max(...wsSessions.map(s => s.modifiedAt))
+
+    // Sub-group by date
+    const byDate: Record<string, SessionSummary[]> = {}
+    for (const s of wsSessions) {
+      const label = getDateGroup(s.modifiedAt)
+      if (!byDate[label]) byDate[label] = []
+      byDate[label].push(s)
+    }
+    const dateGroups = dateOrder.filter(l => byDate[l]?.length).map(label => ({ label, items: byDate[label] }))
+
+    groups.push({ name, hash, dateGroups, sessionCount: wsSessions.length, latestModified })
+  }
+
+  // Sort workspaces by most recent activity
+  groups.sort((a, b) => b.latestModified - a.latestModified)
+  return groups
 }
 
 function SessionListItem({ session, onSelect }: { session: SessionSummary; onSelect: (filePath: string) => void }) {
@@ -70,6 +96,33 @@ function SessionListItem({ session, onSelect }: { session: SessionSummary; onSel
   )
 }
 
+function WorkspaceSection({ group, onSelect, defaultExpanded }: { group: WorkspaceGroup; onSelect: (filePath: string) => void; defaultExpanded: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
+
+  return (
+    <div className="session-workspace-group">
+      <button className="session-workspace-header" onClick={() => setExpanded(!expanded)}>
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <FolderOpen size={14} className="session-workspace-icon" />
+        <span className="session-workspace-name">{group.name}</span>
+        <span className="session-workspace-count">{group.sessionCount}</span>
+      </button>
+      {expanded && (
+        <div className="session-workspace-body">
+          {group.dateGroups.map(dg => (
+            <div key={dg.label} className="session-date-group">
+              <div className="session-date-group-label">{dg.label}</div>
+              {dg.items.map(s => (
+                <SessionListItem key={s.filePath} session={s} onSelect={onSelect} />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface SessionExplorerProps {
   onSelectSession: (filePath: string) => void
 }
@@ -82,7 +135,7 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
   }, [scan])
 
   const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
-  const groups = useMemo(() => groupByDate(sessions), [sessions])
+  const workspaceGroups = useMemo(() => groupByWorkspaceThenDate(sessions), [sessions])
 
   return (
     <div className="session-explorer">
@@ -102,6 +155,10 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
             <div className="session-stat-value">{totalCount}</div>
           </div>
           <div className="session-stat-card">
+            <div className="session-stat-label"><FolderOpen size={12} /> Projects</div>
+            <div className="session-stat-value">{workspaceGroups.length}</div>
+          </div>
+          <div className="session-stat-card">
             <div className="session-stat-label"><HardDrive size={12} /> Total Size</div>
             <div className="session-stat-value">{formatSize(totalSize)}</div>
           </div>
@@ -116,13 +173,8 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
             <p>Click Scan to search VS Code workspace storage.</p>
           </div>
         )}
-        {groups.map(group => (
-          <div key={group.label} className="session-date-group">
-            <div className="session-date-group-label">{group.label}</div>
-            {group.items.map(s => (
-              <SessionListItem key={s.filePath} session={s} onSelect={onSelectSession} />
-            ))}
-          </div>
+        {workspaceGroups.map((group, i) => (
+          <WorkspaceSection key={group.hash} group={group} onSelect={onSelectSession} defaultExpanded={i < 3} />
         ))}
       </div>
     </div>

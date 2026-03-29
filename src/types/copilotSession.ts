@@ -26,6 +26,7 @@ export interface SessionSummary {
   sessionId: string
   filePath: string
   workspaceHash: string
+  workspaceName: string
   modifiedAt: number
   sizeBytes: number
   title: string

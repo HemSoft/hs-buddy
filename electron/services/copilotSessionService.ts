@@ -24,6 +24,23 @@ export function getVSCodeStoragePath(): string {
   return ''
 }
 
+// ─── Workspace name resolution ────────────────────────────
+
+function readWorkspaceName(wsDir: string): string {
+  try {
+    const raw = fs.readFileSync(path.join(wsDir, 'workspace.json'), 'utf8')
+    const parsed = JSON.parse(raw)
+    const folder: string = parsed.folder ?? ''
+    if (!folder) return ''
+    // folder is a file URI like "file:///d%3A/github/HemSoft/tickdown"
+    const decoded = decodeURIComponent(folder.replace(/^file:\/\/\//, ''))
+    // Return the last path segment as the project name
+    return path.basename(decoded) || decoded
+  } catch {
+    return ''
+  }
+}
+
 // ─── Scan: fs metadata + first-line init parse (fast) ─────
 
 function extractScanInfo(filePath: string): { title: string; firstPrompt: string; agent: string; createdAt: number; requestCount: number } {
@@ -94,6 +111,9 @@ export function scanCopilotSessions(): SessionScanResult {
       continue
     }
 
+    // Resolve workspace name from workspace.json
+    const workspaceName = readWorkspaceName(path.join(wsRoot, hash))
+
     for (const file of files) {
       const filePath = path.join(chatDir, file)
       try {
@@ -104,6 +124,7 @@ export function scanCopilotSessions(): SessionScanResult {
           sessionId: path.basename(file, '.jsonl'),
           filePath,
           workspaceHash: hash,
+          workspaceName,
           modifiedAt: stat.mtimeMs,
           sizeBytes: stat.size,
           title: info.title,

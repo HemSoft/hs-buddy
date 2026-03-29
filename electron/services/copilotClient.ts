@@ -14,6 +14,7 @@
 import { CopilotClient, type AssistantMessageEvent } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
+import { app } from 'electron'
 
 export const DEFAULT_MODEL = 'claude-sonnet-4.5'
 const SESSION_TIMEOUT = 30_000  // 30s for session creation
@@ -27,18 +28,32 @@ const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
  */
 function resolveCopilotCliPath(): string {
   const binaryName = process.platform === 'win32' ? 'copilot.exe' : 'copilot'
+  const pkgSubPath = path.join('@github', `copilot-${process.platform}-${process.arch}`, binaryName)
 
-  // Use require.resolve so the dependency is traceable by static analysis (knip)
+  // 1. Try require.resolve (works in dev / non-asar builds)
   try {
     const pkgJson = require.resolve('@github/copilot-win32-x64/package.json')
-    const pkgDir = path.dirname(pkgJson)
-    const nativePath = path.join(pkgDir, binaryName)
+    const nativePath = path.join(path.dirname(pkgJson), binaryName)
     if (existsSync(nativePath)) {
-      console.log(`[CopilotClient] Using native CLI: ${nativePath}`)
+      console.log(`[CopilotClient] Using native CLI (require.resolve): ${nativePath}`)
       return nativePath
     }
   } catch {
-    // Package not installed — fall through to PATH lookup
+    // Fall through
+  }
+
+  // 2. Try relative to app root (works in Electron packaged builds)
+  const appRoot = app?.getAppPath?.() ?? process.cwd()
+  const candidates = [
+    path.join(appRoot, 'node_modules', pkgSubPath),
+    path.join(appRoot, '..', 'node_modules', pkgSubPath),
+    path.join(process.cwd(), 'node_modules', pkgSubPath),
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      console.log(`[CopilotClient] Using native CLI (filesystem): ${candidate}`)
+      return candidate
+    }
   }
 
   const fallback = process.platform === 'win32' ? 'copilot.cmd' : 'copilot'

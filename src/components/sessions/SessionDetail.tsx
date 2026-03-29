@@ -133,12 +133,12 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
             <div className="session-digest-card">
               <div className="session-detail-meta-label">Search Churn</div>
               <div className={`session-detail-meta-value ${digest.searchChurn > 10 ? 'session-digest-warn' : ''}`}>{digest.searchChurn}</div>
-              <div className="session-digest-hint">search/grep calls</div>
+              <div className="session-digest-hint">requests with search tools</div>
             </div>
             <div className="session-digest-card">
-              <div className="session-detail-meta-label">Est. Cost</div>
+              <div className="session-detail-meta-label">~Cost</div>
               <div className="session-detail-meta-value">${digest.estimatedCost.toFixed(4)}</div>
-              <div className="session-digest-hint">token × multiplier</div>
+              <div className="session-digest-hint">rough estimate</div>
             </div>
             {digest.dominantTools.length > 0 && (
               <div className="session-digest-card session-digest-wide">

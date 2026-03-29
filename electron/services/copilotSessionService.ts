@@ -46,9 +46,9 @@ export function resolveWorkspaceName(wsDir: string): string {
       return path.basename(decoded, '.code-workspace') || decoded
     }
 
-    return ''
+    return path.basename(wsDir)
   } catch {
-    return ''
+    return path.basename(wsDir)
   }
 }
 
@@ -362,19 +362,15 @@ const BASE_TOKEN_RATE = 0.000001
 const SEARCH_TOOL_PATTERNS = ['grep_search', 'semantic_search', 'file_search', 'search_subagent']
 
 function countSearchChurn(results: SessionRequestResult[]): number {
-  // Count total search tool calls across all results.
-  // High counts relative to request count indicate blind exploration.
-  let searchCalls = 0
+  // Count requests that contain at least one search tool call.
+  // High counts relative to total requests indicate blind exploration.
+  let searchRequests = 0
   for (const r of results) {
-    for (const tool of r.toolNames) {
-      if (SEARCH_TOOL_PATTERNS.some(p => tool.includes(p))) {
-        searchCalls += Math.max(1, r.toolCallCount > r.toolNames.length
-          ? Math.round(r.toolCallCount / r.toolNames.length)
-          : 1)
-      }
+    if (r.toolNames.some(t => SEARCH_TOOL_PATTERNS.some(p => t.includes(p)))) {
+      searchRequests++
     }
   }
-  return searchCalls
+  return searchRequests
 }
 
 function computeDominantTools(results: SessionRequestResult[]): string[] {
@@ -410,7 +406,7 @@ export function computeSessionDigest(session: CopilotSession, workspaceName: str
     searchChurn: countSearchChurn(results),
     estimatedCost: totalTokens * multiplier * BASE_TOKEN_RATE,
     dominantTools: computeDominantTools(results),
-    firstPrompt: results[0]?.prompt?.slice(0, 200) ?? '',
+    firstPrompt: results[0]?.prompt ? [...results[0].prompt].slice(0, 200).join('') : '',
     sessionDate: session.startTime || Date.now(),
     digestedAt: Date.now(),
   }

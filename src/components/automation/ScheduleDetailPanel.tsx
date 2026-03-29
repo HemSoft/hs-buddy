@@ -26,6 +26,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   const runs = useScheduleRuns(scheduleId as Id<'schedules'>, 10)
   const { toggle, remove } = useScheduleMutations()
   const [editorOpen, setEditorOpen] = useState(false)
+  const { confirm, confirmDialog } = useConfirm()
 
   if (schedule === undefined) {
     return (
@@ -55,8 +56,6 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
       console.error('Failed to toggle schedule:', error)
     }
   }
-
-  const { confirm, confirmDialog } = useConfirm()
 
   const handleDelete = async () => {
     const confirmed = await confirm({

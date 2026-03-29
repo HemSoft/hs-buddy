@@ -102,6 +102,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   const { create: createRun } = useRunMutations()
   const [editorOpen, setEditorOpen] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
+  const { confirm, confirmDialog } = useConfirm()
 
   if (job === undefined) {
     return (
@@ -154,8 +155,6 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
     setDuplicating(true)
     setEditorOpen(true)
   }
-
-  const { confirm, confirmDialog } = useConfirm()
 
   const handleDelete = async () => {
     const confirmed = await confirm({

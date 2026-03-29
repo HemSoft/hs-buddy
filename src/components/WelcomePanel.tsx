@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useBuddyStats, useRepoBookmarks } from '../hooks/useConvex'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
+import { formatUptime } from '../utils/dateUtils'
 import { formatCurrency } from './copilot-usage/quotaUtils'
 import './WelcomePanel.css'
 
@@ -40,26 +41,6 @@ interface WelcomeStatCardProps {
 
 function formatNumber(n: number): string {
   return n.toLocaleString()
-}
-
-function formatUptime(ms: number): string {
-  if (ms <= 0) return '0s'
-  const totalSeconds = Math.floor(ms / 1_000)
-  if (totalSeconds < 60) return `${totalSeconds}s`
-  const totalMinutes = Math.floor(ms / 60_000)
-  if (totalMinutes < 60) return `${totalMinutes}m`
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  if (hours < 24) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
-  const days = Math.floor(hours / 24)
-  const remainingHours = hours % 24
-  return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`
-}
-
-function formatMemberSince(epochMs: number): string {
-  if (!epochMs) return 'Today'
-  const date = new Date(epochMs)
-  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
 function WelcomeHeader({ liveUptime }: { liveUptime: number }) {
@@ -305,7 +286,14 @@ function ActivityOverviewSection({
         />
         <WelcomeStatCard
           icon={<Calendar size={18} />}
-          value={formatMemberSince(firstLaunch)}
+          value={
+            firstLaunch
+              ? new Date(firstLaunch).toLocaleDateString('en-US', {
+                  month: 'short',
+                  year: 'numeric',
+                })
+              : 'Today'
+          }
           label="Member Since"
           subtitle={
             appLaunches > 0

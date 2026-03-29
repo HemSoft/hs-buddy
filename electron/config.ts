@@ -1,5 +1,5 @@
 import Store from 'electron-store';
-import type { AppConfig, GitHubAccount, DisplayRect } from '../src/types/config';
+import type { AppConfig, GitHubAccount } from '../src/types/config';
 import { configSchema, defaultConfig } from '../src/types/config';
 
 /** Shared Convex URL — single source of truth for the main process. */
@@ -62,157 +62,12 @@ class ConfigManager {
     this.store.set('github.accounts', accounts);
   }
 
-  private getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {
+  getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {
     return this.store.get(`ui.${key}` as keyof AppConfig, defaultConfig.ui[key] as unknown as AppConfig[keyof AppConfig]) as unknown as AppConfig['ui'][K];
   }
 
-  private setUiValue<K extends keyof AppConfig['ui']>(key: K, value: AppConfig['ui'][K]): void {
+  setUiValue<K extends keyof AppConfig['ui']>(key: K, value: AppConfig['ui'][K]): void {
     this.store.set(`ui.${key}`, value);
-  }
-
-  // UI Settings
-  getTheme(): 'dark' | 'light' {
-    return this.getUiValue('theme');
-  }
-
-  setTheme(theme: 'dark' | 'light'): void {
-    this.setUiValue('theme', theme);
-  }
-
-  getAccentColor(): string {
-    return this.getUiValue('accentColor');
-  }
-
-  setAccentColor(color: string): void {
-    this.setUiValue('accentColor', color);
-  }
-
-  getBgPrimary(): string {
-    return this.getUiValue('bgPrimary');
-  }
-
-  setBgPrimary(color: string): void {
-    this.setUiValue('bgPrimary', color);
-  }
-
-  getBgSecondary(): string {
-    return this.getUiValue('bgSecondary');
-  }
-
-  setBgSecondary(color: string): void {
-    this.setUiValue('bgSecondary', color);
-  }
-
-  getStatusBarBg(): string {
-    return this.getUiValue('statusBarBg');
-  }
-
-  setStatusBarBg(color: string): void {
-    this.setUiValue('statusBarBg', color);
-  }
-
-  getStatusBarFg(): string {
-    return this.getUiValue('statusBarFg');
-  }
-
-  setStatusBarFg(color: string): void {
-    this.setUiValue('statusBarFg', color);
-  }
-
-  getFontColor(): string {
-    return this.getUiValue('fontColor');
-  }
-
-  setFontColor(color: string): void {
-    this.setUiValue('fontColor', color);
-  }
-
-  getFontFamily(): string {
-    return this.getUiValue('fontFamily');
-  }
-
-  setFontFamily(font: string): void {
-    this.setUiValue('fontFamily', font);
-  }
-
-  getMonoFontFamily(): string {
-    return this.getUiValue('monoFontFamily');
-  }
-
-  setMonoFontFamily(font: string): void {
-    this.setUiValue('monoFontFamily', font);
-  }
-
-  getZoomLevel(): number {
-    return this.getUiValue('zoomLevel');
-  }
-
-  setZoomLevel(level: number): void {
-    this.setUiValue('zoomLevel', level);
-  }
-
-  getSidebarWidth(): number {
-    return this.getUiValue('sidebarWidth');
-  }
-
-  setSidebarWidth(width: number): void {
-    this.setUiValue('sidebarWidth', width);
-  }
-
-  getPaneSizes(): number[] {
-    return this.getUiValue('paneSizes');
-  }
-
-  setPaneSizes(sizes: number[]): void {
-    this.setUiValue('paneSizes', sizes);
-  }
-
-  getDisplayId(): number {
-    return this.getUiValue('displayId');
-  }
-
-  setDisplayId(id: number): void {
-    this.setUiValue('displayId', id);
-  }
-
-  getDisplayBounds(): DisplayRect {
-    return this.getUiValue('displayBounds');
-  }
-
-  setDisplayBounds(bounds: DisplayRect): void {
-    this.setUiValue('displayBounds', bounds);
-  }
-
-  getDisplayWorkArea(): DisplayRect {
-    return this.getUiValue('displayWorkArea');
-  }
-
-  setDisplayWorkArea(workArea: DisplayRect): void {
-    this.setUiValue('displayWorkArea', workArea);
-  }
-
-  getShowBookmarkedOnly(): boolean {
-    return this.getUiValue('showBookmarkedOnly');
-  }
-
-  setShowBookmarkedOnly(value: boolean): void {
-    this.setUiValue('showBookmarkedOnly', value);
-  }
-
-  getAssistantOpen(): boolean {
-    return this.getUiValue('assistantOpen');
-  }
-
-  setAssistantOpen(value: boolean): void {
-    this.setUiValue('assistantOpen', value);
-  }
-
-  getFavoriteUsers(): string[] {
-    return this.getUiValue('favoriteUsers');
-  }
-
-  setFavoriteUsers(users: string[]): void {
-    this.setUiValue('favoriteUsers', users);
   }
 
   // Copilot Settings (PR Review Prompt Template — still used via IPC)

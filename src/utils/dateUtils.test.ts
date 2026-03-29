@@ -5,6 +5,7 @@ import {
   formatDateFull,
   formatDateCompact,
   formatDuration,
+  formatUptime,
   formatTime,
   formatHour12,
 } from './dateUtils'
@@ -179,6 +180,30 @@ describe('formatDuration', () => {
     expect(formatDuration(90_000)).toBe('1m 30s')
     expect(formatDuration(125_000)).toBe('2m 5s')
     expect(formatDuration(3_600_000)).toBe('60m 0s')
+  })
+})
+
+describe('formatUptime', () => {
+  it('formats non-positive durations as zero seconds', () => {
+    expect(formatUptime(0)).toBe('0s')
+    expect(formatUptime(-1)).toBe('0s')
+  })
+
+  it('formats seconds and minutes', () => {
+    expect(formatUptime(1_000)).toBe('1s')
+    expect(formatUptime(59_000)).toBe('59s')
+    expect(formatUptime(60_000)).toBe('1m')
+    expect(formatUptime(59 * 60_000)).toBe('59m')
+  })
+
+  it('formats hours with optional minutes', () => {
+    expect(formatUptime(60 * 60_000)).toBe('1h')
+    expect(formatUptime(90 * 60_000)).toBe('1h 30m')
+  })
+
+  it('formats days with optional remaining hours', () => {
+    expect(formatUptime(24 * 60 * 60_000)).toBe('1d')
+    expect(formatUptime(27 * 60 * 60_000)).toBe('1d 3h')
   })
 })
 

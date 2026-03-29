@@ -4,150 +4,150 @@ import { configManager } from '../config'
 export function registerConfigHandlers(): void {
   // Theme
   ipcMain.handle('config:get-theme', () => {
-    return configManager.getTheme()
+    return configManager.getUiValue('theme')
   })
 
   ipcMain.handle('config:set-theme', (_event, theme) => {
-    configManager.setTheme(theme)
+    configManager.setUiValue('theme', theme)
     return { success: true }
   })
 
   // Accent Color
   ipcMain.handle('config:get-accent-color', () => {
-    return configManager.getAccentColor()
+    return configManager.getUiValue('accentColor')
   })
 
   ipcMain.handle('config:set-accent-color', (_event, color) => {
-    configManager.setAccentColor(color)
+    configManager.setUiValue('accentColor', color)
     return { success: true }
   })
 
   // Background Colors
   ipcMain.handle('config:get-bg-primary', () => {
-    return configManager.getBgPrimary()
+    return configManager.getUiValue('bgPrimary')
   })
 
   ipcMain.handle('config:set-bg-primary', (_event, color) => {
-    configManager.setBgPrimary(color)
+    configManager.setUiValue('bgPrimary', color)
     return { success: true }
   })
 
   ipcMain.handle('config:get-bg-secondary', () => {
-    return configManager.getBgSecondary()
+    return configManager.getUiValue('bgSecondary')
   })
 
   ipcMain.handle('config:set-bg-secondary', (_event, color) => {
-    configManager.setBgSecondary(color)
+    configManager.setUiValue('bgSecondary', color)
     return { success: true }
   })
 
   // Status Bar Colors
   ipcMain.handle('config:get-statusbar-bg', () => {
-    return configManager.getStatusBarBg()
+    return configManager.getUiValue('statusBarBg')
   })
 
   ipcMain.handle('config:set-statusbar-bg', (_event, color) => {
-    configManager.setStatusBarBg(color)
+    configManager.setUiValue('statusBarBg', color)
     return { success: true }
   })
 
   ipcMain.handle('config:get-statusbar-fg', () => {
-    return configManager.getStatusBarFg()
+    return configManager.getUiValue('statusBarFg')
   })
 
   ipcMain.handle('config:set-statusbar-fg', (_event, color) => {
-    configManager.setStatusBarFg(color)
+    configManager.setUiValue('statusBarFg', color)
     return { success: true }
   })
 
   // Font Color
   ipcMain.handle('config:get-font-color', () => {
-    return configManager.getFontColor()
+    return configManager.getUiValue('fontColor')
   })
 
   ipcMain.handle('config:set-font-color', (_event, color) => {
-    configManager.setFontColor(color)
+    configManager.setUiValue('fontColor', color)
     return { success: true }
   })
 
   // Font Family
   ipcMain.handle('config:get-font-family', () => {
-    return configManager.getFontFamily()
+    return configManager.getUiValue('fontFamily')
   })
 
   ipcMain.handle('config:set-font-family', (_event, font) => {
-    configManager.setFontFamily(font)
+    configManager.setUiValue('fontFamily', font)
     return { success: true }
   })
 
   // Monospace Font Family
   ipcMain.handle('config:get-mono-font-family', () => {
-    return configManager.getMonoFontFamily()
+    return configManager.getUiValue('monoFontFamily')
   })
 
   ipcMain.handle('config:set-mono-font-family', (_event, font) => {
-    configManager.setMonoFontFamily(font)
+    configManager.setUiValue('monoFontFamily', font)
     return { success: true }
   })
 
   // Zoom Level
   ipcMain.handle('config:get-zoom-level', () => {
-    return configManager.getZoomLevel()
+    return configManager.getUiValue('zoomLevel')
   })
 
   ipcMain.handle('config:set-zoom-level', (_event, level) => {
-    configManager.setZoomLevel(level)
+    configManager.setUiValue('zoomLevel', level)
     return { success: true }
   })
 
   // Sidebar Width
   ipcMain.handle('config:get-sidebar-width', () => {
-    return configManager.getSidebarWidth()
+    return configManager.getUiValue('sidebarWidth')
   })
 
   ipcMain.handle('config:set-sidebar-width', (_event, width) => {
-    configManager.setSidebarWidth(width)
+    configManager.setUiValue('sidebarWidth', width)
     return { success: true }
   })
 
   // Pane Sizes
   ipcMain.handle('config:get-pane-sizes', () => {
-    return configManager.getPaneSizes()
+    return configManager.getUiValue('paneSizes')
   })
 
   ipcMain.handle('config:set-pane-sizes', (_event, sizes) => {
-    configManager.setPaneSizes(sizes)
+    configManager.setUiValue('paneSizes', sizes)
     return { success: true }
   })
 
   // Show Bookmarked Only
   ipcMain.handle('config:get-show-bookmarked-only', () => {
-    return configManager.getShowBookmarkedOnly()
+    return configManager.getUiValue('showBookmarkedOnly')
   })
 
   ipcMain.handle('config:set-show-bookmarked-only', (_event, value) => {
-    configManager.setShowBookmarkedOnly(value)
+    configManager.setUiValue('showBookmarkedOnly', value)
     return { success: true }
   })
 
   // Favorite Users
   ipcMain.handle('config:get-favorite-users', () => {
-    return configManager.getFavoriteUsers()
+    return configManager.getUiValue('favoriteUsers')
   })
 
   ipcMain.handle('config:set-favorite-users', (_event, users) => {
-    configManager.setFavoriteUsers(users)
+    configManager.setUiValue('favoriteUsers', users)
     return { success: true }
   })
 
   // Assistant Open
   ipcMain.handle('config:get-assistant-open', () => {
-    return configManager.getAssistantOpen()
+    return configManager.getUiValue('assistantOpen')
   })
 
   ipcMain.handle('config:set-assistant-open', (_event, value) => {
     if (typeof value !== 'boolean') return { success: false }
-    configManager.setAssistantOpen(value)
+    configManager.setUiValue('assistantOpen', value)
     return { success: true }
   })
 

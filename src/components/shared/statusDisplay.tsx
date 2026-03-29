@@ -9,6 +9,14 @@ const STATUS_ICONS: Record<string, (size: number, classPrefix: string) => ReactN
   cancelled: (size, cls) => <Ban size={size} className={`${cls}-cancelled`} />,
 }
 
+const STATUS_CLASSES: Record<string, string> = {
+  pending: 'status-pending',
+  running: 'status-running',
+  completed: 'status-completed',
+  failed: 'status-failed',
+  cancelled: 'status-cancelled',
+}
+
 export function getStatusIcon(status: string, size = 14, classPrefix = 'status'): ReactNode {
   return STATUS_ICONS[status]?.(size, classPrefix) ?? null
 }
@@ -22,20 +30,7 @@ export function getStatusLabel(status: string, includeInProgressEllipsis = false
 }
 
 export function getStatusClass(status: string): string {
-  switch (status) {
-    case 'completed':
-      return 'status-completed'
-    case 'failed':
-      return 'status-failed'
-    case 'running':
-      return 'status-running'
-    case 'pending':
-      return 'status-pending'
-    case 'cancelled':
-      return 'status-cancelled'
-    default:
-      return ''
-  }
+  return STATUS_CLASSES[status] ?? ''
 }
 
 const STATUS_EMOJIS: Record<string, string> = {

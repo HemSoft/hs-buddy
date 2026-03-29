@@ -44,8 +44,8 @@ function createWindow() {
   })
 
   // --- Multi-monitor display validation ---
-  const savedDisplayId = configManager.getDisplayId()
-  const savedDisplayBounds = configManager.getDisplayBounds()
+  const savedDisplayId = configManager.getUiValue('displayId')
+  const savedDisplayBounds = configManager.getUiValue('displayBounds')
   const allDisplays = screen.getAllDisplays()
   const primaryDisplay = screen.getPrimaryDisplay()
 
@@ -141,9 +141,9 @@ function createWindow() {
     if (!win) return
     const bounds = win.getBounds()
     const currentDisplay = screen.getDisplayMatching(bounds)
-    configManager.setDisplayId(currentDisplay.id)
-    configManager.setDisplayBounds(currentDisplay.bounds)
-    configManager.setDisplayWorkArea(currentDisplay.workArea)
+    configManager.setUiValue('displayId', currentDisplay.id)
+    configManager.setUiValue('displayBounds', currentDisplay.bounds)
+    configManager.setUiValue('displayWorkArea', currentDisplay.workArea)
   }
 
   // Save display on user-initiated moves/resizes (not immediately at startup

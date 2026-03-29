@@ -187,6 +187,20 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
 }
 
+export function formatUptime(ms: number): string {
+  if (ms <= 0) return '0s'
+  const totalSeconds = Math.floor(ms / 1_000)
+  if (totalSeconds < 60) return `${totalSeconds}s`
+  const totalMinutes = Math.floor(ms / 60_000)
+  if (totalMinutes < 60) return `${totalMinutes}m`
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours < 24) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+  const days = Math.floor(hours / 24)
+  const remainingHours = hours % 24
+  return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`
+}
+
 export function formatTime(
   ts: number | Date,
   opts?: { seconds?: boolean; hour12?: boolean; numeric?: boolean }

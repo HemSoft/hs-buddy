@@ -1,20 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { CopilotSession, SessionScanResult, SessionTotals } from '../types/copilotSession'
-
-const EMPTY_TOTALS: SessionTotals = {
-  totalSessions: 0,
-  totalRequests: 0,
-  totalPromptTokens: 0,
-  totalOutputTokens: 0,
-  totalToolCalls: 0,
-  totalDurationMs: 0,
-  modelUsage: {},
-  toolUsage: {},
-}
+import type { CopilotSession, SessionScanResult, SessionSummary } from '../types/copilotSession'
 
 export function useCopilotSessions() {
-  const [sessions, setSessions] = useState<CopilotSession[]>([])
-  const [totals, setTotals] = useState<SessionTotals>(EMPTY_TOTALS)
+  const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
@@ -30,7 +19,7 @@ export function useCopilotSessions() {
       const result: SessionScanResult = await window.copilotSessions.scan()
       if (mountedRef.current) {
         setSessions(result.sessions)
-        setTotals(result.totals)
+        setTotalCount(result.totalCount)
       }
     } catch (err) {
       if (mountedRef.current) {
@@ -41,7 +30,7 @@ export function useCopilotSessions() {
     }
   }, [])
 
-  return { sessions, totals, isLoading, error, scan }
+  return { sessions, totalCount, isLoading, error, scan }
 }
 
 export function useCopilotSessionDetail() {
@@ -50,12 +39,12 @@ export function useCopilotSessionDetail() {
   const [error, setError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
 
-  const load = useCallback(async (sessionId: string) => {
+  const load = useCallback(async (filePath: string) => {
     const thisRequest = ++requestIdRef.current
     setIsLoading(true)
     setError(null)
     try {
-      const result = await window.copilotSessions.getSession(sessionId)
+      const result = await window.copilotSessions.getSession(filePath)
       if (requestIdRef.current === thisRequest) {
         setSession(result)
       }

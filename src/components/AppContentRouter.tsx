@@ -115,7 +115,7 @@ export function AppContentRouter({
     case 'copilot-usage':
       return <CopilotUsagePanel />
     case 'copilot-sessions':
-      return <SessionExplorer onSelectSession={sessionId => onOpenTab(`copilot-session-detail:${sessionId}`)} />
+      return <SessionExplorer onSelectSession={filePath => onOpenTab(`copilot-session-detail:${btoa(filePath)}`)} />
     case 'tempo-timesheet':
       return <TempoDashboard />
     default:
@@ -124,8 +124,8 @@ export function AppContentRouter({
         return <CrewProjectView projectId={projectId} />
       }
       if (activeViewId.startsWith('copilot-session-detail:')) {
-        const sessionId = activeViewId.replace('copilot-session-detail:', '')
-        return <SessionDetail sessionId={sessionId} onBack={() => onNavigate('copilot-sessions')} />
+        const filePath = atob(activeViewId.replace('copilot-session-detail:', ''))
+        return <SessionDetail filePath={filePath} onBack={() => onNavigate('copilot-sessions')} />
       }
       if (activeViewId.startsWith('schedule-detail:')) {
         const scheduleId = activeViewId.replace('schedule-detail:', '')

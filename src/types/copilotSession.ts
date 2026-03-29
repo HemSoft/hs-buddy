@@ -20,7 +20,16 @@ export interface SessionRequestResult {
   toolNames: string[]
 }
 
-/** Parsed Copilot session from chatSessions/*.jsonl */
+/** Lightweight session entry from filesystem metadata only — no file content read */
+export interface SessionSummary {
+  sessionId: string
+  filePath: string
+  workspaceHash: string
+  modifiedAt: number
+  sizeBytes: number
+}
+
+/** Full session detail parsed from JSONL content */
 export interface CopilotSession {
   sessionId: string
   title: string
@@ -37,20 +46,8 @@ export interface CopilotSession {
   filePath: string
 }
 
-/** Aggregate totals across all sessions */
-export interface SessionTotals {
-  totalSessions: number
-  totalRequests: number
-  totalPromptTokens: number
-  totalOutputTokens: number
-  totalToolCalls: number
-  totalDurationMs: number
-  modelUsage: Record<string, number>
-  toolUsage: Record<string, number>
-}
-
-/** Scan result returned by IPC */
+/** Scan result returned by IPC — lightweight, no file content read */
 export interface SessionScanResult {
-  sessions: CopilotSession[]
-  totals: SessionTotals
+  sessions: SessionSummary[]
+  totalCount: number
 }

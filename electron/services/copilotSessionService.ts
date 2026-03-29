@@ -6,13 +6,8 @@ import type {
   SessionModelInfo,
   SessionRequestResult,
   SessionScanResult,
-  SessionTotals,
+  SessionSummary,
 } from '../../src/types/copilotSession'
-
-// ─── Constants ────────────────────────────────────────────
-
-const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB — skip larger files in scan
-const MAX_FILES_PER_DIR = 100 // cap per workspace to avoid runaway scans
 
 // ─── VS Code Storage Discovery ────────────────────────────
 
@@ -29,25 +24,23 @@ function getVSCodeStoragePath(): string {
   return ''
 }
 
-interface ChatSessionFile {
-  filePath: string
-  hash: string
-  sizeBytes: number
-}
+// ─── Scan: filesystem metadata only (instant) ─────────────
 
-function findChatSessionFiles(vsCodeStoragePath: string): ChatSessionFile[] {
-  const wsRoot = path.join(vsCodeStoragePath, 'workspaceStorage')
-  if (!fs.existsSync(wsRoot)) return []
+export function scanCopilotSessions(): SessionScanResult {
+  const storagePath = getVSCodeStoragePath()
+  if (!storagePath) return { sessions: [], totalCount: 0 }
 
-  const result: ChatSessionFile[] = []
-  let dirs: string[]
+  const wsRoot = path.join(storagePath, 'workspaceStorage')
+  let wsDirs: string[]
   try {
-    dirs = fs.readdirSync(wsRoot)
+    wsDirs = fs.readdirSync(wsRoot)
   } catch {
-    return []
+    return { sessions: [], totalCount: 0 }
   }
 
-  for (const hash of dirs) {
+  const sessions: SessionSummary[] = []
+
+  for (const hash of wsDirs) {
     const chatDir = path.join(wsRoot, hash, 'chatSessions')
     let files: string[]
     try {
@@ -56,24 +49,31 @@ function findChatSessionFiles(vsCodeStoragePath: string): ChatSessionFile[] {
       continue
     }
 
-    let count = 0
     for (const file of files) {
-      if (count >= MAX_FILES_PER_DIR) break
       const filePath = path.join(chatDir, file)
       try {
         const stat = fs.statSync(filePath)
-        result.push({ filePath, hash, sizeBytes: stat.size })
-        count++
+        if (stat.size === 0) continue
+        sessions.push({
+          sessionId: path.basename(file, '.jsonl'),
+          filePath,
+          workspaceHash: hash,
+          modifiedAt: stat.mtimeMs,
+          sizeBytes: stat.size,
+        })
       } catch {
-        // skip unreadable files
+        // skip unreadable
       }
     }
   }
 
-  return result
+  // Sort newest first by modification time
+  sessions.sort((a, b) => b.modifiedAt - a.modifiedAt)
+
+  return { sessions, totalCount: sessions.length }
 }
 
-// ─── JSONL Line Parsing (kind-based, ported from hs-buddy-vscode-extension) ──
+// ─── Detail: parse one JSONL file (streaming) ─────────────
 
 interface SessionInitData {
   sessionId: string
@@ -106,7 +106,6 @@ function extractSessionInit(line: string): SessionInitData | null {
     }
     return { sessionId, creationDate, model }
   } catch {
-    // Regex fallback for oversized lines
     const sidMatch = /"sessionId":"([^"]+)"/.exec(line)
     const cdMatch = /"creationDate":(\d+)/.exec(line)
     return {
@@ -158,88 +157,11 @@ function extractResultData(line: string): SessionRequestResult | null {
   }
 }
 
-// ─── Parse a single chatSession JSONL file (streaming) ────
+export async function getSessionDetail(filePath: string): Promise<CopilotSession | null> {
+  if (!fs.existsSync(filePath)) return null
 
-function parseLineForScan(line: string): {
-  kind: number
-  keyPath: string[]
-  init?: SessionInitData
-  title?: string
-  hasResult?: boolean
-  result?: SessionRequestResult
-} | null {
-  const kindMatch = /^\{"kind":(\d+)/.exec(line)
-  if (!kindMatch) return null
+  const workspaceHash = path.basename(path.dirname(path.dirname(filePath)))
 
-  const kind = parseInt(kindMatch[1])
-  const keyMatch = /"k":\[([^\]]*)\]/.exec(line)
-  const keyPath = keyMatch
-    ? keyMatch[1].split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
-    : []
-
-  if (kind === 0) {
-    return { kind, keyPath, init: extractSessionInit(line) ?? undefined }
-  }
-  if (kind === 1 && keyPath.length === 1 && keyPath[0] === 'customTitle') {
-    return { kind, keyPath, title: extractTitle(line) ?? undefined }
-  }
-  if (kind === 1 && keyPath.length === 3 && keyPath[2] === 'result') {
-    return { kind, keyPath, hasResult: true }
-  }
-  return { kind, keyPath }
-}
-
-/** Quick scan — reads line-by-line, only extracts init + title + result count. No full result parsing. */
-async function scanSessionFile(filePath: string, workspaceHash: string): Promise<CopilotSession | null> {
-  return new Promise((resolve) => {
-    let init: SessionInitData | null = null
-    let title = ''
-    let resultCount = 0
-
-    const stream = fs.createReadStream(filePath, { encoding: 'utf8' })
-    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
-
-    rl.on('line', (line) => {
-      const parsed = parseLineForScan(line)
-      if (!parsed) return
-
-      if (parsed.init) init = parsed.init
-      if (parsed.title) title = parsed.title
-      if (parsed.hasResult) resultCount++
-    })
-
-    rl.on('close', () => {
-      if (!init || !init.sessionId || resultCount === 0) {
-        resolve(null)
-        return
-      }
-      resolve({
-        sessionId: init.sessionId,
-        title: title || `Session ${init.sessionId.slice(0, 8)}`,
-        startTime: init.creationDate,
-        model: init.model,
-        requestCount: resultCount,
-        results: [], // Not populated in scan mode
-        totalPromptTokens: 0,
-        totalOutputTokens: 0,
-        totalToolCalls: 0,
-        toolsUsed: [],
-        totalDurationMs: 0,
-        workspaceHash,
-        filePath,
-      })
-    })
-
-    rl.on('error', () => resolve(null))
-    stream.on('error', () => {
-      rl.close()
-      resolve(null)
-    })
-  })
-}
-
-/** Full parse — reads line-by-line, extracts all result data for detail view. */
-async function parseSessionFileFull(filePath: string, workspaceHash: string): Promise<CopilotSession | null> {
   return new Promise((resolve) => {
     let init: SessionInitData | null = null
     let title = ''
@@ -312,100 +234,4 @@ async function parseSessionFileFull(filePath: string, workspaceHash: string): Pr
       resolve(null)
     })
   })
-}
-
-// ─── Public API ───────────────────────────────────────────
-
-let cachedResult: SessionScanResult | null = null
-let cacheTime = 0
-const CACHE_TTL_MS = 30_000
-
-export async function scanCopilotSessions(): Promise<SessionScanResult> {
-  // Return cache if fresh
-  if (cachedResult && Date.now() - cacheTime < CACHE_TTL_MS) {
-    return cachedResult
-  }
-
-  const storagePath = getVSCodeStoragePath()
-  if (!storagePath) return { sessions: [], totals: emptyTotals() }
-
-  const chatFiles = findChatSessionFiles(storagePath)
-
-  // Filter out oversized files
-  const candidates = chatFiles.filter(f => f.sizeBytes <= MAX_FILE_SIZE_BYTES)
-
-  // Process in batches to avoid too many open file handles
-  const BATCH_SIZE = 20
-  const sessions: CopilotSession[] = []
-
-  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-    const batch = candidates.slice(i, i + BATCH_SIZE)
-    const results = await Promise.all(
-      batch.map(f => scanSessionFile(f.filePath, f.hash))
-    )
-    for (const s of results) {
-      if (s) sessions.push(s)
-    }
-  }
-
-  sessions.sort((a, b) => b.startTime - a.startTime)
-
-  const result = { sessions, totals: computeTotals(sessions) }
-  cachedResult = result
-  cacheTime = Date.now()
-  return result
-}
-
-export async function getSessionDetail(sessionId: string): Promise<CopilotSession | null> {
-  // Check cache for the file path of this session
-  if (cachedResult) {
-    const summary = cachedResult.sessions.find(s => s.sessionId === sessionId)
-    if (summary) {
-      // Full parse of just this one file
-      return parseSessionFileFull(summary.filePath, summary.workspaceHash)
-    }
-  }
-
-  // No cache — do a scan first, then find and parse
-  const { sessions } = await scanCopilotSessions()
-  const summary = sessions.find(s => s.sessionId === sessionId)
-  if (!summary) return null
-  return parseSessionFileFull(summary.filePath, summary.workspaceHash)
-}
-
-// ─── Helpers ──────────────────────────────────────────────
-
-function emptyTotals(): SessionTotals {
-  return {
-    totalSessions: 0,
-    totalRequests: 0,
-    totalPromptTokens: 0,
-    totalOutputTokens: 0,
-    totalToolCalls: 0,
-    totalDurationMs: 0,
-    modelUsage: {},
-    toolUsage: {},
-  }
-}
-
-function computeTotals(sessions: CopilotSession[]): SessionTotals {
-  const totals = emptyTotals()
-  totals.totalSessions = sessions.length
-
-  for (const s of sessions) {
-    totals.totalRequests += s.requestCount
-    totals.totalPromptTokens += s.totalPromptTokens
-    totals.totalOutputTokens += s.totalOutputTokens
-    totals.totalToolCalls += s.totalToolCalls
-    totals.totalDurationMs += s.totalDurationMs
-
-    const modelKey = s.model?.name || s.model?.id || 'unknown'
-    totals.modelUsage[modelKey] = (totals.modelUsage[modelKey] ?? 0) + 1
-
-    for (const tool of s.toolsUsed) {
-      totals.toolUsage[tool] = (totals.toolUsage[tool] ?? 0) + 1
-    }
-  }
-
-  return totals
 }

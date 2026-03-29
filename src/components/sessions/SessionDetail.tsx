@@ -46,16 +46,16 @@ function RequestItem({ result, index }: { result: SessionRequestResult; index: n
 }
 
 interface SessionDetailProps {
-  sessionId: string
+  filePath: string
   onBack: () => void
 }
 
-export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
+export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   const { session, isLoading, error, load } = useCopilotSessionDetail()
 
   useEffect(() => {
-    load(sessionId)
-  }, [sessionId, load])
+    load(filePath)
+  }, [filePath, load])
 
   if (isLoading) return <div className="session-detail-loading">Loading session…</div>
   if (error) return <div className="session-detail-error">{error}</div>

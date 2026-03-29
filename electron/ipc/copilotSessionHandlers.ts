@@ -6,7 +6,7 @@ export function registerCopilotSessionHandlers(): void {
     return scanCopilotSessions()
   })
 
-  ipcMain.handle('copilot-sessions:get-session', (_event, sessionId: string) => {
-    return getSessionDetail(sessionId)
+  ipcMain.handle('copilot-sessions:get-session', (_event, filePath: string) => {
+    return getSessionDetail(filePath)
   })
 }

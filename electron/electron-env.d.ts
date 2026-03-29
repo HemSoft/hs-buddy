@@ -190,6 +190,6 @@ interface Window {
   }
   copilotSessions: {
     scan: () => Promise<import('../src/types/copilotSession').SessionScanResult>
-    getSession: (sessionId: string) => Promise<import('../src/types/copilotSession').CopilotSession | null>
+    getSession: (filePath: string) => Promise<import('../src/types/copilotSession').CopilotSession | null>
   }
 }

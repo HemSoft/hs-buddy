@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.492] - 2026-03-29
 
+### Changed
+
+- Add v0.1.491 entry for Session Explorer changelog update
+
 ## [0.1.491] - 2026-03-29
 
 ### Changed

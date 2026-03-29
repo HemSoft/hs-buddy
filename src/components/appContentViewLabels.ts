@@ -25,6 +25,7 @@ export const viewLabels: Record<string, string> = {
   'copilot-prompt': 'Copilot Prompt',
   'copilot-all-results': 'Copilot Results',
   'copilot-usage': 'Copilot Usage',
+  'copilot-sessions': 'Session Explorer',
   'tempo-timesheet': 'Timesheet',
 }
 
@@ -80,6 +81,9 @@ export function getViewLabel(viewId: string): string {
   }
   if (viewId.startsWith('repo-prs-closed:')) {
     return `${parseRepoViewId(viewId, 'repo-prs-closed').repoName} Closed PRs`
+  }
+  if (viewId.startsWith('copilot-session-detail:')) {
+    return 'Session Detail'
   }
   if (viewId.startsWith('copilot-result:')) {
     return 'Copilot Result'

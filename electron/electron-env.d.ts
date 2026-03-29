@@ -188,4 +188,8 @@ interface Window {
     getCapexMap: (issueKeys: string[]) => Promise<import('../src/types/tempo').TempoResult<Record<string, boolean>>>
     getSchedule: (from: string, to: string) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoScheduleDay[]>>
   }
+  copilotSessions: {
+    scan: () => Promise<import('../src/types/copilotSession').SessionScanResult>
+    getSession: (filePath: string) => Promise<import('../src/types/copilotSession').CopilotSession | null>
+  }
 }

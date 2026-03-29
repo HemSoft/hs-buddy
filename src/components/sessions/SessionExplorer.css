@@ -1,0 +1,280 @@
+.session-explorer {
+  padding: 16px 20px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.session-explorer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.session-explorer-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.session-explorer-refresh {
+  background: none;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.session-explorer-refresh:hover {
+  color: var(--text-heading);
+  border-color: var(--accent-primary);
+}
+
+.session-explorer-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Stats summary row */
+.session-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.session-stat-card {
+  background: var(--card-bg, var(--bg-secondary));
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.session-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.session-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+/* Session list */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--card-bg, var(--bg-secondary));
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.session-list-item:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-tertiary, var(--bg-secondary));
+}
+
+.session-list-item-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.session-list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-list-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-list-item-prompt {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+  font-style: italic;
+}
+
+.session-list-item-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.session-list-item-tokens {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Date groups */
+.session-date-group {
+  margin-bottom: 8px;
+}
+
+.session-date-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--border-primary);
+  margin-bottom: 6px;
+}
+
+/* Workspace groups */
+.session-workspace-group {
+  margin-bottom: 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.session-workspace-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading);
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.session-workspace-header:hover {
+  background: var(--bg-tertiary, var(--bg-secondary));
+}
+
+.session-workspace-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.session-workspace-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-workspace-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--border-primary);
+  border-radius: 10px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+
+.session-workspace-body {
+  padding: 6px 12px 8px;
+}
+
+.session-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-muted);
+}
+
+.session-empty-icon {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+
+.session-error {
+  padding: 12px;
+  border: 1px solid var(--error-border, #f44);
+  border-radius: 6px;
+  color: var(--error-text, #f88);
+  background: var(--error-bg, rgba(255,68,68,0.08));
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* Model/tool breakdown charts */
+.session-breakdown {
+  margin-top: 16px;
+}
+
+.session-breakdown h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0 0 8px;
+}
+
+.session-breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.session-breakdown-label {
+  flex: 1;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-breakdown-value {
+  color: var(--text-heading);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-breakdown-bar {
+  width: 60px;
+  height: 4px;
+  background: var(--border-primary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.session-breakdown-bar-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}

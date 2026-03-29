@@ -143,7 +143,7 @@ export function TempoWorklogEditor({
       })
     }, 400)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [state.issueKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.issueKey])
 
   // For edit mode, fetch project accounts on mount
   useEffect(() => {

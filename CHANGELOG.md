@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.487] - 2026-03-29
+
 ## [0.1.486] - 2026-03-29
+
+### Changed
+
+- Stream JSONL parsing and split scan/detail into two tiers
 
 ## [0.1.485] - 2026-03-28
 

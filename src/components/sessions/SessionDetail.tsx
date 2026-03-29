@@ -65,9 +65,15 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
 
   const computeDigest = async () => {
     setDigestLoading(true)
+    const targetPath = filePath
     try {
       const result = await window.copilotSessions.computeDigest(filePath)
-      setDigest(result)
+      // Guard against stale result if user navigated away during computation
+      if (targetPath === filePath) {
+        setDigest(result)
+      }
+    } catch (err) {
+      console.error('Failed to compute digest:', err)
     } finally {
       setDigestLoading(false)
     }

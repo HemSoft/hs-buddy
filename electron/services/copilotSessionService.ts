@@ -83,7 +83,7 @@ function extractScanInfo(filePath: string): { title: string; firstPrompt: string
       // First user prompt: message.text in the requests array
       const promptMatch = /"message":\{"text":"((?:[^"\\]|\\.)*)"/.exec(chunk)
       const firstPrompt = promptMatch
-        ? promptMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').slice(0, 200)
+        ? [...promptMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')].slice(0, 200).join('')
         : ''
 
       // Count requests (approximate — count "requestId" occurrences)

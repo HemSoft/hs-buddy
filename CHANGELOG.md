@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.468] - 2026-03-29
+
 ## [0.1.467] - 2026-03-29
+
+### Fixed
+
+- Correct search churn metric, workspace fallback, and unicode-safe prompt slice
 
 ## [0.1.466] - 2026-03-29
 

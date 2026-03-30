@@ -2,9 +2,9 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | Medium   | [Copilot Session Explorer](#copilot-session-explorer)                                                        | Research & build a view into Copilot's session DB/files/logs — token usage, prompts, tool calls, model costs                          |
-| 📋     | Medium   | [Session Insights & Feedback Loop](#session-insights--feedback-loop)                                         | Compute per-session efficiency digests, persist to Convex, surface improvement suggestions for instructions/skills                    |
 | 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
+| ✅     | Medium   | Copilot Session Explorer                                                                                     | Completed 2026-03-29: JSONL parsing, workspace grouping, session detail with prompts/tokens/tools, streaming parser, scan caching     |
+| ✅     | Medium   | Session Insights & Feedback Loop                                                                             | Completed 2026-03-29: digest computation (6 metrics), Convex persistence, digest UI in SessionDetail, 3-round adversarial review      |
 | ✅     | Medium   | Tempo tracking                                                                                               | Completed 2026-03-23: monthly grid, capex/non-capex split, holiday support, green capex highlighting, auto-scroll to today            |
 | ✅     | Medium   | PR Analyzers should post reviews, not update PR body                                                         | Completed 2026-03-22: all 3 analyzers already use `add_comment`; `update_issue` not in safe-outputs config                           |
 | ✅     | Medium   | Add branch cleanup to repo-audit                                                                             | Completed 2026-03-22: added Branch Hygiene scope (#7) to repo-audit + stale branch detection (Step 14) to sfl-auditor                |
@@ -69,7 +69,7 @@
 
 ## Progress
 
-**Remaining: 3** | **Completed: 60** (95%)
+**Remaining: 1** | **Completed: 62** (98%)
 
 ---
 

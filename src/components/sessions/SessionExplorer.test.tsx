@@ -38,29 +38,29 @@ vi.mock('../../hooks/useCopilotSessions', () => ({
 }))
 
 describe('SessionExplorer', () => {
-  const onOpenSession = vi.fn()
+  const onSelectSession = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('renders session explorer header', () => {
-    render(<SessionExplorer onOpenSession={onOpenSession} />)
+    render(<SessionExplorer onSelectSession={onSelectSession} />)
     expect(screen.getByText('Session Explorer')).toBeTruthy()
   })
 
   it('shows sessions stat card', () => {
-    render(<SessionExplorer onOpenSession={onOpenSession} />)
+    render(<SessionExplorer onSelectSession={onSelectSession} />)
     expect(screen.getByText('Sessions')).toBeTruthy()
   })
 
   it('renders scan button', () => {
-    render(<SessionExplorer onOpenSession={onOpenSession} />)
+    render(<SessionExplorer onSelectSession={onSelectSession} />)
     expect(screen.getByText('Scan')).toBeTruthy()
   })
 
   it('renders session with title', () => {
-    render(<SessionExplorer onOpenSession={onOpenSession} />)
+    render(<SessionExplorer onSelectSession={onSelectSession} />)
     expect(screen.getByText('Fix Auth Flow')).toBeTruthy()
   })
 })

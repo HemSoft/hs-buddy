@@ -11,14 +11,14 @@ vi.mock('./AppearanceColorPicker', () => ({
 describe('AppearanceColorsSection', () => {
   const defaultProps = {
     brandColors: [
-      { id: 'primary', label: 'Primary', cssVar: '--brand-primary', value: '#4a90d9', onChange: vi.fn() },
-      { id: 'accent', label: 'Accent', cssVar: '--brand-accent', value: '#e74c3c', onChange: vi.fn() },
+      { id: 'primary', label: 'Primary', hint: 'Primary brand color', value: '#4a90d9', onChange: vi.fn() },
+      { id: 'accent', label: 'Accent', hint: 'Accent color', value: '#e74c3c', onChange: vi.fn() },
     ],
     backgroundColors: [
-      { id: 'bg-main', label: 'Main', cssVar: '--bg-main', value: '#1e1e2e', onChange: vi.fn() },
+      { id: 'bg-main', label: 'Main', hint: 'Main background', value: '#1e1e2e', onChange: vi.fn() },
     ],
     statusBarColors: [
-      { id: 'status-bg', label: 'Background', cssVar: '--status-bg', value: '#333', onChange: vi.fn() },
+      { id: 'status-bg', label: 'Background', hint: 'Status bar background', value: '#333', onChange: vi.fn() },
     ],
     onReset: vi.fn(),
   }

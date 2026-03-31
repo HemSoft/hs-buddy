@@ -22,9 +22,10 @@ beforeEach(() => {
 })
 
 const context: AssistantContext = {
+  viewType: 'test-view',
+  viewId: null,
   summary: 'Test context summary',
-  section: 'github',
-  activeView: 'test-view',
+  metadata: {},
 }
 
 describe('useAssistantConversation', () => {

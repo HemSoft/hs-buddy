@@ -62,6 +62,8 @@ describe('StatusBar', () => {
       phase: 'syncing',
       activeLabel: 'PRs',
       activeTasks: 3,
+      nextRefreshSecs: null,
+      lastRefreshedAt: null,
       lastRefreshedLabel: null,
       nextRefreshLabel: null,
     }
@@ -74,6 +76,8 @@ describe('StatusBar', () => {
       phase: 'syncing',
       activeLabel: 'Repos',
       activeTasks: 1,
+      nextRefreshSecs: null,
+      lastRefreshedAt: null,
       lastRefreshedLabel: null,
       nextRefreshLabel: null,
     }
@@ -86,6 +90,8 @@ describe('StatusBar', () => {
       phase: 'idle',
       activeLabel: null,
       activeTasks: 0,
+      nextRefreshSecs: 180,
+      lastRefreshedAt: Date.now() - 120000,
       lastRefreshedLabel: '2 min ago',
       nextRefreshLabel: '3 min',
     }

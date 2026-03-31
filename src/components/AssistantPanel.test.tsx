@@ -21,14 +21,14 @@ vi.mock('@uiw/react-markdown-preview', () => ({
 }))
 
 describe('AssistantPanel', () => {
-  const context = { viewType: 'welcome' as const }
+  const context = { viewType: 'welcome' as const, viewId: null, summary: '', metadata: {} }
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useAssistantConversation).mockReturnValue({
       messages: [
-        { id: '1', role: 'user', content: 'Hello' },
-        { id: '2', role: 'assistant', content: 'Hi there!' },
+        { id: '1', role: 'user', content: 'Hello', timestamp: Date.now() },
+        { id: '2', role: 'assistant', content: 'Hi there!', timestamp: Date.now() },
       ],
       isStreaming: false,
       sendMessage: mockSendMessage,

@@ -2,7 +2,8 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | Medium   | [Task Planner (Todoist Integration)](#task-planner-todoist-integration)                                      | 7-day upcoming view powered by Todoist REST API; new Activity Bar section                                                             |
+| 📋     | Medium   | [Benchmarking tests for critical paths](#benchmarking-tests-for-critical-paths)                              | Vitest `bench` for IPC handlers, Convex functions, React rendering, cache layer, data parsing                                         |
+| ✅     | Medium   | Task Planner (Todoist Integration)                                                                           | Completed 2026-03-30: 7-day upcoming view, Todoist REST API, IPC handlers, React hooks, TaskPlannerView, 3-round adversarial review   |
 | ✅     | Medium   | Copilot Session Explorer                                                                                     | Completed 2026-03-29: JSONL parsing, workspace grouping, session detail with prompts/tokens/tools, streaming parser, scan caching     |
 | ✅     | Medium   | Session Insights & Feedback Loop                                                                             | Completed 2026-03-29: digest computation (6 metrics), Convex persistence, digest UI in SessionDetail, 3-round adversarial review      |
 | ✅     | Medium   | Tempo tracking                                                                                               | Completed 2026-03-23: monthly grid, capex/non-capex split, holiday support, green capex highlighting, auto-scroll to today            |
@@ -69,360 +70,31 @@
 
 ## Progress
 
-**Remaining: 1** | **Completed: 62** (98%)
+**Remaining: 1** | **Completed: 63** (98%)
 
 ---
 
 ## Remaining Items
 
-### Copilot Session Explorer
-
-**Goal**: Add a new Activity Bar section "Sessions" that provides visibility into GitHub Copilot's session data — token usage, prompt history, tool call analytics, model costs, and session timelines. Leverages existing work in the `hs-buddy-vscode-extension` (`D:\github\HemSoft\hs-buddy-vscode-extension`) and the `prompt-db` skill.
-
-**Prior Art & Existing Code**:
-
-| Source | What It Has |
-|--------|------------|
-| `hs-buddy-vscode-extension/src/chatSessionParser.ts` | Parses `chatSessions/*.jsonl` — real token counts, tool calls, model info, session init |
-| `hs-buddy-vscode-extension/src/transcriptParser.ts` | Parses legacy `transcripts/*.jsonl` — 7 event types, turn assembly, tool call records |
-| `hs-buddy-vscode-extension/src/sessionTracker.ts` | Real-time tracking with polling watcher, incremental parsing, aggregate totals |
-| `hs-buddy-vscode-extension/src/storageReader.ts` | Finds VS Code workspace storage dirs, detects Insiders vs Stable |
-| `hs-buddy-vscode-extension/src/tokenEstimator.ts` | Token estimation via `vscode.lm.countTokens` with char-based fallback |
-| `hs-buddy-vscode-extension/src/types.ts` | Full TypeScript types: `CopilotSession`, `Turn`, `ToolCallRecord`, `SessionTotals`, `ModelInfo` |
-| `prompt-db` skill | Recovery from `state.vscdb` SQLite — session index, prompt extraction, schema docs |
-
-**Copilot Session Data Architecture** (confirmed via code + docs):
-
-| Data Source | Location | Persistence | Token Data? | Key Info |
-|-------------|----------|-------------|------------|----------|
-| `state.vscdb` SQLite | `%APPDATA%\{Code variant}\User\workspaceStorage\{id}\state.vscdb` | Persisted, 50-session cap | No | Session metadata (title, dates, state), prompt input history |
-| `chatSessions/*.jsonl` | Same workspace storage dir | Persisted per-session | **Yes** — real `promptTokens`/`outputTokens` | Current format. Kind-based line classification. Token counts, tool call rounds, model metadata, timing |
-| `transcripts/*.jsonl` | `GitHub.copilot-chat/transcripts/` | Persisted per-session | No (char counts only) | Legacy format. 7 event types with timestamps. User messages, assistant turns, tool executions |
-| Agent Debug Buffer | In-memory (`ChatDebugServiceImpl`) | **Wiped on restart** | Yes — live events | 10,000-event ring buffer. Exportable to OTLP JSON |
-| Copilot Extension Provider | Internal to extension | Survives restart | Yes — replayed on demand | Historical session traces, token data for past sessions |
-
-**Key SQLite Schema** (`ItemTable` in `state.vscdb`):
-
-- `memento/interactive-session` → `data.history.copilot[]` — array of `{ inputText, selectedModel, mode }` — verbatim user prompts
-- `chat.ChatSessionStore.index` → `data.entries{}` — dict of sessions with `sessionId`, `title`, `lastMessageDate`, `timing`, `isEmpty`, `lastResponseState`
-- Session count cap: **50 sessions** (oldest trimmed on save)
-- Empty sessions cleaned on window close
-- Images cleaned after 7 days (not sessions)
-
-**chatSessions JSONL Line Format** (kind-based):
-
-- `kind: 0` — Session initialization (sessionId, creationDate, selectedModel with id/name/family/vendor/multiplier/maxTokens)
-- `kind: 1, keyPath: ["customTitle"]` — Title update
-- `kind: 1, keyPath: [*, *, "result"]` — Request result with `metadata.promptTokens`, `metadata.outputTokens`, `timings.firstProgress`, `timings.totalElapsed`, `metadata.toolCallRounds[].toolCalls[].name`
-- `kind: 2, keyPath: ["requests"]` — New user request count
-
-**VS Code Debug Tools** (official, as of 2026-03-25):
-
-- **Agent Debug Log panel** (Preview): Chrono event log with Logs view, Summary view (total tool calls, tokens, errors, duration), and Agent Flow Chart view. Enable via `github.copilot.chat.agentDebugLog.enabled`. Export to OTLP JSON.
-- **Chat Debug view**: Raw LLM request/response details — system prompt, user prompt, context, tool payloads.
-- **`/troubleshoot` command**: Ask questions about current session (requires debug log setting enabled).
-- **Export**: `Chat: Export Chat...` command saves session as JSON.
-
-**Implementation Plan**:
-
-1. **Port & adapt types** from `hs-buddy-vscode-extension/src/types.ts` — `CopilotSession`, `Turn`, `ToolCallRecord`, `SessionTotals`, `ModelInfo`, `CurrentSessionStats`.
-2. **Build Electron service** `electron/services/copilotSessionService.ts`:
-   - Discover workspace storage dirs (Insiders → Stable fallback)
-   - Parse `chatSessions/*.jsonl` using kind-based line classification (port from `chatSessionParser.ts`)
-   - Parse `transcripts/*.jsonl` as legacy fallback (port from `transcriptParser.ts`)
-   - Read `state.vscdb` via Python subprocess for prompt history + session index
-   - Aggregate into session list with totals
-3. **Build IPC handlers** `electron/ipc/copilotSessionHandlers.ts`:
-   - `copilot-sessions:scan` — Full scan of all workspace storage dirs
-   - `copilot-sessions:get-session` — Single session detail by ID
-   - `copilot-sessions:get-totals` — Aggregate totals
-   - `copilot-sessions:get-prompts` — Prompt history from SQLite
-   - `copilot-sessions:export` — Export session to JSON
-4. **Build React views**:
-   - `SessionExplorerView.tsx` — Main dashboard: session list, aggregate stats, cost estimates
-   - `SessionDetailView.tsx` — Single session: timeline, prompts, tool calls, token breakdown
-   - `SessionStatsCard.tsx` — Summary cards: total tokens, model usage, tool frequency
-5. **Add Activity Bar section** "Sessions" with items: Overview, History, Analytics.
-6. **Optional: File watcher** for real-time updates (port `TranscriptWatcher` polling approach).
-
-**Research Questions to Resolve**:
-
-- Can Electron access `state.vscdb` while VS Code has it open? (SQLite supports concurrent readers)
-- Should we use Python subprocess (like `prompt-db`) or bundle `better-sqlite3` native module?
-- Can we tap into the Agent Debug OTLP export format for richer data?
-- What's the best way to correlate `chatSessions` data with `state.vscdb` session index?
-- Premium request tracking: can we derive cost from multiplier + token counts?
-
-**Acceptance Criteria**:
-
-- User can see a list of recent Copilot sessions with title, date, model, and token counts.
-- User can drill into a session to see prompt history, tool calls, and timing.
-- Aggregate stats show total tokens consumed, model usage breakdown, and tool frequency.
-- Data is read-only — no mutations to Copilot's storage files.
-- Works with both VS Code Insiders and Stable storage paths.
-
-### Session Insights & Feedback Loop
-
-**Goal**: Turn Copilot session data into a closed-loop optimization signal. Compute per-session efficiency metrics, persist digests to Convex for historical queries, and surface actionable improvement suggestions for instructions, skills, and repo memory. Depends on Session Explorer (viewer) being merged first.
-
-**Prerequisite**: Merge `anvil/copilot-session-explorer` branch to `main`.
-
-**Session Digest Metrics** (computed per session from existing JSONL data):
-
-| Metric | Formula | What It Reveals |
-|--------|---------|-----------------|
-| `tokenEfficiency` | `totalOutputTokens / totalPromptTokens` | Low ratio = model thinking more than producing. Instructions need more direction. |
-| `toolDensity` | `totalToolCalls / requestCount` | High = agentic (good). Low = chatty, not using tools. |
-| `searchChurn` | Count of repeated grep/search calls with similar args | High = blind searching. Codebase conventions or file structure undocumented. |
-| `avgTimePerRequest` | `totalDurationMs / requestCount` | Baseline for comparing models and task types. |
-| `dominantTools` | Top 3 tool names by frequency | Fingerprint of session behavior. |
-| `estimatedCost` | `(promptTokens + outputTokens) × multiplierNumeric × baseRate` | Cost attribution per project/session. |
-
-**Convex Schema** — `sessionDigests` table:
-
-```typescript
-sessionDigests: defineTable({
-  sessionId: v.string(),
-  workspaceName: v.string(),
-  model: v.optional(v.string()),
-  agentMode: v.optional(v.string()),
-  requestCount: v.number(),
-  totalPromptTokens: v.number(),
-  totalOutputTokens: v.number(),
-  totalToolCalls: v.number(),
-  totalDurationMs: v.number(),
-  tokenEfficiency: v.number(),
-  toolDensity: v.number(),
-  searchChurn: v.number(),
-  estimatedCost: v.number(),
-  dominantTools: v.array(v.string()),
-  firstPrompt: v.optional(v.string()),
-  sessionDate: v.number(),
-  digestedAt: v.number(),
-})
-  .index("by_workspace", ["workspaceName", "sessionDate"])
-  .index("by_session", ["sessionId"])
-  .index("by_date", ["sessionDate"])
-```
-
-**Implementation Plan**:
-
-1. **Merge Session Explorer branch** — prerequisite, brings in service + types + IPC + UI.
-2. **Add digest types** to `src/types/copilotSession.ts` — `SessionDigest` interface.
-3. **Add `computeDigest()` function** to `copilotSessionService.ts` — takes a `CopilotSession`, returns `SessionDigest`. Computes all 6 metrics. Search churn requires analyzing the `toolNames` arrays across results for repeated patterns.
-4. **Add Convex table + mutations** — `sessionDigests` table in schema, `upsertDigest` mutation (idempotent by sessionId), `getDigests` query with workspace/date filters.
-5. **Add IPC handler** `copilot-sessions:compute-digests` — scans sessions, computes digests for any not yet in Convex, pushes new digests.
-6. **Add digest display to Session Detail** — show efficiency metrics alongside existing token/tool data.
-7. **Future (P2)**: Insights View with trend charts, worst-session highlighting, and "what would have helped" suggestions.
-
-**Acceptance Criteria**:
-
-- Every parsed session gets a digest with all 6 metrics computed.
-- Digests persist to Convex and are queryable by workspace and date range.
-- Session Detail view displays efficiency score, tool density, and search churn.
-- Digest computation is idempotent — re-scanning doesn't create duplicates.
-- Cost estimation uses the model's `multiplierNumeric` from JSONL metadata.
-
-### Task Planner (Todoist Integration)
-
-**Goal**: Add a new Activity Bar section "Planner" with a 7-day upcoming task view powered by the Todoist REST API v2, similar to Todoist's "Upcoming" mode. Shows today's tasks first, then each subsequent day for 7 days total.
-
-**Authentication**: Uses `TODOIST_API_TOKEN` environment variable (already available). All API calls go through Electron IPC → main process (no token exposure in renderer).
-
-**API Endpoints** (Todoist REST API v2, base: `https://api.todoist.com/rest/v2`):
-
-- `GET /tasks?filter=today` — today's tasks
-- `GET /tasks?filter=<date>` — tasks for a specific date (format: `MMM DD`, e.g., `Mar 1`)
-- `GET /tasks?filter=<start> | <end>` — date range queries
-- `POST /tasks/{id}/close` — complete a task
-- `POST /tasks/{id}/reopen` — uncomplete a task
-- `POST /tasks` — create a new task (body: `{ content, due_date, priority, project_id }`)
-- `POST /tasks/{id}` — update a task (body: partial fields like `{ content, due_date }`)
-- `GET /projects` — list all projects (for project name resolution)
-- `GET /labels` — list all labels
-
-  ```typescript
-  planner: {
-    title: 'Planner',
-    items: [
-      { id: 'planner-upcoming', label: 'Upcoming' },
-      { id: 'planner-today', label: 'Today' },
-      { id: 'planner-projects', label: 'Projects' },
-    ],
-  }
-  ```
-
-1. **View labels**: Add entries to `appContentViewLabels.ts`:
-
-   ```typescript
-   'planner-upcoming': 'Upcoming',
-   'planner-today': 'Today',
-   'planner-projects': 'Projects',
-   ```
-
-#### Electron IPC — Todoist Service
-
-1. **`electron/services/todoistClient.ts`** — Todoist REST API v2 client:
-
-- `fetchTasks(filter: string): Promise<TodoistTask[]>` — GET /tasks with filter
-- `fetchTasksForDateRange(startDate: string, days: number): Promise<Map<string, TodoistTask[]>>` — Fetch tasks grouped by date for the upcoming view
-- `completeTask(taskId: string): Promise<void>` — POST /tasks/{id}/close
-- `reopenTask(taskId: string): Promise<void>` — POST /tasks/{id}/reopen
-- `createTask(params: CreateTaskParams): Promise<TodoistTask>` — POST /tasks
-- `updateTask(taskId: string, params: Partial<CreateTaskParams>): Promise<TodoistTask>` — POST /tasks/{id}
-- `deleteTask(taskId: string): Promise<void>` — DELETE /tasks/{id}
-- `fetchProjects(): Promise<TodoistProject[]>` — GET /projects (cache for 5 min)
-- `fetchLabels(): Promise<TodoistLabel[]>` — GET /labels
-- Auth: reads `TODOIST_API_TOKEN` from `process.env`
-
-1. **`electron/ipc/todoistHandlers.ts`** — IPC bridge:
-
-- `todoist:get-upcoming` — Returns 7-day grouped tasks
-- `todoist:get-today` — Returns today's tasks only
-- `todoist:complete-task` — Complete a task by ID
-- `todoist:reopen-task` — Reopen a task by ID
-- `todoist:create-task` — Create a new task
-- `todoist:update-task` — Update an existing task
-- `todoist:delete-task` — Delete a task
-- `todoist:get-projects` — List all projects
-
-1. **Register handlers** in `electron/ipc/index.ts`
-
-2. **Preload exposure** in `electron/preload.ts` — expose todoist IPC methods on `window.electronAPI`
-
-#### React Components
-
-1. **`src/components/planner/TaskPlannerView.tsx`** — Main upcoming view component:
-
-- Fetches 7-day task data via `useTodoistUpcoming()` hook
-- Renders day sections with task lists
-- Handles task completion toggling
-- Auto-refreshes every 60 seconds
-- Pull-to-refresh / manual refresh button
-
-1. **`src/components/planner/DaySection.tsx`** — Single day header + task list:
-
-- Date header with day name, formatted date, task count
-- "Today" / "Tomorrow" labels for relative dates
-- "+ Add Task" button per day section
-- Empty state for days with no tasks
-
-1. **`src/components/planner/TaskRow.tsx`** — Individual task row:
-
-- Completion checkbox with optimistic UI update
-- Task content with inline edit support
-- Priority dot indicator
-- Project name badge
-- Label tags
-- Context menu (right-click)
-
-1. **`src/components/planner/TaskPlannerView.css`** — Styling matching VSCode dark theme
-
-2. **`src/components/planner/AddTaskInline.tsx`** — Inline task creation form:
-
-- Content input, date picker, priority selector, project dropdown
-- Auto-assigns date based on which day section it's in
-
-#### Hooks
-
-1. **`src/hooks/useTodoist.ts`** — React hooks for Todoist data:
-
-- `useTodoistUpcoming(days?: number)` — Fetches and caches upcoming tasks, returns `{ dayGroups, isLoading, error, refresh }`
-- `useTodoistToday()` — Shortcut for today-only view
-- `useTodoistProjects()` — Cached project list for name resolution
-- `useTaskActions()` — Returns `{ completeTask, reopenTask, createTask, updateTask, deleteTask }` with optimistic updates
-
-#### Types
-
-1. **`src/types/todoist.ts`** — TypeScript interfaces:
-
-   ```typescript
-   interface TodoistTask {
-     id: string
-     content: string
-     description: string
-     project_id: string
-     priority: 1 | 2 | 3 | 4 // 4=P1, 3=P2, 2=P3, 1=P4
-     due: { date: string; datetime?: string; string: string; timezone?: string } | null
-     labels: string[]
-     is_completed: boolean
-     created_at: string
-     url: string
-     order: number
-   }
-
-   interface TodoistProject {
-     id: string
-     name: string
-     color: string
-     parent_id: string | null
-     order: number
-   }
-
-   interface TodoistLabel {
-     id: string
-     name: string
-     color: string
-   }
-
-   interface DayGroup {
-     date: string // ISO date string YYYY-MM-DD
-     label: string // "Today", "Tomorrow", "Mon, Mar 3"
-     tasks: TodoistTask[]
-   }
-   ```
-
-#### Files to Create or Modify
-
-| Action | File                                         | Purpose                                                   |
-| ------ | -------------------------------------------- | --------------------------------------------------------- |
-| Create | `src/types/todoist.ts`                       | TodoistTask, TodoistProject, TodoistLabel, DayGroup types |
-| Create | `electron/services/todoistClient.ts`         | Todoist REST API v2 client                                |
-| Create | `electron/ipc/todoistHandlers.ts`            | IPC handlers for todoist operations                       |
-| Create | `src/hooks/useTodoist.ts`                    | React hooks: useTodoistUpcoming, useTaskActions, etc.     |
-| Create | `src/components/planner/TaskPlannerView.tsx` | Main 7-day upcoming view                                  |
-| Create | `src/components/planner/TaskPlannerView.css` | Planner styling                                           |
-| Create | `src/components/planner/DaySection.tsx`      | Per-day section component                                 |
-| Create | `src/components/planner/TaskRow.tsx`         | Individual task row component                             |
-| Create | `src/components/planner/AddTaskInline.tsx`   | Inline task creation                                      |
-| Modify | `src/components/ActivityBar.tsx`             | Add "Planner" section with CalendarDays icon              |
-| Modify | `src/components/SidebarPanel.tsx`            | Add planner section data                                  |
-| Modify | `src/components/AppContentRouter.tsx`        | Route planner-upcoming/today/projects views               |
-| Modify | `src/components/appContentViewLabels.ts`     | Add planner view labels                                   |
-| Modify | `electron/ipc/index.ts`                      | Register todoist IPC handlers                             |
-| Modify | `electron/preload.ts`                        | Expose todoist IPC methods                                |
-
-#### Key Design Decisions
-
-- **Electron IPC, not direct fetch**: The renderer never sees the API token. All Todoist calls go through IPC → main process → Todoist API.
-- **Optimistic UI**: Task completion toggles instantly in the UI, with rollback on API error.
-- **Lightweight caching**: Project list cached 5 min in main process. Task data refreshed on view focus + 60s interval.
-- **No Convex storage**: Tasks live in Todoist — Buddy is a pure client. No syncing or local persistence beyond in-memory cache.
-- **Replace or coexist with "Tasks" section**: The existing `tasks` Activity Bar section has placeholder items (Today, Upcoming, Projects). The Planner section can either replace it or live alongside it. Replacing makes sense since the items are identical — just rename the section and wire it to real data.
-
----
-
-- PTO / Sick / Holiday -> `INT-8`
-
-**Implementation Plan**:
-
-1. Add `Tempo Tracking` section to Activity Bar + Sidebar tree data.
-2. Add app routes: `tempo-today`, `tempo-week`, `tempo-quick-log`, `tempo-recent`.
-3. Build main-process Tempo service + IPC handlers.
-4. Build typed renderer hooks and initial dashboard UI.
-5. Add quick-log presets and account inference.
-6. Add optimistic updates + rollback on failure.
-7. Add empty/error/loading states with clear action guidance.
-
-**Acceptance Criteria**:
-
-- User can view today's worklogs in Buddy.
-- User can add a worklog in under 10 seconds via Quick Log.
-- User can edit and delete entries from the timeline.
-- Daily/weekly totals are accurate and update immediately after mutations.
-- No Tempo credentials are exposed in renderer code.
-- Tree view section is discoverable and visually consistent with the app theme.
-
-**Documentation**: See `docs/TEMPO_TRACKING_FEATURE.md` for full architecture, payload examples, and phased rollout details.
-
----
+### Benchmarking tests for critical paths
+
+**Goal**: Add `vitest bench` (Tinybench) performance benchmarks to all critical code paths, establishing baselines and catching regressions in CI.
+
+**Critical paths to benchmark**:
+
+| Layer | Target | What to measure |
+|-------|--------|----------------|
+| Electron IPC | All handlers in `electron/ipc/` | Round-trip latency per handler, serialization overhead |
+| Convex functions | Queries/mutations in `convex/` | Execution time for `buddyStats`, `runs`, `schedules`, `copilotResults` |
+| React rendering | Heavy components (`TaskPlannerView`, `SessionExplorerView`, `TempoGrid`) | Mount time, re-render time with large datasets |
+| Cache layer | `electron/cache.ts` | Read/write throughput, cache hit/miss ratio |
+| Data parsing | JSONL parser, session scanner | Parse time for 1K/10K/100K line files |
+| Task dispatch | `electron/workers/` | Spawn-to-first-output latency, concurrent task throughput |
+
+**Implementation plan**:
+
+1. Add `bench` script to `package.json`: `"bench": "vitest bench"`  
+2. Create `*.bench.ts` files alongside existing test files in each layer  
+3. Use `vitest bench --reporter=json` output for CI comparison  
+4. Establish baseline numbers on first run, track regressions via threshold assertions  
+5. Add representative fixture data (mock JSONL files, sample Convex payloads) for repeatable benchmarks

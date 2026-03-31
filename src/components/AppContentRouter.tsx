@@ -27,6 +27,7 @@ import { CrewProjectView } from './crew/CrewProjectView'
 import { TempoDashboard } from './tempo/TempoDashboard'
 import { SessionExplorer } from './sessions/SessionExplorer'
 import { SessionDetail } from './sessions/SessionDetail'
+import { TaskPlannerView } from './planner/TaskPlannerView'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -116,6 +117,12 @@ export function AppContentRouter({
       return <CopilotUsagePanel />
     case 'copilot-sessions':
       return <SessionExplorer onSelectSession={filePath => onOpenTab(`copilot-session-detail:${btoa(filePath)}`)} />
+    case 'tasks-today':
+      return <TaskPlannerView mode="today" />
+    case 'tasks-upcoming':
+      return <TaskPlannerView mode="upcoming" />
+    case 'tasks-projects':
+      return <TaskPlannerView />
     case 'tempo-timesheet':
       return <TempoDashboard />
     default:

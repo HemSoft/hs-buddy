@@ -1,0 +1,513 @@
+/* ===================================================================
+   Task Planner — Refined dark-mode planner
+   Inspired by Linear, Raycast, and Things 3
+   =================================================================== */
+
+/* --- Entrance animations --- */
+@keyframes planner-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes planner-check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --- Shell --- */
+.planner-view {
+  padding: 20px 24px;
+  height: 100%;
+  overflow-y: auto;
+  background-color: var(--bg-primary);
+}
+
+/* --- Header --- */
+.planner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.planner-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.planner-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.planner-task-total {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-refresh-btn {
+  background: none;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+
+.planner-refresh-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.planner-refresh-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.planner-refresh-btn .spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+/* --- Error --- */
+.planner-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: rgba(244, 135, 113, 0.08);
+  border: 1px solid rgba(244, 135, 113, 0.25);
+  border-radius: 8px;
+  color: var(--accent-error);
+  font-size: 12px;
+  font-weight: 500;
+  animation: planner-slide-in 0.2s ease;
+}
+
+/* --- Day list --- */
+.planner-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* --- Today flat view (no card wrapper) --- */
+.planner-today-flat {
+  display: flex;
+  flex-direction: column;
+  animation: planner-slide-in 0.25s ease both;
+}
+
+/* --- Day section cards --- */
+.planner-day-section {
+  border-radius: 10px;
+  border: 1px solid var(--border-primary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
+    var(--bg-secondary);
+  overflow: hidden;
+  animation: planner-slide-in 0.35s ease both;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Staggered entrance for each day */
+.planner-day-section:nth-child(1) { animation-delay: 0ms; }
+.planner-day-section:nth-child(2) { animation-delay: 40ms; }
+.planner-day-section:nth-child(3) { animation-delay: 80ms; }
+.planner-day-section:nth-child(4) { animation-delay: 120ms; }
+.planner-day-section:nth-child(5) { animation-delay: 160ms; }
+.planner-day-section:nth-child(6) { animation-delay: 200ms; }
+.planner-day-section:nth-child(7) { animation-delay: 240ms; }
+.planner-day-section:nth-child(8) { animation-delay: 280ms; }
+
+.planner-day-section:hover {
+  border-color: var(--border-secondary);
+}
+
+/* Today: accent glow */
+.planner-day-today {
+  border-color: rgba(14, 99, 156, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(14, 99, 156, 0.15);
+}
+
+.planner-day-today:hover {
+  border-color: rgba(14, 99, 156, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(14, 99, 156, 0.25),
+    0 4px 16px rgba(14, 99, 156, 0.08);
+}
+
+/* Overdue: red warning accent */
+.planner-day-overdue {
+  border-color: rgba(209, 69, 59, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(209, 69, 59, 0.12);
+}
+
+.planner-day-overdue:hover {
+  border-color: rgba(209, 69, 59, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(209, 69, 59, 0.2),
+    0 4px 16px rgba(209, 69, 59, 0.06);
+}
+
+.planner-day-overdue .planner-day-header {
+  color: #d1453b;
+}
+
+.planner-day-overdue .planner-day-count {
+  background: rgba(209, 69, 59, 0.2);
+  color: #d1453b;
+}
+
+/* --- Day header --- */
+.planner-day-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.planner-day-header:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.planner-day-today .planner-day-header {
+  color: var(--accent-primary-hover, #1177bb);
+}
+
+.planner-day-header svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.planner-day-label {
+  letter-spacing: 0.01em;
+}
+
+.planner-day-date {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-day-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  transition: all 0.15s ease;
+}
+
+.planner-day-today .planner-day-count {
+  background: rgba(14, 99, 156, 0.2);
+  color: var(--accent-primary-hover, #1177bb);
+}
+
+.planner-day-add-btn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 3px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.planner-day-header:hover .planner-day-add-btn {
+  opacity: 1;
+}
+
+.planner-day-add-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+  border-color: var(--border-secondary);
+}
+
+.planner-day-add-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
+/* --- Task list inside day --- */
+.planner-day-tasks {
+  padding: 0 8px 8px 8px;
+}
+
+.planner-empty-day {
+  padding: 6px 14px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+/* --- Task row --- */
+.planner-task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 10px;
+  margin: 1px 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.planner-task-row:hover {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: var(--border-primary);
+}
+
+/* Priority left accent on hover */
+.planner-task-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.planner-task-row:hover::before {
+  opacity: 1;
+}
+
+.planner-task-row[data-priority="4"]::before { background: #d1453b; }
+.planner-task-row[data-priority="3"]::before { background: #eb8909; }
+.planner-task-row[data-priority="2"]::before { background: #246fe0; }
+
+/* --- Checkbox --- */
+.planner-task-check {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 1px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.planner-task-check .check-icon {
+  display: none;
+  color: var(--accent-success, #4ec9b0);
+}
+
+.planner-task-check .circle-icon {
+  display: block;
+  transition: opacity 0.1s ease;
+}
+
+.planner-task-check:hover {
+  color: var(--accent-success, #4ec9b0);
+  background: rgba(78, 201, 176, 0.1);
+}
+
+.planner-task-check:hover .circle-icon {
+  display: none;
+}
+
+.planner-task-check:hover .check-icon {
+  display: block;
+  animation: planner-check-pop 0.2s ease;
+}
+
+.planner-task-check:active {
+  transform: scale(0.9);
+}
+
+.planner-task-check:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* --- Task content --- */
+.planner-task-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.planner-priority-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.planner-task-text {
+  color: var(--text-primary);
+}
+
+.planner-task-project {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.planner-task-row:hover .planner-task-project {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.planner-task-labels {
+  display: flex;
+  gap: 4px;
+}
+
+.planner-label-tag {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent-purple, #c792ea);
+  background: rgba(199, 146, 234, 0.1);
+  padding: 1px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* --- Add task form --- */
+.planner-add-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 2px 0;
+  animation: planner-slide-in 0.15s ease;
+}
+
+.planner-add-input {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-family-ui);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.planner-add-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px rgba(14, 99, 156, 0.25);
+}
+
+.planner-add-input::placeholder {
+  color: var(--text-muted);
+}
+
+.planner-add-submit,
+.planner-add-cancel {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-family-ui);
+  transition: all 0.12s ease;
+}
+
+.planner-add-submit {
+  background: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  color: #fff;
+}
+
+.planner-add-submit:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+}
+
+.planner-add-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.planner-add-cancel {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+}
+
+.planner-add-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-secondary);
+}

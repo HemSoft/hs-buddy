@@ -80,6 +80,19 @@ contextBridge.exposeInMainWorld('copilotSessions', {
     ipcRenderer.invoke('copilot-sessions:compute-digest', filePath),
 })
 
+contextBridge.exposeInMainWorld('todoist', {
+  getUpcoming: (days?: number) => ipcRenderer.invoke('todoist:get-upcoming', days),
+  getToday: () => ipcRenderer.invoke('todoist:get-today'),
+  completeTask: (taskId: string) => ipcRenderer.invoke('todoist:complete-task', taskId),
+  reopenTask: (taskId: string) => ipcRenderer.invoke('todoist:reopen-task', taskId),
+  createTask: (params: { content: string; due_date?: string; priority?: number; project_id?: string; description?: string }) =>
+    ipcRenderer.invoke('todoist:create-task', params),
+  updateTask: (taskId: string, params: { content?: string; due_date?: string; priority?: number; description?: string }) =>
+    ipcRenderer.invoke('todoist:update-task', { taskId, params }),
+  deleteTask: (taskId: string) => ipcRenderer.invoke('todoist:delete-task', taskId),
+  getProjects: () => ipcRenderer.invoke('todoist:get-projects'),
+})
+
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
     ipcRenderer.invoke('copilot:execute', args),

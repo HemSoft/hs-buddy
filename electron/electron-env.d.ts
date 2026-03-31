@@ -193,4 +193,14 @@ interface Window {
     getSession: (filePath: string) => Promise<import('../src/types/copilotSession').CopilotSession | null>
     computeDigest: (filePath: string) => Promise<import('../src/types/copilotSession').SessionDigest | null>
   }
+  todoist: {
+    getUpcoming: (days?: number) => Promise<{ success: boolean; error?: string; data?: Record<string, import('../src/types/todoist').TodoistTask[]> }>
+    getToday: () => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistTask[] }>
+    completeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+    reopenTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+    createTask: (params: { content: string; due_date?: string; priority?: number; project_id?: string; description?: string }) => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistTask }>
+    updateTask: (taskId: string, params: { content?: string; due_date?: string; priority?: number; description?: string }) => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistTask }>
+    deleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+    getProjects: () => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistProject[] }>
+  }
 }

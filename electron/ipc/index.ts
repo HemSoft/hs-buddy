@@ -8,6 +8,7 @@ import { registerCopilotHandlers } from './copilotHandlers'
 import { registerCrewHandlers } from './crewHandlers'
 import { registerTempoHandlers } from './tempoHandlers'
 import { registerCopilotSessionHandlers } from './copilotSessionHandlers'
+import { registerTodoistHandlers } from './todoistHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
   registerConfigHandlers()
@@ -19,4 +20,5 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerCrewHandlers(win)
   registerTempoHandlers()
   registerCopilotSessionHandlers()
+  registerTodoistHandlers()
 }

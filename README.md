@@ -178,7 +178,7 @@ npm run build
 ```text
 hs-buddy/
 ├── electron/               # Main process (Electron)
-│   ├── ipc/               # IPC handlers (7 modules)
+│   ├── ipc/               # IPC handlers (11 modules)
 │   ├── services/          # Copilot & crew client services
 │   ├── workers/           # AI/exec/dispatcher workers
 │   ├── main.ts            # Window management, menus, IPC
@@ -193,10 +193,13 @@ hs-buddy/
 │   │   ├── pr-threads/        # PR thread panels
 │   │   ├── pull-request-list/ # Pull request list panels
 │   │   ├── repo-detail/       # Repository detail panels
+│   │   ├── planner/           # Task planner UI
+│   │   ├── sessions/          # Session history panels
 │   │   ├── settings/          # Settings panels
 │   │   ├── shared/            # Shared components
 │   │   ├── sidebar/           # Sidebar components
-│   │   └── sidebar-panel/     # Sidebar panel containers
+│   │   ├── sidebar-panel/     # Sidebar panel containers
+│   │   └── tempo/             # Tempo timesheet panels
 │   ├── hooks/             # React hooks
 │   ├── providers/         # React context providers
 │   ├── services/          # Renderer-side services

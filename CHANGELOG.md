@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.532] - 2026-03-31
+
+### Changed
+
+- Add 0.1.531 entry for new vitest benchmarks
+
+## [0.1.531] - 2026-03-31
+
+### Added
+
+- Add 6 new vitest benchmarks and refresh baseline tables
+
+## [0.1.530] - 2026-03-31
+
+## [0.1.529] - 2026-03-31
+
+### Changed
+
+- Add v0.1.528 entry for benchmark changelog update
+
+## [0.1.528] - 2026-03-31
+
+### Changed
+
+- Add Added section to v0.1.527 for vitest bench benchmarks
+
+## [0.1.527] - 2026-03-31
+
+### Added
+
+- Add vitest bench performance benchmarks for critical paths
+
 ## [0.1.526] - 2026-03-31
 
 ## [0.1.525] - 2026-03-31

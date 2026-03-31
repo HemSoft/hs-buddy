@@ -48,3 +48,4 @@ out/
 # Local debug helpers
 _cdp.cjs
 .playwright-mcp/
+bench-output.txt

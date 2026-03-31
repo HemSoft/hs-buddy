@@ -2,7 +2,7 @@
 
 | Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | Medium   | [Benchmarking tests for critical paths](#benchmarking-tests-for-critical-paths)                              | Vitest `bench` for IPC handlers, Convex functions, React rendering, cache layer, data parsing                                         |
+| ✅     | Medium   | Benchmarking tests for critical paths                                                                        | Completed 2026-03-30: 3 bench files (dateUtils, jsonSerialization, copilotSessionParsing), `bun run bench` script, fixture JSONL data |
 | ✅     | Medium   | Task Planner (Todoist Integration)                                                                           | Completed 2026-03-30: 7-day upcoming view, Todoist REST API, IPC handlers, React hooks, TaskPlannerView, 3-round adversarial review   |
 | ✅     | Medium   | Copilot Session Explorer                                                                                     | Completed 2026-03-29: JSONL parsing, workspace grouping, session detail with prompts/tokens/tools, streaming parser, scan caching     |
 | ✅     | Medium   | Session Insights & Feedback Loop                                                                             | Completed 2026-03-29: digest computation (6 metrics), Convex persistence, digest UI in SessionDetail, 3-round adversarial review      |
@@ -70,31 +70,6 @@
 
 ## Progress
 
-**Remaining: 1** | **Completed: 63** (98%)
+**Remaining: 0** | **Completed: 64** (100%)
 
 ---
-
-## Remaining Items
-
-### Benchmarking tests for critical paths
-
-**Goal**: Add `vitest bench` (Tinybench) performance benchmarks to all critical code paths, establishing baselines and catching regressions in CI.
-
-**Critical paths to benchmark**:
-
-| Layer | Target | What to measure |
-|-------|--------|----------------|
-| Electron IPC | All handlers in `electron/ipc/` | Round-trip latency per handler, serialization overhead |
-| Convex functions | Queries/mutations in `convex/` | Execution time for `buddyStats`, `runs`, `schedules`, `copilotResults` |
-| React rendering | Heavy components (`TaskPlannerView`, `SessionExplorerView`, `TempoGrid`) | Mount time, re-render time with large datasets |
-| Cache layer | `electron/cache.ts` | Read/write throughput, cache hit/miss ratio |
-| Data parsing | JSONL parser, session scanner | Parse time for 1K/10K/100K line files |
-| Task dispatch | `electron/workers/` | Spawn-to-first-output latency, concurrent task throughput |
-
-**Implementation plan**:
-
-1. Add `bench` script to `package.json`: `"bench": "vitest bench"`  
-2. Create `*.bench.ts` files alongside existing test files in each layer  
-3. Use `vitest bench --reporter=json` output for CI comparison  
-4. Establish baseline numbers on first run, track regressions via threshold assertions  
-5. Add representative fixture data (mock JSONL files, sample Convex payloads) for repeatable benchmarks

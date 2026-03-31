@@ -31,6 +31,7 @@ tools:
 
 safe-outputs:
   update-discussion:
+    body:
     target: "*"
     max: 1
   add-comment:

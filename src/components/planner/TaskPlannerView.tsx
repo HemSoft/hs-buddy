@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { RefreshCw, Plus, Circle, Check, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import { useTodoistUpcoming, useTodoistProjects, useTaskActions } from '../../hooks/useTodoist'
 import type { TodoistTask, DayGroup, TodoistProject } from '../../types/todoist'
@@ -85,7 +85,6 @@ function AddTaskInline({
   return (
     <form className="planner-add-form" onSubmit={handleSubmit}>
       <input
-        autoFocus
         className="planner-add-input"
         placeholder="Task name"
         value={content}
@@ -117,17 +116,26 @@ function DaySection({
   const [adding, setAdding] = useState(false)
   const isToday = group.label === 'Today'
   const isOverdue = group.label === 'Overdue'
+  const toggleCollapsed = useCallback(() => setCollapsed(current => !current), [])
 
   return (
     <div className={`planner-day-section ${isToday ? 'planner-day-today' : ''} ${isOverdue ? 'planner-day-overdue' : ''}`}>
-      <div className="planner-day-header" role="button" aria-expanded={!collapsed} onClick={() => setCollapsed(c => !c)}>
-        {collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
-        <span className="planner-day-label">{group.label}</span>
-        {group.date !== 'overdue' && <span className="planner-day-date">{group.date}</span>}
-        <span className="planner-day-count">{group.tasks.length}</span>
+      <div className="planner-day-header">
         <button
+          type="button"
+          className="planner-day-toggle"
+          aria-expanded={!collapsed}
+          onClick={toggleCollapsed}
+        >
+          {collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          <span className="planner-day-label">{group.label}</span>
+          {group.date !== 'overdue' && <span className="planner-day-date">{group.date}</span>}
+          <span className="planner-day-count">{group.tasks.length}</span>
+        </button>
+        <button
+          type="button"
           className="planner-day-add-btn"
-          onClick={e => { e.stopPropagation(); setAdding(true) }}
+          onClick={() => setAdding(true)}
           aria-label="Add task"
           title="Add task"
         >
@@ -169,6 +177,7 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
   const { complete, create } = useTaskActions(refresh)
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
+  const actionErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     refresh()
@@ -186,36 +195,48 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
     setCompletingIds(new Set())
   }, [dayGroups])
 
-  // Auto-clear action errors after 5 seconds
   useEffect(() => {
-    if (actionError) {
-      const timer = setTimeout(() => setActionError(null), 5000)
-      return () => clearTimeout(timer)
+    return () => {
+      if (actionErrorTimeoutRef.current) {
+        clearTimeout(actionErrorTimeoutRef.current)
+      }
     }
-  }, [actionError])
+  }, [])
 
   const projectMap = new Map<string, TodoistProject>()
   for (const p of projects) projectMap.set(p.id, p)
+
+  const showActionError = useCallback((message: string) => {
+    if (actionErrorTimeoutRef.current) {
+      clearTimeout(actionErrorTimeoutRef.current)
+    }
+
+    setActionError(message)
+    actionErrorTimeoutRef.current = setTimeout(() => {
+      setActionError(null)
+      actionErrorTimeoutRef.current = null
+    }, 5000)
+  }, [])
 
   const handleComplete = useCallback(async (taskId: string) => {
     setCompletingIds(prev => new Set(prev).add(taskId))
     try {
       const result = await complete(taskId)
-      if (!result.success) setActionError(result.error ?? 'Failed to complete task')
+      if (!result.success) showActionError(result.error ?? 'Failed to complete task')
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to complete task')
+      showActionError(err instanceof Error ? err.message : 'Failed to complete task')
     }
     // Don't clear completingIds — refresh will replace dayGroups without the task
-  }, [complete])
+  }, [complete, showActionError])
 
   const handleCreate = useCallback(async (content: string, date: string) => {
     try {
       const result = await create({ content, due_date: date })
-      if (!result.success) setActionError(result.error ?? 'Failed to create task')
+      if (!result.success) showActionError(result.error ?? 'Failed to create task')
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to create task')
+      showActionError(err instanceof Error ? err.message : 'Failed to create task')
     }
-  }, [create])
+  }, [create, showActionError])
 
   const totalTasks = dayGroups.reduce((n, g) => n + g.tasks.length, 0)
 

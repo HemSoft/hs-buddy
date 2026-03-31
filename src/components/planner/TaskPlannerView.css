@@ -198,9 +198,8 @@
 .planner-day-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 14px;
-  cursor: pointer;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
@@ -212,11 +211,33 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.planner-day-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.planner-day-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .planner-day-today .planner-day-header {
   color: var(--accent-primary-hover, #1177bb);
 }
 
-.planner-day-header svg {
+.planner-day-toggle svg {
   color: var(--text-muted);
   flex-shrink: 0;
   transition: transform 0.15s ease;

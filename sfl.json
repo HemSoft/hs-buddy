@@ -24,6 +24,7 @@
     "sfl-analyzer-b",
     "sfl-analyzer-c",
     "sfl-pr-label-actions",
+    "sfl-queue-monitor",
     "discussion-processor"
   ]
 }

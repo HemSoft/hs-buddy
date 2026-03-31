@@ -79,7 +79,7 @@ function SessionListItem({ session, onSelect }: { session: SessionSummary; onSel
   const showPromptPreview = session.title && session.firstPrompt && session.firstPrompt !== session.title
 
   return (
-    <div className="session-list-item" onClick={() => onSelect(session.filePath)}>
+    <button type="button" className="session-list-item" onClick={() => onSelect(session.filePath)}>
       <MessageSquare size={16} className="session-list-item-icon" />
       <div className="session-list-item-content">
         <div className="session-list-item-title">{displayTitle}</div>
@@ -92,16 +92,14 @@ function SessionListItem({ session, onSelect }: { session: SessionSummary; onSel
           <span>{formatSize(session.sizeBytes)}</span>
         </div>
       </div>
-    </div>
+    </button>
   )
 }
 
-function WorkspaceSection({ group, onSelect, defaultExpanded }: { group: WorkspaceGroup; onSelect: (filePath: string) => void; defaultExpanded: boolean }) {
-  const [expanded, setExpanded] = useState(defaultExpanded)
-
+function WorkspaceSection({ group, onSelect, expanded, onToggle }: { group: WorkspaceGroup; onSelect: (filePath: string) => void; expanded: boolean; onToggle: () => void }) {
   return (
     <div className="session-workspace-group">
-      <button className="session-workspace-header" onClick={() => setExpanded(!expanded)}>
+      <button type="button" className="session-workspace-header" onClick={onToggle}>
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <FolderOpen size={14} className="session-workspace-icon" />
         <span className="session-workspace-name">{group.name}</span>
@@ -136,6 +134,44 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
 
   const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
   const workspaceGroups = useMemo(() => groupByWorkspaceThenDate(sessions), [sessions])
+  const defaultExpandedHashes = useMemo(() => new Set(workspaceGroups.slice(0, 3).map(group => group.hash)), [workspaceGroups])
+  const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    setExpandedHashes(prev => {
+      const next = new Set(prev)
+      let changed = false
+      const availableHashes = new Set(workspaceGroups.map(group => group.hash))
+
+      for (const hash of defaultExpandedHashes) {
+        if (!next.has(hash)) {
+          next.add(hash)
+          changed = true
+        }
+      }
+
+      for (const hash of next) {
+        if (!availableHashes.has(hash)) {
+          next.delete(hash)
+          changed = true
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [defaultExpandedHashes, workspaceGroups])
+
+  const toggleWorkspace = (hash: string) => {
+    setExpandedHashes(prev => {
+      const next = new Set(prev)
+      if (next.has(hash)) {
+        next.delete(hash)
+      } else {
+        next.add(hash)
+      }
+      return next
+    })
+  }
 
   return (
     <div className="session-explorer">
@@ -173,8 +209,14 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
             <p>Click Scan to search VS Code workspace storage.</p>
           </div>
         )}
-        {workspaceGroups.map((group, i) => (
-          <WorkspaceSection key={group.hash} group={group} onSelect={onSelectSession} defaultExpanded={i < 3} />
+        {workspaceGroups.map(group => (
+          <WorkspaceSection
+            key={group.hash}
+            group={group}
+            onSelect={onSelectSession}
+            expanded={expandedHashes.has(group.hash)}
+            onToggle={() => toggleWorkspace(group.hash)}
+          />
         ))}
       </div>
     </div>

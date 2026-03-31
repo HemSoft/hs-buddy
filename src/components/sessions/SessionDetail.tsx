@@ -24,6 +24,19 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleString()
 }
 
+function getRequestKey(result: SessionRequestResult, occurrence: number): string {
+  return [
+    result.prompt,
+    result.promptTokens,
+    result.outputTokens,
+    result.firstProgressMs,
+    result.totalElapsedMs,
+    result.toolCallCount,
+    result.toolNames.join('|'),
+    occurrence,
+  ].join('::')
+}
+
 function RequestItem({ result, index }: { result: SessionRequestResult; index: number }) {
   return (
     <div className="session-request-item">
@@ -82,6 +95,26 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   if (isLoading) return <div className="session-detail-loading">Loading session…</div>
   if (error) return <div className="session-detail-error">{error}</div>
   if (!session) return <div className="session-detail-loading">Session not found.</div>
+
+  const requestOccurrences = new Map<string, number>()
+  const requestItems = session.results.map(result => {
+    const signature = [
+      result.prompt,
+      result.promptTokens,
+      result.outputTokens,
+      result.firstProgressMs,
+      result.totalElapsedMs,
+      result.toolCallCount,
+      result.toolNames.join('|'),
+    ].join('::')
+    const occurrence = requestOccurrences.get(signature) ?? 0
+    requestOccurrences.set(signature, occurrence + 1)
+
+    return {
+      key: getRequestKey(result, occurrence),
+      result,
+    }
+  })
 
   return (
     <div className="session-detail">
@@ -170,8 +203,8 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
       {session.results.length > 0 && (
         <div className="session-detail-requests">
           <h3>Request Timeline ({session.results.length} results)</h3>
-          {session.results.map((r, i) => (
-            <RequestItem key={i} result={r} index={i} />
+          {requestItems.map(({ key, result }, index) => (
+            <RequestItem key={key} result={result} index={index} />
           ))}
         </div>
       )}

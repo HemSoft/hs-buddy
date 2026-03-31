@@ -82,11 +82,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 10px 12px;
   background: var(--card-bg, var(--bg-secondary));
   border: 1px solid var(--border-primary);
   border-radius: 6px;
   cursor: pointer;
+  font: inherit;
+  text-align: left;
   transition: border-color 0.15s, background-color 0.15s;
 }
 

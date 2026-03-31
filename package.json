@@ -23,6 +23,7 @@
     "knip": "knip",
     "e18e": "npx --yes @e18e/cli analyze",
     "e18e:migrate": "npx --yes @e18e/cli migrate --all",
+    "coverage:ratchet": "bun scripts/coverage-ratchet.ts",
     "preview": "vite preview",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
@@ -56,6 +57,9 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@amiceli/vitest-cucumber": "^6.3.0",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

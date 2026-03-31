@@ -5,7 +5,11 @@
     "electron/preload.ts",
     "scripts/*.ts",
     "generate-icons.ts",
-    "convex/*.ts"
+    "convex/*.ts",
+    "src/**/*.bench.ts",
+    "src/features/*.steps.ts",
+    "convex/**/*.bench.ts",
+    "electron/**/*.bench.ts"
   ],
   "project": [
     "src/**/*.{ts,tsx}",

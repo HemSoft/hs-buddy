@@ -35,12 +35,25 @@ jobs:
       - name: Check for unused code and dependencies
         run: bun run knip
 
+      - name: Lint (ESLint)
+        run: bun run lint
+
+      - name: Type check (TypeScript)
+        run: bun run typecheck
+
+      - name: Format check (Prettier)
+        run: bun run format:check
+
       - name: Analyze dependency health
         run: npx --yes @e18e/cli analyze
         continue-on-error: true
 
       - name: Run tests with coverage
         run: bun run test:coverage
+
+      - name: Run benchmarks
+        run: bun run bench
+        continue-on-error: true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4

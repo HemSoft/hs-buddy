@@ -1,3 +1,8 @@
+set -e
+
+# Validate commit message follows conventional commits
+npx --no -- commitlint --edit "$1"
+
 # Populate CHANGELOG.md from conventional commit message
 bun scripts/changelog-from-commit.ts "$1"
 git add CHANGELOG.md

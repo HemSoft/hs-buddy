@@ -9,6 +9,7 @@ import { InlineDropdown } from './InlineDropdown'
 import type { DropdownOption } from './InlineDropdown'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { getStatusEmoji } from './shared/statusDisplay'
+import { getErrorMessage } from '../utils/errorUtils'
 import './CopilotPromptBox.css'
 
 interface CopilotPromptBoxProps {
@@ -155,7 +156,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     } catch (err) {
       setState(previousState => ({
         ...previousState,
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
       }))
     } finally {
       setState(previousState => ({

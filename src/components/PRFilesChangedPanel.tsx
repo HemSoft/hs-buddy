@@ -15,6 +15,7 @@ import { dataCache } from '../services/dataCache'
 import { getDiffLineClass } from '../utils/diffUtils'
 import { formatFileStatus, parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import type { PRDetailInfo } from '../utils/prDetailView'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import './RepoDetailPanel.css'
 import './RepoCommitPanels.css'
 import './PRFilesChangedPanel.css'
@@ -80,8 +81,8 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
           dataCache.set(cacheKey, result)
         }
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof Error ? err.message : String(err))
+        if (isAbortError(err)) return
+        setError(getErrorMessage(err))
       } finally {
         setLoading(false)
       }

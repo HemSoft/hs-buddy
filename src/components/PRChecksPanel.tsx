@@ -15,6 +15,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import './PRChecksPanel.css'
 
 interface PRChecksPanelProps {
@@ -126,7 +127,7 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
 
       setChecks(result)
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (isAbortError(err)) {
         return
       }
 
@@ -134,7 +135,7 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
         return
       }
 
-      setError(err instanceof Error ? err.message : String(err))
+      setError(getErrorMessage(err))
     }
   }, [accounts, pr.id, pr.repository, pr.url])
 

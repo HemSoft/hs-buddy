@@ -10,6 +10,7 @@ import {
 import { daysUntilReset, formatCopilotPlan, formatResetDate } from '../utils/copilotFormatUtils'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { useGitHubAccounts } from '../hooks/useConfig'
+import { getErrorMessage } from '../utils/errorUtils'
 import './UserPremiumUsageSection.css'
 
 interface UserPremiumUsageSectionProps {
@@ -158,7 +159,7 @@ function QuotaView({ username, org }: { username: string; org: string }) {
       })
       .catch(err => {
         if (id === fetchRef.current) {
-          dispatch({ type: 'FETCH_ERROR', payload: err instanceof Error ? err.message : String(err) })
+          dispatch({ type: 'FETCH_ERROR', payload: getErrorMessage(err) })
         }
       })
   }
@@ -370,7 +371,7 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
       })
       .catch(err => {
         if (id === fetchRef.current) {
-          dispatch({ type: 'FETCH_ERROR', payload: err instanceof Error ? err.message : String(err) })
+          dispatch({ type: 'FETCH_ERROR', payload: getErrorMessage(err) })
         }
       })
   }

@@ -21,6 +21,7 @@ import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE } from '../constants'
 import type { OrgRepoResult } from '../api/github'
 import { PR_MODES } from '../constants'
+import { isAbortError } from '../utils/errorUtils'
 
 /**
  * Hook that prefetches all PR data in the background on app startup
@@ -118,7 +119,7 @@ export function usePrefetch(): void {
             { name: `${label.toLowerCase()}-${mode}`, priority: -1 }
           )
           .catch(err => {
-            if (err instanceof DOMException && err.name === 'AbortError') return
+            if (isAbortError(err)) return
             console.warn(`[${label}] ${mode} failed:`, err)
           })
       }
@@ -160,7 +161,7 @@ export function usePrefetch(): void {
             { name: `${label.toLowerCase()}-${cacheKey}`, priority: -1 }
           )
           .catch(err => {
-            if (err instanceof DOMException && err.name === 'AbortError') return
+            if (isAbortError(err)) return
             console.warn(`[${label}] ${cacheKey} failed:`, err)
           })
       }

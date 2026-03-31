@@ -32,6 +32,7 @@ import {
 import { UserPremiumUsageSection } from './UserPremiumUsageSection'
 import { ContributionGraph } from './ContributionGraph'
 import { formatDistanceToNow } from '../utils/dateUtils'
+import { getErrorMessage } from '../utils/errorUtils'
 import './UserDetailPanel.css'
 
 interface UserDetailPanelProps {
@@ -487,7 +488,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
         if (cancelled) return
         dispatch({
           type: 'FETCH_ERROR',
-          payload: err instanceof Error ? err.message : String(err),
+          payload: getErrorMessage(err),
         })
       })
 

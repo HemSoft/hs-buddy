@@ -15,6 +15,7 @@ import { GitHubClient, type RepoPullRequest } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
 import { createPRDetailViewId } from '../utils/prDetailView'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import './RepoPullRequestList.css'
 
 interface RepoPullRequestListProps {
@@ -139,10 +140,10 @@ export function RepoPullRequestList({
         dispatch({ type: 'FETCH_SUCCESS', payload: result })
         dataCache.set(cacheKey, result)
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
+        if (isAbortError(err)) return
         dispatch({
           type: 'FETCH_ERROR',
-          payload: err instanceof Error ? err.message : String(err),
+          payload: getErrorMessage(err),
         })
       } finally {
         dispatch({ type: 'FETCH_FINISH' })

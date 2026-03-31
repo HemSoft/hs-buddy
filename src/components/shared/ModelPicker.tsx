@@ -3,6 +3,7 @@ import { Cpu, Loader2, RefreshCw } from 'lucide-react'
 import { useCopilotSettings } from '../../hooks/useConfig'
 import { InlineDropdown } from '../InlineDropdown'
 import type { DropdownOption } from '../InlineDropdown'
+import { getErrorMessage } from '../../utils/errorUtils'
 
 /** Model info returned from the Copilot SDK */
 interface SdkModel {
@@ -81,7 +82,7 @@ export function ModelPicker({
       }
     } catch (err) {
       if (fetchIdRef.current !== thisId) return
-      setModelsError(err instanceof Error ? err.message : String(err))
+      setModelsError(getErrorMessage(err))
       setSdkModels([])
     } finally {
       if (fetchIdRef.current === thisId) {

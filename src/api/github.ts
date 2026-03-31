@@ -9,6 +9,7 @@ import {
   SFL_CORE_WORKFLOW_FRAGMENTS,
   deriveSFLOverallStatus,
 } from '../types/sflStatus'
+import { getErrorMessage } from '../utils/errorUtils'
 
 /** Max retries when the primary rate limit is hit. */
 const PRIMARY_RATE_LIMIT_RETRIES = 3
@@ -2440,7 +2441,7 @@ export class GitHubClient {
           prsFound: prs.length,
         })
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error)
+        const errorMsg = getErrorMessage(error)
         // Only warn for non-404 errors (404s likely mean no access or org doesn't exist)
         if (!errorMsg.includes('404')) {
           console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg)
@@ -2612,7 +2613,7 @@ export class GitHubClient {
           } as PullRequest & { _owner: string; _repo: string; _prNumber: number })
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error)
+        const errorMsg = getErrorMessage(error)
         // Suppress 404 errors (org doesn't exist or no access)
         if (!errorMsg.includes('404')) {
           console.warn(`Search query failed: ${query}`, error)

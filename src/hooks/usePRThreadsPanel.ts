@@ -11,6 +11,7 @@ import { useTaskQueue } from './useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { applyReactionToResult } from '../utils/reactions'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
@@ -50,7 +51,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
       )
       .then(result => setCurrentHeadSha(result.headSha || null))
       .catch(err => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
+        if (isAbortError(err)) return
         setCurrentHeadSha(null)
       })
   }, [accounts, owner, pr.repository, pr.id])
@@ -79,13 +80,13 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
 
       setData(result)
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return
+      if (isAbortError(err)) return
 
       if (requestId !== latestThreadsRequestRef.current) {
         return
       }
 
-      setError(err instanceof Error ? err.message : String(err))
+      setError(getErrorMessage(err))
     } finally {
       if (requestId === latestThreadsRequestRef.current) {
         setLoading(false)
@@ -165,7 +166,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
 
         setData(prev => (prev ? applyReactionToResult(prev, commentId, content) : prev))
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
+        if (isAbortError(err)) return
         console.error('Failed to add reaction:', err)
       }
     },

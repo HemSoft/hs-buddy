@@ -9,6 +9,7 @@ import { getProgressColor } from '../../utils/progressColors'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
+import { isAbortError } from '../../utils/errorUtils'
 
 interface LoadingProgress {
   currentAccount: number
@@ -339,7 +340,7 @@ export function usePRListData(
         dataCache.set(mode, results)
         onCountChangeRef.current?.(results.length)
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
+        if (isAbortError(err)) {
           console.log('Fetch cancelled for', mode)
           return
         }

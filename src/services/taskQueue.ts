@@ -5,6 +5,8 @@
  * and AbortController integration for clean task management.
  */
 
+import { isAbortError } from '../utils/errorUtils'
+
 export type TaskId = string
 type TaskStatus = 'pending' | 'running' | 'completed' | 'cancelled' | 'failed'
 
@@ -281,7 +283,7 @@ export class TaskQueue {
       this.runningTasks.delete(task.id)
       this.stats.running--
 
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (isAbortError(error)) {
         task.status = 'cancelled'
         this.stats.cancelled++
         task.reject(error)

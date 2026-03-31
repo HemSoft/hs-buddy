@@ -39,7 +39,7 @@ import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OVERAGE_COST_PER_REQUEST, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
-import { getErrorMessage } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import { RateLimitGauge } from './RateLimitGauge'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
@@ -665,7 +665,7 @@ function useOrgOverviewData({
         })
         dataCache.set(overviewCacheKey, normalized)
       } catch (fetchError) {
-        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
+        if (isAbortError(fetchError)) return
         setOverviewPhase('error')
         setOverviewError(getErrorMessage(fetchError))
       }
@@ -746,7 +746,7 @@ function useOrgMembersData({
         })
         dataCache.set(membersCacheKey, result)
       } catch (fetchError) {
-        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
+        if (isAbortError(fetchError)) return
         setMembersPhase('error')
         setMembersError(getErrorMessage(fetchError))
       }
@@ -848,7 +848,7 @@ function useOrgCopilotData({
           dispatchCopilot({ type: 'error', error: null })
         }
       } catch (fetchError) {
-        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
+        if (isAbortError(fetchError)) return
         dispatchCopilot({
           type: 'error',
           error: getErrorMessage(fetchError),

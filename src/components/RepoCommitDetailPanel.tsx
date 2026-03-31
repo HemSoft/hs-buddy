@@ -18,6 +18,7 @@ import { dataCache } from '../services/dataCache'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { getDiffLineClass } from '../utils/diffUtils'
 import { formatFileStatus } from '../utils/githubUrl'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import './RepoDetailPanel.css'
 import './RepoCommitPanels.css'
 
@@ -68,8 +69,8 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
         setDetail(result)
         dataCache.set(cacheKey, result)
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof Error ? err.message : String(err))
+        if (isAbortError(err)) return
+        setError(getErrorMessage(err))
       } finally {
         setLoading(false)
       }

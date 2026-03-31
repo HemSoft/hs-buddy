@@ -18,6 +18,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoIssueDetail } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import { formatDateFull, formatDistanceToNow } from '../utils/dateUtils'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import './RepoIssueDetailPanel.css'
 
 interface RepoIssueDetailPanelProps {
@@ -76,8 +77,8 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
         setDetail(result)
         dataCache.set(cacheKey, result)
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof Error ? err.message : String(err))
+        if (isAbortError(err)) return
+        setError(getErrorMessage(err))
       } finally {
         setLoading(false)
       }

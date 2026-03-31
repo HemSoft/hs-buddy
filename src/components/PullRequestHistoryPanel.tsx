@@ -15,6 +15,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import './PullRequestHistoryPanel.css'
 
 interface PullRequestHistoryPanelProps {
@@ -290,7 +291,7 @@ export function PullRequestHistoryPanel({
       setHistory(result)
       onLoaded?.(result)
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (isAbortError(err)) {
         return
       }
 
@@ -298,7 +299,7 @@ export function PullRequestHistoryPanel({
         return
       }
 
-      setError(err instanceof Error ? err.message : String(err))
+      setError(getErrorMessage(err))
     } finally {
       if (requestId === latestRequestRef.current) {
         setLoading(false)

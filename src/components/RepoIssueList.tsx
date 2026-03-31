@@ -13,6 +13,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoIssue } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
+import { getErrorMessage, isAbortError } from '../utils/errorUtils'
 import './RepoIssueList.css'
 
 interface RepoIssueListProps {
@@ -67,8 +68,8 @@ export function RepoIssueList({
         setIssues(result)
         dataCache.set(cacheKey, result)
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof Error ? err.message : String(err))
+        if (isAbortError(err)) return
+        setError(getErrorMessage(err))
       } finally {
         setLoading(false)
       }

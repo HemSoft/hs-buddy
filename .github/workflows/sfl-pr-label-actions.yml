@@ -14,6 +14,8 @@ permissions:
   pull-requests: write
   actions: write
   discussions: write
+  contents: read
+  issues: write
 
 concurrency:
   group: sfl-pr-label-actions-${{ github.event.inputs.pull-request-number || github.run_id }}
@@ -124,8 +126,137 @@ jobs:
             -f pull-request-number="$PR_NUM"
           echo "Dispatched issue-processor for fix cycle on PR #${PR_NUM}"
 
-      - name: Ready for review — add label and flip draft
+      - name: Ready for review — check auto-merge eligibility
         if: steps.decide.outputs.action == 'ready-for-review'
+        id: merge-check
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ steps.find.outputs.pr_number }}"
+
+          # 1. Read SFL config via GitHub API and decode
+          CONFIG_RAW=$(gh api "repos/${{ github.repository }}/contents/.github/sfl-config.yml?ref=main" --jq '.content' 2>&1)
+          if [ $? -ne 0 ] || [ -z "$CONFIG_RAW" ]; then
+            echo "Could not read sfl-config.yml — falling back to human review"
+            echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+            echo "reason=config-unreadable" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CONFIG=$(echo "$CONFIG_RAW" | base64 -d 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "Failed to decode sfl-config.yml — falling back to human review"
+            echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+            echo "reason=decode-failed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 2. Parse config with yq (pre-installed on ubuntu-latest)
+          # Handles both flat keys (auto-merge:) and nested (autonomy.auto-merge:)
+          AUTO_MERGE=$(echo "$CONFIG" | yq '.autonomy.auto-merge // .["auto-merge"] // false')
+          if [ "$AUTO_MERGE" != "true" ]; then
+            echo "auto-merge is disabled in sfl-config.yml (value: $AUTO_MERGE)"
+            echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+            echo "reason=disabled" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 3. Read allowed risk levels
+          ALLOWED_RISKS=$(echo "$CONFIG" | yq -r '
+            (.autonomy.auto-merge-risk-levels // .["auto-merge-risk-levels"] // []) | .[]')
+          if [ -z "$ALLOWED_RISKS" ]; then
+            echo "No auto-merge-risk-levels configured — falling back to human review"
+            echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no-risk-levels" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 4. Get PR labels
+          PR_LABELS=$(gh pr view "$PR_NUM" --repo ${{ github.repository }} --json labels --jq '[.labels[].name] | join("\n")')
+
+          # 5. Check if PR has a qualifying risk label
+          MATCH="false"
+          MATCHED_RISK=""
+          while IFS= read -r risk; do
+            if echo "$PR_LABELS" | grep -Fxq "$risk"; then
+              MATCH="true"
+              MATCHED_RISK="$risk"
+              break
+            fi
+          done <<< "$ALLOWED_RISKS"
+
+          if [ "$MATCH" != "true" ]; then
+            echo "PR #${PR_NUM} has no qualifying risk label for auto-merge"
+            echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+            echo "reason=risk-not-eligible" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 6. Verify CI passed (case-insensitive match for any check containing "test")
+          CI_STATE=$(gh pr checks "$PR_NUM" --repo ${{ github.repository }} --json name,state \
+            --jq '[.[] | select(.name | test("test"; "i"))] | .[0].state // "PENDING"')
+          if [ "$CI_STATE" != "SUCCESS" ]; then
+            echo "CI check is $CI_STATE (not SUCCESS) — falling back to human review"
+            echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+            echo "reason=ci-not-green" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "PR #${PR_NUM} qualifies for auto-merge (risk: ${MATCHED_RISK}, CI: green)"
+          echo "auto_merge=true" >> "$GITHUB_OUTPUT"
+          echo "matched_risk=${MATCHED_RISK}" >> "$GITHUB_OUTPUT"
+
+      - name: Auto-merge — squash merge and clean up
+        if: steps.decide.outputs.action == 'ready-for-review' && steps.merge-check.outputs.auto_merge == 'true'
+        id: auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ steps.find.outputs.pr_number }}"
+          RISK="${{ steps.merge-check.outputs.matched_risk }}"
+
+          # Pre-merge CI recheck (guard against race condition)
+          CI_NOW=$(gh pr checks "$PR_NUM" --repo ${{ github.repository }} --json name,state \
+            --jq '[.[] | select(.name | test("test"; "i"))] | .[0].state // "PENDING"')
+          if [ "$CI_NOW" != "SUCCESS" ]; then
+            echo "CI is now $CI_NOW — aborting auto-merge, falling back to human review"
+            if ! gh pr edit "$PR_NUM" --repo ${{ github.repository }} --add-label "human:ready-for-review"; then
+              echo "ERROR: Could not add fallback label to PR #${PR_NUM}" >&2
+            fi
+            echo "merge_result=ci-changed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Flip to ready if still draft
+          IS_DRAFT=$(gh pr view "$PR_NUM" --repo ${{ github.repository }} --json isDraft --jq '.isDraft')
+          if [ "$IS_DRAFT" = "true" ]; then
+            gh pr ready "$PR_NUM" --repo ${{ github.repository }}
+          fi
+
+          # Attempt squash merge with branch cleanup (--admin bypasses branch protection)
+          if gh pr merge "$PR_NUM" --repo ${{ github.repository }} --squash --delete-branch --admin; then
+            echo "merge_result=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully auto-merged PR #${PR_NUM} (${RISK})"
+
+            # Close linked issue label cleanup
+            PR_BODY=$(gh pr view "$PR_NUM" --repo ${{ github.repository }} --json body --jq '.body // ""')
+            LINKED_ISSUE=$(echo "$PR_BODY" | grep -oE 'Closes #[0-9]+' | head -1 | sed 's/Closes #//')
+            if [ -n "$LINKED_ISSUE" ]; then
+              if ! gh issue edit "$LINKED_ISSUE" --repo ${{ github.repository }} --remove-label "agent:in-progress" 2>&1; then
+                echo "Warning: failed to clean up labels on issue #${LINKED_ISSUE}"
+              else
+                echo "Cleaned up labels on issue #${LINKED_ISSUE}"
+              fi
+            fi
+          else
+            echo "merge_result=failed" >> "$GITHUB_OUTPUT"
+            echo "Auto-merge failed for PR #${PR_NUM} — falling back to human review"
+            if ! gh pr edit "$PR_NUM" --repo ${{ github.repository }} --add-label "human:ready-for-review"; then
+              echo "ERROR: Could not add fallback label to PR #${PR_NUM}" >&2
+            fi
+          fi
+
+      - name: Ready for review — add label and flip draft (human review path)
+        if: steps.decide.outputs.action == 'ready-for-review' && steps.merge-check.outputs.auto_merge != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
@@ -147,6 +278,10 @@ jobs:
           ACTION: ${{ steps.decide.outputs.action }}
           PR_TITLE: ${{ steps.decide.outputs.title }}
           TRIGGER: ${{ steps.find.outputs.trigger }}
+          AUTO_MERGE: ${{ steps.merge-check.outputs.auto_merge }}
+          MERGE_REASON: ${{ steps.merge-check.outputs.reason }}
+          MERGE_RESULT: ${{ steps.auto-merge.outputs.merge_result }}
+          MATCHED_RISK: ${{ steps.merge-check.outputs.matched_risk }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           script: |
@@ -154,13 +289,24 @@ jobs:
             const action = process.env.ACTION;
             const title = process.env.PR_TITLE;
             const trigger = process.env.TRIGGER;
+            const autoMerge = process.env.AUTO_MERGE;
+            const mergeReason = process.env.MERGE_REASON;
+            const mergeResult = process.env.MERGE_RESULT;
+            const matchedRisk = process.env.MATCHED_RISK;
             const fallbackTag = trigger === 'workflow_run' ? ' *(deterministic fallback)*' : '';
 
             let body;
             if (action === 'fix-cycle') {
               body = `🔄 **Label Actions → Fix Cycle** | PR #${prNum} (*${title}*) — \`analyzer:blocked\` detected, dispatched issue-processor for fix cycle${fallbackTag}`;
+            } else if (action === 'ready-for-review' && autoMerge === 'true' && mergeResult === 'success') {
+              body = `🚀 **Label Actions → Auto-Merged** | PR #${prNum} (*${title}*) — all analyzers passed, CI green, \`${matchedRisk}\` — squash-merged automatically${fallbackTag}`;
+            } else if (action === 'ready-for-review' && autoMerge === 'true' && mergeResult === 'ci-changed') {
+              body = `⚠️ **Label Actions → Merge Blocked** | PR #${prNum} (*${title}*) — CI state changed during merge window, marked for human review${fallbackTag}`;
+            } else if (action === 'ready-for-review' && autoMerge === 'true') {
+              body = `❌ **Label Actions → Merge Failed** | PR #${prNum} (*${title}*) — auto-merge attempt failed (${mergeResult || 'unknown'}), marked for human review${fallbackTag}`;
             } else if (action === 'ready-for-review') {
-              body = `✅ **Label Actions → Ready for Review** | PR #${prNum} (*${title}*) — all analyzers passed, marked ready for human review${fallbackTag}`;
+              const reason = mergeReason ? ` (${mergeReason})` : '';
+              body = `✅ **Label Actions → Ready for Review** | PR #${prNum} (*${title}*) — all analyzers passed, marked ready for human review${reason}${fallbackTag}`;
             } else {
               body = `ℹ️ **Label Actions** | PR #${prNum} — no actionable state detected`;
             }

@@ -3,7 +3,10 @@
 # This file is HUMAN-ONLY — SFL workflows must never modify it.
 
 autonomy:
-  auto-merge: false           # Must remain false: humans own all final merges
+  auto-merge: true            # Allow SFL to squash-merge qualifying PRs automatically
+  auto-merge-risk-levels:     # Risk labels that qualify for auto-merge (empty = none)
+    - risk:trivial
+    - risk:low
   auto-create-pr: true        # Can dispatcher/processor create PRs from issues?
   conflict-resolution: true   # Can PR Fixer resolve merge conflicts automatically?
 

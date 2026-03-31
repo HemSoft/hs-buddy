@@ -630,6 +630,10 @@ For follow-up PR work:
 - If a finding cannot be fully resolved in one pass, make real progress and note
   what remains in your summary marker.
 
+Before committing, run `npx prettier --write` on every file you changed or
+created. This project enforces Prettier formatting in CI (`format:check`). If
+you skip this step the PR will fail CI and cannot be auto-merged.
+
 Commit the changes with a descriptive commit message.
 
 **IMPORTANT**: Do NOT run `git push`. Use the safe outputs in the next step.

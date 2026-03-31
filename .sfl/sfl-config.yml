@@ -3,7 +3,12 @@
 # This file is user-owned — the SFL installer will never overwrite it.
 
 # Auto-merge behavior for agent-generated PRs
-auto-merge: false
+auto-merge: true
+
+# Risk labels that qualify for auto-merge (empty list = none)
+auto-merge-risk-levels:
+  - risk:trivial
+  - risk:low
 
 # Whether agents can auto-create PRs from issues
 auto-create-pr: true

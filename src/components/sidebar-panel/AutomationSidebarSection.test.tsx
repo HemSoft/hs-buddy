@@ -3,9 +3,24 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { AutomationSidebarSection } from './AutomationSidebarSection'
 
 const jobs = [
-  { _id: 'job-exec', name: 'Build release', description: 'Run the release build', workerType: 'exec' as const },
-  { _id: 'job-ai', name: 'Summarize status', description: 'Generate a summary', workerType: 'ai' as const },
-  { _id: 'job-skill', name: 'Run skill', description: 'Execute a skill', workerType: 'skill' as const },
+  {
+    _id: 'job-exec',
+    name: 'Build release',
+    description: 'Run the release build',
+    workerType: 'exec' as const,
+  },
+  {
+    _id: 'job-ai',
+    name: 'Summarize status',
+    description: 'Generate a summary',
+    workerType: 'ai' as const,
+  },
+  {
+    _id: 'job-skill',
+    name: 'Run skill',
+    description: 'Execute a skill',
+    workerType: 'skill' as const,
+  },
 ]
 
 const schedules = [

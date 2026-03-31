@@ -210,7 +210,9 @@ describe('usePRListData', () => {
   it('manages context-menu actions for bookmarks, AI review, copy, and close', async () => {
     const createBookmark = vi.fn().mockResolvedValue(undefined)
     const removeBookmark = vi.fn().mockResolvedValue(undefined)
-    mockUseRepoBookmarks.mockReturnValue([{ _id: 'bookmark-1', owner: 'relias-engineering', repo: 'hs-buddy' }])
+    mockUseRepoBookmarks.mockReturnValue([
+      { _id: 'bookmark-1', owner: 'relias-engineering', repo: 'hs-buddy' },
+    ])
     mockUseRepoBookmarkMutations.mockReturnValue({
       create: createBookmark,
       remove: removeBookmark,
@@ -370,7 +372,12 @@ describe('usePRListData', () => {
           clientX: 11,
           clientY: 22,
         } as unknown as React.MouseEvent,
-        { ...cachedPr, id: 421, repository: 'other-repo', url: 'https://github.com/org/other-repo/pull/421' }
+        {
+          ...cachedPr,
+          id: 421,
+          repository: 'other-repo',
+          url: 'https://github.com/org/other-repo/pull/421',
+        }
       )
     })
 

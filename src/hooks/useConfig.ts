@@ -86,7 +86,7 @@ export function useConfig() {
       setError(null)
     } catch (err: unknown) {
       console.error('Failed to load config:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load configuration')
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }

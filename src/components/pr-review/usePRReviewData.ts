@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { useBuddyStatsMutations } from '../../hooks/useConvex'
 import { GitHubClient } from '../../api/github'
+import { getErrorMessage } from '../../utils/errorUtils'
 import type { PRReviewInfo } from './PRReviewInfo'
 
 const DEFAULT_PROMPT_TEMPLATE = (url: string) =>
@@ -131,7 +132,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
         setError(result.error ?? 'Failed to start PR review')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(getErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -175,7 +176,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
       }, delayMs)
       setScheduled(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(getErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -204,7 +205,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
       await window.ipcRenderer.invoke('config:set-copilot-pr-review-prompt-template', template)
       setSavedDefaultTemplate(template)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(getErrorMessage(err))
     } finally {
       setSavingDefault(false)
     }

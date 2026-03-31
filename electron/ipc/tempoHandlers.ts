@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import {
   getWorklogsForDate,
   getWorklogsForRange,
@@ -14,97 +14,90 @@ import {
 import { getErrorMessage, formatDateKey } from '../utils'
 import type { CreateWorklogPayload, UpdateWorklogPayload } from '../../src/types/tempo'
 
-export function registerTempoHandlers(): void {
-  ipcMain.handle('tempo:get-today', async (_event, date?: string) => {
+function tempoHandler<A extends unknown[], T>(
+  fn: (event: IpcMainInvokeEvent, ...args: A) => Promise<T>
+) {
+  return async (
+    event: IpcMainInvokeEvent,
+    ...args: A
+  ): Promise<T | { success: false; error: string }> => {
     try {
-      const d = date || formatDateKey(new Date())
-      return await getWorklogsForDate(d)
+      return await fn(event, ...args)
     } catch (error) {
       return { success: false, error: getErrorMessage(error) }
     }
-  })
+  }
+}
+
+export function registerTempoHandlers(): void {
+  ipcMain.handle(
+    'tempo:get-today',
+    tempoHandler(async (_event, date?: string) => {
+      const d = date || formatDateKey(new Date())
+      return await getWorklogsForDate(d)
+    })
+  )
 
   ipcMain.handle(
     'tempo:get-range',
-    async (_event, args: { from: string; to: string }) => {
-      try {
-        return await getWorklogsForRange(args.from, args.to)
-      } catch (error) {
-        return { success: false, error: getErrorMessage(error) }
-      }
-    }
+    tempoHandler(async (_event, args: { from: string; to: string }) => {
+      return await getWorklogsForRange(args.from, args.to)
+    })
   )
 
   ipcMain.handle(
     'tempo:get-week',
-    async (_event, args: { weekStart: string; weekEnd: string }) => {
-      try {
-        return await getWeekSummary(args.weekStart, args.weekEnd)
-      } catch (error) {
-        return { success: false, error: getErrorMessage(error) }
-      }
-    }
+    tempoHandler(async (_event, args: { weekStart: string; weekEnd: string }) => {
+      return await getWeekSummary(args.weekStart, args.weekEnd)
+    })
   )
 
-  ipcMain.handle('tempo:create-worklog', async (_event, payload: CreateWorklogPayload) => {
-    try {
+  ipcMain.handle(
+    'tempo:create-worklog',
+    tempoHandler(async (_event, payload: CreateWorklogPayload) => {
       return await createWorklog(payload)
-    } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  })
+    })
+  )
 
   ipcMain.handle(
     'tempo:update-worklog',
-    async (_event, args: { worklogId: number; payload: UpdateWorklogPayload }) => {
-      try {
-        return await updateWorklog(args.worklogId, args.payload)
-      } catch (error) {
-        return { success: false, error: getErrorMessage(error) }
-      }
-    }
+    tempoHandler(async (_event, args: { worklogId: number; payload: UpdateWorklogPayload }) => {
+      return await updateWorklog(args.worklogId, args.payload)
+    })
   )
 
-  ipcMain.handle('tempo:delete-worklog', async (_event, worklogId: number) => {
-    try {
+  ipcMain.handle(
+    'tempo:delete-worklog',
+    tempoHandler(async (_event, worklogId: number) => {
       return await deleteWorklog(worklogId)
-    } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  })
+    })
+  )
 
-  ipcMain.handle('tempo:get-accounts', async () => {
-    try {
+  ipcMain.handle(
+    'tempo:get-accounts',
+    tempoHandler(async () => {
       return await getAccounts()
-    } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  })
+    })
+  )
 
-  ipcMain.handle('tempo:get-project-accounts', async (_event, projectKey: string) => {
-    try {
+  ipcMain.handle(
+    'tempo:get-project-accounts',
+    tempoHandler(async (_event, projectKey: string) => {
       return await getProjectAccountLinks(projectKey)
-    } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  })
+    })
+  )
 
-  ipcMain.handle('tempo:get-capex-map', async (_event, issueKeys: string[]) => {
-    try {
+  ipcMain.handle(
+    'tempo:get-capex-map',
+    tempoHandler(async (_event, issueKeys: string[]) => {
       return await getCapexMap(issueKeys)
-    } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  })
+    })
+  )
 
   ipcMain.handle(
     'tempo:get-schedule',
-    async (_event, args: { from: string; to: string }) => {
-      try {
-        return await getUserSchedule(args.from, args.to)
-      } catch (error) {
-        return { success: false, error: getErrorMessage(error) }
-      }
-    }
+    tempoHandler(async (_event, args: { from: string; to: string }) => {
+      return await getUserSchedule(args.from, args.to)
+    })
   )
 }

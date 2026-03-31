@@ -1,4 +1,12 @@
-import { startTransition, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import {
   AlertCircle,
   ArrowUpDown,
@@ -31,6 +39,7 @@ import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OVERAGE_COST_PER_REQUEST, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
+import { getErrorMessage } from '../utils/errorUtils'
 import { RateLimitGauge } from './RateLimitGauge'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
@@ -262,7 +271,11 @@ function OrgDetailHero({
       </div>
       <div className="org-detail-hero-right">
         {rateLimit && (
-          <RateLimitGauge remaining={rateLimit.remaining} limit={rateLimit.limit} reset={rateLimit.reset} />
+          <RateLimitGauge
+            remaining={rateLimit.remaining}
+            limit={rateLimit.limit}
+            reset={rateLimit.reset}
+          />
         )}
         <div className="org-detail-actions">
           <button className="org-detail-refresh-btn" onClick={onRefresh}>
@@ -361,7 +374,9 @@ function OrgCopilotSection({
           <span className="org-detail-fetched-at">{formatTime(copilotUsage.fetchedAt)}</span>
         )}
         {overview.isUserNamespace && personalQuotaSummary?.fetchedAt ? (
-          <span className="org-detail-fetched-at">{formatTime(personalQuotaSummary.fetchedAt)}</span>
+          <span className="org-detail-fetched-at">
+            {formatTime(personalQuotaSummary.fetchedAt)}
+          </span>
         ) : null}
       </div>
       <div className="org-detail-copilot-grid">
@@ -394,10 +409,7 @@ function OrgCopilotSection({
               value={formatCurrency(copilotUsage?.netCost ?? 0)}
               accent="warm"
             />
-            <MiniMetric
-              label="Gross Cost"
-              value={formatCurrency(copilotUsage?.grossCost ?? 0)}
-            />
+            <MiniMetric label="Gross Cost" value={formatCurrency(copilotUsage?.grossCost ?? 0)} />
             <MiniMetric
               label="Business Seats"
               value={(copilotUsage?.businessSeats ?? 0).toLocaleString()}
@@ -433,7 +445,8 @@ function OrgCopilotSection({
           <div>
             <span className="org-detail-budget-label">Budget</span>
             <strong>
-              {budgetState?.data?.budgetAmount !== null && budgetState?.data?.budgetAmount !== undefined
+              {budgetState?.data?.budgetAmount !== null &&
+              budgetState?.data?.budgetAmount !== undefined
                 ? formatCurrency(budgetState.data.budgetAmount)
                 : 'Not set'}
             </strong>
@@ -487,7 +500,9 @@ function OrgLeadersSection({
               onClick={() => navigateToOrgUser(org, contributor.login)}
             >
               <span className="org-detail-leader-rank">{contributor.commits}</span>
-              <span className="org-detail-leader-name">{nameMap.get(contributor.login) ?? contributor.login}</span>
+              <span className="org-detail-leader-name">
+                {nameMap.get(contributor.login) ?? contributor.login}
+              </span>
             </button>
           ))}
         </div>
@@ -517,9 +532,14 @@ function OrgMemberSpotlightSection({
       </div>
       <div className="org-detail-member-card">
         <div>
-          <div className="org-detail-member-name">{selectedMember.name ? `${selectedMember.name} (${selectedMember.login})` : selectedMember.login}</div>
+          <div className="org-detail-member-name">
+            {selectedMember.name
+              ? `${selectedMember.name} (${selectedMember.login})`
+              : selectedMember.login}
+          </div>
           <div className="org-detail-member-meta">
-            {selectedMember.name ? `@${selectedMember.login} · ` : ''}{selectedMember.type}
+            {selectedMember.name ? `@${selectedMember.login} · ` : ''}
+            {selectedMember.type}
             {selectedContributor
               ? ` · ${selectedContributor.commits} commits today`
               : ' · no commits today'}
@@ -565,7 +585,11 @@ function OrgConfiguredAccountsSection({
       </div>
       <div className="org-detail-account-grid">
         {configuredAccounts.map(account => (
-          <AccountQuotaCard key={account.username} account={account} state={quotas[account.username]} />
+          <AccountQuotaCard
+            key={account.username}
+            account={account}
+            state={quotas[account.username]}
+          />
         ))}
       </div>
     </section>
@@ -643,7 +667,7 @@ function useOrgOverviewData({
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
         setOverviewPhase('error')
-        setOverviewError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+        setOverviewError(getErrorMessage(fetchError))
       }
     },
     [accounts, org, overviewCacheKey, overviewTaskName]
@@ -724,7 +748,7 @@ function useOrgMembersData({
       } catch (fetchError) {
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
         setMembersPhase('error')
-        setMembersError(fetchError instanceof Error ? fetchError.message : String(fetchError))
+        setMembersError(getErrorMessage(fetchError))
       }
     },
     [accounts, membersCacheKey, membersTaskName, org]
@@ -827,7 +851,7 @@ function useOrgCopilotData({
         if (fetchError instanceof DOMException && fetchError.name === 'AbortError') return
         dispatchCopilot({
           type: 'error',
-          error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+          error: getErrorMessage(fetchError),
         })
       }
     },
@@ -930,12 +954,33 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const copilotTaskName = `org-detail-copilot-${org}`
   const initialOverview = buildSeedOverview(org)
   const { quotas, orgBudgets, orgOverageFromQuotas } = useCopilotUsage()
-  const configuredAccounts = useMemo(() => accounts.filter(account => account.org === org), [accounts, org])
-  const { personalQuotaLoading, personalQuotaSummary } = usePersonalQuotaSummary(configuredAccounts, quotas)
-  const overviewData = useOrgOverviewData({ accounts, org, enqueue, initialOverview, overviewCacheKey, overviewTaskName })
-  const membersData = useOrgMembersData({ accounts, org, enqueue, membersCacheKey, membersTaskName })
+  const configuredAccounts = useMemo(
+    () => accounts.filter(account => account.org === org),
+    [accounts, org]
+  )
+  const { personalQuotaLoading, personalQuotaSummary } = usePersonalQuotaSummary(
+    configuredAccounts,
+    quotas
+  )
+  const overviewData = useOrgOverviewData({
+    accounts,
+    org,
+    enqueue,
+    initialOverview,
+    overviewCacheKey,
+    overviewTaskName,
+  })
+  const membersData = useOrgMembersData({
+    accounts,
+    org,
+    enqueue,
+    membersCacheKey,
+    membersTaskName,
+  })
   const preferredAccount = useMemo(
-    () => accounts.find(account => account.org === org)?.username ?? overviewData.overview?.authenticatedAs,
+    () =>
+      accounts.find(account => account.org === org)?.username ??
+      overviewData.overview?.authenticatedAs,
     [accounts, org, overviewData.overview]
   )
   const isUserNamespace = Boolean(overviewData.overview?.isUserNamespace)
@@ -957,11 +1002,23 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const isOverviewTaskActive = githubQueue.hasTaskWithName(overviewTaskName)
   const isMembersTaskActive = githubQueue.hasTaskWithName(membersTaskName)
   const isCopilotTaskActive = githubQueue.hasTaskWithName(copilotTaskName)
-  const liveOverviewPhase = resolveRefreshPhase(overviewData.overviewPhase, isOverviewTaskActive, overviewData.overview ? 'ready' : 'loading')
-  const liveMembersPhase = resolveRefreshPhase(membersData.membersPhase, isMembersTaskActive, membersData.membersResult ? 'ready' : 'loading')
+  const liveOverviewPhase = resolveRefreshPhase(
+    overviewData.overviewPhase,
+    isOverviewTaskActive,
+    overviewData.overview ? 'ready' : 'loading'
+  )
+  const liveMembersPhase = resolveRefreshPhase(
+    membersData.membersPhase,
+    isMembersTaskActive,
+    membersData.membersResult ? 'ready' : 'loading'
+  )
   const liveCopilotPhase = isUserNamespace
     ? resolvePersonalCopilotPhase(personalQuotaSummary, personalQuotaLoading)
-    : resolveRefreshPhase(copilotData.copilotPhase, isCopilotTaskActive, copilotData.copilotUsage ? 'ready' : 'error')
+    : resolveRefreshPhase(
+        copilotData.copilotPhase,
+        isCopilotTaskActive,
+        copilotData.copilotUsage ? 'ready' : 'error'
+      )
 
   const { fetchOverview } = overviewData
   const { fetchMembers } = membersData
@@ -999,7 +1056,13 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     [configuredAccounts, memberLogin]
   )
   const contributorMap = useMemo(
-    () => new Map((overviewData.overview?.metrics.topContributorsToday ?? []).map(contributor => [contributor.login, contributor])),
+    () =>
+      new Map(
+        (overviewData.overview?.metrics.topContributorsToday ?? []).map(contributor => [
+          contributor.login,
+          contributor,
+        ])
+      ),
     [overviewData.overview]
   )
   const budgetState = orgBudgets[org]
@@ -1007,7 +1070,9 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const isInitialLoading = !overviewData.overview && liveOverviewPhase === 'loading'
   const isUpdating = [liveOverviewPhase, liveMembersPhase, liveCopilotPhase].includes('refreshing')
   const selectedContributor = memberLogin ? (contributorMap.get(memberLogin) ?? null) : null
-  const selectedMemberQuotaState = selectedConfiguredAccount ? quotas[selectedConfiguredAccount.username] : null
+  const selectedMemberQuotaState = selectedConfiguredAccount
+    ? quotas[selectedConfiguredAccount.username]
+    : null
 
   return {
     budgetState,
@@ -1061,20 +1126,35 @@ function OrgDetailSkeleton({ org }: { org: string }) {
           <div key={i} className="org-detail-metric-card org-detail-skeleton-card">
             <div className="org-detail-metric-icon org-detail-skeleton-shimmer" />
             <div>
-              <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '60%' }} />
-              <div className="org-detail-skeleton-line org-detail-skeleton-line-lg org-detail-skeleton-shimmer" style={{ width: '40%' }} />
-              <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '80%' }} />
+              <div
+                className="org-detail-skeleton-line org-detail-skeleton-shimmer"
+                style={{ width: '60%' }}
+              />
+              <div
+                className="org-detail-skeleton-line org-detail-skeleton-line-lg org-detail-skeleton-shimmer"
+                style={{ width: '40%' }}
+              />
+              <div
+                className="org-detail-skeleton-line org-detail-skeleton-shimmer"
+                style={{ width: '80%' }}
+              />
             </div>
           </div>
         ))}
       </div>
       <div className="org-detail-section-grid">
         <div className="org-detail-section org-detail-skeleton-section">
-          <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '50%', height: 16 }} />
+          <div
+            className="org-detail-skeleton-line org-detail-skeleton-shimmer"
+            style={{ width: '50%', height: 16 }}
+          />
           <div className="org-detail-skeleton-block org-detail-skeleton-shimmer" />
         </div>
         <div className="org-detail-section org-detail-skeleton-section">
-          <div className="org-detail-skeleton-line org-detail-skeleton-shimmer" style={{ width: '50%', height: 16 }} />
+          <div
+            className="org-detail-skeleton-line org-detail-skeleton-shimmer"
+            style={{ width: '50%', height: 16 }}
+          />
           <div className="org-detail-skeleton-block org-detail-skeleton-shimmer" />
         </div>
       </div>
@@ -1347,7 +1427,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
                   className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
                   onClick={() => navigateToOrgUser(org, member.login)}
                 >
-                  <span className="org-detail-roster-name">{member.name ? `${member.name} (${member.login})` : member.login}</span>
+                  <span className="org-detail-roster-name">
+                    {member.name ? `${member.name} (${member.login})` : member.login}
+                  </span>
                   <span className="org-detail-roster-meta">
                     {member.name ? `@${member.login} · ` : ''}
                     {contributor ? `${contributor.commits} today` : 'idle today'}

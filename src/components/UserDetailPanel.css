@@ -11,7 +11,7 @@
   padding: 18px;
   background:
     radial-gradient(circle at top right, rgba(129, 178, 154, 0.12), transparent 28%),
-    radial-gradient(circle at top left, rgba(224, 122, 95, 0.10), transparent 24%),
+    radial-gradient(circle at top left, rgba(224, 122, 95, 0.1), transparent 24%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%);
 }
 
@@ -277,10 +277,18 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-.ud-pr-icon { flex-shrink: 0; }
-.ud-pr-merged { color: #a371f7; }
-.ud-pr-open { color: #3fb950; }
-.ud-pr-closed { color: #f85149; }
+.ud-pr-icon {
+  flex-shrink: 0;
+}
+.ud-pr-merged {
+  color: #a371f7;
+}
+.ud-pr-open {
+  color: #3fb950;
+}
+.ud-pr-closed {
+  color: #f85149;
+}
 
 .ud-pr-title {
   overflow: hidden;
@@ -324,7 +332,9 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.ud-event-type { color: var(--text-primary); }
+.ud-event-type {
+  color: var(--text-primary);
+}
 
 .ud-event-repo {
   color: var(--text-secondary);
@@ -367,7 +377,7 @@
 .ud-repo-chip:hover {
   transform: translateY(-1px);
   border-color: rgba(129, 178, 154, 0.42);
-  background: rgba(129, 178, 154, 0.10);
+  background: rgba(129, 178, 154, 0.1);
 }
 
 /* ── Copilot Quota ───────────────────────────────────────────────────── */
@@ -439,7 +449,9 @@
 /* ── Responsive ──────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
-  .user-detail-container { padding: 14px; }
+  .user-detail-container {
+    padding: 14px;
+  }
 
   .ud-hero {
     flex-direction: column;
@@ -451,8 +463,13 @@
     height: 40px;
   }
 
-  .ud-hero-actions { width: 100%; }
-  .ud-action-btn { flex: 1; justify-content: center; }
+  .ud-hero-actions {
+    width: 100%;
+  }
+  .ud-action-btn {
+    flex: 1;
+    justify-content: center;
+  }
 
   .ud-metric-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -466,5 +483,7 @@
     grid-template-columns: 16px 1fr auto;
   }
 
-  .ud-pr-age { display: none; }
+  .ud-pr-age {
+    display: none;
+  }
 }

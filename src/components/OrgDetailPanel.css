@@ -419,9 +419,15 @@
 /* ── Skeleton loader ── */
 
 @keyframes org-shimmer {
-  0% { opacity: 0.3; }
-  50% { opacity: 0.6; }
-  100% { opacity: 0.3; }
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0.3;
+  }
 }
 
 .org-detail-skeleton-shimmer {

@@ -92,7 +92,9 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color 0.12s ease, color 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
 .ud-premium-refresh-btn:hover:not(:disabled) {
@@ -121,7 +123,9 @@
   left: 0;
   height: 100%;
   border-radius: 4px;
-  transition: width 0.5s ease, background 0.3s ease;
+  transition:
+    width 0.5s ease,
+    background 0.3s ease;
 }
 
 .ud-premium-bar-projected {
@@ -136,7 +140,9 @@
     transparent 6px
   );
   border-radius: 0 4px 4px 0;
-  transition: width 0.5s ease, left 0.5s ease;
+  transition:
+    width 0.5s ease,
+    left 0.5s ease;
 }
 
 /* ── Stats grid ── */
@@ -231,7 +237,7 @@
   padding: 12px 8px;
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(129, 178, 154, 0.08), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(129, 178, 154, 0.10);
+  border: 1px solid rgba(129, 178, 154, 0.1);
 }
 
 .ud-prem-hero-stat {
@@ -284,7 +290,10 @@
   color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
 }
 
 .ud-prem-refresh:hover:not(:disabled) {
@@ -325,7 +334,7 @@
 }
 
 .ud-prem-pill--warn {
-  background: rgba(224, 95, 95, 0.10);
+  background: rgba(224, 95, 95, 0.1);
   color: #e85d5d;
   font-weight: 500;
 }
@@ -385,11 +394,21 @@
   min-width: 3px;
 }
 
-.ud-prem-model:nth-child(2) .ud-prem-model-fill { background: linear-gradient(90deg, #7eaac8, #6593b3); }
-.ud-prem-model:nth-child(3) .ud-prem-model-fill { background: linear-gradient(90deg, #c49a6c, #b0864f); }
-.ud-prem-model:nth-child(4) .ud-prem-model-fill { background: linear-gradient(90deg, #b8899a, #a07386); }
-.ud-prem-model:nth-child(5) .ud-prem-model-fill { background: linear-gradient(90deg, #8fadaa, #779993); }
-.ud-prem-model:nth-child(6) .ud-prem-model-fill { background: linear-gradient(90deg, #9e9ec4, #8585b0); }
+.ud-prem-model:nth-child(2) .ud-prem-model-fill {
+  background: linear-gradient(90deg, #7eaac8, #6593b3);
+}
+.ud-prem-model:nth-child(3) .ud-prem-model-fill {
+  background: linear-gradient(90deg, #c49a6c, #b0864f);
+}
+.ud-prem-model:nth-child(4) .ud-prem-model-fill {
+  background: linear-gradient(90deg, #b8899a, #a07386);
+}
+.ud-prem-model:nth-child(5) .ud-prem-model-fill {
+  background: linear-gradient(90deg, #8fadaa, #779993);
+}
+.ud-prem-model:nth-child(6) .ud-prem-model-fill {
+  background: linear-gradient(90deg, #9e9ec4, #8585b0);
+}
 
 /* Footer */
 .ud-prem-footer {

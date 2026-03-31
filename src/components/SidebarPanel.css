@@ -530,8 +530,15 @@ button.sidebar-item {
 }
 
 @keyframes refresh-icon-pulse {
-  0%, 100% { opacity: 0.5; filter: drop-shadow(0 0 0px transparent); }
-  50%      { opacity: 1;   filter: drop-shadow(0 0 4px var(--accent-primary, #0078d4)); }
+  0%,
+  100% {
+    opacity: 0.5;
+    filter: drop-shadow(0 0 0px transparent);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px var(--accent-primary, #0078d4));
+  }
 }
 
 /* Active badge: shimmer sweep across the count pill */
@@ -554,8 +561,12 @@ button.sidebar-item {
 }
 
 @keyframes badge-shimmer {
-  0%   { transform: translateX(-120%); }
-  100% { transform: translateX(120%); }
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 /* Pending (queued, waiting): small dot pulses after the label */
@@ -572,8 +583,13 @@ button.sidebar-item {
 }
 
 @keyframes pending-dot {
-  0%, 100% { opacity: 0.3; }
-  50%      { opacity: 0.8; }
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 /* Pending badge: dim slightly to show it's stale / waiting */

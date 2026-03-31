@@ -6,8 +6,8 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  actions: read
   issues: write
-  actions: write
   discussions: write
 
 concurrency:
@@ -94,14 +94,14 @@ jobs:
         run: |
           ISSUE_NUM="${{ steps.queue.outputs.issue_number }}"
 
-          if ! gh workflow run sfl-issue-processor.lock.yml \
+          # Swap labels: add agent:fixable (triggers issue-processor via label_command),
+          # remove agent:queue (dequeues the issue)
+          gh issue edit "$ISSUE_NUM" \
             --repo "${{ github.repository }}" \
-            -f issue-number="$ISSUE_NUM"; then
-            echo "::error::Failed to dispatch issue-processor for issue #${ISSUE_NUM}"
-            exit 1
-          fi
+            --add-label "agent:fixable" \
+            --remove-label "agent:queue"
 
-          echo "Dispatched issue-processor for queued issue #${ISSUE_NUM}"
+          echo "Dequeued issue #${ISSUE_NUM}: swapped agent:queue → agent:fixable"
 
       - name: Log to Discussion #95
         if: always() && steps.queue.outputs.found == 'true'
@@ -114,7 +114,7 @@ jobs:
           script: |
             const issueNum = process.env.ISSUE_NUM;
             const issueTitle = process.env.ISSUE_TITLE;
-            const body = `📋 **Queue Monitor** | Dequeued issue #${issueNum} (*${issueTitle}*) — dispatched to issue-processor`;
+            const body = `📋 **Queue Monitor** | Dequeued issue #${issueNum} (*${issueTitle}*) — swapped agent:queue → agent:fixable`;
 
             try {
               const { repository } = await github.graphql(

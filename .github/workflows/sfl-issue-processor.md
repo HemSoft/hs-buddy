@@ -1,17 +1,19 @@
 ---
 description: |
-  Triggered when a new fixable issue opens, when Analyzer C finds blocking
-  feedback on an existing draft PR, or when unresolved review comments
-  (from Copilot review or human reviewers) are detected by PR Label Actions.
-  Claims or resumes the issue, advances the implementation on the same draft
-  PR when one exists, and dispatches Analyzer A after creating or updating
-  the draft PR. Also supports targeted `workflow_dispatch` handoffs for a
-  specific issue or PR.
+  Triggered when the `agent:fixable` label is added to an issue, when
+  Analyzer C finds blocking feedback on an existing draft PR, or when
+  unresolved review comments (from Copilot review or human reviewers) are
+  detected by PR Label Actions. Claims or resumes the issue, advances the
+  implementation on the same draft PR when one exists, and dispatches
+  Analyzer A after creating or updating the draft PR. Also supports targeted
+  `workflow_dispatch` handoffs for a specific issue or PR.
   One work item per run.
 
 on:
-  issues:
-    types: [opened, reopened]
+  label_command:
+    name: "agent:fixable"
+    events: issues
+    remove_label: false
   workflow_dispatch:
     inputs:
       issue-number:

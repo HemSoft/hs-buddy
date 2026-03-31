@@ -31,7 +31,10 @@ type TempoWorklogEditorAction =
   | { type: 'setDescription'; value: string }
   | { type: 'setAccountKey'; value: string }
   | { type: 'setAccounts'; accounts: TempoAccount[] }
-  | { type: 'setProjectAccounts'; projectAccounts: { key: string; name: string; isDefault: boolean }[] }
+  | {
+      type: 'setProjectAccounts'
+      projectAccounts: { key: string; name: string; isDefault: boolean }[]
+    }
   | { type: 'setAccountsLoading'; value: boolean }
   | { type: 'submit:start' }
   | { type: 'submit:error'; value: string }
@@ -142,7 +145,9 @@ export function TempoWorklogEditor({
         }
       })
     }, 400)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [state.issueKey])
 
   // For edit mode, fetch project accounts on mount
@@ -269,9 +274,7 @@ export function TempoWorklogEditor({
             />
           </div>
           <div className="tempo-editor-row">
-            <label htmlFor={accountId}>
-              Account{state.accountsLoading ? ' (loading…)' : ''}
-            </label>
+            <label htmlFor={accountId}>Account{state.accountsLoading ? ' (loading…)' : ''}</label>
             <select
               id={accountId}
               value={state.accountKey}
@@ -281,14 +284,13 @@ export function TempoWorklogEditor({
               }}
             >
               <option value="">— select account —</option>
-              {(state.projectAccounts.length > 0
-                ? state.projectAccounts
-                : state.accounts
-              ).map(a => (
-                <option key={a.key} value={a.key}>
-                  {a.name} ({a.key})
-                </option>
-              ))}
+              {(state.projectAccounts.length > 0 ? state.projectAccounts : state.accounts).map(
+                a => (
+                  <option key={a.key} value={a.key}>
+                    {a.name} ({a.key})
+                  </option>
+                )
+              )}
             </select>
           </div>
           {state.error && <div className="tempo-editor-error">{state.error}</div>}

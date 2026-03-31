@@ -158,7 +158,11 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
               disabled={publishing || published}
               title={published ? 'Published to PR' : 'Publish review as PR comment'}
             >
-              {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
+              {publishing ? (
+                <Loader2 size={14} className="spin" />
+              ) : (
+                <MessageSquareShare size={14} />
+              )}
               {published && <span className="copied-badge">✓</span>}
             </button>
           )}
@@ -212,10 +216,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
         )}
 
         {result.status === 'completed' && result.result && (
-          <div
-            className="copilot-result-markdown"
-            data-color-mode="dark"
-          >
+          <div className="copilot-result-markdown" data-color-mode="dark">
             <MarkdownPreview
               source={result.result}
               style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}

@@ -83,7 +83,7 @@ describe('PromptSection', () => {
   it('truncates long previews in collapsed mode', () => {
     const longPrompt = 'x'.repeat(250)
     render(<PromptSection {...defaultProps} prompt={longPrompt} />)
-    const preview = screen.getByText(/^x+\.\.\.$/);
+    const preview = screen.getByText(/^x+\.\.\.$/)
     expect(preview.textContent!.endsWith('...')).toBe(true)
   })
 })

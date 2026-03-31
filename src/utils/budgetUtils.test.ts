@@ -109,7 +109,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('finds a budget on page 2 (the real-world Relias case)', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({ budgets: [], has_next_page: true })
       .mockResolvedValueOnce({
         budgets: [
@@ -156,7 +157,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('returns null when budget is not on any page', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({ budgets: [], has_next_page: true })
       .mockResolvedValueOnce({
         budgets: [
@@ -176,7 +178,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('returns null when all pages are empty', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({ budgets: [], has_next_page: true })
       .mockResolvedValueOnce({ budgets: [], has_next_page: false })
 
@@ -186,7 +189,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('respects maxPages limit', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValue({ budgets: [], has_next_page: true })
 
     const result = await findBudgetAcrossPages(fetchPage, 'org', 3)
@@ -195,7 +199,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('uses default maxPages of 10', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValue({ budgets: [], has_next_page: true })
 
     await findBudgetAcrossPages(fetchPage, 'org')
@@ -203,7 +208,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('stops when has_next_page is false even if under maxPages', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({ budgets: [], has_next_page: true })
       .mockResolvedValueOnce({ budgets: [], has_next_page: false })
 
@@ -212,7 +218,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('stops when has_next_page is undefined (missing field)', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({ budgets: [] })
 
     await findBudgetAcrossPages(fetchPage, 'org')
@@ -220,7 +227,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('handles missing budgets field as empty array', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({ has_next_page: false })
 
     const result = await findBudgetAcrossPages(fetchPage, 'org')
@@ -229,7 +237,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('skips non-matching orgs on earlier pages', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({
         budgets: [
           {
@@ -259,7 +268,8 @@ describe('findBudgetAcrossPages', () => {
   })
 
   it('stops iterating immediately once a match is found', async () => {
-    const fetchPage = vi.fn<(page: number) => Promise<BudgetPageResponse>>()
+    const fetchPage = vi
+      .fn<(page: number) => Promise<BudgetPageResponse>>()
       .mockResolvedValueOnce({ budgets: [], has_next_page: true })
       .mockResolvedValueOnce({
         budgets: [

@@ -58,7 +58,11 @@ describe('useAssistantContext', () => {
     expect(result.current.viewType).toBe('pr-detail')
     expect(result.current.viewId).toBe('pr-detail:myorg/myrepo/42')
     expect(result.current.summary).toContain('#42')
-    expect(result.current.metadata).toMatchObject({ owner: 'myorg', repo: 'myrepo', prNumber: '42' })
+    expect(result.current.metadata).toMatchObject({
+      owner: 'myorg',
+      repo: 'myrepo',
+      prNumber: '42',
+    })
   })
 
   it('parses repo-detail: prefix', () => {
@@ -78,35 +82,55 @@ describe('useAssistantContext', () => {
     const { result } = renderHook(() => useAssistantContext('repo-commit:owner/repo/abc1234567'))
     expect(result.current.viewType).toBe('repo-commit')
     expect(result.current.summary).toContain('abc1234')
-    expect(result.current.metadata).toMatchObject({ owner: 'owner', repo: 'repo', sha: 'abc1234567' })
+    expect(result.current.metadata).toMatchObject({
+      owner: 'owner',
+      repo: 'repo',
+      sha: 'abc1234567',
+    })
   })
 
   it('parses repo-issue: prefix', () => {
     const { result } = renderHook(() => useAssistantContext('repo-issue:owner/repo/5'))
     expect(result.current.viewType).toBe('repo-issue')
     expect(result.current.summary).toContain('#5')
-    expect(result.current.metadata).toMatchObject({ owner: 'owner', repo: 'repo', issueNumber: '5' })
+    expect(result.current.metadata).toMatchObject({
+      owner: 'owner',
+      repo: 'repo',
+      issueNumber: '5',
+    })
   })
 
   it('parses repo-issues-closed: prefix', () => {
     const { result } = renderHook(() => useAssistantContext('repo-issues-closed:owner/repo'))
     expect(result.current.viewType).toBe('repo-issues')
     expect(result.current.summary).toContain('Closed issues')
-    expect(result.current.metadata).toMatchObject({ owner: 'owner', repo: 'repo', issueState: 'closed' })
+    expect(result.current.metadata).toMatchObject({
+      owner: 'owner',
+      repo: 'repo',
+      issueState: 'closed',
+    })
   })
 
   it('parses repo-issues: prefix', () => {
     const { result } = renderHook(() => useAssistantContext('repo-issues:owner/repo'))
     expect(result.current.viewType).toBe('repo-issues')
     expect(result.current.summary).toContain('Open issues')
-    expect(result.current.metadata).toMatchObject({ owner: 'owner', repo: 'repo', issueState: 'open' })
+    expect(result.current.metadata).toMatchObject({
+      owner: 'owner',
+      repo: 'repo',
+      issueState: 'open',
+    })
   })
 
   it('parses repo-prs-closed: prefix', () => {
     const { result } = renderHook(() => useAssistantContext('repo-prs-closed:owner/repo'))
     expect(result.current.viewType).toBe('repo-prs')
     expect(result.current.summary).toContain('Closed pull requests')
-    expect(result.current.metadata).toMatchObject({ owner: 'owner', repo: 'repo', prState: 'closed' })
+    expect(result.current.metadata).toMatchObject({
+      owner: 'owner',
+      repo: 'repo',
+      prState: 'closed',
+    })
   })
 
   it('parses repo-prs: prefix', () => {

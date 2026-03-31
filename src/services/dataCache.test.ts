@@ -98,7 +98,9 @@ describe('dataCache', () => {
       mockInvoke.mockResolvedValue(undefined)
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      dataCache.subscribe(() => { throw new Error('listener boom') })
+      dataCache.subscribe(() => {
+        throw new Error('listener boom')
+      })
       dataCache.set('key', 'val', 1)
 
       expect(spy).toHaveBeenCalledWith('[DataCache] Listener error:', expect.any(Error))
@@ -174,7 +176,7 @@ describe('dataCache', () => {
   describe('initialize', () => {
     it('loads cached data from disk', async () => {
       // We test that initialize calls cache:read-all
-      // Note: initialized flag is already set from the module load, 
+      // Note: initialized flag is already set from the module load,
       // so this mainly validates the IPC call happened during module setup
       expect(mockInvoke).toHaveBeenCalledWith('cache:clear') // from beforeEach
     })
@@ -197,7 +199,10 @@ describe('dataCache', () => {
 
       // Wait for the async disk persist to reject
       await vi.waitFor(() => {
-        expect(spy).toHaveBeenCalledWith('[DataCache] Failed to persist to disk:', expect.any(Error))
+        expect(spy).toHaveBeenCalledWith(
+          '[DataCache] Failed to persist to disk:',
+          expect.any(Error)
+        )
       })
 
       spy.mockRestore()
@@ -227,7 +232,10 @@ describe('dataCache', () => {
       dataCache.delete('del-err')
 
       await vi.waitFor(() => {
-        expect(spy).toHaveBeenCalledWith('[DataCache] Failed to delete from disk:', expect.any(Error))
+        expect(spy).toHaveBeenCalledWith(
+          '[DataCache] Failed to delete from disk:',
+          expect.any(Error)
+        )
       })
 
       spy.mockRestore()

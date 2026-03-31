@@ -117,13 +117,7 @@ function UserDetailHero({
 }) {
   return (
     <div className="ud-hero">
-      <img
-        className="ud-hero-avatar"
-        src={avatarUrl}
-        alt={memberLogin}
-        width={56}
-        height={56}
-      />
+      <img className="ud-hero-avatar" src={avatarUrl} alt={memberLogin} width={56} height={56} />
       <div className="ud-hero-info">
         <span className="ud-hero-kicker">
           {activity?.orgRole === 'admin' ? 'Admin' : 'Member'} of {org}
@@ -205,9 +199,7 @@ function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
           })}
         </span>
       )}
-      {activity.bio && (
-        <p className="ud-meta-bio">{activity.bio}</p>
-      )}
+      {activity.bio && <p className="ud-meta-bio">{activity.bio}</p>}
       {activity.statusMessage && (
         <span className="ud-meta-item ud-meta-status">
           {activity.statusEmoji ?? '💬'} {activity.statusMessage}
@@ -236,25 +228,31 @@ function UserMetricsGrid({
         {commitsToday}
       </MetricCard>
       <MetricCard icon={<GitPullRequest size={18} />} label="Open PRs">
-        {activityPhase === 'ready' && activity
-          ? activity.openPRCount
-          : activityPhase === 'loading'
-            ? <Loader2 size={14} className="spin" />
-            : '—'}
+        {activityPhase === 'ready' && activity ? (
+          activity.openPRCount
+        ) : activityPhase === 'loading' ? (
+          <Loader2 size={14} className="spin" />
+        ) : (
+          '—'
+        )}
       </MetricCard>
       <MetricCard icon={<GitMerge size={18} />} label="Merged (90d)" variant="cool">
-        {activityPhase === 'ready' && activity
-          ? activity.mergedPRCount
-          : activityPhase === 'loading'
-            ? <Loader2 size={14} className="spin" />
-            : '—'}
+        {activityPhase === 'ready' && activity ? (
+          activity.mergedPRCount
+        ) : activityPhase === 'loading' ? (
+          <Loader2 size={14} className="spin" />
+        ) : (
+          '—'
+        )}
       </MetricCard>
       <MetricCard icon={<FolderGit2 size={18} />} label="Active Repos">
-        {activityPhase === 'ready' && activity
-          ? activity.activeRepos.length
-          : activityPhase === 'loading'
-            ? <Loader2 size={14} className="spin" />
-            : '—'}
+        {activityPhase === 'ready' && activity ? (
+          activity.activeRepos.length
+        ) : activityPhase === 'loading' ? (
+          <Loader2 size={14} className="spin" />
+        ) : (
+          '—'
+        )}
       </MetricCard>
     </div>
   )
@@ -267,7 +265,11 @@ function UserContributionSection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (activityPhase === 'ready' && activity?.contributionWeeks && activity.totalContributions != null) {
+  if (
+    activityPhase === 'ready' &&
+    activity?.contributionWeeks &&
+    activity.totalContributions != null
+  ) {
     return (
       <section className="ud-section">
         <h3 className="ud-section-title">
@@ -355,7 +357,10 @@ function UserActivitySection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (activityPhase !== 'loading' && (activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0)) {
+  if (
+    activityPhase !== 'loading' &&
+    (activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0)
+  ) {
     return null
   }
 
@@ -408,7 +413,12 @@ function UserRepositoriesSection({ activeRepos }: { activeRepos: string[] }) {
   )
 }
 
-function MetricCard({ icon, label, children, variant }: {
+function MetricCard({
+  icon,
+  label,
+  children,
+  variant,
+}: {
   icon: React.ReactNode
   label: string
   children: React.ReactNode
@@ -428,7 +438,11 @@ function MetricCard({ icon, label, children, variant }: {
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const cacheKey = `user-activity:v3:${org}/${memberLogin}`
-  const [activityState, dispatch] = useReducer(activityReducer, cacheKey, createInitialActivityState)
+  const [activityState, dispatch] = useReducer(
+    activityReducer,
+    cacheKey,
+    createInitialActivityState
+  )
   const { activity, phase: activityPhase, error: activityError } = activityState
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -517,13 +531,15 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       {readyActivity && <UserProfileMeta activity={readyActivity} />}
 
       {/* ── Metrics ── */}
-      <UserMetricsGrid activity={activity} activityPhase={activityPhase} commitsToday={commitsToday} />
+      <UserMetricsGrid
+        activity={activity}
+        activityPhase={activityPhase}
+        commitsToday={commitsToday}
+      />
 
       {/* ── Error ── */}
       {activityPhase === 'error' && activityError && (
-        <div className="ud-error-banner">
-          Failed to load activity: {activityError}
-        </div>
+        <div className="ud-error-banner">Failed to load activity: {activityError}</div>
       )}
 
       {/* ── Contribution Graph ── */}

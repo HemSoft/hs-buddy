@@ -138,7 +138,9 @@ export function TempoTimesheetGrid({
                   title={col.holidayName}
                 >
                   <span className="tempo-grid-day-num">{String(col.dayNum).padStart(2, '0')}</span>
-                  <span className="tempo-grid-day-label">{col.isHoliday ? '🎉' : col.dayLabel}</span>
+                  <span className="tempo-grid-day-label">
+                    {col.isHoliday ? '🎉' : col.dayLabel}
+                  </span>
                 </th>
               ))}
             </tr>
@@ -147,56 +149,59 @@ export function TempoTimesheetGrid({
             {issueSummaries.map(issue => {
               const isCapex = capexMap[issue.issueKey]
               return (
-              <tr key={issue.issueKey} className={`tempo-grid-row ${isCapex ? 'capex' : ''}`}>
-                <td className="tempo-grid-issue-cell" title={issue.issueSummary}>
-                  {issue.issueSummary}
-                </td>
-                <td className="tempo-grid-key-cell">
-                  <span className={`tempo-issue-pill ${isCapex ? 'capex' : ''}`}>{issue.issueKey}</span>
-                </td>
-                <td className="tempo-grid-logged-cell">{issue.totalHours}</td>
-                {columns.map(col => {
-                  const hours = issue.hoursByDate[col.date] || 0
-                  const cellWorklogs = hours > 0
-                    ? findWorklogsForCell(worklogs, issue.issueKey, col.date)
-                    : []
+                <tr key={issue.issueKey} className={`tempo-grid-row ${isCapex ? 'capex' : ''}`}>
+                  <td className="tempo-grid-issue-cell" title={issue.issueSummary}>
+                    {issue.issueSummary}
+                  </td>
+                  <td className="tempo-grid-key-cell">
+                    <span className={`tempo-issue-pill ${isCapex ? 'capex' : ''}`}>
+                      {issue.issueKey}
+                    </span>
+                  </td>
+                  <td className="tempo-grid-logged-cell">{issue.totalHours}</td>
+                  {columns.map(col => {
+                    const hours = issue.hoursByDate[col.date] || 0
+                    const cellWorklogs =
+                      hours > 0 ? findWorklogsForCell(worklogs, issue.issueKey, col.date) : []
 
-                  return (
-                    <td
-                      key={col.date}
-                      className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''} ${hours > 0 && isCapex ? 'capex' : ''}`}
-                      onClick={e => {
-                        if (e.ctrlKey && cellWorklogs.length > 0) {
-                          onCopyToToday(cellWorklogs)
-                        } else if (cellWorklogs.length === 1) {
-                          onWorklogEdit(cellWorklogs[0])
-                        } else if (hours === 0) {
-                          onCellClick(col.date)
+                    return (
+                      <td
+                        key={col.date}
+                        className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''} ${hours > 0 && isCapex ? 'capex' : ''}`}
+                        onClick={e => {
+                          if (e.ctrlKey && cellWorklogs.length > 0) {
+                            onCopyToToday(cellWorklogs)
+                          } else if (cellWorklogs.length === 1) {
+                            onWorklogEdit(cellWorklogs[0])
+                          } else if (hours === 0) {
+                            onCellClick(col.date)
+                          }
+                        }}
+                        onContextMenu={e => {
+                          if (cellWorklogs.length === 1) {
+                            e.preventDefault()
+                            onWorklogDelete(cellWorklogs[0])
+                          }
+                        }}
+                        title={
+                          hours > 0
+                            ? `${issue.issueKey} · ${hours}h on ${col.date}\nCtrl+click to copy to today`
+                            : `Click to log time on ${col.date}`
                         }
-                      }}
-                      onContextMenu={e => {
-                        if (cellWorklogs.length === 1) {
-                          e.preventDefault()
-                          onWorklogDelete(cellWorklogs[0])
-                        }
-                      }}
-                      title={
-                        hours > 0
-                          ? `${issue.issueKey} · ${hours}h on ${col.date}\nCtrl+click to copy to today`
-                          : `Click to log time on ${col.date}`
-                      }
-                    >
-                      {hours > 0 ? hours : ''}
-                    </td>
-                  )
-                })}
-              </tr>
+                      >
+                        {hours > 0 ? hours : ''}
+                      </td>
+                    )
+                  })}
+                </tr>
               )
             })}
           </tbody>
           <tfoot>
             <tr className="tempo-grid-totals">
-              <td className="tempo-grid-total-label" colSpan={2}>Total</td>
+              <td className="tempo-grid-total-label" colSpan={2}>
+                Total
+              </td>
               <td className="tempo-grid-total-logged">{totalHours}</td>
               {columns.map(col => {
                 const dayTotal = dailyTotals[col.date] || 0
@@ -210,10 +215,20 @@ export function TempoTimesheetGrid({
                         onCopyToToday(worklogs.filter(w => w.date === col.date))
                       }
                     }}
-                    title={dayTotal > 0 ? `${dayTotal}h — Ctrl+click to copy this day to today` : undefined}
+                    title={
+                      dayTotal > 0
+                        ? `${dayTotal}h — Ctrl+click to copy this day to today`
+                        : undefined
+                    }
                     style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
                   >
-                    {isDayComplete ? <Check size={14} className="tempo-day-check" /> : dayTotal > 0 ? dayTotal : 0}
+                    {isDayComplete ? (
+                      <Check size={14} className="tempo-day-check" />
+                    ) : dayTotal > 0 ? (
+                      dayTotal
+                    ) : (
+                      0
+                    )}
                   </td>
                 )
               })}

@@ -74,7 +74,14 @@ describe('PullRequestList', () => {
     mockUsePRListData.mockReturnValue({
       ...defaultData,
       loading: true,
-      progress: { currentAccount: 1, totalAccounts: 3, status: 'fetching', currentUsername: 'testuser', accountName: 'testuser', org: 'myorg' },
+      progress: {
+        currentAccount: 1,
+        totalAccounts: 3,
+        status: 'fetching',
+        currentUsername: 'testuser',
+        accountName: 'testuser',
+        org: 'myorg',
+      },
     })
 
     render(<PullRequestList mode="my-prs" />)

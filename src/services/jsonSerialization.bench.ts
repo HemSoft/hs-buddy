@@ -4,7 +4,9 @@ import { bench, describe } from 'vitest'
 // The real cache (electron/cache.ts) stores data as JSON on disk via readFileSync/writeFileSync.
 // This benchmark measures the hot path: JSON.parse + JSON.stringify throughput.
 
-function generateCachePayload(entryCount: number): Record<string, { data: unknown; fetchedAt: number }> {
+function generateCachePayload(
+  entryCount: number
+): Record<string, { data: unknown; fetchedAt: number }> {
   const cache: Record<string, { data: unknown; fetchedAt: number }> = {}
   for (let i = 0; i < entryCount; i++) {
     cache[`key-${i}`] = {

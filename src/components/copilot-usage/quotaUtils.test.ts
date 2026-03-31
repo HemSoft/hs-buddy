@@ -86,8 +86,6 @@ describe('computeProjection', () => {
     // With 200 used in ~15 days, projected ~400 over 30 days
     expect(result!.projectedTotal).toBeGreaterThan(300)
     expect(result!.projectedOverage).toBeGreaterThan(0)
-    expect(result!.projectedOverageCost).toBe(
-      result!.projectedOverage * OVERAGE_COST_PER_REQUEST
-    )
+    expect(result!.projectedOverageCost).toBe(result!.projectedOverage * OVERAGE_COST_PER_REQUEST)
   })
 })

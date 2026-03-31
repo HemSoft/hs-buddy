@@ -1,10 +1,4 @@
-import {
-  CheckCircle2,
-  FileDiff,
-  GitCommitHorizontal,
-  MessageSquare,
-  Sparkles,
-} from 'lucide-react'
+import { CheckCircle2, FileDiff, GitCommitHorizontal, MessageSquare, Sparkles } from 'lucide-react'
 import type { ElementType } from 'react'
 import type { PRDetailSection } from '../../../utils/prDetailView'
 

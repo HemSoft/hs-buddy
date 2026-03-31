@@ -121,7 +121,9 @@ function fetchPremiumData(
         setPremium(data)
       }
     })
-    .catch(() => {/* best effort */})
+    .catch(() => {
+      /* best effort */
+    })
 }
 
 // ── Full quota view (configured accounts) ──
@@ -138,7 +140,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
 
   // Premium model data (shared with SeatView)
   const premCacheKey = `${org}/${username}`
-  const [premium, setPremium] = useState<UserPremiumData | null>(premiumCache.get(premCacheKey)?.data ?? null)
+  const [premium, setPremium] = useState<UserPremiumData | null>(
+    premiumCache.get(premCacheKey)?.data ?? null
+  )
 
   const fetchPremium = () => fetchPremiumData(org, username, username, premCacheKey, setPremium)
 
@@ -197,7 +201,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
     return (
       <div className="ud-premium-error">
         <AlertCircle size={14} />
-        <span>{error.includes('404') ? 'No Copilot subscription' : 'Failed to load premium usage'}</span>
+        <span>
+          {error.includes('404') ? 'No Copilot subscription' : 'Failed to load premium usage'}
+        </span>
       </div>
     )
   }
@@ -304,9 +310,8 @@ function QuotaView({ username, org }: { username: string; org: string }) {
       {premium && premium.userMonthlyModels.length > 0 && (
         <div className="ud-prem-models">
           {premium.userMonthlyModels.slice(0, 6).map(m => {
-            const pct = premium.userMonthlyRequests > 0
-              ? (m.requests / premium.userMonthlyRequests) * 100
-              : 0
+            const pct =
+              premium.userMonthlyRequests > 0 ? (m.requests / premium.userMonthlyRequests) * 100 : 0
             return (
               <div key={m.model} className="ud-prem-model">
                 <div className="ud-prem-model-head">
@@ -314,10 +319,7 @@ function QuotaView({ username, org }: { username: string; org: string }) {
                   <span className="ud-prem-model-count">{m.requests.toLocaleString()}</span>
                 </div>
                 <div className="ud-prem-model-track">
-                  <div
-                    className="ud-prem-model-fill"
-                    style={{ width: `${pct}%` }}
-                  />
+                  <div className="ud-prem-model-fill" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             )
@@ -331,7 +333,10 @@ function QuotaView({ username, org }: { username: string; org: string }) {
           <span className="ud-prem-footer-text">
             Org total: <strong>{premium.orgMonthlyRequests.toLocaleString()}</strong> requests
             {premium.orgMonthlyNetCost > 0 && (
-              <> · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost</>
+              <>
+                {' '}
+                · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost
+              </>
             )}
           </span>
         </div>
@@ -342,7 +347,15 @@ function QuotaView({ username, org }: { username: string; org: string }) {
 
 // ── Seat-only view (non-configured org members) ──
 
-function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin: string; authUsername?: string }) {
+function SeatView({
+  org,
+  memberLogin,
+  authUsername,
+}: {
+  org: string
+  memberLogin: string
+  authUsername?: string
+}) {
   const fetchRef = useRef(0)
   const cacheKey = `${org}/${memberLogin}`
   const cached = seatCache.get(cacheKey)
@@ -353,7 +366,9 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
   })
 
   // Per-user premium request data
-  const [premium, setPremium] = useState<UserPremiumData | null>(premiumCache.get(cacheKey)?.data ?? null)
+  const [premium, setPremium] = useState<UserPremiumData | null>(
+    premiumCache.get(cacheKey)?.data ?? null
+  )
 
   const fetchSeat = () => {
     const id = ++fetchRef.current
@@ -409,24 +424,23 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
     return (
       <div className="ud-premium-error">
         <AlertCircle size={14} />
-        <span>{error.includes('404') ? 'Copilot billing not available' : 'Failed to load seat data'}</span>
+        <span>
+          {error.includes('404') ? 'Copilot billing not available' : 'Failed to load seat data'}
+        </span>
       </div>
     )
   }
 
   if (data === null) {
-    return (
-      <div className="ud-premium-seat-none">
-        No Copilot seat assigned
-      </div>
-    )
+    return <div className="ud-premium-seat-none">No Copilot seat assigned</div>
   }
 
   if (data === undefined) return null
 
-  const orgPct = premium && premium.orgMonthlyRequests > 0
-    ? ((premium.userMonthlyRequests / premium.orgMonthlyRequests) * 100)
-    : 0
+  const orgPct =
+    premium && premium.orgMonthlyRequests > 0
+      ? (premium.userMonthlyRequests / premium.orgMonthlyRequests) * 100
+      : 0
 
   return (
     <div className="ud-prem">
@@ -434,7 +448,9 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
       {premium && (
         <div className="ud-prem-hero">
           <div className="ud-prem-hero-stat ud-prem-hero-stat--primary">
-            <span className="ud-prem-hero-value">{premium.userMonthlyRequests.toLocaleString()}</span>
+            <span className="ud-prem-hero-value">
+              {premium.userMonthlyRequests.toLocaleString()}
+            </span>
             <span className="ud-prem-hero-label">this month</span>
           </div>
           <div className="ud-prem-hero-divider" />
@@ -483,9 +499,8 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
       {premium && premium.userMonthlyModels.length > 0 && (
         <div className="ud-prem-models">
           {premium.userMonthlyModels.slice(0, 6).map(m => {
-            const pct = premium.userMonthlyRequests > 0
-              ? (m.requests / premium.userMonthlyRequests) * 100
-              : 0
+            const pct =
+              premium.userMonthlyRequests > 0 ? (m.requests / premium.userMonthlyRequests) * 100 : 0
             return (
               <div key={m.model} className="ud-prem-model">
                 <div className="ud-prem-model-head">
@@ -493,10 +508,7 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
                   <span className="ud-prem-model-count">{m.requests.toLocaleString()}</span>
                 </div>
                 <div className="ud-prem-model-track">
-                  <div
-                    className="ud-prem-model-fill"
-                    style={{ width: `${pct}%` }}
-                  />
+                  <div className="ud-prem-model-fill" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             )
@@ -510,7 +522,10 @@ function SeatView({ org, memberLogin, authUsername }: { org: string; memberLogin
           <span className="ud-prem-footer-text">
             Org total: <strong>{premium.orgMonthlyRequests.toLocaleString()}</strong> requests
             {premium.orgMonthlyNetCost > 0 && (
-              <> · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost</>
+              <>
+                {' '}
+                · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost
+              </>
             )}
           </span>
         </div>
@@ -530,10 +545,7 @@ export function UserPremiumUsageSection({ username, org }: UserPremiumUsageSecti
   )
 
   // Find an account with a token for this org (for seat API auth)
-  const authAccount = useMemo(
-    () => accounts.find(a => a.org === org)?.username,
-    [accounts, org]
-  )
+  const authAccount = useMemo(() => accounts.find(a => a.org === org)?.username, [accounts, org])
 
   return (
     <div className="ud-premium-section">

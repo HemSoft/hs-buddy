@@ -41,7 +41,13 @@ export function ConfirmDialog({
 
   return (
     <div className="confirm-dialog-overlay" role="presentation" onClick={handleOverlayClick}>
-      <div className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby={description ? 'confirm-dialog-desc' : undefined}>
+      <div
+        className="confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby={description ? 'confirm-dialog-desc' : undefined}
+      >
         <div className="confirm-dialog-body">
           {variant === 'danger' && (
             <div className="confirm-dialog-icon">
@@ -49,8 +55,14 @@ export function ConfirmDialog({
             </div>
           )}
           <div className="confirm-dialog-text">
-            <p id="confirm-dialog-title" className="confirm-dialog-message">{message}</p>
-            {description && <p id="confirm-dialog-desc" className="confirm-dialog-description">{description}</p>}
+            <p id="confirm-dialog-title" className="confirm-dialog-message">
+              {message}
+            </p>
+            {description && (
+              <p id="confirm-dialog-desc" className="confirm-dialog-description">
+                {description}
+              </p>
+            )}
           </div>
         </div>
         <div className="confirm-dialog-actions">

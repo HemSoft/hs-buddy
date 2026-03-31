@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, Clock, ExternalLink, GitBranch, GitPullRequest, RefreshCw, User } from 'lucide-react'
+import {
+  Check,
+  Clock,
+  ExternalLink,
+  GitBranch,
+  GitPullRequest,
+  RefreshCw,
+  User,
+} from 'lucide-react'
 import { GitHubClient } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
@@ -88,7 +96,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const activityRelative = formatRelative(activityAt)
   const createdRelative = formatRelative(pr.created)
   const stateLabel = pr.state?.trim() || 'open'
-  const sectionLabel = section ? SECTION_LABELS[section] ?? null : null
+  const sectionLabel = section ? (SECTION_LABELS[section] ?? null) : null
   const checksUrl = `${pr.url}/checks`
   const filesChangedUrl = `${pr.url}/files`
   const isFocusedSection = section !== null
@@ -158,7 +166,11 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
           </div>
         </div>
         <div className="pr-detail-header-actions">
-          <button className="pr-detail-refresh-btn" onClick={() => setRefreshKey(k => k + 1)} title="Refresh PR data">
+          <button
+            className="pr-detail-refresh-btn"
+            onClick={() => setRefreshKey(k => k + 1)}
+            title="Refresh PR data"
+          >
             <RefreshCw size={14} />
           </button>
           <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(pr.url)}>
@@ -250,7 +262,13 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
       {section === 'conversation' && <PRThreadsPanel key={refreshKey} pr={pr} />}
       {section === 'commits' && (
-        <PullRequestHistoryPanel key={refreshKey} pr={pr} embedded focus="commits" onLoaded={handleHistoryLoaded} />
+        <PullRequestHistoryPanel
+          key={refreshKey}
+          pr={pr}
+          embedded
+          focus="commits"
+          onLoaded={handleHistoryLoaded}
+        />
       )}
       {section === 'checks' && <PRChecksPanel key={refreshKey} pr={pr} />}
       {section === 'files-changed' && <PRFilesChangedPanel key={refreshKey} pr={pr} />}
@@ -258,7 +276,12 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
       {!isFocusedSection && (
         <>
-          <PullRequestHistoryPanel key={refreshKey} pr={pr} embedded onLoaded={handleHistoryLoaded} />
+          <PullRequestHistoryPanel
+            key={refreshKey}
+            pr={pr}
+            embedded
+            onLoaded={handleHistoryLoaded}
+          />
           <PRThreadsPanel key={`threads-${refreshKey}`} pr={pr} />
         </>
       )}

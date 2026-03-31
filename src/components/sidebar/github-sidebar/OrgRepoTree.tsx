@@ -9,7 +9,15 @@ import {
   UserRound,
   UsersRound,
 } from 'lucide-react'
-import type { OrgRepo, OrgMember, OrgTeam, TeamMember, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
+import type {
+  OrgRepo,
+  OrgMember,
+  OrgTeam,
+  TeamMember,
+  RepoCounts,
+  RepoCommit,
+  RepoIssue,
+} from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
@@ -160,7 +168,9 @@ function OrgHeader({
       )}
       {isLoading && <Loader2 size={12} className="spin" />}
       {!isLoading && repoCount > 0 && (
-        <span className="sidebar-item-count">{showBookmarkedOnly ? visibleRepoCount : repoCount}</span>
+        <span className="sidebar-item-count">
+          {showBookmarkedOnly ? visibleRepoCount : repoCount}
+        </span>
       )}
     </div>
   )
@@ -438,7 +448,9 @@ function OrgUsersSection({
                 <span className="sidebar-item-label" title={member.login}>
                   {member.name ? `${member.name} (${member.login})` : member.login}
                 </span>
-                {userCommitCount > 0 && <span className="sidebar-item-count">{userCommitCount}</span>}
+                {userCommitCount > 0 && (
+                  <span className="sidebar-item-count">{userCommitCount}</span>
+                )}
               </div>
             )
           })}

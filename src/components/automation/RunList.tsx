@@ -96,42 +96,42 @@ export function RunList() {
 
   return (
     <>
-    <div className="run-list">
-      <div className="run-list-header">
-        <h2>Runs</h2>
-        <div className="run-list-header-actions">
-          <button className="btn-icon" onClick={handleCleanup} title="Cleanup old runs (7+ days)">
-            <Trash2 size={16} />
-          </button>
+      <div className="run-list">
+        <div className="run-list-header">
+          <h2>Runs</h2>
+          <div className="run-list-header-actions">
+            <button className="btn-icon" onClick={handleCleanup} title="Cleanup old runs (7+ days)">
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+
+        <RunFilterBar
+          statusFilter={statusFilter}
+          totalCount={(runs as RunWithJob[]).length}
+          statusCounts={statusCounts}
+          onFilterChange={setStatusFilter}
+        />
+
+        <div className="run-list-content">
+          {filteredRuns.length === 0 && (
+            <div className="run-list-no-results">
+              <p>No {statusFilter} runs found.</p>
+            </div>
+          )}
+
+          {filteredRuns.map((run: RunWithJob) => (
+            <RunCard
+              key={run._id}
+              run={run}
+              isExpanded={!!(expandedRows as Set<string>).has(run._id)}
+              onToggle={toggleRow}
+              onCancel={handleCancel}
+            />
+          ))}
         </div>
       </div>
-
-      <RunFilterBar
-        statusFilter={statusFilter}
-        totalCount={(runs as RunWithJob[]).length}
-        statusCounts={statusCounts}
-        onFilterChange={setStatusFilter}
-      />
-
-      <div className="run-list-content">
-        {filteredRuns.length === 0 && (
-          <div className="run-list-no-results">
-            <p>No {statusFilter} runs found.</p>
-          </div>
-        )}
-
-        {filteredRuns.map((run: RunWithJob) => (
-          <RunCard
-            key={run._id}
-            run={run}
-            isExpanded={!!(expandedRows as Set<string>).has(run._id)}
-            onToggle={toggleRow}
-            onCancel={handleCancel}
-          />
-        ))}
-      </div>
-    </div>
-    {confirmDialog && <ConfirmDialog {...confirmDialog} />}
+      {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </>
   )
 }

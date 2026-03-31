@@ -25,7 +25,7 @@ describe('useTaskQueue', () => {
     const { result } = renderHook(() => useTaskQueue('test-enqueue'))
 
     let resolveTask: (value: string) => void
-    const taskPromise = new Promise<string>((resolve) => {
+    const taskPromise = new Promise<string>(resolve => {
       resolveTask = resolve
     })
 

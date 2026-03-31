@@ -24,7 +24,15 @@ interface TabBarProps {
   onCloseAllTabs: () => void
 }
 
-export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onCloseOtherTabs, onCloseTabsToRight, onCloseAllTabs }: TabBarProps) {
+export function TabBar({
+  tabs,
+  activeTabId,
+  onTabSelect,
+  onTabClose,
+  onCloseOtherTabs,
+  onCloseTabsToRight,
+  onCloseAllTabs,
+}: TabBarProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -63,7 +71,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onCloseOthe
     }
 
     if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
-      setContextMenu(prev => prev ? { ...prev, x: adjustedX, y: adjustedY } : null)
+      setContextMenu(prev => (prev ? { ...prev, x: adjustedX, y: adjustedY } : null))
     }
   }, [contextMenu])
 
@@ -76,9 +84,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onCloseOthe
     onTabClose(tabId)
   }
 
-  const contextTabIndex = contextMenu
-    ? tabs.findIndex(t => t.id === contextMenu.tabId)
-    : -1
+  const contextTabIndex = contextMenu ? tabs.findIndex(t => t.id === contextMenu.tabId) : -1
   const hasTabsToRight = contextTabIndex >= 0 && contextTabIndex < tabs.length - 1
 
   return (
@@ -93,7 +99,12 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onCloseOthe
             role="tab"
             tabIndex={0}
             aria-selected={activeTabId === tab.id}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabSelect(tab.id); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onTabSelect(tab.id)
+              }
+            }}
           >
             <span className="tab-label">{tab.label}</span>
             <button
@@ -115,17 +126,43 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onCloseOthe
             role="menu"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
-            <button role="menuitem" onClick={() => { onTabClose(contextMenu.tabId); closeContextMenu() }}>
+            <button
+              role="menuitem"
+              onClick={() => {
+                onTabClose(contextMenu.tabId)
+                closeContextMenu()
+              }}
+            >
               Close
             </button>
-            <button role="menuitem" onClick={() => { onCloseOtherTabs(contextMenu.tabId); closeContextMenu() }} disabled={tabs.length <= 1}>
+            <button
+              role="menuitem"
+              onClick={() => {
+                onCloseOtherTabs(contextMenu.tabId)
+                closeContextMenu()
+              }}
+              disabled={tabs.length <= 1}
+            >
               Close Others
             </button>
-            <button role="menuitem" onClick={() => { onCloseTabsToRight(contextMenu.tabId); closeContextMenu() }} disabled={!hasTabsToRight}>
+            <button
+              role="menuitem"
+              onClick={() => {
+                onCloseTabsToRight(contextMenu.tabId)
+                closeContextMenu()
+              }}
+              disabled={!hasTabsToRight}
+            >
               Close to the Right
             </button>
             <div className="tab-context-menu-separator" />
-            <button role="menuitem" onClick={() => { onCloseAllTabs(); closeContextMenu() }}>
+            <button
+              role="menuitem"
+              onClick={() => {
+                onCloseAllTabs()
+                closeContextMenu()
+              }}
+            >
               Close All
             </button>
           </div>

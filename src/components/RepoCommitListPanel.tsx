@@ -153,7 +153,12 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
               title={commit.message}
               role="button"
               tabIndex={0}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCommitClick(commit); } }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleCommitClick(commit)
+                }
+              }}
             >
               <div className="repo-commit-main">
                 <span className="repo-commit-sha">{commit.sha.slice(0, 7)}</span>

@@ -29,5 +29,3 @@ export function ConvexClientProvider({ children }: ConvexClientProviderProps) {
 
   return <ConvexProvider client={client}>{children}</ConvexProvider>
 }
-
-

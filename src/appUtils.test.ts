@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  DEFAULT_ASSISTANT_PANE_SIZE,
-  DEFAULT_PANE_SIZES,
-  normalizePaneSizes,
-} from './appUtils'
+import { DEFAULT_ASSISTANT_PANE_SIZE, DEFAULT_PANE_SIZES, normalizePaneSizes } from './appUtils'
 
 describe('DEFAULT_PANE_SIZES', () => {
   it('has expected default values', () => {

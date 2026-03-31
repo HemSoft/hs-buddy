@@ -4,9 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ExecConfigSection } from './ExecConfigSection'
 
-function renderSection(
-  overrides: Partial<ComponentProps<typeof ExecConfigSection>> = {}
-) {
+function renderSection(overrides: Partial<ComponentProps<typeof ExecConfigSection>> = {}) {
   const onCommandChange = overrides.onCommandChange ?? vi.fn()
   const onShellChange = overrides.onShellChange ?? vi.fn()
   const onTimeoutChange = overrides.onTimeoutChange ?? vi.fn()
@@ -43,9 +41,7 @@ describe('ExecConfigSection', () => {
     expect(screen.getByLabelText('Timeout (ms)')).toBeInTheDocument()
     expect(screen.getByLabelText('Working Directory')).toBeInTheDocument()
     expect(screen.getByText('The shell command to execute')).toBeInTheDocument()
-    expect(
-      screen.getByText("Leave empty to use the app's working directory")
-    ).toBeInTheDocument()
+    expect(screen.getByText("Leave empty to use the app's working directory")).toBeInTheDocument()
   })
 
   it('renders the provided command, shell, timeout, and working directory values', () => {
@@ -59,9 +55,7 @@ describe('ExecConfigSection', () => {
     expect(screen.getByLabelText('Command *')).toHaveValue('echo hello')
     expect(screen.getByLabelText('Shell')).toHaveValue('bash')
     expect(screen.getByLabelText('Timeout (ms)')).toHaveValue(30000)
-    expect(screen.getByLabelText('Working Directory')).toHaveValue(
-      '/home/user/project'
-    )
+    expect(screen.getByLabelText('Working Directory')).toHaveValue('/home/user/project')
   })
 
   it('renders all supported shell options', () => {

@@ -1,5 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { RefreshCw, Plus, Circle, Check, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  RefreshCw,
+  Plus,
+  Circle,
+  Check,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
 import { useTodoistUpcoming, useTodoistProjects, useTaskActions } from '../../hooks/useTodoist'
 import type { TodoistTask, DayGroup, TodoistProject } from '../../types/todoist'
 import './TaskPlannerView.css'
@@ -16,7 +24,10 @@ function PriorityDot({ priority }: { priority: number }) {
   return (
     <span
       className="planner-priority-dot"
-      style={{ backgroundColor: PRIORITY_COLORS[priority], boxShadow: `0 0 4px ${PRIORITY_COLORS[priority]}` }}
+      style={{
+        backgroundColor: PRIORITY_COLORS[priority],
+        boxShadow: `0 0 4px ${PRIORITY_COLORS[priority]}`,
+      }}
       title={`Priority ${5 - priority}`}
     />
   )
@@ -46,13 +57,13 @@ function TaskRow({
       <div className="planner-task-content">
         <PriorityDot priority={task.priority} />
         <span className="planner-task-text">{task.content}</span>
-        {project && (
-          <span className="planner-task-project">{project.name}</span>
-        )}
+        {project && <span className="planner-task-project">{project.name}</span>}
         {task.labels.length > 0 && (
           <span className="planner-task-labels">
             {task.labels.map(l => (
-              <span key={l} className="planner-label-tag">{l}</span>
+              <span key={l} className="planner-label-tag">
+                {l}
+              </span>
             ))}
           </span>
         )}
@@ -119,7 +130,9 @@ function DaySection({
   const toggleCollapsed = useCallback(() => setCollapsed(current => !current), [])
 
   return (
-    <div className={`planner-day-section ${isToday ? 'planner-day-today' : ''} ${isOverdue ? 'planner-day-overdue' : ''}`}>
+    <div
+      className={`planner-day-section ${isToday ? 'planner-day-today' : ''} ${isOverdue ? 'planner-day-overdue' : ''}`}
+    >
       <div className="planner-day-header">
         <button
           type="button"
@@ -127,7 +140,11 @@ function DaySection({
           aria-expanded={!collapsed}
           onClick={toggleCollapsed}
         >
-          {collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          {collapsed ? (
+            <ChevronRight size={14} aria-hidden />
+          ) : (
+            <ChevronDown size={14} aria-hidden />
+          )}
           <span className="planner-day-label">{group.label}</span>
           {group.date !== 'overdue' && <span className="planner-day-date">{group.date}</span>}
           <span className="planner-day-count">{group.tasks.length}</span>
@@ -144,21 +161,17 @@ function DaySection({
       </div>
       {!collapsed && (
         <div className="planner-day-tasks">
-          {group.tasks.length === 0 && !adding && (
-            <div className="planner-empty-day">No tasks</div>
-          )}
+          {group.tasks.length === 0 && !adding && <div className="planner-empty-day">No tasks</div>}
           {group.tasks.map(task => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              projectMap={projectMap}
-              onComplete={onComplete}
-            />
+            <TaskRow key={task.id} task={task} projectMap={projectMap} onComplete={onComplete} />
           ))}
           {adding && (
             <AddTaskInline
               date={group.date}
-              onAdd={(content, date) => { onCreate(content, date); setAdding(false) }}
+              onAdd={(content, date) => {
+                onCreate(content, date)
+                setAdding(false)
+              }}
               onCancel={() => setAdding(false)}
             />
           )}
@@ -218,25 +231,31 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
     }, 5000)
   }, [])
 
-  const handleComplete = useCallback(async (taskId: string) => {
-    setCompletingIds(prev => new Set(prev).add(taskId))
-    try {
-      const result = await complete(taskId)
-      if (!result.success) showActionError(result.error ?? 'Failed to complete task')
-    } catch (err) {
-      showActionError(err instanceof Error ? err.message : 'Failed to complete task')
-    }
-    // Don't clear completingIds — refresh will replace dayGroups without the task
-  }, [complete, showActionError])
+  const handleComplete = useCallback(
+    async (taskId: string) => {
+      setCompletingIds(prev => new Set(prev).add(taskId))
+      try {
+        const result = await complete(taskId)
+        if (!result.success) showActionError(result.error ?? 'Failed to complete task')
+      } catch (err) {
+        showActionError(err instanceof Error ? err.message : 'Failed to complete task')
+      }
+      // Don't clear completingIds — refresh will replace dayGroups without the task
+    },
+    [complete, showActionError]
+  )
 
-  const handleCreate = useCallback(async (content: string, date: string) => {
-    try {
-      const result = await create({ content, due_date: date })
-      if (!result.success) showActionError(result.error ?? 'Failed to create task')
-    } catch (err) {
-      showActionError(err instanceof Error ? err.message : 'Failed to create task')
-    }
-  }, [create, showActionError])
+  const handleCreate = useCallback(
+    async (content: string, date: string) => {
+      try {
+        const result = await create({ content, due_date: date })
+        if (!result.success) showActionError(result.error ?? 'Failed to create task')
+      } catch (err) {
+        showActionError(err instanceof Error ? err.message : 'Failed to create task')
+      }
+    },
+    [create, showActionError]
+  )
 
   const totalTasks = dayGroups.reduce((n, g) => n + g.tasks.length, 0)
 
@@ -274,9 +293,16 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
             {dayGroups[0].tasks.filter(t => !completingIds.has(t.id)).length === 0 ? (
               <div className="planner-empty-day">No tasks for today</div>
             ) : (
-              dayGroups[0].tasks.filter(t => !completingIds.has(t.id)).map(task => (
-                <TaskRow key={task.id} task={task} projectMap={projectMap} onComplete={handleComplete} />
-              ))
+              dayGroups[0].tasks
+                .filter(t => !completingIds.has(t.id))
+                .map(task => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    projectMap={projectMap}
+                    onComplete={handleComplete}
+                  />
+                ))
             )}
           </div>
         ) : (

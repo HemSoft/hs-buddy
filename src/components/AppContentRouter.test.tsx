@@ -17,7 +17,9 @@ vi.mock('./PullRequestList', () => ({
 }))
 
 vi.mock('./automation', () => ({
-  ScheduleDetailPanel: ({ scheduleId }: { scheduleId: string }) => <div>ScheduleDetail:{scheduleId}</div>,
+  ScheduleDetailPanel: ({ scheduleId }: { scheduleId: string }) => (
+    <div>ScheduleDetail:{scheduleId}</div>
+  ),
   ScheduleOverviewPanel: () => <div>ScheduleOverview</div>,
   JobDetailPanel: ({ jobId }: { jobId: string }) => <div>JobDetail:{jobId}</div>,
   RunList: () => <div>RunList</div>,
@@ -36,7 +38,11 @@ vi.mock('./WelcomePanel', () => ({
 }))
 
 vi.mock('./RepoDetailPanel', () => ({
-  RepoDetailPanel: ({ owner, repo }: { owner: string; repo: string }) => <div>RepoDetail:{owner}/{repo}</div>,
+  RepoDetailPanel: ({ owner, repo }: { owner: string; repo: string }) => (
+    <div>
+      RepoDetail:{owner}/{repo}
+    </div>
+  ),
 }))
 
 vi.mock('./RepoCommitListPanel', () => ({
@@ -90,7 +96,9 @@ vi.mock('./OrgDetailPanel', () => ({
 
 vi.mock('./UserDetailPanel', () => ({
   UserDetailPanel: ({ org, memberLogin }: { org: string; memberLogin: string }) => (
-    <div>UserDetail:{org}/{memberLogin}</div>
+    <div>
+      UserDetail:{org}/{memberLogin}
+    </div>
   ),
 }))
 
@@ -131,22 +139,20 @@ function renderRouter(activeViewId: string | null = null) {
 }
 
 describe('AppContentRouter', () => {
-  it.each([
-    'pr-my-prs',
-    'pr-needs-review',
-    'pr-recently-merged',
-    'pr-need-a-nudge',
-  ])('renders PullRequestList for %s using the matching mode', async activeViewId => {
-    const user = userEvent.setup()
-    const { onPRCountChange } = renderRouter(activeViewId)
+  it.each(['pr-my-prs', 'pr-needs-review', 'pr-recently-merged', 'pr-need-a-nudge'])(
+    'renders PullRequestList for %s using the matching mode',
+    async activeViewId => {
+      const user = userEvent.setup()
+      const { onPRCountChange } = renderRouter(activeViewId)
 
-    const list = screen.getByTestId('pull-request-list')
-    expect(list).toHaveAttribute('data-mode', activeViewId.slice(3))
+      const list = screen.getByTestId('pull-request-list')
+      expect(list).toHaveAttribute('data-mode', activeViewId.slice(3))
 
-    await user.click(list)
+      await user.click(list)
 
-    expect(onPRCountChange).toHaveBeenCalledWith(activeViewId, 7)
-  })
+      expect(onPRCountChange).toHaveBeenCalledWith(activeViewId, 7)
+    }
+  )
 
   it('reuses parseOwnerRepo for org-user routes', () => {
     renderRouter('org-user:relias-engineering/octocat')

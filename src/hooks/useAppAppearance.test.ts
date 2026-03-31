@@ -52,7 +52,9 @@ describe('useAppAppearance', () => {
     renderHook(() => useAppAppearance())
 
     await waitFor(() => {
-      expect(document.documentElement.style.getPropertyValue('--font-family-ui')).toContain('Roboto')
+      expect(document.documentElement.style.getPropertyValue('--font-family-ui')).toContain(
+        'Roboto'
+      )
     })
   })
 

@@ -12,7 +12,7 @@ describe('TaskQueue', () => {
     it('passes an AbortSignal to the task', async () => {
       const queue = new TaskQueue('test-q')
       let receivedSignal: AbortSignal | null = null
-      const { promise } = queue.enqueue(async (signal) => {
+      const { promise } = queue.enqueue(async signal => {
         receivedSignal = signal
         return 'ok'
       })
@@ -74,15 +74,27 @@ describe('TaskQueue', () => {
 
       // Fill the queue by occupying the single slot
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
       queue.enqueue(async () => {
         await blocker
         order.push('blocker')
       })
 
       // Queue two tasks with different priorities while blocker holds the slot
-      queue.enqueue(async () => { order.push('low') }, { priority: 1 })
-      queue.enqueue(async () => { order.push('high') }, { priority: 10 })
+      queue.enqueue(
+        async () => {
+          order.push('low')
+        },
+        { priority: 1 }
+      )
+      queue.enqueue(
+        async () => {
+          order.push('high')
+        },
+        { priority: 10 }
+      )
 
       unblock!()
       // Wait for all to complete
@@ -97,8 +109,12 @@ describe('TaskQueue', () => {
 
       // Block the slot
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      const { promise: blockerPromise } = queue.enqueue(async () => { await blocker })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise: blockerPromise } = queue.enqueue(async () => {
+        await blocker
+      })
 
       // Enqueue a task that will be pending
       const { taskId, promise } = queue.enqueue(async () => 'should not run')
@@ -117,9 +133,11 @@ describe('TaskQueue', () => {
       const queue = new TaskQueue('cancel-running')
 
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
 
-      const { taskId, promise } = queue.enqueue(async (signal) => {
+      const { taskId, promise } = queue.enqueue(async signal => {
         await blocker
         if (signal.aborted) throw new DOMException('Task cancelled', 'AbortError')
         return 'done'
@@ -148,8 +166,12 @@ describe('TaskQueue', () => {
       const queue = new TaskQueue('cancel-all')
 
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      const { promise: p1 } = queue.enqueue(async () => { await blocker })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise: p1 } = queue.enqueue(async () => {
+        await blocker
+      })
 
       const { promise: p2 } = queue.enqueue(async () => 'task2')
       const { promise: p3 } = queue.enqueue(async () => 'task3')
@@ -193,8 +215,12 @@ describe('TaskQueue', () => {
       const queue = new TaskQueue('stats-cancel')
 
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      const { promise: blockerPromise } = queue.enqueue(async () => { await blocker })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise: blockerPromise } = queue.enqueue(async () => {
+        await blocker
+      })
 
       const { taskId, promise } = queue.enqueue(async () => 'x')
       queue.cancel(taskId)
@@ -213,8 +239,12 @@ describe('TaskQueue', () => {
       const queue = new TaskQueue('props')
       // Create a blocking task
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      const { promise: blockerPromise } = queue.enqueue(async () => { await blocker })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise: blockerPromise } = queue.enqueue(async () => {
+        await blocker
+      })
       const { promise: taskPromise } = queue.enqueue(async () => 'a')
 
       expect(queue.pendingCount).toBe(1)
@@ -228,8 +258,12 @@ describe('TaskQueue', () => {
     it('runningCount reflects executing tasks', async () => {
       const queue = new TaskQueue('run-count')
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      queue.enqueue(async () => { await blocker })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      queue.enqueue(async () => {
+        await blocker
+      })
 
       // Give it a tick to start
       await new Promise(r => setTimeout(r, 5))
@@ -256,8 +290,15 @@ describe('TaskQueue', () => {
     it('getRunningTaskName returns the running task name', async () => {
       const queue = new TaskQueue('naming')
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      queue.enqueue(async () => { await blocker }, { name: 'my-task' })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      queue.enqueue(
+        async () => {
+          await blocker
+        },
+        { name: 'my-task' }
+      )
 
       await new Promise(r => setTimeout(r, 5))
       expect(queue.getRunningTaskName()).toBe('my-task')
@@ -270,8 +311,12 @@ describe('TaskQueue', () => {
     it('getPendingTaskNames lists queued task names', async () => {
       const queue = new TaskQueue('pending-names')
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      const { promise: bp } = queue.enqueue(async () => { await blocker })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise: bp } = queue.enqueue(async () => {
+        await blocker
+      })
       const { promise: ap } = queue.enqueue(async () => {}, { name: 'alpha' })
       const { promise: btp } = queue.enqueue(async () => {}, { name: 'beta' })
 
@@ -287,8 +332,15 @@ describe('TaskQueue', () => {
     it('hasTaskWithName finds pending and running tasks', async () => {
       const queue = new TaskQueue('has-name')
       let unblock: () => void
-      const blocker = new Promise<void>(r => { unblock = r })
-      const { promise: rp } = queue.enqueue(async () => { await blocker }, { name: 'running-task' })
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise: rp } = queue.enqueue(
+        async () => {
+          await blocker
+        },
+        { name: 'running-task' }
+      )
       const { promise: pp } = queue.enqueue(async () => {}, { name: 'pending-task' })
 
       await new Promise(r => setTimeout(r, 5))

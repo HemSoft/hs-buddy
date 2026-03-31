@@ -26,9 +26,7 @@ export function TempoSummaryCards({
   const now = new Date()
   const isPastMonth = !isCurrentMonth && viewMonth < new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const capexHours = worklogs
-    .filter(w => capexMap[w.issueKey])
-    .reduce((sum, w) => sum + w.hours, 0)
+  const capexHours = worklogs.filter(w => capexMap[w.issueKey]).reduce((sum, w) => sum + w.hours, 0)
   const nonCapexHours = Math.round((monthHours - capexHours) * 100) / 100
   const capexPct = monthHours > 0 ? Math.round((capexHours / monthHours) * 100) : 0
 
@@ -68,7 +66,9 @@ export function TempoSummaryCards({
         </div>
       </div>
 
-      <div className={`tempo-card ${isMonthComplete ? 'tempo-card-complete' : 'tempo-card-remaining'}`}>
+      <div
+        className={`tempo-card ${isMonthComplete ? 'tempo-card-complete' : 'tempo-card-remaining'}`}
+      >
         <div className="tempo-card-icon">
           {isMonthComplete ? <CheckCircle2 size={18} /> : <Target size={18} />}
         </div>
@@ -81,7 +81,9 @@ export function TempoSummaryCards({
           ) : (
             <>
               <span className="tempo-card-value">{remaining}h</span>
-              <span className="tempo-card-label">{isPastMonth && monthTarget > 0 ? 'Missing' : 'Remaining'}</span>
+              <span className="tempo-card-label">
+                {isPastMonth && monthTarget > 0 ? 'Missing' : 'Remaining'}
+              </span>
             </>
           )}
         </div>
@@ -99,16 +101,12 @@ export function TempoSummaryCards({
           </div>
           <div className="tempo-card-body">
             <span className="tempo-card-value">
-              {capexHours}h
-              <span className="tempo-card-unit"> capex ({capexPct}%)</span>
+              {capexHours}h<span className="tempo-card-unit"> capex ({capexPct}%)</span>
             </span>
             <span className="tempo-card-label">{nonCapexHours}h non-capex</span>
           </div>
           <div className="tempo-card-meter">
-            <div
-              className="tempo-card-meter-fill capex-fill"
-              style={{ width: `${capexPct}%` }}
-            />
+            <div className="tempo-card-meter-fill capex-fill" style={{ width: `${capexPct}%` }} />
           </div>
         </div>
       )}

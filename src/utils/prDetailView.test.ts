@@ -131,17 +131,14 @@ describe('parsePRDetailRoute', () => {
     expect(result?.section).toBeNull()
   })
 
-  it.each([
-    'conversation',
-    'commits',
-    'checks',
-    'files-changed',
-    'ai-reviews',
-  ] as const)('returns %s when the section is valid', (section) => {
-    const result = parsePRDetailRoute(createPRDetailViewId(basePR, section))
+  it.each(['conversation', 'commits', 'checks', 'files-changed', 'ai-reviews'] as const)(
+    'returns %s when the section is valid',
+    section => {
+      const result = parsePRDetailRoute(createPRDetailViewId(basePR, section))
 
-    expect(result?.section).toBe(section)
-  })
+      expect(result?.section).toBe(section)
+    }
+  )
 
   it('returns a null section for an invalid section value', () => {
     const result = parsePRDetailRoute(`${createPRDetailViewId(basePR)}?section=invalid-section`)

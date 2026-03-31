@@ -13,7 +13,20 @@ const MONTH_LABEL_HEIGHT = 14
 const DAY_LABEL_WIDTH = 28
 
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 /** Map GitHub's light-theme contribution colors to dark-theme equivalents */
 function toDarkColor(color: string): string {
@@ -60,12 +73,7 @@ export function ContributionGraph({ weeks, totalContributions }: ContributionGra
         <svg width={svgWidth} height={svgHeight} className="ud-contrib-svg">
           {/* Month labels */}
           {monthLabels.map(({ text, x }) => (
-            <text
-              key={`${text}-${x}`}
-              x={x}
-              y={10}
-              className="ud-contrib-month-label"
-            >
+            <text key={`${text}-${x}`} x={x} y={10} className="ud-contrib-month-label">
               {text}
             </text>
           ))}
@@ -86,7 +94,7 @@ export function ContributionGraph({ weeks, totalContributions }: ContributionGra
 
           {/* Contribution cells */}
           {weeks.map((week, wi) =>
-            week.contributionDays.map((day) => {
+            week.contributionDays.map(day => {
               const dayOfWeek = new Date(day.date + 'T00:00:00').getDay()
               return (
                 <rect
@@ -101,7 +109,8 @@ export function ContributionGraph({ weeks, totalContributions }: ContributionGra
                   className="ud-contrib-cell"
                 >
                   <title>
-                    {day.contributionCount} contribution{day.contributionCount !== 1 ? 's' : ''} on {day.date}
+                    {day.contributionCount} contribution{day.contributionCount !== 1 ? 's' : ''} on{' '}
+                    {day.date}
                   </title>
                 </rect>
               )

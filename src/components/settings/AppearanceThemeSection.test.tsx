@@ -14,7 +14,9 @@ function renderThemeSection(overrides: Partial<AppearanceThemeSectionProps> = {}
   const onThemeChange = overrides.onThemeChange ?? vi.fn().mockResolvedValue(undefined)
 
   return {
-    ...render(<AppearanceThemeSection {...DEFAULT_PROPS} {...overrides} onThemeChange={onThemeChange} />),
+    ...render(
+      <AppearanceThemeSection {...DEFAULT_PROPS} {...overrides} onThemeChange={onThemeChange} />
+    ),
     onThemeChange,
   }
 }

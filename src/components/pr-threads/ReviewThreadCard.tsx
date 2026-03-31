@@ -209,7 +209,9 @@ export function ReviewThreadCard({
         <div className="review-thread-body">
           {diffHunk && <DiffHunk hunk={diffHunk} />}
           <div className="review-thread-comments">
-            {firstComment && <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />}
+            {firstComment && (
+              <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />
+            )}
             {remainingComments.map(c => (
               <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
             ))}
@@ -256,7 +258,10 @@ export function ReviewThreadCard({
               </div>
             ) : (
               <div className="thread-action-row">
-                <button className="thread-reply-btn" onClick={() => dispatch({ type: 'start_reply' })}>
+                <button
+                  className="thread-reply-btn"
+                  onClick={() => dispatch({ type: 'start_reply' })}
+                >
                   <MessageSquarePlus size={13} />
                   Reply
                 </button>

@@ -36,15 +36,21 @@ describe('deriveSFLOverallStatus', () => {
 
   it('returns "healthy" when all workflows succeed', () => {
     const workflows = [
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' } }),
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' },
+      }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('healthy')
   })
 
   it('returns "healthy" when workflows have skipped or no runs', () => {
     const workflows = [
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'skipped', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'skipped', createdAt: '', url: '' },
+      }),
       makeWorkflow({ latestRun: null }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('healthy')
@@ -52,23 +58,33 @@ describe('deriveSFLOverallStatus', () => {
 
   it('returns "recent-failure" when any workflow failed', () => {
     const workflows = [
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' } }),
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'failure', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' },
+      }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'failure', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('recent-failure')
   })
 
   it('returns "recent-failure" for timed_out conclusion', () => {
     const workflows = [
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'timed_out', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'timed_out', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('recent-failure')
   })
 
   it('returns "active-work" when any workflow is in progress', () => {
     const workflows = [
-      makeWorkflow({ latestRun: { status: 'in_progress', conclusion: null, createdAt: '', url: '' } }),
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'in_progress', conclusion: null, createdAt: '', url: '' },
+      }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('active-work')
   })
@@ -82,23 +98,35 @@ describe('deriveSFLOverallStatus', () => {
 
   it('returns "ready-for-review" for action_required', () => {
     const workflows = [
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'action_required', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'action_required', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('ready-for-review')
   })
 
   it('returns "blocked" when all workflows are disabled', () => {
     const workflows = [
-      makeWorkflow({ state: 'disabled_manually', latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' } }),
-      makeWorkflow({ state: 'disabled_inactivity', latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' } }),
+      makeWorkflow({
+        state: 'disabled_manually',
+        latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' },
+      }),
+      makeWorkflow({
+        state: 'disabled_inactivity',
+        latestRun: { status: 'completed', conclusion: 'success', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('blocked')
   })
 
   it('failure takes priority over active-work', () => {
     const workflows = [
-      makeWorkflow({ latestRun: { status: 'in_progress', conclusion: null, createdAt: '', url: '' } }),
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'failure', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'in_progress', conclusion: null, createdAt: '', url: '' },
+      }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'failure', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('recent-failure')
   })
@@ -106,7 +134,9 @@ describe('deriveSFLOverallStatus', () => {
   it('active-work takes priority over action_required', () => {
     const workflows = [
       makeWorkflow({ latestRun: { status: 'queued', conclusion: null, createdAt: '', url: '' } }),
-      makeWorkflow({ latestRun: { status: 'completed', conclusion: 'action_required', createdAt: '', url: '' } }),
+      makeWorkflow({
+        latestRun: { status: 'completed', conclusion: 'action_required', createdAt: '', url: '' },
+      }),
     ]
     expect(deriveSFLOverallStatus(workflows)).toBe('active-work')
   })

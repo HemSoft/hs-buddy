@@ -672,15 +672,13 @@ function eventSummary(evt: any): string {
   }
 }
 
-function determineCheckOverallState(
-  counts: {
-    total: number
-    failed: number
-    pending: number
-    successful: number
-    combinedState: string
-  }
-): PRChecksSummary['overallState'] {
+function determineCheckOverallState(counts: {
+  total: number
+  failed: number
+  pending: number
+  successful: number
+  combinedState: string
+}): PRChecksSummary['overallState'] {
   if (counts.total === 0) return 'none'
   if (counts.failed > 0 || counts.combinedState === 'failure' || counts.combinedState === 'error') {
     return 'failing'
@@ -1135,7 +1133,10 @@ export class GitHubClient {
         : []
 
     if (topContributors.length > 0) {
-      const nameMap = await this.fetchUserNames(topContributors.map(c => c.login), owner)
+      const nameMap = await this.fetchUserNames(
+        topContributors.map(c => c.login),
+        owner
+      )
       topContributors = topContributors.map(c => ({ ...c, name: nameMap.get(c.login) ?? null }))
     }
 
@@ -1345,7 +1346,10 @@ export class GitHubClient {
     const issue = issueResponse.data
 
     const assigneeLogins = (issue.assignees || []).map(a => a.login)
-    const nameMap = assigneeLogins.length > 0 ? await this.fetchUserNames(assigneeLogins, owner) : new Map<string, string>()
+    const nameMap =
+      assigneeLogins.length > 0
+        ? await this.fetchUserNames(assigneeLogins, owner)
+        : new Map<string, string>()
 
     return {
       number: issue.number,
@@ -1602,17 +1606,17 @@ export class GitHubClient {
       appName: run.app?.name || null,
     }))
 
-    const statusContexts: PRStatusContextSummary[] = (combinedStatusResponse.data.statuses || []).map(
-      status => ({
-        id: status.id,
-        context: status.context,
-        state: status.state,
-        description: status.description || null,
-        targetUrl: status.target_url || null,
-        createdAt: status.created_at || null,
-        updatedAt: status.updated_at || null,
-      })
-    )
+    const statusContexts: PRStatusContextSummary[] = (
+      combinedStatusResponse.data.statuses || []
+    ).map(status => ({
+      id: status.id,
+      context: status.context,
+      state: status.state,
+      description: status.description || null,
+      targetUrl: status.target_url || null,
+      createdAt: status.created_at || null,
+      updatedAt: status.updated_at || null,
+    }))
 
     const {
       total: totalCount,
@@ -2108,7 +2112,10 @@ export class GitHubClient {
           per_page: 100,
         })
 
-        const names = await this.fetchUserNames(members.map(m => m.login), org)
+        const names = await this.fetchUserNames(
+          members.map(m => m.login),
+          org
+        )
 
         return {
           members: members.map(m => ({
@@ -2118,7 +2125,10 @@ export class GitHubClient {
           })),
         }
       } catch (error) {
-        console.warn(`Failed to fetch members for ${org}/${teamSlug} with account ${account.username}:`, error)
+        console.warn(
+          `Failed to fetch members for ${org}/${teamSlug} with account ${account.username}:`,
+          error
+        )
         continue
       }
     }
@@ -2200,7 +2210,8 @@ export class GitHubClient {
               null,
             topContributorsToday: Array.from(contributorMap.values())
               .sort(
-                (left, right) => right.commits - left.commits || left.login.localeCompare(right.login)
+                (left, right) =>
+                  right.commits - left.commits || left.login.localeCompare(right.login)
               )
               .slice(0, 10),
           },
@@ -2249,7 +2260,10 @@ export class GitHubClient {
         per_page: 100,
       })
 
-      const names = await this.fetchUserNames(members.map(m => m.login), namespace)
+      const names = await this.fetchUserNames(
+        members.map(m => m.login),
+        namespace
+      )
 
       return {
         members: members.map(member => ({
@@ -2298,9 +2312,9 @@ export class GitHubClient {
       // Process in chunks of 50 to stay within query size limits
       for (let i = 0; i < logins.length; i += 50) {
         const chunk = logins.slice(i, i + 50)
-        const fragments = chunk.map(
-          login => `${sanitize(login)}: user(login: "${login}") { login name }`
-        ).join('\n')
+        const fragments = chunk
+          .map(login => `${sanitize(login)}: user(login: "${login}") { login name }`)
+          .join('\n')
         const query = `query { ${fragments} }`
         const result = await graphql<Record<string, { login: string; name: string | null } | null>>(
           query,
@@ -2832,29 +2846,46 @@ export class GitHubClient {
     const emptySearch = { data: { total_count: 0, items: [] } } as const
 
     // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile + contributions, org membership, teams
-    const [authoredOpen, authoredMerged, reviewed, events, repoSource, userProfile, orgMembership, userTeams] = await Promise.all([
-      octokit.search.issuesAndPullRequests({
-        q: `org:${org} is:pr author:${username} is:open`,
-        per_page: 15,
-        sort: 'updated',
-        order: 'desc',
-      }).catch(() => emptySearch),
-      octokit.search.issuesAndPullRequests({
-        q: `org:${org} is:pr author:${username} is:merged merged:>=${ninetyDaysAgo}`,
-        per_page: 15,
-        sort: 'updated',
-        order: 'desc',
-      }).catch(() => emptySearch),
-      octokit.search.issuesAndPullRequests({
-        q: `org:${org} is:pr reviewed-by:${username} -author:${username} sort:updated`,
-        per_page: 10,
-        sort: 'updated',
-        order: 'desc',
-      }).catch(() => emptySearch),
-      octokit.activity.listPublicEventsForUser({
-        username,
-        per_page: 100,
-      }).catch(() => ({ data: [] as Array<Record<string, unknown>> })),
+    const [
+      authoredOpen,
+      authoredMerged,
+      reviewed,
+      events,
+      repoSource,
+      userProfile,
+      orgMembership,
+      userTeams,
+    ] = await Promise.all([
+      octokit.search
+        .issuesAndPullRequests({
+          q: `org:${org} is:pr author:${username} is:open`,
+          per_page: 15,
+          sort: 'updated',
+          order: 'desc',
+        })
+        .catch(() => emptySearch),
+      octokit.search
+        .issuesAndPullRequests({
+          q: `org:${org} is:pr author:${username} is:merged merged:>=${ninetyDaysAgo}`,
+          per_page: 15,
+          sort: 'updated',
+          order: 'desc',
+        })
+        .catch(() => emptySearch),
+      octokit.search
+        .issuesAndPullRequests({
+          q: `org:${org} is:pr reviewed-by:${username} -author:${username} sort:updated`,
+          per_page: 10,
+          sort: 'updated',
+          order: 'desc',
+        })
+        .catch(() => emptySearch),
+      octokit.activity
+        .listPublicEventsForUser({
+          username,
+          per_page: 100,
+        })
+        .catch(() => ({ data: [] as Array<Record<string, unknown>> })),
       this.fetchAllOrgOrUserRepos(octokit, org).catch(() => null),
       (async () => {
         try {
@@ -2881,31 +2912,33 @@ export class GitHubClient {
               }
             } | null
           }>(
-            `query($login: String!) {
-              user(login: $login) {
-                name
-                bio
-                company
-                location
-                createdAt
-                status {
-                  emoji
-                  message
-                }
-                contributionsCollection {
-                  contributionCalendar {
-                    totalContributions
-                    weeks {
-                      contributionDays {
-                        contributionCount
-                        date
-                        color
+            `
+              query ($login: String!) {
+                user(login: $login) {
+                  name
+                  bio
+                  company
+                  location
+                  createdAt
+                  status {
+                    emoji
+                    message
+                  }
+                  contributionsCollection {
+                    contributionCalendar {
+                      totalContributions
+                      weeks {
+                        contributionDays {
+                          contributionCount
+                          date
+                          color
+                        }
                       }
                     }
                   }
                 }
               }
-            }`,
+            `,
             {
               login: username,
               headers: { authorization: `token ${token}` },
@@ -2916,16 +2949,21 @@ export class GitHubClient {
         }
       })(),
       octokit.orgs.getMembershipForUser({ org, username }).catch(() => null),
-      octokit.paginate(octokit.teams.list, { org, per_page: 100 }).then(async (teams) => {
-        const memberTeams: string[] = []
-        for (const team of teams) {
-          try {
-            await octokit.teams.getMembershipForUserInOrg({ org, team_slug: team.slug, username })
-            memberTeams.push(team.name)
-          } catch { /* not a member of this team */ }
-        }
-        return memberTeams
-      }).catch(() => [] as string[]),
+      octokit
+        .paginate(octokit.teams.list, { org, per_page: 100 })
+        .then(async teams => {
+          const memberTeams: string[] = []
+          for (const team of teams) {
+            try {
+              await octokit.teams.getMembershipForUserInOrg({ org, team_slug: team.slug, username })
+              memberTeams.push(team.name)
+            } catch {
+              /* not a member of this team */
+            }
+          }
+          return memberTeams
+        })
+        .catch(() => [] as string[]),
     ])
 
     const extractRepo = (repoUrl: string) => {
@@ -2947,7 +2985,8 @@ export class GitHubClient {
     const recentPRsAuthored = [
       ...authoredOpen.data.items.map(mapPR),
       ...authoredMerged.data.items.map(mapPR),
-    ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    ]
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 15)
 
     // Filter events to only those in the org
@@ -2960,7 +2999,9 @@ export class GitHubClient {
       .map(evt => {
         const repo = evt.repo as { name?: string } | undefined
         return {
-          id: String(evt.id ?? `${evt.type ?? 'Unknown'}:${repo?.name ?? ''}:${evt.created_at ?? ''}`),
+          id: String(
+            evt.id ?? `${evt.type ?? 'Unknown'}:${repo?.name ?? ''}:${evt.created_at ?? ''}`
+          ),
           type: (evt.type as string) ?? 'Unknown',
           repo: repo?.name ?? '',
           createdAt: (evt.created_at as string) ?? '',
@@ -2972,10 +3013,12 @@ export class GitHubClient {
     const eventCommitsToday = (events.data as Array<Record<string, unknown>>)
       .filter(evt => {
         const repo = evt.repo as { name?: string } | undefined
-        return evt.type === 'PushEvent'
-          && repo?.name?.startsWith(orgPrefix)
-          && typeof evt.created_at === 'string'
-          && evt.created_at >= startOfDayIso
+        return (
+          evt.type === 'PushEvent' &&
+          repo?.name?.startsWith(orgPrefix) &&
+          typeof evt.created_at === 'string' &&
+          evt.created_at >= startOfDayIso
+        )
       })
       .reduce((sum, evt) => {
         const size = (evt.payload as Record<string, unknown> | undefined)?.size
@@ -3007,8 +3050,12 @@ export class GitHubClient {
 
     // Collect unique repos from events + authored PRs + reviewed PRs
     const activeRepoSet = new Set<string>()
-    recentEvents.forEach(e => { if (e.repo) activeRepoSet.add(e.repo) })
-    recentPRsAuthored.forEach(pr => { if (pr.repo) activeRepoSet.add(pr.repo) })
+    recentEvents.forEach(e => {
+      if (e.repo) activeRepoSet.add(e.repo)
+    })
+    recentPRsAuthored.forEach(pr => {
+      if (pr.repo) activeRepoSet.add(pr.repo)
+    })
     reviewed.data.items.forEach((item: Record<string, unknown>) => {
       const repo = extractRepo(item.repository_url as string)
       if (repo) activeRepoSet.add(repo)
@@ -3031,12 +3078,16 @@ export class GitHubClient {
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
-      totalContributions: userProfile?.user?.contributionsCollection.contributionCalendar.totalContributions ?? null,
-      contributionWeeks: userProfile?.user?.contributionsCollection.contributionCalendar.weeks ?? null,
+      totalContributions:
+        userProfile?.user?.contributionsCollection.contributionCalendar.totalContributions ?? null,
+      contributionWeeks:
+        userProfile?.user?.contributionsCollection.contributionCalendar.weeks ?? null,
     }
   }
 
-  async getRateLimit(org: string): Promise<{ limit: number; remaining: number; reset: number; used: number }> {
+  async getRateLimit(
+    org: string
+  ): Promise<{ limit: number; remaining: number; reset: number; used: number }> {
     for (const account of this.getAccountsByOwnerPriority(org)) {
       const octokit = await this.getOctokit(account.username)
       if (!octokit) continue

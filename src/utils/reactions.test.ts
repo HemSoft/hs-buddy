@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyReactionToResult } from './reactions'
-import type {
-  PRCommentReactionContent,
-  PRReviewComment,
-  PRThreadsResult,
-} from '../api/github'
+import type { PRCommentReactionContent, PRReviewComment, PRThreadsResult } from '../api/github'
 
 function makeComment(
   id: string,
@@ -61,9 +57,7 @@ describe('applyReactionToResult', () => {
 
   describe('when the reaction type exists but viewer has not reacted', () => {
     it('increments count and sets viewerHasReacted to true', () => {
-      const comment = makeComment('c1', [
-        { content: 'HEART', count: 2, viewerHasReacted: false },
-      ])
+      const comment = makeComment('c1', [{ content: 'HEART', count: 2, viewerHasReacted: false }])
       const result = makeResult([comment])
 
       const updated = applyReactionToResult(result, 'c1', 'HEART')
@@ -76,9 +70,7 @@ describe('applyReactionToResult', () => {
 
   describe('when viewer has already reacted with the same type', () => {
     it('returns the comment unchanged', () => {
-      const comment = makeComment('c1', [
-        { content: 'ROCKET', count: 1, viewerHasReacted: true },
-      ])
+      const comment = makeComment('c1', [{ content: 'ROCKET', count: 1, viewerHasReacted: true }])
       const result = makeResult([comment])
 
       const updated = applyReactionToResult(result, 'c1', 'ROCKET')
@@ -105,9 +97,7 @@ describe('applyReactionToResult', () => {
 
   describe('when comment ID does not match', () => {
     it('leaves all comments unchanged', () => {
-      const comment = makeComment('c1', [
-        { content: 'LAUGH', count: 1, viewerHasReacted: false },
-      ])
+      const comment = makeComment('c1', [{ content: 'LAUGH', count: 1, viewerHasReacted: false }])
       const result = makeResult([comment])
 
       const updated = applyReactionToResult(result, 'nonexistent', 'LAUGH')
@@ -137,9 +127,7 @@ describe('applyReactionToResult', () => {
 
   describe('immutability', () => {
     it('does not mutate the original result', () => {
-      const comment = makeComment('c1', [
-        { content: 'HOORAY', count: 1, viewerHasReacted: false },
-      ])
+      const comment = makeComment('c1', [{ content: 'HOORAY', count: 1, viewerHasReacted: false }])
       const result = makeResult([comment])
 
       const updated = applyReactionToResult(result, 'c1', 'HOORAY')

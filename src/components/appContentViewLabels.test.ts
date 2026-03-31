@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  getViewLabel,
-  viewLabels,
-} from './appContentViewLabels'
+import { getViewLabel, viewLabels } from './appContentViewLabels'
 
 describe('viewLabels', () => {
   it('contains expected PR mode labels', () => {
@@ -132,9 +129,7 @@ describe('getViewLabel', () => {
       const info = { prTitle: 'Fix the very long PR title that exceeds thirty characters limit' }
       const encoded = encodeURIComponent(JSON.stringify(info))
       // Code slices at 30 chars: "Fix the very long PR title tha" + "…"
-      expect(getViewLabel(`pr-review:${encoded}`)).toBe(
-        'Review: Fix the very long PR title tha…'
-      )
+      expect(getViewLabel(`pr-review:${encoded}`)).toBe('Review: Fix the very long PR title tha…')
     })
 
     it('returns short titles without truncation', () => {

@@ -12,7 +12,8 @@ const VIEW_DEFINITIONS: ViewDefinition[] = [
   {
     prefix: 'pr-detail:',
     viewType: 'pr-detail',
-    summary: ([owner = '', repo = '', prNumber = '']) => `Pull Request #${prNumber} in ${owner}/${repo}`,
+    summary: ([owner = '', repo = '', prNumber = '']) =>
+      `Pull Request #${prNumber} in ${owner}/${repo}`,
     metadata: ([owner = '', repo = '', prNumber = '']) => ({ owner, repo, prNumber }),
   },
   {
@@ -36,7 +37,8 @@ const VIEW_DEFINITIONS: ViewDefinition[] = [
   {
     prefix: 'repo-issue:',
     viewType: 'repo-issue',
-    summary: ([owner = '', repo = '', issueNumber = '']) => `Issue #${issueNumber} in ${owner}/${repo}`,
+    summary: ([owner = '', repo = '', issueNumber = '']) =>
+      `Issue #${issueNumber} in ${owner}/${repo}`,
     metadata: ([owner = '', repo = '', issueNumber = '']) => ({ owner, repo, issueNumber }),
   },
   {

@@ -10,7 +10,9 @@ export function useCopilotSessions() {
 
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
 
   const scan = useCallback(async () => {

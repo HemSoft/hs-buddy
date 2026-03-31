@@ -59,9 +59,7 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
   crew: { title: 'The Crew', items: [] },
   tempo: {
     title: 'Tempo',
-    items: [
-      { id: 'tempo-timesheet', label: 'Timesheet' },
-    ],
+    items: [{ id: 'tempo-timesheet', label: 'Timesheet' }],
   },
   copilot: { title: 'Copilot', items: [] },
 }
@@ -216,7 +214,12 @@ export function SidebarPanel({
                     onContextMenu={e => handleContextMenu(e, item.id)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(item.id); } }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onItemSelect(item.id)
+                      }
+                    }}
                   >
                     <span className="sidebar-item-icon">
                       <FileText size={14} />

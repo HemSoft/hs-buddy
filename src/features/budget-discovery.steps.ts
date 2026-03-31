@@ -19,8 +19,16 @@ describeFeature(feature, ({ Scenario }) => {
   Scenario('Prefer premium SKU over generic copilot', ({ Given, When, Then }) => {
     Given('a budget list with both "copilot_premium_request" and "copilot_business" SKUs', () => {
       budgets = [
-        { budget_product_sku: 'copilot_business', budget_amount: 1000, prevent_further_usage: false },
-        { budget_product_sku: 'copilot_premium_request', budget_amount: 500, prevent_further_usage: false },
+        {
+          budget_product_sku: 'copilot_business',
+          budget_amount: 1000,
+          prevent_further_usage: false,
+        },
+        {
+          budget_product_sku: 'copilot_premium_request',
+          budget_amount: 500,
+          prevent_further_usage: false,
+        },
       ]
     })
     When('searching for a copilot budget without entity filter', () => {
@@ -35,7 +43,12 @@ describeFeature(feature, ({ Scenario }) => {
   Scenario('Match entity name with substring flexibility', ({ Given, When, Then, And }) => {
     Given('a budget with entity name "Relias"', () => {
       budgets = [
-        { budget_product_sku: 'copilot_premium_request', budget_amount: 500, prevent_further_usage: false, budget_entity_name: 'Relias' },
+        {
+          budget_product_sku: 'copilot_premium_request',
+          budget_amount: 500,
+          prevent_further_usage: false,
+          budget_entity_name: 'Relias',
+        },
       ]
     })
     And('an entity filter of "relias-engineering"', () => {
@@ -53,8 +66,16 @@ describeFeature(feature, ({ Scenario }) => {
   Scenario('Return undefined when no copilot budget exists', ({ Given, When, Then }) => {
     Given('a budget list with only "actions_compute" SKUs', () => {
       budgets = [
-        { budget_product_sku: 'actions_compute', budget_amount: 2000, prevent_further_usage: false },
-        { budget_product_sku: 'packages_data_transfer', budget_amount: 500, prevent_further_usage: false },
+        {
+          budget_product_sku: 'actions_compute',
+          budget_amount: 2000,
+          prevent_further_usage: false,
+        },
+        {
+          budget_product_sku: 'packages_data_transfer',
+          budget_amount: 500,
+          prevent_further_usage: false,
+        },
       ]
     })
     When('searching for a copilot budget without entity filter', () => {
@@ -73,7 +94,14 @@ describeFeature(feature, ({ Scenario }) => {
       const fetchPage = vi.fn(async (_page: number): Promise<BudgetPageResponse> => {
         pagesFetched++
         return {
-          budgets: [{ budget_product_sku: 'copilot_premium_request', budget_amount: 500, prevent_further_usage: false, budget_entity_name: 'test-org' }],
+          budgets: [
+            {
+              budget_product_sku: 'copilot_premium_request',
+              budget_amount: 500,
+              prevent_further_usage: false,
+              budget_entity_name: 'test-org',
+            },
+          ],
           has_next_page: true,
         }
       })
@@ -98,9 +126,28 @@ describeFeature(feature, ({ Scenario }) => {
       fetchPage = vi.fn(async (page: number): Promise<BudgetPageResponse> => {
         pagesFetched++
         if (page < 3) {
-          return { budgets: [{ budget_product_sku: 'actions_compute', budget_amount: 100, prevent_further_usage: false }], has_next_page: true }
+          return {
+            budgets: [
+              {
+                budget_product_sku: 'actions_compute',
+                budget_amount: 100,
+                prevent_further_usage: false,
+              },
+            ],
+            has_next_page: true,
+          }
         }
-        return { budgets: [{ budget_product_sku: 'copilot_premium_request', budget_amount: 750, prevent_further_usage: false, budget_entity_name: 'test-org' }], has_next_page: true }
+        return {
+          budgets: [
+            {
+              budget_product_sku: 'copilot_premium_request',
+              budget_amount: 750,
+              prevent_further_usage: false,
+              budget_entity_name: 'test-org',
+            },
+          ],
+          has_next_page: true,
+        }
       })
     })
     When('searching across pages with max 10', async () => {
@@ -123,7 +170,13 @@ describeFeature(feature, ({ Scenario }) => {
       const fetchPage = vi.fn(async (page: number): Promise<BudgetPageResponse> => {
         pagesFetched++
         return {
-          budgets: [{ budget_product_sku: 'actions_compute', budget_amount: 100, prevent_further_usage: false }],
+          budgets: [
+            {
+              budget_product_sku: 'actions_compute',
+              budget_amount: 100,
+              prevent_further_usage: false,
+            },
+          ],
           has_next_page: page < 3,
         }
       })

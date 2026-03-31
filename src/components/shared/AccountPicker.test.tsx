@@ -13,7 +13,15 @@ vi.mock('../../hooks/useConfig', () => ({
 }))
 
 vi.mock('../InlineDropdown', () => ({
-  InlineDropdown: ({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) => (
+  InlineDropdown: ({
+    value,
+    onChange,
+    placeholder,
+  }: {
+    value: string
+    onChange: (v: string) => void
+    placeholder?: string
+  }) => (
     <button data-testid="inline-dropdown" onClick={() => onChange('alice')}>
       {value || placeholder}
     </button>

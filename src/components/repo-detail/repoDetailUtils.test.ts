@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatSize,
-  formatDate,
-  getLanguageColor,
-  getWorkflowStatusInfo,
-} from './repoDetailUtils'
+import { formatSize, formatDate, getLanguageColor, getWorkflowStatusInfo } from './repoDetailUtils'
 
 describe('formatSize', () => {
   it('formats kilobytes', () => {

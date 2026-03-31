@@ -100,7 +100,9 @@ export function useGitHubSidebarData() {
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set())
   const [teamMembers, setTeamMembers] = useState<Record<string, TeamMember[]>>({})
   const [loadingTeamMembers, setLoadingTeamMembers] = useState<Set<string>>(new Set())
-  const [orgContributorCounts, setOrgContributorCounts] = useState<Record<string, Record<string, number>>>({})
+  const [orgContributorCounts, setOrgContributorCounts] = useState<
+    Record<string, Record<string, number>>
+  >({})
   const [loadingOrgs, setLoadingOrgs] = useState<Set<string>>(new Set())
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
@@ -416,7 +418,10 @@ export function useGitHubSidebarData() {
         setOrgContributorCounts(prev => ({
           ...prev,
           [org]: Object.fromEntries(
-            cached.data.metrics.topContributorsToday.map(contributor => [contributor.login, contributor.commits])
+            cached.data.metrics.topContributorsToday.map(contributor => [
+              contributor.login,
+              contributor.commits,
+            ])
           ),
         }))
         return
@@ -434,7 +439,10 @@ export function useGitHubSidebarData() {
         setOrgContributorCounts(prev => ({
           ...prev,
           [org]: Object.fromEntries(
-            result.metrics.topContributorsToday.map(contributor => [contributor.login, contributor.commits])
+            result.metrics.topContributorsToday.map(contributor => [
+              contributor.login,
+              contributor.commits,
+            ])
           ),
         }))
         dataCache.set(cacheKey, result)
@@ -1187,7 +1195,10 @@ export function useGitHubSidebarData() {
 
   // ── User context menu ──
   const [userContextMenu, setUserContextMenu] = useState<{
-    x: number; y: number; login: string; org: string
+    x: number
+    y: number
+    login: string
+    org: string
   } | null>(null)
 
   const openUserContextMenu = useCallback((e: React.MouseEvent, org: string, login: string) => {

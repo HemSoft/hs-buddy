@@ -42,9 +42,7 @@ function RequestItem({ result, index }: { result: SessionRequestResult; index: n
     <div className="session-request-item">
       <span className="session-request-index">#{index + 1}</span>
       <div className="session-request-body">
-        {result.prompt && (
-          <div className="session-request-prompt">{result.prompt}</div>
-        )}
+        {result.prompt && <div className="session-request-prompt">{result.prompt}</div>}
         <div className="session-request-tokens">
           <span>↑ {formatTokenCount(result.promptTokens)} prompt</span>
           <span>↓ {formatTokenCount(result.outputTokens)} output</span>
@@ -122,7 +120,9 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         <ArrowLeft size={14} /> Back to Sessions
       </button>
 
-      <h2 className="session-detail-title">{session.title || `Session ${session.sessionId.slice(0, 8)}`}</h2>
+      <h2 className="session-detail-title">
+        {session.title || `Session ${session.sessionId.slice(0, 8)}`}
+      </h2>
       <div className="session-detail-subtitle">
         <span>{formatDate(session.startTime)}</span>
         {session.model && <span>{session.model.name || session.model.id}</span>}
@@ -131,23 +131,37 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
 
       <div className="session-detail-meta-grid">
         <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label"><Hash size={11} /> Requests</div>
+          <div className="session-detail-meta-label">
+            <Hash size={11} /> Requests
+          </div>
           <div className="session-detail-meta-value">{session.requestCount}</div>
         </div>
         <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label"><Zap size={11} /> Prompt Tokens</div>
-          <div className="session-detail-meta-value">{formatTokenCount(session.totalPromptTokens)}</div>
+          <div className="session-detail-meta-label">
+            <Zap size={11} /> Prompt Tokens
+          </div>
+          <div className="session-detail-meta-value">
+            {formatTokenCount(session.totalPromptTokens)}
+          </div>
         </div>
         <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label"><Zap size={11} /> Output Tokens</div>
-          <div className="session-detail-meta-value">{formatTokenCount(session.totalOutputTokens)}</div>
+          <div className="session-detail-meta-label">
+            <Zap size={11} /> Output Tokens
+          </div>
+          <div className="session-detail-meta-value">
+            {formatTokenCount(session.totalOutputTokens)}
+          </div>
         </div>
         <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label"><Cpu size={11} /> Tool Calls</div>
+          <div className="session-detail-meta-label">
+            <Cpu size={11} /> Tool Calls
+          </div>
           <div className="session-detail-meta-value">{session.totalToolCalls}</div>
         </div>
         <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label"><Clock size={11} /> Duration</div>
+          <div className="session-detail-meta-label">
+            <Clock size={11} /> Duration
+          </div>
           <div className="session-detail-meta-value">{formatDuration(session.totalDurationMs)}</div>
         </div>
       </div>
@@ -171,7 +185,11 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
             </div>
             <div className="session-digest-card">
               <div className="session-detail-meta-label">Search Churn</div>
-              <div className={`session-detail-meta-value ${digest.searchChurn > 10 ? 'session-digest-warn' : ''}`}>{digest.searchChurn}</div>
+              <div
+                className={`session-detail-meta-value ${digest.searchChurn > 10 ? 'session-digest-warn' : ''}`}
+              >
+                {digest.searchChurn}
+              </div>
               <div className="session-digest-hint">requests with search tools</div>
             </div>
             <div className="session-digest-card">
@@ -194,7 +212,9 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
           <h3>Tools Used</h3>
           <div className="session-tools-list">
             {session.toolsUsed.map(tool => (
-              <span key={tool} className="session-tool-badge">{tool}</span>
+              <span key={tool} className="session-tool-badge">
+                {tool}
+              </span>
             ))}
           </div>
         </div>

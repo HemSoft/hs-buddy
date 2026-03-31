@@ -108,10 +108,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
               <div key={msg.id} className={`assistant-message assistant-message-${msg.role}`}>
                 {msg.role === 'assistant' ? (
                   msg.content ? (
-                    <div
-                      className="assistant-message-markdown"
-                      data-color-mode="dark"
-                    >
+                    <div className="assistant-message-markdown" data-color-mode="dark">
                       <MarkdownPreview
                         source={msg.content}
                         style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}

@@ -1,9 +1,4 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  GitPullRequest,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, GitPullRequest } from 'lucide-react'
 import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { prSubNodes, sectionIcons } from './prConstants'
@@ -169,7 +164,12 @@ export function PRTreeSection({
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => onItemSelect(childViewId)}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemSelect(childViewId); } }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onItemSelect(childViewId)
+                                  }
+                                }}
                               >
                                 <span className="sidebar-item-icon">
                                   <Icon size={12} />

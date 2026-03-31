@@ -1,10 +1,6 @@
 import { bench, describe } from 'vitest'
 import { applyReactionToResult } from './reactions'
-import type {
-  PRCommentReactionContent,
-  PRReviewComment,
-  PRThreadsResult,
-} from '../api/github'
+import type { PRCommentReactionContent, PRReviewComment, PRThreadsResult } from '../api/github'
 
 function makeComment(id: string): PRReviewComment {
   return {
@@ -36,19 +32,15 @@ function makeResult(threadCount: number, commentsPerThread: number): PRThreadsRe
       line: t * 10 + 1,
       startLine: null,
       diffSide: 'RIGHT',
-      comments: Array.from({ length: commentsPerThread }, () =>
-        makeComment(`c-${++commentId}`)
-      ),
+      comments: Array.from({ length: commentsPerThread }, () => makeComment(`c-${++commentId}`)),
     })),
-    issueComments: Array.from({ length: 3 }, () =>
-      makeComment(`ic-${++commentId}`)
-    ),
+    issueComments: Array.from({ length: 3 }, () => makeComment(`ic-${++commentId}`)),
   }
 }
 
-const SMALL = makeResult(3, 2)     // 3 threads × 2 comments + 3 issue comments = 9
-const MEDIUM = makeResult(10, 5)   // 10 threads × 5 comments + 3 issue comments = 53
-const LARGE = makeResult(30, 10)   // 30 threads × 10 comments + 3 issue comments = 303
+const SMALL = makeResult(3, 2) // 3 threads × 2 comments + 3 issue comments = 9
+const MEDIUM = makeResult(10, 5) // 10 threads × 5 comments + 3 issue comments = 53
+const LARGE = makeResult(30, 10) // 30 threads × 10 comments + 3 issue comments = 303
 
 const REACTION: PRCommentReactionContent = 'THUMBS_UP'
 

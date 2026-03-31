@@ -17,7 +17,20 @@ function formatDayLabel(dateStr: string): string {
 
   const d = new Date(dateStr + 'T00:00:00')
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ]
   return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`
 }
 
@@ -29,7 +42,9 @@ export function useTodoistUpcoming(days: number = 7) {
 
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
 
   const refresh = useCallback(async () => {
@@ -91,7 +106,9 @@ export function useTodoistProjects() {
 
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
 
   const load = useCallback(async () => {
@@ -100,42 +117,56 @@ export function useTodoistProjects() {
       if (mountedRef.current && result.success && result.data) {
         setProjects(result.data)
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [])
 
   return { projects, load }
 }
 
 export function useTaskActions(onRefresh: () => void) {
-  const complete = useCallback(async (taskId: string) => {
-    const result = await window.todoist.completeTask(taskId)
-    if (result.success) onRefresh()
-    return result
-  }, [onRefresh])
+  const complete = useCallback(
+    async (taskId: string) => {
+      const result = await window.todoist.completeTask(taskId)
+      if (result.success) onRefresh()
+      return result
+    },
+    [onRefresh]
+  )
 
-  const reopen = useCallback(async (taskId: string) => {
-    const result = await window.todoist.reopenTask(taskId)
-    if (result.success) onRefresh()
-    return result
-  }, [onRefresh])
+  const reopen = useCallback(
+    async (taskId: string) => {
+      const result = await window.todoist.reopenTask(taskId)
+      if (result.success) onRefresh()
+      return result
+    },
+    [onRefresh]
+  )
 
-  const create = useCallback(async (params: {
-    content: string
-    due_date?: string
-    priority?: number
-    project_id?: string
-    description?: string
-  }) => {
-    const result = await window.todoist.createTask(params)
-    if (result.success) onRefresh()
-    return result
-  }, [onRefresh])
+  const create = useCallback(
+    async (params: {
+      content: string
+      due_date?: string
+      priority?: number
+      project_id?: string
+      description?: string
+    }) => {
+      const result = await window.todoist.createTask(params)
+      if (result.success) onRefresh()
+      return result
+    },
+    [onRefresh]
+  )
 
-  const remove = useCallback(async (taskId: string) => {
-    const result = await window.todoist.deleteTask(taskId)
-    if (result.success) onRefresh()
-    return result
-  }, [onRefresh])
+  const remove = useCallback(
+    async (taskId: string) => {
+      const result = await window.todoist.deleteTask(taskId)
+      if (result.success) onRefresh()
+      return result
+    },
+    [onRefresh]
+  )
 
   return { complete, reopen, create, remove }
 }

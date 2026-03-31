@@ -172,31 +172,28 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
     return () => window.removeEventListener('app:navigate', handleNavigate)
   }, [openTab])
 
-  const closeTab = useCallback(
-    (tabId: string) => {
-      setTabState(previousState => {
-        const nextTabs = previousState.tabs.filter(tab => tab.id !== tabId)
-        if (nextTabs.length === previousState.tabs.length) {
-          return previousState
-        }
+  const closeTab = useCallback((tabId: string) => {
+    setTabState(previousState => {
+      const nextTabs = previousState.tabs.filter(tab => tab.id !== tabId)
+      if (nextTabs.length === previousState.tabs.length) {
+        return previousState
+      }
 
-        if (previousState.activeTabId === tabId && nextTabs.length > 0) {
-          const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
-          const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
-          return {
-            tabs: nextTabs,
-            activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
-          }
-        }
-
+      if (previousState.activeTabId === tabId && nextTabs.length > 0) {
+        const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
+        const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
         return {
           tabs: nextTabs,
-          activeTabId: nextTabs.length === 0 ? null : previousState.activeTabId,
+          activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
         }
-      })
-    },
-    []
-  )
+      }
+
+      return {
+        tabs: nextTabs,
+        activeTabId: nextTabs.length === 0 ? null : previousState.activeTabId,
+      }
+    })
+  }, [])
 
   const activeViewId = useMemo(() => {
     const activeTab = tabs.find(tab => tab.id === activeTabId)
@@ -226,32 +223,26 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
     })
   }, [])
 
-  const closeOtherTabs = useCallback(
-    (keepTabId: string) => {
-      setTabState(previousState => {
-        const kept = previousState.tabs.filter(tab => tab.id === keepTabId)
-        if (kept.length === 0) return previousState
-        return { tabs: kept, activeTabId: keepTabId }
-      })
-    },
-    []
-  )
+  const closeOtherTabs = useCallback((keepTabId: string) => {
+    setTabState(previousState => {
+      const kept = previousState.tabs.filter(tab => tab.id === keepTabId)
+      if (kept.length === 0) return previousState
+      return { tabs: kept, activeTabId: keepTabId }
+    })
+  }, [])
 
-  const closeTabsToRight = useCallback(
-    (tabId: string) => {
-      setTabState(previousState => {
-        const index = previousState.tabs.findIndex(tab => tab.id === tabId)
-        if (index === -1) return previousState
-        const kept = previousState.tabs.slice(0, index + 1)
-        const activeStillOpen = kept.some(tab => tab.id === previousState.activeTabId)
-        return {
-          tabs: kept,
-          activeTabId: activeStillOpen ? previousState.activeTabId : tabId,
-        }
-      })
-    },
-    []
-  )
+  const closeTabsToRight = useCallback((tabId: string) => {
+    setTabState(previousState => {
+      const index = previousState.tabs.findIndex(tab => tab.id === tabId)
+      if (index === -1) return previousState
+      const kept = previousState.tabs.slice(0, index + 1)
+      const activeStillOpen = kept.some(tab => tab.id === previousState.activeTabId)
+      return {
+        tabs: kept,
+        activeTabId: activeStillOpen ? previousState.activeTabId : tabId,
+      }
+    })
+  }, [])
 
   const closeAllTabs = useCallback(() => {
     setTabState({ tabs: [], activeTabId: null })

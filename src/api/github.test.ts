@@ -65,9 +65,12 @@ const mockOctokit = {
 // Mock @octokit/rest — plugin() must return a class (used with `new`)
 vi.mock('@octokit/rest', () => ({
   Octokit: {
-    plugin: () => class MockOctokit {
-      constructor() { return mockOctokit as unknown as MockOctokit }
-    },
+    plugin: () =>
+      class MockOctokit {
+        constructor() {
+          return mockOctokit as unknown as MockOctokit
+        }
+      },
   },
 }))
 
@@ -163,7 +166,11 @@ describe('GitHubClient', () => {
       mockOctokit.pulls.listReviews.mockResolvedValue({
         data: [
           { user: { login: 'user1' }, state: 'APPROVED', submitted_at: '2026-01-02T00:00:00Z' },
-          { user: { login: 'user2' }, state: 'CHANGES_REQUESTED', submitted_at: '2026-01-01T00:00:00Z' },
+          {
+            user: { login: 'user2' },
+            state: 'CHANGES_REQUESTED',
+            submitted_at: '2026-01-01T00:00:00Z',
+          },
           { user: { login: 'user2' }, state: 'APPROVED', submitted_at: '2026-01-02T00:00:00Z' },
         ],
       })
@@ -187,9 +194,17 @@ describe('GitHubClient', () => {
       mockOctokit.pulls.list.mockResolvedValue({
         data: [
           {
-            number: 1, title: 'PR', state: 'open',
-            user: { login: 'a' }, html_url: 'h', created_at: 'c', updated_at: 'u',
-            labels: [], head: { ref: 'h' }, base: { ref: 'b' }, assignees: [],
+            number: 1,
+            title: 'PR',
+            state: 'open',
+            user: { login: 'a' },
+            html_url: 'h',
+            created_at: 'c',
+            updated_at: 'u',
+            labels: [],
+            head: { ref: 'h' },
+            base: { ref: 'b' },
+            assignees: [],
           },
         ],
       })
@@ -205,10 +220,18 @@ describe('GitHubClient', () => {
       mockOctokit.pulls.list.mockResolvedValue({
         data: [
           {
-            number: 1, title: 'PR', state: 'open',
-            user: null, html_url: 'h', created_at: 'c', updated_at: 'u',
+            number: 1,
+            title: 'PR',
+            state: 'open',
+            user: null,
+            html_url: 'h',
+            created_at: 'c',
+            updated_at: 'u',
             labels: ['plain-string-label'],
-            head: null, base: null, assignees: null, draft: undefined,
+            head: null,
+            base: null,
+            assignees: null,
+            draft: undefined,
           },
         ],
       })
@@ -224,18 +247,32 @@ describe('GitHubClient', () => {
 
     it('countApprovals deduplicates by latest review per user', async () => {
       mockOctokit.pulls.list.mockResolvedValue({
-        data: [{
-          number: 1, title: 'PR', state: 'open',
-          user: { login: 'a' }, html_url: 'h', created_at: 'c', updated_at: 'u',
-          labels: [], head: { ref: 'h' }, base: { ref: 'b' }, assignees: [],
-        }],
+        data: [
+          {
+            number: 1,
+            title: 'PR',
+            state: 'open',
+            user: { login: 'a' },
+            html_url: 'h',
+            created_at: 'c',
+            updated_at: 'u',
+            labels: [],
+            head: { ref: 'h' },
+            base: { ref: 'b' },
+            assignees: [],
+          },
+        ],
       })
       mockOctokit.users.getAuthenticated.mockResolvedValue({ data: { login: 'viewer' } })
       // reviewer approved first, then requested changes → latest wins
       mockOctokit.pulls.listReviews.mockResolvedValue({
         data: [
           { user: { login: 'reviewer' }, state: 'APPROVED', submitted_at: '2026-01-01T00:00:00Z' },
-          { user: { login: 'reviewer' }, state: 'CHANGES_REQUESTED', submitted_at: '2026-01-02T00:00:00Z' },
+          {
+            user: { login: 'reviewer' },
+            state: 'CHANGES_REQUESTED',
+            submitted_at: '2026-01-02T00:00:00Z',
+          },
           { user: null, state: 'APPROVED', submitted_at: '2026-01-01T00:00:00Z' }, // null user skip
         ],
       })
@@ -247,11 +284,21 @@ describe('GitHubClient', () => {
 
     it('countApprovals case-insensitive viewer match', async () => {
       mockOctokit.pulls.list.mockResolvedValue({
-        data: [{
-          number: 1, title: 'PR', state: 'open',
-          user: { login: 'a' }, html_url: 'h', created_at: 'c', updated_at: 'u',
-          labels: [], head: { ref: 'h' }, base: { ref: 'b' }, assignees: [],
-        }],
+        data: [
+          {
+            number: 1,
+            title: 'PR',
+            state: 'open',
+            user: { login: 'a' },
+            html_url: 'h',
+            created_at: 'c',
+            updated_at: 'u',
+            labels: [],
+            head: { ref: 'h' },
+            base: { ref: 'b' },
+            assignees: [],
+          },
+        ],
       })
       mockOctokit.users.getAuthenticated.mockResolvedValue({ data: { login: 'VIEWER' } })
       mockOctokit.pulls.listReviews.mockResolvedValue({
@@ -278,7 +325,13 @@ describe('GitHubClient', () => {
             comments: {
               totalCount: 1,
               nodes: [
-                { id: 'c1', createdAt: '2026-01-01T12:00:00Z', bodyText: 'Looks good overall', url: 'url1', author: { login: 'commenter1' } },
+                {
+                  id: 'c1',
+                  createdAt: '2026-01-01T12:00:00Z',
+                  bodyText: 'Looks good overall',
+                  url: 'url1',
+                  author: { login: 'commenter1' },
+                },
               ],
             },
             commits: {
@@ -312,9 +365,27 @@ describe('GitHubClient', () => {
             },
             reviews: {
               nodes: [
-                { id: 'r1', state: 'APPROVED', submittedAt: '2026-01-02T12:00:00Z', url: 'rev-url1', author: { login: 'reviewer1', avatarUrl: 'av1' } },
-                { id: 'r2', state: 'COMMENTED', submittedAt: '2026-01-01T18:00:00Z', url: 'rev-url2', author: { login: 'reviewer2', avatarUrl: 'av2' } },
-                { id: 'r3', state: 'CHANGES_REQUESTED', submittedAt: null, url: 'rev-url3', author: { login: 'reviewer3', avatarUrl: 'av3' } }, // no submittedAt → skipped in timeline
+                {
+                  id: 'r1',
+                  state: 'APPROVED',
+                  submittedAt: '2026-01-02T12:00:00Z',
+                  url: 'rev-url1',
+                  author: { login: 'reviewer1', avatarUrl: 'av1' },
+                },
+                {
+                  id: 'r2',
+                  state: 'COMMENTED',
+                  submittedAt: '2026-01-01T18:00:00Z',
+                  url: 'rev-url2',
+                  author: { login: 'reviewer2', avatarUrl: 'av2' },
+                },
+                {
+                  id: 'r3',
+                  state: 'CHANGES_REQUESTED',
+                  submittedAt: null,
+                  url: 'rev-url3',
+                  author: { login: 'reviewer3', avatarUrl: 'av3' },
+                }, // no submittedAt → skipped in timeline
               ],
             },
             reviewThreads: {
@@ -378,7 +449,15 @@ describe('GitHubClient', () => {
             comments: { totalCount: 0, nodes: [] },
             commits: { totalCount: 0, nodes: [] },
             reviewRequests: {
-              nodes: [{ requestedReviewer: { __typename: 'User', login: 'pendingReviewer', avatarUrl: 'av' } }],
+              nodes: [
+                {
+                  requestedReviewer: {
+                    __typename: 'User',
+                    login: 'pendingReviewer',
+                    avatarUrl: 'av',
+                  },
+                },
+              ],
             },
             reviews: { nodes: [] },
             reviewThreads: { totalCount: 0, nodes: [] },
@@ -402,12 +481,34 @@ describe('GitHubClient', () => {
       mockOctokit.checks.listForRef.mockResolvedValue({
         data: {
           check_runs: [
-            { id: 1, name: 'CI', status: 'completed', conclusion: 'success', details_url: 'url', started_at: 's', completed_at: 'c', app: { name: 'Actions' } },
+            {
+              id: 1,
+              name: 'CI',
+              status: 'completed',
+              conclusion: 'success',
+              details_url: 'url',
+              started_at: 's',
+              completed_at: 'c',
+              app: { name: 'Actions' },
+            },
           ],
         },
       })
       mockOctokit.repos.getCombinedStatusForRef.mockResolvedValue({
-        data: { state: 'success', statuses: [{ id: 1, context: 'lint', state: 'success', description: 'ok', target_url: 'u', created_at: 'c', updated_at: 'u' }] },
+        data: {
+          state: 'success',
+          statuses: [
+            {
+              id: 1,
+              context: 'lint',
+              state: 'success',
+              description: 'ok',
+              target_url: 'u',
+              created_at: 'c',
+              updated_at: 'u',
+            },
+          ],
+        },
       })
 
       const result = await client.fetchPRChecks('myorg', 'repo', 1)
@@ -423,21 +524,52 @@ describe('GitHubClient', () => {
       mockOctokit.checks.listForRef.mockResolvedValue({
         data: {
           check_runs: [
-            { id: 1, name: 'CI', status: 'completed', conclusion: 'failure', html_url: 'u', app: null },
-            { id: 2, name: 'Lint', status: 'completed', conclusion: 'success', app: { name: 'Linter' } },
+            {
+              id: 1,
+              name: 'CI',
+              status: 'completed',
+              conclusion: 'failure',
+              html_url: 'u',
+              app: null,
+            },
+            {
+              id: 2,
+              name: 'Lint',
+              status: 'completed',
+              conclusion: 'success',
+              app: { name: 'Linter' },
+            },
             { id: 3, name: 'Test', status: 'completed', conclusion: 'neutral', app: null },
             { id: 4, name: 'Build', status: 'completed', conclusion: 'skipped', app: null },
             { id: 5, name: 'Deploy', status: 'completed', conclusion: 'cancelled', app: null },
             { id: 6, name: 'Sec', status: 'completed', conclusion: 'timed_out', app: null },
             { id: 7, name: 'Stale', status: 'completed', conclusion: 'stale', app: null },
-            { id: 8, name: 'Action', status: 'completed', conclusion: 'action_required', app: null },
-            { id: 9, name: 'Startup', status: 'completed', conclusion: 'startup_failure', app: null },
+            {
+              id: 8,
+              name: 'Action',
+              status: 'completed',
+              conclusion: 'action_required',
+              app: null,
+            },
+            {
+              id: 9,
+              name: 'Startup',
+              status: 'completed',
+              conclusion: 'startup_failure',
+              app: null,
+            },
             { id: 10, name: 'Other', status: 'completed', conclusion: 'unknown_thing', app: null },
           ],
         },
       })
       mockOctokit.repos.getCombinedStatusForRef.mockResolvedValue({
-        data: { state: 'failure', statuses: [{ id: 1, context: 'x', state: 'failure' }, { id: 2, context: 'y', state: 'error' }] },
+        data: {
+          state: 'failure',
+          statuses: [
+            { id: 1, context: 'x', state: 'failure' },
+            { id: 2, context: 'y', state: 'error' },
+          ],
+        },
       })
 
       const result = await client.fetchPRChecks('myorg', 'repo', 1)
@@ -451,7 +583,9 @@ describe('GitHubClient', () => {
     it('returns pending state', async () => {
       mockOctokit.pulls.get.mockResolvedValue({ data: { head: { sha: 'sha1' } } })
       mockOctokit.checks.listForRef.mockResolvedValue({
-        data: { check_runs: [{ id: 1, name: 'CI', status: 'in_progress', conclusion: null, app: null }] },
+        data: {
+          check_runs: [{ id: 1, name: 'CI', status: 'in_progress', conclusion: null, app: null }],
+        },
       })
       mockOctokit.repos.getCombinedStatusForRef.mockResolvedValue({
         data: { state: 'pending', statuses: [{ id: 1, context: 'x', state: 'pending' }] },
@@ -465,7 +599,9 @@ describe('GitHubClient', () => {
     it('returns none state when no checks', async () => {
       mockOctokit.pulls.get.mockResolvedValue({ data: { head: { sha: 'sha1' } } })
       mockOctokit.checks.listForRef.mockResolvedValue({ data: { check_runs: [] } })
-      mockOctokit.repos.getCombinedStatusForRef.mockResolvedValue({ data: { state: 'pending', statuses: [] } })
+      mockOctokit.repos.getCombinedStatusForRef.mockResolvedValue({
+        data: { state: 'pending', statuses: [] },
+      })
 
       const result = await client.fetchPRChecks('myorg', 'repo', 1)
       expect(result.overallState).toBe('none')
@@ -475,9 +611,15 @@ describe('GitHubClient', () => {
     it('returns neutral state when only neutral checks exist', async () => {
       mockOctokit.pulls.get.mockResolvedValue({ data: { head: { sha: 'sha1' } } })
       mockOctokit.checks.listForRef.mockResolvedValue({
-        data: { check_runs: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'neutral', app: null }] },
+        data: {
+          check_runs: [
+            { id: 1, name: 'CI', status: 'completed', conclusion: 'neutral', app: null },
+          ],
+        },
       })
-      mockOctokit.repos.getCombinedStatusForRef.mockResolvedValue({ data: { state: 'success', statuses: [] } })
+      mockOctokit.repos.getCombinedStatusForRef.mockResolvedValue({
+        data: { state: 'success', statuses: [] },
+      })
 
       const result = await client.fetchPRChecks('myorg', 'repo', 1)
       expect(result.overallState).toBe('neutral')
@@ -528,7 +670,11 @@ describe('GitHubClient', () => {
                         url: 'u1',
                         diffHunk: '@@ -1,5 +1,5 @@',
                         reactionGroups: [
-                          { content: 'THUMBS_UP', viewerHasReacted: true, users: { totalCount: 3 } },
+                          {
+                            content: 'THUMBS_UP',
+                            viewerHasReacted: true,
+                            users: { totalCount: 3 },
+                          },
                           { content: 'HEART', viewerHasReacted: false, users: { totalCount: 1 } },
                         ],
                       },
@@ -595,14 +741,26 @@ describe('GitHubClient', () => {
     it('maps full repo detail from parallel API calls', async () => {
       mockOctokit.repos.get.mockResolvedValue({
         data: {
-          name: 'repo', full_name: 'myorg/repo', description: 'A repo',
-          html_url: 'https://github.com/myorg/repo', homepage: 'https://example.com',
-          language: 'TypeScript', default_branch: 'main', visibility: 'public',
-          archived: false, fork: false, private: false,
-          created_at: '2025-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
-          pushed_at: '2026-01-15T00:00:00Z', size: 5120,
-          stargazers_count: 42, forks_count: 10, subscribers_count: 5,
-          open_issues_count: 7, topics: ['typescript', 'electron'],
+          name: 'repo',
+          full_name: 'myorg/repo',
+          description: 'A repo',
+          html_url: 'https://github.com/myorg/repo',
+          homepage: 'https://example.com',
+          language: 'TypeScript',
+          default_branch: 'main',
+          visibility: 'public',
+          archived: false,
+          fork: false,
+          private: false,
+          created_at: '2025-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          pushed_at: '2026-01-15T00:00:00Z',
+          size: 5120,
+          stargazers_count: 42,
+          forks_count: 10,
+          subscribers_count: 5,
+          open_issues_count: 7,
+          topics: ['typescript', 'electron'],
           license: { spdx_id: 'MIT' },
         },
       })
@@ -610,10 +768,17 @@ describe('GitHubClient', () => {
         data: { TypeScript: 8000, JavaScript: 2000 },
       })
       mockOctokit.repos.listCommits.mockResolvedValue({
-        data: [{
-          sha: 'abc123', commit: { message: 'Initial commit\n\nBody', author: { name: 'Author', date: '2026-01-01T00:00:00Z' } },
-          author: { login: 'author1', avatar_url: 'av' }, html_url: 'cu',
-        }],
+        data: [
+          {
+            sha: 'abc123',
+            commit: {
+              message: 'Initial commit\n\nBody',
+              author: { name: 'Author', date: '2026-01-01T00:00:00Z' },
+            },
+            author: { login: 'author1', avatar_url: 'av' },
+            html_url: 'cu',
+          },
+        ],
       })
       mockOctokit.repos.listContributors.mockResolvedValue({
         data: [{ login: 'c1', avatar_url: 'cav', contributions: 100, html_url: 'ch' }],
@@ -621,7 +786,16 @@ describe('GitHubClient', () => {
       mockOctokit.pulls.list.mockResolvedValue({ data: [{ number: 1 }] })
       mockOctokit.actions.listWorkflowRunsForRepo.mockResolvedValue({
         data: {
-          workflow_runs: [{ name: 'CI', status: 'completed', conclusion: 'success', html_url: 'wu', created_at: 'wc', head_branch: 'main' }],
+          workflow_runs: [
+            {
+              name: 'CI',
+              status: 'completed',
+              conclusion: 'success',
+              html_url: 'wu',
+              created_at: 'wc',
+              head_branch: 'main',
+            },
+          ],
         },
       })
 
@@ -640,12 +814,27 @@ describe('GitHubClient', () => {
     it('handles failed optional API calls gracefully', async () => {
       mockOctokit.repos.get.mockResolvedValue({
         data: {
-          name: 'repo', full_name: 'myorg/repo', description: null,
-          html_url: 'u', homepage: null, language: null, default_branch: 'main',
-          visibility: undefined, archived: undefined, fork: false, private: true,
-          created_at: null, updated_at: null, pushed_at: null, size: null,
-          stargazers_count: null, forks_count: null, subscribers_count: null,
-          open_issues_count: null, topics: null, license: null,
+          name: 'repo',
+          full_name: 'myorg/repo',
+          description: null,
+          html_url: 'u',
+          homepage: null,
+          language: null,
+          default_branch: 'main',
+          visibility: undefined,
+          archived: undefined,
+          fork: false,
+          private: true,
+          created_at: null,
+          updated_at: null,
+          pushed_at: null,
+          size: null,
+          stargazers_count: null,
+          forks_count: null,
+          subscribers_count: null,
+          open_issues_count: null,
+          topics: null,
+          license: null,
         },
       })
       mockOctokit.repos.listLanguages.mockRejectedValue(new Error('fail'))
@@ -746,10 +935,16 @@ describe('GitHubClient', () => {
       mockOctokit.repos.getCommit.mockResolvedValue({
         data: {
           sha: 'abc',
-          commit: { message: '', author: { date: '2026-01-01T00:00:00Z' }, committer: { date: '2026-01-01T00:00:01Z' } },
-          author: null, html_url: 'u',
+          commit: {
+            message: '',
+            author: { date: '2026-01-01T00:00:00Z' },
+            committer: { date: '2026-01-01T00:00:01Z' },
+          },
+          author: null,
+          html_url: 'u',
           parents: [{ sha: 'p1' }], // no html_url
-          stats: null, files: null,
+          stats: null,
+          files: null,
         },
       })
 
@@ -777,8 +972,25 @@ describe('GitHubClient', () => {
   describe('fetchPRFilesChanged', () => {
     it('paginate and sum files changed', async () => {
       mockOctokit.paginate.mockResolvedValue([
-        { filename: 'a.ts', status: 'added', additions: 10, deletions: 0, changes: 10, patch: '+new', blob_url: 'b1' },
-        { filename: 'b.ts', previous_filename: 'old.ts', status: 'renamed', additions: 2, deletions: 1, changes: 3, patch: null, blob_url: null },
+        {
+          filename: 'a.ts',
+          status: 'added',
+          additions: 10,
+          deletions: 0,
+          changes: 10,
+          patch: '+new',
+          blob_url: 'b1',
+        },
+        {
+          filename: 'b.ts',
+          previous_filename: 'old.ts',
+          status: 'renamed',
+          additions: 2,
+          deletions: 1,
+          changes: 3,
+          patch: null,
+          blob_url: null,
+        },
       ])
 
       const result = await client.fetchPRFilesChanged('myorg', 'repo', 1)
@@ -1090,10 +1302,21 @@ describe('GitHubClient', () => {
   describe('fetchOrgRepos', () => {
     it('returns repos for org', async () => {
       mockOctokit.repos.listForOrg.mockResolvedValue({
-        data: [{ name: 'repo1', full_name: 'myorg/repo1', description: 'Test repo',
-          private: false, default_branch: 'main', language: 'TypeScript',
-          updated_at: '2026-01-01T00:00:00Z', html_url: 'https://github.com/myorg/repo1',
-          archived: false, stargazers_count: 5, forks_count: 1 }],
+        data: [
+          {
+            name: 'repo1',
+            full_name: 'myorg/repo1',
+            description: 'Test repo',
+            private: false,
+            default_branch: 'main',
+            language: 'TypeScript',
+            updated_at: '2026-01-01T00:00:00Z',
+            html_url: 'https://github.com/myorg/repo1',
+            archived: false,
+            stargazers_count: 5,
+            forks_count: 1,
+          },
+        ],
       })
       const result = await client.fetchOrgRepos('myorg')
       expect(result.authenticatedAs).toBeDefined()
@@ -1105,7 +1328,12 @@ describe('GitHubClient', () => {
   describe('fetchOrgMembers', () => {
     it('returns members for org', async () => {
       mockOctokit.paginate.mockResolvedValue([
-        { login: 'member1', avatar_url: 'https://avatar', html_url: 'https://github.com/member1', type: 'User' },
+        {
+          login: 'member1',
+          avatar_url: 'https://avatar',
+          html_url: 'https://github.com/member1',
+          type: 'User',
+        },
       ])
       const result = await client.fetchOrgMembers('myorg')
       expect(result.authenticatedAs).toBeDefined()
@@ -1125,16 +1353,24 @@ describe('GitHubClient', () => {
 
     it('returns isSFLEnabled true when SFL workflows exist', async () => {
       mockOctokit.actions.listRepoWorkflows = vi.fn().mockResolvedValue({
-        data: { workflows: [
-          { name: 'SFL Issue Processor', id: 10, state: 'active' },
-          { name: 'SFL PR Router', id: 11, state: 'active' },
-        ]},
+        data: {
+          workflows: [
+            { name: 'SFL Issue Processor', id: 10, state: 'active' },
+            { name: 'SFL PR Router', id: 11, state: 'active' },
+          ],
+        },
       })
       mockOctokit.actions.listWorkflowRuns = vi.fn().mockResolvedValue({
-        data: { workflow_runs: [{
-          status: 'completed', conclusion: 'success',
-          created_at: '2026-01-01T00:00:00Z', html_url: 'https://github.com/myorg/repo/actions/runs/1',
-        }]},
+        data: {
+          workflow_runs: [
+            {
+              status: 'completed',
+              conclusion: 'success',
+              created_at: '2026-01-01T00:00:00Z',
+              html_url: 'https://github.com/myorg/repo/actions/runs/1',
+            },
+          ],
+        },
       })
       const result = await client.fetchSFLStatus('myorg', 'my-repo')
       expect(result.isSFLEnabled).toBe(true)
@@ -1170,22 +1406,41 @@ describe('GitHubClient', () => {
       const commitData = [
         {
           sha: 'abc123',
-          author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
+          author: {
+            login: 'user1',
+            avatar_url: 'https://avatar',
+            html_url: 'https://github.com/user1',
+          },
           commit: { author: { name: 'user1', date: new Date().toISOString() }, message: 'fix bug' },
         },
         {
           sha: 'def456',
-          author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
-          commit: { author: { name: 'user1', date: new Date().toISOString() }, message: 'refine logic' },
+          author: {
+            login: 'user1',
+            avatar_url: 'https://avatar',
+            html_url: 'https://github.com/user1',
+          },
+          commit: {
+            author: { name: 'user1', date: new Date().toISOString() },
+            message: 'refine logic',
+          },
         },
         {
           sha: 'ghi789',
-          author: { login: 'user1', avatar_url: 'https://avatar', html_url: 'https://github.com/user1' },
-          commit: { author: { name: 'user1', date: new Date().toISOString() }, message: 'add tests' },
+          author: {
+            login: 'user1',
+            avatar_url: 'https://avatar',
+            html_url: 'https://github.com/user1',
+          },
+          commit: {
+            author: { name: 'user1', date: new Date().toISOString() },
+            message: 'add tests',
+          },
         },
       ]
       mockOctokit.paginate.mockImplementation((fn: unknown) => {
-        if (fn === mockOctokit.teams.list) return Promise.resolve([{ slug: 'eng', name: 'Engineering' }])
+        if (fn === mockOctokit.teams.list)
+          return Promise.resolve([{ slug: 'eng', name: 'Engineering' }])
         return Promise.resolve(commitData)
       })
 
@@ -1221,8 +1476,18 @@ describe('GitHubClient', () => {
 
       mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({
         data: [
-          { type: 'PushEvent', repo: { name: 'myorg/repo1' }, created_at: new Date().toISOString(), payload: { size: 0 } },
-          { type: 'PullRequestReviewEvent', repo: { name: 'myorg/repo1' }, created_at: '2026-01-01T00:00:00Z', payload: {} },
+          {
+            type: 'PushEvent',
+            repo: { name: 'myorg/repo1' },
+            created_at: new Date().toISOString(),
+            payload: { size: 0 },
+          },
+          {
+            type: 'PullRequestReviewEvent',
+            repo: { name: 'myorg/repo1' },
+            created_at: '2026-01-01T00:00:00Z',
+            payload: {},
+          },
         ],
       })
 
@@ -1268,24 +1533,39 @@ describe('GitHubClient', () => {
   describe('fetchOrgOverview', () => {
     it('returns org overview metrics', async () => {
       mockOctokit.repos.listForOrg.mockResolvedValue({
-        data: [{
-          name: 'repo1', full_name: 'myorg/repo1', description: 'Test',
-          private: false, default_branch: 'main', language: 'TypeScript',
-          updated_at: '2026-01-01T00:00:00Z', pushed_at: new Date().toISOString(),
-          html_url: 'https://github.com/myorg/repo1', archived: false,
-          stargazers_count: 5, forks_count: 1,
-        }],
+        data: [
+          {
+            name: 'repo1',
+            full_name: 'myorg/repo1',
+            description: 'Test',
+            private: false,
+            default_branch: 'main',
+            language: 'TypeScript',
+            updated_at: '2026-01-01T00:00:00Z',
+            pushed_at: new Date().toISOString(),
+            html_url: 'https://github.com/myorg/repo1',
+            archived: false,
+            stargazers_count: 5,
+            forks_count: 1,
+          },
+        ],
       })
 
       mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
         data: { total_count: 3, items: [] },
       })
 
-      mockOctokit.paginate.mockResolvedValue([{
-        sha: 'abc123',
-        author: { login: 'dev1', avatar_url: 'https://avatar', html_url: 'https://github.com/dev1' },
-        commit: { author: { name: 'dev1' }, message: 'fix bug' },
-      }])
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          sha: 'abc123',
+          author: {
+            login: 'dev1',
+            avatar_url: 'https://avatar',
+            html_url: 'https://github.com/dev1',
+          },
+          commit: { author: { name: 'dev1' }, message: 'fix bug' },
+        },
+      ])
 
       const result = await client.fetchOrgOverview('myorg')
       expect(result.metrics.org).toBe('myorg')

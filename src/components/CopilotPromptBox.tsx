@@ -286,7 +286,12 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
                 title={r.prompt}
                 role="button"
                 tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenResult?.(r._id); } }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onOpenResult?.(r._id)
+                  }
+                }}
               >
                 <span className="copilot-recent-status">{getStatusEmoji(r.status)}</span>
                 <span className="copilot-recent-prompt">

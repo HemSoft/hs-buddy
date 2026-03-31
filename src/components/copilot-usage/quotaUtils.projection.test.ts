@@ -127,9 +127,7 @@ describe('computeProjection', () => {
     const result = computeProjection(snapshot, resetDate.toISOString())
 
     if (result && result.projectedOverage > 0) {
-      expect(result.projectedOverageCost).toBe(
-        result.projectedOverage * OVERAGE_COST_PER_REQUEST
-      )
+      expect(result.projectedOverageCost).toBe(result.projectedOverage * OVERAGE_COST_PER_REQUEST)
     }
   })
 

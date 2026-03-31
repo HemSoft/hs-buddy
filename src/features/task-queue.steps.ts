@@ -18,11 +18,14 @@ describeFeature(feature, ({ Scenario }) => {
     })
     When('3 tasks are enqueued', async () => {
       const promises = [1, 2, 3].map(i => {
-        const { promise } = queue.enqueue(async () => {
-          executionOrder.push(i)
-          await delay(10)
-          return i
-        }, { name: `task-${i}` })
+        const { promise } = queue.enqueue(
+          async () => {
+            executionOrder.push(i)
+            await delay(10)
+            return i
+          },
+          { name: `task-${i}` }
+        )
         return promise
       })
       await Promise.all(promises)
@@ -42,13 +45,16 @@ describeFeature(feature, ({ Scenario }) => {
     })
     When('3 tasks are enqueued', async () => {
       const promises = [1, 2, 3].map(i => {
-        const { promise } = queue.enqueue(async () => {
-          currentConcurrent++
-          maxConcurrent = Math.max(maxConcurrent, currentConcurrent)
-          await delay(20)
-          currentConcurrent--
-          return i
-        }, { name: `task-${i}` })
+        const { promise } = queue.enqueue(
+          async () => {
+            currentConcurrent++
+            maxConcurrent = Math.max(maxConcurrent, currentConcurrent)
+            await delay(20)
+            currentConcurrent--
+            return i
+          },
+          { name: `task-${i}` }
+        )
         return promise
       })
       await Promise.all(promises)
@@ -67,19 +73,30 @@ describeFeature(feature, ({ Scenario }) => {
       queue = new TaskQueue('priority-test', { concurrency: 1 })
     })
     And('a running task is occupying the queue', () => {
-      const gatePromise = new Promise<void>(resolve => { gateResolve = resolve })
-      queue.enqueue(async () => {
-        await gatePromise
-        executionOrder.push('blocker')
-      }, { name: 'blocker' })
+      const gatePromise = new Promise<void>(resolve => {
+        gateResolve = resolve
+      })
+      queue.enqueue(
+        async () => {
+          await gatePromise
+          executionOrder.push('blocker')
+        },
+        { name: 'blocker' }
+      )
     })
     When('a low-priority task and a high-priority task are enqueued', () => {
-      queue.enqueue(async () => {
-        executionOrder.push('low')
-      }, { name: 'low', priority: 1 })
-      queue.enqueue(async () => {
-        executionOrder.push('high')
-      }, { name: 'high', priority: 10 })
+      queue.enqueue(
+        async () => {
+          executionOrder.push('low')
+        },
+        { name: 'low', priority: 1 }
+      )
+      queue.enqueue(
+        async () => {
+          executionOrder.push('high')
+        },
+        { name: 'high', priority: 10 }
+      )
     })
     And('the running task completes', async () => {
       gateResolve!()
@@ -103,13 +120,23 @@ describeFeature(feature, ({ Scenario }) => {
       queue = new TaskQueue('cancel-test', { concurrency: 1 })
     })
     And('a running task is occupying the queue', () => {
-      const gatePromise = new Promise<void>(resolve => { gateResolve = resolve })
-      queue.enqueue(async () => { await gatePromise }, { name: 'blocker' })
+      const gatePromise = new Promise<void>(resolve => {
+        gateResolve = resolve
+      })
+      queue.enqueue(
+        async () => {
+          await gatePromise
+        },
+        { name: 'blocker' }
+      )
     })
     And('a second task is pending', () => {
-      const { taskId, promise } = queue.enqueue(async () => {
-        taskExecuted = true
-      }, { name: 'to-cancel' })
+      const { taskId, promise } = queue.enqueue(
+        async () => {
+          taskExecuted = true
+        },
+        { name: 'to-cancel' }
+      )
       pendingTaskId = taskId
       pendingPromise = promise
     })
@@ -136,10 +163,15 @@ describeFeature(feature, ({ Scenario }) => {
       queue = new TaskQueue('abort-test', { concurrency: 1 })
     })
     And('a task is running that checks its abort signal', () => {
-      const { taskId: id } = queue.enqueue(async (signal) => {
-        signal.addEventListener('abort', () => { signalAborted = true })
-        await delay(200)
-      }, { name: 'abortable' })
+      const { taskId: id } = queue.enqueue(
+        async signal => {
+          signal.addEventListener('abort', () => {
+            signalAborted = true
+          })
+          await delay(200)
+        },
+        { name: 'abortable' }
+      )
       taskId = id
     })
     When('the running task is cancelled', async () => {

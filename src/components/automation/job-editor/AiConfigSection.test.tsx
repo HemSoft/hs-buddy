@@ -3,7 +3,15 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { AiConfigSection } from './AiConfigSection'
 
 vi.mock('../../shared/AccountPicker', () => ({
-  AccountPicker: ({ value, onChange, id }: { value: string; onChange: (v: string) => void; id: string }) => (
+  AccountPicker: ({
+    value,
+    onChange,
+    id,
+  }: {
+    value: string
+    onChange: (v: string) => void
+    id: string
+  }) => (
     <select data-testid={id} value={value} onChange={e => onChange(e.target.value)}>
       <option value="user1">user1</option>
       <option value="user2">user2</option>
@@ -12,7 +20,15 @@ vi.mock('../../shared/AccountPicker', () => ({
 }))
 
 vi.mock('../../shared/ModelPicker', () => ({
-  ModelPicker: ({ value, onChange, id }: { value: string; onChange: (v: string) => void; id: string }) => (
+  ModelPicker: ({
+    value,
+    onChange,
+    id,
+  }: {
+    value: string
+    onChange: (v: string) => void
+    id: string
+  }) => (
     <select data-testid={id} value={value} onChange={e => onChange(e.target.value)}>
       <option value="gpt-4">gpt-4</option>
       <option value="claude">claude</option>
@@ -21,7 +37,15 @@ vi.mock('../../shared/ModelPicker', () => ({
 }))
 
 vi.mock('../../shared/RepoPicker', () => ({
-  RepoPicker: ({ value, onChange, id }: { value: string; onChange: (v: string) => void; id: string }) => (
+  RepoPicker: ({
+    value,
+    onChange,
+    id,
+  }: {
+    value: string
+    onChange: (v: string) => void
+    id: string
+  }) => (
     <select data-testid={id} value={value} onChange={e => onChange(e.target.value)}>
       <option value="">None</option>
       <option value="acme/web">acme/web</option>

@@ -3,11 +3,14 @@ import { render } from '@testing-library/react'
 import { getStatusLabel, getStatusClass, getStatusEmoji, getStatusIcon } from './statusDisplay'
 
 describe('getStatusIcon', () => {
-  it.each(['pending', 'running', 'completed', 'failed', 'cancelled'])('returns an icon for %s', (status) => {
-    const icon = getStatusIcon(status)
-    const { container } = render(icon as React.ReactElement)
-    expect(container.querySelector('svg')).toBeTruthy()
-  })
+  it.each(['pending', 'running', 'completed', 'failed', 'cancelled'])(
+    'returns an icon for %s',
+    status => {
+      const icon = getStatusIcon(status)
+      const { container } = render(icon as React.ReactElement)
+      expect(container.querySelector('svg')).toBeTruthy()
+    }
+  )
 
   it('returns null for unknown status', () => {
     expect(getStatusIcon('unknown')).toBeNull()

@@ -58,7 +58,9 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
     if (publishingRunId || !owner || !repo) return
     setPublishingRunId(runId)
     try {
-      const result = await convex.query(api.copilotResults.get, { id: resultId as Id<'copilotResults'> })
+      const result = await convex.query(api.copilotResults.get, {
+        id: resultId as Id<'copilotResults'>,
+      })
       if (!result?.result) return
       const client = new GitHubClient({ accounts }, 7)
       const body = `## \u{1F916} AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy \u2014 ${model || result.model || 'AI'} review*`
@@ -164,9 +166,17 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
                     className={`pr-reviews-icon-btn${publishedRunIds.has(run._id) ? ' published' : ''}`}
                     onClick={() => handlePublishToPR(run._id, run.resultId, run.model)}
                     disabled={!!publishingRunId || publishedRunIds.has(run._id)}
-                    title={publishedRunIds.has(run._id) ? 'Published to PR' : 'Publish review as PR comment'}
+                    title={
+                      publishedRunIds.has(run._id)
+                        ? 'Published to PR'
+                        : 'Publish review as PR comment'
+                    }
                   >
-                    {publishingRunId === run._id ? <Loader2 size={12} className="spin" /> : <MessageSquareShare size={12} />}
+                    {publishingRunId === run._id ? (
+                      <Loader2 size={12} className="spin" />
+                    ) : (
+                      <MessageSquareShare size={12} />
+                    )}
                   </button>
                 )}
                 <button

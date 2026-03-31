@@ -201,7 +201,9 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
                       <ChevronRight size={14} />
                     )}
                   </span>
-                  <span className={`repo-commit-file-status repo-commit-file-status-${file.status}`}>
+                  <span
+                    className={`repo-commit-file-status repo-commit-file-status-${file.status}`}
+                  >
                     {formatFileStatus(file.status)}
                   </span>
                   <h3>{file.filename}</h3>
@@ -253,8 +255,8 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
                   </div>
                 ) : (
                   <div className="repo-commit-diff-empty">
-                    GitHub did not provide a patch preview for this file. This usually means the file
-                    is binary, too large, or the change is a pure rename.
+                    GitHub did not provide a patch preview for this file. This usually means the
+                    file is binary, too large, or the change is a pure rename.
                   </div>
                 )
               ) : null}

@@ -325,7 +325,11 @@ function QuickActionsBar({ onQuickAction }: { onQuickAction: (action: QuickActio
         <Zap size={16} />
         <span>Jobs</span>
       </button>
-      <button type="button" className="welcome-action-btn" onClick={() => onQuickAction('settings')}>
+      <button
+        type="button"
+        className="welcome-action-btn"
+        onClick={() => onQuickAction('settings')}
+      >
         <Settings size={16} />
         <span>Settings</span>
       </button>

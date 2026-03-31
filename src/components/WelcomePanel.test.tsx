@@ -92,7 +92,13 @@ describe('WelcomePanel', () => {
   })
 
   it('shows stat cards with computed values', () => {
-    render(<WelcomePanel prCounts={{ open: 5, review: 3 }} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+    render(
+      <WelcomePanel
+        prCounts={{ open: 5, review: 3 }}
+        onNavigate={onNavigate}
+        onSectionChange={onSectionChange}
+      />
+    )
     expect(screen.getByText('17')).toBeTruthy() // PRs Viewed: 10+5+2
     expect(screen.getAllByText('8').length).toBeGreaterThanOrEqual(1) // Active PRs: 5+3
   })

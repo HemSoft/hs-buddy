@@ -47,7 +47,12 @@ describe('CopilotPromptBox', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     Object.defineProperty(window, 'ipcRenderer', {
-      value: { invoke: vi.fn().mockResolvedValue({ success: true }), send: vi.fn(), on: vi.fn(), off: vi.fn() },
+      value: {
+        invoke: vi.fn().mockResolvedValue({ success: true }),
+        send: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+      },
       writable: true,
       configurable: true,
     })
@@ -55,7 +60,9 @@ describe('CopilotPromptBox', () => {
 
   it('renders the prompt textarea', () => {
     render(<CopilotPromptBox onOpenResult={onOpenResult} />)
-    const textarea = screen.getByPlaceholderText(/ask copilot|type your prompt|what would you like/i)
+    const textarea = screen.getByPlaceholderText(
+      /ask copilot|type your prompt|what would you like/i
+    )
     expect(textarea).toBeTruthy()
   })
 

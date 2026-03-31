@@ -64,57 +64,66 @@ describe('parseCronValue', () => {
 
 describe('buildCronExpression', () => {
   it('builds minute expression', () => {
-    expect(buildCronExpression(
-      { frequency: 'minute', minute: 0, hour: 9, dayOfMonth: 1, selectedDays: [1] },
-      ''
-    )).toBe('* * * * *')
+    expect(
+      buildCronExpression(
+        { frequency: 'minute', minute: 0, hour: 9, dayOfMonth: 1, selectedDays: [1] },
+        ''
+      )
+    ).toBe('* * * * *')
   })
 
   it('builds hourly expression', () => {
-    expect(buildCronExpression(
-      { frequency: 'hourly', minute: 15, hour: 9, dayOfMonth: 1, selectedDays: [1] },
-      ''
-    )).toBe('15 * * * *')
+    expect(
+      buildCronExpression(
+        { frequency: 'hourly', minute: 15, hour: 9, dayOfMonth: 1, selectedDays: [1] },
+        ''
+      )
+    ).toBe('15 * * * *')
   })
 
   it('builds daily expression', () => {
-    expect(buildCronExpression(
-      { frequency: 'daily', minute: 30, hour: 14, dayOfMonth: 1, selectedDays: [1] },
-      ''
-    )).toBe('30 14 * * *')
+    expect(
+      buildCronExpression(
+        { frequency: 'daily', minute: 30, hour: 14, dayOfMonth: 1, selectedDays: [1] },
+        ''
+      )
+    ).toBe('30 14 * * *')
   })
 
   it('builds weekly expression with sorted days', () => {
-    expect(buildCronExpression(
-      { frequency: 'weekly', minute: 0, hour: 9, dayOfMonth: 1, selectedDays: [5, 1, 3] },
-      ''
-    )).toBe('0 9 * * 1,3,5')
+    expect(
+      buildCronExpression(
+        { frequency: 'weekly', minute: 0, hour: 9, dayOfMonth: 1, selectedDays: [5, 1, 3] },
+        ''
+      )
+    ).toBe('0 9 * * 1,3,5')
   })
 
   it('builds monthly expression', () => {
-    expect(buildCronExpression(
-      { frequency: 'monthly', minute: 0, hour: 9, dayOfMonth: 15, selectedDays: [1] },
-      ''
-    )).toBe('0 9 15 * *')
+    expect(
+      buildCronExpression(
+        { frequency: 'monthly', minute: 0, hour: 9, dayOfMonth: 15, selectedDays: [1] },
+        ''
+      )
+    ).toBe('0 9 15 * *')
   })
 
   it('returns rawValue for custom frequency', () => {
-    expect(buildCronExpression(
-      { frequency: 'custom', minute: 0, hour: 9, dayOfMonth: 1, selectedDays: [1] },
-      '*/5 * * * 1-5'
-    )).toBe('*/5 * * * 1-5')
+    expect(
+      buildCronExpression(
+        { frequency: 'custom', minute: 0, hour: 9, dayOfMonth: 1, selectedDays: [1] },
+        '*/5 * * * 1-5'
+      )
+    ).toBe('*/5 * * * 1-5')
   })
 })
 
 describe('parseCronValue + buildCronExpression roundtrip', () => {
-  it.each([
-    '* * * * *',
-    '15 * * * *',
-    '30 14 * * *',
-    '0 9 * * 1,3,5',
-    '0 9 15 * *',
-  ])('roundtrips %s', (cron) => {
-    const parsed = parseCronValue(cron)
-    expect(buildCronExpression(parsed, cron)).toBe(cron)
-  })
+  it.each(['* * * * *', '15 * * * *', '30 14 * * *', '0 9 * * 1,3,5', '0 9 15 * *'])(
+    'roundtrips %s',
+    cron => {
+      const parsed = parseCronValue(cron)
+      expect(buildCronExpression(parsed, cron)).toBe(cron)
+    }
+  )
 })

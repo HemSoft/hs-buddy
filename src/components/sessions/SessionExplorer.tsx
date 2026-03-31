@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MessageSquare, RefreshCw, Database, HardDrive, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  MessageSquare,
+  RefreshCw,
+  Database,
+  HardDrive,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
 import { useCopilotSessions } from '../../hooks/useCopilotSessions'
 import type { SessionSummary } from '../../types/copilotSession'
 import './SessionExplorer.css'
@@ -12,7 +20,12 @@ function formatSize(bytes: number): string {
 
 function formatDate(ts: number): string {
   if (!ts) return ''
-  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(ts).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function getDisplayTitle(session: SessionSummary): string {
@@ -37,8 +50,17 @@ function getDateGroup(ts: number): string {
   return 'Older'
 }
 
-interface DateGroup { label: string; items: SessionSummary[] }
-interface WorkspaceGroup { name: string; hash: string; dateGroups: DateGroup[]; sessionCount: number; latestModified: number }
+interface DateGroup {
+  label: string
+  items: SessionSummary[]
+}
+interface WorkspaceGroup {
+  name: string
+  hash: string
+  dateGroups: DateGroup[]
+  sessionCount: number
+  latestModified: number
+}
 
 function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] {
   const dateOrder = ['Today', 'Yesterday', 'This Week', 'Older']
@@ -64,7 +86,9 @@ function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] 
       if (!byDate[label]) byDate[label] = []
       byDate[label].push(s)
     }
-    const dateGroups = dateOrder.filter(l => byDate[l]?.length).map(label => ({ label, items: byDate[label] }))
+    const dateGroups = dateOrder
+      .filter(l => byDate[l]?.length)
+      .map(label => ({ label, items: byDate[label] }))
 
     groups.push({ name, hash, dateGroups, sessionCount: wsSessions.length, latestModified })
   }
@@ -74,9 +98,16 @@ function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] 
   return groups
 }
 
-function SessionListItem({ session, onSelect }: { session: SessionSummary; onSelect: (filePath: string) => void }) {
+function SessionListItem({
+  session,
+  onSelect,
+}: {
+  session: SessionSummary
+  onSelect: (filePath: string) => void
+}) {
   const displayTitle = getDisplayTitle(session)
-  const showPromptPreview = session.title && session.firstPrompt && session.firstPrompt !== session.title
+  const showPromptPreview =
+    session.title && session.firstPrompt && session.firstPrompt !== session.title
 
   return (
     <button type="button" className="session-list-item" onClick={() => onSelect(session.filePath)}>
@@ -96,7 +127,17 @@ function SessionListItem({ session, onSelect }: { session: SessionSummary; onSel
   )
 }
 
-function WorkspaceSection({ group, onSelect, expanded, onToggle }: { group: WorkspaceGroup; onSelect: (filePath: string) => void; expanded: boolean; onToggle: () => void }) {
+function WorkspaceSection({
+  group,
+  onSelect,
+  expanded,
+  onToggle,
+}: {
+  group: WorkspaceGroup
+  onSelect: (filePath: string) => void
+  expanded: boolean
+  onToggle: () => void
+}) {
   return (
     <div className="session-workspace-group">
       <button type="button" className="session-workspace-header" onClick={onToggle}>
@@ -134,7 +175,10 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
 
   const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
   const workspaceGroups = useMemo(() => groupByWorkspaceThenDate(sessions), [sessions])
-  const defaultExpandedHashes = useMemo(() => new Set(workspaceGroups.slice(0, 3).map(group => group.hash)), [workspaceGroups])
+  const defaultExpandedHashes = useMemo(
+    () => new Set(workspaceGroups.slice(0, 3).map(group => group.hash)),
+    [workspaceGroups]
+  )
   const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -191,11 +235,15 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
             <div className="session-stat-value">{totalCount}</div>
           </div>
           <div className="session-stat-card">
-            <div className="session-stat-label"><FolderOpen size={12} /> Projects</div>
+            <div className="session-stat-label">
+              <FolderOpen size={12} /> Projects
+            </div>
             <div className="session-stat-value">{workspaceGroups.length}</div>
           </div>
           <div className="session-stat-card">
-            <div className="session-stat-label"><HardDrive size={12} /> Total Size</div>
+            <div className="session-stat-label">
+              <HardDrive size={12} /> Total Size
+            </div>
             <div className="session-stat-value">{formatSize(totalSize)}</div>
           </div>
         </div>

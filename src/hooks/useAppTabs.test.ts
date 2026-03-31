@@ -21,10 +21,7 @@ describe('useAppTabs', () => {
     const { result } = renderHook(() => useAppTabs({ onViewOpen }))
 
     await act(async () => {
-      await Promise.all([
-        result.current.openTab('pr-my-prs'),
-        result.current.openTab('pr-my-prs'),
-      ])
+      await Promise.all([result.current.openTab('pr-my-prs'), result.current.openTab('pr-my-prs')])
     })
 
     await waitFor(() => {

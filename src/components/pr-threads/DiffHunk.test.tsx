@@ -97,7 +97,9 @@ describe('DiffHunk', () => {
     for (let i = 1; i <= 10; i++) lines.push(` line ${i}`)
     const { container } = render(<DiffHunk hunk={lines.join('\n')} />)
 
-    const contentLines = container.querySelectorAll('.diff-line:not(.diff-range):not(.diff-truncated)')
+    const contentLines = container.querySelectorAll(
+      '.diff-line:not(.diff-range):not(.diff-truncated)'
+    )
     expect(contentLines).toHaveLength(6)
     expect(contentLines[0].textContent).toContain('line 5')
     expect(contentLines[5].textContent).toContain('line 10')
@@ -108,7 +110,9 @@ describe('DiffHunk', () => {
     for (let i = 1; i <= 10; i++) lines.push(` line ${i}`)
     const { container } = render(<DiffHunk hunk={lines.join('\n')} />)
 
-    const contentLines = container.querySelectorAll('.diff-line:not(.diff-range):not(.diff-truncated)')
+    const contentLines = container.querySelectorAll(
+      '.diff-line:not(.diff-range):not(.diff-truncated)'
+    )
     const nums = contentLines[0].querySelectorAll('.diff-line-num')
     expect(nums[0].textContent).toBe('5')
     expect(nums[1].textContent).toBe('5')
@@ -130,7 +134,9 @@ describe('DiffHunk', () => {
     ].join('\n')
     const { container } = render(<DiffHunk hunk={hunk} />)
 
-    const contentLines = container.querySelectorAll('.diff-line:not(.diff-range):not(.diff-truncated)')
+    const contentLines = container.querySelectorAll(
+      '.diff-line:not(.diff-range):not(.diff-truncated)'
+    )
     const firstNums = contentLines[0].querySelectorAll('.diff-line-num')
     expect(firstNums[0].textContent).toBe('3')
     expect(firstNums[1].textContent).toBe('')

@@ -90,7 +90,10 @@ export function AppContentRouter({
     case 'pr-need-a-nudge': {
       const mode = activeViewId.slice(3) as (typeof PR_MODES)[number]
       return (
-        <PullRequestList mode={mode} onCountChange={count => onPRCountChange(activeViewId, count)} />
+        <PullRequestList
+          mode={mode}
+          onCountChange={count => onPRCountChange(activeViewId, count)}
+        />
       )
     }
     case 'settings-accounts':
@@ -116,7 +119,11 @@ export function AppContentRouter({
     case 'copilot-usage':
       return <CopilotUsagePanel />
     case 'copilot-sessions':
-      return <SessionExplorer onSelectSession={filePath => onOpenTab(`copilot-session-detail:${btoa(filePath)}`)} />
+      return (
+        <SessionExplorer
+          onSelectSession={filePath => onOpenTab(`copilot-session-detail:${btoa(filePath)}`)}
+        />
+      )
     case 'tasks-today':
       return <TaskPlannerView mode="today" />
     case 'tasks-upcoming':

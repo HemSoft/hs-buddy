@@ -36,10 +36,27 @@ function App() {
   useAppAppearance()
   const backgroundStatus = useBackgroundStatus()
   const { trackViewOpen } = useAppSessionStats()
-  const { activeTabId, activeViewId, closeAllTabs, closeOtherTabs, closeTab, closeTabsToRight, closeView, openTab, setActiveTabId, tabs } = useAppTabs({
+  const {
+    activeTabId,
+    activeViewId,
+    closeAllTabs,
+    closeOtherTabs,
+    closeTab,
+    closeTabsToRight,
+    closeView,
+    openTab,
+    setActiveTabId,
+    tabs,
+  } = useAppTabs({
     onViewOpen: trackViewOpen,
   })
-  const { assistantOpen, handlePaneChange, loaded: layoutLoaded, paneSizes, toggleAssistant } = useAppLayout()
+  const {
+    assistantOpen,
+    handlePaneChange,
+    loaded: layoutLoaded,
+    paneSizes,
+    toggleAssistant,
+  } = useAppLayout()
   const activeGitHubAccount = useActiveGitHubAccount()
 
   const handlePRCountChange = useCallback(
@@ -61,9 +78,12 @@ function App() {
     setSelectedSection(sectionId)
   }, [])
 
-  const handleItemSelect = useCallback((viewId: string) => {
-    openTab(viewId)
-  }, [openTab])
+  const handleItemSelect = useCallback(
+    (viewId: string) => {
+      openTab(viewId)
+    },
+    [openTab]
+  )
 
   const assistantContext = useAssistantContext(activeViewId)
   const showLoading = !layoutLoaded || (migrationLoading && !migrationComplete)
@@ -84,7 +104,10 @@ function App() {
       ) : (
         <div className="app-body">
           <ActivityBar selectedSection={selectedSection} onSectionSelect={handleSectionSelect} />
-          <Allotment onChange={handlePaneChange} defaultSizes={assistantOpen ? paneSizes : paneSizes.slice(0, 2)}>
+          <Allotment
+            onChange={handlePaneChange}
+            defaultSizes={assistantOpen ? paneSizes : paneSizes.slice(0, 2)}
+          >
             <Allotment.Pane minSize={200}>
               <SidebarPanel
                 section={selectedSection}

@@ -41,7 +41,9 @@ export function useTempoToday(date?: string) {
     setLoading(false)
   }, [date])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   return { data, loading, error, refresh: load }
 }
@@ -69,7 +71,9 @@ export function useTempoMonth(from: string, to: string) {
     setLoading(false)
   }, [from, to])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   return { worklogs, issueSummaries, totalHours, loading, error, refresh: load }
 }
@@ -89,7 +93,9 @@ export function useCapexMap(issueKeys: string[]) {
     window.tempo.getCapexMap(issueKeys).then(result => {
       if (!stale && result.success && result.data) setCapexMap(result.data)
     })
-    return () => { stale = true }
+    return () => {
+      stale = true
+    }
   }, [keysKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return capexMap
@@ -116,8 +122,12 @@ export function useUserSchedule(from: string, to: string) {
 
   useEffect(() => {
     let stale = false
-    load().then(() => { if (stale) return })
-    return () => { stale = true }
+    load().then(() => {
+      if (stale) return
+    })
+    return () => {
+      stale = true
+    }
   }, [load])
 
   return { schedule, loading, error, refresh: load }

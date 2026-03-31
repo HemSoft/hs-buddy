@@ -5,7 +5,9 @@ import { ActivityBar } from './ActivityBar'
 
 function renderActivityBar(selectedSection = 'github') {
   const onSectionSelect = vi.fn()
-  const view = render(<ActivityBar selectedSection={selectedSection} onSectionSelect={onSectionSelect} />)
+  const view = render(
+    <ActivityBar selectedSection={selectedSection} onSectionSelect={onSectionSelect} />
+  )
 
   return { ...view, onSectionSelect }
 }
@@ -97,7 +99,9 @@ describe('ActivityBar', () => {
   it('applies the active class only to the selected section', () => {
     renderActivityBar('copilot')
 
-    const activeButtons = screen.getAllByRole('button').filter(button => button.className.includes('active'))
+    const activeButtons = screen
+      .getAllByRole('button')
+      .filter(button => button.className.includes('active'))
 
     expect(activeButtons).toHaveLength(1)
     expect(activeButtons[0]).toBe(screen.getByRole('button', { name: 'Copilot' }))
@@ -105,7 +109,9 @@ describe('ActivityBar', () => {
 
   it('updates the active state when selectedSection changes', () => {
     const onSectionSelect = vi.fn()
-    const { rerender } = render(<ActivityBar selectedSection="github" onSectionSelect={onSectionSelect} />)
+    const { rerender } = render(
+      <ActivityBar selectedSection="github" onSectionSelect={onSectionSelect} />
+    )
 
     expect(screen.getByRole('button', { name: 'GitHub' })).toHaveClass('active')
 

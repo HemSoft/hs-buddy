@@ -73,7 +73,9 @@ describe('AppErrorBoundary', () => {
       </AppErrorBoundary>
     )
 
-    expect(screen.getByText('Please select another item and come back to retry.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Please select another item and come back to retry.')
+    ).toBeInTheDocument()
   })
 
   it('resets error state when resetKey changes', () => {

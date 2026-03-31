@@ -74,7 +74,15 @@ describe('trimDiffHunk', () => {
     expect(result.wasTrimmed).toBe(true)
     expect(result.skipCount).toBe(3)
     expect(result.skippedLines).toEqual([' line1', ' line2', ' line3'])
-    expect(result.lines).toEqual(['@@ -1,10 +1,10 @@', ' line4', ' line5', ' line6', ' line7', '-old8', '+new8'])
+    expect(result.lines).toEqual([
+      '@@ -1,10 +1,10 @@',
+      ' line4',
+      ' line5',
+      ' line6',
+      ' line7',
+      '-old8',
+      '+new8',
+    ])
   })
 
   it('preserves the @@ header line after trimming', () => {

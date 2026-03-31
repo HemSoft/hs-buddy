@@ -52,7 +52,13 @@ function makeActivity(overrides: Partial<UserActivitySummary> = {}): UserActivit
 
 /* ── activityReducer tests ─────────────────────────────────────── */
 describe('activityReducer', () => {
-  const aliceActivity = makeActivity({ name: 'Alice Smith', openPRCount: 7, mergedPRCount: 12, bio: 'Full-stack engineer', location: 'NYC' })
+  const aliceActivity = makeActivity({
+    name: 'Alice Smith',
+    openPRCount: 7,
+    mergedPRCount: 12,
+    bio: 'Full-stack engineer',
+    location: 'NYC',
+  })
 
   describe('FETCH_START clears stale activity data', () => {
     it('resets activity to null so old user data is not displayed', () => {

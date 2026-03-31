@@ -54,7 +54,11 @@ describe('findBudgetAcrossPages', () => {
     let call = 0
     const fetchPage = async (_page: number): Promise<BudgetPageResponse> => {
       call++
-      if (call < 3) return { budgets: makeBudgets(10).map(b => ({ ...b, budget_product_sku: `other_${call}` })), has_next_page: true }
+      if (call < 3)
+        return {
+          budgets: makeBudgets(10).map(b => ({ ...b, budget_product_sku: `other_${call}` })),
+          has_next_page: true,
+        }
       return { budgets: makeBudgets(10), has_next_page: true }
     }
     await findBudgetAcrossPages(fetchPage, 'org-9', 5)

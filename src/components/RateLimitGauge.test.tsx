@@ -4,14 +4,18 @@ import { RateLimitGauge } from './RateLimitGauge'
 
 describe('RateLimitGauge', () => {
   it('renders the remaining count and limit', () => {
-    render(<RateLimitGauge remaining={4500} limit={5000} reset={Math.floor(Date.now() / 1000) + 600} />)
+    render(
+      <RateLimitGauge remaining={4500} limit={5000} reset={Math.floor(Date.now() / 1000) + 600} />
+    )
 
     expect(screen.getByText('4,500')).toBeInTheDocument()
     expect(screen.getByText(/5,000/)).toBeInTheDocument()
   })
 
   it('shows "resets now" when reset time has passed', () => {
-    render(<RateLimitGauge remaining={100} limit={5000} reset={Math.floor(Date.now() / 1000) - 10} />)
+    render(
+      <RateLimitGauge remaining={100} limit={5000} reset={Math.floor(Date.now() / 1000) - 10} />
+    )
 
     expect(screen.getByText(/resets now/)).toBeInTheDocument()
   })

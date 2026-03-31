@@ -30,7 +30,7 @@ describe('UsageHeader', () => {
 
   it('shows projected totals when provided', () => {
     const { container } = render(
-      <UsageHeader {...baseProps} projectedTotal={5000} projectedOverageCost={42} />,
+      <UsageHeader {...baseProps} projectedTotal={5000} projectedOverageCost={42} />
     )
 
     expect(screen.getByText('5,000')).toBeInTheDocument()

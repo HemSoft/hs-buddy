@@ -23,14 +23,16 @@ interface BudgetMatch {
  */
 export function findCopilotBudget(
   budgets: BudgetItem[],
-  entityFilter?: string,
+  entityFilter?: string
 ): BudgetItem | undefined {
   const candidates = entityFilter
     ? budgets.filter(b => {
         const entity = b.budget_entity_name?.toLowerCase() ?? ''
         if (entity === '') return false
         const filterLower = entityFilter.toLowerCase()
-        return entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
+        return (
+          entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
+        )
       })
     : budgets
   const sku = (b: BudgetItem) => b.budget_product_sku?.toLowerCase() ?? ''
@@ -50,7 +52,7 @@ export function findCopilotBudget(
 export async function findBudgetAcrossPages(
   fetchPage: (page: number) => Promise<BudgetPageResponse>,
   org: string,
-  maxPages = 10,
+  maxPages = 10
 ): Promise<BudgetMatch | null> {
   let page = 1
   let hasNext = true

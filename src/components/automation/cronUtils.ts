@@ -23,7 +23,11 @@ const CRON_SIGNATURE_RESOLVERS: Record<
   (min: string, hr: string, dom: string, dow: string) => Partial<CronState>
 > = {
   'v***': min => ({ frequency: 'hourly', minute: parseInt(min) || 0 }),
-  'vv**': (min, hr) => ({ frequency: 'daily', minute: parseInt(min) || 0, hour: parseInt(hr) || 9 }),
+  'vv**': (min, hr) => ({
+    frequency: 'daily',
+    minute: parseInt(min) || 0,
+    hour: parseInt(hr) || 9,
+  }),
   'vv*v': (min, hr, _dom, dow) => {
     const days = dow
       .split(',')
@@ -71,7 +75,10 @@ export function parseCronValue(value: string): CronState {
   }
 }
 
-export function buildCronExpression({ frequency, minute, hour, dayOfMonth, selectedDays }: CronState, rawValue: string) {
+export function buildCronExpression(
+  { frequency, minute, hour, dayOfMonth, selectedDays }: CronState,
+  rawValue: string
+) {
   switch (frequency) {
     case 'minute':
       return '* * * * *'

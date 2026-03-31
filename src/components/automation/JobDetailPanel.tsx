@@ -174,86 +174,88 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
 
   return (
     <>
-    <div className="job-detail">
-      {editorOpen && (
-        <JobEditor
-          jobId={duplicating ? undefined : jobId}
-          duplicateFrom={duplicating ? job : undefined}
-          onClose={() => setEditorOpen(false)}
-        />
-      )}
-
-      <div className="job-detail-header">
-        <div className="job-detail-title-row">
-          {getWorkerIcon(job.workerType)}
-          <h2>{job.name}</h2>
-          <span className="job-detail-type-badge">{getWorkerLabel(job.workerType)}</span>
-        </div>
-        <div className="job-detail-actions">
-          <button className="btn-action" onClick={handleRunNow} title="Run Now">
-            <Play size={14} />
-            Run
-          </button>
-          <button className="btn-action" onClick={handleEdit} title="Edit">
-            <Edit size={14} />
-            Edit
-          </button>
-          <button className="btn-action" onClick={handleDuplicate} title="Duplicate">
-            <Copy size={14} />
-          </button>
-          <button className="btn-action btn-danger" onClick={handleDelete} title="Delete">
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
-
-      {job.description && <div className="job-detail-description">{job.description}</div>}
-
-      <div className="job-detail-meta">
-        <span title={new Date(job.createdAt).toLocaleString()}>
-          <Calendar size={12} />
-          Created {formatDistanceToNow(job.createdAt)}
-        </span>
-        <span title={new Date(job.updatedAt).toLocaleString()}>
-          <Clock size={12} />
-          Updated {formatDistanceToNow(job.updatedAt)}
-        </span>
-      </div>
-
-      <div className="job-detail-section">
-        <h3>Configuration</h3>
-        <ConfigDetails job={job} />
-      </div>
-
-      <div className="job-detail-section">
-        <h3>Recent Runs</h3>
-        {runs === undefined ? (
-          <div className="job-detail-runs-loading">Loading runs...</div>
-        ) : runs.length === 0 ? (
-          <div className="job-detail-runs-empty">No runs yet. Click "Run" to execute this job.</div>
-        ) : (
-          <div className="job-detail-runs">
-            {runs.map(run => (
-              <div key={run._id} className="job-run-row">
-                <span className={`run-status ${getStatusClass(run.status)}`}>{run.status}</span>
-                <span className="run-trigger">{run.triggeredBy}</span>
-                <span className="run-time" title={new Date(run.startedAt).toLocaleString()}>
-                  {formatDistanceToNow(run.startedAt)}
-                </span>
-                {run.duration !== undefined && (
-                  <span className="run-duration">
-                    {run.duration < 1000
-                      ? `${run.duration}ms`
-                      : `${(run.duration / 1000).toFixed(1)}s`}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+      <div className="job-detail">
+        {editorOpen && (
+          <JobEditor
+            jobId={duplicating ? undefined : jobId}
+            duplicateFrom={duplicating ? job : undefined}
+            onClose={() => setEditorOpen(false)}
+          />
         )}
+
+        <div className="job-detail-header">
+          <div className="job-detail-title-row">
+            {getWorkerIcon(job.workerType)}
+            <h2>{job.name}</h2>
+            <span className="job-detail-type-badge">{getWorkerLabel(job.workerType)}</span>
+          </div>
+          <div className="job-detail-actions">
+            <button className="btn-action" onClick={handleRunNow} title="Run Now">
+              <Play size={14} />
+              Run
+            </button>
+            <button className="btn-action" onClick={handleEdit} title="Edit">
+              <Edit size={14} />
+              Edit
+            </button>
+            <button className="btn-action" onClick={handleDuplicate} title="Duplicate">
+              <Copy size={14} />
+            </button>
+            <button className="btn-action btn-danger" onClick={handleDelete} title="Delete">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+
+        {job.description && <div className="job-detail-description">{job.description}</div>}
+
+        <div className="job-detail-meta">
+          <span title={new Date(job.createdAt).toLocaleString()}>
+            <Calendar size={12} />
+            Created {formatDistanceToNow(job.createdAt)}
+          </span>
+          <span title={new Date(job.updatedAt).toLocaleString()}>
+            <Clock size={12} />
+            Updated {formatDistanceToNow(job.updatedAt)}
+          </span>
+        </div>
+
+        <div className="job-detail-section">
+          <h3>Configuration</h3>
+          <ConfigDetails job={job} />
+        </div>
+
+        <div className="job-detail-section">
+          <h3>Recent Runs</h3>
+          {runs === undefined ? (
+            <div className="job-detail-runs-loading">Loading runs...</div>
+          ) : runs.length === 0 ? (
+            <div className="job-detail-runs-empty">
+              No runs yet. Click "Run" to execute this job.
+            </div>
+          ) : (
+            <div className="job-detail-runs">
+              {runs.map(run => (
+                <div key={run._id} className="job-run-row">
+                  <span className={`run-status ${getStatusClass(run.status)}`}>{run.status}</span>
+                  <span className="run-trigger">{run.triggeredBy}</span>
+                  <span className="run-time" title={new Date(run.startedAt).toLocaleString()}>
+                    {formatDistanceToNow(run.startedAt)}
+                  </span>
+                  {run.duration !== undefined && (
+                    <span className="run-duration">
+                      {run.duration < 1000
+                        ? `${run.duration}ms`
+                        : `${(run.duration / 1000).toFixed(1)}s`}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-    {confirmDialog && <ConfirmDialog {...confirmDialog} />}
+      {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </>
   )
 }

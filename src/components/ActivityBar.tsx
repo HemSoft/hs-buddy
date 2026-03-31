@@ -1,4 +1,14 @@
-import { Github, Zap, CheckSquare, BarChart3, Bot, Sparkles, Settings, Users, Clock } from 'lucide-react'
+import {
+  Github,
+  Zap,
+  CheckSquare,
+  BarChart3,
+  Bot,
+  Sparkles,
+  Settings,
+  Users,
+  Clock,
+} from 'lucide-react'
 import { useState } from 'react'
 import './ActivityBar.css'
 

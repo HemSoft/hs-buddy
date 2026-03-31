@@ -127,9 +127,7 @@ function ConversationHistory({
                 ? 'var(--accent-primary, #0e639c)22'
                 : 'var(--bg-secondary, #252526)',
             borderLeft:
-              msg.role === 'assistant'
-                ? '3px solid var(--accent-primary, #0e639c)'
-                : 'none',
+              msg.role === 'assistant' ? '3px solid var(--accent-primary, #0e639c)' : 'none',
           }}
         >
           <div style={{ fontSize: '11px', opacity: 0.6, marginBottom: '4px' }}>
@@ -156,11 +154,7 @@ function ConversationHistory({
   )
 }
 
-function ChangedFilesPanel({
-  changedFiles,
-  onKeepFile,
-  onUndoFile,
-}: ChangedFilesPanelProps) {
+function ChangedFilesPanel({ changedFiles, onKeepFile, onUndoFile }: ChangedFilesPanelProps) {
   if (changedFiles.length === 0) {
     return null
   }
@@ -199,8 +193,12 @@ function ChangedFilesPanel({
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <FileText size={12} />
             <span>{file.filePath}</span>
-            {file.additions !== undefined && <span style={{ color: '#4ec9b0' }}>+{file.additions}</span>}
-            {file.deletions !== undefined && <span style={{ color: '#e85d5d' }}>-{file.deletions}</span>}
+            {file.additions !== undefined && (
+              <span style={{ color: '#4ec9b0' }}>+{file.additions}</span>
+            )}
+            {file.deletions !== undefined && (
+              <span style={{ color: '#e85d5d' }}>-{file.deletions}</span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
             <button

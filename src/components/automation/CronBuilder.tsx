@@ -27,10 +27,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const updateCron = (patch: Partial<CronState>) => {
     onChange(buildCronExpression({ ...cronState, ...patch }, value))
   }
-  const cronExpression = useMemo(
-    () => buildCronExpression(cronState, value),
-    [cronState, value]
-  )
+  const cronExpression = useMemo(() => buildCronExpression(cronState, value), [cronState, value])
 
   // Human-readable description
   const description = useMemo(() => {
@@ -95,7 +92,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   return (
     <div className="cron-builder">
       <div className="cron-frequency">
-        <span id={cronFreqLabelId} className="cron-label">Run Frequency</span>
+        <span id={cronFreqLabelId} className="cron-label">
+          Run Frequency
+        </span>
         <div className="frequency-buttons" role="group" aria-labelledby={cronFreqLabelId}>
           <button
             type="button"
@@ -201,7 +200,10 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
           <>
             <div className="cron-option">
               <span className="option-label">On day</span>
-              <select value={dayOfMonth} onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}>
+              <select
+                value={dayOfMonth}
+                onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
+              >
                 {Array.from({ length: 31 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>
                     {i + 1}

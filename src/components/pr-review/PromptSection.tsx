@@ -87,7 +87,18 @@ export function PromptSection({
           </div>
         </div>
       ) : (
-        <div className="pr-review-prompt-preview" onClick={onToggleExpanded} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpanded(); } }}>
+        <div
+          className="pr-review-prompt-preview"
+          onClick={onToggleExpanded}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onToggleExpanded()
+            }
+          }}
+        >
           {prompt.length > 200 ? prompt.slice(0, 200) + '...' : prompt}
         </div>
       )}

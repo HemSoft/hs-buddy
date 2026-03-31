@@ -33,7 +33,10 @@ describe('ConfirmDialog', () => {
     })
 
     expect(screen.getByText('This action cannot be undone.')).toBeInTheDocument()
-    expect(screen.getByRole('alertdialog')).toHaveAttribute('aria-describedby', 'confirm-dialog-desc')
+    expect(screen.getByRole('alertdialog')).toHaveAttribute(
+      'aria-describedby',
+      'confirm-dialog-desc'
+    )
   })
 
   it('omits aria-describedby when no description is provided', () => {

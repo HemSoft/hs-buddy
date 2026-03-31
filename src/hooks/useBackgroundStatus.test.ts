@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { getFriendlyTaskLabel, formatCountdown, formatAge, useBackgroundStatus } from './useBackgroundStatus'
+import {
+  getFriendlyTaskLabel,
+  formatCountdown,
+  formatAge,
+  useBackgroundStatus,
+} from './useBackgroundStatus'
 
 // Mock dependencies for hook tests
 const mockQueue = {

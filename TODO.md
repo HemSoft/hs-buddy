@@ -2,7 +2,7 @@
 
 | Status | Priority | Task                                                    | Notes                                                                                                |
 | ------ | -------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 🔄     | Critical | Raise test coverage from 20% to 50%                    | Thresholds set to 50/50/50/50 — build is intentionally broken until met. Focus: hooks, components    |
+| 🔄     | Critical | Raise test coverage from 20% to 50%                    | At 29.88% (974 tests, 90 files) as of 2026-03-31. Branch: anvil/coverage-push. Next: hooks, large components |
 | ⬜     | High     | Wire coverage:ratchet into CI                           | Run `bun run coverage:ratchet` after test:coverage passes so thresholds auto-increment               |
 | ⬜     | High     | Add Gherkin BDD specs for remaining critical paths      | Only 3 features today (quota, budget, task-queue). Next: copilot sessions, data cache, PR list       |
 | ⬜     | Medium   | Add format:check to pre-commit hook                     | CI has it but Husky pre-commit doesn't — gap allows unformatted code to slip through locally         |

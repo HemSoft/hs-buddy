@@ -3,6 +3,7 @@
 | Status | Priority | Task                                                    | Notes                                                                                                |
 | ------ | -------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | 🔄     | Critical | Raise test coverage from 20% to 50%                    | Thresholds set to 25% (passing). At 29.88% (974 tests, 90 files). Branch: anvil/coverage-push       |
+| ✅     | High     | SFL Queue Monitor workflow                              | Completed 2026-04-01: sfl-queue-monitor.yml, agent:queue label, deployed to 3 repos, CATALOG + deployment docs updated |
 | ⬜     | High     | Wire coverage:ratchet into CI                           | Run `bun run coverage:ratchet` after test:coverage passes so thresholds auto-increment               |
 | ⬜     | High     | Add Gherkin BDD specs for remaining critical paths      | Only 3 features today (quota, budget, task-queue). Next: copilot sessions, data cache, PR list       |
 | ⬜     | Medium   | Add format:check to pre-commit hook                     | CI has it but Husky pre-commit doesn't — gap allows unformatted code to slip through locally         |

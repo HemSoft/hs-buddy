@@ -1,13 +1,17 @@
 # Buddy - TODO
 
-| Status | Priority | Task                                                                                                         | Notes                                                                                                                                 |
-| ------ | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅     | Medium   | Benchmarking tests for critical paths                                                                        | Completed 2026-03-30: 3 bench files (dateUtils, jsonSerialization, copilotSessionParsing), `bun run bench` script, fixture JSONL data |
-| ✅     | Medium   | Task Planner (Todoist Integration)                                                                           | Completed 2026-03-30: 7-day upcoming view, Todoist REST API, IPC handlers, React hooks, TaskPlannerView, 3-round adversarial review   |
-| ✅     | Medium   | Copilot Session Explorer                                                                                     | Completed 2026-03-29: JSONL parsing, workspace grouping, session detail with prompts/tokens/tools, streaming parser, scan caching     |
-| ✅     | Medium   | Session Insights & Feedback Loop                                                                             | Completed 2026-03-29: digest computation (6 metrics), Convex persistence, digest UI in SessionDetail, 3-round adversarial review      |
-| ✅     | Medium   | Tempo tracking                                                                                               | Completed 2026-03-23: monthly grid, capex/non-capex split, holiday support, green capex highlighting, auto-scroll to today            |
-| ✅     | Medium   | PR Analyzers should post reviews, not update PR body                                                         | Completed 2026-03-22: all 3 analyzers already use `add_comment`; `update_issue` not in safe-outputs config                           |
+| Status | Priority | Task                                                    | Notes                                                                                                |
+| ------ | -------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 🔄     | Critical | Raise test coverage from 20% to 50%                    | Thresholds set to 50/50/50/50 — build is intentionally broken until met. Focus: hooks, components    |
+| ⬜     | High     | Wire coverage:ratchet into CI                           | Run `bun run coverage:ratchet` after test:coverage passes so thresholds auto-increment               |
+| ⬜     | High     | Add Gherkin BDD specs for remaining critical paths      | Only 3 features today (quota, budget, task-queue). Next: copilot sessions, data cache, PR list       |
+| ⬜     | Medium   | Add format:check to pre-commit hook                     | CI has it but Husky pre-commit doesn't — gap allows unformatted code to slip through locally         |
+| ⬜     | Low      | Evaluate Playwright component testing for TSX coverage  | Many 0% component files are hard to unit-test. Playwright CT might be more appropriate               |
+| ✅     | Medium   | Quality gates overhaul                                  | Completed 2026-03-31: CI gates, commitlint, vitest-cucumber BDD, coverage ratchet script (PR #408)  |
+| ✅     | Medium   | Benchmarking tests for critical paths                   | Completed 2026-03-30: 3 bench files (dateUtils, jsonSerialization, copilotSessionParsing)            |
+| ✅     | Medium   | Task Planner (Todoist Integration)                      | Completed 2026-03-30: 7-day upcoming view, Todoist REST API, IPC handlers, React hooks              |
+| ✅     | Medium   | Copilot Session Explorer                                | Completed 2026-03-29: JSONL parsing, workspace grouping, session detail, streaming parser            |
+| ✅     | Medium   | Session Insights & Feedback Loop                        | Completed 2026-03-29: digest computation (6 metrics), Convex persistence, digest UI                  |
 | ✅     | Medium   | Add branch cleanup to repo-audit                                                                             | Completed 2026-03-22: added Branch Hygiene scope (#7) to repo-audit + stale branch detection (Step 14) to sfl-auditor                |
 | ✅     | High     | Add GitHub organization metrics detail view                                                                  | Completed 2026-03-22: skeleton loader, per-phase error handling, roster filter/sort controls                                         |
 | ✅     | High     | Build project-scoped Copilot workspaces                                                                      | Completed 2026-03-08: The Crew ships with local project registration and project-scoped sessions.                                     |

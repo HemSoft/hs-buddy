@@ -17,6 +17,7 @@ export default defineConfig({
         'src/vite-env.d.ts',
         'src/test/**',
         'src/**/*.test.{ts,tsx}',
+        'src/**/*.bench.ts',
         'src/features/**',
         'src/types/**',
       ],

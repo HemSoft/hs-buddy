@@ -67,14 +67,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
-          # Get the oldest open issue labeled agent:queue (sorted by created, ascending)
+          # Get the oldest open issue labeled agent:queue (FIFO by creation date)
           ISSUE_JSON=$(gh issue list \
             --repo "${{ github.repository }}" \
             --label "agent:queue" \
             --state open \
-            --sort created \
-            --json number,title \
-            --jq 'sort_by(.number) | .[0] // empty')
+            --json number,title,createdAt \
+            --jq 'sort_by(.createdAt) | .[0] // empty')
 
           if [ -z "$ISSUE_JSON" ]; then
             echo "No issues in the queue"
@@ -95,9 +94,12 @@ jobs:
         run: |
           ISSUE_NUM="${{ steps.queue.outputs.issue_number }}"
 
-          gh workflow run sfl-issue-processor.lock.yml \
+          if ! gh workflow run sfl-issue-processor.lock.yml \
             --repo "${{ github.repository }}" \
-            -f issue-number="$ISSUE_NUM"
+            -f issue-number="$ISSUE_NUM"; then
+            echo "::error::Failed to dispatch issue-processor for issue #${ISSUE_NUM}"
+            exit 1
+          fi
 
           echo "Dispatched issue-processor for queued issue #${ISSUE_NUM}"
 

@@ -9,7 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.524] - 2026-03-31
+
 ## [0.1.523] - 2026-03-31
+
+### Changed
+
+- Add Changed section to v0.1.521 for TODO restructuring
+- Bump version to 0.1.522 with changelog entry
 
 ## [0.1.522] - 2026-03-31
 

@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.526] - 2026-03-31
+
 ## [0.1.525] - 2026-03-31
+
+### Added
+
+- Add Task Planner with Todoist integration
 
 ## [0.1.524] - 2026-03-31
 

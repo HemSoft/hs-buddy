@@ -141,7 +141,7 @@ safe-outputs:
 jobs:
   format-pr-branch:
     needs: [agent, safe_outputs]
-    if: "(!cancelled()) && needs.safe_outputs.result == 'success' && needs.safe_outputs.outputs.created_pr_number != ''"
+    if: "(!cancelled()) && needs.safe_outputs.result == 'success' && (needs.safe_outputs.outputs.created_pr_number != '' || needs.safe_outputs.outputs.push_commit_sha != '')"
     runs-on: ubuntu-latest
     permissions:
       contents: write

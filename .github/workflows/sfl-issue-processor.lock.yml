@@ -31,7 +31,7 @@
 #
 # Source: relias-engineering/set-it-free-loop/workflows/sfl-issue-processor.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 #
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"d519849542a1c7c4e59b0e73d5449205120bddd69165b4b39e8a0570fac39455","compiler_version":"v0.65.1","strict":true,"agent_id":"copilot","agent_model":"gpt-5.4"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"d7504fc437d2f1d220d19dd3e1ff879932453c4802e6237004e69d4e7c1c4dba","compiler_version":"v0.65.1","strict":true,"agent_id":"copilot","agent_model":"gpt-5.4"}
 
 name: "SFL Issue Processor / Implementer"
 "on":
@@ -198,20 +198,20 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_678c2b0f54452869_EOF'
+          cat << 'GH_AW_PROMPT_251ea6f2db164c46_EOF'
           <system>
-          GH_AW_PROMPT_678c2b0f54452869_EOF
+          GH_AW_PROMPT_251ea6f2db164c46_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_678c2b0f54452869_EOF'
+          cat << 'GH_AW_PROMPT_251ea6f2db164c46_EOF'
           <safe-output-tools>
           Tools: add_comment(max:3), update_issue(max:4), create_pull_request, reply_to_pull_request_review_comment(max:10), add_labels(max:3), remove_labels(max:3), push_to_pull_request_branch, dispatch_workflow, missing_tool, missing_data, noop
-          GH_AW_PROMPT_678c2b0f54452869_EOF
+          GH_AW_PROMPT_251ea6f2db164c46_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_create_pull_request.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_push_to_pr_branch.md"
-          cat << 'GH_AW_PROMPT_678c2b0f54452869_EOF'
+          cat << 'GH_AW_PROMPT_251ea6f2db164c46_EOF'
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -244,12 +244,12 @@ jobs:
             - **Note**: If a branch you need is not in the list above and is not listed as an additional fetched ref, it has NOT been checked out. For private repositories you cannot fetch it without proper authentication. If the branch is required and not available, exit with an error and ask the user to add it to the `fetch:` option of the `checkout:` configuration (e.g., `fetch: ["refs/pulls/open/*"]` for all open PR refs, or `fetch: ["main", "feature/my-branch"]` for specific branches).
           </github-context>
           
-          GH_AW_PROMPT_678c2b0f54452869_EOF
+          GH_AW_PROMPT_251ea6f2db164c46_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_678c2b0f54452869_EOF'
+          cat << 'GH_AW_PROMPT_251ea6f2db164c46_EOF'
           </system>
           {{#runtime-import .github/workflows/sfl-issue-processor.md}}
-          GH_AW_PROMPT_678c2b0f54452869_EOF
+          GH_AW_PROMPT_251ea6f2db164c46_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -431,12 +431,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_9144d7b6590b02b7_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_aa0edbe8cdc61511_EOF'
           {"add_comment":{"max":3,"target":"*"},"add_labels":{"max":3},"create_pull_request":{"draft":true,"labels":["agent:pr"],"max":1,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_files_policy":"fallback-to-issue","protected_path_prefixes":[".github/",".agents/"],"title_prefix":"[agent-fix] "},"dispatch_workflow":{"aw_context_workflows":["sfl-analyzer-a"],"max":1,"workflow_files":{"sfl-analyzer-a":".lock.yml","sfl-pr-label-actions":".yml"},"workflows":["sfl-analyzer-a","sfl-pr-label-actions"]},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"},"push_to_pull_request_branch":{"if_no_changes":"warn","max":1,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_files_policy":"fallback-to-issue","protected_path_prefixes":[".github/",".agents/"],"target":"*"},"remove_labels":{"max":3},"reply_to_pull_request_review_comment":{"max":10,"target":"*"},"update_issue":{"allow_body":true,"max":4,"target":"*"}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_9144d7b6590b02b7_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_aa0edbe8cdc61511_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_74dcfb7d0e427dc5_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_1094c5ff0b9dbe9d_EOF'
           {
             "description_suffixes": {
               "add_comment": " CONSTRAINTS: Maximum 3 comment(s) can be added. Target: *.",
@@ -489,8 +489,8 @@ jobs:
               }
             ]
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_74dcfb7d0e427dc5_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_7c4dd705f5fc4e5a_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_1094c5ff0b9dbe9d_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_05d21f9698c6d4d1_EOF'
           {
             "add_comment": {
               "defaultMax": 1,
@@ -738,7 +738,7 @@ jobs:
               "customValidation": "requiresOneOf:status,title,body"
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_7c4dd705f5fc4e5a_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_05d21f9698c6d4d1_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -781,7 +781,7 @@ jobs:
       - name: Setup MCP Scripts Config
         run: |
           mkdir -p ${RUNNER_TEMP}/gh-aw/mcp-scripts/logs
-          cat > ${RUNNER_TEMP}/gh-aw/mcp-scripts/tools.json << 'GH_AW_MCP_SCRIPTS_TOOLS_058266086e604a34_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/mcp-scripts/tools.json << 'GH_AW_MCP_SCRIPTS_TOOLS_27c1a4a715790d3a_EOF'
           {
             "serverName": "mcpscripts",
             "version": "1.0.0",
@@ -804,8 +804,8 @@ jobs:
               }
             ]
           }
-          GH_AW_MCP_SCRIPTS_TOOLS_058266086e604a34_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/mcp-scripts/mcp-server.cjs << 'GH_AW_MCP_SCRIPTS_SERVER_fa19c34456d122ed_EOF'
+          GH_AW_MCP_SCRIPTS_TOOLS_27c1a4a715790d3a_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/mcp-scripts/mcp-server.cjs << 'GH_AW_MCP_SCRIPTS_SERVER_00bed35c241afe30_EOF'
             const path = require("path");
             const { startHttpServer } = require("./mcp_scripts_mcp_server_http.cjs");
             const configPath = path.join(__dirname, "tools.json");
@@ -819,12 +819,12 @@ jobs:
               console.error("Failed to start mcp-scripts HTTP server:", error);
               process.exit(1);
             });
-          GH_AW_MCP_SCRIPTS_SERVER_fa19c34456d122ed_EOF
+          GH_AW_MCP_SCRIPTS_SERVER_00bed35c241afe30_EOF
           chmod +x ${RUNNER_TEMP}/gh-aw/mcp-scripts/mcp-server.cjs
           
       - name: Setup MCP Scripts Tool Files
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/mcp-scripts/read-sfl-config.sh << 'GH_AW_MCP_SCRIPTS_SH_READ-SFL-CONFIG_1ad87e00e0001078_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/mcp-scripts/read-sfl-config.sh << 'GH_AW_MCP_SCRIPTS_SH_READ-SFL-CONFIG_0e7b53811ff8c7eb_EOF'
           #!/bin/bash
           # Auto-generated mcp-script tool: read-sfl-config
           # Read the SFL autonomy configuration file (.github/sfl-config.yml) from the repository. Returns the raw YAML content with autonomy flags, cycle limits, and activity log settings.
@@ -834,7 +834,7 @@ jobs:
           gh api "repos/$REPO_OWNER/$REPO_NAME/contents/.github/sfl-config.yml?ref=main" --jq '.content' | base64 -d
           
           
-          GH_AW_MCP_SCRIPTS_SH_READ-SFL-CONFIG_1ad87e00e0001078_EOF
+          GH_AW_MCP_SCRIPTS_SH_READ-SFL-CONFIG_0e7b53811ff8c7eb_EOF
           chmod +x ${RUNNER_TEMP}/gh-aw/mcp-scripts/read-sfl-config.sh
           
       - name: Generate MCP Scripts Server Config
@@ -905,7 +905,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_MCP_SCRIPTS_PORT -e GH_AW_MCP_SCRIPTS_API_KEY -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -e GH_TOKEN -e REPO_NAME -e REPO_OWNER -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.10'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_a6641a80454aa393_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_e178e3bf92a43ebc_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -960,7 +960,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_a6641a80454aa393_EOF
+          GH_AW_MCP_CONFIG_e178e3bf92a43ebc_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -1630,7 +1630,9 @@ jobs:
     needs:
       - agent
       - safe_outputs
-    if: (!cancelled()) && needs.safe_outputs.result == 'success' && needs.safe_outputs.outputs.created_pr_number != ''
+    if: >
+      (!cancelled()) && needs.safe_outputs.result == 'success' && (needs.safe_outputs.outputs.created_pr_number != '' ||
+      needs.safe_outputs.outputs.push_commit_sha != '')
     runs-on: ubuntu-latest
     permissions:
       contents: write

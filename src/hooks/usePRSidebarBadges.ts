@@ -2,26 +2,19 @@ import { useCallback, useEffect, useState } from 'react'
 import { usePRSettings } from './useConfig'
 import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
-import { MS_PER_MINUTE } from '../constants'
+import { MS_PER_MINUTE, PR_MODES } from '../constants'
 import { getProgressColor } from '../utils/progressColors'
 
 type BadgeProgress = { progress: number; color: string; tooltip: string }
 
-type PRMode = {
-  key: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
-  id: 'pr-my-prs' | 'pr-needs-review' | 'pr-recently-merged' | 'pr-need-a-nudge'
-}
-
-const PR_MODES: PRMode[] = [
-  { key: 'my-prs', id: 'pr-my-prs' },
-  { key: 'needs-review', id: 'pr-needs-review' },
-  { key: 'recently-merged', id: 'pr-recently-merged' },
-  { key: 'need-a-nudge', id: 'pr-need-a-nudge' },
-]
+const PR_MODE_ENTRIES = PR_MODES.map(key => ({
+  key,
+  id: `pr-${key}`,
+}))
 
 function getInitialCounts(): Record<string, number> {
   const initial: Record<string, number> = {}
-  for (const { key, id } of PR_MODES) {
+  for (const { key, id } of PR_MODE_ENTRIES) {
     const cached = dataCache.get<PullRequest[]>(key)
     if (cached?.data) {
       initial[id] = cached.data.length
@@ -36,7 +29,7 @@ export function usePRSidebarBadges() {
   const [badgeProgress, setBadgeProgress] = useState<Record<string, BadgeProgress>>({})
 
   useEffect(() => {
-    const modeToId = PR_MODES.reduce<Record<string, string>>((acc, mode) => {
+    const modeToId = PR_MODE_ENTRIES.reduce<Record<string, string>>((acc, mode) => {
       acc[mode.key] = mode.id
       return acc
     }, {})
@@ -62,7 +55,7 @@ export function usePRSidebarBadges() {
       const now = Date.now()
       const next: Record<string, BadgeProgress> = {}
 
-      for (const { key, id } of PR_MODES) {
+      for (const { key, id } of PR_MODE_ENTRIES) {
         const cached = dataCache.get(key)
         if (!cached) {
           continue

@@ -58,6 +58,15 @@ function parseRepoIssueRoute(
   return { ...ownerRepo, issueNumber }
 }
 
+function matchRoute<T>(
+  viewId: string,
+  prefix: string,
+  parse: (slug: string) => T | null
+): T | null {
+  if (!viewId.startsWith(`${prefix}:`)) return null
+  return parse(viewId.slice(prefix.length + 1))
+}
+
 type AppContentRouterProps = {
   activeViewId: string | null
   prCounts: Record<string, number>
@@ -149,12 +158,12 @@ export function AppContentRouter({
         const jobId = activeViewId.replace('job-detail:', '')
         return <JobDetailPanel jobId={jobId} />
       }
-      if (activeViewId.startsWith('repo-detail:')) {
-        const parsed = parseOwnerRepo(activeViewId.replace('repo-detail:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-detail', parseOwnerRepo)
         if (parsed) return <RepoDetailPanel owner={parsed.owner} repo={parsed.repo} />
       }
-      if (activeViewId.startsWith('org-user:')) {
-        const parsed = parseOwnerRepo(activeViewId.replace('org-user:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'org-user', parseOwnerRepo)
         if (parsed) {
           return <UserDetailPanel org={parsed.owner} memberLogin={parsed.repo} />
         }
@@ -163,8 +172,8 @@ export function AppContentRouter({
         const org = activeViewId.replace('org-detail:', '')
         if (org) return <OrgDetailPanel org={org} />
       }
-      if (activeViewId.startsWith('repo-commits:')) {
-        const parsed = parseOwnerRepo(activeViewId.replace('repo-commits:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-commits', parseOwnerRepo)
         if (parsed) {
           return (
             <RepoCommitListPanel
@@ -177,13 +186,13 @@ export function AppContentRouter({
           )
         }
       }
-      if (activeViewId.startsWith('repo-commit:')) {
-        const parsed = parseRepoCommitRoute(activeViewId.replace('repo-commit:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-commit', parseRepoCommitRoute)
         if (parsed)
           return <RepoCommitDetailPanel owner={parsed.owner} repo={parsed.repo} sha={parsed.sha} />
       }
-      if (activeViewId.startsWith('repo-issues-closed:')) {
-        const parsed = parseOwnerRepo(activeViewId.replace('repo-issues-closed:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-issues-closed', parseOwnerRepo)
         if (parsed) {
           return (
             <RepoIssueList
@@ -197,8 +206,8 @@ export function AppContentRouter({
           )
         }
       }
-      if (activeViewId.startsWith('repo-issue:')) {
-        const parsed = parseRepoIssueRoute(activeViewId.replace('repo-issue:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-issue', parseRepoIssueRoute)
         if (parsed)
           return (
             <RepoIssueDetailPanel
@@ -208,8 +217,8 @@ export function AppContentRouter({
             />
           )
       }
-      if (activeViewId.startsWith('repo-issues:')) {
-        const parsed = parseOwnerRepo(activeViewId.replace('repo-issues:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-issues', parseOwnerRepo)
         if (parsed) {
           return (
             <RepoIssueList
@@ -223,8 +232,8 @@ export function AppContentRouter({
           )
         }
       }
-      if (activeViewId.startsWith('repo-prs-closed:')) {
-        const parsed = parseOwnerRepo(activeViewId.replace('repo-prs-closed:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-prs-closed', parseOwnerRepo)
         if (parsed)
           return (
             <RepoPullRequestList
@@ -235,8 +244,8 @@ export function AppContentRouter({
             />
           )
       }
-      if (activeViewId.startsWith('repo-prs:')) {
-        const parsed = parseOwnerRepo(activeViewId.replace('repo-prs:', ''))
+      {
+        const parsed = matchRoute(activeViewId, 'repo-prs', parseOwnerRepo)
         if (parsed)
           return (
             <RepoPullRequestList

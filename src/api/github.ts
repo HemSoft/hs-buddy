@@ -761,6 +761,20 @@ export class GitHubClient {
     this.recentlyMergedDays = recentlyMergedDays
   }
 
+  private static async batchProcess<T>(
+    items: T[],
+    fn: (item: T) => Promise<void>,
+    batchSize?: number
+  ): Promise<void> {
+    const BATCH_SIZE = 10
+    const size = batchSize ?? BATCH_SIZE
+
+    for (let i = 0; i < items.length; i += size) {
+      const batch = items.slice(i, i + size)
+      await Promise.all(batch.map(fn))
+    }
+  }
+
   private countApprovals(
     reviews: Array<{
       user?: { login?: string } | null
@@ -1432,27 +1446,20 @@ export class GitHubClient {
       iApproved: false,
     }))
 
-    const BATCH_SIZE = 10
-    for (let i = 0; i < prs.length; i += BATCH_SIZE) {
-      const batch = prs.slice(i, i + BATCH_SIZE)
-
-      await Promise.all(
-        batch.map(async pr => {
-          try {
-            const reviewsData = await octokit.pulls.listReviews({
-              owner,
-              repo,
-              pull_number: pr.number,
-            })
-            const { approvalCount, iApproved } = this.countApprovals(reviewsData.data, viewerLogin)
-            pr.approvalCount = approvalCount
-            pr.iApproved = iApproved
-          } catch (error) {
-            console.debug(`Failed to fetch review state for ${owner}/${repo}#${pr.number}:`, error)
-          }
+    await GitHubClient.batchProcess(prs, async pr => {
+      try {
+        const reviewsData = await octokit.pulls.listReviews({
+          owner,
+          repo,
+          pull_number: pr.number,
         })
-      )
-    }
+        const { approvalCount, iApproved } = this.countApprovals(reviewsData.data, viewerLogin)
+        pr.approvalCount = approvalCount
+        pr.iApproved = iApproved
+      } catch (error) {
+        console.debug(`Failed to fetch review state for ${owner}/${repo}#${pr.number}:`, error)
+      }
+    })
 
     return prs
   }
@@ -2638,52 +2645,45 @@ export class GitHubClient {
     }
 
     // Batch fetch reviews in parallel (with concurrency limit)
-    const BATCH_SIZE = 10
     const prsWithMeta = allPrs as (PullRequest & {
       _owner: string
       _repo: string
       _prNumber: number
     })[]
 
-    for (let i = 0; i < prsWithMeta.length; i += BATCH_SIZE) {
-      const batch = prsWithMeta.slice(i, i + BATCH_SIZE)
+    await GitHubClient.batchProcess(prsWithMeta, async pr => {
+      try {
+        const [reviewsData, prData] = await Promise.all([
+          octokit.pulls.listReviews({
+            owner: pr._owner,
+            repo: pr._repo,
+            pull_number: pr._prNumber,
+          }),
+          octokit.pulls.get({
+            owner: pr._owner,
+            repo: pr._repo,
+            pull_number: pr._prNumber,
+          }),
+        ])
 
-      await Promise.all(
-        batch.map(async pr => {
-          try {
-            const [reviewsData, prData] = await Promise.all([
-              octokit.pulls.listReviews({
-                owner: pr._owner,
-                repo: pr._repo,
-                pull_number: pr._prNumber,
-              }),
-              octokit.pulls.get({
-                owner: pr._owner,
-                repo: pr._repo,
-                pull_number: pr._prNumber,
-              }),
-            ])
+        const threadStats = accountToken
+          ? await this.fetchPRThreadStats(pr._owner, pr._repo, pr._prNumber, accountToken)
+          : null
 
-            const threadStats = accountToken
-              ? await this.fetchPRThreadStats(pr._owner, pr._repo, pr._prNumber, accountToken)
-              : null
+        const reviews = reviewsData.data
+        const { approvalCount, iApproved } = this.countApprovals(reviews, username)
 
-            const reviews = reviewsData.data
-            const { approvalCount, iApproved } = this.countApprovals(reviews, username)
-
-            pr.approvalCount = approvalCount
-            pr.iApproved = iApproved
-            pr.headBranch = prData.data.head?.ref || ''
-            pr.baseBranch = prData.data.base?.ref || ''
-            pr.threadsTotal = threadStats?.total ?? null
-            pr.threadsAddressed = threadStats?.addressed ?? null
-            pr.threadsUnaddressed = threadStats?.unaddressed ?? null
-          } catch (error) {
-            console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
-          }
-        })
-      )
-    }
+        pr.approvalCount = approvalCount
+        pr.iApproved = iApproved
+        pr.headBranch = prData.data.head?.ref || ''
+        pr.baseBranch = prData.data.base?.ref || ''
+        pr.threadsTotal = threadStats?.total ?? null
+        pr.threadsAddressed = threadStats?.addressed ?? null
+        pr.threadsUnaddressed = threadStats?.unaddressed ?? null
+      } catch (error) {
+        console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
+      }
+    })
 
     // Clean up metadata and filter
     const finalPrs = allPrs

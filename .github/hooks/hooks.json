@@ -3,6 +3,12 @@
     "Stop": [
       {
         "type": "command",
+        "windows": "powershell -NoProfile -File .github/hooks/timestamp.ps1",
+        "command": "bash -c \"TZ='America/New_York' printf '{\"systemMessage\":\"Timestamp: %s\"}' \\\"$(date +'%Y-%m-%d %I:%M:%S %p %Z')\\\"\"",
+        "timeout": 5
+      },
+      {
+        "type": "command",
         "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./.github/hooks/Invoke-AgentSessionAutoPush.ps1",
         "timeout": 120
       }

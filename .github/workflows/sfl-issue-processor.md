@@ -139,8 +139,81 @@ safe-outputs:
     workflows: ["sfl-analyzer-a", "sfl-pr-label-actions"]
     max: 1
 jobs:
-  ensure-label-actions-dispatch:
+  format-pr-branch:
     needs: [agent, safe_outputs]
+    if: "(!cancelled()) && needs.safe_outputs.result == 'success' && needs.safe_outputs.outputs.created_pr_number != ''"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Determine PR branch
+        id: pr-info
+        run: |
+          # Prefer explicit PR input (fix-cycle), fall back to newly created PR
+          PR_NUM="${PR_NUM_INPUT}"
+          if [ -z "$PR_NUM" ]; then
+            PR_NUM="${CREATED_PR}"
+          fi
+          if [ -z "$PR_NUM" ]; then
+            echo "No PR number available — skipping formatting"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BRANCH=$(gh pr view "$PR_NUM" --repo "$REPO" --json headRefName,state --jq 'select(.state == "OPEN") | .headRefName')
+          if [ -z "$BRANCH" ]; then
+            echo "PR #$PR_NUM is not open or branch unavailable — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "pr_number=$PR_NUM" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          # Pass branch via GITHUB_ENV to avoid template injection in subsequent steps
+          echo "PR_BRANCH=$BRANCH" >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM_INPUT: ${{ github.event.inputs.pull-request-number }}
+          CREATED_PR: ${{ needs.safe_outputs.outputs.created_pr_number }}
+          REPO: ${{ github.repository }}
+      - name: Checkout PR branch
+        if: steps.pr-info.outputs.skip != 'true'
+        run: |
+          git clone --depth=1 --branch "$PR_BRANCH" \
+            "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+      - name: Setup Node.js and Bun
+        if: steps.pr-info.outputs.skip != 'true'
+        run: |
+          npm install -g bun@1.2.0
+      - name: Install dependencies and format
+        if: steps.pr-info.outputs.skip != 'true'
+        id: format
+        run: |
+          bun install --frozen-lockfile || bun install
+          bun run format
+          if git diff --quiet; then
+            echo "No formatting changes needed"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Formatting changes detected — committing"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-format with Prettier"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Push formatting fixes
+        if: steps.pr-info.outputs.skip != 'true' && steps.format.outputs.changed == 'true'
+        run: |
+          git push
+          echo "Pushed formatting fixes to ${PR_BRANCH} for PR #${PR_NUM}"
+        env:
+          PR_NUM: ${{ steps.pr-info.outputs.pr_number }}
+
+  ensure-label-actions-dispatch:
+    needs: [agent, safe_outputs, format-pr-branch]
     if: "(!cancelled())"
     runs-on: ubuntu-latest
     permissions:
@@ -368,13 +441,20 @@ If `pull-request-number` is provided:
    `[MARKER:sfl-analyzer-a cycle:N]`, `[MARKER:sfl-analyzer-b cycle:N]`,
    `[MARKER:sfl-analyzer-c cycle:N]`. Verify all three exist.
 5. From the same PR comments, check the analyzer verdicts. The PR is eligible
-   if either condition is met:
+   if any condition is met:
    - At least one verdict for cycle N is `**BLOCKING ISSUES FOUND**`
      (blocking feedback needs code fixes), OR
    - All three verdicts are `**PASS**` but the PR has unresolved review
      threads (query `reviewThreads` with `isResolved: false`). This means
      PR Label Actions dispatched this run for review-comment resolution,
-     not for blocking analyzer findings.
+     not for blocking analyzer findings, OR
+   - The PR has the label `ci:fix-attempted`. This means PR Label Actions
+     detected that CI failed (e.g., test failures, lint errors) despite all
+     analyzers passing. A PR comment titled "## CI Fix Cycle" contains the
+     CI failure output — read it for diagnostic context. Treat this as a fix
+     cycle: fix the code so CI passes. After pushing the fix via
+     `push_to_pull_request_branch`, call `remove_labels` to remove
+     `ci:fix-attempted` from the PR.
 6. Search the PR comments for `[MARKER:sfl-issue-processor cycle:N]`.
    Verify it is not already present.
 

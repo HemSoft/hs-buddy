@@ -207,9 +207,17 @@ jobs:
           CI_STATE=$(gh pr checks "$PR_NUM" --repo ${{ github.repository }} --json name,state \
             --jq '[.[] | select(.name | test("test"; "i"))] | .[0].state // "PENDING"')
           if [ "$CI_STATE" != "SUCCESS" ]; then
-            echo "CI check is $CI_STATE (not SUCCESS) — falling back to human review"
-            echo "auto_merge=false" >> "$GITHUB_OUTPUT"
-            echo "reason=ci-not-green" >> "$GITHUB_OUTPUT"
+            # Check if we already attempted a CI fix cycle
+            if echo "$ALL_LABELS" | grep -Fxq "ci:fix-attempted"; then
+              echo "CI still $CI_STATE after prior fix attempt — falling back to human review"
+              echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+              echo "reason=ci-still-failing" >> "$GITHUB_OUTPUT"
+            else
+              echo "CI is $CI_STATE — eligible for CI fix cycle"
+              echo "auto_merge=false" >> "$GITHUB_OUTPUT"
+              echo "reason=ci-not-green" >> "$GITHUB_OUTPUT"
+              echo "ci_fix_cycle=true" >> "$GITHUB_OUTPUT"
+            fi
             exit 0
           fi
 
@@ -267,8 +275,59 @@ jobs:
             fi
           fi
 
+      - name: CI fix cycle — dispatch issue-processor for CI failure
+        if: steps.decide.outputs.action == 'ready-for-review' && steps.merge-check.outputs.ci_fix_cycle == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ steps.find.outputs.pr_number }}"
+          echo "CI failed on auto-merge-eligible PR #${PR_NUM}. Dispatching fix cycle."
+
+          # Fetch CI failure details and post as PR comment so the agent has context
+          BRANCH=$(gh pr view "$PR_NUM" --repo ${{ github.repository }} --json headRefName --jq '.headRefName')
+          CI_RUN_ID=$(gh run list --repo ${{ github.repository }} --branch "$BRANCH" --workflow CI --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          CI_SUMMARY=""
+          if [ -n "$CI_RUN_ID" ]; then
+            CI_SUMMARY=$(gh run view "$CI_RUN_ID" --repo ${{ github.repository }} --log 2>/dev/null \
+              | grep -iE "error|fail|exit|panic|assert|cannot|unable" \
+              | grep -v "^\[debug\]" \
+              | tail -30 || echo "Could not extract failure details")
+          fi
+          # Write comment body to a temp file to avoid shell escaping issues with CI output
+          TMPFILE=$(mktemp)
+          printf '## CI Fix Cycle\n\nCI is failing on this PR branch. Label Actions is dispatching the Issue Processor for a fix cycle.\n\n' > "$TMPFILE"
+          printf '**CI Run**: %s\n**Branch**: %s\n\n' "${CI_RUN_ID:-unknown}" "${BRANCH}" >> "$TMPFILE"
+          printf '<details><summary>CI Failure Output (last 30 lines)</summary>\n\n```\n' >> "$TMPFILE"
+          printf '%s\n' "${CI_SUMMARY:-No CI output available}" >> "$TMPFILE"
+          printf '```\n\n</details>\n\nPlease fix the failing tests/checks so CI passes.\n' >> "$TMPFILE"
+          gh pr comment "$PR_NUM" --repo ${{ github.repository }} --body-file "$TMPFILE"
+          rm -f "$TMPFILE"
+
+          # Create ci:fix-attempted label if it doesn't exist
+          gh label create "ci:fix-attempted" --repo ${{ github.repository }} \
+            --description "CI fix cycle dispatched by label-actions" --color "D4C5F9" --force 2>/dev/null || true
+          gh pr edit "$PR_NUM" --repo ${{ github.repository }} --add-label "ci:fix-attempted"
+
+          # Convert back to draft for fix cycle
+          IS_DRAFT=$(gh pr view "$PR_NUM" --repo ${{ github.repository }} --json isDraft --jq '.isDraft')
+          if [ "$IS_DRAFT" != "true" ]; then
+            gh pr ready "$PR_NUM" --repo ${{ github.repository }} --undo
+          fi
+
+          # Remove ready-for-review label if present
+          gh pr edit "$PR_NUM" --repo ${{ github.repository }} --remove-label "human:ready-for-review" 2>/dev/null || true
+
+          # Dispatch issue-processor for fix cycle
+          gh workflow run sfl-issue-processor.lock.yml \
+            --repo ${{ github.repository }} \
+            -f pull-request-number="$PR_NUM"
+          echo "Dispatched issue-processor for CI fix cycle on PR #${PR_NUM}"
+
       - name: Ready for review — add label and flip draft (human review path)
-        if: steps.decide.outputs.action == 'ready-for-review' && steps.merge-check.outputs.auto_merge != 'true'
+        if: >-
+          steps.decide.outputs.action == 'ready-for-review' &&
+          steps.merge-check.outputs.auto_merge != 'true' &&
+          steps.merge-check.outputs.ci_fix_cycle != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
@@ -294,6 +353,7 @@ jobs:
           MERGE_REASON: ${{ steps.merge-check.outputs.reason }}
           MERGE_RESULT: ${{ steps.auto-merge.outputs.merge_result }}
           MATCHED_RISK: ${{ steps.merge-check.outputs.matched_risk }}
+          CI_FIX_CYCLE: ${{ steps.merge-check.outputs.ci_fix_cycle }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           script: |
@@ -305,11 +365,14 @@ jobs:
             const mergeReason = process.env.MERGE_REASON;
             const mergeResult = process.env.MERGE_RESULT;
             const matchedRisk = process.env.MATCHED_RISK;
+            const ciFixCycle = process.env.CI_FIX_CYCLE;
             const fallbackTag = trigger === 'workflow_run' ? ' *(deterministic fallback)*' : '';
 
             let body;
             if (action === 'fix-cycle') {
               body = `🔄 **Label Actions → Fix Cycle** | PR #${prNum} (*${title}*) — \`analyzer:blocked\` detected, dispatched issue-processor for fix cycle${fallbackTag}`;
+            } else if (action === 'ready-for-review' && ciFixCycle === 'true') {
+              body = `🔧 **Label Actions → CI Fix Cycle** | PR #${prNum} (*${title}*) — analyzers passed but CI failing, dispatched issue-processor for CI fix cycle${fallbackTag}`;
             } else if (action === 'ready-for-review' && autoMerge === 'true' && mergeResult === 'success') {
               body = `🚀 **Label Actions → Auto-Merged** | PR #${prNum} (*${title}*) — all analyzers passed, CI green, \`${matchedRisk}\` — squash-merged automatically${fallbackTag}`;
             } else if (action === 'ready-for-review' && autoMerge === 'true' && mergeResult === 'ci-changed') {

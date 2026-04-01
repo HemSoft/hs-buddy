@@ -42,7 +42,9 @@ describe('getQuotaColor', () => {
 describe('computeProjection', () => {
   it('returns null when elapsed time is under 1 second', () => {
     const now = new Date()
-    // Reset date in the future means period just started → elapsed < 1s
+    // Reset 35 days from now → periodStart (reset - 1 month) lands ~5 days
+    // in the future → elapsed is negative → function returns null
+    const resetDate = new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000)
     const premium: QuotaSnapshot = {
       entitlement: 300,
       overage_count: 0,
@@ -55,10 +57,27 @@ describe('computeProjection', () => {
       timestamp_utc: now.toISOString(),
     }
 
-    // Reset date far in the future so there's plenty of elapsed time
-    const futureReset = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    const result = computeProjection(premium, futureReset.toISOString())
-    // When remaining === entitlement, used = 0, so projectedTotal = 0
+    const result = computeProjection(premium, resetDate.toISOString())
+    expect(result).toBeNull()
+  })
+
+  it('projects zero when no usage in the period', () => {
+    const now = new Date()
+    // Reset in 15 days, period started 15 days ago → plenty of elapsed time
+    const resetDate = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000)
+    const premium: QuotaSnapshot = {
+      entitlement: 300,
+      overage_count: 0,
+      overage_permitted: true,
+      percent_remaining: 100,
+      quota_id: 'test',
+      quota_remaining: 300,
+      remaining: 300,
+      unlimited: false,
+      timestamp_utc: now.toISOString(),
+    }
+
+    const result = computeProjection(premium, resetDate.toISOString())
     expect(result).not.toBeNull()
     expect(result!.projectedTotal).toBe(0)
     expect(result!.projectedOverage).toBe(0)

@@ -29,7 +29,7 @@ const issueSummaries: TempoIssueSummary[] = [
 describe('TempoTimesheetGrid', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-03-15T12:00:00Z'))
+    vi.setSystemTime(new Date(2026, 2, 15, 12, 0, 0))
   })
 
   afterEach(() => {
@@ -42,7 +42,7 @@ describe('TempoTimesheetGrid', () => {
         issueSummaries={[]}
         worklogs={[]}
         totalHours={0}
-        monthDate={new Date('2026-03-01T00:00:00Z')}
+        monthDate={new Date(2026, 2, 1)}
         holidays={{}}
         loading
         capexMap={{}}
@@ -62,7 +62,7 @@ describe('TempoTimesheetGrid', () => {
         issueSummaries={[]}
         worklogs={[]}
         totalHours={0}
-        monthDate={new Date('2026-03-01T00:00:00Z')}
+        monthDate={new Date(2026, 2, 1)}
         holidays={{}}
         loading={false}
         capexMap={{}}
@@ -89,7 +89,7 @@ describe('TempoTimesheetGrid', () => {
         issueSummaries={issueSummaries}
         worklogs={[worklog]}
         totalHours={2}
-        monthDate={new Date('2026-03-01T00:00:00Z')}
+        monthDate={new Date(2026, 2, 1)}
         holidays={{ '2026-03-17': 'Team Holiday' }}
         loading={false}
         capexMap={{ 'PE-101': true }}

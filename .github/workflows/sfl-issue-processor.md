@@ -181,7 +181,7 @@ jobs:
           git clone --depth=1 --branch "$PR_BRANCH" \
             "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" .
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
       - name: Setup Node.js and Bun
         if: steps.pr-info.outputs.skip != 'true'
@@ -207,9 +207,11 @@ jobs:
       - name: Push formatting fixes
         if: steps.pr-info.outputs.skip != 'true' && steps.format.outputs.changed == 'true'
         run: |
-          git push
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:${PR_BRANCH}"
           echo "Pushed formatting fixes to ${PR_BRANCH} for PR #${PR_NUM}"
         env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
           PR_NUM: ${{ steps.pr-info.outputs.pr_number }}
 
   ensure-label-actions-dispatch:

@@ -39,7 +39,12 @@ function formatResetTime(resetTimestamp: number): string {
   return `${mins}m`
 }
 
-export function RateLimitGauge({ remaining, limit, reset, refreshInterval = 60 }: RateLimitGaugeProps) {
+export function RateLimitGauge({
+  remaining,
+  limit,
+  reset,
+  refreshInterval = 60,
+}: RateLimitGaugeProps) {
   const ratio = limit > 0 ? remaining / limit : 1
   const color = useMemo(() => getGaugeColor(ratio), [ratio])
   const resetLabel = formatResetTime(reset)

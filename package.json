@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.546",
+  "version": "0.1.547",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -94,7 +94,11 @@
   "packageManager": "bun@1.2.0",
   "lint-staged": {
     "*.{ts,tsx}": [
+      "prettier --write",
       "eslint --max-warnings 0 --no-ignore"
+    ],
+    "*.{js,json,css}": [
+      "prettier --write"
     ],
     "*.md": [
       "markdownlint-cli2"

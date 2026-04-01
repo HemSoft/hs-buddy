@@ -201,7 +201,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write
     steps:
       - name: Download agent output artifact
         continue-on-error: true
@@ -236,6 +236,21 @@ jobs:
           if [ -z "$PR_NUM" ]; then
             echo "No open agent:pr PR found for issue #$ISSUE_NUM — labels remain unchanged"
             exit 0
+          fi
+
+          # Copy risk labels from issue to PR (deterministic — agent may not do this)
+          ISSUE_LABELS=$(gh api "repos/$REPO/issues/$ISSUE_NUM/labels" --jq '.[].name' 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "Warning: Failed to fetch labels from issue #$ISSUE_NUM — skipping risk label copy"
+            ISSUE_LABELS=""
+          fi
+          RISK_LABEL=$(echo "$ISSUE_LABELS" | grep -E '^risk:' | head -1)
+          if [ -n "$RISK_LABEL" ]; then
+            PR_LABELS=$(gh pr view "$PR_NUM" --repo "$REPO" --json labels --jq '[.labels[].name] | join("\n")' 2>/dev/null || echo "")
+            if ! echo "$PR_LABELS" | grep -Fxq "$RISK_LABEL"; then
+              gh pr edit "$PR_NUM" --repo "$REPO" --add-label "$RISK_LABEL"
+              echo "Copied $RISK_LABEL from issue #$ISSUE_NUM to PR #$PR_NUM"
+            fi
           fi
 
           # Check current issue labels

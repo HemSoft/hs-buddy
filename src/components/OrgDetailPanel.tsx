@@ -891,7 +891,7 @@ function useOrgRateLimit(accounts: GitHubAccount[], org: string) {
     return () => clearInterval(timer)
   }, [fetchRateLimit])
 
-  return rateLimit
+  return { rateLimit, fetchRateLimit }
 }
 
 function usePersonalQuotaSummary(
@@ -992,7 +992,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     copilotCacheKey,
     copilotTaskName,
   })
-  const rateLimit = useOrgRateLimit(accounts, org)
+  const { rateLimit, fetchRateLimit } = useOrgRateLimit(accounts, org)
   const shouldRefreshOnMount = Boolean(
     initialOverview || membersData.hasCachedMembers || copilotData.hasCachedCopilot
   )
@@ -1026,13 +1026,13 @@ function useOrgDetailData(org: string, memberLogin?: string) {
 
   const fetchAll = useCallback(
     async (forceRefresh = false) => {
-      const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh)]
+      const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh), fetchRateLimit()]
       if (!isUserNamespace) {
         work.push(fetchCopilot(forceRefresh))
       }
       await Promise.allSettled(work)
     },
-    [fetchCopilot, isUserNamespace, fetchMembers, fetchOverview]
+    [fetchCopilot, fetchRateLimit, isUserNamespace, fetchMembers, fetchOverview]
   )
 
   useEffect(() => {

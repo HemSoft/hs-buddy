@@ -4,7 +4,7 @@ description: |
   independently review draft PRs labeled agent:pr using different AI models.
   Each analyzer reviews the ENTIRE PR across all dimensions (correctness,
   security, performance, style, maintainability). The value comes from model
-  diversity — different models catch different things. Model: gemini-3-pro-preview
+  diversity — different models catch different things. Model: claude-opus-4.6
   (set via engine.model frontmatter — canonical value in sfl.json models section).
 
 on:

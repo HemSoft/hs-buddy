@@ -6,8 +6,8 @@
 .DESCRIPTION
     Enables the three SFL analyzer workflows:
       - SFL Analyzer A (claude-sonnet-4.6)  — full-spectrum code review
-      - SFL Analyzer B (gemini-3-pro-preview) — full-spectrum code review
-      - SFL Analyzer C (gpt-5.3-codex)      — full-spectrum code review
+      - SFL Analyzer B (claude-opus-4.6) — full-spectrum code review
+      - SFL Analyzer C (gpt-5.4)      — full-spectrum code review
 
     These are EVENT-DRIVEN — they trigger on pull_request: opened.
     They must be enabled BEFORE the Issue Processor opens a draft PR,
@@ -26,8 +26,8 @@ Write-Host "=== Stage 5: Enable SFL Analyzers A/B/C ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "This will enable:" -ForegroundColor White
 Write-Host "  - SFL Analyzer A (claude-sonnet-4.6)   — code review" -ForegroundColor White
-Write-Host "  - SFL Analyzer B (gemini-3-pro-preview) — code review" -ForegroundColor White
-Write-Host "  - SFL Analyzer C (gpt-5.3-codex)       — code review" -ForegroundColor White
+Write-Host "  - SFL Analyzer B (claude-opus-4.6)       — code review" -ForegroundColor White
+Write-Host "  - SFL Analyzer C (gpt-5.4)              — code review" -ForegroundColor White
 Write-Host ""
 Write-Host "Triggered by: pull_request opened event" -ForegroundColor DarkGray
 Write-Host "Output: Review comments + body markers per analyzer" -ForegroundColor DarkGray

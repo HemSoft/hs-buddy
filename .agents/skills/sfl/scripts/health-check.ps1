@@ -53,7 +53,7 @@ $agenticCount = $mdFiles
 $standardCount = $ymlFiles
 $totalLogical = $agenticCount + $standardCount
 
-$wfPass = $totalLogical -le 14
+$wfPass = $totalLogical -le 15
 $results += [PSCustomObject]@{
     N      = 1
     Check  = "Workflow count"

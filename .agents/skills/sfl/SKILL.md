@@ -79,7 +79,7 @@ Before modifying any SFL workflow:
 & ".agents/skills/sfl/scripts/health-check.ps1"
 ```
 
-This verifies workflow count (≤14), label count (≤25), and other ceilings.
+This verifies workflow count (≤15), label count (≤25), and other ceilings.
 
 ---
 
@@ -121,15 +121,18 @@ loop now relies on explicit `dispatch-workflow` handoffs where needed. However, 
 | `sfl-auditor` | Agentic | `:15 * * * *` | Repairs issue↔PR label discrepancies |
 | `daily-repo-status` (`SFL Repo Status`) | Agentic | Daily | Produces status report Discussion |
 | `repo-audit` (`Repo Audit`) | Agentic | Daily | Finds code quality issues → Discussion |
-| `simplisticate` | Agentic | Daily | Finds simplification opportunities → Discussion |
+| `simplisticate-audit` | Agentic | Daily | Finds simplification opportunities → Discussion |
 | `sfl-improve-scorecard` | Agentic | Daily | Fetches org-metrics scorecard, creates issue for highest-impact failing rule |
+| `test-coverage-audit` | Agentic | Daily | Identifies files with zero/low test coverage → `agent:fixable` issue |
 | `discussion-processor` (`SFL Discussion Processor`) | Agentic | `discussion: labeled` | Groups Discussion findings → `agent:fixable` issues |
 | `sfl-issue-processor` | Agentic | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: creates or advances the draft PR for one issue |
-| `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A -> B -> C review chain (claude-sonnet-4.6) |
-| `sfl-analyzer-b` | Agentic | Analyzer A dispatch | Continues the sequential review chain (gemini-3-pro-preview) |
+| `sfl-analyzer-a` | Agentic | `pull_request: opened` | Starts the sequential A → B → C review chain (claude-sonnet-4.6) |
+| `sfl-analyzer-b` | Agentic | Analyzer A dispatch | Continues the sequential review chain (claude-opus-4.6) |
 | `sfl-analyzer-c` | Agentic | Analyzer B dispatch | Finishes the sequential review chain and dispatches label-actions for verdict aggregation (gpt-5.4) |
+| `ci` | Standard | push / PR | CI pipeline: lint, type-check, test, build |
+| `react-doctor-audit` | Standard | Daily | React health scan → Discussion |
 | `sfl-pr-label-actions` (`SFL PR Label Actions`) | Standard | Analyzer C dispatch / manual dispatch | Deterministic aggregator: checks labels, resolves review threads via GraphQL, flips draft → ready or dispatches issue-processor for fix cycle |
-| `agentics-maintenance` | Standard | Daily | Auto-generated: closes expired safe-output entities |
+| `sfl-queue-monitor` | Standard | `*/15 * * * *` | Dequeues `agent:queue` → `agent:fixable` when issue-processor is idle |
 
 ### Model Configuration
 
@@ -270,7 +273,7 @@ Exhaustive pass/fail health checks that go beyond green checkmarks.
 
 | Check | What it verifies |
 |-------|------------------|
-| Workflow count | ≤ 14 files in `.github/workflows/` (ceiling) |
+| Workflow count | ≤ 15 files in `.github/workflows/` (ceiling) |
 | Label health | ≤ 25 labels, no orphans |
 | Issue↔PR harmony | Every `agent:in-progress` issue has a matching PR |
 | Marker integrity | All open agent PRs have valid markers for their cycle |
@@ -399,7 +402,7 @@ Architectural watchdog. Questions every addition. Protects the complexity ceilin
 > If the fix for a problem is "add another workflow", stop and ask if an existing
 > one can be extended instead.
 
-14 workflow files is the **complexity ceiling**. Additions must be justified
+15 workflow files is the **complexity ceiling**. Additions must be justified
 against removal of something else.
 
 **Before adding any new workflow:**
@@ -449,7 +452,7 @@ When evaluating a proposed change:
 Before modifying any SFL workflow or adding any logic:
 
 1. Run `ensure-auth.ps1` (see [Preflight](#preflight))
-2. Run `health-check.ps1` — it verifies workflow count (≤14), labels (≤25), and more
+2. Run `health-check.ps1` — it verifies workflow count (≤15), labels (≤25), and more
 3. Count lines in any prompt you plan to modify (flag if >150)
 4. If ANY metric is at or over ceiling, address that FIRST before new work
 

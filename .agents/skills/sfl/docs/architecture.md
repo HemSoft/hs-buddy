@@ -250,7 +250,7 @@ Models are pinned in `sfl.json` at repo root:
 {
   "models": {
     "sfl-analyzer-a": "claude-sonnet-4.6",
-    "sfl-analyzer-b": "gemini-3-pro-preview",
+    "sfl-analyzer-b": "claude-opus-4.6",
     "sfl-analyzer-c": "gpt-5.4"
   }
 }

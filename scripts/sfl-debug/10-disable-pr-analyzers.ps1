@@ -6,8 +6,8 @@
 .DESCRIPTION
     Disables the three SFL analyzer workflows (reverse of Stage 5):
       - SFL Analyzer A (claude-sonnet-4.6)
-      - SFL Analyzer B (gemini-3-pro-preview)
-      - SFL Analyzer C (gpt-5.3-codex)
+      - SFL Analyzer B (claude-opus-4.6)
+      - SFL Analyzer C (gpt-5.4)
 
     New PRs opened after this will not receive automated reviews.
 #>
@@ -20,8 +20,8 @@ Write-Host "=== Stage 10: Disable SFL Analyzers A/B/C ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "This will disable:" -ForegroundColor White
 Write-Host "  - SFL Analyzer A (claude-sonnet-4.6)" -ForegroundColor White
-Write-Host "  - SFL Analyzer B (gemini-3-pro-preview)" -ForegroundColor White
-Write-Host "  - SFL Analyzer C (gpt-5.3-codex)" -ForegroundColor White
+Write-Host "  - SFL Analyzer B (claude-opus-4.6)" -ForegroundColor White
+Write-Host "  - SFL Analyzer C (gpt-5.4)" -ForegroundColor White
 Write-Host ""
 
 $confirm = Read-Host "Disable SFL Analyzers? [y/N]"

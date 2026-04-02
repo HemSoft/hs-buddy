@@ -68,6 +68,14 @@ jobs:
 
           echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
 
+          # Detect degraded scan (oxlint failure on Linux hides all findings)
+          if grep -q "lint checks failed" .tmp/react-doctor.txt 2>/dev/null; then
+            echo "lint_degraded=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::React Doctor lint checks failed (likely oxlint config incompatibility). Dead code and other non-lint findings may be suppressed."
+          else
+            echo "lint_degraded=false" >> "$GITHUB_OUTPUT"
+          fi
+
           if [ ! -s .tmp/react-doctor.txt ]; then
             echo "React Doctor did not produce output."
             exit 1
@@ -79,6 +87,7 @@ jobs:
         env:
           HAS_REACT: ${{ steps.scan.outputs.has_react }}
           SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit_code }}
+          LINT_DEGRADED: ${{ steps.scan.outputs.lint_degraded }}
         with:
           script: |
             const fs = require('fs');
@@ -455,14 +464,25 @@ jobs:
             const rawReport = fs.readFileSync(reportPath, 'utf8');
             const report = parseReport(rawReport);
             const risk = riskForReport(report);
+            const lintDegraded = process.env.LINT_DEGRADED === 'true';
 
             if (scanExitCode !== 0 && report.categories.length === 0) {
+              if (lintDegraded) {
+                core.warning('React Doctor lint checks failed (oxlint config incompatibility). The audit ran in degraded mode — lint-based findings (accessibility, state/effects) were not checked.');
+                await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ⚠️ DEGRADED — oxlint failed, lint-based findings suppressed. Dead code checks ran but found 0 issues. Score unavailable.`);
+                return;
+              }
               core.setFailed(`React Doctor exited with code ${scanExitCode} and no diagnostics were parsed.`);
               return;
             }
 
             if (report.categories.length === 0 || report.actionableCount === 0) {
-              await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ⏭️ 0 actionable findings — no issue created`);
+              if (lintDegraded) {
+                core.warning('React Doctor lint checks failed (oxlint config incompatibility). 0 actionable findings may be inaccurate.');
+                await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ⚠️ DEGRADED — oxlint failed, 0 findings reported but lint-based checks were skipped. Score unavailable.`);
+              } else {
+                await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ⏭️ 0 actionable findings — no issue created`);
+              }
               return;
             }
 

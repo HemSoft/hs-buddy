@@ -231,7 +231,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
             <div className="job-detail-runs-loading">Loading runs...</div>
           ) : runs.length === 0 ? (
             <div className="job-detail-runs-empty">
-              No runs yet. Click "Run" to execute this job.
+              No runs yet. Click &quot;Run&quot; to execute this job.
             </div>
           ) : (
             <div className="job-detail-runs">

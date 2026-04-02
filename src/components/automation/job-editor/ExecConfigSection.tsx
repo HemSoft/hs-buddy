@@ -70,7 +70,7 @@ export function ExecConfigSection({
           onChange={e => onCwdChange(e.target.value)}
           placeholder="e.g., C:\Projects\MyApp (optional)"
         />
-        <div className="form-hint">Leave empty to use the app's working directory</div>
+        <div className="form-hint">Leave empty to use the app&apos;s working directory</div>
       </div>
     </>
   )

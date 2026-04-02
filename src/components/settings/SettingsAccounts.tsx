@@ -210,7 +210,8 @@ export function SettingsAccounts() {
                 <User size={32} />
                 <p>No GitHub accounts configured</p>
                 <p className="hint">
-                  Click "Add Account" to configure your first GitHub account for PR tracking.
+                  Click &quot;Add Account&quot; to configure your first GitHub account for PR
+                  tracking.
                 </p>
               </div>
             ) : (

@@ -236,8 +236,8 @@ export function SettingsCopilot() {
           )}
 
           <p className="hint">
-            The model is passed to the Copilot SDK's <code>createSession()</code> call. Available
-            models depend on your GitHub Copilot subscription tier.
+            The model is passed to the Copilot SDK&apos;s <code>createSession()</code> call.
+            Available models depend on your GitHub Copilot subscription tier.
           </p>
         </div>
 

@@ -110,7 +110,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
           )}
           {accounts.length > 0 && (
             <>
-              <p className="error-hint">Make sure you're authenticated with GitHub CLI:</p>
+              <p className="error-hint">Make sure you&apos;re authenticated with GitHub CLI:</p>
               <ul>
                 <li>
                   <code>gh auth status</code> - Check authentication status

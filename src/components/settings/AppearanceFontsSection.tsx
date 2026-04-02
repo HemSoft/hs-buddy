@@ -77,7 +77,7 @@ export function AppearanceFontsSection({
             className="font-preview mono"
             style={{ fontFamily: `'${monoFontFamily}', Consolas, monospace` }}
           >
-            const hello = "world"; // 0123456789
+            const hello = &quot;world&quot;; // 0123456789
           </div>
         </div>
       </div>

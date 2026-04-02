@@ -24,6 +24,8 @@
     "e18e": "npx --yes @e18e/cli analyze",
     "e18e:migrate": "npx --yes @e18e/cli migrate --all",
     "coverage:ratchet": "bun scripts/coverage-ratchet.ts",
+    "bundle-size": "bun scripts/bundle-size.ts",
+    "bundle-size:update": "bun scripts/bundle-size.ts --update",
     "preview": "vite preview",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",

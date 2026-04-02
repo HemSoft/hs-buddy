@@ -10,7 +10,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}', 'src/features/*.steps.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'text-summary', 'lcov'],
+      reporter: ['text', 'text-summary', 'lcov', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/main.tsx',
@@ -22,10 +22,10 @@ export default defineConfig({
         'src/types/**',
       ],
       thresholds: {
-        statements: 25,
-        branches: 25,
-        functions: 25,
-        lines: 25,
+        statements: 45,
+        branches: 41,
+        functions: 46,
+        lines: 46,
       },
     },
   },

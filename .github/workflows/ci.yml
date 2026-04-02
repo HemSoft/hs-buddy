@@ -51,6 +51,12 @@ jobs:
       - name: Run tests with coverage
         run: bun run test:coverage
 
+      - name: Build (vite + electron)
+        run: npx tsc && npx vite build
+
+      - name: Check bundle sizes
+        run: bun run bundle-size
+
       - name: Run benchmarks
         run: bun run bench
         continue-on-error: true

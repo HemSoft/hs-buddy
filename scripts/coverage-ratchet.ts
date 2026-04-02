@@ -1,8 +1,13 @@
 /**
  * Coverage Ratchet
  *
- * Reads the current coverage summary from lcov and updates vitest.config.ts
- * thresholds to match the current floor. Thresholds can only go UP, never DOWN.
+ * Reads the current coverage from vitest's json-summary output and updates
+ * vitest.config.ts thresholds to match the current floor. Thresholds can
+ * only go UP, never DOWN.
+ *
+ * Uses json-summary (coverage-summary.json) instead of LCOV to get the exact
+ * same percentages vitest uses for threshold checking — avoids mismatches
+ * between LCOV line counts and V8 statement coverage.
  *
  * Run: bun scripts/coverage-ratchet.ts
  */
@@ -10,38 +15,30 @@ import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 
 const configPath = resolve(import.meta.dirname, '..', 'vitest.config.ts')
-const coveragePath = resolve(import.meta.dirname, '..', 'coverage', 'lcov.info')
+const summaryPath = resolve(import.meta.dirname, '..', 'coverage', 'coverage-summary.json')
 
-// Parse lcov.info to get coverage percentages
-function parseLcov(lcov: string) {
-  let linesHit = 0, linesFound = 0
-  let branchesHit = 0, branchesFound = 0
-  let functionsHit = 0, functionsFound = 0
+type MetricKey = 'statements' | 'branches' | 'functions' | 'lines'
+const METRICS: MetricKey[] = ['statements', 'branches', 'functions', 'lines']
 
-  for (const line of lcov.split('\n')) {
-    const [key, value] = line.split(':')
-    const num = parseInt(value, 10)
-    if (isNaN(num)) continue
-    switch (key) {
-      case 'LH': linesHit += num; break
-      case 'LF': linesFound += num; break
-      case 'BRH': branchesHit += num; break
-      case 'BRF': branchesFound += num; break
-      case 'FNH': functionsHit += num; break
-      case 'FNF': functionsFound += num; break
-    }
+// Parse coverage-summary.json (vitest json-summary reporter output)
+function parseSummary(path: string): Record<MetricKey, number> {
+  const raw = JSON.parse(readFileSync(path, 'utf-8'))
+  const total = raw.total
+  if (!total) throw new Error('coverage-summary.json missing "total" key')
+
+  const result = {} as Record<MetricKey, number>
+  for (const key of METRICS) {
+    const pct = total[key]?.pct
+    if (pct == null) throw new Error(`coverage-summary.json missing total.${key}.pct`)
+    // Floor to integer — vitest checks with decimal precision,
+    // so an integer floor is always safe as a threshold
+    result[key] = Math.floor(pct)
   }
-
-  return {
-    lines: linesFound > 0 ? Math.floor((linesHit / linesFound) * 100) : 0,
-    branches: branchesFound > 0 ? Math.floor((branchesHit / branchesFound) * 100) : 0,
-    functions: functionsFound > 0 ? Math.floor((functionsHit / functionsFound) * 100) : 0,
-    statements: linesFound > 0 ? Math.floor((linesHit / linesFound) * 100) : 0,
-  }
+  return result
 }
 
 // Extract current thresholds from vitest.config.ts
-function parseThresholds(config: string) {
+function parseThresholds(config: string): Record<MetricKey, number> {
   const match = config.match(/thresholds:\s*\{([^}]+)\}/)
   if (!match) throw new Error('Could not find thresholds in vitest.config.ts')
   const block = match[1]
@@ -57,23 +54,17 @@ function parseThresholds(config: string) {
 }
 
 try {
-  const lcov = readFileSync(coveragePath, 'utf-8')
-  if (!lcov.trim()) {
-    throw new Error('lcov.info is empty — coverage may not have been generated')
-  }
-  const current = parseLcov(lcov)
+  const current = parseSummary(summaryPath)
   const config = readFileSync(configPath, 'utf-8')
   const existing = parseThresholds(config)
 
   // Ratchet: only go UP
-  const next = {
-    statements: Math.max(existing.statements, current.statements),
-    branches: Math.max(existing.branches, current.branches),
-    functions: Math.max(existing.functions, current.functions),
-    lines: Math.max(existing.lines, current.lines),
+  const next = {} as Record<MetricKey, number>
+  for (const key of METRICS) {
+    next[key] = Math.max(existing[key], current[key])
   }
 
-  const changed = Object.keys(next).some(k => next[k as keyof typeof next] !== existing[k as keyof typeof existing])
+  const changed = METRICS.some(k => next[k] !== existing[k])
   if (!changed) {
     console.log('Coverage ratchet: no threshold increase needed.')
     console.log(`  Current: S=${existing.statements}% B=${existing.branches}% F=${existing.functions}% L=${existing.lines}%`)
@@ -93,6 +84,6 @@ try {
   console.log(`  After:  S=${next.statements}% B=${next.branches}% F=${next.functions}% L=${next.lines}%`)
 } catch (err) {
   console.error('Coverage ratchet failed:', (err as Error).message)
-  console.error('Make sure to run `bun run test:coverage` first to generate lcov.info')
+  console.error('Make sure to run `bun run test:coverage` first to generate coverage-summary.json')
   process.exit(1)
 }

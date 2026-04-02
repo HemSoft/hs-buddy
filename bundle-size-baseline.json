@@ -1,0 +1,25 @@
+{
+  "updatedAt": "2026-04-02T07:00:11.453Z",
+  "bundles": [
+    {
+      "file": "dist/assets/index.js",
+      "sizeBytes": 2022532,
+      "sizeHuman": "1.93 MB"
+    },
+    {
+      "file": "dist-electron/main.js",
+      "sizeBytes": 893910,
+      "sizeHuman": "872.96 kB"
+    },
+    {
+      "file": "dist/assets/index.css",
+      "sizeBytes": 262554,
+      "sizeHuman": "256.40 kB"
+    },
+    {
+      "file": "dist-electron/preload.mjs",
+      "sizeBytes": 3731,
+      "sizeHuman": "3.64 kB"
+    }
+  ]
+}

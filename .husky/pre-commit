@@ -16,5 +16,9 @@ fi
 # Block commits when tests fail or coverage drops below threshold
 bun run test:coverage
 
+# Ratchet coverage thresholds up (never down) and include in commit
+bun run coverage:ratchet
+git add vitest.config.ts
+
 # Block commits when the repo has TypeScript errors
 bun run typecheck

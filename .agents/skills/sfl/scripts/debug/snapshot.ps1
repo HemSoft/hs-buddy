@@ -12,6 +12,15 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+$Cyan    = "${esc}[36m"
+$DGray    = "${esc}[90m"
+$Green    = "${esc}[32m"
+$Red    = "${esc}[31m"
+$Yellow    = "${esc}[33m"
+$Reset   = "${esc}[0m"
+
 function Get-LinkedIssueNumber {
     param(
         [Parameter(Mandatory)]
@@ -34,56 +43,56 @@ function Get-LinkedIssueNumber {
     return $null
 }
 
-Write-Host "`n=== ECOSYSTEM SNAPSHOT ===" -ForegroundColor Cyan
-Write-Host "Repo: $Repo"
-Write-Host "Time: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')) (local) / $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')) (UTC)"
-Write-Host ""
+Write-Information "${Cyan}`n=== ECOSYSTEM SNAPSHOT ===${Reset}"
+Write-Information "Repo: $Repo"
+Write-Information "Time: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')) (local) / $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')) (UTC)"
+Write-Information ""
 
 # --- Issues ---
-Write-Host "--- OPEN ISSUES WITH AGENT LABELS ---" -ForegroundColor Yellow
+Write-Information "${Yellow}--- OPEN ISSUES WITH AGENT LABELS ---${Reset}"
 $issueRaw = gh issue list --repo $Repo --state open --json number,title,labels,createdAt 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ERROR: gh issue list failed. Check gh auth status." -ForegroundColor Red
-    Write-Host "  Output: $issueRaw" -ForegroundColor DarkGray
+    Write-Information "${Red}  ERROR: gh issue list failed. Check gh auth status.${Reset}"
+    Write-Information "${DGray}  Output: $issueRaw${Reset}"
     exit 1
 }
 $issues = ($issueRaw | ConvertFrom-Json) | Where-Object { $_.labels | Where-Object { $_.name -like "agent:*" } }
 if ($issues) {
     foreach ($i in $issues) {
         $labels = ($i.labels | ForEach-Object { $_.name }) -join ", "
-        Write-Host "  #$($i.number) $($i.title)"
-        Write-Host "    Labels: $labels" -ForegroundColor DarkGray
+        Write-Information "  #$($i.number) $($i.title)"
+        Write-Information "${DGray}    Labels: $labels${Reset}"
     }
 } else {
-    Write-Host "  No active agent issues." -ForegroundColor Green
+    Write-Information "${Green}  No active agent issues.${Reset}"
 }
 
 # --- PRs ---
-Write-Host "`n--- OPEN PULL REQUESTS ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- OPEN PULL REQUESTS ---${Reset}"
 $prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,labels,createdAt,body 2>&1 | ConvertFrom-Json
 if ($prs) {
     foreach ($pr in $prs) {
         $labels = ($pr.labels | ForEach-Object { $_.name }) -join ", "
         $draft = if ($pr.isDraft) { "(DRAFT)" } else { "(READY)" }
-        Write-Host "  PR #$($pr.number) $draft $($pr.title)"
-        Write-Host "    Branch: $($pr.headRefName)" -ForegroundColor DarkGray
-        Write-Host "    Labels: $labels" -ForegroundColor DarkGray
+        Write-Information "  PR #$($pr.number) $draft $($pr.title)"
+        Write-Information "${DGray}    Branch: $($pr.headRefName)${Reset}"
+        Write-Information "${DGray}    Labels: $labels${Reset}"
     }
 } else {
-    Write-Host "  No open PRs." -ForegroundColor Green
+    Write-Information "${Green}  No open PRs.${Reset}"
 }
 
 # --- Label Count ---
-Write-Host "`n--- LABEL METRICS ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- LABEL METRICS ---${Reset}"
 $labelCount = (gh label list --repo $Repo --json name --jq '.[].name' 2>&1 | Measure-Object -Line).Lines
-$color = if ($labelCount -le 20) { "Green" } elseif ($labelCount -le 25) { "Yellow" } else { "Red" }
-Write-Host "  Total labels: $labelCount" -ForegroundColor $color
+$lblColor = if ($labelCount -le 20) { $Green } elseif ($labelCount -le 25) { $Yellow } else { $Red }
+Write-Information "${lblColor}  Total labels: $labelCount${Reset}"
 if ($labelCount -gt 25) {
-    Write-Host "  WARNING: Label count exceeds recommended maximum of 25!" -ForegroundColor Red
+    Write-Information "${Red}  WARNING: Label count exceeds recommended maximum of 25!${Reset}"
 }
 
 # --- Harmony Check ---
-Write-Host "`n--- HARMONY CHECK ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- HARMONY CHECK ---${Reset}"
 $harmony = $true
 
 $agentIssuePrMap = @{}
@@ -111,14 +120,14 @@ foreach ($i in $issues) {
             ($prLabelNames -contains "agent:pr") -and ((Get-LinkedIssueNumber -PullRequest $_) -eq $num)
         })
         if ($matchingPRs.Count -eq 0) {
-            Write-Host "  FAIL: Issue #$num (agent:in-progress) has no matching PR" -ForegroundColor Red
+            Write-Information "${Red}  FAIL: Issue #$num (agent:in-progress) has no matching PR${Reset}"
             $harmony = $false
         } elseif ($matchingPRs.Count -gt 1) {
             $prNumbers = ($matchingPRs | ForEach-Object { "#$($_.number)" }) -join ", "
-            Write-Host "  FAIL: Issue #$num (agent:in-progress) has multiple matching PRs: $prNumbers" -ForegroundColor Red
+            Write-Information "${Red}  FAIL: Issue #$num (agent:in-progress) has multiple matching PRs: $prNumbers${Reset}"
             $harmony = $false
         } else {
-            Write-Host "  OK: Issue #$num -> PR #$($matchingPRs[0].number)" -ForegroundColor Green
+            Write-Information "${Green}  OK: Issue #$num -> PR #$($matchingPRs[0].number)${Reset}"
         }
     }
 }
@@ -127,7 +136,7 @@ foreach ($i in $issues) {
 foreach ($i in $issues) {
     $labelNames = $i.labels | ForEach-Object { $_.name }
     if (($labelNames -contains "agent:in-progress") -and ($labelNames -contains "agent:fixable")) {
-        Write-Host "  FAIL: Issue #$($i.number) has BOTH agent:in-progress AND agent:fixable" -ForegroundColor Red
+        Write-Information "${Red}  FAIL: Issue #$($i.number) has BOTH agent:in-progress AND agent:fixable${Reset}"
         $harmony = $false
     }
 }
@@ -136,17 +145,17 @@ foreach ($i in $issues) {
 foreach ($entry in $agentIssuePrMap.GetEnumerator() | Sort-Object Name) {
     if ($entry.Value.Count -gt 1) {
         $prNumbers = ($entry.Value | ForEach-Object { "#$($_.number)" }) -join ", "
-        Write-Host "  FAIL: Issue #$($entry.Key) is split across multiple open agent PRs: $prNumbers" -ForegroundColor Red
+        Write-Information "${Red}  FAIL: Issue #$($entry.Key) is split across multiple open agent PRs: $prNumbers${Reset}"
         $harmony = $false
     }
 }
 
 if ($harmony) {
-    Write-Host "  All harmony checks passed." -ForegroundColor Green
+    Write-Information "${Green}  All harmony checks passed.${Reset}"
 }
 
 # --- Recent Workflow Runs ---
-Write-Host "`n--- RECENT WORKFLOW RUNS (last 2 hours) ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- RECENT WORKFLOW RUNS (last 2 hours) ---${Reset}"
 $since = [DateTime]::UtcNow.AddHours(-2).ToString("yyyy-MM-ddTHH:mm:ssZ")
 $workflows = @(
     "sfl-auditor.lock.yml",
@@ -168,9 +177,9 @@ foreach ($w in $workflows) {
     $ipCount = ($inProgress | Measure-Object).Count
 
     $status = if ($total -eq 0) { "(no runs)" } elseif ($failCount -gt 0) { "$failCount FAILED" } else { "all success" }
-    $color = if ($failCount -gt 0) { "Red" } elseif ($total -eq 0) { "DarkGray" } else { "Green" }
+    $wfColor = if ($failCount -gt 0) { $Red } elseif ($total -eq 0) { $DGray } else { $Green }
     $extra = if ($ipCount -gt 0) { " +${ipCount} in-progress" } else { "" }
-    Write-Host "  ${shortName}: $total runs, $status$extra" -ForegroundColor $color
+    Write-Information "${wfColor}  ${shortName}: $total runs, $status$extra${Reset}"
 }
 
-Write-Host "`n=== SNAPSHOT COMPLETE ===" -ForegroundColor Cyan
+Write-Information "${Cyan}`n=== SNAPSHOT COMPLETE ===${Reset}"

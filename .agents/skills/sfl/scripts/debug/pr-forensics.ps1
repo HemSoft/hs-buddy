@@ -16,6 +16,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+$Cyan    = "${esc}[36m"
+$DGray    = "${esc}[90m"
+$Yellow    = "${esc}[33m"
+$Green    = "${esc}[32m"
+$Magenta    = "${esc}[35m"
+$Red    = "${esc}[31m"
+$Reset   = "${esc}[0m"
+
 function Get-LinkedIssueNumber {
     param(
         [Parameter(Mandatory)]
@@ -38,17 +48,17 @@ function Get-LinkedIssueNumber {
     return $null
 }
 
-Write-Host "`n=== PR #$PRNumber FORENSICS ===" -ForegroundColor Cyan
+Write-Information "${Cyan}`n=== PR #$PRNumber FORENSICS ===${Reset}"
 
 # --- Get PR details ---
 $pr = gh pr view $PRNumber --repo $Repo --json number,title,isDraft,state,headRefName,labels,body,createdAt,comments 2>&1 | ConvertFrom-Json
 
-Write-Host "Title: $($pr.title)"
-Write-Host "State: $($pr.state) $(if ($pr.isDraft) { '(DRAFT)' } else { '(READY)' })"
-Write-Host "Branch: $($pr.headRefName)"
-Write-Host "Created: $($pr.createdAt)"
+Write-Information "Title: $($pr.title)"
+Write-Information "State: $($pr.state) $(if ($pr.isDraft) { '(DRAFT)' } else { '(READY)' })"
+Write-Information "Branch: $($pr.headRefName)"
+Write-Information "Created: $($pr.createdAt)"
 $labels = ($pr.labels | ForEach-Object { $_.name }) -join ", "
-Write-Host "Labels: $labels"
+Write-Information "Labels: $labels"
 
 # --- Extract linked issue ---
 $issueNum = Get-LinkedIssueNumber -PullRequest $pr
@@ -60,23 +70,23 @@ if ($null -ne $issueNum) {
     } else {
         'branch fallback'
     }
-    Write-Host "Linked Issue: #$issueNum ($linkSource)" -ForegroundColor Green
+    Write-Information "${Green}Linked Issue: #$issueNum ($linkSource)${Reset}"
 } else {
-    Write-Host "Linked Issue: NONE FOUND" -ForegroundColor Red
+    Write-Information "${Red}Linked Issue: NONE FOUND${Reset}"
 }
 
 # --- Check cycle label ---
 $cycleLabel = ($pr.labels | ForEach-Object { $_.name }) | Where-Object { $_ -match "^pr:cycle-\d+$" }
 if ($cycleLabel) {
     $cycle = [int]($cycleLabel -replace "pr:cycle-", "")
-    Write-Host "Current Cycle: $cycle (label: $cycleLabel)" -ForegroundColor Cyan
+    Write-Information "${Cyan}Current Cycle: $cycle (label: $cycleLabel)${Reset}"
 } else {
     $cycle = 0
-    Write-Host "Current Cycle: 0 (no cycle label)" -ForegroundColor Yellow
+    Write-Information "${Yellow}Current Cycle: 0 (no cycle label)${Reset}"
 }
 
 # --- Check markers in PR body ---
-Write-Host "`n--- MARKER ANALYSIS (cycle $cycle) ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- MARKER ANALYSIS (cycle $cycle) ---${Reset}"
 $body = $pr.body
 
 $markerTypes = @(
@@ -101,60 +111,60 @@ $foundLegacy = 0
 
 foreach ($m in $markerTypes) {
     if ($body -and $body.Contains($m.Pattern)) {
-        Write-Host "  FOUND: $($m.Name) -> $($m.Pattern)" -ForegroundColor Green
+        Write-Information "${Green}  FOUND: $($m.Name) -> $($m.Pattern)${Reset}"
         $foundNew++
     } else {
-        Write-Host "  MISSING: $($m.Name) -> $($m.Pattern)" -ForegroundColor Red
+        Write-Information "${Red}  MISSING: $($m.Name) -> $($m.Pattern)${Reset}"
     }
 }
 
 foreach ($m in $legacyMarkers) {
     if ($body -and $body.Contains($m.Pattern)) {
-        Write-Host "  FOUND (LEGACY): $($m.Name) -> $($m.Pattern)" -ForegroundColor DarkYellow
+        Write-Information "${Yellow}  FOUND (LEGACY): $($m.Name) -> $($m.Pattern)${Reset}"
         $foundLegacy++
     }
 }
 
 if ($foundLegacy -gt 0 -and $foundNew -eq 0) {
-    Write-Host "`n  WARNING: Only legacy HTML comment markers found." -ForegroundColor Red
-    Write-Host "  The new [MARKER:...] format is not being produced." -ForegroundColor Red
-    Write-Host "  This is likely why the PR is stuck." -ForegroundColor Red
+    Write-Information "${Red}`n  WARNING: Only legacy HTML comment markers found.${Reset}"
+    Write-Information "${Red}  The new [MARKER:...] format is not being produced.${Reset}"
+    Write-Information "${Red}  This is likely why the PR is stuck.${Reset}"
 }
 
 # --- Check review content in body ---
-Write-Host "`n--- REVIEW CONTENT ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- REVIEW CONTENT ---${Reset}"
 $analyzerCount = ([regex]::Matches($body, "PR Analysis [ABC]")).Count
-Write-Host "  Analyzer review sections found in body: $analyzerCount"
+Write-Information "  Analyzer review sections found in body: $analyzerCount"
 if ($analyzerCount -gt 3) {
-    Write-Host "  WARNING: More than 3 reviews — duplicate reviews being appended!" -ForegroundColor Red
-    Write-Host "  Body length: $($body.Length) chars" -ForegroundColor DarkGray
+    Write-Information "${Red}  WARNING: More than 3 reviews — duplicate reviews being appended!${Reset}"
+    Write-Information "${DGray}  Body length: $($body.Length) chars${Reset}"
 }
 
 # --- Check verdicts ---
-Write-Host "`n--- VERDICTS ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- VERDICTS ---${Reset}"
 $passCount = ([regex]::Matches($body, "\*\*PASS\*\*")).Count
 $blockCount = ([regex]::Matches($body, "\*\*BLOCKING ISSUES FOUND\*\*")).Count
-Write-Host "  PASS verdicts: $passCount"
-Write-Host "  BLOCKING verdicts: $blockCount"
+Write-Information "  PASS verdicts: $passCount"
+Write-Information "  BLOCKING verdicts: $blockCount"
 
 # --- Check supersede narrative against emitted safe outputs ---
-Write-Host "`n--- FOLLOW-UP OUTPUT PROOF ---" -ForegroundColor Yellow
+Write-Information "${Yellow}`n--- FOLLOW-UP OUTPUT PROOF ---${Reset}"
 $supersedeNarrative = $false
 $supersededPR = $null
 if ($body -match "Supersedes #(\d+)") {
     $supersedeNarrative = $true
     $supersededPR = $matches[1]
-    Write-Host "  Supersede narrative found in PR body: #$supersededPR" -ForegroundColor Yellow
+    Write-Information "${Yellow}  Supersede narrative found in PR body: #$supersededPR${Reset}"
 } else {
-    Write-Host "  No supersede narrative found in PR body." -ForegroundColor DarkGray
+    Write-Information "${DGray}  No supersede narrative found in PR body.${Reset}"
 }
 
 $implementerRunId = $null
 if ($body -match "Generated by \[SFL Issue Processor / Implementer\]\([^)]*/actions/runs/(\d+)\)") {
     $implementerRunId = $matches[1]
-    Write-Host "  Implementer run: $implementerRunId" -ForegroundColor Cyan
+    Write-Information "${Cyan}  Implementer run: $implementerRunId${Reset}"
 } else {
-    Write-Host "  Implementer run: not found in PR body" -ForegroundColor DarkGray
+    Write-Information "${DGray}  Implementer run: not found in PR body${Reset}"
 }
 
 if ($implementerRunId) {
@@ -171,30 +181,30 @@ if ($implementerRunId) {
             $agentOutput = Get-Content $agentOutputPath -Raw | ConvertFrom-Json
             $emittedTypes = @($agentOutput.items | ForEach-Object { $_.type })
             $uniqueTypes = @($emittedTypes | Sort-Object -Unique)
-            Write-Host "  Emitted safe outputs: $($uniqueTypes -join ', ')"
+            Write-Information "  Emitted safe outputs: $($uniqueTypes -join ', ')"
 
             $attemptedPush = $uniqueTypes -contains "push_to_pull_request_branch"
             $attemptedCreate = $uniqueTypes -contains "create_pull_request"
 
             if ($supersedeNarrative -and -not $attemptedPush) {
-                Write-Host "  NARRATIVE MISMATCH: PR claims a superseding follow-up after push failure, but the run emitted no push_to_pull_request_branch output." -ForegroundColor Red
+                Write-Information "${Red}  NARRATIVE MISMATCH: PR claims a superseding follow-up after push failure, but the run emitted no push_to_pull_request_branch output.${Reset}"
                 if ($attemptedCreate) {
-                    Write-Host "  The run emitted create_pull_request instead, which indicates invalid output selection rather than a proven push failure." -ForegroundColor Yellow
+                    Write-Information "${Yellow}  The run emitted create_pull_request instead, which indicates invalid output selection rather than a proven push failure.${Reset}"
                 }
             } elseif ($supersedeNarrative -and $attemptedPush) {
-                Write-Host "  Push attempt evidence found for the supersede narrative. Inspect run logs for the concrete failure reason." -ForegroundColor Yellow
+                Write-Information "${Yellow}  Push attempt evidence found for the supersede narrative. Inspect run logs for the concrete failure reason.${Reset}"
             }
         } else {
-            Write-Host "  Agent output artifact not found for implementer run." -ForegroundColor DarkGray
+            Write-Information "${DGray}  Agent output artifact not found for implementer run.${Reset}"
         }
     } catch {
-        Write-Host "  Unable to inspect implementer run artifacts: $($_.Exception.Message)" -ForegroundColor DarkGray
+        Write-Information "${DGray}  Unable to inspect implementer run artifacts: $($_.Exception.Message)${Reset}"
     }
 }
 
 # --- Check linked issue state ---
 if ($issueNum) {
-    Write-Host "`n--- LINKED ISSUE #$issueNum ---" -ForegroundColor Yellow
+    Write-Information "${Yellow}`n--- LINKED ISSUE #$issueNum ---${Reset}"
     $issue = gh issue view $issueNum --repo $Repo --json number,title,state,labels 2>&1 | ConvertFrom-Json
     $relatedPRs = gh pr list --repo $Repo --state open --json number,headRefName,isDraft,labels,body 2>&1 | ConvertFrom-Json |
         Where-Object {
@@ -202,43 +212,43 @@ if ($issueNum) {
             ($prLabelNames -contains "agent:pr") -and ((Get-LinkedIssueNumber -PullRequest $_) -eq [int]$issueNum)
         }
     $issueLabels = ($issue.labels | ForEach-Object { $_.name }) -join ", "
-    Write-Host "  State: $($issue.state)"
-    Write-Host "  Labels: $issueLabels"
-    Write-Host "  Open agent PRs for issue: $((@($relatedPRs) | ForEach-Object { "#$($_.number)" }) -join ', ')"
+    Write-Information "  State: $($issue.state)"
+    Write-Information "  Labels: $issueLabels"
+    Write-Information "  Open agent PRs for issue: $((@($relatedPRs) | ForEach-Object { "#$($_.number)" }) -join ', ')"
 
     if (@($relatedPRs).Count -gt 1) {
-        Write-Host "  Issue<->PR link: AMBIGUOUS (multiple open agent PRs)" -ForegroundColor Red
+        Write-Information "${Red}  Issue<->PR link: AMBIGUOUS (multiple open agent PRs)${Reset}"
     } elseif ($issue.state -eq "CLOSED" -and $pr.state -eq "MERGED") {
         if (($issue.labels | ForEach-Object { $_.name }) -contains "agent:in-progress") {
-            Write-Host "  Issue<->PR link: RESOLVED (issue closed, stale agent:in-progress label remains)" -ForegroundColor Yellow
+            Write-Information "${Yellow}  Issue<->PR link: RESOLVED (issue closed, stale agent:in-progress label remains)${Reset}"
         } else {
-            Write-Host "  Issue<->PR link: RESOLVED" -ForegroundColor Green
+            Write-Information "${Green}  Issue<->PR link: RESOLVED${Reset}"
         }
     } elseif ($issue.state -eq "OPEN" -and ($issue.labels | ForEach-Object { $_.name }) -contains "agent:in-progress") {
-        Write-Host "  Issue<->PR link: HEALTHY" -ForegroundColor Green
+        Write-Information "${Green}  Issue<->PR link: HEALTHY${Reset}"
     } else {
-        Write-Host "  Issue<->PR link: BROKEN" -ForegroundColor Red
+        Write-Information "${Red}  Issue<->PR link: BROKEN${Reset}"
     }
 }
 
 # --- Diagnosis ---
-Write-Host "`n--- DIAGNOSIS ---" -ForegroundColor Magenta
+Write-Information "${Magenta}`n--- DIAGNOSIS ---${Reset}"
 if ($foundNew -ge 3 -and $blockCount -eq 0) {
-    Write-Host "  All 3 analyzer markers present, no blocking issues." -ForegroundColor Green
-    Write-Host "  PR should be progressing to SFL PR Router." -ForegroundColor Green
+    Write-Information "${Green}  All 3 analyzer markers present, no blocking issues.${Reset}"
+    Write-Information "${Green}  PR should be progressing to SFL PR Router.${Reset}"
     if ($pr.isDraft) {
-        Write-Host "  PR is still draft — check PR Router and label-actions logs." -ForegroundColor Yellow
+        Write-Information "${Yellow}  PR is still draft — check PR Router and label-actions logs.${Reset}"
     }
 } elseif ($foundNew -lt 3 -and $foundLegacy -gt 0) {
-    Write-Host "  STUCK: Analyzers are producing legacy markers, not new [MARKER:] format." -ForegroundColor Red
-    Write-Host "  FIX: Update analyzer .md prompts and ensure runtime-import picks up changes." -ForegroundColor Yellow
+    Write-Information "${Red}  STUCK: Analyzers are producing legacy markers, not new [MARKER:] format.${Reset}"
+    Write-Information "${Yellow}  FIX: Update analyzer .md prompts and ensure runtime-import picks up changes.${Reset}"
 } elseif ($foundNew -lt 3) {
     $missing = $markerTypes | Where-Object { -not $body.Contains($_.Pattern) } | ForEach-Object { $_.Name }
-    Write-Host "  WAITING: Missing markers from: $($missing -join ', ')" -ForegroundColor Yellow
-    Write-Host "  These analyzers either haven't run yet or failed to produce markers." -ForegroundColor DarkGray
+    Write-Information "${Yellow}  WAITING: Missing markers from: $($missing -join ', ')${Reset}"
+    Write-Information "${DGray}  These analyzers either haven't run yet or failed to produce markers.${Reset}"
 } elseif ($blockCount -gt 0) {
-    Write-Host "  BLOCKED: Analyzer(s) found blocking issues." -ForegroundColor Yellow
-    Write-Host "  Issue Processor should address these on the next run." -ForegroundColor DarkGray
+    Write-Information "${Yellow}  BLOCKED: Analyzer(s) found blocking issues.${Reset}"
+    Write-Information "${DGray}  Issue Processor should address these on the next run.${Reset}"
 }
 
 if ($issueNum) {
@@ -249,9 +259,9 @@ if ($issueNum) {
         }
     if (@($relatedPRs).Count -gt 1) {
         $prNumbers = (@($relatedPRs) | ForEach-Object { "#$($_.number)" }) -join ", "
-        Write-Host "  DUPLICATE STATE: Issue #$issueNum currently has multiple open agent PRs: $prNumbers" -ForegroundColor Red
-        Write-Host "  Treat this as a pipeline failure, not a healthy in-progress state." -ForegroundColor Yellow
+        Write-Information "${Red}  DUPLICATE STATE: Issue #$issueNum currently has multiple open agent PRs: $prNumbers${Reset}"
+        Write-Information "${Yellow}  Treat this as a pipeline failure, not a healthy in-progress state.${Reset}"
     }
 }
 
-Write-Host "`n=== FORENSICS COMPLETE ===" -ForegroundColor Cyan
+Write-Information "${Cyan}`n=== FORENSICS COMPLETE ===${Reset}"

@@ -20,21 +20,31 @@
 #>
 
 $ErrorActionPreference = 'Stop'
+
+$InformationPreference = 'Continue'
+$esc = [char]27
+$Cyan    = "${esc}[36m"
+$DGray    = "${esc}[90m"
+$Green    = "${esc}[32m"
+$Red    = "${esc}[31m"
+$White    = "${esc}[37m"
+$Yellow    = "${esc}[33m"
+$Reset   = "${esc}[0m"
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
-Write-Host ""
-Write-Host "=== Stage 7: Enable SFL PR Router + SFL Auditor ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "This will enable:" -ForegroundColor White
-Write-Host "  - SFL PR Router   (route clean vs blocked PRs deterministically)" -ForegroundColor White
-Write-Host "  - SFL Auditor     (label/state hygiene, runs hourly at :15)" -ForegroundColor White
-Write-Host ""
-Write-Host "After this, the FULL SFL pipeline is operational." -ForegroundColor Green
-Write-Host ""
+Write-Information ""
+Write-Information "${Cyan}=== Stage 7: Enable SFL PR Router + SFL Auditor ===${Reset}"
+Write-Information ""
+Write-Information "${White}This will enable:${Reset}"
+Write-Information "${White}  - SFL PR Router   (route clean vs blocked PRs deterministically)${Reset}"
+Write-Information "${White}  - SFL Auditor     (label/state hygiene, runs hourly at :15)${Reset}"
+Write-Information ""
+Write-Information "${Green}After this, the FULL SFL pipeline is operational.${Reset}"
+Write-Information ""
 
 $confirm = Read-Host "Enable SFL PR Router + SFL Auditor? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Host "Aborted." -ForegroundColor Yellow
+    Write-Information "${Yellow}Aborted.${Reset}"
     return
 }
 
@@ -46,31 +56,31 @@ $workflows = @(
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf.Name --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'active') {
-        Write-Host "  Already enabled: $($wf.Name)" -ForegroundColor DarkGray
+        Write-Information "${DGray}  Already enabled: $($wf.Name)${Reset}"
     } else {
         gh workflow enable $wf.File --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Enabled: $($wf.Name)" -ForegroundColor Green
+            Write-Information "${Green}  Enabled: $($wf.Name)${Reset}"
         } else {
-            Write-Host "  Failed:  $($wf.Name)" -ForegroundColor Red
+            Write-Information "${Red}  Failed:  $($wf.Name)${Reset}"
         }
     }
 }
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "  FULL SFL PIPELINE IS NOW OPERATIONAL  " -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "Pipeline flow:" -ForegroundColor White
-Write-Host "  Repo Audit / Simplisticate -> Discussions" -ForegroundColor DarkGray
-Write-Host "  Discussion Processor       -> agent:fixable Issues" -ForegroundColor DarkGray
-Write-Host "  Dispatcher + Issue Proc.   -> Draft PRs" -ForegroundColor DarkGray
-Write-Host "  PR Analyzers A/B/C         -> Review Comments + Markers" -ForegroundColor DarkGray
-Write-Host "  PR Fixer                   -> Fix Commits + Cycle Bump" -ForegroundColor DarkGray
-Write-Host "  SFL PR Router              -> Route PASS vs BLOCKING after Analyzer C" -ForegroundColor DarkGray
-Write-Host "  Human Approval             -> Merge (squash + delete branch)" -ForegroundColor DarkGray
-Write-Host "  SFL Auditor                -> Label/state hygiene" -ForegroundColor DarkGray
-Write-Host ""
-Write-Host "Monitor: gh run list --limit 10" -ForegroundColor Yellow
-Write-Host ""
+Write-Information ""
+Write-Information "${Green}========================================${Reset}"
+Write-Information "${Green}  FULL SFL PIPELINE IS NOW OPERATIONAL  ${Reset}"
+Write-Information "${Green}========================================${Reset}"
+Write-Information ""
+Write-Information "${White}Pipeline flow:${Reset}"
+Write-Information "${DGray}  Repo Audit / Simplisticate -> Discussions${Reset}"
+Write-Information "${DGray}  Discussion Processor       -> agent:fixable Issues${Reset}"
+Write-Information "${DGray}  Dispatcher + Issue Proc.   -> Draft PRs${Reset}"
+Write-Information "${DGray}  PR Analyzers A/B/C         -> Review Comments + Markers${Reset}"
+Write-Information "${DGray}  PR Fixer                   -> Fix Commits + Cycle Bump${Reset}"
+Write-Information "${DGray}  SFL PR Router              -> Route PASS vs BLOCKING after Analyzer C${Reset}"
+Write-Information "${DGray}  Human Approval             -> Merge (squash + delete branch)${Reset}"
+Write-Information "${DGray}  SFL Auditor                -> Label/state hygiene${Reset}"
+Write-Information ""
+Write-Information "${Yellow}Monitor: gh run list --limit 10${Reset}"
+Write-Information ""

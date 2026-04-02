@@ -60,7 +60,7 @@ missing, and what the fix would be. Wait for user approval.
 Default all CLI and workflow token usage to the **`fhemmerrelias`** identity
 unless explicitly overridden by a human.
 
-### 9. Risk Acknowledgment for Agent Fixes
+### 6. Risk Acknowledgment for Agent Fixes
 
 Medium or high risk is **not** a reason to mark a finding as non-agent-fixable.
 Agents should still attempt the fix. When the resulting PR reaches human review
@@ -70,13 +70,13 @@ the linked issue body so the reviewer knows what to scrutinize.
 Workflow prompts must label such issues with the appropriate `risk:medium` or
 `risk:high` label and include a **Risk Acknowledgment** line in the issue body.
 
-### 10. Capture Lessons in Skills
+### 7. Capture Lessons in Skills
 
 When an interactive session produces a new insight, instruction, or correction
 that would improve future runs, update the relevant skill file — not just
 this document. AGENTS.md is for standing orders; skills carry domain knowledge.
 
-### 11. Never Edit `.lock.yml` Files Directly
+### 8. Never Edit `.lock.yml` Files Directly
 
 Files matching `.github/workflows/*.lock.yml` are **auto-generated** by the
 gh-aw compiler from their corresponding `.md` source files. Any manual edits

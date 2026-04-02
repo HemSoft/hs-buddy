@@ -12,7 +12,10 @@ export function registerCopilotHandlers(): void {
   // Execute a prompt via Copilot SDK
   ipcMain.handle(
     'copilot:execute',
-    async (_event, args: { prompt: string; category?: string; metadata?: unknown; model?: string }) => {
+    async (
+      _event,
+      args: { prompt: string; category?: string; metadata?: unknown; model?: string }
+    ) => {
       try {
         const service = getCopilotService()
         const result = await service.executePrompt({
@@ -37,7 +40,7 @@ export function registerCopilotHandlers(): void {
       const cancelled = service.cancelPrompt(resultId)
       return { success: cancelled }
     } catch (error) {
-      return { success: false, error: String(error) }
+      return { success: false, error: getErrorMessage(error) }
     }
   })
 
@@ -63,7 +66,16 @@ export function registerCopilotHandlers(): void {
   // Chat: send message with context and conversation history
   ipcMain.handle(
     'copilot:chat-send',
-    async (_event, args: { message: string; context: string; conversationHistory: Array<{ role: string; content: string }>; model?: string; ghAccount?: string }) => {
+    async (
+      _event,
+      args: {
+        message: string
+        context: string
+        conversationHistory: Array<{ role: string; content: string }>
+        model?: string
+        ghAccount?: string
+      }
+    ) => {
       try {
         return await sendChatMessage(args)
       } catch (error) {
@@ -79,5 +91,4 @@ export function registerCopilotHandlers(): void {
     abortChat()
     return { success: true }
   })
-
 }

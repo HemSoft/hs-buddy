@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /**
  * Copilot SDK Results — CRUD operations for captured Copilot prompt results.
  */
@@ -170,7 +172,7 @@ export const cleanup = mutation({
     olderThanDays: v.number(),
   },
   handler: async (ctx, args) => {
-    const cutoff = Date.now() - args.olderThanDays * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - args.olderThanDays * MS_PER_DAY;
     const oldResults = await ctx.db
       .query("copilotResults")
       .withIndex("by_created")

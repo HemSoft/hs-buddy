@@ -126,7 +126,10 @@ async function validateFolder(folderPath: string): Promise<CrewValidationResult>
   }
 
   const defaultBranch =
-    (await runGit(gitRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD', '--short']))?.replace('origin/', '') ??
+    (await runGit(gitRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD', '--short']))?.replace(
+      'origin/',
+      ''
+    ) ??
     (await runGit(gitRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])) ??
     'main'
 
@@ -141,9 +144,10 @@ export async function addProjectFromPicker(
     title: 'Select a project folder',
   }
 
-  const result = parentWindow && !parentWindow.isDestroyed()
-    ? await dialog.showOpenDialog(parentWindow, dialogOptions)
-    : await dialog.showOpenDialog(dialogOptions)
+  const result =
+    parentWindow && !parentWindow.isDestroyed()
+      ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions)
 
   if (result.canceled || result.filePaths.length === 0) {
     return { success: false, error: 'Cancelled' }
@@ -223,43 +227,44 @@ export function createOrGetSession(projectId: string): CrewSession {
   return session
 }
 
-export function addMessageToSession(
+function modifySession(
   projectId: string,
-  message: CrewChatMessage
+  updater: (session: CrewSession) => void
 ): CrewSession | null {
   const sessions = readSessions()
   const session = sessions.find(s => s.projectId === projectId)
   if (!session) return null
-  session.conversationHistory.push(message)
+  updater(session)
   session.updatedAt = Date.now()
   writeSessions(sessions)
   return session
+}
+
+export function addMessageToSession(
+  projectId: string,
+  message: CrewChatMessage
+): CrewSession | null {
+  return modifySession(projectId, session => {
+    session.conversationHistory.push(message)
+  })
 }
 
 export function updateSessionStatus(
   projectId: string,
   status: CrewSession['status']
 ): CrewSession | null {
-  const sessions = readSessions()
-  const session = sessions.find(s => s.projectId === projectId)
-  if (!session) return null
-  session.status = status
-  session.updatedAt = Date.now()
-  writeSessions(sessions)
-  return session
+  return modifySession(projectId, session => {
+    session.status = status
+  })
 }
 
 export function updateSessionChangedFiles(
   projectId: string,
   changedFiles: CrewChangedFile[]
 ): CrewSession | null {
-  const sessions = readSessions()
-  const session = sessions.find(s => s.projectId === projectId)
-  if (!session) return null
-  session.changedFiles = changedFiles
-  session.updatedAt = Date.now()
-  writeSessions(sessions)
-  return session
+  return modifySession(projectId, session => {
+    session.changedFiles = changedFiles
+  })
 }
 
 export function clearSession(projectId: string): boolean {
@@ -279,12 +284,8 @@ export async function undoFile(projectId: string, filePath: string): Promise<boo
   const result = await runGit(project.gitRoot, ['checkout', 'HEAD', '--', filePath])
   if (result === null) return false
 
-  const sessions = readSessions()
-  const session = sessions.find(s => s.projectId === projectId)
-  if (session) {
+  modifySession(projectId, session => {
     session.changedFiles = session.changedFiles.filter(f => f.filePath !== filePath)
-    session.updatedAt = Date.now()
-    writeSessions(sessions)
-  }
+  })
   return true
 }

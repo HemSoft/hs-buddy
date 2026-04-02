@@ -4,6 +4,8 @@ import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { incrementStat } from "./lib/stats";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 // List recent runs (last N runs)
 export const listRecent = query({
   args: {
@@ -291,7 +293,7 @@ export const cleanup = mutation({
     olderThanDays: v.number(),
   },
   handler: async (ctx, args) => {
-    const cutoff = Date.now() - (args.olderThanDays * 24 * 60 * 60 * 1000);
+    const cutoff = Date.now() - args.olderThanDays * MS_PER_DAY;
     
     // Fetch old runs using take() to avoid unbounded .collect()
     // Filter in TypeScript code per Convex best practices (no .filter())

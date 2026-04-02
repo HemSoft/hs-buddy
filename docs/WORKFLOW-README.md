@@ -25,21 +25,22 @@ That repo contains:
 
 ## Workflows active in this repo
 
-| Workflow | Schedule | Output | Source |
-| ---------- | ---------- | -------- | -------- |
-| `react-doctor-audit` (`React Doctor Audit`) | Daily ~1:17 AM EDT | Rolling React Doctor issue stream; older issues stay open while an active agent PR still depends on them | Local |
-| `test-coverage-audit` (`Test Coverage Audit`) | Daily 7:17 AM EDT | Single `agent:fixable` test-coverage issue | Local |
-| `simplisticate-audit` (`Simplisticate Audit`) | Daily ~2:27 AM EDT | Single `agent:fixable` simplification issue | Local |
-| `daily-repo-status` (`SFL Repo Status`) | Daily ~3:37 AM EDT | `report` Discussion | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `repo-audit` (`Repo Audit`) | Daily ~4:47 AM EDT | Single consolidated `agent:fixable` issue | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `sfl-improve-scorecard` (`Improve Scorecard`) | Daily ~5:37 AM EDT | Single `agent:fixable` scorecard improvement issue | Local |
-| `sfl-auditor` | Daily ~5:57 AM EDT | Repairs issue/PR label discrepancies | Local |
-| `discussion-processor` (`SFL Discussion Processor`) | `discussion: labeled` | Groups Discussion findings into `agent:fixable` issues | Local |
-| `sfl-issue-processor` | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback | Local |
-| `sfl-analyzer-a` | `pull_request: opened` | Starts the sequential A -> B -> C review chain for draft PRs (Model A) | Local |
-| `sfl-analyzer-b` | Analyzer A dispatch | Continues the sequential full-spectrum review chain (Model B) | Local |
-| `sfl-analyzer-c` | Analyzer B dispatch | Finishes the sequential full-spectrum review chain; dispatches label-actions for ready-for-review or fix-cycle decisions | Local |
-| `sfl-pr-label-actions` (`SFL PR Label Actions`) | Analyzer C dispatch / manual dispatch | Deterministic aggregator: checks labels, flips draft → ready or dispatches issue-processor for fix cycle | Local |
+| Workflow                                                | Schedule                                        | Output                                                                                                                   | Source                                                                                 |
+| ------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `react-doctor-audit` (`React Doctor Audit`)             | Daily ~1:17 AM EDT                              | Rolling React Doctor issue stream; older issues stay open while an active agent PR still depends on them                 | Local                                                                                  |
+| `test-coverage-audit` (`Test Coverage Audit`)           | Daily 7:17 AM EDT                               | Single `agent:fixable` test-coverage issue                                                                               | Local                                                                                  |
+| `simplisticate-audit` (`Simplisticate Audit`)           | Daily ~2:27 AM EDT                              | Single `agent:fixable` simplification issue                                                                              | Local                                                                                  |
+| `daily-repo-status` (`SFL Repo Status`)                 | Daily ~3:37 AM EDT                              | `report` Discussion                                                                                                      | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `repo-audit` (`Repo Audit`)                             | Daily ~4:47 AM EDT                              | Single consolidated `agent:fixable` issue                                                                                | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `sfl-improve-scorecard` (`Scorecard Improvement Audit`) | Daily ~5:37 AM EDT                              | Single `agent:fixable` scorecard improvement issue                                                                       | Local                                                                                  |
+| `sfl-auditor`                                           | Daily ~5:57 AM EDT                              | Repairs issue/PR label discrepancies                                                                                     | Local                                                                                  |
+| `discussion-processor` (`SFL Discussion Processor`)     | `discussion: labeled`                           | Groups Discussion findings into `agent:fixable` issues                                                                   | Local                                                                                  |
+| `sfl-issue-processor`                                   | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback                              | Local                                                                                  |
+| `sfl-analyzer-a`                                        | `pull_request: opened`                          | Starts the sequential A -> B -> C review chain for draft PRs (Model A)                                                   | Local                                                                                  |
+| `sfl-analyzer-b`                                        | Analyzer A dispatch                             | Continues the sequential full-spectrum review chain (Model B)                                                            | Local                                                                                  |
+| `sfl-analyzer-c`                                        | Analyzer B dispatch                             | Finishes the sequential full-spectrum review chain; dispatches label-actions for ready-for-review or fix-cycle decisions | Local                                                                                  |
+| `sfl-pr-label-actions` (`SFL PR Label Actions`)         | Analyzer C dispatch / manual dispatch           | Deterministic aggregator: checks labels, flips draft → ready or dispatches issue-processor for fix cycle                 | Local                                                                                  |
+| `sfl-queue-monitor` (`SFL Queue Monitor`)               | Every 15 minutes                                | Dequeues `agent:queue` issues into the SFL Issue Processor when the processor is idle                                    | Local                                                                                  |
 
 ---
 

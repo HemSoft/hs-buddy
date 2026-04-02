@@ -7,7 +7,7 @@ on:
         description: Target PR number for label-based actions
         required: true
   workflow_run:
-    workflows: ["SFL Analyzer C — Full-Spectrum Review"]
+    workflows: ["SFL Analyzer C — Full-Spectrum Review", "CI"]
     types: [completed]
 
 permissions:
@@ -85,8 +85,34 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: CI trigger guard — only proceed if ci:fix-attempted
+        if: >-
+          steps.find.outputs.pr_number != '' &&
+          steps.dedup.outputs.skip != 'true' &&
+          steps.find.outputs.trigger == 'workflow_run'
+        id: ci-guard
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+        run: |
+          SOURCE_WORKFLOW="${{ github.event.workflow_run.name }}"
+          if [ "$SOURCE_WORKFLOW" != "CI" ]; then
+            echo "Triggered by ${SOURCE_WORKFLOW}, not CI — no guard needed"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PR_NUM="${{ steps.find.outputs.pr_number }}"
+          LABELS=$(gh pr view "$PR_NUM" --repo ${{ github.repository }} --json labels --jq '[.labels[].name] | join("\n")')
+          if ! echo "$LABELS" | grep -Fxq "ci:fix-attempted"; then
+            echo "CI completed on agent-fix branch but PR #${PR_NUM} has no ci:fix-attempted label — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "CI passed on PR #${PR_NUM} with ci:fix-attempted — re-evaluating merge eligibility"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check labels and decide action
-        if: steps.find.outputs.pr_number != '' && steps.dedup.outputs.skip != 'true'
+        if: steps.find.outputs.pr_number != '' && steps.dedup.outputs.skip != 'true' && steps.ci-guard.outputs.skip != 'true'
         id: decide
         env:
           GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
@@ -342,7 +368,7 @@ jobs:
           fi
 
       - name: Log decision to Discussion #95
-        if: always() && steps.find.outputs.pr_number != '' && steps.dedup.outputs.skip != 'true'
+        if: always() && steps.find.outputs.pr_number != '' && steps.dedup.outputs.skip != 'true' && steps.ci-guard.outputs.skip != 'true'
         uses: actions/github-script@v7
         env:
           PR_NUM: ${{ steps.find.outputs.pr_number }}
@@ -354,6 +380,7 @@ jobs:
           MERGE_RESULT: ${{ steps.auto-merge.outputs.merge_result }}
           MATCHED_RISK: ${{ steps.merge-check.outputs.matched_risk }}
           CI_FIX_CYCLE: ${{ steps.merge-check.outputs.ci_fix_cycle }}
+          SOURCE_WORKFLOW: ${{ github.event.workflow_run.name }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           script: |
@@ -366,7 +393,11 @@ jobs:
             const mergeResult = process.env.MERGE_RESULT;
             const matchedRisk = process.env.MATCHED_RISK;
             const ciFixCycle = process.env.CI_FIX_CYCLE;
-            const fallbackTag = trigger === 'workflow_run' ? ' *(deterministic fallback)*' : '';
+            const sourceWorkflow = process.env.SOURCE_WORKFLOW;
+            const isCI = sourceWorkflow === 'CI';
+            const fallbackTag = trigger === 'workflow_run'
+              ? (isCI ? ' *(CI-pass re-evaluation)*' : ' *(deterministic fallback)*')
+              : '';
 
             let body;
             if (action === 'fix-cycle') {

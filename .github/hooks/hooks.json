@@ -1,17 +1,29 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "type": "command",
-        "windows": "powershell -NoProfile -File .github/hooks/timestamp.ps1",
-        "command": "bash -c \"TZ='America/New_York' printf '{\"systemMessage\":\"Timestamp: %s\"}' \\\"$(date +'%Y-%m-%d %I:%M:%S %p %Z')\\\"\"",
-        "timeout": 5
-      },
-      {
-        "type": "command",
-        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./.github/hooks/Invoke-AgentSessionAutoPush.ps1",
-        "timeout": 120
-      }
-    ]
-  }
+    "version": 1,
+    "hooks": {
+        "UserPromptSubmit": [
+            {
+                "type": "command",
+                "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./.github/scripts/Log-Prompt.ps1",
+                "bash": "bash ./.github/scripts/log-prompt.sh",
+                "timeoutSec": 5
+            }
+        ],
+        "Stop": [
+            {
+                "type": "command",
+                "windows": "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path 'logs/session' | Out-Null; Add-Content -Path ('logs/session/' + (Get-Date -Format 'yyyy-MM-dd') + '.log') -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] [Stop] Session stopped')\"",
+                "bash": "mkdir -p logs/session && echo \"[$(date '+%Y-%m-%d %H:%M:%S')] [Stop] Session stopped\" >> logs/session/$(date '+%Y-%m-%d').log",
+                "timeoutSec": 5
+            }
+        ],
+        "sessionEnd": [
+            {
+                "type": "command",
+                "windows": "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path 'logs/session' | Out-Null; Add-Content -Path ('logs/session/' + (Get-Date -Format 'yyyy-MM-dd') + '.log') -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] [sessionEnd] Session ended')\"",
+                "bash": "mkdir -p logs/session && echo \"[$(date '+%Y-%m-%d %H:%M:%S')] [sessionEnd] Session ended\" >> logs/session/$(date '+%Y-%m-%d').log",
+                "timeoutSec": 5
+            }
+        ]
+    }
 }

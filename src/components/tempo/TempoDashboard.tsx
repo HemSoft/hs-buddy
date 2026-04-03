@@ -161,6 +161,7 @@ export function TempoDashboard() {
     if (state.editingWorklog) {
       result = await actions.update(state.editingWorklog.id, {
         hours: payload.hours,
+        date: payload.date,
         startTime: payload.startTime,
         description: payload.description,
         accountKey: payload.accountKey,

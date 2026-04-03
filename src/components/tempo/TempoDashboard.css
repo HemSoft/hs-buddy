@@ -236,6 +236,37 @@
   position: relative;
 }
 
+/* Custom cell tooltip */
+.tempo-cell-tooltip {
+  position: fixed;
+  z-index: 100;
+  transform: translate(-50%, -100%);
+  background: #1a1a2e;
+  border: 1px solid #4fc3f7;
+  border-radius: 6px;
+  padding: 6px 10px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.tempo-tooltip-header {
+  color: #e0e0e0;
+  font-weight: 600;
+}
+
+.tempo-tooltip-action {
+  color: #999;
+}
+
+.tempo-tooltip-action::before {
+  content: '›';
+  margin-right: 4px;
+  color: #4fc3f7;
+}
+
 .tempo-grid-scroll {
   overflow: auto;
   height: 100%;
@@ -291,8 +322,8 @@
 }
 
 .tempo-grid-day-header {
-  min-width: 40px;
-  width: 40px;
+  min-width: 44px;
+  width: 44px;
 }
 
 .tempo-grid-day-header .tempo-grid-day-num {
@@ -349,6 +380,7 @@
   left: 0;
   background: var(--bg-primary, #1e1e1e);
   z-index: 1;
+  overflow: clip;
 }
 
 .tempo-grid-key-cell {
@@ -356,6 +388,7 @@
   left: 180px;
   background: var(--bg-primary, #1e1e1e);
   z-index: 1;
+  overflow: clip;
 }
 
 .tempo-grid-logged-cell {
@@ -366,6 +399,7 @@
   left: 260px;
   background: var(--bg-primary, #1e1e1e);
   z-index: 1;
+  overflow: clip;
 }
 
 .tempo-grid-cell {
@@ -373,7 +407,7 @@
   color: var(--text-secondary, #999);
   cursor: pointer;
   transition: background 0.15s;
-  min-width: 40px;
+  min-width: 44px;
 }
 
 .tempo-grid-cell:hover {
@@ -403,8 +437,7 @@
 }
 
 .tempo-grid-cell.today {
-  border-left: 2px solid #4fc3f7;
-  border-right: 2px solid #4fc3f7;
+  box-shadow: inset 2px 0 0 #4fc3f7, inset -2px 0 0 #4fc3f7;
 }
 
 /* Totals row */
@@ -424,6 +457,15 @@
   left: 0;
   background: var(--bg-primary, #1e1e1e);
   z-index: 1;
+  overflow: clip;
+}
+
+.tempo-grid-total-key {
+  position: sticky;
+  left: 180px;
+  background: var(--bg-primary, #1e1e1e);
+  z-index: 1;
+  overflow: clip;
 }
 
 .tempo-grid-total-logged {
@@ -431,6 +473,7 @@
   left: 260px;
   background: var(--bg-primary, #1e1e1e);
   z-index: 1;
+  overflow: clip;
 }
 
 .tempo-grid-total-cell.full {
@@ -450,8 +493,7 @@
   opacity: 0.55;
 }
 .tempo-grid-total-cell.today {
-  border-left: 2px solid #4fc3f7;
-  border-right: 2px solid #4fc3f7;
+  box-shadow: inset 2px 0 0 #4fc3f7, inset -2px 0 0 #4fc3f7;
 }
 
 /* --- Issue pill and account badge --- */

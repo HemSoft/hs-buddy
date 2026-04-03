@@ -4,8 +4,8 @@
         "UserPromptSubmit": [
             {
                 "type": "command",
-                "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./.github/scripts/Log-Prompt.ps1",
-                "bash": "bash ./.github/scripts/log-prompt.sh",
+                "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./.github/hooks/Log-Prompt.ps1",
+                "bash": "bash ./.github/hooks/log-prompt.sh",
                 "timeoutSec": 5
             }
         ],
@@ -15,6 +15,11 @@
                 "windows": "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path 'logs/session' | Out-Null; Add-Content -Path ('logs/session/' + (Get-Date -Format 'yyyy-MM-dd') + '.log') -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] [Stop] Session stopped')\"",
                 "bash": "mkdir -p logs/session && echo \"[$(date '+%Y-%m-%d %H:%M:%S')] [Stop] Session stopped\" >> logs/session/$(date '+%Y-%m-%d').log",
                 "timeoutSec": 5
+            },
+            {
+                "type": "command",
+                "windows": "ffplay -nodisp -autoexit .github/hooks/done.mp3",
+                "timeoutSec": 10
             }
         ],
         "sessionEnd": [
@@ -23,6 +28,11 @@
                 "windows": "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path 'logs/session' | Out-Null; Add-Content -Path ('logs/session/' + (Get-Date -Format 'yyyy-MM-dd') + '.log') -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] [sessionEnd] Session ended')\"",
                 "bash": "mkdir -p logs/session && echo \"[$(date '+%Y-%m-%d %H:%M:%S')] [sessionEnd] Session ended\" >> logs/session/$(date '+%Y-%m-%d').log",
                 "timeoutSec": 5
+            },
+            {
+                "type": "command",
+                "windows": "ffplay -nodisp -autoexit .github/hooks/done.mp3",
+                "timeoutSec": 10
             }
         ]
     }

@@ -58,6 +58,7 @@ export interface CreateWorklogPayload {
 /** Payload for updating a worklog */
 export interface UpdateWorklogPayload {
   hours?: number
+  date?: string
   startTime?: string
   description?: string
   accountKey?: string

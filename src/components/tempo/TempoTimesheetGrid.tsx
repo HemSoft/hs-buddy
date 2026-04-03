@@ -1,7 +1,31 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import type { TempoIssueSummary, TempoWorklog } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
 import { Check } from 'lucide-react'
+
+interface TooltipState {
+  text: string
+  x: number
+  y: number
+}
+
+function CellTooltip({ tooltip }: { tooltip: TooltipState | null }) {
+  if (!tooltip) return null
+  return createPortal(
+    <div
+      className="tempo-cell-tooltip"
+      style={{ left: tooltip.x, top: tooltip.y }}
+    >
+      {tooltip.text.split('\n').map((line, i) => (
+        <div key={i} className={i === 0 ? 'tempo-tooltip-header' : 'tempo-tooltip-action'}>
+          {line}
+        </div>
+      ))}
+    </div>,
+    document.body
+  )
+}
 
 interface TempoTimesheetGridProps {
   issueSummaries: TempoIssueSummary[]
@@ -76,6 +100,19 @@ export function TempoTimesheetGrid({
 }: TempoTimesheetGridProps) {
   const columns = useMemo(() => buildDayColumns(monthDate, holidays), [monthDate, holidays])
 
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null)
+
+  const showTooltip = useCallback((e: React.MouseEvent, text: string) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setTooltip({
+      text,
+      x: rect.left + rect.width / 2,
+      y: rect.top - 4,
+    })
+  }, [])
+
+  const hideTooltip = useCallback(() => setTooltip(null), [])
+
   // Compute daily totals
   const dailyTotals = useMemo(() => {
     const map: Record<string, number> = {}
@@ -92,16 +129,25 @@ export function TempoTimesheetGrid({
     if (todayRef.current && scrollRef.current) {
       const container = scrollRef.current
       const cell = todayRef.current
-      // Get the cell's absolute position in the scrollable content
       const cellRect = cell.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
       const absoluteLeft = cellRect.left - containerRect.left + container.scrollLeft
       // Sticky columns (Issue + Key + Logged) overlay ~320px of the visible area
-      // Scroll so today appears just right of them
+      // Show one extra column before today so yesterday's data is visible and clickable
       const stickyWidth = 320
-      container.scrollLeft = Math.max(0, absoluteLeft - stickyWidth)
+      const oneColumnWidth = 40
+      container.scrollLeft = Math.max(0, absoluteLeft - stickyWidth - oneColumnWidth)
     }
   }, [columns, loading, issueSummaries.length])
+
+  // Hide tooltip when the grid scrolls
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => setTooltip(null)
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
 
   if (loading && issueSummaries.length === 0) {
     return (
@@ -123,6 +169,7 @@ export function TempoTimesheetGrid({
 
   return (
     <div className="tempo-grid-wrapper">
+      <CellTooltip tooltip={tooltip} />
       <div className="tempo-grid-scroll" ref={scrollRef}>
         <table className="tempo-grid">
           <thead>
@@ -183,11 +230,13 @@ export function TempoTimesheetGrid({
                             onWorklogDelete(cellWorklogs[0])
                           }
                         }}
-                        title={
-                          hours > 0
-                            ? `${issue.issueKey} · ${hours}h on ${col.date}\nCtrl+click to copy to today`
-                            : `Click to log time on ${col.date}`
-                        }
+                        onMouseEnter={e => {
+                          const text = hours > 0
+                            ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\nCtrl+click — copy to today`
+                            : `Click — log time on ${col.date}`
+                          showTooltip(e, text)
+                        }}
+                        onMouseLeave={hideTooltip}
                       >
                         {hours > 0 ? hours : ''}
                       </td>
@@ -199,9 +248,10 @@ export function TempoTimesheetGrid({
           </tbody>
           <tfoot>
             <tr className="tempo-grid-totals">
-              <td className="tempo-grid-total-label" colSpan={2}>
+              <td className="tempo-grid-total-label">
                 Total
               </td>
+              <td className="tempo-grid-total-key"></td>
               <td className="tempo-grid-total-logged">{totalHours}</td>
               {columns.map(col => {
                 const dayTotal = dailyTotals[col.date] || 0
@@ -215,11 +265,12 @@ export function TempoTimesheetGrid({
                         onCopyToToday(worklogs.filter(w => w.date === col.date))
                       }
                     }}
-                    title={
-                      dayTotal > 0
-                        ? `${dayTotal}h — Ctrl+click to copy this day to today`
-                        : undefined
-                    }
+                    onMouseEnter={e => {
+                      if (dayTotal > 0) {
+                        showTooltip(e, `${dayTotal}h total\nCtrl+click — copy all worklogs to today`)
+                      }
+                    }}
+                    onMouseLeave={hideTooltip}
                     style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
                   >
                     {isDayComplete ? (

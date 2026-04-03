@@ -6,7 +6,13 @@ import { ConfirmDialog } from '../ConfirmDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { RunCard, type RunWithJob } from './run-list/RunCard'
 import { RunFilterBar, type StatusFilter } from './run-list/RunFilterBar'
+import { ViewModeToggle } from '../shared/ViewModeToggle'
+import { useViewMode } from '../../hooks/useViewMode'
+import { getStatusIcon, getStatusLabel } from '../shared/statusDisplay'
+import { getWorkerIcon } from './job-list/jobRowUtils'
+import { formatDistanceToNow, formatDuration } from '../../utils/dateUtils'
 import './RunList.css'
+import '../shared/ListView.css'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
@@ -15,6 +21,7 @@ export function RunList() {
   const { cancel, cleanup } = useRunMutations()
   const [expandedRows, setExpandedRows] = useState(new Set<string>())
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [viewMode, setViewMode] = useViewMode('run-list')
 
   const toggleRow = (runId: string) => {
     setExpandedRows(prev => {
@@ -100,6 +107,7 @@ export function RunList() {
         <div className="run-list-header">
           <h2>Runs</h2>
           <div className="run-list-header-actions">
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
             <button className="btn-icon" onClick={handleCleanup} title="Cleanup old runs (7+ days)">
               <Trash2 size={16} />
             </button>
@@ -120,15 +128,56 @@ export function RunList() {
             </div>
           )}
 
-          {filteredRuns.map((run: RunWithJob) => (
-            <RunCard
-              key={run._id}
-              run={run}
-              isExpanded={!!(expandedRows as Set<string>).has(run._id)}
-              onToggle={toggleRow}
-              onCancel={handleCancel}
-            />
-          ))}
+          {viewMode === 'list' ? (
+            <table className="list-view-table">
+              <thead>
+                <tr>
+                  <th className="col-status"></th>
+                  <th className="col-title">Name</th>
+                  <th>Status</th>
+                  <th>Duration</th>
+                  <th>Triggered</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRuns.map((run: RunWithJob) => (
+                  <tr key={run._id} onClick={() => toggleRow(run._id)}>
+                    <td className="col-status">{getStatusIcon(run.status)}</td>
+                    <td className="col-title">
+                      {run.job ? (
+                        <>
+                          {getWorkerIcon(run.job.workerType, 14)}{' '}
+                          {run.job.name}
+                        </>
+                      ) : (
+                        <span style={{ opacity: 0.5 }}>Deleted Job</span>
+                      )}
+                      {run.schedule && (
+                        <span className="run-schedule-badge" style={{ marginLeft: 6 }}>
+                          via {run.schedule.name}
+                        </span>
+                      )}
+                    </td>
+                    <td><span className={`run-status-badge status-${run.status}`}>{getStatusLabel(run.status)}</span></td>
+                    <td className="col-date">{run.duration !== undefined ? formatDuration(run.duration) : '—'}</td>
+                    <td className="col-date">{formatDistanceToNow(run.startedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <>
+              {filteredRuns.map((run: RunWithJob) => (
+                <RunCard
+                  key={run._id}
+                  run={run}
+                  isExpanded={!!(expandedRows as Set<string>).has(run._id)}
+                  onToggle={toggleRow}
+                  onCancel={handleCancel}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}

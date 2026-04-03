@@ -14,7 +14,10 @@ import { GitHubClient, type RepoIssue } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
 import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { ViewModeToggle } from './shared/ViewModeToggle'
+import { useViewMode } from '../hooks/useViewMode'
 import './RepoIssueList.css'
+import './shared/ListView.css'
 
 interface RepoIssueListProps {
   owner: string
@@ -37,6 +40,7 @@ export function RepoIssueList({
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
+  const [viewMode, setViewMode] = useViewMode(`repo-issues-${owner}-${repo}`)
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
@@ -124,6 +128,7 @@ export function RepoIssueList({
           <span className="repo-issues-count">
             {issues.length} {issueState}
           </span>
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} />
           <button
             className="repo-issues-refresh-btn"
             onClick={() => fetchIssues(true)}
@@ -140,6 +145,64 @@ export function RepoIssueList({
           <CircleDot size={48} />
           <p>No {issueState} issues</p>
           <p className="empty-subtitle">This repository has no {issueState} issues right now.</p>
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="repo-issues-list" style={{ padding: 0 }}>
+          <table className="list-view-table">
+            <thead>
+              <tr>
+                <th className="col-status"></th>
+                <th className="col-title">Title</th>
+                <th>Author</th>
+                <th>Labels</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {issues.map(issue => (
+                <tr
+                  key={issue.number}
+                  onClick={() => {
+                    if (onOpenIssue) {
+                      onOpenIssue(issue.number)
+                      return
+                    }
+                    window.shell?.openExternal(issue.url)
+                  }}
+                >
+                  <td className="col-status">
+                    <CircleDot size={14} className={`list-view-status-${issue.state}`} />
+                  </td>
+                  <td className="col-title">
+                    <span className="col-number">#{issue.number}</span>{' '}
+                    {issue.title}
+                  </td>
+                  <td className="col-author">
+                    {issue.authorAvatarUrl && (
+                      <img src={issue.authorAvatarUrl} alt={issue.author} className="list-view-avatar" />
+                    )}
+                    {issue.author}
+                  </td>
+                  <td>
+                    {issue.labels.map(label => (
+                      <span
+                        key={label.name}
+                        className="list-view-label"
+                        style={{
+                          backgroundColor: `#${label.color}20`,
+                          color: `#${label.color}`,
+                          borderColor: `#${label.color}40`,
+                        }}
+                      >
+                        {label.name}
+                      </span>
+                    ))}
+                  </td>
+                  <td className="col-date">{formatDistanceToNow(issue.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
         <div className="repo-issues-list">

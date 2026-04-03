@@ -13,7 +13,7 @@ function renderActivityBar(selectedSection = 'github') {
 }
 
 describe('ActivityBar', () => {
-  it('renders all 9 section buttons', () => {
+  it('renders all 10 section buttons', () => {
     renderActivityBar()
 
     const expectedLabels = [
@@ -24,6 +24,7 @@ describe('ActivityBar', () => {
       'Automation',
       'The Crew',
       'Tempo',
+      'Bookmarks',
       'Copilot',
       'Settings',
     ]

@@ -319,6 +319,7 @@ describe('TempoDashboard', () => {
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith(1, {
         hours: 1.5,
+        date: formatDateKey(new Date()),
         startTime: '08:00',
         description: 'Saved through editor',
         accountKey: 'OPS',

@@ -166,6 +166,27 @@ export function useRepoBookmarkMutations() {
 }
 
 /**
+ * React hooks for Convex URL bookmarks
+ */
+
+export function useBookmarks() {
+  return useQuery(api.bookmarks.list)
+}
+
+export function useBookmarkCategories() {
+  return useQuery(api.bookmarks.listCategories)
+}
+
+export function useBookmarkMutations() {
+  const create = useMutation(api.bookmarks.create)
+  const update = useMutation(api.bookmarks.update)
+  const remove = useMutation(api.bookmarks.remove)
+  const recordVisit = useMutation(api.bookmarks.recordVisit)
+
+  return { create, update, remove, recordVisit }
+}
+
+/**
  * React hooks for Convex buddy stats
  */
 

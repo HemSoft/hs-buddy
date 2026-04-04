@@ -3,6 +3,15 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  transition:
+    outline 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.bookmark-list-container.bookmark-drop-active {
+  outline: 2px dashed var(--accent-primary, #4a9eff);
+  outline-offset: -4px;
+  background-color: rgba(74, 158, 255, 0.05);
 }
 
 .bookmark-list-header {

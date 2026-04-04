@@ -16,14 +16,15 @@ type BookmarkInput = {
 interface BookmarkDialogProps {
   bookmark: BookmarkInput
   categories: string[]
+  initialUrl?: string
   onClose: () => void
 }
 
-export function BookmarkDialog({ bookmark, categories, onClose }: BookmarkDialogProps) {
+export function BookmarkDialog({ bookmark, categories, initialUrl, onClose }: BookmarkDialogProps) {
   const { create, update } = useBookmarkMutations()
   const isEdit = bookmark !== null
 
-  const [url, setUrl] = useState(bookmark?.url ?? '')
+  const [url, setUrl] = useState(bookmark?.url ?? initialUrl ?? '')
   const [title, setTitle] = useState(bookmark?.title ?? '')
   const [description, setDescription] = useState(bookmark?.description ?? '')
   const [category, setCategory] = useState(bookmark?.category ?? '')

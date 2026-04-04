@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, type DragEvent } from 'react'
 import { Plus, Search, ExternalLink, Pencil, Trash2, Globe, Tag, FolderOpen, X } from 'lucide-react'
 import { useBookmarks, useBookmarkMutations, useBookmarkCategories } from '../../hooks/useConvex'
 import { BookmarkDialog } from './BookmarkDialog'
@@ -36,6 +36,8 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [droppedUrl, setDroppedUrl] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   // Derive all tags from bookmarks
   const allTags = useMemo(() => {
@@ -100,12 +102,62 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
   const handleDialogClose = useCallback(() => {
     setDialogOpen(false)
     setEditingBookmark(null)
+    setDroppedUrl(null)
   }, [])
 
   const handleAddNew = useCallback(() => {
     setEditingBookmark(null)
+    setDroppedUrl(null)
     setDialogOpen(true)
   }, [])
+
+  const extractUrl = useCallback((data: DataTransfer): string | null => {
+    const uri = data.getData('text/uri-list')
+    if (uri) {
+      const firstLine = uri
+        .split('\n')
+        .find(l => !l.startsWith('#'))
+        ?.trim()
+      if (firstLine) return firstLine
+    }
+    const text = data.getData('text/plain')?.trim()
+    if (text) {
+      try {
+        const parsed = new URL(text)
+        if (['http:', 'https:'].includes(parsed.protocol)) return text
+      } catch {
+        /* not a valid URL */
+      }
+    }
+    return null
+  }, [])
+
+  const handleDragOver = useCallback((e: DragEvent) => {
+    if (e.dataTransfer.types.some(t => t === 'text/uri-list' || t === 'text/plain')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      setDragOver(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault()
+      setDragOver(false)
+      const url = extractUrl(e.dataTransfer)
+      if (url) {
+        setEditingBookmark(null)
+        setDroppedUrl(url)
+        setDialogOpen(true)
+      }
+    },
+    [extractUrl]
+  )
 
   const clearFilters = useCallback(() => {
     setSearchQuery('')
@@ -125,7 +177,12 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
   }
 
   return (
-    <div className="bookmark-list-container">
+    <div
+      className={`bookmark-list-container${dragOver ? ' bookmark-drop-active' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="bookmark-list-header">
         <h2>Bookmarks</h2>
         <div className="bookmark-header-actions">
@@ -199,7 +256,7 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
                 <Globe size={48} strokeWidth={1} />
                 <p>No bookmarks yet</p>
                 <p className="bookmark-empty-hint">
-                  Click <strong>Add</strong> to save your first link
+                  Click <strong>Add</strong> or drag a URL here to save your first link
                 </p>
               </>
             ) : (
@@ -287,6 +344,7 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
         <BookmarkDialog
           bookmark={editingBookmark}
           categories={categories ?? []}
+          initialUrl={droppedUrl ?? undefined}
           onClose={handleDialogClose}
         />
       )}

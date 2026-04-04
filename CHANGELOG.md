@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.559] - 2026-04-04
+
 ## [0.1.558] - 2026-04-04
+
+### Fixed
+
+- Add cobertura reporter and improve coverage upload (#475)
 
 ## [0.1.557] - 2026-04-04
 

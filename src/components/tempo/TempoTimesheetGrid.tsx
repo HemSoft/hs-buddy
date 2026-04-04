@@ -13,10 +13,7 @@ interface TooltipState {
 function CellTooltip({ tooltip }: { tooltip: TooltipState | null }) {
   if (!tooltip) return null
   return createPortal(
-    <div
-      className="tempo-cell-tooltip"
-      style={{ left: tooltip.x, top: tooltip.y }}
-    >
+    <div className="tempo-cell-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
       {tooltip.text.split('\n').map((line, i) => (
         <div key={i} className={i === 0 ? 'tempo-tooltip-header' : 'tempo-tooltip-action'}>
           {line}
@@ -215,6 +212,11 @@ export function TempoTimesheetGrid({
                       <td
                         key={col.date}
                         className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''} ${hours > 0 && isCapex ? 'capex' : ''}`}
+                        title={
+                          hours > 0
+                            ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\nCtrl+click to copy this day to today`
+                            : `Click to log time on ${col.date}`
+                        }
                         onClick={e => {
                           if (e.ctrlKey && cellWorklogs.length > 0) {
                             onCopyToToday(cellWorklogs)
@@ -231,9 +233,10 @@ export function TempoTimesheetGrid({
                           }
                         }}
                         onMouseEnter={e => {
-                          const text = hours > 0
-                            ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\nCtrl+click — copy to today`
-                            : `Click — log time on ${col.date}`
+                          const text =
+                            hours > 0
+                              ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\nCtrl+click — copy to today`
+                              : `Click — log time on ${col.date}`
                           showTooltip(e, text)
                         }}
                         onMouseLeave={hideTooltip}
@@ -248,9 +251,7 @@ export function TempoTimesheetGrid({
           </tbody>
           <tfoot>
             <tr className="tempo-grid-totals">
-              <td className="tempo-grid-total-label">
-                Total
-              </td>
+              <td className="tempo-grid-total-label">Total</td>
               <td className="tempo-grid-total-key"></td>
               <td className="tempo-grid-total-logged">{totalHours}</td>
               {columns.map(col => {
@@ -267,7 +268,10 @@ export function TempoTimesheetGrid({
                     }}
                     onMouseEnter={e => {
                       if (dayTotal > 0) {
-                        showTooltip(e, `${dayTotal}h total\nCtrl+click — copy all worklogs to today`)
+                        showTooltip(
+                          e,
+                          `${dayTotal}h total\nCtrl+click — copy all worklogs to today`
+                        )
                       }
                     }}
                     onMouseLeave={hideTooltip}

@@ -1,0 +1,33 @@
+.view-mode-toggle {
+  display: flex;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-mode-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #888);
+  padding: 4px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.view-mode-btn:not(:last-child) {
+  border-right: 1px solid var(--border-color, #444);
+}
+
+.view-mode-btn:hover:not(.active) {
+  background: var(--bg-hover, #2a2a2a);
+  color: var(--text-primary, #ccc);
+}
+
+.view-mode-btn.active {
+  background: var(--accent-bg, #264f78);
+  color: #fff;
+}

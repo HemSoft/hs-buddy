@@ -1,0 +1,114 @@
+/* Shared compact list-view table for Card/List toggle pages */
+
+.list-view-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.list-view-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-secondary, #252526);
+  text-align: left;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #858585);
+  border-bottom: 1px solid var(--border-primary, #3c3c3c);
+  white-space: nowrap;
+}
+
+.list-view-table tbody tr {
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border-bottom: 1px solid var(--border-primary, #3c3c3c);
+}
+
+.list-view-table tbody tr:hover {
+  background: var(--bg-hover, #2a2d2e);
+}
+
+.list-view-table tbody td {
+  padding: 8px 12px;
+  color: var(--text-primary, #ccc);
+  vertical-align: middle;
+  max-width: 0;
+}
+
+/* Title column — takes remaining space and truncates */
+.list-view-table .col-title {
+  width: 99%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-view-table .col-status {
+  width: 28px;
+  text-align: center;
+}
+
+.list-view-table .col-author {
+  white-space: nowrap;
+}
+
+.list-view-table .col-date {
+  white-space: nowrap;
+  color: var(--text-secondary, #858585);
+  font-size: 12px;
+}
+
+.list-view-table .col-number {
+  white-space: nowrap;
+  color: var(--text-secondary, #858585);
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+}
+
+/* Author avatar in list view */
+.list-view-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+/* Labels inline */
+.list-view-label {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+/* Status icon colors */
+.list-view-status-open {
+  color: var(--accent-success, #4ec9b0);
+}
+.list-view-status-closed {
+  color: var(--accent-error, #f48771);
+}
+.list-view-status-merged {
+  color: var(--accent-purple, #c792ea);
+}
+.list-view-status-draft {
+  color: var(--text-secondary, #858585);
+}
+
+/* Approval badge inline */
+.list-view-approvals {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-success, #4ec9b0);
+  font-size: 12px;
+}

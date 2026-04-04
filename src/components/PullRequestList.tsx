@@ -1,8 +1,19 @@
 import './PullRequestList.css'
-import { GitPullRequest, Loader2, RefreshCw } from 'lucide-react'
+import './shared/ListView.css'
+import {
+  GitPullRequest,
+  GitPullRequestClosed,
+  GitMerge,
+  Loader2,
+  RefreshCw,
+  ThumbsUp,
+} from 'lucide-react'
 import { PRItem } from './pull-request-list/PRItem'
 import { PRContextMenu } from './pull-request-list/PRContextMenu'
 import { usePRListData } from './pull-request-list/usePRListData'
+import { ViewModeToggle } from './shared/ViewModeToggle'
+import { useViewMode } from '../hooks/useViewMode'
+import { formatDistanceToNow } from '../utils/dateUtils'
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
@@ -33,6 +44,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     closeContextMenu,
     getTitle,
   } = usePRListData(mode, onCountChange)
+
+  const [viewMode, setViewMode] = useViewMode(`pr-list-${mode}`)
 
   if (loading) {
     const progressPercent = progress
@@ -200,6 +213,7 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               </div>
             </div>
           )}
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} />
           <button
             className="refresh-button"
             onClick={handleManualRefresh}
@@ -210,32 +224,87 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
           </button>
         </div>
       </div>
-      <div className="pr-list">
-        {contextMenu && (
-          <PRContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            pr={contextMenu.pr}
-            bookmarkedRepoKeys={bookmarkedRepoKeys}
-            onAIReview={handleAIReview}
-            onApprove={handleApproveFromMenu}
-            onCopyLink={handleCopyLink}
-            onBookmark={handleBookmarkRepo}
-            onClose={closeContextMenu}
-          />
-        )}
-        {prs.map(pr => (
-          <PRItem
-            key={`${pr.source}-${pr.id}-${pr.repository}`}
-            pr={pr}
-            mode={mode}
-            approving={approving}
-            onApprove={handleApprove}
-            onContextMenu={handleContextMenu}
-            onOpen={(url: string) => window.shell.openExternal(url)}
-          />
-        ))}
-      </div>
+      {viewMode === 'list' ? (
+        <div className="pr-list" style={{ display: 'block', padding: '0' }}>
+          <table className="list-view-table">
+            <thead>
+              <tr>
+                <th className="col-status"></th>
+                <th className="col-title">Title</th>
+                <th>Author</th>
+                <th>Repo</th>
+                <th>Updated</th>
+                <th>Reviews</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prs.map(pr => (
+                <tr
+                  key={`${pr.source}-${pr.id}-${pr.repository}`}
+                  onClick={() => window.shell.openExternal(pr.url)}
+                  onContextMenu={e => handleContextMenu(e, pr)}
+                >
+                  <td className="col-status">
+                    {pr.state === 'merged' ? (
+                      <GitMerge size={14} className="list-view-status-merged" />
+                    ) : pr.state === 'closed' ? (
+                      <GitPullRequestClosed size={14} className="list-view-status-closed" />
+                    ) : (
+                      <GitPullRequest size={14} className="list-view-status-open" />
+                    )}
+                  </td>
+                  <td className="col-title">{pr.title}</td>
+                  <td className="col-author">
+                    {pr.authorAvatarUrl && (
+                      <img src={pr.authorAvatarUrl} alt={pr.author} className="list-view-avatar" />
+                    )}
+                    {pr.author}
+                  </td>
+                  <td className="col-number">{pr.repository}</td>
+                  <td className="col-date">
+                    {pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}
+                  </td>
+                  <td>
+                    {pr.approvalCount > 0 && (
+                      <span className="list-view-approvals">
+                        <ThumbsUp size={12} />
+                        {pr.approvalCount}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="pr-list">
+          {prs.map(pr => (
+            <PRItem
+              key={`${pr.source}-${pr.id}-${pr.repository}`}
+              pr={pr}
+              mode={mode}
+              approving={approving}
+              onApprove={handleApprove}
+              onContextMenu={handleContextMenu}
+              onOpen={(url: string) => window.shell.openExternal(url)}
+            />
+          ))}
+        </div>
+      )}
+      {contextMenu && (
+        <PRContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          pr={contextMenu.pr}
+          bookmarkedRepoKeys={bookmarkedRepoKeys}
+          onAIReview={handleAIReview}
+          onApprove={handleApproveFromMenu}
+          onCopyLink={handleCopyLink}
+          onBookmark={handleBookmarkRepo}
+          onClose={closeContextMenu}
+        />
+      )}
     </div>
   )
 }

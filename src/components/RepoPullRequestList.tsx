@@ -1,6 +1,8 @@
 import { useEffect, useCallback, useReducer, useRef } from 'react'
 import {
   GitPullRequest,
+  GitPullRequestClosed,
+  GitMerge,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -16,7 +18,10 @@ import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
 import { createPRDetailViewId } from '../utils/prDetailView'
 import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { ViewModeToggle } from './shared/ViewModeToggle'
+import { useViewMode } from '../hooks/useViewMode'
 import './RepoPullRequestList.css'
+import './shared/ListView.css'
 
 interface RepoPullRequestListProps {
   owner: string
@@ -107,6 +112,7 @@ export function RepoPullRequestList({
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
+  const [viewMode, setViewMode] = useViewMode(`repo-prs-${owner}-${repo}`)
 
   useEffect(() => {
     dispatch({
@@ -210,6 +216,7 @@ export function RepoPullRequestList({
           <span className="repo-prs-count">
             {prs.length} {prState}
           </span>
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} />
           <button
             className="repo-prs-refresh-btn"
             onClick={() => fetchPRs(true)}
@@ -235,6 +242,60 @@ export function RepoPullRequestList({
           <p className="empty-subtitle">
             This repository has no {prState} pull requests right now.
           </p>
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="repo-prs-list" style={{ padding: 0 }}>
+          <table className="list-view-table">
+            <thead>
+              <tr>
+                <th className="col-status"></th>
+                <th className="col-title">Title</th>
+                <th>Author</th>
+                <th>Updated</th>
+                <th>Reviews</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prs.map(pr => (
+                <tr key={pr.number} onClick={() => handlePRClick(pr)}>
+                  <td className="col-status">
+                    {pr.state === 'merged' ? (
+                      <GitMerge size={14} className="list-view-status-merged" />
+                    ) : pr.state === 'closed' ? (
+                      <GitPullRequestClosed size={14} className="list-view-status-closed" />
+                    ) : pr.draft ? (
+                      <GitPullRequest size={14} className="list-view-status-draft" />
+                    ) : (
+                      <GitPullRequest size={14} className="list-view-status-open" />
+                    )}
+                  </td>
+                  <td className="col-title">
+                    <span className="col-number">#{pr.number}</span> {pr.title}
+                    {pr.draft && (
+                      <span className="repo-pr-draft-badge" style={{ marginLeft: 6 }}>
+                        Draft
+                      </span>
+                    )}
+                  </td>
+                  <td className="col-author">
+                    {pr.authorAvatarUrl && (
+                      <img src={pr.authorAvatarUrl} alt={pr.author} className="list-view-avatar" />
+                    )}
+                    {pr.author}
+                  </td>
+                  <td className="col-date">{formatDistanceToNow(pr.updatedAt)}</td>
+                  <td>
+                    {(pr.approvalCount ?? 0) > 0 && (
+                      <span className="list-view-approvals">
+                        <ThumbsUp size={12} />
+                        {pr.approvalCount}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
         <div className="repo-prs-list">

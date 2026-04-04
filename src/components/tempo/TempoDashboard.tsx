@@ -36,10 +36,19 @@ type TempoDashboardAction =
   | { type: 'shiftMonth'; delta: number }
   | { type: 'goToCurrentMonth' }
 
+const TEMPO_VIEW_KEY = 'viewMode:tempo'
+
 function createInitialDashboardState(): TempoDashboardState {
+  let savedMode: ViewMode = 'grid'
+  try {
+    const stored = localStorage.getItem(TEMPO_VIEW_KEY)
+    if (stored === 'grid' || stored === 'timeline') savedMode = stored
+  } catch {
+    /* ignore */
+  }
   return {
     viewMonth: new Date(),
-    viewMode: 'grid',
+    viewMode: savedMode,
     editorOpen: false,
     editingWorklog: null,
     editorDate: null,
@@ -53,6 +62,11 @@ function tempoDashboardReducer(
 ): TempoDashboardState {
   switch (action.type) {
     case 'setViewMode':
+      try {
+        localStorage.setItem(TEMPO_VIEW_KEY, action.viewMode)
+      } catch {
+        /* ignore */
+      }
       return { ...state, viewMode: action.viewMode }
     case 'openCreate':
       return {

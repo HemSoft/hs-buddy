@@ -236,6 +236,7 @@ function configureDashboard({
 
 describe('TempoDashboard', () => {
   beforeEach(() => {
+    localStorage.clear()
     dashboardMocks.summaryPropsSpy.mockClear()
   })
 

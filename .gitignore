@@ -4,6 +4,9 @@ bun.lock
 package-lock.json
 yarn.lock
 
+# Aspire generated SDK (regenerate with: aspire restore)
+.modules/
+
 # Build outputs (created by `bun run build` or `npm run build`)
 dist/
 dist-electron/

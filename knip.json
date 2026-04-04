@@ -9,13 +9,8 @@
     "src/**/*.bench.ts",
     "src/features/*.steps.ts",
     "convex/**/*.bench.ts",
-    "electron/**/*.bench.ts"
+    "electron/**/*.bench.ts",
+    "apphost.ts"
   ],
-  "project": [
-    "src/**/*.{ts,tsx}",
-    "electron/**/*.ts",
-    "convex/**/*.ts",
-    "scripts/**/*.ts",
-    "*.ts"
-  ]
+  "project": ["src/**/*.{ts,tsx}", "electron/**/*.ts", "convex/**/*.ts", "scripts/**/*.ts", "*.ts"]
 }

@@ -124,12 +124,25 @@ export function BookmarkDialog({ bookmark, categories, initialUrl, onClose }: Bo
     }
   }
 
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const mouseDownTarget = useRef<EventTarget | null>(null)
+
+  const handleOverlayMouseDown = (e: React.MouseEvent) => {
+    mouseDownTarget.current = e.target
+  }
+
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) onClose()
   }
 
   return (
-    <div className="bookmark-dialog-overlay" role="presentation" onClick={handleOverlayClick}>
+    <div
+      className="bookmark-dialog-overlay"
+      ref={overlayRef}
+      role="presentation"
+      onMouseDown={handleOverlayMouseDown}
+      onClick={handleOverlayClick}
+    >
       <div
         className="bookmark-dialog"
         role="dialog"

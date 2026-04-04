@@ -86,6 +86,14 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
     [recordVisit]
   )
 
+  const handleOpenExternal = useCallback(
+    (bookmark: Bookmark) => {
+      recordVisit({ id: bookmark._id })
+      window.shell.openExternal(bookmark.url)
+    },
+    [recordVisit]
+  )
+
   const handleEdit = useCallback((bookmark: Bookmark) => {
     setEditingBookmark(bookmark)
     setDialogOpen(true)
@@ -299,7 +307,15 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
             <div
               key={bookmark._id}
               className="bookmark-card"
-              onDoubleClick={() => handleOpen(bookmark)}
+              onClick={() => handleOpen(bookmark)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleOpen(bookmark)
+                }
+              }}
+              role="button"
+              tabIndex={0}
             >
               <div className="bookmark-card-icon">
                 {bookmark.faviconUrl && (
@@ -344,21 +360,30 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
               <div className="bookmark-card-actions">
                 <button
                   className="bookmark-action-btn"
-                  onClick={() => handleOpen(bookmark)}
-                  title="Open in browser"
+                  onClick={e => {
+                    e.stopPropagation()
+                    handleOpenExternal(bookmark)
+                  }}
+                  title="Open in external browser"
                 >
                   <ExternalLink size={14} />
                 </button>
                 <button
                   className="bookmark-action-btn"
-                  onClick={() => handleEdit(bookmark)}
+                  onClick={e => {
+                    e.stopPropagation()
+                    handleEdit(bookmark)
+                  }}
                   title="Edit"
                 >
                   <Pencil size={14} />
                 </button>
                 <button
                   className="bookmark-action-btn bookmark-action-danger"
-                  onClick={() => setDeleteTarget(bookmark)}
+                  onClick={e => {
+                    e.stopPropagation()
+                    setDeleteTarget(bookmark)
+                  }}
                   title="Delete"
                 >
                   <Trash2 size={14} />

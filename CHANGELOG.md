@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.584] - 2026-04-04
+
+## [0.1.583] - 2026-04-04
+
+## [0.1.582] - 2026-04-04
+
 ## [0.1.581] - 2026-04-04
+
+### Changed
+
+- Update convex 1.31.7 → 1.34.1
 
 ## [0.1.580] - 2026-04-04
 

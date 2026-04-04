@@ -142,13 +142,23 @@ describe('BookmarkList', () => {
     expect(screen.getByRole('heading', { name: 'Bookmarks' })).toBeInTheDocument()
   })
 
-  it('opens bookmark URL on double click and records visit', () => {
+  it('opens bookmark in app browser on card click and records visit', () => {
     const openInAppBrowserSpy = vi.fn()
     window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
     const card = screen.getByText('GitHub').closest('.bookmark-card')!
-    fireEvent.doubleClick(card)
+    fireEvent.click(card)
     expect(mockRecordVisit).toHaveBeenCalledWith({ id: 'bm1' })
     expect(openInAppBrowserSpy).toHaveBeenCalledWith('https://github.com', 'GitHub')
+  })
+
+  it('opens bookmark in external browser when link button is clicked', () => {
+    const openExternalSpy = vi.fn()
+    window.shell.openExternal = openExternalSpy as never
+    render(<BookmarkList />)
+    const externalBtn = screen.getAllByTitle('Open in external browser')[0]
+    fireEvent.click(externalBtn)
+    expect(mockRecordVisit).toHaveBeenCalledWith({ id: 'bm1' })
+    expect(openExternalSpy).toHaveBeenCalledWith('https://github.com')
   })
 })

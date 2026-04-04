@@ -188,6 +188,7 @@ interface Window {
       ghAccount?: string
     }) => Promise<{ content?: string } | string | null>
     chatAbort: () => Promise<{ success: boolean; error?: string }>
+    quickPrompt: (args: { prompt: string; model?: string }) => Promise<string>
   }
   tempo: {
     getToday: (
@@ -249,9 +250,7 @@ interface Window {
     ) => Promise<import('../src/types/copilotSession').SessionDigest | null>
   }
   todoist: {
-    getUpcoming: (
-      days?: number
-    ) => Promise<{
+    getUpcoming: (days?: number) => Promise<{
       success: boolean
       error?: string
       data?: Record<string, import('../src/types/todoist').TodoistTask[]>

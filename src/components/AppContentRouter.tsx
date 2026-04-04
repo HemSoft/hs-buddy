@@ -143,11 +143,11 @@ export function AppContentRouter({
     case 'tempo-timesheet':
       return <TempoDashboard />
     case 'bookmarks-all':
-      return <BookmarkList />
+      return <BookmarkList key="bookmarks-all" />
     default:
       if (activeViewId.startsWith('bookmarks-category:')) {
         const category = activeViewId.replace('bookmarks-category:', '')
-        return <BookmarkList filterCategory={category} />
+        return <BookmarkList key={`bookmarks-category:${category}`} filterCategory={category} />
       }
       if (activeViewId.startsWith('crew-project:')) {
         const projectId = activeViewId.replace('crew-project:', '')

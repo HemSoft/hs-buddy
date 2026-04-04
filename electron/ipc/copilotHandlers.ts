@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { getCopilotService } from '../services/copilotService'
-import { sendChatMessage, abortChat } from '../services/copilotClient'
+import { sendChatMessage, abortChat, sendPrompt } from '../services/copilotClient'
 import { getErrorMessage } from '../utils'
 
 /**
@@ -91,4 +91,18 @@ export function registerCopilotHandlers(): void {
     abortChat()
     return { success: true }
   })
+
+  // Quick prompt: one-shot prompt that doesn't share state with chat
+  ipcMain.handle(
+    'copilot:quick-prompt',
+    async (_event, args: { prompt: string; model?: string }) => {
+      try {
+        return await sendPrompt({ prompt: args.prompt, model: args.model, timeout: 30_000 })
+      } catch (error) {
+        const errorMessage = getErrorMessage(error)
+        console.error('[CopilotHandlers] quick-prompt failed:', errorMessage)
+        throw new Error(errorMessage)
+      }
+    }
+  )
 }

@@ -74,9 +74,15 @@ function App() {
     }
   }, [])
 
-  const handleSectionSelect = useCallback((sectionId: string) => {
-    setSelectedSection(sectionId)
-  }, [])
+  const handleSectionSelect = useCallback(
+    (sectionId: string) => {
+      setSelectedSection(sectionId)
+      if (sectionId === 'bookmarks') {
+        openTab('bookmarks-all')
+      }
+    },
+    [openTab]
+  )
 
   const handleItemSelect = useCallback(
     (viewId: string) => {

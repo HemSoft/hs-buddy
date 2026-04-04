@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.569] - 2026-04-04
+
 ## [0.1.568] - 2026-04-04
+
+### Added
+
+- AI-suggest description and tags via Copilot SDK
 
 ## [0.1.567] - 2026-04-04
 

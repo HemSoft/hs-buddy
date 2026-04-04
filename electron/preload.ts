@@ -123,4 +123,6 @@ contextBridge.exposeInMainWorld('copilot', {
     ghAccount?: string
   }) => ipcRenderer.invoke('copilot:chat-send', args),
   chatAbort: () => ipcRenderer.invoke('copilot:chat-abort'),
+  quickPrompt: (args: { prompt: string; model?: string }) =>
+    ipcRenderer.invoke('copilot:quick-prompt', args) as Promise<string>,
 })

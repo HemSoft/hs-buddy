@@ -17,7 +17,7 @@ import { existsSync } from 'node:fs'
 import { app } from 'electron'
 
 export const DEFAULT_MODEL = 'claude-sonnet-4.5'
-const SESSION_TIMEOUT = 30_000  // 30s for session creation
+const SESSION_TIMEOUT = 30_000 // 30s for session creation
 const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
 
 // ── CLI path resolution ──────────────────────────────────────────────────
@@ -122,7 +122,7 @@ export async function ensureClientStarted(): Promise<CopilotClient> {
  * Stop the shared client (call on app quit).
  */
 export async function stopSharedClient(): Promise<void> {
-  startPromise = null          // Cancel any pending start
+  startPromise = null // Cancel any pending start
   if (sharedClient) {
     try {
       await sharedClient.stop()
@@ -168,9 +168,9 @@ function extractContent(response: AssistantMessageEvent | undefined): string {
 interface SendPromptOptions {
   prompt: string
   model?: string
-  timeout?: number       // ms, for sendAndWait
+  timeout?: number // ms, for sendAndWait
   signal?: AbortSignal
-  cwd?: string            // working directory for the CLI process
+  cwd?: string // working directory for the CLI process
 }
 
 /**
@@ -233,6 +233,7 @@ interface ChatRequest {
   message: string
   context: string
   conversationHistory: Array<{ role: string; content: string }>
+  model?: string
 }
 
 /**
@@ -255,10 +256,13 @@ export async function sendChatMessage(request: ChatRequest): Promise<string> {
     `User: ${request.message}`,
     '',
     'IMPORTANT: Format your response as clean, well-structured Markdown.',
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   return sendPrompt({
     prompt: fullPrompt,
+    model: request.model,
     timeout: 120_000,
     signal: chatAbortController.signal,
   })

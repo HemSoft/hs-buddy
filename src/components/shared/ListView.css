@@ -36,12 +36,12 @@
   padding: 8px 12px;
   color: var(--text-primary, #ccc);
   vertical-align: middle;
-  max-width: 0;
 }
 
 /* Title column — takes remaining space and truncates */
 .list-view-table .col-title {
   width: 99%;
+  max-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -92,8 +92,8 @@ export function BookmarkDialog({
     let cancelled = false
     setAiSuggesting(true)
     window.copilot
-      .chatSend({
-        message: `Given this bookmark URL and title, respond with ONLY a JSON object (no markdown, no code fences):
+      .quickPrompt({
+        prompt: `Given this bookmark URL and title, respond with ONLY a JSON object (no markdown, no code fences):
 {"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}
 
 URL: ${initialUrl}
@@ -103,14 +103,10 @@ Rules:
 - description: 1 short sentence, max 120 chars
 - tags: 3-5 lowercase single-word tags relevant to the content
 - Respond with ONLY the JSON object, nothing else`,
-        context: '',
-        conversationHistory: [],
         model: 'gpt-4o-mini',
       })
-      .then(result => {
-        if (cancelled) return
-        const text = typeof result === 'string' ? result : result?.content
-        if (!text) return
+      .then(text => {
+        if (cancelled || !text) return
         try {
           // Strip any markdown fences if present
           const cleaned = text
@@ -128,7 +124,9 @@ Rules:
           // AI returned non-JSON — ignore silently
         }
       })
-      .catch(() => {})
+      .catch(err => {
+        console.warn('[BookmarkDialog] AI suggestion failed:', err)
+      })
       .finally(() => {
         if (!cancelled) setAiSuggesting(false)
       })

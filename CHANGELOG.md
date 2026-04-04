@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.575] - 2026-04-04
+
+## [0.1.574] - 2026-04-04
+
+## [0.1.573] - 2026-04-04
+
 ## [0.1.572] - 2026-04-04
+
+### Added
+
+- Add Aspire orchestration with TypeScript AppHost
 
 ## [0.1.571] - 2026-04-04
 

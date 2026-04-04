@@ -50,6 +50,11 @@ describe('BookmarkList', () => {
     vi.clearAllMocks()
     mockBookmarksReturn = mockBookmarks
     mockCategoriesReturn = ['Dev Tools', 'Documentation']
+    window.shell = {
+      openExternal: vi.fn() as never,
+      openInAppBrowser: vi.fn() as never,
+      fetchPageTitle: vi.fn() as never,
+    }
   })
 
   it('renders loading state when data is undefined', () => {
@@ -138,12 +143,12 @@ describe('BookmarkList', () => {
   })
 
   it('opens bookmark URL on double click and records visit', () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const openInAppBrowserSpy = vi.fn()
+    window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
     const card = screen.getByText('GitHub').closest('.bookmark-card')!
     fireEvent.doubleClick(card)
     expect(mockRecordVisit).toHaveBeenCalledWith({ id: 'bm1' })
-    expect(openSpy).toHaveBeenCalledWith('https://github.com', '_blank', 'noopener,noreferrer')
-    openSpy.mockRestore()
+    expect(openInAppBrowserSpy).toHaveBeenCalledWith('https://github.com', 'GitHub')
   })
 })

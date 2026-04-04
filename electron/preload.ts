@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
 contextBridge.exposeInMainWorld('shell', {
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  openInAppBrowser: (url: string, title?: string) =>
+    ipcRenderer.invoke('shell:open-in-app-browser', url, title),
   fetchPageTitle: (url: string) => ipcRenderer.invoke('shell:fetch-page-title', url),
 })
 

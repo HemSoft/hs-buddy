@@ -56,7 +56,9 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
     let result = [...allBookmarks] as Bookmark[]
 
     if (selectedCategory) {
-      result = result.filter(b => b.category === selectedCategory)
+      result = result.filter(
+        b => b.category === selectedCategory || b.category.startsWith(selectedCategory + '/')
+      )
     }
     if (selectedTag) {
       result = result.filter(b => b.tags?.includes(selectedTag))
@@ -79,7 +81,7 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
   const handleOpen = useCallback(
     (bookmark: Bookmark) => {
       recordVisit({ id: bookmark._id })
-      window.open(bookmark.url, '_blank', 'noopener,noreferrer')
+      window.shell.openInAppBrowser(bookmark.url, bookmark.title)
     },
     [recordVisit]
   )
@@ -247,7 +249,9 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
           <option value="">All Categories</option>
           {(categories ?? []).map(c => (
             <option key={c} value={c}>
-              {c}
+              {c.includes('/')
+                ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
+                : c}
             </option>
           ))}
         </select>
@@ -321,9 +325,11 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
                   <div className="bookmark-card-desc">{bookmark.description}</div>
                 )}
                 <div className="bookmark-card-meta">
-                  <span className="bookmark-card-category">
+                  <span className="bookmark-card-category" title={bookmark.category}>
                     <FolderOpen size={12} />
-                    {bookmark.category}
+                    {bookmark.category.includes('/')
+                      ? bookmark.category.split('/').pop()
+                      : bookmark.category}
                   </span>
                   {bookmark.tags &&
                     bookmark.tags.length > 0 &&

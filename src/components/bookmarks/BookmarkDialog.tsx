@@ -314,7 +314,9 @@ Rules:
                   <option value="">Select category…</option>
                   {categories.map(c => (
                     <option key={c} value={c}>
-                      {c}
+                      {c.includes('/')
+                        ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
+                        : c}
                     </option>
                   ))}
                 </select>
@@ -328,12 +330,33 @@ Rules:
               </div>
             ) : (
               <div className="bookmark-category-row">
+                <select
+                  className="bookmark-dialog-select"
+                  style={{ flex: '0 0 auto', minWidth: 120 }}
+                  value=""
+                  onChange={e => {
+                    if (e.target.value) {
+                      setNewCategory(prev => {
+                        const lastSlash = prev.lastIndexOf('/')
+                        const leafPart = lastSlash >= 0 ? prev.substring(lastSlash + 1) : prev
+                        return leafPart ? `${e.target.value}/${leafPart}` : `${e.target.value}/`
+                      })
+                    }
+                  }}
+                >
+                  <option value="">Parent…</option>
+                  {categories.map(c => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   className="bookmark-dialog-input"
                   value={newCategory}
                   onChange={e => setNewCategory(e.target.value)}
-                  placeholder="New category name"
+                  placeholder="Category/Subcategory"
                 />
                 <button
                   type="button"
@@ -344,6 +367,9 @@ Rules:
                 </button>
               </div>
             )}
+            <span className="bookmark-dialog-hint">
+              Use / for hierarchy (e.g. Development/Frontend)
+            </span>
           </label>
 
           <label className="bookmark-dialog-label">

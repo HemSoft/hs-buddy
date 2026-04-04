@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as bookmarks from "../bookmarks.js";
 import type * as buddyStats from "../buddyStats.js";
 import type * as copilotResults from "../copilotResults.js";
 import type * as copilotUsageHistory from "../copilotUsageHistory.js";
@@ -32,6 +33,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  bookmarks: typeof bookmarks;
   buddyStats: typeof buddyStats;
   copilotResults: typeof copilotResults;
   copilotUsageHistory: typeof copilotUsageHistory;

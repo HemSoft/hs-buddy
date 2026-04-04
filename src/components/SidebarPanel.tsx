@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
+import { BookmarksSidebar } from './sidebar/BookmarksSidebar'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
 import { CrewSidebar } from './crew/CrewSidebar'
@@ -57,6 +58,7 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
     ],
   },
   crew: { title: 'The Crew', items: [] },
+  bookmarks: { title: 'Bookmarks', items: [] },
   tempo: {
     title: 'Tempo',
     items: [{ id: 'tempo-timesheet', label: 'Timesheet' }],
@@ -124,6 +126,10 @@ export function SidebarPanel({
 
   if (section === 'crew') {
     return <CrewSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
+  }
+
+  if (section === 'bookmarks') {
+    return <BookmarksSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
   }
 
   if (section === 'copilot') {

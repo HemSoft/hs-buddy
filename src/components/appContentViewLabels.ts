@@ -26,6 +26,7 @@ export const viewLabels: Record<string, string> = {
   'copilot-all-results': 'Copilot Results',
   'copilot-usage': 'Copilot Usage',
   'copilot-sessions': 'Session Explorer',
+  'bookmarks-all': 'All Bookmarks',
   'tempo-timesheet': 'Timesheet',
 }
 
@@ -39,6 +40,10 @@ function parseRepoViewId(viewId: string, prefix: string): { repoName: string; su
 }
 
 export function getViewLabel(viewId: string): string {
+  if (viewId.startsWith('bookmarks-category:')) {
+    const category = viewId.replace('bookmarks-category:', '')
+    return category
+  }
   if (viewId.startsWith('crew-project:')) {
     return 'Project Session'
   }

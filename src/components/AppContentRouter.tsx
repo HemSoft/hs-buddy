@@ -28,6 +28,7 @@ import { TempoDashboard } from './tempo/TempoDashboard'
 import { SessionExplorer } from './sessions/SessionExplorer'
 import { SessionDetail } from './sessions/SessionDetail'
 import { TaskPlannerView } from './planner/TaskPlannerView'
+import { BookmarkList } from './bookmarks/BookmarkList'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -141,7 +142,13 @@ export function AppContentRouter({
       return <TaskPlannerView />
     case 'tempo-timesheet':
       return <TempoDashboard />
+    case 'bookmarks-all':
+      return <BookmarkList />
     default:
+      if (activeViewId.startsWith('bookmarks-category:')) {
+        const category = activeViewId.replace('bookmarks-category:', '')
+        return <BookmarkList filterCategory={category} />
+      }
       if (activeViewId.startsWith('crew-project:')) {
         const projectId = activeViewId.replace('crew-project:', '')
         return <CrewProjectView projectId={projectId} />

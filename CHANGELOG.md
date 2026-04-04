@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.576] - 2026-04-04
+
 ## [0.1.575] - 2026-04-04
+
+### Added
+
+- Add in-app browser window and hierarchical categories
 
 ## [0.1.574] - 2026-04-04
 

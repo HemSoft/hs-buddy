@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.587] - 2026-04-04
+
+## [0.1.586] - 2026-04-04
+
+## [0.1.585] - 2026-04-04
+
 ## [0.1.584] - 2026-04-04
+
+### Fixed
+
+- Card click opens in-app, link button opens external browser
 
 ## [0.1.583] - 2026-04-04
 

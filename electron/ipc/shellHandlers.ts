@@ -37,6 +37,7 @@ export function registerShellHandlers(): void {
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
+          partition: 'persist:browser',
         },
         backgroundColor: '#1e1e1e',
       })

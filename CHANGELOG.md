@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.580] - 2026-04-04
+
+## [0.1.579] - 2026-04-04
+
+## [0.1.578] - 2026-04-04
+
+## [0.1.577] - 2026-04-04
+
 ## [0.1.576] - 2026-04-04
+
+### Fixed
+
+- Skip billing API calls for personal GitHub accounts
 
 ## [0.1.575] - 2026-04-04
 

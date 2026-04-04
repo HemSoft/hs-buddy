@@ -2,6 +2,7 @@ import { BrowserWindow, ipcMain, shell, net } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execAsync, getErrorMessage } from '../utils'
+import { recordWindowOpen } from '../telemetry'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -62,6 +63,7 @@ export function registerShellHandlers(): void {
       })
 
       await browserWin.loadURL(url)
+      recordWindowOpen(parsed.hostname)
       return { success: true }
     } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }

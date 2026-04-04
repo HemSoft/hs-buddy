@@ -84,6 +84,12 @@
   color: var(--accent-error);
 }
 
+.bookmark-fetching-hint {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
 .bookmark-dialog-input,
 .bookmark-dialog-textarea,
 .bookmark-dialog-select {

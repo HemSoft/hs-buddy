@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.566] - 2026-04-04
+
 ## [0.1.565] - 2026-04-04
+
+### Fixed
+
+- Prevent dialog dismiss when drag-selecting text
 
 ## [0.1.564] - 2026-04-04
 

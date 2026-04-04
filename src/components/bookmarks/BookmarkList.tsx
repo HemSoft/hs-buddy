@@ -37,6 +37,7 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
   const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [droppedUrl, setDroppedUrl] = useState<string | null>(null)
+  const [droppedTitle, setDroppedTitle] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
   // Derive all tags from bookmarks
@@ -103,34 +104,56 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
     setDialogOpen(false)
     setEditingBookmark(null)
     setDroppedUrl(null)
+    setDroppedTitle(null)
   }, [])
 
   const handleAddNew = useCallback(() => {
     setEditingBookmark(null)
     setDroppedUrl(null)
+    setDroppedTitle(null)
     setDialogOpen(true)
   }, [])
 
-  const extractUrl = useCallback((data: DataTransfer): string | null => {
-    const uri = data.getData('text/uri-list')
-    if (uri) {
-      const firstLine = uri
-        .split('\n')
-        .find(l => !l.startsWith('#'))
-        ?.trim()
-      if (firstLine) return firstLine
-    }
-    const text = data.getData('text/plain')?.trim()
-    if (text) {
-      try {
-        const parsed = new URL(text)
-        if (['http:', 'https:'].includes(parsed.protocol)) return text
-      } catch {
-        /* not a valid URL */
+  const extractDropData = useCallback(
+    (data: DataTransfer): { url: string; title: string | null } | null => {
+      // Try to get URL
+      let url: string | null = null
+      const uri = data.getData('text/uri-list')
+      if (uri) {
+        url =
+          uri
+            .split('\n')
+            .find(l => !l.startsWith('#'))
+            ?.trim() ?? null
       }
-    }
-    return null
-  }, [])
+      if (!url) {
+        const text = data.getData('text/plain')?.trim()
+        if (text) {
+          try {
+            const parsed = new URL(text)
+            if (['http:', 'https:'].includes(parsed.protocol)) url = text
+          } catch {
+            /* not a valid URL */
+          }
+        }
+      }
+      if (!url) return null
+
+      // Try to extract title from text/html (browsers include <a> with link text)
+      let title: string | null = null
+      const html = data.getData('text/html')
+      if (html) {
+        const anchorMatch = html.match(/<a[^>]*>([^<]+)<\/a>/i)
+        const linkText = anchorMatch?.[1]?.trim()
+        if (linkText && linkText !== url && !linkText.startsWith('http')) {
+          title = linkText
+        }
+      }
+
+      return { url, title }
+    },
+    []
+  )
 
   const handleDragOver = useCallback((e: DragEvent) => {
     if (e.dataTransfer.types.some(t => t === 'text/uri-list' || t === 'text/plain')) {
@@ -149,14 +172,15 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
     (e: DragEvent) => {
       e.preventDefault()
       setDragOver(false)
-      const url = extractUrl(e.dataTransfer)
-      if (url) {
+      const result = extractDropData(e.dataTransfer)
+      if (result) {
         setEditingBookmark(null)
-        setDroppedUrl(url)
+        setDroppedUrl(result.url)
+        setDroppedTitle(result.title)
         setDialogOpen(true)
       }
     },
-    [extractUrl]
+    [extractDropData]
   )
 
   const clearFilters = useCallback(() => {
@@ -345,6 +369,7 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
           bookmark={editingBookmark}
           categories={categories ?? []}
           initialUrl={droppedUrl ?? undefined}
+          initialTitle={droppedTitle ?? undefined}
           onClose={handleDialogClose}
         />
       )}

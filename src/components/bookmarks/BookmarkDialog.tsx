@@ -17,15 +17,23 @@ interface BookmarkDialogProps {
   bookmark: BookmarkInput
   categories: string[]
   initialUrl?: string
+  initialTitle?: string
   onClose: () => void
 }
 
-export function BookmarkDialog({ bookmark, categories, initialUrl, onClose }: BookmarkDialogProps) {
+export function BookmarkDialog({
+  bookmark,
+  categories,
+  initialUrl,
+  initialTitle,
+  onClose,
+}: BookmarkDialogProps) {
   const { create, update } = useBookmarkMutations()
   const isEdit = bookmark !== null
 
   const [url, setUrl] = useState(bookmark?.url ?? initialUrl ?? '')
-  const [title, setTitle] = useState(bookmark?.title ?? '')
+  const [title, setTitle] = useState(bookmark?.title ?? initialTitle ?? '')
+  const [fetchingTitle, setFetchingTitle] = useState(false)
   const [description, setDescription] = useState(bookmark?.description ?? '')
   const [category, setCategory] = useState(bookmark?.category ?? '')
   const [newCategory, setNewCategory] = useState('')
@@ -36,6 +44,7 @@ export function BookmarkDialog({ bookmark, categories, initialUrl, onClose }: Bo
 
   const urlRef = useRef<HTMLInputElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
+  const userEditedTitle = useRef(false)
 
   useEffect(() => {
     if (isEdit) {
@@ -44,6 +53,27 @@ export function BookmarkDialog({ bookmark, categories, initialUrl, onClose }: Bo
       urlRef.current?.focus()
     }
   }, [isEdit])
+
+  // Auto-fetch page title when we have a URL but no title
+  useEffect(() => {
+    if (isEdit || !initialUrl || initialTitle) return
+    let cancelled = false
+    setFetchingTitle(true)
+    window.shell
+      .fetchPageTitle(initialUrl)
+      .then(result => {
+        if (!cancelled && !userEditedTitle.current && result.success && result.title) {
+          setTitle(result.title)
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setFetchingTitle(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isEdit, initialUrl, initialTitle])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -176,14 +206,18 @@ export function BookmarkDialog({ bookmark, categories, initialUrl, onClose }: Bo
           <label className="bookmark-dialog-label">
             <span>
               Title <span className="bookmark-required">*</span>
+              {fetchingTitle && <span className="bookmark-fetching-hint"> (fetching…)</span>}
             </span>
             <input
               ref={titleRef}
               type="text"
               className="bookmark-dialog-input"
               value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="My Bookmark"
+              onChange={e => {
+                setTitle(e.target.value)
+                userEditedTitle.current = true
+              }}
+              placeholder={fetchingTitle ? 'Fetching page title…' : 'My Bookmark'}
             />
           </label>
 

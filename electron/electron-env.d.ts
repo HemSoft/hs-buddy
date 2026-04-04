@@ -39,6 +39,7 @@ interface Window {
   ipcRenderer: import('electron').IpcRenderer
   shell: {
     openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
+    fetchPageTitle: (url: string) => Promise<{ success: boolean; title?: string; error?: string }>
   }
   crew: {
     addProject: () => Promise<import('../src/types/crew').CrewAddProjectResult>
@@ -65,7 +66,10 @@ interface Window {
     getCliToken: (username?: string) => Promise<string>
     getActiveAccount: () => Promise<string | null>
     switchAccount: (username: string) => Promise<{ success: boolean; error?: string }>
-    getCopilotUsage: (org: string, username?: string) => Promise<{
+    getCopilotUsage: (
+      org: string,
+      username?: string
+    ) => Promise<{
       success: boolean
       error?: string
       data?: {
@@ -107,7 +111,10 @@ interface Window {
         }
       }
     }>
-    getCopilotBudget: (org: string, username?: string) => Promise<{
+    getCopilotBudget: (
+      org: string,
+      username?: string
+    ) => Promise<{
       success: boolean
       error?: string
       data?: {
@@ -122,7 +129,11 @@ interface Window {
         fetchedAt: number
       }
     }>
-    getCopilotMemberUsage: (org: string, memberLogin: string, username?: string) => Promise<{
+    getCopilotMemberUsage: (
+      org: string,
+      memberLogin: string,
+      username?: string
+    ) => Promise<{
       success: boolean
       error?: string
       data?: {
@@ -134,7 +145,11 @@ interface Window {
         pendingCancellation: string | null
       } | null
     }>
-    getUserPremiumRequests: (org: string, memberLogin: string, username?: string) => Promise<{
+    getUserPremiumRequests: (
+      org: string,
+      memberLogin: string,
+      username?: string
+    ) => Promise<{
       success: boolean
       error?: string
       data?: {
@@ -159,8 +174,10 @@ interface Window {
     }) => Promise<{ resultId: string | null; success: boolean; error?: string }>
     cancel: (resultId: string) => Promise<{ success: boolean; error?: string }>
     getActiveCount: () => Promise<number>
-    listModels: (ghAccount?: string) => Promise<
-      Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>
+    listModels: (
+      ghAccount?: string
+    ) => Promise<
+      | Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>
       | { error: string }
     >
     chatSend: (args: {
@@ -173,34 +190,103 @@ interface Window {
     chatAbort: () => Promise<{ success: boolean; error?: string }>
   }
   tempo: {
-    getToday: (date?: string) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoDaySummary>>
-    getRange: (from: string, to: string) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoWorklog[]>>
-    getWeek: (weekStart: string, weekEnd: string) => Promise<import('../src/types/tempo').TempoResult<{
-      worklogs: import('../src/types/tempo').TempoWorklog[]
-      issueSummaries: import('../src/types/tempo').TempoIssueSummary[]
-      totalHours: number
-    }>>
-    createWorklog: (payload: import('../src/types/tempo').CreateWorklogPayload) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoWorklog>>
-    updateWorklog: (worklogId: number, payload: import('../src/types/tempo').UpdateWorklogPayload) => Promise<import('../src/types/tempo').TempoResult<void>>
+    getToday: (
+      date?: string
+    ) => Promise<
+      import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoDaySummary>
+    >
+    getRange: (
+      from: string,
+      to: string
+    ) => Promise<
+      import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoWorklog[]>
+    >
+    getWeek: (
+      weekStart: string,
+      weekEnd: string
+    ) => Promise<
+      import('../src/types/tempo').TempoResult<{
+        worklogs: import('../src/types/tempo').TempoWorklog[]
+        issueSummaries: import('../src/types/tempo').TempoIssueSummary[]
+        totalHours: number
+      }>
+    >
+    createWorklog: (
+      payload: import('../src/types/tempo').CreateWorklogPayload
+    ) => Promise<
+      import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoWorklog>
+    >
+    updateWorklog: (
+      worklogId: number,
+      payload: import('../src/types/tempo').UpdateWorklogPayload
+    ) => Promise<import('../src/types/tempo').TempoResult<void>>
     deleteWorklog: (worklogId: number) => Promise<import('../src/types/tempo').TempoResult<void>>
-    getAccounts: () => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoAccount[]>>
-    getProjectAccounts: (projectKey: string) => Promise<import('../src/types/tempo').TempoResult<{ key: string; name: string; isDefault: boolean }[]>>
-    getCapexMap: (issueKeys: string[]) => Promise<import('../src/types/tempo').TempoResult<Record<string, boolean>>>
-    getSchedule: (from: string, to: string) => Promise<import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoScheduleDay[]>>
+    getAccounts: () => Promise<
+      import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoAccount[]>
+    >
+    getProjectAccounts: (
+      projectKey: string
+    ) => Promise<
+      import('../src/types/tempo').TempoResult<{ key: string; name: string; isDefault: boolean }[]>
+    >
+    getCapexMap: (
+      issueKeys: string[]
+    ) => Promise<import('../src/types/tempo').TempoResult<Record<string, boolean>>>
+    getSchedule: (
+      from: string,
+      to: string
+    ) => Promise<
+      import('../src/types/tempo').TempoResult<import('../src/types/tempo').TempoScheduleDay[]>
+    >
   }
   copilotSessions: {
     scan: () => Promise<import('../src/types/copilotSession').SessionScanResult>
-    getSession: (filePath: string) => Promise<import('../src/types/copilotSession').CopilotSession | null>
-    computeDigest: (filePath: string) => Promise<import('../src/types/copilotSession').SessionDigest | null>
+    getSession: (
+      filePath: string
+    ) => Promise<import('../src/types/copilotSession').CopilotSession | null>
+    computeDigest: (
+      filePath: string
+    ) => Promise<import('../src/types/copilotSession').SessionDigest | null>
   }
   todoist: {
-    getUpcoming: (days?: number) => Promise<{ success: boolean; error?: string; data?: Record<string, import('../src/types/todoist').TodoistTask[]> }>
-    getToday: () => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistTask[] }>
+    getUpcoming: (
+      days?: number
+    ) => Promise<{
+      success: boolean
+      error?: string
+      data?: Record<string, import('../src/types/todoist').TodoistTask[]>
+    }>
+    getToday: () => Promise<{
+      success: boolean
+      error?: string
+      data?: import('../src/types/todoist').TodoistTask[]
+    }>
     completeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
     reopenTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
-    createTask: (params: { content: string; due_date?: string; priority?: number; project_id?: string; description?: string }) => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistTask }>
-    updateTask: (taskId: string, params: { content?: string; due_date?: string; priority?: number; description?: string }) => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistTask }>
+    createTask: (params: {
+      content: string
+      due_date?: string
+      priority?: number
+      project_id?: string
+      description?: string
+    }) => Promise<{
+      success: boolean
+      error?: string
+      data?: import('../src/types/todoist').TodoistTask
+    }>
+    updateTask: (
+      taskId: string,
+      params: { content?: string; due_date?: string; priority?: number; description?: string }
+    ) => Promise<{
+      success: boolean
+      error?: string
+      data?: import('../src/types/todoist').TodoistTask
+    }>
     deleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
-    getProjects: () => Promise<{ success: boolean; error?: string; data?: import('../src/types/todoist').TodoistProject[] }>
+    getProjects: () => Promise<{
+      success: boolean
+      error?: string
+      data?: import('../src/types/todoist').TodoistProject[]
+    }>
   }
 }

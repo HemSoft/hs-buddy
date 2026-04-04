@@ -21,7 +21,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 })
 
 contextBridge.exposeInMainWorld('shell', {
-  openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url)
+  openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  fetchPageTitle: (url: string) => ipcRenderer.invoke('shell:fetch-page-title', url),
 })
 
 contextBridge.exposeInMainWorld('github', {
@@ -30,8 +31,7 @@ contextBridge.exposeInMainWorld('github', {
   switchAccount: (username: string) => ipcRenderer.invoke('github:switch-account', username),
   getCopilotUsage: (org: string, username?: string) =>
     ipcRenderer.invoke('github:get-copilot-usage', org, username),
-  getCopilotQuota: (username: string) =>
-    ipcRenderer.invoke('github:get-copilot-quota', username),
+  getCopilotQuota: (username: string) => ipcRenderer.invoke('github:get-copilot-quota', username),
   getCopilotBudget: (org: string, username?: string) =>
     ipcRenderer.invoke('github:get-copilot-budget', org, username),
   getCopilotMemberUsage: (org: string, memberLogin: string, username?: string) =>
@@ -62,13 +62,22 @@ contextBridge.exposeInMainWorld('tempo', {
   getRange: (from: string, to: string) => ipcRenderer.invoke('tempo:get-range', { from, to }),
   getWeek: (weekStart: string, weekEnd: string) =>
     ipcRenderer.invoke('tempo:get-week', { weekStart, weekEnd }),
-  createWorklog: (payload: { issueKey: string; hours: number; date: string; startTime?: string; description?: string; accountKey?: string }) =>
-    ipcRenderer.invoke('tempo:create-worklog', payload),
-  updateWorklog: (worklogId: number, payload: { hours?: number; startTime?: string; description?: string; accountKey?: string }) =>
-    ipcRenderer.invoke('tempo:update-worklog', { worklogId, payload }),
+  createWorklog: (payload: {
+    issueKey: string
+    hours: number
+    date: string
+    startTime?: string
+    description?: string
+    accountKey?: string
+  }) => ipcRenderer.invoke('tempo:create-worklog', payload),
+  updateWorklog: (
+    worklogId: number,
+    payload: { hours?: number; startTime?: string; description?: string; accountKey?: string }
+  ) => ipcRenderer.invoke('tempo:update-worklog', { worklogId, payload }),
   deleteWorklog: (worklogId: number) => ipcRenderer.invoke('tempo:delete-worklog', worklogId),
   getAccounts: () => ipcRenderer.invoke('tempo:get-accounts'),
-  getProjectAccounts: (projectKey: string) => ipcRenderer.invoke('tempo:get-project-accounts', projectKey),
+  getProjectAccounts: (projectKey: string) =>
+    ipcRenderer.invoke('tempo:get-project-accounts', projectKey),
   getCapexMap: (issueKeys: string[]) => ipcRenderer.invoke('tempo:get-capex-map', issueKeys),
   getSchedule: (from: string, to: string) => ipcRenderer.invoke('tempo:get-schedule', { from, to }),
 })
@@ -85,10 +94,17 @@ contextBridge.exposeInMainWorld('todoist', {
   getToday: () => ipcRenderer.invoke('todoist:get-today'),
   completeTask: (taskId: string) => ipcRenderer.invoke('todoist:complete-task', taskId),
   reopenTask: (taskId: string) => ipcRenderer.invoke('todoist:reopen-task', taskId),
-  createTask: (params: { content: string; due_date?: string; priority?: number; project_id?: string; description?: string }) =>
-    ipcRenderer.invoke('todoist:create-task', params),
-  updateTask: (taskId: string, params: { content?: string; due_date?: string; priority?: number; description?: string }) =>
-    ipcRenderer.invoke('todoist:update-task', { taskId, params }),
+  createTask: (params: {
+    content: string
+    due_date?: string
+    priority?: number
+    project_id?: string
+    description?: string
+  }) => ipcRenderer.invoke('todoist:create-task', params),
+  updateTask: (
+    taskId: string,
+    params: { content?: string; due_date?: string; priority?: number; description?: string }
+  ) => ipcRenderer.invoke('todoist:update-task', { taskId, params }),
   deleteTask: (taskId: string) => ipcRenderer.invoke('todoist:delete-task', taskId),
   getProjects: () => ipcRenderer.invoke('todoist:get-projects'),
 })
@@ -99,7 +115,12 @@ contextBridge.exposeInMainWorld('copilot', {
   cancel: (resultId: string) => ipcRenderer.invoke('copilot:cancel', resultId),
   getActiveCount: () => ipcRenderer.invoke('copilot:active-count'),
   listModels: (ghAccount?: string) => ipcRenderer.invoke('copilot:list-models', ghAccount),
-  chatSend: (args: { message: string; context: string; conversationHistory: Array<{ role: string; content: string }>; model?: string; ghAccount?: string }) =>
-    ipcRenderer.invoke('copilot:chat-send', args),
+  chatSend: (args: {
+    message: string
+    context: string
+    conversationHistory: Array<{ role: string; content: string }>
+    model?: string
+    ghAccount?: string
+  }) => ipcRenderer.invoke('copilot:chat-send', args),
   chatAbort: () => ipcRenderer.invoke('copilot:chat-abort'),
 })

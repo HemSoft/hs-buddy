@@ -71,10 +71,10 @@ hs-buddy uses **electron-store** for persistent configuration and **GitHub CLI**
    ```bash
    # Windows (winget)
    winget install GitHub.cli
-   
+
    # macOS (Homebrew)
    brew install gh
-   
+
    # Or download from: https://cli.github.com/
    ```
 
@@ -175,13 +175,14 @@ npm run build
 ```text
 hs-buddy/
 ├── electron/               # Main process (Electron)
-│   ├── ipc/               # IPC handlers (11 modules)
+│   ├── ipc/               # IPC handlers (12 modules)
 │   ├── services/          # Copilot & crew client services
 │   ├── workers/           # AI/exec/dispatcher workers
 │   ├── main.ts            # Window management, menus, IPC
 │   └── preload.ts         # Secure context bridge
 ├── src/                   # Renderer process (React)
 │   ├── api/               # GitHub API client
+│   ├── features/          # Feature modules (budget discovery, quota projection, task queue)
 │   ├── components/        # React components
 │   │   ├── automation/        # Automation/schedule UI
 │   │   ├── copilot-usage/     # Copilot usage panels
@@ -215,11 +216,11 @@ hs-buddy/
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `F11` | Toggle fullscreen |
-| `Ctrl+R` / `Cmd+R` | Reload window |
-| `Ctrl+Shift+I` / `Cmd+Option+I` | Toggle DevTools |
+| Shortcut                        | Action            |
+| ------------------------------- | ----------------- |
+| `F11`                           | Toggle fullscreen |
+| `Ctrl+R` / `Cmd+R`              | Reload window     |
+| `Ctrl+Shift+I` / `Cmd+Option+I` | Toggle DevTools   |
 
 ## Troubleshooting
 
@@ -263,15 +264,15 @@ This repository is governed by the **Set it Free Loop™** — a recursive autom
 
 The loop runs continuously via GitHub Actions workflows:
 
-| Stage | Workflow | What it does |
-|-------|----------|--------------|
-| **Detect** | Repo Audit | Scans for documentation drift, stale artifacts, config hygiene |
-| **Detect** | Simplisticate Audit | Identifies unnecessary complexity and dead code |
-| **Claim** | Issue Processor | Claims `agent:fixable` issues and opens draft PRs |
-| **Review** | PR Analyzers A/B/C | Three independent AI models perform full-spectrum code review |
-| **Implement / Revise** | Issue Processor | Creates the first draft PR and applies follow-up analyzer feedback on later cycles |
-| **Route** | PR Label Actions | Route blocked PRs back to the implementer and flip clean PRs to ready-for-review |
-| **Guard** | SFL Auditor | Repairs issue/PR label discrepancies and enforces one-issue-one-PR harmony |
+| Stage                  | Workflow            | What it does                                                                       |
+| ---------------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| **Detect**             | Repo Audit          | Scans for documentation drift, stale artifacts, config hygiene                     |
+| **Detect**             | Simplisticate Audit | Identifies unnecessary complexity and dead code                                    |
+| **Claim**              | Issue Processor     | Claims `agent:fixable` issues and opens draft PRs                                  |
+| **Review**             | PR Analyzers A/B/C  | Three independent AI models perform full-spectrum code review                      |
+| **Implement / Revise** | Issue Processor     | Creates the first draft PR and applies follow-up analyzer feedback on later cycles |
+| **Route**              | PR Label Actions    | Route blocked PRs back to the implementer and flip clean PRs to ready-for-review   |
+| **Guard**              | SFL Auditor         | Repairs issue/PR label discrepancies and enforces one-issue-one-PR harmony         |
 
 Human involvement is required for the final merge decision on every SFL PR. Low-risk fixes can still be prepared autonomously, but merging is human-owned.
 

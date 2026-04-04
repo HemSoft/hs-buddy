@@ -41,10 +41,14 @@ export function BookmarkDialog({
   const [tagsInput, setTagsInput] = useState(bookmark?.tags?.join(', ') ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aiSuggesting, setAiSuggesting] = useState(false)
 
   const urlRef = useRef<HTMLInputElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
   const userEditedTitle = useRef(false)
+  const userEditedDescription = useRef(false)
+  const userEditedTags = useRef(false)
+  const aiRequestedFor = useRef<string | null>(null)
 
   useEffect(() => {
     if (isEdit) {
@@ -74,6 +78,64 @@ export function BookmarkDialog({
       cancelled = true
     }
   }, [isEdit, initialUrl, initialTitle])
+
+  // AI-suggest description and tags once we have a URL + title
+  useEffect(() => {
+    if (isEdit || !initialUrl) return
+    const resolvedTitle = title.trim()
+    if (!resolvedTitle || fetchingTitle) return
+    // Only run once per URL+title combo
+    const key = `${initialUrl}|${resolvedTitle}`
+    if (aiRequestedFor.current === key) return
+    aiRequestedFor.current = key
+
+    let cancelled = false
+    setAiSuggesting(true)
+    window.copilot
+      .chatSend({
+        message: `Given this bookmark URL and title, respond with ONLY a JSON object (no markdown, no code fences):
+{"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}
+
+URL: ${initialUrl}
+Title: ${resolvedTitle}
+
+Rules:
+- description: 1 short sentence, max 120 chars
+- tags: 3-5 lowercase single-word tags relevant to the content
+- Respond with ONLY the JSON object, nothing else`,
+        context: '',
+        conversationHistory: [],
+        model: 'gpt-4o-mini',
+      })
+      .then(result => {
+        if (cancelled) return
+        const text = typeof result === 'string' ? result : result?.content
+        if (!text) return
+        try {
+          // Strip any markdown fences if present
+          const cleaned = text
+            .replace(/```(?:json)?\s*/g, '')
+            .replace(/```/g, '')
+            .trim()
+          const parsed = JSON.parse(cleaned) as { description?: string; tags?: string[] }
+          if (parsed.description && !userEditedDescription.current) {
+            setDescription(parsed.description)
+          }
+          if (parsed.tags?.length && !userEditedTags.current) {
+            setTagsInput(parsed.tags.join(', '))
+          }
+        } catch {
+          // AI returned non-JSON — ignore silently
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setAiSuggesting(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isEdit, initialUrl, title, fetchingTitle])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -222,12 +284,20 @@ export function BookmarkDialog({
           </label>
 
           <label className="bookmark-dialog-label">
-            <span>Description</span>
+            <span>
+              Description
+              {aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
+            </span>
             <textarea
               className="bookmark-dialog-textarea"
               value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Optional description…"
+              onChange={e => {
+                setDescription(e.target.value)
+                userEditedDescription.current = true
+              }}
+              placeholder={
+                aiSuggesting ? 'AI is generating a description…' : 'Optional description…'
+              }
               rows={2}
             />
           </label>
@@ -279,13 +349,19 @@ export function BookmarkDialog({
           </label>
 
           <label className="bookmark-dialog-label">
-            <span>Tags</span>
+            <span>
+              Tags
+              {aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
+            </span>
             <input
               type="text"
               className="bookmark-dialog-input"
               value={tagsInput}
-              onChange={e => setTagsInput(e.target.value)}
-              placeholder="tag1, tag2, tag3"
+              onChange={e => {
+                setTagsInput(e.target.value)
+                userEditedTags.current = true
+              }}
+              placeholder={aiSuggesting ? 'AI is suggesting tags…' : 'tag1, tag2, tag3'}
             />
             <span className="bookmark-dialog-hint">Comma-separated</span>
           </label>

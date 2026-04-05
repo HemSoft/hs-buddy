@@ -12,24 +12,11 @@ This update addresses three main categories of console errors and warnings that 
 
 ## Changes Made
 
-### 1. Fixed Content Security Policy Warning ✅
+### 1. Content Security Policy - Status: Deferred
 
 **File**: [`index.html`](../index.html)
 
-**Change**: Removed `unsafe-eval` from the script-src directive
-
-```diff
-- script-src 'self' 'unsafe-inline' 'unsafe-eval'
-+ script-src 'self' 'unsafe-inline'
-```
-
-**Impact**:
-
-- ✅ Eliminates security warning in console
-- ✅ Improves app security posture
-- ✅ No functionality impact (app doesn't use eval)
-
-**Why it matters**: The `unsafe-eval` directive was flagged by Electron's security warnings. Since the app doesn't use `eval()` or related functions, this can be safely removed without breaking any functionality.
+**Status**: `unsafe-eval` is intentionally retained. Vite HMR requires it in development mode. A comment in `index.html` notes that the production build should remove it; a Vite plugin or build hook is needed to strip the directive post-build. No change was made.
 
 ---
 
@@ -45,13 +32,13 @@ This update addresses three main categories of console errors and warnings that 
 
 ```typescript
 // Before: All errors logged as warnings
-console.warn(`⚠️  Error fetching PRs for ${username}:`, errorMsg);
+console.warn(`⚠️  Error fetching PRs for ${username}:`, errorMsg)
 
 // After: 404s are debug-level (expected), others are warnings
 if (!errorMsg.includes('404')) {
-  console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg);
+  console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg)
 } else {
-  console.debug(`ℹ️  No access or org not found for ${username} in ${org}`);
+  console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
 }
 ```
 
@@ -72,9 +59,9 @@ if (!errorMsg.includes('404')) {
 **Change**: Disabled verbose logging for Convex client
 
 ```typescript
-const convexClient = new ConvexReactClient(CONVEX_URL);
-convexClient.setVerboseLogging(false); // ← Added this
-return convexClient;
+const convexClient = new ConvexReactClient(CONVEX_URL)
+convexClient.setVerboseLogging(false) // ← Added this
+return convexClient
 ```
 
 **Impact**:
@@ -107,7 +94,7 @@ bun run validate:github
 
 **Output Example**:
 
-```
+```text
 🔍 Validating GitHub Organization Access...
 
 📋 Checking authenticated GitHub accounts...
@@ -165,7 +152,7 @@ bun run convex:dev        # Start backend
 
 ### Console Output (Before)
 
-```
+```text
 ⚠️ Electron Security Warning (Insecure Content-Security-Policy)
    This renderer process has "unsafe-eval" enabled...
 
@@ -179,7 +166,7 @@ bun run convex:dev        # Start backend
 
 ### Console Output (After)
 
-```
+```text
 ✓ Found 5 PRs for fhemmerrelias in ReliasLearning
 ✓ Found 2 PRs for HemSoft in HemSoft
 ℹ️ No access or org not found for franzhemmer in SomePrivateOrg
@@ -191,13 +178,13 @@ Much cleaner! 🎉
 
 ## Impact on User Experience
 
-| Issue | Before | After |
-|-------|--------|-------|
-| **CSP Warning** | 🔴 Security warning on every launch | ✅ No warning |
-| **GitHub 404s** | 🟡 Multiple warnings for each fetch | ✅ Debug-level log only |
-| **Convex Noise** | 🟡 Reconnection spam in console | ✅ Silent reconnects |
-| **Debugging** | 🔴 Hard to find real errors | ✅ Clear signal-to-noise ratio |
-| **Validation** | 🔴 Trial and error | ✅ Pre-flight validation script |
+| Issue            | Before                              | After                           |
+| ---------------- | ----------------------------------- | ------------------------------- |
+| **CSP Warning**  | 🔴 Security warning on every launch | ✅ No warning                   |
+| **GitHub 404s**  | 🟡 Multiple warnings for each fetch | ✅ Debug-level log only         |
+| **Convex Noise** | 🟡 Reconnection spam in console     | ✅ Silent reconnects            |
+| **Debugging**    | 🔴 Hard to find real errors         | ✅ Clear signal-to-noise ratio  |
+| **Validation**   | 🔴 Trial and error                  | ✅ Pre-flight validation script |
 
 ---
 
@@ -262,10 +249,10 @@ To verify these improvements:
    ```powershell
    # Terminal 1
    bun run convex:dev
-   
+
    # Terminal 2
    bun dev
-   
+
    # Stop convex:dev, then restart it
    # App should reconnect silently (no spam in console)
    ```

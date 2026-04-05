@@ -4,16 +4,12 @@
 
 ### 1. Content Security Policy (CSP) Warning
 
-**Issue**: Console shows warning about `unsafe-eval` in Content-Security-Policy
+**Issue**: Electron security audit flags `unsafe-eval` in `Content-Security-Policy`
 
-**Solution**: ✅ Fixed! Removed `unsafe-eval` from CSP in [index.html](../index.html#L5)
-
-The CSP now only allows:
-
-- Scripts from same origin with inline support (no eval)
-- Styles from same origin with inline support
-- Images from HTTPS sources
-- Network connections to GitHub API and Convex
+**Status**: `unsafe-eval` is **intentionally retained** in `index.html` because
+Vite HMR requires it during development. A production hardening pass should
+remove it from the production build, for example via a Vite plugin that strips
+the directive post-build.
 
 ---
 

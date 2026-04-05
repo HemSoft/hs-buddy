@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.598] - 2026-04-05
+
+## [0.1.597] - 2026-04-05
+
 ## [0.1.596] - 2026-04-05
+
+### Added
+
+- Add Ctrl+Tab / Ctrl+Shift+Tab tab cycling
 
 ## [0.1.595] - 2026-04-05
 

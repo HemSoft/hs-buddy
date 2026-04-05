@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, FolderOpen, Globe } from 'lucide-react'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useBookmarks, useBookmarkCategories } from '../../hooks/useConvex'
+import { BookmarkDialog } from '../bookmarks/BookmarkDialog'
 
 function isSafeImageUrl(url: string): boolean {
   try {
@@ -82,6 +83,15 @@ interface BookmarksSidebarProps {
 
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    bookmarkId: string
+  } | null>(null)
+  const [editingBookmark, setEditingBookmark] = useState<
+    NonNullable<typeof bookmarks>[number] | null
+  >(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const bookmarks = useBookmarks()
   const categories = useBookmarkCategories()
 
@@ -93,6 +103,36 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       return next
     })
   }, [])
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), [])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, bookmarkId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, bookmarkId })
+  }, [])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [contextMenu, closeContextMenu])
+
+  useEffect(() => {
+    if (!contextMenu || !menuRef.current) return
+    const rect = menuRef.current.getBoundingClientRect()
+    let adjustedX = contextMenu.x
+    let adjustedY = contextMenu.y
+    if (adjustedX + rect.width > window.innerWidth) adjustedX = window.innerWidth - rect.width - 4
+    if (adjustedY + rect.height > window.innerHeight)
+      adjustedY = window.innerHeight - rect.height - 4
+    if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
+      setContextMenu(prev => (prev ? { ...prev, x: adjustedX, y: adjustedY } : null))
+    }
+  }, [contextMenu])
 
   const totalCount = bookmarks?.length ?? 0
 
@@ -181,6 +221,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
                     className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''}`}
                     style={{ paddingLeft: `${12 + (depth + 1) * 16}px` }}
                     onClick={() => onItemSelect(bmViewId)}
+                    onContextMenu={e => handleContextMenu(e, bm._id)}
                     role="button"
                     tabIndex={0}
                     title={bm.url}
@@ -214,7 +255,14 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
         </div>
       )
     },
-    [expandedSections, selectedItem, onItemSelect, toggleSection, bookmarksByCategory]
+    [
+      expandedSections,
+      selectedItem,
+      onItemSelect,
+      toggleSection,
+      bookmarksByCategory,
+      handleContextMenu,
+    ]
   )
 
   return (
@@ -232,6 +280,37 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
           </div>
         )}
       </div>
+
+      {contextMenu && (
+        <>
+          <div className="tab-context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
+          <div
+            ref={menuRef}
+            className="tab-context-menu"
+            role="menu"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+          >
+            <button
+              role="menuitem"
+              onClick={() => {
+                const bm = bookmarks?.find(b => b._id === contextMenu.bookmarkId)
+                if (bm) setEditingBookmark(bm)
+                closeContextMenu()
+              }}
+            >
+              Edit
+            </button>
+          </div>
+        </>
+      )}
+
+      {editingBookmark && (
+        <BookmarkDialog
+          bookmark={editingBookmark}
+          categories={categories ?? []}
+          onClose={() => setEditingBookmark(null)}
+        />
+      )}
     </div>
   )
 }

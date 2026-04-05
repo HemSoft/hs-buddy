@@ -97,7 +97,7 @@ export function registerShellHandlers(): void {
 
       const response = await net.fetch(url, {
         signal: AbortSignal.timeout(5000),
-        redirect: 'error',
+        redirect: 'follow',
         headers: { Accept: 'text/html', 'User-Agent': 'hs-buddy/1.0' },
       })
       if (!response.ok) {

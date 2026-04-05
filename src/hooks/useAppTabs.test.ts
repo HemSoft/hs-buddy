@@ -4,38 +4,18 @@ import { useAppTabs } from './useAppTabs'
 
 const mockListProjects = vi.fn(async () => [])
 
-const ipcListeners = new Map<string, Set<() => void>>()
-
-function mockIpcOn(_channel: string, listener: () => void) {
-  if (!ipcListeners.has(_channel)) ipcListeners.set(_channel, new Set())
-  ipcListeners.get(_channel)!.add(listener)
-}
-
-function mockIpcOff(_channel: string, listener: () => void) {
-  ipcListeners.get(_channel)?.delete(listener)
-}
-
-function emitIpc(channel: string) {
-  ipcListeners.get(channel)?.forEach(fn => fn())
+function emitTabEvent(name: string) {
+  window.dispatchEvent(new Event(`app:${name}`))
 }
 
 describe('useAppTabs', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    ipcListeners.clear()
 
     Object.defineProperty(window, 'crew', {
       configurable: true,
       value: {
         listProjects: mockListProjects,
-      },
-    })
-
-    Object.defineProperty(window, 'ipcRenderer', {
-      configurable: true,
-      value: {
-        on: vi.fn(mockIpcOn),
-        off: vi.fn(mockIpcOff),
       },
     })
   })
@@ -82,7 +62,7 @@ describe('useAppTabs', () => {
     expect(result.current.activeViewId).toBe('pr-my-prs')
   })
 
-  it('cycles to the next tab on tab-next IPC and wraps around', async () => {
+  it('cycles to the next tab on tab-next event and wraps around', async () => {
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
 
     await act(async () => {
@@ -98,15 +78,15 @@ describe('useAppTabs', () => {
     expect(result.current.activeViewId).toBe('copilot-usage')
 
     // Next → wraps to first
-    act(() => emitIpc('tab-next'))
+    act(() => emitTabEvent('tab-next'))
     expect(result.current.activeTabId).toBe(tab1)
 
     // Next → second
-    act(() => emitIpc('tab-next'))
+    act(() => emitTabEvent('tab-next'))
     expect(result.current.activeTabId).toBe(tab2)
   })
 
-  it('cycles to the previous tab on tab-prev IPC and wraps around', async () => {
+  it('cycles to the previous tab on tab-prev event and wraps around', async () => {
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
 
     await act(async () => {
@@ -120,11 +100,11 @@ describe('useAppTabs', () => {
     expect(result.current.activeViewId).toBe('pr-needs-review')
 
     // Prev → first tab
-    act(() => emitIpc('tab-prev'))
+    act(() => emitTabEvent('tab-prev'))
     expect(result.current.activeTabId).toBe(tab1)
 
     // Prev → wraps to last (tab 2)
-    act(() => emitIpc('tab-prev'))
+    act(() => emitTabEvent('tab-prev'))
     expect(result.current.activeViewId).toBe('pr-needs-review')
   })
 
@@ -137,10 +117,10 @@ describe('useAppTabs', () => {
 
     const tabId = result.current.activeTabId
 
-    act(() => emitIpc('tab-next'))
+    act(() => emitTabEvent('tab-next'))
     expect(result.current.activeTabId).toBe(tabId)
 
-    act(() => emitIpc('tab-prev'))
+    act(() => emitTabEvent('tab-prev'))
     expect(result.current.activeTabId).toBe(tabId)
   })
 })

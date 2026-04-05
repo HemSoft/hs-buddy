@@ -266,14 +266,28 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
     })
   }, [])
 
+  const closeActiveTab = useCallback(() => {
+    setTabState(prev => {
+      if (!prev.activeTabId || prev.tabs.length === 0) return prev
+      const nextTabs = prev.tabs.filter(t => t.id !== prev.activeTabId)
+      if (nextTabs.length === 0) return { tabs: [], activeTabId: null }
+      const closedIndex = prev.tabs.findIndex(t => t.id === prev.activeTabId)
+      const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
+      return { tabs: nextTabs, activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null }
+    })
+  }, [])
+
   useEffect(() => {
-    window.ipcRenderer.on('tab-next', selectNextTab)
-    window.ipcRenderer.on('tab-prev', selectPrevTab)
+    // DOM event path only — IPC-to-DOM bridging lives in main.tsx (registered once, no cleanup needed)
+    window.addEventListener('app:tab-next', selectNextTab)
+    window.addEventListener('app:tab-prev', selectPrevTab)
+    window.addEventListener('app:tab-close', closeActiveTab)
     return () => {
-      window.ipcRenderer.off('tab-next', selectNextTab)
-      window.ipcRenderer.off('tab-prev', selectPrevTab)
+      window.removeEventListener('app:tab-next', selectNextTab)
+      window.removeEventListener('app:tab-prev', selectPrevTab)
+      window.removeEventListener('app:tab-close', closeActiveTab)
     }
-  }, [selectNextTab, selectPrevTab])
+  }, [selectNextTab, selectPrevTab, closeActiveTab])
 
   return {
     activeTabId,

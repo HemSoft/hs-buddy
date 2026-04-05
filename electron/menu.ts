@@ -84,6 +84,7 @@ export function buildMenu(win: BrowserWindow): Electron.Menu {
 
 export function registerKeyboardShortcuts(win: BrowserWindow): void {
   win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
     const ctrlOrCmd = input.control || input.meta
 
     // Ctrl/Cmd + NumpadAdd/Plus: Zoom In
@@ -114,6 +115,11 @@ export function registerKeyboardShortcuts(win: BrowserWindow): void {
     // Ctrl/Cmd + Tab: Next Tab
     else if (ctrlOrCmd && input.key === 'Tab') {
       win.webContents.send('tab-next')
+      event.preventDefault()
+    }
+    // Ctrl/Cmd + F4: Close Active Tab
+    else if (ctrlOrCmd && input.key === 'F4') {
+      win.webContents.send('tab-close')
       event.preventDefault()
     }
     // F11: Toggle Fullscreen

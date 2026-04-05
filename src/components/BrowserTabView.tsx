@@ -24,12 +24,31 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
     const handleStartLoad = () => setLoading(true)
     const handleStopLoad = () => setLoading(false)
 
+    const handleBeforeInput = (event: Event) => {
+      const input = (
+        event as Event & {
+          input?: { type: string; key: string; control: boolean; meta: boolean; shift: boolean }
+        }
+      ).input
+      if (!input || input.type !== 'keyDown') return
+      const ctrlOrCmd = input.control || input.meta
+      if (ctrlOrCmd && input.key === 'Tab') {
+        event.preventDefault()
+        window.dispatchEvent(new Event(input.shift ? 'app:tab-prev' : 'app:tab-next'))
+      } else if (ctrlOrCmd && input.key === 'F4') {
+        event.preventDefault()
+        window.dispatchEvent(new Event('app:tab-close'))
+      }
+    }
+
+    webview.addEventListener('before-input-event', handleBeforeInput)
     webview.addEventListener('page-title-updated', handleTitleUpdate)
     webview.addEventListener('did-navigate', handleNavigate)
     webview.addEventListener('did-start-loading', handleStartLoad)
     webview.addEventListener('did-stop-loading', handleStopLoad)
 
     return () => {
+      webview.removeEventListener('before-input-event', handleBeforeInput)
       webview.removeEventListener('page-title-updated', handleTitleUpdate)
       webview.removeEventListener('did-navigate', handleNavigate)
       webview.removeEventListener('did-start-loading', handleStartLoad)

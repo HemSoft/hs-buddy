@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import type { PullRequest } from '../../types/pullRequest'
 import { GitHubClient, type ProgressCallback } from '../../api/github'
-import { useGitHubAccounts, usePRSettings } from '../../hooks/useConfig'
+import { useGitHubAccounts, usePRSettings, useCopilotSettings } from '../../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConvex'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
+import { buildAddressCommentsPrompt } from '../../utils/assistantPrompts'
 import { getProgressColor } from '../../utils/progressColors'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
@@ -53,6 +54,7 @@ export function usePRListData(
   const [approving, setApproving] = useState<string | null>(null)
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
   const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
+  const { premiumModel } = useCopilotSettings()
   const bookmarks = useRepoBookmarks()
   const { create: createBookmark, remove: removeBookmark } = useRepoBookmarkMutations()
   const { enqueue, cancelAll } = useTaskQueue('github')
@@ -171,6 +173,35 @@ export function usePRListData(
     )
     setContextMenu(null)
   }, [contextMenu])
+
+  const handleRequestCopilotReview = useCallback(async () => {
+    if (!contextMenu) return
+    const { pr } = contextMenu
+    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+    if (!ownerRepo) return
+    try {
+      await enqueueRef.current(
+        async signal => {
+          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          const client = new GitHubClient({ accounts }, recentlyMergedDays)
+          await client.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
+        },
+        { name: `copilot-review-${pr.repository}-${pr.id}` }
+      )
+    } catch (err) {
+      console.error('Failed to request Copilot review:', err)
+    }
+    setContextMenu(null)
+  }, [contextMenu, accounts, recentlyMergedDays])
+
+  const handleAddressComments = useCallback(() => {
+    if (!contextMenu) return
+    const { pr } = contextMenu
+    const org = pr.org || pr.source
+    const prompt = buildAddressCommentsPrompt({ prId: pr.id, org, repository: pr.repository, url: pr.url })
+    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } }))
+    setContextMenu(null)
+  }, [contextMenu, premiumModel])
 
   const handleCopyLink = useCallback(async () => {
     if (!contextMenu) return
@@ -422,6 +453,8 @@ export function usePRListData(
     handleContextMenu,
     handleBookmarkRepo,
     handleAIReview,
+    handleRequestCopilotReview,
+    handleAddressComments,
     handleCopyLink,
     handleApprove,
     handleApproveFromMenu,

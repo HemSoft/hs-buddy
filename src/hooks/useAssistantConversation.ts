@@ -17,7 +17,7 @@ export function useAssistantConversation(context: AssistantContext) {
   const abortRef = useRef(false)
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, model?: string) => {
       const trimmed = text.trim()
       if (!trimmed || isStreaming) return
 
@@ -53,6 +53,7 @@ export function useAssistantConversation(context: AssistantContext) {
           message: trimmed,
           context: systemPrompt,
           conversationHistory: history,
+          ...(model ? { model } : {}),
         })
 
         if (abortRef.current) return

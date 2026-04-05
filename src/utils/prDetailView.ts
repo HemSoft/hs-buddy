@@ -19,6 +19,8 @@ export interface PRDetailInfo {
   date: string | null
   orgAvatarUrl?: string
   org?: string
+  threadsTotal?: number | null
+  threadsUnaddressed?: number | null
 }
 
 export type PRDetailSection = 'conversation' | 'commits' | 'checks' | 'files-changed' | 'ai-reviews'
@@ -55,6 +57,8 @@ export function createPRDetailViewId(
     date: pr.date,
     orgAvatarUrl: pr.orgAvatarUrl,
     org: pr.org,
+    threadsTotal: pr.threadsTotal ?? null,
+    threadsUnaddressed: pr.threadsUnaddressed ?? null,
   }
 
   const base = `pr-detail:${encodeURIComponent(JSON.stringify(info))}`

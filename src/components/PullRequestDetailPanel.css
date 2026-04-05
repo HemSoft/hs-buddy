@@ -223,6 +223,26 @@
   text-transform: capitalize;
 }
 
+.pr-detail-state-warning {
+  color: var(--color-warning, #f59e0b);
+}
+
+.pr-detail-card-interactive {
+  cursor: context-menu;
+  transition: border-color 0.15s;
+}
+
+.pr-detail-card-interactive:hover {
+  border-color: var(--accent-primary, #58a6ff);
+}
+
+.pr-detail-card-secondary {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
 .pr-detail-meta-list {
   border: 1px solid var(--border-primary);
   border-radius: 8px;

@@ -77,4 +77,18 @@ describe('AssistantPanel', () => {
     render(<AssistantPanel context={context} />)
     expect(screen.getByPlaceholderText('Ask a question...')).toBeTruthy()
   })
+
+  it('sends message when assistant:send-prompt event is dispatched', () => {
+    render(<AssistantPanel context={context} />)
+    window.dispatchEvent(
+      new CustomEvent('assistant:send-prompt', { detail: 'Address unresolved comments' })
+    )
+    expect(mockSendMessage).toHaveBeenCalledWith('Address unresolved comments')
+  })
+
+  it('ignores assistant:send-prompt with empty detail', () => {
+    render(<AssistantPanel context={context} />)
+    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: '' }))
+    expect(mockSendMessage).not.toHaveBeenCalled()
+  })
 })

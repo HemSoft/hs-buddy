@@ -7,15 +7,18 @@ import {
   History,
   Loader2,
   MessageCircle,
+  MessageSquareWarning,
+  Sparkles,
   XCircle,
 } from 'lucide-react'
 import { GitHubClient, type PRHistorySummary } from '../api/github'
-import { useGitHubAccounts } from '../hooks/useConfig'
+import { useGitHubAccounts, useCopilotSettings } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { buildAddressCommentsPrompt } from '../utils/assistantPrompts'
 import './PullRequestHistoryPanel.css'
 
 interface PullRequestHistoryPanelProps {
@@ -79,7 +82,36 @@ function PullRequestHistoryHeader({ pr, embedded }: { pr: PRDetailInfo; embedded
   )
 }
 
-function PullRequestHistoryOverview({ history }: { history: PRHistorySummary }) {
+function PullRequestHistoryOverview({ history, pr }: { history: PRHistorySummary; pr: PRDetailInfo }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const { premiumModel } = useCopilotSettings()
+
+  useEffect(() => {
+    if (!menu) return
+    const close = () => setMenu(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [menu])
+
+  const handleAddressComments = useCallback(() => {
+    const org = pr.org || pr.source
+    const prompt = buildAddressCommentsPrompt({ prId: pr.id, org, repository: pr.repository, url: pr.url })
+    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } }))
+    setMenu(null)
+  }, [pr.id, pr.org, pr.source, pr.repository, pr.url, premiumModel])
+
+  const handleRequestCopilotReview = useCallback(() => {
+    const parsed = parseOwnerRepoFromUrl(pr.url)
+    if (!parsed) return
+    void GitHubClient.requestCopilotReview(parsed.owner, parsed.repo, pr.id)
+    setMenu(null)
+  }, [pr.url, pr.id])
+
   return (
     <>
       <div className="pr-history-grid">
@@ -141,7 +173,14 @@ function PullRequestHistoryOverview({ history }: { history: PRHistorySummary }) 
             </div>
             <div className="thread-value">{history.threadsAddressed}</div>
           </div>
-          <div className="thread-card">
+          <div
+            className="thread-card thread-card-interactive"
+            onContextMenu={e => {
+              e.preventDefault()
+              setMenu({ x: e.clientX, y: e.clientY })
+            }}
+            title="Right-click for actions"
+          >
             <div className="thread-label-row">
               <div className="thread-label">Unaddressed</div>
               <div className="thread-indicator bad" aria-label="Unaddressed">
@@ -152,6 +191,26 @@ function PullRequestHistoryOverview({ history }: { history: PRHistorySummary }) 
             <div className="thread-value">{history.threadsUnaddressed}</div>
           </div>
         </div>
+
+        {menu && (
+          <>
+            <div
+              className="pr-context-menu-overlay"
+              onClick={() => setMenu(null)}
+              aria-hidden="true"
+            />
+            <div className="pr-context-menu" style={{ top: menu.y, left: menu.x }}>
+              <button onClick={handleAddressComments} disabled={history.threadsUnaddressed === 0}>
+                <MessageSquareWarning size={14} />
+                Address Unresolved Comments
+              </button>
+              <button onClick={handleRequestCopilotReview}>
+                <Sparkles size={14} />
+                Request Copilot Review
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </>
   )
@@ -333,7 +392,7 @@ export function PullRequestHistoryPanel({
 
       {focus === 'all' && (
         <>
-          <PullRequestHistoryOverview history={history} />
+          <PullRequestHistoryOverview history={history} pr={pr} />
           <PullRequestReviewers history={history} />
         </>
       )}

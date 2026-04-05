@@ -38,6 +38,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
     handleContextMenu,
     handleBookmarkRepo,
     handleAIReview,
+    handleRequestCopilotReview,
+    handleAddressComments,
     handleCopyLink,
     handleApprove,
     handleApproveFromMenu,
@@ -299,6 +301,8 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
           pr={contextMenu.pr}
           bookmarkedRepoKeys={bookmarkedRepoKeys}
           onAIReview={handleAIReview}
+          onRequestCopilotReview={handleRequestCopilotReview}
+          onAddressComments={handleAddressComments}
           onApprove={handleApproveFromMenu}
           onCopyLink={handleCopyLink}
           onBookmark={handleBookmarkRepo}

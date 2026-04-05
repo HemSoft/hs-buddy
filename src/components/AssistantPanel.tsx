@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Sparkles, Trash2, Send, Loader2, StopCircle } from 'lucide-react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
+import remarkGemoji from 'remark-gemoji'
 import type { AssistantContext } from '../types/assistant'
 import { useAssistantConversation } from '../hooks/useAssistantConversation'
 import { useExternalMarkdownLinks } from '../hooks/useExternalMarkdownLinks'
@@ -26,6 +27,22 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useExternalMarkdownLinks(conversationRef)
+
+  // Listen for external prompt injection via custom event
+  // detail can be a string (prompt only) or { prompt, model } for model override
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string | { prompt: string; model?: string }>).detail
+      if (!detail) return
+      if (typeof detail === 'string') {
+        sendMessage(detail)
+      } else {
+        sendMessage(detail.prompt, detail.model)
+      }
+    }
+    window.addEventListener('assistant:send-prompt', handler)
+    return () => window.removeEventListener('assistant:send-prompt', handler)
+  }, [sendMessage])
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -111,6 +128,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
                     <div className="assistant-message-markdown" data-color-mode="dark">
                       <MarkdownPreview
                         source={msg.content}
+                        remarkPlugins={[remarkGemoji]}
                         style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}
                       />
                     </div>

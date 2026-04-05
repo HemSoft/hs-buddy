@@ -623,6 +623,24 @@ const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 const tokenCache: Map<string, string> = new Map()
 const orgAvatarCache: Map<string, string | null> = new Map() // null = tried and failed
 
+/** Test-only: reset the org avatar cache between tests. */
+export function clearOrgAvatarCache(): void {
+  orgAvatarCache.clear()
+}
+
+/** Test-only: inspect the org avatar cache. */
+export function getOrgAvatarCacheEntry(org: string): string | null | undefined {
+  return orgAvatarCache.get(org)
+}
+
+export const EVENT_LABELS: Record<string, string> = {
+  PullRequestReviewEvent: 'Reviewed a pull request',
+  IssueCommentEvent: 'Commented on an issue',
+  WatchEvent: 'Starred a repository',
+  ForkEvent: 'Forked a repository',
+  ReleaseEvent: 'Published a release',
+}
+
 // Progress callback type
 export type ProgressCallback = (progress: {
   currentAccount: number
@@ -634,25 +652,26 @@ export type ProgressCallback = (progress: {
   error?: string
 }) => void
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function eventSummary(evt: any): string {
+export function eventSummary(evt: any): string {
+  const fixed = EVENT_LABELS[evt.type]
+  if (fixed) return fixed
+
+  const action = evt.payload?.action ?? 'updated'
+
   switch (evt.type) {
     case 'PushEvent': {
       const size = evt.payload?.size ?? 0
       return `Pushed ${size} commit${size !== 1 ? 's' : ''}`
     }
-    case 'PullRequestEvent': {
-      const action = evt.payload?.action ?? 'updated'
-      return `${action.charAt(0).toUpperCase() + action.slice(1)} pull request`
-    }
-    case 'PullRequestReviewEvent':
-      return 'Reviewed a pull request'
-    case 'IssuesEvent': {
-      const action = evt.payload?.action ?? 'updated'
-      return `${action.charAt(0).toUpperCase() + action.slice(1)} an issue`
-    }
-    case 'IssueCommentEvent':
-      return 'Commented on an issue'
+    case 'PullRequestEvent':
+      return `${capitalize(action)} pull request`
+    case 'IssuesEvent':
+      return `${capitalize(action)} an issue`
     case 'CreateEvent': {
       const refType = evt.payload?.ref_type ?? 'ref'
       return `Created a ${refType}`
@@ -661,12 +680,6 @@ function eventSummary(evt: any): string {
       const refType = evt.payload?.ref_type ?? 'ref'
       return `Deleted a ${refType}`
     }
-    case 'WatchEvent':
-      return 'Starred a repository'
-    case 'ForkEvent':
-      return 'Forked a repository'
-    case 'ReleaseEvent':
-      return 'Published a release'
     default:
       return evt.type?.replace(/Event$/, '') ?? 'Activity'
   }
@@ -1996,6 +2009,19 @@ export class GitHubClient {
   }
 
   /**
+   * Request a Copilot review on a pull request.
+   */
+  async requestCopilotReview(owner: string, repo: string, pullNumber: number): Promise<void> {
+    const octokit = await this.getOctokitForOwner(owner)
+    await octokit.pulls.requestReviewers({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      reviewers: ['copilot-pull-request-reviewer[bot]'],
+    })
+  }
+
+  /**
    * Get a token for an owner (used by thread/comment methods).
    */
   private async getTokenForOwner(owner: string): Promise<string> {
@@ -2511,6 +2537,27 @@ export class GitHubClient {
   /**
    * Fetch PRs for a specific account and org using Octokit
    */
+  private async resolveOrgAvatar(octokit: Octokit, org: string): Promise<string | null> {
+    const cached = orgAvatarCache.get(org)
+    if (cached !== undefined) return cached
+
+    try {
+      const orgData = await octokit.orgs.get({ org })
+      orgAvatarCache.set(org, orgData.data.avatar_url)
+      return orgData.data.avatar_url
+    } catch {
+      try {
+        const userData = await octokit.users.getByUsername({ username: org })
+        orgAvatarCache.set(org, userData.data.avatar_url)
+        return userData.data.avatar_url
+      } catch {
+        console.debug(`Could not fetch avatar for ${org}`)
+        orgAvatarCache.set(org, null)
+        return null
+      }
+    }
+  }
+
   private async fetchPRsForAccount(
     octokit: Octokit,
     org: string,
@@ -2520,28 +2567,7 @@ export class GitHubClient {
     const seenUrls = new Set<string>()
     const allPrs: PullRequest[] = []
     const accountToken = await this.getGitHubCLIToken(username)
-
-    // Fetch org avatar (cached at module level to persist across instances)
-    let orgAvatarUrl: string | undefined | null
-    if (!orgAvatarCache.has(org)) {
-      try {
-        const orgData = await octokit.orgs.get({ org })
-        orgAvatarUrl = orgData.data.avatar_url
-        orgAvatarCache.set(org, orgAvatarUrl)
-      } catch {
-        // Might be a user, not an org - try users endpoint
-        try {
-          const userData = await octokit.users.getByUsername({ username: org })
-          orgAvatarUrl = userData.data.avatar_url
-          orgAvatarCache.set(org, orgAvatarUrl)
-        } catch {
-          console.debug(`Could not fetch avatar for ${org}`)
-          orgAvatarCache.set(org, null) // Cache the failure to avoid retrying
-        }
-      }
-    } else {
-      orgAvatarUrl = orgAvatarCache.get(org)
-    }
+    const orgAvatarUrl = await this.resolveOrgAvatar(octokit, org)
 
     // Different queries based on mode
     let queries: string[]

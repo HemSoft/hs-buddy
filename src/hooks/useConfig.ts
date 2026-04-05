@@ -265,8 +265,9 @@ export function useCopilotSettings() {
     config => ({
       ghAccount: config.copilot?.ghAccount ?? '',
       model: config.copilot?.model ?? 'claude-sonnet-4.5',
+      premiumModel: config.copilot?.premiumModel ?? 'claude-opus-4.6',
     }),
-    { ghAccount: '', model: 'claude-sonnet-4.5' }
+    { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
   )
 
   const setGhAccount = async (account: string) => {
@@ -277,11 +278,17 @@ export function useCopilotSettings() {
     await updateCopilot({ model })
   }
 
+  const setPremiumModel = async (premiumModel: string) => {
+    await updateCopilot({ premiumModel })
+  }
+
   return {
     ghAccount: currentSettings.ghAccount ?? '',
     model: currentSettings.model ?? 'claude-sonnet-4.5',
+    premiumModel: currentSettings.premiumModel ?? 'claude-opus-4.6',
     loading,
     setGhAccount,
     setModel,
+    setPremiumModel,
   }
 }

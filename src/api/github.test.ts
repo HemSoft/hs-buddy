@@ -17,6 +17,7 @@ const mockOctokit = {
   },
   users: {
     getAuthenticated: vi.fn(),
+    getByUsername: vi.fn(),
   },
   repos: {
     get: vi.fn(),
@@ -84,7 +85,13 @@ vi.mock('@octokit/graphql', () => ({
 vi.mock('@octokit/plugin-retry', () => ({ retry: {} }))
 vi.mock('@octokit/plugin-throttling', () => ({ throttling: {} }))
 
-import { GitHubClient } from './github'
+import {
+  GitHubClient,
+  eventSummary,
+  EVENT_LABELS,
+  clearOrgAvatarCache,
+  getOrgAvatarCacheEntry,
+} from './github'
 
 const TEST_CONFIG = {
   accounts: [
@@ -1571,6 +1578,177 @@ describe('GitHubClient', () => {
       expect(result.metrics.org).toBe('myorg')
       expect(result.metrics.repoCount).toBeGreaterThanOrEqual(1)
       expect(result.authenticatedAs).toBeDefined()
+    })
+  })
+
+  describe('eventSummary', () => {
+    it.each([
+      { type: 'PullRequestReviewEvent', payload: {}, expected: 'Reviewed a pull request' },
+      { type: 'IssueCommentEvent', payload: {}, expected: 'Commented on an issue' },
+      { type: 'WatchEvent', payload: {}, expected: 'Starred a repository' },
+      { type: 'ForkEvent', payload: {}, expected: 'Forked a repository' },
+      { type: 'ReleaseEvent', payload: {}, expected: 'Published a release' },
+    ])('returns fixed label for $type', ({ type, payload, expected }) => {
+      expect(eventSummary({ type, payload })).toBe(expected)
+    })
+
+    it('PushEvent with 1 commit (singular)', () => {
+      expect(eventSummary({ type: 'PushEvent', payload: { size: 1 } })).toBe('Pushed 1 commit')
+    })
+
+    it('PushEvent with multiple commits (plural)', () => {
+      expect(eventSummary({ type: 'PushEvent', payload: { size: 3 } })).toBe('Pushed 3 commits')
+    })
+
+    it('PushEvent with 0 commits', () => {
+      expect(eventSummary({ type: 'PushEvent', payload: { size: 0 } })).toBe('Pushed 0 commits')
+    })
+
+    it('PushEvent with missing size defaults to 0', () => {
+      expect(eventSummary({ type: 'PushEvent', payload: {} })).toBe('Pushed 0 commits')
+    })
+
+    it('PullRequestEvent capitalizes action', () => {
+      expect(eventSummary({ type: 'PullRequestEvent', payload: { action: 'opened' } })).toBe(
+        'Opened pull request'
+      )
+    })
+
+    it('PullRequestEvent defaults to "updated" when action missing', () => {
+      expect(eventSummary({ type: 'PullRequestEvent', payload: {} })).toBe('Updated pull request')
+    })
+
+    it('IssuesEvent capitalizes action', () => {
+      expect(eventSummary({ type: 'IssuesEvent', payload: { action: 'closed' } })).toBe(
+        'Closed an issue'
+      )
+    })
+
+    it('CreateEvent includes ref_type', () => {
+      expect(eventSummary({ type: 'CreateEvent', payload: { ref_type: 'branch' } })).toBe(
+        'Created a branch'
+      )
+    })
+
+    it('CreateEvent defaults ref_type to "ref"', () => {
+      expect(eventSummary({ type: 'CreateEvent', payload: {} })).toBe('Created a ref')
+    })
+
+    it('DeleteEvent includes ref_type', () => {
+      expect(eventSummary({ type: 'DeleteEvent', payload: { ref_type: 'tag' } })).toBe(
+        'Deleted a tag'
+      )
+    })
+
+    it('DeleteEvent defaults ref_type to "ref"', () => {
+      expect(eventSummary({ type: 'DeleteEvent', payload: {} })).toBe('Deleted a ref')
+    })
+
+    it('unknown event strips "Event" suffix', () => {
+      expect(eventSummary({ type: 'GollumEvent', payload: {} })).toBe('Gollum')
+    })
+
+    it('missing type returns "Activity"', () => {
+      expect(eventSummary({ payload: {} })).toBe('Activity')
+    })
+
+    it('EVENT_LABELS contains exactly the expected fixed labels', () => {
+      expect(Object.keys(EVENT_LABELS).sort()).toEqual([
+        'PullRequestReviewEvent',
+        'IssueCommentEvent',
+        'WatchEvent',
+        'ForkEvent',
+        'ReleaseEvent',
+      ].sort())
+    })
+  })
+
+  describe('resolveOrgAvatar (via fetchMyPRs)', () => {
+    beforeEach(() => {
+      clearOrgAvatarCache()
+    })
+
+    it('fetches org avatar and caches it', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({
+        data: { avatar_url: 'https://avatars/org.png' },
+      })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.paginate.mockResolvedValue([])
+
+      await client.fetchMyPRs()
+
+      expect(mockOctokit.orgs.get).toHaveBeenCalledWith({ org: 'myorg' })
+      // Second account with different org also calls orgs.get
+      expect(mockOctokit.orgs.get).toHaveBeenCalledTimes(2)
+    })
+
+    it('caches org avatar to prevent repeated API calls', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({
+        data: { avatar_url: 'https://avatars/org.png' },
+      })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.paginate.mockResolvedValue([])
+
+      await client.fetchMyPRs()
+      const firstCallCount = mockOctokit.orgs.get.mock.calls.length
+
+      // Reset only search mock but keep cache populated
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.paginate.mockResolvedValue([])
+
+      await client.fetchMyPRs()
+      // orgs.get should NOT be called again because cache is populated
+      expect(mockOctokit.orgs.get).toHaveBeenCalledTimes(firstCallCount)
+    })
+
+    it('falls back to users.getByUsername when orgs.get fails', async () => {
+      mockOctokit.orgs.get.mockRejectedValue(new Error('Not Found'))
+      mockOctokit.users.getByUsername.mockResolvedValue({
+        data: { avatar_url: 'https://avatars/user.png' },
+      })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.paginate.mockResolvedValue([])
+
+      await client.fetchMyPRs()
+
+      expect(mockOctokit.orgs.get).toHaveBeenCalled()
+      expect(mockOctokit.users.getByUsername).toHaveBeenCalled()
+    })
+
+    it('caches null when both org and user lookups fail', async () => {
+      mockOctokit.orgs.get.mockRejectedValue(new Error('Not Found'))
+      mockOctokit.users.getByUsername.mockRejectedValue(new Error('Not Found'))
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.paginate.mockResolvedValue([])
+
+      await client.fetchMyPRs()
+
+      // Cache should contain null for attempted orgs
+      expect(getOrgAvatarCacheEntry('myorg')).toBeNull()
+
+      // Second call should not reattempt the API
+      const orgCallCount = mockOctokit.orgs.get.mock.calls.length
+      const userCallCount = mockOctokit.users.getByUsername.mock.calls.length
+
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.paginate.mockResolvedValue([])
+
+      await client.fetchMyPRs()
+
+      expect(mockOctokit.orgs.get).toHaveBeenCalledTimes(orgCallCount)
+      expect(mockOctokit.users.getByUsername).toHaveBeenCalledTimes(userCallCount)
     })
   })
 })

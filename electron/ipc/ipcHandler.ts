@@ -1,6 +1,13 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { getErrorMessage } from '../utils'
 
+/**
+ * Wraps an IPC handler with a standard try/catch that returns
+ * `{ success: false, error: string }` on failure.
+ *
+ * Currently used by tempoHandlers and todoistHandlers.
+ * TODO: Adopt in all handler files for consistent error surfaces.
+ */
 export function ipcHandler<A extends unknown[], T>(
   fn: (event: IpcMainInvokeEvent, ...args: A) => Promise<T>
 ) {

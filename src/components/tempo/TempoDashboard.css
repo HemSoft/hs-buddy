@@ -437,7 +437,9 @@
 }
 
 .tempo-grid-cell.today {
-  box-shadow: inset 2px 0 0 #4fc3f7, inset -2px 0 0 #4fc3f7;
+  box-shadow:
+    inset 2px 0 0 #4fc3f7,
+    inset -2px 0 0 #4fc3f7;
 }
 
 /* Totals row */
@@ -493,7 +495,9 @@
   opacity: 0.55;
 }
 .tempo-grid-total-cell.today {
-  box-shadow: inset 2px 0 0 #4fc3f7, inset -2px 0 0 #4fc3f7;
+  box-shadow:
+    inset 2px 0 0 #4fc3f7,
+    inset -2px 0 0 #4fc3f7;
 }
 
 /* --- Issue pill and account badge --- */

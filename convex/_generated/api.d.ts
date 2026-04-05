@@ -17,6 +17,7 @@ import type * as featureIntakes from "../featureIntakes.js";
 import type * as githubAccounts from "../githubAccounts.js";
 import type * as jobs from "../jobs.js";
 import type * as lib_cronUtils from "../lib/cronUtils.js";
+import type * as lib_projections from "../lib/projections.js";
 import type * as lib_stats from "../lib/stats.js";
 import type * as prReviewRuns from "../prReviewRuns.js";
 import type * as repoBookmarks from "../repoBookmarks.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   githubAccounts: typeof githubAccounts;
   jobs: typeof jobs;
   "lib/cronUtils": typeof lib_cronUtils;
+  "lib/projections": typeof lib_projections;
   "lib/stats": typeof lib_stats;
   prReviewRuns: typeof prReviewRuns;
   repoBookmarks: typeof repoBookmarks;

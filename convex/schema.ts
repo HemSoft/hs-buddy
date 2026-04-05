@@ -40,7 +40,8 @@ export default defineSchema({
     copilot: v.optional(
       v.object({
         ghAccount: v.string(), // GitHub CLI account username (empty = active)
-        model: v.string(), // LLM model name
+        model: v.string(), // LLM model name (default chat)
+        premiumModel: v.optional(v.string()), // Model for high-stakes tasks (address comments)
       })
     ),
     createdAt: v.number(),

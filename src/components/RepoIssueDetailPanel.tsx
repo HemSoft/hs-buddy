@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
+import remarkGemoji from 'remark-gemoji'
 import {
   AlertCircle,
   CalendarClock,
@@ -173,6 +174,7 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
             <div className="repo-issue-detail-markdown" data-color-mode="dark">
               <MarkdownPreview
                 source={detail.body}
+                remarkPlugins={[remarkGemoji]}
                 style={{ backgroundColor: 'transparent', color: 'inherit' }}
               />
             </div>
@@ -287,6 +289,7 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
                 >
                   <MarkdownPreview
                     source={comment.body || '_No comment body provided._'}
+                    remarkPlugins={[remarkGemoji]}
                     style={{ backgroundColor: 'transparent', color: 'inherit' }}
                   />
                 </div>

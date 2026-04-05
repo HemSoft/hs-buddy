@@ -37,6 +37,8 @@ describe('PRContextMenu', () => {
         onApprove={onApprove}
         onCopyLink={onCopyLink}
         onBookmark={onBookmark}
+        onRequestCopilotReview={vi.fn()}
+        onAddressComments={vi.fn()}
         onClose={onClose}
       />
     )
@@ -69,6 +71,8 @@ describe('PRContextMenu', () => {
         onApprove={vi.fn()}
         onCopyLink={vi.fn()}
         onBookmark={vi.fn()}
+        onRequestCopilotReview={vi.fn()}
+        onAddressComments={vi.fn()}
         onClose={vi.fn()}
       />
     )

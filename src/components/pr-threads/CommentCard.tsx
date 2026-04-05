@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
+import remarkGemoji from 'remark-gemoji'
 import { GitPullRequestArrow } from 'lucide-react'
 import { type PRCommentReactionContent, type PRReviewComment } from '../../api/github'
 import { formatDistanceToNow } from '../../utils/dateUtils'
@@ -55,6 +56,7 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
       <div className="thread-comment-body thread-comment-markdown" data-color-mode="dark">
         <MarkdownPreview
           source={body}
+          remarkPlugins={[remarkGemoji]}
           style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: '13px' }}
         />
       </div>
@@ -74,6 +76,7 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
           <div key={segKey} className="thread-comment-markdown" data-color-mode="dark">
             <MarkdownPreview
               source={segment.content}
+              remarkPlugins={[remarkGemoji]}
               style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: '13px' }}
             />
           </div>

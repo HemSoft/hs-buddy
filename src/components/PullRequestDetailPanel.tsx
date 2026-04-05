@@ -5,11 +5,13 @@ import {
   ExternalLink,
   GitBranch,
   GitPullRequest,
+  MessageSquareWarning,
   RefreshCw,
+  Sparkles,
   User,
 } from 'lucide-react'
 import { GitHubClient } from '../api/github'
-import { useGitHubAccounts } from '../hooks/useConfig'
+import { useGitHubAccounts, useCopilotSettings } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import type { PRDetailSection } from '../utils/prDetailView'
@@ -21,6 +23,7 @@ import { PRChecksPanel } from './PRChecksPanel'
 import { PRFilesChangedPanel } from './PRFilesChangedPanel'
 import { PRThreadsPanel } from './PRThreadsPanel'
 import { PRReviewsPanel } from './PRReviewsPanel'
+import { buildAddressCommentsPrompt } from '../utils/assistantPrompts'
 import './PullRequestDetailPanel.css'
 
 interface PullRequestDetailPanelProps {
@@ -52,6 +55,23 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [requestingCopilotReview, setRequestingCopilotReview] = useState(false)
+  const [threadCardMenu, setThreadCardMenu] = useState<{ x: number; y: number } | null>(null)
+  const { premiumModel } = useCopilotSettings()
+
+  useEffect(() => {
+    if (!threadCardMenu) return
+    const close = () => setThreadCardMenu(null)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [threadCardMenu])
 
   useEffect(() => {
     enqueueRef.current = enqueue
@@ -91,6 +111,33 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   useEffect(() => {
     fetchBranches()
   }, [fetchBranches])
+
+  const handleRequestCopilotReview = useCallback(async () => {
+    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+    if (!ownerRepo || requestingCopilotReview) return
+    setRequestingCopilotReview(true)
+    try {
+      await enqueueRef.current(
+        async signal => {
+          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          const client = new GitHubClient({ accounts }, 7)
+          await client.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
+        },
+        { name: `copilot-review-${pr.repository}-${pr.id}` }
+      )
+    } catch (err) {
+      console.error('Failed to request Copilot review:', err)
+    } finally {
+      setRequestingCopilotReview(false)
+    }
+  }, [accounts, pr.url, pr.repository, pr.id, requestingCopilotReview])
+
+  const handleAddressComments = useCallback(() => {
+    const org = pr.org || pr.source
+    const prompt = buildAddressCommentsPrompt({ prId: pr.id, org, repository: pr.repository, url: pr.url })
+    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } }))
+    setThreadCardMenu(null)
+  }, [pr.id, pr.org, pr.source, pr.repository, pr.url, premiumModel])
 
   const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
   const activityRelative = formatRelative(activityAt)
@@ -168,6 +215,14 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
         <div className="pr-detail-header-actions">
           <button
             className="pr-detail-refresh-btn"
+            onClick={handleRequestCopilotReview}
+            title={requestingCopilotReview ? 'Requesting...' : 'Request Copilot Review'}
+            disabled={requestingCopilotReview}
+          >
+            <Sparkles size={14} />
+          </button>
+          <button
+            className="pr-detail-refresh-btn"
             onClick={() => setRefreshKey(k => k + 1)}
             title="Refresh PR data"
           >
@@ -221,7 +276,50 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               <div className="pr-detail-card-title">You Approved</div>
               <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
             </div>
+            {pr.threadsUnaddressed != null && (
+              <div
+                className="pr-detail-card pr-detail-card-interactive"
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setThreadCardMenu({ x: e.clientX, y: e.clientY })
+                }}
+                title="Right-click for actions"
+              >
+                <div className="pr-detail-card-title">Unaddressed</div>
+                <div
+                  className={`pr-detail-card-value ${pr.threadsUnaddressed > 0 ? 'pr-detail-state-warning' : ''}`}
+                >
+                  {pr.threadsUnaddressed}
+                  {pr.threadsTotal != null && (
+                    <span className="pr-detail-card-secondary">/ {pr.threadsTotal}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+
+          {threadCardMenu && (
+            <>
+              <div
+                className="pr-context-menu-overlay"
+                onClick={() => setThreadCardMenu(null)}
+                aria-hidden="true"
+              />
+              <div className="pr-context-menu" style={{ top: threadCardMenu.y, left: threadCardMenu.x }}>
+                <button
+                  onClick={handleAddressComments}
+                  disabled={!pr.threadsUnaddressed || pr.threadsUnaddressed === 0}
+                >
+                  <MessageSquareWarning size={14} />
+                  Address Unresolved Comments
+                </button>
+                <button onClick={handleRequestCopilotReview} disabled={requestingCopilotReview}>
+                  <Sparkles size={14} />
+                  Request Copilot Review
+                </button>
+              </div>
+            </>
+          )}
 
           <div className="pr-detail-meta-list">
             <div className="pr-detail-meta-item pr-detail-meta-item-author">

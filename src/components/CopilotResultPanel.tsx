@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
+import remarkGemoji from 'remark-gemoji'
 import {
   Sparkles,
   Clock,
@@ -219,6 +220,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
           <div className="copilot-result-markdown" data-color-mode="dark">
             <MarkdownPreview
               source={result.result}
+              remarkPlugins={[remarkGemoji]}
               style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}
             />
           </div>

@@ -140,7 +140,6 @@ export function InlineDropdown({
       tabIndex={disabled ? -1 : 0}
       role="combobox"
       aria-expanded={isOpen}
-      aria-haspopup="listbox"
       aria-controls={isOpen ? listboxId : undefined}
       onKeyDown={handleKeyDown}
     >

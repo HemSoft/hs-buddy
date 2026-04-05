@@ -15,4 +15,4 @@ cycles:
 
 activity-log:
   discussion: 95              # Discussion number for the SFL Activity Log
-  format: "YYYY-MM-DD h:mm AM/PM EST | Workflow Name | Target | ✅/❌ Summary"
+  format: "YYYY-MM-DD h:mm AM/PM ET | Workflow Name | Target | ✅/❌ Summary"

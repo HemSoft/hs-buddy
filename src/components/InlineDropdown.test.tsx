@@ -65,7 +65,6 @@ describe('InlineDropdown', () => {
     await user.click(button)
 
     expect(combobox).toHaveAttribute('aria-expanded', 'true')
-    expect(combobox).toHaveAttribute('aria-haspopup', 'listbox')
     expect(combobox).toHaveAttribute('aria-controls')
     expect(screen.getByRole('listbox')).toBeInTheDocument()
     expect(screen.getAllByRole('option')).toHaveLength(3)

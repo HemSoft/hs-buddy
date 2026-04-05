@@ -255,7 +255,9 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
                       <GitPullRequest size={14} className="list-view-status-open" />
                     )}
                   </td>
-                  <td className="col-title">{pr.title}</td>
+                  <td className="col-title">
+                    <span className="col-number">#{pr.id}</span> {pr.title}
+                  </td>
                   <td className="col-author">
                     {pr.authorAvatarUrl && (
                       <img src={pr.authorAvatarUrl} alt={pr.author} className="list-view-avatar" />

@@ -39,12 +39,14 @@ export function useSettings() {
 export function useSettingsMutations() {
   const updatePR = useMutation(api.settings.updatePR)
   const updateCopilot = useMutation(api.settings.updateCopilot)
+  const updateViewMode = useMutation(api.settings.updateViewMode)
   const reset = useMutation(api.settings.reset)
   const initFromMigration = useMutation(api.settings.initFromMigration)
 
   return {
     updatePR,
     updateCopilot,
+    updateViewMode,
     reset,
     initFromMigration,
   }

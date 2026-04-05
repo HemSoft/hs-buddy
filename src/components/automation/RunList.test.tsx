@@ -13,6 +13,10 @@ vi.mock('../../hooks/useConfirm', () => ({
   }),
 }))
 
+vi.mock('../../hooks/useViewMode', () => ({
+  useViewMode: () => ['card' as const, vi.fn()],
+}))
+
 vi.mock('../../hooks/useConvex', () => ({
   useRecentRuns: () => [
     {

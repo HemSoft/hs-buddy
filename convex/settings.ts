@@ -41,6 +41,7 @@ export const get = query({
       settings ?? {
         key: 'default' as const,
         ...DEFAULT_SETTINGS,
+        viewModes: {} as Record<string, 'card' | 'list'>,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -139,12 +140,42 @@ export const reset = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         ...DEFAULT_SETTINGS,
+        viewModes: {},
         updatedAt: now,
       })
     } else {
       await ctx.db.insert('settings', {
         key: 'default',
         ...DEFAULT_SETTINGS,
+        viewModes: {},
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+  },
+})
+
+/**
+ * Update a single view mode preference (card/list) by page key
+ */
+export const updateViewMode = mutation({
+  args: {
+    pageKey: v.string(),
+    mode: v.union(v.literal('card'), v.literal('list')),
+  },
+  handler: async (ctx, { pageKey, mode }) => {
+    const existing = await getDefaultSettings(ctx.db)
+    const now = Date.now()
+
+    if (existing) {
+      const viewModes = { ...(existing.viewModes ?? {}), [pageKey]: mode }
+      await ctx.db.patch(existing._id, { viewModes, updatedAt: now })
+      return existing._id
+    } else {
+      return await ctx.db.insert('settings', {
+        key: 'default',
+        ...DEFAULT_SETTINGS,
+        viewModes: { [pageKey]: mode },
         createdAt: now,
         updatedAt: now,
       })

@@ -44,6 +44,7 @@ export default defineSchema({
         premiumModel: v.optional(v.string()), // Model for high-stakes tasks (address comments)
       })
     ),
+    viewModes: v.optional(v.record(v.string(), v.union(v.literal('card'), v.literal('list')))),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_key', ['key']),

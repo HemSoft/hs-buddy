@@ -2,13 +2,18 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PullRequestList } from './PullRequestList'
 
-const { mockHandleManualRefresh, mockUsePRListData } = vi.hoisted(() => ({
+const { mockHandleManualRefresh, mockUsePRListData, mockSetViewMode } = vi.hoisted(() => ({
   mockHandleManualRefresh: vi.fn(),
   mockUsePRListData: vi.fn(),
+  mockSetViewMode: vi.fn(),
 }))
 
 vi.mock('./pull-request-list/usePRListData', () => ({
   usePRListData: mockUsePRListData,
+}))
+
+vi.mock('../hooks/useViewMode', () => ({
+  useViewMode: () => ['card' as const, mockSetViewMode],
 }))
 
 vi.mock('./pull-request-list/PRItem', () => ({

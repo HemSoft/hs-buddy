@@ -1,10 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useViewMode } from './useViewMode'
+
+const mockUpdateViewMode = vi.fn()
+
+vi.mock('./useConvex', () => ({
+  useSettings: () => undefined,
+  useSettingsMutations: () => ({ updateViewMode: mockUpdateViewMode }),
+}))
 
 describe('useViewMode', () => {
   beforeEach(() => {
     localStorage.clear()
+    mockUpdateViewMode.mockClear()
   })
 
   it('defaults to card mode', () => {
@@ -17,7 +25,7 @@ describe('useViewMode', () => {
     expect(result.current[0]).toBe('list')
   })
 
-  it('persists mode to localStorage', () => {
+  it('persists mode to localStorage and Convex', () => {
     const { result } = renderHook(() => useViewMode('test-page'))
 
     act(() => {
@@ -26,6 +34,7 @@ describe('useViewMode', () => {
 
     expect(result.current[0]).toBe('list')
     expect(localStorage.getItem('viewMode:test-page')).toBe('list')
+    expect(mockUpdateViewMode).toHaveBeenCalledWith({ pageKey: 'test-page', mode: 'list' })
   })
 
   it('reads persisted mode on mount', () => {

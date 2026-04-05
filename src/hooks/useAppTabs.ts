@@ -248,6 +248,33 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
     setTabState({ tabs: [], activeTabId: null })
   }, [])
 
+  const selectNextTab = useCallback(() => {
+    setTabState(prev => {
+      if (prev.tabs.length <= 1) return prev
+      const idx = prev.tabs.findIndex(t => t.id === prev.activeTabId)
+      const next = (idx + 1) % prev.tabs.length
+      return { ...prev, activeTabId: prev.tabs[next].id }
+    })
+  }, [])
+
+  const selectPrevTab = useCallback(() => {
+    setTabState(prev => {
+      if (prev.tabs.length <= 1) return prev
+      const idx = prev.tabs.findIndex(t => t.id === prev.activeTabId)
+      const next = (idx - 1 + prev.tabs.length) % prev.tabs.length
+      return { ...prev, activeTabId: prev.tabs[next].id }
+    })
+  }, [])
+
+  useEffect(() => {
+    window.ipcRenderer.on('tab-next', selectNextTab)
+    window.ipcRenderer.on('tab-prev', selectPrevTab)
+    return () => {
+      window.ipcRenderer.off('tab-next', selectNextTab)
+      window.ipcRenderer.off('tab-prev', selectPrevTab)
+    }
+  }, [selectNextTab, selectPrevTab])
+
   return {
     activeTabId,
     activeViewId,

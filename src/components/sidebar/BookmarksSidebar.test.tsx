@@ -11,11 +11,10 @@ vi.mock('../../hooks/useConvex', () => ({
 }))
 
 describe('BookmarksSidebar', () => {
-  it('renders all sections and selects a category', () => {
+  it('renders categories with bookmarks and selects a category', () => {
     const onItemSelect = vi.fn()
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
 
-    expect(screen.getByText('Browse All')).toBeInTheDocument()
     expect(screen.getByText('Dev Tools')).toBeInTheDocument()
     expect(screen.getByText('Documentation')).toBeInTheDocument()
 

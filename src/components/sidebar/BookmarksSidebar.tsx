@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Bookmark, FolderOpen, Globe } from 'lucide-react'
+import { ChevronDown, ChevronRight, FolderOpen, Globe } from 'lucide-react'
 import { useState, useMemo, useCallback } from 'react'
 import { useBookmarks, useBookmarkCategories } from '../../hooks/useConvex'
 
@@ -81,9 +81,7 @@ interface BookmarksSidebarProps {
 }
 
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['bookmarks-all', 'bookmarks-categories'])
-  )
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const bookmarks = useBookmarks()
   const categories = useBookmarkCategories()
 
@@ -226,94 +224,13 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
         {totalCount > 0 && <span className="sidebar-item-count">{totalCount}</span>}
       </div>
       <div className="sidebar-panel-content">
-        {/* All Bookmarks */}
-        <div className="sidebar-section">
-          <div
-            className="sidebar-section-header"
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleSection('bookmarks-all')}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleSection('bookmarks-all')
-              }
-            }}
-          >
-            <div className="sidebar-section-title">
-              {expandedSections.has('bookmarks-all') ? (
-                <ChevronDown size={14} />
-              ) : (
-                <ChevronRight size={14} />
-              )}
-              <span className="sidebar-section-icon">
-                <Globe size={16} />
-              </span>
-              <span>All Bookmarks</span>
-            </div>
+        {categoryTree.length > 0 ? (
+          categoryTree.map(node => renderCategoryNode(node, 0))
+        ) : (
+          <div className="sidebar-item" style={{ color: 'var(--text-muted)' }}>
+            <span className="sidebar-item-label">No bookmarks yet</span>
           </div>
-          {expandedSections.has('bookmarks-all') && (
-            <div className="sidebar-section-items">
-              <div
-                className={`sidebar-item ${selectedItem === 'bookmarks-all' ? 'selected' : ''}`}
-                onClick={() => onItemSelect('bookmarks-all')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onItemSelect('bookmarks-all')
-                  }
-                }}
-              >
-                <span className="sidebar-item-icon">
-                  <Bookmark size={14} />
-                </span>
-                <span className="sidebar-item-label">Browse All</span>
-                {totalCount > 0 && <span className="sidebar-item-count">{totalCount}</span>}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* By Category (hierarchical tree) */}
-        <div className="sidebar-section">
-          <div
-            className="sidebar-section-header"
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleSection('bookmarks-categories')}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleSection('bookmarks-categories')
-              }
-            }}
-          >
-            <div className="sidebar-section-title">
-              {expandedSections.has('bookmarks-categories') ? (
-                <ChevronDown size={14} />
-              ) : (
-                <ChevronRight size={14} />
-              )}
-              <span className="sidebar-section-icon">
-                <FolderOpen size={16} />
-              </span>
-              <span>By Category</span>
-            </div>
-          </div>
-          {expandedSections.has('bookmarks-categories') && (
-            <div className="sidebar-section-items">
-              {categoryTree.length > 0 ? (
-                categoryTree.map(node => renderCategoryNode(node, 0))
-              ) : (
-                <div className="sidebar-item" style={{ color: 'var(--text-muted)' }}>
-                  <span className="sidebar-item-label">No categories yet</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )

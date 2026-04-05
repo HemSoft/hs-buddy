@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.594] - 2026-04-05
+
+## [0.1.593] - 2026-04-05
+
+## [0.1.592] - 2026-04-05
+
+## [0.1.591] - 2026-04-05
+
 ## [0.1.590] - 2026-04-05
+
+### Added
+
+- Show individual bookmarks in sidebar tree
 
 ## [0.1.589] - 2026-04-05
 

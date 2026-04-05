@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.590] - 2026-04-05
+
+## [0.1.589] - 2026-04-05
+
 ## [0.1.588] - 2026-04-05
+
+### Added
+
+- Open URLs as tabs inside main window with webview
 
 ## [0.1.587] - 2026-04-04
 

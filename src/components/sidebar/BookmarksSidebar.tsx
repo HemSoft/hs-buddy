@@ -2,6 +2,15 @@ import { ChevronDown, ChevronRight, Bookmark, FolderOpen, Globe } from 'lucide-r
 import { useState, useMemo, useCallback } from 'react'
 import { useBookmarks, useBookmarkCategories } from '../../hooks/useConvex'
 
+function isSafeImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 interface CategoryNode {
   name: string
   fullPath: string
@@ -102,10 +111,21 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     [categories, categoryCounts]
   )
 
+  const bookmarksByCategory = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof bookmarks>>()
+    bookmarks?.forEach(b => {
+      const list = map.get(b.category) ?? []
+      list.push(b)
+      map.set(b.category, list)
+    })
+    return map
+  }, [bookmarks])
+
   const renderCategoryNode = useCallback(
     (node: CategoryNode, depth: number) => {
       const catViewId = `bookmarks-category:${node.fullPath}`
-      const hasChildren = node.children.length > 0
+      const directBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
+      const hasChildren = node.children.length > 0 || directBookmarks.length > 0
       const isExpanded = expandedSections.has(`cat:${node.fullPath}`)
       const displayCount = node.totalCount
 
@@ -152,13 +172,51 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
             <span className="sidebar-item-label">{node.name}</span>
             {displayCount > 0 && <span className="sidebar-item-count">{displayCount}</span>}
           </div>
-          {hasChildren &&
-            isExpanded &&
-            node.children.map(child => renderCategoryNode(child, depth + 1))}
+          {hasChildren && isExpanded && (
+            <>
+              {node.children.map(child => renderCategoryNode(child, depth + 1))}
+              {directBookmarks.map(bm => {
+                const bmViewId = `browser:${encodeURIComponent(bm.url)}`
+                return (
+                  <div
+                    key={bm._id}
+                    className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''}`}
+                    style={{ paddingLeft: `${12 + (depth + 1) * 16}px` }}
+                    onClick={() => onItemSelect(bmViewId)}
+                    role="button"
+                    tabIndex={0}
+                    title={bm.url}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onItemSelect(bmViewId)
+                      }
+                    }}
+                  >
+                    <span className="sidebar-item-chevron" style={{ width: 12 }} />
+                    <span className="sidebar-item-icon">
+                      {bm.faviconUrl && isSafeImageUrl(bm.faviconUrl) ? (
+                        <img
+                          src={bm.faviconUrl}
+                          alt=""
+                          width={14}
+                          height={14}
+                          style={{ borderRadius: 2 }}
+                        />
+                      ) : (
+                        <Globe size={14} />
+                      )}
+                    </span>
+                    <span className="sidebar-item-label">{bm.title}</span>
+                  </div>
+                )
+              })}
+            </>
+          )}
         </div>
       )
     },
-    [expandedSections, selectedItem, onItemSelect, toggleSection]
+    [expandedSections, selectedItem, onItemSelect, toggleSection, bookmarksByCategory]
   )
 
   return (

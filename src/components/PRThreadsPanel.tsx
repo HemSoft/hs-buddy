@@ -1,8 +1,9 @@
 import { useRef } from 'react'
-import { CheckCircle2, Eye, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react'
+import { CheckCircle2, Eye, FileText, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { usePRThreadsPanel } from '../hooks/usePRThreadsPanel'
 import { ReviewThreadCard } from './pr-threads/ReviewThreadCard'
+import { ReviewSummaryCard } from './pr-threads/ReviewSummaryCard'
 import { CommentCard } from './pr-threads/CommentCard'
 import './PRThreadsPanel.css'
 
@@ -192,7 +193,21 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         </div>
       )}
 
-      {data.threads.length === 0 && data.issueComments.length === 0 && (
+      {data.reviews.length > 0 && (
+        <div className="pr-threads-section">
+          <div className="pr-threads-comments-title">
+            <FileText size={14} />
+            {data.reviews.length} {data.reviews.length === 1 ? 'review' : 'reviews'}
+          </div>
+          <div className="pr-threads-reviews">
+            {data.reviews.map(review => (
+              <ReviewSummaryCard key={review.id} review={review} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.threads.length === 0 && data.issueComments.length === 0 && data.reviews.length === 0 && (
         <div className="pr-threads-empty-state">
           <MessageCircle size={32} />
           <p>No conversations yet</p>

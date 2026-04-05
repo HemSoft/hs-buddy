@@ -35,6 +35,7 @@ function makeResult(threadCount: number, commentsPerThread: number): PRThreadsRe
       comments: Array.from({ length: commentsPerThread }, () => makeComment(`c-${++commentId}`)),
     })),
     issueComments: Array.from({ length: 3 }, () => makeComment(`ic-${++commentId}`)),
+    reviews: [],
   }
 }
 

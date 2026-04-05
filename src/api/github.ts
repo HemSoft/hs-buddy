@@ -433,9 +433,21 @@ export interface PRReviewThread {
   comments: PRReviewComment[]
 }
 
+export interface PRReviewSummary {
+  id: string
+  state: string
+  author: string
+  authorAvatarUrl: string | null
+  body: string
+  bodyHtml: string | null
+  createdAt: string
+  url: string
+}
+
 export interface PRThreadsResult {
   threads: PRReviewThread[]
   issueComments: PRReviewComment[]
+  reviews: PRReviewSummary[]
 }
 
 export interface PRCheckRunSummary {
@@ -1730,6 +1742,17 @@ export class GitHubClient {
                 }
               }
             }
+            reviews(first: 100) {
+              nodes {
+                id
+                state
+                body
+                bodyHTML
+                submittedAt
+                url
+                author { login avatarUrl }
+              }
+            }
           }
         }
       }
@@ -1783,6 +1806,17 @@ export class GitHubClient {
               }>
             }>
           }
+          reviews: {
+            nodes: Array<{
+              id: string
+              state: string
+              body: string | null
+              bodyHTML: string | null
+              submittedAt: string | null
+              url: string
+              author: { login: string; avatarUrl: string } | null
+            }>
+          }
         } | null
       } | null
     }>(query, {
@@ -1832,7 +1866,20 @@ export class GitHubClient {
       reactions: this.mapReactionGroups(c.reactionGroups),
     }))
 
-    return { threads, issueComments }
+    const reviews: PRReviewSummary[] = (pr.reviews.nodes || [])
+      .filter(r => r.submittedAt && r.body)
+      .map(r => ({
+        id: r.id,
+        state: r.state,
+        author: r.author?.login || 'unknown',
+        authorAvatarUrl: r.author?.avatarUrl || null,
+        body: r.body || '',
+        bodyHtml: r.bodyHTML || null,
+        createdAt: r.submittedAt!,
+        url: r.url,
+      }))
+
+    return { threads, issueComments, reviews }
   }
 
   /**

@@ -704,6 +704,28 @@ describe('GitHubClient', () => {
                 },
               ],
             },
+            reviews: {
+              nodes: [
+                {
+                  id: 'rev1',
+                  state: 'COMMENTED',
+                  body: '## Review summary\nLooks good.',
+                  bodyHTML: '<h2>Review summary</h2><p>Looks good.</p>',
+                  submittedAt: '2026-01-01T01:00:00Z',
+                  url: 'https://github.com/myorg/repo/pull/42#pullrequestreview-1',
+                  author: { login: 'copilot-bot', avatarUrl: 'av3' },
+                },
+                {
+                  id: 'rev2',
+                  state: 'APPROVED',
+                  body: null,
+                  bodyHTML: null,
+                  submittedAt: '2026-01-01T02:00:00Z',
+                  url: 'https://github.com/myorg/repo/pull/42#pullrequestreview-2',
+                  author: { login: 'reviewer1', avatarUrl: 'av1' },
+                },
+              ],
+            },
           },
         },
       })
@@ -734,6 +756,14 @@ describe('GitHubClient', () => {
       expect(result.issueComments[0].body).toBe('')
       expect(result.issueComments[0].reactions).toHaveLength(8)
       expect(result.issueComments[0].reactions.every(r => r.count === 0)).toBe(true)
+
+      // Reviews — only those with body are included
+      expect(result.reviews).toHaveLength(1)
+      expect(result.reviews[0].id).toBe('rev1')
+      expect(result.reviews[0].state).toBe('COMMENTED')
+      expect(result.reviews[0].author).toBe('copilot-bot')
+      expect(result.reviews[0].body).toBe('## Review summary\nLooks good.')
+      expect(result.reviews[0].bodyHtml).toBe('<h2>Review summary</h2><p>Looks good.</p>')
     })
 
     it('throws when PR not found', async () => {

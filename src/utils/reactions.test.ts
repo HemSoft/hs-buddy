@@ -38,6 +38,7 @@ function makeResult(
       },
     ],
     issueComments,
+    reviews: [],
   }
 }
 

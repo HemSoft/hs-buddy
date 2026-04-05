@@ -40,6 +40,14 @@ function parseRepoViewId(viewId: string, prefix: string): { repoName: string; su
 }
 
 export function getViewLabel(viewId: string): string {
+  if (viewId.startsWith('browser:')) {
+    try {
+      const url = decodeURIComponent(viewId.slice('browser:'.length))
+      return new URL(url).hostname
+    } catch {
+      return 'Browser'
+    }
+  }
   if (viewId.startsWith('bookmarks-category:')) {
     const category = viewId.replace('bookmarks-category:', '')
     return category

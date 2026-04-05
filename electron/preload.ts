@@ -1,14 +1,32 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+// Map renderer-side listener references to the wrapper registered with ipcRenderer
+// so that off() can remove the correct function.
+const ipcListenerWrappers = new Map<
+  string,
+  Map<(...args: unknown[]) => void, (...args: unknown[]) => void>
+>()
+
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
   on(...args: Parameters<typeof ipcRenderer.on>) {
     const [channel, listener] = args
-    return ipcRenderer.on(channel, (event, ...args) => listener(event, ...args))
+    const wrapper = (event: Electron.IpcRendererEvent, ...rest: unknown[]) =>
+      listener(event, ...rest)
+    if (!ipcListenerWrappers.has(channel)) ipcListenerWrappers.set(channel, new Map())
+    ipcListenerWrappers.get(channel)!.set(listener, wrapper)
+    return ipcRenderer.on(channel, wrapper)
   },
   off(...args: Parameters<typeof ipcRenderer.off>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.off(channel, ...omit)
+    const [channel, listener] = args
+    const channelMap = ipcListenerWrappers.get(channel)
+    const wrapper = channelMap?.get(listener)
+    if (wrapper) {
+      channelMap!.delete(listener)
+      return ipcRenderer.off(channel, wrapper as Parameters<typeof ipcRenderer.off>[1])
+    }
+    // No wrapper found — listener was never registered through this bridge or already removed.
+    // Attempting ipcRenderer.off with the raw listener would be a silent no-op, so skip it.
   },
   send(...args: Parameters<typeof ipcRenderer.send>) {
     const [channel, ...omit] = args
@@ -22,6 +40,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
 contextBridge.exposeInMainWorld('shell', {
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  openInAppBrowser: (url: string, title?: string) =>
+    ipcRenderer.invoke('shell:open-in-app-browser', url, title),
   fetchPageTitle: (url: string) => ipcRenderer.invoke('shell:fetch-page-title', url),
 })
 

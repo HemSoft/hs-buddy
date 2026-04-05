@@ -138,6 +138,8 @@ describeFeature(feature, ({ Scenario }) => {
         { name: 'to-cancel' }
       )
       pendingTaskId = taskId
+      // Attach no-op catch to prevent unhandled rejection between steps
+      promise.catch(() => {})
       pendingPromise = promise
     })
     When('the pending task is cancelled', () => {

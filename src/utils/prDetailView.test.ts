@@ -172,6 +172,8 @@ describe('createPRDetailViewId and parsePRDetailRoute', () => {
         date: '2024-01-15',
         orgAvatarUrl: 'https://example.com/org.png',
         org: 'test-org',
+        threadsTotal: null,
+        threadsUnaddressed: null,
       },
       section: 'files-changed',
     })

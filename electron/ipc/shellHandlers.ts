@@ -1,11 +1,70 @@
-import { ipcMain, shell, net } from 'electron'
+import { BrowserWindow, ipcMain, shell, net } from 'electron'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { execAsync, getErrorMessage } from '../utils'
+import { recordWindowOpen } from '../telemetry'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export function registerShellHandlers(): void {
   // Open external links in default browser
   ipcMain.handle('shell:open-external', async (_event, url: string) => {
     try {
       await shell.openExternal(url)
+      return { success: true }
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) }
+    }
+  })
+
+  // Open URL in a built-in app browser window
+  ipcMain.handle('shell:open-in-app-browser', async (_event, url: string, title?: string) => {
+    try {
+      // Validate URL
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return { success: false, error: 'Only http/https URLs supported' }
+      }
+
+      const browserWin = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        minWidth: 600,
+        minHeight: 400,
+        title: title ?? parsed.hostname,
+        icon: path.join(__dirname, '..', '..', 'public', 'icon.ico'),
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+          partition: 'persist:browser',
+        },
+        backgroundColor: '#1e1e1e',
+      })
+
+      // Remove the application menu from the browser window
+      browserWin.setMenuBarVisibility(false)
+
+      // Update title when page finishes loading
+      browserWin.webContents.on('page-title-updated', (_e, pageTitle) => {
+        browserWin.setTitle(pageTitle)
+      })
+
+      // Open external links (target=_blank) in the same window after validating the URL
+      browserWin.webContents.setWindowOpenHandler(({ url: linkUrl }) => {
+        try {
+          const linkParsed = new URL(linkUrl)
+          if (['http:', 'https:'].includes(linkParsed.protocol)) {
+            browserWin.loadURL(linkUrl)
+          }
+        } catch {
+          // Invalid URL — ignore
+        }
+        return { action: 'deny' }
+      })
+
+      await browserWin.loadURL(url)
+      recordWindowOpen(parsed.hostname)
       return { success: true }
     } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }
@@ -38,7 +97,7 @@ export function registerShellHandlers(): void {
 
       const response = await net.fetch(url, {
         signal: AbortSignal.timeout(5000),
-        redirect: 'error',
+        redirect: 'follow',
         headers: { Accept: 'text/html', 'User-Agent': 'hs-buddy/1.0' },
       })
       if (!response.ok) {

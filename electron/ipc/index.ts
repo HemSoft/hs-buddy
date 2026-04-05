@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron'
+import { instrumentIpcHandlers } from './instrumentIpc'
 import { registerConfigHandlers } from './configHandlers'
 import { registerCacheHandlers } from './cacheHandlers'
 import { registerGitHubHandlers } from './githubHandlers'
@@ -11,6 +12,10 @@ import { registerCopilotSessionHandlers } from './copilotSessionHandlers'
 import { registerTodoistHandlers } from './todoistHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
+  // Patch ipcMain.handle before any handlers register — gives every
+  // handler automatic OTel spans and metrics for free.
+  instrumentIpcHandlers()
+
   registerConfigHandlers()
   registerCacheHandlers()
   registerGitHubHandlers()

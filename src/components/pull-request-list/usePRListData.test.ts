@@ -45,6 +45,7 @@ vi.mock('../../api/github', () => ({
 vi.mock('../../hooks/useConfig', () => ({
   useGitHubAccounts: mockUseGitHubAccounts,
   usePRSettings: mockUsePRSettings,
+  useCopilotSettings: () => ({ premiumModel: 'claude-opus-4.6' }),
 }))
 
 vi.mock('../../hooks/useConvex', () => ({

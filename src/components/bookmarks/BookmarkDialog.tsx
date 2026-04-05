@@ -79,25 +79,24 @@ export function BookmarkDialog({
     }
   }, [isEdit, initialUrl, initialTitle])
 
-  // AI-suggest description and tags once we have a URL + title
+  // AI-suggest description and tags once we have a URL (and optionally title)
   useEffect(() => {
     if (isEdit || !initialUrl) return
+    if (fetchingTitle) return // wait for title fetch to finish first
     const resolvedTitle = title.trim()
-    if (!resolvedTitle || fetchingTitle) return
     // Only run once per URL+title combo
     const key = `${initialUrl}|${resolvedTitle}`
     if (aiRequestedFor.current === key) return
-    aiRequestedFor.current = key
 
     let cancelled = false
     setAiSuggesting(true)
+    const titleLine = resolvedTitle ? `\nTitle: ${resolvedTitle}` : ''
     window.copilot
       .quickPrompt({
-        prompt: `Given this bookmark URL and title, respond with ONLY a JSON object (no markdown, no code fences):
+        prompt: `Given this bookmark URL${resolvedTitle ? ' and title' : ''}, respond with ONLY a JSON object (no markdown, no code fences):
 {"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}
 
-URL: ${initialUrl}
-Title: ${resolvedTitle}
+URL: ${initialUrl}${titleLine}
 
 Rules:
 - description: 1 short sentence, max 120 chars
@@ -107,6 +106,7 @@ Rules:
       })
       .then(text => {
         if (cancelled || !text) return
+        aiRequestedFor.current = key
         try {
           // Strip any markdown fences if present
           const cleaned = text
@@ -304,7 +304,15 @@ Rules:
             <span>
               Category <span className="bookmark-required">*</span>
             </span>
-            {!useNewCategory ? (
+            {isEdit ? (
+              <input
+                type="text"
+                className="bookmark-dialog-input"
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                placeholder="Category/Subcategory"
+              />
+            ) : !useNewCategory ? (
               <div className="bookmark-category-row">
                 <select
                   className="bookmark-dialog-select"
@@ -314,7 +322,9 @@ Rules:
                   <option value="">Select category…</option>
                   {categories.map(c => (
                     <option key={c} value={c}>
-                      {c}
+                      {c.includes('/')
+                        ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
+                        : c}
                     </option>
                   ))}
                 </select>
@@ -328,12 +338,33 @@ Rules:
               </div>
             ) : (
               <div className="bookmark-category-row">
+                <select
+                  className="bookmark-dialog-select"
+                  style={{ flex: '0 0 auto', minWidth: 120 }}
+                  value=""
+                  onChange={e => {
+                    if (e.target.value) {
+                      setNewCategory(prev => {
+                        const lastSlash = prev.lastIndexOf('/')
+                        const leafPart = lastSlash >= 0 ? prev.substring(lastSlash + 1) : prev
+                        return leafPart ? `${e.target.value}/${leafPart}` : `${e.target.value}/`
+                      })
+                    }
+                  }}
+                >
+                  <option value="">Parent…</option>
+                  {categories.map(c => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   className="bookmark-dialog-input"
                   value={newCategory}
                   onChange={e => setNewCategory(e.target.value)}
-                  placeholder="New category name"
+                  placeholder="Category/Subcategory"
                 />
                 <button
                   type="button"
@@ -344,6 +375,9 @@ Rules:
                 </button>
               </div>
             )}
+            <span className="bookmark-dialog-hint">
+              Use / for hierarchy (e.g. Development/Frontend)
+            </span>
           </label>
 
           <label className="bookmark-dialog-label">

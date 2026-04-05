@@ -9,6 +9,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.599] - 2026-04-05
+
+## [0.1.598] - 2026-04-05
+
+## [0.1.597] - 2026-04-05
+
+## [0.1.596] - 2026-04-05
+
+### Added
+
+- Add Ctrl+Tab / Ctrl+Shift+Tab tab cycling
+
+## [0.1.595] - 2026-04-05
+
+## [0.1.594] - 2026-04-05
+
+### Fixed
+
+- Prevent unhandled rejection in task-queue cancel test
+
+## [0.1.593] - 2026-04-05
+
+## [0.1.592] - 2026-04-05
+
+## [0.1.591] - 2026-04-05
+
+## [0.1.590] - 2026-04-05
+
+### Added
+
+- Show individual bookmarks in sidebar tree
+
+## [0.1.589] - 2026-04-05
+
+## [0.1.588] - 2026-04-05
+
+### Added
+
+- Open URLs as tabs inside main window with webview
+
+## [0.1.587] - 2026-04-04
+
+### Fixed
+
+- Persist auth cookies in in-app browser sessions
+
+## [0.1.586] - 2026-04-04
+
+## [0.1.585] - 2026-04-04
+
+## [0.1.584] - 2026-04-04
+
+### Fixed
+
+- Card click opens in-app, link button opens external browser
+
+## [0.1.583] - 2026-04-04
+
+## [0.1.582] - 2026-04-04
+
+## [0.1.581] - 2026-04-04
+
+### Changed
+
+- Update convex 1.31.7 → 1.34.1
+
+## [0.1.580] - 2026-04-04
+
+### Added
+
+- Add OpenTelemetry instrumentation for Aspire dashboard
+
+## [0.1.579] - 2026-04-04
+
+## [0.1.578] - 2026-04-04
+
+## [0.1.577] - 2026-04-04
+
+## [0.1.576] - 2026-04-04
+
+### Fixed
+
+- Skip billing API calls for personal GitHub accounts
+
+## [0.1.575] - 2026-04-04
+
+### Added
+
+- Add in-app browser window and hierarchical categories
+
+## [0.1.574] - 2026-04-04
+
+## [0.1.573] - 2026-04-04
+
+## [0.1.572] - 2026-04-04
+
+### Added
+
+- Add Aspire orchestration with TypeScript AppHost
+
+## [0.1.571] - 2026-04-04
+
+## [0.1.570] - 2026-04-04
+
 ## [0.1.569] - 2026-04-04
 
 ## [0.1.568] - 2026-04-04

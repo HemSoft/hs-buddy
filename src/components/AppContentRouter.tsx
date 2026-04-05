@@ -29,6 +29,7 @@ import { SessionExplorer } from './sessions/SessionExplorer'
 import { SessionDetail } from './sessions/SessionDetail'
 import { TaskPlannerView } from './planner/TaskPlannerView'
 import { BookmarkList } from './bookmarks/BookmarkList'
+import { BrowserTabView } from './BrowserTabView'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -143,11 +144,22 @@ export function AppContentRouter({
     case 'tempo-timesheet':
       return <TempoDashboard />
     case 'bookmarks-all':
-      return <BookmarkList key="bookmarks-all" />
+      return <BookmarkList key="bookmarks-all" onOpenTab={onOpenTab} />
     default:
       if (activeViewId.startsWith('bookmarks-category:')) {
         const category = activeViewId.replace('bookmarks-category:', '')
-        return <BookmarkList key={`bookmarks-category:${category}`} filterCategory={category} />
+        return (
+          <BookmarkList
+            key={`bookmarks-category:${category}`}
+            filterCategory={category}
+            onOpenTab={onOpenTab}
+          />
+        )
+      }
+      if (activeViewId.startsWith('browser:')) {
+        const encoded = activeViewId.slice('browser:'.length)
+        const url = decodeURIComponent(encoded)
+        return <BrowserTabView key={activeViewId} url={url} />
       }
       if (activeViewId.startsWith('crew-project:')) {
         const projectId = activeViewId.replace('crew-project:', '')

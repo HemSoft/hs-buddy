@@ -2,12 +2,16 @@ import { app, BrowserWindow, Menu, screen } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import windowStateKeeper from 'electron-window-state'
+import { initTelemetry, shutdownTelemetry, emitLog } from './telemetry'
 import { configManager } from './config'
 import { loadZoomLevel } from './zoom'
 import { buildMenu, registerKeyboardShortcuts } from './menu'
 import { registerAllHandlers } from './ipc'
 import { getDispatcher, runOfflineSync } from './workers'
 import { stopSharedClient } from './services/copilotClient'
+
+// Initialize OpenTelemetry before anything else touches HTTP/DNS
+initTelemetry()
 
 // Enable CDP remote debugging when BUDDY_DEBUG_PORT is set (e.g. via runApp.debug.ps1)
 const debugPort = process.env.BUDDY_DEBUG_PORT
@@ -32,7 +36,9 @@ process.env.APP_ROOT = path.join(__dirname, '..')
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
+  ? path.join(process.env.APP_ROOT, 'public')
+  : RENDERER_DIST
 
 let win: BrowserWindow | null
 
@@ -40,7 +46,7 @@ function createWindow() {
   // Load window state (position, size, etc.)
   const mainWindowState = windowStateKeeper({
     defaultWidth: 1400,
-    defaultHeight: 900
+    defaultHeight: 900,
   })
 
   // --- Multi-monitor display validation ---
@@ -61,7 +67,7 @@ function createWindow() {
       x: windowX,
       y: windowY,
       width: windowWidth,
-      height: windowHeight
+      height: windowHeight,
     })
 
     // Check if the saved display still exists
@@ -70,13 +76,13 @@ function createWindow() {
     if (savedDisplayId !== 0 && savedDisplay && targetDisplay.id !== savedDisplayId) {
       // The window would land on a different display than where it was saved.
       // This means the display arrangement changed. Move it to the saved display.
-      console.log(`[Window] Display mismatch: would open on display ${targetDisplay.id}, but was saved on display ${savedDisplayId}. Correcting.`)
+      console.log(
+        `[Window] Display mismatch: would open on display ${targetDisplay.id}, but was saved on display ${savedDisplayId}. Correcting.`
+      )
 
       // Use persisted display geometry for relative position if available,
       // otherwise fall back to the mismatched display's current bounds
-      const oldBounds = (savedDisplayBounds.width > 0)
-        ? savedDisplayBounds
-        : targetDisplay.bounds
+      const oldBounds = savedDisplayBounds.width > 0 ? savedDisplayBounds : targetDisplay.bounds
       const relativeX = windowX - oldBounds.x
       const relativeY = windowY - oldBounds.y
 
@@ -84,14 +90,14 @@ function createWindow() {
       const workArea = savedDisplay.workArea
       windowWidth = Math.min(windowWidth, workArea.width)
       windowHeight = Math.min(windowHeight, workArea.height)
-      windowX = Math.max(workArea.x, Math.min(
-        workArea.x + relativeX,
-        workArea.x + workArea.width - windowWidth
-      ))
-      windowY = Math.max(workArea.y, Math.min(
-        workArea.y + relativeY,
-        workArea.y + workArea.height - windowHeight
-      ))
+      windowX = Math.max(
+        workArea.x,
+        Math.min(workArea.x + relativeX, workArea.x + workArea.width - windowWidth)
+      )
+      windowY = Math.max(
+        workArea.y,
+        Math.min(workArea.y + relativeY, workArea.y + workArea.height - windowHeight)
+      )
     } else if (savedDisplayId !== 0 && savedDisplay) {
       // Same display — revalidate in case DPI or work area changed
       const workArea = savedDisplay.workArea
@@ -101,7 +107,9 @@ function createWindow() {
       windowY = Math.max(workArea.y, Math.min(windowY, workArea.y + workArea.height - windowHeight))
     } else if (savedDisplayId !== 0 && !savedDisplay) {
       // Saved display no longer exists - center on primary display
-      console.log(`[Window] Saved display ${savedDisplayId} no longer exists. Centering on primary display.`)
+      console.log(
+        `[Window] Saved display ${savedDisplayId} no longer exists. Centering on primary display.`
+      )
       const workArea = primaryDisplay.workArea
       windowWidth = Math.min(windowWidth, workArea.width)
       windowHeight = Math.min(windowHeight, workArea.height)
@@ -119,18 +127,22 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     frame: false,
-    icon: path.join(process.env.VITE_PUBLIC || path.join(process.env.APP_ROOT!, 'public'), 'icon.ico'),
+    icon: path.join(
+      process.env.VITE_PUBLIC || path.join(process.env.APP_ROOT!, 'public'),
+      'icon.ico'
+    ),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
       // Use isolated partition to prevent zoom level bleeding to other Electron apps
       partition: 'persist:buddy',
       // Set initial zoom from saved config
-      zoomFactor: loadZoomLevel()
+      zoomFactor: loadZoomLevel(),
     },
     title: 'Buddy',
-    backgroundColor: '#1e1e1e'
+    backgroundColor: '#1e1e1e',
   })
 
   // Let window state manager track window state
@@ -152,7 +164,7 @@ function createWindow() {
   win.on('resize', saveCurrentDisplay)
 
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', (new Date()).toLocaleString())
+    win?.webContents.send('main-process-message', new Date().toLocaleString())
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -191,15 +203,19 @@ app.whenReady().then(() => {
   // Register all IPC handlers
   registerAllHandlers(win!)
 
+  emitLog('INFO', 'Application started', { 'app.version': app.getVersion() })
+
   // Process missed schedules from when the app was closed, then start polling
   runOfflineSync()
-    .then((result) => {
+    .then(result => {
       if (result.runsCreated > 0) {
         console.log(`[Startup] Offline sync created ${result.runsCreated} catch-up run(s)`)
+        emitLog('INFO', 'Offline sync completed', { 'sync.runs_created': result.runsCreated })
       }
     })
-    .catch((err) => {
+    .catch(err => {
       console.warn('[Startup] Offline sync failed (non-fatal):', err)
+      emitLog('WARN', 'Offline sync failed', { 'error.message': String(err) })
     })
     .finally(() => {
       // Start the task dispatcher (polls Convex for pending runs)
@@ -208,7 +224,19 @@ app.whenReady().then(() => {
 })
 
 // Stop the dispatcher and shared Copilot client when the app is quitting
-app.on('before-quit', () => {
-  getDispatcher().stop()
-  stopSharedClient()
+let isQuitting = false
+app.on('before-quit', event => {
+  if (isQuitting) return
+  isQuitting = true
+  event.preventDefault()
+
+  try {
+    getDispatcher().stop()
+    stopSharedClient()
+  } catch (err) {
+    console.error('[Main] Sync shutdown error:', err)
+  }
+
+  const timeout = new Promise<void>(resolve => setTimeout(resolve, 5_000))
+  Promise.race([shutdownTelemetry(), timeout]).finally(() => app.quit())
 })

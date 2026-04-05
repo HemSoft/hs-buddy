@@ -39,6 +39,7 @@ interface Window {
   ipcRenderer: import('electron').IpcRenderer
   shell: {
     openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
+    openInAppBrowser: (url: string, title?: string) => Promise<{ success: boolean; error?: string }>
     fetchPageTitle: (url: string) => Promise<{ success: boolean; title?: string; error?: string }>
   }
   crew: {

@@ -30,9 +30,7 @@ export function buildMenu(win: BrowserWindow): Electron.Menu {
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
       label: 'File',
-      submenu: [
-        { role: 'quit' }
-      ]
+      submenu: [{ role: 'quit' }],
     },
     {
       label: 'View',
@@ -40,27 +38,27 @@ export function buildMenu(win: BrowserWindow): Electron.Menu {
         {
           label: 'Zoom In',
           accelerator: 'CmdOrCtrl+numadd',
-          click: () => zoomIn(win)
+          click: () => zoomIn(win),
         },
         {
           label: 'Zoom Out',
           accelerator: 'CmdOrCtrl+numsub',
-          click: () => zoomOut(win)
+          click: () => zoomOut(win),
         },
         {
           label: 'Reset Zoom',
           accelerator: 'CmdOrCtrl+num0',
-          click: () => resetZoom(win)
+          click: () => resetZoom(win),
         },
         { type: 'separator' },
         {
           label: 'Toggle Full Screen',
           accelerator: 'F11',
-          click: () => win.setFullScreen(!win.isFullScreen())
+          click: () => win.setFullScreen(!win.isFullScreen()),
         },
         { type: 'separator' },
-        { role: 'toggleDevTools' }
-      ]
+        { role: 'toggleDevTools' },
+      ],
     },
     {
       label: 'Help',
@@ -72,12 +70,13 @@ export function buildMenu(win: BrowserWindow): Electron.Menu {
               type: 'info',
               title: 'About Buddy',
               message: 'Buddy',
-              detail: 'Your universal productivity companion\n\nVersion 0.1.0\n\n© HemSoft Developments',
+              detail:
+                'Your universal productivity companion\n\nVersion 0.1.0\n\n© HemSoft Developments',
             })
-          }
-        }
-      ]
-    }
+          },
+        },
+      ],
+    },
   ]
 
   return Menu.buildFromTemplate(menuTemplate)
@@ -85,6 +84,7 @@ export function buildMenu(win: BrowserWindow): Electron.Menu {
 
 export function registerKeyboardShortcuts(win: BrowserWindow): void {
   win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
     const ctrlOrCmd = input.control || input.meta
 
     // Ctrl/Cmd + NumpadAdd/Plus: Zoom In
@@ -105,6 +105,21 @@ export function registerKeyboardShortcuts(win: BrowserWindow): void {
     // Ctrl/Cmd + Shift + A: Toggle Assistant
     else if (ctrlOrCmd && input.shift && input.key === 'A') {
       win.webContents.send('toggle-assistant')
+      event.preventDefault()
+    }
+    // Ctrl/Cmd + Shift + Tab: Previous Tab
+    else if (ctrlOrCmd && input.shift && input.key === 'Tab') {
+      win.webContents.send('tab-prev')
+      event.preventDefault()
+    }
+    // Ctrl/Cmd + Tab: Next Tab
+    else if (ctrlOrCmd && input.key === 'Tab') {
+      win.webContents.send('tab-next')
+      event.preventDefault()
+    }
+    // Ctrl/Cmd + F4: Close Active Tab
+    else if (ctrlOrCmd && input.key === 'F4') {
+      win.webContents.send('tab-close')
       event.preventDefault()
     }
     // F11: Toggle Fullscreen

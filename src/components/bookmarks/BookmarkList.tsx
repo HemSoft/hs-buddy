@@ -22,9 +22,10 @@ type Bookmark = {
 
 interface BookmarkListProps {
   filterCategory?: string
+  onOpenTab?: (viewId: string) => void
 }
 
-export function BookmarkList({ filterCategory }: BookmarkListProps) {
+export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
   const allBookmarks = useBookmarks()
   const categories = useBookmarkCategories()
   const { remove, recordVisit } = useBookmarkMutations()
@@ -56,7 +57,9 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
     let result = [...allBookmarks] as Bookmark[]
 
     if (selectedCategory) {
-      result = result.filter(b => b.category === selectedCategory)
+      result = result.filter(
+        b => b.category === selectedCategory || b.category.startsWith(selectedCategory + '/')
+      )
     }
     if (selectedTag) {
       result = result.filter(b => b.tags?.includes(selectedTag))
@@ -79,7 +82,19 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
   const handleOpen = useCallback(
     (bookmark: Bookmark) => {
       recordVisit({ id: bookmark._id })
-      window.open(bookmark.url, '_blank', 'noopener,noreferrer')
+      if (onOpenTab) {
+        onOpenTab(`browser:${encodeURIComponent(bookmark.url)}`)
+      } else {
+        window.shell.openInAppBrowser(bookmark.url, bookmark.title)
+      }
+    },
+    [recordVisit, onOpenTab]
+  )
+
+  const handleOpenExternal = useCallback(
+    (bookmark: Bookmark) => {
+      recordVisit({ id: bookmark._id })
+      window.shell.openExternal(bookmark.url)
     },
     [recordVisit]
   )
@@ -247,7 +262,9 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
           <option value="">All Categories</option>
           {(categories ?? []).map(c => (
             <option key={c} value={c}>
-              {c}
+              {c.includes('/')
+                ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
+                : c}
             </option>
           ))}
         </select>
@@ -295,7 +312,15 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
             <div
               key={bookmark._id}
               className="bookmark-card"
-              onDoubleClick={() => handleOpen(bookmark)}
+              onClick={() => handleOpen(bookmark)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleOpen(bookmark)
+                }
+              }}
+              role="button"
+              tabIndex={0}
             >
               <div className="bookmark-card-icon">
                 {bookmark.faviconUrl && (
@@ -321,9 +346,11 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
                   <div className="bookmark-card-desc">{bookmark.description}</div>
                 )}
                 <div className="bookmark-card-meta">
-                  <span className="bookmark-card-category">
+                  <span className="bookmark-card-category" title={bookmark.category}>
                     <FolderOpen size={12} />
-                    {bookmark.category}
+                    {bookmark.category.includes('/')
+                      ? bookmark.category.split('/').pop()
+                      : bookmark.category}
                   </span>
                   {bookmark.tags &&
                     bookmark.tags.length > 0 &&
@@ -338,21 +365,30 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
               <div className="bookmark-card-actions">
                 <button
                   className="bookmark-action-btn"
-                  onClick={() => handleOpen(bookmark)}
-                  title="Open in browser"
+                  onClick={e => {
+                    e.stopPropagation()
+                    handleOpenExternal(bookmark)
+                  }}
+                  title="Open in external browser"
                 >
                   <ExternalLink size={14} />
                 </button>
                 <button
                   className="bookmark-action-btn"
-                  onClick={() => handleEdit(bookmark)}
+                  onClick={e => {
+                    e.stopPropagation()
+                    handleEdit(bookmark)
+                  }}
                   title="Edit"
                 >
                   <Pencil size={14} />
                 </button>
                 <button
                   className="bookmark-action-btn bookmark-action-danger"
-                  onClick={() => setDeleteTarget(bookmark)}
+                  onClick={e => {
+                    e.stopPropagation()
+                    setDeleteTarget(bookmark)
+                  }}
                   title="Delete"
                 >
                   <Trash2 size={14} />

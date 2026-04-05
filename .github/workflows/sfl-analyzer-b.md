@@ -40,6 +40,9 @@ safe-outputs:
   add-labels:
     target: "*"
     max: 1
+  create-pull-request-review-comment:
+    target: "*"
+    max: 10
   dispatch-workflow:
     workflows: ["sfl-analyzer-c"]
     max: 1
@@ -137,15 +140,17 @@ Use the MCP tool names that are exposed in this runtime. Do not invent aliases.
 
 **You have MULTIPLE safe-output slots.** This workflow is configured with:
 `add_comment` (max 2), `add_labels` (max 1), `update_discussion` (max 1),
-`dispatch_workflow` (max 1). You MUST use all required slots to complete the
-review protocol. A run that produces only a `missing_tool` or `noop` instead
-of performing the review is a **failed run**.
+`create_pull_request_review_comment` (max 10), `dispatch_workflow` (max 1).
+You MUST use all required slots to complete the review protocol. A run that
+produces only a `missing_tool` or `noop` instead of performing the review is
+a **failed run**.
 
 - For PR reads, use `github-pull_request_read`
 - For linked issue reads, use `github-issue_read`
 - For repository file reads, use `github-get_file_contents`
 - For dashboard updates, use `safeoutputs-update_discussion`
 - For review comments and activity-log entries, use `safeoutputs-add_comment`
+- For inline code review comments, use `safeoutputs-create_pull_request_review_comment`
 - For adding labels (e.g., `analyzer:blocked`), use `safeoutputs-add_labels`
 - For Analyzer C dispatch, use `safeoutputs-sfl_analyzer_c`
 - For no-action exits, use `safeoutputs-noop`
@@ -308,6 +313,35 @@ Replace N with the current cycle number, and fill in actual findings.
 Use checkboxes (`- [ ]`) for blocking issues so the Issue Processor can track them.
 Use GitHub-safe Markdown shortcodes and HTML entities for decorative characters in the emitted body text so the rendered PR stays decorated without relying on raw Unicode bytes in the workflow write path.
 
+## Step 6b — Post inline review comments for blocking findings
+
+If the verdict is **BLOCKING ISSUES FOUND**, also post each blocking finding
+as an **inline PR review comment** using `create_pull_request_review_comment`.
+This makes blocking findings appear in GitHub's "Unaddressed" review thread
+counter and as inline annotations on the diff — providing immediate visual
+signal that the PR needs work.
+
+For each blocking finding that has a specific file and line:
+
+- `pull_number`: the PR number
+- `path`: the file path relative to the repo root (e.g., `src/components/Foo.tsx`)
+- `line`: the line number in the diff where the issue is
+- `body`: a concise description of the blocking issue, prefixed with
+  `:red_circle: **BLOCKING (Analyzer B)**:` so the source is clear
+
+**Rules:**
+- Only post inline comments for **BLOCKING** findings — never for non-blocking
+  suggestions (those stay in the summary comment only to avoid noise).
+- If a blocking finding does not reference a specific file+line (e.g., a
+  structural concern like "missing acceptance criteria"), skip the inline
+  comment for that finding — it is already captured in the summary.
+- Maximum 10 inline comments per run (the safe-output limit). If there are
+  more than 10 blocking findings, post the 10 most critical as inline
+  comments; the rest are still in the summary.
+- The summary comment from Step 6 remains the **source of truth** for the
+  full review. Inline comments are a **supplementary signal** for GitHub UI
+  visibility.
+
 ## Activity Log
 
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
@@ -329,6 +363,16 @@ Timestamp rule for Discussion #95 entries:
 
 This is mandatory — every run must log exactly one entry.
 
+Required completion checklist for a non-skip review run:
+
+1. `add_comment` posting the current-cycle Analyzer B review as a PR comment
+2. `create_pull_request_review_comment` posting inline comments for each blocking finding with a file+line (only if verdict is BLOCKING ISSUES FOUND)
+3. `add_labels` adding `analyzer:blocked` (only if verdict is BLOCKING ISSUES FOUND)
+4. `add_comment` posting the Activity Log entry to Discussion #95
+5. `dispatch_workflow` invoking `sfl-analyzer-c` with `pull-request-number: <number>`
+
+Do not stop after step 1. A review run is incomplete unless all required actions happen.
+
 ## Step 7 — Dispatch Analyzer C
 
 After posting the review comment and activity log, dispatch `sfl-analyzer-c`
@@ -336,6 +380,30 @@ with input `pull-request-number: <number>`.
 
 Do NOT decide whether the PR should pass or fail. Analyzer C will review
 next in the chain.
+
+Use this exact action order for a normal review run:
+
+- First: `add_comment` with the Analyzer B review as a PR comment
+- Second: `create_pull_request_review_comment` for each blocking finding with file+line (only if BLOCKING verdict)
+- Third: `add_labels` with `analyzer:blocked` (only if BLOCKING verdict)
+- Fourth: `add_comment` to Discussion #95
+- Fifth: `dispatch_workflow` to `sfl-analyzer-c` with `pull-request-number`
+
+Valid completion pattern:
+
+- `add_comment(...)` (review)
+- `create_pull_request_review_comment(...)` × N (only if BLOCKING, one per file+line finding)
+- `add_labels(...)` (only if BLOCKING)
+- `add_comment(...)` (activity log)
+- `dispatch_workflow(workflow="sfl-analyzer-c", inputs={"pull-request-number":"<number>"})`
+
+Invalid completion patterns:
+
+- `add_comment(...)` and then stop
+- `add_comment(...)` + `add_comment(...)` and then stop
+- `add_comment(...)` + plain text saying Analyzer C should run next
+
+If you are about to finish the run and have not yet dispatched `sfl-analyzer-c`, stop and dispatch it before producing any final text.
 
 ## Guardrails
 

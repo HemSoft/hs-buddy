@@ -68,7 +68,8 @@
     "electron-window-state": "^5.0.3",
     "lucide-react": "^0.563.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "remark-gemoji": "^8.0.0"
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",

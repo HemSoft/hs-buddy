@@ -1653,13 +1653,15 @@ describe('GitHubClient', () => {
     })
 
     it('EVENT_LABELS contains exactly the expected fixed labels', () => {
-      expect(Object.keys(EVENT_LABELS).sort()).toEqual([
-        'PullRequestReviewEvent',
-        'IssueCommentEvent',
-        'WatchEvent',
-        'ForkEvent',
-        'ReleaseEvent',
-      ].sort())
+      expect(Object.keys(EVENT_LABELS).sort()).toEqual(
+        [
+          'PullRequestReviewEvent',
+          'IssueCommentEvent',
+          'WatchEvent',
+          'ForkEvent',
+          'ReleaseEvent',
+        ].sort()
+      )
     })
   })
 

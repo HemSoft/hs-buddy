@@ -134,8 +134,15 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
   const handleAddressComments = useCallback(() => {
     const org = pr.org || pr.source
-    const prompt = buildAddressCommentsPrompt({ prId: pr.id, org, repository: pr.repository, url: pr.url })
-    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } }))
+    const prompt = buildAddressCommentsPrompt({
+      prId: pr.id,
+      org,
+      repository: pr.repository,
+      url: pr.url,
+    })
+    window.dispatchEvent(
+      new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } })
+    )
     setThreadCardMenu(null)
   }, [pr.id, pr.org, pr.source, pr.repository, pr.url, premiumModel])
 
@@ -305,7 +312,10 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
                 onClick={() => setThreadCardMenu(null)}
                 aria-hidden="true"
               />
-              <div className="pr-context-menu" style={{ top: threadCardMenu.y, left: threadCardMenu.x }}>
+              <div
+                className="pr-context-menu"
+                style={{ top: threadCardMenu.y, left: threadCardMenu.x }}
+              >
                 <button
                   onClick={handleAddressComments}
                   disabled={!pr.threadsUnaddressed || pr.threadsUnaddressed === 0}

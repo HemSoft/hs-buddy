@@ -3,6 +3,7 @@ import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
 import { graphql } from '@octokit/graphql'
 import type { PullRequest, PRConfig } from '../types/pullRequest'
+import { DEFAULT_RECENTLY_MERGED_DAYS } from '../constants'
 import {
   type SFLRepoStatus,
   type SFLWorkflowInfo,
@@ -767,9 +768,12 @@ function countCheckStatuses(
 
 export class GitHubClient {
   private config: PRConfig['github']
-  private recentlyMergedDays: number = 7
+  private recentlyMergedDays: number = DEFAULT_RECENTLY_MERGED_DAYS
 
-  constructor(config: PRConfig['github'], recentlyMergedDays: number = 7) {
+  constructor(
+    config: PRConfig['github'],
+    recentlyMergedDays: number = DEFAULT_RECENTLY_MERGED_DAYS
+  ) {
     this.config = config
     this.recentlyMergedDays = recentlyMergedDays
   }

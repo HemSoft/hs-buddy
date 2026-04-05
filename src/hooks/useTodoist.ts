@@ -1,16 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { TodoistTask, TodoistProject, DayGroup } from '../types/todoist'
-
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+import { formatDateKey } from '../utils/dateUtils'
 
 function formatDayLabel(dateStr: string): string {
-  const today = todayStr()
+  const today = formatDateKey(new Date())
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
+  const tomorrowStr = formatDateKey(tomorrow)
 
   if (dateStr === today) return 'Today'
   if (dateStr === tomorrowStr) return 'Tomorrow'
@@ -60,7 +56,7 @@ export function useTodoistUpcoming(days: number = 7) {
       const data = result.data ?? {}
 
       // Collect overdue tasks (dates before today)
-      const todayStr_ = todayStr()
+      const todayStr_ = formatDateKey(new Date())
       const overdueTasks: TodoistTask[] = []
       for (const [dateKey, tasks] of Object.entries(data)) {
         if (dateKey < todayStr_) {

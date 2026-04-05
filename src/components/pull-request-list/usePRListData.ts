@@ -198,8 +198,15 @@ export function usePRListData(
     if (!contextMenu) return
     const { pr } = contextMenu
     const org = pr.org || pr.source
-    const prompt = buildAddressCommentsPrompt({ prId: pr.id, org, repository: pr.repository, url: pr.url })
-    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } }))
+    const prompt = buildAddressCommentsPrompt({
+      prId: pr.id,
+      org,
+      repository: pr.repository,
+      url: pr.url,
+    })
+    window.dispatchEvent(
+      new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } })
+    )
     setContextMenu(null)
   }, [contextMenu, premiumModel])
 

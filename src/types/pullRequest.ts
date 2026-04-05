@@ -1,5 +1,5 @@
 export interface PullRequest {
-  source: 'GitHub' | 'Bitbucket'
+  source: 'GitHub'
   repository: string
   id: number
   title: string
@@ -27,13 +27,6 @@ export interface PRConfig {
     accounts: Array<{
       username: string
       org: string
-    }>
-  }
-  bitbucket: {
-    workspaces: Array<{
-      workspace: string
-      username: string
-      userDisplayName: string
     }>
   }
 }

@@ -82,14 +82,22 @@ function PullRequestHistoryHeader({ pr, embedded }: { pr: PRDetailInfo; embedded
   )
 }
 
-function PullRequestHistoryOverview({ history, pr }: { history: PRHistorySummary; pr: PRDetailInfo }) {
+function PullRequestHistoryOverview({
+  history,
+  pr,
+}: {
+  history: PRHistorySummary
+  pr: PRDetailInfo
+}) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const { premiumModel } = useCopilotSettings()
 
   useEffect(() => {
     if (!menu) return
     const close = () => setMenu(null)
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
     window.addEventListener('keydown', onKey)
     window.addEventListener('scroll', close, true)
     return () => {
@@ -100,8 +108,15 @@ function PullRequestHistoryOverview({ history, pr }: { history: PRHistorySummary
 
   const handleAddressComments = useCallback(() => {
     const org = pr.org || pr.source
-    const prompt = buildAddressCommentsPrompt({ prId: pr.id, org, repository: pr.repository, url: pr.url })
-    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } }))
+    const prompt = buildAddressCommentsPrompt({
+      prId: pr.id,
+      org,
+      repository: pr.repository,
+      url: pr.url,
+    })
+    window.dispatchEvent(
+      new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } })
+    )
     setMenu(null)
   }, [pr.id, pr.org, pr.source, pr.repository, pr.url, premiumModel])
 

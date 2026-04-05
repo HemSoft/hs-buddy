@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { DEFAULT_RECENTLY_MERGED_DAYS } from '../constants'
 import type { AppConfig, GitHubAccount } from '../types/config'
 import {
   useGitHubAccountsConvex,
@@ -225,9 +226,13 @@ export function usePRSettings() {
     config => ({
       refreshInterval: config.pr?.refreshInterval ?? 15,
       autoRefresh: config.pr?.autoRefresh ?? false,
-      recentlyMergedDays: config.pr?.recentlyMergedDays ?? 7,
+      recentlyMergedDays: config.pr?.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
     }),
-    { refreshInterval: 15, autoRefresh: true, recentlyMergedDays: 7 }
+    {
+      refreshInterval: 15,
+      autoRefresh: true,
+      recentlyMergedDays: DEFAULT_RECENTLY_MERGED_DAYS,
+    }
   )
 
   const setRefreshInterval = async (minutes: number) => {
@@ -245,7 +250,7 @@ export function usePRSettings() {
   return {
     refreshInterval: currentSettings.refreshInterval ?? 15,
     autoRefresh: currentSettings.autoRefresh ?? false,
-    recentlyMergedDays: currentSettings.recentlyMergedDays ?? 7,
+    recentlyMergedDays: currentSettings.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
     loading,
     setRefreshInterval,
     setAutoRefresh,

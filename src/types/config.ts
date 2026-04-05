@@ -1,4 +1,5 @@
 import type { Schema } from 'electron-store'
+import { DEFAULT_RECENTLY_MERGED_DAYS } from '../constants'
 
 /**
  * GitHub account configuration
@@ -280,7 +281,7 @@ export const defaultConfig: AppConfig = {
   pr: {
     refreshInterval: 15,
     autoRefresh: true,
-    recentlyMergedDays: 7,
+    recentlyMergedDays: DEFAULT_RECENTLY_MERGED_DAYS,
   },
   copilot: {
     ghAccount: '', // Empty = use currently-active gh CLI account

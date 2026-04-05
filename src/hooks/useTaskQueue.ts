@@ -54,7 +54,7 @@ interface UseTaskQueueResult {
 /**
  * Hook for interacting with a named task queue.
  *
- * @param queueName The name of the queue (e.g., 'github', 'bitbucket')
+ * @param queueName The name of the queue (e.g., 'github')
  * @param options Optional queue configuration (only used if queue doesn't exist)
  *
  * @example

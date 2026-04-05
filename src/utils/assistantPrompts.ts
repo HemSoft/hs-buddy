@@ -5,7 +5,12 @@ interface AddressCommentsParams {
   url: string
 }
 
-export function buildAddressCommentsPrompt({ prId, org, repository, url }: AddressCommentsParams): string {
+export function buildAddressCommentsPrompt({
+  prId,
+  org,
+  repository,
+  url,
+}: AddressCommentsParams): string {
   return [
     `Address the unresolved review comments on PR #${prId} in ${org}/${repository} (${url}).`,
     '',

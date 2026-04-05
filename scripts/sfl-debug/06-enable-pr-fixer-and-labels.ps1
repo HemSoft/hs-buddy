@@ -23,31 +23,41 @@
 #>
 
 $ErrorActionPreference = 'Stop'
+
+$InformationPreference = 'Continue'
+$esc = [char]27
+$Cyan = "${esc}[36m"
+$DGray = "${esc}[90m"
+$Green = "${esc}[32m"
+$Red = "${esc}[31m"
+$White = "${esc}[37m"
+$Yellow = "${esc}[33m"
+$Reset = "${esc}[0m"
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
-Write-Host ""
-Write-Host "=== Stage 6: Enable PR Fixer + PR Label Actions ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "This will enable:" -ForegroundColor White
-Write-Host "  - PR Fixer — Authority    (implements analyzer fixes)" -ForegroundColor White
-Write-Host "  - PR Label Actions        (label-driven PR state transitions)" -ForegroundColor White
-Write-Host ""
-Write-Host "PR Fixer is dispatched when a draft PR has all 3 analyzer markers." -ForegroundColor DarkGray
-Write-Host ""
+Write-Information ""
+Write-Information "${Cyan}=== Stage 6: Enable PR Fixer + PR Label Actions ===${Reset}"
+Write-Information ""
+Write-Information "${White}This will enable:${Reset}"
+Write-Information "${White}  - PR Fixer — Authority    (implements analyzer fixes)${Reset}"
+Write-Information "${White}  - PR Label Actions        (label-driven PR state transitions)${Reset}"
+Write-Information ""
+Write-Information "${DGray}PR Fixer is dispatched when a draft PR has all 3 analyzer markers.${Reset}"
+Write-Information ""
 
 # Show draft PR status
 $draftPRs = gh pr list --repo $repo --state open --draft --label "agent:pr" --json number,title --jq '.[] | "#\(.number) \(.title)"'
 if ($draftPRs) {
-    Write-Host "Current draft agent:pr PRs:" -ForegroundColor Yellow
-    $draftPRs | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+    Write-Information "${Yellow}Current draft agent:pr PRs:${Reset}"
+    $draftPRs | ForEach-Object { Write-Information "${Yellow}  $_${Reset}" }
 } else {
-    Write-Host "No draft agent:pr PRs yet — fixer won't have work until one exists." -ForegroundColor DarkGray
+    Write-Information "${DGray}No draft agent:pr PRs yet — fixer won't have work until one exists.${Reset}"
 }
-Write-Host ""
+Write-Information ""
 
 $confirm = Read-Host "Enable PR Fixer + PR Label Actions? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Host "Aborted." -ForegroundColor Yellow
+    Write-Information "${Yellow}Aborted.${Reset}"
     return
 }
 
@@ -59,22 +69,22 @@ $workflows = @(
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf.Name --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'active') {
-        Write-Host "  Already enabled: $($wf.Name)" -ForegroundColor DarkGray
+        Write-Information "${DGray}  Already enabled: $($wf.Name)${Reset}"
     } else {
         gh workflow enable $wf.File --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Enabled: $($wf.Name)" -ForegroundColor Green
+            Write-Information "${Green}  Enabled: $($wf.Name)${Reset}"
         } else {
-            Write-Host "  Failed:  $($wf.Name)" -ForegroundColor Red
+            Write-Information "${Red}  Failed:  $($wf.Name)${Reset}"
         }
     }
 }
 
-Write-Host ""
-Write-Host "PR Fixer + PR Label Actions enabled." -ForegroundColor Green
-Write-Host ""
-Write-Host "The fixer will run when the dispatcher sees all 3 analyzer markers." -ForegroundColor Yellow
-Write-Host "Monitor: gh run list --workflow=pr-fixer.lock.yml --limit 3" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Next step: Stage 7 (07-enable-promoter-and-auditor.ps1)" -ForegroundColor Cyan
-Write-Host ""
+Write-Information ""
+Write-Information "${Green}PR Fixer + PR Label Actions enabled.${Reset}"
+Write-Information ""
+Write-Information "${Yellow}The fixer will run when the dispatcher sees all 3 analyzer markers.${Reset}"
+Write-Information "${Yellow}Monitor: gh run list --workflow=pr-fixer.lock.yml --limit 3${Reset}"
+Write-Information ""
+Write-Information "${Cyan}Next step: Stage 7 (07-enable-promoter-and-auditor.ps1)${Reset}"
+Write-Information ""

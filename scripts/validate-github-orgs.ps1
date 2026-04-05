@@ -17,20 +17,30 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "🔍 Validating GitHub Organization Access..." -ForegroundColor Cyan
-Write-Host ""
+$InformationPreference = 'Continue'
+$esc = [char]27
+$Cyan = "${esc}[36m"
+$Gray = "${esc}[37m"
+$Green = "${esc}[32m"
+$Red = "${esc}[31m"
+$White = "${esc}[37m"
+$Yellow = "${esc}[33m"
+$Reset = "${esc}[0m"
+
+Write-Information "${Cyan}🔍 Validating GitHub Organization Access...${Reset}"
+Write-Information ""
 
 # Check if gh CLI is installed
 try {
     $null = gh --version
 } catch {
-    Write-Host "❌ GitHub CLI (gh) is not installed or not in PATH" -ForegroundColor Red
-    Write-Host "   Install from: https://cli.github.com/" -ForegroundColor Yellow
+    Write-Information "${Red}❌ GitHub CLI (gh) is not installed or not in PATH${Reset}"
+    Write-Information "${Yellow}   Install from: https://cli.github.com/${Reset}"
     exit 1
 }
 
 # Get authenticated accounts
-Write-Host "📋 Checking authenticated GitHub accounts..." -ForegroundColor Cyan
+Write-Information "${Cyan}📋 Checking authenticated GitHub accounts...${Reset}"
 $authStatus = gh auth status 2>&1 | Out-String
 
 # Parse authenticated accounts
@@ -42,31 +52,31 @@ $authStatus -split "`n" | ForEach-Object {
 }
 
 if ($accounts.Count -eq 0) {
-    Write-Host "❌ No authenticated GitHub accounts found" -ForegroundColor Red
-    Write-Host "   Run: gh auth login" -ForegroundColor Yellow
+    Write-Information "${Red}❌ No authenticated GitHub accounts found${Reset}"
+    Write-Information "${Yellow}   Run: gh auth login${Reset}"
     exit 1
 }
 
-Write-Host "   ✓ Found $($accounts.Count) authenticated account(s): $($accounts -join ', ')" -ForegroundColor Green
-Write-Host ""
+Write-Information "${Green}   ✓ Found $($accounts.Count) authenticated account(s): $($accounts -join ', ')${Reset}"
+Write-Information ""
 
 # Read Convex config to get GitHub accounts/orgs
-Write-Host "📋 Reading Convex GitHub account configurations..." -ForegroundColor Cyan
+Write-Information "${Cyan}📋 Reading Convex GitHub account configurations...${Reset}"
 
 # Check if running in dev mode (Convex dev server)
 $convexUrl = $env:VITE_CONVEX_URL
 if (-not $convexUrl) {
-    Write-Host "⚠️  VITE_CONVEX_URL not set - using default dev URL" -ForegroundColor Yellow
+    Write-Information "${Yellow}⚠️  VITE_CONVEX_URL not set - using default dev URL${Reset}"
     $convexUrl = "https://balanced-trout-451.convex.cloud"
 }
 
-Write-Host "   Convex URL: $convexUrl" -ForegroundColor Gray
+Write-Information "${Gray}   Convex URL: $convexUrl${Reset}"
 
 # For now, we'll need to query common org patterns
 # In a real scenario, you'd query the Convex DB directly or read from config
-Write-Host ""
-Write-Host "🔍 Testing organization access..." -ForegroundColor Cyan
-Write-Host ""
+Write-Information ""
+Write-Information "${Cyan}🔍 Testing organization access...${Reset}"
+Write-Information ""
 
 $testOrgs = @(
     @{ Account = "fhemmerrelias"; Org = "ReliasLearning" },
@@ -80,12 +90,12 @@ foreach ($test in $testOrgs) {
     $account = $test.Account
     $org = $test.Org
     
-    Write-Host "  Testing: $account → $org" -ForegroundColor White
+    Write-Information "${White}  Testing: $account → $org${Reset}"
     
     # Check if account is authenticated
     if ($account -notin $accounts) {
-        Write-Host "    ❌ Account '$account' is not authenticated" -ForegroundColor Red
-        Write-Host "       Run: gh auth login" -ForegroundColor Yellow
+        Write-Information "${Red}    ❌ Account '$account' is not authenticated${Reset}"
+        Write-Information "${Yellow}       Run: gh auth login${Reset}"
         $hasErrors = $true
         continue
     }
@@ -101,30 +111,30 @@ foreach ($test in $testOrgs) {
         gh api orgs/$org --silent 2>&1 | Out-Null
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "    ✓ Access confirmed" -ForegroundColor Green
+            Write-Information "${Green}    ✓ Access confirmed${Reset}"
         } else {
             # Try as user instead of org
             gh api users/$org --silent 2>&1 | Out-Null
             if ($LASTEXITCODE -eq 0) {
-                Write-Host "    ✓ Access confirmed (user account)" -ForegroundColor Green
+                Write-Information "${Green}    ✓ Access confirmed (user account)${Reset}"
             } else {
-                Write-Host "    ❌ No access to org '$org'" -ForegroundColor Red
-                Write-Host "       This may be a private org or the account lacks permissions" -ForegroundColor Yellow
+                Write-Information "${Red}    ❌ No access to org '$org'${Reset}"
+                Write-Information "${Yellow}       This may be a private org or the account lacks permissions${Reset}"
                 $hasErrors = $true
             }
         }
     } catch {
-        Write-Host "    ❌ Error: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Information "${Red}    ❌ Error: $($_.Exception.Message)${Reset}"
         $hasErrors = $true
     }
 }
 
-Write-Host ""
+Write-Information ""
 if ($hasErrors) {
-    Write-Host "⚠️  Validation completed with errors" -ForegroundColor Yellow
-    Write-Host "   Some organizations may not be accessible or accounts may need re-authentication" -ForegroundColor Gray
+    Write-Information "${Yellow}⚠️  Validation completed with errors${Reset}"
+    Write-Information "${Gray}   Some organizations may not be accessible or accounts may need re-authentication${Reset}"
     exit 1
 } else {
-    Write-Host "✅ All organizations are accessible!" -ForegroundColor Green
+    Write-Information "${Green}✅ All organizations are accessible!${Reset}"
     exit 0
 }

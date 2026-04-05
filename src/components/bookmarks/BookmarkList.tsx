@@ -22,9 +22,10 @@ type Bookmark = {
 
 interface BookmarkListProps {
   filterCategory?: string
+  onOpenTab?: (viewId: string) => void
 }
 
-export function BookmarkList({ filterCategory }: BookmarkListProps) {
+export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
   const allBookmarks = useBookmarks()
   const categories = useBookmarkCategories()
   const { remove, recordVisit } = useBookmarkMutations()
@@ -81,9 +82,13 @@ export function BookmarkList({ filterCategory }: BookmarkListProps) {
   const handleOpen = useCallback(
     (bookmark: Bookmark) => {
       recordVisit({ id: bookmark._id })
-      window.shell.openInAppBrowser(bookmark.url, bookmark.title)
+      if (onOpenTab) {
+        onOpenTab(`browser:${encodeURIComponent(bookmark.url)}`)
+      } else {
+        window.shell.openInAppBrowser(bookmark.url, bookmark.title)
+      }
     },
-    [recordVisit]
+    [recordVisit, onOpenTab]
   )
 
   const handleOpenExternal = useCallback(

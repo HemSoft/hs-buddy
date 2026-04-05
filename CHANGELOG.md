@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.588] - 2026-04-05
+
 ## [0.1.587] - 2026-04-04
+
+### Fixed
+
+- Persist auth cookies in in-app browser sessions
 
 ## [0.1.586] - 2026-04-04
 

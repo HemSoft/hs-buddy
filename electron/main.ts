@@ -135,6 +135,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
       // Use isolated partition to prevent zoom level bleeding to other Electron apps
       partition: 'persist:buddy',
       // Set initial zoom from saved config

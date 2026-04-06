@@ -186,7 +186,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Model** | `claude-sonnet-4.6` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Outputs** | `update-discussion` (max 1), `update-issue` (max 2), `add-comment` (max 1) |
-| **Idempotency** | Writes `[MARKER:sfl-analyzer-a cycle:N]` to PR body |
+| **Idempotency** | Writes `<!-- MARKER:sfl-analyzer-a cycle:N -->` to PR body |
 | **Verdict** | `**PASS**` or `**FAIL**` with structured review |
 | **Throughput** | 1 PR per run |
 
@@ -199,7 +199,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Model** | `claude-opus-4.5` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Outputs** | `update-discussion` (max 1), `update-issue` (max 2), `add-comment` (max 1) |
-| **Idempotency** | Writes `[MARKER:sfl-analyzer-b cycle:N]` to PR body |
+| **Idempotency** | Writes `<!-- MARKER:sfl-analyzer-b cycle:N -->` to PR body |
 | **Verdict** | `**PASS**` or `**FAIL**` with structured review |
 | **Throughput** | 1 PR per run |
 
@@ -212,7 +212,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Model** | `gpt-5.3-codex` |
 | **Permissions** | `contents: read`, `issues: read`, `pull-requests: read` |
 | **Safe-Outputs** | `update-discussion` (max 1), `update-issue` (max 2), `add-comment` (max 1) |
-| **Idempotency** | Writes `[MARKER:sfl-analyzer-c cycle:N]` to PR body |
+| **Idempotency** | Writes `<!-- MARKER:sfl-analyzer-c cycle:N -->` to PR body |
 | **Verdict** | `**PASS**` or `**FAIL**` with structured review |
 | **Throughput** | 1 PR per run |
 
@@ -233,7 +233,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 | **Input** | Draft PR with all 3 analyzer markers at current cycle |
 | **Output** | Fixes pushed to same PR branch, cycle label incremented |
 | **Label Transitions** | `pr:cycle-N` → `pr:cycle-(N+1)` |
-| **Idempotency** | Writes `[MARKER:pr-fixer cycle:N]` to PR body |
+| **Idempotency** | Writes `<!-- MARKER:pr-fixer cycle:N -->` to PR body |
 | **Max Cycles** | Configured in `sfl-config.yml` → `cycles.max-fix-cycles: 15` |
 | **Throughput** | 1 PR per run |
 
@@ -362,7 +362,7 @@ PHASE 5 — SEQUENTIAL ANALYSIS (Direct handoffs)
 │ 4.6    │ │  4.5   │ │ 5.3    │
 └───┬────┘ └───┬────┘ └───┬────┘
     │          │          │
-    │  Each writes [MARKER:pr-analyzer-X cycle:N] + verdict (PASS/FAIL)
+    │  Each writes <!-- MARKER:pr-analyzer-X cycle:N --> + verdict (PASS/FAIL)
     │          │          │
     └──────────┼──────────┘
                │
@@ -385,7 +385,7 @@ PHASE 6a — FIX CYCLE (Dispatcher-triggered, if any FAIL)
        │ Model: Opus 4.6  │       Pushes to same PR branch
     └────────┬─────────┘       Increments pr:cycle-N label
              │
-             │  Writes [MARKER:pr-fixer cycle:N]
+             │  Writes <!-- MARKER:pr-fixer cycle:N -->
              │  Label: pr:cycle-N → pr:cycle-(N+1)
              ▼
     ┌──────────────────┐

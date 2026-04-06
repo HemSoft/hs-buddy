@@ -59,9 +59,9 @@ foreach ($pr in $prs) {
     $cycle = if ($cycleLabel) { [int]($cycleLabel -replace "pr:cycle-", "") } else { 0 }
     $body = [string]$pr.body
 
-    $a = $body.Contains("[MARKER:sfl-analyzer-a cycle:$cycle]")
-    $b = $body.Contains("[MARKER:sfl-analyzer-b cycle:$cycle]")
-    $c = $body.Contains("[MARKER:sfl-analyzer-c cycle:$cycle]")
+    $a = $body.Contains("<!-- MARKER:sfl-analyzer-a cycle:$cycle -->")
+    $b = $body.Contains("<!-- MARKER:sfl-analyzer-b cycle:$cycle -->")
+    $c = $body.Contains("<!-- MARKER:sfl-analyzer-c cycle:$cycle -->")
 
     $prMarkers += [PSCustomObject]@{
         prNumber = $pr.number

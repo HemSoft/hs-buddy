@@ -14,7 +14,7 @@
     otherwise they will miss the event entirely.
 
     Each analyzer posts review comments and appends a MARKER to the PR body
-    (e.g., [MARKER:sfl-analyzer-a cycle:0]). The dispatcher checks for all
+    (e.g., <!-- MARKER:sfl-analyzer-a cycle:0 -->). The dispatcher checks for all
     three markers before dispatching the PR Fixer.
 #>
 

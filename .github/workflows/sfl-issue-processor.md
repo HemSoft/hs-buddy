@@ -440,8 +440,8 @@ If `pull-request-number` is provided:
   `agent:human-required`.
 3. Determine current cycle N from the highest `pr:cycle-N` label (default `0`).
 4. Search the PR **comments** for all three analyzer markers for cycle N:
-   `[MARKER:sfl-analyzer-a cycle:N]`, `[MARKER:sfl-analyzer-b cycle:N]`,
-   `[MARKER:sfl-analyzer-c cycle:N]`. Verify all three exist.
+   `<!-- MARKER:sfl-analyzer-a cycle:N -->`, `<!-- MARKER:sfl-analyzer-b cycle:N -->`,
+   `<!-- MARKER:sfl-analyzer-c cycle:N -->`. Verify all three exist.
 5. From the same PR comments, check the analyzer verdicts. The PR is eligible
    if any condition is met:
    - At least one verdict for cycle N is `**BLOCKING ISSUES FOUND**`
@@ -457,7 +457,7 @@ If `pull-request-number` is provided:
      cycle: fix the code so CI passes. After pushing the fix via
      `push_to_pull_request_branch`, call `remove_labels` to remove
      `ci:fix-attempted` from the PR.
-6. Search the PR comments for `[MARKER:sfl-issue-processor cycle:N]`.
+6. Search the PR comments for `<!-- MARKER:sfl-issue-processor cycle:N -->`.
    Verify it is not already present.
 
 If any of those checks fail, exit — there is no eligible follow-up work for
@@ -501,9 +501,9 @@ For each candidate:
 2. Determine the current cycle N from the highest `pr:cycle-N` label
    (default `0` if none exist).
 3. Search the PR **comments** for ALL three analyzer markers for the current cycle:
-   - `[MARKER:sfl-analyzer-a cycle:N]`
-   - `[MARKER:sfl-analyzer-b cycle:N]`
-   - `[MARKER:sfl-analyzer-c cycle:N]`
+   - `<!-- MARKER:sfl-analyzer-a cycle:N -->`
+   - `<!-- MARKER:sfl-analyzer-b cycle:N -->`
+   - `<!-- MARKER:sfl-analyzer-c cycle:N -->`
 4. From the same PR comments, check the three analyzer verdicts for cycle N.
    - If all three verdicts are `**PASS**` and the PR has no unresolved review
      threads, skip the candidate — promotion, not implementation, is the
@@ -513,7 +513,7 @@ For each candidate:
      review-comment resolution (thread-only path).
    - If any verdict is `**BLOCKING ISSUES FOUND**`, this PR needs another
      implementation pass.
-5. Search the PR comments for `[MARKER:sfl-issue-processor cycle:N]`.
+5. Search the PR comments for `<!-- MARKER:sfl-issue-processor cycle:N -->`.
    If present, skip the candidate — this cycle has already had an
    implementation pass.
 
@@ -564,7 +564,7 @@ If `issue-number` is provided:
     - search the PR **comments** for all three analyzer markers for cycle N
     - verify at least one analyzer verdict for cycle N (from PR comments) is
       `**BLOCKING ISSUES FOUND**`
-    - search the PR comments for `[MARKER:sfl-issue-processor cycle:N]` —
+    - search the PR comments for `<!-- MARKER:sfl-issue-processor cycle:N -->` —
       verify it is not already present
     - if all checks pass, use that PR as the work item — verify you are
       on the PR's head branch (`git branch --show-current`), checkout if
@@ -852,7 +852,7 @@ Then post the implementation summary as a **PR comment** using `add_comment`
 - `body`: the structured summary in the exact format below
 
 ```markdown
-[MARKER:sfl-issue-processor cycle:N]
+<!-- MARKER:sfl-issue-processor cycle:N -->
 ## :wrench: Issue Processor &mdash; Cycle N Implementation Pass
 
 **PR**: #<number>
@@ -877,7 +877,7 @@ When all unresolved review threads have been addressed by replying
 - Post the implementation summary as a **PR comment** using `add_comment`:
 
 ```markdown
-[MARKER:sfl-issue-processor cycle:N]
+<!-- MARKER:sfl-issue-processor cycle:N -->
 ## :wrench: Issue Processor &mdash; Cycle N Review Thread Resolution
 
 **PR**: #<number>

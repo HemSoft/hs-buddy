@@ -201,7 +201,7 @@ sfl-pr-label-actions (AGGREGATOR)
 |--------|-------------|----------|
 | **Analyzer verdicts** | Written as markers + verdicts in PR body | Posted as PR comments + `analyzer:blocked` label |
 | **PR body** | Rewritten by router and analyzers (markers, verdicts, decisions) | Written once by issue-processor, never touched again |
-| **State tracking** | PR body markers (`[MARKER:sfl-analyzer-X cycle:N]`) | Labels on PR |
+| **State tracking** | PR body markers (`<!-- MARKER:sfl-analyzer-X cycle:N -->`) | Labels on PR |
 | **Routing** | PR Router reads body, dispatches next step | Chain: A→B→C→label-actions (no router) |
 | **Aggregation** | PR Router parses 3 verdicts via awk | Label-actions checks for `analyzer:blocked` label |
 | **All PASS** | Router adds `human:ready-for-review` + dispatches label-actions | Label-actions adds label + flips draft |

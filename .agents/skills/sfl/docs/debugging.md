@@ -38,7 +38,7 @@ Symptom reported
 reviews being posted.
 
 **Root cause**: Analyzers writing markers in wrong format. Expected:
-`[MARKER:sfl-analyzer-a cycle:0]`
+`<!-- MARKER:sfl-analyzer-a cycle:0 -->`
 
 **Diagnosis**:
 

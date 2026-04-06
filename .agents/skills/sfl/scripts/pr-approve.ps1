@@ -74,11 +74,11 @@ if ($labelNames -notcontains "human:ready-for-review") {
 }
 
 foreach ($analyzer in @("a", "b", "c")) {
-    if ($pr.body -notmatch "\[MARKER:sfl-analyzer-$analyzer cycle:\d+\]") {
+    if ($pr.body -notmatch "<!-- MARKER:sfl-analyzer-$analyzer cycle:\d+ -->") {
         $missingCriteria.Add("Missing analyzer marker for analyzer $analyzer") | Out-Null
         continue
     }
-    if ($pr.body -notmatch "(?s)\[MARKER:sfl-analyzer-$analyzer cycle:\d+\].*?\*\*PASS\*\*") {
+    if ($pr.body -notmatch "(?s)<!-- MARKER:sfl-analyzer-$analyzer cycle:\d+ -->.*?\*\*PASS\*\*") {
         $missingCriteria.Add("Analyzer $analyzer does not show PASS verdict") | Out-Null
     }
 }

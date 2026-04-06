@@ -90,11 +90,11 @@ Write-Information "${Yellow}`n--- MARKER ANALYSIS (cycle $cycle) ---${Reset}"
 $body = $pr.body
 
 $markerTypes = @(
-    @{ Name = "Analyzer A"; Pattern = "[MARKER:sfl-analyzer-a cycle:$cycle]" },
-    @{ Name = "Analyzer B"; Pattern = "[MARKER:sfl-analyzer-b cycle:$cycle]" },
-    @{ Name = "Analyzer C"; Pattern = "[MARKER:sfl-analyzer-c cycle:$cycle]" },
-    @{ Name = "Issue Processor"; Pattern = "[MARKER:sfl-issue-processor cycle:$cycle]" },
-    @{ Name = "PR Router";  Pattern = "[MARKER:sfl-pr-router cycle:$cycle]" }
+    @{ Name = "Analyzer A"; Pattern = "<!-- MARKER:sfl-analyzer-a cycle:$cycle -->" },
+    @{ Name = "Analyzer B"; Pattern = "<!-- MARKER:sfl-analyzer-b cycle:$cycle -->" },
+    @{ Name = "Analyzer C"; Pattern = "<!-- MARKER:sfl-analyzer-c cycle:$cycle -->" },
+    @{ Name = "Issue Processor"; Pattern = "<!-- MARKER:sfl-issue-processor cycle:$cycle -->" },
+    @{ Name = "PR Router";  Pattern = "<!-- MARKER:sfl-pr-router cycle:$cycle -->" }
 )
 
 # Also check legacy HTML comment markers
@@ -127,7 +127,7 @@ foreach ($m in $legacyMarkers) {
 
 if ($foundLegacy -gt 0 -and $foundNew -eq 0) {
     Write-Information "${Red}`n  WARNING: Only legacy HTML comment markers found.${Reset}"
-    Write-Information "${Red}  The new [MARKER:...] format is not being produced.${Reset}"
+    Write-Information "${Red}  The new <!-- MARKER:... --> format is not being produced.${Reset}"
     Write-Information "${Red}  This is likely why the PR is stuck.${Reset}"
 }
 
@@ -240,7 +240,7 @@ if ($foundNew -ge 3 -and $blockCount -eq 0) {
         Write-Information "${Yellow}  PR is still draft — check PR Router and label-actions logs.${Reset}"
     }
 } elseif ($foundNew -lt 3 -and $foundLegacy -gt 0) {
-    Write-Information "${Red}  STUCK: Analyzers are producing legacy markers, not new [MARKER:] format.${Reset}"
+    Write-Information "${Red}  STUCK: Analyzers are producing legacy markers, not new <!-- MARKER: --> format.${Reset}"
     Write-Information "${Yellow}  FIX: Update analyzer .md prompts and ensure runtime-import picks up changes.${Reset}"
 } elseif ($foundNew -lt 3) {
     $missing = $markerTypes | Where-Object { -not $body.Contains($_.Pattern) } | ForEach-Object { $_.Name }

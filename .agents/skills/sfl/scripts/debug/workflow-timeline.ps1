@@ -128,7 +128,7 @@ if ($cycleMatches.Count -gt 0) {
     $currentCycle = ($cycleMatches | ForEach-Object { [int]($_ -replace '^pr:cycle-', '') } | Measure-Object -Maximum).Maximum
 }
 
-$analyzerCMarker = "[MARKER:sfl-analyzer-c cycle:$currentCycle]"
+$analyzerCMarker = "<!-- MARKER:sfl-analyzer-c cycle:$currentCycle -->"
 
 if ($prBody.Contains($analyzerCMarker) -and $labelActionsRuns.Count -eq 0) {
     Write-Host "  WARNING: Analyzer C completed for cycle $currentCycle but label-actions has not run." -ForegroundColor Red

@@ -198,7 +198,7 @@ cycle is `0`.
 ## Step 3 — Check if already reviewed
 
 Search the PR **comments** for any comment containing the exact marker text:
-`[MARKER:sfl-analyzer-b cycle:N]` where N is the current cycle number from
+`<!-- MARKER:sfl-analyzer-b cycle:N -->` where N is the current cycle number from
 Step 2.
 
 If a comment with the marker exists, this analyzer has already reviewed this
@@ -265,7 +265,7 @@ Post the review as a **PR comment** using `add_comment`:
 - `issue_number`: the PR number
 - `body`: the structured review in the exact format below
 
-**CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
+**CRITICAL**: The `<!-- MARKER:... -->` line below is the idempotency marker. It MUST
 be the very first line of your comment, exactly as shown. Without it, the
 pipeline will re-review this PR every 30 minutes forever.
 
@@ -279,7 +279,7 @@ Do NOT add `analyzer:blocked` if your verdict is PASS. Do NOT remove
 `analyzer:blocked` if it is already present — that is label-actions' job.
 
 ```markdown
-[MARKER:sfl-analyzer-b cycle:N]
+<!-- MARKER:sfl-analyzer-b cycle:N -->
 ## :bar_chart: SFL Analysis B &mdash; Full-Spectrum Review
 
 **Analyzer**: B

@@ -201,7 +201,7 @@ by `sfl-pr-label-actions` deterministically.
 The pipeline state is encoded entirely in GitHub primitives:
 
 - **Labels** on issues/PRs (lifecycle state)
-- **Markers** in PR bodies (`[MARKER:workflow-name cycle:N]`)
+- **Markers** in PR bodies (`<!-- MARKER:workflow-name cycle:N -->`)
 - **Comments** on PRs (review content)
 - **Branches** (`agent-fix/issue-N-*`)
 - **Draft state** on PRs
@@ -237,7 +237,7 @@ to the same PR branch — no new PRs are created during fix cycles.
 ### Idempotency Markers
 
 Every workflow writes a marker to the PR body before doing its work:
-`[MARKER:workflow-name cycle:N]`
+`<!-- MARKER:workflow-name cycle:N -->`
 
 If the marker already exists for the current cycle, the workflow skips.
 This prevents duplicate work when workflows are triggered multiple times.

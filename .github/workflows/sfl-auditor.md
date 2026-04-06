@@ -242,8 +242,8 @@ For each PR in list B (open agent PRs), check whether the PR is a **draft**
 and was created more than **2 hours ago**.
 
 For each such stale draft PR, check the PR body for analyzer markers:
-`[MARKER:sfl-analyzer-a cycle:`, `[MARKER:sfl-analyzer-b cycle:`,
-`[MARKER:sfl-analyzer-c cycle:`.
+`<!-- MARKER:sfl-analyzer-a cycle:`, `<!-- MARKER:sfl-analyzer-b cycle:`,
+`<!-- MARKER:sfl-analyzer-c cycle:`.
 
 If ANY of the three markers is missing, check the **PR body text** for the
 string `missing one or more analyzer markers`. Search the FULL body — not
@@ -269,8 +269,8 @@ If there are at least 2 draft PRs:
 1. Let `oldest` be the first draft PR in sorted order.
 2. Determine `oldest` current cycle N from `pr:cycle-N` labels (default 0).
 3. Check whether `oldest` body contains
-  `[MARKER:sfl-analyzer-a cycle:N]`, `[MARKER:sfl-analyzer-b cycle:N]`, and
-  `[MARKER:sfl-analyzer-c cycle:N]`.
+  `<!-- MARKER:sfl-analyzer-a cycle:N -->`, `<!-- MARKER:sfl-analyzer-b cycle:N -->`, and
+  `<!-- MARKER:sfl-analyzer-c cycle:N -->`.
 4. Find any newer draft PR where at least one analyzer marker is missing for
   its current cycle.
 
@@ -290,7 +290,7 @@ Additional current-cycle label-actions handoff check:
 For each open draft agent PR in list B:
 
 1. Determine the current cycle N from `pr:cycle-N` labels (default 0).
-2. Check whether the PR **comments** contain `[MARKER:sfl-analyzer-c cycle:N]`.
+2. Check whether the PR **comments** contain `<!-- MARKER:sfl-analyzer-c cycle:N -->`.
 
 If the Analyzer C marker for cycle N exists in a comment, check the PR's labels:
 

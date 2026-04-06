@@ -2,7 +2,7 @@
 .SYNOPSIS
     Check all open PRs for idempotency markers.
 .DESCRIPTION
-    Scans all open agent-fix PRs for [MARKER:...] tags,
+    Scans all open agent-fix PRs for <!-- MARKER:... --> tags,
     detects missing/duplicate markers, and identifies stuck PRs.
 .PARAMETER Repo
     The repo to check (default: relias-engineering/hs-buddy).
@@ -46,7 +46,7 @@ foreach ($pr in $agentPRs) {
     $cycle = if ($cycleLabel) { [int]($cycleLabel -replace "pr:cycle-", "") } else { 0 }
 
     # Check all marker types
-    $markerPattern = '\[MARKER:(sfl-analyzer-[abc]|sfl-issue-processor|sfl-pr-router) cycle:(\d+)\]'
+    $markerPattern = '<!-- MARKER:(sfl-analyzer-[abc]|sfl-issue-processor|sfl-pr-router) cycle:(\d+) -->'
     $matches_found = [regex]::Matches($body, $markerPattern)
 
     if ($matches_found.Count -eq 0) {

@@ -154,9 +154,9 @@ foreach ($pr in $agentPRs) {
         0
     }
 
-    $markerA = "[MARKER:sfl-analyzer-a cycle:$($currentCycle)]"
-    $markerB = "[MARKER:sfl-analyzer-b cycle:$($currentCycle)]"
-    $markerC = "[MARKER:sfl-analyzer-c cycle:$($currentCycle)]"
+    $markerA = "<!-- MARKER:sfl-analyzer-a cycle:$($currentCycle) -->"
+    $markerB = "<!-- MARKER:sfl-analyzer-b cycle:$($currentCycle) -->"
+    $markerC = "<!-- MARKER:sfl-analyzer-c cycle:$($currentCycle) -->"
 
     $hasA = $body.Contains($markerA)
     $hasB = $body.Contains($markerB)

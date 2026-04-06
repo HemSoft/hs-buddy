@@ -226,7 +226,7 @@ to find the first PR that still needs Analyzer C for its current cycle:
 
 1. For each candidate PR, determine current cycle N from `pr:cycle-N` labels
   (default N=0 if none).
-2. Check whether the PR **comments** already contain `[MARKER:sfl-analyzer-c cycle:N]`.
+2. Check whether the PR **comments** already contain `<!-- MARKER:sfl-analyzer-c cycle:N -->`.
 3. Skip candidates where that marker already exists in a comment.
 4. Select the first candidate where the marker does NOT exist.
 
@@ -257,7 +257,7 @@ cycle is `0`.
 ## Step 3 — Check if already reviewed
 
 Search the PR **comments** for any comment containing the exact marker text:
-`[MARKER:sfl-analyzer-c cycle:N]` where N is the current cycle number from
+`<!-- MARKER:sfl-analyzer-c cycle:N -->` where N is the current cycle number from
 Step 2.
 
 If a comment with the marker exists, this analyzer has already reviewed this
@@ -324,7 +324,9 @@ Post the review as a **PR comment** using `add_comment`:
 - `issue_number`: the PR number
 - `body`: the structured review in the exact format below
 
-**CRITICAL**: The `[MARKER:...]` line below is the idempotency marker. It MUST
+**CRITICAL**: The `<!-- MARKER:... -->` line below is the idempotency marker. It MUST
+be the very first line of your comment, exactly as shown. Without it, the
+pipeline will re-review this PR every 30 minutes forever.
 be the very first line of your comment, exactly as shown. Without it, the
 pipeline will re-review this PR every 30 minutes forever.
 
@@ -338,7 +340,7 @@ Do NOT add `analyzer:blocked` if your verdict is PASS. Do NOT remove
 `analyzer:blocked` if it is already present — that is label-actions' job.
 
 ```markdown
-[MARKER:sfl-analyzer-c cycle:N]
+<!-- MARKER:sfl-analyzer-c cycle:N -->
 ## :bar_chart: SFL Analysis C &mdash; Full-Spectrum Review
 
 **Analyzer**: C

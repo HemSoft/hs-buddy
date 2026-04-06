@@ -13,7 +13,7 @@
       1. Reads the analyzer review comments
       2. Implements the suggested fixes
       3. Pushes commits to the PR branch
-      4. Appends its own [MARKER:pr-fixer cycle:N] to the PR body
+      4. Appends its own <!-- MARKER:pr-fixer cycle:N --> to the PR body
       5. Bumps the pr:cycle-N label
 
     PR Label Actions handles transitions like removing human:ready-for-review

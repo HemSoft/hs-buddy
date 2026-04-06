@@ -60,7 +60,7 @@ No issue should have both `agent:in-progress` and `agent:fixable`.
 
 ### 5. Marker Integrity
 
-All open `agent:pr` draft PRs should have valid `[MARKER:...]` entries.
+All open `agent:pr` draft PRs should have valid `<!-- MARKER:... -->` entries.
 No legacy `<!-- ... -->` markers should be present (means workflows need
 recompile).
 

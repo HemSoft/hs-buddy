@@ -35,19 +35,19 @@ Eastern Time
 
 - Observed: Issue Processor completed successfully. Draft PR created with `agent:pr` label. Pipeline Step 2 ✅.
 - Observed: Analyzer A auto-triggered by `pull_request: opened` event. Claude Sonnet 4.6 reviewing.
-- Expected next: Analyzer A posts review comment with `[MARKER:sfl-analyzer-a cycle:0]`, dispatches Analyzer B.
+- Expected next: Analyzer A posts review comment with `<!-- MARKER:sfl-analyzer-a cycle:0 -->`, dispatches Analyzer B.
 
 ### 2026-03-10 ~04:35 PM ET - Analyzer A completed, Analyzer B running {#event-043500}
 
 - Observed: Analyzer A (Claude Sonnet 4.6) completed. Review comment posted. Pipeline Step 3 ✅.
 - Observed: Analyzer B auto-dispatched by A. Claude Opus 4.6 reviewing.
-- Expected next: Analyzer B posts review comment with `[MARKER:sfl-analyzer-b cycle:0]`, dispatches Analyzer C.
+- Expected next: Analyzer B posts review comment with `<!-- MARKER:sfl-analyzer-b cycle:0 -->`, dispatches Analyzer C.
 
 ### 2026-03-10 ~04:50 PM ET - Analyzer B completed, Analyzer C running {#event-045000}
 
 - Observed: Analyzer B (Claude Opus 4.6) completed. Review comment posted. Pipeline Step 4 ✅.
 - Observed: Analyzer C auto-dispatched by B. GPT-5.4 reviewing.
-- Expected next: Analyzer C posts review comment with `[MARKER:sfl-analyzer-c cycle:0]`, dispatches Label Actions.
+- Expected next: Analyzer C posts review comment with `<!-- MARKER:sfl-analyzer-c cycle:0 -->`, dispatches Label Actions.
 
 ### 2026-03-10 ~05:05 PM ET - Analyzer C completed, Label Actions completed — PIPELINE PASSED {#event-050500}
 

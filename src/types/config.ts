@@ -54,6 +54,7 @@ export interface AppConfig {
   copilot: {
     ghAccount: string // GitHub CLI account username for Copilot SDK (empty = active account)
     model: string // LLM model to use (e.g., 'claude-sonnet-4.5', 'gpt-4o')
+    premiumModel: string // Model for high-stakes tasks (e.g., address PR comments)
     prReviewPromptTemplate: string // Default prompt template for PR review (supports {{prUrl}})
   }
   automation: {
@@ -230,12 +231,16 @@ export const configSchema: Schema<AppConfig> = {
         type: 'string',
         default: 'claude-sonnet-4.5',
       },
+      premiumModel: {
+        type: 'string',
+        default: 'claude-opus-4.6',
+      },
       prReviewPromptTemplate: {
         type: 'string',
         default: '',
       },
     },
-    required: ['ghAccount', 'model', 'prReviewPromptTemplate'],
+    required: ['ghAccount', 'model', 'premiumModel', 'prReviewPromptTemplate'],
   },
   automation: {
     type: 'object',
@@ -286,6 +291,7 @@ export const defaultConfig: AppConfig = {
   copilot: {
     ghAccount: '', // Empty = use currently-active gh CLI account
     model: 'claude-sonnet-4.5',
+    premiumModel: 'claude-opus-4.6',
     prReviewPromptTemplate: '',
   },
   automation: {

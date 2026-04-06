@@ -166,7 +166,12 @@ function createConfig(overrides: Partial<AppConfig['ui']> = {}): AppConfig {
       ...overrides,
     },
     pr: { refreshInterval: 15, autoRefresh: true, recentlyMergedDays: 7 },
-    copilot: { ghAccount: '', model: 'claude-sonnet-4.5', prReviewPromptTemplate: '' },
+    copilot: {
+      ghAccount: '',
+      model: 'claude-sonnet-4.5',
+      premiumModel: 'claude-opus-4.6',
+      prReviewPromptTemplate: '',
+    },
     automation: { scheduleForecastDays: 3 },
   }
 }

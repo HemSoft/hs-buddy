@@ -91,6 +91,7 @@ function PullRequestHistoryOverview({
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const { premiumModel } = useCopilotSettings()
+  const { accounts } = useGitHubAccounts()
 
   useEffect(() => {
     if (!menu) return
@@ -123,9 +124,10 @@ function PullRequestHistoryOverview({
   const handleRequestCopilotReview = useCallback(() => {
     const parsed = parseOwnerRepoFromUrl(pr.url)
     if (!parsed) return
-    void GitHubClient.requestCopilotReview(parsed.owner, parsed.repo, pr.id)
+    const client = new GitHubClient({ accounts }, 7)
+    void client.requestCopilotReview(parsed.owner, parsed.repo, pr.id)
     setMenu(null)
-  }, [pr.url, pr.id])
+  }, [pr.url, pr.id, accounts])
 
   return (
     <>

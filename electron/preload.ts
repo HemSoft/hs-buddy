@@ -2,10 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 // Map renderer-side listener references to the wrapper registered with ipcRenderer
 // so that off() can remove the correct function.
-const ipcListenerWrappers = new Map<
-  string,
-  Map<(...args: unknown[]) => void, (...args: unknown[]) => void>
->()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type IpcListener = (event: Electron.IpcRendererEvent, ...args: any[]) => void
+const ipcListenerWrappers = new Map<string, Map<IpcListener, IpcListener>>()
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
@@ -23,7 +22,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const wrapper = channelMap?.get(listener)
     if (wrapper) {
       channelMap!.delete(listener)
-      return ipcRenderer.off(channel, wrapper as Parameters<typeof ipcRenderer.off>[1])
+      return ipcRenderer.off(channel, wrapper)
     }
     // No wrapper found — listener was never registered through this bridge or already removed.
     // Attempting ipcRenderer.off with the raw listener would be a silent no-op, so skip it.

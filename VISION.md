@@ -1,514 +1,292 @@
 # Buddy Vision
 
-**Version**: 2.1
-**Updated**: 2026-02-18
+**Version**: 3.0
+**Updated**: 2026-04-06
 **Status**: Active Execution
 
 ## Executive Summary
 
-Buddy has successfully evolved beyond a PR viewer into a workflow-capable productivity platform built on Convex for real-time, cross-device delivery.
+Buddy is a cross-platform Electron desktop app that unifies developer
+productivity into a single workspace — pull requests, Copilot AI,
+bookmarks, time tracking, task planning, automation, and repository
+insights — backed by Convex for real-time sync and offline resilience.
+
+It is the first (and reference) consumer of the **Set it Free Loop™**,
+a continuous-quality operating model for software repositories.
+
+---
+
+## Current Feature Map
+
+### Pull Requests
+
+Four-mode PR dashboard (My PRs, Needs Review, Recently Merged, Needs a
+Nudge) with full detail views: conversation, commits, checks,
+files-changed diff, and AI reviews. Card and list view modes persist to
+Convex per page.
+
+### Copilot AI Integration
+
+- **Prompt Box** — free-text prompts to the Copilot SDK, results stored
+  in Convex.
+- **AI-Powered PR Review** — one-click Copilot code review with inline
+  thread resolution.
+- **Usage Dashboard** — billing, spend, premium-request quota rings, and
+  org budget tracking with daily snapshots.
+- **Session Explorer** — parse Copilot JSONL session logs, compute
+  efficiency digests (token efficiency, tool density, search churn,
+  estimated cost).
+- **Assistant Panel** — context-aware streaming chat sidebar using
+  Copilot SDK.
+
+### Bookmarks
+
+Categorized URL collection with drag-and-drop, AI-suggested titles and
+tags, in-app browser tabs (webview with session persistence,
+back/forward/reload, open-in-external-browser), and sidebar tree
+navigation by category.
+
+### Automation (Job Scheduler)
+
+Three worker types — **exec** (shell), **ai** (LLM prompt), **skill**
+(Claude skills) — with cron-based scheduling, timezone support,
+missed-execution policy (catchup/skip/last), offline queue with
+catch-up, and real-time run status. Convex cron scans due schedules
+every minute.
+
+### Task Planner (Todoist)
+
+Today, upcoming, and projects views connected to Todoist REST API via
+IPC handlers.
+
+### Tempo (Time Tracking)
+
+Timesheet grid, summary cards, and worklog editor connected to Tempo
+via IPC handlers.
+
+### The Crew (Project Sessions)
+
+Project-scoped workspace sessions with dedicated sidebar and detail
+views.
+
+### GitHub Integration
+
+Multi-account support via `gh` CLI auth. Org detail, repo detail (stats
+bar, content grid), per-repo commit/issue/PR browsing, user profiles
+with contribution graphs, and rate-limit gauge.
+
+### Feature Intake Normalization
+
+Maps external tickets (Jira, GitHub Issue, manual) to canonical GitHub
+issue drafts with risk labels. Convex table tracks draft → linked →
+duplicate status.
+
+### Settings
+
+Five panels — Accounts, Appearance (themes, color picker, font
+customization), Pull Requests, Copilot SDK, Advanced. Runtime config
+stored in electron-store with Convex sync for view modes.
+
+---
+
+## Architecture
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│  Buddy Desktop (Electron 30 + React 18 + Vite 5)               │
+│                                                                  │
+│  Renderer                      Main Process                      │
+│  ┌────────────────────┐        ┌──────────────────────────────┐ │
+│  │ React UI            │        │ IPC Handlers (8 domains)     │ │
+│  │  10 Activity Panels │◀──────▶│ Workers (exec, ai, skill)   │ │
+│  │  30+ Content Views  │  IPC   │ Services (Copilot, Tempo,   │ │
+│  │  21 Custom Hooks    │        │   Todoist, Crew, Sessions)  │ │
+│  └────────┬───────────┘        │ OpenTelemetry (→ Aspire)     │ │
+│           │                     └──────────────────────────────┘ │
+│           │ Convex SDK                                           │
+│           ▼                                                      │
+│  ┌────────────────────┐                                          │
+│  │  Convex Cloud       │  14 tables · 2 cron jobs                │
+│  │  Real-time sync     │  File storage for run outputs           │
+│  │  Offline resilience │                                          │
+│  └────────────────────┘                                          │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Data Model (14 Convex Tables)
+
+| Table | Purpose |
+|-------|---------|
+| `githubAccounts` | Multi-account GitHub CLI configurations |
+| `settings` | Singleton app config (PR refresh, Copilot models, view modes) |
+| `jobs` | Task definitions (exec/ai/skill worker type + config) |
+| `schedules` | Cron expressions, timezone, missed policy, linked job |
+| `runs` | Execution history (status, duration, output, file storage) |
+| `bookmarks` | URL collection with categories, tags, sort order |
+| `repoBookmarks` | Folder-organized repo collection |
+| `buddyStats` | 16 lifetime counters (launches, tabs, PRs viewed, etc.) |
+| `copilotResults` | Stored Copilot prompt/response pairs |
+| `copilotUsageHistory` | Daily billing snapshots for trend reporting |
+| `prReviewRuns` | AI review history per PR + head SHA |
+| `featureIntakes` | External ticket → canonical issue mapping |
+| `sessionDigests` | Copilot session efficiency metrics |
+| `_storage` | Convex file storage for run outputs |
+
+### Electron Main Process
+
+| Module | Responsibility |
+|--------|---------------|
+| `main.ts` | App entry, window creation, multi-monitor, CDP debug port |
+| `config.ts` | electron-store config manager |
+| `cache.ts` | Caching layer |
+| `preload.ts` | Context bridge (IPC ↔ renderer) |
+| `menu.ts` | Keyboard shortcuts (frameless window — no native menu bar) |
+| `telemetry.ts` | OpenTelemetry SDK: traces, metrics, structured logs to Aspire |
+| `zoom.ts` | Zoom level persistence |
+
+### IPC Handler Domains
+
+`github` · `copilot` · `copilotSessions` · `crew` · `tempo` · `todoist` · `shell` · `config` · `cache` · `window`
+
+### Aspire Orchestration
+
+TypeScript AppHost (`apphost.ts`) orchestrates Convex dev server and
+Buddy with full OpenTelemetry instrumentation (traces, metrics,
+structured logs) flowing to the Aspire dashboard when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ---
 
 ## Set it Free Loop™
 
-Buddy is the first reference consumer of the **Set it Free Loop™** — a continuous quality improvement operating model for software repositories.
+Buddy is the reference consumer of the **Set it Free Loop™** — a
+continuous quality improvement operating model.
 
 > One Intake. One Loop. Compounding Quality.
 
-The operating model, workflow library, governance policy, and intake tooling all live in the canonical home:
+The operating model, workflow library, and governance live at:
 **[relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop)**
 
-Buddy's `.github/workflows/` deploys from that library. Its governance labels are configured by the label setup script in that repo.
+### Pipeline (happy path)
+
+| # | Workflow | What it does |
+|---|---------|-------------|
+| 0 | `discussion-processor` | Audit findings → categorized GitHub Issues |
+| 1 | `sfl-issue-processor` | Issue → draft PR with implementation |
+| 2 | `sfl-analyzer-a` | Claude Sonnet code review (marker + verdict) |
+| 3 | `sfl-analyzer-b` | Claude Opus code review (marker + verdict) |
+| 4 | `sfl-analyzer-c` | GPT code review (marker + verdict) |
+| 5 | `sfl-pr-label-actions` | Aggregate verdicts → ready-for-review or fix cycle |
+
+### Supporting Workflows
+
+| Workflow | Cadence | Purpose |
+|---------|---------|---------|
+| `sfl-auditor` | Every 12 hours | Detects/repairs state discrepancies |
+| `sfl-queue-monitor` | Scheduled | Monitors agent queue depth |
+| `sfl-improve-scorecard` | On demand | Scorecard keyword detection improvements |
+| `daily-repo-status` | Daily | Repository health report |
+| `repo-audit` | Scheduled | Comprehensive code/config audit |
+| `simplisticate-audit` | Scheduled | Complexity reduction audit |
+| `test-coverage-audit` | Scheduled | Coverage gap analysis |
+| `react-doctor-audit` | Scheduled | React code health audit |
+
+---
+
+## Quality Tooling
+
+### CI Pipeline (`.github/workflows/ci.yml`)
+
+Steps: knip (dead code) → ESLint → tsc --noEmit → Prettier → e18e
+(dependency health) → Vitest + coverage → Build → Bundle size →
+Benchmarks
+
+### Testing
+
+- **Vitest** with `happy-dom`, 119 test files, ~974 tests
+- **BDD**: 3 Gherkin feature specs via `vitest-cucumber`
+- **Benchmarks**: 8 `.bench.ts` files for critical paths
+- **Coverage**: v8 provider, Cobertura + lcov reporters, ratcheting
+  thresholds (45%+ statements/functions/lines, 41%+ branches)
+
+### Code Health
+
+- **Knip**: zero-suppression dead code detection
+- **e18e**: dependency health and migration analysis
+- **Bundle size**: baseline comparison on every build
+- **Pre-commit hooks**: version bump, changelog, formatting
+
+---
+
+## UI Shell
+
+Frameless window (`frame: false`) with custom `TitleBar.tsx`. VS
+Code-inspired layout:
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ [≡] Buddy v0.1.608                      [−] [□] [×]     │
+├────┬────────────────────────┬────────────────────────────┤
+│    │  Sidebar               │  Tab Bar                   │
+│ 🔀 │                        ├────────────────────────────┤
+│ ⚡ │  Tree navigation       │                            │
+│ ✔  │  per active section    │  Content Area              │
+│ 📊 │                        │  (30+ routable views)      │
+│ 🤖 │                        │                            │
+│ 👥 │                        │                            │
+│ 🕐 │                        │                            │
+│ 🔖 │                        │                            │
+│ ✨ │                        │                            │
+│ ⚙  │                        │                            │
+├────┴────────────────────────┴────────────────────────────┤
+│  Status Bar                                              │
+└──────────────────────────────────────────────────────────┘
+```
+
+10 Activity Bar sections: GitHub, Skills, Tasks, Insights, Automation,
+The Crew, Tempo, Bookmarks, Copilot, Settings.
+
+---
+
+## Technical Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Desktop | Electron 30 |
+| UI | React 18, TypeScript 5.2, Vite 5 |
+| Backend | Convex 1.34 (serverless DB + real-time) |
+| AI | `@github/copilot-sdk` 0.1.23 |
+| GitHub API | `@octokit/rest` 22, `@octokit/graphql` 9 |
+| Telemetry | OpenTelemetry SDK (traces, metrics, logs → Aspire) |
+| Icons | lucide-react |
+| Layout | allotment (resizable panes) |
+| Storage | electron-store (local config) |
+| Build | Vite + electron-builder (NSIS/DMG/AppImage) |
+| CI | GitHub Actions, Bun 1.2, Node 22 |
 
 ---
 
 ## Strategic Goals
 
-1. **Replace hs-conductor** — Buddy becomes the single productivity hub
-2. **Platform Independence** — Full data sync across Windows, Mac, Linux, and future mobile apps
-3. **Serverless Architecture** — No local Express server or Windows Service required
-4. **Real-time Experience** — Live task status updates via Convex subscriptions
-5. **Skill Integration** — First-class support for the 110+ Claude skills library
-6. **Unified Delivery Intake** — Normalize all feature demand into GitHub Issues
-7. **Recursive Quality Automation** — Continuously run audit → fix → verify loops
-8. **Portfolio Scalability** — Operate this model across many repositories with cost controls
-
----
-
-## Architecture Overview
-
-### Current State (hs-conductor)
-
-```text
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Admin UI       │────▶│  Express Server │────▶│  Inngest Dev    │
-│  (Electron)     │     │  (Port 2900)    │     │  (Port 2901)    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                        ┌─────────────────┐
-                        │  File System    │
-                        │  (JSON/YAML)    │
-                        └─────────────────┘
-```
-
-**Pain Points:**
-
-- Requires Windows Service running 24/7
-- Inngest Dev Server must be running locally
-- Data locked to local machine
-- No mobile access possible
-
-### Target State (hs-buddy + Convex)
-
-```text
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Buddy Desktop  │────▶│                 │◀────│  Buddy Mobile   │
-│  (Electron)     │     │   Convex Cloud  │     │  (Future)       │
-└─────────────────┘     │                 │     └─────────────────┘
-                        │  • Schedules    │
-                        │  • Jobs         │
-                        │  • Run History  │
-                        │  • File Storage │
-                        │  • Real-time    │
-                        └─────────────────┘
-```
-
-**Benefits:**
-
-- No local server required
-- Data syncs across all devices
-- Real-time updates via subscriptions
-- Offline queue with catch-up
-- Mobile app ready
-
----
-
-## Data Model
-
-### Full Convex Storage
-
-All data lives in Convex for maximum platform independence:
-
-| Entity | Storage | Description |
-|--------|---------|-------------|
-| **Jobs** | Convex DB | Task definitions (name, worker type, config, params) |
-| **Schedules** | Convex DB | Cron expressions, enabled state, linked job |
-| **Runs** | Convex DB | Execution history (status, duration, timestamps) |
-| **Run Outputs** | Convex File Storage | Generated files, logs (S3-like storage) |
-
-### Convex Schema (Draft)
-
-```typescript
-// convex/schema.ts
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
-
-export default defineSchema({
-  jobs: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    workerType: v.union(
-      v.literal("exec"),
-      v.literal("ai"),
-      v.literal("skill")
-    ),
-    config: v.any(), // Worker-specific configuration
-    params: v.optional(v.array(v.object({
-      name: v.string(),
-      type: v.string(),
-      default: v.optional(v.any()),
-      required: v.boolean(),
-    }))),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }),
-
-  schedules: defineTable({
-    jobId: v.id("jobs"),
-    name: v.string(),
-    cron: v.string(), // "0 9 * * *"
-    enabled: v.boolean(),
-    params: v.optional(v.any()), // Runtime params for job
-    missedPolicy: v.union(
-      v.literal("catchup"),
-      v.literal("skip"),
-      v.literal("last")
-    ),
-    lastRunAt: v.optional(v.number()),
-    nextRunAt: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_enabled", ["enabled"])
-    .index("by_next_run", ["nextRunAt"]),
-
-  runs: defineTable({
-    jobId: v.id("jobs"),
-    scheduleId: v.optional(v.id("schedules")),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("cancelled")
-    ),
-    triggeredBy: v.union(
-      v.literal("manual"),
-      v.literal("schedule"),
-      v.literal("api")
-    ),
-    input: v.optional(v.any()),
-    output: v.optional(v.any()),
-    outputFileId: v.optional(v.id("_storage")),
-    error: v.optional(v.string()),
-    startedAt: v.number(),
-    completedAt: v.optional(v.number()),
-    duration: v.optional(v.number()),
-  }).index("by_job", ["jobId"])
-    .index("by_status", ["status"])
-    .index("by_started", ["startedAt"]),
-});
-```
-
----
-
-## Worker Types
-
-Three core workers handle all task execution:
-
-### 1. exec-worker (Shell Commands)
-
-Execute PowerShell/bash commands locally on the Electron host.
-
-```typescript
-{
-  workerType: "exec",
-  config: {
-    command: "pwsh -Command \"Get-Process | Select-Object -First 10\"",
-    cwd: "D:\\projects",
-    timeout: 30000,
-    shell: "powershell" // or "bash", "cmd"
-  }
-}
-```
-
-**Execution**: Runs in Electron main process via Node.js `child_process`.
-
-### 2. ai-worker (LLM Tasks)
-
-Execute AI prompts via configured LLM provider.
-
-```typescript
-{
-  workerType: "ai",
-  config: {
-    prompt: "Summarize the following text: {{input}}",
-    model: "claude-sonnet-4-20250514", // or "gpt-4", etc.
-    maxTokens: 1000,
-    temperature: 0.7
-  }
-}
-```
-
-**Execution**: Calls LLM API from Electron via GitHub Copilot CLI.
-
-### 3. skill-worker (Claude Skills)
-
-Invoke any of the 110+ Claude skills directly.
-
-```typescript
-{
-  workerType: "skill",
-  config: {
-    skillName: "diary",
-    action: "create", // skill-specific action
-    params: {
-      date: "{{today}}"
-    }
-  }
-}
-```
-
-**Execution**: Spawns GitHub Copilot CLI with skill context, captures output.
-
----
-
-## Execution Model
-
-### Where Tasks Run
-
-| Component | Runs Where | Why |
-|-----------|------------|-----|
-| Schedule scanning | Convex Cloud (cron job) | Always-on, no local process needed |
-| Task dispatch | Convex Cloud | Triggers via mutation |
-| exec-worker | Electron main process | Needs local filesystem/shell access |
-| ai-worker | Electron main process | Uses local API keys |
-| skill-worker | Electron main process | Spawns local Claude CLI |
-| Status updates | Convex Cloud | Real-time sync to all clients |
-
-### Offline Behavior
-
-When the machine is offline:
-
-1. **Convex cron** still fires in the cloud
-2. **Task queued** in Convex with `status: "pending"`
-3. **Electron reconnects** → polls for pending tasks
-4. **Catch-up execution** based on `missedPolicy`:
-   - `catchup`: Run all missed executions
-   - `last`: Run only the most recent missed
-   - `skip`: Mark as skipped, continue normally
-
----
-
-## UI Design
-
-### Activity Bar Placement
-
-Add "Workflows" icon to the activity bar (alongside PRs, Settings):
-
-```text
-┌──────────────────────────────────────────────────────────┐
-│ [≡] Buddy                               [−] [□] [×]     │
-├────┬─────────────────────────────────────────────────────┤
-│ 🔀 │  Sidebar              │  Content Area              │
-│    │                       │                            │
-│ ⚙️ │  • Schedules          │  [Schedule List View]      │
-│    │  • Jobs               │  or                        │
-│ 🔄 │  • Run History        │  [Job Editor]              │
-│    │                       │  or                        │
-│    │                       │  [Run History Table]       │
-└────┴───────────────────────┴────────────────────────────┘
-  ^
-  └── New "Workflows" icon (🔄)
-```
-
-### Workflows Section Views
-
-| Sidebar Item | Content |
-|--------------|---------|
-| **Schedules** | List of schedules with enable/disable toggles, next run time, CronBuilder for editing |
-| **Jobs** | List of job definitions, Monaco editor for config |
-| **Run History** | Recent runs (last 24h or last 50), status badges, duration, expandable output |
-
-### CronBuilder Component
-
-Port the visual cron builder from hs-conductor:
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ Schedule Frequency                                   │
-│ ┌────────┐ ┌────────┐ ┌───────┐ ┌────────┐ ┌──────┐│
-│ │ Minute │ │ Hourly │ │ Daily │ │ Weekly │ │Custom││
-│ └────────┘ └────────┘ └───────┘ └────────┘ └──────┘│
-│                                                      │
-│ Run at: [09] : [00]                                 │
-│                                                      │
-│ On days:                                            │
-│ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐        │
-│ │Mon│ │Tue│ │Wed│ │Thu│ │Fri│ │Sat│ │Sun│        │
-│ └───┘ └───┘ └───┘ └───┘ └───┘ └───┘ └───┘        │
-│                                                      │
-│ Preview: "Every Monday, Wednesday, Friday at 9:00"  │
-│ Cron: 0 9 * * 1,3,5                                 │
-└─────────────────────────────────────────────────────┘
-```
-
-### Real-time Status Updates
-
-Convex subscriptions power live UI updates:
-
-- Schedule "Next Run" countdown timers
-- Run status badges update instantly (pending → running → completed)
-- Toast notifications on task completion/failure
-
----
-
-## Mobile App (Future)
-
-### Scope: Read + Trigger
-
-| Feature | Mobile Support |
-|---------|----------------|
-| View schedules | ✅ |
-| Enable/disable schedules | ✅ |
-| View run history | ✅ |
-| Trigger manual runs | ✅ |
-| Create/edit jobs | ❌ (desktop only) |
-| Create/edit schedules | ❌ (desktop only) |
-
-### Technology
-
-- **React Native** with Convex SDK (same schema, same queries)
-- **Expo** for rapid development
-- Push notifications for task completion (via Convex + Expo Push)
-
----
-
-## Migration from hs-conductor
-
-### Migration Tool
-
-Build a one-time migration utility:
-
-1. **Read Conductor data**:
-   - `data/schedules/*.json` → Convex `schedules` table
-   - `workloads/*.yaml` → Convex `jobs` table
-   - `data/runs/*/run.json` → Convex `runs` table (recent only)
-
-2. **Transform formats**:
-   - YAML job definitions → Convex document structure
-   - Inngest event names → Convex function references
-
-3. **Validate & import**:
-   - Schema validation before insert
-   - Dry-run mode to preview changes
-   - Progress reporting
-
-### Conductor Retirement
-
-Once Buddy Workflows is stable:
-
-1. Stop hs-conductor Windows Service
-2. Uninstall Inngest Dev Server
-3. Archive hs-conductor repository (read-only)
-4. Update documentation to point to Buddy
-
----
-
-## Implementation Phases
-
-### Phase 1: Foundation (Weeks 1-2)
-
-**Goal**: Convex setup + basic schedule management
-
-- [ ] Initialize Convex project (`npx convex init`)
-- [ ] Define schema (jobs, schedules, runs tables)
-- [ ] Implement Convex functions (CRUD for schedules)
-- [ ] Add Convex client to Electron renderer
-- [ ] Create "Automation" activity bar icon
-- [ ] Build Schedules sidebar + list view
-- [ ] Port CronBuilder component from hs-conductor
-- [ ] Implement schedule enable/disable toggles
-
-**Deliverable**: Can create, edit, enable/disable schedules in Buddy UI
-
-### Phase 2: Execution Engine (Weeks 3-4)
-
-**Goal**: Tasks actually run on schedule
-
-- [ ] Implement Convex cron job for schedule scanning
-- [ ] Build task dispatch system (Convex → Electron)
-- [ ] Implement exec-worker in Electron main process
-- [ ] Implement ai-worker with LLM integration
-- [ ] Implement skill-worker (Claude CLI spawning)
-- [ ] Add run history view with real-time updates
-- [ ] Implement offline queue + catch-up logic
-- [ ] Add toast notifications for task events
-
-**Deliverable**: Schedules trigger tasks, results visible in UI
-
-### Phase 3: Jobs + Migration (Weeks 5-6)
-
-**Goal**: Full job management + Conductor migration
-
-- [ ] Build job list view
-- [ ] Add job editor (Monaco or form-based)
-- [ ] Implement job CRUD in Convex
-- [ ] Build migration tool for Conductor data
-- [ ] Test migration with real Conductor schedules
-- [ ] Documentation updates
-- [ ] Conductor retirement checklist
-
-**Deliverable**: Full feature parity with Conductor, migration complete
-
-### Phase 4: Polish + Mobile Prep (Future)
-
-- [ ] Performance optimization
-- [ ] Error handling improvements
-- [ ] Mobile app scaffolding (React Native + Expo)
-- [ ] Push notification integration
-- [ ] Beta testing
-
-### Phase 5: Set it Free Loop ✅ Foundation / 🚧 In Progress
-
-**Goal**: Buddy as a governed reference consumer of the Set it Free Loop operating model.
-
-The operating model itself lives in **[relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop)**.
-Buddy's role here is to run the loop and dogfood the governance standard.
-
-- [x] `daily-repo-status` (`SFL Repo Status`) workflow deployed and running
-- [x] `repo-audit` (`Repo Audit`) workflow deployed and running
-- [x] `discussion-processor` deployed and grouping report findings into actionable issues
-- [x] `sfl-issue-processor` is the single implementer for first-pass and follow-up PR work
-- [x] Direct chain pattern (A→B→C→label-actions) handles deterministic ready-for-review routing
-- [x] Governance labels configured via `setup-labels.ps1`
-- [x] `featureIntakes` Convex table for intake normalization
-- [ ] 30-day pilot metrics published to SFL repo
-
-**Deliverable**: Buddy demonstrates the full loop; metrics feed back into the SFL operating model
-
----
-
-## Technical Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Backend | Convex (not Inngest) | Cloud-native, real-time subscriptions, no local server |
-| Storage | Full Convex DB | Platform independence, mobile app support |
-| Large files | Convex File Storage | S3-like API, included in Convex |
-| Auth | Implicit via GitHub CLI | Reuse existing auth, no new login flow |
-| Workers | exec, ai, skill (3 types) | Covers all use cases, skill integration is unique value |
-| Offline | Queue + catch-up | Best UX for laptop users |
-| Mobile scope | Read + trigger only | 80/20 rule, editing needs desktop |
-| Implementation | 3 phases (incremental) | Reduce risk, get value early |
-| Conductor fate | Replaced by Buddy | Single tool, single codebase |
-
----
-
-## Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Convex learning curve | Medium | Start with simple CRUD, expand gradually |
-| Execution latency (cloud → local) | Low | Tasks are not latency-sensitive |
-| Convex pricing at scale | Low | Free tier generous; paid tier reasonable |
-| Skill worker complexity | Medium | Start with simple skills, iterate |
-| Migration data loss | High | Dry-run mode, manual verification |
-
----
-
-## Success Metrics
-
-1. **All Conductor schedules migrated** to Buddy
-2. **Zero missed scheduled tasks** for 30 days
-3. **< 5 second** task trigger latency (cloud → local execution start)
-4. **Real-time UI updates** working reliably
-5. **Conductor Windows Service** safely retired
-6. **Feature intake normalization rate** > 90% into GitHub Issues
-7. **Agent-generated PR merge success** tracked with clear quality thresholds
-8. **Cost per resolved issue** measured and trending down over pilot period
+| # | Goal | Status |
+|---|------|--------|
+| 1 | Replace hs-conductor | ✅ Retired — Buddy handles all scheduling |
+| 2 | Platform independence (Convex sync) | ✅ All data in Convex |
+| 3 | Serverless architecture | ✅ No local Express/Inngest server |
+| 4 | Real-time experience | ✅ Convex subscriptions power live UI |
+| 5 | Skill integration (110+ Claude skills) | ✅ skill-worker type operational |
+| 6 | Unified delivery intake | ✅ featureIntakes table + discussion-processor |
+| 7 | Recursive quality automation (SFL) | ✅ Full loop operational |
+| 8 | Portfolio scalability | 🚧 Running on hs-buddy + 2 SFL repos |
+| 9 | Raise test coverage to 50% | 🚧 At ~46%, ratcheting up |
+| 10 | Mobile companion app | 📋 Future — React Native + Expo |
 
 ---
 
 ## References
 
-- [relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop) — SFL operating model, workflow library, governance
-- [hs-conductor](https://github.com/HemSoft/hs-conductor) — Source codebase for migration
+- [relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop) — SFL operating model
 - [Convex Documentation](https://docs.convex.dev) — Backend platform
-- [Convex File Storage](https://docs.convex.dev/file-storage) — For run outputs
-- [Convex Cron Jobs](https://docs.convex.dev/scheduling/cron-jobs) — For schedule scanning
-
----
-
-## Appendix: Conductor Components to Port
-
-| Conductor File | Buddy Equivalent | Notes |
-|----------------|------------------|-------|
-| `src/inngest/client.ts` | `convex/` folder | Complete rewrite |
-| `src/workers/scheduler.ts` | Convex cron function | Simpler in Convex |
-| `admin/src/components/CronBuilder.tsx` | `src/components/CronBuilder.tsx` | Mostly copy-paste |
-| `src/lib/workload-loader.ts` | Not needed | Jobs in DB |
-| `src/lib/executor.ts` | `electron/workers.ts` | Local execution |
-| `data/schedules/*.json` | Convex `schedules` table | Migration tool |
-| `workloads/*.yaml` | Convex `jobs` table | Migration tool |
+- [GOAL-AND-GUIDING-PRINCIPLES.md](GOAL-AND-GUIDING-PRINCIPLES.md) — Guiding principles
+- [AGENTS.md](AGENTS.md) — Agentic loop standing orders
+- [docs/WORKFLOW-README.md](docs/WORKFLOW-README.md) — Workflow catalog

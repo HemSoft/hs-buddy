@@ -19,5 +19,6 @@ await builder
   .withReference(convex)
   .waitFor(convex)
   .withExternalHttpEndpoints()
+  .withOtlpExporter()
 
 await builder.build().run()

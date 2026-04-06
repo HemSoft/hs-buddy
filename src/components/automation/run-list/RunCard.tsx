@@ -14,6 +14,7 @@ import type { MouseEvent } from 'react'
 import { formatDistanceToNow, format, formatDuration } from '../../../utils/dateUtils'
 import { getWorkerIcon } from '../job-list/jobRowUtils'
 import { getStatusIcon, getStatusLabel } from '../../shared/statusDisplay'
+import { formatOutput } from './runCardUtils'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 type TriggerType = 'manual' | 'schedule' | 'api'
@@ -57,16 +58,6 @@ function getTriggerIcon(triggeredBy: TriggerType) {
       return <Calendar size={12} className="trigger-icon" />
     case 'api':
       return <RefreshCw size={12} className="trigger-icon" />
-  }
-}
-
-function formatOutput(output: unknown): string {
-  if (output === null || output === undefined) return ''
-  if (typeof output === 'string') return output
-  try {
-    return JSON.stringify(output, null, 2)
-  } catch {
-    return String(output)
   }
 }
 

@@ -39,21 +39,21 @@ function ReviewStateBadge({ state }: { state: string }) {
 
 export function ReviewSummaryCard({ review }: { review: PRReviewSummary }) {
   return (
-    <div className="thread-comment review-summary-card">
-      <div className="thread-comment-avatar-col">
-        {review.authorAvatarUrl ? (
-          <img
-            src={review.authorAvatarUrl}
-            alt={review.author}
-            className="thread-comment-avatar"
-          />
-        ) : (
-          <div className="thread-comment-avatar-placeholder">
-            {review.author.charAt(0).toUpperCase()}
-          </div>
-        )}
-      </div>
-      <div className="thread-comment-content">
+    <details className="thread-comment review-summary-card thread-comment-collapsible" open>
+      <summary className="thread-comment-summary-row">
+        <div className="thread-comment-avatar-col">
+          {review.authorAvatarUrl ? (
+            <img
+              src={review.authorAvatarUrl}
+              alt={review.author}
+              className="thread-comment-avatar"
+            />
+          ) : (
+            <div className="thread-comment-avatar-placeholder">
+              {review.author.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
         <div className="thread-comment-header">
           <span className="thread-comment-username">{review.author}</span>
           <ReviewStateBadge state={review.state} />
@@ -66,11 +66,16 @@ export function ReviewSummaryCard({ review }: { review: PRReviewSummary }) {
           <button
             type="button"
             className="review-summary-link"
-            onClick={() => window.shell.openExternal(review.url)}
+            onClick={e => {
+              e.preventDefault()
+              window.shell.openExternal(review.url)
+            }}
           >
             View on GitHub
           </button>
         </div>
+      </summary>
+      <div className="thread-comment-collapsible-body">
         <div className="thread-comment-body thread-comment-markdown" data-color-mode="dark">
           <MarkdownPreview
             source={review.body}
@@ -79,6 +84,6 @@ export function ReviewSummaryCard({ review }: { review: PRReviewSummary }) {
           />
         </div>
       </div>
-    </div>
+    </details>
   )
 }

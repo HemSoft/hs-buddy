@@ -421,9 +421,6 @@
 }
 
 .thread-comment {
-  display: flex;
-  gap: 10px;
-  padding: 12px 14px;
   border-bottom: 1px solid var(--border-secondary);
 }
 
@@ -433,7 +430,6 @@
 
 .thread-comment-avatar-col {
   flex-shrink: 0;
-  padding-top: 1px;
 }
 
 .thread-comment-avatar {
@@ -466,6 +462,42 @@
   align-items: baseline;
   gap: 8px;
   margin-bottom: 4px;
+}
+
+/* Collapsible individual comments and reviews */
+.thread-comment-collapsible {
+  border: none;
+}
+
+.thread-comment-collapsible > summary.thread-comment-summary-row {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.thread-comment-collapsible > summary.thread-comment-summary-row::-webkit-details-marker {
+  display: none;
+}
+
+.thread-comment-collapsible > summary.thread-comment-summary-row::before {
+  content: '▶';
+  display: inline-block;
+  font-size: 8px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  color: var(--text-tertiary);
+}
+
+.thread-comment-collapsible[open] > summary.thread-comment-summary-row::before {
+  transform: rotate(90deg);
+}
+
+.thread-comment-collapsible-body {
+  padding: 0 12px 10px 46px;
 }
 
 .thread-comment-username {
@@ -835,6 +867,36 @@
 .pr-threads-comment-submit:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ============================================================
+   Collapsible sections (comments, reviews)
+   ============================================================ */
+.pr-threads-collapsible {
+  border: none;
+}
+
+.pr-threads-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.pr-threads-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pr-threads-collapsible > summary::before {
+  content: '▶';
+  display: inline-block;
+  font-size: 9px;
+  margin-right: 4px;
+  transition: transform 0.15s ease;
+  color: var(--text-tertiary);
+}
+
+.pr-threads-collapsible[open] > summary::before {
+  transform: rotate(90deg);
 }
 
 /* ============================================================

@@ -113,21 +113,21 @@ export function CommentCard({
   )
 
   return (
-    <div className={`thread-comment ${isFirst ? 'thread-comment-first' : ''}`}>
-      <div className="thread-comment-avatar-col">
-        {comment.authorAvatarUrl ? (
-          <img
-            src={comment.authorAvatarUrl}
-            alt={comment.author}
-            className="thread-comment-avatar"
-          />
-        ) : (
-          <div className="thread-comment-avatar-placeholder">
-            {comment.author.charAt(0).toUpperCase()}
-          </div>
-        )}
-      </div>
-      <div className="thread-comment-content">
+    <details className={`thread-comment thread-comment-collapsible ${isFirst ? 'thread-comment-first' : ''}`} open>
+      <summary className="thread-comment-summary-row">
+        <div className="thread-comment-avatar-col">
+          {comment.authorAvatarUrl ? (
+            <img
+              src={comment.authorAvatarUrl}
+              alt={comment.author}
+              className="thread-comment-avatar"
+            />
+          ) : (
+            <div className="thread-comment-avatar-placeholder">
+              {comment.author.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
         <div className="thread-comment-header">
           <span className="thread-comment-username">{comment.author}</span>
           <span
@@ -137,6 +137,8 @@ export function CommentCard({
             {formatDistanceToNow(comment.createdAt)}
           </span>
         </div>
+      </summary>
+      <div className="thread-comment-collapsible-body">
         <CommentBody body={comment.body} bodyHtml={comment.bodyHtml} />
         {onReact && (
           <div className="thread-comment-reactions">
@@ -149,7 +151,10 @@ export function CommentCard({
                 <button
                   key={option.content}
                   className={`thread-comment-reaction ${active ? 'active' : ''}`}
-                  onClick={() => handleReact(option.content)}
+                  onClick={e => {
+                    e.preventDefault()
+                    handleReact(option.content)
+                  }}
                   disabled={reacting !== null}
                   title={option.label}
                 >
@@ -161,6 +166,6 @@ export function CommentCard({
           </div>
         )}
       </div>
-    </div>
+    </details>
   )
 }

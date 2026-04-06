@@ -180,31 +180,31 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
       )}
 
       {data.issueComments.length > 0 && (
-        <div className="pr-threads-section">
-          <div className="pr-threads-comments-title">
+        <details className="pr-threads-section pr-threads-collapsible" open>
+          <summary className="pr-threads-comments-title">
             <MessageCircle size={14} />
             {data.issueComments.length} {data.issueComments.length === 1 ? 'comment' : 'comments'}
-          </div>
+          </summary>
           <div className="pr-threads-comments">
             {data.issueComments.map(c => (
               <CommentCard key={c.id} comment={c} onReact={handleReactToComment} />
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {data.reviews.length > 0 && (
-        <div className="pr-threads-section">
-          <div className="pr-threads-comments-title">
+        <details className="pr-threads-section pr-threads-collapsible" open>
+          <summary className="pr-threads-comments-title">
             <FileText size={14} />
             {data.reviews.length} {data.reviews.length === 1 ? 'review' : 'reviews'}
-          </div>
+          </summary>
           <div className="pr-threads-reviews">
             {data.reviews.map(review => (
               <ReviewSummaryCard key={review.id} review={review} />
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {data.threads.length === 0 && data.issueComments.length === 0 && data.reviews.length === 0 && (

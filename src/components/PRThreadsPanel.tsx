@@ -207,12 +207,14 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         </details>
       )}
 
-      {data.threads.length === 0 && data.issueComments.length === 0 && data.reviews.length === 0 && (
-        <div className="pr-threads-empty-state">
-          <MessageCircle size={32} />
-          <p>No conversations yet</p>
-        </div>
-      )}
+      {data.threads.length === 0 &&
+        data.issueComments.length === 0 &&
+        data.reviews.length === 0 && (
+          <div className="pr-threads-empty-state">
+            <MessageCircle size={32} />
+            <p>No conversations yet</p>
+          </div>
+        )}
 
       <div className="pr-threads-add-comment">
         <div className="pr-threads-add-comment-header">Leave a comment</div>

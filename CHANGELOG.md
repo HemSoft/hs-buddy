@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.607] - 2026-04-06
+
+## [0.1.606] - 2026-04-06
+
+### Fixed
+
+- Use endsWith assertion per Copilot review feedback
+
 ## [0.1.605] - 2026-04-06
 
 ## [0.1.604] - 2026-04-05

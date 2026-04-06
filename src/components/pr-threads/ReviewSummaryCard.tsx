@@ -57,10 +57,7 @@ export function ReviewSummaryCard({ review }: { review: PRReviewSummary }) {
         <div className="thread-comment-header">
           <span className="thread-comment-username">{review.author}</span>
           <ReviewStateBadge state={review.state} />
-          <span
-            className="thread-comment-time"
-            title={new Date(review.createdAt).toLocaleString()}
-          >
+          <span className="thread-comment-time" title={new Date(review.createdAt).toLocaleString()}>
             {formatDistanceToNow(review.createdAt)}
           </span>
           <button

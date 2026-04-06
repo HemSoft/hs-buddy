@@ -113,7 +113,10 @@ export function CommentCard({
   )
 
   return (
-    <details className={`thread-comment thread-comment-collapsible ${isFirst ? 'thread-comment-first' : ''}`} open>
+    <details
+      className={`thread-comment thread-comment-collapsible ${isFirst ? 'thread-comment-first' : ''}`}
+      open
+    >
       <summary className="thread-comment-summary-row">
         <div className="thread-comment-avatar-col">
           {comment.authorAvatarUrl ? (

@@ -14,18 +14,32 @@
 
 ## Features
 
-- **Tree View Navigation**: Organize tools and views in a familiar left-sidebar structure
-- **Pull Request Viewer**: Beautiful UI for viewing and managing your GitHub PRs
-- **GitHub Integration**: Deep integration with GitHub pull requests, issues, and repositories
-- **Unified Dashboard**: All your important information in one place
+- **Pull Request Dashboard** — View, filter, and manage GitHub PRs across multiple accounts and orgs. Card and list views, detail panels, file diffs, checks, review threads, and merge history.
+- **Copilot SDK Integration** — Run AI prompts and PR reviews directly from the app using the GitHub Copilot SDK. Results are stored in Convex for history and replay.
+- **Copilot Usage Tracking** — Monitor premium request consumption, billing snapshots, and cost trends per account/org.
+- **Session Explorer** — Analyze Copilot session efficiency with token counts, tool density, search churn, and estimated cost per session digest.
+- **Bookmarks & In-App Browser** — Categorized URL bookmarks with an embedded tabbed browser (Electron webview). Back/forward/reload toolbar, external-browser fallback.
+- **Automation Scheduler** — Create jobs (shell commands, AI prompts, or Claude skills), attach cron schedules, and view execution history. Three worker types: exec, ai, skill.
+- **Tempo Timesheet** — Jira Tempo integration for logging and viewing time entries.
+- **Todoist Integration** — Task management via the Todoist API.
+- **Crew (Multi-Agent Projects)** — Launch and monitor multi-agent project sessions.
+- **Feature Intake Normalization** — Map external tickets (Jira, GitHub, manual) to canonical GitHub issue drafts with risk labels and acceptance criteria.
+- **Repo Explorer** — Browse repositories, issues, commits, and contributor details per org.
+- **Contribution Graph** — Visual contribution heatmap.
+- **OpenTelemetry + Aspire** — Full observability stack (traces, metrics, structured logs) that activates when launched via .NET Aspire orchestration.
 
 ## Tech Stack
 
-- **Electron 30** - Cross-platform desktop framework
-- **React 18** - UI framework
-- **TypeScript** - Type-safe development
-- **Vite** - Lightning-fast build tool
-- **Allotment** - Resizable split panes
+- **Electron 30** — Cross-platform desktop framework (frameless window)
+- **React 18** — UI framework with Lucide icons
+- **TypeScript 5** — Type-safe development
+- **Vite 5** — Dev server and bundler
+- **Convex** — Serverless backend with real-time sync (13 tables)
+- **Copilot SDK** — GitHub Copilot integration for AI prompts and PR reviews
+- **OpenTelemetry** — OTLP traces, metrics, and logs
+- **.NET Aspire** — Orchestration and dashboard (optional)
+- **Allotment** — Resizable split panes
+- **Vitest** — Unit tests with coverage ratchet
 
 ## Installation
 
@@ -176,26 +190,33 @@ npm run build
 hs-buddy/
 ├── electron/               # Main process (Electron)
 │   ├── ipc/               # IPC handlers (13 modules)
-│   ├── services/          # Copilot & crew client services
-│   ├── workers/           # AI/exec/dispatcher workers
-│   ├── main.ts            # Window management, menus, IPC
-│   └── preload.ts         # Secure context bridge
+│   ├── services/          # Copilot SDK, Crew, Tempo, Todoist clients
+│   ├── workers/           # Exec, AI, skill workers + dispatcher + offline sync
+│   ├── main.ts            # Window management, IPC registration
+│   ├── preload.ts         # Secure context bridge
+│   ├── menu.ts            # Keyboard shortcuts (frameless window)
+│   ├── telemetry.ts       # OpenTelemetry SDK init + helpers
+│   ├── cache.ts           # Cache management
+│   ├── config.ts          # electron-store configuration
+│   ├── utils.ts           # Main-process utilities
+│   └── zoom.ts            # Persistent zoom level
 ├── src/                   # Renderer process (React)
-│   ├── api/               # GitHub API client
-│   ├── features/          # Feature modules (budget discovery, quota projection, task queue)
+│   ├── api/               # GitHub API client (REST + GraphQL)
+│   ├── features/          # BDD feature specs (budget, quota, task queue)
 │   ├── components/        # React components
-│   │   ├── automation/        # Automation/schedule UI
-│   │   ├── copilot-usage/     # Copilot usage panels
-│   │   ├── crew/              # Crew (multi-agent) UI
+│   │   ├── automation/        # Schedule & job management UI
+│   │   ├── bookmarks/         # Bookmark list, dialog, category sidebar
+│   │   ├── copilot-usage/     # Copilot usage & billing panels
+│   │   ├── crew/              # Crew multi-agent project UI
+│   │   ├── planner/           # Task planner
 │   │   ├── pr-review/         # PR review panels
 │   │   ├── pr-threads/        # PR thread panels
-│   │   ├── pull-request-list/ # Pull request list panels
-│   │   ├── repo-detail/       # Repository detail panels
-│   │   ├── planner/           # Task planner UI
-│   │   ├── sessions/          # Session history panels
-│   │   ├── settings/          # Settings panels
+│   │   ├── pull-request-list/ # PR list (card & list views)
+│   │   ├── repo-detail/       # Repo detail panels
+│   │   ├── sessions/          # Session efficiency explorer
+│   │   ├── settings/          # Settings panels (accounts, appearance, etc.)
 │   │   ├── shared/            # Shared components
-│   │   ├── sidebar/           # Sidebar components
+│   │   ├── sidebar/           # Sidebar trees (GitHub, Bookmarks, Copilot)
 │   │   ├── sidebar-panel/     # Sidebar panel containers
 │   │   ├── bookmarks/         # Bookmark management panels
 │   │   └── tempo/             # Tempo timesheet panels
@@ -206,8 +227,8 @@ hs-buddy/
 │   ├── utils/             # Utilities
 │   ├── App.tsx            # Main application component
 │   └── main.tsx           # React entry point
-├── convex/                # Serverless backend functions
-├── scripts/               # Helper scripts
+├── convex/                # Serverless backend (13 tables, crons, lib/)
+├── scripts/               # Helper scripts (bump, coverage, SFL debug, etc.)
 ├── assets/                # Images and design assets
 ├── public/                # Static assets
 ├── dist/                  # Vite build output (renderer)
@@ -217,11 +238,17 @@ hs-buddy/
 
 ## Keyboard Shortcuts
 
-| Shortcut                        | Action            |
-| ------------------------------- | ----------------- |
-| `F11`                           | Toggle fullscreen |
-| `Ctrl+R` / `Cmd+R`              | Reload window     |
+| Shortcut                         | Action            |
+| -------------------------------- | ----------------- |
+| `F11`                            | Toggle fullscreen |
 | `Ctrl+Shift+I` / `Cmd+Option+I` | Toggle DevTools   |
+| `Ctrl+NumpadAdd`                 | Zoom in           |
+| `Ctrl+NumpadSubtract`            | Zoom out          |
+| `Ctrl+Numpad0`                   | Reset zoom        |
+| `Ctrl+Tab`                       | Next tab          |
+| `Ctrl+Shift+Tab`                 | Previous tab      |
+| `Ctrl+F4`                        | Close active tab  |
+| `Ctrl+Shift+A`                   | Toggle assistant  |
 
 ## Troubleshooting
 
@@ -231,29 +258,22 @@ You can also run the validation script to check your GitHub org configurations:
 .\scripts\validate-github-orgs.ps1
 ```
 
-## Roadmap
+## Activity Bar
 
-### Phase 1: Foundation
+The left-side activity bar provides access to 10 sections:
 
-- [x] Scaffold Electron + React project
-- [x] Tree view navigation
-- [x] PR viewer (first use case)
-- [x] electron-store configuration system
-- [x] Settings UI
-- [ ] Multi-account GitHub support (architecture ready)
-- [ ] Bitbucket integration
-
-### Phase 2: Integration
-
-- [ ] Skills browser
-- [ ] Task management
-- [ ] Notifications
-
-### Phase 3: Advanced Features
-
-- [ ] Dashboard views
-- [ ] Custom layouts
-- [ ] Plugin system
+| Section        | Contents                                                        |
+| -------------- | --------------------------------------------------------------- |
+| **GitHub**     | PRs (My, Needs Review, Merged, Nudge), repo explorer, org/user |
+| **Skills**     | Browse, recent, favorites                                       |
+| **Tasks**      | Today, upcoming, projects (Todoist)                             |
+| **Insights**   | Productivity, activity                                          |
+| **Automation** | Schedules, run history                                          |
+| **The Crew**   | Multi-agent project sessions                                    |
+| **Tempo**      | Timesheet entries                                               |
+| **Bookmarks**  | Categorized URLs with in-app browser tabs                       |
+| **Copilot**    | Prompt box, results, usage, session explorer                    |
+| **Settings**   | Accounts, appearance, PR config, Copilot SDK, advanced          |
 
 ## Set it Free Loop
 

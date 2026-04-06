@@ -9,35 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.609] - 2026-04-06
-
-## [0.1.608] - 2026-04-06
-
-## [0.1.607] - 2026-04-06
-
 ## [0.1.606] - 2026-04-06
 
 ### Fixed
 
 - Use endsWith assertion per Copilot review feedback
-
-## [0.1.605] - 2026-04-06
-
-## [0.1.604] - 2026-04-05
-
-## [0.1.603] - 2026-04-05
-
-## [0.1.602] - 2026-04-05
-
-## [0.1.601] - 2026-04-05
-
-## [0.1.600] - 2026-04-05
-
-## [0.1.599] - 2026-04-05
-
-## [0.1.598] - 2026-04-05
-
-## [0.1.597] - 2026-04-05
 
 ## [0.1.596] - 2026-04-05
 
@@ -45,27 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add Ctrl+Tab / Ctrl+Shift+Tab tab cycling
 
-## [0.1.595] - 2026-04-05
-
 ## [0.1.594] - 2026-04-05
 
 ### Fixed
 
 - Prevent unhandled rejection in task-queue cancel test
 
-## [0.1.593] - 2026-04-05
-
-## [0.1.592] - 2026-04-05
-
-## [0.1.591] - 2026-04-05
-
 ## [0.1.590] - 2026-04-05
 
 ### Added
 
 - Show individual bookmarks in sidebar tree
-
-## [0.1.589] - 2026-04-05
 
 ## [0.1.588] - 2026-04-05
 
@@ -79,19 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Persist auth cookies in in-app browser sessions
 
-## [0.1.586] - 2026-04-04
-
-## [0.1.585] - 2026-04-04
-
 ## [0.1.584] - 2026-04-04
 
 ### Fixed
 
 - Card click opens in-app, link button opens external browser
-
-## [0.1.583] - 2026-04-04
-
-## [0.1.582] - 2026-04-04
 
 ## [0.1.581] - 2026-04-04
 
@@ -105,12 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add OpenTelemetry instrumentation for Aspire dashboard
 
-## [0.1.579] - 2026-04-04
-
-## [0.1.578] - 2026-04-04
-
-## [0.1.577] - 2026-04-04
-
 ## [0.1.576] - 2026-04-04
 
 ### Fixed
@@ -123,21 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add in-app browser window and hierarchical categories
 
-## [0.1.574] - 2026-04-04
-
-## [0.1.573] - 2026-04-04
-
 ## [0.1.572] - 2026-04-04
 
 ### Added
 
 - Add Aspire orchestration with TypeScript AppHost
-
-## [0.1.571] - 2026-04-04
-
-## [0.1.570] - 2026-04-04
-
-## [0.1.569] - 2026-04-04
 
 ## [0.1.568] - 2026-04-04
 
@@ -163,77 +105,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Prevent dialog dismiss when drag-selecting text
 
-## [0.1.564] - 2026-04-04
-
 ## [0.1.563] - 2026-04-04
 
 ### Added
 
 - Merge bookmarks feature with conflict resolution and review fixes
 
-## [0.1.562] - 2026-04-04
-
-## [0.1.561] - 2026-04-04
-
-## [0.1.560] - 2026-04-04
-
-## [0.1.559] - 2026-04-04
-
 ## [0.1.558] - 2026-04-04
 
 ### Fixed
 
 - Add cobertura reporter and improve coverage upload (#475)
-
-## [0.1.557] - 2026-04-04
-
-## [0.1.556] - 2026-04-03
-
-## [0.1.555] - 2026-04-02
-
-## [0.1.554] - 2026-04-02
-
-## [0.1.553] - 2026-04-01
-
-## [0.1.552] - 2026-04-01
-
-## [0.1.551] - 2026-04-01
-
-## [0.1.550] - 2026-04-01
-
-## [0.1.549] - 2026-04-01
-
-## [0.1.548] - 2026-04-01
-
-## [0.1.547] - 2026-04-01
-
-## [0.1.546] - 2026-04-01
-
-## [0.1.545] - 2026-04-01
-
-## [0.1.544] - 2026-04-01
-
-## [0.1.543] - 2026-03-31
-
-## [0.1.542] - 2026-03-31
-
-## [0.1.541] - 2026-03-31
-
-## [0.1.540] - 2026-03-31
-
-## [0.1.539] - 2026-03-31
-
-## [0.1.538] - 2026-03-31
-
-## [0.1.537] - 2026-03-31
-
-## [0.1.536] - 2026-03-31
-
-## [0.1.535] - 2026-03-31
-
-## [0.1.534] - 2026-03-31
-
-## [0.1.533] - 2026-03-31
 
 ## [0.1.532] - 2026-03-31
 
@@ -246,8 +128,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add 6 new vitest benchmarks and refresh baseline tables
-
-## [0.1.530] - 2026-03-31
 
 ## [0.1.529] - 2026-03-31
 
@@ -267,15 +147,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add vitest bench performance benchmarks for critical paths
 
-## [0.1.526] - 2026-03-31
-
 ## [0.1.525] - 2026-03-31
 
 ### Added
 
 - Add Task Planner with Todoist integration
-
-## [0.1.524] - 2026-03-31
 
 ## [0.1.523] - 2026-03-31
 
@@ -284,16 +160,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Changed section to v0.1.521 for TODO restructuring
 - Bump version to 0.1.522 with changelog entry
 
-## [0.1.522] - 2026-03-31
-
 ## [0.1.521] - 2026-03-31
 
 ### Changed
 
 - Add benchmarking TODO and prune stale completed-item details
 - Mark Task Planner complete, add benchmarking task, update remaining section
-
-## [0.1.520] - 2026-03-31
 
 ## [0.1.519] - 2026-03-30
 
@@ -619,16 +491,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bump version to 0.1.465
 
-## [0.1.465] - 2026-03-29
-
-## [0.1.464] - 2026-03-29
-
-## [0.1.463] - 2026-03-29
-
-## [0.1.462] - 2026-03-29
-
-## [0.1.461] - 2026-03-29
-
 ## [0.1.460] - 2026-03-28
 
 ### Changed
@@ -683,8 +545,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Harden account dropdown against race conditions and stale responses
 
-## [0.1.451] - 2026-03-27
-
 ## [0.1.450] - 2026-03-27
 
 ### Changed
@@ -696,10 +556,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add project-scoped account selector to worklog editor
-
-## [0.1.448] - 2026-03-27
-
-## [0.1.447] - 2026-03-27
 
 ## [0.1.446] - 2026-03-27
 
@@ -749,8 +605,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use distinct color for org budget myshare bar overlay
 
-## [0.1.438] - 2026-03-26
-
 ## [0.1.437] - 2026-03-26
 
 ### Changed
@@ -786,12 +640,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Remove dead deps, update docs, fix unused param (closes #350)
-
-## [0.1.431] - 2026-03-25
-
-## [0.1.430] - 2026-03-25
-
-## [0.1.429] - 2026-03-25
 
 ## [0.1.428] - 2026-03-25
 
@@ -835,10 +683,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add sfl-improve-scorecard workflow
 
-## [0.1.421] - 2026-03-25
-
-## [0.1.420] - 2026-03-24
-
 ## [0.1.419] - 2026-03-24
 
 ### Fixed
@@ -851,15 +695,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Capex cache bust, env-var refinement, grid polish
 
-## [0.1.417] - 2026-03-24
-
 ## [0.1.416] - 2026-03-23
 
 ### Added
 
 - UX polish — auto-select, auto-scroll, checkmarks, completion indicator
-
-## [0.1.415] - 2026-03-23
 
 ## [0.1.414] - 2026-03-23
 
@@ -867,15 +707,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add holiday support via Tempo user-schedule API
 
-## [0.1.413] - 2026-03-23
-
 ## [0.1.412] - 2026-03-23
 
 ### Added
 
 - Simplify to Timesheet-only, add capex/non-capex summary
-
-## [0.1.411] - 2026-03-23
 
 ## [0.1.410] - 2026-03-23
 
@@ -913,15 +749,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add Tempo time tracking dashboard with timesheet grid
 
-## [0.1.404] - 2026-03-22
-
 ## [0.1.403] - 2026-03-22
 
 ### Added
 
 - Add branch hygiene to repo-audit and sfl-auditor
-
-## [0.1.402] - 2026-03-22
 
 ## [0.1.401] - 2026-03-22
 
@@ -935,27 +767,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Restore splitter position on app restart + add user-switch tests
 
-## [0.1.399] - 2026-03-21
-
-## [0.1.398] - 2026-03-21
-
-## [0.1.397] - 2026-03-21
-
-## [0.1.396] - 2026-03-21
-
-## [0.1.395] - 2026-03-21
-
 ## [0.1.394] - 2026-03-21
 
 ### Added
 
 - Add profile meta display to UserDetailPanel + new GitHub API functions
-
-## [0.1.393] - 2026-03-20
-
-## [0.1.392] - 2026-03-20
-
-## [0.1.391] - 2026-03-20
 
 ## [0.1.390] - 2026-03-20
 
@@ -986,10 +802,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Add deterministic patterns and review thread resolution knowledge
-
-## [0.1.385] - 2026-03-20
-
-## [0.1.384] - 2026-03-19
 
 ## [0.1.383] - 2026-03-19
 
@@ -1027,8 +839,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove duplicate SECTION_LABELS and fix SettingsAppearance type mismatch
 
-## [0.1.377] - 2026-03-16
-
 ## [0.1.376] - 2026-03-16
 
 ### Added
@@ -1041,10 +851,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Extract+test pure helpers across 6 files (10.58% -> 12.78%)
 
-## [0.1.374] - 2026-03-15
-
-## [0.1.373] - 2026-03-15
-
 ## [0.1.372] - 2026-03-15
 
 ### Changed
@@ -1056,28 +862,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Add 13 test files, ~230 tests, coverage 1.96→7%
-
-## [0.1.370] - 2026-03-15
-
-## [0.1.369] - 2026-03-15
-
-## [0.1.368] - 2026-03-15
-
-## [0.1.367] - 2026-03-15
-
-## [0.1.366] - 2026-03-15
-
-## [0.1.365] - 2026-03-15
-
-## [0.1.364] - 2026-03-15
-
-## [0.1.363] - 2026-03-15
-
-## [0.1.362] - 2026-03-15
-
-## [0.1.361] - 2026-03-15
-
-## [0.1.360] - 2026-03-14
 
 ## [0.1.359] - 2026-03-14
 
@@ -1127,21 +911,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Post-migration cleanup - remove stale refs and obsolete skill
 
-## [0.1.351] - 2026-03-13
-
 ## [0.1.350] - 2026-03-13
 
 ### Added
 
 - Convert hs-buddy to SFL consumer via gh aw add
-
-## [0.1.349] - 2026-03-13
-
-## [0.1.348] - 2026-03-13
-
-## [0.1.347] - 2026-03-13
-
-## [0.1.346] - 2026-03-13
 
 ## [0.1.345] - 2026-03-12
 
@@ -1167,10 +941,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use base64 -w 0 to prevent line wrapping in fetch token
 
-## [0.1.341] - 2026-03-12
-
-## [0.1.340] - 2026-03-12
-
 ## [0.1.339] - 2026-03-12
 
 ### Removed
@@ -1189,8 +959,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add dead-code guardrails to audit workflows and improve PR sidebar icons
 
-## [0.1.336] - 2026-03-12
-
 ## [0.1.335] - 2026-03-12
 
 ### Fixed
@@ -1203,10 +971,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Space daily workflow schedules 1h apart starting 1AM EDT
 
-## [0.1.333] - 2026-03-12
-
-## [0.1.332] - 2026-03-12
-
 ## [0.1.331] - 2026-03-12
 
 ### Fixed
@@ -1218,8 +982,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Move workflow README out of protected .github/ path
-
-## [0.1.329] - 2026-03-11
 
 ## [0.1.328] - 2026-03-11
 
@@ -1245,8 +1007,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add branch checkout instructions for dispatch runs
 
-## [0.1.324] - 2026-03-11
-
 ## [0.1.323] - 2026-03-11
 
 ### Fixed
@@ -1270,10 +1030,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Wire dispatch inputs to prompt via Handlebars blocks
-
-## [0.1.319] - 2026-03-11
-
-## [0.1.318] - 2026-03-11
 
 ## [0.1.317] - 2026-03-11
 
@@ -1305,10 +1061,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Allow README.md in .github/workflows for agent PRs
 
-## [0.1.312] - 2026-03-11
-
-## [0.1.311] - 2026-03-11
-
 ## [0.1.310] - 2026-03-11
 
 ### Changed
@@ -1332,12 +1084,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Pipeline V2 end-to-end test tracking — PASSED
-
-## [0.1.306] - 2026-03-10
-
-## [0.1.305] - 2026-03-10
-
-## [0.1.304] - 2026-03-10
 
 ## [0.1.303] - 2026-03-10
 

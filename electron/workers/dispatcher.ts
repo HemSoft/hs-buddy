@@ -15,7 +15,7 @@ import { skillWorker } from './skillWorker'
 import { fetchCopilotMetrics } from '../ipc/githubHandlers'
 import type { Worker, JobConfig } from './types'
 import { CONVEX_URL } from '../config'
-import { getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
 
 const POLL_INTERVAL = 10_000 // 10 seconds
 
@@ -90,9 +90,7 @@ class Dispatcher {
       // Only log first error and every 6th after (once per minute at 10s interval)
       if (this.consecutiveErrors === 1 || this.consecutiveErrors % 6 === 0) {
         const msg = getErrorMessage(err)
-        console.warn(
-          `[Dispatcher] Convex unreachable (attempt ${this.consecutiveErrors}): ${msg}`
-        )
+        console.warn(`[Dispatcher] Convex unreachable (attempt ${this.consecutiveErrors}): ${msg}`)
       }
     } finally {
       this.processing = false
@@ -165,12 +163,11 @@ class Dispatcher {
   }
 
   /** Collect Copilot usage snapshots and persist to copilotUsageHistory */
-  private async executeSnapshotCollection(
-    run: { _id: Id<"runs">; input?: { accounts?: Array<{ username: string; org: string }> } },
-  ): Promise<void> {
-    const accounts = run.input?.accounts as
-      | Array<{ username: string; org: string }>
-      | undefined
+  private async executeSnapshotCollection(run: {
+    _id: Id<'runs'>
+    input?: { accounts?: Array<{ username: string; org: string }> }
+  }): Promise<void> {
+    const accounts = run.input?.accounts as Array<{ username: string; org: string }> | undefined
     if (!accounts || accounts.length === 0) {
       await this.client.mutation(api.runs.fail, {
         id: run._id,
@@ -197,9 +194,7 @@ class Dispatcher {
             discount: result.data.discount,
             netCost: result.data.netCost,
             businessSeats: result.data.businessSeats,
-            ...(result.data.budgetAmount != null
-              ? { budgetAmount: result.data.budgetAmount }
-              : {}),
+            ...(result.data.budgetAmount != null ? { budgetAmount: result.data.budgetAmount } : {}),
             spent: result.data.spent,
           })
           succeeded++
@@ -215,7 +210,9 @@ class Dispatcher {
     }
 
     const duration = Date.now() - start
-    console.log(`[Dispatcher] Snapshot collection: ${succeeded} succeeded, ${failed} failed in ${duration}ms`)
+    console.log(
+      `[Dispatcher] Snapshot collection: ${succeeded} succeeded, ${failed} failed in ${duration}ms`
+    )
 
     await this.client.mutation(api.runs.complete, {
       id: run._id,

@@ -1,5 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron'
-import { getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
 
 /**
  * Wraps an IPC handler with a standard try/catch that returns

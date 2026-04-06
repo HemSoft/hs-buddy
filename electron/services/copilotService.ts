@@ -19,15 +19,16 @@ import {
   DEFAULT_MODEL,
 } from './copilotClient'
 import { CONVEX_URL } from '../config'
-import { execAsync, getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
+import { execAsync } from '../utils'
 
 const HARD_TIMEOUT = 30 * 60_000 // 30 minutes — PR reviews can be lengthy
 
 interface CopilotPromptRequest {
   prompt: string
-  category?: string       // "pr-review", "general", etc.
-  metadata?: unknown      // Arbitrary metadata (e.g., PR info)
-  model?: string          // Override default model
+  category?: string // "pr-review", "general", etc.
+  metadata?: unknown // Arbitrary metadata (e.g., PR info)
+  model?: string // Override default model
 }
 
 interface PRReviewMetadata {
@@ -48,7 +49,7 @@ interface PRReviewMetadata {
 
 function hasPRReviewMetadata(
   request: CopilotPromptRequest,
-  metadata: PRReviewMetadata | undefined,
+  metadata: PRReviewMetadata | undefined
 ): metadata is PRReviewMetadata &
   Required<Pick<PRReviewMetadata, 'org' | 'repo' | 'prNumber' | 'prUrl' | 'prTitle'>> {
   return (
@@ -62,7 +63,7 @@ function hasPRReviewMetadata(
 }
 
 interface CopilotPromptResult {
-  resultId: string        // Convex document ID
+  resultId: string // Convex document ID
   success: boolean
   error?: string
 }
@@ -100,7 +101,10 @@ class CopilotService {
    *
    * Returns the gh CLI username to switch to, or undefined if none found.
    */
-  private async resolveAccount(prompt: string, explicitAccount?: string): Promise<string | undefined> {
+  private async resolveAccount(
+    prompt: string,
+    explicitAccount?: string
+  ): Promise<string | undefined> {
     if (explicitAccount) return explicitAccount
 
     const orgs = this.extractGitHubOrgs(prompt)
@@ -210,7 +214,7 @@ class CopilotService {
 
     // Run the actual execution asynchronously (don't block IPC return)
     this.runPrompt(resultId, request.prompt, model, abortController.signal)
-      .catch((err) => {
+      .catch(err => {
         console.error(`[CopilotService] Unhandled error for ${resultIdStr}:`, err)
       })
       .finally(() => {
@@ -224,7 +228,7 @@ class CopilotService {
    * Internal: run the prompt via the shared CopilotClient and persist to Convex.
    */
   private async runPrompt(
-    resultId: Id<"copilotResults">,
+    resultId: Id<'copilotResults'>,
     prompt: string,
     model: string,
     signal: AbortSignal
@@ -247,12 +251,13 @@ class CopilotService {
 
 IMPORTANT: Format your entire response as clean, well-structured Markdown. Use headings, lists, code blocks, and other Markdown formatting as appropriate.`
 
-      const resultText = await sendPrompt({
-        prompt: fullPrompt,
-        model,
-        timeout: HARD_TIMEOUT,
-        signal,
-      }) || '*No response received from Copilot SDK.*'
+      const resultText =
+        (await sendPrompt({
+          prompt: fullPrompt,
+          model,
+          timeout: HARD_TIMEOUT,
+          signal,
+        })) || '*No response received from Copilot SDK.*'
 
       // Store completed result in Convex
       await this.convex.mutation(api.copilotResults.complete, {
@@ -271,19 +276,23 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
       const errorMessage = getErrorMessage(err)
       console.error(`[CopilotService] ✗ Failed:`, errorMessage)
 
-      await this.convex.mutation(api.copilotResults.fail, {
-        id: resultId,
-        error: errorMessage,
-      }).catch(() => {
-        console.error('[CopilotService] Failed to record error in Convex')
-      })
+      await this.convex
+        .mutation(api.copilotResults.fail, {
+          id: resultId,
+          error: errorMessage,
+        })
+        .catch(() => {
+          console.error('[CopilotService] Failed to record error in Convex')
+        })
 
-      await this.convex.mutation(api.prReviewRuns.failByResult, {
-        resultId,
-        error: errorMessage,
-      }).catch(() => {
-        console.error('[CopilotService] Failed to record PR review run failure in Convex')
-      })
+      await this.convex
+        .mutation(api.prReviewRuns.failByResult, {
+          resultId,
+          error: errorMessage,
+        })
+        .catch(() => {
+          console.error('[CopilotService] Failed to record PR review run failure in Convex')
+        })
     }
   }
 
@@ -310,7 +319,9 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
   /**
    * List available models from the Copilot SDK via the shared client.
    */
-  async listModels(ghAccount?: string): Promise<Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>> {
+  async listModels(
+    ghAccount?: string
+  ): Promise<Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>> {
     // Switch gh CLI account BEFORE querying so the client inherits the
     // correct credentials.  Uses the same switchAccount() method which
     // also restarts the SDK client.
@@ -329,7 +340,10 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
         const models = await Promise.race([
           client.listModels(),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout: listModels did not respond within 30s')), 30_000)
+            setTimeout(
+              () => reject(new Error('Timeout: listModels did not respond within 30s')),
+              30_000
+            )
           ),
         ])
 

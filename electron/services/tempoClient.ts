@@ -1,6 +1,7 @@
 import { execSync } from 'child_process'
-import { getErrorMessage } from '../utils'
 import { readDataCache, writeDataCacheEntry } from '../cache'
+import { getErrorMessage } from '../../src/utils/errorUtils'
+import { DAY } from '../../src/utils/dateUtils'
 import type {
   TempoApiWorklog,
   TempoWorklog,
@@ -24,11 +25,7 @@ const issueKeyCache = new Map<number, { key: string; summary: string }>()
 const projectIdCache = new Map<string, number>()
 
 /** Env-var names that are safe to read from Machine scope */
-const ALLOWED_ENV_NAMES = new Set([
-  'TEMPO_API_TOKEN',
-  'ATLASSIAN_API_TOKEN',
-  'ATLASSIAN_EMAIL',
-])
+const ALLOWED_ENV_NAMES = new Set(['TEMPO_API_TOKEN', 'ATLASSIAN_API_TOKEN', 'ATLASSIAN_EMAIL'])
 
 const envCache = new Map<string, string>()
 
@@ -48,7 +45,9 @@ function getEnv(name: string): string | undefined {
         envCache.set(name, val)
         return val
       }
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
 
   // Fall back to process.env
@@ -89,7 +88,11 @@ function getTempoHeaders(): Record<string, string> {
   }
 }
 
-async function fetchJson<T>(url: string, headers: Record<string, string>, init?: RequestInit): Promise<T> {
+async function fetchJson<T>(
+  url: string,
+  headers: Record<string, string>,
+  init?: RequestInit
+): Promise<T> {
   const res = await fetch(url, { ...init, headers: { ...headers, ...init?.headers } })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -115,7 +118,10 @@ async function getAccountId(): Promise<string> {
       writeDataCacheEntry('tempo:accountId', { data: cachedAccountId, fetchedAt: Date.now() })
       return cachedAccountId
     } catch (err) {
-      console.warn('[Tempo] Jira /myself failed, trying disk cache:', err instanceof Error ? err.message : err)
+      console.warn(
+        '[Tempo] Jira /myself failed, trying disk cache:',
+        err instanceof Error ? err.message : err
+      )
     }
   }
 
@@ -128,9 +134,9 @@ async function getAccountId(): Promise<string> {
   }
 
   throw new Error(
-    'Could not determine your Jira account ID. '
-    + 'Your Atlassian API token may be expired — please update ATLASSIAN_API_TOKEN '
-    + 'and restart the app.'
+    'Could not determine your Jira account ID. ' +
+      'Your Atlassian API token may be expired — please update ATLASSIAN_API_TOKEN ' +
+      'and restart the app.'
   )
 }
 
@@ -167,7 +173,8 @@ async function resolveIssueKey(issueId: number): Promise<{ key: string; summary:
 
 async function resolveIssueId(issueKey: string): Promise<number> {
   const jiraHeaders = getJiraHeaders()
-  if (!jiraHeaders) throw new Error('Jira credentials not available — cannot create worklogs by issue key')
+  if (!jiraHeaders)
+    throw new Error('Jira credentials not available — cannot create worklogs by issue key')
   const issue = await fetchJson<{ id: string; fields: { summary: string } }>(
     `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=id,summary`,
     jiraHeaders
@@ -203,7 +210,12 @@ export async function getProjectAccountLinks(
   try {
     const projectId = await resolveProjectId(projectKey)
     const resp = await fetchJson<{
-      results: { id: number; account: { id: number; self: string }; default: boolean; scope: { id: number; type: string } }[]
+      results: {
+        id: number
+        account: { id: number; self: string }
+        default: boolean
+        scope: { id: number; type: string }
+      }[]
     }>(
       `${TEMPO_BASE}/account-links/project/${projectId}?includeGlobalAccounts=true`,
       getTempoHeaders()
@@ -211,12 +223,14 @@ export async function getProjectAccountLinks(
     // Ensure accounts are loaded so accountIdToKey is populated
     await getAccounts()
     const accountMap = await getAccountMap()
-    const links = resp.results.map(link => {
-      // Resolve account key from numeric ID in the self URL
-      const numericId = link.account.id ?? Number(link.account.self?.split('/').pop())
-      const key = accountIdToKey.get(numericId) || ''
-      return { key, name: accountMap.get(key) || key, isDefault: link.default }
-    }).filter(link => link.key !== '')
+    const links = resp.results
+      .map(link => {
+        // Resolve account key from numeric ID in the self URL
+        const numericId = link.account.id ?? Number(link.account.self?.split('/').pop())
+        const key = accountIdToKey.get(numericId) || ''
+        return { key, name: accountMap.get(key) || key, isDefault: link.default }
+      })
+      .filter(link => link.key !== '')
     return { success: true, data: links }
   } catch (err) {
     return { success: false, error: getErrorMessage(err) }
@@ -316,7 +330,9 @@ export async function getWorklogsForDate(date: string): Promise<TempoResult<Temp
 export async function getWeekSummary(
   weekStart: string,
   weekEnd: string
-): Promise<TempoResult<{ worklogs: TempoWorklog[]; issueSummaries: TempoIssueSummary[]; totalHours: number }>> {
+): Promise<
+  TempoResult<{ worklogs: TempoWorklog[]; issueSummaries: TempoIssueSummary[]; totalHours: number }>
+> {
   const result = await getWorklogsForRange(weekStart, weekEnd)
   if (!result.success) return { success: false, error: result.error }
   const worklogs = result.data || []
@@ -326,7 +342,12 @@ export async function getWeekSummary(
   for (const w of worklogs) {
     let summary = issueMap.get(w.issueKey)
     if (!summary) {
-      summary = { issueKey: w.issueKey, issueSummary: w.issueSummary, totalHours: 0, hoursByDate: {} }
+      summary = {
+        issueKey: w.issueKey,
+        issueSummary: w.issueSummary,
+        totalHours: 0,
+        hoursByDate: {},
+      }
       issueMap.set(w.issueKey, summary)
     }
     summary.totalHours += w.hours
@@ -362,11 +383,10 @@ export async function createWorklog(
       attributes: [{ key: '_Account_', value: accountKey }],
     }
 
-    const resp = await fetchJson<TempoApiWorklog>(
-      `${TEMPO_BASE}/worklogs`,
-      getTempoHeaders(),
-      { method: 'POST', body: JSON.stringify(body) }
-    )
+    const resp = await fetchJson<TempoApiWorklog>(`${TEMPO_BASE}/worklogs`, getTempoHeaders(), {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
 
     const issueInfo = issueKeyCache.get(issueId) || { key: payload.issueKey, summary: '' }
     const accountMap = await getAccountMap()
@@ -390,11 +410,10 @@ export async function updateWorklog(
     if (payload.description !== undefined) body.description = payload.description
     if (payload.accountKey) body.attributes = [{ key: '_Account_', value: payload.accountKey }]
 
-    await fetchJson<unknown>(
-      `${TEMPO_BASE}/worklogs/${worklogId}`,
-      getTempoHeaders(),
-      { method: 'PUT', body: JSON.stringify(body) }
-    )
+    await fetchJson<unknown>(`${TEMPO_BASE}/worklogs/${worklogId}`, getTempoHeaders(), {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
 
     return { success: true }
   } catch (err) {
@@ -432,7 +451,11 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
   // Check disk cache (24h TTL — stale false entries from Jira outages must expire)
   const diskCache = readDataCache()
   const diskEntry = diskCache[`tempo:capex:${issueKey}`]
-  if (diskEntry?.data !== undefined && diskEntry.fetchedAt && Date.now() - diskEntry.fetchedAt < 86_400_000) {
+  if (
+    diskEntry?.data !== undefined &&
+    diskEntry.fetchedAt &&
+    Date.now() - diskEntry.fetchedAt < DAY
+  ) {
     const val = diskEntry.data as boolean
     capexCache.set(issueKey, val)
     return val
@@ -476,7 +499,10 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
     writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: false, fetchedAt: Date.now() })
     return false
   } catch (err) {
-    console.error(`[CapEx] Failed to resolve ${issueKey}:`, err instanceof Error ? err.message : err)
+    console.error(
+      `[CapEx] Failed to resolve ${issueKey}:`,
+      err instanceof Error ? err.message : err
+    )
     capexCache.set(issueKey, false)
     return false
   }
@@ -486,7 +512,16 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
 export async function getUserSchedule(
   from: string,
   to: string
-): Promise<TempoResult<{ date: string; requiredSeconds: number; type: 'WORKING_DAY' | 'NON_WORKING_DAY' | 'HOLIDAY'; holidayName?: string }[]>> {
+): Promise<
+  TempoResult<
+    {
+      date: string
+      requiredSeconds: number
+      type: 'WORKING_DAY' | 'NON_WORKING_DAY' | 'HOLIDAY'
+      holidayName?: string
+    }[]
+  >
+> {
   try {
     const accountId = await getAccountId()
     const url = `${TEMPO_BASE}/user-schedule/${accountId}?from=${from}&to=${to}`

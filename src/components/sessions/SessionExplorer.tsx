@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useCopilotSessions } from '../../hooks/useCopilotSessions'
 import type { SessionSummary } from '../../types/copilotSession'
+import { DAY } from '../../utils/dateUtils'
 import './SessionExplorer.css'
 
 function formatSize(bytes: number): string {
@@ -41,8 +42,8 @@ function getDateGroup(ts: number): string {
   const now = new Date()
   const date = new Date(ts)
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const yesterday = new Date(today.getTime() - 86400000)
-  const weekAgo = new Date(today.getTime() - 7 * 86400000)
+  const yesterday = new Date(today.getTime() - DAY)
+  const weekAgo = new Date(today.getTime() - 7 * DAY)
 
   if (date >= today) return 'Today'
   if (date >= yesterday) return 'Yesterday'

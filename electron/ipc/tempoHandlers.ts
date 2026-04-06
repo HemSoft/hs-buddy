@@ -11,8 +11,8 @@ import {
   getCapexMap,
   getUserSchedule,
 } from '../services/tempoClient'
-import { formatDateKey } from '../utils'
 import type { CreateWorklogPayload, UpdateWorklogPayload } from '../../src/types/tempo'
+import { formatDateKey } from '../../src/utils/dateUtils'
 import { ipcHandler } from './ipcHandler'
 
 export function registerTempoHandlers(): void {

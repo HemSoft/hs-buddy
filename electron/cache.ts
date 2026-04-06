@@ -1,15 +1,13 @@
 import { app } from 'electron'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { readJsonFile, updateJsonFile, writeJsonFile } from './jsonFileStore'
 
 const getDataCachePath = () => path.join(app.getPath('userData'), 'data-cache.json')
+type DataCache = Record<string, { data: unknown; fetchedAt: number }>
 
-export function readDataCache(): Record<string, { data: unknown; fetchedAt: number }> {
+export function readDataCache(): DataCache {
   try {
-    const cachePath = getDataCachePath()
-    if (existsSync(cachePath)) {
-      return JSON.parse(readFileSync(cachePath, 'utf-8'))
-    }
+    return readJsonFile(getDataCachePath(), {})
   } catch (err) {
     console.error('[DataCache] Failed to read cache:', err)
   }
@@ -21,9 +19,10 @@ export function writeDataCacheEntry(
   entry: { data: unknown; fetchedAt: number }
 ): void {
   try {
-    const cache = readDataCache()
-    cache[key] = entry
-    writeFileSync(getDataCachePath(), JSON.stringify(cache))
+    updateJsonFile(getDataCachePath(), {} as DataCache, cache => ({
+      ...cache,
+      [key]: entry,
+    }))
   } catch (err) {
     console.error('[DataCache] Failed to write cache:', err)
   }
@@ -31,9 +30,11 @@ export function writeDataCacheEntry(
 
 export function deleteDataCacheEntry(key: string): void {
   try {
-    const cache = readDataCache()
-    delete cache[key]
-    writeFileSync(getDataCachePath(), JSON.stringify(cache))
+    updateJsonFile(getDataCachePath(), {} as DataCache, cache => {
+      const next = { ...cache }
+      delete next[key]
+      return next
+    })
   } catch (err) {
     console.error('[DataCache] Failed to delete cache entry:', err)
   }
@@ -41,7 +42,7 @@ export function deleteDataCacheEntry(key: string): void {
 
 export function clearDataCache(): void {
   try {
-    writeFileSync(getDataCachePath(), '{}')
+    writeJsonFile(getDataCachePath(), {})
   } catch (err) {
     console.error('[DataCache] Failed to clear cache:', err)
   }

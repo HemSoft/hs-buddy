@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { getCopilotService } from '../services/copilotService'
 import { sendChatMessage, abortChat, sendPrompt } from '../services/copilotClient'
-import { getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
 
 /**
  * IPC handlers for Copilot SDK integration.

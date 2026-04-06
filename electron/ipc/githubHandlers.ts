@@ -1,8 +1,9 @@
 import { ipcMain } from 'electron'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
-import { execAsync, getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
 import { CONVEX_URL } from '../config'
+import { execAsync } from '../utils'
 import {
   findCopilotBudget,
   findBudgetAcrossPages,

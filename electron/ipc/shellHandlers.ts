@@ -1,8 +1,9 @@
 import { BrowserWindow, ipcMain, shell, net } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execAsync, getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
 import { recordWindowOpen } from '../telemetry'
+import { execAsync } from '../utils'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 

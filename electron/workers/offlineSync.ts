@@ -15,7 +15,7 @@ import { api } from '../../convex/_generated/api'
 import { CronExpressionParser, type CronExpressionOptions } from 'cron-parser'
 import { CONVEX_URL } from '../config'
 import { calculateNextRunAt } from '../../convex/lib/cronUtils'
-import { getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
 
 interface Schedule {
   _id: string
@@ -105,12 +105,7 @@ async function processSchedule(
 
     case 'catchup': {
       // Create runs for ALL missed cron intervals
-      const missed = getMissedOccurrences(
-        schedule.cron,
-        timezone,
-        startFrom,
-        now
-      )
+      const missed = getMissedOccurrences(schedule.cron, timezone, startFrom, now)
 
       for (let index = 0; index < missed.length; index += 1) {
         await client.mutation(api.runs.create, {
@@ -190,10 +185,10 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
 
   try {
     // Get all enabled schedules
-    const schedules = await client.query(api.schedules.listEnabled, {}) as Schedule[]
+    const schedules = (await client.query(api.schedules.listEnabled, {})) as Schedule[]
 
     // Filter to only those with a past nextRunAt (missed while app was closed)
-    const missedSchedules = schedules.filter((s) => {
+    const missedSchedules = schedules.filter(s => {
       if (!s.nextRunAt) return true // Never had nextRunAt, needs init
       return s.nextRunAt <= now
     })
@@ -215,9 +210,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
           result.skipped++
         }
 
-        console.log(
-          `[OfflineSync] "${schedule.name}" → ${action}`
-        )
+        console.log(`[OfflineSync] "${schedule.name}" → ${action}`)
       } catch (err) {
         const msg = `Failed to process "${schedule.name}": ${getErrorMessage(err)}`
         result.errors.push(msg)
@@ -227,8 +220,8 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
 
     console.log(
       `[OfflineSync] Complete: ${result.schedulesProcessed} processed, ` +
-      `${result.runsCreated} runs created, ${result.skipped} skipped` +
-      (result.errors.length > 0 ? `, ${result.errors.length} errors` : '')
+        `${result.runsCreated} runs created, ${result.skipped} skipped` +
+        (result.errors.length > 0 ? `, ${result.errors.length} errors` : '')
     )
   } catch (err) {
     const msg = `Offline sync failed: ${getErrorMessage(err)}`

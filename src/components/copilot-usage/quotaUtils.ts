@@ -39,6 +39,7 @@ interface Projection {
 }
 
 export const OVERAGE_COST_PER_REQUEST = 0.04
+const SECONDS_PER_DAY = 86_400
 
 export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat(undefined, {
@@ -80,7 +81,7 @@ export function computeProjection(premium: QuotaSnapshot, resetDateStr: string):
   const used = premium.entitlement - premium.remaining
   const ratePerSecond = used / elapsedSeconds
   const projectedTotal = Math.round(ratePerSecond * totalSeconds)
-  const dailyRate = ratePerSecond * 86400
+  const dailyRate = ratePerSecond * SECONDS_PER_DAY
   const projectedOverage = Math.max(0, projectedTotal - premium.entitlement)
   const projectedOverageCost = projectedOverage * OVERAGE_COST_PER_REQUEST
   const projectedPercent =

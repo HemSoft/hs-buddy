@@ -5,7 +5,7 @@
  */
 
 import { sendPrompt, truncateOutput, DEFAULT_MODEL } from '../services/copilotClient'
-import { getErrorMessage } from '../utils'
+import { getErrorMessage } from '../../src/utils/errorUtils'
 import type { Worker, WorkerResult, JobConfig } from './types'
 
 const DEFAULT_TIMEOUT = 120_000

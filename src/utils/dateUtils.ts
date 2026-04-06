@@ -5,7 +5,7 @@
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
-const DAY = 24 * HOUR
+export const DAY = 24 * HOUR
 const WEEK = 7 * DAY
 const MONTH = 30 * DAY
 

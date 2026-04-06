@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { Zap } from 'lucide-react'
+import { getQuotaColor } from '../copilot-usage/quotaUtils'
 
 import './PremiumUsageBadge.css'
 
@@ -109,15 +110,7 @@ export function PremiumUsageBadge({ username, className }: PremiumUsageBadgeProp
   if (!data) return null
 
   const pct = data.percentUsed
-
-  const getColor = (p: number) => {
-    if (p >= 90) return '#e85d5d'
-    if (p >= 75) return '#e89b3c'
-    if (p >= 50) return '#dcd34a'
-    return '#4ec9b0'
-  }
-
-  const color = getColor(pct)
+  const color = getQuotaColor(pct)
 
   return (
     <div

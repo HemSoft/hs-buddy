@@ -1,3 +1,8 @@
+---
+applyTo: "**"
+excludeAgent: "coding-agent"
+---
+
 # Copilot Code Review Instructions
 
 ## Severity Classification

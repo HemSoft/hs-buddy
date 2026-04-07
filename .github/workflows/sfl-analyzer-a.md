@@ -165,6 +165,7 @@ for this workflow.
 {{#if github.event.inputs.pull-request-number}}
 The dispatched `pull-request-number` input is **#${{ github.event.inputs.pull-request-number }}**.
 Use this PR number directly as the target. Do NOT search for a different PR.
+The PR does not need to be a draft or have `agent:pr` — Step 1b will detect the mode.
 
 If the value is blank, `#`, only whitespace, or an unresolved placeholder
 token, treat that as a broken Analyzer A handoff. Do NOT fall back to
@@ -190,6 +191,27 @@ If multiple open draft `agent:pr` PRs exist for the same linked issue, treat
 that as pipeline ambiguity. Update the dashboard with a duplicate-PR failure
 message, log to the Activity Log (see below), and exit instead of choosing
 one silently.
+
+## Step 1b — Detect review mode
+
+After finding the target PR, check its labels:
+
+- If the PR **has** the label `agent:pr` → **SFL mode** (follow all steps normally)
+- If the PR does **NOT** have the label `agent:pr` → **Human Review mode**
+
+**Human Review mode** is for human-authored PRs that are manually dispatched
+for analyzer review. In this mode:
+
+- **Skip** Step 2 (cycle tracking) — there are no `pr:cycle-N` labels
+- **Skip** Step 3 (already-reviewed check) — use cycle `0` for the marker
+- **Skip** Dashboard Protocol updates (Discussion #51)
+- **Skip** `analyzer:blocked` label management — do NOT add or remove labels
+- **Still perform** Steps 4, 5, 6, 6b (the actual review and inline comments)
+- **Still post** the Activity Log entry (Discussion #95) with `(human-review)` suffix
+- **Still dispatch** Analyzer B at the end
+
+In the review comment (Step 6), use cycle `0` in the marker and omit the
+"Linked Issue" line if no `Closes #N` is found in the PR body.
 
 ## Step 2 — Determine the current review cycle
 

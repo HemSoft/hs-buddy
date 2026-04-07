@@ -19,22 +19,24 @@
 
 $ErrorActionPreference = 'Stop'
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
+$InformationPreference = 'Continue'
+$esc = [char]27
 
-Write-Host ""
-Write-Host "=== Stage 2: Enable Reporting Workflows ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "This will enable the finding-generator workflows:" -ForegroundColor White
-Write-Host "  - Daily Repo Audit       (audits repo quality)" -ForegroundColor White
-Write-Host "  - Daily Repo Status      (status reports)" -ForegroundColor White
-Write-Host "  - Daily Simplisticate    (complexity findings)" -ForegroundColor White
-Write-Host ""
-Write-Host "These run on daily cron schedules and post Discussions." -ForegroundColor DarkGray
-Write-Host "Nothing else in the pipeline triggers until Stage 3." -ForegroundColor DarkGray
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[36m=== Stage 2: Enable Reporting Workflows ===${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[37mThis will enable the finding-generator workflows:${esc}[0m"
+Write-Information "${esc}[37m  - Daily Repo Audit       (audits repo quality)${esc}[0m"
+Write-Information "${esc}[37m  - Daily Repo Status      (status reports)${esc}[0m"
+Write-Information "${esc}[37m  - Daily Simplisticate    (complexity findings)${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[90mThese run on daily cron schedules and post Discussions.${esc}[0m"
+Write-Information "${esc}[90mNothing else in the pipeline triggers until Stage 3.${esc}[0m"
+Write-Information ""
 
 $confirm = Read-Host "Enable reporting workflows? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Host "Aborted." -ForegroundColor Yellow
+    Write-Information "${esc}[33mAborted.${esc}[0m"
     return
 }
 
@@ -47,22 +49,22 @@ $workflows = @(
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf.Name --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'active') {
-        Write-Host "  Already enabled: $($wf.Name)" -ForegroundColor DarkGray
+        Write-Information "${esc}[90m  Already enabled: $($wf.Name)${esc}[0m"
     } else {
         gh workflow enable $wf.File --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Enabled: $($wf.Name)" -ForegroundColor Green
+            Write-Information "${esc}[32m  Enabled: $($wf.Name)${esc}[0m"
         } else {
-            Write-Host "  Failed:  $($wf.Name)" -ForegroundColor Red
+            Write-Information "${esc}[31m  Failed:  $($wf.Name)${esc}[0m"
         }
     }
 }
 
-Write-Host ""
-Write-Host "Reporting workflows enabled." -ForegroundColor Green
-Write-Host ""
-Write-Host "TIP: To generate findings immediately, trigger one manually:" -ForegroundColor Yellow
-Write-Host "  gh workflow run repo-audit.lock.yml" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Next step: Stage 3 (03-enable-discussion-processor.ps1)" -ForegroundColor Cyan
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[32mReporting workflows enabled.${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[33mTIP: To generate findings immediately, trigger one manually:${esc}[0m"
+Write-Information "${esc}[33m  gh workflow run repo-audit.lock.yml${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[36mNext step: Stage 3 (03-enable-discussion-processor.ps1)${esc}[0m"
+Write-Information ""

@@ -13,33 +13,35 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$InformationPreference = 'Continue'
+$esc = [char]27
 
-Write-Host "`n=== MARKER CHECK (All Open PRs) ===" -ForegroundColor Cyan
+Write-Information "${esc}[36m`n=== MARKER CHECK (All Open PRs) ===${esc}[0m"
 
 $prs = gh pr list --repo $Repo --state open --json number,title,isDraft,headRefName,body,labels 2>&1 | ConvertFrom-Json
 
 $agentPRs = $prs | Where-Object { @($_.labels | ForEach-Object { $_.name }) -contains "agent:pr" }
 
 if ($agentPRs.Count -eq 0) {
-    Write-Host "No open agent PRs found." -ForegroundColor Green
+    Write-Information "${esc}[32mNo open agent PRs found.${esc}[0m"
     return
 }
 
-Write-Host "Found $($agentPRs.Count) open agent PR(s).`n"
+Write-Information "Found $($agentPRs.Count) open agent PR(s).`n"
 
 foreach ($pr in $agentPRs) {
-    Write-Host "--- PR #$($pr.number): $($pr.title) ---" -ForegroundColor Yellow
-    Write-Host "  Branch: $($pr.headRefName)"
-    Write-Host "  Draft: $($pr.isDraft)"
+    Write-Information "${esc}[33m--- PR #$($pr.number): $($pr.title) ---${esc}[0m"
+    Write-Information "  Branch: $($pr.headRefName)"
+    Write-Information "  Draft: $($pr.isDraft)"
 
     $body = $pr.body
     if (-not $body) {
-        Write-Host "  Body: EMPTY" -ForegroundColor Red
+        Write-Information "${esc}[31m  Body: EMPTY${esc}[0m"
         continue
     }
 
     $bodyLen = $body.Length
-    Write-Host "  Body length: $bodyLen chars $(if ($bodyLen -gt 30000) { '(BLOATED!)' } elseif ($bodyLen -gt 15000) { '(large)' })"
+    Write-Information "  Body length: $bodyLen chars $(if ($bodyLen -gt 30000) { '(BLOATED!)' } elseif ($bodyLen -gt 15000) { '(large)' })"
 
     # Get cycle from label
     $cycleLabel = ($pr.labels | ForEach-Object { $_.name }) | Where-Object { $_ -match "^pr:cycle-\d+$" }
@@ -50,30 +52,30 @@ foreach ($pr in $agentPRs) {
     $matches_found = [regex]::Matches($body, $markerPattern)
 
     if ($matches_found.Count -eq 0) {
-        Write-Host "  Markers: NONE FOUND" -ForegroundColor Red
+        Write-Information "${esc}[31m  Markers: NONE FOUND${esc}[0m"
 
         # Check for legacy markers
         $legacyPattern = '<!-- (pr-analyzer-[abc]|pr-fixer|pr-promoter) cycle:(\d+) -->'
         $legacyMatches = [regex]::Matches($body, $legacyPattern)
         if ($legacyMatches.Count -gt 0) {
-            Write-Host "  Legacy markers found: $($legacyMatches.Count)" -ForegroundColor DarkYellow
+            Write-Information "${esc}[33m  Legacy markers found: $($legacyMatches.Count)${esc}[0m"
             foreach ($lm in $legacyMatches) {
-                Write-Host "    $($lm.Value)" -ForegroundColor DarkGray
+                Write-Information "${esc}[90m    $($lm.Value)${esc}[0m"
             }
-            Write-Host "  DIAGNOSIS: Analyzers using OLD marker format. Workflows need update." -ForegroundColor Red
+            Write-Information "${esc}[31m  DIAGNOSIS: Analyzers using OLD marker format. Workflows need update.${esc}[0m"
         } else {
-            Write-Host "  DIAGNOSIS: No markers at all. Analyzers may not have run yet." -ForegroundColor Yellow
+            Write-Information "${esc}[33m  DIAGNOSIS: No markers at all. Analyzers may not have run yet.${esc}[0m"
         }
     } else {
-        Write-Host "  Markers found: $($matches_found.Count)" -ForegroundColor Green
+        Write-Information "${esc}[32m  Markers found: $($matches_found.Count)${esc}[0m"
         $markersByType = @{}
         foreach ($m in $matches_found) {
             $type = $m.Groups[1].Value
             $mCycle = [int]$m.Groups[2].Value
             if (-not $markersByType[$type]) { $markersByType[$type] = @() }
             $markersByType[$type] += $mCycle
-            $color = if ($mCycle -eq $cycle) { "Green" } else { "DarkGray" }
-            Write-Host "    $($m.Value)" -ForegroundColor $color
+            $ansiCode = if ($mCycle -eq $cycle) { '32' } else { '90' }
+            Write-Information "${esc}[$($ansiCode)m    $($m.Value)${esc}[0m"
         }
 
         # Check for duplicates within same cycle
@@ -81,7 +83,7 @@ foreach ($pr in $agentPRs) {
             $cycleCounts = $markersByType[$type] | Group-Object | Where-Object { $_.Count -gt 1 }
             if ($cycleCounts) {
                 foreach ($cc in $cycleCounts) {
-                    Write-Host "  DUPLICATE: [$type cycle:$($cc.Name)] appears $($cc.Count) times!" -ForegroundColor Red
+                    Write-Information "${esc}[31m  DUPLICATE: [$type cycle:$($cc.Name)] appears $($cc.Count) times!${esc}[0m"
                 }
             }
         }
@@ -92,13 +94,13 @@ foreach ($pr in $agentPRs) {
         $fixerPresent = $markersByType["sfl-issue-processor"] -and $markersByType["sfl-issue-processor"] -contains $cycle
         $routerPresent = $markersByType["sfl-pr-router"] -and $markersByType["sfl-pr-router"] -contains $cycle
 
-        Write-Host "`n  Cycle $cycle progression:"
-        Write-Host "    Analyzers: $($analyzersPresent.Count)/3 $(if ($analyzersPresent.Count -eq 3) { '[COMPLETE]' } else { '[WAITING]' })"
-        Write-Host "    Issue Processor: $(if ($fixerPresent) { '[DONE]' } else { '[PENDING]' })"
-        Write-Host "    PR Router: $(if ($routerPresent) { '[DONE]' } else { '[PENDING]' })"
+        Write-Information "`n  Cycle $cycle progression:"
+        Write-Information "    Analyzers: $($analyzersPresent.Count)/3 $(if ($analyzersPresent.Count -eq 3) { '[COMPLETE]' } else { '[WAITING]' })"
+        Write-Information "    Issue Processor: $(if ($fixerPresent) { '[DONE]' } else { '[PENDING]' })"
+        Write-Information "    PR Router: $(if ($routerPresent) { '[DONE]' } else { '[PENDING]' })"
     }
 
-    Write-Host ""
+    Write-Information ""
 }
 
-Write-Host "=== MARKER CHECK COMPLETE ===" -ForegroundColor Cyan
+Write-Information "${esc}[36m=== MARKER CHECK COMPLETE ===${esc}[0m"

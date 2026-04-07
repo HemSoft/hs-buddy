@@ -18,42 +18,44 @@
 
 $ErrorActionPreference = 'Stop'
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
+$InformationPreference = 'Continue'
+$esc = [char]27
 
-Write-Host ""
-Write-Host "=== Stage 3: Enable Discussion Processor ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "This will enable:" -ForegroundColor White
-Write-Host "  - Discussion Processor   (converts Discussion findings -> Issues)" -ForegroundColor White
-Write-Host ""
-Write-Host "Triggered by: Discussion labeled 'report'" -ForegroundColor DarkGray
-Write-Host "Output: GitHub Issues with agent:fixable label" -ForegroundColor DarkGray
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[36m=== Stage 3: Enable Discussion Processor ===${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[37mThis will enable:${esc}[0m"
+Write-Information "${esc}[37m  - Discussion Processor   (converts Discussion findings -> Issues)${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[90mTriggered by: Discussion labeled 'report'${esc}[0m"
+Write-Information "${esc}[90mOutput: GitHub Issues with agent:fixable label${esc}[0m"
+Write-Information ""
 
 $confirm = Read-Host "Enable Discussion Processor? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Host "Aborted." -ForegroundColor Yellow
+    Write-Information "${esc}[33mAborted.${esc}[0m"
     return
 }
 
 $state = gh workflow view "Discussion Processor" --repo $repo --json state --jq '.state' 2>&1
 if ($state -eq 'active') {
-    Write-Host "  Already enabled: Discussion Processor" -ForegroundColor DarkGray
+    Write-Information "${esc}[90m  Already enabled: Discussion Processor${esc}[0m"
 } else {
     gh workflow enable discussion-processor.lock.yml --repo $repo 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "  Enabled: Discussion Processor" -ForegroundColor Green
+        Write-Information "${esc}[32m  Enabled: Discussion Processor${esc}[0m"
     } else {
-        Write-Host "  Failed:  Discussion Processor" -ForegroundColor Red
+        Write-Information "${esc}[31m  Failed:  Discussion Processor${esc}[0m"
     }
 }
 
-Write-Host ""
-Write-Host "Discussion Processor enabled." -ForegroundColor Green
-Write-Host ""
-Write-Host "At this point, the pipeline can generate and create issues." -ForegroundColor Yellow
-Write-Host "Wait for agent:fixable issues to appear, then proceed to Stage 4." -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Check for issues: gh issue list --label agent:fixable --state open" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Next step: Stage 4 (04-enable-dispatcher-and-issue-processor.ps1)" -ForegroundColor Cyan
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[32mDiscussion Processor enabled.${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[33mAt this point, the pipeline can generate and create issues.${esc}[0m"
+Write-Information "${esc}[33mWait for agent:fixable issues to appear, then proceed to Stage 4.${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[33mCheck for issues: gh issue list --label agent:fixable --state open${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[36mNext step: Stage 4 (04-enable-dispatcher-and-issue-processor.ps1)${esc}[0m"
+Write-Information ""

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.639] - 2026-04-07
+
+### Fixed
+
+- Use braced ${esc} interpolation in ANSI strings
+
+## [0.1.638] - 2026-04-07
+
+### Fixed
+
+- Replace Write-Host with Write-Information in 5 PS scripts
+
 ## [0.1.637] - 2026-04-07
 
 ### Fixed

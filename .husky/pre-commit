@@ -1,6 +1,11 @@
-# Auto-bump revision and update CHANGELOG
-bun scripts/bump-revision.ts
-git add package.json src/components/AboutModal.tsx src/components/WelcomePanel.tsx src/components/TitleBar.tsx CHANGELOG.md
+# pre-commit: validate FIRST, modify files LAST.
+# If any validation step in this pre-commit hook fails, the script exits
+# before its file modifications run, avoiding orphaned dirty files from
+# this hook alone.
+
+set -e
+
+# --- PHASE 1: Validation (read-only, no file modifications) ---
 
 # Lint staged files
 npx lint-staged
@@ -16,9 +21,17 @@ fi
 # Block commits when tests fail or coverage drops below threshold
 bun run test:coverage
 
-# Ratchet coverage thresholds up (never down) and include in commit
-bun run coverage:ratchet
-git add vitest.config.ts
-
 # Block commits when the repo has TypeScript errors
 bun run typecheck
+
+# --- PHASE 2: File modifications (only reached if ALL validation passed) ---
+
+# Ratchet coverage thresholds up (never down)
+bun run coverage:ratchet
+
+# Auto-bump revision: package.json + version strings in components
+bun scripts/bump-revision.ts
+
+# Stage all auto-generated files so they're included in this commit
+# (git add in pre-commit IS included in the commit — verified)
+git add vitest.config.ts package.json src/components/AboutModal.tsx src/components/WelcomePanel.tsx src/components/TitleBar.tsx

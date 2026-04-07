@@ -6,6 +6,7 @@ import {
   useBuddyStatsMutations,
 } from '../../../hooks/useConvex'
 import { useTaskQueue } from '../../../hooks/useTaskQueue'
+import { useNewPRIndicator } from '../../../hooks/useNewPRIndicator'
 import {
   GitHubClient,
   type OrgRepo,
@@ -1067,6 +1068,12 @@ export function useGitHubSidebarData() {
     { id: 'pr-recently-merged', label: 'Recently Merged' },
   ]
 
+  const {
+    newCounts: newPRCounts,
+    newUrls: newPRUrls,
+    markAsSeen: markPRsAsSeen,
+  } = useNewPRIndicator()
+
   useEffect(() => {
     const viewIdByCacheKey: Record<string, string> = {
       'my-prs': 'pr-my-prs',
@@ -1296,6 +1303,9 @@ export function useGitHubSidebarData() {
     toggleSFLGroup,
     togglePRGroup,
     togglePRNode,
+    newPRCounts,
+    newPRUrls,
+    markPRsAsSeen,
     openTreePRContextMenu,
     handleBookmarkToggle,
     handleApprovePR,

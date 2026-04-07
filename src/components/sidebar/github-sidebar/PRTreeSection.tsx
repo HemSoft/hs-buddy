@@ -12,6 +12,8 @@ interface PRTreeSectionProps {
   expandedPRNodes: Set<string>
   counts: Record<string, number>
   badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+  newCounts?: Record<string, number>
+  newUrls?: Set<string>
   refreshIndicators?: RefreshIndicators
   selectedItem: string | null
   onItemSelect: (itemId: string) => void
@@ -37,6 +39,8 @@ export function PRTreeSection({
   expandedPRNodes,
   counts,
   badgeProgress,
+  newCounts,
+  newUrls,
   refreshIndicators,
   selectedItem,
   onItemSelect,
@@ -78,6 +82,17 @@ export function PRTreeSection({
                 <FileText size={14} />
               </span>
               <span className="sidebar-item-label">{item.label}</span>
+              {newCounts && (newCounts[item.id] ?? 0) > 0 && (
+                <span
+                  className="sidebar-new-badge"
+                  title={`${newCounts[item.id]} new PR${newCounts[item.id] !== 1 ? 's' : ''}`}
+                  role="status"
+                  aria-live="polite"
+                  aria-label={`${newCounts[item.id]} new pull request${newCounts[item.id] !== 1 ? 's' : ''}`}
+                >
+                  {newCounts[item.id]}
+                </span>
+              )}
               {counts[item.id] !== undefined &&
                 (badgeProgress[item.id] ? (
                   <span
@@ -145,6 +160,14 @@ export function PRTreeSection({
                           <span className="sidebar-item-label">
                             #{pr.id} {pr.title}
                           </span>
+                          {newUrls?.has(pr.url) && (
+                            <span
+                              className="sidebar-new-dot"
+                              title="New"
+                              role="img"
+                              aria-label="New pull request"
+                            />
+                          )}
                           <span className="sidebar-pr-meta">
                             <span className="sidebar-pr-meta-repo">{pr.repository}</span>
                             <span className="sidebar-pr-meta-author">{pr.author}</span>

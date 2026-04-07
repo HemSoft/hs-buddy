@@ -22,10 +22,10 @@ export default defineConfig({
         'src/types/**',
       ],
       thresholds: {
-        statements: 45,
+        statements: 46,
         branches: 41,
-        functions: 45,
-        lines: 46,
+        functions: 46,
+        lines: 47,
       },
     },
   },

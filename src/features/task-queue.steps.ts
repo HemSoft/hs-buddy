@@ -1,6 +1,7 @@
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber'
 import { expect } from 'vitest'
 import { TaskQueue } from '../services/taskQueue'
+import { isAbortError } from '../utils/errorUtils'
 
 const feature = await loadFeature('src/features/task-queue.feature')
 
@@ -165,7 +166,7 @@ describeFeature(feature, ({ Scenario }) => {
       queue = new TaskQueue('abort-test', { concurrency: 1 })
     })
     And('a task is running that checks its abort signal', () => {
-      const { taskId: id } = queue.enqueue(
+      const { taskId: id, promise } = queue.enqueue(
         async signal => {
           signal.addEventListener('abort', () => {
             signalAborted = true
@@ -174,6 +175,10 @@ describeFeature(feature, ({ Scenario }) => {
         },
         { name: 'abortable' }
       )
+      // Suppress expected AbortError when task is cancelled — other rejections should surface
+      promise.catch((err: unknown) => {
+        if (!isAbortError(err)) throw err
+      })
       taskId = id
     })
     When('the running task is cancelled', async () => {

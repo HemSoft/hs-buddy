@@ -9,9 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.610] - 2026-04-06
+## [0.1.637] - 2026-04-07
 
-## [0.1.609] - 2026-04-06
+### Fixed
+
+- Address final review findings
+
+## [0.1.636] - 2026-04-07
+
+### Fixed
+
+- Sync WelcomePanel version badge with auto-bump script
+
+## [0.1.635] - 2026-04-07
+
+### Fixed
+
+- Update bump-revision.ts docstring to remove stale step 3
+
+## [0.1.634] - 2026-04-07
+
+### Fixed
+
+- Clarify pre-commit comment scope per review
+
+## [0.1.633] - 2026-04-07
+
+### Fixed
+
+- Add missing 0.1.632 changelog entry
+
+## [0.1.632] - 2026-04-07
+
+### Fixed
+
+- Create amend flag before git commit --amend
+
+## [0.1.631] - 2026-04-07
+
+### Fixed
+
+- Worktree-safe paths, idempotent changelog, deduplicate entries
+
+## [0.1.630] - 2026-04-07
+
+### Fixed
+
+- Harden hook error handling per review feedback
+
+## [0.1.629] - 2026-04-07
+
+### Fixed
+
+- Production hook architecture — validate first, modify last
+
+## [0.1.624] - 2026-04-07
+
+### Fixed
+
+- Include PR identity in prop-sync deps
+- Remove empty changelog headings, add reduced-motion override
+- Add aria-live to badge, split history reset effect
+- Defer markAsSeen when data hasn't loaded yet
+- Distinguish loaded-empty from not-loaded in PR indicator
+- Consolidate subscribe callback to avoid redundant cache writes
 
 ## [0.1.606] - 2026-04-06
 

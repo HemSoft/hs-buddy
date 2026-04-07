@@ -158,6 +158,9 @@ function createMockSidebarData() {
     toggleSFLGroup: vi.fn(),
     togglePRGroup: vi.fn(),
     togglePRNode: vi.fn(),
+    newPRCounts: {},
+    newPRUrls: new Set<string>(),
+    markPRsAsSeen: vi.fn(),
     openTreePRContextMenu: vi.fn(),
     handleBookmarkToggle: vi.fn(),
     handleApprovePR: vi.fn().mockResolvedValue(undefined),
@@ -223,6 +226,7 @@ describe('GitHubSidebar', () => {
 
     expect(onItemSelect).toHaveBeenCalledWith('pr-item-1')
     expect(onItemSelect).toHaveBeenCalledWith('org-item-1')
+    expect(mockSidebarData.markPRsAsSeen).toHaveBeenCalledWith('pr-item-1')
   })
 
   it('toggles sections from click and keyboard handlers', () => {

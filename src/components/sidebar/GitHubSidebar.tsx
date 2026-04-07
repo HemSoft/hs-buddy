@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { ChevronDown, ChevronRight, GitPullRequest, Building2, Filter } from 'lucide-react'
 import { SidebarPRContextMenu } from './github-sidebar/SidebarPRContextMenu'
 import { SidebarUserContextMenu } from './github-sidebar/SidebarUserContextMenu'
@@ -79,6 +80,9 @@ export function GitHubSidebar({
     toggleSFLGroup,
     togglePRGroup,
     togglePRNode,
+    newPRCounts,
+    newPRUrls,
+    markPRsAsSeen,
     openTreePRContextMenu,
     handleBookmarkToggle,
     handleApprovePR,
@@ -92,6 +96,14 @@ export function GitHubSidebar({
     toggleFavoriteUser,
     refreshUser,
   } = useGitHubSidebarData()
+
+  const handleItemSelect = useCallback(
+    (viewId: string) => {
+      markPRsAsSeen(viewId)
+      onItemSelect(viewId)
+    },
+    [markPRsAsSeen, onItemSelect]
+  )
 
   return (
     <div className="sidebar-panel">
@@ -198,9 +210,11 @@ export function GitHubSidebar({
                 expandedPRNodes={expandedPRNodes}
                 counts={counts}
                 badgeProgress={badgeProgress}
+                newCounts={newPRCounts}
+                newUrls={newPRUrls}
                 refreshIndicators={refreshIndicators}
                 selectedItem={selectedItem}
-                onItemSelect={onItemSelect}
+                onItemSelect={handleItemSelect}
                 onTogglePRGroup={togglePRGroup}
                 onTogglePRNode={togglePRNode}
                 onContextMenu={openTreePRContextMenu}

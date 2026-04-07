@@ -32,6 +32,8 @@ function renderSection(options?: {
   expandedPRNodes?: Set<string>
   counts?: Record<string, number>
   badgeProgress?: Record<string, { progress: number; color: string; tooltip: string }>
+  newCounts?: Record<string, number>
+  newUrls?: Set<string>
   refreshIndicators?: RefreshIndicators
   selectedItem?: string | null
   prTreeData?: Record<string, PullRequest[]>
@@ -49,6 +51,8 @@ function renderSection(options?: {
       expandedPRNodes={options?.expandedPRNodes ?? new Set()}
       counts={options?.counts ?? { [baseItem.id]: 2 }}
       badgeProgress={options?.badgeProgress ?? {}}
+      newCounts={options?.newCounts}
+      newUrls={options?.newUrls}
       refreshIndicators={options?.refreshIndicators}
       selectedItem={options?.selectedItem ?? null}
       onItemSelect={onItemSelect}
@@ -125,5 +129,26 @@ describe('PRTreeSection', () => {
     expect(onItemSelect).toHaveBeenCalledWith(prViewId)
     expect(onItemSelect).toHaveBeenCalledWith(conversationViewId)
     expect(onItemSelect).toHaveBeenCalledWith(createPRDetailViewId(basePr, 'commits'))
+  })
+
+  it('renders numeric new-PR badge with accessible label when newCounts > 0', () => {
+    renderSection({
+      newCounts: { [baseItem.id]: 3 },
+    })
+
+    const badge = screen.getByRole('status')
+    expect(badge).toHaveTextContent('3')
+    expect(badge).toHaveAttribute('aria-label', '3 new pull requests')
+    expect(badge).toHaveAttribute('title', '3 new PRs')
+  })
+
+  it('renders new-PR dot on individual PR items when newUrls contains the PR url', () => {
+    renderSection({
+      expandedPrGroups: new Set([baseItem.id]),
+      newUrls: new Set([basePr.url]),
+    })
+
+    const dot = screen.getByRole('img', { name: /new pull request/i })
+    expect(dot).toHaveClass('sidebar-new-dot')
   })
 })

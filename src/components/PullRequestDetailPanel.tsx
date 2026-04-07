@@ -54,6 +54,8 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
+  const [threadsUnaddressed, setThreadsUnaddressed] = useState(pr.threadsUnaddressed ?? null)
+  const [threadsTotal, setThreadsTotal] = useState(pr.threadsTotal ?? null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [requestingCopilotReview, setRequestingCopilotReview] = useState(false)
   const [threadCardMenu, setThreadCardMenu] = useState<{ x: number; y: number } | null>(null)
@@ -79,7 +81,15 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
   useEffect(() => {
     setYouApproved(pr.iApproved)
-  }, [pr.iApproved, pr.id, pr.repository, pr.url])
+    setThreadsUnaddressed(pr.threadsUnaddressed ?? null)
+    setThreadsTotal(pr.threadsTotal ?? null)
+  }, [pr.id, pr.url, pr.iApproved, pr.threadsUnaddressed, pr.threadsTotal])
+
+  useEffect(() => {
+    setHistoryUpdatedAt(null)
+    // Thread counts are reset to prop values by the effect above
+    // when pr.id/pr.url change — no need to duplicate here.
+  }, [pr.id, pr.repository, pr.url])
 
   const fetchBranches = useCallback(async () => {
     if (pr.headBranch && pr.baseBranch) {
@@ -159,6 +169,8 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const handleHistoryLoaded = useCallback(
     (history: PRHistorySummary) => {
       setHistoryUpdatedAt(history.updatedAt || null)
+      setThreadsUnaddressed(history.threadsUnaddressed)
+      setThreadsTotal(history.threadsTotal)
 
       const ownerRepo = parseOwnerRepoFromUrl(pr.url)
       const namespace = pr.org || ownerRepo?.owner || ''
@@ -283,7 +295,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               <div className="pr-detail-card-title">You Approved</div>
               <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
             </div>
-            {pr.threadsUnaddressed != null && (
+            {threadsUnaddressed != null && (
               <div
                 className="pr-detail-card pr-detail-card-interactive"
                 onContextMenu={e => {
@@ -294,11 +306,11 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               >
                 <div className="pr-detail-card-title">Unaddressed</div>
                 <div
-                  className={`pr-detail-card-value ${pr.threadsUnaddressed > 0 ? 'pr-detail-state-warning' : ''}`}
+                  className={`pr-detail-card-value ${threadsUnaddressed > 0 ? 'pr-detail-state-warning' : ''}`}
                 >
-                  {pr.threadsUnaddressed}
-                  {pr.threadsTotal != null && (
-                    <span className="pr-detail-card-secondary">/ {pr.threadsTotal}</span>
+                  {threadsUnaddressed}
+                  {threadsTotal != null && (
+                    <span className="pr-detail-card-secondary">/ {threadsTotal}</span>
                   )}
                 </div>
               </div>
@@ -318,7 +330,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               >
                 <button
                   onClick={handleAddressComments}
-                  disabled={!pr.threadsUnaddressed || pr.threadsUnaddressed === 0}
+                  disabled={!threadsUnaddressed || threadsUnaddressed === 0}
                 >
                   <MessageSquareWarning size={14} />
                   Address Unresolved Comments

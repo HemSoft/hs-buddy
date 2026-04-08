@@ -17,45 +17,52 @@
 #>
 
 $ErrorActionPreference = 'Stop'
-$repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 $InformationPreference = 'Continue'
 $esc = [char]27
+$Cyan = "${esc}[36m"
+$DGray = "${esc}[90m"
+$Green = "${esc}[32m"
+$Red = "${esc}[31m"
+$White = "${esc}[37m"
+$Yellow = "${esc}[33m"
+$Reset = "${esc}[0m"
+$repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
 Write-Information ""
-Write-Information "${esc}[36m=== Stage 3: Enable Discussion Processor ===${esc}[0m"
+Write-Information "${Cyan}=== Stage 3: Enable Discussion Processor ===${Reset}"
 Write-Information ""
-Write-Information "${esc}[37mThis will enable:${esc}[0m"
-Write-Information "${esc}[37m  - Discussion Processor   (converts Discussion findings -> Issues)${esc}[0m"
+Write-Information "${White}This will enable:${Reset}"
+Write-Information "${White}  - Discussion Processor   (converts Discussion findings -> Issues)${Reset}"
 Write-Information ""
-Write-Information "${esc}[90mTriggered by: Discussion labeled 'report'${esc}[0m"
-Write-Information "${esc}[90mOutput: GitHub Issues with agent:fixable label${esc}[0m"
+Write-Information "${DGray}Triggered by: Discussion labeled 'report'${Reset}"
+Write-Information "${DGray}Output: GitHub Issues with agent:fixable label${Reset}"
 Write-Information ""
 
 $confirm = Read-Host "Enable Discussion Processor? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Information "${esc}[33mAborted.${esc}[0m"
+    Write-Information "${Yellow}Aborted.${Reset}"
     return
 }
 
 $state = gh workflow view "Discussion Processor" --repo $repo --json state --jq '.state' 2>&1
 if ($state -eq 'active') {
-    Write-Information "${esc}[90m  Already enabled: Discussion Processor${esc}[0m"
+    Write-Information "${DGray}  Already enabled: Discussion Processor${Reset}"
 } else {
     gh workflow enable discussion-processor.lock.yml --repo $repo 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
-        Write-Information "${esc}[32m  Enabled: Discussion Processor${esc}[0m"
+        Write-Information "${Green}  Enabled: Discussion Processor${Reset}"
     } else {
-        Write-Information "${esc}[31m  Failed:  Discussion Processor${esc}[0m"
+        Write-Information "${Red}  Failed:  Discussion Processor${Reset}"
     }
 }
 
 Write-Information ""
-Write-Information "${esc}[32mDiscussion Processor enabled.${esc}[0m"
+Write-Information "${Green}Discussion Processor enabled.${Reset}"
 Write-Information ""
-Write-Information "${esc}[33mAt this point, the pipeline can generate and create issues.${esc}[0m"
-Write-Information "${esc}[33mWait for agent:fixable issues to appear, then proceed to Stage 4.${esc}[0m"
+Write-Information "${Yellow}At this point, the pipeline can generate and create issues.${Reset}"
+Write-Information "${Yellow}Wait for agent:fixable issues to appear, then proceed to Stage 4.${Reset}"
 Write-Information ""
-Write-Information "${esc}[33mCheck for issues: gh issue list --label agent:fixable --state open${esc}[0m"
+Write-Information "${Yellow}Check for issues: gh issue list --label agent:fixable --state open${Reset}"
 Write-Information ""
-Write-Information "${esc}[36mNext step: Stage 4 (04-enable-dispatcher-and-issue-processor.ps1)${esc}[0m"
+Write-Information "${Cyan}Next step: Stage 4 (04-enable-dispatcher-and-issue-processor.ps1)${Reset}"
 Write-Information ""

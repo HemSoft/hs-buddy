@@ -13,13 +13,21 @@
 #>
 
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
+$esc = [char]27
+$Cyan = "${esc}[36m"
+$DGray = "${esc}[90m"
+$Green = "${esc}[32m"
+$Red = "${esc}[31m"
+$Yellow = "${esc}[33m"
+$Reset = "${esc}[0m"
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
-Write-Host ""
-Write-Host "=== Stage 14: Verify All Disabled ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Checking all SFL workflow states..." -ForegroundColor Yellow
-Write-Host ""
+Write-Information ""
+Write-Information "${Cyan}=== Stage 14: Verify All Disabled ===${Reset}"
+Write-Information ""
+Write-Information "${Yellow}Checking all SFL workflow states...${Reset}"
+Write-Information ""
 
 $sflWorkflows = @(
     "SFL Auditor"
@@ -40,27 +48,29 @@ $allDisabled = $true
 foreach ($wf in $sflWorkflows) {
     $state = gh workflow view $wf --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'active') {
-        Write-Host "  ACTIVE:   $wf" -ForegroundColor Red
+        Write-Information "${Red}  ACTIVE:   $wf${Reset}"
         $allDisabled = $false
     } else {
-        Write-Host "  Disabled: $wf" -ForegroundColor DarkGray
+        Write-Information "${DGray}  Disabled: $wf${Reset}"
     }
 }
 
-Write-Host ""
+Write-Information ""
 if ($allDisabled) {
-    Write-Host "ALL SFL WORKFLOWS DISABLED" -ForegroundColor Green
-    Write-Host "Pipeline is fully stopped." -ForegroundColor Green
+    Write-Information "${Green}ALL SFL WORKFLOWS DISABLED${Reset}"
+    Write-Information "${Green}Pipeline is fully stopped.${Reset}"
 } else {
-    Write-Host "Some workflows are still active!" -ForegroundColor Red
-    Write-Host "Run ../pause-sfl.ps1 to force-disable all, or disable individually above." -ForegroundColor Red
+    Write-Information "${Red}Some workflows are still active!${Reset}"
+    Write-Information "${Red}Run ../pause-sfl.ps1 to force-disable all, or disable individually above.${Reset}"
 }
 
 # Also show residual state for awareness
-Write-Host ""
-Write-Host "Residual state (informational):" -ForegroundColor Yellow
+Write-Information ""
+Write-Information "${Yellow}Residual state (informational):${Reset}"
 $issueCount = gh issue list --repo $repo --label "agent:fixable" --state open --json number --jq 'length'
 $prCount = gh pr list --repo $repo --label "agent:pr" --state open --json number --jq 'length'
-Write-Host "  Open agent:fixable issues: $issueCount" -ForegroundColor $(if ([int]$issueCount -gt 0) { 'Yellow' } else { 'DarkGray' })
-Write-Host "  Open agent:pr PRs:         $prCount" -ForegroundColor $(if ([int]$prCount -gt 0) { 'Yellow' } else { 'DarkGray' })
-Write-Host ""
+$issueColor = if ([int]$issueCount -gt 0) { $Yellow } else { $DGray }
+$prColor = if ([int]$prCount -gt 0) { $Yellow } else { $DGray }
+Write-Information "${issueColor}  Open agent:fixable issues: $issueCount${Reset}"
+Write-Information "${prColor}  Open agent:pr PRs:         $prCount${Reset}"
+Write-Information ""

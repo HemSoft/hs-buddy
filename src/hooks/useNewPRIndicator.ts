@@ -26,8 +26,9 @@ function seenUrlsFromCache(mode: TrackedMode): Set<string> {
   return new Set(entry.data)
 }
 
-function computeNewCounts(): Record<string, number> {
+function computeNewState(): { counts: Record<string, number>; urls: Set<string> } {
   const counts: Record<string, number> = {}
+  const urls = new Set<string>()
   for (const mode of TRACKED_MODES) {
     // If we've never stored a seen set, treat everything as seen (first-launch UX)
     if (!dataCache.get(`${SEEN_PREFIX}${mode}`)) {
@@ -37,25 +38,15 @@ function computeNewCounts(): Record<string, number> {
       const seen = seenUrlsFromCache(mode)
       let newCount = 0
       for (const url of current) {
-        if (!seen.has(url)) newCount++
+        if (!seen.has(url)) {
+          newCount++
+          urls.add(url)
+        }
       }
       counts[viewIdForMode(mode)] = newCount
     }
   }
-  return counts
-}
-
-function computeNewUrls(): Set<string> {
-  const urls = new Set<string>()
-  for (const mode of TRACKED_MODES) {
-    if (!dataCache.get(`${SEEN_PREFIX}${mode}`)) continue
-    const current = prUrlsFromCache(mode)
-    const seen = seenUrlsFromCache(mode)
-    for (const url of current) {
-      if (!seen.has(url)) urls.add(url)
-    }
-  }
-  return urls
+  return { counts, urls }
 }
 
 /**
@@ -66,8 +57,13 @@ function computeNewUrls(): Set<string> {
  * Calling `markAsSeen(viewId)` stores the current PR URLs as the seen set.
  */
 export function useNewPRIndicator() {
-  const [newCounts, setNewCounts] = useState<Record<string, number>>(computeNewCounts)
-  const [newUrls, setNewUrls] = useState<Set<string>>(computeNewUrls)
+  const initialStateRef = useRef<{ counts: Record<string, number>; urls: Set<string> } | null>(null)
+  if (initialStateRef.current === null) {
+    initialStateRef.current = computeNewState()
+  }
+
+  const [newCounts, setNewCounts] = useState<Record<string, number>>(initialStateRef.current.counts)
+  const [newUrls, setNewUrls] = useState<Set<string>>(initialStateRef.current.urls)
   const pendingMarkRef = useRef(new Set<TrackedMode>())
 
   // Seed the seen sets on first mount if they don't exist
@@ -92,7 +88,7 @@ export function useNewPRIndicator() {
         // The mount-time seed (above) only catches modes whose data is
         // already in the cache. Modes fetched later (e.g. needs-review)
         // would never get seeded without this, causing the first-launch
-        // guard in computeNewCounts to permanently return 0.
+        // guard in computeNewState to permanently return 0.
         const mode = key as TrackedMode
         const hasLoadedData = dataCache.get(mode) !== null
         const hasSeenSet = !!dataCache.get(`${SEEN_PREFIX}${mode}`)
@@ -110,8 +106,9 @@ export function useNewPRIndicator() {
             dataCache.set(`${SEEN_PREFIX}${mode}`, [...prUrlsFromCache(mode)])
           }
         }
-        setNewCounts(computeNewCounts())
-        setNewUrls(computeNewUrls())
+        const state = computeNewState()
+        setNewCounts(state.counts)
+        setNewUrls(state.urls)
       }
     })
     return unsubscribe
@@ -122,8 +119,9 @@ export function useNewPRIndicator() {
       if (viewIdForMode(mode) === viewId) {
         if (dataCache.get(mode) !== null) {
           dataCache.set(`${SEEN_PREFIX}${mode}`, [...prUrlsFromCache(mode)])
-          setNewCounts(computeNewCounts())
-          setNewUrls(computeNewUrls())
+          const state = computeNewState()
+          setNewCounts(state.counts)
+          setNewUrls(state.urls)
         } else {
           // Data hasn't loaded yet — record the intent so it's applied
           // when the subscribe callback sees the first data arrival.

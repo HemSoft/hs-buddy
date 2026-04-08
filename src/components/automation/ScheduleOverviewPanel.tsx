@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Calendar, Clock, Play, Pause, ChevronRight } from 'lucide-react'
 import { CronExpressionParser } from 'cron-parser'
 import { useSchedules } from '../../hooks/useConvex'
-import { formatTime } from '../../utils/dateUtils'
+import { DAY, formatDateKey, formatTime, MONTH_SHORT } from '../../utils/dateUtils'
 import { InlineDropdown } from '../InlineDropdown'
 import type { DropdownOption } from '../InlineDropdown'
 import './ScheduleOverviewPanel.css'
@@ -42,8 +42,98 @@ interface ForecastConfigState {
   loaded: boolean
 }
 
+const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const
+
 function normalizeForecastDays(days: number): number {
   return days >= 1 && days <= 30 ? days : 3
+}
+
+function computeDayGroups(
+  schedules: ReturnType<typeof useSchedules>,
+  forecastDays: number
+): DayGroup[] {
+  if (!schedules) return []
+
+  const now = new Date()
+  const endTime = new Date(now.getTime() + forecastDays * DAY)
+  const allOccurrences: ScheduleOccurrence[] = []
+
+  for (const schedule of schedules) {
+    if (!schedule.enabled) continue
+
+    try {
+      const options: { tz?: string; currentDate?: Date; endDate?: Date } = {}
+      if (schedule.timezone) options.tz = schedule.timezone
+      options.currentDate = now
+      options.endDate = endTime
+
+      const expression = CronExpressionParser.parse(schedule.cron, options)
+
+      // Enumerate occurrences within the window
+      let count = 0
+      const maxOccurrences = 500 // safety limit per schedule
+      while (count < maxOccurrences) {
+        try {
+          const next = expression.next()
+          const nextTime = next.toDate()
+          if (nextTime > endTime) break
+          allOccurrences.push({
+            scheduleId: schedule._id,
+            scheduleName: schedule.name,
+            jobName: schedule.job?.name ?? '(unknown job)',
+            workerType: schedule.job?.workerType ?? 'exec',
+            enabled: schedule.enabled,
+            cron: schedule.cron,
+            time: nextTime,
+          })
+          count++
+        } catch {
+          break // No more occurrences
+        }
+      }
+    } catch {
+      // Invalid cron — skip
+    }
+  }
+
+  // Sort by time
+  allOccurrences.sort((a, b) => a.time.getTime() - b.time.getTime())
+
+  // Group by day
+  const groups: Map<string, DayGroup> = new Map()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  for (const occ of allOccurrences) {
+    const occDate = new Date(occ.time)
+    occDate.setHours(0, 0, 0, 0)
+    const dateKey = formatDateKey(occDate)
+
+    if (!groups.has(dateKey)) {
+      let label: string
+      if (occDate.getTime() === today.getTime()) {
+        label = 'Today'
+      } else if (occDate.getTime() === tomorrow.getTime()) {
+        label = 'Tomorrow'
+      } else {
+        label = `${DAY_NAMES[occ.time.getDay()]}, ${MONTH_SHORT[occ.time.getMonth()]} ${occ.time.getDate()}`
+      }
+      groups.set(dateKey, { label, dateKey, occurrences: [] })
+    }
+    groups.get(dateKey)!.occurrences.push(occ)
+  }
+
+  return Array.from(groups.values())
 }
 
 export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelProps) {
@@ -83,105 +173,10 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
   }
 
   // Compute upcoming occurrences
-  const dayGroups = useMemo<DayGroup[]>(() => {
-    if (!schedules) return []
-
-    const now = new Date()
-    const endTime = new Date(now.getTime() + forecastDays * 24 * 60 * 60 * 1000)
-    const allOccurrences: ScheduleOccurrence[] = []
-
-    for (const schedule of schedules) {
-      if (!schedule.enabled) continue
-
-      try {
-        const options: { tz?: string; currentDate?: Date; endDate?: Date } = {}
-        if (schedule.timezone) options.tz = schedule.timezone
-        options.currentDate = now
-        options.endDate = endTime
-
-        const expression = CronExpressionParser.parse(schedule.cron, options)
-
-        // Enumerate occurrences within the window
-        let count = 0
-        const maxOccurrences = 500 // safety limit per schedule
-        while (count < maxOccurrences) {
-          try {
-            const next = expression.next()
-            const nextTime = next.toDate()
-            if (nextTime > endTime) break
-            allOccurrences.push({
-              scheduleId: schedule._id,
-              scheduleName: schedule.name,
-              jobName: schedule.job?.name ?? '(unknown job)',
-              workerType: schedule.job?.workerType ?? 'exec',
-              enabled: schedule.enabled,
-              cron: schedule.cron,
-              time: nextTime,
-            })
-            count++
-          } catch {
-            break // No more occurrences
-          }
-        }
-      } catch {
-        // Invalid cron — skip
-      }
-    }
-
-    // Sort by time
-    allOccurrences.sort((a, b) => a.time.getTime() - b.time.getTime())
-
-    // Group by day
-    const groups: Map<string, DayGroup> = new Map()
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-
-    for (const occ of allOccurrences) {
-      const occDate = new Date(occ.time)
-      occDate.setHours(0, 0, 0, 0)
-      const dateKey = occDate.toISOString().slice(0, 10)
-
-      if (!groups.has(dateKey)) {
-        let label: string
-        if (occDate.getTime() === today.getTime()) {
-          label = 'Today'
-        } else if (occDate.getTime() === tomorrow.getTime()) {
-          label = 'Tomorrow'
-        } else {
-          const dayNames = [
-            'Sunday',
-            'Monday',
-            'Tuesday',
-            'Wednesday',
-            'Thursday',
-            'Friday',
-            'Saturday',
-          ]
-          const monthNames = [
-            'Jan',
-            'Feb',
-            'Mar',
-            'Apr',
-            'May',
-            'Jun',
-            'Jul',
-            'Aug',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Dec',
-          ]
-          label = `${dayNames[occ.time.getDay()]}, ${monthNames[occ.time.getMonth()]} ${occ.time.getDate()}`
-        }
-        groups.set(dateKey, { label, dateKey, occurrences: [] })
-      }
-      groups.get(dateKey)!.occurrences.push(occ)
-    }
-
-    return Array.from(groups.values())
-  }, [schedules, forecastDays])
+  const dayGroups = useMemo(
+    () => computeDayGroups(schedules, forecastDays),
+    [schedules, forecastDays]
+  )
 
   const totalOccurrences = dayGroups.reduce((sum, g) => sum + g.occurrences.length, 0)
   const enabledCount = schedules?.filter(s => s.enabled).length ?? 0

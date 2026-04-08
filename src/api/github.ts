@@ -10,6 +10,7 @@ import {
   SFL_CORE_WORKFLOW_FRAGMENTS,
   deriveSFLOverallStatus,
 } from '../types/sflStatus'
+import { DAY } from '../utils/dateUtils'
 import { getErrorMessage } from '../utils/errorUtils'
 
 /** Max retries when the primary rate limit is hit. */
@@ -359,6 +360,12 @@ export interface RepoCounts {
   prs: number
 }
 
+export interface PRLinkedIssue {
+  number: number
+  title: string
+  url: string
+}
+
 export interface PRHistorySummary {
   createdAt: string
   updatedAt: string
@@ -371,6 +378,7 @@ export interface PRHistorySummary {
   threadsOutdated: number
   threadsAddressed: number
   threadsUnaddressed: number
+  linkedIssues: PRLinkedIssue[]
   reviewers: PRReviewerSummary[]
   timeline: PRTimelineEvent[]
 }
@@ -441,6 +449,7 @@ export interface PRReviewSummary {
   body: string
   bodyHtml: string | null
   createdAt: string
+  updatedAt: string
   url: string
 }
 
@@ -559,6 +568,13 @@ const PR_HISTORY_QUERY = `
             }
           }
         }
+        closingIssuesReferences(first: 10) {
+          nodes {
+            number
+            title
+            url
+          }
+        }
       }
     }
   }
@@ -623,6 +639,13 @@ type PRHistoryGraphQLResponse = {
           isResolved: boolean
           isOutdated: boolean
           comments: { totalCount: number }
+        }>
+      }
+      closingIssuesReferences: {
+        nodes: Array<{
+          number: number
+          title: string
+          url: string
         }>
       }
     } | null
@@ -1582,6 +1605,12 @@ export class GitHubClient {
     const reviewers = this.buildReviewerSummaries(pr)
     const timeline = this.buildPRTimeline(pr, pullNumber)
 
+    const linkedIssues: PRLinkedIssue[] = (pr.closingIssuesReferences?.nodes || []).map(n => ({
+      number: n.number,
+      title: n.title,
+      url: n.url,
+    }))
+
     return {
       createdAt: pr.createdAt,
       updatedAt: pr.updatedAt,
@@ -1594,6 +1623,7 @@ export class GitHubClient {
       threadsOutdated,
       threadsAddressed,
       threadsUnaddressed,
+      linkedIssues,
       reviewers,
       timeline,
     }
@@ -1749,6 +1779,7 @@ export class GitHubClient {
                 body
                 bodyHTML
                 submittedAt
+                updatedAt
                 url
                 author { login avatarUrl }
               }
@@ -1813,6 +1844,7 @@ export class GitHubClient {
               body: string | null
               bodyHTML: string | null
               submittedAt: string | null
+              updatedAt: string
               url: string
               author: { login: string; avatarUrl: string } | null
             }>
@@ -1876,6 +1908,7 @@ export class GitHubClient {
         body: r.body || '',
         bodyHtml: r.bodyHTML || null,
         createdAt: r.submittedAt!,
+        updatedAt: r.updatedAt,
         url: r.url,
       }))
 
@@ -2912,9 +2945,7 @@ export class GitHubClient {
   async fetchUserActivity(org: string, username: string): Promise<UserActivitySummary> {
     const octokit = await this.getOctokitForOwner(org)
 
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split('T')[0]
+    const ninetyDaysAgo = new Date(Date.now() - 90 * DAY).toISOString().split('T')[0]
 
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)

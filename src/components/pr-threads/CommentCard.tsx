@@ -135,9 +135,13 @@ export function CommentCard({
           <span className="thread-comment-username">{comment.author}</span>
           <span
             className="thread-comment-time"
-            title={new Date(comment.createdAt).toLocaleString()}
+            title={new Date(
+              comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
+            ).toLocaleString()}
           >
-            {formatDistanceToNow(comment.createdAt)}
+            {formatDistanceToNow(
+              comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
+            )}
           </span>
         </div>
       </summary>

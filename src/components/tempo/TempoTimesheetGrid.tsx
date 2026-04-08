@@ -36,6 +36,7 @@ interface TempoTimesheetGridProps {
   onWorklogEdit: (worklog: TempoWorklog) => void
   onWorklogDelete: (worklog: TempoWorklog) => void
   onCopyToToday: (worklogs: TempoWorklog[]) => void
+  copyTargetDate?: string
 }
 
 interface DayColumn {
@@ -94,7 +95,10 @@ export function TempoTimesheetGrid({
   onWorklogEdit,
   onWorklogDelete,
   onCopyToToday,
+  copyTargetDate,
 }: TempoTimesheetGridProps) {
+  const copyLabel =
+    copyTargetDate && copyTargetDate !== formatDateKey(new Date()) ? copyTargetDate : 'today'
   const columns = useMemo(() => buildDayColumns(monthDate, holidays), [monthDate, holidays])
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
@@ -214,7 +218,7 @@ export function TempoTimesheetGrid({
                         className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''} ${hours > 0 && isCapex ? 'capex' : ''}`}
                         title={
                           hours > 0
-                            ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\nCtrl+click to copy this day to today`
+                            ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\nCtrl+click to copy to ${copyLabel}`
                             : `Click to log time on ${col.date}`
                         }
                         onClick={e => {
@@ -235,7 +239,7 @@ export function TempoTimesheetGrid({
                         onMouseEnter={e => {
                           const text =
                             hours > 0
-                              ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\nCtrl+click — copy to today`
+                              ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\nCtrl+click — copy to ${copyLabel}`
                               : `Click — log time on ${col.date}`
                           showTooltip(e, text)
                         }}
@@ -270,7 +274,7 @@ export function TempoTimesheetGrid({
                       if (dayTotal > 0) {
                         showTooltip(
                           e,
-                          `${dayTotal}h total\nCtrl+click — copy all worklogs to today`
+                          `${dayTotal}h total\nCtrl+click — copy all worklogs to ${copyLabel}`
                         )
                       }
                     }}

@@ -1,6 +1,15 @@
-import { useRef } from 'react'
-import { CheckCircle2, Eye, FileText, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react'
+import { useMemo, useRef } from 'react'
+import {
+  CheckCircle2,
+  Eye,
+  GitPullRequest,
+  Loader2,
+  MessageCircle,
+  Send,
+  Sparkles,
+} from 'lucide-react'
 import type { PRDetailInfo } from '../utils/prDetailView'
+import type { PRReviewComment, PRReviewSummary, PRReviewThread } from '../api/github'
 import { usePRThreadsPanel } from '../hooks/usePRThreadsPanel'
 import { ReviewThreadCard } from './pr-threads/ReviewThreadCard'
 import { ReviewSummaryCard } from './pr-threads/ReviewSummaryCard'
@@ -9,6 +18,67 @@ import './PRThreadsPanel.css'
 
 interface PRThreadsPanelProps {
   pr: PRDetailInfo
+}
+
+type TimelineEntry =
+  | { type: 'thread'; timestamp: string; data: PRReviewThread }
+  | { type: 'comment'; timestamp: string; data: PRReviewComment }
+  | { type: 'review'; timestamp: string; data: PRReviewSummary }
+
+function buildTimeline(
+  threads: PRReviewThread[],
+  comments: PRReviewComment[],
+  reviews: PRReviewSummary[]
+): TimelineEntry[] {
+  const entries: TimelineEntry[] = []
+  for (const thread of threads) {
+    const ts = thread.comments[0]?.createdAt ?? ''
+    if (ts) entries.push({ type: 'thread', timestamp: ts, data: thread })
+  }
+  for (const comment of comments) {
+    const commentTs = comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
+    if (commentTs) entries.push({ type: 'comment', timestamp: commentTs, data: comment })
+  }
+  for (const review of reviews) {
+    const reviewTs = review.updatedAt > review.createdAt ? review.updatedAt : review.createdAt
+    if (reviewTs) entries.push({ type: 'review', timestamp: reviewTs, data: review })
+  }
+  // When timestamps match, reviews come first (parent), then comments, then threads (children)
+  const typeOrder: Record<TimelineEntry['type'], number> = { review: 0, comment: 1, thread: 2 }
+  entries.sort((a, b) => {
+    const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    return timeDiff !== 0 ? timeDiff : typeOrder[a.type] - typeOrder[b.type]
+  })
+  return entries
+}
+
+function formatDateHeader(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+function groupByDate(entries: TimelineEntry[]): Map<string, TimelineEntry[]> {
+  const groups = new Map<string, TimelineEntry[]>()
+  for (const entry of entries) {
+    const key = formatDateHeader(entry.timestamp)
+    const group = groups.get(key)
+    if (group) {
+      group.push(entry)
+    } else {
+      groups.set(key, [entry])
+    }
+  }
+  return groups
 }
 
 export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
@@ -37,6 +107,20 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     openLatestReview,
     requestReReview,
   } = usePRThreadsPanel(pr)
+
+  const timeline = useMemo(() => {
+    if (!data) return []
+    const visibleThreads =
+      filter === 'all'
+        ? filteredThreads.filter(t => !t.isResolved || showResolved)
+        : filteredThreads
+    // When filtering by thread status, only show threads — comments/reviews are not thread-specific
+    const comments = filter === 'all' ? data.issueComments : []
+    const reviews = filter === 'all' ? data.reviews : []
+    return buildTimeline(visibleThreads, comments, reviews)
+  }, [data, filter, filteredThreads, showResolved])
+
+  const dateGroups = useMemo(() => groupByDate(timeline), [timeline])
 
   if (loading && !data) {
     return (
@@ -107,26 +191,27 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         </div>
       )}
 
-      <div className="pr-threads-section-title">
-        <MessageCircle size={16} />
-        <span>Conversations</span>
-        {data.threads.length > 0 && (
-          <span className="pr-threads-summary">
-            {activeThreads.length > 0 && (
-              <span className="pr-threads-active-count">{activeThreads.length} unresolved</span>
-            )}
-            {resolvedThreads.length > 0 && (
-              <span className="pr-threads-resolved-count">
-                <CheckCircle2 size={12} />
-                {resolvedThreads.length} resolved
-              </span>
-            )}
-          </span>
-        )}
-      </div>
+      {/* Summary bar + filters */}
+      <div className="pr-threads-timeline-header">
+        <div className="pr-threads-section-title">
+          <GitPullRequest size={16} />
+          <span>Timeline</span>
+          {data.threads.length > 0 && (
+            <span className="pr-threads-summary">
+              {activeThreads.length > 0 && (
+                <span className="pr-threads-active-count">{activeThreads.length} unresolved</span>
+              )}
+              {resolvedThreads.length > 0 && (
+                <span className="pr-threads-resolved-count">
+                  <CheckCircle2 size={12} />
+                  {resolvedThreads.length} resolved
+                </span>
+              )}
+            </span>
+          )}
+        </div>
 
-      {data.threads.length > 0 && (
-        <div className="pr-threads-section">
+        {data.threads.length > 0 && (
           <div className="pr-threads-toolbar">
             <div className="pr-threads-filters">
               <button
@@ -159,62 +244,59 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
               </button>
             )}
           </div>
-          <div className="pr-threads-list">
-            {filteredThreads
-              .filter(t => filter !== 'all' || !t.isResolved || showResolved)
-              .map(thread => (
-                <ReviewThreadCard
-                  key={thread.id}
-                  thread={thread}
-                  pr={pr}
-                  onReplyAdded={handleReplyAdded}
-                  onResolveToggled={handleResolveToggled}
-                  onReactToComment={handleReactToComment}
-                />
-              ))}
-            {filteredThreads.length === 0 && (
-              <div className="pr-threads-empty">No {filter === 'all' ? '' : filter} threads</div>
-            )}
-          </div>
+        )}
+      </div>
+
+      {/* Chronological timeline */}
+      {timeline.length > 0 ? (
+        <div className="pr-timeline">
+          {[...dateGroups.entries()].map(([dateLabel, entries]) => (
+            <details key={dateLabel} className="pr-timeline-date-group" open>
+              <summary className="pr-timeline-date-header">
+                <div className="pr-timeline-date-line" />
+                <span className="pr-timeline-date-label">{dateLabel}</span>
+                <div className="pr-timeline-date-line" />
+              </summary>
+              <div className="pr-timeline-entries">
+                {entries.map(entry => (
+                  <div key={`${entry.type}-${entry.data.id}`} className="pr-timeline-entry">
+                    <div className="pr-timeline-rail">
+                      <div className={`pr-timeline-dot pr-timeline-dot-${entry.type}`} />
+                      <div className="pr-timeline-connector" />
+                    </div>
+                    <div className="pr-timeline-content">
+                      <div className="pr-timeline-meta">
+                        <span className="pr-timeline-time">{formatTime(entry.timestamp)}</span>
+                        <span className="pr-timeline-type-badge">
+                          {entry.type === 'thread' ? 'review thread' : entry.type}
+                        </span>
+                      </div>
+                      {entry.type === 'thread' && (
+                        <ReviewThreadCard
+                          thread={entry.data}
+                          pr={pr}
+                          onReplyAdded={handleReplyAdded}
+                          onResolveToggled={handleResolveToggled}
+                          onReactToComment={handleReactToComment}
+                        />
+                      )}
+                      {entry.type === 'comment' && (
+                        <CommentCard comment={entry.data} onReact={handleReactToComment} />
+                      )}
+                      {entry.type === 'review' && <ReviewSummaryCard review={entry.data} />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      ) : (
+        <div className="pr-threads-empty-state">
+          <MessageCircle size={32} />
+          <p>No conversations yet</p>
         </div>
       )}
-
-      {data.issueComments.length > 0 && (
-        <details className="pr-threads-section pr-threads-collapsible" open>
-          <summary className="pr-threads-comments-title">
-            <MessageCircle size={14} />
-            {data.issueComments.length} {data.issueComments.length === 1 ? 'comment' : 'comments'}
-          </summary>
-          <div className="pr-threads-comments">
-            {data.issueComments.map(c => (
-              <CommentCard key={c.id} comment={c} onReact={handleReactToComment} />
-            ))}
-          </div>
-        </details>
-      )}
-
-      {data.reviews.length > 0 && (
-        <details className="pr-threads-section pr-threads-collapsible" open>
-          <summary className="pr-threads-comments-title">
-            <FileText size={14} />
-            {data.reviews.length} {data.reviews.length === 1 ? 'review' : 'reviews'}
-          </summary>
-          <div className="pr-threads-reviews">
-            {data.reviews.map(review => (
-              <ReviewSummaryCard key={review.id} review={review} />
-            ))}
-          </div>
-        </details>
-      )}
-
-      {data.threads.length === 0 &&
-        data.issueComments.length === 0 &&
-        data.reviews.length === 0 && (
-          <div className="pr-threads-empty-state">
-            <MessageCircle size={32} />
-            <p>No conversations yet</p>
-          </div>
-        )}
 
       <div className="pr-threads-add-comment">
         <div className="pr-threads-add-comment-header">Leave a comment</div>

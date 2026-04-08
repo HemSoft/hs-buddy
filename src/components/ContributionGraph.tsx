@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { ContributionWeek } from '../api/github'
+import { MONTH_SHORT } from '../utils/dateUtils'
 
 interface ContributionGraphProps {
   weeks: ContributionWeek[]
@@ -13,20 +14,6 @@ const MONTH_LABEL_HEIGHT = 14
 const DAY_LABEL_WIDTH = 28
 
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
 
 /** Map GitHub's light-theme contribution colors to dark-theme equivalents */
 function toDarkColor(color: string): string {
@@ -52,7 +39,7 @@ export function ContributionGraph({ weeks, totalContributions }: ContributionGra
       if (!firstDay) continue
       const month = new Date(firstDay.date + 'T00:00:00').getMonth()
       if (month !== lastMonth) {
-        labels.push({ text: MONTH_NAMES[month], x: DAY_LABEL_WIDTH + wi * CELL_STEP })
+        labels.push({ text: MONTH_SHORT[month], x: DAY_LABEL_WIDTH + wi * CELL_STEP })
         lastMonth = month
       }
     }

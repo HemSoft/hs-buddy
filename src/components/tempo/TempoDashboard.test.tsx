@@ -296,6 +296,7 @@ describe('TempoDashboard', () => {
     const { update, remove } = configureDashboard({
       removeResult: { success: false, error: 'Delete blocked' },
     })
+    const todayKey = formatDateKey(new Date())
 
     render(<TempoDashboard />)
 
@@ -320,6 +321,7 @@ describe('TempoDashboard', () => {
     await waitFor(() => {
       expect(update).toHaveBeenCalledWith(1, {
         hours: 1.5,
+        date: todayKey,
         startTime: '08:00',
         description: 'Saved through editor',
         accountKey: 'OPS',

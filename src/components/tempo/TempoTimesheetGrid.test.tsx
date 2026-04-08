@@ -116,7 +116,7 @@ describe('TempoTimesheetGrid', () => {
     expect(onWorklogDelete).toHaveBeenCalledWith(worklog)
 
     fireEvent.click(
-      screen.getByTitle(title => title.includes('2h') && title.includes('copy this day to today')),
+      screen.getByTitle(title => title.includes('2h') && title.includes('copy to today')),
       {
         ctrlKey: true,
       }

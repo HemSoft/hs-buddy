@@ -271,8 +271,19 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
                     )}
                     <div>
                       <div className="name">{comment.author}</div>
-                      <div className="time" title={formatDateFull(comment.createdAt)}>
-                        {formatDistanceToNow(comment.createdAt)}
+                      <div
+                        className="time"
+                        title={formatDateFull(
+                          comment.updatedAt > comment.createdAt
+                            ? comment.updatedAt
+                            : comment.createdAt
+                        )}
+                      >
+                        {formatDistanceToNow(
+                          comment.updatedAt > comment.createdAt
+                            ? comment.updatedAt
+                            : comment.createdAt
+                        )}
                       </div>
                     </div>
                   </div>

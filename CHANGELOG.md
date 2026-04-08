@@ -9,6 +9,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.648] - 2026-04-07
+
+### Added
+
+- Make timeline date groups collapsible
+
+## [0.1.647] - 2026-04-07
+
+### Fixed
+
+- Sort timeline by type when timestamps match
+
+## [0.1.646] - 2026-04-07
+
+### Fixed
+
+- Use updatedAt for review summary timestamps
+
+## [0.1.645] - 2026-04-07
+
+### Fixed
+
+- Use updatedAt for issue detail comment timestamps
+
+## [0.1.644] - 2026-04-07
+
+### Fixed
+
+- Use updatedAt for comment timestamps when more recent
+
+## [0.1.643] - 2026-04-07
+
+### Added
+
+- Unified chronological timeline for PR detail view
+
+## [0.1.642] - 2026-04-07
+
+### Fixed
+
+- Align PR detail grid to 4 columns and match comment title styling
+
+## [0.1.641] - 2026-04-07
+
+### Added
+
+- Replace Unaddressed card with Linked Issue card in PR detail view
+
+## [0.1.640] - 2026-04-07
+
+### Added
+
+- Replace Unaddressed card with Linked Issue card in PR detail view
+
 ## [0.1.639] - 2026-04-07
 
 ### Fixed

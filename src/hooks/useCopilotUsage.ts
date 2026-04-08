@@ -3,6 +3,7 @@ import { useGitHubAccounts } from './useConfig'
 import { OVERAGE_COST_PER_REQUEST, computeProjection } from '../components/copilot-usage/quotaUtils'
 import type { AccountQuotaState } from '../components/copilot-usage/quotaUtils'
 import type { OrgBudgetState } from '../components/copilot-usage/types'
+import { MS_PER_MINUTE } from '../constants'
 import { getErrorMessage } from '../utils/errorUtils'
 
 export function useCopilotUsage() {
@@ -104,25 +105,22 @@ export function useCopilotUsage() {
   }, [accounts, fetchBudget, fetchQuota, uniqueOrgs])
 
   useEffect(() => {
-    const refreshInterval = setInterval(
-      () => {
-        const now = new Date()
-        const currentUtcMonth = now.getUTCFullYear() * 100 + (now.getUTCMonth() + 1)
+    const refreshInterval = setInterval(() => {
+      const now = new Date()
+      const currentUtcMonth = now.getUTCFullYear() * 100 + (now.getUTCMonth() + 1)
 
-        const needsRefresh = Object.values(orgBudgets).some(state => {
-          if (!state.data) {
-            return false
-          }
-          const dataMonth = state.data.billingYear * 100 + state.data.billingMonth
-          return dataMonth < currentUtcMonth
-        })
-
-        if (needsRefresh) {
-          refreshAll()
+      const needsRefresh = Object.values(orgBudgets).some(state => {
+        if (!state.data) {
+          return false
         }
-      },
-      5 * 60 * 1000
-    )
+        const dataMonth = state.data.billingYear * 100 + state.data.billingMonth
+        return dataMonth < currentUtcMonth
+      })
+
+      if (needsRefresh) {
+        refreshAll()
+      }
+    }, 5 * MS_PER_MINUTE)
 
     return () => clearInterval(refreshInterval)
   }, [orgBudgets, refreshAll])

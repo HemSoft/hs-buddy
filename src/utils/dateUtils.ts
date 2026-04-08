@@ -9,6 +9,21 @@ export const DAY = 24 * HOUR
 const WEEK = 7 * DAY
 const MONTH = 30 * DAY
 
+export const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
 /**
  * Format a timestamp as relative time (e.g., "32 minutes ago", "3 days and 4 hours ago")
  */
@@ -95,20 +110,6 @@ export function format(date: number | Date, formatStr: string): string {
     'November',
     'December',
   ]
-  const monthShort = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ]
 
   const hour12 = hours % 12 || 12
   const ampm = hours < 12 ? 'AM' : 'PM'
@@ -117,7 +118,7 @@ export function format(date: number | Date, formatStr: string): string {
     yyyy: String(year),
     yy: String(year).slice(-2),
     MMMM: monthNames[month],
-    MMM: monthShort[month],
+    MMM: MONTH_SHORT[month],
     MM: String(month + 1).padStart(2, '0'),
     M: String(month + 1),
     dd: String(day).padStart(2, '0'),

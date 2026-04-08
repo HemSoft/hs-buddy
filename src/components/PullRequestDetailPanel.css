@@ -193,7 +193,7 @@
 
 .pr-detail-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   flex-shrink: 0;
 }
@@ -206,6 +206,9 @@
 }
 
 .pr-detail-card-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -228,12 +231,16 @@
 }
 
 .pr-detail-card-interactive {
-  cursor: context-menu;
+  cursor: pointer;
   transition: border-color 0.15s;
 }
 
 .pr-detail-card-interactive:hover {
   border-color: var(--accent-primary, #58a6ff);
+}
+
+.pr-detail-linked-issue {
+  color: var(--accent-primary, #58a6ff);
 }
 
 .pr-detail-card-secondary {

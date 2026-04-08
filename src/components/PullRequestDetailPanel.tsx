@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Check,
+  CircleDot,
   Clock,
   ExternalLink,
   GitBranch,
   GitPullRequest,
-  MessageSquareWarning,
   RefreshCw,
   Sparkles,
   User,
 } from 'lucide-react'
 import { GitHubClient } from '../api/github'
-import { useGitHubAccounts, useCopilotSettings } from '../hooks/useConfig'
+import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import type { PRDetailSection } from '../utils/prDetailView'
-import type { PRHistorySummary } from '../api/github'
+import type { PRHistorySummary, PRLinkedIssue } from '../api/github'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
@@ -23,7 +23,6 @@ import { PRChecksPanel } from './PRChecksPanel'
 import { PRFilesChangedPanel } from './PRFilesChangedPanel'
 import { PRThreadsPanel } from './PRThreadsPanel'
 import { PRReviewsPanel } from './PRReviewsPanel'
-import { buildAddressCommentsPrompt } from '../utils/assistantPrompts'
 import './PullRequestDetailPanel.css'
 
 interface PullRequestDetailPanelProps {
@@ -54,26 +53,9 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
-  const [threadsUnaddressed, setThreadsUnaddressed] = useState(pr.threadsUnaddressed ?? null)
-  const [threadsTotal, setThreadsTotal] = useState(pr.threadsTotal ?? null)
+  const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
   const [requestingCopilotReview, setRequestingCopilotReview] = useState(false)
-  const [threadCardMenu, setThreadCardMenu] = useState<{ x: number; y: number } | null>(null)
-  const { premiumModel } = useCopilotSettings()
-
-  useEffect(() => {
-    if (!threadCardMenu) return
-    const close = () => setThreadCardMenu(null)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
-    }
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('scroll', close, true)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('scroll', close, true)
-    }
-  }, [threadCardMenu])
 
   useEffect(() => {
     enqueueRef.current = enqueue
@@ -81,14 +63,11 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
   useEffect(() => {
     setYouApproved(pr.iApproved)
-    setThreadsUnaddressed(pr.threadsUnaddressed ?? null)
-    setThreadsTotal(pr.threadsTotal ?? null)
-  }, [pr.id, pr.url, pr.iApproved, pr.threadsUnaddressed, pr.threadsTotal])
+  }, [pr.id, pr.url, pr.iApproved])
 
   useEffect(() => {
     setHistoryUpdatedAt(null)
-    // Thread counts are reset to prop values by the effect above
-    // when pr.id/pr.url change — no need to duplicate here.
+    setLinkedIssues([])
   }, [pr.id, pr.repository, pr.url])
 
   const fetchBranches = useCallback(async () => {
@@ -142,20 +121,6 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
     }
   }, [accounts, pr.url, pr.repository, pr.id, requestingCopilotReview])
 
-  const handleAddressComments = useCallback(() => {
-    const org = pr.org || pr.source
-    const prompt = buildAddressCommentsPrompt({
-      prId: pr.id,
-      org,
-      repository: pr.repository,
-      url: pr.url,
-    })
-    window.dispatchEvent(
-      new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } })
-    )
-    setThreadCardMenu(null)
-  }, [pr.id, pr.org, pr.source, pr.repository, pr.url, premiumModel])
-
   const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
   const activityRelative = formatRelative(activityAt)
   const createdRelative = formatRelative(pr.created)
@@ -166,11 +131,28 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const isFocusedSection = section !== null
   const showOverview = !isFocusedSection
 
+  // Derive effective linked issue: prefer API data, fall back to branch name parsing
+  const branchIssue = (() => {
+    if (linkedIssues.length > 0) return null
+    const branch = branches?.headBranch || pr.headBranch
+    if (!branch) return null
+    const match = branch.match(/issue-(\d+)/)
+    if (!match) return null
+    const num = Number(match[1])
+    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+    if (!ownerRepo) return null
+    return {
+      number: num,
+      title: '',
+      url: `https://github.com/${ownerRepo.owner}/${ownerRepo.repo}/issues/${num}`,
+    }
+  })()
+  const effectiveIssue = linkedIssues[0] ?? branchIssue
+
   const handleHistoryLoaded = useCallback(
     (history: PRHistorySummary) => {
       setHistoryUpdatedAt(history.updatedAt || null)
-      setThreadsUnaddressed(history.threadsUnaddressed)
-      setThreadsTotal(history.threadsTotal)
+      setLinkedIssues(history.linkedIssues)
 
       const ownerRepo = parseOwnerRepoFromUrl(pr.url)
       const namespace = pr.org || ownerRepo?.owner || ''
@@ -295,53 +277,42 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               <div className="pr-detail-card-title">You Approved</div>
               <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
             </div>
-            {threadsUnaddressed != null && (
-              <div
-                className="pr-detail-card pr-detail-card-interactive"
-                onContextMenu={e => {
-                  e.preventDefault()
-                  setThreadCardMenu({ x: e.clientX, y: e.clientY })
-                }}
-                title="Right-click for actions"
-              >
-                <div className="pr-detail-card-title">Unaddressed</div>
-                <div
-                  className={`pr-detail-card-value ${threadsUnaddressed > 0 ? 'pr-detail-state-warning' : ''}`}
-                >
-                  {threadsUnaddressed}
-                  {threadsTotal != null && (
-                    <span className="pr-detail-card-secondary">/ {threadsTotal}</span>
-                  )}
-                </div>
+            <div
+              className={`pr-detail-card${effectiveIssue ? ' pr-detail-card-interactive' : ''}`}
+              role={effectiveIssue ? 'button' : undefined}
+              tabIndex={effectiveIssue ? 0 : undefined}
+              onClick={
+                effectiveIssue ? () => window.shell.openExternal(effectiveIssue.url) : undefined
+              }
+              onKeyDown={
+                effectiveIssue
+                  ? (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        window.shell.openExternal(effectiveIssue.url)
+                      }
+                    }
+                  : undefined
+              }
+              title={
+                effectiveIssue
+                  ? `Open Issue #${effectiveIssue.number} on GitHub`
+                  : 'No linked issue'
+              }
+            >
+              <div className="pr-detail-card-title">
+                <CircleDot size={12} />
+                Linked Issue
               </div>
-            )}
+              <div className="pr-detail-card-value">
+                {effectiveIssue ? (
+                  <span className="pr-detail-linked-issue">#{effectiveIssue.number}</span>
+                ) : (
+                  <span className="pr-detail-card-secondary">None</span>
+                )}
+              </div>
+            </div>
           </div>
-
-          {threadCardMenu && (
-            <>
-              <div
-                className="pr-context-menu-overlay"
-                onClick={() => setThreadCardMenu(null)}
-                aria-hidden="true"
-              />
-              <div
-                className="pr-context-menu"
-                style={{ top: threadCardMenu.y, left: threadCardMenu.x }}
-              >
-                <button
-                  onClick={handleAddressComments}
-                  disabled={!threadsUnaddressed || threadsUnaddressed === 0}
-                >
-                  <MessageSquareWarning size={14} />
-                  Address Unresolved Comments
-                </button>
-                <button onClick={handleRequestCopilotReview} disabled={requestingCopilotReview}>
-                  <Sparkles size={14} />
-                  Request Copilot Review
-                </button>
-              </div>
-            </>
-          )}
 
           <div className="pr-detail-meta-list">
             <div className="pr-detail-meta-item pr-detail-meta-item-author">

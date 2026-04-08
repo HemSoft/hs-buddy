@@ -415,17 +415,18 @@ export function PullRequestHistoryPanel({
       )}
 
       {focus === 'commits' && (
-        <div className="pr-history-metrics">
-          <div className="metric-row">
-            <span className="metric-label">
-              <GitCommit size={14} /> Commits
-            </span>
-            <span className="metric-value">{history.commitCount}</span>
+        <>
+          <div className="pr-history-metrics">
+            <div className="metric-row">
+              <span className="metric-label">
+                <GitCommit size={14} /> Commits
+              </span>
+              <span className="metric-value">{history.commitCount}</span>
+            </div>
           </div>
-        </div>
+          <PullRequestTimeline focus={focus} timeline={activeTimeline} />
+        </>
       )}
-
-      <PullRequestTimeline focus={focus} timeline={activeTimeline} />
 
       {focus === 'all' && (
         <div className="pr-history-footer">

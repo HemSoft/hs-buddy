@@ -175,6 +175,7 @@ export function TempoDashboard() {
     if (state.editingWorklog) {
       result = await actions.update(state.editingWorklog.id, {
         hours: payload.hours,
+        date: payload.date,
         startTime: payload.startTime,
         description: payload.description,
         accountKey: payload.accountKey,
@@ -188,17 +189,40 @@ export function TempoDashboard() {
     dispatch({ type: 'closeEditor' })
   }
 
-  const handleCopyToToday = async (sourceWorklogs: TempoWorklog[]) => {
+  // Find the next workday (Mon–Fri, non-holiday) that has < 8 hours logged
+  const nextUnfinishedDay = useMemo(() => {
+    const dailyTotals: Record<string, number> = {}
+    for (const w of month.worklogs) {
+      dailyTotals[w.date] = (dailyTotals[w.date] || 0) + w.hours
+    }
+    const holidaySet = new Set(Object.keys(holidays))
+    const today = new Date()
+    let firstWorkday: string | null = null
+    // Scan from today forward up to 30 days
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i)
+      const dow = d.getDay()
+      if (dow === 0 || dow === 6) continue // skip weekends
+      const key = formatDateKey(d)
+      if (holidaySet.has(key)) continue // skip holidays
+      if (!firstWorkday) firstWorkday = key
+      if ((dailyTotals[key] || 0) < 8) return key
+    }
+    return firstWorkday || todayKey // fallback to first workday found
+  }, [month.worklogs, holidays, todayKey])
+
+  const handleCopyToDay = async (sourceWorklogs: TempoWorklog[]) => {
     dispatch({ type: 'setActionError', error: null })
-    const todayWorklogs = month.worklogs.filter(w => w.date === todayKey)
-    let offset = todayWorklogs.slice()
+    const targetDate = nextUnfinishedDay
+    const targetWorklogs = month.worklogs.filter(w => w.date === targetDate)
+    let offset = targetWorklogs.slice()
 
     for (const src of sourceWorklogs) {
       const startTime = nextStartTime(offset)
       const result = await actions.create({
         issueKey: src.issueKey,
         hours: src.hours,
-        date: todayKey,
+        date: targetDate,
         startTime,
         description: src.description,
         accountKey: src.accountKey,
@@ -207,7 +231,7 @@ export function TempoDashboard() {
         dispatch({ type: 'setActionError', error: result.error || 'Copy failed' })
         return
       }
-      offset = [...offset, { ...src, date: todayKey, startTime }]
+      offset = [...offset, { ...src, date: targetDate, startTime }]
     }
   }
 
@@ -307,7 +331,8 @@ export function TempoDashboard() {
           onCellClick={handleAddForDate}
           onWorklogEdit={handleEdit}
           onWorklogDelete={handleDelete}
-          onCopyToToday={handleCopyToToday}
+          onCopyToToday={handleCopyToDay}
+          copyTargetDate={nextUnfinishedDay}
         />
       ) : (
         <div className="tempo-timeline-view">

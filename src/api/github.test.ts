@@ -403,6 +403,15 @@ describe('GitHubClient', () => {
                 { isResolved: false, isOutdated: false, comments: { totalCount: 3 } },
               ],
             },
+            closingIssuesReferences: {
+              nodes: [
+                {
+                  number: 148,
+                  title: 'Fix crash on login',
+                  url: 'https://github.com/myorg/repo/issues/148',
+                },
+              ],
+            },
           },
         },
       })
@@ -419,6 +428,11 @@ describe('GitHubClient', () => {
       expect(result.threadsOutdated).toBe(1)
       expect(result.threadsAddressed).toBe(1)
       expect(result.threadsUnaddressed).toBe(2)
+
+      // Linked issues
+      expect(result.linkedIssues).toHaveLength(1)
+      expect(result.linkedIssues[0].number).toBe(148)
+      expect(result.linkedIssues[0].url).toBe('https://github.com/myorg/repo/issues/148')
 
       // Timeline: sorted by occurredAt
       expect(result.timeline).toHaveLength(6) // 1 opened + 1 comment + 2 commits + 2 reviews (r3 skipped)

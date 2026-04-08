@@ -13,20 +13,22 @@
 #>
 
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
+$esc = [char]27
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
-Write-Host ""
-Write-Host "=== Stage 10: Disable SFL Analyzers A/B/C ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "This will disable:" -ForegroundColor White
-Write-Host "  - SFL Analyzer A (claude-sonnet-4.6)" -ForegroundColor White
-Write-Host "  - SFL Analyzer B (claude-opus-4.6)" -ForegroundColor White
-Write-Host "  - SFL Analyzer C (gpt-5.4)" -ForegroundColor White
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[36m=== Stage 10: Disable SFL Analyzers A/B/C ===${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[37mThis will disable:${esc}[0m"
+Write-Information "${esc}[37m  - SFL Analyzer A (claude-sonnet-4.6)${esc}[0m"
+Write-Information "${esc}[37m  - SFL Analyzer B (claude-opus-4.6)${esc}[0m"
+Write-Information "${esc}[37m  - SFL Analyzer C (gpt-5.4)${esc}[0m"
+Write-Information ""
 
 $confirm = Read-Host "Disable SFL Analyzers? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Host "Aborted." -ForegroundColor Yellow
+    Write-Information "${esc}[33mAborted.${esc}[0m"
     return
 }
 
@@ -39,18 +41,18 @@ $workflows = @(
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf.Name --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'disabled_manually') {
-        Write-Host "  Already disabled: $($wf.Name)" -ForegroundColor DarkGray
+        Write-Information "${esc}[90m  Already disabled: $($wf.Name)${esc}[0m"
     } else {
         gh workflow disable $wf.Name --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Disabled: $($wf.Name)" -ForegroundColor DarkGray
+            Write-Information "${esc}[90m  Disabled: $($wf.Name)${esc}[0m"
         } else {
-            Write-Host "  Failed:   $($wf.Name)" -ForegroundColor Red
+            Write-Information "${esc}[31m  Failed:   $($wf.Name)${esc}[0m"
         }
     }
 }
 
-Write-Host ""
-Write-Host "PR Analyzers disabled." -ForegroundColor Green
-Write-Host "Next step: Stage 11 (11-disable-dispatcher-and-issue-processor.ps1)" -ForegroundColor Cyan
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[32mPR Analyzers disabled.${esc}[0m"
+Write-Information "${esc}[36mNext step: Stage 11 (11-disable-dispatcher-and-issue-processor.ps1)${esc}[0m"
+Write-Information ""

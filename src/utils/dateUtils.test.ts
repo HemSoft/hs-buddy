@@ -5,6 +5,7 @@ import {
   formatDateFull,
   formatDateCompact,
   formatDuration,
+  formatSecondsCountdown,
   formatUptime,
   formatTime,
   formatHour12,
@@ -180,6 +181,22 @@ describe('formatDuration', () => {
     expect(formatDuration(90_000)).toBe('1m 30s')
     expect(formatDuration(125_000)).toBe('2m 5s')
     expect(formatDuration(3_600_000)).toBe('60m 0s')
+  })
+})
+
+describe('formatSecondsCountdown', () => {
+  it('returns "now" for non-positive values', () => {
+    expect(formatSecondsCountdown(0)).toBe('now')
+    expect(formatSecondsCountdown(-5)).toBe('now')
+  })
+
+  it('formats seconds only', () => {
+    expect(formatSecondsCountdown(45)).toBe('45s')
+  })
+
+  it('formats minutes and seconds', () => {
+    expect(formatSecondsCountdown(125)).toBe('2m 05s')
+    expect(formatSecondsCountdown(60)).toBe('1m 00s')
   })
 })
 

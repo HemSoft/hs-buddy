@@ -188,6 +188,14 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
 }
 
+export function formatSecondsCountdown(secs: number): string {
+  if (secs <= 0) return 'now'
+  const minutes = Math.floor(secs / 60)
+  const seconds = Math.floor(secs % 60)
+  if (minutes === 0) return `${seconds}s`
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`
+}
+
 export function formatUptime(ms: number): string {
   if (ms <= 0) return '0s'
   const totalSeconds = Math.floor(ms / 1_000)

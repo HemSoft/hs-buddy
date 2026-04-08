@@ -9,22 +9,30 @@ interface BrowserTabViewProps {
 const ZOOM_STEP = 0.5
 const ZOOM_MIN = -4
 const ZOOM_MAX = 5
+const ZOOM_STORAGE_KEY = 'browser-zoom-level'
 
 export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
   const [currentUrl, setCurrentUrl] = useState(url)
   const [loading, setLoading] = useState(true)
-  const zoomLevelRef = useRef(0)
+  const zoomLevelRef = useRef(
+    (() => {
+      const stored = localStorage.getItem(ZOOM_STORAGE_KEY)
+      return stored ? Number(stored) : 0
+    })()
+  )
 
   const zoomIn = useCallback(() => {
     const next = Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)
     zoomLevelRef.current = next
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(next))
     webviewRef.current?.setZoomLevel(next)
   }, [])
 
   const zoomOut = useCallback(() => {
     const next = Math.max(zoomLevelRef.current - ZOOM_STEP, ZOOM_MIN)
     zoomLevelRef.current = next
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(next))
     webviewRef.current?.setZoomLevel(next)
   }, [])
 
@@ -39,7 +47,12 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
       setCurrentUrl(e.url)
     }
     const handleStartLoad = () => setLoading(true)
-    const handleStopLoad = () => setLoading(false)
+    const handleStopLoad = () => {
+      setLoading(false)
+      if (zoomLevelRef.current !== 0) {
+        webview.setZoomLevel(zoomLevelRef.current)
+      }
+    }
 
     const handleBeforeInput = (event: Event) => {
       const input = (

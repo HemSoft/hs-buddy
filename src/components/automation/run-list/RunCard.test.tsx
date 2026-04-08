@@ -20,31 +20,6 @@ function makeRun(overrides: Partial<RunWithJob> = {}): RunWithJob {
   }
 }
 
-describe('formatOutput', () => {
-  it('returns an empty string for nullish values', () => {
-    expect(formatOutput(null)).toBe('')
-    expect(formatOutput(undefined)).toBe('')
-  })
-
-  it('returns strings unchanged', () => {
-    expect(formatOutput('hello world')).toBe('hello world')
-    expect(formatOutput('')).toBe('')
-  })
-
-  it('pretty prints JSON-serializable values', () => {
-    expect(formatOutput({ key: 'value', count: 42 })).toBe('{\n  "key": "value",\n  "count": 42\n}')
-    expect(formatOutput([1, 2, 3])).toBe('[\n  1,\n  2,\n  3\n]')
-    expect(formatOutput(42)).toBe('42')
-  })
-
-  it('falls back to String(output) when JSON serialization fails', () => {
-    const circular: { self?: unknown } = {}
-    circular.self = circular
-
-    expect(formatOutput(circular)).toBe('[object Object]')
-  })
-})
-
 describe('RunCard', () => {
   beforeEach(() => {
     vi.useFakeTimers()

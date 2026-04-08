@@ -87,7 +87,7 @@ describe('PRItem', () => {
     fireEvent.contextMenu(item)
 
     expect(onOpen).toHaveBeenCalledTimes(3)
-    expect(onOpen).toHaveBeenCalledWith(basePr.url)
+    expect(onOpen).toHaveBeenCalledWith(basePr)
     expect(onContextMenu).toHaveBeenCalledOnce()
     expect(onContextMenu.mock.calls[0]?.[1]).toEqual(basePr)
   })

@@ -18,7 +18,7 @@ interface PRItemProps {
   approving: string | null
   onApprove: (pr: PullRequest) => Promise<void> | void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
-  onOpen: (url: string) => void
+  onOpen: (pr: PullRequest) => void
 }
 
 export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }: PRItemProps) {
@@ -28,14 +28,14 @@ export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }
   return (
     <div
       className="pr-item"
-      onClick={() => onOpen(pr.url)}
+      onClick={() => onOpen(pr)}
       onContextMenu={e => onContextMenu(e, pr)}
       role="link"
       tabIndex={0}
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onOpen(pr.url)
+          onOpen(pr)
         }
       }}
     >

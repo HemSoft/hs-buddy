@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.653] - 2026-04-08
+
+### Added
+
+- Wire account PR lists to in-app detail view
+
 ## [0.1.652] - 2026-04-08
 
 ### Changed

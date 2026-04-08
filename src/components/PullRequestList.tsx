@@ -14,13 +14,15 @@ import { usePRListData } from './pull-request-list/usePRListData'
 import { ViewModeToggle } from './shared/ViewModeToggle'
 import { useViewMode } from '../hooks/useViewMode'
 import { formatDistanceToNow } from '../utils/dateUtils'
+import { createPRDetailViewId } from '../utils/prDetailView'
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
   onCountChange?: (count: number) => void
+  onOpenPR?: (viewId: string) => void
 }
 
-export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
+export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestListProps) {
   const {
     prs,
     loading,
@@ -243,7 +245,11 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               {prs.map(pr => (
                 <tr
                   key={`${pr.source}-${pr.id}-${pr.repository}`}
-                  onClick={() => window.shell.openExternal(pr.url)}
+                  onClick={() =>
+                    onOpenPR
+                      ? onOpenPR(createPRDetailViewId(pr))
+                      : window.shell.openExternal(pr.url)
+                  }
                   onContextMenu={e => handleContextMenu(e, pr)}
                 >
                   <td className="col-status">
@@ -291,7 +297,9 @@ export function PullRequestList({ mode, onCountChange }: PullRequestListProps) {
               approving={approving}
               onApprove={handleApprove}
               onContextMenu={handleContextMenu}
-              onOpen={(url: string) => window.shell.openExternal(url)}
+              onOpen={pr =>
+                onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
+              }
             />
           ))}
         </div>

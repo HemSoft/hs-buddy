@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './BrowserTabView.css'
 
 interface BrowserTabViewProps {
@@ -6,10 +6,27 @@ interface BrowserTabViewProps {
   onTitleChange?: (title: string) => void
 }
 
+const ZOOM_STEP = 0.5
+const ZOOM_MIN = -4
+const ZOOM_MAX = 5
+
 export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
   const [currentUrl, setCurrentUrl] = useState(url)
   const [loading, setLoading] = useState(true)
+  const zoomLevelRef = useRef(0)
+
+  const zoomIn = useCallback(() => {
+    const next = Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)
+    zoomLevelRef.current = next
+    webviewRef.current?.setZoomLevel(next)
+  }, [])
+
+  const zoomOut = useCallback(() => {
+    const next = Math.max(zoomLevelRef.current - ZOOM_STEP, ZOOM_MIN)
+    zoomLevelRef.current = next
+    webviewRef.current?.setZoomLevel(next)
+  }, [])
 
   useEffect(() => {
     const webview = webviewRef.current
@@ -56,6 +73,21 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
     }
   }, [onTitleChange])
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey) return
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault()
+        zoomIn()
+      } else if (e.key === '-') {
+        e.preventDefault()
+        zoomOut()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [zoomIn, zoomOut])
+
   return (
     <div className="browser-tab-view">
       <div className="browser-tab-toolbar">
@@ -86,6 +118,20 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
           {loading && <span className="browser-tab-spinner" />}
           <span className="browser-tab-url-text">{currentUrl}</span>
         </div>
+        <button
+          className="browser-tab-btn"
+          onClick={zoomOut}
+          title="Zoom out (Alt + -)"
+        >
+          −
+        </button>
+        <button
+          className="browser-tab-btn"
+          onClick={zoomIn}
+          title="Zoom in (Alt + =)"
+        >
+          +
+        </button>
         <button
           className="browser-tab-btn"
           onClick={() => window.shell.openExternal(currentUrl)}

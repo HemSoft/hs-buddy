@@ -13,20 +13,22 @@
 #>
 
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
+$esc = [char]27
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
-Write-Host ""
-Write-Host "=== Stage 13: Disable Reporting Workflows ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "This will disable:" -ForegroundColor White
-Write-Host "  - Daily Repo Audit       (no more quality audits)" -ForegroundColor White
-Write-Host "  - Daily Repo Status      (no more status reports)" -ForegroundColor White
-Write-Host "  - Daily Simplisticate    (no more complexity audits)" -ForegroundColor White
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[36m=== Stage 13: Disable Reporting Workflows ===${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[37mThis will disable:${esc}[0m"
+Write-Information "${esc}[37m  - Daily Repo Audit       (no more quality audits)${esc}[0m"
+Write-Information "${esc}[37m  - Daily Repo Status      (no more status reports)${esc}[0m"
+Write-Information "${esc}[37m  - Daily Simplisticate    (no more complexity audits)${esc}[0m"
+Write-Information ""
 
 $confirm = Read-Host "Disable reporting workflows? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Host "Aborted." -ForegroundColor Yellow
+    Write-Information "${esc}[33mAborted.${esc}[0m"
     return
 }
 
@@ -39,18 +41,18 @@ $workflows = @(
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf.Name --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'disabled_manually') {
-        Write-Host "  Already disabled: $($wf.Name)" -ForegroundColor DarkGray
+        Write-Information "${esc}[90m  Already disabled: $($wf.Name)${esc}[0m"
     } else {
         gh workflow disable $wf.Name --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Disabled: $($wf.Name)" -ForegroundColor DarkGray
+            Write-Information "${esc}[90m  Disabled: $($wf.Name)${esc}[0m"
         } else {
-            Write-Host "  Failed:   $($wf.Name)" -ForegroundColor Red
+            Write-Information "${esc}[31m  Failed:   $($wf.Name)${esc}[0m"
         }
     }
 }
 
-Write-Host ""
-Write-Host "Reporting workflows disabled." -ForegroundColor Green
-Write-Host "Next step: Stage 14 (14-verify-all-disabled.ps1)" -ForegroundColor Cyan
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[32mReporting workflows disabled.${esc}[0m"
+Write-Information "${esc}[36mNext step: Stage 14 (14-verify-all-disabled.ps1)${esc}[0m"
+Write-Information ""

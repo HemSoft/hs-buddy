@@ -104,6 +104,7 @@ export function AppContentRouter({
         <PullRequestList
           mode={mode}
           onCountChange={count => onPRCountChange(activeViewId, count)}
+          onOpenPR={onOpenTab}
         />
       )
     }

@@ -1,11 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import {
-  getFriendlyTaskLabel,
-  formatCountdown,
-  formatAge,
-  useBackgroundStatus,
-} from './useBackgroundStatus'
+import { getFriendlyTaskLabel, useBackgroundStatus } from './useBackgroundStatus'
 
 // Mock dependencies for hook tests
 const mockQueue = {
@@ -52,53 +47,10 @@ describe('getFriendlyTaskLabel', () => {
   })
 })
 
-describe('formatCountdown', () => {
-  it('returns "now" for zero', () => {
-    expect(formatCountdown(0)).toBe('now')
-  })
-
-  it('returns "now" for negative', () => {
-    expect(formatCountdown(-5)).toBe('now')
-  })
-
-  it('formats seconds only', () => {
-    expect(formatCountdown(45)).toBe('45s')
-  })
-
-  it('formats minutes and seconds', () => {
-    expect(formatCountdown(125)).toBe('2m 05s')
-  })
-
-  it('pads seconds with leading zero', () => {
-    expect(formatCountdown(63)).toBe('1m 03s')
-  })
-
-  it('formats exact minute boundary', () => {
-    expect(formatCountdown(60)).toBe('1m 00s')
-  })
-})
-
-describe('formatAge', () => {
-  it('returns "just now" for under a minute', () => {
-    expect(formatAge(30_000)).toBe('just now')
-    expect(formatAge(0)).toBe('just now')
-  })
-
-  it('formats minutes', () => {
-    expect(formatAge(120_000)).toBe('2m ago')
-    expect(formatAge(3_540_000)).toBe('59m ago')
-  })
-
-  it('formats hours and minutes', () => {
-    expect(formatAge(3_600_000)).toBe('1h 0m ago')
-    expect(formatAge(5_400_000)).toBe('1h 30m ago')
-    expect(formatAge(7_260_000)).toBe('2h 1m ago')
-  })
-})
-
 describe('useBackgroundStatus', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'))
     vi.clearAllMocks()
     mockQueue.runningCount = 0
     mockQueue.pendingCount = 0
@@ -130,9 +82,10 @@ describe('useBackgroundStatus', () => {
   it('computes countdown from cache entries', () => {
     mockDataCacheGet.mockReturnValue({ fetchedAt: Date.now() - 120_000, data: [] })
     const { result } = renderHook(() => useBackgroundStatus())
-    expect(result.current.nextRefreshSecs).toBeDefined()
-    expect(result.current.lastRefreshedAt).toBeDefined()
-    expect(result.current.lastRefreshedLabel).toBeDefined()
+    expect(result.current.nextRefreshSecs).toBe(180)
+    expect(result.current.nextRefreshLabel).toBe('3m 00s')
+    expect(result.current.lastRefreshedAt).toBe(Date.now() - 120_000)
+    expect(result.current.lastRefreshedLabel).toBe('2 minutes ago')
   })
 
   it('shows null countdown when syncing', () => {

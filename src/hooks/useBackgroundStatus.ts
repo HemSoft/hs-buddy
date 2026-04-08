@@ -16,6 +16,7 @@ import { getTaskQueue } from '../services/taskQueue'
 import { dataCache } from '../services/dataCache'
 import { usePRSettings } from './useConfig'
 import { PR_MODES, MS_PER_MINUTE } from '../constants'
+import { formatDistanceToNow, formatSecondsCountdown } from '../utils/dateUtils'
 
 export type SyncPhase = 'idle' | 'syncing' | 'error'
 
@@ -52,22 +53,6 @@ export function getFriendlyTaskLabel(taskName: string | null): string | null {
   if (taskName.startsWith('org-detail-copilot-')) return 'Org Copilot'
   if (taskName.startsWith('refresh-org-')) return 'Organizations'
   return taskName
-}
-
-export function formatCountdown(secs: number): string {
-  if (secs <= 0) return 'now'
-  const m = Math.floor(secs / 60)
-  const s = Math.floor(secs % 60)
-  if (m === 0) return `${s}s`
-  return `${m}m ${s.toString().padStart(2, '0')}s`
-}
-
-export function formatAge(ms: number): string {
-  if (ms < 60_000) return 'just now'
-  const minutes = Math.floor(ms / 60_000)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  return `${hours}h ${minutes % 60}m ago`
 }
 
 /**
@@ -125,9 +110,9 @@ export function useBackgroundStatus(): BackgroundStatus {
         activeLabel,
         activeTasks,
         nextRefreshSecs: phase === 'syncing' ? null : remainingSecs,
-        nextRefreshLabel: phase === 'syncing' ? null : formatCountdown(remainingSecs),
+        nextRefreshLabel: phase === 'syncing' ? null : formatSecondsCountdown(remainingSecs),
         lastRefreshedAt: latestRefresh || null,
-        lastRefreshedLabel: latestRefresh ? formatAge(Date.now() - latestRefresh) : null,
+        lastRefreshedLabel: latestRefresh ? formatDistanceToNow(latestRefresh) : null,
       })
     }
 

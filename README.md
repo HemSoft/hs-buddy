@@ -218,7 +218,6 @@ hs-buddy/
 │   │   ├── shared/            # Shared components
 │   │   ├── sidebar/           # Sidebar trees (GitHub, Bookmarks, Copilot)
 │   │   ├── sidebar-panel/     # Sidebar panel containers
-│   │   ├── bookmarks/         # Bookmark management panels
 │   │   └── tempo/             # Tempo timesheet panels
 │   ├── hooks/             # React hooks
 │   ├── providers/         # React context providers
@@ -238,17 +237,17 @@ hs-buddy/
 
 ## Keyboard Shortcuts
 
-| Shortcut                         | Action            |
-| -------------------------------- | ----------------- |
-| `F11`                            | Toggle fullscreen |
+| Shortcut                        | Action            |
+| ------------------------------- | ----------------- |
+| `F11`                           | Toggle fullscreen |
 | `Ctrl+Shift+I` / `Cmd+Option+I` | Toggle DevTools   |
-| `Ctrl+NumpadAdd`                 | Zoom in           |
-| `Ctrl+NumpadSubtract`            | Zoom out          |
-| `Ctrl+Numpad0`                   | Reset zoom        |
-| `Ctrl+Tab`                       | Next tab          |
-| `Ctrl+Shift+Tab`                 | Previous tab      |
-| `Ctrl+F4`                        | Close active tab  |
-| `Ctrl+Shift+A`                   | Toggle assistant  |
+| `Ctrl+NumpadAdd`                | Zoom in           |
+| `Ctrl+NumpadSubtract`           | Zoom out          |
+| `Ctrl+Numpad0`                  | Reset zoom        |
+| `Ctrl+Tab`                      | Next tab          |
+| `Ctrl+Shift+Tab`                | Previous tab      |
+| `Ctrl+F4`                       | Close active tab  |
+| `Ctrl+Shift+A`                  | Toggle assistant  |
 
 ## Troubleshooting
 
@@ -262,18 +261,18 @@ You can also run the validation script to check your GitHub org configurations:
 
 The left-side activity bar provides access to 10 sections:
 
-| Section        | Contents                                                        |
-| -------------- | --------------------------------------------------------------- |
+| Section        | Contents                                                       |
+| -------------- | -------------------------------------------------------------- |
 | **GitHub**     | PRs (My, Needs Review, Merged, Nudge), repo explorer, org/user |
-| **Skills**     | Browse, recent, favorites                                       |
-| **Tasks**      | Today, upcoming, projects (Todoist)                             |
-| **Insights**   | Productivity, activity                                          |
-| **Automation** | Schedules, run history                                          |
-| **The Crew**   | Multi-agent project sessions                                    |
-| **Tempo**      | Timesheet entries                                               |
-| **Bookmarks**  | Categorized URLs with in-app browser tabs                       |
-| **Copilot**    | Prompt box, results, usage, session explorer                    |
-| **Settings**   | Accounts, appearance, PR config, Copilot SDK, advanced          |
+| **Skills**     | Browse, recent, favorites                                      |
+| **Tasks**      | Today, upcoming, projects (Todoist)                            |
+| **Insights**   | Productivity, activity                                         |
+| **Automation** | Schedules, run history                                         |
+| **The Crew**   | Multi-agent project sessions                                   |
+| **Tempo**      | Timesheet entries                                              |
+| **Bookmarks**  | Categorized URLs with in-app browser tabs                      |
+| **Copilot**    | Prompt box, results, usage, session explorer                   |
+| **Settings**   | Accounts, appearance, PR config, Copilot SDK, advanced         |
 
 ## Set it Free Loop
 

@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Wire account PR lists to in-app detail view
 
+### Changed
+
+- Reduce SFL Queue Monitor frequency to every 12 hours
+
+
+
 ## [0.1.652] - 2026-04-08
 
 ### Changed

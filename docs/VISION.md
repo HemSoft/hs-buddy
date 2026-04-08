@@ -182,7 +182,7 @@ The operating model, workflow library, and governance live at:
 
 | Workflow | Cadence | Purpose |
 |---------|---------|---------|
-| `sfl-auditor` | Every 12 hours | Detects/repairs state discrepancies |
+| `sfl-auditor` | Daily (~5:57 AM EDT) | Detects/repairs state discrepancies |
 | `sfl-queue-monitor` | Scheduled | Monitors agent queue depth |
 | `sfl-improve-scorecard` | On demand | Scorecard keyword detection improvements |
 | `daily-repo-status` | Daily | Repository health report |

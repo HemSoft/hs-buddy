@@ -41,7 +41,7 @@ The happy path from issue to human-ready PR. Every handoff is deterministic.
 | 4 | `sfl-analyzer-c` | Analyzer B dispatch | PR comment marker + label | `workflow_dispatch` | Reads `agent:pr`, `pr:cycle-N`; adds `analyzer:blocked` if BLOCKING | GPT reviews (third model). Writes `<!-- MARKER:sfl-analyzer-c -->` + verdict. Dispatches label-actions |
 | 5 | `sfl-pr-label-actions` | Analyzer C dispatch | Ready PR or fix cycle | `workflow_dispatch` | Reads `analyzer:blocked`, `human:ready-for-review` | Deterministic aggregator: if `analyzer:blocked` → removes label, dispatches issue-processor for fix. If all PASS → adds `human:ready-for-review`, flips draft → ready |
 
-**Background:** `sfl-auditor` runs every 12 hours to detect and repair state
+**Background:** `sfl-auditor` runs daily (~5:57 AM EDT) to detect and repair state
 discrepancies (orphaned labels, stale in-progress issues, missing PRs, etc.).
 
 ---

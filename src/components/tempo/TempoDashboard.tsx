@@ -189,31 +189,45 @@ export function TempoDashboard() {
     dispatch({ type: 'closeEditor' })
   }
 
-  // Find the next workday (Mon–Fri, non-holiday) that has < 8 hours logged
-  const nextUnfinishedDay = useMemo(() => {
-    const dailyTotals: Record<string, number> = {}
-    for (const w of month.worklogs) {
-      dailyTotals[w.date] = (dailyTotals[w.date] || 0) + w.hours
-    }
-    const holidaySet = new Set(Object.keys(holidays))
-    const today = new Date()
-    let firstWorkday: string | null = null
-    // Scan from today forward up to 30 days
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i)
-      const dow = d.getDay()
-      if (dow === 0 || dow === 6) continue // skip weekends
-      const key = formatDateKey(d)
-      if (holidaySet.has(key)) continue // skip holidays
-      if (!firstWorkday) firstWorkday = key
-      if ((dailyTotals[key] || 0) < 8) return key
-    }
-    return firstWorkday || todayKey // fallback to first workday found
-  }, [month.worklogs, holidays, todayKey])
+  // Find the next workday (Mon–Fri, non-holiday) where none of the given
+  // issue keys have logged hours.  Falls back to the next globally unfinished
+  // day (< 8h total) if every upcoming workday already has those issues.
+  const findNextEmptyDay = useCallback(
+    (issueKeys: Set<string>): string => {
+      const hoursByIssueDate: Record<string, Set<string>> = {}
+      for (const w of month.worklogs) {
+        if (!hoursByIssueDate[w.date]) hoursByIssueDate[w.date] = new Set()
+        hoursByIssueDate[w.date].add(w.issueKey)
+      }
+      const dailyTotals: Record<string, number> = {}
+      for (const w of month.worklogs) {
+        dailyTotals[w.date] = (dailyTotals[w.date] || 0) + w.hours
+      }
+      const holidaySet = new Set(Object.keys(holidays))
+      const today = new Date()
+      let firstWorkday: string | null = null
+      let firstUnfinished: string | null = null
+      for (let i = 0; i < 30; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i)
+        const dow = d.getDay()
+        if (dow === 0 || dow === 6) continue
+        const key = formatDateKey(d)
+        if (holidaySet.has(key)) continue
+        if (!firstWorkday) firstWorkday = key
+        if (!firstUnfinished && (dailyTotals[key] || 0) < 8) firstUnfinished = key
+        const dayIssues = hoursByIssueDate[key]
+        const hasAny = dayIssues && [...issueKeys].some(k => dayIssues.has(k))
+        if (!hasAny) return key
+      }
+      return firstUnfinished || firstWorkday || todayKey
+    },
+    [month.worklogs, holidays, todayKey]
+  )
 
   const handleCopyToDay = async (sourceWorklogs: TempoWorklog[]) => {
     dispatch({ type: 'setActionError', error: null })
-    const targetDate = nextUnfinishedDay
+    const issueKeys = new Set(sourceWorklogs.map(w => w.issueKey))
+    const targetDate = findNextEmptyDay(issueKeys)
     const targetWorklogs = month.worklogs.filter(w => w.date === targetDate)
     let offset = targetWorklogs.slice()
 
@@ -332,7 +346,6 @@ export function TempoDashboard() {
           onWorklogEdit={handleEdit}
           onWorklogDelete={handleDelete}
           onCopyToToday={handleCopyToDay}
-          copyTargetDate={nextUnfinishedDay}
         />
       ) : (
         <div className="tempo-timeline-view">

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wire account PR lists to in-app detail view
 - Add zoom in/out buttons and Alt shortcuts to browser view
 - Persist browser zoom level across sessions
+- Ctrl+click copies worklog to next empty day for that issue
 
 ### Changed
 

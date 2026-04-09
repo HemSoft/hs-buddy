@@ -501,6 +501,7 @@ interface OrgReposSectionProps {
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }
 
+// @ts-expect-error TS6133 — WIP component not yet wired in
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- WIP: will replace inline repo rendering in OrgTreeNode
 function OrgReposSection({
   org,

@@ -5,48 +5,60 @@ export type ViewMode = 'card' | 'list'
 
 const STORAGE_PREFIX = 'viewMode:'
 
+function readLocal(storageKey: string): ViewMode | null {
+  try {
+    const v = localStorage.getItem(storageKey)
+    if (v === 'card' || v === 'list') return v
+  } catch {
+    // localStorage unavailable
+  }
+  return null
+}
+
 /**
- * Persists a card/list view preference per page key in Convex,
- * with localStorage as the initial value before Convex loads.
+ * Persists a card/list view preference per page key.
+ *
+ * localStorage is the authoritative local source (survives app close
+ * even when an async Convex mutation hasn't committed yet).
+ * Convex is a secondary store: we write to it on every toggle, and
+ * seed from it only when localStorage has no value (e.g. fresh install).
  */
 export function useViewMode(key: string, defaultMode: ViewMode = 'card') {
   const storageKey = `${STORAGE_PREFIX}${key}`
   const settings = useSettings()
   const { updateViewMode } = useSettingsMutations()
 
-  // Track in-flight mutations to avoid stale Convex values overwriting local state
-  const pendingRef = useRef<ViewMode | null>(null)
-
   // Read initial value from localStorage (instant, no round-trip)
-  const [mode, setModeState] = useState<ViewMode>(() => {
+  const [mode, setModeState] = useState<ViewMode>(() => readLocal(storageKey) ?? defaultMode)
+
+  // Seed from Convex only when localStorage has no value (one-time fallback per key)
+  const convexMode = settings?.viewModes?.[key]
+  const seededKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (seededKeyRef.current === key) return
+    if (convexMode !== 'card' && convexMode !== 'list') return
+    seededKeyRef.current = key
+
+    const local = readLocal(storageKey)
+    if (local) {
+      // localStorage already has a value — push to Convex if stale
+      if (local !== convexMode) {
+        updateViewMode({ pageKey: key, mode: local })
+      }
+      return
+    }
+
+    // No localStorage value — accept Convex value as seed
+    setModeState(convexMode)
     try {
-      const stored = localStorage.getItem(storageKey)
-      if (stored === 'card' || stored === 'list') return stored
+      localStorage.setItem(storageKey, convexMode)
     } catch {
       // localStorage unavailable
     }
-    return defaultMode
-  })
-
-  // Once Convex loads, adopt the server value (source of truth)
-  const convexMode = settings?.viewModes?.[key]
-  useEffect(() => {
-    if (convexMode === 'card' || convexMode === 'list') {
-      // Skip stale values while a mutation is in-flight
-      if (pendingRef.current !== null && convexMode !== pendingRef.current) return
-      pendingRef.current = null
-      setModeState(convexMode)
-      try {
-        localStorage.setItem(storageKey, convexMode)
-      } catch {
-        // localStorage unavailable
-      }
-    }
-  }, [convexMode, storageKey])
+  }, [convexMode, storageKey, key, updateViewMode])
 
   const setMode = useCallback(
     (next: ViewMode) => {
-      pendingRef.current = next
       setModeState(next)
       // Write to localStorage for instant reads on next mount
       try {

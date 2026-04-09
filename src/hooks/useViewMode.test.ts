@@ -3,9 +3,10 @@ import { renderHook, act } from '@testing-library/react'
 import { useViewMode } from './useViewMode'
 
 const mockUpdateViewMode = vi.fn()
+let mockSettings: unknown = undefined
 
 vi.mock('./useConvex', () => ({
-  useSettings: () => undefined,
+  useSettings: () => mockSettings,
   useSettingsMutations: () => ({ updateViewMode: mockUpdateViewMode }),
 }))
 
@@ -13,6 +14,7 @@ describe('useViewMode', () => {
   beforeEach(() => {
     localStorage.clear()
     mockUpdateViewMode.mockClear()
+    mockSettings = undefined
   })
 
   it('defaults to card mode', () => {
@@ -47,5 +49,28 @@ describe('useViewMode', () => {
     localStorage.setItem('viewMode:test-page', 'invalid')
     const { result } = renderHook(() => useViewMode('test-page'))
     expect(result.current[0]).toBe('card')
+  })
+
+  it('seeds from Convex when localStorage is empty', () => {
+    mockSettings = { viewModes: { 'test-page': 'list' } }
+    const { result } = renderHook(() => useViewMode('test-page'))
+    expect(result.current[0]).toBe('list')
+    expect(localStorage.getItem('viewMode:test-page')).toBe('list')
+  })
+
+  it('keeps localStorage value when Convex disagrees', () => {
+    localStorage.setItem('viewMode:test-page', 'list')
+    mockSettings = { viewModes: { 'test-page': 'card' } }
+    const { result } = renderHook(() => useViewMode('test-page'))
+    expect(result.current[0]).toBe('list')
+    // Should push local value to Convex to fix the stale server value
+    expect(mockUpdateViewMode).toHaveBeenCalledWith({ pageKey: 'test-page', mode: 'list' })
+  })
+
+  it('does not push to Convex when values already agree', () => {
+    localStorage.setItem('viewMode:test-page', 'list')
+    mockSettings = { viewModes: { 'test-page': 'list' } }
+    renderHook(() => useViewMode('test-page'))
+    expect(mockUpdateViewMode).not.toHaveBeenCalled()
   })
 })

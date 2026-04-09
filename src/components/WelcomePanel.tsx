@@ -58,7 +58,7 @@ function WelcomeHeader({ liveUptime }: { liveUptime: number }) {
           </div>
         </div>
         <div className="welcome-header-meta">
-          <div className="welcome-version-badge">Version 0.1.653</div>
+          <div className="welcome-version-badge">Version 0.1.654</div>
           {liveUptime > 0 && (
             <div className="welcome-uptime-badge">
               <Clock size={12} />

@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reduce SFL Queue Monitor frequency to every 12 hours
 
+### Fixed
+
+- Show 'Uncategorized' for bookmarks with empty category name
+
+
+
 
 
 ## [0.1.652] - 2026-04-08

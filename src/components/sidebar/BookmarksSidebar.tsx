@@ -207,7 +207,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
             <span className="sidebar-item-icon">
               <FolderOpen size={14} />
             </span>
-            <span className="sidebar-item-label">{node.name}</span>
+            <span className="sidebar-item-label">{node.name || 'Uncategorized'}</span>
             {displayCount > 0 && <span className="sidebar-item-count">{displayCount}</span>}
           </div>
           {hasChildren && isExpanded && (

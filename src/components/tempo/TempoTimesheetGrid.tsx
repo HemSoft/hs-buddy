@@ -32,7 +32,7 @@ interface TempoTimesheetGridProps {
   holidays: Record<string, string>
   loading: boolean
   capexMap: Record<string, boolean>
-  onCellClick: (date: string) => void
+  onCellClick: (date: string, issueKey?: string) => void
   onWorklogEdit: (worklog: TempoWorklog) => void
   onWorklogDelete: (worklog: TempoWorklog) => void
   onCopyToToday: (worklogs: TempoWorklog[]) => void
@@ -223,7 +223,7 @@ export function TempoTimesheetGrid({
                           } else if (cellWorklogs.length === 1) {
                             onWorklogEdit(cellWorklogs[0])
                           } else if (hours === 0) {
-                            onCellClick(col.date)
+                            onCellClick(col.date, issue.issueKey)
                           }
                         }}
                         onContextMenu={e => {

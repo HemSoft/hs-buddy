@@ -6,6 +6,9 @@ import { X } from 'lucide-react'
 interface TempoWorklogEditorProps {
   worklog: TempoWorklog | null // null = create mode
   defaultDate: string
+  defaultIssueKey?: string
+  defaultAccountKey?: string
+  defaultDescription?: string
   existingWorklogs: TempoWorklog[] // worklogs already on the target date
   onSave: (payload: CreateWorklogPayload) => Promise<void>
   onCancel: () => void
@@ -42,14 +45,17 @@ type TempoWorklogEditorAction =
 
 function createInitialState(
   worklog: TempoWorklog | null,
-  defaultDate: string
+  defaultDate: string,
+  defaultIssueKey?: string,
+  defaultAccountKey?: string,
+  defaultDescription?: string
 ): TempoWorklogEditorState {
   return {
-    issueKey: worklog?.issueKey || '',
+    issueKey: worklog?.issueKey || defaultIssueKey || '',
     hours: String(worklog?.hours || 1),
     date: worklog?.date || defaultDate,
-    description: worklog?.description || '',
-    accountKey: worklog?.accountKey || '',
+    description: worklog?.description || defaultDescription || '',
+    accountKey: worklog?.accountKey || defaultAccountKey || '',
     accounts: [],
     projectAccounts: [],
     accountsLoading: false,
@@ -91,6 +97,9 @@ function tempoWorklogEditorReducer(
 export function TempoWorklogEditor({
   worklog,
   defaultDate,
+  defaultIssueKey,
+  defaultAccountKey,
+  defaultDescription,
   existingWorklogs,
   onSave,
   onCancel,
@@ -98,8 +107,9 @@ export function TempoWorklogEditor({
   const isEdit = Boolean(worklog)
   const [state, dispatch] = useReducer(
     tempoWorklogEditorReducer,
-    { worklog, defaultDate },
-    ({ worklog, defaultDate }) => createInitialState(worklog, defaultDate)
+    { worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription },
+    ({ worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription }) =>
+      createInitialState(worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription)
   )
   const issueKeyId = useId()
   const hoursId = useId()
@@ -108,7 +118,7 @@ export function TempoWorklogEditor({
   const accountId = useId()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestVersionRef = useRef(0)
-  const userPickedAccountRef = useRef(Boolean(worklog?.accountKey))
+  const userPickedAccountRef = useRef(Boolean(worklog?.accountKey || defaultAccountKey))
 
   // Fetch all accounts on mount
   useEffect(() => {

@@ -101,7 +101,7 @@ describe('TempoTimesheetGrid', () => {
     )
 
     fireEvent.click(screen.getByTitle('Click to log time on 2026-03-06'))
-    expect(onCellClick).toHaveBeenCalledWith('2026-03-06')
+    expect(onCellClick).toHaveBeenCalledWith('2026-03-06', 'PE-101')
 
     const filledCell = screen.getByTitle(
       title => title.includes('PE-101') && title.includes('2026-03-05')

@@ -23,13 +23,14 @@ interface TempoDashboardState {
   viewMode: ViewMode
   editorOpen: boolean
   editingWorklog: TempoWorklog | null
+  prefillWorklog: TempoWorklog | null
   editorDate: string | null
   actionError: string | null
 }
 
 type TempoDashboardAction =
   | { type: 'setViewMode'; viewMode: ViewMode }
-  | { type: 'openCreate'; date: string }
+  | { type: 'openCreate'; date: string; prefillWorklog: TempoWorklog | null }
   | { type: 'openEdit'; worklog: TempoWorklog }
   | { type: 'closeEditor' }
   | { type: 'setActionError'; error: string | null }
@@ -51,6 +52,7 @@ function createInitialDashboardState(): TempoDashboardState {
     viewMode: savedMode,
     editorOpen: false,
     editingWorklog: null,
+    prefillWorklog: null,
     editorDate: null,
     actionError: null,
   }
@@ -73,6 +75,7 @@ function tempoDashboardReducer(
         ...state,
         editorOpen: true,
         editingWorklog: null,
+        prefillWorklog: action.prefillWorklog,
         editorDate: action.date,
       }
     case 'openEdit':
@@ -87,6 +90,7 @@ function tempoDashboardReducer(
         ...state,
         editorOpen: false,
         editingWorklog: null,
+        prefillWorklog: null,
         editorDate: null,
       }
     case 'setActionError':
@@ -166,8 +170,18 @@ export function TempoDashboard() {
     }
   }
 
-  const handleAddForDate = (date: string) => {
-    dispatch({ type: 'openCreate', date })
+  const handleAddForDate = (date: string, issueKey?: string) => {
+    let prefill: TempoWorklog | null = null
+    if (issueKey) {
+      // Find the most recent worklog for this issue to use as a template
+      const issueWorklogs = month.worklogs.filter(w => w.issueKey === issueKey)
+      if (issueWorklogs.length > 0) {
+        prefill = issueWorklogs.reduce((latest, w) =>
+          w.date > latest.date ? w : latest
+        )
+      }
+    }
+    dispatch({ type: 'openCreate', date, prefillWorklog: prefill })
   }
 
   const handleEditorSave = async (payload: CreateWorklogPayload) => {
@@ -402,6 +416,9 @@ export function TempoDashboard() {
         <TempoWorklogEditor
           worklog={state.editingWorklog}
           defaultDate={state.editorDate || todayKey}
+          defaultIssueKey={state.prefillWorklog?.issueKey}
+          defaultAccountKey={state.prefillWorklog?.accountKey}
+          defaultDescription={state.prefillWorklog?.description}
           existingWorklogs={month.worklogs.filter(w => w.date === activeEditorDate)}
           onSave={handleEditorSave}
           onCancel={() => dispatch({ type: 'closeEditor' })}

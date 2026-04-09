@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reduce SFL Queue Monitor frequency to every 12 hours
 - Auto-format with Prettier
+- Extract OrgReposSection component from OrgRepoTree
 
 ### Fixed
 

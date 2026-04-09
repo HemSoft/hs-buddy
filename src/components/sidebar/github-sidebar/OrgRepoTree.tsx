@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   Folder,
+  FolderGit2,
   FolderOpen,
   Loader2,
   Star,
@@ -454,6 +455,163 @@ function OrgUsersSection({
               </div>
             )
           })}
+        </div>
+      )}
+    </>
+  )
+}
+
+interface OrgReposSectionProps {
+  org: string
+  repos: OrgRepo[]
+  isExpanded: boolean
+  showBookmarkedOnly: boolean
+  bookmarkedRepoKeys: Set<string>
+  expandedRepos: Set<string>
+  expandedRepoIssueGroups: Set<string>
+  expandedRepoIssueStateGroups: Set<string>
+  expandedRepoPRGroups: Set<string>
+  expandedRepoPRStateGroups: Set<string>
+  expandedRepoCommitGroups: Set<string>
+  expandedPRNodes: Set<string>
+  repoCounts: Record<string, RepoCounts>
+  loadingRepoCounts: Set<string>
+  repoPrTreeData: Record<string, PullRequest[]>
+  repoCommitTreeData: Record<string, RepoCommit[]>
+  repoIssueTreeData: Record<string, RepoIssue[]>
+  loadingRepoCommits: Set<string>
+  loadingRepoPRs: Set<string>
+  loadingRepoIssues: Set<string>
+  sflStatusData: Record<string, SFLRepoStatus>
+  loadingSFLStatus: Set<string>
+  expandedSFLGroups: Set<string>
+  selectedItem: string | null
+  refreshTick: number
+  onToggleOrgRepoGroup: (org: string) => void
+  onToggleRepo: (org: string, repoName: string) => void
+  onToggleRepoIssueGroup: (org: string, repoName: string) => void
+  onToggleRepoIssueStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
+  onToggleRepoPRGroup: (org: string, repoName: string) => void
+  onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
+  onToggleRepoCommitGroup: (org: string, repoName: string) => void
+  onToggleSFLGroup: (org: string, repoName: string) => void
+  onTogglePRNode: (prViewId: string) => void
+  onItemSelect: (itemId: string) => void
+  onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
+  onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- WIP: will replace inline repo rendering in OrgTreeNode
+function OrgReposSection({
+  org,
+  repos,
+  isExpanded,
+  showBookmarkedOnly: _showBookmarkedOnly,
+  bookmarkedRepoKeys,
+  expandedRepos,
+  expandedRepoIssueGroups,
+  expandedRepoIssueStateGroups,
+  expandedRepoPRGroups,
+  expandedRepoPRStateGroups,
+  expandedRepoCommitGroups,
+  expandedPRNodes,
+  repoCounts,
+  loadingRepoCounts,
+  repoPrTreeData,
+  repoCommitTreeData,
+  repoIssueTreeData,
+  loadingRepoCommits,
+  loadingRepoPRs,
+  loadingRepoIssues,
+  sflStatusData,
+  loadingSFLStatus,
+  expandedSFLGroups,
+  selectedItem,
+  refreshTick,
+  onToggleOrgRepoGroup,
+  onToggleRepo,
+  onToggleRepoIssueGroup,
+  onToggleRepoIssueStateGroup,
+  onToggleRepoPRGroup,
+  onToggleRepoPRStateGroup,
+  onToggleRepoCommitGroup,
+  onToggleSFLGroup,
+  onTogglePRNode,
+  onItemSelect,
+  onContextMenu,
+  onBookmarkToggle,
+}: OrgReposSectionProps) {
+  const sortedRepos = [...repos].sort((a, b) => {
+    const aBookmarked = bookmarkedRepoKeys.has(`${org}/${a.name}`) ? 0 : 1
+    const bBookmarked = bookmarkedRepoKeys.has(`${org}/${b.name}`) ? 0 : 1
+    return aBookmarked - bBookmarked
+  })
+
+  return (
+    <>
+      <div
+        className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
+        role="button"
+        tabIndex={0}
+        onClick={() => onToggleOrgRepoGroup(org)}
+        onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgRepoGroup(org))}
+      >
+        <span className="sidebar-item-chevron">
+          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </span>
+        <span className="sidebar-item-icon">
+          <FolderGit2 size={12} />
+        </span>
+        <span className="sidebar-item-label">Repositories</span>
+        {repos.length > 0 && <span className="sidebar-item-count">{repos.length}</span>}
+      </div>
+      {isExpanded && (
+        <div className="sidebar-org-users-list">
+          {sortedRepos.length === 0 ? (
+            <div className="sidebar-item sidebar-item-empty">
+              <span className="sidebar-item-label">No repos found</span>
+            </div>
+          ) : (
+            sortedRepos.map(repo => (
+              <RepoNode
+                key={repo.name}
+                org={org}
+                repo={repo}
+                bookmarkedRepoKeys={bookmarkedRepoKeys}
+                expandedRepos={expandedRepos}
+                expandedRepoIssueGroups={expandedRepoIssueGroups}
+                expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
+                expandedRepoPRGroups={expandedRepoPRGroups}
+                expandedRepoPRStateGroups={expandedRepoPRStateGroups}
+                expandedRepoCommitGroups={expandedRepoCommitGroups}
+                expandedPRNodes={expandedPRNodes}
+                repoCounts={repoCounts}
+                loadingRepoCounts={loadingRepoCounts}
+                repoPrTreeData={repoPrTreeData}
+                repoCommitTreeData={repoCommitTreeData}
+                repoIssueTreeData={repoIssueTreeData}
+                loadingRepoCommits={loadingRepoCommits}
+                loadingRepoPRs={loadingRepoPRs}
+                loadingRepoIssues={loadingRepoIssues}
+                sflStatusData={sflStatusData}
+                loadingSFLStatus={loadingSFLStatus}
+                expandedSFLGroups={expandedSFLGroups}
+                selectedItem={selectedItem}
+                refreshTick={refreshTick}
+                onToggleRepo={onToggleRepo}
+                onToggleRepoIssueGroup={onToggleRepoIssueGroup}
+                onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
+                onToggleRepoPRGroup={onToggleRepoPRGroup}
+                onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
+                onToggleRepoCommitGroup={onToggleRepoCommitGroup}
+                onToggleSFLGroup={onToggleSFLGroup}
+                onTogglePRNode={onTogglePRNode}
+                onItemSelect={onItemSelect}
+                onContextMenu={onContextMenu}
+                onBookmarkToggle={onBookmarkToggle}
+              />
+            ))
+          )}
         </div>
       )}
     </>

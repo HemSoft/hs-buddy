@@ -273,7 +273,52 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       </div>
       <div className="sidebar-panel-content">
         {categoryTree.length > 0 ? (
-          categoryTree.map(node => renderCategoryNode(node, 0))
+          categoryTree.flatMap(node => {
+            // Skip empty-name root nodes — render their children directly
+            if (!node.name) {
+              return [
+                ...node.children.map(child => renderCategoryNode(child, 0)),
+                ...(bookmarksByCategory.get(node.fullPath) ?? []).map(bm => {
+                  const bmViewId = `browser:${encodeURIComponent(bm.url)}`
+                  return (
+                    <div
+                      key={bm._id}
+                      className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''}`}
+                      style={{ paddingLeft: '12px' }}
+                      onClick={() => onItemSelect(bmViewId)}
+                      onContextMenu={e => handleContextMenu(e, bm._id)}
+                      role="button"
+                      tabIndex={0}
+                      title={bm.url}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onItemSelect(bmViewId)
+                        }
+                      }}
+                    >
+                      <span className="sidebar-item-chevron" style={{ width: 12 }} />
+                      <span className="sidebar-item-icon">
+                        {bm.faviconUrl && isSafeImageUrl(bm.faviconUrl) ? (
+                          <img
+                            src={bm.faviconUrl}
+                            alt=""
+                            width={14}
+                            height={14}
+                            style={{ borderRadius: 2 }}
+                          />
+                        ) : (
+                          <Globe size={14} />
+                        )}
+                      </span>
+                      <span className="sidebar-item-label">{bm.title}</span>
+                    </div>
+                  )
+                }),
+              ]
+            }
+            return [renderCategoryNode(node, 0)]
+          })
         ) : (
           <div className="sidebar-item" style={{ color: 'var(--text-muted)' }}>
             <span className="sidebar-item-label">No bookmarks yet</span>

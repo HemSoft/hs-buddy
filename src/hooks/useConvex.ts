@@ -184,8 +184,9 @@ export function useBookmarkMutations() {
   const update = useMutation(api.bookmarks.update)
   const remove = useMutation(api.bookmarks.remove)
   const recordVisit = useMutation(api.bookmarks.recordVisit)
+  const reorder = useMutation(api.bookmarks.reorder)
 
-  return { create, update, remove, recordVisit }
+  return { create, update, remove, recordVisit, reorder }
 }
 
 /**

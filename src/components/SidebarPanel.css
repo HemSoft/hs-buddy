@@ -739,3 +739,21 @@ button.sidebar-item {
   margin-left: auto;
   font-style: italic;
 }
+
+/* Bookmark drag-and-drop indicators */
+.sidebar-item.drag-over-above {
+  box-shadow: inset 0 2px 0 0 var(--accent-primary);
+}
+
+.sidebar-item.drag-over-below {
+  box-shadow: inset 0 -2px 0 0 var(--accent-primary);
+}
+
+.sidebar-item[draggable='true'] {
+  cursor: grab;
+}
+
+.sidebar-item[draggable='true']:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}

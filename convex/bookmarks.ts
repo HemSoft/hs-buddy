@@ -186,3 +186,16 @@ export const remove = mutation({
     return args.id
   },
 })
+
+// Batch-update sort orders (used for drag-and-drop reordering)
+export const reorder = mutation({
+  args: {
+    updates: v.array(v.object({ id: v.id('bookmarks'), sortOrder: v.number() })),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now()
+    for (const { id, sortOrder } of args.updates) {
+      await ctx.db.patch(id, { sortOrder, updatedAt: now })
+    }
+  },
+})

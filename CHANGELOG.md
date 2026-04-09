@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Persist browser zoom level across sessions
 - Ctrl+click copies worklog to next empty day for that issue
 - Prefill issue, account, and description when clicking empty cell
+- Drag-and-drop reordering for bookmarks in sidebar
 
 ### Changed
 

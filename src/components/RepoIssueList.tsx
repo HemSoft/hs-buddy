@@ -13,7 +13,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoIssue } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { ViewModeToggle } from './shared/ViewModeToggle'
 import { useViewMode } from '../hooks/useViewMode'
 import './RepoIssueList.css'
@@ -62,7 +62,7 @@ export function RepoIssueList({
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             return await client.fetchRepoIssues(owner, repo, issueState)

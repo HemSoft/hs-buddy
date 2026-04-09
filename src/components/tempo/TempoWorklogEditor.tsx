@@ -109,7 +109,13 @@ export function TempoWorklogEditor({
     tempoWorklogEditorReducer,
     { worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription },
     ({ worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription }) =>
-      createInitialState(worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription)
+      createInitialState(
+        worklog,
+        defaultDate,
+        defaultIssueKey,
+        defaultAccountKey,
+        defaultDescription
+      )
   )
   const issueKeyId = useId()
   const hoursId = useId()

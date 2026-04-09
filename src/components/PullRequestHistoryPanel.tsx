@@ -17,7 +17,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { buildAddressCommentsPrompt } from '../utils/assistantPrompts'
 import './PullRequestHistoryPanel.css'
 
@@ -353,7 +353,7 @@ export function PullRequestHistoryPanel({
 
       const result = await enqueueRef.current(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.fetchPRHistory(ownerRepo.owner, ownerRepo.repo, pr.id)
         },

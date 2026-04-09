@@ -4,8 +4,22 @@ import { BookmarksSidebar } from './BookmarksSidebar'
 
 vi.mock('../../hooks/useConvex', () => ({
   useBookmarks: () => [
-    { _id: '1', url: 'https://example.com', title: 'Example', category: 'Dev Tools', tags: [], sortOrder: 0 },
-    { _id: '2', url: 'https://docs.test', title: 'Docs', category: 'Documentation', tags: [], sortOrder: 0 },
+    {
+      _id: '1',
+      url: 'https://example.com',
+      title: 'Example',
+      category: 'Dev Tools',
+      tags: [],
+      sortOrder: 0,
+    },
+    {
+      _id: '2',
+      url: 'https://docs.test',
+      title: 'Docs',
+      category: 'Documentation',
+      tags: [],
+      sortOrder: 0,
+    },
   ],
   useBookmarkCategories: () => ['Dev Tools', 'Documentation'],
   useBookmarkMutations: () => ({ reorder: vi.fn() }),

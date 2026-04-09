@@ -10,7 +10,7 @@ import { getProgressColor } from '../../utils/progressColors'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
-import { isAbortError } from '../../utils/errorUtils'
+import { isAbortError, throwIfAborted } from '../../utils/errorUtils'
 
 interface LoadingProgress {
   currentAccount: number
@@ -182,7 +182,7 @@ export function usePRListData(
     try {
       await enqueueRef.current(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, recentlyMergedDays)
           await client.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
         },
@@ -232,7 +232,7 @@ export function usePRListData(
       try {
         await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, recentlyMergedDays)
             await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
           },
@@ -338,9 +338,7 @@ export function usePRListData(
                 return freshCheck.data
               }
             }
-            if (signal.aborted) {
-              throw new DOMException('Fetch cancelled', 'AbortError')
-            }
+            throwIfAborted(signal)
             let prs: PullRequest[]
             switch (mode) {
               case 'needs-review':

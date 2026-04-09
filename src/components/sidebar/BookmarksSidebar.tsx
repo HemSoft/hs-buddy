@@ -161,7 +161,9 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
         id: bm._id as Id<'bookmarks'>,
         sortOrder: i,
       }))
-      reorder({ updates }).catch(() => {/* Convex will retry; optimistic UI handles re-sync */})
+      reorder({ updates }).catch(() => {
+        /* Convex will retry; optimistic UI handles re-sync */
+      })
     },
     [reorder]
   )

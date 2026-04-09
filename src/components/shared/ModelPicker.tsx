@@ -135,6 +135,15 @@ export function ModelPicker({
     return ` · ${multiplier}x`
   }
 
+  const selectStatusStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 0',
+    color: 'var(--text-secondary)',
+    fontSize: '13px',
+  } satisfies React.CSSProperties
+
   // Loading state
   if (modelsLoading && variant === 'inline') {
     return (
@@ -153,94 +162,92 @@ export function ModelPicker({
     )
   }
 
+  if (variant === 'select' && modelsLoading) {
+    return (
+      <div className={className}>
+        <div style={selectStatusStyle}>
+          <Loader2 size={16} className="spin" />
+          Fetching available models...
+        </div>
+      </div>
+    )
+  }
+
+  if (variant === 'select' && modelsError) {
+    return (
+      <div className={className}>
+        <div className="form-error" style={{ marginBottom: '8px' }}>
+          Failed to fetch models: {modelsError}
+        </div>
+      </div>
+    )
+  }
+
+  if (variant === 'select' && sdkModels.length === 0) {
+    return (
+      <div className={className}>
+        <div style={selectStatusStyle}>
+          No models loaded.{' '}
+          {showRefresh && (
+            <button
+              className="settings-btn settings-btn-secondary"
+              onClick={() => fetchModels(ghAccount || undefined)}
+              style={{ padding: '4px 8px', fontSize: '12px' }}
+            >
+              <RefreshCw size={12} /> Refresh
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (variant === 'select') {
     return (
       <div className={className}>
-        {modelsLoading ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 0',
-              color: 'var(--text-secondary)',
-              fontSize: '13px',
-            }}
-          >
-            <Loader2 size={16} className="spin" />
-            Fetching available models...
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="select-control" style={{ flex: 1 }}>
+            <select
+              id={id}
+              value={value}
+              onChange={e => handleChange(e.target.value)}
+              className="settings-select"
+              disabled={disabled}
+            >
+              {enabledModels.length > 0 && (
+                <optgroup label="Available Models">
+                  {enabledModels.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                      {billingLabel(m.billingMultiplier)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {disabledModels.length > 0 && (
+                <optgroup label="Disabled by Policy">
+                  {disabledModels.map(m => (
+                    <option key={m.id} value={m.id} disabled>
+                      {m.name} (disabled)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
           </div>
-        ) : modelsError ? (
-          <div className="form-error" style={{ marginBottom: '8px' }}>
-            Failed to fetch models: {modelsError}
-          </div>
-        ) : sdkModels.length === 0 ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 0',
-              color: 'var(--text-secondary)',
-              fontSize: '13px',
-            }}
-          >
-            No models loaded.{' '}
-            {showRefresh && (
-              <button
-                className="settings-btn settings-btn-secondary"
-                onClick={() => fetchModels(ghAccount || undefined)}
-                style={{ padding: '4px 8px', fontSize: '12px' }}
-              >
-                <RefreshCw size={12} /> Refresh
-              </button>
-            )}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="select-control" style={{ flex: 1 }}>
-              <select
-                id={id}
-                value={value}
-                onChange={e => handleChange(e.target.value)}
-                className="settings-select"
-                disabled={disabled}
-              >
-                {enabledModels.length > 0 && (
-                  <optgroup label="Available Models">
-                    {enabledModels.map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                        {billingLabel(m.billingMultiplier)}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {disabledModels.length > 0 && (
-                  <optgroup label="Disabled by Policy">
-                    {disabledModels.map(m => (
-                      <option key={m.id} value={m.id} disabled>
-                        {m.name} (disabled)
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
-            {showRefresh && (
-              <button
-                className="settings-btn settings-btn-secondary"
-                onClick={() => fetchModels(ghAccount || undefined)}
-                disabled={modelsLoading}
-                title="Refresh models from Copilot SDK"
-                style={{ padding: '6px 10px' }}
-              >
-                {modelsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
-                Refresh
-              </button>
-            )}
-          </div>
-        )}
+          {showRefresh && (
+            <button
+              className="settings-btn settings-btn-secondary"
+              onClick={() => fetchModels(ghAccount || undefined)}
+              disabled={modelsLoading}
+              title="Refresh models from Copilot SDK"
+              style={{ padding: '6px 10px' }}
+            >
+              {modelsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+              Refresh
+            </button>
+          )}
+        </div>
       </div>
     )
   }

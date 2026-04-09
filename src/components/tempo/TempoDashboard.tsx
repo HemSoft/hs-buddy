@@ -176,9 +176,7 @@ export function TempoDashboard() {
       // Find the most recent worklog for this issue to use as a template
       const issueWorklogs = month.worklogs.filter(w => w.issueKey === issueKey)
       if (issueWorklogs.length > 0) {
-        prefill = issueWorklogs.reduce((latest, w) =>
-          w.date > latest.date ? w : latest
-        )
+        prefill = issueWorklogs.reduce((latest, w) => (w.date > latest.date ? w : latest))
       }
     }
     dispatch({ type: 'openCreate', date, prefillWorklog: prefill })

@@ -21,7 +21,7 @@ import { MS_PER_MINUTE } from '../constants'
 import { RepoStatsBar } from './repo-detail/RepoStatsBar'
 import { RepoContentGrid } from './repo-detail/RepoContentGrid'
 import { getLanguageColor, getWorkflowStatusInfo } from './repo-detail/repoDetailUtils'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import './RepoDetailPanel.css'
 
 interface RepoDetailPanelProps {
@@ -61,7 +61,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             return await client.fetchRepoDetail(owner, repo)

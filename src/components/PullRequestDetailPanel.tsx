@@ -18,6 +18,7 @@ import type { PRDetailSection } from '../utils/prDetailView'
 import type { PRHistorySummary, PRLinkedIssue } from '../api/github'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { throwIfAborted } from '../utils/errorUtils'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRChecksPanel } from './PRChecksPanel'
 import { PRFilesChangedPanel } from './PRFilesChangedPanel'
@@ -85,7 +86,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
     try {
       const result = await enqueueRef.current(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.fetchPRBranches(ownerRepo.owner, ownerRepo.repo, pr.id)
         },
@@ -108,7 +109,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
     try {
       await enqueueRef.current(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           await client.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
         },

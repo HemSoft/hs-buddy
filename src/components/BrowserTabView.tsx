@@ -131,18 +131,10 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
           {loading && <span className="browser-tab-spinner" />}
           <span className="browser-tab-url-text">{currentUrl}</span>
         </div>
-        <button
-          className="browser-tab-btn"
-          onClick={zoomOut}
-          title="Zoom out (Alt + -)"
-        >
+        <button className="browser-tab-btn" onClick={zoomOut} title="Zoom out (Alt + -)">
           −
         </button>
-        <button
-          className="browser-tab-btn"
-          onClick={zoomIn}
-          title="Zoom in (Alt + =)"
-        >
+        <button className="browser-tab-btn" onClick={zoomIn} title="Zoom in (Alt + =)">
           +
         </button>
         <button

@@ -19,7 +19,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoIssueDetail } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import { formatDateFull, formatDistanceToNow } from '../utils/dateUtils'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import './RepoIssueDetailPanel.css'
 
 interface RepoIssueDetailPanelProps {
@@ -69,7 +69,7 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchRepoIssueDetail(owner, repo, issueNumber)
           },

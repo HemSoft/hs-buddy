@@ -11,7 +11,7 @@ import { useTaskQueue } from './useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { applyReactionToResult } from '../utils/reactions'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
@@ -43,7 +43,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     enqueueRef
       .current(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.fetchPRBranches(owner, pr.repository, pr.id)
         },
@@ -67,7 +67,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
 
       const result = await enqueueRef.current(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
         },
@@ -128,7 +128,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     try {
       const newComment = await enqueueRef.current(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.addPRComment(
             ownerRepo.owner,
@@ -157,7 +157,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
       try {
         await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             await client.addCommentReaction(ownerRepo.owner, commentId, content)
           },

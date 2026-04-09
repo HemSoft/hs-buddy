@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Reduce SFL Queue Monitor frequency to every 12 hours
+- Auto-format with Prettier
 
 ### Fixed
 
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ctrl+click copy scans from day after source, not today
 - Hide empty-name root folder, show its bookmarks at root level
 - Decouple org budget spent and personal overage on Copilot Usage
+- Replace remaining inline abort guard in usePRListData with throwIfAborted
 
 
 

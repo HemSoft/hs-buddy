@@ -39,7 +39,7 @@ import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OVERAGE_COST_PER_REQUEST, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { RateLimitGauge } from './RateLimitGauge'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
@@ -651,7 +651,7 @@ function useOrgOverviewData({
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchOrgOverview(org)
           },
@@ -733,7 +733,7 @@ function useOrgMembersData({
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchOrgMembers(org)
           },
@@ -825,7 +825,7 @@ function useOrgCopilotData({
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             return await window.github.getCopilotUsage(org, preferredAccount)
           },
           { name: copilotTaskName, priority: -1 }

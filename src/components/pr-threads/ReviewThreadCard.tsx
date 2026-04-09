@@ -22,6 +22,7 @@ import { useGitHubAccounts } from '../../hooks/useConfig'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../../utils/prDetailView'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
+import { throwIfAborted } from '../../utils/errorUtils'
 import { DiffHunk } from './DiffHunk'
 import { CommentCard } from './CommentCard'
 
@@ -105,7 +106,7 @@ export function ReviewThreadCard({
     try {
       const newComment = await enqueue(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.replyToReviewThread(
             ownerRepo.owner,
@@ -131,7 +132,7 @@ export function ReviewThreadCard({
     try {
       await enqueue(
         async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+          throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           if (thread.isResolved) {
             await client.unresolveReviewThread(ownerRepo.owner, thread.id)

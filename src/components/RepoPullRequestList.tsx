@@ -17,7 +17,7 @@ import { GitHubClient, type RepoPullRequest } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
 import { createPRDetailViewId } from '../utils/prDetailView'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { ViewModeToggle } from './shared/ViewModeToggle'
 import { useViewMode } from '../hooks/useViewMode'
 import './RepoPullRequestList.css'
@@ -136,7 +136,7 @@ export function RepoPullRequestList({
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             return await client.fetchRepoPRs(owner, repo, prState)

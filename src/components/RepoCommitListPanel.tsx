@@ -5,7 +5,7 @@ import { useTaskQueue } from '../hooks/useTaskQueue'
 import { GitHubClient, type RepoCommit } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { dataCache } from '../services/dataCache'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import './RepoDetailPanel.css'
 import './RepoCommitPanels.css'
 
@@ -46,7 +46,7 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
       try {
         const result = await enqueueRef.current(
           async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+            throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchRepoCommits(owner, repo)
           },

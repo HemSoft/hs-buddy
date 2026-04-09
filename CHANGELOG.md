@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.655] - 2026-04-09
+
+### Changed
+
+- Bump Aspire SDK from 13.2.1 to 13.2.2
+
 ## [0.1.654] - 2026-04-09
 
 ### Fixed

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.656] - 2026-04-09
+
+### Fixed
+
+- Sort review threads after their parent review in PR timeline
+
 ## [0.1.655] - 2026-04-09
 
 ### Changed

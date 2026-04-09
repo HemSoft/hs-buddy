@@ -43,11 +43,18 @@ function buildTimeline(
     const reviewTs = review.updatedAt > review.createdAt ? review.updatedAt : review.createdAt
     if (reviewTs) entries.push({ type: 'review', timestamp: reviewTs, data: review })
   }
-  // When timestamps match, reviews come first (parent), then comments, then threads (children)
+  // Reviews come before their child threads/comments when timestamps are within 60s
+  // (GitHub creates thread comments moments before the parent review's submittedAt)
   const typeOrder: Record<TimelineEntry['type'], number> = { review: 0, comment: 1, thread: 2 }
   entries.sort((a, b) => {
-    const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    return timeDiff !== 0 ? timeDiff : typeOrder[a.type] - typeOrder[b.type]
+    const aTime = new Date(a.timestamp).getTime()
+    const bTime = new Date(b.timestamp).getTime()
+    const timeDiff = aTime - bTime
+    if (Math.abs(timeDiff) < 60_000) {
+      const typeDiff = typeOrder[a.type] - typeOrder[b.type]
+      return typeDiff !== 0 ? typeDiff : timeDiff
+    }
+    return timeDiff
   })
   return entries
 }

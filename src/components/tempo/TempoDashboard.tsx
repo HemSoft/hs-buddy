@@ -189,11 +189,11 @@ export function TempoDashboard() {
     dispatch({ type: 'closeEditor' })
   }
 
-  // Find the next workday (Mon–Fri, non-holiday) where none of the given
-  // issue keys have logged hours.  Falls back to the next globally unfinished
-  // day (< 8h total) if every upcoming workday already has those issues.
+  // Find the next workday (Mon–Fri, non-holiday) after the source date where
+  // none of the given issue keys have logged hours.  Falls back to the next
+  // globally unfinished day (< 8h total) if every workday already has those issues.
   const findNextEmptyDay = useCallback(
-    (issueKeys: Set<string>): string => {
+    (issueKeys: Set<string>, sourceDate: string): string => {
       const hoursByIssueDate: Record<string, Set<string>> = {}
       for (const w of month.worklogs) {
         if (!hoursByIssueDate[w.date]) hoursByIssueDate[w.date] = new Set()
@@ -204,11 +204,13 @@ export function TempoDashboard() {
         dailyTotals[w.date] = (dailyTotals[w.date] || 0) + w.hours
       }
       const holidaySet = new Set(Object.keys(holidays))
-      const today = new Date()
+      // Start from the day after the source date
+      const start = new Date(sourceDate + 'T00:00:00')
+      start.setDate(start.getDate() + 1)
       let firstWorkday: string | null = null
       let firstUnfinished: string | null = null
-      for (let i = 0; i < 30; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i)
+      for (let i = 0; i < 60; i++) {
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
         const dow = d.getDay()
         if (dow === 0 || dow === 6) continue
         const key = formatDateKey(d)
@@ -227,7 +229,8 @@ export function TempoDashboard() {
   const handleCopyToDay = async (sourceWorklogs: TempoWorklog[]) => {
     dispatch({ type: 'setActionError', error: null })
     const issueKeys = new Set(sourceWorklogs.map(w => w.issueKey))
-    const targetDate = findNextEmptyDay(issueKeys)
+    const sourceDate = sourceWorklogs[0].date
+    const targetDate = findNextEmptyDay(issueKeys, sourceDate)
     const targetWorklogs = month.worklogs.filter(w => w.date === targetDate)
     let offset = targetWorklogs.slice()
 

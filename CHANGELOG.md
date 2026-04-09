@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Show 'Uncategorized' for bookmarks with empty category name
+- Ctrl+click copy scans from day after source, not today
 
 
 

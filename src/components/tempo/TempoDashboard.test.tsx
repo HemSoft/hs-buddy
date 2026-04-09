@@ -329,28 +329,31 @@ describe('TempoDashboard', () => {
     })
   })
 
-  it('copies a prior day to today using sequential start times', async () => {
+  it('copies a prior day to the next empty day using sequential start times', async () => {
     const { create } = configureDashboard()
-    const todayKey = formatDateKey(new Date())
 
     render(<TempoDashboard />)
 
     fireEvent.click(screen.getByRole('button', { name: 'grid copy' }))
 
+    // Source worklogs are dated 2026-03-19 (Thu); next workday is 2026-03-20 (Fri)
+    // and neither PE-201 nor PE-202 has hours there, so that's the target.
+    const expectedTarget = '2026-03-20'
+
     await waitFor(() => {
       expect(create).toHaveBeenNthCalledWith(1, {
         issueKey: 'PE-201',
         hours: 1,
-        date: todayKey,
-        startTime: '10:00',
+        date: expectedTarget,
+        startTime: '08:00',
         description: 'Copied once',
         accountKey: 'OPS',
       })
       expect(create).toHaveBeenNthCalledWith(2, {
         issueKey: 'PE-202',
         hours: 0.5,
-        date: todayKey,
-        startTime: '11:00',
+        date: expectedTarget,
+        startTime: '09:00',
         description: 'Copied twice',
         accountKey: 'DEV',
       })

@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Show 'Uncategorized' for bookmarks with empty category name
 - Ctrl+click copy scans from day after source, not today
 - Hide empty-name root folder, show its bookmarks at root level
+- Decouple org budget spent and personal overage on Copilot Usage
 
 
 

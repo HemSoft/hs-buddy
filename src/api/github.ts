@@ -2106,6 +2106,31 @@ export class GitHubClient {
   }
 
   /**
+   * List reviews on a pull request (for monitoring review status).
+   */
+  async listPRReviews(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<
+    { id: number; user: { login: string } | null; state: string; submitted_at: string | null }[]
+  > {
+    const octokit = await this.getOctokitForOwner(owner)
+    const data = await octokit.paginate(octokit.pulls.listReviews, {
+      owner,
+      repo,
+      pull_number: pullNumber,
+      per_page: 100,
+    })
+    return data.map(r => ({
+      id: r.id,
+      user: r.user ? { login: r.user.login } : null,
+      state: r.state,
+      submitted_at: r.submitted_at ?? null,
+    }))
+  }
+
+  /**
    * Get a token for an owner (used by thread/comment methods).
    */
   private async getTokenForOwner(owner: string): Promise<string> {

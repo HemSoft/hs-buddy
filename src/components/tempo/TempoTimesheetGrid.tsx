@@ -128,12 +128,18 @@ export function TempoTimesheetGrid({
       const cell = todayRef.current
       const cellRect = cell.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
-      const absoluteLeft = cellRect.left - containerRect.left + container.scrollLeft
       // Sticky columns (Issue + Key + Logged) overlay ~320px of the visible area
-      // Show one extra column before today so yesterday's data is visible and clickable
       const stickyWidth = 320
-      const oneColumnWidth = 40
-      container.scrollLeft = Math.max(0, absoluteLeft - stickyWidth - oneColumnWidth)
+      // Check if today is already visible in the non-sticky area
+      const visibleLeft = containerRect.left + stickyWidth
+      const visibleRight = containerRect.right
+      const isTodayVisible = cellRect.left >= visibleLeft && cellRect.right <= visibleRight
+      if (!isTodayVisible) {
+        const absoluteLeft = cellRect.left - containerRect.left + container.scrollLeft
+        // Show one extra column before today so yesterday's data is visible and clickable
+        const oneColumnWidth = 40
+        container.scrollLeft = Math.max(0, absoluteLeft - stickyWidth - oneColumnWidth)
+      }
     }
   }, [columns, loading, issueSummaries.length])
 

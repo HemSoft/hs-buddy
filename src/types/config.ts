@@ -60,6 +60,10 @@ export interface AppConfig {
   automation: {
     scheduleForecastDays: number // Number of days to show in schedule forecast (1-30)
   }
+  notifications: {
+    playSoundOnReviewComplete: boolean // Play an audio file when a Copilot PR review finishes
+    reviewCompleteSoundPath: string // Absolute path to a local audio file (empty = no sound)
+  }
 }
 
 /**
@@ -254,6 +258,20 @@ export const configSchema: Schema<AppConfig> = {
     },
     required: ['scheduleForecastDays'],
   },
+  notifications: {
+    type: 'object',
+    properties: {
+      playSoundOnReviewComplete: {
+        type: 'boolean',
+        default: false,
+      },
+      reviewCompleteSoundPath: {
+        type: 'string',
+        default: '',
+      },
+    },
+    required: ['playSoundOnReviewComplete', 'reviewCompleteSoundPath'],
+  },
 }
 
 /**
@@ -296,5 +314,9 @@ export const defaultConfig: AppConfig = {
   },
   automation: {
     scheduleForecastDays: 3,
+  },
+  notifications: {
+    playSoundOnReviewComplete: false,
+    reviewCompleteSoundPath: '',
   },
 }

@@ -297,3 +297,77 @@ export function useCopilotSettings() {
     setPremiumModel,
   }
 }
+
+/**
+ * Hook for notification settings
+ * Stored in electron-store only (device-specific, not synced via Convex)
+ */
+export function useNotificationSettings() {
+  const [enabled, setEnabledState] = useState(false)
+  const [soundPath, setSoundPathState] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      window.ipcRenderer.invoke('config:get-notification-sound-enabled') as Promise<boolean>,
+      window.ipcRenderer.invoke('config:get-notification-sound-path') as Promise<string>,
+    ])
+      .then(([e, p]) => {
+        setEnabledState(e)
+        setSoundPathState(p)
+      })
+      .catch(err => {
+        console.error('Failed to load notification settings:', err)
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  const setEnabled = async (value: boolean) => {
+    try {
+      const result = (await window.ipcRenderer.invoke(
+        'config:set-notification-sound-enabled',
+        value
+      )) as { success?: boolean }
+
+      if (!result?.success) return false
+
+      setEnabledState(value)
+      return true
+    } catch (err) {
+      console.error('Failed to update notification sound setting:', err)
+      return false
+    }
+  }
+
+  const setSoundPath = async (path: string) => {
+    try {
+      const result = (await window.ipcRenderer.invoke(
+        'config:set-notification-sound-path',
+        path
+      )) as { success?: boolean }
+
+      if (!result?.success) return false
+
+      setSoundPathState(path)
+      return true
+    } catch (err) {
+      console.error('Failed to update notification sound path:', err)
+      return false
+    }
+  }
+
+  const pickSoundFile = async () => {
+    const result = (await window.ipcRenderer.invoke('config:pick-audio-file')) as {
+      success: boolean
+      canceled?: boolean
+      filePath?: string
+    }
+    if (result.success && result.filePath) {
+      const saved = await setSoundPath(result.filePath)
+      return saved ? result.filePath : null
+    }
+    return null
+  }
+
+  return { enabled, soundPath, loading, setEnabled, setSoundPath, pickSoundFile }
+}

@@ -1,20 +1,21 @@
-import Store from 'electron-store';
-import type { AppConfig, GitHubAccount } from '../src/types/config';
-import { configSchema, defaultConfig } from '../src/types/config';
+import Store from 'electron-store'
+import type { AppConfig, GitHubAccount } from '../src/types/config'
+import { configSchema, defaultConfig } from '../src/types/config'
 
 /** Shared Convex URL — single source of truth for the main process. */
-export const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
+export const CONVEX_URL =
+  import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
 
 /**
  * Configuration manager using electron-store for persistent storage
  * Stores in userData/config.json (OS-specific location)
- * 
+ *
  * SECURITY NOTE: Uses GitHub CLI (gh) for authentication.
  * No tokens are stored in config or environment variables!
  * Authentication is handled securely by GitHub CLI in system keychain.
  */
 class ConfigManager {
-  private store: Store<AppConfig>;
+  private store: Store<AppConfig>
 
   constructor() {
     this.store = new Store<AppConfig>({
@@ -23,112 +24,132 @@ class ConfigManager {
       name: 'config', // Creates config.json in userData
       clearInvalidConfig: false, // Preserve config even if validation fails
       watch: true, // Watch for external changes
-    });
+    })
 
-    console.log('[ConfigManager] Store location:', this.store.path);
+    console.log('[ConfigManager] Store location:', this.store.path)
   }
 
   // GitHub Account Management
   getGitHubAccounts(): GitHubAccount[] {
-    return this.store.get('github.accounts', []);
+    return this.store.get('github.accounts', [])
   }
 
   addGitHubAccount(account: GitHubAccount): void {
-    const accounts = this.getGitHubAccounts();
+    const accounts = this.getGitHubAccounts()
     // Check for duplicates
-    const exists = accounts.some(
-      (a) => a.username === account.username && a.org === account.org
-    );
+    const exists = accounts.some(a => a.username === account.username && a.org === account.org)
     if (exists) {
-      throw new Error(`GitHub account ${account.username}@${account.org} already exists`);
+      throw new Error(`GitHub account ${account.username}@${account.org} already exists`)
     }
-    accounts.push(account);
-    this.store.set('github.accounts', accounts);
+    accounts.push(account)
+    this.store.set('github.accounts', accounts)
   }
 
   removeGitHubAccount(username: string, org: string): void {
-    const accounts = this.getGitHubAccounts();
-    const filtered = accounts.filter((a) => !(a.username === username && a.org === org));
-    this.store.set('github.accounts', filtered);
+    const accounts = this.getGitHubAccounts()
+    const filtered = accounts.filter(a => !(a.username === username && a.org === org))
+    this.store.set('github.accounts', filtered)
   }
 
   updateGitHubAccount(username: string, org: string, updates: Partial<GitHubAccount>): void {
-    const accounts = this.getGitHubAccounts();
-    const index = accounts.findIndex((a) => a.username === username && a.org === org);
+    const accounts = this.getGitHubAccounts()
+    const index = accounts.findIndex(a => a.username === username && a.org === org)
     if (index === -1) {
-      throw new Error(`GitHub account ${username}@${org} not found`);
+      throw new Error(`GitHub account ${username}@${org} not found`)
     }
-    accounts[index] = { ...accounts[index], ...updates };
-    this.store.set('github.accounts', accounts);
+    accounts[index] = { ...accounts[index], ...updates }
+    this.store.set('github.accounts', accounts)
   }
 
   getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {
-    return this.store.get(`ui.${key}` as keyof AppConfig, defaultConfig.ui[key] as unknown as AppConfig[keyof AppConfig]) as unknown as AppConfig['ui'][K];
+    return this.store.get(
+      `ui.${key}` as keyof AppConfig,
+      defaultConfig.ui[key] as unknown as AppConfig[keyof AppConfig]
+    ) as unknown as AppConfig['ui'][K]
   }
 
   setUiValue<K extends keyof AppConfig['ui']>(key: K, value: AppConfig['ui'][K]): void {
-    this.store.set(`ui.${key}`, value);
+    this.store.set(`ui.${key}`, value)
   }
 
   // Copilot Settings (PR Review Prompt Template — still used via IPC)
   getCopilotPRReviewPromptTemplate(): string {
-    return this.store.get('copilot.prReviewPromptTemplate', '');
+    return this.store.get('copilot.prReviewPromptTemplate', '')
   }
 
   setCopilotPRReviewPromptTemplate(template: string): void {
-    this.store.set('copilot.prReviewPromptTemplate', template);
+    this.store.set('copilot.prReviewPromptTemplate', template)
   }
 
   // Automation Settings
   getScheduleForecastDays(): number {
-    return this.store.get('automation.scheduleForecastDays', 3);
+    return this.store.get('automation.scheduleForecastDays', 3)
   }
 
   setScheduleForecastDays(days: number): void {
-    this.store.set('automation.scheduleForecastDays', Math.max(1, Math.min(30, days)));
+    this.store.set('automation.scheduleForecastDays', Math.max(1, Math.min(30, days)))
+  }
+
+  // Notification Settings
+  getNotificationSoundEnabled(): boolean {
+    return this.store.get('notifications.playSoundOnReviewComplete', false)
+  }
+
+  setNotificationSoundEnabled(enabled: boolean): void {
+    this.store.set('notifications.playSoundOnReviewComplete', enabled)
+  }
+
+  getNotificationSoundPath(): string {
+    return this.store.get('notifications.reviewCompleteSoundPath', '')
+  }
+
+  setNotificationSoundPath(filePath: string): void {
+    this.store.set('notifications.reviewCompleteSoundPath', filePath)
   }
 
   // Full config access
   getConfig(): AppConfig {
-    return this.store.store;
+    return this.store.store
   }
 
   // Migration helper from environment variables
   migrateFromEnv(): void {
     // Check if we already have accounts - don't overwrite
     if (this.getGitHubAccounts().length > 0) {
-      console.log('[ConfigManager] GitHub accounts already configured, skipping migration');
-      return;
+      console.log('[ConfigManager] GitHub accounts already configured, skipping migration')
+      return
     }
 
     // Try to read the .env file pattern (legacy support)
-    const username = process.env.VITE_GITHUB_USERNAME;
-    const org = process.env.VITE_GITHUB_ORG;
+    const username = process.env.VITE_GITHUB_USERNAME
+    const org = process.env.VITE_GITHUB_ORG
 
     if (username && org) {
-      console.log('[ConfigManager] Migrating from environment variables...');
+      console.log('[ConfigManager] Migrating from environment variables...')
       this.addGitHubAccount({
         username,
         org,
-      });
-      console.log('[ConfigManager] Migration complete - now using GitHub CLI authentication');
-      console.log('[ConfigManager] You can remove VITE_GITHUB_USERNAME and VITE_GITHUB_ORG from .env (no longer needed)');
+      })
+      console.log('[ConfigManager] Migration complete - now using GitHub CLI authentication')
+      console.log(
+        '[ConfigManager] You can remove VITE_GITHUB_USERNAME and VITE_GITHUB_ORG from .env (no longer needed)'
+      )
     } else {
-      console.log('[ConfigManager] No environment variables found for migration');
-      console.log('[ConfigManager] Add accounts manually through Settings or edit config.json');
+      console.log('[ConfigManager] No environment variables found for migration')
+      console.log('[ConfigManager] Add accounts manually through Settings or edit config.json')
     }
   }
 
   // Utility methods
   getStorePath(): string {
-    return this.store.path;
+    return this.store.path
   }
 
   reset(): void {
-    this.store.clear();
-    console.log('[ConfigManager] Configuration reset to defaults');
+    this.store.clear()
+    console.log('[ConfigManager] Configuration reset to defaults')
   }
 }
 
 // Singleton instance
-export const configManager = new ConfigManager();
+export const configManager = new ConfigManager()

@@ -172,6 +172,124 @@
   border-color: var(--accent-primary);
 }
 
+.pr-detail-copilot-monitoring {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  animation: copilot-pulse 2s ease-in-out infinite;
+}
+
+.pr-detail-copilot-done {
+  border-color: var(--accent-success, #2ea043);
+  color: var(--accent-success, #2ea043);
+  background: color-mix(in srgb, var(--accent-success, #2ea043) 12%, transparent);
+}
+
+@keyframes copilot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-primary) 0%, transparent);
+  }
+}
+
+@keyframes pr-detail-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pr-detail-spin {
+  animation: pr-detail-spin 1s linear infinite;
+}
+
+.pulse {
+  animation: copilot-pulse 2s ease-in-out infinite;
+}
+
+/* Copilot review completion banner */
+.pr-detail-review-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(63, 185, 80, 0.4);
+  border-radius: 8px;
+  background: rgba(63, 185, 80, 0.08);
+  animation: banner-slide-in 0.3s ease-out;
+  flex-shrink: 0;
+}
+
+.pr-detail-review-banner-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #3fb950;
+  min-width: 0;
+}
+
+.pr-detail-review-banner-content > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.pr-detail-review-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pr-detail-review-banner-text strong {
+  font-size: 13px;
+  color: #3fb950;
+}
+
+.pr-detail-review-banner-text span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pr-detail-review-banner-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.pr-detail-review-banner-dismiss:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+@keyframes banner-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .pr-detail-open-btn {
   display: inline-flex;
   align-items: center;

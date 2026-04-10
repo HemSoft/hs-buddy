@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Check,
+  CheckCircle2,
   CircleDot,
   Clock,
   ExternalLink,
   GitBranch,
   GitPullRequest,
+  Loader2,
   RefreshCw,
   Sparkles,
   User,
+  X,
 } from 'lucide-react'
 import { GitHubClient } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
@@ -18,6 +21,10 @@ import type { PRDetailSection } from '../utils/prDetailView'
 import type { PRHistorySummary, PRLinkedIssue } from '../api/github'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import {
+  createNotificationSoundBlob,
+  type NotificationSoundAsset,
+} from '../utils/notificationSound'
 import { throwIfAborted } from '../utils/errorUtils'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRChecksPanel } from './PRChecksPanel'
@@ -39,6 +46,82 @@ const SECTION_LABELS: Record<PRDetailSection, string> = {
   'ai-reviews': 'AI Reviews',
 }
 
+const PENDING_REVIEW_KEY = 'hs-buddy:pending-copilot-reviews'
+const COPILOT_REVIEW_POLL_MS = 15_000
+const MAX_COPILOT_REVIEW_POLLS = 40
+
+interface PendingCopilotReview {
+  prUrl: string
+  baselineReviewId: number
+}
+
+function savePendingReview(prUrl: string, baselineReviewId: number) {
+  try {
+    const all = JSON.parse(sessionStorage.getItem(PENDING_REVIEW_KEY) ?? '{}') as Record<
+      string,
+      PendingCopilotReview
+    >
+    all[prUrl] = { prUrl, baselineReviewId }
+    sessionStorage.setItem(PENDING_REVIEW_KEY, JSON.stringify(all))
+  } catch {
+    // sessionStorage may be unavailable — polling still works
+  }
+}
+
+function loadPendingReview(prUrl: string): PendingCopilotReview | null {
+  try {
+    const all = JSON.parse(sessionStorage.getItem(PENDING_REVIEW_KEY) ?? '{}') as Record<
+      string,
+      PendingCopilotReview
+    >
+    return all[prUrl] ?? null
+  } catch {
+    return null
+  }
+}
+
+function clearPendingReview(prUrl: string) {
+  try {
+    const all = JSON.parse(sessionStorage.getItem(PENDING_REVIEW_KEY) ?? '{}') as Record<
+      string,
+      PendingCopilotReview
+    >
+    delete all[prUrl]
+    sessionStorage.setItem(PENDING_REVIEW_KEY, JSON.stringify(all))
+  } catch {
+    // sessionStorage may be unavailable
+  }
+}
+
+function isFreshCopilotReview(
+  review: { id: number; user: { login: string } | null },
+  baselineReviewId: number
+): boolean {
+  return review.user?.login === 'copilot-pull-request-reviewer[bot]' && review.id > baselineReviewId
+}
+
+/** Play the configured notification sound if enabled. Fire-and-forget. */
+function playReviewCompleteSound() {
+  void (window.ipcRenderer.invoke('config:get-notification-sound-enabled') as Promise<boolean>)
+    .then(enabled => {
+      if (!enabled) return
+      return (
+        window.ipcRenderer.invoke(
+          'config:play-notification-sound'
+        ) as Promise<NotificationSoundAsset | null>
+      ).then(sound => {
+        if (!sound) return
+        const blob = createNotificationSoundBlob(sound)
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audio.onended = () => URL.revokeObjectURL(url)
+        audio.onerror = () => URL.revokeObjectURL(url)
+        audio.play().catch(() => URL.revokeObjectURL(url))
+      })
+    })
+    .catch(() => {})
+}
+
 function formatRelative(date: string | null): string {
   if (!date) return ''
   return formatDistanceToNow(date)
@@ -56,11 +139,134 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const [youApproved, setYouApproved] = useState(pr.iApproved)
   const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
-  const [requestingCopilotReview, setRequestingCopilotReview] = useState(false)
+  const [copilotReviewState, setCopilotReviewState] = useState<
+    'idle' | 'requesting' | 'monitoring' | 'done'
+  >('idle')
+  const [copilotReviewBanner, setCopilotReviewBanner] = useState<{
+    completedAt: number
+  } | null>(null)
+  const monitorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const monitorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const monitorCountRef = useRef(0)
+  const monitorSessionRef = useRef(0)
+  const accountsRef = useRef(accounts)
+
+  const clearCopilotReviewTimers = useCallback(() => {
+    if (monitorTimerRef.current) {
+      clearTimeout(monitorTimerRef.current)
+      monitorTimerRef.current = null
+    }
+
+    if (monitorTimeoutRef.current) {
+      clearTimeout(monitorTimeoutRef.current)
+      monitorTimeoutRef.current = null
+    }
+  }, [])
+
+  const finishCopilotReviewMonitor = useCallback(
+    (sessionId: number, prUrl: string) => {
+      clearCopilotReviewTimers()
+      if (monitorSessionRef.current !== sessionId) return
+
+      clearPendingReview(prUrl)
+      setCopilotReviewState('done')
+      setCopilotReviewBanner({ completedAt: Date.now() })
+      playReviewCompleteSound()
+      setRefreshKey(k => k + 1)
+      monitorTimeoutRef.current = setTimeout(() => {
+        if (monitorSessionRef.current !== sessionId) return
+        setCopilotReviewState('idle')
+        monitorTimeoutRef.current = null
+      }, 3000)
+    },
+    [clearCopilotReviewTimers]
+  )
+
+  const stopCopilotReviewMonitor = useCallback(() => {
+    monitorSessionRef.current++
+    clearCopilotReviewTimers()
+  }, [clearCopilotReviewTimers])
+
+  const startCopilotReviewMonitor = useCallback(
+    ({
+      ownerRepo,
+      prUrl,
+      baselineReviewId,
+      runImmediately = false,
+    }: {
+      ownerRepo: { owner: string; repo: string }
+      prUrl: string
+      baselineReviewId: number
+      runImmediately?: boolean
+    }) => {
+      const sessionId = monitorSessionRef.current
+      setCopilotReviewState('monitoring')
+      monitorCountRef.current = 0
+
+      const findFreshCopilotReview = async () => {
+        const client = new GitHubClient({ accounts: accountsRef.current }, 7)
+        const reviews = await client.listPRReviews(ownerRepo.owner, ownerRepo.repo, pr.id)
+        return reviews.find(review => isFreshCopilotReview(review, baselineReviewId))
+      }
+
+      const scheduleNextPoll = () => {
+        if (monitorSessionRef.current !== sessionId) return
+        monitorTimerRef.current = setTimeout(pollOnce, COPILOT_REVIEW_POLL_MS)
+      }
+
+      const pollOnce = async () => {
+        if (monitorSessionRef.current !== sessionId) return
+
+        monitorCountRef.current++
+        if (monitorCountRef.current > MAX_COPILOT_REVIEW_POLLS) {
+          clearCopilotReviewTimers()
+          clearPendingReview(prUrl)
+          if (monitorSessionRef.current === sessionId) setCopilotReviewState('idle')
+          return
+        }
+
+        try {
+          const freshCopilotReview = await findFreshCopilotReview()
+          if (freshCopilotReview) {
+            finishCopilotReviewMonitor(sessionId, prUrl)
+            return
+          }
+        } catch (pollErr) {
+          console.debug('Copilot review poll failed:', pollErr)
+        }
+
+        scheduleNextPoll()
+      }
+
+      if (runImmediately) {
+        void (async () => {
+          try {
+            const freshCopilotReview = await findFreshCopilotReview()
+            if (freshCopilotReview) {
+              finishCopilotReviewMonitor(sessionId, prUrl)
+              return
+            }
+          } catch (pollErr) {
+            console.debug('Copilot review poll failed:', pollErr)
+          }
+
+          scheduleNextPoll()
+        })()
+        return
+      }
+
+      scheduleNextPoll()
+    },
+    [clearCopilotReviewTimers, finishCopilotReviewMonitor, pr.id]
+  )
 
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
+
+  useEffect(() => {
+    accountsRef.current = accounts
+  }, [accounts])
 
   useEffect(() => {
     setYouApproved(pr.iApproved)
@@ -102,25 +308,63 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
     fetchBranches()
   }, [fetchBranches])
 
+  // Clean up monitor timers and reset state on unmount or PR change
+  useEffect(() => {
+    stopCopilotReviewMonitor()
+    setCopilotReviewState('idle')
+    setCopilotReviewBanner(null)
+
+    // Check sessionStorage for a pending review request from a previous mount
+    const pending = loadPendingReview(pr.url)
+    if (pending) {
+      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+      if (ownerRepo) {
+        startCopilotReviewMonitor({
+          ownerRepo,
+          prUrl: pr.url,
+          baselineReviewId: pending.baselineReviewId,
+          runImmediately: true,
+        })
+      }
+    }
+
+    return stopCopilotReviewMonitor
+  }, [pr.id, pr.url, startCopilotReviewMonitor, stopCopilotReviewMonitor])
+
   const handleRequestCopilotReview = useCallback(async () => {
     const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-    if (!ownerRepo || requestingCopilotReview) return
-    setRequestingCopilotReview(true)
+    if (!ownerRepo || copilotReviewState !== 'idle') return
+    setCopilotReviewState('requesting')
     try {
+      // Snapshot the highest existing Copilot review ID (server-side baseline)
+      // so detection is immune to client clock skew
+      const c0 = new GitHubClient({ accounts: accountsRef.current }, 7)
+      const existingReviews = await c0.listPRReviews(ownerRepo.owner, ownerRepo.repo, pr.id)
+      const baselineReviewId = existingReviews
+        .filter(r => r.user?.login === 'copilot-pull-request-reviewer[bot]')
+        .reduce((max, r) => Math.max(max, r.id), 0)
+
       await enqueueRef.current(
         async signal => {
           throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, 7)
-          await client.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
+          const c = new GitHubClient({ accounts: accountsRef.current }, 7)
+          await c.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
         },
         { name: `copilot-review-${pr.repository}-${pr.id}` }
       )
+
+      // Enter monitor mode — use self-scheduling setTimeout to avoid overlap
+      savePendingReview(pr.url, baselineReviewId)
+      startCopilotReviewMonitor({
+        ownerRepo,
+        prUrl: pr.url,
+        baselineReviewId,
+      })
     } catch (err) {
       console.error('Failed to request Copilot review:', err)
-    } finally {
-      setRequestingCopilotReview(false)
+      setCopilotReviewState('idle')
     }
-  }, [accounts, pr.url, pr.repository, pr.id, requestingCopilotReview])
+  }, [pr.url, pr.repository, pr.id, copilotReviewState, startCopilotReviewMonitor])
 
   const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
   const activityRelative = formatRelative(activityAt)
@@ -216,12 +460,28 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
         </div>
         <div className="pr-detail-header-actions">
           <button
-            className="pr-detail-refresh-btn"
+            className={`pr-detail-refresh-btn${
+              copilotReviewState === 'monitoring' ? ' pr-detail-copilot-monitoring' : ''
+            }${copilotReviewState === 'done' ? ' pr-detail-copilot-done' : ''}`}
             onClick={handleRequestCopilotReview}
-            title={requestingCopilotReview ? 'Requesting...' : 'Request Copilot Review'}
-            disabled={requestingCopilotReview}
+            title={
+              copilotReviewState === 'requesting'
+                ? 'Requesting Copilot review…'
+                : copilotReviewState === 'monitoring'
+                  ? 'Waiting for Copilot review…'
+                  : copilotReviewState === 'done'
+                    ? 'Copilot review complete!'
+                    : 'Request Copilot Review'
+            }
+            disabled={copilotReviewState !== 'idle'}
           >
-            <Sparkles size={14} />
+            {copilotReviewState === 'requesting' ? (
+              <Loader2 size={14} className="pr-detail-spin" />
+            ) : copilotReviewState === 'done' ? (
+              <CheckCircle2 size={14} />
+            ) : (
+              <Sparkles size={14} className={copilotReviewState === 'monitoring' ? 'pulse' : ''} />
+            )}
           </button>
           <button
             className="pr-detail-refresh-btn"
@@ -236,6 +496,31 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
           </button>
         </div>
       </div>
+
+      {copilotReviewBanner && (
+        <div className="pr-detail-review-banner">
+          <div className="pr-detail-review-banner-content">
+            <CheckCircle2 size={16} />
+            <div className="pr-detail-review-banner-text">
+              <strong>Copilot review complete</strong>
+              <span>
+                Finished {formatDistanceToNow(copilotReviewBanner.completedAt)} — page refreshed
+                with latest data
+              </span>
+            </div>
+          </div>
+          <button
+            className="pr-detail-review-banner-dismiss"
+            onClick={() => {
+              setCopilotReviewBanner(null)
+              clearPendingReview(pr.url)
+            }}
+            title="Dismiss"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {sectionLabel && (
         <div className="pr-detail-section-note">

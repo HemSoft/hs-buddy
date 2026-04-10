@@ -1,5 +1,11 @@
-import { ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { readFile, stat } from 'node:fs/promises'
 import type { AppConfig } from '../../src/types/config'
+import {
+  getNotificationSoundMimeType,
+  isSupportedNotificationSoundPath,
+  MAX_NOTIFICATION_SOUND_BYTES,
+} from '../../src/utils/notificationSound'
 import { configManager } from '../config'
 
 type UiConfigKey = keyof AppConfig['ui']
@@ -36,6 +42,8 @@ function registerUiValueHandler<K extends UiConfigKey>(channel: string, key: K):
 }
 
 export function registerConfigHandlers(): void {
+  let lastPickedNotificationSoundPath: string | null = null
+
   for (const [channel, key] of UI_VALUE_CHANNELS) {
     registerUiValueHandler(channel, key)
   }
@@ -76,6 +84,93 @@ export function registerConfigHandlers(): void {
       return { success: true }
     }
   )
+
+  // Notification Settings
+  ipcMain.handle('config:get-notification-sound-enabled', () => {
+    return configManager.getNotificationSoundEnabled()
+  })
+
+  ipcMain.handle(
+    'config:set-notification-sound-enabled',
+    (_event: IpcMainInvokeEvent, enabled: boolean) => {
+      if (typeof enabled !== 'boolean') return { success: false }
+      configManager.setNotificationSoundEnabled(enabled)
+      return { success: true }
+    }
+  )
+
+  ipcMain.handle('config:get-notification-sound-path', () => {
+    return configManager.getNotificationSoundPath()
+  })
+
+  ipcMain.handle(
+    'config:set-notification-sound-path',
+    (_event: IpcMainInvokeEvent, filePath: string) => {
+      if (typeof filePath !== 'string') return { success: false }
+
+      const normalizedFilePath = filePath.trim()
+      if (!normalizedFilePath) {
+        lastPickedNotificationSoundPath = null
+        configManager.setNotificationSoundPath('')
+        return { success: true }
+      }
+
+      if (!isSupportedNotificationSoundPath(normalizedFilePath)) {
+        return { success: false }
+      }
+
+      if (lastPickedNotificationSoundPath !== normalizedFilePath) {
+        return { success: false }
+      }
+
+      configManager.setNotificationSoundPath(normalizedFilePath)
+      lastPickedNotificationSoundPath = null
+      return { success: true }
+    }
+  )
+
+  ipcMain.handle('config:pick-audio-file', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select notification sound',
+      filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'] }],
+      properties: ['openFile'],
+    })
+    if (result.canceled || result.filePaths.length === 0) {
+      lastPickedNotificationSoundPath = null
+      return { success: false, canceled: true }
+    }
+
+    const [filePath] = result.filePaths
+    if (!isSupportedNotificationSoundPath(filePath)) {
+      lastPickedNotificationSoundPath = null
+      return { success: false }
+    }
+
+    lastPickedNotificationSoundPath = filePath
+    return { success: true, filePath }
+  })
+
+  ipcMain.handle('config:play-notification-sound', async () => {
+    const soundPath = configManager.getNotificationSoundPath()
+    if (!isSupportedNotificationSoundPath(soundPath)) return null
+
+    try {
+      const soundFile = await stat(soundPath)
+      if (!soundFile.isFile() || soundFile.size > MAX_NOTIFICATION_SOUND_BYTES) {
+        return null
+      }
+
+      const buffer = await readFile(soundPath)
+      if (buffer.length > MAX_NOTIFICATION_SOUND_BYTES) return null
+
+      return {
+        base64: buffer.toString('base64'),
+        mimeType: getNotificationSoundMimeType(soundPath),
+      }
+    } catch {
+      return null
+    }
+  })
 
   // Full Config
   ipcMain.handle('config:get-config', () => {

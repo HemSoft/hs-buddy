@@ -1,0 +1,62 @@
+[
+  {
+    "name": "agent:fixable",
+    "color": "2ea44f",
+    "description": "Agent has analyzed this and can auto-fix safely"
+  },
+  {
+    "name": "agent:in-progress",
+    "color": "0075ca",
+    "description": "Agent is actively working on this item"
+  },
+  {
+    "name": "agent:pr",
+    "color": "1a7f37",
+    "description": "PR created by the automation loop - eligible for analyzer review"
+  },
+  {
+    "name": "agent:blocked",
+    "color": "d73a4a",
+    "description": "Agent stopped - human intervention required (includes escalation)"
+  },
+  {
+    "name": "agent:queued",
+    "color": "c2e0c6",
+    "description": "Queued behind fan-out ceiling - not released automatically; must be re-triaged"
+  },
+  {
+    "name": "analyzer:blocked",
+    "color": "B60205",
+    "description": "One or more analyzers found blocking issues in this PR"
+  },
+  {
+    "name": "human:ready-for-review",
+    "color": "6f42c1",
+    "description": "All analyzers passed - PR is ready for human review and merge"
+  },
+  {
+    "name": "risk:low",
+    "color": "0e8a16",
+    "description": "Low-risk: formatting, typos, doc updates, dependency bumps, safe refactors"
+  },
+  {
+    "name": "risk:medium",
+    "color": "fbca04",
+    "description": "Medium-risk: logic changes, new features"
+  },
+  {
+    "name": "risk:high",
+    "color": "e11d48",
+    "description": "High-risk: auth, payments, data migrations, security, PII"
+  },
+  {
+    "name": "report",
+    "color": "8b949e",
+    "description": "Informational output only - automation must not act on this"
+  },
+  {
+    "name": "no-agent",
+    "color": "ffffff",
+    "description": "Opt this issue out of all Set it Free automation"
+  }
+]

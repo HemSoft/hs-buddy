@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "deployedAt": "2026-04-10T05:43:41Z",
+  "tier": "full",
+  "source": "relias-engineering/set-it-free-loop",
+  "sourceSha": "9d84e60e4cd4c9cd3810b602e90f865ed235faab",
+  "components": [
+    "labels",
+    "governance",
+    "repo-audit",
+    "daily-repo-status",
+    "simplisticate-audit",
+    "sfl-implement",
+    "sfl-auditor",
+    "sfl-analyzer-a",
+    "sfl-analyzer-b",
+    "sfl-analyzer-c",
+    "sfl-loop",
+    "copilot-skill"
+  ]
+}

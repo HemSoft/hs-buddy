@@ -1797,4 +1797,37 @@ describe('GitHubClient', () => {
       expect(mockOctokit.users.getByUsername).toHaveBeenCalledTimes(userCallCount)
     })
   })
+
+  describe('listPRReviews', () => {
+    it('paginates and maps review data', async () => {
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          id: 100,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: '2026-04-10T12:00:00Z',
+        },
+        { id: 101, user: null, state: 'APPROVED', submitted_at: null },
+      ])
+
+      const client = new GitHubClient(TEST_CONFIG, 7)
+      const reviews = await client.listPRReviews('myorg', 'myrepo', 42)
+
+      expect(mockOctokit.paginate).toHaveBeenCalledWith(mockOctokit.pulls.listReviews, {
+        owner: 'myorg',
+        repo: 'myrepo',
+        pull_number: 42,
+        per_page: 100,
+      })
+      expect(reviews).toEqual([
+        {
+          id: 100,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: '2026-04-10T12:00:00Z',
+        },
+        { id: 101, user: null, state: 'APPROVED', submitted_at: null },
+      ])
+    })
+  })
 })

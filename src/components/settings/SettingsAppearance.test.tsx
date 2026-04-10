@@ -173,6 +173,7 @@ function createConfig(overrides: Partial<AppConfig['ui']> = {}): AppConfig {
       prReviewPromptTemplate: '',
     },
     automation: { scheduleForecastDays: 3 },
+    notifications: { playSoundOnReviewComplete: false, reviewCompleteSoundPath: '' },
   }
 }
 

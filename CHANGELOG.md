@@ -9,6 +9,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.676] - 2026-04-10
+
+### Fixed
+
+- Address remaining review comments
+
+## [0.1.675] - 2026-04-10
+
+### Fixed
+
+- Address remaining pr comments
+
+## [0.1.674] - 2026-04-10
+
+### Fixed
+
+- Address remaining pr review feedback
+
+## [0.1.673] - 2026-04-10
+
+### Fixed
+
+- Harden notification sound preview
+
+## [0.1.672] - 2026-04-10
+
+### Fixed
+
+- Return notification sound mime types
+
+## [0.1.671] - 2026-04-10
+
+### Fixed
+
+- Enable notification sound playback via IPC + Blob URLs
+
+## [0.1.670] - 2026-04-10
+
+### Fixed
+
+- Avoid stale copilot review accounts
+
+## [0.1.669] - 2026-04-10
+
+### Added
+
+- Add Notifications settings section with audio on PR review complete
+
+## [0.1.668] - 2026-04-10
+
+### Fixed
+
+- Address 3 more review comments (round 7)
+
+## [0.1.666] - 2026-04-10
+
+### Fixed
+
+- Address 4 more review comments (round 6)
+
+## [0.1.664] - 2026-04-10
+
+### Added
+
+- Persistent banner when Copilot PR review completes
+
+## [0.1.663] - 2026-04-10
+
+### Fixed
+
+- Address 4 more review comments (round 5)
+
+## [0.1.662] - 2026-04-10
+
+### Fixed
+
+- Address 3 more review comments (round 4)
+
+## [0.1.661] - 2026-04-10
+
+### Fixed
+
+- Address 3 more review comments (round 3)
+
+## [0.1.660] - 2026-04-10
+
+### Fixed
+
+- Address 3 additional review comments
+
+## [0.1.659] - 2026-04-10
+
+### Fixed
+
+- Address 4 PR review comments
+
+## [0.1.658] - 2026-04-10
+
+### Changed
+
+- Upgrade SFL pipeline to v2.0.0 (full tier)
+
+## [0.1.657] - 2026-04-10
+
+### Added
+
+- Add visual feedback and monitor mode for Copilot review requests
+
 ## [0.1.656] - 2026-04-09
 
 ### Fixed

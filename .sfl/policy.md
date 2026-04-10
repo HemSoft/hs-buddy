@@ -1,0 +1,260 @@
+# Set it Free — Governance Policy
+
+**Version**: 3.0  
+**Updated**: 2026-04-09  
+**Status**: Active  
+
+---
+
+## Purpose
+
+This document defines the operational boundaries, safety controls, and decision authority for
+the **Set it Free Loop** — Buddy's recursive automation system that detects quality findings,
+generates fixes, and merges improvements autonomously.
+
+The goal is controlled autonomy: maximum automation velocity with deterministic guardrails so
+humans are involved at exactly the right moments.
+
+---
+
+## 1. Label Taxonomy
+
+All agent-generated issues and PRs must carry exactly **one** agent lifecycle label.
+
+### Agent lifecycle labels
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| `agent:fixable` | `#2ea44f` (green) | Agent has analyzed this and can auto-fix safely |
+| `agent:in-progress` | `#0075ca` (blue) | Agent is actively working on this item |
+| `agent:pr` | `#1a7f37` (dark green) | PR created by the automation loop — eligible for analyzer review |
+| `agent:blocked` | `#d73a4a` (red) | Agent stopped — human intervention required |
+| `agent:queued` | `#c2e0c6` (light green) | Queued behind fan-out ceiling — requires manual re-triage |
+
+### Analyzer labels
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| `analyzer:blocked` | `#B60205` (dark red) | One or more analyzers found blocking issues in this PR |
+| `human:ready-for-review` | `#6f42c1` (purple) | All analyzers passed; PR is ready for human review and merge |
+
+### Risk-class labels (co-applied with lifecycle labels)
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| `risk:low` | `#0e8a16` (dark green) | Low-risk: formatting, typos, dependency bumps, safe refactors |
+| `risk:medium` | `#fbca04` (yellow) | Medium-risk: logic changes, new features |
+| `risk:high` | `#e11d48` (red) | High-risk: auth, payments, data migrations |
+
+### Cycle labels (applied by issue processor, incremented each analyze→fix cycle)
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| `pr:cycle-1` | `#bfd4f2` (light blue) | PR has been through 1 analyze-fix cycle |
+| `pr:cycle-2` | `#7dc4e4` (medium blue) | PR has been through 2 analyze-fix cycles |
+| `pr:cycle-3` | `#3da4e0` (blue) | PR has been through 3 analyze-fix cycles (max) |
+
+### Utility labels
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| `report` | `#8b949e` (gray) | Informational output only — automation must not act on this |
+| `no-agent` | `#ffffff` (white) | Opt this issue out of all Set it Free automation |
+
+### Label lifecycle state machine
+
+```text
+# Report/status (no automation ever touches this)
+[report created] → report label  (permanent — no further transitions)
+
+# Actionable issue
+[detected] → agent:fixable
+           → agent:in-progress  (implementer claims it, creates PR with agent:pr)
+           → PR enters parallel analyzer review (A, B, C)
+              → analyzer:blocked  (blocking issues found → fix cycle)
+              → human:ready-for-review  (all pass → PR marked ready)
+           → MERGED or CLOSED
+
+Fix cycle (analyzer:blocked):
+  orchestrator removes analyzer:blocked → dispatches implementer
+  → implementer pushes fix → increments cycle marker
+  → re-enters analyzer review
+
+At any stage:
+  → agent:blocked  (human intervention required)
+```
+
+---
+
+## 2. Retry and Fan-Out Policy
+
+### Per-issue retry limits
+
+| Risk Class | Max Retries | Backoff Strategy | Failure Action |
+|------------|-------------|------------------|----------------|
+| `risk:low` | 3 | Exponential (5, 15, 45 min) | Label `agent:blocked` |
+| `risk:medium` | 2 | Exponential (15, 60 min) | Label `agent:blocked` |
+| `risk:high` | 1 | None | Label `agent:blocked` immediately |
+
+### Fan-out limits (open concurrency)
+
+| Scope | Max Concurrent Open Agent Issues |
+|-------|----------------------------------|
+| Per repository | 10 |
+| Per risk class (medium+) | 3 |
+| Per workflow type | 5 |
+| Portfolio-wide | 25 |
+
+When a fan-out ceiling is reached, new items are labeled `agent:queued` and held outside
+active processing. Under the current orchestrator, queued items are **not** released
+automatically as existing items close; they must be re-triaged by an operator or by a
+future queue-release workflow before moving back to `agent:fixable`.
+
+### Idempotency
+
+Every agent-generated issue and PR must carry an **idempotency key** in its body:
+
+```md
+<!-- agent:idempotency-key: sha256-of(repo+source-id+finding-hash) -->
+```
+
+The intake workflow checks for an existing open issue with a matching key before
+creating a duplicate. If a match exists, the existing issue is updated rather
+than a new one created.
+
+---
+
+## 3. Merge Authority Matrix
+
+The risk class of an issue determines who (or what) is authorized to merge the resulting PR.
+
+| Risk Class | Auto-Merge | Required Reviews | Review Type | Additional Gates |
+|------------|-----------|-----------------|-------------|-----------------|
+| `risk:low` | ✅ Yes | 0 | — | CI green + PR quality gate pass |
+| `risk:medium` | ❌ No | 1 | Copilot review | CI green + PR quality gate pass |
+| `risk:high` | ❌ No | 1 | Human (any team member) | CI green + quality gate + PR review comment |
+
+### PR quality gate
+
+A PR must pass the following checks before it can proceed:
+
+1. **No binary or lock-file changes** outside explicitly permitted paths
+2. **Diff size**: ≤ 300 lines changed for `risk:low`; ≤ 150 lines for `risk:medium`+
+3. **Test coverage delta**: Not allowed to drop below repository baseline
+4. **No new `TODO`/`FIXME`/`HACK` comments** introduced by the agent
+5. **Scope check**: Changed file paths must match the issue's declared safe-write paths
+
+Failures produce an `agent:blocked` label and a summary comment on the PR explaining
+which gate(s) failed.
+
+---
+
+## 4. Safe Write Boundaries
+
+The following file/path classes are **never** touched by the automation without explicit
+human approval (label `agent:blocked` applied immediately if detected):
+
+| Category | Prohibited Paths |
+|----------|-----------------|
+| Auth & secrets | `**/auth/**`, `**/oauth/**`, `**/.env*`, `**/secrets/**` |
+| Payment flows | `**/payment/**`, `**/billing/**`, `**/checkout/**` |
+| Data migrations | `**/migrations/**`, `**/seeds/**` |
+| CI/CD config | `.github/workflows/**`, `Jenkinsfile`, `*.yml` in repo root |
+| Security config | `**/cors/**`, `**/csp/**`, `**/headers/**` |
+| Dependencies | `package-lock.json`, `yarn.lock`, `bun.lockb` (lock files only) |
+
+Dependency version bumps in `package.json` / `*.csproj` are permitted at `risk:low`
+when driven by a repo-audit finding referencing a known CVE.
+
+---
+
+## 5. Escalation Paths
+
+### Automatic escalation triggers
+
+An issue is labeled `agent:blocked` (with an escalation comment) when:
+
+- Retry cap is exceeded
+- The same idempotency key has generated 3 or more closed/failed PRs in the past 30 days
+- A quality gate fails more than twice on the same PR
+- A prohibited path is implicated in the fix
+
+### Escalation notification
+
+When `agent:blocked` is applied due to escalation:
+
+1. The issue body is updated with a summary of all prior attempts
+2. A comment is added tagging the repo owner (`@owner`) with escalation context
+3. The issue is added to the **Escalations** milestone (created if absent)
+4. No further automated action is taken until a human removes the `agent:blocked` label
+
+### Human override
+
+Any human with write access to the repo can:
+
+- Remove `agent:blocked` and replace with `agent:fixable` to re-authorize automation
+- Add `no-agent` label to opt a file, directory, or issue category out of automation entirely
+
+---
+
+## 6. Audit Trail Requirements
+
+Every agent action must produce a traceable audit record.
+
+### Required fields on all agent-created issues
+
+```md
+**Agent metadata**
+- Risk class: `<risk:label>`
+- Created by: Buddy Set it Free Loop v<version>
+- Attempt: <n> of <max>
+<!-- agent:idempotency-key: source:<workflow>:<category>:<normalized-target> -->
+```
+
+### Required fields on all agent-created PRs
+
+```md
+**Agent metadata**
+- Linked issue: #<issue-number>
+- Risk class: `<risk:label>`
+- Safe-write paths verified: ✅ / ❌
+- Quality gate: ✅ Passed / ❌ Failed (<reason>)
+- Merge authority: Auto / Copilot review required / Human required
+```
+
+---
+
+## 7. Opt-Out Mechanisms
+
+### Repository-level opt-out
+
+Add a `.buddy-no-agent` file to the repository root. The intake workflow will skip
+this repository entirely.
+
+### Directory-level opt-out
+
+Add a `.buddy-no-agent` file to any directory. The agent will not generate issues or
+PRs for findings within that directory tree.
+
+### Issue-level opt-out
+
+Add the `no-agent` label to any issue. The agent will not claim or act on that issue.
+
+---
+
+## 8. Governance Review Cadence
+
+| Frequency | Activity |
+|-----------|----------|
+| Weekly | Review open `agent:blocked` issues |
+| Monthly | Review fan-out metrics, cost per resolved issue, false positive rate |
+| Quarterly | Update risk thresholds and merge authority matrix based on pilot data |
+| After incidents | Root-cause analysis + policy amendment if warranted |
+
+---
+
+## References
+
+- [VISION.md](../VISION.md) — Set it Free loop architecture
+- [SOLVING-SOFTWARE-ENGINEERING.md](../SOLVING-SOFTWARE-ENGINEERING.md) — Strategic context
+- [scripts/setup-github-labels.ps1](../scripts/setup-github-labels.ps1) — Label creation script

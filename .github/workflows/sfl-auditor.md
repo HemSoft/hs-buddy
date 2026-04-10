@@ -7,7 +7,7 @@ description: |
 
 on:
   schedule:
-    - cron: "57 9 * * *"  # ~5:57 AM EDT (offset from :00 to reduce GHA queue delays)
+    - cron: "0 9 * * *"  # 5:00 AM EDT
   workflow_dispatch:
 
 permissions:
@@ -27,7 +27,6 @@ tools:
 
 safe-outputs:
   update-discussion:
-    body:
     target: "*"
     max: 1
   update-issue:
@@ -36,8 +35,8 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
+source: relias-engineering/set-it-free-loop/.github/workflows/sfl-auditor.md@9d84e60e4cd4c9cd3810b602e90f865ed235faab
 ---
-source: relias-engineering/set-it-free-loop/workflows/sfl-auditor.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 
 # SFL Auditor
 
@@ -51,7 +50,7 @@ Discussion #51 is a **live status dashboard**. Its body has named sections
 delimited by HTML comment markers (`<!-- SECTION:sfl-auditor -->` ...
 `<!-- /SECTION:sfl-auditor -->`). When posting a status message:
 
-1. Read Discussion #51's current body
+1. Read discussion #51's current body
 2. Find your section between the markers
 3. Replace ONLY the line(s) between your markers with your new status
 4. Call `update_discussion` with `discussion_number: 51` and the **complete** body
@@ -344,28 +343,9 @@ If NO such comment exists:
    - `body`: "🔍 **SFL Auditor**: This issue has `agent:pause` but no explanation comment was found. A human should add a comment explaining the pause, or remove the label to resume processing."
    - `operation`: `"append"`
 
-## Step 14 — Check: stale agent-fix branches
+## Step 14 — Signal completion
 
-For each PR in list C (recently merged agent PRs), check whether the PR's
-head branch (the `head.ref` field) still exists as a remote branch. Use the
-GitHub API: `GET /repos/{owner}/{repo}/branches/{branch}` — URL-encode the
-branch name (e.g., `agent-fix/issue-42-abc` → `agent-fix%2Fissue-42-abc`)
-since `agent-fix/*` names always contain a `/`. A 404 response means the
-branch was already deleted — skip it.
-
-Count the branches that still exist. These are stale — the PR is merged, the
-branch serves no purpose.
-
-Do NOT call `update_issue` or consume safe-output slots for branch findings.
-Instead, store the count and branch names for inclusion in the activity log
-(Step 15). This keeps the auditor lightweight and reserves `update_issue` slots
-for state repairs.
-
-If there are zero stale branches, skip silently.
-
-## Step 15 — Signal completion
-
-After completing all checks (Steps 2–14), you MUST always call exactly one of:
+After completing all checks (Steps 2–13), you MUST always call exactly one of:
 
 - `update_issue` — if any discrepancy was found and repaired (already called above)
 - Update the dashboard (see Dashboard Protocol) — if ALL checks
@@ -388,7 +368,7 @@ Examples:
 As your **final action**, post a one-line comment to **Discussion #95** (the SFL Activity Log) using `add_comment`:
 
 - `issue_number`: `95`
-- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Auditor | Audit | ✅ All checks passed` or `⚠️ N discrepancies repaired`; if Step 14 found stale branches, append `| 🌿 N stale agent-fix branches`; use `EST` instead of `EDT` only when standard time is actually in effect
+- `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Auditor | Audit | ✅ All checks passed` or `⚠️ N discrepancies repaired`; use `EST` instead of `EDT` only when standard time is actually in effect
 
 Timestamp rule for Discussion #95 entries:
 

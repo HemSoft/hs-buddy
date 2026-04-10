@@ -5,6 +5,7 @@ import {
   SettingsAppearance,
   SettingsPullRequests,
   SettingsCopilot,
+  SettingsNotifications,
   SettingsAdvanced,
 } from './settings'
 import { WelcomePanel } from './WelcomePanel'
@@ -116,6 +117,8 @@ export function AppContentRouter({
       return <SettingsPullRequests />
     case 'settings-copilot':
       return <SettingsCopilot />
+    case 'settings-notifications':
+      return <SettingsNotifications />
     case 'settings-advanced':
       return <SettingsAdvanced />
     case 'automation-schedules':

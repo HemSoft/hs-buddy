@@ -14,12 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Sort review threads after their parent review in PR timeline
+- Stop changelog blank line accumulation
 
 ### Changed
 
 - Fix repo audit drift for issue 527
-
-
 
 ## [0.1.655] - 2026-04-09
 
@@ -57,10 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hide empty-name root folder, show its bookmarks at root level
 - Decouple org budget spent and personal overage on Copilot Usage
 - Replace remaining inline abort guard in usePRListData with throwIfAborted
-
-
-
-
 
 ## [0.1.652] - 2026-04-08
 

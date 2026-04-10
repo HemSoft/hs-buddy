@@ -201,7 +201,13 @@ if (versionBlock.includes(`### ${category}`)) {
       insertAt--
     }
     newContent = `\n\n### ${category}\n\n${entryLine}\n`
-    changelog = changelog.slice(0, insertAt) + newContent + '\n' + changelog.slice(insertAt)
+    let resumeAt = insertAt
+    while (resumeAt < changelog.length && changelog[resumeAt] === '\n') {
+      resumeAt++
+    }
+    const remaining = changelog.slice(resumeAt)
+    changelog =
+      changelog.slice(0, insertAt) + newContent + (remaining.length > 0 ? '\n' : '') + remaining
   }
 }
 

@@ -29,32 +29,33 @@ function getSessionsPath(): string {
   return join(getCrewDataDir(), 'sessions.json')
 }
 
-function readProjects(): CrewProject[] {
-  const p = getProjectsPath()
-  if (!existsSync(p)) return []
+function readJsonFile<T>(filePath: string): T[] {
+  if (!existsSync(filePath)) return []
   try {
-    return JSON.parse(readFileSync(p, 'utf-8'))
+    return JSON.parse(readFileSync(filePath, 'utf-8')) as T[]
   } catch {
     return []
   }
+}
+
+function writeJsonFile<T>(filePath: string, data: T[]): void {
+  writeFileSync(filePath, JSON.stringify(data, null, 2))
+}
+
+function readProjects(): CrewProject[] {
+  return readJsonFile<CrewProject>(getProjectsPath())
 }
 
 function writeProjects(projects: CrewProject[]): void {
-  writeFileSync(getProjectsPath(), JSON.stringify(projects, null, 2))
+  writeJsonFile(getProjectsPath(), projects)
 }
 
 function readSessions(): CrewSession[] {
-  const p = getSessionsPath()
-  if (!existsSync(p)) return []
-  try {
-    return JSON.parse(readFileSync(p, 'utf-8'))
-  } catch {
-    return []
-  }
+  return readJsonFile<CrewSession>(getSessionsPath())
 }
 
 function writeSessions(sessions: CrewSession[]): void {
-  writeFileSync(getSessionsPath(), JSON.stringify(sessions, null, 2))
+  writeJsonFile(getSessionsPath(), sessions)
 }
 
 async function runGit(cwd: string, args: string[]): Promise<string | null> {

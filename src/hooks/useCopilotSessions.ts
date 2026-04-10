@@ -1,19 +1,13 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type { CopilotSession, SessionScanResult, SessionSummary } from '../types/copilotSession'
+import { useIsMounted } from './useIsMounted'
 
 export function useCopilotSessions() {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const mountedRef = useRef(true)
-
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
+  const mountedRef = useIsMounted()
 
   const scan = useCallback(async () => {
     setIsLoading(true)
@@ -31,7 +25,7 @@ export function useCopilotSessions() {
     } finally {
       if (mountedRef.current) setIsLoading(false)
     }
-  }, [])
+  }, [mountedRef])
 
   return { sessions, totalCount, isLoading, error, scan }
 }

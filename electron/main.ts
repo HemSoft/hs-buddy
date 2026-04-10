@@ -42,6 +42,24 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null
 
+function clampToWorkArea(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  workArea: Electron.Rectangle
+): { x: number; y: number; width: number; height: number } {
+  const clampedWidth = Math.min(width, workArea.width)
+  const clampedHeight = Math.min(height, workArea.height)
+
+  return {
+    x: Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - clampedWidth)),
+    y: Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - clampedHeight)),
+    width: clampedWidth,
+    height: clampedHeight,
+  }
+}
+
 function createWindow() {
   // Load window state (position, size, etc.)
   const mainWindowState = windowStateKeeper({
@@ -86,35 +104,42 @@ function createWindow() {
       const relativeX = windowX - oldBounds.x
       const relativeY = windowY - oldBounds.y
 
-      // Clamp size and position to the saved display's work area
-      const workArea = savedDisplay.workArea
-      windowWidth = Math.min(windowWidth, workArea.width)
-      windowHeight = Math.min(windowHeight, workArea.height)
-      windowX = Math.max(
-        workArea.x,
-        Math.min(workArea.x + relativeX, workArea.x + workArea.width - windowWidth)
+      const clampedWindow = clampToWorkArea(
+        savedDisplay.workArea.x + relativeX,
+        savedDisplay.workArea.y + relativeY,
+        windowWidth,
+        windowHeight,
+        savedDisplay.workArea
       )
-      windowY = Math.max(
-        workArea.y,
-        Math.min(workArea.y + relativeY, workArea.y + workArea.height - windowHeight)
-      )
+      windowX = clampedWindow.x
+      windowY = clampedWindow.y
+      windowWidth = clampedWindow.width
+      windowHeight = clampedWindow.height
     } else if (savedDisplayId !== 0 && savedDisplay) {
       // Same display — revalidate in case DPI or work area changed
-      const workArea = savedDisplay.workArea
-      windowWidth = Math.min(windowWidth, workArea.width)
-      windowHeight = Math.min(windowHeight, workArea.height)
-      windowX = Math.max(workArea.x, Math.min(windowX, workArea.x + workArea.width - windowWidth))
-      windowY = Math.max(workArea.y, Math.min(windowY, workArea.y + workArea.height - windowHeight))
+      const clampedWindow = clampToWorkArea(
+        windowX,
+        windowY,
+        windowWidth,
+        windowHeight,
+        savedDisplay.workArea
+      )
+      windowX = clampedWindow.x
+      windowY = clampedWindow.y
+      windowWidth = clampedWindow.width
+      windowHeight = clampedWindow.height
     } else if (savedDisplayId !== 0 && !savedDisplay) {
       // Saved display no longer exists - center on primary display
       console.log(
         `[Window] Saved display ${savedDisplayId} no longer exists. Centering on primary display.`
       )
       const workArea = primaryDisplay.workArea
-      windowWidth = Math.min(windowWidth, workArea.width)
-      windowHeight = Math.min(windowHeight, workArea.height)
-      windowX = workArea.x + Math.round((workArea.width - windowWidth) / 2)
-      windowY = workArea.y + Math.round((workArea.height - windowHeight) / 2)
+      const clampedWidth = Math.min(windowWidth, workArea.width)
+      const clampedHeight = Math.min(windowHeight, workArea.height)
+      windowX = workArea.x + Math.round((workArea.width - clampedWidth) / 2)
+      windowY = workArea.y + Math.round((workArea.height - clampedHeight) / 2)
+      windowWidth = clampedWidth
+      windowHeight = clampedHeight
     }
     // else: displayId is 0 (first launch) - use windowStateKeeper's position as-is
   }

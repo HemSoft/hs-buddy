@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import type { TodoistTask, TodoistProject, DayGroup } from '../types/todoist'
-import { formatDateKey } from '../utils/dateUtils'
+import { formatDateKey, WEEKDAY_SHORT } from '../utils/dateUtils'
+import { useIsMounted } from './useIsMounted'
 
 function formatDayLabel(dateStr: string): string {
   const today = formatDateKey(new Date())
@@ -12,7 +13,6 @@ function formatDayLabel(dateStr: string): string {
   if (dateStr === tomorrowStr) return 'Tomorrow'
 
   const d = new Date(dateStr + 'T00:00:00')
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const months = [
     'Jan',
     'Feb',
@@ -27,21 +27,14 @@ function formatDayLabel(dateStr: string): string {
     'Nov',
     'Dec',
   ]
-  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`
+  return `${WEEKDAY_SHORT[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`
 }
 
 export function useTodoistUpcoming(days: number = 7) {
   const [dayGroups, setDayGroups] = useState<DayGroup[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const mountedRef = useRef(true)
-
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
+  const mountedRef = useIsMounted()
 
   const refresh = useCallback(async () => {
     setIsLoading(true)
@@ -91,21 +84,14 @@ export function useTodoistUpcoming(days: number = 7) {
     } finally {
       if (mountedRef.current) setIsLoading(false)
     }
-  }, [days])
+  }, [days, mountedRef])
 
   return { dayGroups, isLoading, error, refresh }
 }
 
 export function useTodoistProjects() {
   const [projects, setProjects] = useState<TodoistProject[]>([])
-  const mountedRef = useRef(true)
-
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
+  const mountedRef = useIsMounted()
 
   const load = useCallback(async () => {
     try {
@@ -116,7 +102,7 @@ export function useTodoistProjects() {
     } catch {
       /* ignore */
     }
-  }, [])
+  }, [mountedRef])
 
   return { projects, load }
 }

@@ -1,6 +1,6 @@
 import { Calendar, Clock, Play, Pause, Edit, Trash2, AlertCircle } from 'lucide-react'
 import { useSchedule, useScheduleMutations, useScheduleRuns } from '../../hooks/useConvex'
-import { formatDistanceToNow, format } from '../../utils/dateUtils'
+import { formatDistanceToNow, format, WEEKDAY_SHORT } from '../../utils/dateUtils'
 import { useState } from 'react'
 import { ScheduleEditor } from './ScheduleEditor'
 import { useConfirm } from '../../hooks/useConfirm'
@@ -85,10 +85,9 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
       return `Weekdays at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
     }
     if (dayOfMonth === '*' && month === '*' && dayOfWeek !== '*') {
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
       const dayNames = dayOfWeek
         .split(',')
-        .map(d => days[parseInt(d)] || d)
+        .map(d => WEEKDAY_SHORT[Number.parseInt(d, 10)] || d)
         .join(', ')
       return `${dayNames} at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
     }

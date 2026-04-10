@@ -24,6 +24,8 @@ export const MONTH_SHORT = [
   'Dec',
 ] as const
 
+export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
 /**
  * Format a timestamp as relative time (e.g., "32 minutes ago", "3 days and 4 hours ago")
  */

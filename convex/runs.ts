@@ -2,10 +2,9 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import type { DatabaseWriter } from './_generated/server'
 import type { Id } from './_generated/dataModel'
+import { MS_PER_DAY } from './lib/constants'
 import { projectJob } from './lib/projections'
 import { incrementStat } from './lib/stats'
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 // List recent runs (last N runs)
 export const listRecent = query({

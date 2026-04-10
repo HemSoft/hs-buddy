@@ -22,6 +22,7 @@ vi.mock('../../hooks/useConvex', () => ({
 vi.mock('../../utils/dateUtils', () => ({
   formatDistanceToNow: (value: number) => mockFormatDistanceToNow(value),
   format: (value: number, fmt: string) => mockFormat(value, fmt),
+  WEEKDAY_SHORT: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
 }))
 
 vi.mock('./ScheduleEditor', () => ({

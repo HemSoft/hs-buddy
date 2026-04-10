@@ -40,7 +40,7 @@ That repo contains:
 | `sfl-analyzer-b`                                        | Analyzer A dispatch                             | Continues the sequential full-spectrum review chain (Model B)                                                            | Local                                                                                  |
 | `sfl-analyzer-c`                                        | Analyzer B dispatch                             | Finishes the sequential full-spectrum review chain; dispatches label-actions for ready-for-review or fix-cycle decisions | Local                                                                                  |
 | `sfl-pr-label-actions` (`SFL PR Label Actions`)         | Analyzer C dispatch / manual dispatch           | Deterministic aggregator: checks labels, flips draft → ready or dispatches issue-processor for fix cycle                 | Local                                                                                  |
-| `sfl-queue-monitor` (`SFL Queue Monitor`)               | Every 15 minutes                                | Dequeues `agent:queue` issues into the SFL Issue Processor when the processor is idle                                    | Local                                                                                  |
+| `sfl-queue-monitor` (`SFL Queue Monitor`)               | Every 12 hours                                  | Dequeues `agent:queue` issues into the SFL Issue Processor when the processor is idle                                    | Local                                                                                  |
 
 ---
 

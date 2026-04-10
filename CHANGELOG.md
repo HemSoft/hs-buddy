@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Sort review threads after their parent review in PR timeline
 
+### Changed
+
+- Fix repo audit drift for issue 527
+
+
+
 ## [0.1.655] - 2026-04-09
 
 ### Changed

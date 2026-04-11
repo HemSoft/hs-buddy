@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add missing type: string to SFL workflow_call/dispatch inputs
 - Use actual em dash in sfl-gate.yml workflow_run names
 - Gate triggers only on labeled, not opened/reopened
+- Prevent duplicate implementer dispatch on webhook retry
 
 ### Changed
 

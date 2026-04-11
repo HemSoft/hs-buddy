@@ -87,7 +87,7 @@ jobs:
           LABELS=$(gh api "repos/${{ github.repository }}/issues/${ISSUE_NUM}/labels" \
             --jq '.[].name' 2>/dev/null || echo "")
 
-          for SKIP_LABEL in no-agent agent:blocked report; do
+          for SKIP_LABEL in no-agent agent:blocked agent:in-progress report; do
             if echo "$LABELS" | grep -Fxq "$SKIP_LABEL"; then
               echo "Issue #${ISSUE_NUM} has ${SKIP_LABEL} — skipping"
               exit 0
@@ -100,6 +100,9 @@ jobs:
           fi
 
           echo "Issue #${ISSUE_NUM} is actionable — dispatching implementer"
+          gh api --method POST \
+            "repos/${{ github.repository }}/issues/${ISSUE_NUM}/labels" \
+            -f "labels[]=agent:in-progress" --silent || true
           gh workflow run sfl-implement.lock.yml \
             --repo "${{ github.repository }}" \
             -f issue-number="${ISSUE_NUM}"

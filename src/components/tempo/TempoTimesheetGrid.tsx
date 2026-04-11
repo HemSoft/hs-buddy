@@ -15,7 +15,10 @@ function CellTooltip({ tooltip }: { tooltip: TooltipState | null }) {
   return createPortal(
     <div className="tempo-cell-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
       {tooltip.text.split('\n').map((line, i) => (
-        <div key={i} className={i === 0 ? 'tempo-tooltip-header' : 'tempo-tooltip-action'}>
+        <div
+          key={`${i}-${line}`}
+          className={i === 0 ? 'tempo-tooltip-header' : 'tempo-tooltip-action'}
+        >
           {line}
         </div>
       ))}

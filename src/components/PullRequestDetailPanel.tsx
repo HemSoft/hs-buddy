@@ -563,41 +563,38 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
               <div className="pr-detail-card-title">You Approved</div>
               <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
             </div>
-            <div
-              className={`pr-detail-card${effectiveIssue ? ' pr-detail-card-interactive' : ''}`}
-              role={effectiveIssue ? 'button' : undefined}
-              tabIndex={effectiveIssue ? 0 : undefined}
-              onClick={
-                effectiveIssue ? () => window.shell.openExternal(effectiveIssue.url) : undefined
-              }
-              onKeyDown={
-                effectiveIssue
-                  ? (e: React.KeyboardEvent) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        window.shell.openExternal(effectiveIssue.url)
-                      }
-                    }
-                  : undefined
-              }
-              title={
-                effectiveIssue
-                  ? `Open Issue #${effectiveIssue.number} on GitHub`
-                  : 'No linked issue'
-              }
-            >
-              <div className="pr-detail-card-title">
-                <CircleDot size={12} />
-                Linked Issue
-              </div>
-              <div className="pr-detail-card-value">
-                {effectiveIssue ? (
+            {effectiveIssue ? (
+              <button
+                type="button"
+                className="pr-detail-card pr-detail-card-interactive"
+                onClick={() => window.shell.openExternal(effectiveIssue.url)}
+                onKeyDown={(e: React.KeyboardEvent) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    window.shell.openExternal(effectiveIssue.url)
+                  }
+                }}
+                title={`Open Issue #${effectiveIssue.number} on GitHub`}
+              >
+                <div className="pr-detail-card-title">
+                  <CircleDot size={12} />
+                  Linked Issue
+                </div>
+                <div className="pr-detail-card-value">
                   <span className="pr-detail-linked-issue">#{effectiveIssue.number}</span>
-                ) : (
+                </div>
+              </button>
+            ) : (
+              <div className="pr-detail-card" title="No linked issue">
+                <div className="pr-detail-card-title">
+                  <CircleDot size={12} />
+                  Linked Issue
+                </div>
+                <div className="pr-detail-card-value">
                   <span className="pr-detail-card-secondary">None</span>
-                )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="pr-detail-meta-list">

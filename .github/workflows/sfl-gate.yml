@@ -17,9 +17,9 @@ on:
   workflow_run:
     workflows:
       - "SFL Implementer"
-      - "SFL Analyzer A \u2014 Full-Spectrum Review"
-      - "SFL Analyzer B \u2014 Full-Spectrum Review"
-      - "SFL Analyzer C \u2014 Full-Spectrum Review"
+      - "SFL Analyzer A — Full-Spectrum Review"
+      - "SFL Analyzer B — Full-Spectrum Review"
+      - "SFL Analyzer C — Full-Spectrum Review"
     types: [completed]
 
 permissions:

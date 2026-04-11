@@ -1,4 +1,4 @@
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"11ec29b406ced956e07dfb1139626baca657f75c565b73e713b4086bfc5dcdb5","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot","agent_model":"claude-opus-4.6"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"923d58f1b453bf1b53a580d0cd07f2efc5c77cc4081045f35e339c23305bf790","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot","agent_model":"claude-opus-4.6"}
 #    ___                   _   _      
 #   / _ \                 | | (_)     
 #  | |_| | __ _  ___ _ __ | |_ _  ___ 
@@ -21,7 +21,7 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# This workflow runs a daily test coverage audit to identify source
+# This workflow runs a manual emergency-mode test coverage audit to identify source
 # files with zero or low test coverage and creates exactly one agent-fixable
 # issue containing specific tests to write. Each issue targets a single file
 # to keep scope manageable for the SFL Issue Processor.
@@ -41,8 +41,6 @@
 
 name: "Test Coverage Audit"
 "on":
-  schedule:
-  - cron: "17 11 * * *"
   workflow_dispatch:
     inputs:
       aw_context:
@@ -54,7 +52,8 @@ name: "Test Coverage Audit"
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}"
+  cancel-in-progress: false
+  group: gh-aw-copilot-${{ github.workflow }}
 
 run-name: "Test Coverage Audit"
 
@@ -154,14 +153,14 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_2a3402595d07c27c_EOF'
+          cat << 'GH_AW_PROMPT_17ddcc5518e3c380_EOF'
           <system>
-          GH_AW_PROMPT_2a3402595d07c27c_EOF
+          GH_AW_PROMPT_17ddcc5518e3c380_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_2a3402595d07c27c_EOF'
+          cat << 'GH_AW_PROMPT_17ddcc5518e3c380_EOF'
           <safe-output-tools>
           Tools: add_comment, create_issue, update_issue(max:5), missing_tool, missing_data, noop
           </safe-output-tools>
@@ -193,12 +192,12 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_2a3402595d07c27c_EOF
+          GH_AW_PROMPT_17ddcc5518e3c380_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_2a3402595d07c27c_EOF'
+          cat << 'GH_AW_PROMPT_17ddcc5518e3c380_EOF'
           </system>
           {{#runtime-import .github/workflows/test-coverage-audit.md}}
-          GH_AW_PROMPT_2a3402595d07c27c_EOF
+          GH_AW_PROMPT_17ddcc5518e3c380_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -272,8 +271,6 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
-    concurrency:
-      group: "gh-aw-copilot-${{ github.workflow }}"
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_AW_ASSETS_ALLOWED_EXTS: ""
@@ -364,12 +361,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_bfbede1488a7d3d2_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_f7b585a1be1ae560_EOF'
           {"add_comment":{"max":1,"target":"*"},"create_issue":{"labels":["agent:fixable"],"max":1,"title_prefix":"[test-coverage-audit] "},"create_report_incomplete_issue":{},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"},"report_incomplete":{},"update_issue":{"allow_body":true,"max":5,"target":"*"}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_bfbede1488a7d3d2_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_f7b585a1be1ae560_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_c20fa7226898a856_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_216cee4b422720ff_EOF'
           {
             "description_suffixes": {
               "add_comment": " CONSTRAINTS: Maximum 1 comment(s) can be added. Target: *.",
@@ -379,8 +376,8 @@ jobs:
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_c20fa7226898a856_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_9ecdb8ca3f3de7e5_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_216cee4b422720ff_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_8d75a9d30ceb88b2_EOF'
           {
             "add_comment": {
               "defaultMax": 1,
@@ -561,7 +558,7 @@ jobs:
               "customValidation": "requiresOneOf:status,title,body"
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_9ecdb8ca3f3de7e5_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_8d75a9d30ceb88b2_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -631,7 +628,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.14'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_7d214d86533aead8_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_cb3065b5e47ec84b_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -672,7 +669,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_7d214d86533aead8_EOF
+          GH_AW_MCP_CONFIG_cb3065b5e47ec84b_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -1062,7 +1059,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "Test Coverage Audit"
-          WORKFLOW_DESCRIPTION: "This workflow runs a daily test coverage audit to identify source\nfiles with zero or low test coverage and creates exactly one agent-fixable\nissue containing specific tests to write. Each issue targets a single file\nto keep scope manageable for the SFL Issue Processor."
+          WORKFLOW_DESCRIPTION: "This workflow runs a manual emergency-mode test coverage audit to identify source\nfiles with zero or low test coverage and creates exactly one agent-fixable\nissue containing specific tests to write. Each issue targets a single file\nto keep scope manageable for the SFL Issue Processor."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |

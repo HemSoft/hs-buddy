@@ -6,8 +6,6 @@ description: |
   and project recommendations.
 
 on:
-  schedule:
-    - cron: "37 7 * * *"  # ~3:37 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:
@@ -15,6 +13,10 @@ permissions:
   issues: read
   pull-requests: read
   discussions: read
+
+concurrency:
+  group: "gh-aw-copilot-${{ github.workflow }}"
+  cancel-in-progress: false
 
 network: defaults
 

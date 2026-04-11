@@ -1,18 +1,21 @@
 ---
 description: |
-  This workflow runs a daily test coverage audit to identify source
+  This workflow runs a manual emergency-mode test coverage audit to identify source
   files with zero or low test coverage and creates exactly one agent-fixable
   issue containing specific tests to write. Each issue targets a single file
   to keep scope manageable for the SFL Issue Processor.
 
 on:
-  schedule: "17 11 * * *"   # Daily at 6:17 AM EST (11:17 UTC)
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
+
+concurrency:
+  group: "gh-aw-copilot-${{ github.workflow }}"
+  cancel-in-progress: false
 
 engine:
   id: copilot
@@ -41,7 +44,7 @@ safe-outputs:
 
 > *"A test that isn't written is a bug waiting to happen."*
 
-Run a focused test coverage audit every 4 hours. Identify **one source file**
+Run a focused manual test coverage audit for emergency SFL mode. Identify **one source file**
 with zero or low test coverage that would benefit most from new tests, and
 produce **exactly one issue** with complete, step-by-step instructions for the
 Issue Processor to write the tests in a single pass.

@@ -1,19 +1,21 @@
 ---
 description: |
-  Runs daily at 5:00 AM EDT, audits the
+  Manual-only emergency-mode workflow that audits the
   relationship between issue labels and open pull requests, and repairs any
   state discrepancies it finds. Keeps the agentic pipeline self-consistent
   without human intervention.
 
 on:
-  schedule:
-    - cron: "0 9 * * *"  # 5:00 AM EDT
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
+
+concurrency:
+  group: "gh-aw-copilot-${{ github.workflow }}"
+  cancel-in-progress: false
 
 engine:
   id: copilot
@@ -40,7 +42,7 @@ source: relias-engineering/set-it-free-loop/.github/workflows/sfl-auditor.md@9d8
 
 # SFL Auditor
 
-Run every 12 hours. Audit the relationship between issue labels and open
+Manual-only emergency mode. Audit the relationship between issue labels and open
 pull requests. Detect and repair state discrepancies to keep the agentic
 pipeline self-consistent. Never modify PR content — only update issues.
 

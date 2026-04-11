@@ -1,18 +1,21 @@
 ---
 description: |
-  This workflow runs a daily code simplification audit to identify unnecessary
+  This workflow runs a manual emergency-mode code simplification audit to identify unnecessary
   complexity, over-engineering, dead code, and opportunities for targeted
   simplification. It creates exactly one agent-fixable issue containing all
   findings and detailed fix instructions for the SFL pipeline to process.
 
 on:
-  schedule: "27 6 * * *"   # ~2:27 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
+
+concurrency:
+  group: "gh-aw-copilot-${{ github.workflow }}"
+  cancel-in-progress: false
 
 engine:
   id: copilot
@@ -42,7 +45,7 @@ source: relias-engineering/set-it-free-loop/workflows/simplisticate-audit.md@791
 
 > *"Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away."* — Antoine de Saint-Exupéry
 
-Run a high-signal daily code simplification audit. Produce **exactly one issue**
+Run a high-signal manual code simplification audit for emergency SFL mode. Produce **exactly one issue**
 containing all findings with detailed, step-by-step fix instructions. This
 single issue enters the SFL pipeline and must give the Issue Processor
 everything it needs to implement all fixes in one pass.
@@ -117,7 +120,7 @@ straight to the activity log entry (Step 8) and report `0 findings`.
 
 ### Title
 
-`Daily Simplification — YYYY-MM-DD`
+`Simplification Audit — YYYY-MM-DD`
 
 (The `[simplisticate]` prefix is added automatically.)
 

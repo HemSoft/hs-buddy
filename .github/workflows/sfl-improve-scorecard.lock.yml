@@ -1,4 +1,4 @@
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"d7c5be1d9bd32a233062d6b9bf90b4e7362cb2d1d3af03e8a0e3d0c13732ffb8","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot","agent_model":"claude-opus-4.6"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"7f616c795476fd6c8c833626597a65a7454e98083196be30639f2be5c1de66a2","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot","agent_model":"claude-opus-4.6"}
 #    ___                   _   _      
 #   / _ \                 | | (_)     
 #  | |_| | __ _  ___ _ __ | |_ _  ___ 
@@ -21,7 +21,7 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# This workflow runs a daily scorecard improvement audit. It fetches the
+# This workflow runs a manual emergency-mode scorecard improvement audit. It fetches the
 # org-metrics service maturity scorecard for this repository, identifies
 # the highest-impact failing rule that can be fixed by a code change, and
 # creates exactly one agent-fixable issue with detailed fix instructions
@@ -42,8 +42,6 @@
 
 name: "Scorecard Improvement Audit"
 "on":
-  schedule:
-  - cron: "37 9 * * *"
   workflow_dispatch:
     inputs:
       aw_context:
@@ -55,7 +53,8 @@ name: "Scorecard Improvement Audit"
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}"
+  cancel-in-progress: false
+  group: gh-aw-copilot-${{ github.workflow }}
 
 run-name: "Scorecard Improvement Audit"
 
@@ -155,14 +154,14 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_6d632371bb3fffb9_EOF'
+          cat << 'GH_AW_PROMPT_6b834d919500db9c_EOF'
           <system>
-          GH_AW_PROMPT_6d632371bb3fffb9_EOF
+          GH_AW_PROMPT_6b834d919500db9c_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_6d632371bb3fffb9_EOF'
+          cat << 'GH_AW_PROMPT_6b834d919500db9c_EOF'
           <safe-output-tools>
           Tools: add_comment, create_issue, update_issue(max:5), missing_tool, missing_data, noop
           </safe-output-tools>
@@ -197,12 +196,12 @@ jobs:
             - **Note**: If a branch you need is not in the list above and is not listed as an additional fetched ref, it has NOT been checked out. For private repositories you cannot fetch it without proper authentication. If the branch is required and not available, exit with an error and ask the user to add it to the `fetch:` option of the `checkout:` configuration (e.g., `fetch: ["refs/pulls/open/*"]` for all open PR refs, or `fetch: ["main", "feature/my-branch"]` for specific branches).
           </github-context>
           
-          GH_AW_PROMPT_6d632371bb3fffb9_EOF
+          GH_AW_PROMPT_6b834d919500db9c_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_6d632371bb3fffb9_EOF'
+          cat << 'GH_AW_PROMPT_6b834d919500db9c_EOF'
           </system>
           {{#runtime-import .github/workflows/sfl-improve-scorecard.md}}
-          GH_AW_PROMPT_6d632371bb3fffb9_EOF
+          GH_AW_PROMPT_6b834d919500db9c_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -276,8 +275,6 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
-    concurrency:
-      group: "gh-aw-copilot-${{ github.workflow }}"
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_AW_ASSETS_ALLOWED_EXTS: ""
@@ -377,12 +374,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_568bb90fea8a59dd_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_e103b1a0fab7b97d_EOF'
           {"add_comment":{"max":1,"target":"*"},"create_issue":{"labels":["agent:fixable"],"max":1,"title_prefix":"[scorecard] "},"create_report_incomplete_issue":{},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"},"report_incomplete":{},"update_issue":{"allow_body":true,"max":5,"target":"*"}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_568bb90fea8a59dd_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_e103b1a0fab7b97d_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_26b666a18af5beaf_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_6782fc5f04e81b5b_EOF'
           {
             "description_suffixes": {
               "add_comment": " CONSTRAINTS: Maximum 1 comment(s) can be added. Target: *.",
@@ -392,8 +389,8 @@ jobs:
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_26b666a18af5beaf_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_46ac99e19eea282f_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_6782fc5f04e81b5b_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_c1c706faa7e29d29_EOF'
           {
             "add_comment": {
               "defaultMax": 1,
@@ -574,7 +571,7 @@ jobs:
               "customValidation": "requiresOneOf:status,title,body"
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_46ac99e19eea282f_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_c1c706faa7e29d29_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -644,7 +641,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.14'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_a68e90b075cd8745_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_bd662122c1f5287c_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -685,7 +682,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_a68e90b075cd8745_EOF
+          GH_AW_MCP_CONFIG_bd662122c1f5287c_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -1075,7 +1072,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "Scorecard Improvement Audit"
-          WORKFLOW_DESCRIPTION: "This workflow runs a daily scorecard improvement audit. It fetches the\norg-metrics service maturity scorecard for this repository, identifies\nthe highest-impact failing rule that can be fixed by a code change, and\ncreates exactly one agent-fixable issue with detailed fix instructions\nfor the SFL pipeline to process."
+          WORKFLOW_DESCRIPTION: "This workflow runs a manual emergency-mode scorecard improvement audit. It fetches the\norg-metrics service maturity scorecard for this repository, identifies\nthe highest-impact failing rule that can be fixed by a code change, and\ncreates exactly one agent-fixable issue with detailed fix instructions\nfor the SFL pipeline to process."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |

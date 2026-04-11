@@ -1,19 +1,22 @@
 ---
 description: |
-  This workflow runs a daily scorecard improvement audit. It fetches the
+  This workflow runs a manual emergency-mode scorecard improvement audit. It fetches the
   org-metrics service maturity scorecard for this repository, identifies
   the highest-impact failing rule that can be fixed by a code change, and
   creates exactly one agent-fixable issue with detailed fix instructions
   for the SFL pipeline to process.
 
 on:
-  schedule: "37 9 * * *"   # ~5:37 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
+
+concurrency:
+  group: "gh-aw-copilot-${{ github.workflow }}"
+  cancel-in-progress: false
 
 engine:
   id: copilot
@@ -44,7 +47,7 @@ source: local
 
 # Scorecard Improvement Audit
 
-Run a daily scorecard improvement audit. Fetch the org-metrics service maturity
+Run a manual scorecard improvement audit for emergency SFL mode. Fetch the org-metrics service maturity
 scorecard for **hs-buddy**, analyze all failing rules, select the single
 highest-impact agent-fixable improvement, and produce **exactly one issue**
 with step-by-step fix instructions. This issue enters the SFL pipeline and

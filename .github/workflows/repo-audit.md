@@ -7,14 +7,16 @@ description: |
   detailed fix instructions for the SFL pipeline to process.
 
 on:
-  schedule:
-    - cron: "47 8 * * *"  # ~4:47 AM EDT (offset from :00 to reduce GHA queue delays)
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
+
+concurrency:
+  group: "gh-aw-copilot-${{ github.workflow }}"
+  cancel-in-progress: false
 
 network: defaults
 

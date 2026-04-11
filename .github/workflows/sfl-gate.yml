@@ -1,0 +1,342 @@
+name: SFL Gate
+
+# Lightweight orchestrator: validates entry, dispatches workers, collects verdicts.
+# No LLM — pure shell logic.
+
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        description: Target issue number for implementation
+        required: false
+      pull-request-number:
+        description: Target PR number for follow-up implementation
+        required: false
+  workflow_run:
+    workflows:
+      - "SFL Implementer"
+      - "SFL Analyzer A \u2014 Full-Spectrum Review"
+      - "SFL Analyzer B \u2014 Full-Spectrum Review"
+      - "SFL Analyzer C \u2014 Full-Spectrum Review"
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Entry Gate: validate issue labels and dispatch implementer
+  # ─────────────────────────────────────────────────────────────────
+  entry-gate:
+    if: github.event_name == 'issues' || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: sfl-entry-${{ github.event.issue.number || github.event.inputs.issue-number || github.event.inputs.pull-request-number || github.run_id }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate and dispatch implementer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Motherrepo guard: disable automatic triggers in template repo
+          MOTHERREPO="relias-engineering/set-it-free-loop"
+          if [ "${{ github.repository }}" = "${MOTHERREPO}" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Motherrepo — automatic triggers disabled"
+            exit 0
+          fi
+
+          # workflow_dispatch: require at least one input
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ISSUE="${{ github.event.inputs.issue-number }}"
+            PR="${{ github.event.inputs.pull-request-number }}"
+
+            if [ -z "$ISSUE" ] && [ -z "$PR" ]; then
+              echo "workflow_dispatch requires issue-number or pull-request-number"
+              exit 0
+            fi
+
+            if [ -n "$PR" ]; then
+              echo "Dispatching implementer for PR #${PR}"
+              gh workflow run sfl-implement.lock.yml \
+                --repo "${{ github.repository }}" \
+                -f pull-request-number="${PR}"
+            else
+              echo "Dispatching implementer for issue #${ISSUE}"
+              gh workflow run sfl-implement.lock.yml \
+                --repo "${{ github.repository }}" \
+                -f issue-number="${ISSUE}"
+            fi
+            exit 0
+          fi
+
+          # issues event: only agent:fixable triggers implementation
+          ISSUE_NUM="${{ github.event.issue.number }}"
+
+          if [ "${{ github.event.action }}" = "labeled" ] && [ "${{ github.event.label.name }}" != "agent:fixable" ]; then
+            echo "Label '${{ github.event.label.name }}' — not agent:fixable, skipping"
+            exit 0
+          fi
+
+          LABELS=$(gh api "repos/${{ github.repository }}/issues/${ISSUE_NUM}/labels" \
+            --jq '.[].name' 2>/dev/null || echo "")
+
+          for SKIP_LABEL in no-agent agent:blocked report; do
+            if echo "$LABELS" | grep -Fxq "$SKIP_LABEL"; then
+              echo "Issue #${ISSUE_NUM} has ${SKIP_LABEL} — skipping"
+              exit 0
+            fi
+          done
+
+          if ! echo "$LABELS" | grep -Fxq "agent:fixable"; then
+            echo "Issue #${ISSUE_NUM} missing agent:fixable — skipping"
+            exit 0
+          fi
+
+          echo "Issue #${ISSUE_NUM} is actionable — dispatching implementer"
+          gh workflow run sfl-implement.lock.yml \
+            --repo "${{ github.repository }}" \
+            -f issue-number="${ISSUE_NUM}"
+
+  # ─────────────────────────────────────────────────────────────────
+  # Implement Complete: dispatch analyzers after successful implementation
+  # ─────────────────────────────────────────────────────────────────
+  implement-complete:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.name == 'SFL Implementer' &&
+      github.event.workflow_run.conclusion == 'success'
+    concurrency:
+      group: sfl-implement-complete
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve PR and dispatch analyzers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+
+          echo "Implementer run #${RUN_ID} succeeded — resolving PR number"
+
+          # Get inputs from the implement run
+          INPUTS=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}" \
+            --jq '.inputs // {}')
+
+          PR_NUM=$(echo "$INPUTS" | jq -r '.["pull-request-number"] // empty')
+          ISSUE_NUM=$(echo "$INPUTS" | jq -r '.["issue-number"] // empty')
+
+          # If PR number was provided as input, use it directly
+          if [ -n "$PR_NUM" ]; then
+            echo "PR #${PR_NUM} from dispatch input"
+          fi
+
+          # Otherwise, find the PR by issue number
+          if [ -z "$PR_NUM" ] && [ -n "$ISSUE_NUM" ]; then
+            echo "Looking for agent:pr PR linked to issue #${ISSUE_NUM}..."
+            PR_NUM=$(gh pr list --repo "${{ github.repository }}" \
+              --state open --label "agent:pr" --limit 200 \
+              --json number,body \
+              --jq ".[] | select((.body // \"\") | test(\"(?i)(closes|fixes|resolves)\\\\s+#${ISSUE_NUM}\\\\b\")) | .number" \
+              | head -1)
+          fi
+
+          if [ -z "$PR_NUM" ]; then
+            echo "Could not resolve PR number — cannot dispatch analyzers"
+            exit 0
+          fi
+
+          echo "Dispatching 3 analyzers for PR #${PR_NUM}"
+
+          for ANALYZER in sfl-analyzer-a sfl-analyzer-b sfl-analyzer-c; do
+            echo "  → ${ANALYZER}"
+            gh workflow run "${ANALYZER}.lock.yml" \
+              --repo "${{ github.repository }}" \
+              -f pull-request-number="${PR_NUM}"
+            sleep 2  # Respect rate limits
+          done
+
+  # ─────────────────────────────────────────────────────────────────
+  # Verdict Gate: collect analyzer verdicts and route
+  # ─────────────────────────────────────────────────────────────────
+  verdict-gate:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.name != 'SFL Implementer'
+    concurrency:
+      group: sfl-verdict-gate
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect verdicts and route
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_NAME: ${{ github.event.workflow_run.name }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+
+          echo "Analyzer '${RUN_NAME}' run #${RUN_ID} completed: ${RUN_CONCLUSION}"
+
+          # Get PR number from the analyzer run's inputs
+          PR_NUM=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}" \
+            --jq '.inputs["pull-request-number"] // empty')
+
+          if [ -z "$PR_NUM" ]; then
+            echo "Could not resolve PR number from analyzer run — skipping"
+            exit 0
+          fi
+
+          # Map workflow name → analyzer ID
+          case "${RUN_NAME}" in
+            *"Analyzer A"*) FAILED_ID="a" ;;
+            *"Analyzer B"*) FAILED_ID="b" ;;
+            *"Analyzer C"*) FAILED_ID="c" ;;
+            *) FAILED_ID="" ;;
+          esac
+
+          # If the analyzer failed, post a synthetic BLOCKING verdict
+          # so the cycle doesn't stall waiting for a verdict that will never come
+          if [ "${RUN_CONCLUSION}" != "success" ] && [ -n "$FAILED_ID" ]; then
+            echo "Analyzer ${FAILED_ID} failed (${RUN_CONCLUSION}) — posting synthetic BLOCKING verdict"
+
+            # Determine cycle for the synthetic marker
+            COMMENTS_PRE=$(gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+              --paginate --slurp)
+            SYNTH_CYCLE=$(printf '%s\n' "$COMMENTS_PRE" | jq -r '
+              [
+                (add // [])[].body
+                | capture("<!-- MARKER:sfl-(?:implement|analyzer-(?:a|b|c)) cycle:(?<c>[0-9]+) -->")?.c
+                | tonumber? | select(. != null)
+              ] | if length > 0 then (max | tostring) else "1" end
+            ')
+
+            gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+              --field body="<!-- MARKER:sfl-analyzer-${FAILED_ID} cycle:${SYNTH_CYCLE} -->
+          ## Analyzer ${FAILED_ID} — Workflow Failure
+
+          **Verdict**: BLOCKING ISSUES FOUND
+
+          Analyzer workflow failed with conclusion: \`${RUN_CONCLUSION}\`.
+          This is a synthetic verdict posted by the SFL gate." > /dev/null
+          fi
+
+          echo "Checking verdicts for PR #${PR_NUM}..."
+
+          # Read all PR comments (re-read to include any synthetic verdict just posted)
+          COMMENTS_JSON=$(gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+            --paginate --slurp)
+
+          # Determine current cycle from highest marker across all SFL markers
+          CURRENT_CYCLE=$(printf '%s\n' "$COMMENTS_JSON" | jq -r '
+            [
+              (add // [])[].body
+              | capture("<!-- MARKER:sfl-(?:implement|analyzer-(?:a|b|c)) cycle:(?<c>[0-9]+) -->")?.c
+              | tonumber?
+              | select(. != null)
+            ]
+            | if length > 0 then (max | tostring) else "" end
+          ')
+
+          if [ -z "$CURRENT_CYCLE" ]; then
+            echo "Cannot determine cycle from PR comments — skipping"
+            exit 0
+          fi
+
+          echo "Current cycle: ${CURRENT_CYCLE}"
+
+          # Extract verdict for a specific analyzer in the current cycle
+          extract_verdict() {
+            local id="$1"
+            printf '%s\n' "$COMMENTS_JSON" | jq -r --arg id "$id" --arg c "$CURRENT_CYCLE" '
+              [(add // [])[]
+               | select(.body | contains("<!-- MARKER:sfl-analyzer-" + $id + " cycle:" + $c + " -->"))
+               | (.body
+                  | (capture("\\*\\*Verdict\\*\\*:[[:space:]]*(?<v>PASS|BLOCKING ISSUES FOUND)"; "i")? | .v // "")
+                  | ascii_upcase
+                  | if . == "PASS" or . == "BLOCKING ISSUES FOUND" then . else "" end)]
+              | last // ""
+            '
+          }
+
+          A=$(extract_verdict "a")
+          B=$(extract_verdict "b")
+          C=$(extract_verdict "c")
+
+          echo "Analyzer A: ${A:-<pending>}"
+          echo "Analyzer B: ${B:-<pending>}"
+          echo "Analyzer C: ${C:-<pending>}"
+
+          # Exit early if not all verdicts are in yet
+          if [ -z "$A" ] || [ -z "$B" ] || [ -z "$C" ]; then
+            echo "Not all verdicts present — waiting for remaining analyzers"
+            exit 0
+          fi
+
+          # ── All 3 verdicts present — make routing decision ──
+
+          # Guard against duplicate dispatch (concurrency serializes, marker deduplicates)
+          GATE_MARKER="<!-- MARKER:sfl-gate cycle:${CURRENT_CYCLE} -->"
+          EXISTING_GATE=$(printf '%s\n' "$COMMENTS_JSON" | jq -r --arg c "$CURRENT_CYCLE" '
+            [(add // [])[] | select(.body | contains("<!-- MARKER:sfl-gate cycle:" + $c + " -->"))] | length
+          ')
+          if [ "$EXISTING_GATE" -gt 0 ]; then
+            echo "Gate already acted for cycle ${CURRENT_CYCLE} — skipping"
+            exit 0
+          fi
+
+          # Post gate marker before acting
+          gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+            --field body="${GATE_MARKER}" > /dev/null
+
+          LABELS=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
+            --json labels --jq '[.labels[].name] | join("\n")')
+
+          if echo "$A $B $C" | grep -qi "BLOCKING"; then
+            echo "Route: BLOCKED"
+
+            if ! echo "$LABELS" | grep -Fxq "analyzer:blocked"; then
+              gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --add-label "analyzer:blocked"
+            fi
+            if echo "$LABELS" | grep -Fxq "human:ready-for-review"; then
+              gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --remove-label "human:ready-for-review"
+            fi
+
+            # Check cycle limit from config
+            MAX_CYCLES=$(gh api "repos/${{ github.repository }}/contents/.sfl/sfl-config.yml" \
+              --jq '.content' 2>/dev/null \
+              | base64 -d 2>/dev/null \
+              | grep -oP '^max-fix-cycles:\s*\K\d+' || echo "3")
+
+            if [ "$CURRENT_CYCLE" -lt "$MAX_CYCLES" ]; then
+              echo "Cycle ${CURRENT_CYCLE}/${MAX_CYCLES} — dispatching follow-up implementation"
+              gh workflow run sfl-implement.lock.yml \
+                --repo "${{ github.repository }}" \
+                -f pull-request-number="${PR_NUM}"
+            else
+              echo "Max cycles (${CURRENT_CYCLE}/${MAX_CYCLES}) — escalating to human"
+              ISSUE_NUM=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
+                --json body --jq '.body' \
+                | grep -oP '(?i)(?:closes|fixes|resolves)\s+#\K\d+' | head -1 || true)
+              if [ -n "$ISSUE_NUM" ]; then
+                gh issue edit "$ISSUE_NUM" --repo "${{ github.repository }}" --add-label "agent:blocked"
+              fi
+            fi
+          else
+            echo "Route: ALL PASS — ready for human review"
+
+            if ! echo "$LABELS" | grep -Fxq "human:ready-for-review"; then
+              gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --add-label "human:ready-for-review"
+            fi
+            if echo "$LABELS" | grep -Fxq "analyzer:blocked"; then
+              gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --remove-label "analyzer:blocked"
+            fi
+          fi

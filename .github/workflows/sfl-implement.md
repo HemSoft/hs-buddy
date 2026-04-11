@@ -1,9 +1,8 @@
 ---
 description: |
-  SFL Implementer — Reusable worker invoked by the sfl-loop orchestrator
-  via workflow_call. Claims or resumes an issue, creates or updates exactly
-  one draft PR. Does NOT dispatch analyzers or make routing decisions —
-  the orchestrator owns sequencing. One work item per run.
+  SFL Implementer — Claims or resumes an issue, creates or updates exactly
+  one draft PR. Dispatched by the SFL gate after issue validation.
+  One work item per run.
 
 on:
   workflow_call:
@@ -102,7 +101,7 @@ source: relias-engineering/set-it-free-loop/.github/workflows/sfl-implement.md@9
 # SFL Implementer
 
 Advance exactly one implementation work item per run. This workflow is
-invoked by the `sfl-loop` orchestrator and returns control when done.
+dispatched by the SFL gate after issue validation.
 
 ## Responsibilities
 
@@ -115,9 +114,8 @@ invoked by the `sfl-loop` orchestrator and returns control when done.
 
 ## Non-responsibilities
 
-- Do NOT dispatch analyzers — the orchestrator does this
-- Do NOT repair labels in post-jobs — the orchestrator handles label state
-- Do NOT make routing decisions — the router step does this
+- Do NOT dispatch analyzers — the gate handles this
+- Do NOT make routing decisions — the gate handles this
 - Do NOT update dashboard discussions
 
 ## Step 1 — Identify the target work item
@@ -262,6 +260,6 @@ This marker prevents duplicate implementation passes in the same cycle.
 
 - Process exactly ONE work item per run
 - Never create a second PR for an issue that already has an open `agent:pr` PR
-- Never dispatch other workflows — the orchestrator owns sequencing
+- Never dispatch other workflows — the gate owns sequencing
 - Never modify the PR body — it is written once at creation
 - All safe-output tools are deferred and execute after this run completes

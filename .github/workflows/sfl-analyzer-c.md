@@ -1,9 +1,8 @@
 ---
 description: |
-  PR Analyzer C — Full-Spectrum Review. Reusable worker invoked by the
-  sfl-loop orchestrator via workflow_call. Reviews the target draft PR
-  across all dimensions using gpt-5.4. Does NOT dispatch other
-  analyzers — the orchestrator runs A, B, C in parallel.
+  PR Analyzer C — Full-Spectrum Review. Reviews the target draft PR
+  across all dimensions using gpt-5.4. Dispatched by the
+  SFL gate after implementation completes.
 
 on:
   workflow_call:
@@ -46,8 +45,8 @@ source: relias-engineering/set-it-free-loop/.github/workflows/sfl-analyzer-c.md@
 
 # SFL Analyzer C — Full-Spectrum Review
 
-You are Analyzer C (gpt-5.4). You have been invoked by the
-sfl-loop orchestrator with an explicit PR number.
+You are Analyzer C (gpt-5.4). You have been dispatched by the
+SFL gate with an explicit PR number.
 
 **Target PR**: #${{ inputs.pull-request-number || github.event.inputs.pull-request-number }}
 
@@ -68,7 +67,7 @@ Do NOT use `bash`, `write_bash`, `sql`, `view`, `web_fetch`, or planning tools.
 
 ## Important
 
-- Do NOT dispatch any other workflows. The orchestrator owns sequencing.
+- Do NOT dispatch any other workflows. The gate owns sequencing.
 - Do NOT update any dashboard discussion. Dashboards are out-of-band.
 - Post exactly one review comment with the `<!-- MARKER:sfl-analyzer-c cycle:N -->` marker.
 - Add `analyzer:blocked` label only if verdict is BLOCKING ISSUES FOUND.

@@ -1,9 +1,8 @@
 ---
 description: |
-  PR Analyzer A — Full-Spectrum Review. Reusable worker invoked by the
-  sfl-loop orchestrator via workflow_call. Reviews the target draft PR
-  across all dimensions using gemini-3.1-pro-preview. Does NOT dispatch other
-  analyzers — the orchestrator runs A, B, C in parallel.
+  PR Analyzer A — Full-Spectrum Review. Reviews the target draft PR
+  across all dimensions using gemini-3.1-pro-preview. Dispatched by the
+  SFL gate after implementation completes.
 
 on:
   workflow_call:
@@ -46,8 +45,8 @@ source: relias-engineering/set-it-free-loop/.github/workflows/sfl-analyzer-a.md@
 
 # SFL Analyzer A — Full-Spectrum Review
 
-You are Analyzer A (gemini-3.1-pro-preview). You have been invoked by the
-sfl-loop orchestrator with an explicit PR number.
+You are Analyzer A (gemini-3.1-pro-preview). You have been dispatched by the
+SFL gate with an explicit PR number.
 
 **Target PR**: #${{ inputs.pull-request-number || github.event.inputs.pull-request-number }}
 
@@ -68,7 +67,7 @@ Do NOT use `bash`, `write_bash`, `sql`, `view`, `web_fetch`, or planning tools.
 
 ## Important
 
-- Do NOT dispatch any other workflows. The orchestrator owns sequencing.
+- Do NOT dispatch any other workflows. The gate owns sequencing.
 - Do NOT update any dashboard discussion. Dashboards are out-of-band.
 - Post exactly one review comment with the `<!-- MARKER:sfl-analyzer-a cycle:N -->` marker.
 - Add `analyzer:blocked` label only if verdict is BLOCKING ISSUES FOUND.

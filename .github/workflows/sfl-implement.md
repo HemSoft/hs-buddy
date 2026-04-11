@@ -11,17 +11,21 @@ on:
       issue-number:
         description: Target issue number for a new-issue implementation pass
         required: false
+        type: string
       pull-request-number:
         description: Target draft PR number for a follow-up implementation pass
         required: false
+        type: string
   workflow_dispatch:
     inputs:
       issue-number:
         description: Target issue number for a new-issue implementation pass
         required: false
+        type: string
       pull-request-number:
         description: Target draft PR number for a follow-up implementation pass
         required: false
+        type: string
 
 permissions:
   contents: read

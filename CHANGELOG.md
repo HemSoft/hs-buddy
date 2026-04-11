@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.677] - 2026-04-11
+
+### Fixed
+
+- Add missing type: string to SFL workflow_call/dispatch inputs
+
 ## [0.1.676] - 2026-04-10
 
 ### Fixed

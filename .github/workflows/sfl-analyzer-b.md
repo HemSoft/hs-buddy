@@ -11,11 +11,13 @@ on:
       pull-request-number:
         description: Target draft PR number for review
         required: true
+        type: string
   workflow_dispatch:
     inputs:
       pull-request-number:
         description: Target draft PR number for a manual Analyzer B review
         required: true
+        type: string
 
 permissions:
   contents: read

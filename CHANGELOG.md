@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.683] - 2026-04-11
+
+### Fixed
+
+- Use PAT in sfl-gate to enable workflow_run events
+
 ## [0.1.682] - 2026-04-11
 
 ### Fixed

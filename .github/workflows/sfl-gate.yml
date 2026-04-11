@@ -2,6 +2,8 @@ name: SFL Gate
 
 # Lightweight orchestrator: validates entry, dispatches workers, collects verdicts.
 # No LLM — pure shell logic.
+# Uses GH_AW_GITHUB_TOKEN (PAT) instead of GITHUB_TOKEN so that dispatched
+# workflows emit workflow_run events back to this gate.
 
 on:
   issues:
@@ -41,7 +43,7 @@ jobs:
     steps:
       - name: Validate and dispatch implementer
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -122,7 +124,7 @@ jobs:
     steps:
       - name: Resolve PR and dispatch analyzers
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
@@ -180,7 +182,7 @@ jobs:
     steps:
       - name: Collect verdicts and route
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_NAME: ${{ github.event.workflow_run.name }}
           RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}

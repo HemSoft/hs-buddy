@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getErrorMessage } from './errorUtils'
+import { getErrorMessage, isAbortError, throwIfAborted } from './errorUtils'
 
 describe('getErrorMessage', () => {
   it('returns the message from an Error instance', () => {
@@ -32,5 +32,44 @@ describe('getErrorMessage', () => {
 
   it('returns string representation of an object', () => {
     expect(getErrorMessage({ key: 'value' })).toBe('[object Object]')
+  })
+})
+
+describe('throwIfAborted', () => {
+  it('throws a DOMException with name AbortError when signal is aborted', () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    expect(() => throwIfAborted(controller.signal)).toThrow(DOMException)
+    expect(() => throwIfAborted(controller.signal)).toThrow('Cancelled')
+  })
+
+  it('does nothing when the signal is not aborted', () => {
+    const controller = new AbortController()
+
+    expect(() => throwIfAborted(controller.signal)).not.toThrow()
+  })
+})
+
+describe('isAbortError', () => {
+  it('returns true for a DOMException with name AbortError', () => {
+    const error = new DOMException('Cancelled', 'AbortError')
+
+    expect(isAbortError(error)).toBe(true)
+  })
+
+  it('returns false for a DOMException with a different name', () => {
+    const error = new DOMException('something', 'NetworkError')
+
+    expect(isAbortError(error)).toBe(false)
+  })
+
+  it('returns false for a regular Error', () => {
+    expect(isAbortError(new Error('fail'))).toBe(false)
+  })
+
+  it('returns false for a non-error value', () => {
+    expect(isAbortError('AbortError')).toBe(false)
+    expect(isAbortError(null)).toBe(false)
   })
 })

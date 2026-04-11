@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.680] - 2026-04-11
+
+### Changed
+
+- Add missing tests for throwIfAborted and isAbortError
+
 ## [0.1.679] - 2026-04-11
 
 ### Fixed

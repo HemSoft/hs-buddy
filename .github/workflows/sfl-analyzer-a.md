@@ -1,7 +1,7 @@
 ---
 description: |
   PR Analyzer A — Full-Spectrum Review. Reviews the target draft PR
-  across all dimensions using gemini-3.1-pro-preview. Dispatched by the
+  across all dimensions using gemini-2.5-pro via Copilot. Dispatched by the
   SFL gate after implementation completes.
 
 on:
@@ -24,8 +24,8 @@ permissions:
   pull-requests: read
 
 engine:
-  id: gemini
-  model: gemini-3.1-pro-preview
+  id: copilot
+  model: gemini-2.5-pro
 
 network: defaults
 
@@ -45,7 +45,7 @@ source: relias-engineering/set-it-free-loop/.github/workflows/sfl-analyzer-a.md@
 
 # SFL Analyzer A — Full-Spectrum Review
 
-You are Analyzer A (gemini-3.1-pro-preview). You have been dispatched by the
+You are Analyzer A (gemini-2.5-pro). You have been dispatched by the
 SFL gate with an explicit PR number.
 
 **Target PR**: #${{ inputs.pull-request-number || github.event.inputs.pull-request-number }}

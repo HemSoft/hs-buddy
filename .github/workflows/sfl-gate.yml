@@ -5,7 +5,7 @@ name: SFL Gate
 
 on:
   issues:
-    types: [opened, reopened, labeled]
+    types: [labeled]
   workflow_dispatch:
     inputs:
       issue-number:

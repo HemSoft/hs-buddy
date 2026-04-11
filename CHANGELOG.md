@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.685] - 2026-04-11
+
+### Fixed
+
+- Upgrade analyzer-a to gemini-3.1-pro (latest Copilot Gemini)
+
 ## [0.1.684] - 2026-04-11
 
 ### Fixed

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add missing type: string to SFL workflow_call/dispatch inputs
 
+### Changed
+
+- Minimal workflow calling sfl-implement as reusable workflow
+
 ## [0.1.676] - 2026-04-10
 
 ### Fixed

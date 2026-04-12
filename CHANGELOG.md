@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bring audit workflows to React Doctor quality parity
 
+### Fixed
+
+- Prevent verdict-gate fan-out dispatching multiple implementers
+
 ## [0.1.692] - 2026-04-12
 
 ### Fixed

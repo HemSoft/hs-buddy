@@ -402,7 +402,29 @@ jobs:
             exit 0
           fi
 
+          # ── 3b. Deduplication: prevent fan-out from multiple gate runs ──
+          # Each analyzer completion triggers this job, so it runs up to 3×.
+          # The concurrency group serializes them, but once all 3 comments
+          # exist, every remaining run would dispatch an implementer.
+          # Fix: the first run to reach 3/3 posts a marker; subsequent runs
+          # see it and exit early.
+          VERDICT_ALREADY_PROCESSED=$(printf '%s\n' "$COMMENTS_JSON" | jq -r --arg fence "$FENCE" '
+            [.[] | select(
+              (.created_at > $fence) and
+              (.body | contains("MARKER:sfl-verdict-processed"))
+            )] | length')
+
+          if [ "$VERDICT_ALREADY_PROCESSED" -gt 0 ]; then
+            echo "Verdict already processed for this cycle — skipping duplicate gate run"
+            exit 0
+          fi
+
           echo "All 3 analyzers have reported"
+
+          # Post marker BEFORE routing to close the race window
+          gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+            --field body="<!-- MARKER:sfl-verdict-processed -->
+          🔒 Verdict gate: all 3 analyzers reported. Routing decision follows." > /dev/null
 
           # ── 4. Route based on analyzer:blocked label ──
           # The label is the single source of truth for blocking status.

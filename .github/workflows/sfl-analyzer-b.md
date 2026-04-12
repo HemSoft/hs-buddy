@@ -52,7 +52,7 @@ SFL gate with an explicit PR number.
 
 Follow the shared review instructions in `.github/workflows/shared/sfl-analyzer-core.md`.
 
-Your analyzer ID is **B** (marker id: `b`). Use `sfl-analyzer-b` in all markers.
+Your analyzer ID is **B** (lowercase: `b`).
 
 ## Tooling
 
@@ -69,5 +69,5 @@ Do NOT use `bash`, `write_bash`, `sql`, `view`, `web_fetch`, or planning tools.
 
 - Do NOT dispatch any other workflows. The gate owns sequencing.
 - Do NOT update any dashboard discussion. Dashboards are out-of-band.
-- Post exactly one review comment with the `<!-- MARKER:sfl-analyzer-b cycle:N -->` marker.
+- Post exactly one review comment per run.
 - Add `analyzer:blocked` label only if verdict is BLOCKING ISSUES FOUND.

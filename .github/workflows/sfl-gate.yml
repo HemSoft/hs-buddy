@@ -182,6 +182,14 @@ jobs:
 
           echo "Dispatching 3 analyzers for PR #${PR_NUM}"
 
+          # Remove analyzer:blocked from previous cycle — each cycle starts clean.
+          # If any analyzer in this cycle finds blocking issues, it re-adds the label.
+          LABELS=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
+            --json labels --jq '[.labels[].name] | join("\n")')
+          if echo "$LABELS" | grep -Fxq "analyzer:blocked"; then
+            gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --remove-label "analyzer:blocked"
+          fi
+
           for ANALYZER in sfl-analyzer-a sfl-analyzer-b sfl-analyzer-c; do
             echo "  → ${ANALYZER}"
             gh workflow run "${ANALYZER}.lock.yml" \
@@ -192,6 +200,14 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────
   # Verdict Gate: collect analyzer verdicts and route
+  # ─────────────────────────────────────────────────────────────────
+  # Verdict Gate: collect analyzer results and route
+  #
+  # Uses deterministic signals only — no LLM text parsing:
+  #   - PR resolution: 3-tier fallback (inputs → issue search → draft PR)
+  #   - Completion: count gh-aw metadata footers since last implementer comment
+  #   - Verdict: analyzer:blocked label (set by analyzers via safe-output)
+  #   - Cycle count: number of implementer comments (workflow_id: sfl-implement)
   # ─────────────────────────────────────────────────────────────────
   verdict-gate:
     if: >-
@@ -213,143 +229,116 @@ jobs:
 
           echo "Analyzer '${RUN_NAME}' run #${RUN_ID} completed: ${RUN_CONCLUSION}"
 
-          # Get PR number from the analyzer run's inputs
+          # ── 1. Resolve PR number (3-tier fallback) ──
           PR_NUM=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}" \
-            --jq '.inputs["pull-request-number"] // empty')
+            --jq '.inputs["pull-request-number"] // empty' 2>/dev/null || true)
 
           if [ -z "$PR_NUM" ]; then
-            echo "Could not resolve PR number from analyzer run — skipping"
+            echo "Inputs unavailable — falling back to most recent agent:pr draft PR"
+            PR_NUM=$(gh pr list --repo "${{ github.repository }}" \
+              --state open --label "agent:pr" --limit 10 \
+              --json number,isDraft,headRefName,createdAt \
+              --jq '[.[] | select(.isDraft == true and (.headRefName | startswith("agent-fix/")))] | sort_by(.createdAt) | last | .number // empty')
+          fi
+
+          if [ -z "$PR_NUM" ]; then
+            echo "Could not resolve PR number — skipping"
             exit 0
           fi
 
-          # Map workflow name → analyzer ID
-          case "${RUN_NAME}" in
-            *"Analyzer A"*) FAILED_ID="a" ;;
-            *"Analyzer B"*) FAILED_ID="b" ;;
-            *"Analyzer C"*) FAILED_ID="c" ;;
-            *) FAILED_ID="" ;;
-          esac
+          echo "PR #${PR_NUM}"
 
-          # If the analyzer failed, post a synthetic BLOCKING verdict
-          # so the cycle doesn't stall waiting for a verdict that will never come
-          if [ "${RUN_CONCLUSION}" != "success" ] && [ -n "$FAILED_ID" ]; then
-            echo "Analyzer ${FAILED_ID} failed (${RUN_CONCLUSION}) — posting synthetic BLOCKING verdict"
+          # ── 1b. Handle failed analyzer runs ──
+          # If the analyzer workflow crashed/timed-out before posting a comment,
+          # the gate would wait forever for 3 comments that never arrive.
+          # Fix: post a synthetic comment with the expected workflow_id tag so the
+          # counting logic picks it up, and add analyzer:blocked.
+          if [ "${RUN_CONCLUSION}" != "success" ]; then
+            case "${RUN_NAME}" in
+              *"Analyzer A"*) FAILED_ID="a" ;;
+              *"Analyzer B"*) FAILED_ID="b" ;;
+              *"Analyzer C"*) FAILED_ID="c" ;;
+              *) FAILED_ID="" ;;
+            esac
 
-            # Determine cycle for the synthetic marker
-            COMMENTS_PRE=$(gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
-              --paginate --slurp)
-            SYNTH_CYCLE=$(printf '%s\n' "$COMMENTS_PRE" | jq -r '
-              [
-                (add // [])[].body
-                | capture("<!-- MARKER:sfl-(?:implement|analyzer-(?:a|b|c)) cycle:(?<c>[0-9]+) -->")?.c
-                | tonumber? | select(. != null)
-              ] | if length > 0 then (max | tostring) else "1" end
-            ')
-
-            gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
-              --field body="<!-- MARKER:sfl-analyzer-${FAILED_ID} cycle:${SYNTH_CYCLE} -->
-          ## Analyzer ${FAILED_ID} — Workflow Failure
-
-          **Verdict**: BLOCKING ISSUES FOUND
+            if [ -n "$FAILED_ID" ]; then
+              echo "Analyzer ${FAILED_ID} failed (${RUN_CONCLUSION}) — posting synthetic failure comment"
+              gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+                --field body="## Analyzer ${FAILED_ID} — Workflow Failure
 
           Analyzer workflow failed with conclusion: \`${RUN_CONCLUSION}\`.
-          This is a synthetic verdict posted by the SFL gate." > /dev/null
+
+          <!-- gate-synthetic workflow_id: sfl-analyzer-${FAILED_ID} -->" > /dev/null
+
+              gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --add-label "analyzer:blocked" 2>/dev/null || true
+            fi
           fi
 
-          echo "Checking verdicts for PR #${PR_NUM}..."
-
-          # Read all PR comments (re-read to include any synthetic verdict just posted)
+          # ── 2. Timestamp fence: find last implementer comment ──
+          # gh-aw comments contain "workflow_id: sfl-implement" in their footer.
+          # Only count analyzer comments posted AFTER the most recent implementer
+          # comment — this naturally scopes to the current fix cycle.
           COMMENTS_JSON=$(gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
-            --paginate --slurp)
+            --paginate --jq '[.[] | {body, created_at}]')
 
-          # Determine current cycle from highest marker across all SFL markers
-          CURRENT_CYCLE=$(printf '%s\n' "$COMMENTS_JSON" | jq -r '
-            [
-              (add // [])[].body
-              | capture("<!-- MARKER:sfl-(?:implement|analyzer-(?:a|b|c)) cycle:(?<c>[0-9]+) -->")?.c
-              | tonumber?
-              | select(. != null)
-            ]
-            | if length > 0 then (max | tostring) else "" end
-          ')
+          FENCE=$(printf '%s\n' "$COMMENTS_JSON" | jq -r '
+            [.[] | select(.body | test("workflow_id:\\s*sfl-implement")) | .created_at]
+            | sort | last // "1970-01-01T00:00:00Z"')
+          echo "Implementer fence: ${FENCE}"
 
-          if [ -z "$CURRENT_CYCLE" ]; then
-            echo "Cannot determine cycle from PR comments — skipping"
+          # ── 3. Count completed analyzer comments since fence ──
+          # Each analyzer posts exactly one comment with a gh-aw footer
+          # containing "workflow_id: sfl-analyzer-{a,b,c}".
+          for ID in a b c; do
+            COUNT=$(printf '%s\n' "$COMMENTS_JSON" | jq -r --arg id "$ID" --arg fence "$FENCE" '
+              [.[] | select(
+                (.created_at > $fence) and
+                (.body | test("workflow_id:\\s*sfl-analyzer-" + $id))
+              )] | length')
+            eval "DONE_${ID}=${COUNT}"
+            echo "Analyzer ${ID}: ${COUNT} comment(s) since fence"
+          done
+
+          TOTAL=$((DONE_a + DONE_b + DONE_c))
+
+          if [ "$TOTAL" -lt 3 ]; then
+            echo "Only ${TOTAL}/3 analyzer comments — waiting for remaining"
             exit 0
           fi
 
-          echo "Current cycle: ${CURRENT_CYCLE}"
+          echo "All 3 analyzers have reported"
 
-          # Extract verdict for a specific analyzer in the current cycle
-          extract_verdict() {
-            local id="$1"
-            printf '%s\n' "$COMMENTS_JSON" | jq -r --arg id "$id" --arg c "$CURRENT_CYCLE" '
-              [(add // [])[]
-               | select(.body | contains("<!-- MARKER:sfl-analyzer-" + $id + " cycle:" + $c + " -->"))
-               | (.body
-                  | (capture("\\*\\*Verdict\\*\\*:[[:space:]]*(?<v>PASS|BLOCKING ISSUES FOUND)"; "i")? | .v // "")
-                  | ascii_upcase
-                  | if . == "PASS" or . == "BLOCKING ISSUES FOUND" then . else "" end)]
-              | last // ""
-            '
-          }
-
-          A=$(extract_verdict "a")
-          B=$(extract_verdict "b")
-          C=$(extract_verdict "c")
-
-          echo "Analyzer A: ${A:-<pending>}"
-          echo "Analyzer B: ${B:-<pending>}"
-          echo "Analyzer C: ${C:-<pending>}"
-
-          # Exit early if not all verdicts are in yet
-          if [ -z "$A" ] || [ -z "$B" ] || [ -z "$C" ]; then
-            echo "Not all verdicts present — waiting for remaining analyzers"
-            exit 0
-          fi
-
-          # ── All 3 verdicts present — make routing decision ──
-
-          # Guard against duplicate dispatch (concurrency serializes, marker deduplicates)
-          GATE_MARKER="<!-- MARKER:sfl-gate cycle:${CURRENT_CYCLE} -->"
-          EXISTING_GATE=$(printf '%s\n' "$COMMENTS_JSON" | jq -r --arg c "$CURRENT_CYCLE" '
-            [(add // [])[] | select(.body | contains("<!-- MARKER:sfl-gate cycle:" + $c + " -->"))] | length
-          ')
-          if [ "$EXISTING_GATE" -gt 0 ]; then
-            echo "Gate already acted for cycle ${CURRENT_CYCLE} — skipping"
-            exit 0
-          fi
-
-          # Post gate marker before acting
-          gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
-            --field body="${GATE_MARKER}" > /dev/null
-
+          # ── 4. Route based on analyzer:blocked label ──
+          # The label is the single source of truth for blocking status.
+          # Analyzers add it via safe-output when they find blocking issues.
           LABELS=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
             --json labels --jq '[.labels[].name] | join("\n")')
 
-          if echo "$A $B $C" | grep -qi "BLOCKING"; then
+          if echo "$LABELS" | grep -Fxq "analyzer:blocked"; then
             echo "Route: BLOCKED"
 
-            if ! echo "$LABELS" | grep -Fxq "analyzer:blocked"; then
-              gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --add-label "analyzer:blocked"
-            fi
             if echo "$LABELS" | grep -Fxq "human:ready-for-review"; then
               gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --remove-label "human:ready-for-review"
             fi
 
-            # Check cycle limit from config
+            # Count cycles = number of implementer comments on this PR
+            CYCLE=$(printf '%s\n' "$COMMENTS_JSON" | jq '
+              [.[] | select(.body | test("workflow_id:\\s*sfl-implement"))] | length')
+
             MAX_CYCLES=$(gh api "repos/${{ github.repository }}/contents/.sfl/sfl-config.yml" \
               --jq '.content' 2>/dev/null \
               | base64 -d 2>/dev/null \
               | grep -oP '^max-fix-cycles:\s*\K\d+' || echo "3")
 
-            if [ "$CURRENT_CYCLE" -lt "$MAX_CYCLES" ]; then
-              echo "Cycle ${CURRENT_CYCLE}/${MAX_CYCLES} — dispatching follow-up implementation"
+            echo "Cycle ${CYCLE}/${MAX_CYCLES}"
+
+            if [ "$CYCLE" -lt "$MAX_CYCLES" ]; then
+              echo "Dispatching follow-up implementation"
               gh workflow run sfl-implement.lock.yml \
                 --repo "${{ github.repository }}" \
                 -f pull-request-number="${PR_NUM}"
             else
-              echo "Max cycles (${CURRENT_CYCLE}/${MAX_CYCLES}) — escalating to human"
+              echo "Max cycles reached — escalating to human"
               ISSUE_NUM=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
                 --json body --jq '.body' \
                 | grep -oP '(?i)(?:closes|fixes|resolves)\s+#\K\d+' | head -1 || true)
@@ -362,9 +351,6 @@ jobs:
 
             if ! echo "$LABELS" | grep -Fxq "human:ready-for-review"; then
               gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --add-label "human:ready-for-review"
-            fi
-            if echo "$LABELS" | grep -Fxq "analyzer:blocked"; then
-              gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --remove-label "analyzer:blocked"
             fi
 
             # Undraft the PR to trigger Copilot code review

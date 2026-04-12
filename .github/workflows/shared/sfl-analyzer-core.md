@@ -83,23 +83,16 @@ Gather all context needed for review:
 6. Check the project's configuration files (tsconfig.json, .eslintrc,
    prettier config) for enforced style rules
 
-## Step 2 — Determine the current review cycle
+## Step 2 — Check if already reviewed
 
-Look for existing SFL marker comments on the PR containing
-`<!-- MARKER:sfl-... cycle:N -->`. Derive the current cycle N by scanning
-those comments and taking the highest `cycle:N` value found across any SFL
-marker comment, or 0 if none exist.
+The gh-aw runtime appends a machine-generated metadata footer to every comment
+it posts. If a comment already exists on this PR containing
+`workflow_id: sfl-analyzer-{id}` (where `{id}` is your lowercase letter)
+that was posted **after** the most recent implementer comment
+(`workflow_id: sfl-implement`), you have already reviewed this cycle.
+Exit with a skip message.
 
-## Step 3 — Check if already reviewed
-
-Search the PR **comments** for any comment containing the exact marker text:
-`<!-- MARKER:sfl-analyzer-{id} cycle:N -->` where `{id}` is your analyzer
-letter in lowercase (a, b, or c) and N is the current cycle number from Step 2.
-
-If a comment with the marker exists, this analyzer has already reviewed this
-PR in the current cycle. Exit with a skip message.
-
-## Step 4 — Full-spectrum analysis
+## Step 3 — Full-spectrum analysis
 
 Review every changed line across ALL dimensions:
 
@@ -138,16 +131,12 @@ Classify each finding as:
 - **NON-BLOCKING** 🟡: Improvement suggestion — minor optimization, style
   preference, readability improvement, hardening suggestion
 
-## Step 5 — Post the review comment and label
+## Step 4 — Post the review comment and label
 
 Post the review as a **PR comment** using `add_comment`:
 
 - `issue_number`: the PR number
 - `body`: the structured review in the exact format below
-
-**CRITICAL**: The `<!-- MARKER:... -->` line below is the idempotency marker. It MUST
-be the very first line of your comment, exactly as shown. Without it, the
-pipeline will re-review this PR every cycle forever.
 
 If your verdict is **BLOCKING ISSUES FOUND**, also add the `analyzer:blocked`
 label to the PR using `add_labels`:
@@ -161,11 +150,9 @@ Do NOT add `analyzer:blocked` if your verdict is PASS. Do NOT remove
 ### Comment format
 
 ```markdown
-<!-- MARKER:sfl-analyzer-{id} cycle:N -->
 ## :bar_chart: SFL Analysis {id} &mdash; Full-Spectrum Review
 
 **Analyzer**: {id}
-**Cycle**: N
 **PR**: #<number>
 **Linked Issue**: #<issue-number>
 
@@ -191,8 +178,8 @@ _None found._ (use this if no suggestions)
 **Verdict**: BLOCKING ISSUES FOUND — N blocking issue(s), M non-blocking suggestion(s).
 ```
 
-Replace `{id}` with your analyzer letter in lowercase (a, b, or c).
-Replace N with the current cycle number, and fill in actual findings.
+Replace `{id}` with your analyzer letter in lowercase (a, b, or c),
+and fill in actual findings.
 Use checkboxes (`- [ ]`) for blocking issues so the implementer can track them.
 Use GitHub-safe Markdown shortcodes and HTML entities for decorative characters.
 

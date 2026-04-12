@@ -65,9 +65,7 @@ jobs:
             # Find Copilot reviews (any state), sorted by submission time
             COPILOT_REVIEWS=$(printf '%s\n' "$REVIEWS" | jq '[
               (add // [])[] | select(
-                ((.user.login | ascii_downcase) as $l |
-                  ($l == "copilot" or $l == "copilot-pull-request-reviewer" or
-                   $l == "copilot[bot]" or $l == "github-copilot[bot]"))
+                (.user.login | ascii_downcase | test("^(copilot|github-copilot)"))
               )
             ] | sort_by(.submitted_at)')
 

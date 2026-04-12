@@ -240,7 +240,7 @@ Do NOT include findings that:
 4. Filter out findings that require human judgment or broad refactors
 5. Close any previous open `[repo-audit]` issues
 6. Create the single consolidated issue (or skip if zero findings)
-7. Rely on the new issue's `issues: opened` event to start `sfl-issue-processor`.
+7. Rely on the new issue's `issues: opened` event to start `sfl-gate`.
    Do NOT dispatch the Issue Processor explicitly from this workflow.
 8. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | Repo Audit | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`; use `EST` instead of `EDT` only when standard time is actually in effect
 

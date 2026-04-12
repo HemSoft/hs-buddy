@@ -569,7 +569,7 @@ jobs:
 
             await postActivityLog(`${eastern.isoDate} ${eastern.time} ${eastern.zone} | React Doctor Audit | Audit | ✅ ${report.actionableCount} actionable diagnostics across ${report.categories.length} cluster(s) -> #${createdIssue.data.number}`);
 
-      - name: Dispatch SFL Issue Processor
+      - name: Dispatch SFL Gate
         if: steps.create_issue.outputs.issue_number != ''
         uses: actions/github-script@v8
         env:
@@ -579,7 +579,7 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'sfl-issue-processor.lock.yml',
+              workflow_id: 'sfl-gate.yml',
               ref: 'main',
               inputs: {
                 'issue-number': process.env.ISSUE_NUMBER,

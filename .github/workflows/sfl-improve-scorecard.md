@@ -274,7 +274,7 @@ When fixing lint warnings/errors:
 4. Inspect the repository to gather specific file/line details for the fix
 5. Close any previous open `[scorecard]` issues (Step 0)
 6. Create the single issue with detailed fix instructions (Step 4)
-7. Rely on the new issue's `issues: opened` event to start `sfl-issue-processor`.
+7. Rely on the new issue's `issues: opened` event to start `sfl-gate`.
    Do NOT dispatch the Issue Processor explicitly from this workflow.
 8. Post activity log entry to **Discussion #95** using `add_comment` with
    `issue_number`: `95` and `body`:

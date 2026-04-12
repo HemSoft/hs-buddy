@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.687] - 2026-04-12
+
+### Fixed
+
+- Retarget SFL dispatch from sfl-issue-processor to sfl-gate
+
 ## [0.1.686] - 2026-04-12
 
 ### Added

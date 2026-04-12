@@ -267,7 +267,7 @@ Known patterns that cause false positives:
 6. Compile all actionable findings into one issue with detailed fix instructions
 7. Order the fixes to minimize conflicts (bottom-up deletions, etc.)
 8. Create the single consolidated issue (or skip if zero findings)
-9. Rely on the new issue's `issues: opened` event to start `sfl-issue-processor`.
+9. Rely on the new issue's `issues: opened` event to start `sfl-gate`.
   Do NOT dispatch the Issue Processor explicitly from this workflow.
 10. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | Simplisticate | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`; use `EST` instead of `EDT` only when standard time is actually in effect
 

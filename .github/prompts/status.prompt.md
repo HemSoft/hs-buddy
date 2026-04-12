@@ -26,12 +26,12 @@ Run these queries:
 2. **All open PRs** — get number, title, draft status, head branch name
 3. **Workflow runs since `LAST_CHECK`** for each of:
    - `sfl-auditor.lock.yml`
-   - `sfl-issue-processor.lock.yml`
+   - `sfl-gate.yml`
+   - `sfl-implement.lock.yml`
    - `repo-audit.lock.yml`
    - `sfl-analyzer-a.lock.yml`
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
-   - `sfl-pr-label-actions.yml`
 
    Get their conclusion (success / failure / cancelled) and timestamp.
 

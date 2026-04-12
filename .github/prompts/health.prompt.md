@@ -19,12 +19,12 @@ Run these queries in parallel:
 2. **All open PRs** (including draft) with branch names matching `agent-fix/*`
 3. **Recent workflow runs** (last 5) for each of:
    - `sfl-auditor.lock.yml`
-   - `sfl-issue-processor.lock.yml`
+   - `sfl-gate.yml`
+   - `sfl-implement.lock.yml`
    - `repo-audit.lock.yml`
    - `sfl-analyzer-a.lock.yml`
    - `sfl-analyzer-b.lock.yml`
    - `sfl-analyzer-c.lock.yml`
-   - `sfl-pr-label-actions.yml`
 4. **Open issues** with labels `agent:pause` or `agent:escalated` that mention workflow failures
 
 ---
@@ -64,8 +64,8 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 
 ## Step 4 — Evaluate other workflow health
 
-For each of `sfl-issue-processor.lock.yml`, `repo-audit.lock.yml`, `sfl-analyzer-a.lock.yml`,
-`sfl-analyzer-b.lock.yml`, `sfl-analyzer-c.lock.yml`, and `sfl-pr-label-actions.yml`:
+For each of `sfl-gate.yml`, `sfl-implement.lock.yml`, `repo-audit.lock.yml`,
+`sfl-analyzer-a.lock.yml`, `sfl-analyzer-b.lock.yml`, and `sfl-analyzer-c.lock.yml`:
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp

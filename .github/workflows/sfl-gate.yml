@@ -171,13 +171,103 @@ jobs:
           fi
 
           # If PR is no longer draft, it's in the Copilot review cycle —
-          # re-request Copilot review so it evaluates the new commits,
-          # then skip analyzer dispatch.
+          # check for unresolved Copilot threads, resolve them if addressed,
+          # then re-request Copilot review.
           IS_DRAFT=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
             --json isDraft --jq '.isDraft')
 
           if [ "$IS_DRAFT" != "true" ]; then
             echo "PR #${PR_NUM} is not draft — Copilot review cycle, skipping analyzers"
+
+            # ── Unresolved Copilot thread gate ──
+            REPO_OWNER="${{ github.repository_owner }}"
+            REPO_NAME=$(echo "${{ github.repository }}" | cut -d/ -f2)
+
+            THREADS_JSON=$(gh api graphql -f query='
+              query($owner: String!, $repo: String!, $pr: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $pr) {
+                    reviewThreads(first: 100) {
+                      pageInfo { hasNextPage }
+                      nodes {
+                        id
+                        isResolved
+                        isOutdated
+                        comments(first: 10) {
+                          nodes { author { login } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }' -f owner="$REPO_OWNER" -f repo="$REPO_NAME" -F pr="$PR_NUM" \
+              --jq '.data.repository.pullRequest.reviewThreads')
+
+            HAS_NEXT=$(printf '%s' "$THREADS_JSON" | jq -r '.pageInfo.hasNextPage')
+            if [ "$HAS_NEXT" = "true" ]; then
+              echo "Warning: PR has >100 review threads — only first 100 checked"
+            fi
+
+            # Filter to unresolved, non-outdated, Copilot-authored threads
+            COPILOT_RE='copilot-pull-request-reviewer|copilot|Copilot'
+
+            UNRESOLVED_THREADS=$(printf '%s' "$THREADS_JSON" | jq --arg re "$COPILOT_RE" '
+              [.nodes[] | select(
+                .isResolved == false and
+                .isOutdated == false and
+                (.comments.nodes[0].author.login | test($re; "i"))
+              )]')
+
+            UNRESOLVED_COUNT=$(printf '%s' "$UNRESOLVED_THREADS" | jq 'length')
+            echo "Unresolved Copilot review threads: ${UNRESOLVED_COUNT}"
+
+            if [ "${UNRESOLVED_COUNT}" -gt 0 ]; then
+              # Check which threads have an implementer reply (>1 comment = replied)
+              UNREPLIED=$(printf '%s' "$UNRESOLVED_THREADS" | jq '
+                [.[] | select(.comments.nodes | length <= 1)] | length')
+
+              if [ "${UNREPLIED}" -gt 0 ]; then
+                # Implementer didn't reply — redispatch once per Copilot cycle
+                COMMENTS_JSON=$(gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+                  --paginate --jq '[.[] | {body, created_at}]')
+
+                LAST_DISPATCH=$(printf '%s' "$COMMENTS_JSON" | jq -r '
+                  [.[] | select(.body | contains("MARKER:sfl-copilot-dispatch")) | .created_at]
+                  | sort | last // "1970-01-01T00:00:00Z"')
+
+                RETRY_COUNT=$(printf '%s' "$COMMENTS_JSON" | jq -r --arg fence "$LAST_DISPATCH" '
+                  [.[] | select(
+                    (.created_at > $fence) and
+                    (.body | contains("MARKER:sfl-unresolved-retry"))
+                  )] | length')
+
+                if [ "${RETRY_COUNT}" -lt 1 ]; then
+                  echo "${UNREPLIED} Copilot thread(s) have no implementer reply — dispatching to address"
+                  gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+                    --field body="<!-- MARKER:sfl-unresolved-retry -->
+            ⚠️ ${UNREPLIED} unresolved Copilot review thread(s) with no reply — dispatching implementer to address and resolve." > /dev/null
+                  gh workflow run sfl-implement.lock.yml \
+                    --repo "${{ github.repository }}" \
+                    -f pull-request-number="${PR_NUM}"
+                  exit 0
+                fi
+                echo "Retry budget exhausted — resolving unreplied threads deterministically"
+              fi
+
+              # Resolve all unresolved Copilot threads deterministically
+              echo "Resolving ${UNRESOLVED_COUNT} Copilot review thread(s) via GraphQL"
+              printf '%s' "$UNRESOLVED_THREADS" | jq -r '.[].id' | while read -r THREAD_ID; do
+                gh api graphql -f query='
+                  mutation($threadId: ID!) {
+                    resolveReviewThread(input: {threadId: $threadId}) {
+                      thread { isResolved }
+                    }
+                  }' -f threadId="$THREAD_ID" > /dev/null 2>&1 || {
+                  echo "Warning: failed to resolve thread ${THREAD_ID}"
+                }
+              done
+            fi
+
             echo "Re-requesting Copilot code review for PR #${PR_NUM}"
             gh pr edit "$PR_NUM" --repo "${{ github.repository }}" \
               --add-reviewer "@copilot" || {

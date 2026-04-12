@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.692] - 2026-04-12
+
+### Fixed
+
+- Resolve Copilot review threads deterministically before re-review
+
 ## [0.1.691] - 2026-04-12
 
 ### Fixed

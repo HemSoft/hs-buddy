@@ -139,7 +139,10 @@ dispatched by the SFL gate after issue validation.
 2. Verify it is an open **draft** PR with label `agent:pr`.
 3. Extract the linked issue number from `Closes #N` in the PR body.
 4. Search the PR comments for analyzer verdicts and blocking findings.
-5. If the PR has unresolved review threads, address them.
+5. If the PR has unresolved review threads, address them. After fixing
+   the code, **reply to each review comment** using
+   `reply_to_pull_request_review_comment` explaining what changed. The
+   SFL gate will resolve the threads once it confirms your replies.
 6. Continue at Step 3.
 
 **Invariant check**: Verify the linked issue has exactly one open `agent:pr`
@@ -198,7 +201,9 @@ Implementation priorities:
 
 1. Issue acceptance criteria and explicit scope
 2. Blocking analyzer findings for the current cycle
-3. Unresolved review comments
+3. Unresolved review comments — reply to **every** unresolved review
+   thread after addressing it (the gate checks for replies before
+   resolving threads and re-requesting Copilot review)
 4. Non-blocking suggestions (only after blocking items are addressed)
 
 Rules:

@@ -51,7 +51,7 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   )
   const currentUrl = navigatedUrl ?? url
 
-  const zoomIn = useCallback(() => {
+  const zoomIn= useCallback(() => {
     const next = Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)
     zoomLevelRef.current = next
     localStorage.setItem(ZOOM_STORAGE_KEY, String(next))

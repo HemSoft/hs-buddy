@@ -250,6 +250,12 @@ describe('TempoDashboard', () => {
 
     render(<TempoDashboard />)
 
+    expect(screen.getByRole('button', { name: 'Previous month' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next month' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Grid view' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'List view' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument()
+
     expect(dashboardMocks.summaryPropsSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         todayHours: 2,
@@ -286,7 +292,7 @@ describe('TempoDashboard', () => {
     render(<TempoDashboard />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    fireEvent.click(screen.getByTitle('Refresh'))
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
 
     expect(monthRefresh).toHaveBeenCalledTimes(2)
     expect(todayRefresh).toHaveBeenCalledTimes(2)
@@ -300,8 +306,8 @@ describe('TempoDashboard', () => {
 
     render(<TempoDashboard />)
 
-    fireEvent.click(screen.getByTitle('List view'))
-    fireEvent.click(screen.getAllByTitle('Delete')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'List view' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete worklog for PE-101 on 2026-03-18' }))
 
     await waitFor(() => {
       expect(remove).toHaveBeenCalledWith(1)
@@ -313,7 +319,7 @@ describe('TempoDashboard', () => {
       expect(screen.queryByText('⚠ Delete blocked')).not.toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getAllByTitle('Edit')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit worklog for PE-101 on 2026-03-18' }))
     expect(screen.getByText('editing:1')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'save editor' }))

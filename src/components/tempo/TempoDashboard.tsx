@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useReducer } from 'react'
+import { TempoDashboardErrorBanner } from './TempoDashboardErrorBanner'
+import { TempoDashboardHeader } from './TempoDashboardHeader'
 import { TempoSummaryCards } from './TempoSummaryCards'
+import { TempoTimelineView } from './TempoTimelineView'
 import { TempoTimesheetGrid } from './TempoTimesheetGrid'
 import { TempoWorklogEditor } from './TempoWorklogEditor'
 import { nextStartTime } from './tempoUtils'
@@ -11,9 +14,8 @@ import {
   useUserSchedule,
   getMonthRange,
 } from '../../hooks/useTempo'
-import type { TempoWorklog, CreateWorklogPayload } from '../../types/tempo'
+import type { TempoWorklog, CreateWorklogPayload, TempoScheduleDay } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
-import { RefreshCw, ChevronLeft, ChevronRight, Plus, Calendar, Grid3X3, List } from 'lucide-react'
 import './TempoDashboard.css'
 
 type ViewMode = 'grid' | 'timeline'
@@ -113,6 +115,80 @@ function formatMonthLabel(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
+function buildHolidayMap(schedule: TempoScheduleDay[]): Record<string, string> {
+  const holidays: Record<string, string> = {}
+  for (const day of schedule) {
+    if (day.type === 'HOLIDAY' && day.holidayName) {
+      holidays[day.date] = day.holidayName
+    }
+  }
+  return holidays
+}
+
+function findPrefillWorklog(worklogs: TempoWorklog[], issueKey: string): TempoWorklog | null {
+  const issueWorklogs = worklogs.filter(worklog => worklog.issueKey === issueKey)
+  if (issueWorklogs.length === 0) {
+    return null
+  }
+  return issueWorklogs.reduce((latest, worklog) => (worklog.date > latest.date ? worklog : latest))
+}
+
+function selectNextEmptyDay(
+  issueKeys: Set<string>,
+  sourceDate: string,
+  worklogs: TempoWorklog[],
+  holidays: Record<string, string>,
+  todayKey: string
+): string {
+  const hoursByIssueDate: Record<string, Set<string>> = {}
+  for (const worklog of worklogs) {
+    if (!hoursByIssueDate[worklog.date]) {
+      hoursByIssueDate[worklog.date] = new Set()
+    }
+    hoursByIssueDate[worklog.date].add(worklog.issueKey)
+  }
+
+  const dailyTotals: Record<string, number> = {}
+  for (const worklog of worklogs) {
+    dailyTotals[worklog.date] = (dailyTotals[worklog.date] || 0) + worklog.hours
+  }
+
+  const holidaySet = new Set(Object.keys(holidays))
+  const start = new Date(sourceDate + 'T00:00:00')
+  start.setDate(start.getDate() + 1)
+
+  let firstWorkday: string | null = null
+  let firstUnfinished: string | null = null
+
+  for (let i = 0; i < 60; i++) {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
+    const dayOfWeek = date.getDay()
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      continue
+    }
+
+    const dateKey = formatDateKey(date)
+    if (holidaySet.has(dateKey)) {
+      continue
+    }
+
+    if (!firstWorkday) {
+      firstWorkday = dateKey
+    }
+    if (!firstUnfinished && (dailyTotals[dateKey] || 0) < 8) {
+      firstUnfinished = dateKey
+    }
+
+    const dayIssues = hoursByIssueDate[dateKey]
+    const hasAnyIssue = dayIssues && [...issueKeys].some(issueKey => dayIssues.has(issueKey))
+    if (!hasAnyIssue) {
+      return dateKey
+    }
+  }
+
+  return firstUnfinished || firstWorkday || todayKey
+}
+
 export function TempoDashboard() {
   const [state, dispatch] = useReducer(
     tempoDashboardReducer,
@@ -120,6 +196,7 @@ export function TempoDashboard() {
     createInitialDashboardState
   )
   const todayKey = formatDateKey(new Date())
+  const monthLabel = formatMonthLabel(state.viewMonth)
   const activeEditorDate = state.editorDate || state.editingWorklog?.date || todayKey
 
   const { from, to } = useMemo(() => getMonthRange(state.viewMonth), [state.viewMonth])
@@ -133,13 +210,7 @@ export function TempoDashboard() {
     [schedule]
   )
 
-  const holidays = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const d of schedule) {
-      if (d.type === 'HOLIDAY' && d.holidayName) map[d.date] = d.holidayName
-    }
-    return map
-  }, [schedule])
+  const holidays = useMemo(() => buildHolidayMap(schedule), [schedule])
 
   const refreshAll = useCallback(() => {
     month.refresh()
@@ -171,14 +242,7 @@ export function TempoDashboard() {
   }
 
   const handleAddForDate = (date: string, issueKey?: string) => {
-    let prefill: TempoWorklog | null = null
-    if (issueKey) {
-      // Find the most recent worklog for this issue to use as a template
-      const issueWorklogs = month.worklogs.filter(w => w.issueKey === issueKey)
-      if (issueWorklogs.length > 0) {
-        prefill = issueWorklogs.reduce((latest, w) => (w.date > latest.date ? w : latest))
-      }
-    }
+    const prefill = issueKey ? findPrefillWorklog(month.worklogs, issueKey) : null
     dispatch({ type: 'openCreate', date, prefillWorklog: prefill })
   }
 
@@ -201,39 +265,9 @@ export function TempoDashboard() {
     dispatch({ type: 'closeEditor' })
   }
 
-  // Find the next workday (Mon–Fri, non-holiday) after the source date where
-  // none of the given issue keys have logged hours.  Falls back to the next
-  // globally unfinished day (< 8h total) if every workday already has those issues.
   const findNextEmptyDay = useCallback(
     (issueKeys: Set<string>, sourceDate: string): string => {
-      const hoursByIssueDate: Record<string, Set<string>> = {}
-      for (const w of month.worklogs) {
-        if (!hoursByIssueDate[w.date]) hoursByIssueDate[w.date] = new Set()
-        hoursByIssueDate[w.date].add(w.issueKey)
-      }
-      const dailyTotals: Record<string, number> = {}
-      for (const w of month.worklogs) {
-        dailyTotals[w.date] = (dailyTotals[w.date] || 0) + w.hours
-      }
-      const holidaySet = new Set(Object.keys(holidays))
-      // Start from the day after the source date
-      const start = new Date(sourceDate + 'T00:00:00')
-      start.setDate(start.getDate() + 1)
-      let firstWorkday: string | null = null
-      let firstUnfinished: string | null = null
-      for (let i = 0; i < 60; i++) {
-        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
-        const dow = d.getDay()
-        if (dow === 0 || dow === 6) continue
-        const key = formatDateKey(d)
-        if (holidaySet.has(key)) continue
-        if (!firstWorkday) firstWorkday = key
-        if (!firstUnfinished && (dailyTotals[key] || 0) < 8) firstUnfinished = key
-        const dayIssues = hoursByIssueDate[key]
-        const hasAny = dayIssues && [...issueKeys].some(k => dayIssues.has(k))
-        if (!hasAny) return key
-      }
-      return firstUnfinished || firstWorkday || todayKey
+      return selectNextEmptyDay(issueKeys, sourceDate, month.worklogs, holidays, todayKey)
     },
     [month.worklogs, holidays, todayKey]
   )
@@ -267,63 +301,22 @@ export function TempoDashboard() {
   const isCurrentMonth =
     state.viewMonth.getFullYear() === new Date().getFullYear() &&
     state.viewMonth.getMonth() === new Date().getMonth()
+  const activeError = month.error || state.actionError
 
   return (
     <div className="tempo-dashboard">
-      <div className="tempo-header">
-        <div className="tempo-header-left">
-          <h2>Tempo Tracking</h2>
-        </div>
-        <div className="tempo-header-center">
-          <button className="tempo-nav-btn" onClick={prevMonth} title="Previous month">
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            className="tempo-month-label"
-            onClick={goToCurrentMonth}
-            title="Go to current month"
-          >
-            <Calendar size={14} />
-            <span>{formatMonthLabel(state.viewMonth)}</span>
-          </button>
-          <button className="tempo-nav-btn" onClick={nextMonth} title="Next month">
-            <ChevronRight size={16} />
-          </button>
-        </div>
-        <div className="tempo-header-right">
-          <div className="tempo-view-toggle">
-            <button
-              className={`tempo-view-btn ${state.viewMode === 'grid' ? 'active' : ''}`}
-              onClick={() => dispatch({ type: 'setViewMode', viewMode: 'grid' })}
-              title="Grid view"
-            >
-              <Grid3X3 size={14} />
-            </button>
-            <button
-              className={`tempo-view-btn ${state.viewMode === 'timeline' ? 'active' : ''}`}
-              onClick={() => dispatch({ type: 'setViewMode', viewMode: 'timeline' })}
-              title="List view"
-            >
-              <List size={14} />
-            </button>
-          </div>
-          <button
-            className="tempo-action-btn"
-            onClick={() => handleAddForDate(todayKey)}
-            title="New worklog"
-          >
-            <Plus size={14} />
-            <span>Log Time</span>
-          </button>
-          <button
-            className={`tempo-action-btn tempo-refresh ${month.loading ? 'spinning' : ''}`}
-            onClick={refreshAll}
-            title="Refresh"
-          >
-            <RefreshCw size={14} />
-          </button>
-        </div>
-      </div>
+      <TempoDashboardHeader
+        monthLabel={monthLabel}
+        viewMode={state.viewMode}
+        monthLoading={month.loading}
+        todayKey={todayKey}
+        onPreviousMonth={prevMonth}
+        onCurrentMonth={goToCurrentMonth}
+        onNextMonth={nextMonth}
+        onSetViewMode={viewMode => dispatch({ type: 'setViewMode', viewMode })}
+        onAddWorklog={handleAddForDate}
+        onRefresh={refreshAll}
+      />
 
       <TempoSummaryCards
         todayHours={today.data?.totalHours || 0}
@@ -335,17 +328,13 @@ export function TempoDashboard() {
         capexMap={capexMap}
       />
 
-      {(month.error || state.actionError) && (
-        <div className="tempo-error">
-          <span>⚠ {month.error || state.actionError}</span>
-          {month.error ? (
-            <button onClick={refreshAll}>Retry</button>
-          ) : (
-            <button onClick={() => dispatch({ type: 'setActionError', error: null })}>
-              Dismiss
-            </button>
-          )}
-        </div>
+      {activeError && (
+        <TempoDashboardErrorBanner
+          error={activeError}
+          canRetry={Boolean(month.error)}
+          onRetry={refreshAll}
+          onDismiss={() => dispatch({ type: 'setActionError', error: null })}
+        />
       )}
 
       {state.viewMode === 'grid' ? (
@@ -363,51 +352,13 @@ export function TempoDashboard() {
           onCopyToToday={handleCopyToDay}
         />
       ) : (
-        <div className="tempo-timeline-view">
-          {month.worklogs.length === 0 && !month.loading ? (
-            <div className="tempo-empty">
-              <p>No worklogs for {formatMonthLabel(state.viewMonth)}</p>
-            </div>
-          ) : (
-            <table className="tempo-timeline-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Hours</th>
-                  <th>Issue</th>
-                  <th>Description</th>
-                  <th>Account</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {month.worklogs.map(w => (
-                  <tr key={w.id}>
-                    <td className="tempo-tl-date">{w.date}</td>
-                    <td className="tempo-tl-time">{w.startTime}</td>
-                    <td className="tempo-tl-hours">{w.hours}</td>
-                    <td>
-                      <span className="tempo-issue-pill">{w.issueKey}</span>
-                    </td>
-                    <td className="tempo-tl-desc">{w.issueSummary}</td>
-                    <td>
-                      <span className="tempo-account-badge">{w.accountKey}</span>
-                    </td>
-                    <td className="tempo-tl-actions">
-                      <button onClick={() => handleEdit(w)} title="Edit">
-                        ✎
-                      </button>
-                      <button onClick={() => handleDelete(w)} title="Delete">
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <TempoTimelineView
+          worklogs={month.worklogs}
+          loading={month.loading}
+          monthLabel={monthLabel}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       )}
 
       {state.editorOpen && (

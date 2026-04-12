@@ -17,6 +17,8 @@ describe('BrowserTabView', () => {
     const webview = container.querySelector('webview')
 
     expect(webview).not.toBeNull()
+    expect(webview).toHaveAttribute('partition', 'persist:browser')
+    expect(webview).toHaveAttribute('allowpopups', 'true')
 
     const navigateEvent = new Event('did-navigate')
     Object.defineProperty(navigateEvent, 'url', {

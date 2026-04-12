@@ -10,15 +10,27 @@ interface TooltipState {
   y: number
 }
 
+function buildTooltipLines(text: string) {
+  const occurrences = new Map<string, number>()
+
+  return text.split('\n').map((line, lineIndex) => {
+    const occurrence = occurrences.get(line) ?? 0
+    occurrences.set(line, occurrence + 1)
+
+    return {
+      isHeader: lineIndex === 0,
+      key: `${line}-${occurrence}`,
+      line,
+    }
+  })
+}
+
 function CellTooltip({ tooltip }: { tooltip: TooltipState | null }) {
   if (!tooltip) return null
   return createPortal(
     <div className="tempo-cell-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
-      {tooltip.text.split('\n').map((line, i) => (
-        <div
-          key={`${i}-${line}`}
-          className={i === 0 ? 'tempo-tooltip-header' : 'tempo-tooltip-action'}
-        >
+      {buildTooltipLines(tooltip.text).map(({ isHeader, key, line }) => (
+        <div key={key} className={isHeader ? 'tempo-tooltip-header' : 'tempo-tooltip-action'}>
           {line}
         </div>
       ))}

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.690] - 2026-04-12
+
+### Fixed
+
+- Case-insensitive Copilot reviewer matching in SFL Gate
+
 ## [0.1.689] - 2026-04-12
 
 ### Changed

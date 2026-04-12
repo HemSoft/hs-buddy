@@ -390,9 +390,9 @@ jobs:
             exit 1
           fi
 
-          # Only act on Copilot bot reviews
-          case "$REVIEWER" in
-            copilot|copilot\[bot\]|github-copilot\[bot\]) ;;
+          # Only act on Copilot bot reviews (case-insensitive match)
+          case "${REVIEWER,,}" in
+            copilot|copilot-pull-request-reviewer|copilot\[bot\]|github-copilot\[bot\]) ;;
             *) echo "Reviewer '${REVIEWER}' is not Copilot — skipping"; exit 0 ;;
           esac
 

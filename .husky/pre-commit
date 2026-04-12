@@ -10,13 +10,15 @@ set -e
 # Lint staged files
 npx lint-staged
 
+# copilot-hooks:begin markdown gate
 # Block commits on markdownlint violations for staged .md files
 if [ -f ".git/hooks/pre-commit-markdown.ps1" ]; then
-	pwsh -NoProfile -ExecutionPolicy Bypass -File ".git/hooks/pre-commit-markdown.ps1"
+  pwsh -NoProfile -ExecutionPolicy Bypass -File ".git/hooks/pre-commit-markdown.ps1"
 else
-	echo "Missing .git/hooks/pre-commit-markdown.ps1. Reinstall copilot hooks."
-	exit 1
+  echo "Missing .git/hooks/pre-commit-markdown.ps1. Reinstall copilot-hooks."
+  exit 1
 fi
+# copilot-hooks:end markdown gate
 
 # Block commits when tests fail or coverage drops below threshold
 bun run test:coverage
@@ -35,3 +37,4 @@ bun scripts/bump-revision.ts
 # Stage all auto-generated files so they're included in this commit
 # (git add in pre-commit IS included in the commit — verified)
 git add vitest.config.ts package.json src/components/AboutModal.tsx src/components/WelcomePanel.tsx src/components/TitleBar.tsx
+

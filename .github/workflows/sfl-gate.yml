@@ -133,7 +133,7 @@ jobs:
 
           echo "Implementer run #${RUN_ID} succeeded — resolving PR number"
 
-          # Get inputs from the implement run
+          # Try to get inputs from the implement run (may be null for gh-aw runs)
           INPUTS=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}" \
             --jq '.inputs // {}')
 
@@ -153,6 +153,16 @@ jobs:
               --json number,body \
               --jq ".[] | select((.body // \"\") | test(\"(?i)(closes|fixes|resolves)\\\\s+#${ISSUE_NUM}\\\\b\")) | .number" \
               | head -1)
+          fi
+
+          # Fallback: gh-aw runs expose null inputs — find the most recent
+          # open draft PR with agent:pr label on an agent-fix/ branch
+          if [ -z "$PR_NUM" ]; then
+            echo "Inputs unavailable — falling back to most recent agent:pr draft PR"
+            PR_NUM=$(gh pr list --repo "${{ github.repository }}" \
+              --state open --label "agent:pr" --limit 10 \
+              --json number,isDraft,headRefName,createdAt \
+              --jq '[.[] | select(.isDraft == true and (.headRefName | startswith("agent-fix/")))] | sort_by(.createdAt) | last | .number // empty')
           fi
 
           if [ -z "$PR_NUM" ]; then

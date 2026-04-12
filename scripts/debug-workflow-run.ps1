@@ -45,22 +45,26 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$InformationPreference = 'Continue'
 
-# ── Helper: colored output ──
+# -- Helper: colored output --
 function Write-Section([string]$Title) {
-    Write-Host "`n━━━ $Title ━━━" -ForegroundColor Cyan
+    Write-Information "$([char]27)[36m`n=== $Title ===$([char]27)[0m"
 }
 
 function Write-KeyValue([string]$Key, [string]$Value, [string]$ValueColor = 'White') {
-    Write-Host "  $Key`: " -NoNewline -ForegroundColor DarkGray
-    Write-Host $Value -ForegroundColor $ValueColor
+    $colorMap = @{ White = '37'; Green = '32'; Red = '31'; Yellow = '33' }
+    $code = if ($colorMap.ContainsKey($ValueColor)) { $colorMap[$ValueColor] } else { '37' }
+    Write-Information "  $([char]27)[90m${Key}: $([char]27)[0m$([char]27)[${code}m${Value}$([char]27)[0m"
 }
 
 function Write-Detail([string]$Text, [string]$Color = 'Gray') {
-    Write-Host "  $Text" -ForegroundColor $Color
+    $colorMap = @{ Gray = '37'; Green = '32'; Red = '31'; Yellow = '33'; DarkGray = '90'; DarkYellow = '33' }
+    $code = if ($colorMap.ContainsKey($Color)) { $colorMap[$Color] } else { '37' }
+    Write-Information "  $([char]27)[${code}m${Text}$([char]27)[0m"
 }
 
-# ── Resolve run ID ──
+# -- Resolve run ID --
 if (-not $RunId) {
     if ($Workflow) {
         # Auto-pick the most recent run for the given workflow
@@ -74,17 +78,17 @@ if (-not $RunId) {
             $RunId = $runs[0].databaseId.ToString()
         }
         else {
-            Write-Host "No runs found for workflow $wfFile" -ForegroundColor Red
+            Write-Information "$([char]27)[31mNo runs found for workflow $wfFile$([char]27)[0m"
             exit 1
         }
     }
     else {
-        Write-Host "ERROR: Provide -RunId <id> or -Workflow <name>" -ForegroundColor Red
+        Write-Information "$([char]27)[31mERROR: Provide -RunId <id> or -Workflow <name>$([char]27)[0m"
         exit 1
     }
 }
 
-# ── Fetch run metadata ──
+# -- Fetch run metadata --
 Write-Section "Run Metadata"
 $meta = gh run view $RunId --repo $Repo --json databaseId,status,conclusion,createdAt,updatedAt,workflowName,event,headBranch 2>&1 |
     ConvertFrom-Json
@@ -109,11 +113,11 @@ if ($meta.createdAt -and $meta.updatedAt) {
     Write-KeyValue "Duration" ("{0:mm\:ss}" -f $duration)
 }
 
-# ── Fetch logs (once) ──
-Write-Host "`nFetching logs..." -ForegroundColor DarkGray
+# -- Fetch logs (once) --
+Write-Information "$([char]27)[90m`nFetching logs...$([char]27)[0m"
 $logLines = gh run view $RunId --repo $Repo --log 2>&1
 
-# ── Parse step names ──
+# -- Parse step names --
 Write-Section "Job Steps"
 $steps = $logLines | ForEach-Object {
     if ($_ -match '^(\S+)\s+(.+?)\s+\d{4}-\d{2}-\d{2}T') {
@@ -122,13 +126,13 @@ $steps = $logLines | ForEach-Object {
 } | Select-Object -Property Job, Step -Unique
 
 $steps | Group-Object Job | ForEach-Object {
-    Write-Host "  [$($_.Name)]" -ForegroundColor DarkYellow
+    Write-Information "  $([char]27)[33m[$($_.Name)]$([char]27)[0m"
     $_.Group | ForEach-Object {
         Write-Detail "    $($_.Step)" DarkGray
     }
 }
 
-# ── Model info ──
+# -- Model info --
 Write-Section "Model"
 $modelLine = $logLines | Where-Object { $_ -match '"model":\s*"([^"]+)"' } | Select-Object -First 1
 if ($modelLine -and $modelLine -match '"model":\s*"([^"]+)"') {
@@ -138,7 +142,7 @@ else {
     Write-Detail "(not found)" DarkGray
 }
 
-# ── Safe-output tools available ──
+# -- Safe-output tools available --
 Write-Section "Safe-Output Tools Available"
 $configLine = $logLines | Where-Object { $_ -match 'Final processed config:' } | Select-Object -First 1
 if ($configLine -and $configLine -match 'Final processed config:\s*(\{.+)') {
@@ -159,31 +163,31 @@ else {
     Write-Detail "(config not found in logs)" DarkGray
 }
 
-# ── Safe-input calls ──
+# -- Safe-input calls --
 Write-Section "Safe-Input Calls"
-$siCalls = $logLines | Where-Object { $_ -match '[●✓]\s*safeinputs-(\S+)' } | ForEach-Object {
-    if ($_ -match '[●✓]\s*safeinputs-(\S+)') { $matches[1] }
+$siCalls = $logLines | Where-Object { $_ -match '[\*\u2713]\s*safeinputs-(\S+)' } | ForEach-Object {
+    if ($_ -match '[\*\u2713]\s*safeinputs-(\S+)') { $matches[1] }
 } | Select-Object -Unique
 if ($siCalls) {
-    $siCalls | ForEach-Object { Write-Detail "✓ $_" Green }
+    $siCalls | ForEach-Object { Write-Detail "[ok] $_" Green }
 }
 else {
     Write-Detail "(none)" DarkGray
 }
 
-# ── Safe-output tool calls by agent ──
+# -- Safe-output tool calls by agent --
 Write-Section "Safe-Output Tool Calls"
-$soCalls = $logLines | Where-Object { $_ -match '[●✓]\s*safeoutputs-(\S+)' } | ForEach-Object {
-    if ($_ -match '[●✓]\s*safeoutputs-(\S+)') { $matches[1] }
+$soCalls = $logLines | Where-Object { $_ -match '[\*\u2713]\s*safeoutputs-(\S+)' } | ForEach-Object {
+    if ($_ -match '[\*\u2713]\s*safeoutputs-(\S+)') { $matches[1] }
 } | Select-Object -Unique
 if ($soCalls) {
-    $soCalls | ForEach-Object { Write-Detail "✓ $_" Green }
+    $soCalls | ForEach-Object { Write-Detail "[ok] $_" Green }
 }
 else {
     Write-Detail "(none)" DarkGray
 }
 
-# ── Agent output ingestion ──
+# -- Agent output ingestion --
 Write-Section "Agent Output Ingestion"
 $ingestLines = $logLines | Where-Object { $_ -match '^\S+\s+Ingest agent output' }
 
@@ -210,7 +214,7 @@ $preview = $ingestLines | Where-Object { $_ -match 'First 500 chars of output:' 
     if ($_ -match 'First 500 chars of output:\s*(.+)$') { $matches[1].Trim() }
 } | Select-Object -First 1
 if ($preview) {
-    Write-Host ""
+    Write-Information ""
     Write-Detail "Preview:" Yellow
     $maxLen = if ($Full) { $preview.Length } else { [Math]::Min(500, $preview.Length) }
     Write-Detail $preview.Substring(0, $maxLen) DarkGray
@@ -220,7 +224,7 @@ if (-not $contentLen -and -not $outputTypes) {
     Write-Detail "(no ingestion data found)" DarkGray
 }
 
-# ── Threat detection ──
+# -- Threat detection --
 Write-Section "Threat Detection"
 $threatLine = $logLines | Where-Object { $_ -match 'The agent output contains' } | Select-Object -First 1
 if ($threatLine -and $threatLine -match 'The agent output contains (.+)$') {
@@ -232,7 +236,7 @@ else {
     Write-Detail "(not found)" DarkGray
 }
 
-# ── Missing tool/data ──
+# -- Missing tool/data --
 Write-Section "Missing Tool / Missing Data"
 $missingLines = $logLines | Where-Object {
     $_ -match '(Record Missing Tool|Missing tool|missing_tool|missing_data)' -and
@@ -249,7 +253,7 @@ else {
     Write-Detail "(none)" Green
 }
 
-# ── Noop message ──
+# -- Noop message --
 Write-Section "Noop Message"
 $noopLines = $logLines | Where-Object { $_ -match 'Handle No-Op Message' }
 $noopMsg = $noopLines | Where-Object { $_ -match 'No-op message:\s*$' -or $_ -match 'No-op message:\s*(.+)' } | ForEach-Object {
@@ -268,7 +272,7 @@ else {
     Write-Detail "(no noop handling found)" DarkGray
 }
 
-# ── Failure handling ──
+# -- Failure handling --
 Write-Section "Failure Handling"
 $failLines = $logLines | Where-Object { $_ -match 'Handle Agent Failure' }
 $agentConclusion = $failLines | Where-Object { $_ -match 'Agent conclusion:\s*(\S+)' } | ForEach-Object {
@@ -291,7 +295,7 @@ if (-not $agentConclusion -and -not $skipReason) {
     Write-Detail "(no failure handling data found)" DarkGray
 }
 
-# ── Token usage ──
+# -- Token usage --
 Write-Section "Token Usage"
 $tokenLine = $logLines | Where-Object { $_ -match '\d+\.?\d*k\s+in,\s+\d+' } | Select-Object -First 1
 if ($tokenLine -and $tokenLine -match '(\S+\s+\d+\.?\d*k\s+in,\s+\d+.+)$') {
@@ -301,10 +305,10 @@ else {
     Write-Detail "(not found)" DarkGray
 }
 
-# ── Premium requests ──
+# -- Premium requests --
 $premiumLine = $logLines | Where-Object { $_ -match 'Premium request' } | Select-Object -First 1
 if ($premiumLine -and $premiumLine -match '(Est\.\s+\d+\s+Premium.*)$') {
     Write-Detail $matches[1].Trim()
 }
 
-Write-Host ""
+Write-Information ""

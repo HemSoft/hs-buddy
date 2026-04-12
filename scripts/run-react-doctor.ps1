@@ -21,10 +21,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
+$esc = [char]27
+$Cyan = "${esc}[36m"
+$Green = "${esc}[32m"
+$Reset = "${esc}[0m"
 
 try {
     chcp 65001 > $null
 } catch {
+    Write-Verbose "chcp not available: $($_.Exception.Message)"
 }
 
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
@@ -43,7 +49,7 @@ if ($ScoreOnly) {
     $arguments += '--score'
 }
 
-Write-Host "Running: npx $($arguments -join ' ')" -ForegroundColor Cyan
+Write-Information "${Cyan}Running: npx $($arguments -join ' ')${Reset}"
 
 $output = & npx @arguments 2>&1
 $exitCode = $LASTEXITCODE
@@ -55,10 +61,10 @@ if ($diagnosticsLine) {
     $tempDiagnosticsDir = $diagnosticsLine.Matches[0].Groups[1].Value.Trim()
     if (Test-Path $tempDiagnosticsDir) {
         Copy-Item -Path (Join-Path $tempDiagnosticsDir '*') -Destination $reportDir -Recurse -Force
-        Write-Host "Copied diagnostics to: $reportDir" -ForegroundColor Green
+        Write-Information "${Green}Copied diagnostics to: $reportDir${Reset}"
     }
 }
 
-Write-Host "Terminal summary: $terminalSummaryFile" -ForegroundColor Green
+Write-Information "${Green}Terminal summary: $terminalSummaryFile${Reset}"
 
 exit $exitCode

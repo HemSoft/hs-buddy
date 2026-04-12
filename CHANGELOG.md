@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bring audit workflows to React Doctor quality parity
 - Sync SFL core workflows from upstream catalog
 - Sync sfl-implement from upstream (review thread replies)
+- Fix prettier formatting in BrowserTabView
 
 ### Fixed
 
@@ -23,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace pull_request_review trigger with scheduled bridge
 - Bridge Copilot reviewer name matching for [bot] suffix
 - Add deadlock recovery for silent analyzer failures
+- Reduce PowerShell scorecard warnings
+- Keep pwsh shebang scripts BOM-free
 
 ## [0.1.692] - 2026-04-12
 

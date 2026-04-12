@@ -53,11 +53,29 @@ everything it needs to implement all fixes in one pass.
 ## Step 0 — Close previous simplisticate issues
 
 Before creating today's audit, search for all **open** issues whose title
-starts with `[simplisticate]`. For each one found, close it using
-`update_issue` with:
+starts with `[simplisticate]`. For each one found, determine whether it has
+**active implementation state** before deciding to close it.
 
-- `issue_number`: the issue number
-- `status`: `"closed"`
+Fetch **all** open issues and **all** open pull requests using pagination
+(do not assume fewer than 100 total).
+
+An issue has active implementation state if **any** of the following are true:
+
+- The issue carries the `agent:in-progress` or `agent:pause` label.
+- There is an **open** pull request labeled `agent:pr` whose body contains
+  `Closes #<issue_number>` or `**Linked Issue**: #<issue_number>`, or whose
+  head branch name starts with `agent-fix/issue-<issue_number>-` or equals
+  `agent-fix/issue-<issue_number>` exactly.
+
+For each issue:
+
+- **If active implementation state is detected** → skip it. Do NOT close it.
+- **If no active state is detected** → close it using `update_issue` with:
+  - `issue_number`: the issue number
+  - `status`: `"closed"`
+- **If uncertain** (e.g., API errors checking PRs) → leave the issue open.
+  False negatives (leaving a stale issue open) are harmless; false positives
+  (closing an in-progress issue) disrupt the SFL pipeline.
 
 ## Goals
 
@@ -267,8 +285,9 @@ Known patterns that cause false positives:
 6. Compile all actionable findings into one issue with detailed fix instructions
 7. Order the fixes to minimize conflicts (bottom-up deletions, etc.)
 8. Create the single consolidated issue (or skip if zero findings)
-9. Rely on the new issue's `issues: opened` event to start `sfl-gate`.
-  Do NOT dispatch the Issue Processor explicitly from this workflow.
+9. Rely on the `agent:fixable` label (applied automatically by safe-outputs)
+   to trigger `sfl-gate` via the `issues: labeled` event. Do NOT dispatch
+   the Issue Processor explicitly from this workflow.
 10. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | Simplisticate | Audit | ✅ N findings` or `⏭️ 0 findings — no issue created`; use `EST` instead of `EDT` only when standard time is actually in effect
 
 Timestamp rule for Discussion #95 entries:

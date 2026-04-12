@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import './BrowserTabView.css'
 
 interface BrowserTabViewProps {
@@ -11,16 +11,45 @@ const ZOOM_MIN = -4
 const ZOOM_MAX = 5
 const ZOOM_STORAGE_KEY = 'browser-zoom-level'
 
+interface BrowserTabState {
+  navigatedUrl: string | null
+  loading: boolean
+}
+
+type BrowserTabAction =
+  | { type: 'navigate'; url: string }
+  | { type: 'reset' }
+  | { type: 'start-loading' }
+  | { type: 'stop-loading' }
+
+function browserTabReducer(state: BrowserTabState, action: BrowserTabAction): BrowserTabState {
+  switch (action.type) {
+    case 'navigate':
+      return { ...state, navigatedUrl: action.url }
+    case 'reset':
+      return { navigatedUrl: null, loading: true }
+    case 'start-loading':
+      return { ...state, loading: true }
+    case 'stop-loading':
+      return { ...state, loading: false }
+    default:
+      return state
+  }
+}
+
 export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
-  const [currentUrl, setCurrentUrl] = useState(url)
-  const [loading, setLoading] = useState(true)
+  const [{ navigatedUrl, loading }, dispatch] = useReducer(browserTabReducer, {
+    navigatedUrl: null,
+    loading: true,
+  })
   const zoomLevelRef = useRef(
     (() => {
       const stored = localStorage.getItem(ZOOM_STORAGE_KEY)
       return stored ? Number(stored) : 0
     })()
   )
+  const currentUrl = navigatedUrl ?? url
 
   const zoomIn = useCallback(() => {
     const next = Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)
@@ -37,6 +66,10 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   }, [])
 
   useEffect(() => {
+    dispatch({ type: 'reset' })
+  }, [url])
+
+  useEffect(() => {
     const webview = webviewRef.current
     if (!webview) return
 
@@ -44,11 +77,11 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
       onTitleChange?.(e.title)
     }
     const handleNavigate = (e: Electron.DidNavigateEvent) => {
-      setCurrentUrl(e.url)
+      dispatch({ type: 'navigate', url: e.url })
     }
-    const handleStartLoad = () => setLoading(true)
+    const handleStartLoad = () => dispatch({ type: 'start-loading' })
     const handleStopLoad = () => {
-      setLoading(false)
+      dispatch({ type: 'stop-loading' })
       if (zoomLevelRef.current !== 0) {
         webview.setZoomLevel(zoomLevelRef.current)
       }

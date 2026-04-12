@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Prevent verdict-gate fan-out dispatching multiple implementers
+- Replace pull_request_review trigger with scheduled bridge
 
 ## [0.1.692] - 2026-04-12
 

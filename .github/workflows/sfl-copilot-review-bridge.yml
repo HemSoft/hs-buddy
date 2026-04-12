@@ -1,0 +1,179 @@
+name: SFL Copilot Review Bridge
+
+# Schedule-based poller that detects Copilot code reviews on agent PRs
+# and dispatches the SFL Implementer to address feedback.
+#
+# WHY: GitHub treats Copilot (a GitHub App) as an outside contributor.
+# Workflows triggered by pull_request_review from Copilot require manual
+# approval, defeating pipeline autonomy. Schedule-triggered workflows run
+# as the repo owner, bypassing this restriction entirely.
+#
+# MARKER CONTRACT: This workflow posts MARKER:sfl-copilot-dispatch comments
+# identical to the old copilot-review-gate job in sfl-gate.yml. The
+# implement-complete job in sfl-gate.yml uses this marker as a timestamp
+# fence for retry logic — do NOT change the marker format.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: sfl-copilot-review-bridge
+  cancel-in-progress: false
+
+jobs:
+  poll-copilot-reviews:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process unprocessed Copilot reviews
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Motherrepo guard: disable automatic triggers in template repo
+          MOTHERREPO="relias-engineering/set-it-free-loop"
+          if [ "${{ github.repository }}" = "${MOTHERREPO}" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Motherrepo — automatic triggers disabled"
+            exit 0
+          fi
+
+          # ── 1. Find open agent PRs ──
+          PRS=$(gh pr list --repo "$REPO" --label "agent:pr" --state open \
+            --limit 100 --json number --jq '.[].number')
+
+          if [ -z "$PRS" ]; then
+            echo "No open agent PRs — nothing to do"
+            exit 0
+          fi
+
+          for PR_NUM in $PRS; do
+            echo "── PR #${PR_NUM} ──"
+
+            # ── 2. Fetch all reviews (paginated) ──
+            REVIEWS=$(gh api "repos/${REPO}/pulls/${PR_NUM}/reviews" \
+              --paginate --slurp)
+
+            # Find Copilot reviews (any state), sorted by submission time
+            COPILOT_REVIEWS=$(printf '%s\n' "$REVIEWS" | jq '[
+              (add // [])[] | select(
+                ((.user.login | ascii_downcase) as $l |
+                  ($l == "copilot" or $l == "copilot-pull-request-reviewer" or
+                   $l == "copilot[bot]" or $l == "github-copilot[bot]"))
+              )
+            ] | sort_by(.submitted_at)')
+
+            REVIEW_COUNT=$(printf '%s' "$COPILOT_REVIEWS" | jq 'length')
+            if [ "$REVIEW_COUNT" -eq 0 ]; then
+              echo "  No Copilot reviews"
+              continue
+            fi
+
+            # ── 3. Check latest Copilot review ──
+            LATEST=$(printf '%s' "$COPILOT_REVIEWS" | jq 'last')
+            REVIEW_ID=$(printf '%s' "$LATEST" | jq -r '.id')
+            REVIEW_STATE=$(printf '%s' "$LATEST" | jq -r '.state')
+
+            echo "  Latest Copilot review: id=${REVIEW_ID} state=${REVIEW_STATE}"
+
+            # Approved — nothing to dispatch
+            if [ "$REVIEW_STATE" = "APPROVED" ]; then
+              echo "  Copilot approved — ready for human review"
+              continue
+            fi
+
+            # Only act on changes_requested or commented
+            if [ "$REVIEW_STATE" != "CHANGES_REQUESTED" ] && [ "$REVIEW_STATE" != "COMMENTED" ]; then
+              echo "  Review state '${REVIEW_STATE}' — no action"
+              continue
+            fi
+
+            # ── 4. Check if already processed (dedup by review ID) ──
+            COMMENTS=$(gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
+              --paginate --slurp)
+
+            PROCESSED=$(printf '%s\n' "$COMMENTS" | jq --arg rid "$REVIEW_ID" '[
+              (add // [])[] | select(
+                .body | contains("MARKER:sfl-copilot-review-processed review:" + $rid)
+              )
+            ] | length')
+
+            if [ "$PROCESSED" -gt 0 ]; then
+              echo "  Review ${REVIEW_ID} already processed — skipping"
+              continue
+            fi
+
+            # ── 5. Re-check PR state (may have changed since listing) ──
+            PR_CHECK=$(gh pr view "$PR_NUM" --repo "$REPO" \
+              --json state,labels --jq '{
+                state: .state,
+                has_agent_pr: ([.labels[].name] | any(. == "agent:pr"))
+              }')
+
+            PR_OPEN=$(printf '%s' "$PR_CHECK" | jq -r '.state')
+            HAS_LABEL=$(printf '%s' "$PR_CHECK" | jq -r '.has_agent_pr')
+
+            if [ "$PR_OPEN" != "OPEN" ] || [ "$HAS_LABEL" != "true" ]; then
+              echo "  PR no longer open or missing agent:pr — skipping"
+              continue
+            fi
+
+            # ── 6. Enforce Copilot review cycle limit ──
+            MAX_COPILOT_CYCLES=5
+            COPILOT_CYCLES=$(printf '%s\n' "$COMMENTS" | jq '[
+              (add // [])[].body
+              | select(contains("<!-- MARKER:sfl-copilot-dispatch"))
+            ] | length')
+
+            if [ "$COPILOT_CYCLES" -ge "$MAX_COPILOT_CYCLES" ]; then
+              echo "  Max Copilot review cycles (${COPILOT_CYCLES}/${MAX_COPILOT_CYCLES}) — escalating"
+
+              ISSUE_NUM=$(gh pr view "$PR_NUM" --repo "$REPO" \
+                --json body --jq '.body' \
+                | grep -oP '(?i)(?:closes|fixes|resolves)\s+#\K\d+' | head -1 || true)
+              if [ -n "$ISSUE_NUM" ]; then
+                gh issue edit "$ISSUE_NUM" --repo "$REPO" --add-label "agent:blocked"
+              fi
+
+              # Mark as processed to prevent repeated escalation
+              gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
+                --field body="<!-- MARKER:sfl-copilot-review-processed review:${REVIEW_ID} -->
+          Copilot review cycle limit reached (${COPILOT_CYCLES}/${MAX_COPILOT_CYCLES}) — escalated to human review." > /dev/null
+
+              continue
+            fi
+
+            NEXT_CYCLE=$((COPILOT_CYCLES + 1))
+            REVIEW_STATE_LC=$(echo "$REVIEW_STATE" | tr '[:upper:]' '[:lower:]')
+
+            # ── 7. Dispatch implementer FIRST (failure-safe ordering) ──
+            # Intentionally reversed from the old event-driven code: we dispatch
+            # before posting the marker so that a transient API failure posting
+            # the marker doesn't permanently suppress the review. The sub-second
+            # timestamp gap between dispatch and marker is irrelevant — the
+            # implement-complete fence in sfl-gate.yml compares against comments
+            # created minutes later by the implementer run.
+            echo "  Dispatching implementer for PR #${PR_NUM} (Copilot cycle ${NEXT_CYCLE})"
+            gh workflow run sfl-implement.lock.yml \
+              --repo "$REPO" \
+              -f pull-request-number="${PR_NUM}"
+
+            # ── 8. Post markers AFTER successful dispatch ──
+            # MARKER:sfl-copilot-dispatch preserves the contract with
+            # sfl-gate.yml implement-complete fence logic (line ~234).
+            gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
+              --field body="<!-- MARKER:sfl-copilot-dispatch cycle:${NEXT_CYCLE} -->
+          <!-- MARKER:sfl-copilot-review-processed review:${REVIEW_ID} -->
+          Copilot review (${REVIEW_STATE_LC}) — dispatching implementer to address feedback (cycle ${NEXT_CYCLE}/${MAX_COPILOT_CYCLES})." > /dev/null
+
+          done
+
+          echo "Bridge poll complete"

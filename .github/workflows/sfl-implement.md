@@ -95,7 +95,7 @@ safe-outputs:
   reply-to-pull-request-review-comment:
     target: "*"
     max: 10
-source: relias-engineering/set-it-free-loop/.github/workflows/sfl-implement.md@920f9ef4b146573d638fe871db44afc0f0dc6303
+source: relias-engineering/set-it-free-loop/.github/workflows/sfl-implement.md@72154af468dcb043e674ca55942b8e7e4d291526
 ---
 
 # SFL Implementer
@@ -139,7 +139,8 @@ dispatched by the SFL gate after issue validation.
 2. Verify it is an open **draft** PR with label `agent:pr`.
 3. Extract the linked issue number from `Closes #N` in the PR body.
 4. Search the PR comments for analyzer verdicts and blocking findings.
-5. If the PR has unresolved review threads, address them.
+5. If the PR has unresolved review threads, collect their comment IDs and
+   content so you can address them in Step 5 and reply in Step 5b.
 6. Continue at Step 3.
 
 **Invariant check**: Verify the linked issue has exactly one open `agent:pr`
@@ -210,6 +211,21 @@ Rules:
 - Before committing, format changed files only with tooling already configured and available in the repo; if Prettier is configured locally, run `npx --no-install prettier --write` on changed files, otherwise use the repo's existing formatter if applicable, and do not install new formatting tooling just for this run
 
 **IMPORTANT**: Do NOT run `git push`. Use the safe outputs in Step 6.
+
+### 5b — Reply to addressed review threads
+
+After making code changes, reply to **every** unresolved review thread that
+your changes address. This is **mandatory** — pushing code without replying
+leaves threads unresolved and stalls the review cycle.
+
+For each addressed thread, call `reply_to_pull_request_review_comment` with:
+- `comment_id`: the ID of the original review comment (top of the thread)
+- `body`: a brief explanation of what you changed and why it resolves the
+  feedback (e.g., "Added `aria-label` to the icon buttons in
+  `TempoDashboardHeader.tsx` as suggested.")
+
+Do NOT reply to threads you did not address in this pass — only reply when
+your code changes directly resolve the feedback.
 
 ## Step 6 — Create or update the draft PR
 

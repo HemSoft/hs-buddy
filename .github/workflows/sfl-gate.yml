@@ -342,6 +342,22 @@ jobs:
 
           echo "PR #${PR_NUM}"
 
+          # ── 1a. Record analyzer completion ──
+          # Post a hidden marker so the deadlock detector (step 3a) can count
+          # how many analyzer runs have finished, even if the agent inside
+          # didn't post its own analysis comment.
+          case "${RUN_NAME}" in
+            *"Analyzer A"*) TRIGGER_ID="a" ;;
+            *"Analyzer B"*) TRIGGER_ID="b" ;;
+            *"Analyzer C"*) TRIGGER_ID="c" ;;
+            *) TRIGGER_ID="" ;;
+          esac
+
+          if [ -n "$TRIGGER_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+              --field body="<!-- MARKER:sfl-analyzer-run-completed analyzer:${TRIGGER_ID} run:${RUN_ID} conclusion:${RUN_CONCLUSION} -->" > /dev/null || true
+          fi
+
           # ── 1b. Handle failed analyzer runs ──
           # If the analyzer workflow crashed/timed-out before posting a comment,
           # the gate would wait forever for 3 comments that never arrive.
@@ -396,7 +412,83 @@ jobs:
           TOTAL=$((DONE_a + DONE_b + DONE_c))
 
           if [ "$TOTAL" -lt 3 ]; then
-            echo "Only ${TOTAL}/3 analyzer comments — waiting for remaining"
+            # ── 3a. Deadlock detection ──
+            # An analyzer run can complete with "success" but fail internally
+            # (e.g. WASM crash → report_incomplete) without posting a comment.
+            # Step 1a posts a run-completed marker for every analyzer that
+            # triggers the gate. Count unique markers to see if all 3 finished.
+            COMPLETED_RUNS=$(printf '%s\n' "$COMMENTS_JSON" | jq -r --arg fence "$FENCE" '
+              [.[] | select(
+                (.created_at > $fence) and
+                (.body | test("MARKER:sfl-analyzer-run-completed analyzer:[a-c]"))
+              ) | .body | try capture("analyzer:(?<id>[a-c])").id catch empty]
+              | unique | length')
+
+            # Ensure the current trigger is counted even if the marker we just
+            # posted in step 1a hasn't propagated to the API yet.
+            if [ -n "${TRIGGER_ID:-}" ]; then
+              TRIGGER_SEEN=$(printf '%s\n' "$COMMENTS_JSON" | jq -r \
+                --arg fence "$FENCE" --arg id "$TRIGGER_ID" '
+                [.[] | select(
+                  (.created_at > $fence) and
+                  (.body | contains("MARKER:sfl-analyzer-run-completed analyzer:" + $id))
+                )] | length')
+              if [ "$TRIGGER_SEEN" -eq 0 ]; then
+                COMPLETED_RUNS=$((COMPLETED_RUNS + 1))
+              fi
+            fi
+
+            if [ "$COMPLETED_RUNS" -ge 3 ]; then
+              echo "Deadlock: all 3 analyzer runs completed but only ${TOTAL}/3 comments posted"
+              MISSING=""
+              for ID in a b c; do
+                eval "GOT=\$DONE_${ID}"
+                if [ "$GOT" -eq 0 ]; then
+                  MISSING="${MISSING} ${ID}"
+                fi
+              done
+
+              for ID in $MISSING; do
+                # Bounded retry: 1 re-dispatch per analyzer per cycle
+                ALREADY_RETRIED=$(printf '%s\n' "$COMMENTS_JSON" | jq -r --arg id "$ID" --arg fence "$FENCE" '
+                  [.[] | select(
+                    (.created_at > $fence) and
+                    (.body | contains("MARKER:sfl-analyzer-redispatch analyzer:" + $id))
+                  )] | length')
+
+                if [ "$ALREADY_RETRIED" -eq 0 ]; then
+                  echo "  Re-dispatching analyzer ${ID} (retry 1/1)"
+                  if gh workflow run "sfl-analyzer-${ID}.lock.yml" \
+                    --repo "${{ github.repository }}" \
+                    -f pull-request-number="${PR_NUM}"; then
+                    gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+                      --field body="<!-- MARKER:sfl-analyzer-redispatch analyzer:${ID} -->
+              🔄 Analyzer ${ID} completed without posting results — re-dispatched (retry 1/1)." > /dev/null || true
+                  else
+                    echo "  ⚠ Re-dispatch failed — posting synthetic failure"
+                    gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+                      --field body="## Analyzer ${ID} — Silent Failure
+
+              Analyzer completed but did not post results. Re-dispatch also failed.
+
+              <!-- gate-synthetic workflow_id: sfl-analyzer-${ID} -->" > /dev/null || true
+                    gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --add-label "analyzer:blocked" 2>/dev/null || true
+                  fi
+                else
+                  echo "  Analyzer ${ID} already retried — posting synthetic failure"
+                  gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+                    --field body="## Analyzer ${ID} — Silent Failure
+
+              Analyzer completed successfully but did not post analysis results after retry.
+              This typically indicates an internal agent failure (e.g. WASM crash, report_incomplete).
+
+              <!-- gate-synthetic workflow_id: sfl-analyzer-${ID} -->" > /dev/null || true
+                  gh pr edit "$PR_NUM" --repo "${{ github.repository }}" --add-label "analyzer:blocked" 2>/dev/null || true
+                fi
+              done
+            else
+              echo "Only ${TOTAL}/3 analyzer comments, ${COMPLETED_RUNS}/3 runs completed — waiting"
+            fi
             exit 0
           fi
 

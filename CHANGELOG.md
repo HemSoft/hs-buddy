@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent verdict-gate fan-out dispatching multiple implementers
 - Replace pull_request_review trigger with scheduled bridge
 - Bridge Copilot reviewer name matching for [bot] suffix
+- Add deadlock recovery for silent analyzer failures
 
 ## [0.1.692] - 2026-04-12
 

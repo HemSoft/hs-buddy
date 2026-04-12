@@ -171,12 +171,18 @@ jobs:
           fi
 
           # If PR is no longer draft, it's in the Copilot review cycle —
-          # Copilot will auto-review on push, skip analyzer dispatch
+          # re-request Copilot review so it evaluates the new commits,
+          # then skip analyzer dispatch.
           IS_DRAFT=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
             --json isDraft --jq '.isDraft')
 
           if [ "$IS_DRAFT" != "true" ]; then
             echo "PR #${PR_NUM} is not draft — Copilot review cycle, skipping analyzers"
+            echo "Re-requesting Copilot code review for PR #${PR_NUM}"
+            gh pr edit "$PR_NUM" --repo "${{ github.repository }}" \
+              --add-reviewer "@copilot" || {
+              echo "Warning: failed to re-request Copilot review (non-fatal)"
+            }
             exit 0
           fi
 

@@ -51,93 +51,25 @@ export function usePrefetch(): void {
       if (accounts.length === 0) return
 
       const queue = getTaskQueue('github')
+      const config = { accounts }
 
-      for (const mode of PR_MODES) {
-        if (dataCache.isFresh(mode, intervalMs)) {
-          continue
-        }
-
-        const taskName = `${label.toLowerCase()}-${mode}`
-        if (queue.hasTaskWithName(taskName)) {
-          continue
-        }
-
-        const cachedEntry = dataCache.get(mode)
-        console.log(
-          `[${label}] ${mode}: ${cachedEntry ? 'stale' : 'no cached data'}, queueing background fetch`
-        )
-
-        enqueueRef
-          .current(
-            async signal => {
-              // Double-check freshness right before executing.
-              // A concurrent PullRequestList fetch may have already updated the cache
-              // while this task was waiting in the queue.
-              if (dataCache.isFresh(mode, intervalMs)) {
-                console.log(`[${label}] ${mode}: became fresh while queued, skipping`)
-                return
-              }
-
-              if (signal.aborted) {
-                throw new DOMException('Fetch cancelled', 'AbortError')
-              }
-
-              const config = { accounts }
-              const client = new GitHubClient(config, recentlyMergedDays)
-
-              let prs: PullRequest[]
-              switch (mode) {
-                case 'needs-review':
-                  prs = await client.fetchNeedsReview()
-                  break
-                case 'recently-merged':
-                  prs = await client.fetchRecentlyMerged()
-                  break
-                case 'need-a-nudge':
-                  prs = await client.fetchNeedANudge()
-                  break
-                case 'my-prs':
-                default:
-                  prs = await client.fetchMyPRs()
-                  break
-              }
-
-              // Sort consistently with PullRequestList
-              if (mode !== 'recently-merged') {
-                prs.sort((a, b) => {
-                  if (a.repository !== b.repository) {
-                    return a.repository.localeCompare(b.repository)
-                  }
-                  return a.id - b.id
-                })
-              }
-
-              // Store in persistent cache
-              dataCache.set(mode, prs)
-              console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)
-            },
-            { name: `${label.toLowerCase()}-${mode}`, priority: -1 }
-          )
-          .catch(err => {
-            if (isAbortError(err)) return
-            console.warn(`[${label}] ${mode} failed:`, err)
-          })
-      }
-
-      // Also refresh org repos
-      const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
-      for (const org of uniqueOrgs) {
-        const cacheKey = `org-repos:${org}`
+      const enqueueIfStale = (
+        cacheKey: string,
+        taskName: string,
+        fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>
+      ) => {
         if (dataCache.isFresh(cacheKey, intervalMs)) {
-          continue
+          return
         }
 
-        const orgTaskName = `${label.toLowerCase()}-${cacheKey}`
-        if (queue.hasTaskWithName(orgTaskName)) {
-          continue
+        if (queue.hasTaskWithName(taskName)) {
+          return
         }
 
-        console.log(`[${label}] ${cacheKey}: stale, queueing background fetch`)
+        const cachedEntry = dataCache.get(cacheKey)
+        console.log(
+          `[${label}] ${cacheKey}: ${cachedEntry ? 'stale' : 'no cached data'}, queueing background fetch`
+        )
 
         enqueueRef
           .current(
@@ -151,19 +83,59 @@ export function usePrefetch(): void {
                 throw new DOMException('Fetch cancelled', 'AbortError')
               }
 
-              const config = { accounts }
               const client = new GitHubClient(config, recentlyMergedDays)
-              const result: OrgRepoResult = await client.fetchOrgRepos(org)
-
-              dataCache.set(cacheKey, result)
-              console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
+              await fetchFn(signal, client)
             },
-            { name: `${label.toLowerCase()}-${cacheKey}`, priority: -1 }
+            { name: taskName, priority: -1 }
           )
           .catch(err => {
             if (isAbortError(err)) return
             console.warn(`[${label}] ${cacheKey} failed:`, err)
           })
+      }
+
+      for (const mode of PR_MODES) {
+        const taskName = `${label.toLowerCase()}-${mode}`
+        enqueueIfStale(mode, taskName, async (_signal, client) => {
+          let prs: PullRequest[]
+          switch (mode) {
+            case 'needs-review':
+              prs = await client.fetchNeedsReview()
+              break
+            case 'recently-merged':
+              prs = await client.fetchRecentlyMerged()
+              break
+            case 'need-a-nudge':
+              prs = await client.fetchNeedANudge()
+              break
+            case 'my-prs':
+            default:
+              prs = await client.fetchMyPRs()
+              break
+          }
+
+          if (mode !== 'recently-merged') {
+            prs.sort((a, b) => {
+              if (a.repository !== b.repository) {
+                return a.repository.localeCompare(b.repository)
+              }
+              return a.id - b.id
+            })
+          }
+
+          dataCache.set(mode, prs)
+          console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)
+        })
+      }
+
+      const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
+      for (const org of uniqueOrgs) {
+        const cacheKey = `org-repos:${org}`
+        enqueueIfStale(cacheKey, `${label.toLowerCase()}-${cacheKey}`, async (_signal, client) => {
+          const result: OrgRepoResult = await client.fetchOrgRepos(org)
+          dataCache.set(cacheKey, result)
+          console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
+        })
       }
     },
     [accounts, recentlyMergedDays]

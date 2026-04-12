@@ -65,24 +65,9 @@ export function createPRDetailViewId(
   return section ? `${base}?section=${section}` : base
 }
 
-function parsePRLinkInfo(viewId: string): PRDetailInfo | null {
+export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
   const prefix = 'pr-detail:'
   if (!viewId.startsWith(prefix)) {
-    return null
-  }
-
-  try {
-    const encoded = viewId.replace(prefix, '').split('?section=')[0]
-    if (!encoded) return null
-    return JSON.parse(decodeURIComponent(encoded)) as PRDetailInfo
-  } catch {
-    return null
-  }
-}
-
-export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
-  const pr = parsePRLinkInfo(viewId)
-  if (!pr) {
     return null
   }
 
@@ -94,10 +79,19 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
     'ai-reviews',
   ]
 
-  const sectionPart = viewId.split('?section=')[1]
-  const validSection = VALID_SECTIONS.includes(sectionPart as PRDetailSection)
-    ? (sectionPart as PRDetailSection)
-    : null
+  try {
+    const [encoded, sectionPart] = viewId.slice(prefix.length).split('?section=')
+    if (!encoded) {
+      return null
+    }
 
-  return { pr, section: validSection }
+    const pr = JSON.parse(decodeURIComponent(encoded)) as PRDetailInfo
+    const section = VALID_SECTIONS.includes(sectionPart as PRDetailSection)
+      ? (sectionPart as PRDetailSection)
+      : null
+
+    return { pr, section }
+  } catch {
+    return null
+  }
 }

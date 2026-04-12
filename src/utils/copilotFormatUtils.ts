@@ -1,3 +1,5 @@
+import { DAY } from './dateUtils'
+
 export function formatCopilotPlan(plan: string | null): string {
   if (!plan) return 'Unknown'
 
@@ -25,5 +27,5 @@ export function formatResetDate(dateStr: string, includeYear = false): string {
 
 export function daysUntilReset(dateStr: string): number {
   const diff = new Date(dateStr).getTime() - Date.now()
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+  return Math.max(0, Math.ceil(diff / DAY))
 }

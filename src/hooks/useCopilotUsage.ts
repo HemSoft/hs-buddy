@@ -6,6 +6,12 @@ import type { OrgBudgetState } from '../components/copilot-usage/types'
 import { MS_PER_MINUTE } from '../constants'
 import { getErrorMessage } from '../utils/errorUtils'
 
+function computeOverageRequests(premium: { overage_count: number; remaining: number }): number {
+  const overageByCount = Math.max(0, premium.overage_count)
+  const overageByRemaining = Math.max(0, -premium.remaining)
+  return Math.max(overageByCount, overageByRemaining)
+}
+
 export function useCopilotUsage() {
   const { accounts } = useGitHubAccounts()
   const [quotas, setQuotas] = useState<Record<string, AccountQuotaState>>({})
@@ -134,9 +140,7 @@ export function useCopilotUsage() {
         continue
       }
 
-      const overageByCount = Math.max(0, premium.overage_count)
-      const overageByRemaining = Math.max(0, -premium.remaining)
-      const overageRequests = Math.max(overageByCount, overageByRemaining)
+      const overageRequests = computeOverageRequests(premium)
       const cost = overageRequests * OVERAGE_COST_PER_REQUEST
       map.set(account.org, (map.get(account.org) ?? 0) + cost)
     }
@@ -155,9 +159,7 @@ export function useCopilotUsage() {
           }
 
           const used = premium.entitlement - premium.remaining
-          const overageByCount = Math.max(0, premium.overage_count)
-          const overageByRemaining = Math.max(0, -premium.remaining)
-          const overageRequests = Math.max(overageByCount, overageByRemaining)
+          const overageRequests = computeOverageRequests(premium)
 
           acc.totalUsed += used
           acc.totalOverageCost += overageRequests * OVERAGE_COST_PER_REQUEST

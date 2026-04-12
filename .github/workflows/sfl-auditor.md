@@ -37,7 +37,7 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 1
-source: relias-engineering/set-it-free-loop/.github/workflows/sfl-auditor.md@9d84e60e4cd4c9cd3810b602e90f865ed235faab
+source: relias-engineering/set-it-free-loop/.github/workflows/sfl-auditor.md@920f9ef4b146573d638fe871db44afc0f0dc6303
 ---
 
 # SFL Auditor

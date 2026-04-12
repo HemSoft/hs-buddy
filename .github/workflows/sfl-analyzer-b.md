@@ -40,7 +40,7 @@ safe-outputs:
   add-labels:
     target: "*"
     max: 1
-source: relias-engineering/set-it-free-loop/.github/workflows/sfl-analyzer-b.md@9d84e60e4cd4c9cd3810b602e90f865ed235faab
+source: relias-engineering/set-it-free-loop/.github/workflows/sfl-analyzer-b.md@920f9ef4b146573d638fe871db44afc0f0dc6303
 ---
 
 # SFL Analyzer B — Full-Spectrum Review
@@ -52,7 +52,7 @@ SFL gate with an explicit PR number.
 
 Follow the shared review instructions in `.github/workflows/shared/sfl-analyzer-core.md`.
 
-Your analyzer ID is **B** (lowercase: `b`).
+Your analyzer ID is **B** (marker id: `b`). Use `sfl-analyzer-b` in all markers.
 
 ## Tooling
 
@@ -69,5 +69,5 @@ Do NOT use `bash`, `write_bash`, `sql`, `view`, `web_fetch`, or planning tools.
 
 - Do NOT dispatch any other workflows. The gate owns sequencing.
 - Do NOT update any dashboard discussion. Dashboards are out-of-band.
-- Post exactly one review comment per run.
+- Post exactly one review comment with the `<!-- MARKER:sfl-analyzer-b cycle:N -->` marker.
 - Add `analyzer:blocked` label only if verdict is BLOCKING ISSUES FOUND.

@@ -1,22 +1,18 @@
 ---
 description: |
-  This workflow creates repo status reports. It gathers recent repository
+  This workflow creates daily repo status reports. It gathers recent repository
   activity (issues, PRs, discussions, releases, code changes) and generates
-  engaging GitHub discussions with productivity insights, community highlights,
+  engaging GitHub issues with productivity insights, community highlights,
   and project recommendations.
 
 on:
+  schedule: daily
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
-  discussions: read
-
-concurrency:
-  group: "gh-aw-copilot-${{ github.workflow }}"
-  cancel-in-progress: false
 
 network: defaults
 
@@ -26,36 +22,21 @@ tools:
     # reading issues, pull requests and comments from 3rd-parties
     # If in a private repo this has no particular effect.
     lockdown: false
+    min-integrity: none # This workflow is allowed to examine and comment on any issues
 
 safe-outputs:
-  create-discussion:
+  mentions: false
+  allowed-github-references: []
+  create-issue:
     title-prefix: "[repo-status] "
-    category: "General"
-    expires: false
-  update-discussion:
-    target: "*"
-    max: 5
-  add-comment:
-    target: "*"
-    max: 1
-source: githubnext/agentics/workflows/daily-repo-status.md@d19056381ba48cb1f7c78510c23069701fa7ae87
+    labels: [report, daily-status]
+    close-older-issues: true
+source: githubnext/agentics/workflows/daily-repo-status.md@97143ac59cb3a13ef2a77581f929f06719c7402a
 ---
-source: relias-engineering/set-it-free-loop/workflows/daily-repo-status.md@79100291d171fa15d82a21338d23a2cf4f6063b6
 
-# SFL Repo Status
+# Daily Repo Status
 
-Create an upbeat status report for the repo as a GitHub Discussion.
-
-## Step 0 — Close previous status reports
-
-Before creating today's report, search for all **open** discussions whose title
-starts with `[repo-status]`. For each one found, close it using
-`update_discussion` with:
-
-- `discussion_number`: the discussion number
-- `status`: `"closed"`
-
-This ensures only today's report remains open.
+Create an upbeat daily status report for the repo as a GitHub issue.
 
 ## What to include
 
@@ -74,13 +55,4 @@ This ensures only today's report remains open.
 
 1. Gather recent activity from the repository
 2. Study the repository, its issues and its pull requests
-3. Create a new GitHub Discussion (category: General) with your findings and insights
-4. Post activity log entry to **Discussion #95** using `add_comment` with `issue_number`: `95` and `body`: `YYYY-MM-DD h:mm AM/PM EDT | SFL Repo Status | Report | ✅ Created discussion` or `YYYY-MM-DD h:mm AM/PM EST | ...` when standard time is actually in effect
-
-Timestamp rule for Discussion #95 entries:
-
-- Convert the current workflow time to `America/New_York` before writing the log line.
-- Use the converted local **date and time**, not the UTC date.
-- Use `EDT` when daylight saving time is in effect and `EST` otherwise.
-- Valid: `2026-03-08 10:56 PM EDT | ...`
-- Invalid: `2026-03-09 2:56 AM EST | ...` when the workflow ran at `2026-03-09T02:56:00Z`
+3. Create a new GitHub issue with your findings and insights

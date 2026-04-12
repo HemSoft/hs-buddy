@@ -95,7 +95,7 @@ safe-outputs:
   reply-to-pull-request-review-comment:
     target: "*"
     max: 10
-source: relias-engineering/set-it-free-loop/.github/workflows/sfl-implement.md@9d84e60e4cd4c9cd3810b602e90f865ed235faab
+source: relias-engineering/set-it-free-loop/.github/workflows/sfl-implement.md@920f9ef4b146573d638fe871db44afc0f0dc6303
 ---
 
 # SFL Implementer
@@ -139,10 +139,7 @@ dispatched by the SFL gate after issue validation.
 2. Verify it is an open **draft** PR with label `agent:pr`.
 3. Extract the linked issue number from `Closes #N` in the PR body.
 4. Search the PR comments for analyzer verdicts and blocking findings.
-5. If the PR has unresolved review threads, address them. After fixing
-   the code, **reply to each review comment** using
-   `reply_to_pull_request_review_comment` explaining what changed. The
-   SFL gate will resolve the threads once it confirms your replies.
+5. If the PR has unresolved review threads, address them.
 6. Continue at Step 3.
 
 **Invariant check**: Verify the linked issue has exactly one open `agent:pr`
@@ -201,9 +198,7 @@ Implementation priorities:
 
 1. Issue acceptance criteria and explicit scope
 2. Blocking analyzer findings for the current cycle
-3. Unresolved review comments — reply to **every** unresolved review
-   thread after addressing it (the gate checks for replies before
-   resolving threads and re-requesting Copilot review)
+3. Unresolved review comments
 4. Non-blocking suggestions (only after blocking items are addressed)
 
 Rules:

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bring audit workflows to React Doctor quality parity
+- Sync SFL core workflows from upstream catalog
 
 ### Fixed
 

@@ -20,8 +20,8 @@
     "sessionEnd": [
       {
         "type": "command",
-        "powershell": "sh ./.github/scripts/auto-commit.sh",
-        "bash": ".github/scripts/auto-commit.sh",
+        "powershell": "sh ./.github/hooks/auto-commit.sh",
+        "bash": ".github/hooks/auto-commit.sh",
         "timeoutSec": 10
       },
       {

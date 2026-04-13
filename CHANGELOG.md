@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.694] - 2026-04-13
+
+### Added
+
+- Add Status column with batched thread stats
+
 ## [0.1.693] - 2026-04-12
 
 ### Changed

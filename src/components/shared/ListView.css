@@ -112,3 +112,17 @@
   color: var(--accent-success, #4ec9b0);
   font-size: 12px;
 }
+
+/* Unresolved comments column */
+.list-view-comments-clear {
+  color: var(--accent-success, #4ec9b0);
+}
+
+.list-view-comments-unresolved {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-error, #f48771);
+  font-size: 12px;
+  font-weight: 600;
+}

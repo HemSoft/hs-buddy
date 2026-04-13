@@ -2675,7 +2675,6 @@ export class GitHubClient {
   ): Promise<PullRequest[]> {
     const seenUrls = new Set<string>()
     const allPrs: PullRequest[] = []
-    const accountToken = await this.getGitHubCLIToken(username)
     const orgAvatarUrl = await this.resolveOrgAvatar(octokit, org)
 
     // Different queries based on mode
@@ -2801,10 +2800,6 @@ export class GitHubClient {
           }),
         ])
 
-        const threadStats = accountToken
-          ? await this.fetchPRThreadStats(pr._owner, pr._repo, pr._prNumber, accountToken)
-          : null
-
         const reviews = reviewsData.data
         const { approvalCount, iApproved } = this.countApprovals(reviews, username)
 
@@ -2812,13 +2807,13 @@ export class GitHubClient {
         pr.iApproved = iApproved
         pr.headBranch = prData.data.head?.ref || ''
         pr.baseBranch = prData.data.base?.ref || ''
-        pr.threadsTotal = threadStats?.total ?? null
-        pr.threadsAddressed = threadStats?.addressed ?? null
-        pr.threadsUnaddressed = threadStats?.unaddressed ?? null
       } catch (error) {
         console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
       }
     })
+
+    // Batch-fetch thread stats via a single GraphQL query per owner (more reliable than per-PR calls)
+    await this.fetchBatchThreadStats(prsWithMeta)
 
     // Clean up metadata and filter
     const finalPrs = allPrs
@@ -2846,61 +2841,73 @@ export class GitHubClient {
     return finalPrs
   }
 
-  private async fetchPRThreadStats(
-    owner: string,
-    repo: string,
-    pullNumber: number,
-    token: string
-  ): Promise<{ total: number; addressed: number; unaddressed: number } | null> {
-    const query = `
-      query PRThreadStats($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            reviewThreads(first: 100) {
-              totalCount
-              nodes {
-                isResolved
+  /**
+   * Batch-fetch review thread stats for multiple PRs using a single GraphQL query per owner.
+   * Uses aliases (like fetchUserNames) so one request covers all PRs, avoiding per-PR failures.
+   */
+  private async fetchBatchThreadStats(
+    prs: Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }>
+  ): Promise<void> {
+    if (prs.length === 0) return
+
+    // Group PRs by owner for token selection
+    const prsByOwner = new Map<string, typeof prs>()
+    for (const pr of prs) {
+      const list = prsByOwner.get(pr._owner) || []
+      list.push(pr)
+      prsByOwner.set(pr._owner, list)
+    }
+
+    type ThreadStatsResult = Record<
+      string,
+      {
+        pullRequest: {
+          reviewThreads: { totalCount: number; nodes: Array<{ isResolved: boolean }> }
+        } | null
+      } | null
+    >
+
+    for (const [owner, ownerPrs] of prsByOwner) {
+      try {
+        const token = await this.getTokenForOwner(owner)
+
+        // Process in chunks of 20 to stay within GraphQL query size limits
+        for (let i = 0; i < ownerPrs.length; i += 20) {
+          const chunk = ownerPrs.slice(i, i + 20)
+          const fragments = chunk
+            .map((pr, idx) => {
+              const alias = `pr${i + idx}`
+              return `${alias}: repository(owner: "${owner}", name: "${pr._repo}") {
+              pullRequest(number: ${pr._prNumber}) {
+                reviewThreads(first: 100) {
+                  totalCount
+                  nodes { isResolved }
+                }
               }
+            }`
+            })
+            .join('\n')
+
+          const query = `query { ${fragments} }`
+          const result = await graphql<ThreadStatsResult>(query, {
+            headers: { authorization: `token ${token}` },
+          })
+
+          for (let idx = 0; idx < chunk.length; idx++) {
+            const alias = `pr${i + idx}`
+            const data = result[alias]?.pullRequest
+            if (data) {
+              const threads = data.reviewThreads.nodes || []
+              const addressed = threads.filter(t => t.isResolved).length
+              chunk[idx].threadsTotal = data.reviewThreads.totalCount
+              chunk[idx].threadsAddressed = addressed
+              chunk[idx].threadsUnaddressed = Math.max(0, data.reviewThreads.totalCount - addressed)
             }
           }
         }
+      } catch (error) {
+        console.warn(`[fetchBatchThreadStats] Failed for owner ${owner}:`, error)
       }
-    `
-
-    try {
-      const result = await graphql<{
-        repository: {
-          pullRequest: {
-            reviewThreads: { totalCount: number; nodes: Array<{ isResolved: boolean }> }
-          } | null
-        } | null
-      }>(query, {
-        owner,
-        repo,
-        number: pullNumber,
-        headers: {
-          authorization: `token ${token}`,
-        },
-      })
-
-      const pr = result.repository?.pullRequest
-      if (!pr) return null
-
-      const threads = pr.reviewThreads.nodes || []
-      const addressed = threads.filter(thread => thread.isResolved).length
-      const total = pr.reviewThreads.totalCount
-
-      return {
-        total,
-        addressed,
-        unaddressed: Math.max(0, total - addressed),
-      }
-    } catch (error) {
-      console.debug(
-        `Failed to fetch review thread stats for ${owner}/${repo}#${pullNumber}:`,
-        error
-      )
-      return null
     }
   }
 

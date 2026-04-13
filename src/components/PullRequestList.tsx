@@ -7,6 +7,8 @@ import {
   Loader2,
   RefreshCw,
   ThumbsUp,
+  CircleCheck,
+  MessageSquare,
 } from 'lucide-react'
 import { PRItem } from './pull-request-list/PRItem'
 import { PRContextMenu } from './pull-request-list/PRContextMenu'
@@ -238,6 +240,7 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
                 <th>Author</th>
                 <th>Repo</th>
                 <th>Updated</th>
+                <th>Status</th>
                 <th>Reviews</th>
               </tr>
             </thead>
@@ -273,6 +276,18 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
                   <td className="col-number">{pr.repository}</td>
                   <td className="col-date">
                     {pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}
+                  </td>
+                  <td>
+                    {pr.threadsUnaddressed != null ? (
+                      pr.threadsUnaddressed === 0 ? (
+                        <CircleCheck size={14} className="list-view-comments-clear" />
+                      ) : (
+                        <span className="list-view-comments-unresolved">
+                          <MessageSquare size={12} />
+                          {pr.threadsUnaddressed}
+                        </span>
+                      )
+                    ) : null}
                   </td>
                   <td>
                     {pr.approvalCount > 0 && (

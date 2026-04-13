@@ -9,7 +9,7 @@ export interface ForecastDay {
   low: number
 }
 
-export interface WeatherData {
+interface WeatherData {
   temperature: number
   temperatureUnit: string
   weatherCode: number
@@ -22,7 +22,7 @@ export interface WeatherData {
   forecast: ForecastDay[]
 }
 
-export interface WeatherState {
+interface WeatherState {
   data: WeatherData | null
   loading: boolean
   error: string | null
@@ -91,7 +91,10 @@ function readCache(): { data: WeatherData; timestamp: number } | null {
 
 function writeCache(data: WeatherData) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now(), version: CACHE_VERSION }))
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({ data, timestamp: Date.now(), version: CACHE_VERSION })
+    )
   } catch {
     // localStorage unavailable
   }
@@ -171,7 +174,9 @@ async function fetchWeather(loc: GeoLocation, signal: AbortSignal): Promise<Weat
 export function useWeather() {
   const [state, setState] = useState<WeatherState>(() => {
     const cached = readCache()
-    return cached ? { data: cached.data, loading: false, error: null } : { data: null, loading: true, error: null }
+    return cached
+      ? { data: cached.data, loading: false, error: null }
+      : { data: null, loading: true, error: null }
   })
 
   const abortRef = useRef<AbortController | null>(null)
@@ -227,8 +232,7 @@ export function useWeather() {
             const json = (await resp.json()) as {
               address?: { city?: string; town?: string; village?: string; state?: string }
             }
-            const city =
-              json.address?.city ?? json.address?.town ?? json.address?.village ?? ''
+            const city = json.address?.city ?? json.address?.town ?? json.address?.village ?? ''
             const st = json.address?.state ?? ''
             if (city) loc.name = st ? `${city}, ${st}` : city
           }
@@ -270,7 +274,13 @@ export function useWeather() {
         const results = (await resp.json()) as Array<{
           lat: string
           lon: string
-          address?: { city?: string; town?: string; village?: string; state?: string; country?: string }
+          address?: {
+            city?: string
+            town?: string
+            village?: string
+            state?: string
+            country?: string
+          }
           display_name?: string
         }>
 

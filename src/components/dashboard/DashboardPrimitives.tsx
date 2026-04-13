@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export interface StatCardProps {
+interface StatCardProps {
   icon: ReactNode
   value: string
   label: string
@@ -9,6 +9,7 @@ export interface StatCardProps {
   iconClassName?: string
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function formatStatNumber(n: number): string {
   return n.toLocaleString()
 }

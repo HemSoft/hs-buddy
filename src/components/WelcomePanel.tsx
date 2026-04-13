@@ -1,13 +1,5 @@
 import { useState, useEffect } from 'react'
-import {
-  Users,
-  GitPullRequest,
-  Clock,
-  Building2,
-  Zap,
-  Settings,
-  Heart,
-} from 'lucide-react'
+import { Users, GitPullRequest, Clock, Building2, Zap, Settings, Heart } from 'lucide-react'
 import { useBuddyStats, useRepoBookmarks } from '../hooks/useConvex'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import { useDashboardCards } from '../hooks/useDashboardCards'
@@ -53,12 +45,8 @@ function WelcomeHeader({
         </div>
         <div className="welcome-header-meta">
           <div className="welcome-header-meta-top">
-            <div className="welcome-version-badge">Version 0.1.694</div>
-            <DashboardConfigDropdown
-              cards={cards}
-              isVisible={isVisible}
-              toggleCard={toggleCard}
-            />
+            <div className="welcome-version-badge">Version 0.1.695</div>
+            <DashboardConfigDropdown cards={cards} isVisible={isVisible} toggleCard={toggleCard} />
           </div>
           {liveUptime > 0 && (
             <div className="welcome-uptime-badge">

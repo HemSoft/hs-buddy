@@ -48,6 +48,7 @@ Report a table of uncovered functions with file path, function name, and priorit
 | `convex/lib/cronUtils.bench.ts` | calculateNextRunAt (6 cron patterns including timezone) |
 | `src/utils/budgetUtils.bench.ts` | findCopilotBudget (5/50/200 budgets, with/without filter), findBudgetAcrossPages (1/3/5 pages) |
 | `src/components/tempo/tempoUtils.bench.ts` | nextStartTime (3/10/50 worklogs) |
+| `electron/services/copilotSessionService.bench.ts` | resolveWorkspaceName (single-folder, multi-root, encoded URI, empty JSON fallback, missing file catch path) |
 
 ## Baseline (2026-03-30, refresh #2)
 
@@ -164,13 +165,21 @@ Captured on: Windows, Bun, Vitest 4.1.0. Median of 5 runs.
 | nextStartTime — 10 worklogs | 12,706,606 | 0.0001 |
 | nextStartTime — 50 worklogs | 9,782,148 | 0.0001 |
 
+### copilotSessionService
+
+| Benchmark | ops/sec (hz) | mean (ms) |
+|-----------|-------------|-----------|
+| resolveWorkspaceName — single-folder workspace | 27,088 | 0.0369 |
+| resolveWorkspaceName — multi-root workspace | 32,147 | 0.0311 |
+| resolveWorkspaceName — encoded URI with spaces | 29,893 | 0.0335 |
+| resolveWorkspaceName — empty JSON (fallback to dirname) | 39,494 | 0.0253 |
+| resolveWorkspaceName — missing file (catch path) | 56,560 | 0.0177 |
+
 ## Known Coverage Gaps
 
 Functions that should have benchmarks but don't yet. Address these when touching the related code.
 
-| Priority | File | Function(s) | Why |
-|----------|------|-------------|-----|
-| MEDIUM | `electron/services/copilotSessionService.ts` | `resolveWorkspaceName()` | File I/O + regex on 32KB buffers |
+No known gaps. Run the **Gaps** check to scan for new uncovered functions.
 
 ## Updating the Baseline
 

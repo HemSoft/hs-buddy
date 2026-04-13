@@ -45,10 +45,7 @@ describe('useDashboardCards', () => {
 
   it('merges stored prefs with new cards gracefully', () => {
     // Store a partial config (missing some cards)
-    localStorage.setItem(
-      'dashboard:cards',
-      JSON.stringify({ 'command-center': false })
-    )
+    localStorage.setItem('dashboard:cards', JSON.stringify({ 'command-center': false }))
 
     const { result } = renderHook(() => useDashboardCards())
     expect(result.current.isVisible('command-center')).toBe(false)

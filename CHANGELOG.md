@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.695] - 2026-04-13
+
+### Changed
+
+- Add 124 tests across 7 hook files, raise coverage thresholds
+- Format files flagged by Prettier CI check
+
+### Fixed
+
+- Remove 5 unused type exports flagged by Knip
+- Resolve ESLint errors blocking CI
+- Address PR review comments and bundle-size CI failure
+- Address 2nd round PR review comments
+
 ## [0.1.694] - 2026-04-13
 
 ### Added

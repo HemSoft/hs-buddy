@@ -1,10 +1,4 @@
-import {
-  Sparkles,
-  Zap,
-  Activity,
-  ArrowRight,
-  RefreshCw,
-} from 'lucide-react'
+import { Sparkles, Zap, Activity, ArrowRight, RefreshCw } from 'lucide-react'
 import { SectionHeading, StatCard } from './DashboardPrimitives'
 import { formatCurrency } from '../copilot-usage/quotaUtils'
 

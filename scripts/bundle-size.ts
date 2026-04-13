@@ -54,21 +54,31 @@ function collectBundles(): BundleEntry[] {
     }
   }
 
-  // Electron main + preload
-  for (const f of ['main.js', 'preload.mjs']) {
-    const full = resolve(distElectronDir, f)
-    if (existsSync(full)) {
-      const size = statSync(full).size
-      bundles.push({ file: `dist-electron/${f}`, sizeBytes: size, sizeHuman: humanSize(size) })
+  // Electron preload
+  const preload = resolve(distElectronDir, 'preload.mjs')
+  if (existsSync(preload)) {
+    const size = statSync(preload).size
+    bundles.push({ file: 'dist-electron/preload.mjs', sizeBytes: size, sizeHuman: humanSize(size) })
+  }
+
+  // Electron main — Vite code-splits into a stub (main.js) + chunk (main-{hash}.js).
+  // Track the largest main*.js as the real payload.
+  if (existsSync(distElectronDir)) {
+    const mainFiles = readdirSync(distElectronDir).filter(f => f.startsWith('main') && f.endsWith('.js'))
+    if (mainFiles.length > 0) {
+      const largest = mainFiles
+        .map(f => ({ name: f, size: statSync(resolve(distElectronDir, f)).size }))
+        .sort((a, b) => b.size - a.size)[0]
+      bundles.push({ file: `dist-electron/${largest.name}`, sizeBytes: largest.size, sizeHuman: humanSize(largest.size) })
     }
   }
 
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)
 }
 
-// Normalize filenames by stripping hashes: index-DBd6EIt0.js → index.js
+// Normalize filenames by stripping Vite content hashes: index-DBd6EIt0.js → index.js
 function normalizeFile(file: string): string {
-  return file.replace(/-[A-Za-z0-9]{8}\./, '.')
+  return file.replace(/-[A-Za-z0-9_-]{8}\./, '.')
 }
 
 const isUpdate = process.argv.includes('--update')

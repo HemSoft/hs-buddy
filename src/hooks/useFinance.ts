@@ -9,7 +9,7 @@ export interface QuoteData {
   previousClose: number
 }
 
-export interface FinanceState {
+interface FinanceState {
   quotes: QuoteData[]
   loading: boolean
   error: string | null
@@ -38,7 +38,10 @@ function readCache(): { quotes: QuoteData[]; timestamp: number } | null {
 
 function writeCache(quotes: QuoteData[]) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ quotes, timestamp: Date.now(), version: CACHE_VERSION }))
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({ quotes, timestamp: Date.now(), version: CACHE_VERSION })
+    )
   } catch {
     // localStorage unavailable
   }
@@ -145,35 +148,37 @@ export function useFinance() {
       writeWatchlist(next)
       setWatchlistState(next)
 
-      try { localStorage.removeItem(CACHE_KEY) } catch { /* noop */ }
+      try {
+        localStorage.removeItem(CACHE_KEY)
+      } catch {
+        /* noop */
+      }
       refresh(next)
     },
     [refresh]
   )
 
-  const removeSymbol = useCallback(
-    (symbol: string) => {
-      const current = readWatchlist()
-      const next = current.filter(s => s !== symbol)
-      writeWatchlist(next)
-      setWatchlistState(next)
+  const removeSymbol = useCallback((symbol: string) => {
+    const current = readWatchlist()
+    const next = current.filter(s => s !== symbol)
+    writeWatchlist(next)
+    setWatchlistState(next)
 
-      setState(prev => ({
-        ...prev,
-        quotes: prev.quotes.filter(q => q.symbol !== symbol),
-      }))
-    },
-    []
-  )
+    setState(prev => ({
+      ...prev,
+      quotes: prev.quotes.filter(q => q.symbol !== symbol),
+    }))
+  }, [])
 
   useEffect(() => {
     if (!readCache()) {
       refresh()
     }
-    return () => { abortRef.current = true }
+    return () => {
+      abortRef.current = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return { ...state, watchlist, refresh: () => refresh(), addSymbol, removeSymbol }
 }
-

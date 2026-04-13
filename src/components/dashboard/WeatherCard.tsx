@@ -56,14 +56,19 @@ function ForecastRow({ day }: { day: ForecastDay }) {
 }
 
 export function WeatherCard() {
-  const { data, loading, error, refresh, useMyLocation, setLocationBySearch, savedLocation } = useWeather()
+  const { data, loading, error, refresh, useMyLocation, setLocationBySearch, savedLocation } =
+    useWeather()
   const [searchQuery, setSearchQuery] = useState('')
   const [expanded, setExpanded] = useState(readExpanded)
 
   const toggleExpanded = () => {
     setExpanded(prev => {
       const next = !prev
-      try { localStorage.setItem(EXPANDED_KEY, String(next)) } catch { /* noop */ }
+      try {
+        localStorage.setItem(EXPANDED_KEY, String(next))
+      } catch {
+        /* noop */
+      }
       return next
     })
   }
@@ -76,10 +81,7 @@ export function WeatherCard() {
   }
 
   return (
-    <section
-      className="welcome-section welcome-section-weather"
-      aria-label="Weather overview"
-    >
+    <section className="welcome-section welcome-section-weather" aria-label="Weather overview">
       <div className="weather-header-row">
         <SectionHeading
           kicker="Local weather"
@@ -103,7 +105,7 @@ export function WeatherCard() {
           <div className="weather-collapsed-left">
             <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
             <span className="weather-collapsed-temp">
-              {data.temperature}{data.temperatureUnit}
+              {`${data.temperature}${data.temperatureUnit}`}
             </span>
             <span className="weather-collapsed-desc">{data.description}</span>
           </div>
@@ -125,7 +127,9 @@ export function WeatherCard() {
                 placeholder="City, state or zip code…"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSearch()
+                }}
                 aria-label="Search location"
               />
             </div>
@@ -157,11 +161,9 @@ export function WeatherCard() {
             <>
               <div className="weather-current">
                 <div className="weather-temp-group">
-                  <div className="weather-icon-large">
-                    {weatherIcon(data.weatherCode)}
-                  </div>
+                  <div className="weather-icon-large">{weatherIcon(data.weatherCode)}</div>
                   <span className="weather-temp-value">
-                    {data.temperature}{data.temperatureUnit}
+                    {`${data.temperature}${data.temperatureUnit}`}
                   </span>
                 </div>
                 <span className="weather-description">{data.description}</span>

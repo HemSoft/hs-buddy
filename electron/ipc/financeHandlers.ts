@@ -1,6 +1,6 @@
 import { ipcMain, net } from 'electron'
 
-const SYMBOL_RE = /^[A-Z0-9^.=\-]{1,20}$/
+const SYMBOL_RE = /^[A-Z0-9^.=-]{1,20}$/
 
 const SYMBOL_NAMES: Record<string, string> = {
   '^GSPC': 'S&P 500',
@@ -15,7 +15,7 @@ const SYMBOL_NAMES: Record<string, string> = {
   'CL=F': 'Crude Oil',
 }
 
-export interface FinanceQuoteResult {
+interface FinanceQuoteResult {
   success: boolean
   quote?: {
     symbol: string

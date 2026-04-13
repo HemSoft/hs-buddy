@@ -1,12 +1,4 @@
-import {
-  GitPullRequest,
-  Activity,
-  Sparkles,
-  FolderGit2,
-  Play,
-  Star,
-  Calendar,
-} from 'lucide-react'
+import { GitPullRequest, Activity, Sparkles, FolderGit2, Play, Star, Calendar } from 'lucide-react'
 import { SectionHeading, StatCard, formatStatNumber } from './DashboardPrimitives'
 
 interface WorkspacePulseCardProps {
@@ -73,11 +65,7 @@ export function WorkspacePulseCard({
           label="Runs Executed"
           subtitle={totalFinished > 0 ? `${successRate}%` : undefined}
         />
-        <StatCard
-          icon={<Star size={18} />}
-          value={formatStatNumber(bookmarks)}
-          label="Bookmarks"
-        />
+        <StatCard icon={<Star size={18} />} value={formatStatNumber(bookmarks)} label="Bookmarks" />
         <StatCard
           icon={<Calendar size={18} />}
           value={

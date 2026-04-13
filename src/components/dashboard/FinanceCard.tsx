@@ -47,7 +47,7 @@ function QuoteRow({ quote, onRemove }: { quote: QuoteData; onRemove?: (symbol: s
         <span className={`finance-quote-change ${positive ? 'finance-up' : 'finance-down'}`}>
           {positive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
           <span>
-            {positive ? '+' : ''}{change.toFixed(2)} ({positive ? '+' : ''}{changePercent.toFixed(2)}%)
+            {`${positive ? '+' : ''}${change.toFixed(2)} (${positive ? '+' : ''}${changePercent.toFixed(2)}%)`}
           </span>
         </span>
       </div>
@@ -73,7 +73,11 @@ export function FinanceCard() {
   const toggleExpanded = () => {
     setExpanded(prev => {
       const next = !prev
-      try { localStorage.setItem(EXPANDED_KEY, String(next)) } catch { /* noop */ }
+      try {
+        localStorage.setItem(EXPANDED_KEY, String(next))
+      } catch {
+        /* noop */
+      }
       return next
     })
   }
@@ -89,10 +93,7 @@ export function FinanceCard() {
   const topQuotes = quotes.slice(0, 3)
 
   return (
-    <section
-      className="welcome-section welcome-section-finance"
-      aria-label="Finance overview"
-    >
+    <section className="welcome-section welcome-section-finance" aria-label="Finance overview">
       <div className="finance-header-row">
         <SectionHeading
           kicker="Markets"
@@ -120,7 +121,9 @@ export function FinanceCard() {
             return (
               <div key={q.symbol} className="finance-collapsed-item">
                 <span className="finance-collapsed-symbol">{q.name}</span>
-                <span className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}>
+                <span
+                  className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}
+                >
                   {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
                 </span>
               </div>
@@ -168,7 +171,9 @@ export function FinanceCard() {
                 placeholder="Add symbol (e.g. AAPL, ETH-USD)…"
                 value={addInput}
                 onChange={e => setAddInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleAdd()
+                }}
                 aria-label="Add ticker symbol"
               />
             </div>

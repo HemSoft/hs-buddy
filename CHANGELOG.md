@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add Status column with batched thread stats
 
+### Changed
+
+- Change SFL Copilot Review Bridge schedule to hourly
+
 ## [0.1.693] - 2026-04-12
 
 ### Changed

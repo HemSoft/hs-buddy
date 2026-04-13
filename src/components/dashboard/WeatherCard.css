@@ -7,40 +7,6 @@
     0 0 0 1px rgba(255, 193, 80, 0.12);
 }
 
-/* ── Header with collapse toggle ───────────────────────────────────────── */
-
-.weather-header-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.weather-header-row .welcome-section-heading {
-  flex: 1;
-  min-width: 0;
-}
-
-.weather-collapse-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.weather-collapse-btn:hover {
-  border-color: var(--accent-primary);
-  color: var(--text-heading);
-  background: var(--bg-hover);
-}
-
 /* ── Collapsed summary ─────────────────────────────────────────────────── */
 
 .weather-collapsed-summary {
@@ -282,14 +248,6 @@
 
 .weather-search-input::placeholder {
   color: var(--text-muted);
-}
-
-/* ── Actions ───────────────────────────────────────────────────────────── */
-
-.weather-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 /* ── Responsive ────────────────────────────────────────────────────────── */

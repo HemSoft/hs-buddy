@@ -129,7 +129,9 @@ describe('useWeather', () => {
 
     mockFetch.mockRejectedValue(new Error('Oops'))
     await act(async () => {
-      result.current.refresh()
+      result.current.refresh().catch(() => {
+        /* expected rejection */
+      })
     })
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.data).not.toBeNull()

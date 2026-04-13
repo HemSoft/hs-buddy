@@ -7,6 +7,7 @@ export interface QuoteData {
   change: number
   changePercent: number
   previousClose: number
+  marketOpen: boolean
 }
 
 interface FinanceState {
@@ -16,7 +17,7 @@ interface FinanceState {
 }
 
 const CACHE_KEY = 'finance:cache'
-const CACHE_VERSION = 2
+const CACHE_VERSION = 3
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
 const WATCHLIST_KEY = 'finance:watchlist'
 
@@ -52,7 +53,9 @@ export function readWatchlist(): string[] {
     const raw = localStorage.getItem(WATCHLIST_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as string[]
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      if (Array.isArray(parsed)) {
+        return parsed.length > 0 ? parsed : []
+      }
     }
   } catch {
     // corrupt or unavailable
@@ -111,14 +114,16 @@ export function useFinance() {
   })
 
   const abortRef = useRef(false)
+  const watchlistRef = useRef(watchlist)
+  watchlistRef.current = watchlist
 
   const refresh = useCallback((symbols?: string[]) => {
-    const list = symbols ?? readWatchlist()
+    const list = symbols ?? watchlistRef.current
     abortRef.current = false
 
     setState(prev => ({ ...prev, loading: true, error: null }))
 
-    fetchQuotes(list)
+    return fetchQuotes(list)
       .then(quotes => {
         if (!abortRef.current) {
           writeCache(quotes)
@@ -133,6 +138,7 @@ export function useFinance() {
             error: err instanceof Error ? err.message : 'Failed to fetch quotes',
           }))
         }
+        throw err
       })
   }, [])
 
@@ -153,7 +159,9 @@ export function useFinance() {
       } catch {
         /* noop */
       }
-      refresh(next)
+      refresh(next).catch(() => {
+        /* error already handled in state */
+      })
     },
     [refresh]
   )
@@ -172,7 +180,9 @@ export function useFinance() {
 
   useEffect(() => {
     if (!readCache()) {
-      refresh()
+      refresh().catch(() => {
+        /* error already handled in state */
+      })
     }
     return () => {
       abortRef.current = true

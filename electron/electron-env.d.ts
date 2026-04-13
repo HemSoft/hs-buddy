@@ -176,6 +176,7 @@ interface Window {
         change: number
         changePercent: number
         previousClose: number
+        marketOpen: boolean
       }
       error?: string
     }>

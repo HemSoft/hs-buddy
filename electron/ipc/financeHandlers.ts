@@ -24,6 +24,7 @@ interface FinanceQuoteResult {
     change: number
     changePercent: number
     previousClose: number
+    marketOpen: boolean
   }
   error?: string
 }
@@ -57,6 +58,9 @@ export function registerFinanceHandlers(): void {
                 previousClose?: number
                 chartPreviousClose?: number
                 shortName?: string
+                currentTradingPeriod?: {
+                  regular: { start: number; end: number }
+                }
               }
             }>
             error?: { description: string }
@@ -85,6 +89,14 @@ export function registerFinanceHandlers(): void {
         const change = price - prevClose
         const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0
 
+        const tp = meta.currentTradingPeriod?.regular
+        const nowEpoch = Math.floor(Date.now() / 1000)
+        const marketOpen = tp
+          && typeof tp.start === 'number'
+          && typeof tp.end === 'number'
+          ? nowEpoch >= tp.start && nowEpoch < tp.end
+          : true // default open for assets without trading periods (crypto, futures)
+
         return {
           success: true,
           quote: {
@@ -94,6 +106,7 @@ export function registerFinanceHandlers(): void {
             change,
             changePercent,
             previousClose: prevClose,
+            marketOpen,
           },
         }
       } catch (err) {

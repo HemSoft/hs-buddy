@@ -16,6 +16,7 @@ const QUOTE_AAPL = {
   change: 2,
   changePercent: 1.35,
   previousClose: 148,
+  marketOpen: true,
 }
 
 describe('readWatchlist', () => {
@@ -37,9 +38,9 @@ describe('readWatchlist', () => {
     expect(readWatchlist()).toContain('^GSPC')
   })
 
-  it('falls back to default for empty array', () => {
+  it('returns empty array for persisted empty watchlist', () => {
     localStorage.setItem('finance:watchlist', '[]')
-    expect(readWatchlist()).toContain('^GSPC')
+    expect(readWatchlist()).toEqual([])
   })
 })
 
@@ -59,7 +60,7 @@ describe('useFinance', () => {
   it('initializes from valid cache', () => {
     localStorage.setItem(
       'finance:cache',
-      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: Date.now(), version: 2 })
+      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: Date.now(), version: 3 })
     )
     const { result } = renderHook(() => useFinance())
     expect(result.current.loading).toBe(false)

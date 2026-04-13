@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add 124 tests across 7 hook files, raise coverage thresholds
 - Format files flagged by Prettier CI check
+- Centralize card refresh UI and fix status indicator consistency
+- Compact quote row vertical spacing
+- Bump font sizes for readability
+- Format files with Prettier
 
 ### Fixed
 
@@ -22,6 +26,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve ESLint errors blocking CI
 - Address PR review comments and bundle-size CI failure
 - Address 2nd round PR review comments
+- Harden Finance quote row layout and fix countdown edge case
+- Show friendly names only and invalidate stale cache
+- Harden useAutoRefresh input validation and refresh stamping
+- Normalize enabled:true with intervalMinutes:0 to disabled
+- Correct mock return types for stricter refreshFn signature
+- Remove unused callCount variable in stale-closure test
+- Guard async stamp against unmount, avoid unnecessary re-renders
+- Prevent empty watchlist from resurrecting defaults, add a11y label
+
+### Added
+
+- Add configurable auto-refresh for dashboard cards
+- Add countdown and last-refreshed indicators to auto-refresh cards
+- Add market status pills and trend accent bars
 
 ## [0.1.694] - 2026-04-13
 

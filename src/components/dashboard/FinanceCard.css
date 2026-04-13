@@ -7,19 +7,6 @@
     0 0 0 1px rgba(80, 200, 120, 0.12);
 }
 
-/* ── Header ────────────────────────────────────────────────────────────── */
-
-.finance-header-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.finance-header-row .welcome-section-heading {
-  flex: 1;
-  min-width: 0;
-}
-
 /* ── Collapsed summary ─────────────────────────────────────────────────── */
 
 .finance-collapsed-summary {
@@ -47,24 +34,69 @@
   font-weight: 700;
 }
 
+/* ── Symbol row with trend + market pill ───────────────────────────────── */
+
+.finance-quote-symbol-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.finance-quote-trend {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.finance-market-pill {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 5px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.finance-market-open {
+  color: #1a3a24;
+  background: rgba(78, 206, 138, 0.85);
+}
+
+.finance-market-closed {
+  color: #3a2a0a;
+  background: rgba(230, 160, 50, 0.85);
+}
+
 /* ── Quote list ────────────────────────────────────────────────────────── */
 
 .finance-quote-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
 }
 
 .finance-quote-row {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 6px;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
+  border-left: 3px solid var(--border-primary);
   transition: all 0.15s ease;
+}
+
+.finance-quote-row--up {
+  border-left-color: #4ece8a;
+}
+
+.finance-quote-row--down {
+  border-left-color: #e25555;
 }
 
 .finance-quote-row:hover {
@@ -74,45 +106,52 @@
 .finance-quote-info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
   flex: 1;
   min-width: 0;
 }
 
 .finance-quote-symbol {
+  display: block;
   font-size: 12px;
   font-weight: 700;
   color: var(--text-heading);
   letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .finance-quote-name {
-  font-size: 10px;
+  display: block;
+  font-size: 9px;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .finance-quote-price-col {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 1px;
+  flex-shrink: 0;
+  gap: 0;
 }
 
 .finance-quote-price {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-heading);
+  line-height: 1.2;
 }
 
 .finance-quote-change {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 /* ── Up/Down colors ────────────────────────────────────────────────────── */
@@ -131,10 +170,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: 3px;
   border: none;
   background: transparent;
   color: var(--text-muted);

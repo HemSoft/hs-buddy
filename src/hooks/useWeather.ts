@@ -190,7 +190,7 @@ export function useWeather() {
 
     const loc = readSavedLocation() ?? DEFAULT_LOCATION
 
-    fetchWeather(loc, controller.signal)
+    return fetchWeather(loc, controller.signal)
       .then(data => {
         if (!controller.signal.aborted) {
           writeCache(data)
@@ -205,6 +205,7 @@ export function useWeather() {
             error: err instanceof Error ? err.message : 'Failed to fetch weather',
           }))
         }
+        throw err
       })
   }, [])
 
@@ -248,7 +249,9 @@ export function useWeather() {
           // localStorage unavailable
         }
         // Now re-fetch
-        refresh()
+        refresh().catch(() => {
+          /* error already handled in state */
+        })
       },
       () => {
         setState(prev => ({ ...prev, error: 'Location permission denied' }))
@@ -306,7 +309,9 @@ export function useWeather() {
         } catch {
           // localStorage unavailable
         }
-        refresh()
+        refresh().catch(() => {
+          /* error already handled in state */
+        })
       } catch (err) {
         setState(prev => ({
           ...prev,
@@ -323,7 +328,9 @@ export function useWeather() {
   // Fetch on mount if no cached data
   useEffect(() => {
     if (!readCache()) {
-      refresh()
+      refresh().catch(() => {
+        /* error already handled in state */
+      })
     }
 
     return () => {

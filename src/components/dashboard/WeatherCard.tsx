@@ -11,13 +11,13 @@ import {
   RefreshCw,
   MapPin,
   Search,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { SectionHeading, StatCard } from './DashboardPrimitives'
+import { SectionHeading, StatCard, CardHeader, CardActionBar } from './DashboardPrimitives'
 import { useWeather } from '../../hooks/useWeather'
 import type { ForecastDay } from '../../hooks/useWeather'
+import { useAutoRefresh } from '../../hooks/useAutoRefresh'
+import { useExpandCollapse } from '../../hooks/useExpandCollapse'
 import './WeatherCard.css'
 
 function weatherIcon(code: number, size = 18): ReactNode {
@@ -29,16 +29,6 @@ function weatherIcon(code: number, size = 18): ReactNode {
   if (code <= 82) return <CloudRain size={size} />
   if (code <= 86) return <CloudSnow size={size} />
   return <CloudLightning size={size} />
-}
-
-const EXPANDED_KEY = 'weather:expanded'
-
-function readExpanded(): boolean {
-  try {
-    return localStorage.getItem(EXPANDED_KEY) !== 'false'
-  } catch {
-    return true
-  }
 }
 
 function ForecastRow({ day }: { day: ForecastDay }) {
@@ -58,20 +48,9 @@ function ForecastRow({ day }: { day: ForecastDay }) {
 export function WeatherCard() {
   const { data, loading, error, refresh, useMyLocation, setLocationBySearch, savedLocation } =
     useWeather()
+  const autoRefresh = useAutoRefresh('weather', refresh, 30, loading)
   const [searchQuery, setSearchQuery] = useState('')
-  const [expanded, setExpanded] = useState(readExpanded)
-
-  const toggleExpanded = () => {
-    setExpanded(prev => {
-      const next = !prev
-      try {
-        localStorage.setItem(EXPANDED_KEY, String(next))
-      } catch {
-        /* noop */
-      }
-      return next
-    })
-  }
+  const { expanded, toggle } = useExpandCollapse('weather:expanded')
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -82,22 +61,13 @@ export function WeatherCard() {
 
   return (
     <section className="welcome-section welcome-section-weather" aria-label="Weather overview">
-      <div className="weather-header-row">
+      <CardHeader expanded={expanded} onToggle={toggle}>
         <SectionHeading
           kicker="Local weather"
           title="Weather"
           caption={data?.locationName ?? savedLocation}
         />
-        <button
-          type="button"
-          className="weather-collapse-btn"
-          onClick={toggleExpanded}
-          aria-expanded={expanded}
-          title={expanded ? 'Collapse' : 'Expand'}
-        >
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-      </div>
+      </CardHeader>
 
       {/* Collapsed summary — always visible */}
       {!expanded && data && (
@@ -206,17 +176,15 @@ export function WeatherCard() {
             </>
           )}
 
-          <div className="weather-actions">
-            <button
-              type="button"
-              className="welcome-usage-btn"
-              onClick={refresh}
-              disabled={loading}
-              title="Refresh weather data"
-            >
-              <RefreshCw size={14} className={loading ? 'spin' : ''} />
-              <span>Refresh</span>
-            </button>
+          <CardActionBar
+            onRefresh={autoRefresh.refresh}
+            loading={loading}
+            refreshTitle="Refresh weather data"
+            selectedInterval={autoRefresh.selectedValue}
+            onIntervalChange={autoRefresh.setInterval}
+            lastRefreshedLabel={autoRefresh.lastRefreshedLabel}
+            nextRefreshLabel={autoRefresh.nextRefreshLabel}
+          >
             <button
               type="button"
               className="welcome-usage-btn"
@@ -226,7 +194,7 @@ export function WeatherCard() {
               <MapPin size={14} />
               <span>Use My Location</span>
             </button>
-          </div>
+          </CardActionBar>
         </>
       )}
     </section>

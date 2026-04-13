@@ -1,28 +1,11 @@
-import {
-  TrendingUp,
-  TrendingDown,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  X,
-  DollarSign,
-} from 'lucide-react'
+import { Plus, X, DollarSign, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
-import { SectionHeading } from './DashboardPrimitives'
+import { SectionHeading, CardHeader, CardActionBar } from './DashboardPrimitives'
 import { useFinance } from '../../hooks/useFinance'
 import type { QuoteData } from '../../hooks/useFinance'
+import { useAutoRefresh } from '../../hooks/useAutoRefresh'
+import { useExpandCollapse } from '../../hooks/useExpandCollapse'
 import './FinanceCard.css'
-
-const EXPANDED_KEY = 'finance:expanded'
-
-function readExpanded(): boolean {
-  try {
-    return localStorage.getItem(EXPANDED_KEY) !== 'false'
-  } catch {
-    return true
-  }
-}
 
 function formatPrice(price: number): string {
   if (price == null || isNaN(price)) return '—'
@@ -37,15 +20,30 @@ function QuoteRow({ quote, onRemove }: { quote: QuoteData; onRemove?: (symbol: s
   const positive = change >= 0
 
   return (
-    <div className="finance-quote-row">
+    <div
+      className={`finance-quote-row ${positive ? 'finance-quote-row--up' : 'finance-quote-row--down'}`}
+    >
       <div className="finance-quote-info">
-        <span className="finance-quote-symbol">{quote.symbol}</span>
-        <span className="finance-quote-name">{quote.name}</span>
+        <div className="finance-quote-symbol-row">
+          <span
+            className={`finance-quote-trend ${positive ? 'finance-up' : 'finance-down'}`}
+            aria-hidden="true"
+          >
+            {positive ? '▲' : '▼'}
+          </span>
+          <span className="sr-only">{positive ? 'Up' : 'Down'}</span>
+          <span className="finance-quote-symbol">{quote.name}</span>
+          <span
+            className={`finance-market-pill ${quote.marketOpen ? 'finance-market-open' : 'finance-market-closed'}`}
+          >
+            {quote.marketOpen ? 'Open' : 'Closed'}
+          </span>
+        </div>
       </div>
       <div className="finance-quote-price-col">
         <span className="finance-quote-price">{formatPrice(quote.price)}</span>
         <span className={`finance-quote-change ${positive ? 'finance-up' : 'finance-down'}`}>
-          {positive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+          <span aria-hidden="true">{positive ? '▲' : '▼'}</span>{' '}
           <span>
             {`${positive ? '+' : ''}${change.toFixed(2)} (${positive ? '+' : ''}${changePercent.toFixed(2)}%)`}
           </span>
@@ -67,20 +65,9 @@ function QuoteRow({ quote, onRemove }: { quote: QuoteData; onRemove?: (symbol: s
 
 export function FinanceCard() {
   const { quotes, loading, error, watchlist, refresh, addSymbol, removeSymbol } = useFinance()
-  const [expanded, setExpanded] = useState(readExpanded)
+  const autoRefresh = useAutoRefresh('finance', refresh, 15, loading || watchlist.length === 0)
+  const { expanded, toggle } = useExpandCollapse('finance:expanded')
   const [addInput, setAddInput] = useState('')
-
-  const toggleExpanded = () => {
-    setExpanded(prev => {
-      const next = !prev
-      try {
-        localStorage.setItem(EXPANDED_KEY, String(next))
-      } catch {
-        /* noop */
-      }
-      return next
-    })
-  }
 
   const handleAdd = () => {
     if (addInput.trim()) {
@@ -94,22 +81,13 @@ export function FinanceCard() {
 
   return (
     <section className="welcome-section welcome-section-finance" aria-label="Finance overview">
-      <div className="finance-header-row">
+      <CardHeader expanded={expanded} onToggle={toggle}>
         <SectionHeading
           kicker="Markets"
           title="Finance"
           caption={`${watchlist.length} symbol${watchlist.length !== 1 ? 's' : ''} tracked`}
         />
-        <button
-          type="button"
-          className="weather-collapse-btn"
-          onClick={toggleExpanded}
-          aria-expanded={expanded}
-          title={expanded ? 'Collapse' : 'Expand'}
-        >
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-      </div>
+      </CardHeader>
 
       {/* Collapsed summary */}
       {!expanded && quotes.length > 0 && (
@@ -189,18 +167,15 @@ export function FinanceCard() {
             </button>
           </div>
 
-          <div className="weather-actions">
-            <button
-              type="button"
-              className="welcome-usage-btn"
-              onClick={refresh}
-              disabled={loading}
-              title="Refresh market data"
-            >
-              <RefreshCw size={14} className={loading ? 'spin' : ''} />
-              <span>Refresh</span>
-            </button>
-          </div>
+          <CardActionBar
+            onRefresh={autoRefresh.refresh}
+            loading={loading}
+            refreshTitle="Refresh market data"
+            selectedInterval={autoRefresh.selectedValue}
+            onIntervalChange={autoRefresh.setInterval}
+            lastRefreshedLabel={autoRefresh.lastRefreshedLabel}
+            nextRefreshLabel={autoRefresh.nextRefreshLabel}
+          />
         </>
       )}
     </section>

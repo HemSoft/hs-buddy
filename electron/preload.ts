@@ -128,6 +128,10 @@ contextBridge.exposeInMainWorld('todoist', {
   getProjects: () => ipcRenderer.invoke('todoist:get-projects'),
 })
 
+contextBridge.exposeInMainWorld('finance', {
+  fetchQuote: (symbol: string) => ipcRenderer.invoke('finance:fetch-quote', symbol),
+})
+
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
     ipcRenderer.invoke('copilot:execute', args),

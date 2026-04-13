@@ -1,9 +1,9 @@
-/* WelcomePanel.css — Compact welcome dashboard, no scroll */
+/* WelcomePanel.css — Dashboard layout */
 
 .welcome-panel {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 20px 24px;
   overflow-y: auto;
@@ -14,8 +14,27 @@
 .welcome-stack {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 20px;
   width: 100%;
-  max-width: 860px;
+  max-width: 1200px;
+}
+
+/* ── Dashboard Grid ────────────────────────────────────────────────────── */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.dashboard-grid-item {
+  min-width: 0;
+}
+
+.dashboard-grid-span-2 {
+  grid-column: span 2;
 }
 
 .welcome-section {
@@ -189,16 +208,6 @@
   cursor: not-allowed;
 }
 
-.welcome-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 780px;
-  gap: 20px;
-}
-
 /* ── Header ─────────────────────────────────────────────────────────────── */
 
 .welcome-header {
@@ -270,6 +279,12 @@
   align-items: flex-end;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.welcome-header-meta-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .welcome-version-badge {
@@ -429,9 +444,19 @@
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
+@media (max-width: 860px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid-span-2 {
+    grid-column: span 1;
+  }
+}
+
 @media (max-width: 680px) {
   .welcome-panel {
-    align-items: flex-start;
+    padding: 12px 16px;
   }
 
   .welcome-section {
@@ -478,6 +503,12 @@
   .welcome-header-meta {
     flex-direction: row;
     align-items: center;
+  }
+
+  .welcome-header-meta-top {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
   }
 }
 

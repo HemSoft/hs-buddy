@@ -36,12 +36,57 @@ vi.mock('../hooks/useCopilotUsage', () => ({
   }),
 }))
 
+vi.mock('../hooks/useWeather', () => ({
+  useWeather: () => ({
+    data: {
+      temperature: 72,
+      temperatureUnit: '°F',
+      weatherCode: 1,
+      description: 'Mainly clear',
+      humidity: 45,
+      windSpeed: 8,
+      high: 78,
+      low: 62,
+      locationName: 'Morrisville, NC',
+      forecast: [
+        { date: '2026-04-13', dayName: 'Today', weatherCode: 1, description: 'Mainly clear', high: 78, low: 62 },
+        { date: '2026-04-14', dayName: 'Tue', weatherCode: 3, description: 'Overcast', high: 74, low: 58 },
+        { date: '2026-04-15', dayName: 'Wed', weatherCode: 61, description: 'Slight rain', high: 68, low: 55 },
+      ],
+    },
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+    useMyLocation: vi.fn(),
+    setLocationBySearch: vi.fn(),
+    savedLocation: 'Morrisville, NC',
+  }),
+}))
+
+vi.mock('../hooks/useFinance', () => ({
+  useFinance: () => ({
+    quotes: [
+      { symbol: '^GSPC', name: 'S&P 500', price: 5200.50, change: 25.30, changePercent: 0.49, previousClose: 5175.20 },
+      { symbol: '^IXIC', name: 'NASDAQ', price: 16300.00, change: -45.20, changePercent: -0.28, previousClose: 16345.20 },
+      { symbol: '^DJI', name: 'DOW', price: 39800.00, change: 120.50, changePercent: 0.30, previousClose: 39679.50 },
+      { symbol: 'BTC-USD', name: 'Bitcoin', price: 63500.00, change: 1200.00, changePercent: 1.93, previousClose: 62300.00 },
+    ],
+    loading: false,
+    error: null,
+    watchlist: ['^GSPC', '^IXIC', '^DJI', 'BTC-USD'],
+    refresh: vi.fn(),
+    addSymbol: vi.fn(),
+    removeSymbol: vi.fn(),
+  }),
+}))
+
 describe('WelcomePanel', () => {
   const onNavigate = vi.fn()
   const onSectionChange = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
   })
 
   it('renders app name', () => {
@@ -64,12 +109,40 @@ describe('WelcomePanel', () => {
     expect(screen.getByText('Workspace Pulse')).toBeTruthy()
   })
 
+  it('renders weather card with forecast', () => {
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+    expect(screen.getByText('Weather')).toBeTruthy()
+    expect(screen.getByText('Morrisville, NC')).toBeTruthy()
+    expect(screen.getByText('3-Day Forecast')).toBeTruthy()
+    expect(screen.getByText('Today')).toBeTruthy()
+    expect(screen.getByText('Tue')).toBeTruthy()
+    expect(screen.getByText('Wed')).toBeTruthy()
+  })
+
+  it('collapses weather card and shows summary', () => {
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+
+    // Find collapse button within the weather card section
+    const weatherSection = screen.getByLabelText('Weather overview')
+    const collapseBtn = weatherSection.querySelector('[title="Collapse"]') as HTMLElement
+    fireEvent.click(collapseBtn)
+
+    // Forecast should be hidden, summary visible
+    expect(screen.queryByText('3-Day Forecast')).toBeNull()
+    // Collapsed summary shows temp
+    expect(screen.getByText('72°F')).toBeTruthy()
+  })
+
+  it('renders customize button for dashboard config', () => {
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+    expect(screen.getByText('Customize')).toBeTruthy()
+  })
+
   it('renders quick action buttons', () => {
     render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
     expect(screen.getByText('My PRs')).toBeTruthy()
     expect(screen.getByText('Organizations')).toBeTruthy()
     expect(screen.getByText('Jobs')).toBeTruthy()
-    expect(screen.getByText('Settings')).toBeTruthy()
   })
 
   it('navigates to My PRs on click', () => {
@@ -119,5 +192,29 @@ describe('WelcomePanel', () => {
     fireEvent.click(screen.getByText('Open Usage'))
     expect(onSectionChange).toHaveBeenCalledWith('copilot')
     expect(onNavigate).toHaveBeenCalledWith('copilot-usage')
+  })
+
+  it('toggles card visibility via dashboard config', () => {
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+
+    // Open the config dropdown
+    fireEvent.click(screen.getByText('Customize'))
+
+    // Weather should be visible, toggle it off
+    const weatherToggle = screen.getByRole('menuitemcheckbox', { name: 'Weather' })
+    expect(weatherToggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(weatherToggle)
+
+    // Weather card should now be hidden
+    expect(screen.queryByText('Morrisville, NC')).toBeNull()
+  })
+
+  it('renders finance card with market data', () => {
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+    expect(screen.getByText('Finance')).toBeTruthy()
+    expect(screen.getByText('S&P 500')).toBeTruthy()
+    expect(screen.getByText('NASDAQ')).toBeTruthy()
+    expect(screen.getByText('DOW')).toBeTruthy()
+    expect(screen.getByText('Bitcoin')).toBeTruthy()
   })
 })

@@ -1,25 +1,22 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Users,
   GitPullRequest,
-  Activity,
-  FolderGit2,
-  Play,
-  Star,
-  Calendar,
   Clock,
   Building2,
   Zap,
   Settings,
   Heart,
-  Sparkles,
-  RefreshCw,
-  ArrowRight,
 } from 'lucide-react'
 import { useBuddyStats, useRepoBookmarks } from '../hooks/useConvex'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
+import { useDashboardCards } from '../hooks/useDashboardCards'
 import { formatUptime } from '../utils/dateUtils'
-import { formatCurrency } from './copilot-usage/quotaUtils'
+import { CommandCenterCard } from './dashboard/CommandCenterCard'
+import { WorkspacePulseCard } from './dashboard/WorkspacePulseCard'
+import { WeatherCard } from './dashboard/WeatherCard'
+import { FinanceCard } from './dashboard/FinanceCard'
+import { DashboardConfigDropdown } from './dashboard/DashboardConfigDropdown'
 import './WelcomePanel.css'
 
 interface WelcomePanelProps {
@@ -30,20 +27,17 @@ interface WelcomePanelProps {
 
 type QuickAction = 'my-prs' | 'organizations' | 'jobs' | 'settings'
 
-interface WelcomeStatCardProps {
-  icon: ReactNode
-  value: string
-  label: string
-  subtitle?: string
-  cardClassName?: string
-  iconClassName?: string
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString()
-}
-
-function WelcomeHeader({ liveUptime }: { liveUptime: number }) {
+function WelcomeHeader({
+  liveUptime,
+  cards,
+  isVisible,
+  toggleCard,
+}: {
+  liveUptime: number
+  cards: ReturnType<typeof useDashboardCards>['cards']
+  isVisible: ReturnType<typeof useDashboardCards>['isVisible']
+  toggleCard: ReturnType<typeof useDashboardCards>['toggleCard']
+}) {
   return (
     <div className="welcome-header">
       <div className="welcome-header-row">
@@ -58,7 +52,14 @@ function WelcomeHeader({ liveUptime }: { liveUptime: number }) {
           </div>
         </div>
         <div className="welcome-header-meta">
-          <div className="welcome-version-badge">Version 0.1.694</div>
+          <div className="welcome-header-meta-top">
+            <div className="welcome-version-badge">Version 0.1.694</div>
+            <DashboardConfigDropdown
+              cards={cards}
+              isVisible={isVisible}
+              toggleCard={toggleCard}
+            />
+          </div>
           {liveUptime > 0 && (
             <div className="welcome-uptime-badge">
               <Clock size={12} />
@@ -68,241 +69,6 @@ function WelcomeHeader({ liveUptime }: { liveUptime: number }) {
         </div>
       </div>
     </div>
-  )
-}
-
-function WelcomeSectionHeading({
-  kicker,
-  title,
-  caption,
-}: {
-  kicker: string
-  title: string
-  caption: string
-}) {
-  return (
-    <div className="welcome-section-heading">
-      <div className="welcome-section-heading-copy">
-        <span className="welcome-section-kicker">{kicker}</span>
-        <h2 className="welcome-section-title">{title}</h2>
-      </div>
-      <span className="welcome-section-caption">{caption}</span>
-    </div>
-  )
-}
-
-function WelcomeStatCard({
-  icon,
-  value,
-  label,
-  subtitle,
-  cardClassName,
-  iconClassName,
-}: WelcomeStatCardProps) {
-  const cardClasses = ['welcome-stat-card', cardClassName].filter(Boolean).join(' ')
-  const iconClasses = ['welcome-stat-icon', iconClassName].filter(Boolean).join(' ')
-
-  return (
-    <div className={cardClasses}>
-      <div className={iconClasses}>{icon}</div>
-      <div className="welcome-stat-info">
-        <span className="welcome-stat-value">{value}</span>
-        <span className="welcome-stat-label">{label}</span>
-        {subtitle && <span className="welcome-stat-subtitle">{subtitle}</span>}
-      </div>
-    </div>
-  )
-}
-
-function CopilotUsageSection({
-  accountCount,
-  hasCopilotAccounts,
-  anyLoading,
-  onRefresh,
-  onOpenUsage,
-  totalUsed,
-  totalOverage,
-  projectedTotal,
-  projectedOverageCost,
-}: {
-  accountCount: number
-  hasCopilotAccounts: boolean
-  anyLoading: boolean
-  onRefresh: () => void
-  onOpenUsage: () => void
-  totalUsed: number
-  totalOverage: number
-  projectedTotal: number | null | undefined
-  projectedOverageCost: number | null | undefined
-}) {
-  return (
-    <section
-      className="welcome-section welcome-section-copilot"
-      aria-label="Copilot usage overview"
-    >
-      <WelcomeSectionHeading
-        kicker="Copilot usage"
-        title="Command Center"
-        caption="Live spend, projection, and account health at a glance"
-      />
-
-      <div className="welcome-usage-strip-header">
-        <div className="welcome-usage-strip-title">
-          <div className="welcome-stat-icon welcome-stat-icon-copilot">
-            <Sparkles size={18} />
-          </div>
-          <div className="welcome-usage-strip-copy">
-            <span className="welcome-usage-strip-name">Connected Accounts</span>
-            <span className="welcome-usage-strip-description">
-              {hasCopilotAccounts
-                ? `${accountCount} connected account${accountCount === 1 ? '' : 's'}`
-                : 'No accounts configured'}
-            </span>
-          </div>
-        </div>
-
-        <div className="welcome-usage-actions">
-          <button
-            type="button"
-            className="welcome-usage-btn"
-            onClick={onRefresh}
-            disabled={anyLoading || !hasCopilotAccounts}
-            title="Refresh Copilot usage data"
-          >
-            <RefreshCw size={14} className={anyLoading ? 'spin' : ''} />
-            <span>Refresh</span>
-          </button>
-          <button type="button" className="welcome-usage-btn" onClick={onOpenUsage}>
-            <span>{hasCopilotAccounts ? 'Open Usage' : 'Configure Accounts'}</span>
-            <ArrowRight size={14} />
-          </button>
-        </div>
-      </div>
-
-      <div className="welcome-usage-stats" aria-live="polite">
-        <WelcomeStatCard
-          icon={<Zap size={18} />}
-          value={totalUsed.toLocaleString()}
-          label="Total Used"
-          cardClassName="welcome-usage-stat-card"
-          iconClassName="welcome-stat-icon-copilot-soft"
-        />
-        <WelcomeStatCard
-          icon={<Sparkles size={18} />}
-          value={formatCurrency(totalOverage)}
-          label="Total Overage"
-          cardClassName="welcome-usage-stat-card"
-          iconClassName="welcome-stat-icon-copilot-soft"
-        />
-        <WelcomeStatCard
-          icon={<Activity size={18} />}
-          value={projectedTotal?.toLocaleString() ?? '...'}
-          label="Projected"
-          cardClassName="welcome-usage-stat-card"
-          iconClassName="welcome-stat-icon-copilot-soft"
-        />
-        <WelcomeStatCard
-          icon={<ArrowRight size={18} />}
-          value={
-            projectedOverageCost != null && projectedOverageCost > 0
-              ? formatCurrency(projectedOverageCost)
-              : '$0.00'
-          }
-          label="Est. Overage"
-          cardClassName="welcome-usage-stat-card welcome-usage-stat-card-accent"
-          iconClassName="welcome-stat-icon-overage"
-        />
-      </div>
-    </section>
-  )
-}
-
-function ActivityOverviewSection({
-  totalPrsViewed,
-  activePrs,
-  copilotPrReviews,
-  reposBrowsed,
-  runsTriggered,
-  totalFinished,
-  successRate,
-  bookmarks,
-  firstLaunch,
-  appLaunches,
-}: {
-  totalPrsViewed: number
-  activePrs: number
-  copilotPrReviews: number
-  reposBrowsed: number
-  runsTriggered: number
-  totalFinished: number
-  successRate: number
-  bookmarks: number
-  firstLaunch: number
-  appLaunches: number
-}) {
-  return (
-    <section
-      className="welcome-section welcome-section-activity"
-      aria-label="Buddy activity overview"
-    >
-      <WelcomeSectionHeading
-        kicker="Buddy activity"
-        title="Workspace Pulse"
-        caption="Pull requests, runs, bookmarks, and session history in one panel"
-      />
-
-      <div className="welcome-stats-grid">
-        <WelcomeStatCard
-          icon={<GitPullRequest size={18} />}
-          value={formatNumber(totalPrsViewed)}
-          label="PRs Viewed"
-        />
-        <WelcomeStatCard
-          icon={<Activity size={18} />}
-          value={formatNumber(activePrs)}
-          label="Active PRs"
-          iconClassName="welcome-stat-icon-live"
-        />
-        <WelcomeStatCard
-          icon={<Sparkles size={18} />}
-          value={formatNumber(copilotPrReviews)}
-          label="PRs Reviewed"
-        />
-        <WelcomeStatCard
-          icon={<FolderGit2 size={18} />}
-          value={formatNumber(reposBrowsed)}
-          label="Repos Browsed"
-        />
-        <WelcomeStatCard
-          icon={<Play size={18} />}
-          value={formatNumber(runsTriggered)}
-          label="Runs Executed"
-          subtitle={totalFinished > 0 ? `${successRate}%` : undefined}
-        />
-        <WelcomeStatCard
-          icon={<Star size={18} />}
-          value={formatNumber(bookmarks)}
-          label="Bookmarks"
-        />
-        <WelcomeStatCard
-          icon={<Calendar size={18} />}
-          value={
-            firstLaunch
-              ? new Date(firstLaunch).toLocaleDateString('en-US', {
-                  month: 'short',
-                  year: 'numeric',
-                })
-              : 'Today'
-          }
-          label="Member Since"
-          subtitle={
-            appLaunches > 0
-              ? `${formatNumber(appLaunches)} session${appLaunches !== 1 ? 's' : ''}`
-              : undefined
-          }
-        />
-      </div>
-    </section>
   )
 }
 
@@ -351,6 +117,7 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   const stats = useBuddyStats()
   const { accounts, aggregateTotals, aggregateProjections, anyLoading, refreshAll } =
     useCopilotUsage()
+  const { cards, visibleCards, isVisible, toggleCard } = useDashboardCards()
 
   const totalPrsViewed =
     (stats?.prsViewed ?? 0) + (stats?.prsReviewed ?? 0) + (stats?.prsMergedWatched ?? 0)
@@ -423,12 +190,11 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
     onNavigate('settings-accounts')
   }
 
-  return (
-    <div className="welcome-panel">
-      <div className="welcome-stack">
-        <div className="welcome-card">
-          <WelcomeHeader liveUptime={liveUptime} />
-          <CopilotUsageSection
+  const renderCard = (cardId: string) => {
+    switch (cardId) {
+      case 'command-center':
+        return (
+          <CommandCenterCard
             accountCount={accounts.length}
             hasCopilotAccounts={hasCopilotAccounts}
             anyLoading={anyLoading}
@@ -439,7 +205,10 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
             projectedTotal={aggregateProjections?.projectedTotal}
             projectedOverageCost={aggregateProjections?.projectedOverageCost}
           />
-          <ActivityOverviewSection
+        )
+      case 'workspace-pulse':
+        return (
+          <WorkspacePulseCard
             totalPrsViewed={totalPrsViewed}
             activePrs={activePrs}
             copilotPrReviews={copilotPrReviews}
@@ -451,9 +220,37 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
             firstLaunch={firstLaunch}
             appLaunches={appLaunches}
           />
-          <QuickActionsBar onQuickAction={handleQuickAction} />
-          <WelcomeFooter />
+        )
+      case 'weather':
+        return <WeatherCard />
+      case 'finance':
+        return <FinanceCard />
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="welcome-panel">
+      <div className="welcome-stack">
+        <WelcomeHeader
+          liveUptime={liveUptime}
+          cards={cards}
+          isVisible={isVisible}
+          toggleCard={toggleCard}
+        />
+        <div className="dashboard-grid">
+          {visibleCards.map(card => (
+            <div
+              key={card.id}
+              className={`dashboard-grid-item${card.span === 2 ? ' dashboard-grid-span-2' : ''}`}
+            >
+              {renderCard(card.id)}
+            </div>
+          ))}
         </div>
+        <QuickActionsBar onQuickAction={handleQuickAction} />
+        <WelcomeFooter />
       </div>
     </div>
   )

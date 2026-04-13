@@ -166,6 +166,20 @@ interface Window {
       }
     }>
   }
+  finance: {
+    fetchQuote: (symbol: string) => Promise<{
+      success: boolean
+      quote?: {
+        symbol: string
+        name: string
+        price: number
+        change: number
+        changePercent: number
+        previousClose: number
+      }
+      error?: string
+    }>
+  }
   copilot: {
     execute: (args: {
       prompt: string

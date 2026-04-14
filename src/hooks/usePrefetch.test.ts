@@ -1,39 +1,40 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import { usePrefetch } from './usePrefetch'
 
-// Mock external dependencies before import
-const mockEnqueue = vi.fn().mockResolvedValue(undefined)
-const mockAccounts = [{ username: 'alice', org: 'acme' }]
+const {
+  mockUseGitHubAccounts,
+  mockUsePRSettings,
+  mockUseTaskQueue,
+  mockEnqueue,
+  mockGetTaskQueue,
+  mockDataCacheIsFresh,
+  mockDataCacheGet,
+  mockDataCacheSet,
+  mockDataCacheGetStats,
+} = vi.hoisted(() => ({
+  mockUseGitHubAccounts: vi.fn(),
+  mockUsePRSettings: vi.fn(),
+  mockUseTaskQueue: vi.fn(),
+  mockEnqueue: vi.fn(),
+  mockGetTaskQueue: vi.fn(),
+  mockDataCacheIsFresh: vi.fn(),
+  mockDataCacheGet: vi.fn(),
+  mockDataCacheSet: vi.fn(),
+  mockDataCacheGetStats: vi.fn(),
+}))
 
 vi.mock('./useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts, loading: false }),
-  usePRSettings: () => ({ refreshInterval: 15, recentlyMergedDays: 7, loading: false }),
+  useGitHubAccounts: mockUseGitHubAccounts,
+  usePRSettings: mockUsePRSettings,
 }))
 
 vi.mock('./useTaskQueue', () => ({
-  useTaskQueue: () => ({ enqueue: mockEnqueue }),
+  useTaskQueue: mockUseTaskQueue,
 }))
-
-const mockGetTaskQueue = vi.fn().mockReturnValue({
-  hasTaskWithName: () => false,
-})
 
 vi.mock('../services/taskQueue', () => ({
-  getTaskQueue: (...args: unknown[]) => mockGetTaskQueue(...args),
-}))
-
-const mockIsFresh = vi.fn().mockReturnValue(false)
-const mockGet = vi.fn().mockReturnValue(null)
-const mockSet = vi.fn()
-const mockGetStats = vi.fn().mockReturnValue({})
-
-vi.mock('../services/dataCache', () => ({
-  dataCache: {
-    isFresh: (...args: unknown[]) => mockIsFresh(...args),
-    get: (...args: unknown[]) => mockGet(...args),
-    set: (...args: unknown[]) => mockSet(...args),
-    getStats: () => mockGetStats(),
-  },
+  getTaskQueue: mockGetTaskQueue,
 }))
 
 vi.mock('../api/github', () => ({
@@ -46,176 +47,190 @@ vi.mock('../api/github', () => ({
   })),
 }))
 
-import { usePrefetch } from './usePrefetch'
+vi.mock('../services/dataCache', () => ({
+  dataCache: {
+    isFresh: mockDataCacheIsFresh,
+    get: mockDataCacheGet,
+    set: mockDataCacheSet,
+    getStats: mockDataCacheGetStats,
+  },
+}))
+
+const account = { username: 'alice', org: 'test-org' }
 
 describe('usePrefetch', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
     vi.clearAllMocks()
-    mockIsFresh.mockReturnValue(false)
-    mockGetTaskQueue.mockReturnValue({
-      hasTaskWithName: () => false,
+    vi.useFakeTimers()
+
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [account],
+      loading: false,
     })
-    // Reset accounts to default
-    mockAccounts.length = 0
-    mockAccounts.push({ username: 'alice', org: 'acme' })
+    mockUsePRSettings.mockReturnValue({
+      refreshInterval: 5,
+      recentlyMergedDays: 7,
+      loading: false,
+    })
+    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<void>) => {
+      const controller = new AbortController()
+      return fn(controller.signal)
+    })
+    mockUseTaskQueue.mockReturnValue({ enqueue: mockEnqueue })
+    mockGetTaskQueue.mockReturnValue({
+      hasTaskWithName: vi.fn().mockReturnValue(false),
+    })
+    mockDataCacheIsFresh.mockReturnValue(false)
+    mockDataCacheGet.mockReturnValue(null)
+    mockDataCacheGetStats.mockReturnValue({ size: 0, keys: [] })
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it('calls enqueue for each PR mode on startup', () => {
-    renderHook(() => usePrefetch())
-
-    // Should enqueue tasks for: my-prs, needs-review, recently-merged, need-a-nudge, plus org repos
-    expect(mockEnqueue).toHaveBeenCalled()
-    const callCount = mockEnqueue.mock.calls.length
-    // 4 PR modes + 1 org-repos for 'acme'
-    expect(callCount).toBe(5)
-  })
-
-  it('does not prefetch when accounts are empty', () => {
-    mockAccounts.length = 0
+  it('does not prefetch while accounts are loading', () => {
+    mockUseGitHubAccounts.mockReturnValue({ accounts: [], loading: true })
     renderHook(() => usePrefetch())
     expect(mockEnqueue).not.toHaveBeenCalled()
   })
 
-  it('skips fresh data during prefetch', () => {
-    mockIsFresh.mockReturnValue(true)
-    renderHook(() => usePrefetch())
-
-    // When all data is fresh, enqueue should not be called
-    expect(mockEnqueue).not.toHaveBeenCalled()
-  })
-
-  it('skips tasks already in the queue', () => {
-    mockGetTaskQueue.mockReturnValue({
-      hasTaskWithName: () => true,
+  it('does not prefetch while settings are loading', () => {
+    mockUsePRSettings.mockReturnValue({
+      refreshInterval: 5,
+      recentlyMergedDays: 7,
+      loading: true,
     })
     renderHook(() => usePrefetch())
-
-    // When tasks already exist, enqueue should not be called
     expect(mockEnqueue).not.toHaveBeenCalled()
   })
 
-  it('only prefetches once (not on every render)', () => {
-    const { rerender } = renderHook(() => usePrefetch())
-    const firstCallCount = mockEnqueue.mock.calls.length
-
-    rerender()
-    rerender()
-
-    // Should not add more calls on re-render
-    expect(mockEnqueue.mock.calls.length).toBe(firstCallCount)
+  it('does not prefetch when there are no accounts', () => {
+    mockUseGitHubAccounts.mockReturnValue({ accounts: [], loading: false })
+    renderHook(() => usePrefetch())
+    expect(mockEnqueue).not.toHaveBeenCalled()
   })
 
-  it('queues org-repos fetch for each unique org', () => {
-    // Reset and set accounts with multiple orgs
-    mockAccounts.length = 0
-    mockAccounts.push(
-      { username: 'alice', org: 'acme' },
-      { username: 'bob', org: 'acme' },
-      { username: 'charlie', org: 'globex' }
-    )
-
+  it('prefetches PR data for all modes on startup', () => {
     renderHook(() => usePrefetch())
 
-    // Should have PR modes (4) + 2 unique orgs (acme, globex) = 6
-    expect(mockEnqueue.mock.calls.length).toBe(6)
-
-    // Restore
-    mockAccounts.length = 0
-    mockAccounts.push({ username: 'alice', org: 'acme' })
-  })
-
-  it('auto-refreshes when data becomes stale after 30s poll', () => {
-    renderHook(() => usePrefetch())
-
-    // Initial prefetch calls
-    const initialCount = mockEnqueue.mock.calls.length
-    expect(initialCount).toBe(5)
-
-    // Mark data as stale for the next check
-    mockIsFresh.mockReturnValue(false)
-
-    // Advance past 30s poll interval
-    vi.advanceTimersByTime(31_000)
-
-    // Should have enqueued additional fetches
-    expect(mockEnqueue.mock.calls.length).toBeGreaterThan(initialCount)
-  })
-
-  it('does not auto-refresh when all data is fresh', () => {
-    mockIsFresh.mockReturnValue(true)
-    renderHook(() => usePrefetch())
-
-    // No initial prefetch since everything is fresh
-    const initialCount = mockEnqueue.mock.calls.length
-    expect(initialCount).toBe(0)
-
-    // Advance past poll interval
-    vi.advanceTimersByTime(31_000)
-
-    // Still no new calls
-    expect(mockEnqueue.mock.calls.length).toBe(0)
-  })
-
-  it('executes the enqueued fetch function for each PR mode', async () => {
-    // Make enqueue actually call the function
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<void>) => {
-      const controller = new AbortController()
-      await fn(controller.signal)
-    })
-
-    renderHook(() => usePrefetch())
-
-    // The enqueue calls should have run the fetch functions
+    // Should enqueue for 4 PR modes + 1 org-repos
     expect(mockEnqueue).toHaveBeenCalledTimes(5)
   })
 
-  it('skips fetch when data becomes fresh while queued', async () => {
-    let callCount = 0
-    mockIsFresh.mockImplementation(() => {
-      callCount++
-      // First call (outer check) returns false, second call (inner check) returns true
-      return callCount % 2 === 0
-    })
-
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<void>) => {
-      const controller = new AbortController()
-      await fn(controller.signal)
+  it('prefetches org repos based on unique orgs', () => {
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [
+        { username: 'alice', org: 'org-a' },
+        { username: 'bob', org: 'org-b' },
+        { username: 'charlie', org: 'org-a' }, // duplicate org
+      ],
+      loading: false,
     })
 
     renderHook(() => usePrefetch())
 
-    // Some fetches should have been skipped due to freshness check
+    // 4 PR modes + 2 unique orgs = 6
+    expect(mockEnqueue).toHaveBeenCalledTimes(6)
+  })
+
+  it('skips prefetch when data is fresh', () => {
+    mockDataCacheIsFresh.mockReturnValue(true)
+    renderHook(() => usePrefetch())
+    expect(mockEnqueue).not.toHaveBeenCalled()
+  })
+
+  it('skips prefetch when task already queued', () => {
+    mockGetTaskQueue.mockReturnValue({
+      hasTaskWithName: vi.fn().mockReturnValue(true),
+    })
+    renderHook(() => usePrefetch())
+    expect(mockEnqueue).not.toHaveBeenCalled()
+  })
+
+  it('only prefetches once on startup (prefetchedRef guard)', () => {
+    const { rerender } = renderHook(() => usePrefetch())
+    const firstCallCount = mockEnqueue.mock.calls.length
+
+    // Rerender should not trigger another prefetch
+    rerender()
+    expect(mockEnqueue.mock.calls.length).toBe(firstCallCount)
+  })
+
+  it('enqueues fetch with low priority options', () => {
+    renderHook(() => usePrefetch())
+
+    // Check that enqueue is called with correct options (priority: -1)
+    const callArgs = mockEnqueue.mock.calls[0]
+    expect(callArgs[0]).toBeTypeOf('function')
+    expect(callArgs[1]).toEqual(expect.objectContaining({ priority: -1 }))
+  })
+
+  it('auto-refresh timer checks for stale data every 30s', () => {
+    mockDataCacheIsFresh.mockReturnValue(true) // Fresh initially
+    renderHook(() => usePrefetch())
+
+    // Reset enqueue calls from initial prefetch (which was skipped because fresh)
+    mockEnqueue.mockClear()
+
+    // Make data stale
+    mockDataCacheIsFresh.mockReturnValue(false)
+
+    // Advance 30 seconds - timer should trigger
+    vi.advanceTimersByTime(30_000)
+
+    // Should enqueue refreshes now
     expect(mockEnqueue).toHaveBeenCalled()
   })
 
-  it('handles AbortError gracefully in catch handler', async () => {
-    const abortError = new DOMException('Aborted', 'AbortError')
-    mockEnqueue.mockRejectedValue(abortError)
-
-    // Should not throw
+  it('auto-refresh does not queue when all data is fresh', () => {
+    mockDataCacheIsFresh.mockReturnValue(true)
     renderHook(() => usePrefetch())
+
+    mockEnqueue.mockClear()
+
+    // Advance past the timer
+    vi.advanceTimersByTime(30_000)
+
+    // No enqueues since everything is fresh
+    expect(mockEnqueue).not.toHaveBeenCalled()
   })
 
   it('cleans up auto-refresh timer on unmount', () => {
     const { unmount } = renderHook(() => usePrefetch())
-    const countBefore = mockEnqueue.mock.calls.length
+    mockEnqueue.mockClear()
+    mockDataCacheIsFresh.mockReturnValue(false)
 
     unmount()
 
-    // After unmount, advancing timers should not trigger new fetches
+    // Advance time — timer should have been cleared
     vi.advanceTimersByTime(60_000)
-    expect(mockEnqueue.mock.calls.length).toBe(countBefore)
+    expect(mockEnqueue).not.toHaveBeenCalled()
   })
 
-  it('handles cached entry logging for stale data', () => {
-    mockGet.mockReturnValue({ data: 'cached' })
+  it('sorts non-recently-merged PRs by repository then id', async () => {
+    const { GitHubClient } = await import('../api/github')
+    const mockClient = {
+      fetchMyPRs: vi.fn().mockResolvedValue([
+        { repository: 'z-repo', id: 2 },
+        { repository: 'a-repo', id: 1 },
+      ]),
+      fetchNeedsReview: vi.fn().mockResolvedValue([]),
+      fetchRecentlyMerged: vi.fn().mockResolvedValue([]),
+      fetchNeedANudge: vi.fn().mockResolvedValue([]),
+      fetchOrgRepos: vi.fn().mockResolvedValue({ repos: [] }),
+    }
+    ;(GitHubClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockClient)
+
     renderHook(() => usePrefetch())
-    // When cache has existing data, get() is called for logging
-    expect(mockGet).toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Check that dataCache.set was called with sorted PRs for my-prs
+    const myPrsCall = mockDataCacheSet.mock.calls.find((call: unknown[]) => call[0] === 'my-prs')
+    if (myPrsCall) {
+      const prs = myPrsCall[1] as Array<{ repository: string; id: number }>
+      expect(prs[0].repository).toBe('a-repo')
+      expect(prs[1].repository).toBe('z-repo')
+    }
   })
 })

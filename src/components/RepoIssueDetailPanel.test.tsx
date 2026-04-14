@@ -1,219 +1,262 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { RepoIssueDetailPanel } from './RepoIssueDetailPanel'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 
-/* ── mocks ── */
-const mockEnqueue = vi.fn()
-const mockGet = vi.fn()
-const mockSet = vi.fn()
-const mockAccounts = [{ username: 'user', token: 'tok', org: 'org' }]
-
-vi.mock('../services/dataCache', () => ({
-  dataCache: {
-    get: (...args: unknown[]) => mockGet(...args),
-    set: (...args: unknown[]) => mockSet(...args),
-  },
-}))
-
-vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoIssueDetail: vi.fn().mockResolvedValue(null),
-  })),
+const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
+  mockEnqueue: vi.fn(),
+  mockCacheGet: vi.fn(),
+  stableAccounts: [{ username: 'alice', org: 'test-org' }],
 }))
 
 vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts }),
+  useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
 }))
 
 vi.mock('../hooks/useTaskQueue', () => ({
   useTaskQueue: () => ({ enqueue: mockEnqueue }),
 }))
 
-vi.mock('../utils/dateUtils', () => ({
-  formatDateFull: () => 'Jan 15, 2024',
-  formatDistanceToNow: () => '3 days ago',
+vi.mock('../services/dataCache', () => ({
+  dataCache: { get: mockCacheGet, set: vi.fn(), isFresh: vi.fn() },
+}))
+
+vi.mock('../api/github', () => ({
+  GitHubClient: vi.fn().mockImplementation(() => ({
+    fetchRepoIssueDetail: vi.fn(),
+  })),
 }))
 
 vi.mock('../utils/errorUtils', () => ({
-  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'Unknown error'),
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   isAbortError: () => false,
-  throwIfAborted: vi.fn(),
+  throwIfAborted: () => {},
+}))
+
+vi.mock('../utils/dateUtils', () => ({
+  formatDistanceToNow: () => '3 hours ago',
+  formatDateFull: () => 'Jun 1, 2025',
 }))
 
 vi.mock('@uiw/react-markdown-preview', () => ({
   default: ({ source }: { source: string }) => <div data-testid="markdown">{source}</div>,
 }))
 
-vi.mock('remark-gemoji', () => ({ default: {} }))
+vi.mock('remark-gemoji', () => ({
+  default: () => {},
+}))
 
-/* ── test data ── */
-const mockIssueDetail = {
-  number: 42,
-  title: 'Fix login bug',
-  state: 'open',
-  stateReason: null,
-  author: 'alice',
-  body: '## Bug description\nLogin fails for new users.',
-  createdAt: '2024-01-10T10:00:00Z',
-  updatedAt: '2024-01-15T10:00:00Z',
-  closedAt: null,
-  url: 'https://github.com/org/repo/issues/42',
-  commentCount: 2,
-  milestone: { title: 'v2.0' },
-  labels: [
-    { name: 'bug', color: 'ff0000' },
-    { name: 'priority:high', color: 'ff8800' },
-  ],
-  assignees: [{ login: 'alice', name: 'Alice Smith', avatarUrl: 'https://avatar.test/alice' }],
-  comments: [
-    {
-      id: 'c1',
-      author: 'bob',
-      authorAvatarUrl: 'https://avatar.test/bob',
-      body: 'I can reproduce this.',
-      createdAt: '2024-01-11T10:00:00Z',
-      updatedAt: '2024-01-11T10:00:00Z',
-      url: 'https://github.com/org/repo/issues/42#issuecomment-1',
-    },
-  ],
+import { RepoIssueDetailPanel } from './RepoIssueDetailPanel'
+
+function makeIssueDetail(overrides = {}) {
+  return {
+    number: 42,
+    title: 'Login fails intermittently',
+    body: 'When users try to login, it sometimes fails.',
+    author: 'octocat',
+    state: 'open',
+    stateReason: null,
+    url: 'https://github.com/test-org/hs-buddy/issues/42',
+    createdAt: '2025-06-01T10:00:00Z',
+    updatedAt: '2025-06-02T10:00:00Z',
+    closedAt: null,
+    commentCount: 2,
+    labels: [],
+    assignees: [],
+    milestone: null,
+    comments: [],
+    ...overrides,
+  }
 }
 
 describe('RepoIssueDetailPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGet.mockReturnValue(null)
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) =>
-      fn(new AbortController().signal)
-    )
+    mockCacheGet.mockReturnValue(null)
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: vi.fn() },
+      writable: true,
+      configurable: true,
+    })
   })
 
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
     expect(screen.getByText('Loading issue…')).toBeInTheDocument()
-    expect(screen.getByText('org/repo #42')).toBeInTheDocument()
+    expect(screen.getByText('test-org/hs-buddy #42')).toBeInTheDocument()
   })
 
-  it('renders issue detail after fetch', async () => {
-    mockEnqueue.mockImplementation(async () => mockIssueDetail)
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Fix login bug/)).toBeInTheDocument()
-    })
-    expect(screen.getByText('alice')).toBeInTheDocument()
-    expect(screen.getByText('Open')).toBeInTheDocument()
-  })
-
-  it('displays issue body as markdown', async () => {
-    mockGet.mockReturnValue({ data: mockIssueDetail, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    const markdowns = screen.getAllByTestId('markdown')
-    expect(markdowns[0]).toHaveTextContent('Bug description')
-  })
-
-  it('shows empty body message when no description', async () => {
-    const issueNoBody = { ...mockIssueDetail, body: '   ' }
-    mockGet.mockReturnValue({ data: issueNoBody, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('No description was provided for this issue.')).toBeInTheDocument()
-  })
-
-  it('renders labels with correct styles', async () => {
-    mockGet.mockReturnValue({ data: mockIssueDetail, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('bug')).toBeInTheDocument()
-    expect(screen.getByText('priority:high')).toBeInTheDocument()
-  })
-
-  it('renders assignees', async () => {
-    mockGet.mockReturnValue({ data: mockIssueDetail, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('Alice Smith (alice)')).toBeInTheDocument()
-  })
-
-  it('shows no assignees message when empty', async () => {
-    const issueNoAssignees = { ...mockIssueDetail, assignees: [] }
-    mockGet.mockReturnValue({ data: issueNoAssignees, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('No assignees')).toBeInTheDocument()
-  })
-
-  it('shows no labels message when empty', async () => {
-    const issueNoLabels = { ...mockIssueDetail, labels: [] }
-    mockGet.mockReturnValue({ data: issueNoLabels, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('No labels')).toBeInTheDocument()
-  })
-
-  it('renders comments', async () => {
-    mockGet.mockReturnValue({ data: mockIssueDetail, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('I can reproduce this.')).toBeInTheDocument()
-    expect(screen.getByText('1 replies')).toBeInTheDocument()
-  })
-
-  it('shows no comments message when empty', async () => {
-    const issueNoComments = { ...mockIssueDetail, comments: [], commentCount: 0 }
-    mockGet.mockReturnValue({ data: issueNoComments, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('No comments yet.')).toBeInTheDocument()
-  })
-
-  it('shows closed issue state badge', async () => {
-    const closedIssue = { ...mockIssueDetail, state: 'closed', closedAt: '2024-01-14T10:00:00Z' }
-    mockGet.mockReturnValue({ data: closedIssue, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('Closed')).toBeInTheDocument()
-  })
-
-  it('shows milestone value', async () => {
-    mockGet.mockReturnValue({ data: mockIssueDetail, fetchedAt: Date.now() })
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
-
-    expect(screen.getByText('v2.0')).toBeInTheDocument()
-  })
-
-  it('shows error state on fetch failure', async () => {
-    mockEnqueue.mockReset()
-    mockEnqueue.mockRejectedValue(new Error('API rate limit'))
-
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
+  it('shows error state with retry button', async () => {
+    mockEnqueue.mockRejectedValue(new Error('Not found'))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
 
     await waitFor(() => {
       expect(screen.getByText('Failed to load issue')).toBeInTheDocument()
     })
-    expect(screen.getByText('API rate limit')).toBeInTheDocument()
+    expect(screen.getByText('Not found')).toBeInTheDocument()
   })
 
-  it('opens external link when button is clicked', async () => {
-    mockGet.mockReturnValue({ data: mockIssueDetail, fetchedAt: Date.now() })
-    const openExternal = vi.fn()
-    window.shell = { openExternal } as never
+  it('renders issue detail after loading', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
 
-    render(<RepoIssueDetailPanel owner="org" repo="repo" issueNumber={42} />)
+    await waitFor(() => {
+      expect(screen.getByText('#42 Login fails intermittently')).toBeInTheDocument()
+    })
+  })
 
-    fireEvent.click(screen.getByText('Open on GitHub'))
-    expect(openExternal).toHaveBeenCalledWith('https://github.com/org/repo/issues/42')
+  it('shows open state badge', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ state: 'open' }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Open')).toBeInTheDocument()
+    })
+  })
+
+  it('shows closed state badge', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeIssueDetail({ state: 'closed', closedAt: '2025-06-03T10:00:00Z' })
+    )
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Closed')).toBeInTheDocument()
+    })
+  })
+
+  it('renders markdown body', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('markdown')).toHaveTextContent(
+        'When users try to login, it sometimes fails.'
+      )
+    })
+  })
+
+  it('shows empty body message when no description', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ body: '  ' }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No description was provided for this issue.')).toBeInTheDocument()
+    })
+  })
+
+  it('renders labels', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ labels: [{ name: 'bug', color: 'ff0000' }] }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('bug')).toBeInTheDocument()
+    })
+  })
+
+  it('shows no labels message', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ labels: [] }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No labels')).toBeInTheDocument()
+    })
+  })
+
+  it('renders assignees', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeIssueDetail({
+        assignees: [{ login: 'alice', name: 'Alice', avatarUrl: 'https://example.com/a.png' }],
+      })
+    )
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice (alice)')).toBeInTheDocument()
+    })
+  })
+
+  it('shows no assignees message', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ assignees: [] }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No assignees')).toBeInTheDocument()
+    })
+  })
+
+  it('shows milestone when present', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ milestone: { title: 'v1.0' } }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('v1.0')).toBeInTheDocument()
+    })
+  })
+
+  it('shows None for missing milestone', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ milestone: null }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('None')).toBeInTheDocument()
+    })
+  })
+
+  it('renders comments', async () => {
+    const comments = [
+      {
+        id: 'c1',
+        body: 'I can reproduce this',
+        author: 'bob',
+        authorAvatarUrl: 'https://example.com/bob.png',
+        createdAt: '2025-06-02T12:00:00Z',
+        updatedAt: '2025-06-02T12:00:00Z',
+        url: 'https://github.com/test-org/hs-buddy/issues/42#issuecomment-1',
+      },
+    ]
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ comments }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('bob')).toBeInTheDocument()
+    })
+  })
+
+  it('shows no comments message', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ comments: [] }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No comments yet.')).toBeInTheDocument()
+    })
+  })
+
+  it('shows comment count in replies header', async () => {
+    const comments = [
+      {
+        id: 'c1',
+        body: 'Comment 1',
+        author: 'bob',
+        authorAvatarUrl: null,
+        createdAt: '2025-06-02T12:00:00Z',
+        updatedAt: '2025-06-02T12:00:00Z',
+        url: 'https://github.com/issues/42#c1',
+      },
+      {
+        id: 'c2',
+        body: 'Comment 2',
+        author: 'alice',
+        authorAvatarUrl: null,
+        createdAt: '2025-06-03T12:00:00Z',
+        updatedAt: '2025-06-03T12:00:00Z',
+        url: 'https://github.com/issues/42#c2',
+      },
+    ]
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ comments }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('2 replies')).toBeInTheDocument()
+    })
   })
 })

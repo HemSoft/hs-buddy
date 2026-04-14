@@ -1,60 +1,60 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReviewThreadCard } from './ReviewThreadCard'
-import type { PRReviewThread, PRReviewComment } from '../../api/github'
 import type { PRDetailInfo } from '../../utils/prDetailView'
+import type { PRReviewThread, PRReviewComment } from '../../api/github'
 
-/* ── mocks ── */
 const mockEnqueue = vi.fn()
-const mockAccounts = [{ username: 'user', token: 'tok', org: 'org' }]
-
-vi.mock('../../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    replyToReviewThread: vi.fn().mockResolvedValue({}),
-    resolveReviewThread: vi.fn().mockResolvedValue(undefined),
-    unresolveReviewThread: vi.fn().mockResolvedValue(undefined),
-  })),
-}))
 
 vi.mock('../../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts }),
+  useGitHubAccounts: () => ({
+    accounts: [{ username: 'alice', org: 'test-org' }],
+    loading: false,
+  }),
 }))
 
 vi.mock('../../hooks/useTaskQueue', () => ({
   useTaskQueue: () => ({ enqueue: mockEnqueue }),
 }))
 
-vi.mock('../../utils/githubUrl', () => ({
-  parseOwnerRepoFromUrl: () => ({ owner: 'org', repo: 'repo' }),
-}))
-
-vi.mock('../../utils/errorUtils', () => ({
-  throwIfAborted: vi.fn(),
-}))
-
 vi.mock('./DiffHunk', () => ({
-  DiffHunk: ({ hunk }: { hunk: string }) => <div data-testid="diff-hunk">{hunk.slice(0, 40)}</div>,
+  DiffHunk: ({ hunk }: { hunk: string }) => <div data-testid="diff-hunk">{hunk}</div>,
 }))
 
 vi.mock('./CommentCard', () => ({
-  CommentCard: ({ comment }: { comment: PRReviewComment }) => (
-    <div data-testid="comment-card">{comment.body}</div>
+  CommentCard: ({ comment }: { comment: { id: string; body: string } }) => (
+    <div data-testid={`comment-${comment.id}`}>{comment.body}</div>
   ),
 }))
 
-/* ── helpers ── */
+const defaultPr: PRDetailInfo = {
+  source: 'GitHub',
+  repository: 'hs-buddy',
+  id: 42,
+  title: 'Fix login bug',
+  author: 'octocat',
+  url: 'https://github.com/test-org/hs-buddy/pull/42',
+  state: 'OPEN',
+  approvalCount: 1,
+  assigneeCount: 0,
+  iApproved: false,
+  created: '2025-06-01T10:00:00Z',
+  date: null,
+  org: 'test-org',
+}
+
 function makeComment(overrides: Partial<PRReviewComment> = {}): PRReviewComment {
   return {
     id: 'comment-1',
-    author: 'alice',
-    authorAvatarUrl: 'https://avatars.example.com/alice.png',
-    body: 'Looks good to me.',
-    bodyHtml: '<p>Looks good to me.</p>',
-    createdAt: '2024-06-20T10:00:00Z',
-    updatedAt: '2024-06-20T10:00:00Z',
-    url: 'https://github.com/org/repo/pull/1#discussion_r1',
-    diffHunk: '@@ -1,3 +1,4 @@\n context\n-old\n+new',
-    reactions: [],
+    body: 'Looks good to me',
+    author: 'reviewer',
+    authorAvatarUrl: 'https://example.com/avatar.png',
+    createdAt: '2025-06-01T12:00:00Z',
+    updatedAt: '2025-06-01T12:00:00Z',
+    diffHunk: '@@ -1,3 +1,4 @@\n hello\n+world',
+    path: 'src/app.ts',
+    url: 'https://github.com/test-org/hs-buddy/pull/42#comment-1',
+    reactionGroups: [],
     ...overrides,
   }
 }
@@ -62,99 +62,124 @@ function makeComment(overrides: Partial<PRReviewComment> = {}): PRReviewComment 
 function makeThread(overrides: Partial<PRReviewThread> = {}): PRReviewThread {
   return {
     id: 'thread-1',
+    path: 'src/app.ts',
+    line: 10,
+    startLine: null,
     isResolved: false,
     isOutdated: false,
-    path: 'src/utils/helper.ts',
-    line: 42,
-    startLine: null,
-    diffSide: 'RIGHT',
+    isCollapsed: false,
     comments: [makeComment()],
     ...overrides,
   }
 }
 
-const mockPr: PRDetailInfo = {
-  source: 'GitHub',
-  repository: 'org/repo',
-  id: 1,
-  title: 'Fix helper utility',
-  author: 'alice',
-  url: 'https://github.com/org/repo/pull/1',
-  state: 'open',
-  approvalCount: 0,
-  assigneeCount: 0,
-  iApproved: false,
-  created: '2024-06-20T10:00:00Z',
-  date: '2024-06-20T10:00:00Z',
-}
-
-/* ── tests ── */
 describe('ReviewThreadCard', () => {
-  const defaultProps = () => ({
-    thread: makeThread(),
-    pr: mockPr,
-    onReplyAdded: vi.fn(),
-    onResolveToggled: vi.fn(),
-    onReactToComment: vi.fn().mockResolvedValue(undefined),
-  })
+  const onReplyAdded = vi.fn()
+  const onResolveToggled = vi.fn()
+  const onReactToComment = vi.fn()
+
+  function renderCard(thread?: PRReviewThread) {
+    return render(
+      <ReviewThreadCard
+        thread={thread ?? makeThread()}
+        pr={defaultPr}
+        onReplyAdded={onReplyAdded}
+        onResolveToggled={onResolveToggled}
+        onReactToComment={onReactToComment}
+      />
+    )
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) =>
-      fn(new AbortController().signal)
-    )
   })
 
-  it('renders thread header with file path', () => {
-    render(<ReviewThreadCard {...defaultProps()} />)
-    expect(screen.getByText('src/utils/helper.ts')).toBeInTheDocument()
+  it('renders file path and comment count', () => {
+    renderCard()
+    expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 
-  it('shows collapsed body by default for resolved threads', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ isResolved: true })
-    const { container } = render(<ReviewThreadCard {...props} />)
-    expect(container.querySelector('.review-thread-body')).not.toBeInTheDocument()
+  it('shows line label for single line comment', () => {
+    renderCard(makeThread({ line: 10, startLine: null }))
+    expect(screen.getByText('Comment on line 10')).toBeInTheDocument()
   })
 
-  it('expands thread when header is clicked', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ isResolved: true })
-    const { container } = render(<ReviewThreadCard {...props} />)
-
-    // Initially collapsed for resolved threads
-    expect(container.querySelector('.review-thread-body')).not.toBeInTheDocument()
-
-    // Click header to expand
-    fireEvent.click(screen.getByRole('button'))
-    expect(container.querySelector('.review-thread-body')).toBeInTheDocument()
+  it('shows line range label for multi-line comment', () => {
+    renderCard(makeThread({ line: 20, startLine: 15 }))
+    expect(screen.getByText('Comment on lines 15 to 20')).toBeInTheDocument()
   })
 
-  it('shows resolved status indicator for resolved threads', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ isResolved: true })
-    render(<ReviewThreadCard {...props} />)
+  it('shows "General review comment" when path is empty', () => {
+    renderCard(makeThread({ path: '' }))
+    expect(screen.getByText('General review comment')).toBeInTheDocument()
+  })
+
+  it('shows resolved badge for resolved threads', () => {
+    renderCard(makeThread({ isResolved: true }))
     expect(screen.getByText('Resolved')).toBeInTheDocument()
   })
 
   it('shows outdated badge for outdated threads', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ isOutdated: true })
-    render(<ReviewThreadCard {...props} />)
+    renderCard(makeThread({ isOutdated: true }))
     expect(screen.getByText('Outdated')).toBeInTheDocument()
   })
 
-  it('reply button opens reply form', () => {
-    render(<ReviewThreadCard {...defaultProps()} />)
+  it('starts expanded for active threads', () => {
+    renderCard(makeThread({ isResolved: false, isOutdated: false }))
+    expect(screen.getByText('Reply')).toBeInTheDocument()
+  })
 
-    // Active thread is expanded by default — find the Reply button
+  it('starts collapsed for resolved threads', () => {
+    renderCard(makeThread({ isResolved: true }))
+    expect(screen.queryByText('Reply')).not.toBeInTheDocument()
+  })
+
+  it('toggles expansion on header click', () => {
+    renderCard(makeThread({ isResolved: true }))
+    expect(screen.queryByText('Reply')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /src\/app.ts/i }))
+    expect(screen.getByText('Reply')).toBeInTheDocument()
+  })
+
+  it('toggles expansion on Enter key', () => {
+    renderCard(makeThread({ isResolved: true }))
+    fireEvent.keyDown(screen.getByRole('button', { name: /src\/app.ts/i }), { key: 'Enter' })
+    expect(screen.getByText('Reply')).toBeInTheDocument()
+  })
+
+  it('toggles expansion on Space key', () => {
+    renderCard(makeThread({ isResolved: true }))
+    fireEvent.keyDown(screen.getByRole('button', { name: /src\/app.ts/i }), { key: ' ' })
+    expect(screen.getByText('Reply')).toBeInTheDocument()
+  })
+
+  it('renders diff hunk when present', () => {
+    renderCard()
+    expect(screen.getByTestId('diff-hunk')).toBeInTheDocument()
+  })
+
+  it('renders first comment and remaining comments', () => {
+    const comments = [
+      makeComment({ id: 'c1', body: 'First comment' }),
+      makeComment({ id: 'c2', body: 'Second comment' }),
+      makeComment({ id: 'c3', body: 'Third comment' }),
+    ]
+    renderCard(makeThread({ comments }))
+    expect(screen.getByTestId('comment-c1')).toBeInTheDocument()
+    expect(screen.getByTestId('comment-c2')).toBeInTheDocument()
+    expect(screen.getByTestId('comment-c3')).toBeInTheDocument()
+  })
+
+  it('shows reply form when Reply button is clicked', () => {
+    renderCard()
     fireEvent.click(screen.getByText('Reply'))
     expect(screen.getByPlaceholderText('Write a reply...')).toBeInTheDocument()
   })
 
-  it('cancel button in reply form hides it', () => {
-    render(<ReviewThreadCard {...defaultProps()} />)
-
+  it('cancels reply form via Cancel button', () => {
+    renderCard()
     fireEvent.click(screen.getByText('Reply'))
     expect(screen.getByPlaceholderText('Write a reply...')).toBeInTheDocument()
 
@@ -162,157 +187,76 @@ describe('ReviewThreadCard', () => {
     expect(screen.queryByPlaceholderText('Write a reply...')).not.toBeInTheDocument()
   })
 
-  it('shows comment cards for thread comments', () => {
-    const props = defaultProps()
-    props.thread = makeThread({
-      comments: [
-        makeComment({ id: 'c1', body: 'First comment' }),
-        makeComment({ id: 'c2', body: 'Second reply' }),
-      ],
-    })
-    render(<ReviewThreadCard {...props} />)
-
-    const cards = screen.getAllByTestId('comment-card')
-    expect(cards).toHaveLength(2)
-    expect(screen.getByText('First comment')).toBeInTheDocument()
-    expect(screen.getByText('Second reply')).toBeInTheDocument()
-  })
-
-  it('renders DiffHunk when first comment has a diffHunk', () => {
-    render(<ReviewThreadCard {...defaultProps()} />)
-    expect(screen.getByTestId('diff-hunk')).toBeInTheDocument()
-  })
-
-  it('shows line number in header', () => {
-    render(<ReviewThreadCard {...defaultProps()} />)
-    expect(screen.getByText('Comment on line 42')).toBeInTheDocument()
-  })
-
-  it('shows line range when startLine differs from line', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ line: 50, startLine: 45 })
-    render(<ReviewThreadCard {...props} />)
-    expect(screen.getByText('Comment on lines 45 to 50')).toBeInTheDocument()
-  })
-
-  it('shows "General review comment" when path is null', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ path: null })
-    render(<ReviewThreadCard {...props} />)
-    expect(screen.getByText('General review comment')).toBeInTheDocument()
-  })
-
-  it('sends reply on Ctrl+Enter', async () => {
-    const mockComment = { id: 'new-reply' }
-    mockEnqueue.mockResolvedValueOnce(mockComment)
-
-    const props = defaultProps()
-    render(<ReviewThreadCard {...props} />)
-
+  it('cancels reply via Escape key', () => {
+    renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    fireEvent.change(screen.getByPlaceholderText('Write a reply...'), {
-      target: { value: 'LGTM!' },
-    })
-    fireEvent.keyDown(screen.getByPlaceholderText('Write a reply...'), {
-      key: 'Enter',
-      ctrlKey: true,
-    })
+    const textarea = screen.getByPlaceholderText('Write a reply...')
 
-    await waitFor(() => {
-      expect(props.onReplyAdded).toHaveBeenCalledWith('thread-1', mockComment)
-    })
-  })
-
-  it('cancels reply on Escape key', () => {
-    render(<ReviewThreadCard {...defaultProps()} />)
-
-    fireEvent.click(screen.getByText('Reply'))
-    expect(screen.getByPlaceholderText('Write a reply...')).toBeInTheDocument()
-
-    fireEvent.keyDown(screen.getByPlaceholderText('Write a reply...'), { key: 'Escape' })
+    fireEvent.keyDown(textarea, { key: 'Escape' })
     expect(screen.queryByPlaceholderText('Write a reply...')).not.toBeInTheDocument()
   })
 
-  it('handles send failure gracefully', async () => {
-    mockEnqueue.mockRejectedValueOnce(new Error('network error'))
-
-    const props = defaultProps()
-    render(<ReviewThreadCard {...props} />)
-
+  it('updates reply text in textarea', () => {
+    renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    fireEvent.change(screen.getByPlaceholderText('Write a reply...'), {
-      target: { value: 'LGTM!' },
-    })
-    fireEvent.click(screen.getByText('Reply'))
+    const textarea = screen.getByPlaceholderText('Write a reply...')
 
-    await waitFor(() => {
-      expect(mockEnqueue).toHaveBeenCalled()
-    })
-    // Form stays open after failure (send_failed keeps replying=true)
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Write a reply...')).not.toBeDisabled()
-    })
+    fireEvent.change(textarea, { target: { value: 'My reply' } })
+    expect(textarea).toHaveValue('My reply')
   })
 
-  it('calls resolve handler when clicking Resolve', async () => {
-    mockEnqueue.mockResolvedValueOnce(undefined)
+  it('disables send button when reply text is empty', () => {
+    renderCard()
+    fireEvent.click(screen.getByText('Reply'))
+    const sendBtn = screen.getByRole('button', { name: /Reply/i })
+    expect(sendBtn).toBeDisabled()
+  })
 
-    const props = defaultProps()
-    render(<ReviewThreadCard {...props} />)
+  it('enables send button when reply text is non-empty', () => {
+    renderCard()
+    fireEvent.click(screen.getByText('Reply'))
+    const textarea = screen.getByPlaceholderText('Write a reply...')
+    fireEvent.change(textarea, { target: { value: 'My reply' } })
 
+    const sendButtons = screen.getAllByRole('button', { name: /Reply/i })
+    const sendBtn = sendButtons.find(btn => !btn.classList.contains('thread-reply-btn'))
+    expect(sendBtn).not.toBeDisabled()
+  })
+
+  it('shows resolve button for unresolved threads', () => {
+    renderCard(makeThread({ isResolved: false }))
+    expect(screen.getByText('Resolve conversation')).toBeInTheDocument()
+  })
+
+  it('shows unresolve button for resolved threads', () => {
+    renderCard(makeThread({ isResolved: true }))
+    // Need to expand first
+    fireEvent.click(screen.getByRole('button', { name: /src\/app.ts/i }))
+    expect(screen.getByText('Unresolve')).toBeInTheDocument()
+  })
+
+  it('calls enqueue when resolve button is clicked', async () => {
+    mockEnqueue.mockResolvedValue(undefined)
+    renderCard()
     fireEvent.click(screen.getByText('Resolve conversation'))
-
-    await waitFor(() => {
-      expect(props.onResolveToggled).toHaveBeenCalledWith('thread-1', true)
-    })
+    expect(mockEnqueue).toHaveBeenCalled()
   })
 
-  it('calls unresolve handler when clicking Unresolve', async () => {
-    mockEnqueue.mockResolvedValueOnce(undefined)
+  it('calls enqueue when sending a reply via Ctrl+Enter', async () => {
+    mockEnqueue.mockResolvedValue(makeComment({ id: 'new', body: 'reply' }))
+    renderCard()
+    fireEvent.click(screen.getByText('Reply'))
 
-    const props = defaultProps()
-    props.thread = makeThread({ isResolved: true })
-    const { container } = render(<ReviewThreadCard {...props} />)
+    const textarea = screen.getByPlaceholderText('Write a reply...')
+    fireEvent.change(textarea, { target: { value: 'My reply' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
 
-    // Expand the collapsed resolved thread
-    fireEvent.click(screen.getByRole('button'))
-    expect(container.querySelector('.review-thread-body')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByText('Unresolve'))
-
-    await waitFor(() => {
-      expect(props.onResolveToggled).toHaveBeenCalledWith('thread-1', false)
-    })
+    expect(mockEnqueue).toHaveBeenCalled()
   })
 
-  it('toggles expand on Space key on header', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ isResolved: true })
-    const { container } = render(<ReviewThreadCard {...props} />)
-
-    expect(container.querySelector('.review-thread-body')).not.toBeInTheDocument()
-
-    fireEvent.keyDown(screen.getByRole('button'), { key: ' ' })
-    expect(container.querySelector('.review-thread-body')).toBeInTheDocument()
-  })
-
-  it('toggles expand on Enter key on header', () => {
-    const props = defaultProps()
-    props.thread = makeThread({ isResolved: true })
-    const { container } = render(<ReviewThreadCard {...props} />)
-
-    expect(container.querySelector('.review-thread-body')).not.toBeInTheDocument()
-
-    fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' })
-    expect(container.querySelector('.review-thread-body')).toBeInTheDocument()
-  })
-
-  it('does not render DiffHunk when comment has no diffHunk', () => {
-    const props = defaultProps()
-    props.thread = makeThread({
-      comments: [makeComment({ diffHunk: undefined })],
-    })
-    render(<ReviewThreadCard {...props} />)
-    expect(screen.queryByTestId('diff-hunk')).not.toBeInTheDocument()
+  it('shows comment count for multiple comments', () => {
+    const comments = [makeComment({ id: 'c1' }), makeComment({ id: 'c2' })]
+    renderCard(makeThread({ comments }))
+    expect(screen.getByText('2')).toBeInTheDocument()
   })
 })

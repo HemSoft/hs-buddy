@@ -143,9 +143,70 @@ describe('getViewLabel', () => {
     })
   })
 
+  describe('browser: prefix', () => {
+    it('extracts hostname from a valid URL', () => {
+      const encoded = encodeURIComponent('https://example.com/path')
+      expect(getViewLabel(`browser:${encoded}`)).toBe('example.com')
+    })
+
+    it('returns "Browser" for an invalid URL', () => {
+      expect(getViewLabel('browser:not-a-valid-url')).toBe('Browser')
+    })
+  })
+
+  describe('bookmarks-category: prefix', () => {
+    it('returns the category name', () => {
+      expect(getViewLabel('bookmarks-category:work')).toBe('work')
+    })
+  })
+
+  describe('copilot-session-detail: prefix', () => {
+    it('returns "Session Detail"', () => {
+      expect(getViewLabel('copilot-session-detail:abc123')).toBe('Session Detail')
+    })
+  })
+
   describe('pr-detail: prefix', () => {
     it('returns "PR Detail" as fallback for invalid route', () => {
       expect(getViewLabel('pr-detail:invalid')).toBe('PR Detail')
+    })
+
+    it('formats with repo and PR number for a valid route', () => {
+      const info = {
+        source: 'github',
+        repository: 'my-repo',
+        id: 42,
+        title: 'Fix bug',
+        author: 'alice',
+        url: 'https://github.com/org/my-repo/pull/42',
+        state: 'open',
+        approvalCount: 0,
+        assigneeCount: 0,
+        iApproved: false,
+        created: null,
+        date: null,
+      }
+      const encoded = encodeURIComponent(JSON.stringify(info))
+      expect(getViewLabel(`pr-detail:${encoded}`)).toBe('#42 my-repo')
+    })
+
+    it('includes section label when section is present', () => {
+      const info = {
+        source: 'github',
+        repository: 'my-repo',
+        id: 42,
+        title: 'Fix bug',
+        author: 'alice',
+        url: 'https://github.com/org/my-repo/pull/42',
+        state: 'open',
+        approvalCount: 0,
+        assigneeCount: 0,
+        iApproved: false,
+        created: null,
+        date: null,
+      }
+      const encoded = encodeURIComponent(JSON.stringify(info))
+      expect(getViewLabel(`pr-detail:${encoded}?section=checks`)).toBe('#42 my-repo · Checks')
     })
   })
 })

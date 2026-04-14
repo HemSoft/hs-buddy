@@ -1,345 +1,441 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
-const mockCreate = vi.fn().mockResolvedValue(undefined)
-const mockUpdate = vi.fn().mockResolvedValue(undefined)
-const mockIncrementStat = vi.fn().mockResolvedValue(undefined)
-let mockJobReturn: unknown = undefined
+const { mockUseJob, mockCreate, mockUpdate, mockIncrementStat, mockUseCopilotSettings } =
+  vi.hoisted(() => ({
+    mockUseJob: vi.fn(),
+    mockCreate: vi.fn(),
+    mockUpdate: vi.fn(),
+    mockIncrementStat: vi.fn(),
+    mockUseCopilotSettings: vi.fn(),
+  }))
 
 vi.mock('../../../hooks/useConvex', () => ({
-  useJob: () => mockJobReturn,
+  useJob: mockUseJob,
   useJobMutations: () => ({ create: mockCreate, update: mockUpdate }),
   useBuddyStatsMutations: () => ({ increment: mockIncrementStat }),
 }))
 
 vi.mock('../../../hooks/useConfig', () => ({
-  useCopilotSettings: () => ({ ghAccount: 'alice', model: 'claude-sonnet-4.5' }),
+  useCopilotSettings: mockUseCopilotSettings,
 }))
 
 import { useJobEditorForm } from './useJobEditorForm'
 
-describe('useJobEditorForm', () => {
-  const mockOnSaved = vi.fn()
-  const mockOnClose = vi.fn()
+const onSaved = vi.fn()
+const onClose = vi.fn()
 
+function renderDefault(jobId?: string, duplicateFrom?: Parameters<typeof useJobEditorForm>[1]) {
+  return renderHook(() => useJobEditorForm(jobId, duplicateFrom, onSaved, onClose))
+}
+
+describe('useJobEditorForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockJobReturn = undefined
+    mockUseJob.mockReturnValue(undefined)
+    mockCreate.mockResolvedValue(undefined)
+    mockUpdate.mockResolvedValue(undefined)
+    mockIncrementStat.mockResolvedValue(undefined)
+    mockUseCopilotSettings.mockReturnValue({ ghAccount: 'defaultUser', model: 'gpt-4' })
   })
 
-  it('initializes with empty defaults for new job', () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    expect(result.current.name).toBe('')
-    expect(result.current.description).toBe('')
-    expect(result.current.workerType).toBe('exec')
-    expect(result.current.command).toBe('')
-    expect(result.current.isEditing).toBe(false)
-    expect(result.current.saving).toBe(false)
-    expect(result.current.error).toBeNull()
-  })
-
-  it('sets default ghAccount and model from copilot settings', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    await waitFor(() => {
-      expect(result.current.ghAccount).toBe('alice')
-      expect(result.current.model).toBe('claude-sonnet-4.5')
-    })
-  })
-
-  it('populates form from duplicate source', () => {
-    const source = {
-      name: 'My Job',
-      description: 'desc',
-      workerType: 'ai' as const,
-      config: {
-        prompt: 'do things',
-        model: 'gpt-4',
-        repoOwner: 'acme',
-        repoName: 'repo',
-      },
-    }
-
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, source, mockOnSaved, mockOnClose)
-    )
-
-    expect(result.current.name).toBe('My Job (Copy)')
-    expect(result.current.description).toBe('desc')
-    expect(result.current.workerType).toBe('ai')
-    expect(result.current.prompt).toBe('do things')
-    expect(result.current.model).toBe('gpt-4')
-    expect(result.current.targetRepo).toBe('acme/repo')
-  })
-
-  it('allows setting form fields', () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('Test Job')
-      result.current.setDescription('A test')
-      result.current.setWorkerType('ai')
-      result.current.setCommand('echo hello')
-      result.current.setCwd('/tmp')
-      result.current.setTimeout(30000)
-      result.current.setShell('bash')
-      result.current.setPrompt('do review')
-      result.current.setGhAccount('bob')
-      result.current.setModel('gpt-5')
-      result.current.setTargetRepo('org/repo')
-      result.current.setSkillName('deploy')
-      result.current.setSkillAction('run')
-      result.current.setSkillParams('{}')
-    })
-
-    expect(result.current.name).toBe('Test Job')
-    expect(result.current.description).toBe('A test')
-    expect(result.current.workerType).toBe('ai')
-    expect(result.current.command).toBe('echo hello')
-    expect(result.current.cwd).toBe('/tmp')
-    expect(result.current.timeout).toBe(30000)
-    expect(result.current.shell).toBe('bash')
-    expect(result.current.prompt).toBe('do review')
-    expect(result.current.ghAccount).toBe('bob')
-    expect(result.current.model).toBe('gpt-5')
-    expect(result.current.targetRepo).toBe('org/repo')
-    expect(result.current.skillName).toBe('deploy')
-    expect(result.current.skillAction).toBe('run')
-    expect(result.current.skillParams).toBe('{}')
-  })
-
-  it('handleSave validates name is required', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(result.current.error).toBe('Job name is required')
-    expect(mockCreate).not.toHaveBeenCalled()
-  })
-
-  it('handleSave validates command for exec jobs', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('My Job')
-      result.current.setWorkerType('exec')
-    })
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(result.current.error).toBe('Command is required for exec jobs')
-  })
-
-  it('handleSave validates prompt for AI jobs', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('My Job')
-      result.current.setWorkerType('ai')
-    })
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(result.current.error).toBe('Prompt is required for AI jobs')
-  })
-
-  it('handleSave validates skillName for skill jobs', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('My Job')
-      result.current.setWorkerType('skill')
-    })
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(result.current.error).toBe('Skill name is required for skill jobs')
-  })
-
-  it('handleSave creates new exec job successfully', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('Build Job')
-      result.current.setCommand('npm run build')
-      result.current.setCwd('/app')
-      result.current.setShell('bash')
-    })
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(mockCreate).toHaveBeenCalledWith({
-      name: 'Build Job',
-      description: undefined,
-      workerType: 'exec',
-      config: {
-        command: 'npm run build',
-        cwd: '/app',
-        timeout: 60000,
-        shell: 'bash',
-      },
-    })
-    expect(mockOnSaved).toHaveBeenCalled()
-    expect(mockOnClose).toHaveBeenCalled()
-    expect(mockIncrementStat).toHaveBeenCalledWith({ field: 'jobsCreated' })
-  })
-
-  it('handleSave creates new AI job with repo', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('Review Job')
-      result.current.setWorkerType('ai')
-      result.current.setPrompt('do review')
-      result.current.setModel('gpt-4')
-      result.current.setTargetRepo('org/repo')
-    })
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(mockCreate).toHaveBeenCalledWith({
-      name: 'Review Job',
-      description: undefined,
-      workerType: 'ai',
-      config: {
-        prompt: 'do review',
-        model: 'gpt-4',
-        repoOwner: 'org',
-        repoName: 'repo',
-      },
+  // ── 1. Default state ─────────────────────────────────────────────
+  describe('default state', () => {
+    it('returns empty/default values for a new job', async () => {
+      const { result } = renderDefault()
+      // ghAccount/model get populated from copilot settings via useEffect
+      await waitFor(() => {
+        expect(result.current.ghAccount).toBe('defaultUser')
+        expect(result.current.model).toBe('gpt-4')
+      })
+      expect(result.current.name).toBe('')
+      expect(result.current.description).toBe('')
+      expect(result.current.workerType).toBe('exec')
+      expect(result.current.command).toBe('')
+      expect(result.current.cwd).toBe('')
+      expect(result.current.timeout).toBe(60000)
+      expect(result.current.shell).toBe('powershell')
+      expect(result.current.prompt).toBe('')
+      expect(result.current.targetRepo).toBe('')
+      expect(result.current.skillName).toBe('')
+      expect(result.current.skillAction).toBe('')
+      expect(result.current.skillParams).toBe('')
+      expect(result.current.saving).toBe(false)
+      expect(result.current.error).toBeNull()
+      expect(result.current.isEditing).toBe(false)
     })
   })
 
-  it('handleSave creates skill job with parsed params', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('Deploy Job')
-      result.current.setWorkerType('skill')
-      result.current.setSkillName('deploy')
-      result.current.setSkillAction('run')
-      result.current.setSkillParams('{"env": "prod"}')
+  // ── 2. Copilot settings defaults ─────────────────────────────────
+  describe('copilot settings defaults', () => {
+    it('applies default ghAccount and model when not editing and no duplicateFrom', async () => {
+      const { result } = renderDefault()
+      await waitFor(() => {
+        expect(result.current.ghAccount).toBe('defaultUser')
+        expect(result.current.model).toBe('gpt-4')
+      })
     })
 
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(mockCreate).toHaveBeenCalledWith({
-      name: 'Deploy Job',
-      description: undefined,
-      workerType: 'skill',
-      config: {
-        skillName: 'deploy',
-        action: 'run',
-        params: { env: 'prod' },
-      },
-    })
-  })
-
-  it('handleSave reports error for invalid skill params JSON', async () => {
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('Deploy Job')
-      result.current.setWorkerType('skill')
-      result.current.setSkillName('deploy')
-      result.current.setSkillParams('not-json')
-    })
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(result.current.error).toBe('Invalid JSON in parameters')
-    expect(mockCreate).not.toHaveBeenCalled()
-  })
-
-  it('handleSave updates existing job when editing', async () => {
-    mockJobReturn = {
-      name: 'Existing',
-      description: 'old desc',
-      workerType: 'exec',
-      config: { command: 'old cmd', shell: 'powershell' },
-    }
-
-    const { result } = renderHook(() =>
-      useJobEditorForm('job-123', undefined, mockOnSaved, mockOnClose)
-    )
-
-    expect(result.current.isEditing).toBe(true)
-
-    act(() => {
-      result.current.setCommand('new cmd')
-    })
-
-    await act(async () => {
-      await result.current.handleSave()
-    })
-
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'job-123',
+    it('does not apply defaults when editing', async () => {
+      mockUseJob.mockReturnValue({
         name: 'Existing',
         workerType: 'exec',
+        config: { command: 'echo hi' },
       })
-    )
-    expect(mockCreate).not.toHaveBeenCalled()
+      const { result } = renderDefault('job-123')
+      await waitFor(() => {
+        expect(result.current.name).toBe('Existing')
+      })
+      // ghAccount should not be overwritten to the copilot default
+      // because the effect guards on isEditing
+      expect(result.current.ghAccount).toBe('')
+    })
+
+    it('does not apply defaults when duplicateFrom is provided', async () => {
+      const dup = {
+        name: 'Source',
+        workerType: 'ai' as const,
+        config: { prompt: 'do stuff', model: 'claude' },
+      }
+      const { result } = renderDefault(undefined, dup)
+      await waitFor(() => {
+        expect(result.current.name).toBe('Source (Copy)')
+      })
+      // model comes from duplicateFrom, not from copilot settings
+      expect(result.current.model).toBe('claude')
+    })
   })
 
-  it('handleSave handles save error', async () => {
-    mockCreate.mockRejectedValueOnce(new Error('DB error'))
-
-    const { result } = renderHook(() =>
-      useJobEditorForm(undefined, undefined, mockOnSaved, mockOnClose)
-    )
-
-    act(() => {
-      result.current.setName('Job')
-      result.current.setCommand('cmd')
+  // ── 3. Populate from existingJob (edit mode) ─────────────────────
+  describe('populate from existingJob', () => {
+    it('loads all exec fields from an existing job', async () => {
+      mockUseJob.mockReturnValue({
+        name: 'Build',
+        description: 'Runs build',
+        workerType: 'exec',
+        config: { command: 'npm run build', cwd: '/app', timeout: 30000, shell: 'bash' },
+      })
+      const { result } = renderDefault('job-1')
+      await waitFor(() => {
+        expect(result.current.name).toBe('Build')
+      })
+      expect(result.current.description).toBe('Runs build')
+      expect(result.current.workerType).toBe('exec')
+      expect(result.current.command).toBe('npm run build')
+      expect(result.current.cwd).toBe('/app')
+      expect(result.current.timeout).toBe(30000)
+      expect(result.current.shell).toBe('bash')
     })
 
-    await act(async () => {
-      await result.current.handleSave()
+    it('loads ai fields including targetRepo', async () => {
+      mockUseJob.mockReturnValue({
+        name: 'Summarize',
+        workerType: 'ai',
+        config: { prompt: 'Summarize PR', model: 'gpt-4', repoOwner: 'acme', repoName: 'app' },
+      })
+      const { result } = renderDefault('job-2')
+      await waitFor(() => {
+        expect(result.current.name).toBe('Summarize')
+      })
+      expect(result.current.prompt).toBe('Summarize PR')
+      expect(result.current.model).toBe('gpt-4')
+      expect(result.current.targetRepo).toBe('acme/app')
     })
 
-    expect(result.current.error).toBe('DB error')
-    expect(result.current.saving).toBe(false)
-    expect(mockOnSaved).not.toHaveBeenCalled()
+    it('loads skill fields including params as JSON string', async () => {
+      mockUseJob.mockReturnValue({
+        name: 'Run Skill',
+        workerType: 'skill',
+        config: { skillName: 'deploy', action: 'start', params: { env: 'prod' } },
+      })
+      const { result } = renderDefault('job-3')
+      await waitFor(() => {
+        expect(result.current.name).toBe('Run Skill')
+      })
+      expect(result.current.skillName).toBe('deploy')
+      expect(result.current.skillAction).toBe('start')
+      expect(result.current.skillParams).toBe(JSON.stringify({ env: 'prod' }, null, 2))
+    })
+  })
+
+  // ── 4. Populate from duplicateFrom with "(Copy)" suffix ──────────
+  describe('populate from duplicateFrom', () => {
+    it('appends (Copy) to the name', async () => {
+      const dup = {
+        name: 'My Job',
+        description: 'desc',
+        workerType: 'exec' as const,
+        config: { command: 'ls' },
+      }
+      const { result } = renderDefault(undefined, dup)
+      await waitFor(() => {
+        expect(result.current.name).toBe('My Job (Copy)')
+      })
+      expect(result.current.description).toBe('desc')
+      expect(result.current.command).toBe('ls')
+    })
+  })
+
+  // ── 5. isEditing ─────────────────────────────────────────────────
+  describe('isEditing', () => {
+    it('returns true when jobId is provided', () => {
+      const { result } = renderDefault('job-42')
+      expect(result.current.isEditing).toBe(true)
+    })
+
+    it('returns false when jobId is undefined', () => {
+      const { result } = renderDefault()
+      expect(result.current.isEditing).toBe(false)
+    })
+  })
+
+  // ── 6. handleSave validation ─────────────────────────────────────
+  describe('handleSave validation', () => {
+    it('sets error when name is empty', async () => {
+      const { result } = renderDefault()
+      await act(() => result.current.handleSave())
+      expect(result.current.error).toBe('Job name is required')
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    it('sets error when command is empty for exec worker', async () => {
+      const { result } = renderDefault()
+      act(() => result.current.setName('Test'))
+      await act(() => result.current.handleSave())
+      expect(result.current.error).toBe('Command is required for exec jobs')
+    })
+
+    it('sets error when prompt is empty for ai worker', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Test')
+        result.current.setWorkerType('ai')
+      })
+      await act(() => result.current.handleSave())
+      expect(result.current.error).toBe('Prompt is required for AI jobs')
+    })
+
+    it('sets error when skillName is empty for skill worker', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Test')
+        result.current.setWorkerType('skill')
+      })
+      await act(() => result.current.handleSave())
+      expect(result.current.error).toBe('Skill name is required for skill jobs')
+    })
+  })
+
+  // ── 7. handleSave success – create ───────────────────────────────
+  describe('handleSave success (create)', () => {
+    it('calls create, incrementStat, onSaved, and onClose', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('New Job')
+        result.current.setCommand('echo hello')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockCreate).toHaveBeenCalledWith({
+        name: 'New Job',
+        description: undefined,
+        workerType: 'exec',
+        config: { command: 'echo hello', cwd: undefined, timeout: 60000, shell: 'powershell' },
+      })
+      expect(mockIncrementStat).toHaveBeenCalledWith({ field: 'jobsCreated' })
+      expect(onSaved).toHaveBeenCalled()
+      expect(onClose).toHaveBeenCalled()
+      expect(result.current.saving).toBe(false)
+      expect(result.current.error).toBeNull()
+    })
+  })
+
+  // ── 8. handleSave success – update ───────────────────────────────
+  describe('handleSave success (update)', () => {
+    it('calls update (not create) for an existing job', async () => {
+      mockUseJob.mockReturnValue({
+        name: 'Old',
+        workerType: 'exec',
+        config: { command: 'old cmd' },
+      })
+      const { result } = renderDefault('job-99')
+      await waitFor(() => {
+        expect(result.current.name).toBe('Old')
+      })
+
+      act(() => {
+        result.current.setName('Updated')
+        result.current.setCommand('new cmd')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'job-99', name: 'Updated' })
+      )
+      expect(mockCreate).not.toHaveBeenCalled()
+      expect(mockIncrementStat).not.toHaveBeenCalled()
+      expect(onSaved).toHaveBeenCalled()
+      expect(onClose).toHaveBeenCalled()
+    })
+  })
+
+  // ── 9. handleSave error handling ─────────────────────────────────
+  describe('handleSave error handling', () => {
+    it('captures error message from thrown Error', async () => {
+      mockCreate.mockRejectedValueOnce(new Error('Network failure'))
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Fail Job')
+        result.current.setCommand('cmd')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(result.current.error).toBe('Network failure')
+      expect(result.current.saving).toBe(false)
+    })
+
+    it('uses fallback message for non-Error throws', async () => {
+      mockCreate.mockRejectedValueOnce('something bad')
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Fail Job')
+        result.current.setCommand('cmd')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(result.current.error).toBe('Failed to save job')
+    })
+  })
+
+  // ── 10. buildConfig for each worker type ─────────────────────────
+  describe('buildConfig via handleSave', () => {
+    it('builds exec config with trimmed values', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Exec')
+        result.current.setCommand('  echo hi  ')
+        result.current.setCwd('  /home  ')
+        result.current.setTimeout(5000)
+        result.current.setShell('bash')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: { command: 'echo hi', cwd: '/home', timeout: 5000, shell: 'bash' },
+        })
+      )
+    })
+
+    it('builds exec config with undefined cwd when empty', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Exec')
+        result.current.setCommand('echo hi')
+        result.current.setCwd('')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({ cwd: undefined }),
+        })
+      )
+    })
+
+    it('builds ai config with repo split', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('AI Job')
+        result.current.setWorkerType('ai')
+        result.current.setPrompt('analyze code')
+        result.current.setModel('  claude-3  ')
+        result.current.setTargetRepo('acme/repo')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: {
+            prompt: 'analyze code',
+            model: 'claude-3',
+            repoOwner: 'acme',
+            repoName: 'repo',
+          },
+        })
+      )
+    })
+
+    it('builds ai config with undefined repo parts when targetRepo is empty', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('AI Job')
+        result.current.setWorkerType('ai')
+        result.current.setPrompt('do something')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({ repoOwner: undefined, repoName: undefined }),
+        })
+      )
+    })
+
+    it('builds skill config with parsed JSON params', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Skill Job')
+        result.current.setWorkerType('skill')
+        result.current.setSkillName('deploy')
+        result.current.setSkillAction('run')
+        result.current.setSkillParams('{"env":"staging"}')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: {
+            skillName: 'deploy',
+            action: 'run',
+            params: { env: 'staging' },
+          },
+        })
+      )
+    })
+
+    it('builds skill config with undefined params when skillParams is empty', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Skill Job')
+        result.current.setWorkerType('skill')
+        result.current.setSkillName('deploy')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({ params: undefined }),
+        })
+      )
+    })
+  })
+
+  // ── 11. buildConfig skill with invalid JSON ──────────────────────
+  describe('buildConfig with invalid JSON', () => {
+    it('sets error when skill params contain invalid JSON', async () => {
+      const { result } = renderDefault()
+      act(() => {
+        result.current.setName('Bad Params')
+        result.current.setWorkerType('skill')
+        result.current.setSkillName('deploy')
+        result.current.setSkillParams('{not valid json}')
+      })
+      await act(() => result.current.handleSave())
+
+      expect(result.current.error).toBe('Invalid JSON in parameters')
+      expect(mockCreate).not.toHaveBeenCalled()
+      expect(result.current.saving).toBe(false)
+    })
   })
 })

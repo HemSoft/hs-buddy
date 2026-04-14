@@ -1,260 +1,423 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { UserPremiumUsageSection } from './UserPremiumUsageSection'
 
-/* ── module-level mock fns ── */
-const mockGetCopilotQuota = vi.fn()
-const mockGetCopilotMemberUsage = vi.fn()
-const mockGetUserPremiumRequests = vi.fn()
-const mockAccounts: Array<{ username: string; token: string; org: string }> = []
-
+/* ── hoisted mocks ── */
 vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts }),
+  useGitHubAccounts: () => ({
+    accounts: [
+      { username: 'alice', org: 'test-org' },
+      { username: 'bob', org: 'other-org' },
+    ],
+    loading: false,
+  }),
 }))
 
 vi.mock('./copilot-usage/quotaUtils', () => ({
   OVERAGE_COST_PER_REQUEST: 0.04,
-  formatCurrency: (amount: number) => `$${amount.toFixed(2)}`,
-  computeProjection: () => null,
-  getQuotaColor: () => '#4ec9b0',
+  formatCurrency: (n: number) => `$${n.toFixed(2)}`,
+  computeProjection: vi.fn().mockReturnValue(null),
+  getQuotaColor: () => '#4caf50',
 }))
 
 vi.mock('../utils/copilotFormatUtils', () => ({
   daysUntilReset: () => 15,
-  formatCopilotPlan: (plan: string | null) => plan ?? 'Unknown',
-  formatResetDate: () => 'Feb 15',
+  formatCopilotPlan: (plan: string | null) =>
+    plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : 'Free',
+  formatResetDate: () => 'Jan 30',
 }))
 
 vi.mock('../utils/dateUtils', () => ({
-  formatDistanceToNow: () => '3 days ago',
-  DAY: 86400000,
+  formatDistanceToNow: () => '2 hours ago',
 }))
 
 vi.mock('../utils/errorUtils', () => ({
-  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'Unknown error'),
+  getErrorMessage: (err: unknown) => String(err),
 }))
 
-vi.mock('./UserPremiumUsageSection.css', () => ({}))
+const mockGetCopilotQuota = vi.fn()
+const mockGetCopilotMemberUsage = vi.fn()
+const mockGetUserPremiumRequests = vi.fn()
 
-/* ── helpers ── */
+import { UserPremiumUsageSection, _resetCaches } from './UserPremiumUsageSection'
 
-function setConfiguredAccounts(...usernames: string[]) {
-  mockAccounts.length = 0
-  usernames.forEach(u => mockAccounts.push({ username: u, token: 'tok', org: 'testorg' }))
-}
-
-function makeQuotaSnapshot(entitlement: number, remaining: number, overage = 0) {
-  return {
-    entitlement,
-    overage_count: overage,
-    overage_permitted: true,
-    percent_remaining: entitlement > 0 ? (remaining / entitlement) * 100 : 0,
-    quota_id: 'test-quota',
-    quota_remaining: remaining,
-    remaining,
-    unlimited: false,
-    timestamp_utc: '2024-01-15T00:00:00Z',
-  }
-}
-
-function makeQuotaData(username: string, entitlement = 1000, remaining = 700) {
-  return {
-    login: username,
-    copilot_plan: 'business',
-    quota_reset_date: '2024-02-15',
-    quota_reset_date_utc: '2024-02-15T00:00:00Z',
-    organization_login_list: ['testorg'],
-    quota_snapshots: {
-      chat: makeQuotaSnapshot(100, 80),
-      completions: makeQuotaSnapshot(100, 90),
-      premium_interactions: makeQuotaSnapshot(entitlement, remaining),
-    },
-  }
-}
-
-function makeSeatData(login: string) {
-  return {
-    login,
-    planType: 'business',
-    lastActivityAt: '2024-01-10T10:00:00Z',
-    lastActivityEditor: 'vscode/1.85',
-    createdAt: '2023-06-01T00:00:00Z',
-    pendingCancellation: null,
-  }
-}
-
-function makePremiumResponse(
-  overrides?: Partial<{
-    userMonthlyRequests: number
-    userTodayRequests: number
-    userMonthlyModels: Array<{ model: string; requests: number }>
-    orgMonthlyRequests: number
-    orgMonthlyNetCost: number
-  }>
-) {
-  return {
-    success: true,
-    data: {
-      memberLogin: 'user',
-      org: 'testorg',
-      userMonthlyRequests: 250,
-      userTodayRequests: 15,
-      userMonthlyModels: [
-        { model: 'gpt-4o', requests: 150 },
-        { model: 'claude-3.5', requests: 100 },
-      ],
-      orgMonthlyRequests: 5000,
-      orgMonthlyNetCost: 200,
-      billingYear: 2024,
-      billingMonth: 1,
-      ...overrides,
-    },
-  }
-}
-
-/* ── tests ── */
+beforeEach(() => {
+  _resetCaches()
+})
 
 describe('UserPremiumUsageSection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    setConfiguredAccounts('testuser')
-    ;(window as never as Record<string, unknown>).github = {
-      getCopilotQuota: mockGetCopilotQuota,
-      getCopilotMemberUsage: mockGetCopilotMemberUsage,
-      getUserPremiumRequests: mockGetUserPremiumRequests,
-    }
-
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data: null })
-    mockGetCopilotMemberUsage.mockResolvedValue({ success: true, data: null })
-    mockGetUserPremiumRequests.mockResolvedValue({ success: false })
-  })
-
-  it('shows "No Copilot seat assigned" when user has no seat', async () => {
-    render(<UserPremiumUsageSection username="noseatuser" org="testorg" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('No Copilot seat assigned')).toBeInTheDocument()
+    Object.defineProperty(window, 'github', {
+      value: {
+        getCopilotQuota: mockGetCopilotQuota,
+        getCopilotMemberUsage: mockGetCopilotMemberUsage,
+        getUserPremiumRequests: mockGetUserPremiumRequests,
+      },
+      writable: true,
+      configurable: true,
     })
-  })
 
-  it('shows loading state while fetching quota data', () => {
-    setConfiguredAccounts('loadinguser')
-    mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
-    mockGetUserPremiumRequests.mockReturnValue(new Promise(() => {}))
-
-    render(<UserPremiumUsageSection username="loadinguser" org="testorg" />)
-
-    expect(screen.getByText('Loading premium usage…')).toBeInTheDocument()
-  })
-
-  it('renders quota data with usage bar and request counts', async () => {
-    setConfiguredAccounts('quotauser')
-    const data = makeQuotaData('quotauser', 1000, 700)
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data })
-
-    render(<UserPremiumUsageSection username="quotauser" org="testorg" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('30.0%')).toBeInTheDocument()
-    })
-    expect(screen.getByText('used')).toBeInTheDocument()
-    expect(screen.getByText('300')).toBeInTheDocument()
-    expect(screen.getByText('700')).toBeInTheDocument()
-    expect(screen.getByText(/Resets Feb 15/)).toBeInTheDocument()
-    expect(screen.getByText('(15d)')).toBeInTheDocument()
-  })
-
-  it('shows error state on quota fetch failure', async () => {
-    setConfiguredAccounts('erroruser')
-    mockGetCopilotQuota.mockReset()
-    mockGetCopilotQuota.mockRejectedValue(new Error('Network error'))
-
-    render(<UserPremiumUsageSection username="erroruser" org="testorg" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Failed to load premium usage')).toBeInTheDocument()
-    })
-  })
-
-  it('shows seat information with plan type and last activity', async () => {
-    mockGetCopilotMemberUsage.mockResolvedValue({
+    // Default: premium requests return empty
+    mockGetUserPremiumRequests.mockResolvedValue({
       success: true,
-      data: makeSeatData('seatinfouser'),
+      data: {
+        userMonthlyRequests: 150,
+        userTodayRequests: 10,
+        userMonthlyModels: [
+          { model: 'gpt-4', requests: 100 },
+          { model: 'claude-3', requests: 50 },
+        ],
+        orgMonthlyRequests: 500,
+        orgMonthlyNetCost: 20.0,
+      },
     })
-
-    render(<UserPremiumUsageSection username="seatinfouser" org="testorg" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('business')).toBeInTheDocument()
-    })
-    expect(screen.getByText('3 days ago')).toBeInTheDocument()
-    expect(screen.getByText('vscode')).toBeInTheDocument()
   })
 
-  it('shows premium usage data with monthly and today requests', async () => {
-    mockGetCopilotMemberUsage.mockResolvedValue({
-      success: true,
-      data: makeSeatData('premuser'),
-    })
-    mockGetUserPremiumRequests.mockResolvedValue(makePremiumResponse())
-
-    render(<UserPremiumUsageSection username="premuser" org="testorg" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('250')).toBeInTheDocument()
-    })
-    expect(screen.getByText('15')).toBeInTheDocument()
-    expect(screen.getByText('this month')).toBeInTheDocument()
-    expect(screen.getByText('today')).toBeInTheDocument()
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
-  it('refresh button triggers new data fetch', async () => {
-    setConfiguredAccounts('refreshuser')
-    const data = makeQuotaData('refreshuser')
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data })
-
-    render(<UserPremiumUsageSection username="refreshuser" org="testorg" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('30.0%')).toBeInTheDocument()
+  describe('when user is a configured account (QuotaView)', () => {
+    it('shows loading state initially', () => {
+      mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+      expect(screen.getByText('Loading premium usage…')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByTitle('Refresh'))
+    it('shows error state on failure', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: false,
+        error: 'Request failed',
+      })
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
 
-    await waitFor(() => {
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load premium usage')).toBeInTheDocument()
+      })
+    })
+
+    it('shows "No Copilot subscription" on 404 error', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: false,
+        error: '404 Not Found',
+      })
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('No Copilot subscription')).toBeInTheDocument()
+      })
+    })
+
+    it('renders quota data with usage stats', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: {
+              entitlement: 1000,
+              remaining: 600,
+              overage_count: 0,
+            },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('40.0%')).toBeInTheDocument()
+        expect(screen.getByText('used')).toBeInTheDocument()
+      })
+    })
+
+    it('shows used / remaining / entitlement stats', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: {
+              entitlement: 1000,
+              remaining: 600,
+              overage_count: 0,
+            },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('400')).toBeInTheDocument() // Used
+        expect(screen.getByText('600')).toBeInTheDocument() // Remaining
+        expect(screen.getByText('1,000')).toBeInTheDocument() // Entitlement
+      })
+    })
+
+    it('shows reset date', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: {
+              entitlement: 1000,
+              remaining: 600,
+              overage_count: 0,
+            },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText(/Resets Jan 30/)).toBeInTheDocument()
+        expect(screen.getByText('(15d)')).toBeInTheDocument()
+      })
+    })
+
+    it('shows overage cost when over budget', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: {
+              entitlement: 1000,
+              remaining: -50,
+              overage_count: 50,
+            },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('$2.00')).toBeInTheDocument() // 50 * 0.04
+        expect(screen.getByText('Overage')).toBeInTheDocument()
+      })
+    })
+
+    it('shows model breakdown when premium data loads', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: {
+              entitlement: 1000,
+              remaining: 600,
+              overage_count: 0,
+            },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('gpt-4')).toBeInTheDocument()
+        expect(screen.getByText('100')).toBeInTheDocument()
+      })
+    })
+
+    it('shows org footer with total requests', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: {
+              entitlement: 1000,
+              remaining: 600,
+              overage_count: 0,
+            },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('500')).toBeInTheDocument() // org total
+        expect(screen.getByText(/Org total/)).toBeInTheDocument()
+      })
+    })
+
+    it('refresh button triggers new fetch', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: {
+              entitlement: 1000,
+              remaining: 600,
+              overage_count: 0,
+            },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Refresh')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByTitle('Refresh'))
+      // Second call to getCopilotQuota
       expect(mockGetCopilotQuota).toHaveBeenCalledTimes(2)
     })
   })
 
-  it('shows model breakdown when premium data has models', async () => {
-    mockGetCopilotMemberUsage.mockResolvedValue({
-      success: true,
-      data: makeSeatData('modeluser'),
+  describe('when user is not configured (SeatView)', () => {
+    it('shows loading state for seat info', () => {
+      mockGetCopilotMemberUsage.mockReturnValue(new Promise(() => {}))
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+      expect(screen.getByText('Loading Copilot seat info…')).toBeInTheDocument()
     })
-    mockGetUserPremiumRequests.mockResolvedValue(makePremiumResponse())
 
-    render(<UserPremiumUsageSection username="modeluser" org="testorg" />)
+    it('shows error on seat fetch failure', async () => {
+      mockGetCopilotMemberUsage.mockResolvedValue({
+        success: false,
+        error: 'Server error',
+      })
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load seat data')).toBeInTheDocument()
+      })
     })
-    expect(screen.getByText('claude-3.5')).toBeInTheDocument()
-    expect(screen.getByText('150')).toBeInTheDocument()
-    expect(screen.getByText('100')).toBeInTheDocument()
+
+    it('shows "Copilot billing not available" on 404', async () => {
+      mockGetCopilotMemberUsage.mockResolvedValue({
+        success: false,
+        error: '404 Not Found',
+      })
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Copilot billing not available')).toBeInTheDocument()
+      })
+    })
+
+    it('shows "No Copilot seat assigned" when data is null', async () => {
+      mockGetCopilotMemberUsage.mockResolvedValue({
+        success: true,
+        data: null,
+      })
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('No Copilot seat assigned')).toBeInTheDocument()
+      })
+    })
+
+    it('renders seat metadata when data loads', async () => {
+      mockGetCopilotMemberUsage.mockResolvedValue({
+        success: true,
+        data: {
+          login: 'charlie',
+          planType: 'business',
+          lastActivityAt: '2025-06-01T10:00:00Z',
+          lastActivityEditor: 'vscode/1.90',
+          createdAt: '2024-01-01T00:00:00Z',
+          pendingCancellation: null,
+        },
+      })
+
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Business')).toBeInTheDocument()
+        expect(screen.getByText('vscode')).toBeInTheDocument()
+      })
+    })
+
+    it('shows pending cancellation warning', async () => {
+      mockGetCopilotMemberUsage.mockResolvedValue({
+        success: true,
+        data: {
+          login: 'charlie',
+          planType: 'business',
+          lastActivityAt: null,
+          lastActivityEditor: null,
+          createdAt: null,
+          pendingCancellation: '2025-07-01T00:00:00Z',
+        },
+      })
+
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText(/Cancelling/)).toBeInTheDocument()
+      })
+    })
+
+    it('shows hero stats from premium data', async () => {
+      mockGetCopilotMemberUsage.mockResolvedValue({
+        success: true,
+        data: {
+          login: 'charlie',
+          planType: 'business',
+          lastActivityAt: null,
+          lastActivityEditor: null,
+          createdAt: null,
+          pendingCancellation: null,
+        },
+      })
+
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('150')).toBeInTheDocument() // monthly
+        expect(screen.getByText('10')).toBeInTheDocument() // today
+        expect(screen.getByText('this month')).toBeInTheDocument()
+        expect(screen.getByText('today')).toBeInTheDocument()
+      })
+    })
   })
+})
 
-  it('shows org total footer when premium data has org requests', async () => {
-    mockGetCopilotMemberUsage.mockResolvedValue({
+/* ── Reducer unit tests ── */
+describe('quotaReducer', () => {
+  // Import the reducers to test them directly
+  // They are module-private, so we test them via the component behavior above
+  // This section verifies the key state transitions are working through the UI
+  it('transitions from loading → success → displays data', async () => {
+    mockGetCopilotQuota.mockResolvedValue({
       success: true,
-      data: makeSeatData('orgfootuser'),
+      data: {
+        quota_snapshots: {
+          premium_interactions: {
+            entitlement: 500,
+            remaining: 200,
+            overage_count: 0,
+          },
+        },
+        quota_reset_date_utc: '2025-01-30T00:00:00Z',
+      },
     })
-    mockGetUserPremiumRequests.mockResolvedValue(makePremiumResponse())
+    mockGetUserPremiumRequests.mockResolvedValue({ success: true, data: null })
 
-    render(<UserPremiumUsageSection username="orgfootuser" org="testorg" />)
+    Object.defineProperty(window, 'github', {
+      value: {
+        getCopilotQuota: mockGetCopilotQuota,
+        getCopilotMemberUsage: mockGetCopilotMemberUsage,
+        getUserPremiumRequests: mockGetUserPremiumRequests,
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<UserPremiumUsageSection username="alice" org="test-org" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Org total:/)).toBeInTheDocument()
+      expect(screen.getByText('60.0%')).toBeInTheDocument() // 300/500
     })
-    expect(screen.getByText('5,000')).toBeInTheDocument()
   })
 })

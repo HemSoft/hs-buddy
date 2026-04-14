@@ -1,24 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { CommentCard } from './CommentCard'
-import type { PRReviewComment } from '../../api/github'
+import type { PRReviewComment, PRCommentReactionContent } from '../../api/github'
 
-// Mock MarkdownPreview
 vi.mock('@uiw/react-markdown-preview', () => ({
-  default: ({ source }: { source: string }) => <div data-testid="markdown">{source}</div>,
+  default: ({ source }: { source: string }) => <div data-testid="markdown-preview">{source}</div>,
+}))
+
+vi.mock('remark-gemoji', () => ({
+  default: () => {},
 }))
 
 function makeComment(overrides: Partial<PRReviewComment> = {}): PRReviewComment {
   return {
     id: 'comment-1',
-    author: 'bob',
-    authorAvatarUrl: 'https://avatars.example.com/bob.png',
-    body: 'This looks good.',
-    bodyHtml: '<p>This looks good.</p>',
-    createdAt: '2024-06-20T10:00:00Z',
-    updatedAt: '2024-06-20T10:00:00Z',
-    url: 'https://github.com/org/repo/pull/1#discussion_r1',
+    author: 'octocat',
+    authorAvatarUrl: 'https://avatars.example.com/octocat.png',
+    body: 'Great work on this PR!',
+    bodyHtml: '<p>Great work on this PR!</p>',
+    createdAt: '2025-06-10T10:00:00Z',
+    updatedAt: '2025-06-10T10:00:00Z',
+    path: null,
+    line: null,
     diffHunk: null,
+    outdated: false,
+    subjectType: 'LINE',
     reactions: [],
     ...overrides,
   }
@@ -29,111 +35,120 @@ describe('CommentCard', () => {
     vi.clearAllMocks()
   })
 
-  it('renders comment author and body', () => {
+  it('renders author name', () => {
     render(<CommentCard comment={makeComment()} />)
-    expect(screen.getByText('bob')).toBeInTheDocument()
-    expect(screen.getByTestId('markdown')).toHaveTextContent('This looks good.')
+    expect(screen.getByText('octocat')).toBeInTheDocument()
   })
 
-  it('renders avatar image when URL is present', () => {
+  it('renders avatar image when authorAvatarUrl is provided', () => {
     render(<CommentCard comment={makeComment()} />)
-    const img = screen.getByAltText('bob')
-    expect(img).toHaveAttribute('src', 'https://avatars.example.com/bob.png')
+    const img = screen.getByAltText('octocat')
+    expect(img).toBeInTheDocument()
+    expect(img).toHaveAttribute('src', 'https://avatars.example.com/octocat.png')
   })
 
-  it('renders avatar placeholder when no URL', () => {
+  it('renders avatar placeholder when authorAvatarUrl is null', () => {
     render(<CommentCard comment={makeComment({ authorAvatarUrl: null })} />)
-    expect(screen.getByText('B')).toBeInTheDocument()
+    expect(screen.getByText('O')).toBeInTheDocument()
   })
 
-  it('adds isFirst class when isFirst is true', () => {
+  it('renders comment body with markdown', () => {
+    render(<CommentCard comment={makeComment()} />)
+    expect(screen.getByTestId('markdown-preview')).toHaveTextContent('Great work on this PR!')
+  })
+
+  it('renders suggestion blocks when body contains suggestion syntax', () => {
+    const body = 'Before suggestion\n```suggestion\nconst x = 1;\n```\nAfter suggestion'
+    render(<CommentCard comment={makeComment({ body, bodyHtml: null })} />)
+    expect(screen.getByText('Suggested change')).toBeInTheDocument()
+  })
+
+  it('applies first-comment class when isFirst is true', () => {
     const { container } = render(<CommentCard comment={makeComment()} isFirst />)
-    const details = container.querySelector('details')
-    expect(details?.className).toContain('thread-comment-first')
+    expect(container.querySelector('.thread-comment-first')).toBeInTheDocument()
   })
 
-  it('does not show reactions bar when onReact is not provided', () => {
+  it('does not apply first-comment class when isFirst is false', () => {
     const { container } = render(<CommentCard comment={makeComment()} />)
-    expect(container.querySelector('.thread-comment-reactions')).not.toBeInTheDocument()
+    expect(container.querySelector('.thread-comment-first')).not.toBeInTheDocument()
   })
 
-  it('shows reaction buttons when onReact is provided', () => {
-    const onReact = vi.fn()
+  it('renders reaction buttons when onReact is provided', () => {
+    const onReact = vi.fn().mockResolvedValue(undefined)
     render(<CommentCard comment={makeComment()} onReact={onReact} />)
-
     expect(screen.getByTitle('Thumbs up')).toBeInTheDocument()
     expect(screen.getByTitle('Heart')).toBeInTheDocument()
     expect(screen.getByTitle('Rocket')).toBeInTheDocument()
   })
 
-  it('shows reaction count for active reactions', () => {
-    const comment = makeComment({
-      reactions: [{ content: 'THUMBS_UP', count: 3, viewerHasReacted: true }],
-    })
-    render(<CommentCard comment={comment} onReact={vi.fn()} />)
-    expect(screen.getByText('3')).toBeInTheDocument()
+  it('does not render reaction buttons when onReact is not provided', () => {
+    render(<CommentCard comment={makeComment()} />)
+    expect(screen.queryByTitle('Thumbs up')).not.toBeInTheDocument()
   })
 
-  it('marks active reactions with active class', () => {
-    const comment = makeComment({
-      reactions: [{ content: 'HEART', count: 1, viewerHasReacted: true }],
-    })
-    const { container } = render(<CommentCard comment={comment} onReact={vi.fn()} />)
-    const heartBtn = container.querySelector('.thread-comment-reaction.active')
-    expect(heartBtn).toBeInTheDocument()
-  })
-
-  it('calls onReact when a reaction button is clicked', async () => {
+  it('calls onReact with comment id and reaction content when reaction is clicked', async () => {
     const onReact = vi.fn().mockResolvedValue(undefined)
     render(<CommentCard comment={makeComment()} onReact={onReact} />)
-
     fireEvent.click(screen.getByTitle('Thumbs up'))
-
     await waitFor(() => {
       expect(onReact).toHaveBeenCalledWith('comment-1', 'THUMBS_UP')
     })
   })
 
-  it('disables reaction buttons while reacting', async () => {
-    let resolveReact: () => void
-    const onReact = vi.fn(
+  it('shows reaction count when count > 0', () => {
+    const comment = makeComment({
+      reactions: [
+        { content: 'THUMBS_UP' as PRCommentReactionContent, count: 3, viewerHasReacted: false },
+      ],
+    })
+    const onReact = vi.fn().mockResolvedValue(undefined)
+    render(<CommentCard comment={comment} onReact={onReact} />)
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('highlights active reactions when viewerHasReacted is true', () => {
+    const comment = makeComment({
+      reactions: [
+        { content: 'HEART' as PRCommentReactionContent, count: 1, viewerHasReacted: true },
+      ],
+    })
+    const onReact = vi.fn().mockResolvedValue(undefined)
+    render(<CommentCard comment={comment} onReact={onReact} />)
+    const heartBtn = screen.getByTitle('Heart')
+    expect(heartBtn).toHaveClass('active')
+  })
+
+  it('uses updatedAt when it is later than createdAt', () => {
+    const comment = makeComment({
+      createdAt: '2025-01-10T10:00:00Z',
+      updatedAt: '2025-06-15T10:00:00Z',
+    })
+    render(<CommentCard comment={comment} />)
+    const timeEl = document.querySelector('.thread-comment-time')
+    expect(timeEl).toBeInTheDocument()
+    expect(timeEl?.getAttribute('title')).toContain('6/15/2025')
+  })
+
+  it('disables reaction buttons while a reaction is in flight', async () => {
+    let resolveReaction: () => void
+    const onReact = vi.fn().mockImplementation(
       () =>
         new Promise<void>(resolve => {
-          resolveReact = resolve
+          resolveReaction = resolve
         })
     )
-
-    const { container } = render(<CommentCard comment={makeComment()} onReact={onReact} />)
+    render(<CommentCard comment={makeComment()} onReact={onReact} />)
 
     fireEvent.click(screen.getByTitle('Thumbs up'))
 
-    // All buttons should be disabled during reaction
-    const buttons = container.querySelectorAll('.thread-comment-reaction')
-    buttons.forEach(btn => {
-      expect(btn).toBeDisabled()
-    })
+    // All reaction buttons should be disabled while waiting
+    const heartBtn = screen.getByTitle('Heart')
+    expect(heartBtn).toBeDisabled()
 
-    // Resolve and re-enable
+    // Resolve the promise
+    resolveReaction!()
     await waitFor(() => {
-      resolveReact!()
+      expect(heartBtn).not.toBeDisabled()
     })
-  })
-
-  it('renders suggestion blocks from comment body', () => {
-    const comment = makeComment({
-      body: 'Consider this change:\n```suggestion\nconst x = 42\n```',
-      bodyHtml: null,
-    })
-    render(<CommentCard comment={comment} />)
-    expect(screen.getByText('Suggested change')).toBeInTheDocument()
-  })
-
-  it('renders markdown when no suggestion blocks and bodyHtml is present', () => {
-    const comment = makeComment({
-      body: 'Just a regular comment',
-      bodyHtml: '<p>Just a regular comment</p>',
-    })
-    render(<CommentCard comment={comment} />)
-    expect(screen.getByTestId('markdown')).toHaveTextContent('Just a regular comment')
   })
 })

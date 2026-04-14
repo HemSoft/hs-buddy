@@ -104,7 +104,11 @@ export function AppContentRouter({
   switch (activeViewId) {
     case 'dashboard':
       return (
-        <WelcomePanel prCounts={prCounts} onNavigate={onNavigate} onSectionChange={onSectionChange} />
+        <WelcomePanel
+          prCounts={prCounts}
+          onNavigate={onNavigate}
+          onSectionChange={onSectionChange}
+        />
       )
     case 'pr-my-prs':
     case 'pr-needs-review':

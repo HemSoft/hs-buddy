@@ -93,6 +93,14 @@ interface UserPremiumData {
 
 const premiumCache = new Map<string, { data: UserPremiumData; fetchedAt: number }>()
 
+/** @internal Reset module-level caches (used in tests) */
+// eslint-disable-next-line react-refresh/only-export-components
+export function _resetCaches() {
+  quotaCache.clear()
+  seatCache.clear()
+  premiumCache.clear()
+}
+
 function fetchPremiumData(
   org: string,
   targetUser: string,

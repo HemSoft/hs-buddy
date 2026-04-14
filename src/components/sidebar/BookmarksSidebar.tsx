@@ -3,79 +3,8 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useBookmarks, useBookmarkCategories, useBookmarkMutations } from '../../hooks/useConvex'
 import { BookmarkDialog } from '../bookmarks/BookmarkDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
-
-function isSafeImageUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-interface CategoryNode {
-  name: string
-  fullPath: string
-  directCount: number
-  totalCount: number
-  children: CategoryNode[]
-}
-
-function buildCategoryTree(categories: string[], counts: Record<string, number>): CategoryNode[] {
-  const root: CategoryNode[] = []
-  const nodeMap = new Map<string, CategoryNode>()
-
-  // Sort so parents are processed before children
-  const sorted = [...categories].sort()
-
-  for (const cat of sorted) {
-    const parts = cat.split('/')
-    let currentPath = ''
-
-    for (let i = 0; i < parts.length; i++) {
-      const parentPath = currentPath
-      currentPath = i === 0 ? parts[i] : `${currentPath}/${parts[i]}`
-
-      if (!nodeMap.has(currentPath)) {
-        const node: CategoryNode = {
-          name: parts[i],
-          fullPath: currentPath,
-          directCount: 0,
-          totalCount: 0,
-          children: [],
-        }
-        nodeMap.set(currentPath, node)
-
-        if (parentPath && nodeMap.has(parentPath)) {
-          nodeMap.get(parentPath)!.children.push(node)
-        } else if (!parentPath) {
-          root.push(node)
-        }
-      }
-    }
-  }
-
-  // Assign direct counts and roll up totals
-  for (const cat of sorted) {
-    const directCount = counts[cat] ?? 0
-    const node = nodeMap.get(cat)
-    if (node) {
-      node.directCount = directCount
-    }
-    // Add to all ancestors
-    const parts = cat.split('/')
-    let path = ''
-    for (let i = 0; i < parts.length; i++) {
-      path = i === 0 ? parts[i] : `${path}/${parts[i]}`
-      const ancestor = nodeMap.get(path)
-      if (ancestor) {
-        ancestor.totalCount += directCount
-      }
-    }
-  }
-
-  return root
-}
+import { isSafeImageUrl, buildCategoryTree } from './bookmarksSidebarUtils'
+import type { CategoryNode } from './bookmarksSidebarUtils'
 
 interface BookmarksSidebarProps {
   onItemSelect: (itemId: string) => void

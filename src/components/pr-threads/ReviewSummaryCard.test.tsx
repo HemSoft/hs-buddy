@@ -1,86 +1,105 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReviewSummaryCard } from './ReviewSummaryCard'
 import type { PRReviewSummary } from '../../api/github'
 
-// Mock MarkdownPreview to avoid WASM/heavy rendering
 vi.mock('@uiw/react-markdown-preview', () => ({
-  default: ({ source }: { source: string }) => <div data-testid="markdown">{source}</div>,
+  default: ({ source }: { source: string }) => <div data-testid="markdown-preview">{source}</div>,
 }))
 
+vi.mock('remark-gemoji', () => ({
+  default: () => {},
+}))
+
+const mockOpenExternal = vi.fn()
+
 beforeEach(() => {
-  window.shell = { openExternal: vi.fn() } as never
+  vi.clearAllMocks()
+  Object.defineProperty(window, 'shell', {
+    value: { openExternal: mockOpenExternal },
+    writable: true,
+    configurable: true,
+  })
 })
 
-function makeSummary(overrides: Partial<PRReviewSummary> = {}): PRReviewSummary {
+function makeReview(overrides: Partial<PRReviewSummary> = {}): PRReviewSummary {
   return {
-    id: 'review-1',
+    id: 'rev-1',
     state: 'APPROVED',
-    author: 'alice',
-    authorAvatarUrl: 'https://avatars.example.com/alice.png',
-    body: 'LGTM! Great work.',
-    bodyHtml: '<p>LGTM! Great work.</p>',
-    createdAt: '2024-06-20T10:00:00Z',
-    updatedAt: '2024-06-20T10:00:00Z',
+    author: 'octocat',
+    authorAvatarUrl: 'https://avatars.example.com/octocat.png',
+    body: 'Looks great!',
+    bodyHtml: null,
+    createdAt: '2025-01-10T10:00:00Z',
+    updatedAt: '2025-01-10T12:00:00Z',
     url: 'https://github.com/org/repo/pull/1#pullrequestreview-1',
     ...overrides,
   }
 }
 
 describe('ReviewSummaryCard', () => {
-  it('renders approved state badge', () => {
-    render(<ReviewSummaryCard review={makeSummary()} />)
-    expect(screen.getByText('Approved')).toBeInTheDocument()
-    expect(screen.getByText('alice')).toBeInTheDocument()
+  it('renders the reviewer username', () => {
+    render(<ReviewSummaryCard review={makeReview()} />)
+    expect(screen.getByText('octocat')).toBeInTheDocument()
   })
 
-  it('renders changes requested state', () => {
-    render(<ReviewSummaryCard review={makeSummary({ state: 'CHANGES_REQUESTED' })} />)
+  it('renders APPROVED state badge', () => {
+    render(<ReviewSummaryCard review={makeReview({ state: 'APPROVED' })} />)
+    expect(screen.getByText('Approved')).toBeInTheDocument()
+  })
+
+  it('renders CHANGES_REQUESTED state badge', () => {
+    render(<ReviewSummaryCard review={makeReview({ state: 'CHANGES_REQUESTED' })} />)
     expect(screen.getByText('Changes requested')).toBeInTheDocument()
   })
 
-  it('renders commented state', () => {
-    render(<ReviewSummaryCard review={makeSummary({ state: 'COMMENTED' })} />)
+  it('renders COMMENTED state badge', () => {
+    render(<ReviewSummaryCard review={makeReview({ state: 'COMMENTED' })} />)
     expect(screen.getByText('Reviewed')).toBeInTheDocument()
   })
 
-  it('renders unknown state with title case', () => {
-    render(<ReviewSummaryCard review={makeSummary({ state: 'DISMISSED' })} />)
+  it('renders default state badge for unknown states', () => {
+    render(<ReviewSummaryCard review={makeReview({ state: 'DISMISSED' })} />)
     expect(screen.getByText('Dismissed')).toBeInTheDocument()
   })
 
-  it('renders avatar image when URL is present', () => {
-    render(<ReviewSummaryCard review={makeSummary()} />)
-    const img = screen.getByAltText('alice')
-    expect(img).toHaveAttribute('src', 'https://avatars.example.com/alice.png')
+  it('renders avatar image when authorAvatarUrl is provided', () => {
+    render(<ReviewSummaryCard review={makeReview()} />)
+    const img = screen.getByAltText('octocat')
+    expect(img).toBeInTheDocument()
+    expect(img).toHaveAttribute('src', 'https://avatars.example.com/octocat.png')
   })
 
-  it('renders avatar placeholder when no URL', () => {
-    render(<ReviewSummaryCard review={makeSummary({ authorAvatarUrl: null })} />)
-    expect(screen.getByText('A')).toBeInTheDocument()
+  it('renders avatar placeholder when authorAvatarUrl is null', () => {
+    render(<ReviewSummaryCard review={makeReview({ authorAvatarUrl: null })} />)
+    expect(screen.getByText('O')).toBeInTheDocument()
   })
 
-  it('renders the review body via markdown', () => {
-    render(<ReviewSummaryCard review={makeSummary()} />)
-    expect(screen.getByTestId('markdown')).toHaveTextContent('LGTM! Great work.')
+  it('renders the review body in markdown', () => {
+    render(<ReviewSummaryCard review={makeReview({ body: 'LGTM :+1:' })} />)
+    expect(screen.getByTestId('markdown-preview')).toHaveTextContent('LGTM :+1:')
   })
 
-  it('opens GitHub link on click', () => {
-    render(<ReviewSummaryCard review={makeSummary()} />)
+  it('opens GitHub URL when View on GitHub is clicked', () => {
+    render(<ReviewSummaryCard review={makeReview()} />)
     fireEvent.click(screen.getByText('View on GitHub'))
-    expect(window.shell.openExternal).toHaveBeenCalledWith(
+    expect(mockOpenExternal).toHaveBeenCalledWith(
       'https://github.com/org/repo/pull/1#pullrequestreview-1'
     )
   })
 
-  it('shows updatedAt when newer than createdAt', () => {
-    const review = makeSummary({
-      createdAt: '2024-06-20T10:00:00Z',
-      updatedAt: '2024-06-21T12:00:00Z',
-    })
-    render(<ReviewSummaryCard review={review} />)
-    // The time element should have the updatedAt as title
-    const timeSpan = screen.getByTitle(new Date('2024-06-21T12:00:00Z').toLocaleString())
-    expect(timeSpan).toBeInTheDocument()
+  it('uses updatedAt when it is later than createdAt', () => {
+    const createdAt = '2025-01-10T10:00:00Z'
+    const updatedAt = '2025-06-15T10:00:00Z'
+
+    render(
+      <ReviewSummaryCard
+        review={makeReview({ createdAt, updatedAt })}
+      />
+    )
+    const timeEl = document.querySelector('.thread-comment-time')
+    expect(timeEl).toBeInTheDocument()
+    // The title should contain the updatedAt date (June 15), not createdAt (January 10)
+    expect(timeEl?.getAttribute('title')).toContain('6/15/2025')
   })
 })

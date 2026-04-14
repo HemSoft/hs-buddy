@@ -4,7 +4,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
-import { useWeather } from './useWeather'
+import { useWeather, weatherCodeToDescription } from './useWeather'
 
 function makeApiResponse() {
   return {
@@ -225,5 +225,300 @@ describe('useWeather', () => {
   it('aborts on unmount', () => {
     const { unmount } = renderHook(() => useWeather())
     unmount()
+  })
+
+  it('handles corrupt cache gracefully', () => {
+    localStorage.setItem('weather:cache', 'not json')
+    const { result } = renderHook(() => useWeather())
+    expect(result.current.loading).toBe(true)
+  })
+
+  it('setLocationBySearch falls back to display_name when no city', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { lat: '34.05', lon: '-118.24', display_name: 'Some Place, Earth', address: {} },
+        ],
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    await act(async () => {
+      await result.current.setLocationBySearch('Some Place')
+    })
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toBe('Some Place')
+  })
+
+  it('setLocationBySearch uses query as fallback name', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ lat: '34.05', lon: '-118.24', address: {} }],
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    await act(async () => {
+      await result.current.setLocationBySearch('Custom Query')
+    })
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toBe('Custom Query')
+  })
+
+  it('setLocationBySearch handles fetch exception', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch.mockRejectedValueOnce(new Error('Network down'))
+
+    await act(async () => {
+      await result.current.setLocationBySearch('test')
+    })
+    expect(result.current.error).toBe('Network down')
+  })
+
+  it('setLocationBySearch handles non-Error exception', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch.mockRejectedValueOnce('string failure')
+
+    await act(async () => {
+      await result.current.setLocationBySearch('test')
+    })
+    expect(result.current.error).toBe('Location search failed')
+  })
+
+  it('setLocationBySearch uses town when city is missing', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            lat: '34.05',
+            lon: '-118.24',
+            address: { town: 'SmallTown', state: 'TX' },
+          },
+        ],
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    await act(async () => {
+      await result.current.setLocationBySearch('SmallTown')
+    })
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toBe('SmallTown, TX')
+  })
+
+  it('useMyLocation success with city name from reverse geocoding', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 40.71, longitude: -74.01 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    // First fetch: initial weather (on mount), then reverse geocoding, then weather refresh
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ address: { city: 'New York', state: 'New York' } }),
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    // Wait for the geolocation success callback to complete
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.latitude).toBe(40.71)
+    expect(saved.longitude).toBe(-74.01)
+  })
+
+  it('useMyLocation falls back to coordinates when reverse geocoding fails', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 51.5, longitude: -0.12 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockRejectedValueOnce(new Error('Network error')) // reverse geocoding fails
+      .mockResolvedValue(makeApiResponse()) // weather refresh
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toContain('51.50')
+  })
+
+  it('useMyLocation reports permission denied error', async () => {
+    const mockGetCurrentPosition = vi.fn(
+      (_success: PositionCallback, error: PositionErrorCallback) => {
+        error({ code: 1, message: 'User denied' } as GeolocationPositionError)
+      }
+    )
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => {
+      result.current.useMyLocation()
+    })
+
+    expect(result.current.error).toBe('Location permission denied')
+  })
+
+  it('setLocationBySearch uses village when city and town are missing', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            lat: '34.05',
+            lon: '-118.24',
+            address: { village: 'Hamlet', state: 'NC' },
+          },
+        ],
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    await act(async () => {
+      await result.current.setLocationBySearch('Hamlet')
+    })
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toBe('Hamlet, NC')
+  })
+
+  it('setLocationBySearch uses city without state', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            lat: '48.86',
+            lon: '2.35',
+            address: { city: 'Paris' },
+          },
+        ],
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    await act(async () => {
+      await result.current.setLocationBySearch('Paris')
+    })
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toBe('Paris')
+  })
+})
+
+describe('weatherCodeToDescription', () => {
+  it('maps code 0 to Clear sky', () => {
+    expect(weatherCodeToDescription(0)).toBe('Clear sky')
+  })
+
+  it('maps code 1 to Mainly clear', () => {
+    expect(weatherCodeToDescription(1)).toBe('Mainly clear')
+  })
+
+  it('maps code 2 to Partly cloudy', () => {
+    expect(weatherCodeToDescription(2)).toBe('Partly cloudy')
+  })
+
+  it('maps code 3 to Overcast', () => {
+    expect(weatherCodeToDescription(3)).toBe('Overcast')
+  })
+
+  it('maps code 45 to Foggy', () => {
+    expect(weatherCodeToDescription(45)).toBe('Foggy')
+  })
+
+  it('maps code 48 to Depositing rime fog', () => {
+    expect(weatherCodeToDescription(48)).toBe('Depositing rime fog')
+  })
+
+  it('maps drizzle codes correctly', () => {
+    expect(weatherCodeToDescription(51)).toBe('Light drizzle')
+    expect(weatherCodeToDescription(53)).toBe('Moderate drizzle')
+    expect(weatherCodeToDescription(55)).toBe('Dense drizzle')
+  })
+
+  it('maps rain codes correctly', () => {
+    expect(weatherCodeToDescription(61)).toBe('Slight rain')
+    expect(weatherCodeToDescription(63)).toBe('Moderate rain')
+    expect(weatherCodeToDescription(65)).toBe('Heavy rain')
+  })
+
+  it('maps snow codes correctly', () => {
+    expect(weatherCodeToDescription(71)).toBe('Slight snow')
+    expect(weatherCodeToDescription(73)).toBe('Moderate snow')
+    expect(weatherCodeToDescription(75)).toBe('Heavy snow')
+  })
+
+  it('maps shower codes correctly', () => {
+    expect(weatherCodeToDescription(80)).toBe('Slight rain showers')
+    expect(weatherCodeToDescription(81)).toBe('Moderate rain showers')
+    expect(weatherCodeToDescription(82)).toBe('Violent rain showers')
+    expect(weatherCodeToDescription(85)).toBe('Slight snow showers')
+    expect(weatherCodeToDescription(86)).toBe('Heavy snow showers')
+  })
+
+  it('maps thunderstorm codes correctly', () => {
+    expect(weatherCodeToDescription(95)).toBe('Thunderstorm')
+    expect(weatherCodeToDescription(96)).toBe('Thunderstorm with hail')
+    expect(weatherCodeToDescription(99)).toBe('Thunderstorm with heavy hail')
+  })
+
+  it('returns Unknown for unmapped codes', () => {
+    expect(weatherCodeToDescription(999)).toBe('Unknown')
+    expect(weatherCodeToDescription(-1)).toBe('Unknown')
+    expect(weatherCodeToDescription(10)).toBe('Unknown')
   })
 })

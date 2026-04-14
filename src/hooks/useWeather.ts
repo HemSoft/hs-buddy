@@ -46,7 +46,7 @@ const CACHE_TTL_MS = 30 * 60 * 1000 // 30 minutes
 const LOCATION_KEY = 'weather:location'
 
 /** WMO Weather interpretation codes → human-readable labels */
-function weatherCodeToDescription(code: number): string {
+export function weatherCodeToDescription(code: number): string {
   const map: Record<number, string> = {
     0: 'Clear sky',
     1: 'Mainly clear',

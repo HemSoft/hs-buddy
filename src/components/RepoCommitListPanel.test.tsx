@@ -1,173 +1,230 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { RepoCommitListPanel } from './RepoCommitListPanel'
+import type { RepoCommit } from '../api/github'
 
-/* ── mocks ── */
-const mockEnqueue = vi.fn()
-const mockGet = vi.fn()
-const mockSet = vi.fn()
-const mockAccounts = [{ username: 'user', token: 'tok', org: 'org' }]
-
-vi.mock('../services/dataCache', () => ({
-  dataCache: {
-    get: (...args: unknown[]) => mockGet(...args),
-    set: (...args: unknown[]) => mockSet(...args),
-  },
-}))
-
-vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoCommits: vi.fn().mockResolvedValue([]),
-  })),
-}))
+const { mockEnqueue, mockFetchRepoCommits, mockCacheGet, mockCacheSet, stableAccounts } =
+  vi.hoisted(() => ({
+    mockEnqueue: vi.fn(),
+    mockFetchRepoCommits: vi.fn(),
+    mockCacheGet: vi.fn(),
+    mockCacheSet: vi.fn(),
+    stableAccounts: [{ username: 'alice', org: 'test-org' }],
+  }))
 
 vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts }),
+  useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
 }))
 
 vi.mock('../hooks/useTaskQueue', () => ({
   useTaskQueue: () => ({ enqueue: mockEnqueue }),
 }))
 
+vi.mock('../api/github', () => ({
+  GitHubClient: vi.fn().mockImplementation(() => ({
+    fetchRepoCommits: mockFetchRepoCommits,
+  })),
+}))
+
+vi.mock('../services/dataCache', () => ({
+  dataCache: { get: mockCacheGet, set: mockCacheSet, isFresh: vi.fn() },
+}))
+
 vi.mock('../utils/dateUtils', () => ({
-  formatDistanceToNow: () => '2 days ago',
+  formatDistanceToNow: () => '3 hours ago',
 }))
 
 vi.mock('../utils/errorUtils', () => ({
-  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'Unknown error'),
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   isAbortError: () => false,
-  throwIfAborted: vi.fn(),
+  throwIfAborted: () => {},
 }))
 
-/* ── test data ── */
-const mockCommits = [
-  {
-    sha: 'abc1234567890',
+import { RepoCommitListPanel } from './RepoCommitListPanel'
+
+function makeCommit(overrides: Partial<RepoCommit> = {}): RepoCommit {
+  return {
+    sha: 'abc1234def5678901234567890abcdef12345678',
     message: 'fix: resolve login issue',
     author: 'alice',
-    authorAvatarUrl: 'https://avatar.test/alice',
-    date: '2024-01-15T10:00:00Z',
-    url: 'https://github.com/org/repo/commit/abc1234567890',
-  },
-  {
-    sha: 'def9876543210',
-    message: 'feat: add new dashboard',
-    author: 'bob',
-    authorAvatarUrl: null,
-    date: '2024-01-14T09:00:00Z',
-    url: 'https://github.com/org/repo/commit/def9876543210',
-  },
-]
+    authorAvatarUrl: 'https://avatars.example.com/alice',
+    date: '2025-01-15T10:00:00Z',
+    url: 'https://github.com/acme/webapp/commit/abc1234',
+    ...overrides,
+  }
+}
+
+function setupEnqueue(result: RepoCommit[]) {
+  mockEnqueue.mockResolvedValue(result)
+}
+
+function setupEnqueueError(error: Error) {
+  mockEnqueue.mockRejectedValue(error)
+}
 
 describe('RepoCommitListPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGet.mockReturnValue(null)
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) =>
-      fn(new AbortController().signal)
+    mockCacheGet.mockReturnValue(null)
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: vi.fn() },
+      writable: true,
+      configurable: true,
+    })
+  })
+
+  it('shows loading state initially', () => {
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+    expect(screen.getByText('Loading commits...')).toBeTruthy()
+  })
+
+  it('shows commits after fetch', async () => {
+    setupEnqueue([
+      makeCommit({ message: 'feat: add dashboard' }),
+      makeCommit({ sha: 'bbb222', message: 'fix: patch auth' }),
+    ])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('feat: add dashboard')).toBeTruthy()
+    })
+    expect(screen.getByText('fix: patch auth')).toBeTruthy()
+  })
+
+  it('shows error state with Retry button', async () => {
+    setupEnqueueError(new Error('API rate limit exceeded'))
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load commits')).toBeTruthy()
+    })
+    expect(screen.getByText('API rate limit exceeded')).toBeTruthy()
+  })
+
+  it('retries on Retry click', async () => {
+    setupEnqueueError(new Error('Network error'))
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load commits')).toBeTruthy()
+    })
+
+    setupEnqueue([makeCommit()])
+    fireEvent.click(screen.getByText(/Retry/))
+
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
+  })
+
+  it('calls onOpenCommit when clicking a commit', async () => {
+    setupEnqueue([makeCommit()])
+    const onOpenCommit = vi.fn()
+    render(<RepoCommitListPanel owner="acme" repo="webapp" onOpenCommit={onOpenCommit} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /fix: resolve login issue/i }))
+    expect(onOpenCommit).toHaveBeenCalledWith('abc1234def5678901234567890abcdef12345678')
+  })
+
+  it('opens external URL when no onOpenCommit', async () => {
+    setupEnqueue([makeCommit({ url: 'https://github.com/acme/webapp/commit/abc1234' })])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /fix: resolve login issue/i }))
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/acme/webapp/commit/abc1234'
     )
   })
 
-  it('shows loading state when no cached data', () => {
-    mockEnqueue.mockReturnValue(new Promise(() => {})) // never resolves
-    render(<RepoCommitListPanel owner="org" repo="repo" />)
-    expect(screen.getByText('Loading commits...')).toBeInTheDocument()
-    expect(screen.getByText('org/repo')).toBeInTheDocument()
-  })
-
-  it('renders commits after successful fetch', async () => {
-    mockEnqueue.mockImplementation(async () => mockCommits)
-
-    render(<RepoCommitListPanel owner="org" repo="repo" />)
+  it('shows empty state when no commits', async () => {
+    setupEnqueue([])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
 
     await waitFor(() => {
-      expect(screen.getByText('fix: resolve login issue')).toBeInTheDocument()
+      expect(screen.getByText('No commits found')).toBeTruthy()
     })
-    expect(screen.getByText('feat: add new dashboard')).toBeInTheDocument()
-    expect(screen.getByText('abc1234')).toBeInTheDocument()
-    expect(screen.getByText('alice')).toBeInTheDocument()
-    expect(screen.getByText('2 recent')).toBeInTheDocument()
+  })
+
+  it('shows truncated SHA (7 chars)', async () => {
+    setupEnqueue([makeCommit({ sha: 'deadbeefcafebabe1234567890abcdef12345678' })])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('deadbee')).toBeTruthy()
+    })
+  })
+
+  it('shows owner/repo in header', async () => {
+    setupEnqueue([makeCommit()])
+    render(<RepoCommitListPanel owner="myorg" repo="myrepo" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('myorg')).toBeTruthy()
+    })
+    expect(screen.getByText('myrepo')).toBeTruthy()
+  })
+
+  it('shows commit count', async () => {
+    setupEnqueue([
+      makeCommit({ sha: '1111111000000000000000000000000000000000' }),
+      makeCommit({ sha: '2222222000000000000000000000000000000000' }),
+      makeCommit({ sha: '3333333000000000000000000000000000000000' }),
+    ])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('3 recent')).toBeTruthy()
+    })
   })
 
   it('uses cached data when available', () => {
-    mockGet.mockReturnValue({ data: mockCommits, fetchedAt: Date.now() })
+    mockCacheGet.mockReturnValue({
+      data: [makeCommit({ message: 'cached commit' })],
+      fetchedAt: Date.now(),
+    })
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
 
-    render(<RepoCommitListPanel owner="org" repo="repo" />)
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
 
-    expect(screen.getByText('fix: resolve login issue')).toBeInTheDocument()
-    expect(screen.getByText('2 recent')).toBeInTheDocument()
+    expect(screen.queryByText('Loading commits...')).toBeNull()
+    expect(screen.getByText('cached commit')).toBeTruthy()
   })
 
-  it('shows error state on fetch failure', async () => {
-    mockEnqueue.mockReset()
-    mockEnqueue.mockRejectedValue(new Error('Network error'))
-
-    render(<RepoCommitListPanel owner="org" repo="repo" />)
+  it('keyboard Enter triggers commit click', async () => {
+    setupEnqueue([makeCommit()])
+    const onOpenCommit = vi.fn()
+    render(<RepoCommitListPanel owner="acme" repo="webapp" onOpenCommit={onOpenCommit} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load commits')).toBeInTheDocument()
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
     })
-    expect(screen.getByText('Network error')).toBeInTheDocument()
-    expect(screen.getByText('Retry')).toBeInTheDocument()
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /fix: resolve login issue/i }), {
+      key: 'Enter',
+    })
+    expect(onOpenCommit).toHaveBeenCalled()
   })
 
-  it('calls onOpenCommit callback when commit is clicked', async () => {
-    mockGet.mockReturnValue({ data: mockCommits, fetchedAt: Date.now() })
+  it('keyboard Space triggers commit click', async () => {
+    setupEnqueue([makeCommit()])
     const onOpenCommit = vi.fn()
+    render(<RepoCommitListPanel owner="acme" repo="webapp" onOpenCommit={onOpenCommit} />)
 
-    render(<RepoCommitListPanel owner="org" repo="repo" onOpenCommit={onOpenCommit} />)
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
 
-    fireEvent.click(screen.getByText('fix: resolve login issue'))
-    expect(onOpenCommit).toHaveBeenCalledWith('abc1234567890')
-  })
-
-  it('opens external link when no onOpenCommit callback', async () => {
-    mockGet.mockReturnValue({ data: mockCommits, fetchedAt: Date.now() })
-    const openExternal = vi.fn()
-    window.shell = { openExternal } as never
-
-    render(<RepoCommitListPanel owner="org" repo="repo" />)
-
-    fireEvent.click(screen.getByText('fix: resolve login issue'))
-    expect(openExternal).toHaveBeenCalledWith('https://github.com/org/repo/commit/abc1234567890')
-  })
-
-  it('supports keyboard navigation with Enter', async () => {
-    mockGet.mockReturnValue({ data: mockCommits, fetchedAt: Date.now() })
-    const onOpenCommit = vi.fn()
-
-    render(<RepoCommitListPanel owner="org" repo="repo" onOpenCommit={onOpenCommit} />)
-
-    const commitItem = screen.getByText('fix: resolve login issue').closest('[role="button"]')!
-    fireEvent.keyDown(commitItem, { key: 'Enter' })
-    expect(onOpenCommit).toHaveBeenCalledWith('abc1234567890')
-  })
-
-  it('supports keyboard navigation with Space', async () => {
-    mockGet.mockReturnValue({ data: mockCommits, fetchedAt: Date.now() })
-    const onOpenCommit = vi.fn()
-
-    render(<RepoCommitListPanel owner="org" repo="repo" onOpenCommit={onOpenCommit} />)
-
-    const commitItem = screen.getByText('fix: resolve login issue').closest('[role="button"]')!
-    fireEvent.keyDown(commitItem, { key: ' ' })
-    expect(onOpenCommit).toHaveBeenCalledWith('abc1234567890')
-  })
-
-  it('shows empty state when no commits', async () => {
-    mockGet.mockReturnValue({ data: [], fetchedAt: Date.now() })
-
-    render(<RepoCommitListPanel owner="org" repo="repo" />)
-
-    expect(screen.getByText('No commits found')).toBeInTheDocument()
-  })
-
-  it('renders author avatar when available', async () => {
-    mockGet.mockReturnValue({ data: mockCommits, fetchedAt: Date.now() })
-
-    render(<RepoCommitListPanel owner="org" repo="repo" />)
-
-    const avatar = screen.getByAltText('alice')
-    expect(avatar).toHaveAttribute('src', 'https://avatar.test/alice')
+    fireEvent.keyDown(screen.getByRole('button', { name: /fix: resolve login issue/i }), {
+      key: ' ',
+    })
+    expect(onOpenCommit).toHaveBeenCalled()
   })
 })

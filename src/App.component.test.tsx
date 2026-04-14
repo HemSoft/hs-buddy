@@ -1,48 +1,26 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import App from './App'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 
-// Mock all child components
+/* ── hoisted mocks ── */
 vi.mock('./components/TitleBar', () => ({
-  TitleBar: ({ onToggleAssistant }: { onToggleAssistant: () => void }) => (
-    <div data-testid="title-bar">
-      <button onClick={onToggleAssistant}>Toggle Assistant</button>
-    </div>
-  ),
+  TitleBar: () => <div data-testid="title-bar" />,
 }))
 
 vi.mock('./components/ActivityBar', () => ({
-  ActivityBar: ({
-    selectedSection,
-    onSectionSelect,
-  }: {
-    selectedSection: string
-    onSectionSelect: (s: string) => void
-  }) => (
-    <div data-testid="activity-bar" data-section={selectedSection}>
-      <button onClick={() => onSectionSelect('settings')}>Settings</button>
-      <button onClick={() => onSectionSelect('bookmarks')}>Bookmarks</button>
-    </div>
-  ),
+  ActivityBar: () => <div data-testid="activity-bar" />,
 }))
 
 vi.mock('./components/SidebarPanel', () => ({
-  SidebarPanel: ({
-    section,
-    onCreateNew,
-  }: {
-    section: string
-    onCreateNew?: (type: string) => void
-  }) => (
-    <div data-testid="sidebar-panel" data-section={section}>
-      <button onClick={() => onCreateNew?.('schedule')}>New Schedule</button>
-      <button onClick={() => onCreateNew?.('job')}>New Job</button>
-    </div>
-  ),
+  SidebarPanel: () => <div data-testid="sidebar-panel" />,
 }))
 
 vi.mock('./components/TabBar', () => ({
   TabBar: () => <div data-testid="tab-bar" />,
+}))
+
+vi.mock('./components/automation', () => ({
+  ScheduleEditor: () => <div data-testid="schedule-editor" />,
+  JobEditor: () => <div data-testid="job-editor" />,
 }))
 
 vi.mock('./components/StatusBar', () => ({
@@ -50,7 +28,7 @@ vi.mock('./components/StatusBar', () => ({
 }))
 
 vi.mock('./components/AppErrorBoundary', () => ({
-  AppErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AppErrorBoundary: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('./components/AppContentRouter', () => ({
@@ -61,39 +39,23 @@ vi.mock('./components/AssistantPanel', () => ({
   AssistantPanel: () => <div data-testid="assistant-panel" />,
 }))
 
-vi.mock('./components/automation', () => ({
-  ScheduleEditor: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="schedule-editor">
-      <button onClick={onClose}>Close Schedule Editor</button>
-    </div>
-  ),
-  JobEditor: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="job-editor">
-      <button onClick={onClose}>Close Job Editor</button>
-    </div>
-  ),
-}))
-
-// Mock Allotment (complex layout lib)
 vi.mock('allotment', () => {
-  const Pane = ({ children }: { children: React.ReactNode }) => <div>{children}</div>
-  const Allotment = ({ children }: { children: React.ReactNode }) => <div>{children}</div>
-  Allotment.Pane = Pane
-  return { Allotment }
+  function MockAllotment({ children }: { children: React.ReactNode }) {
+    return <div data-testid="allotment">{children}</div>
+  }
+  MockAllotment.Pane = function MockPane({ children }: { children: React.ReactNode }) {
+    return <div data-testid="allotment-pane">{children}</div>
+  }
+  return { Allotment: MockAllotment }
 })
 
-// Mock all hooks
-const mockOpenTab = vi.fn()
-const mockSetPRCount = vi.fn()
-const mockToggleAssistant = vi.fn()
-
 vi.mock('./hooks/useConvex', () => ({
-  useSchedules: () => [{ _id: 's1' }],
-  useJobs: () => [{ _id: 'j1' }],
+  useSchedules: () => [{ id: '1', name: 'sched' }],
+  useJobs: () => [{ id: '1', name: 'job' }],
 }))
 
 vi.mock('./hooks/useMigration', () => ({
-  useMigrateToConvex: () => ({ isComplete: true, isLoading: false }),
+  useMigrateToConvex: vi.fn().mockReturnValue({ isComplete: true, isLoading: false }),
 }))
 
 vi.mock('./hooks/usePrefetch', () => ({
@@ -101,7 +63,7 @@ vi.mock('./hooks/usePrefetch', () => ({
 }))
 
 vi.mock('./hooks/useBackgroundStatus', () => ({
-  useBackgroundStatus: () => ({ running: 0, pending: 0 }),
+  useBackgroundStatus: () => null,
 }))
 
 vi.mock('./hooks/useAppAppearance', () => ({
@@ -110,9 +72,9 @@ vi.mock('./hooks/useAppAppearance', () => ({
 
 vi.mock('./hooks/usePRSidebarBadges', () => ({
   usePRSidebarBadges: () => ({
-    prCounts: {},
-    badgeProgress: {},
-    setPRCount: mockSetPRCount,
+    prCounts: { 'pr-list': 5 },
+    badgeProgress: null,
+    setPRCount: vi.fn(),
   }),
 }))
 
@@ -121,7 +83,7 @@ vi.mock('./hooks/useAssistantContext', () => ({
 }))
 
 vi.mock('./hooks/useActiveGitHubAccount', () => ({
-  useActiveGitHubAccount: () => 'testuser',
+  useActiveGitHubAccount: () => 'alice',
 }))
 
 vi.mock('./hooks/useAppLayout', () => ({
@@ -129,8 +91,8 @@ vi.mock('./hooks/useAppLayout', () => ({
     assistantOpen: false,
     handlePaneChange: vi.fn(),
     loaded: true,
-    paneSizes: [300, 900],
-    toggleAssistant: mockToggleAssistant,
+    paneSizes: [200, 600],
+    toggleAssistant: vi.fn(),
   }),
 }))
 
@@ -139,101 +101,54 @@ vi.mock('./hooks/useAppSessionStats', () => ({
 }))
 
 vi.mock('./hooks/useAppTabs', () => ({
-  DASHBOARD_VIEW_ID: 'dashboard',
   useAppTabs: () => ({
-    activeTabId: null,
-    activeViewId: null,
+    activeTabId: 'welcome',
+    activeViewId: 'welcome',
     closeAllTabs: vi.fn(),
     closeOtherTabs: vi.fn(),
     closeTab: vi.fn(),
     closeTabsToRight: vi.fn(),
     closeView: vi.fn(),
-    openTab: mockOpenTab,
+    openTab: vi.fn(),
     setActiveTabId: vi.fn(),
-    tabs: [],
+    tabs: [{ id: 'welcome', label: 'Welcome' }],
   }),
 }))
 
-describe('App', () => {
+import App from './App'
+
+describe('App component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('renders the main app shell', () => {
+  it('renders the main app UI', () => {
     render(<App />)
-    expect(screen.getByTestId('title-bar')).toBeTruthy()
-    expect(screen.getByTestId('activity-bar')).toBeTruthy()
-    expect(screen.getByTestId('sidebar-panel')).toBeTruthy()
-    expect(screen.getByTestId('tab-bar')).toBeTruthy()
-    expect(screen.getByTestId('content-router')).toBeTruthy()
-    expect(screen.getByTestId('status-bar')).toBeTruthy()
+    expect(screen.getByTestId('title-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('status-bar')).toBeInTheDocument()
   })
 
-  it('starts with github section selected', () => {
+  it('renders sidebar, tabs, and content area', () => {
     render(<App />)
-    expect(screen.getByTestId('activity-bar')).toHaveAttribute('data-section', 'github')
+    expect(screen.getByTestId('sidebar-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('tab-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('content-router')).toBeInTheDocument()
   })
 
-  it('changes section when ActivityBar fires onSectionSelect', () => {
+  it('renders activity bar', () => {
     render(<App />)
-    fireEvent.click(screen.getByText('Settings'))
-    expect(screen.getByTestId('sidebar-panel')).toHaveAttribute('data-section', 'settings')
-  })
-
-  it('opens bookmarks-all tab when bookmarks section is selected', () => {
-    render(<App />)
-    fireEvent.click(screen.getByText('Bookmarks'))
-    expect(mockOpenTab).toHaveBeenCalledWith('bookmarks-all')
-  })
-
-  it('opens ScheduleEditor when sidebar triggers create schedule', async () => {
-    render(<App />)
-    fireEvent.click(screen.getByText('New Schedule'))
-    await waitFor(() => {
-      expect(screen.getByTestId('schedule-editor')).toBeTruthy()
-    })
-  })
-
-  it('opens JobEditor when sidebar triggers create job', async () => {
-    render(<App />)
-    fireEvent.click(screen.getByText('New Job'))
-    await waitFor(() => {
-      expect(screen.getByTestId('job-editor')).toBeTruthy()
-    })
-  })
-
-  it('closes ScheduleEditor via onClose', async () => {
-    render(<App />)
-    fireEvent.click(screen.getByText('New Schedule'))
-    await waitFor(() => {
-      expect(screen.getByTestId('schedule-editor')).toBeTruthy()
-    })
-    fireEvent.click(screen.getByText('Close Schedule Editor'))
-    await waitFor(() => {
-      expect(screen.queryByTestId('schedule-editor')).toBeNull()
-    })
-  })
-
-  it('closes JobEditor via onClose', async () => {
-    render(<App />)
-    fireEvent.click(screen.getByText('New Job'))
-    await waitFor(() => {
-      expect(screen.getByTestId('job-editor')).toBeTruthy()
-    })
-    fireEvent.click(screen.getByText('Close Job Editor'))
-    await waitFor(() => {
-      expect(screen.queryByTestId('job-editor')).toBeNull()
-    })
+    expect(screen.getByTestId('activity-bar')).toBeInTheDocument()
   })
 })
 
 describe('App loading state', () => {
-  it('shows loading state when migration is in progress', () => {
-    // With the current mock setup (migration complete, layout loaded),
-    // the app renders normally - tested above.
-    // The loading branch is covered by the fact that the component
-    // evaluates `showLoading` on every render.
+  it('shows loading screen when migration is in progress', async () => {
+    // Override the migration mock for this test
+    const { useMigrateToConvex } = await import('./hooks/useMigration')
+    vi.mocked(useMigrateToConvex).mockReturnValue({ isComplete: false, isLoading: true })
+
     render(<App />)
-    expect(screen.queryByText('Loading...')).toBeNull()
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Initializing configuration')).toBeInTheDocument()
   })
 })

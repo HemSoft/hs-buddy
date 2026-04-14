@@ -23,6 +23,10 @@ vi.mock('../hooks/useConvex', () => ({
   useSchedules: () => [],
 }))
 
+vi.mock('./sidebar/BookmarksSidebar', () => ({
+  BookmarksSidebar: () => <div data-testid="bookmarks-sidebar" />,
+}))
+
 vi.mock('./sidebar-panel/AutomationSidebarSection', () => ({
   AutomationSidebarSection: () => <div data-testid="automation-section" />,
 }))
@@ -176,5 +180,120 @@ describe('SidebarPanel', () => {
   it('shows section title in uppercase', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
     expect(screen.getByText('SETTINGS')).toBeTruthy()
+  })
+
+  it('auto-selects when section has exactly one item (tempo)', () => {
+    const selectFn = vi.fn()
+    render(<SidebarPanel section="tempo" onItemSelect={selectFn} selectedItem={null} />)
+    expect(selectFn).toHaveBeenCalledWith('tempo-timesheet')
+  })
+
+  it('toggles section collapse on header click', () => {
+    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    expect(screen.getByText('Accounts')).toBeTruthy()
+
+    const header = screen.getByRole('button', { name: /Settings/i })
+    fireEvent.click(header)
+    expect(screen.queryByText('Accounts')).toBeNull()
+
+    fireEvent.click(header)
+    expect(screen.getByText('Accounts')).toBeTruthy()
+  })
+
+  it('toggles section with Enter key on header', () => {
+    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    const header = screen.getByRole('button', { name: /Settings/i })
+
+    fireEvent.keyDown(header, { key: 'Enter' })
+    expect(screen.queryByText('Accounts')).toBeNull()
+
+    fireEvent.keyDown(header, { key: 'Enter' })
+    expect(screen.getByText('Accounts')).toBeTruthy()
+  })
+
+  it('toggles section with Space key on header', () => {
+    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    const header = screen.getByRole('button', { name: /Settings/i })
+
+    fireEvent.keyDown(header, { key: ' ' })
+    expect(screen.queryByText('Accounts')).toBeNull()
+  })
+
+  it('selects item with Enter key', () => {
+    const selectFn = vi.fn()
+    render(<SidebarPanel section="settings" onItemSelect={selectFn} selectedItem={null} />)
+    const item = screen.getByText('Accounts').closest('[role="button"]')!
+    fireEvent.keyDown(item, { key: 'Enter' })
+    expect(selectFn).toHaveBeenCalledWith('settings-accounts')
+  })
+
+  it('selects item with Space key', () => {
+    const selectFn = vi.fn()
+    render(<SidebarPanel section="settings" onItemSelect={selectFn} selectedItem={null} />)
+    const item = screen.getByText('Appearance').closest('[role="button"]')!
+    fireEvent.keyDown(item, { key: ' ' })
+    expect(selectFn).toHaveBeenCalledWith('settings-appearance')
+  })
+
+  it('applies selected class to the active item', () => {
+    render(
+      <SidebarPanel
+        section="settings"
+        onItemSelect={onItemSelect}
+        selectedItem="settings-accounts"
+      />
+    )
+    const item = screen.getByText('Accounts').closest('.sidebar-item')!
+    expect(item.classList.contains('selected')).toBe(true)
+
+    const other = screen.getByText('Appearance').closest('.sidebar-item')!
+    expect(other.classList.contains('selected')).toBe(false)
+  })
+
+  it('renders count badges', () => {
+    render(
+      <SidebarPanel
+        section="settings"
+        onItemSelect={onItemSelect}
+        selectedItem={null}
+        counts={{ 'settings-accounts': 5 }}
+      />
+    )
+    expect(screen.getByText('5')).toBeTruthy()
+  })
+
+  it('renders badge progress rings with tooltip', () => {
+    render(
+      <SidebarPanel
+        section="settings"
+        onItemSelect={onItemSelect}
+        selectedItem={null}
+        counts={{ 'settings-accounts': 3 }}
+        badgeProgress={{
+          'settings-accounts': { progress: 75, color: 'green', tooltip: '75% complete' },
+        }}
+      />
+    )
+    expect(screen.getByText('3')).toBeTruthy()
+    const ring = screen.getByTitle('75% complete')
+    expect(ring).toBeTruthy()
+    expect(ring.classList.contains('sidebar-item-count-ring')).toBe(true)
+  })
+
+  it('renders automation section with AutomationSidebarSection', () => {
+    render(<SidebarPanel section="automation" onItemSelect={onItemSelect} selectedItem={null} />)
+    expect(screen.getByTestId('automation-section')).toBeTruthy()
+  })
+
+  it('renders bookmarks sidebar for bookmarks section', () => {
+    render(<SidebarPanel section="bookmarks" onItemSelect={onItemSelect} selectedItem={null} />)
+    expect(screen.getByTestId('bookmarks-sidebar')).toBeTruthy()
+  })
+
+  it('renders skills section with Browse Skills item', () => {
+    render(<SidebarPanel section="skills" onItemSelect={onItemSelect} selectedItem={null} />)
+    expect(screen.getByText('Browse Skills')).toBeTruthy()
+    expect(screen.getByText('Recently Used')).toBeTruthy()
+    expect(screen.getByText('Favorites')).toBeTruthy()
   })
 })

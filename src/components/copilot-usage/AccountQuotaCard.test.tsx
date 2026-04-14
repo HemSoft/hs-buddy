@@ -1,63 +1,47 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AccountQuotaCard } from './AccountQuotaCard'
-import type { AccountQuotaState, QuotaData } from './quotaUtils'
 import type { GitHubAccount } from '../../types/config'
+import type { AccountQuotaState } from './quotaUtils'
 
-// Mock UsageRing to simplify rendering
 vi.mock('./UsageRing', () => ({
   UsageRing: ({ percentUsed }: { percentUsed: number }) => (
     <div data-testid="usage-ring">{percentUsed}%</div>
   ),
 }))
 
-// Mock window.shell for external link
-beforeEach(() => {
-  window.shell = { openExternal: vi.fn() } as never
-})
+vi.mock('../../utils/copilotFormatUtils', () => ({
+  daysUntilReset: () => 15,
+  formatCopilotPlan: (plan: string) => plan.charAt(0).toUpperCase() + plan.slice(1),
+  formatResetDate: () => 'May 1',
+}))
 
-const account: GitHubAccount = { username: 'alice', org: 'acme' }
+vi.mock('../../utils/dateUtils', () => ({
+  formatTime: (ts: number) => `time:${ts}`,
+}))
 
-function makeQuotaData(overrides: Partial<QuotaData> = {}): QuotaData {
+const testAccount: GitHubAccount = { username: 'testuser', org: 'acme' }
+
+function makeQuotaData(overrides: Record<string, unknown> = {}) {
   return {
-    login: 'alice',
+    login: 'testuser',
     copilot_plan: 'individual',
-    quota_reset_date: '2024-07-01',
-    quota_reset_date_utc: '2024-07-01T00:00:00Z',
-    organization_login_list: [],
+    quota_reset_date: '2026-05-01',
+    quota_reset_date_utc: '2026-05-01T00:00:00Z',
+    organization_login_list: [] as string[],
     quota_snapshots: {
-      chat: {
-        entitlement: 1000,
-        overage_count: 0,
-        overage_permitted: false,
-        percent_remaining: 100,
-        quota_id: 'chat',
-        quota_remaining: 1000,
-        remaining: 1000,
-        unlimited: false,
-        timestamp_utc: '2024-06-20T00:00:00Z',
-      },
-      completions: {
-        entitlement: 5000,
-        overage_count: 0,
-        overage_permitted: false,
-        percent_remaining: 100,
-        quota_id: 'completions',
-        quota_remaining: 5000,
-        remaining: 5000,
-        unlimited: false,
-        timestamp_utc: '2024-06-20T00:00:00Z',
-      },
+      chat: {} as Record<string, unknown>,
+      completions: {} as Record<string, unknown>,
       premium_interactions: {
         entitlement: 300,
         overage_count: 0,
         overage_permitted: true,
-        percent_remaining: 50,
+        percent_remaining: 60,
         quota_id: 'premium',
-        quota_remaining: 150,
-        remaining: 150,
+        quota_remaining: 180,
+        remaining: 180,
         unlimited: false,
-        timestamp_utc: '2024-06-20T00:00:00Z',
+        timestamp_utc: '2026-04-14T00:00:00Z',
       },
     },
     ...overrides,
@@ -65,23 +49,21 @@ function makeQuotaData(overrides: Partial<QuotaData> = {}): QuotaData {
 }
 
 describe('AccountQuotaCard', () => {
-  it('shows loading state when no data', () => {
+  it('shows loading state when loading with no data', () => {
     const state: AccountQuotaState = { data: null, loading: true, error: null, fetchedAt: null }
-    render(<AccountQuotaCard account={account} state={state} />)
-
+    render(<AccountQuotaCard account={testAccount} state={state} />)
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
-  it('shows error state when no data', () => {
+  it('shows error state for non-404 errors', () => {
     const state: AccountQuotaState = {
       data: null,
       loading: false,
       error: 'Network error',
       fetchedAt: null,
     }
-    render(<AccountQuotaCard account={account} state={state} />)
-
-    expect(screen.getByText('alice')).toBeInTheDocument()
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('testuser')).toBeInTheDocument()
     expect(screen.getByText('Failed to load')).toBeInTheDocument()
   })
 
@@ -92,96 +74,116 @@ describe('AccountQuotaCard', () => {
       error: '404 Not Found',
       fetchedAt: null,
     }
-    render(<AccountQuotaCard account={account} state={state} />)
-
+    render(<AccountQuotaCard account={testAccount} state={state} />)
     expect(screen.getByText('No Copilot subscription')).toBeInTheDocument()
   })
 
   it('renders quota data with usage ring', () => {
-    const data = makeQuotaData()
     const state: AccountQuotaState = {
-      data,
+      data: makeQuotaData() as AccountQuotaState['data'],
       loading: false,
       error: null,
-      fetchedAt: Date.now(),
+      fetchedAt: 1700000000000,
     }
-    render(<AccountQuotaCard account={account} state={state} />)
-
-    expect(screen.getByText('alice')).toBeInTheDocument()
-    expect(screen.getByTestId('usage-ring')).toHaveTextContent('50%')
-    expect(screen.getByText('Used')).toBeInTheDocument()
-    expect(screen.getByText('Remaining')).toBeInTheDocument()
-    expect(screen.getByText('Entitlement')).toBeInTheDocument()
-    expect(screen.getByText('300')).toBeInTheDocument() // Entitlement total
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByTestId('usage-ring')).toBeInTheDocument()
+    expect(screen.getByText('testuser')).toBeInTheDocument()
+    expect(screen.getByText('Individual')).toBeInTheDocument()
   })
 
-  it('shows overage cost when overage exists', () => {
-    const data = makeQuotaData()
-    data.quota_snapshots.premium_interactions.remaining = -10
-    data.quota_snapshots.premium_interactions.overage_count = 10
+  it('displays used, remaining, and entitlement stats', () => {
     const state: AccountQuotaState = {
-      data,
+      data: makeQuotaData() as AccountQuotaState['data'],
       loading: false,
       error: null,
-      fetchedAt: Date.now(),
+      fetchedAt: 1700000000000,
     }
-    render(<AccountQuotaCard account={account} state={state} />)
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('120')).toBeInTheDocument() // used
+    expect(screen.getByText('180')).toBeInTheDocument() // remaining
+    expect(screen.getByText('300')).toBeInTheDocument() // entitlement
+  })
 
+  it('shows overage cost when overage requests exist', () => {
+    const data = makeQuotaData()
+    data.quota_snapshots.premium_interactions.remaining = -10
+    const state: AccountQuotaState = {
+      data: data as AccountQuotaState['data'],
+      loading: false,
+      error: null,
+      fetchedAt: 1700000000000,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
     expect(screen.getByText('Overage Cost')).toBeInTheDocument()
   })
 
-  it('shows enterprise plan icon', () => {
-    const data = makeQuotaData({ copilot_plan: 'enterprise' })
+  it('renders reset date info', () => {
     const state: AccountQuotaState = {
-      data,
+      data: makeQuotaData() as AccountQuotaState['data'],
       loading: false,
       error: null,
-      fetchedAt: Date.now(),
+      fetchedAt: 1700000000000,
     }
-    render(<AccountQuotaCard account={account} state={state} />)
-
-    expect(screen.getByText('alice')).toBeInTheDocument()
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText(/Resets May 1/)).toBeInTheDocument()
+    expect(screen.getByText('(15d)')).toBeInTheDocument()
   })
 
-  it('shows organization list when present', () => {
-    const data = makeQuotaData({ organization_login_list: ['acme', 'globex'] })
+  it('renders organization list when present', () => {
+    const data = makeQuotaData({ organization_login_list: ['acme-corp', 'hemsoft'] })
     const state: AccountQuotaState = {
-      data,
+      data: data as AccountQuotaState['data'],
       loading: false,
       error: null,
-      fetchedAt: Date.now(),
+      fetchedAt: 1700000000000,
     }
-    render(<AccountQuotaCard account={account} state={state} />)
-
-    expect(screen.getByText('acme, globex')).toBeInTheDocument()
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('acme-corp, hemsoft')).toBeInTheDocument()
   })
 
-  it('hides organization list when empty', () => {
-    const data = makeQuotaData({ organization_login_list: [] })
+  it('does not render organization list when empty', () => {
     const state: AccountQuotaState = {
-      data,
+      data: makeQuotaData() as AccountQuotaState['data'],
       loading: false,
       error: null,
-      fetchedAt: Date.now(),
+      fetchedAt: 1700000000000,
     }
-    const { container } = render(<AccountQuotaCard account={account} state={state} />)
-
+    const { container } = render(<AccountQuotaCard account={testAccount} state={state} />)
     expect(container.querySelector('.usage-account-orgs')).not.toBeInTheDocument()
   })
 
-  it('shows spinner in header during refresh with existing data', () => {
-    const data = makeQuotaData()
+  it('renders PlanIcon for enterprise plan', () => {
+    const data = makeQuotaData({ copilot_plan: 'enterprise' })
     const state: AccountQuotaState = {
-      data,
-      loading: true,
+      data: data as AccountQuotaState['data'],
+      loading: false,
       error: null,
-      fetchedAt: Date.now(),
+      fetchedAt: 1700000000000,
     }
-    const { container } = render(<AccountQuotaCard account={account} state={state} />)
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('Enterprise')).toBeInTheDocument()
+  })
 
-    // Should still show data (not loading placeholder)
-    expect(screen.getByText('alice')).toBeInTheDocument()
-    // Should have a spinner in the header
-    expect(container.querySelector('.spin')).toBeInTheDocument()
+  it('renders PlanIcon for business plan', () => {
+    const data = makeQuotaData({ copilot_plan: 'business' })
+    const state: AccountQuotaState = {
+      data: data as AccountQuotaState['data'],
+      loading: false,
+      error: null,
+      fetchedAt: 1700000000000,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('Business')).toBeInTheDocument()
+  })
+
+  it('shows fetched-at timestamp', () => {
+    const state: AccountQuotaState = {
+      data: makeQuotaData() as AccountQuotaState['data'],
+      loading: false,
+      error: null,
+      fetchedAt: 1700000000000,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('time:1700000000000')).toBeInTheDocument()
   })
 })

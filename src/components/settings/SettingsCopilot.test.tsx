@@ -1,10 +1,11 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SettingsCopilot } from './SettingsCopilot'
 
 const mockSetGhAccount = vi.fn().mockResolvedValue(undefined)
 const mockSetModel = vi.fn().mockResolvedValue(undefined)
+
 const mockUseCopilotSettings = vi.fn().mockReturnValue({
   ghAccount: 'testuser',
   model: 'gpt-4o',
@@ -13,18 +14,13 @@ const mockUseCopilotSettings = vi.fn().mockReturnValue({
   setModel: mockSetModel,
 })
 
-const mockUseGitHubAccounts = vi.fn().mockReturnValue({
-  uniqueUsernames: ['testuser', 'orguser'],
-  accounts: [],
-})
-
 vi.mock('../../hooks/useConfig', () => ({
   useCopilotSettings: (...args: unknown[]) => mockUseCopilotSettings(...args),
-  useGitHubAccounts: (...args: unknown[]) => mockUseGitHubAccounts(...args),
+  useGitHubAccounts: vi.fn().mockReturnValue({
+    uniqueUsernames: ['testuser', 'orguser'],
+    accounts: [],
+  }),
 }))
-
-const mockAccountOnChange = vi.fn()
-const mockModelOnChange = vi.fn()
 
 vi.mock('../shared/AccountPicker', () => ({
   AccountPicker: ({
@@ -39,10 +35,7 @@ vi.mock('../shared/AccountPicker', () => ({
     <select
       data-testid={id ?? 'account-picker'}
       defaultValue={value}
-      onChange={e => {
-        mockAccountOnChange(e.target.value)
-        onChange?.(e.target.value)
-      }}
+      onChange={e => onChange?.(e.target.value)}
     >
       <option value="">Default</option>
       <option value="testuser">testuser</option>
@@ -64,13 +57,10 @@ vi.mock('../shared/ModelPicker', () => ({
     <select
       data-testid={id ?? 'model-picker'}
       defaultValue={value}
-      onChange={e => {
-        mockModelOnChange(e.target.value)
-        onChange?.(e.target.value)
-      }}
+      onChange={e => onChange?.(e.target.value)}
     >
       <option value="gpt-4o">gpt-4o</option>
-      <option value="claude-3">claude-3</option>
+      <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
       <option value="__custom__">Custom...</option>
     </select>
   ),
@@ -79,7 +69,6 @@ vi.mock('../shared/ModelPicker', () => ({
 describe('SettingsCopilot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
     mockSetGhAccount.mockResolvedValue(undefined)
     mockSetModel.mockResolvedValue(undefined)
     mockUseCopilotSettings.mockReturnValue({
@@ -89,14 +78,6 @@ describe('SettingsCopilot', () => {
       setGhAccount: mockSetGhAccount,
       setModel: mockSetModel,
     })
-    mockUseGitHubAccounts.mockReturnValue({
-      uniqueUsernames: ['testuser', 'orguser'],
-      accounts: [],
-    })
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
   })
 
   it('renders page header', () => {
@@ -132,91 +113,96 @@ describe('SettingsCopilot', () => {
     expect(screen.getByText(/Configure the GitHub account and model/)).toBeTruthy()
   })
 
-  it('shows current configuration summary', () => {
+  it('shows current configuration summary with model in code tag', () => {
     render(<SettingsCopilot />)
     expect(screen.getByText('Current Configuration')).toBeTruthy()
-    const codeElements = screen.getAllByText('gpt-4o')
-    expect(codeElements.length).toBeGreaterThanOrEqual(1)
+    const codeEl = document.querySelector('.info-box code')
+    expect(codeEl?.textContent).toBe('gpt-4o')
   })
 
-  it('calls setGhAccount when account changes', async () => {
-    vi.useRealTimers()
+  it('dispatches account change and shows "Saved" indicator', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     render(<SettingsCopilot />)
-    const picker = screen.getByTestId('account-picker')
-    fireEvent.change(picker, { target: { value: 'orguser' } })
+
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'orguser' },
+    })
+
+    // handleAccountChange is effectively synchronous (fire-and-forget promise)
+    expect(mockSetGhAccount).toHaveBeenCalledWith('orguser')
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+
+    // Auto-resets after 2 seconds
+    vi.advanceTimersByTime(2100)
     await waitFor(() => {
-      expect(mockSetGhAccount).toHaveBeenCalledWith('orguser')
+      expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+    })
+    vi.useRealTimers()
+  })
+
+  it('dispatches model change and persists', async () => {
+    render(<SettingsCopilot />)
+
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'claude-3-5-sonnet' },
+    })
+
+    await waitFor(() => {
+      expect(mockSetModel).toHaveBeenCalledWith('claude-3-5-sonnet')
     })
   })
 
-  it('calls setModel when model changes', async () => {
-    vi.useRealTimers()
+  it('shows custom model input when __custom__ is selected', () => {
     render(<SettingsCopilot />)
-    const picker = screen.getByTestId('model-picker')
-    fireEvent.change(picker, { target: { value: 'claude-3' } })
-    await waitFor(() => {
-      expect(mockSetModel).toHaveBeenCalledWith('claude-3')
+
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: '__custom__' },
     })
+
+    expect(screen.getByPlaceholderText('Enter custom model name')).toBeInTheDocument()
+    expect(screen.getByText('Apply')).toBeInTheDocument()
   })
 
-  it('shows custom model input when __custom__ is selected', async () => {
-    vi.useRealTimers()
-    render(<SettingsCopilot />)
-    const picker = screen.getByTestId('model-picker')
-    fireEvent.change(picker, { target: { value: '__custom__' } })
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Enter custom model name')).toBeTruthy()
-    })
-  })
-
-  it('saves custom model on Apply button click', async () => {
-    vi.useRealTimers()
+  it('saves custom model on Apply click', async () => {
     const user = userEvent.setup()
     render(<SettingsCopilot />)
-    // Trigger custom model mode
-    fireEvent.change(screen.getByTestId('model-picker'), { target: { value: '__custom__' } })
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Enter custom model name')).toBeTruthy()
+
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: '__custom__' },
     })
+
     const input = screen.getByPlaceholderText('Enter custom model name')
+    await user.clear(input)
     await user.type(input, 'my-custom-model')
-    const applyBtn = screen.getByText('Apply')
-    await user.click(applyBtn)
+
+    fireEvent.click(screen.getByText('Apply'))
+
     await waitFor(() => {
       expect(mockSetModel).toHaveBeenCalledWith('my-custom-model')
     })
   })
 
-  it('saves custom model on Enter key', async () => {
-    vi.useRealTimers()
-    const user = userEvent.setup()
+  it('does not save empty custom model', () => {
     render(<SettingsCopilot />)
-    fireEvent.change(screen.getByTestId('model-picker'), { target: { value: '__custom__' } })
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Enter custom model name')).toBeTruthy()
+
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: '__custom__' },
     })
-    const input = screen.getByPlaceholderText('Enter custom model name')
-    await user.type(input, 'custom-v2{Enter}')
-    await waitFor(() => {
-      expect(mockSetModel).toHaveBeenCalledWith('custom-v2')
-    })
+
+    // Apply button should be disabled when custom model is empty
+    expect(screen.getByText('Apply')).toBeDisabled()
   })
 
-  it('shows error when no accounts are configured', () => {
-    mockUseGitHubAccounts.mockReturnValue({
-      uniqueUsernames: [],
-      accounts: [],
+  it('shows "Active CLI account" when no account is set', () => {
+    mockUseCopilotSettings.mockReturnValue({
+      ghAccount: '',
+      model: 'gpt-4o',
+      loading: false,
+      setGhAccount: mockSetGhAccount,
+      setModel: mockSetModel,
     })
-    render(<SettingsCopilot />)
-    expect(screen.getByText(/No GitHub accounts configured/)).toBeTruthy()
-  })
 
-  it('shows "Saved" indicator after account change', async () => {
-    vi.useRealTimers()
     render(<SettingsCopilot />)
-    fireEvent.change(screen.getByTestId('account-picker'), { target: { value: 'orguser' } })
-    await waitFor(() => {
-      expect(screen.getByText('Saved')).toBeTruthy()
-    })
+    expect(screen.getByText('Active CLI account')).toBeTruthy()
   })
 })

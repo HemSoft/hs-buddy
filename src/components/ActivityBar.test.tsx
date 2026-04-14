@@ -120,12 +120,22 @@ describe('ActivityBar', () => {
     const onSectionSelect = vi.fn()
     const onHomeClick = vi.fn()
     const { rerender } = render(
-      <ActivityBar selectedSection="github" onSectionSelect={onSectionSelect} onHomeClick={onHomeClick} />
+      <ActivityBar
+        selectedSection="github"
+        onSectionSelect={onSectionSelect}
+        onHomeClick={onHomeClick}
+      />
     )
 
     expect(screen.getByRole('button', { name: 'GitHub' })).toHaveClass('active')
 
-    rerender(<ActivityBar selectedSection="tasks" onSectionSelect={onSectionSelect} onHomeClick={onHomeClick} />)
+    rerender(
+      <ActivityBar
+        selectedSection="tasks"
+        onSectionSelect={onSectionSelect}
+        onHomeClick={onHomeClick}
+      />
+    )
 
     expect(screen.getByRole('button', { name: 'GitHub' })).not.toHaveClass('active')
     expect(screen.getByRole('button', { name: 'Tasks' })).toHaveClass('active')

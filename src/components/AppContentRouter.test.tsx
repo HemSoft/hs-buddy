@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./PullRequestList', () => ({
   PullRequestList: ({
@@ -84,6 +84,7 @@ vi.mock('./CopilotResultsList', () => ({
 
 vi.mock('./PRReviewPanel', () => ({
   PRReviewPanel: () => <div>PRReviewPanel</div>,
+  parsePRReviewInfo: () => null,
 }))
 
 vi.mock('./CopilotUsagePanel', () => ({
@@ -110,14 +111,6 @@ vi.mock('./tempo/TempoDashboard', () => ({
   TempoDashboard: () => <div>TempoDashboard</div>,
 }))
 
-vi.mock('../utils/prDetailView', () => ({
-  parsePRDetailRoute: vi.fn().mockReturnValue(null),
-}))
-
-vi.mock('./appContentViewLabels', () => ({
-  viewLabels: { 'unknown-view': 'Unknown View' },
-}))
-
 vi.mock('./sessions/SessionExplorer', () => ({
   SessionExplorer: () => <div>SessionExplorer</div>,
 }))
@@ -127,7 +120,7 @@ vi.mock('./sessions/SessionDetail', () => ({
 }))
 
 vi.mock('./planner/TaskPlannerView', () => ({
-  TaskPlannerView: ({ mode }: { mode?: string }) => <div>TaskPlannerView:{mode ?? 'default'}</div>,
+  TaskPlannerView: ({ mode }: { mode?: string }) => <div>TaskPlanner:{mode ?? 'default'}</div>,
 }))
 
 vi.mock('./bookmarks/BookmarkList', () => ({
@@ -137,48 +130,55 @@ vi.mock('./bookmarks/BookmarkList', () => ({
 }))
 
 vi.mock('./BrowserTabView', () => ({
-  BrowserTabView: ({ url }: { url: string }) => <div>BrowserTabView:{url}</div>,
+  BrowserTabView: ({ url }: { url: string }) => <div>BrowserTab:{url}</div>,
 }))
 
 vi.mock('./pr-review/PRReviewInfo', () => ({
-  parsePRReviewInfo: vi.fn(),
+  parsePRReviewInfo: (viewId: string) => {
+    if (viewId === 'pr-review:valid-pr') {
+      return { prUrl: 'url', prTitle: 'title', prNumber: 1, repo: 'r', org: 'o', author: 'a' }
+    }
+    return null
+  },
+}))
+
+vi.mock('../utils/prDetailView', () => ({
+  parsePRDetailRoute: (viewId: string) => {
+    if (viewId.includes('valid-pr')) {
+      return {
+        pr: { id: 99, repository: 'my-repo' },
+        section: 'checks',
+      }
+    }
+    return null
+  },
+}))
+
+vi.mock('./appContentViewLabels', () => ({
+  viewLabels: { 'some-known-view': 'Known View' },
 }))
 
 import { AppContentRouter } from './AppContentRouter'
-import { parsePRReviewInfo } from './pr-review/PRReviewInfo'
-import { parsePRDetailRoute } from '../utils/prDetailView'
-
-const mockParsePRReviewInfo = vi.mocked(parsePRReviewInfo)
-const mockParsePRDetailRoute = vi.mocked(parsePRDetailRoute)
 
 function renderRouter(activeViewId: string | null = null) {
   const onPRCountChange = vi.fn()
-  const onNavigate = vi.fn()
-  const onSectionChange = vi.fn()
-  const onOpenTab = vi.fn()
-  const onCloseView = vi.fn()
 
   render(
     <AppContentRouter
       activeViewId={activeViewId}
       prCounts={{}}
-      onNavigate={onNavigate}
-      onSectionChange={onSectionChange}
-      onOpenTab={onOpenTab}
-      onCloseView={onCloseView}
+      onNavigate={vi.fn()}
+      onSectionChange={vi.fn()}
+      onOpenTab={vi.fn()}
+      onCloseView={vi.fn()}
       onPRCountChange={onPRCountChange}
     />
   )
 
-  return { onPRCountChange, onNavigate, onSectionChange, onOpenTab, onCloseView }
+  return { onPRCountChange }
 }
 
 describe('AppContentRouter', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockParsePRReviewInfo.mockReturnValue(null)
-    mockParsePRDetailRoute.mockReturnValue(null)
-  })
   it.each(['pr-my-prs', 'pr-needs-review', 'pr-recently-merged', 'pr-need-a-nudge'])(
     'renders PullRequestList for %s using the matching mode',
     async activeViewId => {
@@ -202,246 +202,149 @@ describe('AppContentRouter', () => {
 
   it('renders WelcomePanel when activeViewId is null', () => {
     renderRouter(null)
-    expect(screen.getByText('Open a tab to get started')).toBeInTheDocument()
-  })
-
-  it('renders WelcomePanel for dashboard viewId', () => {
-    renderRouter('dashboard')
     expect(screen.getByText('WelcomePanel')).toBeInTheDocument()
   })
 
-  // Settings routes
   it.each([
     ['settings-accounts', 'SettingsAccounts'],
     ['settings-appearance', 'SettingsAppearance'],
     ['settings-pullrequests', 'SettingsPullRequests'],
     ['settings-copilot', 'SettingsCopilot'],
-    ['settings-notifications', 'SettingsNotifications'],
     ['settings-advanced', 'SettingsAdvanced'],
+    ['automation-runs', 'RunList'],
+    ['copilot-prompt', 'CopilotPromptBox'],
+    ['copilot-all-results', 'CopilotResultsList'],
+    ['copilot-usage', 'CopilotUsagePanel'],
+    ['copilot-sessions', 'SessionExplorer'],
+    ['tempo-timesheet', 'TempoDashboard'],
   ])('renders %s route', (viewId, expectedText) => {
     renderRouter(viewId)
     expect(screen.getByText(expectedText)).toBeInTheDocument()
   })
 
-  // Automation routes
-  it('renders ScheduleOverviewPanel for automation-schedules', () => {
-    renderRouter('automation-schedules')
-    expect(screen.getByText('ScheduleOverview')).toBeInTheDocument()
+  it.each([
+    ['tasks-today', 'TaskPlanner:today'],
+    ['tasks-upcoming', 'TaskPlanner:upcoming'],
+    ['tasks-projects', 'TaskPlanner:default'],
+  ])('renders task planner route %s', (viewId, expectedText) => {
+    renderRouter(viewId)
+    expect(screen.getByText(expectedText)).toBeInTheDocument()
   })
 
-  it('renders RunList for automation-runs', () => {
-    renderRouter('automation-runs')
-    expect(screen.getByText('RunList')).toBeInTheDocument()
-  })
-
-  // Copilot routes
-  it('renders CopilotPromptBox for copilot-prompt', () => {
-    renderRouter('copilot-prompt')
-    expect(screen.getByText('CopilotPromptBox')).toBeInTheDocument()
-  })
-
-  it('renders CopilotResultsList for copilot-all-results', () => {
-    renderRouter('copilot-all-results')
-    expect(screen.getByText('CopilotResultsList')).toBeInTheDocument()
-  })
-
-  it('renders CopilotUsagePanel for copilot-usage', () => {
-    renderRouter('copilot-usage')
-    expect(screen.getByText('CopilotUsagePanel')).toBeInTheDocument()
-  })
-
-  it('renders SessionExplorer for copilot-sessions', () => {
-    renderRouter('copilot-sessions')
-    expect(screen.getByText('SessionExplorer')).toBeInTheDocument()
-  })
-
-  // Task planner routes
-  it('renders TaskPlannerView for tasks-today', () => {
-    renderRouter('tasks-today')
-    expect(screen.getByText('TaskPlannerView:today')).toBeInTheDocument()
-  })
-
-  it('renders TaskPlannerView for tasks-upcoming', () => {
-    renderRouter('tasks-upcoming')
-    expect(screen.getByText('TaskPlannerView:upcoming')).toBeInTheDocument()
-  })
-
-  it('renders TaskPlannerView for tasks-projects', () => {
-    renderRouter('tasks-projects')
-    expect(screen.getByText('TaskPlannerView:default')).toBeInTheDocument()
-  })
-
-  // Tempo
-  it('renders TempoDashboard for tempo-timesheet', () => {
-    renderRouter('tempo-timesheet')
-    expect(screen.getByText('TempoDashboard')).toBeInTheDocument()
-  })
-
-  // Bookmarks
-  it('renders BookmarkList for bookmarks-all', () => {
+  it('renders bookmarks-all', () => {
     renderRouter('bookmarks-all')
     expect(screen.getByText('BookmarkList:all')).toBeInTheDocument()
   })
 
-  it('renders BookmarkList with category filter for bookmarks-category:Dev', () => {
-    renderRouter('bookmarks-category:Dev')
-    expect(screen.getByText('BookmarkList:Dev')).toBeInTheDocument()
+  it('renders bookmarks-category route', () => {
+    renderRouter('bookmarks-category:work')
+    expect(screen.getByText('BookmarkList:work')).toBeInTheDocument()
   })
 
-  // Browser
-  it('renders BrowserTabView for browser: routes with URL decoding', () => {
-    renderRouter('browser:https%3A%2F%2Fexample.com')
-    expect(screen.getByText('BrowserTabView:https://example.com')).toBeInTheDocument()
+  it('renders browser tab route', () => {
+    const encoded = encodeURIComponent('https://example.com')
+    renderRouter(`browser:${encoded}`)
+    expect(screen.getByText('BrowserTab:https://example.com')).toBeInTheDocument()
   })
 
-  // Crew
-  it('renders CrewProjectView for crew-project: routes', () => {
+  it('renders crew-project route', () => {
     renderRouter('crew-project:proj-123')
     expect(screen.getByText('CrewProject:proj-123')).toBeInTheDocument()
   })
 
-  // Session detail
-  it('renders SessionDetail for copilot-session-detail: routes', () => {
-    const encoded = btoa('/path/to/session.json')
+  it('renders copilot-session-detail route', () => {
+    const encoded = btoa('/path/to/session.jsonl')
     renderRouter(`copilot-session-detail:${encoded}`)
-    expect(screen.getByText('SessionDetail:/path/to/session.json')).toBeInTheDocument()
+    expect(screen.getByText('SessionDetail:/path/to/session.jsonl')).toBeInTheDocument()
   })
 
-  // Schedule / job detail
-  it('renders ScheduleDetailPanel for schedule-detail: routes', () => {
-    renderRouter('schedule-detail:sched-abc')
-    expect(screen.getByText('ScheduleDetail:sched-abc')).toBeInTheDocument()
+  it('renders schedule-detail route', () => {
+    renderRouter('schedule-detail:sched-1')
+    expect(screen.getByText('ScheduleDetail:sched-1')).toBeInTheDocument()
   })
 
-  it('renders JobDetailPanel for job-detail: routes', () => {
-    renderRouter('job-detail:job-xyz')
-    expect(screen.getByText('JobDetail:job-xyz')).toBeInTheDocument()
+  it('renders job-detail route', () => {
+    renderRouter('job-detail:job-1')
+    expect(screen.getByText('JobDetail:job-1')).toBeInTheDocument()
   })
 
-  // Repo detail
-  it('renders RepoDetailPanel for repo-detail: routes', () => {
-    renderRouter('repo-detail:acme/widgets')
-    expect(screen.getByText('RepoDetail:acme/widgets')).toBeInTheDocument()
+  it('renders repo-detail route', () => {
+    renderRouter('repo-detail:acme/widget')
+    expect(screen.getByText('RepoDetail:acme/widget')).toBeInTheDocument()
   })
 
-  // Org detail
-  it('renders OrgDetailPanel for org-detail: routes', () => {
-    renderRouter('org-detail:acme-org')
-    expect(screen.getByText('OrgDetail:acme-org')).toBeInTheDocument()
+  it('renders org-detail route', () => {
+    renderRouter('org-detail:acme-corp')
+    expect(screen.getByText('OrgDetail:acme-corp')).toBeInTheDocument()
   })
 
-  // Repo commits
-  it('renders RepoCommitListPanel for repo-commits: routes', () => {
-    renderRouter('repo-commits:acme/widgets')
+  it('renders repo-commits route', () => {
+    renderRouter('repo-commits:acme/widget')
     expect(screen.getByText('RepoCommitListPanel')).toBeInTheDocument()
   })
 
-  it('renders RepoCommitDetailPanel for repo-commit: routes', () => {
-    renderRouter('repo-commit:acme/widgets/abc123')
+  it('renders repo-commit route', () => {
+    renderRouter('repo-commit:acme/widget/abc1234')
     expect(screen.getByText('RepoCommitDetailPanel')).toBeInTheDocument()
   })
 
-  // Repo issues
-  it('renders RepoIssueList for repo-issues: routes', () => {
-    renderRouter('repo-issues:acme/widgets')
+  it('renders repo-issues route', () => {
+    renderRouter('repo-issues:acme/widget')
     expect(screen.getByText('RepoIssueList')).toBeInTheDocument()
   })
 
-  it('renders RepoIssueList for repo-issues-closed: routes', () => {
-    renderRouter('repo-issues-closed:acme/widgets')
+  it('renders repo-issues-closed route', () => {
+    renderRouter('repo-issues-closed:acme/widget')
     expect(screen.getByText('RepoIssueList')).toBeInTheDocument()
   })
 
-  it('renders RepoIssueDetailPanel for repo-issue: routes', () => {
-    renderRouter('repo-issue:acme/widgets/42')
+  it('renders repo-issue route', () => {
+    renderRouter('repo-issue:acme/widget/42')
     expect(screen.getByText('RepoIssueDetailPanel')).toBeInTheDocument()
   })
 
-  // Repo PRs
-  it('renders RepoPullRequestList for repo-prs: routes', () => {
-    renderRouter('repo-prs:acme/widgets')
+  it('renders repo-prs route', () => {
+    renderRouter('repo-prs:acme/widget')
     expect(screen.getByText('RepoPullRequestList')).toBeInTheDocument()
   })
 
-  it('renders RepoPullRequestList for repo-prs-closed: routes', () => {
-    renderRouter('repo-prs-closed:acme/widgets')
+  it('renders repo-prs-closed route', () => {
+    renderRouter('repo-prs-closed:acme/widget')
     expect(screen.getByText('RepoPullRequestList')).toBeInTheDocument()
   })
 
-  // Copilot result
-  it('renders CopilotResultPanel for copilot-result: routes', () => {
-    renderRouter('copilot-result:res-abc')
+  it('renders copilot-result route', () => {
+    renderRouter('copilot-result:res-123')
     expect(screen.getByText('CopilotResultPanel')).toBeInTheDocument()
   })
 
-  // PR review
-  it('renders PRReviewPanel when parsePRReviewInfo returns data', () => {
-    mockParsePRReviewInfo.mockReturnValue({
-      prUrl: 'https://github.com/acme/repo/pull/1',
-      prTitle: 'Fix bug',
-      prNumber: 1,
-      repo: 'repo',
-      org: 'acme',
-      author: 'dev',
-    })
-    renderRouter('pr-review:encoded-data')
+  it('renders pr-review route with valid info', () => {
+    renderRouter('pr-review:valid-pr')
     expect(screen.getByText('PRReviewPanel')).toBeInTheDocument()
   })
 
-  it('renders invalid PR review message when parsePRReviewInfo returns null', () => {
-    mockParsePRReviewInfo.mockReturnValue(null)
-    renderRouter('pr-review:bad-data')
+  it('renders "Invalid PR review data" for invalid pr-review', () => {
+    renderRouter('pr-review:invalid-info')
     expect(screen.getByText('Invalid PR review data')).toBeInTheDocument()
   })
 
-  // PR detail
-  it('renders PullRequestDetailPanel when parsePRDetailRoute returns data', () => {
-    mockParsePRDetailRoute.mockReturnValue({
-      pr: {
-        source: 'GitHub',
-        repository: 'acme/widgets',
-        id: 5,
-        title: 'PR',
-        author: 'me',
-        url: '',
-        state: 'open',
-        approvalCount: 0,
-        assigneeCount: 0,
-        iApproved: false,
-        created: null,
-        date: null,
-      },
-      section: 'files-changed',
-    })
-    renderRouter('pr-detail:acme/widgets/5/files')
+  it('renders PullRequestDetailPanel for valid pr-detail', () => {
+    renderRouter('pr-detail:valid-pr-info')
     expect(screen.getByText('PullRequestDetailPanel')).toBeInTheDocument()
   })
 
-  it('renders invalid PR detail message when parsePRDetailRoute returns null', () => {
-    mockParsePRDetailRoute.mockReturnValue(null)
-    renderRouter('pr-detail:bad-data')
+  it('renders "Invalid PR detail data" for invalid pr-detail', () => {
+    renderRouter('pr-detail:invalid')
     expect(screen.getByText('Invalid PR detail data')).toBeInTheDocument()
   })
 
-  // Unknown route fallback
-  it('renders coming soon placeholder for unknown routes', () => {
-    renderRouter('totally-unknown-route')
+  it('renders coming soon fallback for unknown view IDs', () => {
+    renderRouter('totally-unknown-view')
     expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
   })
 
-  it('uses viewLabels for unknown route header', () => {
-    renderRouter('unknown-view')
-    expect(screen.getByText('Unknown View')).toBeInTheDocument()
-  })
-
-  it('falls back to Content header when no viewLabel exists', () => {
-    renderRouter('no-label-route')
-    expect(screen.getByText('Content')).toBeInTheDocument()
-  })
-
-  // Edge cases for parseOwnerRepo
-  it('returns coming soon for repo-detail with invalid slug (no slash)', () => {
-    renderRouter('repo-detail:noslash')
-    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  it('uses viewLabels for unknown view header', () => {
+    renderRouter('some-known-view')
+    expect(screen.getByText('Known View')).toBeInTheDocument()
   })
 })

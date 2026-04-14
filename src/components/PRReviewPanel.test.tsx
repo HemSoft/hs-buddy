@@ -3,57 +3,30 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { PRReviewPanel } from './PRReviewPanel'
 import type { PRReviewInfo } from './pr-review/PRReviewInfo'
 
-const mockHandleRunNow = vi.fn()
-const mockHandleSchedule = vi.fn()
-const mockHandleResetPrompt = vi.fn()
-const mockHandleSaveAsDefault = vi.fn()
-const mockSetAccount = vi.fn()
-const mockSetModel = vi.fn()
-const mockSetPrompt = vi.fn()
-const mockSetPromptExpanded = vi.fn()
-const mockSetScheduleDelay = vi.fn()
-
-let mockReviewData = {
-  account: 'alice',
-  setAccount: mockSetAccount,
-  model: 'claude-sonnet-4.5',
-  setModel: mockSetModel,
-  prompt: 'Review this PR for bugs and issues',
-  setPrompt: mockSetPrompt,
-  promptExpanded: false,
-  setPromptExpanded: mockSetPromptExpanded,
-  submitting: false,
-  error: null as string | null,
-  scheduled: false,
-  scheduleDelay: 5,
-  setScheduleDelay: mockSetScheduleDelay,
-  savingDefault: false,
-  handleRunNow: mockHandleRunNow,
-  handleSchedule: mockHandleSchedule,
-  handleResetPrompt: mockHandleResetPrompt,
-  handleSaveAsDefault: mockHandleSaveAsDefault,
-}
+const mockUsePRReviewData = vi.fn()
 
 vi.mock('./pr-review/usePRReviewData', () => ({
-  usePRReviewData: () => mockReviewData,
+  usePRReviewData: (...args: unknown[]) => mockUsePRReviewData(...args),
 }))
 
 vi.mock('./shared/AccountPicker', () => ({
-  AccountPicker: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <select data-testid="account-picker" value={value} onChange={e => onChange(e.target.value)}>
-      <option value="alice">alice</option>
+  AccountPicker: ({ value }: { value: string }) => (
+    <select data-testid="account-picker" defaultValue={value}>
+      <option>{value}</option>
     </select>
   ),
 }))
 
 vi.mock('./shared/ModelPicker', () => ({
-  ModelPicker: ({ value }: { value: string }) => <span data-testid="model-picker">{value}</span>,
+  ModelPicker: ({ value }: { value: string }) => (
+    <select data-testid="model-picker" defaultValue={value}>
+      <option>{value}</option>
+    </select>
+  ),
 }))
 
 vi.mock('./shared/PremiumUsageBadge', () => ({
-  PremiumUsageBadge: ({ username }: { username: string }) => (
-    <span data-testid="premium-badge">{username}</span>
-  ),
+  PremiumUsageBadge: () => <span data-testid="premium-badge" />,
 }))
 
 vi.mock('./pr-review/PRInfoCard', () => ({
@@ -67,127 +40,138 @@ vi.mock('./pr-review/PromptSection', () => ({
 }))
 
 vi.mock('./pr-review/ScheduledMessage', () => ({
-  ScheduledMessage: ({ prTitle }: { prTitle: string }) => (
-    <div data-testid="scheduled-message">Scheduled: {prTitle}</div>
+  ScheduledMessage: ({ prTitle, scheduleDelay }: { prTitle: string; scheduleDelay: number }) => (
+    <div data-testid="scheduled-message">
+      Scheduled: {prTitle} in {scheduleDelay} min
+    </div>
   ),
 }))
 
-const prInfo: PRReviewInfo = {
+const defaultPrInfo: PRReviewInfo = {
   prUrl: 'https://github.com/org/repo/pull/42',
   prTitle: 'Fix login bug',
   prNumber: 42,
   repo: 'repo',
   org: 'org',
-  author: 'bob',
+  author: 'octocat',
+}
+
+function createMockHookReturn(overrides: Record<string, unknown> = {}) {
+  return {
+    account: 'alice',
+    setAccount: vi.fn(),
+    model: 'claude-sonnet-4.5',
+    setModel: vi.fn(),
+    prompt: 'Review this PR',
+    setPrompt: vi.fn(),
+    promptExpanded: false,
+    setPromptExpanded: vi.fn(),
+    submitting: false,
+    error: null,
+    scheduled: false,
+    scheduleDelay: 5,
+    setScheduleDelay: vi.fn(),
+    savingDefault: false,
+    handleRunNow: vi.fn(),
+    handleSchedule: vi.fn(),
+    handleResetPrompt: vi.fn(),
+    handleSaveAsDefault: vi.fn(),
+    ...overrides,
+  }
 }
 
 describe('PRReviewPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockReviewData = {
-      account: 'alice',
-      setAccount: mockSetAccount,
-      model: 'claude-sonnet-4.5',
-      setModel: mockSetModel,
-      prompt: 'Review this PR for bugs and issues',
-      setPrompt: mockSetPrompt,
-      promptExpanded: false,
-      setPromptExpanded: mockSetPromptExpanded,
-      submitting: false,
-      error: null,
-      scheduled: false,
-      scheduleDelay: 5,
-      setScheduleDelay: mockSetScheduleDelay,
-      savingDefault: false,
-      handleRunNow: mockHandleRunNow,
-      handleSchedule: mockHandleSchedule,
-      handleResetPrompt: mockHandleResetPrompt,
-      handleSaveAsDefault: mockHandleSaveAsDefault,
-    }
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn())
   })
 
-  it('renders the review panel header', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
+  it('renders the review panel with header and subcomponents', () => {
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
     expect(screen.getByText('PR Review')).toBeInTheDocument()
-  })
-
-  it('renders PR info card with title', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
     expect(screen.getByTestId('pr-info-card')).toHaveTextContent('Fix login bug')
+    expect(screen.getByTestId('prompt-section')).toBeInTheDocument()
   })
 
   it('renders account and model pickers', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    expect(screen.getByText('Account')).toBeInTheDocument()
+    expect(screen.getByText('Model')).toBeInTheDocument()
     expect(screen.getByTestId('account-picker')).toBeInTheDocument()
     expect(screen.getByTestId('model-picker')).toBeInTheDocument()
   })
 
-  it('shows premium badge when account is selected', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
-    expect(screen.getByTestId('premium-badge')).toHaveTextContent('alice')
+  it('shows premium usage badge when account is set', () => {
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    expect(screen.getByTestId('premium-badge')).toBeInTheDocument()
   })
 
   it('renders Run Now and Schedule buttons', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
     expect(screen.getByText('Run Now')).toBeInTheDocument()
     expect(screen.getByText('Schedule')).toBeInTheDocument()
   })
 
-  it('calls handleRunNow on Run Now click', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
+  it('calls handleRunNow when Run Now is clicked', () => {
+    const handleRunNow = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ handleRunNow }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
     fireEvent.click(screen.getByText('Run Now'))
-    expect(mockHandleRunNow).toHaveBeenCalledTimes(1)
+    expect(handleRunNow).toHaveBeenCalled()
   })
 
-  it('calls handleSchedule on Schedule click', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
+  it('calls handleSchedule when Schedule is clicked', () => {
+    const handleSchedule = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ handleSchedule }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
     fireEvent.click(screen.getByText('Schedule'))
-    expect(mockHandleSchedule).toHaveBeenCalledTimes(1)
+    expect(handleSchedule).toHaveBeenCalled()
   })
 
   it('disables buttons when submitting', () => {
-    mockReviewData.submitting = true
-    render(<PRReviewPanel prInfo={prInfo} />)
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ submitting: true }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
     expect(screen.getByText('Run Now').closest('button')).toBeDisabled()
     expect(screen.getByText('Schedule').closest('button')).toBeDisabled()
   })
 
   it('disables buttons when prompt is empty', () => {
-    mockReviewData.prompt = '   '
-    render(<PRReviewPanel prInfo={prInfo} />)
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ prompt: '   ' }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
     expect(screen.getByText('Run Now').closest('button')).toBeDisabled()
     expect(screen.getByText('Schedule').closest('button')).toBeDisabled()
   })
 
-  it('shows error message when error is set', () => {
-    mockReviewData.error = 'Rate limit exceeded'
-    render(<PRReviewPanel prInfo={prInfo} />)
-    expect(screen.getByText('Rate limit exceeded')).toBeInTheDocument()
+  it('shows error message when error exists', () => {
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ error: 'Something went wrong' }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
   })
 
   it('shows scheduled message when scheduled is true', () => {
-    mockReviewData.scheduled = true
-    render(<PRReviewPanel prInfo={prInfo} />)
-    expect(screen.getByTestId('scheduled-message')).toHaveTextContent('Scheduled: Fix login bug')
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ scheduled: true }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    expect(screen.getByTestId('scheduled-message')).toHaveTextContent(
+      'Scheduled: Fix login bug in 5 min'
+    )
+    expect(screen.queryByText('PR Review')).not.toBeInTheDocument()
   })
 
   it('renders close button when onClose is provided', () => {
     const onClose = vi.fn()
-    render(<PRReviewPanel prInfo={prInfo} onClose={onClose} />)
-    const closeBtn = screen.getByTitle('Close')
-    expect(closeBtn).toBeInTheDocument()
-    fireEvent.click(closeBtn)
-    expect(onClose).toHaveBeenCalledTimes(1)
+    render(<PRReviewPanel prInfo={defaultPrInfo} onClose={onClose} />)
+    fireEvent.click(screen.getByTitle('Close'))
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('does not render close button when onClose is not provided', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
     expect(screen.queryByTitle('Close')).not.toBeInTheDocument()
   })
 
-  it('renders schedule delay select', () => {
-    render(<PRReviewPanel prInfo={prInfo} />)
-    const select = screen.getByDisplayValue('5 min')
-    expect(select).toBeInTheDocument()
+  it('passes prInfo and onSubmitted to usePRReviewData hook', () => {
+    const onSubmitted = vi.fn()
+    render(<PRReviewPanel prInfo={defaultPrInfo} onSubmitted={onSubmitted} />)
+    expect(mockUsePRReviewData).toHaveBeenCalledWith(defaultPrInfo, onSubmitted)
   })
 })

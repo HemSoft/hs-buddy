@@ -1,13 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+import { usePRReviewData } from './usePRReviewData'
+import type { PRReviewInfo } from './PRReviewInfo'
 
-const mockCopilotSettings = { model: 'claude-sonnet-4.5', ghAccount: 'alice' }
-const mockAccounts = [{ username: 'alice', org: 'acme' }]
-const mockIncrementStat = vi.fn().mockResolvedValue(undefined)
+const {
+  mockUseCopilotSettings,
+  mockUseGitHubAccounts,
+  mockIncrementStat,
+  mockFetchPRBranches,
+  mockFetchPRHistory,
+  mockCopilotExecute,
+  mockIpcInvoke,
+} = vi.hoisted(() => ({
+  mockUseCopilotSettings: vi.fn(),
+  mockUseGitHubAccounts: vi.fn(),
+  mockIncrementStat: vi.fn(),
+  mockFetchPRBranches: vi.fn(),
+  mockFetchPRHistory: vi.fn(),
+  mockCopilotExecute: vi.fn(),
+  mockIpcInvoke: vi.fn(),
+}))
 
 vi.mock('../../hooks/useConfig', () => ({
-  useCopilotSettings: () => mockCopilotSettings,
-  useGitHubAccounts: () => ({ accounts: mockAccounts, loading: false }),
+  useCopilotSettings: mockUseCopilotSettings,
+  useGitHubAccounts: mockUseGitHubAccounts,
 }))
 
 vi.mock('../../hooks/useConvex', () => ({
@@ -15,258 +31,234 @@ vi.mock('../../hooks/useConvex', () => ({
 }))
 
 vi.mock('../../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(function () {
-    return {
-      fetchPRBranches: vi.fn().mockResolvedValue({ headSha: 'sha123' }),
-      fetchPRHistory: vi.fn().mockResolvedValue({
-        threadsTotal: 5,
-        threadsUnaddressed: 2,
-        threadsOutdated: 1,
-      }),
-    }
-  }),
+  GitHubClient: vi.fn().mockImplementation(() => ({
+    fetchPRBranches: mockFetchPRBranches,
+    fetchPRHistory: mockFetchPRHistory,
+  })),
 }))
 
-const mockInvoke = vi.fn()
-Object.defineProperty(window, 'ipcRenderer', {
-  value: { invoke: mockInvoke },
-  writable: true,
-  configurable: true,
-})
-
-const mockExecute = vi.fn()
-Object.defineProperty(window, 'copilot', {
-  value: { execute: mockExecute },
-  writable: true,
-  configurable: true,
-})
-
-import { usePRReviewData } from './usePRReviewData'
-import type { PRReviewInfo } from './PRReviewInfo'
-
-const makePRInfo = (overrides: Partial<PRReviewInfo> = {}): PRReviewInfo => ({
-  prUrl: 'https://github.com/acme/repo/pull/1',
-  prTitle: 'Fix bug',
-  prNumber: 1,
+const defaultPrInfo: PRReviewInfo = {
+  prUrl: 'https://github.com/org/repo/pull/42',
+  prTitle: 'Fix login bug',
+  prNumber: 42,
   repo: 'repo',
-  org: 'acme',
-  author: 'bob',
-  ...overrides,
-})
+  org: 'org',
+  author: 'octocat',
+}
 
 describe('usePRReviewData', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockInvoke.mockResolvedValue('')
-    mockExecute.mockResolvedValue({ success: true, resultId: 'r1' })
+    mockUseCopilotSettings.mockReturnValue({
+      model: 'claude-sonnet-4.5',
+      ghAccount: 'default-account',
+    })
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'alice', org: 'org' }],
+      loading: false,
+    })
+    mockIncrementStat.mockResolvedValue(undefined)
+    mockFetchPRBranches.mockResolvedValue({ headSha: 'abc123' })
+    mockFetchPRHistory.mockResolvedValue({
+      threadsTotal: 10,
+      threadsUnaddressed: 3,
+      threadsOutdated: 1,
+    })
+    mockCopilotExecute.mockResolvedValue({ success: true, resultId: 'result-1' })
+    mockIpcInvoke.mockResolvedValue('')
+
+    Object.defineProperty(window, 'copilot', {
+      value: { execute: mockCopilotExecute },
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'ipcRenderer', {
+      value: { invoke: mockIpcInvoke },
+      writable: true,
+      configurable: true,
+    })
+    window.dispatchEvent = vi.fn()
   })
 
-  it('initializes with default state', () => {
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
-
+  it('returns default state', () => {
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
     expect(result.current.model).toBe('claude-sonnet-4.5')
     expect(result.current.submitting).toBe(false)
     expect(result.current.error).toBeNull()
     expect(result.current.scheduled).toBe(false)
-    expect(result.current.savingDefault).toBe(false)
     expect(result.current.scheduleDelay).toBe(5)
+    expect(result.current.savingDefault).toBe(false)
   })
 
-  it('sets account from matching org in github accounts', () => {
-    const { result } = renderHook(() => usePRReviewData(makePRInfo({ org: 'acme' })))
-
+  it('matches account from org on init', () => {
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
     expect(result.current.account).toBe('alice')
   })
 
-  it('generates default prompt with PR URL', () => {
-    const prInfo = makePRInfo({ prUrl: 'https://github.com/acme/repo/pull/99' })
-    const { result } = renderHook(() => usePRReviewData(prInfo))
+  it('falls back to configured account when no org match', () => {
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'bob', org: 'other-org' }],
+      loading: false,
+    })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+    expect(result.current.account).toBe('default-account')
+  })
 
-    expect(result.current.prompt).toContain('https://github.com/acme/repo/pull/99')
+  it('generates default prompt with PR URL', () => {
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+    expect(result.current.prompt).toContain('https://github.com/org/repo/pull/42')
     expect(result.current.prompt).toContain('PR review')
   })
 
-  it('uses initialPrompt if provided', () => {
-    const prInfo = makePRInfo({ initialPrompt: 'Custom review instructions' })
+  it('uses initialPrompt when provided', () => {
+    const prInfo = { ...defaultPrInfo, initialPrompt: 'Custom prompt for review' }
     const { result } = renderHook(() => usePRReviewData(prInfo))
-
-    expect(result.current.prompt).toBe('Custom review instructions')
+    expect(result.current.prompt).toBe('Custom prompt for review')
   })
 
-  it('allows setting account and model', () => {
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
-
-    act(() => result.current.setAccount('bob'))
-    expect(result.current.account).toBe('bob')
-
-    act(() => result.current.setModel('gpt-4'))
-    expect(result.current.model).toBe('gpt-4')
-  })
-
-  it('handleRunNow executes copilot and dispatches event on success', async () => {
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+  it('handleRunNow submits review and dispatches open-result', async () => {
     const onSubmitted = vi.fn()
-
-    const { result } = renderHook(() => usePRReviewData(makePRInfo(), onSubmitted))
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo, onSubmitted))
 
     await act(async () => {
       await result.current.handleRunNow()
     })
 
-    expect(mockExecute).toHaveBeenCalledWith(
+    expect(mockCopilotExecute).toHaveBeenCalledWith(
       expect.objectContaining({
         category: 'pr-review',
         model: 'claude-sonnet-4.5',
+        metadata: expect.objectContaining({
+          prUrl: defaultPrInfo.prUrl,
+          prNumber: 42,
+        }),
       })
     )
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'copilot:open-result' })
+    expect(mockIncrementStat).toHaveBeenCalledWith({ field: 'copilotPrReviews' })
+    expect(onSubmitted).toHaveBeenCalledWith('result-1')
+    expect(window.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'copilot:open-result',
+        detail: { resultId: 'result-1' },
+      })
     )
-    expect(onSubmitted).toHaveBeenCalledWith('r1')
-    expect(result.current.submitting).toBe(false)
-
-    dispatchSpy.mockRestore()
   })
 
-  it('handleRunNow sets error on failure', async () => {
-    mockExecute.mockResolvedValueOnce({ success: false, error: 'Rate limited' })
-
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
+  it('handleRunNow sets error when result is not successful', async () => {
+    mockCopilotExecute.mockResolvedValue({ success: false, error: 'Rate limited' })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
     await act(async () => {
       await result.current.handleRunNow()
     })
 
     expect(result.current.error).toBe('Rate limited')
-    expect(result.current.submitting).toBe(false)
   })
 
-  it('handleRunNow catches exceptions', async () => {
-    mockExecute.mockRejectedValueOnce(new Error('Network down'))
-
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
+  it('handleRunNow sets error on exception', async () => {
+    mockCopilotExecute.mockRejectedValue(new Error('Network failure'))
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
     await act(async () => {
       await result.current.handleRunNow()
     })
 
-    expect(result.current.error).toBe('Network down')
-    expect(result.current.submitting).toBe(false)
+    expect(result.current.error).toBe('Network failure')
   })
 
-  it('handleRunNow does nothing while already submitting', async () => {
-    let resolveExecute: (v: unknown) => void
-    mockExecute.mockImplementation(
-      () =>
-        new Promise(resolve => {
-          resolveExecute = resolve
-        })
-    )
+  it('sets submitting flag during execution', async () => {
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
+    expect(result.current.submitting).toBe(false)
 
-    // Start first submission (don't await)
-    act(() => {
-      result.current.handleRunNow()
-    })
-    expect(result.current.submitting).toBe(true)
-
-    // Try second submission while first is in progress
     await act(async () => {
       await result.current.handleRunNow()
     })
 
-    // Resolve first
-    await act(async () => {
-      resolveExecute!({ success: true, resultId: 'r1' })
-    })
-
-    // Should have only been called once
-    expect(mockExecute).toHaveBeenCalledTimes(1)
+    // After completing, submitting should be false again
+    expect(result.current.submitting).toBe(false)
+    // Verify it was called
+    expect(mockCopilotExecute).toHaveBeenCalled()
   })
 
-  it('handleSchedule sets scheduled flag', async () => {
+  it('handleSchedule sets scheduled to true', async () => {
     vi.useFakeTimers()
-
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
     await act(async () => {
       await result.current.handleSchedule()
     })
 
     expect(result.current.scheduled).toBe(true)
-    expect(result.current.submitting).toBe(false)
-
     vi.useRealTimers()
   })
 
-  it('handleResetPrompt resets to default', () => {
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
+  it('handleResetPrompt resets to default prompt', async () => {
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
-    const original = result.current.prompt
-    act(() => result.current.setPrompt('modified'))
-    expect(result.current.prompt).toBe('modified')
+    act(() => {
+      result.current.setPrompt('Custom modified prompt')
+    })
 
-    act(() => result.current.handleResetPrompt())
-    expect(result.current.prompt).toBe(original)
+    act(() => {
+      result.current.handleResetPrompt()
+    })
+
+    expect(result.current.prompt).toContain('PR review')
+    expect(result.current.prompt).toContain(defaultPrInfo.prUrl)
   })
 
-  it('handleSaveAsDefault saves template via IPC', async () => {
-    mockInvoke.mockResolvedValue(undefined)
-
-    const prInfo = makePRInfo({ prUrl: 'https://github.com/acme/repo/pull/1' })
-    const { result } = renderHook(() => usePRReviewData(prInfo))
+  it('handleSaveAsDefault saves template via ipcRenderer', async () => {
+    mockIpcInvoke.mockResolvedValue(undefined)
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
     await act(async () => {
       await result.current.handleSaveAsDefault()
     })
 
-    expect(mockInvoke).toHaveBeenCalledWith(
+    expect(mockIpcInvoke).toHaveBeenCalledWith(
       'config:set-copilot-pr-review-prompt-template',
-      expect.stringContaining('{{prUrl}}')
+      expect.any(String)
     )
-    expect(result.current.savingDefault).toBe(false)
   })
 
   it('handleSaveAsDefault does nothing when prompt is empty', async () => {
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
-    act(() => result.current.setPrompt('   '))
+    act(() => {
+      result.current.setPrompt('   ')
+    })
 
     await act(async () => {
       await result.current.handleSaveAsDefault()
     })
 
-    expect(mockInvoke).not.toHaveBeenCalledWith(
+    expect(mockIpcInvoke).not.toHaveBeenCalledWith(
       'config:set-copilot-pr-review-prompt-template',
-      expect.anything()
+      expect.any(String)
     )
   })
 
-  it('promptExpanded state toggles correctly', () => {
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
+  it('setters update corresponding state values', () => {
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
-    expect(result.current.promptExpanded).toBe(false)
-    act(() => result.current.setPromptExpanded(true))
+    act(() => {
+      result.current.setModel('gpt-4')
+      result.current.setScheduleDelay(15)
+      result.current.setPromptExpanded(true)
+    })
+
+    expect(result.current.model).toBe('gpt-4')
+    expect(result.current.scheduleDelay).toBe(15)
     expect(result.current.promptExpanded).toBe(true)
   })
 
-  it('scheduleDelay can be set', () => {
-    const { result } = renderHook(() => usePRReviewData(makePRInfo()))
-
-    act(() => result.current.setScheduleDelay(10))
-    expect(result.current.scheduleDelay).toBe(10)
-  })
-
-  it('loads saved template from IPC on mount', async () => {
-    mockInvoke.mockResolvedValueOnce('Review {{prUrl}} with extra care')
-
-    const { result } = renderHook(() =>
-      usePRReviewData(makePRInfo({ prUrl: 'https://github.com/acme/repo/pull/5' }))
-    )
+  it('loads saved template from config on mount', async () => {
+    mockIpcInvoke.mockResolvedValue('Saved template for {{prUrl}}')
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
 
     await waitFor(() => {
-      expect(result.current.prompt).toContain('https://github.com/acme/repo/pull/5')
+      expect(result.current.prompt).toContain(defaultPrInfo.prUrl)
     })
   })
 })

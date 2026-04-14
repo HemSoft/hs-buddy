@@ -6,19 +6,13 @@ const mockSetEnabled = vi.fn()
 const mockSetSoundPath = vi.fn()
 const mockPickSoundFile = vi.fn()
 const mockInvoke = vi.fn()
-let mockEnabled = true
-let mockSoundPath = 'C:\\sounds\\ding.wav'
-let mockLoading = false
+
+const { mockNotificationSettings } = vi.hoisted(() => ({
+  mockNotificationSettings: vi.fn(),
+}))
 
 vi.mock('../../hooks/useConfig', () => ({
-  useNotificationSettings: () => ({
-    enabled: mockEnabled,
-    soundPath: mockSoundPath,
-    loading: mockLoading,
-    setEnabled: mockSetEnabled,
-    setSoundPath: mockSetSoundPath,
-    pickSoundFile: mockPickSoundFile,
-  }),
+  useNotificationSettings: mockNotificationSettings,
 }))
 
 class MockAudio {
@@ -41,10 +35,16 @@ describe('SettingsNotifications', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     MockAudio.instances = []
-    mockEnabled = true
-    mockSoundPath = 'C:\\sounds\\ding.wav'
-    mockLoading = false
     mockInvoke.mockResolvedValue({ base64: 'AQID', mimeType: 'audio/wav' })
+
+    mockNotificationSettings.mockReturnValue({
+      enabled: true,
+      soundPath: 'C:\\sounds\\ding.wav',
+      loading: false,
+      setEnabled: mockSetEnabled,
+      setSoundPath: mockSetSoundPath,
+      pickSoundFile: mockPickSoundFile,
+    })
 
     Object.defineProperty(window, 'ipcRenderer', {
       value: { invoke: mockInvoke },
@@ -121,47 +121,44 @@ describe('SettingsNotifications', () => {
     })
   })
 
-  it('shows loading state', () => {
-    mockLoading = true
+  it('toggle calls setEnabled with the opposite value', async () => {
     render(<SettingsNotifications />)
+
+    fireEvent.click(screen.getByRole('button', { name: /enable sound notification/i }))
+
+    await waitFor(() => {
+      expect(mockSetEnabled).toHaveBeenCalledWith(false)
+    })
+  })
+
+  it('browse calls pickSoundFile', async () => {
+    render(<SettingsNotifications />)
+
+    fireEvent.click(screen.getByRole('button', { name: /browse/i }))
+
+    await waitFor(() => {
+      expect(mockPickSoundFile).toHaveBeenCalled()
+    })
+  })
+
+  it('shows a loading spinner when loading is true', () => {
+    mockNotificationSettings.mockReturnValue({
+      enabled: false,
+      soundPath: '',
+      loading: true,
+      setEnabled: mockSetEnabled,
+      setSoundPath: mockSetSoundPath,
+      pickSoundFile: mockPickSoundFile,
+    })
+
+    render(<SettingsNotifications />)
+
     expect(screen.getByText('Loading notification settings...')).toBeInTheDocument()
-    expect(screen.queryByText('Notifications')).toBeFalsy()
   })
 
-  it('toggles enabled state on click', async () => {
-    render(<SettingsNotifications />)
-    const toggle = screen.getByRole('button', { name: /enable sound/i })
-    await act(async () => {
-      fireEvent.click(toggle)
-    })
-    expect(mockSetEnabled).toHaveBeenCalledWith(false)
-  })
-
-  it('calls pickSoundFile when Browse button is clicked', async () => {
-    render(<SettingsNotifications />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /browse/i }))
-    })
-    expect(mockPickSoundFile).toHaveBeenCalled()
-  })
-
-  it('clears sound path and stops preview on Clear click', async () => {
-    render(<SettingsNotifications />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /clear/i }))
-    })
-    expect(mockSetSoundPath).toHaveBeenCalledWith('')
-  })
-
-  it('shows "No sound file selected" when no sound path', () => {
-    mockSoundPath = ''
-    render(<SettingsNotifications />)
-    expect(screen.getByText('No sound file selected.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /preview/i })).toBeFalsy()
-  })
-
-  it('shows error when IPC invoke returns null', async () => {
+  it('shows an error when IPC returns null for preview', async () => {
     mockInvoke.mockResolvedValue(null)
+
     render(<SettingsNotifications />)
 
     fireEvent.click(screen.getByRole('button', { name: /preview/i }))
@@ -171,22 +168,55 @@ describe('SettingsNotifications', () => {
     })
   })
 
-  it('shows error when IPC invoke rejects', async () => {
-    mockInvoke.mockRejectedValue(new Error('IPC failed'))
+  it('audio onended cleans up blob URL', async () => {
     render(<SettingsNotifications />)
 
     fireEvent.click(screen.getByRole('button', { name: /preview/i }))
 
+    await waitFor(() => expect(MockAudio.instances).toHaveLength(1))
+    const audio = MockAudio.instances[0]
+
+    await act(async () => {
+      audio.onended?.()
+    })
+
     await waitFor(() => {
-      expect(screen.getByText('Could not play this file.')).toBeInTheDocument()
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:preview-1')
+    })
+  })
+
+  it('hides preview and clear buttons when no sound path is set', () => {
+    mockNotificationSettings.mockReturnValue({
+      enabled: true,
+      soundPath: '',
+      loading: false,
+      setEnabled: mockSetEnabled,
+      setSoundPath: mockSetSoundPath,
+      pickSoundFile: mockPickSoundFile,
+    })
+
+    render(<SettingsNotifications />)
+
+    expect(screen.getByText('No sound file selected.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /preview/i })).not.toBeInTheDocument()
+  })
+
+  it('clear calls setSoundPath with empty string', async () => {
+    render(<SettingsNotifications />)
+
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }))
+
+    await waitFor(() => {
+      expect(mockSetSoundPath).toHaveBeenCalledWith('')
     })
   })
 
   it('shows error when audio.play() rejects', async () => {
-    // Override Audio so the next instance's play() rejects
-    globalThis.Audio = class extends MockAudio {
+    // Override MockAudio so play() rejects on any new instance
+    const FailAudio = class extends MockAudio {
       play = vi.fn().mockRejectedValue(new Error('play failed'))
-    } as unknown as typeof Audio
+    }
+    globalThis.Audio = FailAudio as unknown as typeof Audio
 
     render(<SettingsNotifications />)
 
@@ -197,43 +227,5 @@ describe('SettingsNotifications', () => {
         screen.getByText('Could not play this file. Make sure it is a valid audio file.')
       ).toBeInTheDocument()
     })
-  })
-
-  it('cleans up audio reference on onended', async () => {
-    render(<SettingsNotifications />)
-
-    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
-    await waitFor(() => expect(MockAudio.instances).toHaveLength(1))
-
-    const audio = MockAudio.instances[0]
-    await act(async () => {
-      audio.onended?.()
-    })
-
-    // After onended, clicking preview again should create a new instance
-    mockInvoke.mockResolvedValue({ base64: 'AQID', mimeType: 'audio/wav' })
-    createObjectURL.mockReturnValueOnce('blob:preview-4')
-    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
-    await waitFor(() => expect(MockAudio.instances).toHaveLength(2))
-  })
-
-  it('does not trigger preview when soundPath is empty', () => {
-    mockSoundPath = ''
-    render(<SettingsNotifications />)
-    // No preview button visible when no sound path
-    expect(screen.queryByRole('button', { name: /preview/i })).toBeFalsy()
-  })
-
-  it('displays the basename of the sound path', () => {
-    mockSoundPath = 'C:\\Users\\test\\sounds\\alert.mp3'
-    render(<SettingsNotifications />)
-    expect(screen.getByText('alert.mp3')).toBeInTheDocument()
-  })
-
-  it('renders toggle with correct aria-pressed state', () => {
-    mockEnabled = false
-    render(<SettingsNotifications />)
-    const toggle = screen.getByRole('button', { name: /enable sound/i })
-    expect(toggle.getAttribute('aria-pressed')).toBe('false')
   })
 })

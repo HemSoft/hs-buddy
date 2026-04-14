@@ -1,28 +1,15 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { RepoPullRequestList } from './RepoPullRequestList'
 
-/* ── mocks ── */
 const mockEnqueue = vi.fn()
-const mockGet = vi.fn()
-const mockSet = vi.fn()
-const mockAccounts = [{ username: 'user', token: 'tok', org: 'org' }]
-
-vi.mock('../services/dataCache', () => ({
-  dataCache: {
-    get: (...args: unknown[]) => mockGet(...args),
-    set: (...args: unknown[]) => mockSet(...args),
-  },
-}))
-
-vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoPRs: vi.fn().mockResolvedValue([]),
-  })),
-}))
+const mockOpenExternal = vi.fn()
 
 vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts }),
+  useGitHubAccounts: () => ({
+    accounts: [{ username: 'alice', org: 'test-org' }],
+    loading: false,
+  }),
 }))
 
 vi.mock('../hooks/useTaskQueue', () => ({
@@ -33,192 +20,203 @@ vi.mock('../hooks/useViewMode', () => ({
   useViewMode: () => ['grid', vi.fn()],
 }))
 
-vi.mock('../utils/dateUtils', () => ({
-  formatDistanceToNow: () => '2 days ago',
+vi.mock('../services/dataCache', () => ({
+  dataCache: {
+    get: vi.fn().mockReturnValue(null),
+    set: vi.fn(),
+  },
 }))
 
-vi.mock('../utils/prDetailView', () => ({
-  createPRDetailViewId: (opts: Record<string, unknown>) => `pr-view-${opts.id}`,
-}))
-
-vi.mock('../utils/errorUtils', () => ({
-  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'Unknown error'),
-  isAbortError: () => false,
-  throwIfAborted: vi.fn(),
+vi.mock('../api/github', () => ({
+  GitHubClient: vi.fn().mockImplementation(() => ({
+    fetchRepoPRs: vi.fn(),
+  })),
 }))
 
 vi.mock('./shared/ViewModeToggle', () => ({
-  ViewModeToggle: ({ mode, onChange }: { mode: string; onChange: (m: string) => void }) => (
-    <button data-testid="view-toggle" onClick={() => onChange(mode === 'grid' ? 'list' : 'grid')}>
-      {mode}
-    </button>
-  ),
+  ViewModeToggle: () => <div data-testid="view-mode-toggle" />,
 }))
 
-/* ── test data ── */
-const mockPRs = [
-  {
-    number: 10,
-    title: 'Add new feature',
+function makePR(overrides = {}) {
+  return {
+    number: 1,
+    title: 'Add feature',
+    author: 'octocat',
+    authorAvatarUrl: 'https://example.com/avatar.png',
+    url: 'https://github.com/test-org/hs-buddy/pull/1',
     state: 'open',
     draft: false,
-    author: 'alice',
-    authorAvatarUrl: 'https://avatar.test/alice',
-    createdAt: '2024-01-10T10:00:00Z',
-    updatedAt: '2024-01-15T10:00:00Z',
-    url: 'https://github.com/org/repo/pull/10',
-    headBranch: 'feature/new',
+    createdAt: '2025-06-01T10:00:00Z',
+    updatedAt: '2025-06-02T10:00:00Z',
+    headBranch: 'feature-branch',
     baseBranch: 'main',
-    labels: [{ name: 'enhancement', color: '00ff00' }],
-    approvalCount: 2,
-    assigneeCount: 1,
-    iApproved: false,
-  },
-  {
-    number: 11,
-    title: 'WIP: refactor module',
-    state: 'open',
-    draft: true,
-    author: 'bob',
-    authorAvatarUrl: null,
-    createdAt: '2024-01-12T10:00:00Z',
-    updatedAt: '2024-01-14T10:00:00Z',
-    url: 'https://github.com/org/repo/pull/11',
-    headBranch: 'refactor/module',
-    baseBranch: 'develop',
     labels: [],
     approvalCount: 0,
     assigneeCount: 0,
     iApproved: false,
-  },
-  {
-    number: 12,
-    title: 'Merged PR',
-    state: 'merged',
-    draft: false,
-    author: 'charlie',
-    authorAvatarUrl: null,
-    createdAt: '2024-01-08T10:00:00Z',
-    updatedAt: '2024-01-13T10:00:00Z',
-    url: 'https://github.com/org/repo/pull/12',
-    headBranch: 'fix/bug',
-    baseBranch: 'main',
-    labels: [],
-    approvalCount: 1,
-    assigneeCount: 0,
-    iApproved: true,
-  },
-]
+    ...overrides,
+  }
+}
 
 describe('RepoPullRequestList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGet.mockReturnValue(null)
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) =>
-      fn(new AbortController().signal)
-    )
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: mockOpenExternal },
+      writable: true,
+      configurable: true,
+    })
   })
 
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
-    render(<RepoPullRequestList owner="org" repo="repo" />)
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
     expect(screen.getByText('Loading pull requests...')).toBeInTheDocument()
   })
 
-  it('renders PRs in grid mode', async () => {
-    mockGet.mockReturnValue({ data: mockPRs, fetchedAt: Date.now() })
+  it('shows error state with retry button', async () => {
+    mockEnqueue.mockRejectedValue(new Error('Network error'))
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    render(<RepoPullRequestList owner="org" repo="repo" />)
-
-    expect(screen.getByText('Add new feature')).toBeInTheDocument()
-    expect(screen.getByText('WIP: refactor module')).toBeInTheDocument()
-    expect(screen.getByText('3 open')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load pull requests')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Network error')).toBeInTheDocument()
+    expect(screen.getByText(/Retry/)).toBeInTheDocument()
   })
 
-  it('shows draft badge for draft PRs', async () => {
-    mockGet.mockReturnValue({ data: mockPRs, fetchedAt: Date.now() })
+  it('renders PR list after loading', async () => {
+    const prs = [makePR(), makePR({ number: 2, title: 'Fix bug' })]
+    mockEnqueue.mockResolvedValue(prs)
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    render(<RepoPullRequestList owner="org" repo="repo" />)
-
-    const draftBadges = screen.getAllByText('Draft')
-    expect(draftBadges.length).toBeGreaterThan(0)
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Fix bug')).toBeInTheDocument()
   })
 
-  it('shows branch flow info', async () => {
-    mockGet.mockReturnValue({ data: mockPRs, fetchedAt: Date.now() })
-
-    render(<RepoPullRequestList owner="org" repo="repo" />)
-
-    expect(screen.getAllByText('main').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('feature/new')).toBeInTheDocument()
-  })
-
-  it('shows approval count when non-zero', async () => {
-    mockGet.mockReturnValue({ data: mockPRs, fetchedAt: Date.now() })
-
-    render(<RepoPullRequestList owner="org" repo="repo" />)
-
-    expect(screen.getByText('2')).toBeInTheDocument()
-  })
-
-  it('calls onOpenPR callback when PR is clicked', async () => {
-    mockGet.mockReturnValue({ data: mockPRs, fetchedAt: Date.now() })
-    const onOpenPR = vi.fn()
-
-    render(<RepoPullRequestList owner="org" repo="repo" onOpenPR={onOpenPR} />)
-
-    fireEvent.click(screen.getByText('Add new feature'))
-    expect(onOpenPR).toHaveBeenCalledWith(expect.stringContaining('pr-view-'))
-  })
-
-  it('opens external link when no callback', async () => {
-    mockGet.mockReturnValue({ data: mockPRs, fetchedAt: Date.now() })
-    const openExternal = vi.fn()
-    window.shell = { openExternal } as never
-
-    render(<RepoPullRequestList owner="org" repo="repo" />)
-
-    fireEvent.click(screen.getByText('Add new feature'))
-    expect(openExternal).toHaveBeenCalledWith('https://github.com/org/repo/pull/10')
-  })
-
-  it('shows empty state when no PRs', async () => {
-    mockGet.mockReturnValue({ data: [], fetchedAt: Date.now() })
-
-    render(<RepoPullRequestList owner="org" repo="repo" />)
+  it('shows empty state when no PRs exist', async () => {
+    mockEnqueue.mockResolvedValue([])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
     await waitFor(() => {
       expect(screen.getByText('No open pull requests')).toBeInTheDocument()
     })
   })
 
-  it('shows error state on failure', async () => {
-    mockEnqueue.mockReset()
-    mockEnqueue.mockRejectedValue(new Error('Rate limited'))
-
-    render(<RepoPullRequestList owner="org" repo="repo" />)
+  it('displays PR count in header', async () => {
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load pull requests')).toBeInTheDocument()
+      expect(screen.getByText('1 open')).toBeInTheDocument()
     })
-    expect(screen.getByText('Rate limited')).toBeInTheDocument()
   })
 
-  it('shows labels', async () => {
-    mockGet.mockReturnValue({ data: mockPRs, fetchedAt: Date.now() })
-
-    render(<RepoPullRequestList owner="org" repo="repo" />)
-
-    expect(screen.getByText('enhancement')).toBeInTheDocument()
-  })
-
-  it('uses closed state label', async () => {
-    mockGet.mockReturnValue({ data: [], fetchedAt: Date.now() })
-
-    render(<RepoPullRequestList owner="org" repo="repo" prState="closed" />)
+  it('calls onOpenPR when a PR is clicked', async () => {
+    const onOpenPR = vi.fn()
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
 
     await waitFor(() => {
-      expect(screen.getByText('No closed pull requests')).toBeInTheDocument()
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Add feature').closest('button')!)
+    expect(onOpenPR).toHaveBeenCalled()
+  })
+
+  it('opens external URL when no onOpenPR handler', async () => {
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Add feature').closest('button')!)
+    expect(mockOpenExternal).toHaveBeenCalledWith('https://github.com/test-org/hs-buddy/pull/1')
+  })
+
+  it('shows draft badge for draft PRs', async () => {
+    mockEnqueue.mockResolvedValue([makePR({ draft: true })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Draft')).toBeInTheDocument()
+    })
+  })
+
+  it('renders labels on PR items', async () => {
+    mockEnqueue.mockResolvedValue([makePR({ labels: [{ name: 'bug', color: 'ff0000' }] })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('bug')).toBeInTheDocument()
+    })
+  })
+
+  it('shows branch flow information', async () => {
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('main')).toBeInTheDocument()
+      expect(screen.getByText('feature-branch')).toBeInTheDocument()
+    })
+  })
+
+  it('shows header with owner/repo', async () => {
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('test-org')).toBeInTheDocument()
+      expect(screen.getByText('hs-buddy')).toBeInTheDocument()
+    })
+  })
+
+  it('shows Open Pull Requests label for open state', async () => {
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="open" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Open Pull Requests')).toBeInTheDocument()
+    })
+  })
+
+  it('shows Closed Pull Requests label for closed state', async () => {
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="closed" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Closed Pull Requests')).toBeInTheDocument()
+    })
+  })
+
+  it('shows approval count when present', async () => {
+    mockEnqueue.mockResolvedValue([makePR({ approvalCount: 3 })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('3')).toBeInTheDocument()
+    })
+  })
+
+  it('retries fetch on retry button click', async () => {
+    mockEnqueue.mockRejectedValueOnce(new Error('fail'))
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Retry/)).toBeInTheDocument()
+    })
+
+    mockEnqueue.mockResolvedValue([makePR()])
+    fireEvent.click(screen.getByText(/Retry/))
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
     })
   })
 })

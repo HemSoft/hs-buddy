@@ -38,7 +38,7 @@ function readCache(): { quotes: QuoteData[]; timestamp: number } | null {
   return null
 }
 
-function writeCache(quotes: QuoteData[], timestamp: number = Date.now()) {
+function writeCache(quotes: QuoteData[], timestamp: number) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ quotes, timestamp, version: CACHE_VERSION }))
   } catch {

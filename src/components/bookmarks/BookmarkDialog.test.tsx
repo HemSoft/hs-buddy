@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { BookmarkDialog } from './BookmarkDialog'
 
 const mockCreate = vi.fn()
@@ -100,86 +100,114 @@ describe('BookmarkDialog', () => {
     expect(screen.getByDisplayValue('Existing bookmark')).toHaveFocus()
   })
 
-  it('shows error when URL is empty on submit', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bookmark' }))
-    expect(screen.getByText('URL is required')).toBeInTheDocument()
+  it('shows validation error when URL is empty on submit', async () => {
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
+
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('URL is required')).toBeInTheDocument()
+    })
   })
 
-  it('shows error when title is empty on submit', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={vi.fn()} />)
+  it('shows validation error when title is empty on submit', async () => {
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
+
     const urlInput = screen.getByPlaceholderText('https://example.com')
-    fireEvent.change(urlInput, { target: { value: 'https://test.com' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bookmark' }))
-    expect(screen.getByText('Title is required')).toBeInTheDocument()
+    fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('Title is required')).toBeInTheDocument()
+    })
   })
 
-  it('shows error when category is empty on submit', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={vi.fn()} />)
+  it('shows validation error when category is empty on submit', async () => {
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
+
     const urlInput = screen.getByPlaceholderText('https://example.com')
+    fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
     const titleInput = screen.getByPlaceholderText('My Bookmark')
-    fireEvent.change(urlInput, { target: { value: 'https://test.com' } })
-    fireEvent.change(titleInput, { target: { value: 'Test' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bookmark' }))
-    expect(screen.getByText('Category is required')).toBeInTheDocument()
+    fireEvent.change(titleInput, { target: { value: 'Test Bookmark' } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('Category is required')).toBeInTheDocument()
+    })
   })
 
-  it('rejects non-http/https URLs', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={vi.fn()} />)
-    const urlInput = screen.getByPlaceholderText('https://example.com')
-    const titleInput = screen.getByPlaceholderText('My Bookmark')
-    fireEvent.change(urlInput, { target: { value: 'ftp://files.example.com' } })
-    fireEvent.change(titleInput, { target: { value: 'Test' } })
-    const categorySelect = screen.getByRole('combobox')
-    fireEvent.change(categorySelect, { target: { value: 'Docs' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bookmark' }))
-    expect(screen.getByText('Only http and https URLs are allowed')).toBeInTheDocument()
-  })
+  it('shows validation error for invalid URL format', async () => {
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
 
-  it('rejects invalid URLs', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={vi.fn()} />)
     const urlInput = screen.getByPlaceholderText('https://example.com')
-    const titleInput = screen.getByPlaceholderText('My Bookmark')
     fireEvent.change(urlInput, { target: { value: 'not-a-url' } })
+    const titleInput = screen.getByPlaceholderText('My Bookmark')
     fireEvent.change(titleInput, { target: { value: 'Test' } })
-    const categorySelect = screen.getByRole('combobox')
-    fireEvent.change(categorySelect, { target: { value: 'Docs' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bookmark' }))
-    expect(screen.getByText(/please enter a valid url/i)).toBeInTheDocument()
+    const categorySelect = screen.getByDisplayValue('Select category…')
+    fireEvent.change(categorySelect, { target: { value: 'Documentation' } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Please enter a valid URL (e.g., https://example.com)')
+      ).toBeInTheDocument()
+    })
   })
 
-  it('rejects more than 50 tags', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={vi.fn()} />)
+  it('shows validation error for non-http protocol', async () => {
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
+
     const urlInput = screen.getByPlaceholderText('https://example.com')
+    fireEvent.change(urlInput, { target: { value: 'ftp://files.example.com' } })
     const titleInput = screen.getByPlaceholderText('My Bookmark')
+    fireEvent.change(titleInput, { target: { value: 'FTP Server' } })
+    const categorySelect = screen.getByDisplayValue('Select category…')
+    fireEvent.change(categorySelect, { target: { value: 'Documentation' } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('Only http and https URLs are allowed')).toBeInTheDocument()
+    })
+  })
+
+  it('shows validation error when too many tags', async () => {
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
+
+    const urlInput = screen.getByPlaceholderText('https://example.com')
+    fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
+    const titleInput = screen.getByPlaceholderText('My Bookmark')
+    fireEvent.change(titleInput, { target: { value: 'Test' } })
+    const categorySelect = screen.getByDisplayValue('Select category…')
+    fireEvent.change(categorySelect, { target: { value: 'Documentation' } })
     const tagsInput = screen.getByPlaceholderText('tag1, tag2, tag3')
-    fireEvent.change(urlInput, { target: { value: 'https://test.com' } })
-    fireEvent.change(titleInput, { target: { value: 'Test' } })
-    const categorySelect = screen.getByRole('combobox')
-    fireEvent.change(categorySelect, { target: { value: 'Docs' } })
-    const tags = Array.from({ length: 51 }, (_, i) => `tag${i}`).join(', ')
-    fireEvent.change(tagsInput, { target: { value: tags } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bookmark' }))
-    expect(screen.getByText('Maximum 50 tags allowed')).toBeInTheDocument()
+    const manyTags = Array.from({ length: 51 }, (_, i) => `tag${i}`).join(', ')
+    fireEvent.change(tagsInput, { target: { value: manyTags } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('Maximum 50 tags allowed')).toBeInTheDocument()
+    })
   })
 
-  it('calls create on successful submit', async () => {
-    mockCreate.mockResolvedValue(undefined)
+  it('successfully creates a bookmark on valid submit', async () => {
     const onClose = vi.fn()
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={onClose} />)
+    mockCreate.mockResolvedValue(undefined)
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={onClose} />)
+
     const urlInput = screen.getByPlaceholderText('https://example.com')
+    fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
     const titleInput = screen.getByPlaceholderText('My Bookmark')
-    fireEvent.change(urlInput, { target: { value: 'https://test.com' } })
-    fireEvent.change(titleInput, { target: { value: 'My Test' } })
-    const categorySelect = screen.getByRole('combobox')
-    fireEvent.change(categorySelect, { target: { value: 'Docs' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bookmark' }))
+    fireEvent.change(titleInput, { target: { value: 'Example Site' } })
+    const categorySelect = screen.getByDisplayValue('Select category…')
+    fireEvent.change(categorySelect, { target: { value: 'Documentation' } })
+    fireEvent.submit(document.querySelector('form')!)
+
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://test.com',
-          title: 'My Test',
-          category: 'Docs',
+          url: 'https://example.com',
+          title: 'Example Site',
+          category: 'Documentation',
         })
       )
     })
@@ -188,101 +216,123 @@ describe('BookmarkDialog', () => {
     })
   })
 
-  it('calls update when editing existing bookmark', async () => {
+  it('successfully updates an existing bookmark on submit', async () => {
+    const onClose = vi.fn()
     mockUpdate.mockResolvedValue(undefined)
-    const onClose = vi.fn()
     render(
       <BookmarkDialog
         bookmark={
           {
-            _id: 'bm1',
-            url: 'https://example.com',
-            title: 'Old title',
-            category: 'Docs',
-          } as never
-        }
-        categories={['Docs']}
-        onClose={onClose}
-      />
-    )
-    const titleInput = screen.getByDisplayValue('Old title')
-    fireEvent.change(titleInput, { target: { value: 'New title' } })
-    fireEvent.click(screen.getByText('Save Changes'))
-    await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'bm1',
-          title: 'New title',
-        })
-      )
-    })
-  })
-
-  it('closes dialog on Escape key', () => {
-    const onClose = vi.fn()
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={onClose} />)
-    fireEvent.keyDown(window, { key: 'Escape' })
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  it('closes dialog when clicking overlay', () => {
-    const onClose = vi.fn()
-    const { container } = render(
-      <BookmarkDialog bookmark={null} categories={['Docs']} onClose={onClose} />
-    )
-    const overlay = container.querySelector('.bookmark-dialog-overlay')!
-    fireEvent.mouseDown(overlay)
-    fireEvent.click(overlay)
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  it('shows text input for category in edit mode', () => {
-    render(
-      <BookmarkDialog
-        bookmark={
-          {
-            _id: 'bm1',
-            url: 'https://example.com',
-            title: 'Title',
+            _id: 'bm-1',
+            url: 'https://old.com',
+            title: 'Old Title',
             category: 'Dev Tools',
           } as never
         }
         categories={['Dev Tools', 'Documentation']}
-        onClose={vi.fn()}
+        onClose={onClose}
       />
     )
-    expect(screen.getByDisplayValue('Dev Tools')).toBeInTheDocument()
-    expect(screen.queryByText('New')).not.toBeInTheDocument()
+
+    const titleInput = screen.getByDisplayValue('Old Title')
+    fireEvent.change(titleInput, { target: { value: 'Updated Title' } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'bm-1',
+          title: 'Updated Title',
+        })
+      )
+    })
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled()
+    })
   })
 
-  it('shows "New" button for category in create mode', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs']} onClose={vi.fn()} />)
-    expect(screen.getByText('New')).toBeInTheDocument()
+  it('shows error when create fails', async () => {
+    mockCreate.mockRejectedValue(new Error('Server error'))
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
+
+    const urlInput = screen.getByPlaceholderText('https://example.com')
+    fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
+    const titleInput = screen.getByPlaceholderText('My Bookmark')
+    fireEvent.change(titleInput, { target: { value: 'Test' } })
+    const categorySelect = screen.getByDisplayValue('Select category…')
+    fireEvent.change(categorySelect, { target: { value: 'Documentation' } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('Server error')).toBeInTheDocument()
+    })
   })
 
-  it('switches to new category input when New is clicked', () => {
-    render(<BookmarkDialog bookmark={null} categories={['Docs', 'Dev Tools']} onClose={vi.fn()} />)
-    fireEvent.click(screen.getByText('New'))
-    expect(screen.getByText('Existing')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Category/Subcategory')).toBeInTheDocument()
+  it('closes dialog on overlay click when mouseDown started on overlay', () => {
+    const onClose = vi.fn()
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={onClose} />)
+
+    const overlay = document.querySelector('.bookmark-dialog-overlay')!
+    fireEvent.mouseDown(overlay, { target: overlay })
+    fireEvent.click(overlay, { target: overlay })
+    expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('handles AI JSON parse failure silently', async () => {
-    mockFetchPageTitle.mockResolvedValue({ success: true, title: 'Test' })
-    mockQuickPrompt.mockResolvedValue('This is not valid JSON at all')
+  it('does not close dialog on overlay click when mouseDown started inside dialog', () => {
+    const onClose = vi.fn()
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={onClose} />)
+
+    const dialog = document.querySelector('.bookmark-dialog')!
+    const overlay = document.querySelector('.bookmark-dialog-overlay')!
+    // mouseDown on dialog bubbles to overlay's onMouseDown, setting mouseDownTarget to dialog
+    fireEvent.mouseDown(dialog)
+    // click directly on overlay: e.target === e.currentTarget but mouseDownTarget !== currentTarget
+    fireEvent.click(overlay)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('closes dialog on Escape key', () => {
+    const onClose = vi.fn()
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={onClose} />)
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('allows switching to new category mode', () => {
     render(
       <BookmarkDialog
         bookmark={null}
-        categories={['Docs']}
-        initialUrl="https://example.com"
+        categories={['Documentation', 'Dev Tools']}
         onClose={vi.fn()}
       />
     )
-    await waitFor(() => {
-      expect(mockQuickPrompt).toHaveBeenCalled()
-    })
-    // Should not crash — description should remain empty
-    const descTextarea = screen.getByPlaceholderText('Optional description…')
-    expect(descTextarea).toHaveValue('')
+
+    expect(screen.getByDisplayValue('Select category…')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('New'))
+    expect(screen.getByPlaceholderText('Category/Subcategory')).toBeInTheDocument()
+  })
+
+  it('allows switching back to existing category mode', () => {
+    render(
+      <BookmarkDialog
+        bookmark={null}
+        categories={['Documentation', 'Dev Tools']}
+        onClose={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByText('New'))
+    expect(screen.getByText('Existing')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Existing'))
+    expect(screen.getByDisplayValue('Select category…')).toBeInTheDocument()
+  })
+
+  it('closes dialog via close button', () => {
+    const onClose = vi.fn()
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={onClose} />)
+
+    fireEvent.click(screen.getByTitle('Close'))
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })

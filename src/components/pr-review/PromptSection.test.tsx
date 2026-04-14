@@ -86,4 +86,60 @@ describe('PromptSection', () => {
     const preview = screen.getByText(/^x+\.\.\.$/)
     expect(preview.textContent!.endsWith('...')).toBe(true)
   })
+
+  it('calls onToggleExpanded when header receives Enter keydown', () => {
+    render(<PromptSection {...defaultProps} />)
+    const header = screen.getByText('Prompt').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: 'Enter' })
+    expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
+  })
+
+  it('calls onToggleExpanded when header receives Space keydown', () => {
+    render(<PromptSection {...defaultProps} />)
+    const header = screen.getByText('Prompt').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: ' ' })
+    expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
+  })
+
+  it('does not call onToggleExpanded for non-activating keys on header', () => {
+    render(<PromptSection {...defaultProps} />)
+    const header = screen.getByText('Prompt').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: 'Tab' })
+    expect(defaultProps.onToggleExpanded).not.toHaveBeenCalled()
+  })
+
+  it('calls onToggleExpanded when collapsed preview receives Enter keydown', () => {
+    render(<PromptSection {...defaultProps} />)
+    const preview = screen.getByText(defaultProps.prompt).closest('[role="button"]')!
+    fireEvent.keyDown(preview, { key: 'Enter' })
+    expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
+  })
+
+  it('calls onToggleExpanded when collapsed preview receives Space keydown', () => {
+    render(<PromptSection {...defaultProps} />)
+    const preview = screen.getByText(defaultProps.prompt).closest('[role="button"]')!
+    fireEvent.keyDown(preview, { key: ' ' })
+    expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
+  })
+
+  it('does not call onToggleExpanded for non-activating keys on preview', () => {
+    render(<PromptSection {...defaultProps} />)
+    const preview = screen.getByText(defaultProps.prompt).closest('[role="button"]')!
+    fireEvent.keyDown(preview, { key: 'Escape' })
+    expect(defaultProps.onToggleExpanded).not.toHaveBeenCalled()
+  })
+
+  it('disables save-as-default button when prompt is empty', () => {
+    render(<PromptSection {...defaultProps} promptExpanded={true} prompt="" />)
+    const saveBtn = screen.getByText('Use as default').closest('button')!
+    expect(saveBtn.disabled).toBe(true)
+  })
+
+  it('disables buttons when submitting', () => {
+    render(<PromptSection {...defaultProps} promptExpanded={true} submitting={true} />)
+    const resetBtn = screen.getByText('Reset to default').closest('button')!
+    const saveBtn = screen.getByText('Use as default').closest('button')!
+    expect(resetBtn.disabled).toBe(true)
+    expect(saveBtn.disabled).toBe(true)
+  })
 })

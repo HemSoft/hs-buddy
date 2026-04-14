@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { PRDetailInfo } from '../utils/prDetailView'
 
-const mockEnqueue = vi.fn()
-const mockAccounts = [{ username: 'alice', org: 'acme' }]
-const mockIsFresh = vi.fn().mockReturnValue(false)
-const mockCacheGet = vi.fn().mockReturnValue(null)
-const mockCacheSet = vi.fn()
-const mockFetchPRFilesChanged = vi.fn()
+const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
+  mockEnqueue: vi.fn(),
+  mockCacheGet: vi.fn(),
+  stableAccounts: [{ username: 'alice', org: 'test-org' }],
+}))
 
 vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts, loading: false }),
+  useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
 }))
 
 vi.mock('../hooks/useTaskQueue', () => ({
@@ -17,49 +17,78 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../services/dataCache', () => ({
-  dataCache: {
-    isFresh: (...args: unknown[]) => mockIsFresh(...args),
-    get: (...args: unknown[]) => mockCacheGet(...args),
-    set: (...args: unknown[]) => mockCacheSet(...args),
-  },
+  dataCache: { get: mockCacheGet, set: vi.fn(), isFresh: vi.fn() },
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(function () {
-    return {
-      fetchPRFilesChanged: (...args: unknown[]) => mockFetchPRFilesChanged(...args),
-    }
-  }),
+  GitHubClient: vi.fn().mockImplementation(() => ({
+    fetchPRFilesChanged: vi.fn(),
+  })),
+}))
+
+vi.mock('../utils/errorUtils', () => ({
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  isAbortError: () => false,
+  throwIfAborted: () => {},
+}))
+
+vi.mock('../utils/dateUtils', () => ({
+  formatDistanceToNow: () => '3 hours ago',
 }))
 
 import { PRFilesChangedPanel } from './PRFilesChangedPanel'
-import type { PRDetailInfo } from '../utils/prDetailView'
 
-const makePR = (overrides: Partial<PRDetailInfo> = {}): PRDetailInfo => ({
+const defaultPr: PRDetailInfo = {
   source: 'GitHub',
-  repository: 'repo',
-  id: 1,
-  title: 'Fix',
-  author: 'alice',
-  url: 'https://github.com/acme/repo/pull/1',
-  state: 'open',
-  approvalCount: 0,
+  repository: 'hs-buddy',
+  id: 42,
+  title: 'Fix login bug',
+  author: 'octocat',
+  url: 'https://github.com/test-org/hs-buddy/pull/42',
+  state: 'OPEN',
+  approvalCount: 1,
   assigneeCount: 0,
   iApproved: false,
-  created: '2026-01-01',
-  date: '2026-01-01',
-  org: 'acme',
-  ...overrides,
-})
+  created: '2025-06-01T10:00:00Z',
+  date: null,
+  org: 'test-org',
+}
+
+function makeFilesChangedSummary(overrides = {}) {
+  return {
+    additions: 10,
+    deletions: 5,
+    changes: 15,
+    files: [
+      {
+        filename: 'src/app.ts',
+        status: 'modified',
+        additions: 8,
+        deletions: 3,
+        changes: 11,
+        patch: '@@ -1,3 +1,4 @@\n-old\n+new\n context',
+        blobUrl: 'https://github.com/test-org/hs-buddy/blob/abc/src/app.ts',
+        previousFilename: null,
+      },
+      {
+        filename: 'src/utils.ts',
+        status: 'added',
+        additions: 2,
+        deletions: 2,
+        changes: 4,
+        patch: null,
+        blobUrl: null,
+        previousFilename: null,
+      },
+    ],
+    ...overrides,
+  }
+}
 
 describe('PRFilesChangedPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCacheGet.mockReturnValue(null)
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) => {
-      const controller = new AbortController()
-      return fn(controller.signal)
-    })
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -67,191 +96,122 @@ describe('PRFilesChangedPanel', () => {
     })
   })
 
-  it('renders loading state initially', () => {
-    mockEnqueue.mockImplementation(() => new Promise(() => {}))
-
-    render(<PRFilesChangedPanel pr={makePR()} />)
+  it('shows loading state initially', () => {
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    render(<PRFilesChangedPanel pr={defaultPr} />)
     expect(screen.getByText('Loading changed files...')).toBeInTheDocument()
   })
 
-  it('renders error state with retry', async () => {
-    mockEnqueue.mockRejectedValueOnce(new Error('fetch failed'))
-
-    render(<PRFilesChangedPanel pr={makePR()} />)
+  it('shows error state with retry button', async () => {
+    mockEnqueue.mockRejectedValue(new Error('API error'))
+    render(<PRFilesChangedPanel pr={defaultPr} />)
 
     await waitFor(() => {
       expect(screen.getByText('Failed to load changed files')).toBeInTheDocument()
     })
-    expect(screen.getByText('fetch failed')).toBeInTheDocument()
+    expect(screen.getByText('API error')).toBeInTheDocument()
+    expect(screen.getByText(/Retry/)).toBeInTheDocument()
   })
 
-  it('renders files changed data', async () => {
-    const filesData = {
-      additions: 50,
-      deletions: 10,
-      changes: 60,
-      files: [
-        {
-          filename: 'src/app.ts',
-          status: 'modified',
-          additions: 30,
-          deletions: 5,
-          changes: 35,
-          patch: '+added line\n-removed line',
-          blobUrl: 'https://github.com/acme/repo/blob/main/src/app.ts',
-          previousFilename: null,
-        },
-        {
-          filename: 'src/new.ts',
-          status: 'added',
-          additions: 20,
-          deletions: 5,
-          changes: 25,
-          patch: '+new file content',
-          blobUrl: null,
-          previousFilename: null,
-        },
-      ],
-    }
+  it('renders file summary grid after loading', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
 
-    mockFetchPRFilesChanged.mockResolvedValue(filesData)
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument() // Files count
+    })
+    expect(screen.getByText('+10')).toBeInTheDocument()
+    expect(screen.getByText('-5')).toBeInTheDocument()
+    expect(screen.getByText('15')).toBeInTheDocument()
+  })
 
-    render(<PRFilesChangedPanel pr={makePR()} />)
+  it('renders file cards with status and name', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+    expect(screen.getByText('src/utils.ts')).toBeInTheDocument()
+  })
+
+  it('toggles file expansion on click', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
 
     await waitFor(() => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('src/new.ts')).toBeInTheDocument()
-    expect(screen.getByText('+50')).toBeInTheDocument()
-    expect(screen.getByText('-10')).toBeInTheDocument()
-    expect(screen.getByText('60')).toBeInTheDocument()
-  })
-
-  it('toggles file expansion to show diff', async () => {
-    const filesData = {
-      additions: 1,
-      deletions: 0,
-      changes: 1,
-      files: [
-        {
-          filename: 'src/test.ts',
-          status: 'modified',
-          additions: 1,
-          deletions: 0,
-          changes: 1,
-          patch: '+new line added',
-          blobUrl: null,
-          previousFilename: null,
-        },
-      ],
-    }
-
-    mockFetchPRFilesChanged.mockResolvedValue(filesData)
-
-    render(<PRFilesChangedPanel pr={makePR()} />)
-
-    await waitFor(() => {
-      expect(screen.getByText('src/test.ts')).toBeInTheDocument()
-    })
-
-    // Diff is collapsed initially
-    expect(screen.queryByText('+new line added')).not.toBeInTheDocument()
-
-    // Click to expand
-    fireEvent.click(screen.getByText('src/test.ts'))
-
-    await waitFor(() => {
-      expect(screen.getByText('+new line added')).toBeInTheDocument()
-    })
+    // Click file header to expand
+    fireEvent.click(screen.getByText('src/app.ts').closest('[role="button"]')!)
+    // Diff content should be visible
+    expect(screen.getByText('-old')).toBeInTheDocument()
+    expect(screen.getByText('+new')).toBeInTheDocument()
 
     // Click again to collapse
-    fireEvent.click(screen.getByText('src/test.ts'))
+    fireEvent.click(screen.getByText('src/app.ts').closest('[role="button"]')!)
+    expect(screen.queryByText('-old')).not.toBeInTheDocument()
+  })
+
+  it('handles keyboard expansion via Enter key', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
 
     await waitFor(() => {
-      expect(screen.queryByText('+new line added')).not.toBeInTheDocument()
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: 'Enter' })
+    expect(screen.getByText('-old')).toBeInTheDocument()
+  })
+
+  it('shows no-patch message for binary/large files', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/utils.ts')).toBeInTheDocument()
+    })
+
+    // Expand the file without a patch
+    fireEvent.click(screen.getByText('src/utils.ts').closest('[role="button"]')!)
+    expect(screen.getByText(/GitHub did not provide a patch preview/)).toBeInTheDocument()
+  })
+
+  it('shows empty state when no files changed', async () => {
+    mockEnqueue.mockResolvedValue({ ...makeFilesChangedSummary(), files: [] })
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/No changed files were reported/)).toBeInTheDocument()
     })
   })
 
-  it('renders empty state when no files changed', async () => {
-    const filesData = {
-      additions: 0,
-      deletions: 0,
-      changes: 0,
-      files: [],
-    }
-
-    mockFetchPRFilesChanged.mockResolvedValue(filesData)
-
-    render(<PRFilesChangedPanel pr={makePR()} />)
+  it('opens external file link', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
 
     await waitFor(() => {
-      expect(
-        screen.getByText('No changed files were reported for this pull request.')
-      ).toBeInTheDocument()
-    })
-  })
-
-  it('uses cached data when available', () => {
-    const cachedData = {
-      data: {
-        additions: 5,
-        deletions: 2,
-        changes: 7,
-        files: [
-          {
-            filename: 'cached.ts',
-            status: 'modified',
-            additions: 5,
-            deletions: 2,
-            changes: 7,
-            patch: null,
-            blobUrl: null,
-            previousFilename: null,
-          },
-        ],
-      },
-    }
-
-    mockCacheGet.mockReturnValue(cachedData)
-
-    render(<PRFilesChangedPanel pr={makePR()} />)
-
-    expect(screen.getByText('cached.ts')).toBeInTheDocument()
-  })
-
-  it('renders no-patch message when patch is null', async () => {
-    const filesData = {
-      additions: 0,
-      deletions: 0,
-      changes: 0,
-      files: [
-        {
-          filename: 'binary.png',
-          status: 'modified',
-          additions: 0,
-          deletions: 0,
-          changes: 0,
-          patch: null,
-          blobUrl: null,
-          previousFilename: null,
-        },
-      ],
-    }
-
-    mockFetchPRFilesChanged.mockResolvedValue(filesData)
-
-    render(<PRFilesChangedPanel pr={makePR()} />)
-
-    await waitFor(() => {
-      expect(screen.getByText('binary.png')).toBeInTheDocument()
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    // Expand the file
-    fireEvent.click(screen.getByText('binary.png'))
+    const openBtn = screen.getAllByTitle('Open file on GitHub')[0]
+    fireEvent.click(openBtn)
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/blob/abc/src/app.ts'
+    )
+  })
+
+  it('displays per-file stats', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
 
     await waitFor(() => {
-      expect(screen.getByText(/GitHub did not provide a patch preview/)).toBeInTheDocument()
+      expect(screen.getByText('+8')).toBeInTheDocument()
+      expect(screen.getByText('-3')).toBeInTheDocument()
+      expect(screen.getByText('11 changes')).toBeInTheDocument()
     })
   })
 })

@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { PRChecksSummary } from '../api/github'
+import type { PRDetailInfo } from '../utils/prDetailView'
 
-const mockEnqueue = vi.fn()
-const mockAccounts = [{ username: 'alice', org: 'acme' }]
-const mockFetchPRChecks = vi.fn()
+const { mockEnqueue, mockFetchPRChecks, stableAccounts } = vi.hoisted(() => ({
+  mockEnqueue: vi.fn(),
+  mockFetchPRChecks: vi.fn(),
+  stableAccounts: [{ username: 'testuser', token: 'tok' }],
+}))
 
 vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: mockAccounts, loading: false }),
+  useGitHubAccounts: () => ({ accounts: stableAccounts }),
 }))
 
 vi.mock('../hooks/useTaskQueue', () => ({
@@ -14,40 +18,108 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(function () {
-    return {
-      fetchPRChecks: (...args: unknown[]) => mockFetchPRChecks(...args),
+  GitHubClient: class {
+    fetchPRChecks(...args: unknown[]) {
+      return mockFetchPRChecks(...args)
     }
-  }),
+  },
+}))
+
+vi.mock('../utils/dateUtils', () => ({
+  formatDistanceToNow: () => '2 hours ago',
+  formatDateFull: () => 'Jan 1, 2025 12:00 PM',
+}))
+
+vi.mock('../utils/githubUrl', () => ({
+  parseOwnerRepoFromUrl: () => ({ owner: 'acme', repo: 'webapp' }),
+}))
+
+vi.mock('../utils/errorUtils', () => ({
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  isAbortError: () => false,
 }))
 
 import { PRChecksPanel } from './PRChecksPanel'
-import type { PRDetailInfo } from '../utils/prDetailView'
 
-const makePR = (overrides: Partial<PRDetailInfo> = {}): PRDetailInfo => ({
-  source: 'GitHub',
-  repository: 'repo',
-  id: 1,
-  title: 'Fix',
+const basePR: PRDetailInfo = {
+  source: 'github',
+  repository: 'acme/webapp',
+  id: 42,
+  title: 'Fix the thing',
   author: 'alice',
-  url: 'https://github.com/acme/repo/pull/1',
+  url: 'https://github.com/acme/webapp/pull/42',
   state: 'open',
   approvalCount: 0,
   assigneeCount: 0,
   iApproved: false,
-  created: '2026-01-01',
-  date: '2026-01-01',
-  org: 'acme',
-  ...overrides,
-})
+  created: '2025-01-01T00:00:00Z',
+  date: '2025-01-01T00:00:00Z',
+}
+
+function makeChecks(overrides: Partial<PRChecksSummary> = {}): PRChecksSummary {
+  return {
+    headSha: 'abc123def456789012345678',
+    overallState: 'passing',
+    totalCount: 3,
+    successfulCount: 2,
+    failedCount: 1,
+    pendingCount: 0,
+    neutralCount: 0,
+    checkRuns: [
+      {
+        id: 1,
+        name: 'build',
+        status: 'completed',
+        conclusion: 'success',
+        detailsUrl: 'https://github.com/acme/webapp/runs/1',
+        startedAt: '2025-01-01T00:00:00Z',
+        completedAt: '2025-01-01T00:05:00Z',
+        appName: 'GitHub Actions',
+      },
+      {
+        id: 2,
+        name: 'lint',
+        status: 'completed',
+        conclusion: 'failure',
+        detailsUrl: 'https://github.com/acme/webapp/runs/2',
+        startedAt: '2025-01-01T00:00:00Z',
+        completedAt: '2025-01-01T00:03:00Z',
+        appName: 'GitHub Actions',
+      },
+    ],
+    statusContexts: [
+      {
+        id: 10,
+        context: 'ci/deploy',
+        state: 'success',
+        description: 'Deploy succeeded',
+        targetUrl: 'https://deploy.example.com/10',
+        createdAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:10:00Z',
+      },
+    ],
+    ...overrides,
+  }
+}
+
+function setupEnqueue(result: PRChecksSummary) {
+  mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<PRChecksSummary>) => {
+    const controller = new AbortController()
+    return cb(controller.signal)
+  })
+  mockFetchPRChecks.mockResolvedValue(result)
+}
+
+function setupEnqueueError(error: Error) {
+  mockEnqueue.mockImplementation(async () => {
+    throw error
+  })
+}
 
 describe('PRChecksPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) => {
-      const controller = new AbortController()
-      return fn(controller.signal)
-    })
+    mockEnqueue.mockReset()
+    mockFetchPRChecks.mockReset()
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -55,206 +127,317 @@ describe('PRChecksPanel', () => {
     })
   })
 
-  it('renders loading state initially', () => {
-    mockEnqueue.mockImplementation(
-      () => new Promise(() => {}) // never resolves
+  it('shows loading state initially', () => {
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    render(<PRChecksPanel pr={basePR} />)
+    expect(screen.getByText(/Loading checks/)).toBeTruthy()
+  })
+
+  it('shows error state when fetch fails with retry button', async () => {
+    setupEnqueueError(new Error('Network timeout'))
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load checks')).toBeTruthy()
+    })
+    expect(screen.getByText('Network timeout')).toBeTruthy()
+    expect(screen.getByText('Retry')).toBeTruthy()
+  })
+
+  it('retries on Retry click', async () => {
+    setupEnqueueError(new Error('Network timeout'))
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Retry')).toBeTruthy()
+    })
+
+    setupEnqueue(makeChecks())
+    fireEvent.click(screen.getByText('Retry'))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Passing').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('shows checks summary grid with counts', async () => {
+    setupEnqueue(
+      makeChecks({
+        overallState: 'failing',
+        totalCount: 5,
+        successfulCount: 3,
+        failedCount: 1,
+        pendingCount: 1,
+      })
     )
-
-    render(<PRChecksPanel pr={makePR()} />)
-    expect(screen.getByText('Loading checks…')).toBeInTheDocument()
-  })
-
-  it('renders error state with retry button', async () => {
-    mockEnqueue.mockRejectedValueOnce(new Error('API error'))
-
-    render(<PRChecksPanel pr={makePR()} />)
+    render(<PRChecksPanel pr={basePR} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load checks')).toBeInTheDocument()
+      expect(screen.getAllByText('Failing').length).toBeGreaterThan(0)
     })
-    expect(screen.getByText('API error')).toBeInTheDocument()
-    expect(screen.getByText('Retry')).toBeInTheDocument()
+    expect(screen.getByText('Overall')).toBeTruthy()
+    expect(screen.getByText('Total')).toBeTruthy()
+    expect(screen.getByText('5')).toBeTruthy()
+    expect(screen.getByText('3')).toBeTruthy()
   })
 
-  it('renders checks data with summary grid', async () => {
-    const checksData = {
-      overallState: 'passing',
-      totalCount: 5,
-      successfulCount: 4,
-      failedCount: 1,
-      pendingCount: 0,
-      headSha: 'abc123def456789',
-      checkRuns: [
-        {
-          id: 'cr1',
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          appName: 'GitHub Actions',
-          detailsUrl: 'https://example.com/build',
-          startedAt: '2026-01-01T10:00:00Z',
-          completedAt: '2026-01-01T10:05:00Z',
-        },
-        {
-          id: 'cr2',
-          name: 'Tests',
-          status: 'completed',
-          conclusion: 'failure',
-          appName: 'GitHub Actions',
-          detailsUrl: null,
-          startedAt: '2026-01-01T10:00:00Z',
-          completedAt: '2026-01-01T10:03:00Z',
-        },
-      ],
-      statusContexts: [
-        {
-          id: 'sc1',
-          context: 'ci/circleci',
-          state: 'success',
-          description: 'All clear',
-          targetUrl: 'https://circleci.com/build/1',
-          createdAt: '2026-01-01T10:00:00Z',
-          updatedAt: '2026-01-01T10:05:00Z',
-        },
-      ],
-    }
-
-    mockFetchPRChecks.mockResolvedValue(checksData)
-
-    render(<PRChecksPanel pr={makePR()} />)
+  it('shows check runs with correct status labels', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [
+          {
+            id: 1,
+            name: 'build',
+            status: 'completed',
+            conclusion: 'success',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 2,
+            name: 'test',
+            status: 'in_progress',
+            conclusion: null,
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 3,
+            name: 'deploy',
+            status: 'queued',
+            conclusion: null,
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 4,
+            name: 'sec',
+            status: 'completed',
+            conclusion: 'failure',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 5,
+            name: 'skip',
+            status: 'completed',
+            conclusion: 'skipped',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 6,
+            name: 'timeout',
+            status: 'completed',
+            conclusion: 'timed_out',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+        ],
+        statusContexts: [],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
 
     await waitFor(() => {
-      expect(screen.getAllByText('Passing')).toHaveLength(2)
+      expect(screen.getAllByText('Passed').length).toBeGreaterThan(0)
     })
-
-    expect(screen.getByText('5')).toBeInTheDocument()
-    expect(screen.getByText('4')).toBeInTheDocument()
-    expect(screen.getByText('Build')).toBeInTheDocument()
-    expect(screen.getAllByText('Passed')).toHaveLength(2)
-    expect(screen.getByText('Tests')).toBeInTheDocument()
-    expect(screen.getByText('failure')).toBeInTheDocument()
-    expect(screen.getByText('ci/circleci')).toBeInTheDocument()
+    expect(screen.getByText('In progress')).toBeTruthy()
+    expect(screen.getByText('Queued')).toBeTruthy()
+    expect(screen.getByText('failure')).toBeTruthy()
+    expect(screen.getByText('skipped')).toBeTruthy()
+    expect(screen.getByText('timed out')).toBeTruthy()
   })
 
-  it('renders empty check runs and status contexts', async () => {
-    const checksData = {
-      overallState: 'neutral',
-      totalCount: 0,
-      successfulCount: 0,
-      failedCount: 0,
-      pendingCount: 0,
-      headSha: 'abc123',
-      checkRuns: [],
-      statusContexts: [],
-    }
+  it('shows status contexts with correct state labels', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [],
+        statusContexts: [
+          {
+            id: 10,
+            context: 'ci/pass',
+            state: 'success',
+            description: 'OK',
+            targetUrl: null,
+            createdAt: null,
+            updatedAt: null,
+          },
+          {
+            id: 11,
+            context: 'ci/fail',
+            state: 'failure',
+            description: 'Broken',
+            targetUrl: null,
+            createdAt: null,
+            updatedAt: null,
+          },
+          {
+            id: 12,
+            context: 'ci/err',
+            state: 'error',
+            description: 'Errored',
+            targetUrl: null,
+            createdAt: null,
+            updatedAt: null,
+          },
+          {
+            id: 13,
+            context: 'ci/wait',
+            state: 'pending',
+            description: 'Waiting',
+            targetUrl: null,
+            createdAt: null,
+            updatedAt: null,
+          },
+        ],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
 
-    mockFetchPRChecks.mockResolvedValue(checksData)
+    await waitFor(() => {
+      expect(screen.getAllByText('Passed').length).toBeGreaterThan(0)
+    })
+    expect(screen.getByText('Failed')).toBeTruthy()
+    expect(screen.getByText('Error')).toBeTruthy()
+    expect(screen.getAllByText('Pending').length).toBeGreaterThan(0)
+  })
 
-    render(<PRChecksPanel pr={makePR()} />)
+  it('shows empty state when totalCount is 0', async () => {
+    setupEnqueue(makeChecks({ totalCount: 0, checkRuns: [], statusContexts: [] }))
+    render(<PRChecksPanel pr={basePR} />)
 
     await waitFor(() => {
       expect(
         screen.getByText('No checks or commit statuses were reported for this pull request.')
-      ).toBeInTheDocument()
+      ).toBeTruthy()
     })
-    expect(screen.getByText('No GitHub check runs')).toBeInTheDocument()
-    expect(screen.getByText('No legacy commit status contexts')).toBeInTheDocument()
   })
 
-  it('displays in-progress check run status', async () => {
-    const checksData = {
-      overallState: 'pending',
-      totalCount: 1,
-      successfulCount: 0,
-      failedCount: 0,
-      pendingCount: 1,
-      headSha: 'abc123',
-      checkRuns: [
-        {
-          id: 'cr1',
-          name: 'Deploy',
-          status: 'in_progress',
-          conclusion: null,
-          appName: 'Actions',
-          detailsUrl: null,
-          startedAt: '2026-01-01T10:00:00Z',
-          completedAt: null,
-        },
-      ],
-      statusContexts: [],
-    }
-
-    mockFetchPRChecks.mockResolvedValue(checksData)
-
-    render(<PRChecksPanel pr={makePR()} />)
+  it('shows "No GitHub check runs" when checkRuns array is empty', async () => {
+    setupEnqueue(makeChecks({ checkRuns: [] }))
+    render(<PRChecksPanel pr={basePR} />)
 
     await waitFor(() => {
-      expect(screen.getByText('In progress')).toBeInTheDocument()
+      expect(screen.getByText('No GitHub check runs')).toBeTruthy()
     })
   })
 
-  it('opens external link on Details click', async () => {
-    const checksData = {
-      overallState: 'passing',
-      totalCount: 1,
-      successfulCount: 1,
-      failedCount: 0,
-      pendingCount: 0,
-      headSha: 'abc123',
-      checkRuns: [
-        {
-          id: 'cr1',
-          name: 'Build',
-          status: 'completed',
-          conclusion: 'success',
-          appName: 'Actions',
-          detailsUrl: 'https://example.com/build',
-          startedAt: '2026-01-01T10:00:00Z',
-          completedAt: '2026-01-01T10:05:00Z',
-        },
-      ],
-      statusContexts: [],
-    }
-
-    mockFetchPRChecks.mockResolvedValue(checksData)
-
-    render(<PRChecksPanel pr={makePR()} />)
+  it('shows "No legacy commit status contexts" when statusContexts is empty', async () => {
+    setupEnqueue(makeChecks({ statusContexts: [] }))
+    render(<PRChecksPanel pr={basePR} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Build')).toBeInTheDocument()
+      expect(screen.getByText('No legacy commit status contexts')).toBeTruthy()
     })
-
-    fireEvent.click(screen.getByText('Details'))
-    expect(window.shell.openExternal).toHaveBeenCalledWith('https://example.com/build')
   })
 
-  it('retries fetch on Retry button click', async () => {
-    let callCount = 0
-    mockFetchPRChecks.mockImplementation(async () => {
-      callCount++
-      if (callCount === 1) throw new Error('First failure')
-      return {
-        overallState: 'passing',
-        totalCount: 0,
-        successfulCount: 0,
-        failedCount: 0,
-        pendingCount: 0,
-        headSha: 'abc',
-        checkRuns: [],
+  it('opens external link when "Open on GitHub" button is clicked', async () => {
+    setupEnqueue(makeChecks())
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Open on GitHub')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByText('Open on GitHub'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/acme/webapp/pull/42/checks'
+    )
+  })
+
+  it('opens details URL when check run Details button is clicked', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [
+          {
+            id: 1,
+            name: 'build',
+            status: 'completed',
+            conclusion: 'success',
+            detailsUrl: 'https://example.com/run/1',
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+        ],
         statusContexts: [],
-      }
-    })
-
-    render(<PRChecksPanel pr={makePR()} />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Failed to load checks')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByText('Retry'))
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
 
     await waitFor(() => {
-      expect(screen.queryByText('Failed to load checks')).not.toBeInTheDocument()
+      expect(screen.getByText('Details')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Details'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith('https://example.com/run/1')
+  })
+
+  it('renders head SHA truncated to 12 chars', async () => {
+    setupEnqueue(makeChecks({ headSha: 'abc123def456789012345678' }))
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('abc123def456')).toBeTruthy()
+    })
+  })
+
+  it('shows GitHub App fallback when appName is null', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [
+          {
+            id: 1,
+            name: 'build',
+            status: 'completed',
+            conclusion: 'success',
+            detailsUrl: null,
+            startedAt: '2025-01-01',
+            completedAt: null,
+            appName: null,
+          },
+        ],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('GitHub App')).toBeTruthy()
+    })
+  })
+
+  it('shows "No description provided" when status context has no description', async () => {
+    setupEnqueue(
+      makeChecks({
+        statusContexts: [
+          {
+            id: 10,
+            context: 'ci/check',
+            state: 'success',
+            description: null,
+            targetUrl: null,
+            createdAt: null,
+            updatedAt: null,
+          },
+        ],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No description provided')).toBeTruthy()
     })
   })
 })

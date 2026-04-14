@@ -34,7 +34,12 @@ const sections = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-export function ActivityBar({ selectedSection, onSectionSelect, isDashboardActive, onHomeClick }: ActivityBarProps) {
+export function ActivityBar({
+  selectedSection,
+  onSectionSelect,
+  isDashboardActive,
+  onHomeClick,
+}: ActivityBarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number } | null>(null)
 

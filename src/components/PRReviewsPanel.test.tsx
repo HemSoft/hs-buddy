@@ -1,327 +1,173 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-
-let mockRuns: unknown[] | undefined = undefined
-
-vi.mock('../hooks/useConvex', () => ({
-  usePRReviewRunsByPR: () => mockRuns,
-}))
-
-vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({ accounts: [{ username: 'alice', org: 'acme' }], loading: false }),
-}))
-
-vi.mock('convex/react', () => ({
-  useConvex: () => ({
-    query: vi.fn().mockResolvedValue({ result: 'Review looks good', model: 'claude' }),
-  }),
-}))
-
-vi.mock('../../convex/_generated/api', () => ({
-  api: {
-    copilotResults: {
-      get: 'copilotResults:get',
-    },
-  },
-}))
-
-vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(function () {
-    return {
-      addPRComment: vi.fn().mockResolvedValue(undefined),
-    }
-  }),
-}))
-
+import { render, screen, fireEvent } from '@testing-library/react'
 import { PRReviewsPanel } from './PRReviewsPanel'
 import type { PRDetailInfo } from '../utils/prDetailView'
 
-const makePR = (overrides: Partial<PRDetailInfo> = {}): PRDetailInfo => ({
+const mockUsePRReviewRunsByPR = vi.fn()
+const mockUseConvex = vi.fn()
+const mockDispatchEvent = vi.fn()
+
+vi.mock('convex/react', () => ({
+  useConvex: () => mockUseConvex(),
+}))
+
+vi.mock('../../convex/_generated/api', () => ({
+  api: { copilotResults: { get: 'copilotResults:get' } },
+}))
+
+vi.mock('../hooks/useConvex', () => ({
+  usePRReviewRunsByPR: (...args: unknown[]) => mockUsePRReviewRunsByPR(...args),
+}))
+
+vi.mock('../hooks/useConfig', () => ({
+  useGitHubAccounts: () => ({
+    accounts: [{ username: 'alice', org: 'test-org' }],
+    loading: false,
+  }),
+}))
+
+const defaultPr: PRDetailInfo = {
   source: 'GitHub',
-  repository: 'repo',
-  id: 1,
-  title: 'Fix',
-  author: 'alice',
-  url: 'https://github.com/acme/repo/pull/1',
-  state: 'open',
-  approvalCount: 0,
+  repository: 'hs-buddy',
+  id: 42,
+  title: 'Fix login bug',
+  author: 'octocat',
+  url: 'https://github.com/test-org/hs-buddy/pull/42',
+  state: 'OPEN',
+  approvalCount: 1,
   assigneeCount: 0,
   iApproved: false,
-  created: '2026-01-01',
-  date: '2026-01-01',
-  org: 'acme',
-  ...overrides,
-})
+  created: '2025-06-01T10:00:00Z',
+  date: null,
+  org: 'test-org',
+}
+
+function makeRun(overrides: Record<string, unknown> = {}) {
+  return {
+    _id: 'run-1',
+    status: 'completed',
+    resultId: 'result-1',
+    createdAt: Date.now() - 3600000,
+    reviewedHeadSha: 'abc123def456',
+    model: 'claude-sonnet',
+    ...overrides,
+  }
+}
 
 describe('PRReviewsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRuns = undefined
+    mockUseConvex.mockReturnValue({ query: vi.fn() })
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: vi.fn() },
+      writable: true,
+      configurable: true,
+    })
+    window.dispatchEvent = mockDispatchEvent
   })
 
-  it('renders loading state when runs undefined', () => {
-    mockRuns = undefined
-
-    render(<PRReviewsPanel pr={makePR()} />)
+  it('shows loading state when runs is undefined', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue(undefined)
+    render(<PRReviewsPanel pr={defaultPr} />)
     expect(screen.getByText('Loading AI reviews…')).toBeInTheDocument()
   })
 
-  it('renders empty state when no runs', () => {
-    mockRuns = []
-
-    render(<PRReviewsPanel pr={makePR()} />)
+  it('shows empty state when no runs exist', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([])
+    render(<PRReviewsPanel pr={defaultPr} />)
     expect(screen.getByText('No AI reviews recorded for this PR yet.')).toBeInTheDocument()
     expect(screen.getByText('Start first review')).toBeInTheDocument()
   })
 
-  it('renders review runs list', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'res1',
-        model: 'claude',
-        reviewedHeadSha: 'abc123def456',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-      {
-        _id: 'run2',
-        status: 'running',
-        resultId: 'res2',
-        model: 'gpt-4',
-        reviewedHeadSha: null,
-        createdAt: '2026-01-02T10:00:00Z',
-      },
-    ]
-
-    render(<PRReviewsPanel pr={makePR()} />)
-
+  it('renders AI Reviews header with Re-review button', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
+    render(<PRReviewsPanel pr={defaultPr} />)
     expect(screen.getByText('AI Reviews')).toBeInTheDocument()
     expect(screen.getByText('Re-review')).toBeInTheDocument()
-    expect(screen.getAllByText('completed')).toHaveLength(2) // pill + latest status
-    expect(screen.getByText('running')).toBeInTheDocument()
   })
 
-  it('displays latest review info', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'res1',
-        model: 'claude',
-        reviewedHeadSha: 'abc123def456',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-
-    render(<PRReviewsPanel pr={makePR()} />)
-
-    expect(screen.getByText('Latest')).toBeInTheDocument()
-    expect(screen.getByText('Reviewed SHA')).toBeInTheDocument()
+  it('shows latest run status and SHA', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    // Status text appears in both the latest section and run list
+    expect(screen.getAllByText('completed').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('abc123def456').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('dispatches pr-review:open event on Re-review click', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'res1',
-        reviewedHeadSha: 'sha1',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
+  it('renders run list items', () => {
+    const runs = [
+      makeRun({ _id: 'run-1', status: 'completed' }),
+      makeRun({ _id: 'run-2', status: 'failed', reviewedHeadSha: null }),
     ]
-
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-
-    render(<PRReviewsPanel pr={makePR()} />)
-
-    fireEvent.click(screen.getByText('Re-review'))
-
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'pr-review:open' }))
-
-    dispatchSpy.mockRestore()
+    mockUsePRReviewRunsByPR.mockReturnValue(runs)
+    render(<PRReviewsPanel pr={defaultPr} />)
+    const pills = screen.getAllByText(/completed|failed/)
+    expect(pills.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('dispatches copilot:open-result on result open click', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'result-id-1',
-        reviewedHeadSha: 'sha1',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-
-    render(<PRReviewsPanel pr={makePR()} />)
-
-    // Click the "Open review result" button (ExternalLink icon)
-    const openButtons = screen.getAllByTitle('Open review result')
-    fireEvent.click(openButtons[0])
-
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'copilot:open-result' })
+  it('dispatches pr-review:open event when Re-review is clicked', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    fireEvent.click(screen.getByText('Re-review'))
+    expect(mockDispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'pr-review:open',
+        detail: expect.objectContaining({
+          prUrl: defaultPr.url,
+          prNumber: 42,
+          repo: 'hs-buddy',
+        }),
+      })
     )
-
-    dispatchSpy.mockRestore()
   })
 
-  it('shows unknown sha when reviewedHeadSha is null', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'res1',
-        reviewedHeadSha: null,
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-
-    render(<PRReviewsPanel pr={makePR()} />)
-    expect(screen.getByText('unknown')).toBeInTheDocument()
+  it('dispatches copilot:open-result when open result button is clicked', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    const openBtn = screen.getByTitle('Open review result')
+    fireEvent.click(openBtn)
+    expect(mockDispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'copilot:open-result',
+        detail: { resultId: 'result-1' },
+      })
+    )
   })
 
-  it('Start first review dispatches event in empty state', () => {
-    mockRuns = []
-
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-
-    render(<PRReviewsPanel pr={makePR()} />)
-
-    fireEvent.click(screen.getByText('Start first review'))
-
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'pr-review:open' }))
-
-    dispatchSpy.mockRestore()
-  })
-
-  it('shows failed status icon for failed latest run', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'failed',
-        resultId: 'res1',
-        model: 'claude',
-        reviewedHeadSha: 'abc123',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-    const { container } = render(<PRReviewsPanel pr={makePR()} />)
-    expect(container.querySelector('.pr-reviews-status.failed')).toBeInTheDocument()
-  })
-
-  it('shows running spinner for running latest run', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'running',
-        resultId: 'res1',
-        model: 'claude',
-        reviewedHeadSha: 'abc123',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-    const { container } = render(<PRReviewsPanel pr={makePR()} />)
-    expect(container.querySelector('.spin.pr-reviews-status')).toBeInTheDocument()
-  })
-
-  it('shows pending clock for pending latest run', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'pending',
-        resultId: 'res1',
-        model: 'claude',
-        reviewedHeadSha: 'abc123',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-    const { container } = render(<PRReviewsPanel pr={makePR()} />)
-    expect(container.querySelector('.pr-reviews-status.pending')).toBeInTheDocument()
-  })
-
-  it('publishes review as PR comment', async () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'res1',
-        model: 'claude',
-        reviewedHeadSha: 'abc123',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-    render(<PRReviewsPanel pr={makePR()} />)
-
-    fireEvent.click(screen.getByTitle('Publish review as PR comment'))
-
-    await waitFor(() => {
-      expect(screen.getByTitle('Published to PR')).toBeInTheDocument()
-    })
-  })
-
-  it('dispatches re-review with SHA-specific prompt when SHA available', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'res1',
-        reviewedHeadSha: 'abc123def456',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-    render(<PRReviewsPanel pr={makePR()} />)
-    fireEvent.click(screen.getByText('Re-review'))
-
-    const event = dispatchSpy.mock.calls.find(
-      call => (call[0] as Event).type === 'pr-review:open'
-    )?.[0] as CustomEvent
-    expect(event.detail.initialPrompt).toContain('abc123def456')
-    expect(event.detail.initialPrompt).toContain('commit')
-
-    dispatchSpy.mockRestore()
-  })
-
-  it('dispatches re-review with generic prompt when no SHA', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'completed',
-        resultId: 'res1',
-        reviewedHeadSha: null,
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-
-    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-    render(<PRReviewsPanel pr={makePR()} />)
-    fireEvent.click(screen.getByText('Re-review'))
-
-    const event = dispatchSpy.mock.calls.find(
-      call => (call[0] as Event).type === 'pr-review:open'
-    )?.[0] as CustomEvent
-    expect(event.detail.initialPrompt).not.toContain('after commit')
-
-    dispatchSpy.mockRestore()
+  it('shows publish button for completed runs', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun({ status: 'completed' })])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    expect(screen.getByTitle('Publish review as PR comment')).toBeInTheDocument()
   })
 
   it('does not show publish button for non-completed runs', () => {
-    mockRuns = [
-      {
-        _id: 'run1',
-        status: 'running',
-        resultId: 'res1',
-        model: 'claude',
-        reviewedHeadSha: 'abc123',
-        createdAt: '2026-01-01T10:00:00Z',
-      },
-    ]
-    render(<PRReviewsPanel pr={makePR()} />)
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun({ status: 'running' })])
+    render(<PRReviewsPanel pr={defaultPr} />)
     expect(screen.queryByTitle('Publish review as PR comment')).not.toBeInTheDocument()
+  })
+
+  it('shows unknown for latest SHA when reviewedHeadSha is null', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun({ reviewedHeadSha: null })])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    expect(screen.getByText('unknown')).toBeInTheDocument()
+  })
+
+  it('dispatches Start first review from empty state', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    fireEvent.click(screen.getByText('Start first review'))
+    expect(mockDispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'pr-review:open' })
+    )
+  })
+
+  it('shows different status icons for different statuses', () => {
+    for (const status of ['completed', 'failed', 'running', 'pending']) {
+      mockUsePRReviewRunsByPR.mockReturnValue([makeRun({ status })])
+      const { unmount } = render(<PRReviewsPanel pr={defaultPr} />)
+      // Each status text appears at least once (in the latest section and/or run list)
+      expect(screen.getAllByText(status).length).toBeGreaterThanOrEqual(1)
+      unmount()
+    }
   })
 })

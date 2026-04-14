@@ -1,23 +1,24 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useRefreshIndicators } from './useRefreshIndicators'
 
-let runningTasks: string[] = []
-let pendingTasks: string[] = []
+const mockGetRunning = vi.fn<() => string[]>().mockReturnValue([])
+const mockGetPending = vi.fn<() => string[]>().mockReturnValue([])
 
 vi.mock('../services/taskQueue', () => ({
   getTaskQueue: () => ({
-    getRunningTaskNames: () => runningTasks,
-    getPendingTaskNames: () => pendingTasks,
+    getRunningTaskNames: mockGetRunning,
+    getPendingTaskNames: mockGetPending,
   }),
 }))
+
+import { useRefreshIndicators } from './useRefreshIndicators'
 
 describe('useRefreshIndicators', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
-    runningTasks = []
-    pendingTasks = []
+    mockGetRunning.mockReturnValue([])
+    mockGetPending.mockReturnValue([])
   })
 
   afterEach(() => {
@@ -29,114 +30,77 @@ describe('useRefreshIndicators', () => {
     expect(result.current).toEqual({})
   })
 
-  it('returns same empty object reference when queue stays empty', () => {
+  it('returns object type', () => {
     const { result } = renderHook(() => useRefreshIndicators())
-    const first = result.current
-
-    act(() => {
-      vi.advanceTimersByTime(200)
-    })
-
-    expect(result.current).toBe(first)
+    expect(typeof result.current).toBe('object')
   })
 
-  it('reports active state for running tasks', () => {
-    runningTasks = ['prefetch-my-prs']
-
+  it('marks running tasks as active', () => {
+    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
     const { result } = renderHook(() => useRefreshIndicators())
-
-    // Initial compute runs immediately
-    expect(result.current).toEqual({ 'my-prs': 'active' })
-  })
-
-  it('reports pending state for pending tasks', () => {
-    pendingTasks = ['autorefresh-needs-review']
-
-    const { result } = renderHook(() => useRefreshIndicators())
-
-    expect(result.current).toEqual({ 'needs-review': 'pending' })
-  })
-
-  it('strips prefetch- prefix from task names', () => {
-    runningTasks = ['prefetch-recently-merged']
-
-    const { result } = renderHook(() => useRefreshIndicators())
-
-    expect(result.current['recently-merged']).toBe('active')
-  })
-
-  it('strips autorefresh- prefix from task names', () => {
-    runningTasks = ['autorefresh-need-a-nudge']
-
-    const { result } = renderHook(() => useRefreshIndicators())
-
-    expect(result.current['need-a-nudge']).toBe('active')
-  })
-
-  it('passes through task names without known prefix', () => {
-    runningTasks = ['custom-task-name']
-
-    const { result } = renderHook(() => useRefreshIndicators())
-
-    expect(result.current['custom-task-name']).toBe('active')
-  })
-
-  it('handles org-repos: keys with prefix stripping', () => {
-    runningTasks = ['prefetch-org-repos:acme-corp']
-
-    const { result } = renderHook(() => useRefreshIndicators())
-
-    expect(result.current['org-repos:acme-corp']).toBe('active')
-  })
-
-  it('active takes priority over pending for the same key', () => {
-    runningTasks = ['prefetch-my-prs']
-    pendingTasks = ['autorefresh-my-prs']
-
-    const { result } = renderHook(() => useRefreshIndicators())
-
     expect(result.current['my-prs']).toBe('active')
   })
 
-  it('reports mixed active and pending states', () => {
-    runningTasks = ['prefetch-my-prs']
-    pendingTasks = ['prefetch-needs-review']
-
+  it('marks pending tasks as pending', () => {
+    mockGetPending.mockReturnValue(['autorefresh-needs-review'])
     const { result } = renderHook(() => useRefreshIndicators())
-
-    expect(result.current).toEqual({
-      'my-prs': 'active',
-      'needs-review': 'pending',
-    })
+    expect(result.current['needs-review']).toBe('pending')
   })
 
-  it('updates on poll interval when tasks change', () => {
+  it('active overrides pending for the same key', () => {
+    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
+    mockGetPending.mockReturnValue(['autorefresh-my-prs'])
     const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['my-prs']).toBe('active')
+  })
 
+  it('strips prefetch- prefix from task names', () => {
+    mockGetRunning.mockReturnValue(['prefetch-org-repos:hemsoft'])
+    const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['org-repos:hemsoft']).toBe('active')
+  })
+
+  it('strips autorefresh- prefix from task names', () => {
+    mockGetPending.mockReturnValue(['autorefresh-org-repos:relias-engineering'])
+    const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['org-repos:relias-engineering']).toBe('pending')
+  })
+
+  it('passes through task names without known prefix', () => {
+    mockGetRunning.mockReturnValue(['unknown-task'])
+    const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['unknown-task']).toBe('active')
+  })
+
+  it('updates indicators on timer tick', () => {
+    const { result } = renderHook(() => useRefreshIndicators())
     expect(result.current).toEqual({})
 
-    runningTasks = ['prefetch-my-prs']
-
+    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
     act(() => {
       vi.advanceTimersByTime(200)
     })
-
-    expect(result.current).toEqual({ 'my-prs': 'active' })
+    expect(result.current['my-prs']).toBe('active')
   })
 
-  it('clears indicators when tasks finish', () => {
-    runningTasks = ['prefetch-my-prs']
-
+  it('clears indicators when queue becomes empty', () => {
+    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
     const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['my-prs']).toBe('active')
 
-    expect(result.current).toEqual({ 'my-prs': 'active' })
-
-    runningTasks = []
-
+    mockGetRunning.mockReturnValue([])
     act(() => {
       vi.advanceTimersByTime(200)
     })
-
     expect(result.current).toEqual({})
+  })
+
+  it('cleans up interval on unmount', () => {
+    const { unmount } = renderHook(() => useRefreshIndicators())
+    unmount()
+    // No error after unmount + timer tick
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
   })
 })

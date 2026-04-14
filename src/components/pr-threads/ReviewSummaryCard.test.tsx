@@ -92,11 +92,7 @@ describe('ReviewSummaryCard', () => {
     const createdAt = '2025-01-10T10:00:00Z'
     const updatedAt = '2025-06-15T10:00:00Z'
 
-    render(
-      <ReviewSummaryCard
-        review={makeReview({ createdAt, updatedAt })}
-      />
-    )
+    render(<ReviewSummaryCard review={makeReview({ createdAt, updatedAt })} />)
     const timeEl = document.querySelector('.thread-comment-time')
     expect(timeEl).toBeInTheDocument()
     // The title should contain the updatedAt date (June 15), not createdAt (January 10)

@@ -363,9 +363,7 @@ describe('useAppTabs', () => {
   })
 
   it('resolves crew project label from window.crew', async () => {
-    mockListProjects.mockResolvedValueOnce([
-      { id: 'proj-1', displayName: 'My Project' },
-    ])
+    mockListProjects.mockResolvedValueOnce([{ id: 'proj-1', displayName: 'My Project' }])
 
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
 
@@ -410,9 +408,7 @@ describe('useAppTabs', () => {
   })
 
   it('syncs crew tab labels when projects are renamed', async () => {
-    mockListProjects.mockResolvedValue([
-      { id: 'proj-1', displayName: 'Original' },
-    ])
+    mockListProjects.mockResolvedValue([{ id: 'proj-1', displayName: 'Original' }])
 
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
 
@@ -425,9 +421,7 @@ describe('useAppTabs', () => {
     })
 
     // Update the project name
-    mockListProjects.mockResolvedValue([
-      { id: 'proj-1', displayName: 'Renamed' },
-    ])
+    mockListProjects.mockResolvedValue([{ id: 'proj-1', displayName: 'Renamed' }])
 
     // Open another crew tab to trigger the dependency change
     await act(async () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react'
 import './BrowserTabView.css'
 
 interface BrowserTabViewProps {
@@ -64,6 +64,16 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
     localStorage.setItem(ZOOM_STORAGE_KEY, String(next))
     webviewRef.current?.setZoomLevel(next)
   }, [])
+
+  // Set webview-specific attributes and src together before first paint
+  // to ensure partition is established before navigation starts
+  useLayoutEffect(() => {
+    const wv = webviewRef.current
+    if (!wv) return
+    wv.setAttribute('partition', 'persist:browser')
+    wv.setAttribute('allowpopups', 'true')
+    wv.setAttribute('src', url)
+  }, [url])
 
   useEffect(() => {
     dispatch({ type: 'reset' })
@@ -178,16 +188,10 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
           ↗
         </button>
       </div>
-      {/* eslint-disable react/no-unknown-property -- webview is an Electron-specific element */}
       <webview
         ref={webviewRef as React.RefObject<Electron.WebviewTag>}
-        src={url}
-        partition="persist:browser"
         className="browser-tab-webview"
-        // @ts-expect-error webview string attribute
-        allowpopups="true"
       />
-      {/* eslint-enable react/no-unknown-property */}
     </div>
   )
 }

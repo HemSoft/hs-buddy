@@ -67,8 +67,8 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
 
   return (
     <div className="thread-comment-body">
-      {segments.map((segment, i) => {
-        const segKey = `${segment.type}-${i}-${segment.content.length}-${segment.content.slice(0, 40)}`
+      {segments.map((segment, pos) => {
+        const segKey = `${segment.type}-${pos}-${segment.content.length}-${segment.content.slice(0, 40)}`
         if (segment.type === 'suggestion') {
           return <SuggestionBlock key={segKey} content={segment.content} />
         }

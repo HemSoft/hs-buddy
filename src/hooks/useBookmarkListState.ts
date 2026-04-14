@@ -1,0 +1,245 @@
+import { useReducer, useMemo, useCallback, type DragEvent } from 'react'
+import { useBookmarks, useBookmarkMutations, useBookmarkCategories } from './useConvex'
+import type { Id } from '../../convex/_generated/dataModel'
+
+export type Bookmark = {
+  _id: Id<'bookmarks'>
+  url: string
+  title: string
+  description?: string
+  faviconUrl?: string
+  category: string
+  tags?: string[]
+  sortOrder: number
+  lastVisitedAt?: number
+  createdAt: number
+  updatedAt: number
+}
+
+interface BookmarkListState {
+  searchQuery: string
+  selectedCategory: string
+  selectedTag: string
+  dialogOpen: boolean
+  editingBookmark: Bookmark | null
+  deleteTarget: Bookmark | null
+  deleteError: string | null
+  droppedUrl: string | null
+  droppedTitle: string | null
+  dragOver: boolean
+}
+
+type BookmarkListAction =
+  | { type: 'set-search'; query: string }
+  | { type: 'set-category'; category: string }
+  | { type: 'set-tag'; tag: string }
+  | { type: 'clear-filters' }
+  | { type: 'open-add' }
+  | { type: 'open-edit'; bookmark: Bookmark }
+  | { type: 'open-drop'; url: string; title: string | null }
+  | { type: 'close-dialog' }
+  | { type: 'set-delete-target'; bookmark: Bookmark | null }
+  | { type: 'set-delete-error'; error: string | null }
+  | { type: 'clear-delete' }
+  | { type: 'set-drag-over'; active: boolean }
+
+function bookmarkListReducer(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState {
+  switch (action.type) {
+    case 'set-search':
+      return { ...state, searchQuery: action.query }
+    case 'set-category':
+      return { ...state, selectedCategory: action.category }
+    case 'set-tag':
+      return { ...state, selectedTag: action.tag }
+    case 'clear-filters':
+      return { ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }
+    case 'open-add':
+      return {
+        ...state,
+        dialogOpen: true,
+        editingBookmark: null,
+        droppedUrl: null,
+        droppedTitle: null,
+      }
+    case 'open-edit':
+      return { ...state, dialogOpen: true, editingBookmark: action.bookmark }
+    case 'open-drop':
+      return {
+        ...state,
+        dialogOpen: true,
+        editingBookmark: null,
+        droppedUrl: action.url,
+        droppedTitle: action.title,
+      }
+    case 'close-dialog':
+      return {
+        ...state,
+        dialogOpen: false,
+        editingBookmark: null,
+        droppedUrl: null,
+        droppedTitle: null,
+      }
+    case 'set-delete-target':
+      return { ...state, deleteTarget: action.bookmark }
+    case 'set-delete-error':
+      return { ...state, deleteError: action.error }
+    case 'clear-delete':
+      return { ...state, deleteTarget: null, deleteError: null }
+    case 'set-drag-over':
+      return { ...state, dragOver: action.active }
+    default:
+      return state
+  }
+}
+
+export function useBookmarkListState(filterCategory?: string) {
+  const allBookmarks = useBookmarks()
+  const categories = useBookmarkCategories()
+  const { remove, recordVisit } = useBookmarkMutations()
+
+  const [state, dispatch] = useReducer(bookmarkListReducer, {
+    searchQuery: '',
+    selectedCategory: filterCategory ?? '',
+    selectedTag: '',
+    dialogOpen: false,
+    editingBookmark: null,
+    deleteTarget: null,
+    deleteError: null,
+    droppedUrl: null,
+    droppedTitle: null,
+    dragOver: false,
+  })
+
+  const allTags = useMemo(() => {
+    if (!allBookmarks) return []
+    const tagSet = new Set<string>()
+    for (const b of allBookmarks) {
+      if (b.tags) b.tags.forEach(t => tagSet.add(t))
+    }
+    return [...tagSet].sort()
+  }, [allBookmarks])
+
+  const filteredBookmarks = useMemo(() => {
+    if (!allBookmarks) return []
+    let result = [...allBookmarks] as Bookmark[]
+
+    if (state.selectedCategory) {
+      result = result.filter(
+        b =>
+          b.category === state.selectedCategory ||
+          b.category.startsWith(state.selectedCategory + '/')
+      )
+    }
+    if (state.selectedTag) {
+      result = result.filter(b => b.tags?.includes(state.selectedTag))
+    }
+    if (state.searchQuery.trim()) {
+      const q = state.searchQuery.toLowerCase()
+      result = result.filter(
+        b =>
+          b.title.toLowerCase().includes(q) ||
+          b.url.toLowerCase().includes(q) ||
+          b.description?.toLowerCase().includes(q) ||
+          b.tags?.some(t => t.toLowerCase().includes(q))
+      )
+    }
+
+    result.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt)
+    return result
+  }, [allBookmarks, state.selectedCategory, state.selectedTag, state.searchQuery])
+
+  const handleDelete = useCallback(async () => {
+    if (!state.deleteTarget) return
+    try {
+      await remove({ id: state.deleteTarget._id })
+      dispatch({ type: 'clear-delete' })
+    } catch (err) {
+      dispatch({
+        type: 'set-delete-error',
+        error: err instanceof Error ? err.message : 'Failed to delete bookmark',
+      })
+    }
+  }, [state.deleteTarget, remove])
+
+  const extractDropData = useCallback(
+    (data: DataTransfer): { url: string; title: string | null } | null => {
+      let url: string | null = null
+      const uri = data.getData('text/uri-list')
+      if (uri) {
+        url =
+          uri
+            .split('\n')
+            .find(l => !l.startsWith('#'))
+            ?.trim() ?? null
+      }
+      if (!url) {
+        const text = data.getData('text/plain')?.trim()
+        if (text) {
+          try {
+            const parsed = new URL(text)
+            if (['http:', 'https:'].includes(parsed.protocol)) url = text
+          } catch {
+            /* not a valid URL */
+          }
+        }
+      }
+      if (!url) return null
+
+      let title: string | null = null
+      const html = data.getData('text/html')
+      if (html) {
+        const anchorMatch = html.match(/<a[^>]*>([^<]+)<\/a>/i)
+        const linkText = anchorMatch?.[1]?.trim()
+        if (linkText && linkText !== url && !linkText.startsWith('http')) {
+          title = linkText
+        }
+      }
+
+      return { url, title }
+    },
+    []
+  )
+
+  const handleDragOver = useCallback((e: DragEvent) => {
+    if (e.dataTransfer.types.some(t => t === 'text/uri-list' || t === 'text/plain')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      dispatch({ type: 'set-drag-over', active: true })
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    dispatch({ type: 'set-drag-over', active: false })
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault()
+      dispatch({ type: 'set-drag-over', active: false })
+      const result = extractDropData(e.dataTransfer)
+      if (result) {
+        dispatch({ type: 'open-drop', url: result.url, title: result.title })
+      }
+    },
+    [extractDropData]
+  )
+
+  return {
+    state,
+    dispatch,
+    allBookmarks,
+    categories,
+    recordVisit,
+    allTags,
+    filteredBookmarks,
+    handleDelete,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    hasFilters: !!(state.searchQuery || state.selectedCategory || state.selectedTag),
+  }
+}

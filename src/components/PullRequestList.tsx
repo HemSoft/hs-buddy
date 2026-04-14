@@ -17,6 +17,85 @@ import { ViewModeToggle } from './shared/ViewModeToggle'
 import { useViewMode } from '../hooks/useViewMode'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { createPRDetailViewId } from '../utils/prDetailView'
+import type { PullRequest } from '../types/pullRequest'
+
+interface PRListTableViewProps {
+  prs: PullRequest[]
+  onOpenPR?: (viewId: string) => void
+  handleContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
+}
+
+function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewProps) {
+  return (
+    <div className="pr-list" style={{ display: 'block', padding: '0' }}>
+      <table className="list-view-table">
+        <thead>
+          <tr>
+            <th className="col-status"></th>
+            <th className="col-title">Title</th>
+            <th>Author</th>
+            <th>Repo</th>
+            <th>Updated</th>
+            <th>Status</th>
+            <th>Reviews</th>
+          </tr>
+        </thead>
+        <tbody>
+          {prs.map(pr => (
+            <tr
+              key={`${pr.source}-${pr.id}-${pr.repository}`}
+              onClick={() =>
+                onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
+              }
+              onContextMenu={e => handleContextMenu(e, pr)}
+            >
+              <td className="col-status">
+                {pr.state === 'merged' ? (
+                  <GitMerge size={14} className="list-view-status-merged" />
+                ) : pr.state === 'closed' ? (
+                  <GitPullRequestClosed size={14} className="list-view-status-closed" />
+                ) : (
+                  <GitPullRequest size={14} className="list-view-status-open" />
+                )}
+              </td>
+              <td className="col-title">
+                <span className="col-number">#{pr.id}</span> {pr.title}
+              </td>
+              <td className="col-author">
+                {pr.authorAvatarUrl && (
+                  <img src={pr.authorAvatarUrl} alt={pr.author} className="list-view-avatar" />
+                )}
+                {pr.author}
+              </td>
+              <td className="col-number">{pr.repository}</td>
+              <td className="col-date">{pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}</td>
+              <td>
+                {pr.threadsUnaddressed != null ? (
+                  pr.threadsUnaddressed === 0 ? (
+                    <CircleCheck size={14} className="list-view-comments-clear" />
+                  ) : (
+                    <span className="list-view-comments-unresolved">
+                      <MessageSquare size={12} />
+                      {pr.threadsUnaddressed}
+                    </span>
+                  )
+                ) : null}
+              </td>
+              <td>
+                {pr.approvalCount > 0 && (
+                  <span className="list-view-approvals">
+                    <ThumbsUp size={12} />
+                    {pr.approvalCount}
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 interface PullRequestListProps {
   mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
@@ -231,77 +310,7 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
         </div>
       </div>
       {viewMode === 'list' ? (
-        <div className="pr-list" style={{ display: 'block', padding: '0' }}>
-          <table className="list-view-table">
-            <thead>
-              <tr>
-                <th className="col-status"></th>
-                <th className="col-title">Title</th>
-                <th>Author</th>
-                <th>Repo</th>
-                <th>Updated</th>
-                <th>Status</th>
-                <th>Reviews</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prs.map(pr => (
-                <tr
-                  key={`${pr.source}-${pr.id}-${pr.repository}`}
-                  onClick={() =>
-                    onOpenPR
-                      ? onOpenPR(createPRDetailViewId(pr))
-                      : window.shell.openExternal(pr.url)
-                  }
-                  onContextMenu={e => handleContextMenu(e, pr)}
-                >
-                  <td className="col-status">
-                    {pr.state === 'merged' ? (
-                      <GitMerge size={14} className="list-view-status-merged" />
-                    ) : pr.state === 'closed' ? (
-                      <GitPullRequestClosed size={14} className="list-view-status-closed" />
-                    ) : (
-                      <GitPullRequest size={14} className="list-view-status-open" />
-                    )}
-                  </td>
-                  <td className="col-title">
-                    <span className="col-number">#{pr.id}</span> {pr.title}
-                  </td>
-                  <td className="col-author">
-                    {pr.authorAvatarUrl && (
-                      <img src={pr.authorAvatarUrl} alt={pr.author} className="list-view-avatar" />
-                    )}
-                    {pr.author}
-                  </td>
-                  <td className="col-number">{pr.repository}</td>
-                  <td className="col-date">
-                    {pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}
-                  </td>
-                  <td>
-                    {pr.threadsUnaddressed != null ? (
-                      pr.threadsUnaddressed === 0 ? (
-                        <CircleCheck size={14} className="list-view-comments-clear" />
-                      ) : (
-                        <span className="list-view-comments-unresolved">
-                          <MessageSquare size={12} />
-                          {pr.threadsUnaddressed}
-                        </span>
-                      )
-                    ) : null}
-                  </td>
-                  <td>
-                    {pr.approvalCount > 0 && (
-                      <span className="list-view-approvals">
-                        <ThumbsUp size={12} />
-                        {pr.approvalCount}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <PRListTableView prs={prs} onOpenPR={onOpenPR} handleContextMenu={handleContextMenu} />
       ) : (
         <div className="pr-list">
           {prs.map(pr => (

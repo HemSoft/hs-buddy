@@ -7,6 +7,119 @@ import { OrgRepoTree } from './github-sidebar/OrgRepoTree'
 import { useGitHubSidebarData } from './github-sidebar/useGitHubSidebarData'
 import { useRefreshIndicators } from '../../hooks/useRefreshIndicators'
 
+type SidebarData = ReturnType<typeof useGitHubSidebarData>
+
+function SidebarPRContextMenuWrapper(
+  data: Pick<
+    SidebarData,
+    | 'prContextMenu'
+    | 'approvingPrKey'
+    | 'bookmarkedRepoKeys'
+    | 'setPrContextMenu'
+    | 'copyToClipboard'
+    | 'openPRReview'
+    | 'handleApprovePR'
+    | 'toggleBookmarkRepoByValues'
+  >
+) {
+  const {
+    prContextMenu,
+    approvingPrKey,
+    bookmarkedRepoKeys,
+    setPrContextMenu,
+    copyToClipboard,
+    openPRReview,
+    handleApprovePR,
+    toggleBookmarkRepoByValues,
+  } = data
+  if (!prContextMenu) return null
+  return (
+    <SidebarPRContextMenu
+      pr={prContextMenu.pr}
+      x={prContextMenu.x}
+      y={prContextMenu.y}
+      approvingPrKey={approvingPrKey}
+      bookmarkedRepoKeys={bookmarkedRepoKeys}
+      onOpen={() => {
+        window.shell.openExternal(prContextMenu.pr.url)
+        setPrContextMenu(null)
+      }}
+      onCopyLink={async () => {
+        try {
+          await copyToClipboard(prContextMenu.pr.url)
+        } catch (error) {
+          console.error('Failed to copy PR link:', error)
+        }
+        setPrContextMenu(null)
+      }}
+      onAIReview={() => {
+        openPRReview(prContextMenu.pr)
+        setPrContextMenu(null)
+      }}
+      onApprove={async () => {
+        await handleApprovePR(prContextMenu.pr)
+        setPrContextMenu(null)
+      }}
+      onBookmark={async () => {
+        const pr = prContextMenu.pr
+        await toggleBookmarkRepoByValues(
+          pr.org || '',
+          pr.repository,
+          pr.url.replace(/\/pull\/\d+$/, '')
+        )
+        setPrContextMenu(null)
+      }}
+      onClose={() => setPrContextMenu(null)}
+    />
+  )
+}
+
+function SidebarUserContextMenuWrapper(
+  data: Pick<
+    SidebarData,
+    | 'userContextMenu'
+    | 'orgMembers'
+    | 'favoriteUsers'
+    | 'setUserContextMenu'
+    | 'refreshUser'
+    | 'toggleFavoriteUser'
+  >
+) {
+  const {
+    userContextMenu,
+    orgMembers,
+    favoriteUsers,
+    setUserContextMenu,
+    refreshUser,
+    toggleFavoriteUser,
+  } = data
+  if (!userContextMenu) return null
+  const m = orgMembers[userContextMenu.org]?.find(m => m.login === userContextMenu.login)
+  const displayName = m?.name ? `${m.name} (${m.login})` : userContextMenu.login
+  return (
+    <SidebarUserContextMenu
+      displayName={displayName}
+      org={userContextMenu.org}
+      x={userContextMenu.x}
+      y={userContextMenu.y}
+      isFavorite={favoriteUsers.has(`${userContextMenu.org}/${userContextMenu.login}`)}
+      onOpenProfile={() => {
+        window.shell.openExternal(`https://github.com/${userContextMenu.login}`)
+        setUserContextMenu(null)
+      }}
+      onRefresh={() => {
+        refreshUser(userContextMenu.org, userContextMenu.login)
+        setUserContextMenu(null)
+      }}
+      onToggleFavorite={() => {
+        toggleFavoriteUser(userContextMenu.org, userContextMenu.login)
+        setUserContextMenu(null)
+      }}
+      onClose={() => setUserContextMenu(null)}
+    />
+  )
+}
+
 interface GitHubSidebarProps {
   onItemSelect: (itemId: string) => void
   selectedItem: string | null
@@ -21,10 +134,8 @@ export function GitHubSidebar({
   badgeProgress,
 }: GitHubSidebarProps) {
   const refreshIndicators = useRefreshIndicators()
+  const sidebarData = useGitHubSidebarData()
   const {
-    prContextMenu,
-    setPrContextMenu,
-    approvingPrKey,
     bookmarkedRepoKeys,
     expandedSections,
     prItems,
@@ -85,17 +196,9 @@ export function GitHubSidebar({
     markPRsAsSeen,
     openTreePRContextMenu,
     handleBookmarkToggle,
-    handleApprovePR,
-    copyToClipboard,
-    openPRReview,
-    toggleBookmarkRepoByValues,
-    userContextMenu,
-    setUserContextMenu,
     favoriteUsers,
     openUserContextMenu,
-    toggleFavoriteUser,
-    refreshUser,
-  } = useGitHubSidebarData()
+  } = sidebarData
 
   const handleItemSelect = useCallback(
     (viewId: string) => {
@@ -107,70 +210,8 @@ export function GitHubSidebar({
 
   return (
     <div className="sidebar-panel">
-      {prContextMenu && (
-        <SidebarPRContextMenu
-          pr={prContextMenu.pr}
-          x={prContextMenu.x}
-          y={prContextMenu.y}
-          approvingPrKey={approvingPrKey}
-          bookmarkedRepoKeys={bookmarkedRepoKeys}
-          onOpen={() => {
-            window.shell.openExternal(prContextMenu.pr.url)
-            setPrContextMenu(null)
-          }}
-          onCopyLink={async () => {
-            try {
-              await copyToClipboard(prContextMenu.pr.url)
-            } catch (error) {
-              console.error('Failed to copy PR link:', error)
-            }
-            setPrContextMenu(null)
-          }}
-          onAIReview={() => {
-            openPRReview(prContextMenu.pr)
-            setPrContextMenu(null)
-          }}
-          onApprove={async () => {
-            await handleApprovePR(prContextMenu.pr)
-            setPrContextMenu(null)
-          }}
-          onBookmark={async () => {
-            const pr = prContextMenu.pr
-            await toggleBookmarkRepoByValues(
-              pr.org || '',
-              pr.repository,
-              pr.url.replace(/\/pull\/\d+$/, '')
-            )
-            setPrContextMenu(null)
-          }}
-          onClose={() => setPrContextMenu(null)}
-        />
-      )}
-      {userContextMenu && (
-        <SidebarUserContextMenu
-          displayName={(() => {
-            const m = orgMembers[userContextMenu.org]?.find(m => m.login === userContextMenu.login)
-            return m?.name ? `${m.name} (${m.login})` : userContextMenu.login
-          })()}
-          org={userContextMenu.org}
-          x={userContextMenu.x}
-          y={userContextMenu.y}
-          isFavorite={favoriteUsers.has(`${userContextMenu.org}/${userContextMenu.login}`)}
-          onOpenProfile={() => {
-            window.shell.openExternal(`https://github.com/${userContextMenu.login}`)
-            setUserContextMenu(null)
-          }}
-          onRefresh={() => {
-            refreshUser(userContextMenu.org, userContextMenu.login)
-            setUserContextMenu(null)
-          }}
-          onToggleFavorite={() => {
-            toggleFavoriteUser(userContextMenu.org, userContextMenu.login)
-            setUserContextMenu(null)
-          }}
-          onClose={() => setUserContextMenu(null)}
-        />
-      )}
+      <SidebarPRContextMenuWrapper {...sidebarData} />
+      <SidebarUserContextMenuWrapper {...sidebarData} />
       <div className="sidebar-panel-header">
         <h2>GITHUB</h2>
       </div>

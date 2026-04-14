@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   CheckCircle2,
@@ -16,15 +16,12 @@ import {
 import { GitHubClient } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { useCopilotReviewMonitor, clearPendingReview } from '../hooks/useCopilotReviewMonitor'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import type { PRDetailSection } from '../utils/prDetailView'
 import type { PRHistorySummary, PRLinkedIssue } from '../api/github'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
-import {
-  createNotificationSoundBlob,
-  type NotificationSoundAsset,
-} from '../utils/notificationSound'
 import { throwIfAborted } from '../utils/errorUtils'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRChecksPanel } from './PRChecksPanel'
@@ -46,91 +43,240 @@ const SECTION_LABELS: Record<PRDetailSection, string> = {
   'ai-reviews': 'AI Reviews',
 }
 
-const PENDING_REVIEW_KEY = 'hs-buddy:pending-copilot-reviews'
-const COPILOT_REVIEW_POLL_MS = 15_000
-const MAX_COPILOT_REVIEW_POLLS = 40
-
-interface PendingCopilotReview {
-  prUrl: string
-  baselineReviewId: number
-}
-
-function savePendingReview(prUrl: string, baselineReviewId: number) {
-  try {
-    const all = JSON.parse(sessionStorage.getItem(PENDING_REVIEW_KEY) ?? '{}') as Record<
-      string,
-      PendingCopilotReview
-    >
-    all[prUrl] = { prUrl, baselineReviewId }
-    sessionStorage.setItem(PENDING_REVIEW_KEY, JSON.stringify(all))
-  } catch {
-    // sessionStorage may be unavailable — polling still works
-  }
-}
-
-function loadPendingReview(prUrl: string): PendingCopilotReview | null {
-  try {
-    const all = JSON.parse(sessionStorage.getItem(PENDING_REVIEW_KEY) ?? '{}') as Record<
-      string,
-      PendingCopilotReview
-    >
-    return all[prUrl] ?? null
-  } catch {
-    return null
-  }
-}
-
-function clearPendingReview(prUrl: string) {
-  try {
-    const all = JSON.parse(sessionStorage.getItem(PENDING_REVIEW_KEY) ?? '{}') as Record<
-      string,
-      PendingCopilotReview
-    >
-    delete all[prUrl]
-    sessionStorage.setItem(PENDING_REVIEW_KEY, JSON.stringify(all))
-  } catch {
-    // sessionStorage may be unavailable
-  }
-}
-
-function isFreshCopilotReview(
-  review: { id: number; user: { login: string } | null },
-  baselineReviewId: number
-): boolean {
-  return review.user?.login === 'copilot-pull-request-reviewer[bot]' && review.id > baselineReviewId
-}
-
-/** Play the configured notification sound if enabled. Fire-and-forget. */
-function playReviewCompleteSound() {
-  void (window.ipcRenderer.invoke('config:get-notification-sound-enabled') as Promise<boolean>)
-    .then(enabled => {
-      if (!enabled) return
-      return (
-        window.ipcRenderer.invoke(
-          'config:play-notification-sound'
-        ) as Promise<NotificationSoundAsset | null>
-      ).then(sound => {
-        if (!sound) return
-        const blob = createNotificationSoundBlob(sound)
-        const url = URL.createObjectURL(blob)
-        const audio = new Audio(url)
-        audio.onended = () => URL.revokeObjectURL(url)
-        audio.onerror = () => URL.revokeObjectURL(url)
-        audio.play().catch(() => URL.revokeObjectURL(url))
-      })
-    })
-    .catch(() => {})
-}
-
 function formatRelative(date: string | null): string {
   if (!date) return ''
   return formatDistanceToNow(date)
+}
+
+// --- Sub-components extracted for react-doctor component-size ---
+
+interface PRDetailHeaderProps {
+  pr: PRDetailInfo
+  stateLabel: string
+  branches: { headBranch: string; baseBranch: string } | null
+  copilotReviewState: string
+  handleRequestCopilotReview: () => void
+  onRefresh: () => void
+}
+
+function PRDetailHeader({
+  pr,
+  stateLabel,
+  branches,
+  copilotReviewState,
+  handleRequestCopilotReview,
+  onRefresh,
+}: PRDetailHeaderProps) {
+  return (
+    <div className="pr-detail-header">
+      <div className="pr-detail-title-wrap">
+        <div className="pr-detail-title-row">
+          <h2 className="pr-detail-title">
+            <GitPullRequest size={18} />
+            <span className="pr-detail-title-text">{pr.title}</span>
+            <span className="pr-detail-pr-number">#{pr.id}</span>
+          </h2>
+          <span className={`pr-detail-state-badge pr-detail-state-${stateLabel.toLowerCase()}`}>
+            {stateLabel}
+          </span>
+        </div>
+        <div className="pr-detail-subtitle">
+          <span className="pr-detail-author">{pr.author}</span>
+          <span className="pr-detail-dot">·</span>
+          <span>{pr.org || pr.source}</span>
+          <span className="pr-detail-dot">·</span>
+          <span>{pr.repository}</span>
+          {branches?.baseBranch && branches?.headBranch && (
+            <>
+              <span className="pr-detail-dot">·</span>
+              <span className="pr-detail-branch-flow">
+                <GitBranch size={12} />
+                into <strong>{branches.baseBranch}</strong> from{' '}
+                <strong>{branches.headBranch}</strong>
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="pr-detail-header-actions">
+        <button
+          className={`pr-detail-refresh-btn${
+            copilotReviewState === 'monitoring' ? ' pr-detail-copilot-monitoring' : ''
+          }${copilotReviewState === 'done' ? ' pr-detail-copilot-done' : ''}`}
+          onClick={handleRequestCopilotReview}
+          title={
+            copilotReviewState === 'requesting'
+              ? 'Requesting Copilot review…'
+              : copilotReviewState === 'monitoring'
+                ? 'Waiting for Copilot review…'
+                : copilotReviewState === 'done'
+                  ? 'Copilot review complete!'
+                  : 'Request Copilot Review'
+          }
+          disabled={copilotReviewState !== 'idle'}
+        >
+          {copilotReviewState === 'requesting' ? (
+            <Loader2 size={14} className="pr-detail-spin" />
+          ) : copilotReviewState === 'done' ? (
+            <CheckCircle2 size={14} />
+          ) : (
+            <Sparkles size={14} className={copilotReviewState === 'monitoring' ? 'pulse' : ''} />
+          )}
+        </button>
+        <button className="pr-detail-refresh-btn" onClick={onRefresh} title="Refresh PR data">
+          <RefreshCw size={14} />
+        </button>
+        <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(pr.url)}>
+          <ExternalLink size={14} />
+          Open on GitHub
+        </button>
+      </div>
+    </div>
+  )
+}
+
+interface CopilotReviewBannerProps {
+  completedAt: number
+  onDismiss: () => void
+}
+
+function CopilotReviewBanner({ completedAt, onDismiss }: CopilotReviewBannerProps) {
+  return (
+    <div className="pr-detail-review-banner">
+      <div className="pr-detail-review-banner-content">
+        <CheckCircle2 size={16} />
+        <div className="pr-detail-review-banner-text">
+          <strong>Copilot review complete</strong>
+          <span>Finished {formatDistanceToNow(completedAt)} — page refreshed with latest data</span>
+        </div>
+      </div>
+      <button className="pr-detail-review-banner-dismiss" onClick={onDismiss} title="Dismiss">
+        <X size={14} />
+      </button>
+    </div>
+  )
+}
+
+interface PROverviewSectionProps {
+  pr: PRDetailInfo
+  youApproved: boolean
+  effectiveIssue: { number: number; url: string } | null
+  createdRelative: string
+  activityRelative: string
+  activityAt: string | null
+}
+
+function PROverviewSection({
+  pr,
+  youApproved,
+  effectiveIssue,
+  createdRelative,
+  activityRelative,
+  activityAt,
+}: PROverviewSectionProps) {
+  return (
+    <>
+      <div className="pr-detail-grid">
+        <div className="pr-detail-card">
+          <div className="pr-detail-card-title">Status</div>
+          <div className="pr-detail-card-value pr-detail-state">{pr.state}</div>
+        </div>
+        <div className="pr-detail-card">
+          <div className="pr-detail-card-title">Approvals</div>
+          <div className="pr-detail-card-value">
+            {pr.approvalCount}/{pr.assigneeCount > 0 ? pr.assigneeCount : '?'}
+          </div>
+        </div>
+        <div className="pr-detail-card">
+          <div className="pr-detail-card-title">You Approved</div>
+          <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
+        </div>
+        {effectiveIssue ? (
+          <button
+            type="button"
+            className="pr-detail-card pr-detail-card-interactive"
+            onClick={() => window.shell.openExternal(effectiveIssue.url)}
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                window.shell.openExternal(effectiveIssue.url)
+              }
+            }}
+            title={`Open Issue #${effectiveIssue.number} on GitHub`}
+          >
+            <div className="pr-detail-card-title">
+              <CircleDot size={12} />
+              Linked Issue
+            </div>
+            <div className="pr-detail-card-value">
+              <span className="pr-detail-linked-issue">#{effectiveIssue.number}</span>
+            </div>
+          </button>
+        ) : (
+          <div className="pr-detail-card" title="No linked issue">
+            <div className="pr-detail-card-title">
+              <CircleDot size={12} />
+              Linked Issue
+            </div>
+            <div className="pr-detail-card-value">
+              <span className="pr-detail-card-secondary">None</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="pr-detail-meta-list">
+        <div className="pr-detail-meta-item pr-detail-meta-item-author">
+          <div className="pr-detail-meta-label">
+            <User size={14} />
+            Author
+          </div>
+          <div className="pr-detail-meta-value">
+            {pr.authorAvatarUrl && (
+              <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />
+            )}
+            <span className="pr-detail-author-text">{pr.author}</span>
+          </div>
+        </div>
+        <div className="pr-detail-meta-item">
+          <div className="pr-detail-meta-label">
+            <Clock size={14} />
+            Created
+            {createdRelative && (
+              <span className="pr-detail-meta-relative">({createdRelative})</span>
+            )}
+          </div>
+          <div className="pr-detail-meta-value">{formatDateFull(pr.created)}</div>
+        </div>
+        <div className="pr-detail-meta-item">
+          <div className="pr-detail-meta-label">
+            <Check size={14} />
+            Last Activity
+            {activityRelative && (
+              <span className="pr-detail-meta-relative">({activityRelative})</span>
+            )}
+          </div>
+          <div className="pr-detail-meta-value">{formatDateFull(activityAt)}</div>
+        </div>
+      </div>
+    </>
+  )
 }
 
 export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
+  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url) ?? null, [pr.url])
+
+  const {
+    copilotReviewState,
+    copilotReviewBanner,
+    setCopilotReviewBanner,
+    refreshKey,
+    setRefreshKey,
+    handleRequestCopilotReview,
+  } = useCopilotReviewMonitor({ prId: pr.id, prUrl: pr.url, ownerRepo })
 
   const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(
     pr.headBranch && pr.baseBranch ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch } : null
@@ -138,135 +284,10 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
   const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [copilotReviewState, setCopilotReviewState] = useState<
-    'idle' | 'requesting' | 'monitoring' | 'done'
-  >('idle')
-  const [copilotReviewBanner, setCopilotReviewBanner] = useState<{
-    completedAt: number
-  } | null>(null)
-  const monitorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const monitorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const monitorCountRef = useRef(0)
-  const monitorSessionRef = useRef(0)
-  const accountsRef = useRef(accounts)
-
-  const clearCopilotReviewTimers = useCallback(() => {
-    if (monitorTimerRef.current) {
-      clearTimeout(monitorTimerRef.current)
-      monitorTimerRef.current = null
-    }
-
-    if (monitorTimeoutRef.current) {
-      clearTimeout(monitorTimeoutRef.current)
-      monitorTimeoutRef.current = null
-    }
-  }, [])
-
-  const finishCopilotReviewMonitor = useCallback(
-    (sessionId: number, prUrl: string) => {
-      clearCopilotReviewTimers()
-      if (monitorSessionRef.current !== sessionId) return
-
-      clearPendingReview(prUrl)
-      setCopilotReviewState('done')
-      setCopilotReviewBanner({ completedAt: Date.now() })
-      playReviewCompleteSound()
-      setRefreshKey(k => k + 1)
-      monitorTimeoutRef.current = setTimeout(() => {
-        if (monitorSessionRef.current !== sessionId) return
-        setCopilotReviewState('idle')
-        monitorTimeoutRef.current = null
-      }, 3000)
-    },
-    [clearCopilotReviewTimers]
-  )
-
-  const stopCopilotReviewMonitor = useCallback(() => {
-    monitorSessionRef.current++
-    clearCopilotReviewTimers()
-  }, [clearCopilotReviewTimers])
-
-  const startCopilotReviewMonitor = useCallback(
-    ({
-      ownerRepo,
-      prUrl,
-      baselineReviewId,
-      runImmediately = false,
-    }: {
-      ownerRepo: { owner: string; repo: string }
-      prUrl: string
-      baselineReviewId: number
-      runImmediately?: boolean
-    }) => {
-      const sessionId = monitorSessionRef.current
-      setCopilotReviewState('monitoring')
-      monitorCountRef.current = 0
-
-      const findFreshCopilotReview = async () => {
-        const client = new GitHubClient({ accounts: accountsRef.current }, 7)
-        const reviews = await client.listPRReviews(ownerRepo.owner, ownerRepo.repo, pr.id)
-        return reviews.find(review => isFreshCopilotReview(review, baselineReviewId))
-      }
-
-      const scheduleNextPoll = () => {
-        if (monitorSessionRef.current !== sessionId) return
-        monitorTimerRef.current = setTimeout(pollOnce, COPILOT_REVIEW_POLL_MS)
-      }
-
-      const pollOnce = async () => {
-        if (monitorSessionRef.current !== sessionId) return
-
-        monitorCountRef.current++
-        if (monitorCountRef.current > MAX_COPILOT_REVIEW_POLLS) {
-          clearCopilotReviewTimers()
-          clearPendingReview(prUrl)
-          if (monitorSessionRef.current === sessionId) setCopilotReviewState('idle')
-          return
-        }
-
-        try {
-          const freshCopilotReview = await findFreshCopilotReview()
-          if (freshCopilotReview) {
-            finishCopilotReviewMonitor(sessionId, prUrl)
-            return
-          }
-        } catch (pollErr) {
-          console.debug('Copilot review poll failed:', pollErr)
-        }
-
-        scheduleNextPoll()
-      }
-
-      if (runImmediately) {
-        void (async () => {
-          try {
-            const freshCopilotReview = await findFreshCopilotReview()
-            if (freshCopilotReview) {
-              finishCopilotReviewMonitor(sessionId, prUrl)
-              return
-            }
-          } catch (pollErr) {
-            console.debug('Copilot review poll failed:', pollErr)
-          }
-
-          scheduleNextPoll()
-        })()
-        return
-      }
-
-      scheduleNextPoll()
-    },
-    [clearCopilotReviewTimers, finishCopilotReviewMonitor, pr.id]
-  )
 
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
-
-  useEffect(() => {
-    accountsRef.current = accounts
-  }, [accounts])
 
   useEffect(() => {
     setYouApproved(pr.iApproved)
@@ -307,64 +328,6 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
   useEffect(() => {
     fetchBranches()
   }, [fetchBranches])
-
-  // Clean up monitor timers and reset state on unmount or PR change
-  useEffect(() => {
-    stopCopilotReviewMonitor()
-    setCopilotReviewState('idle')
-    setCopilotReviewBanner(null)
-
-    // Check sessionStorage for a pending review request from a previous mount
-    const pending = loadPendingReview(pr.url)
-    if (pending) {
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (ownerRepo) {
-        startCopilotReviewMonitor({
-          ownerRepo,
-          prUrl: pr.url,
-          baselineReviewId: pending.baselineReviewId,
-          runImmediately: true,
-        })
-      }
-    }
-
-    return stopCopilotReviewMonitor
-  }, [pr.id, pr.url, startCopilotReviewMonitor, stopCopilotReviewMonitor])
-
-  const handleRequestCopilotReview = useCallback(async () => {
-    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-    if (!ownerRepo || copilotReviewState !== 'idle') return
-    setCopilotReviewState('requesting')
-    try {
-      // Snapshot the highest existing Copilot review ID (server-side baseline)
-      // so detection is immune to client clock skew
-      const c0 = new GitHubClient({ accounts: accountsRef.current }, 7)
-      const existingReviews = await c0.listPRReviews(ownerRepo.owner, ownerRepo.repo, pr.id)
-      const baselineReviewId = existingReviews
-        .filter(r => r.user?.login === 'copilot-pull-request-reviewer[bot]')
-        .reduce((max, r) => Math.max(max, r.id), 0)
-
-      await enqueueRef.current(
-        async signal => {
-          throwIfAborted(signal)
-          const c = new GitHubClient({ accounts: accountsRef.current }, 7)
-          await c.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
-        },
-        { name: `copilot-review-${pr.repository}-${pr.id}` }
-      )
-
-      // Enter monitor mode — use self-scheduling setTimeout to avoid overlap
-      savePendingReview(pr.url, baselineReviewId)
-      startCopilotReviewMonitor({
-        ownerRepo,
-        prUrl: pr.url,
-        baselineReviewId,
-      })
-    } catch (err) {
-      console.error('Failed to request Copilot review:', err)
-      setCopilotReviewState('idle')
-    }
-  }, [pr.url, pr.repository, pr.id, copilotReviewState, startCopilotReviewMonitor])
 
   const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
   const activityRelative = formatRelative(activityAt)
@@ -428,98 +391,23 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
   return (
     <div className="pr-detail-container">
-      <div className="pr-detail-header">
-        <div className="pr-detail-title-wrap">
-          <div className="pr-detail-title-row">
-            <h2 className="pr-detail-title">
-              <GitPullRequest size={18} />
-              <span className="pr-detail-title-text">{pr.title}</span>
-              <span className="pr-detail-pr-number">#{pr.id}</span>
-            </h2>
-            <span className={`pr-detail-state-badge pr-detail-state-${stateLabel.toLowerCase()}`}>
-              {stateLabel}
-            </span>
-          </div>
-          <div className="pr-detail-subtitle">
-            <span className="pr-detail-author">{pr.author}</span>
-            <span className="pr-detail-dot">·</span>
-            <span>{pr.org || pr.source}</span>
-            <span className="pr-detail-dot">·</span>
-            <span>{pr.repository}</span>
-            {branches?.baseBranch && branches?.headBranch && (
-              <>
-                <span className="pr-detail-dot">·</span>
-                <span className="pr-detail-branch-flow">
-                  <GitBranch size={12} />
-                  into <strong>{branches.baseBranch}</strong> from{' '}
-                  <strong>{branches.headBranch}</strong>
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="pr-detail-header-actions">
-          <button
-            className={`pr-detail-refresh-btn${
-              copilotReviewState === 'monitoring' ? ' pr-detail-copilot-monitoring' : ''
-            }${copilotReviewState === 'done' ? ' pr-detail-copilot-done' : ''}`}
-            onClick={handleRequestCopilotReview}
-            title={
-              copilotReviewState === 'requesting'
-                ? 'Requesting Copilot review…'
-                : copilotReviewState === 'monitoring'
-                  ? 'Waiting for Copilot review…'
-                  : copilotReviewState === 'done'
-                    ? 'Copilot review complete!'
-                    : 'Request Copilot Review'
-            }
-            disabled={copilotReviewState !== 'idle'}
-          >
-            {copilotReviewState === 'requesting' ? (
-              <Loader2 size={14} className="pr-detail-spin" />
-            ) : copilotReviewState === 'done' ? (
-              <CheckCircle2 size={14} />
-            ) : (
-              <Sparkles size={14} className={copilotReviewState === 'monitoring' ? 'pulse' : ''} />
-            )}
-          </button>
-          <button
-            className="pr-detail-refresh-btn"
-            onClick={() => setRefreshKey(k => k + 1)}
-            title="Refresh PR data"
-          >
-            <RefreshCw size={14} />
-          </button>
-          <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(pr.url)}>
-            <ExternalLink size={14} />
-            Open on GitHub
-          </button>
-        </div>
-      </div>
+      <PRDetailHeader
+        pr={pr}
+        stateLabel={stateLabel}
+        branches={branches}
+        copilotReviewState={copilotReviewState}
+        handleRequestCopilotReview={handleRequestCopilotReview}
+        onRefresh={() => setRefreshKey(k => k + 1)}
+      />
 
       {copilotReviewBanner && (
-        <div className="pr-detail-review-banner">
-          <div className="pr-detail-review-banner-content">
-            <CheckCircle2 size={16} />
-            <div className="pr-detail-review-banner-text">
-              <strong>Copilot review complete</strong>
-              <span>
-                Finished {formatDistanceToNow(copilotReviewBanner.completedAt)} — page refreshed
-                with latest data
-              </span>
-            </div>
-          </div>
-          <button
-            className="pr-detail-review-banner-dismiss"
-            onClick={() => {
-              setCopilotReviewBanner(null)
-              clearPendingReview(pr.url)
-            }}
-            title="Dismiss"
-          >
-            <X size={14} />
-          </button>
-        </div>
+        <CopilotReviewBanner
+          completedAt={copilotReviewBanner.completedAt}
+          onDismiss={() => {
+            setCopilotReviewBanner(null)
+            clearPendingReview(pr.url)
+          }}
+        />
       )}
 
       {sectionLabel && (
@@ -547,91 +435,14 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
       )}
 
       {showOverview && (
-        <>
-          <div className="pr-detail-grid">
-            <div className="pr-detail-card">
-              <div className="pr-detail-card-title">Status</div>
-              <div className="pr-detail-card-value pr-detail-state">{pr.state}</div>
-            </div>
-            <div className="pr-detail-card">
-              <div className="pr-detail-card-title">Approvals</div>
-              <div className="pr-detail-card-value">
-                {pr.approvalCount}/{pr.assigneeCount > 0 ? pr.assigneeCount : '?'}
-              </div>
-            </div>
-            <div className="pr-detail-card">
-              <div className="pr-detail-card-title">You Approved</div>
-              <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
-            </div>
-            {effectiveIssue ? (
-              <button
-                type="button"
-                className="pr-detail-card pr-detail-card-interactive"
-                onClick={() => window.shell.openExternal(effectiveIssue.url)}
-                onKeyDown={(e: React.KeyboardEvent) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    window.shell.openExternal(effectiveIssue.url)
-                  }
-                }}
-                title={`Open Issue #${effectiveIssue.number} on GitHub`}
-              >
-                <div className="pr-detail-card-title">
-                  <CircleDot size={12} />
-                  Linked Issue
-                </div>
-                <div className="pr-detail-card-value">
-                  <span className="pr-detail-linked-issue">#{effectiveIssue.number}</span>
-                </div>
-              </button>
-            ) : (
-              <div className="pr-detail-card" title="No linked issue">
-                <div className="pr-detail-card-title">
-                  <CircleDot size={12} />
-                  Linked Issue
-                </div>
-                <div className="pr-detail-card-value">
-                  <span className="pr-detail-card-secondary">None</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="pr-detail-meta-list">
-            <div className="pr-detail-meta-item pr-detail-meta-item-author">
-              <div className="pr-detail-meta-label">
-                <User size={14} />
-                Author
-              </div>
-              <div className="pr-detail-meta-value">
-                {pr.authorAvatarUrl && (
-                  <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />
-                )}
-                <span className="pr-detail-author-text">{pr.author}</span>
-              </div>
-            </div>
-            <div className="pr-detail-meta-item">
-              <div className="pr-detail-meta-label">
-                <Clock size={14} />
-                Created
-                {createdRelative && (
-                  <span className="pr-detail-meta-relative">({createdRelative})</span>
-                )}
-              </div>
-              <div className="pr-detail-meta-value">{formatDateFull(pr.created)}</div>
-            </div>
-            <div className="pr-detail-meta-item">
-              <div className="pr-detail-meta-label">
-                <Check size={14} />
-                Last Activity
-                {activityRelative && (
-                  <span className="pr-detail-meta-relative">({activityRelative})</span>
-                )}
-              </div>
-              <div className="pr-detail-meta-value">{formatDateFull(activityAt)}</div>
-            </div>
-          </div>
-        </>
+        <PROverviewSection
+          pr={pr}
+          youApproved={youApproved}
+          effectiveIssue={effectiveIssue}
+          createdRelative={createdRelative}
+          activityRelative={activityRelative}
+          activityAt={activityAt}
+        />
       )}
 
       {section === 'conversation' && <PRThreadsPanel key={refreshKey} pr={pr} />}

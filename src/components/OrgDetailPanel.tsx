@@ -1012,8 +1012,8 @@ function OrgDetailSkeleton({ org }: { org: string }) {
         </div>
       </div>
       <div className="org-detail-metric-grid">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="org-detail-metric-card org-detail-skeleton-card">
+        {Array.from({ length: 5 }).map((_, n) => (
+          <div key={`skeleton-${n}`} className="org-detail-metric-card org-detail-skeleton-card">
             <div className="org-detail-metric-icon org-detail-skeleton-shimmer" />
             <div>
               <div

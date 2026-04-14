@@ -126,9 +126,9 @@ describe('useAppLayout', () => {
     })
 
     // Should only save once with the final sizes
-    const setPaneCalls = vi.mocked(window.ipcRenderer.invoke).mock.calls.filter(
-      ([channel]) => channel === 'config:set-pane-sizes'
-    )
+    const setPaneCalls = vi
+      .mocked(window.ipcRenderer.invoke)
+      .mock.calls.filter(([channel]) => channel === 'config:set-pane-sizes')
     expect(setPaneCalls).toHaveLength(1)
     expect(setPaneCalls[0]![1][0]).toBe(350)
     expect(setPaneCalls[0]![1][1]).toBe(500)

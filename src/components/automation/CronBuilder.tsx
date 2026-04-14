@@ -204,9 +204,9 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
                 value={dayOfMonth}
                 onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
               >
-                {Array.from({ length: 31 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
+                {Array.from({ length: 31 }, (_, day) => (
+                  <option key={day + 1} value={day + 1}>
+                    {day + 1}
                   </option>
                 ))}
               </select>

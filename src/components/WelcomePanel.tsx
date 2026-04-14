@@ -101,6 +101,52 @@ function WelcomeFooter() {
   )
 }
 
+interface DashboardCardContentProps {
+  cardId: string
+  commandCenter: {
+    accountCount: number
+    hasCopilotAccounts: boolean
+    anyLoading: boolean
+    onRefresh: () => void
+    onOpenUsage: () => void
+    totalUsed: number
+    totalOverage: number
+    projectedTotal: number | null | undefined
+    projectedOverageCost: number | null | undefined
+  }
+  workspacePulse: {
+    totalPrsViewed: number
+    activePrs: number
+    copilotPrReviews: number
+    reposBrowsed: number
+    runsTriggered: number
+    totalFinished: number
+    successRate: number
+    bookmarks: number
+    firstLaunch: number
+    appLaunches: number
+  }
+}
+
+function DashboardCardContent({
+  cardId,
+  commandCenter,
+  workspacePulse,
+}: DashboardCardContentProps) {
+  switch (cardId) {
+    case 'command-center':
+      return <CommandCenterCard {...commandCenter} />
+    case 'workspace-pulse':
+      return <WorkspacePulseCard {...workspacePulse} />
+    case 'weather':
+      return <WeatherCard />
+    case 'finance':
+      return <FinanceCard />
+    default:
+      return null
+  }
+}
+
 export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomePanelProps) {
   const stats = useBuddyStats()
   const { accounts, aggregateTotals, aggregateProjections, anyLoading, refreshAll } =
@@ -178,44 +224,29 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
     onNavigate('settings-accounts')
   }
 
-  const renderCard = (cardId: string) => {
-    switch (cardId) {
-      case 'command-center':
-        return (
-          <CommandCenterCard
-            accountCount={accounts.length}
-            hasCopilotAccounts={hasCopilotAccounts}
-            anyLoading={anyLoading}
-            onRefresh={refreshAll}
-            onOpenUsage={handleCopilotUsageAction}
-            totalUsed={aggregateTotals.totalUsed}
-            totalOverage={aggregateTotals.totalOverageCost}
-            projectedTotal={aggregateProjections?.projectedTotal}
-            projectedOverageCost={aggregateProjections?.projectedOverageCost}
-          />
-        )
-      case 'workspace-pulse':
-        return (
-          <WorkspacePulseCard
-            totalPrsViewed={totalPrsViewed}
-            activePrs={activePrs}
-            copilotPrReviews={copilotPrReviews}
-            reposBrowsed={reposBrowsed}
-            runsTriggered={runsTriggered}
-            totalFinished={totalFinished}
-            successRate={successRate}
-            bookmarks={bookmarks}
-            firstLaunch={firstLaunch}
-            appLaunches={appLaunches}
-          />
-        )
-      case 'weather':
-        return <WeatherCard />
-      case 'finance':
-        return <FinanceCard />
-      default:
-        return null
-    }
+  const commandCenterProps = {
+    accountCount: accounts.length,
+    hasCopilotAccounts,
+    anyLoading,
+    onRefresh: refreshAll,
+    onOpenUsage: handleCopilotUsageAction,
+    totalUsed: aggregateTotals.totalUsed,
+    totalOverage: aggregateTotals.totalOverageCost,
+    projectedTotal: aggregateProjections?.projectedTotal,
+    projectedOverageCost: aggregateProjections?.projectedOverageCost,
+  }
+
+  const workspacePulseProps = {
+    totalPrsViewed,
+    activePrs,
+    copilotPrReviews,
+    reposBrowsed,
+    runsTriggered,
+    totalFinished,
+    successRate,
+    bookmarks,
+    firstLaunch,
+    appLaunches,
   }
 
   return (
@@ -233,7 +264,11 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
               key={card.id}
               className={`dashboard-grid-item${card.span === 2 ? ' dashboard-grid-span-2' : ''}`}
             >
-              {renderCard(card.id)}
+              <DashboardCardContent
+                cardId={card.id}
+                commandCenter={commandCenterProps}
+                workspacePulse={workspacePulseProps}
+              />
             </div>
           ))}
         </div>

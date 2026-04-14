@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve coverage with extracted helpers and component tests
 - Improve coverage across 5 components (+71 tests)
+- Format useCopilotReviewMonitor test file for CI
 
 ### Fixed
 
@@ -23,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UseTaskQueue cancel test now exercises cancel() and asserts AbortError
 - Address PR review comments on type safety and test coverage
 - Replace token-like test string with clearly fake placeholder
+- Address PR review findings for Copilot review monitor
+- Add react-doctor config to skip dead code detection
+- Address PR review findings for polling, keyboard events, and tests
 
 ## [0.1.704] - 2026-04-14
 
@@ -74,6 +78,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Sync Finance 'Updated X ago' timestamp with actual data load time
+- Remove unused CopilotReviewState export to improve react-doctor score
+- Eliminate remaining array-index-as-key warnings for react-doctor 100/100
+
+### Changed
+
+- Improve react-doctor score from 97 to 99/100
 
 ## [0.1.695] - 2026-04-13
 

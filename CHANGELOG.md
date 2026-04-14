@@ -9,6 +9,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.705] - 2026-04-14
+
+### Changed
+
+- Improve coverage with extracted helpers and component tests
+- Improve coverage across 5 components (+71 tests)
+
+### Fixed
+
+- Remove unused act import and sync writeCache timestamp
+- Add missing tags property to BookmarkList test data
+- UseTaskQueue cancel test now exercises cancel() and asserts AbortError
+- Address PR review comments on type safety and test coverage
+- Replace token-like test string with clearly fake placeholder
+
+## [0.1.704] - 2026-04-14
+
+### Changed
+
+- Improve coverage with 7 new test files (+126 tests)
+
+## [0.1.702] - 2026-04-14
+
+### Changed
+
+- Improve coverage across 9 component test files (+80 tests)
+
+## [0.1.701] - 2026-04-14
+
+### Changed
+
+- Improve coverage across 6 test files, raise thresholds (+1-2% all metrics)
+
+## [0.1.700] - 2026-04-14
+
+### Changed
+
+- Improve coverage across 8 files (+2-3% all metrics)
+
+## [0.1.699] - 2026-04-14
+
+### Changed
+
+- Add 119 tests across 11 new test files, raise coverage thresholds
+
+## [0.1.698] - 2026-04-14
+
+### Changed
+
+- Add 76 tests for 7 untested hooks and components
+
+## [0.1.697] - 2026-04-14
+
+### Changed
+
+- Improve coverage for hooks (+47 tests, 4 files)
+- Add ralph*.ps1 and ralph*.log to .gitignore
+- Untrack ralph*.ps1 now covered by .gitignore
+- Remove unused ralph-round-done.mp3 asset
+
+## [0.1.696] - 2026-04-13
+
+### Fixed
+
+- Sync Finance 'Updated X ago' timestamp with actual data load time
+
 ## [0.1.695] - 2026-04-13
 
 ### Changed

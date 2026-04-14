@@ -64,8 +64,15 @@ function QuoteRow({ quote, onRemove }: { quote: QuoteData; onRemove?: (symbol: s
 }
 
 export function FinanceCard() {
-  const { quotes, loading, error, watchlist, refresh, addSymbol, removeSymbol } = useFinance()
-  const autoRefresh = useAutoRefresh('finance', refresh, 15, loading || watchlist.length === 0)
+  const { quotes, loading, error, watchlist, refresh, addSymbol, removeSymbol, lastFetchedAt } =
+    useFinance()
+  const autoRefresh = useAutoRefresh(
+    'finance',
+    refresh,
+    15,
+    loading || watchlist.length === 0,
+    lastFetchedAt
+  )
   const { expanded, toggle } = useExpandCollapse('finance:expanded')
   const [addInput, setAddInput] = useState('')
 

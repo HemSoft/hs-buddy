@@ -92,7 +92,8 @@ export function useAutoRefresh(
   cardId: string,
   refreshFn: () => void | Promise<void>,
   defaultIntervalMin = 15,
-  paused = false
+  paused = false,
+  externalTimestamp?: number | null
 ) {
   const [settings, setSettings] = useState(() => readSettings(cardId, defaultIntervalMin))
   const [lastRefreshedAt, setLastRefreshedAt] = useState(() => readLastRefreshed(cardId))
@@ -141,6 +142,18 @@ export function useAutoRefresh(
     }, settings.intervalMinutes * 60_000)
     return () => clearInterval(id)
   }, [settings.enabled, settings.intervalMinutes, refresh])
+
+  // Sync from external data loads that bypass this hook's refresh path
+  // (e.g. initial mount fetch, addSymbol in useFinance).
+  useEffect(() => {
+    if (
+      externalTimestamp != null &&
+      (lastRefreshedAt == null || externalTimestamp > lastRefreshedAt)
+    ) {
+      setLastRefreshedAt(externalTimestamp)
+      writeLastRefreshed(cardId, externalTimestamp)
+    }
+  }, [externalTimestamp, lastRefreshedAt, cardId])
 
   const update = useCallback(
     (partial: Partial<AutoRefreshSettings>) => {

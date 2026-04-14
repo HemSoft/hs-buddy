@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BookmarkList } from './BookmarkList'
 
 const mockCreate = vi.fn()
@@ -53,8 +53,12 @@ describe('BookmarkList', () => {
     window.shell = {
       openExternal: vi.fn() as never,
       openInAppBrowser: vi.fn() as never,
-      fetchPageTitle: vi.fn() as never,
+      fetchPageTitle: vi.fn().mockResolvedValue({ title: '' }) as never,
     }
+    window.copilot = {
+      ...window.copilot,
+      quickPrompt: vi.fn().mockResolvedValue('{}') as never,
+    } as typeof window.copilot
   })
 
   it('renders loading state when data is undefined', () => {
@@ -160,5 +164,215 @@ describe('BookmarkList', () => {
     fireEvent.click(externalBtn)
     expect(mockRecordVisit).toHaveBeenCalledWith({ id: 'bm1' })
     expect(openExternalSpy).toHaveBeenCalledWith('https://github.com')
+  })
+
+  it('opens bookmark on Enter key press', () => {
+    const openInAppBrowserSpy = vi.fn()
+    window.shell.openInAppBrowser = openInAppBrowserSpy as never
+    render(<BookmarkList />)
+    const card = screen.getByText('GitHub').closest('.bookmark-card')!
+    fireEvent.keyDown(card, { key: 'Enter' })
+    expect(mockRecordVisit).toHaveBeenCalledWith({ id: 'bm1' })
+    expect(openInAppBrowserSpy).toHaveBeenCalledWith('https://github.com', 'GitHub')
+  })
+
+  it('opens bookmark on Space key press', () => {
+    const openInAppBrowserSpy = vi.fn()
+    window.shell.openInAppBrowser = openInAppBrowserSpy as never
+    render(<BookmarkList />)
+    const card = screen.getByText('GitHub').closest('.bookmark-card')!
+    fireEvent.keyDown(card, { key: ' ' })
+    expect(mockRecordVisit).toHaveBeenCalledWith({ id: 'bm1' })
+    expect(openInAppBrowserSpy).toHaveBeenCalledWith('https://github.com', 'GitHub')
+  })
+
+  it('opens edit dialog when edit button is clicked', () => {
+    render(<BookmarkList />)
+    const editBtn = screen.getAllByTitle('Edit')[0]
+    fireEvent.click(editBtn)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Edit Bookmark' })).toBeInTheDocument()
+  })
+
+  it('shows delete confirmation when delete button is clicked', async () => {
+    render(<BookmarkList />)
+    const deleteBtn = screen.getAllByTitle('Delete')[0]
+    fireEvent.click(deleteBtn)
+    expect(screen.getByText('Delete "GitHub"?')).toBeInTheDocument()
+    // Confirm delete
+    const confirmBtn = screen.getByRole('alertdialog').querySelector('.confirm-dialog-btn-danger')!
+    fireEvent.click(confirmBtn)
+    await waitFor(() => {
+      expect(mockRemove).toHaveBeenCalledWith({ id: 'bm1' })
+    })
+  })
+
+  it('shows description when bookmark has one', () => {
+    render(<BookmarkList />)
+    expect(screen.getByText('Code hosting')).toBeInTheDocument()
+  })
+
+  it('uses onOpenTab callback when provided instead of shell.openInAppBrowser', () => {
+    const onOpenTab = vi.fn()
+    render(<BookmarkList onOpenTab={onOpenTab} />)
+    const card = screen.getByText('GitHub').closest('.bookmark-card')!
+    fireEvent.click(card)
+    expect(onOpenTab).toHaveBeenCalledWith('browser:https%3A%2F%2Fgithub.com')
+    expect(window.shell.openInAppBrowser).not.toHaveBeenCalled()
+  })
+
+  it('clears all filters when clear filters button is clicked', () => {
+    render(<BookmarkList />)
+    // Set a search filter first
+    const searchInput = screen.getByPlaceholderText('Search bookmarks…')
+    fireEvent.change(searchInput, { target: { value: 'GitHub' } })
+    expect(screen.queryByText('Example Docs')).not.toBeInTheDocument()
+
+    // Clear filters
+    const clearBtn = screen.getByTitle('Clear filters')
+    fireEvent.click(clearBtn)
+    expect(screen.getByText('Example Docs')).toBeInTheDocument()
+    expect(searchInput).toHaveValue('')
+  })
+
+  it('sorts bookmarks by sortOrder then createdAt', () => {
+    const sorted = [
+      {
+        _id: 'bm-first' as never,
+        url: 'https://first.com',
+        title: 'First',
+        category: 'Dev Tools',
+        tags: [],
+        sortOrder: 0,
+        createdAt: Date.now() - 200000,
+        updatedAt: Date.now(),
+      },
+      {
+        _id: 'bm-second' as never,
+        url: 'https://second.com',
+        title: 'Second',
+        category: 'Dev Tools',
+        tags: [],
+        sortOrder: 0,
+        createdAt: Date.now() - 100000,
+        updatedAt: Date.now(),
+      },
+      {
+        _id: 'bm-third' as never,
+        url: 'https://third.com',
+        title: 'Third',
+        category: 'Dev Tools',
+        tags: [],
+        sortOrder: 1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+    ]
+    mockBookmarksReturn = sorted
+    render(<BookmarkList />)
+    const titles = [...document.querySelectorAll('.bookmark-card-title')].map(el => el.textContent)
+    expect(titles).toEqual(['First', 'Second', 'Third'])
+  })
+
+  it('shows delete error when remove fails', async () => {
+    mockRemove.mockRejectedValueOnce(new Error('Server error'))
+    render(<BookmarkList />)
+    const deleteBtn = screen.getAllByTitle('Delete')[0]
+    fireEvent.click(deleteBtn)
+    expect(screen.getByText('Delete "GitHub"?')).toBeInTheDocument()
+    const confirmBtn = screen.getByRole('alertdialog').querySelector('.confirm-dialog-btn-danger')!
+    fireEvent.click(confirmBtn)
+    await waitFor(() => {
+      expect(screen.getByText('Server error')).toBeInTheDocument()
+    })
+  })
+
+  it('applies drag-over class during drag', () => {
+    render(<BookmarkList />)
+    const container = document.querySelector('.bookmark-list-container')!
+    fireEvent.dragOver(container, {
+      dataTransfer: { types: ['text/uri-list'], dropEffect: '' },
+    })
+    expect(container.classList.contains('bookmark-drop-active')).toBe(true)
+  })
+
+  it('removes drag-over class on drag leave', () => {
+    render(<BookmarkList />)
+    const container = document.querySelector('.bookmark-list-container')!
+    fireEvent.dragOver(container, {
+      dataTransfer: { types: ['text/uri-list'], dropEffect: '' },
+    })
+    expect(container.classList.contains('bookmark-drop-active')).toBe(true)
+    fireEvent.dragLeave(container, {
+      relatedTarget: document.body,
+    })
+    expect(container.classList.contains('bookmark-drop-active')).toBe(false)
+  })
+
+  it('opens add dialog with dropped URL on drop', async () => {
+    render(<BookmarkList />)
+    const container = document.querySelector('.bookmark-list-container')!
+    fireEvent.drop(container, {
+      dataTransfer: {
+        types: ['text/uri-list'],
+        getData: (type: string) => {
+          if (type === 'text/uri-list') return 'https://example.com/dropped'
+          return ''
+        },
+      },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+  })
+
+  it('clears search when clear search button is clicked', () => {
+    render(<BookmarkList />)
+    const searchInput = screen.getByPlaceholderText('Search bookmarks…')
+    fireEvent.change(searchInput, { target: { value: 'test' } })
+    expect(searchInput).toHaveValue('test')
+    const clearBtn = screen.getByTitle('Clear search')
+    fireEvent.click(clearBtn)
+    expect(searchInput).toHaveValue('')
+  })
+
+  it('filters by description text in search', () => {
+    render(<BookmarkList />)
+    const searchInput = screen.getByPlaceholderText('Search bookmarks…')
+    fireEvent.change(searchInput, { target: { value: 'hosting' } })
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
+    expect(screen.queryByText('Example Docs')).not.toBeInTheDocument()
+  })
+
+  it('filters by tag text in search', () => {
+    render(<BookmarkList />)
+    const searchInput = screen.getByPlaceholderText('Search bookmarks…')
+    fireEvent.change(searchInput, { target: { value: 'git' } })
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
+    expect(screen.queryByText('Example Docs')).not.toBeInTheDocument()
+  })
+
+  it('matches subcategory bookmarks when parent category is selected', () => {
+    mockBookmarksReturn = [
+      ...mockBookmarks,
+      {
+        _id: 'bm3' as never,
+        url: 'https://vitest.dev',
+        title: 'Vitest',
+        category: 'Dev Tools/Testing',
+        tags: [],
+        sortOrder: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+    ]
+    mockCategoriesReturn = ['Dev Tools', 'Dev Tools/Testing', 'Documentation']
+    render(<BookmarkList />)
+    const categorySelect = screen.getByTitle('Filter by category')
+    fireEvent.change(categorySelect, { target: { value: 'Dev Tools' } })
+    // Should show both Dev Tools and Dev Tools/Testing bookmarks
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
+    expect(screen.getByText('Vitest')).toBeInTheDocument()
+    expect(screen.queryByText('Example Docs')).not.toBeInTheDocument()
   })
 })

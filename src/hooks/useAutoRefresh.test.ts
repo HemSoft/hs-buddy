@@ -315,4 +315,58 @@ describe('useAutoRefresh', () => {
     expect(result.current.enabled).toBe(false)
     expect(result.current.intervalMinutes).toBe(0)
   })
+
+  it('syncs lastRefreshedAt from externalTimestamp when newer', () => {
+    vi.setSystemTime(new Date('2026-04-13T12:00:00Z'))
+    const externalTs = Date.now() - 60_000 // 1 minute ago
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 15, false, externalTs))
+
+    expect(result.current.lastRefreshedAt).toBe(externalTs)
+    expect(Number(localStorage.getItem('card-last-refreshed:finance'))).toBe(externalTs)
+  })
+
+  it('does not overwrite a newer stamped value with an older externalTimestamp', () => {
+    vi.setSystemTime(new Date('2026-04-13T12:00:00Z'))
+    const underlying = vi.fn()
+    const oldExternal = Date.now() - 5 * 60_000
+
+    const { result } = renderHook(() =>
+      useAutoRefresh('finance', underlying, 15, false, oldExternal)
+    )
+
+    // Manual refresh stamps a newer time
+    act(() => {
+      result.current.refresh()
+    })
+
+    const stampedAt = result.current.lastRefreshedAt!
+    expect(stampedAt).toBeGreaterThan(oldExternal)
+
+    // External timestamp is older — should not overwrite
+    expect(result.current.lastRefreshedAt).toBe(stampedAt)
+  })
+
+  it('updates lastRefreshedAt when externalTimestamp changes to newer value', () => {
+    vi.setSystemTime(new Date('2026-04-13T12:00:00Z'))
+    const ts1 = Date.now() - 120_000
+
+    const { result, rerender } = renderHook(
+      ({ ext }) => useAutoRefresh('finance', vi.fn(), 15, false, ext),
+      { initialProps: { ext: ts1 as number | null } }
+    )
+
+    expect(result.current.lastRefreshedAt).toBe(ts1)
+
+    // Simulate a new fetch completing with a newer timestamp
+    const ts2 = Date.now()
+    rerender({ ext: ts2 })
+
+    expect(result.current.lastRefreshedAt).toBe(ts2)
+  })
+
+  it('ignores null externalTimestamp', () => {
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 15, false, null))
+
+    expect(result.current.lastRefreshedAt).toBeNull()
+  })
 })

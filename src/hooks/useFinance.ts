@@ -14,6 +14,7 @@ interface FinanceState {
   quotes: QuoteData[]
   loading: boolean
   error: string | null
+  lastFetchedAt: number | null
 }
 
 const CACHE_KEY = 'finance:cache'
@@ -37,12 +38,9 @@ function readCache(): { quotes: QuoteData[]; timestamp: number } | null {
   return null
 }
 
-function writeCache(quotes: QuoteData[]) {
+function writeCache(quotes: QuoteData[], timestamp: number = Date.now()) {
   try {
-    localStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify({ quotes, timestamp: Date.now(), version: CACHE_VERSION })
-    )
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ quotes, timestamp, version: CACHE_VERSION }))
   } catch {
     // localStorage unavailable
   }
@@ -109,8 +107,13 @@ export function useFinance() {
   const [state, setState] = useState<FinanceState>(() => {
     const cached = readCache()
     return cached
-      ? { quotes: cached.quotes, loading: false, error: null }
-      : { quotes: [], loading: true, error: null }
+      ? {
+          quotes: cached.quotes,
+          loading: false,
+          error: null,
+          lastFetchedAt: cached.timestamp ?? null,
+        }
+      : { quotes: [], loading: true, error: null, lastFetchedAt: null }
   })
 
   const abortRef = useRef(false)
@@ -126,8 +129,9 @@ export function useFinance() {
     return fetchQuotes(list)
       .then(quotes => {
         if (!abortRef.current) {
-          writeCache(quotes)
-          setState({ quotes, loading: false, error: null })
+          const fetchedAt = Date.now()
+          writeCache(quotes, fetchedAt)
+          setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
         }
       })
       .catch(err => {
@@ -136,6 +140,7 @@ export function useFinance() {
             quotes: prev.quotes,
             loading: false,
             error: err instanceof Error ? err.message : 'Failed to fetch quotes',
+            lastFetchedAt: prev.lastFetchedAt,
           }))
         }
         throw err

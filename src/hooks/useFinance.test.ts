@@ -67,6 +67,49 @@ describe('useFinance', () => {
     expect(result.current.quotes).toHaveLength(1)
   })
 
+  it('initializes lastFetchedAt from cache timestamp', () => {
+    const cacheTs = Date.now() - 5 * 60_000
+    localStorage.setItem(
+      'finance:cache',
+      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: cacheTs, version: 3 })
+    )
+    const { result } = renderHook(() => useFinance())
+    expect(result.current.lastFetchedAt).toBe(cacheTs)
+  })
+
+  it('sets lastFetchedAt to null when no cache', () => {
+    const { result } = renderHook(() => useFinance())
+    expect(result.current.lastFetchedAt).toBeNull()
+  })
+
+  it('updates lastFetchedAt on successful fetch', async () => {
+    const before = Date.now()
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.lastFetchedAt).toBeGreaterThanOrEqual(before)
+  })
+
+  it('preserves lastFetchedAt on failed fetch', async () => {
+    const cacheTs = Date.now() - 5 * 60_000
+    localStorage.setItem(
+      'finance:cache',
+      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: cacheTs, version: 3 })
+    )
+    const { result } = renderHook(() => useFinance())
+    expect(result.current.lastFetchedAt).toBe(cacheTs)
+
+    // Make subsequent fetch fail
+    mockFetchQuote.mockResolvedValue({ success: false, error: 'API down' })
+    await act(async () => {
+      try {
+        await result.current.refresh()
+      } catch {
+        /* expected */
+      }
+    })
+    expect(result.current.lastFetchedAt).toBe(cacheTs)
+  })
+
   it('ignores expired cache', () => {
     localStorage.setItem(
       'finance:cache',

@@ -1,9 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 
 /* ── module mocks (dataCache must be mocked before importing the component) ── */
-const { dataCacheStore } = vi.hoisted(() => {
+const { dataCacheStore, mockFetchUserActivity, stableAccounts } = vi.hoisted(() => {
   const store: Record<string, { data: unknown; fetchedAt: number }> = {}
-  return { dataCacheStore: store }
+  const mockFetchUserActivity = vi.fn()
+  const stableAccounts = {
+    accounts: [{ token: 'fake_token', org: 'acme', type: 'oauth' }],
+  }
+  return { dataCacheStore: store, mockFetchUserActivity, stableAccounts }
 })
 
 vi.mock('../services/dataCache', () => ({
@@ -15,7 +20,31 @@ vi.mock('../services/dataCache', () => ({
     delete: (key: string) => {
       delete dataCacheStore[key]
     },
+    subscribe: vi.fn(() => vi.fn()),
   },
+}))
+
+vi.mock('../hooks/useConfig', () => ({
+  useGitHubAccounts: () => stableAccounts,
+}))
+
+vi.mock('../api/github', async importOriginal => {
+  const actual = await importOriginal<typeof import('../api/github')>()
+  class MockGitHubClient {
+    fetchUserActivity = mockFetchUserActivity
+  }
+  return {
+    ...actual,
+    GitHubClient: MockGitHubClient,
+  }
+})
+
+vi.mock('./UserPremiumUsageSection', () => ({
+  UserPremiumUsageSection: () => <div data-testid="premium-usage-stub" />,
+}))
+
+vi.mock('./ContributionGraph', () => ({
+  ContributionGraph: () => <div data-testid="contribution-graph-stub" />,
 }))
 
 import type { UserActivitySummary } from '../api/github'
@@ -24,6 +53,7 @@ import {
   createInitialActivityState,
   type ActivityState,
 } from './userDetailReducer'
+import { UserDetailPanel } from './UserDetailPanel'
 
 /* ── helpers ──────────────────────────────────────────────────────── */
 function makeActivity(overrides: Partial<UserActivitySummary> = {}): UserActivitySummary {
@@ -262,5 +292,120 @@ describe('User switching scenario (reducer-level)', () => {
 
     expect(state.activity?.openPRCount).toBeUndefined()
     expect(state.activity?.mergedPRCount).toBeUndefined()
+  })
+})
+
+/* ── UserDetailPanel component rendering tests ─────────────────── */
+describe('UserDetailPanel (component)', () => {
+  beforeEach(() => {
+    for (const key of Object.keys(dataCacheStore)) delete dataCacheStore[key]
+    mockFetchUserActivity.mockReset()
+    mockFetchUserActivity.mockResolvedValue(makeActivity())
+    window.shell = { openExternal: vi.fn() } as never
+  })
+
+  it('renders the member login and org name', async () => {
+    render(<UserDetailPanel org="acme" memberLogin="alice" />)
+    expect(screen.getByText('alice')).toBeTruthy()
+    expect(screen.getByText('acme')).toBeTruthy()
+  })
+
+  it('renders avatar with fallback URL when no cached data', () => {
+    render(<UserDetailPanel org="acme" memberLogin="bob" />)
+    const img = screen.getByRole('img', { name: 'bob' })
+    expect(img).toHaveAttribute('src', 'https://github.com/bob.png?size=96')
+  })
+
+  it('shows "No commits today" when no contributor data and no activity', () => {
+    render(<UserDetailPanel org="acme" memberLogin="carol" />)
+    expect(screen.getByText('No commits today')).toBeTruthy()
+  })
+
+  it('renders cached activity immediately without fetching', () => {
+    const cached = makeActivity({
+      name: 'Dana Dev',
+      openPRCount: 3,
+      mergedPRCount: 8,
+      commitsToday: 5,
+    })
+    dataCacheStore['user-activity:v3:acme/dana'] = { data: cached, fetchedAt: Date.now() }
+
+    render(<UserDetailPanel org="acme" memberLogin="dana" />)
+    expect(screen.getByText(/Dana Dev/)).toBeTruthy()
+    expect(screen.getByText(/5 commits today/)).toBeTruthy()
+  })
+
+  it('shows error banner when fetch fails', async () => {
+    mockFetchUserActivity.mockRejectedValue(new Error('Network error'))
+
+    const { container } = render(<UserDetailPanel org="acme" memberLogin="eve" />)
+
+    await waitFor(() => {
+      expect(container.querySelector('.ud-error-banner')).not.toBeNull()
+    })
+
+    expect(container.querySelector('.ud-error-banner')!.textContent).toContain('Network error')
+    // Reset to default resolved value after test
+    mockFetchUserActivity.mockResolvedValue(makeActivity())
+  })
+
+  it('renders profile link pointing to member GitHub page', () => {
+    render(<UserDetailPanel org="acme" memberLogin="frank" />)
+    const profileBtn = screen.getByText('Profile')
+    expect(profileBtn).toBeTruthy()
+  })
+
+  it('renders Premium Requests section', () => {
+    render(<UserDetailPanel org="acme" memberLogin="grace" />)
+    expect(screen.getByText('Premium Requests')).toBeTruthy()
+    expect(screen.getByTestId('premium-usage-stub')).toBeTruthy()
+  })
+
+  it('renders PR sections when activity is loaded from cache', () => {
+    const cached = makeActivity({
+      name: 'Hank',
+      recentPRsAuthored: [
+        {
+          repo: 'acme/widgets',
+          number: 42,
+          title: 'Add widget feature',
+          state: 'open',
+          url: 'https://github.com/acme/widgets/pull/42',
+          createdAt: '2025-01-01T00:00:00Z',
+          updatedAt: '2025-01-01T00:00:00Z',
+        },
+      ],
+    })
+    dataCacheStore['user-activity:v3:acme/hank'] = { data: cached, fetchedAt: Date.now() }
+
+    render(<UserDetailPanel org="acme" memberLogin="hank" />)
+    expect(screen.getByText('Add widget feature')).toBeTruthy()
+    expect(screen.getByText('Authored')).toBeTruthy()
+  })
+
+  it('shows profile metadata when activity has location/company', () => {
+    const cached = makeActivity({
+      name: 'Ivy',
+      location: 'San Francisco',
+      company: '@acme',
+    })
+    dataCacheStore['user-activity:v3:acme/ivy'] = { data: cached, fetchedAt: Date.now() }
+
+    render(<UserDetailPanel org="acme" memberLogin="ivy" />)
+    expect(screen.getByText('San Francisco')).toBeTruthy()
+    expect(screen.getByText('@acme')).toBeTruthy()
+  })
+
+  it('renders active repositories section when repos are present', () => {
+    const cached = makeActivity({
+      name: 'Jack',
+      activeRepos: ['acme/alpha', 'acme/bravo'],
+    })
+    dataCacheStore['user-activity:v3:acme/jack'] = { data: cached, fetchedAt: Date.now() }
+
+    render(<UserDetailPanel org="acme" memberLogin="jack" />)
+    expect(screen.getByText('Active Repositories')).toBeTruthy()
+    expect(screen.getByText('alpha')).toBeTruthy()
+    expect(screen.getByText('bravo')).toBeTruthy()
   })
 })

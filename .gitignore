@@ -52,3 +52,7 @@ out/
 _cdp.cjs
 .playwright-mcp/
 bench-output.txt
+
+# Ralph loop scripts and logs
+ralph*.ps1
+ralph*.log

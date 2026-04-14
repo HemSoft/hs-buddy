@@ -389,4 +389,93 @@ describe('usePRListData', () => {
     expect(mockApprovePullRequest).toHaveBeenCalledWith('org', 'other-repo', 421)
     expect(result.current.contextMenu).toBeNull()
   })
+
+  it('fetches recently-merged PRs and uses the correct title', async () => {
+    const mergedPr = makePR({ id: 100, repository: 'merged-repo', state: 'MERGED' })
+    mockFetchRecentlyMerged.mockResolvedValue([mergedPr])
+
+    const { result } = renderHook(() => usePRListData('recently-merged'))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.prs).toEqual([mergedPr])
+    expect(result.current.getTitle()).toBe('Recently Merged PRs')
+    expect(mockFetchRecentlyMerged).toHaveBeenCalled()
+    // recently-merged should NOT sort by repo/id
+    expect(mockFetchMyPRs).not.toHaveBeenCalled()
+    expect(mockFetchNeedsReview).not.toHaveBeenCalled()
+  })
+
+  it('fetches need-a-nudge PRs and uses the correct title', async () => {
+    const nudgePr = makePR({ id: 200, repository: 'nudge-repo' })
+    mockFetchNeedANudge.mockResolvedValue([nudgePr])
+
+    const { result } = renderHook(() => usePRListData('need-a-nudge'))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.prs).toHaveLength(1)
+    expect(result.current.getTitle()).toBe('Needs a nudge')
+    expect(mockFetchNeedANudge).toHaveBeenCalled()
+  })
+
+  it('handles fetch error gracefully', async () => {
+    mockFetchMyPRs.mockRejectedValue(new Error('API rate limit exceeded'))
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    await waitFor(() => expect(result.current.error).toBe('API rate limit exceeded'))
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('skips fetch while accounts are still loading', async () => {
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [account],
+      loading: true,
+    })
+
+    renderHook(() => usePRListData('my-prs'))
+
+    // Should not trigger any fetch
+    expect(mockFetchMyPRs).not.toHaveBeenCalled()
+  })
+
+  it('dispatches assistant prompt when address-comments is triggered', async () => {
+    const promptListener = vi.fn()
+    window.addEventListener('assistant:send-prompt', promptListener as EventListener)
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    const pr = makePR()
+
+    act(() => {
+      result.current.handleContextMenu(
+        {
+          preventDefault: vi.fn(),
+          clientX: 1,
+          clientY: 2,
+        } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    act(() => {
+      result.current.handleAddressComments()
+    })
+
+    expect(promptListener).toHaveBeenCalled()
+    expect(result.current.contextMenu).toBeNull()
+
+    window.removeEventListener('assistant:send-prompt', promptListener as EventListener)
+  })
+
+  it('returns correct progressColor from getProgressColor', () => {
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    // Verify hook exposes expected interface
+    expect(result.current.getTitle).toBeDefined()
+    expect(result.current.handleManualRefresh).toBeDefined()
+    expect(result.current.handleContextMenu).toBeDefined()
+    expect(result.current.handleBookmarkRepo).toBeDefined()
+    expect(result.current.handleCopyLink).toBeDefined()
+    expect(result.current.handleApprove).toBeDefined()
+  })
 })

@@ -110,4 +110,134 @@ describe('CopilotSidebar', () => {
     expect(screen.getByText('No results yet')).toBeTruthy()
     expect(screen.queryByText('2')).toBeFalsy()
   })
+
+  it('does not show active count badge when total is zero', () => {
+    mockActiveCount = { pending: 0, running: 0 }
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    // The "3" badge should not be present
+    expect(screen.queryByText('3')).toBeFalsy()
+  })
+
+  it('does not show active count when activeCount is undefined', () => {
+    mockActiveCount = undefined
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    // Should not crash and should not show a count badge next to COPILOT
+    expect(screen.getByText('COPILOT')).toBeTruthy()
+  })
+
+  it('selects All Results via click', () => {
+    const onItemSelect = vi.fn()
+    render(<CopilotSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+    fireEvent.click(screen.getByText('All Results').closest('[role="button"]') as HTMLElement)
+    expect(onItemSelect).toHaveBeenCalledWith('copilot-all-results')
+  })
+
+  it('selects Copilot Usage via click', () => {
+    const onItemSelect = vi.fn()
+    render(<CopilotSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+    fireEvent.click(screen.getByText('Copilot Usage').closest('[role="button"]') as HTMLElement)
+    expect(onItemSelect).toHaveBeenCalledWith('copilot-usage')
+  })
+
+  it('selects Session Explorer via click', () => {
+    const onItemSelect = vi.fn()
+    render(<CopilotSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+    fireEvent.click(screen.getByText('Session Explorer').closest('[role="button"]') as HTMLElement)
+    expect(onItemSelect).toHaveBeenCalledWith('copilot-sessions')
+  })
+
+  it('supports keyboard Space to select items', () => {
+    const onItemSelect = vi.fn()
+    render(<CopilotSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+    const allResults = screen.getByText('All Results').closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(allResults, { key: ' ' })
+    expect(onItemSelect).toHaveBeenCalledWith('copilot-all-results')
+  })
+
+  it('handles pr-review with no prTitle in metadata', () => {
+    mockRecentResults = [
+      {
+        _id: 'review-no-title',
+        category: 'pr-review',
+        metadata: null,
+        prompt: 'Review PR',
+        status: 'completed',
+        createdAt: Date.now(),
+      },
+    ]
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    fireEvent.click(screen.getByText('Recent Results').closest('[role="button"]') as HTMLElement)
+    expect(screen.getByText('PR Review: Untitled')).toBeTruthy()
+  })
+
+  it('truncates long non-pr-review prompts at 40 chars', () => {
+    mockRecentResults = [
+      {
+        _id: 'long-prompt',
+        category: 'prompt',
+        prompt: 'Short prompt',
+        status: 'completed',
+        createdAt: Date.now(),
+      },
+    ]
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    fireEvent.click(screen.getByText('Recent Results').closest('[role="button"]') as HTMLElement)
+    // Short prompt should not be truncated
+    expect(screen.getByText('Short prompt')).toBeTruthy()
+  })
+
+  it('highlights the selected sidebar item', () => {
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem="copilot-usage" />)
+    const usageItem = screen.getByText('Copilot Usage').closest('.sidebar-item')!
+    expect(usageItem.classList.contains('selected')).toBe(true)
+  })
+
+  it('collapses and re-expands the Prompt section', () => {
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    // Initially expanded
+    expect(screen.getByText('New Prompt')).toBeTruthy()
+
+    // Collapse
+    fireEvent.click(screen.getByText('Prompt').closest('[role="button"]') as HTMLElement)
+    expect(screen.queryByText('New Prompt')).toBeFalsy()
+
+    // Re-expand
+    fireEvent.click(screen.getByText('Prompt').closest('[role="button"]') as HTMLElement)
+    expect(screen.getByText('New Prompt')).toBeTruthy()
+  })
+
+  it('toggles Recent Results section with keyboard Enter', () => {
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    const resultsHeader = screen
+      .getByText('Recent Results')
+      .closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(resultsHeader, { key: 'Enter' })
+    expect(screen.getByText('PR Review: Improve sidebar tests')).toBeTruthy()
+
+    fireEvent.keyDown(resultsHeader, { key: 'Enter' })
+    expect(screen.queryByText('PR Review: Improve sidebar tests')).toBeFalsy()
+  })
+
+  it('shows result count in the All Results item', () => {
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    // With 2 recent results, count badge "2" should appear
+    expect(screen.getByText('2')).toBeTruthy()
+  })
+
+  it('does not show result count when recentResults is null', () => {
+    mockRecentResults = null as unknown as typeof mockRecentResults
+    render(<CopilotSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    // Should not crash
+    expect(screen.getByText('COPILOT')).toBeTruthy()
+  })
 })

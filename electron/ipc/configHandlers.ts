@@ -25,6 +25,7 @@ const UI_VALUE_CHANNELS: Array<readonly [string, UiConfigKey]> = [
   ['pane-sizes', 'paneSizes'],
   ['show-bookmarked-only', 'showBookmarkedOnly'],
   ['favorite-users', 'favoriteUsers'],
+  ['dashboard-cards', 'dashboardCards'],
 ]
 
 function registerUiValueHandler<K extends UiConfigKey>(channel: string, key: K): void {

@@ -136,6 +136,10 @@ describe('WelcomePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    Object.defineProperty(window, 'ipcRenderer', {
+      configurable: true,
+      value: { invoke: vi.fn().mockResolvedValue({}) },
+    })
   })
 
   it('renders app name', () => {

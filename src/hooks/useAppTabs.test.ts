@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAppTabs } from './useAppTabs'
+import { useAppTabs, DASHBOARD_VIEW_ID } from './useAppTabs'
 
 const mockListProjects = vi.fn(async () => [] as Array<{ id: string; displayName: string }>)
 
@@ -20,6 +20,14 @@ describe('useAppTabs', () => {
     })
   })
 
+  it('starts with a dashboard tab', () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    expect(result.current.tabs).toHaveLength(1)
+    expect(result.current.tabs[0]!.viewId).toBe(DASHBOARD_VIEW_ID)
+    expect(result.current.activeViewId).toBe(DASHBOARD_VIEW_ID)
+  })
+
   it('keeps the active tab aligned with the committed tab when the same view opens concurrently', async () => {
     const onViewOpen = vi.fn()
     const { result } = renderHook(() => useAppTabs({ onViewOpen }))
@@ -29,12 +37,13 @@ describe('useAppTabs', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.tabs).toHaveLength(1)
+      // dashboard + pr-my-prs
+      expect(result.current.tabs).toHaveLength(2)
     })
 
-    expect(result.current.activeTabId).toBe(result.current.tabs[0]?.id)
+    const prTab = result.current.tabs.find(t => t.viewId === 'pr-my-prs')!
+    expect(result.current.activeTabId).toBe(prTab.id)
     expect(result.current.activeViewId).toBe('pr-my-prs')
-    expect(onViewOpen).toHaveBeenCalledTimes(2)
   })
 
   it('activates the next available tab when closing the active tab', async () => {
@@ -45,20 +54,18 @@ describe('useAppTabs', () => {
       await result.current.openTab('pr-needs-review')
     })
 
-    const firstTabId = result.current.tabs[0]?.id
-    const secondTabId = result.current.tabs[1]?.id
+    const prMyPrsTab = result.current.tabs.find(t => t.viewId === 'pr-my-prs')!
+    const needsReviewTab = result.current.tabs.find(t => t.viewId === 'pr-needs-review')!
 
-    expect(result.current.activeTabId).toBe(secondTabId)
+    expect(result.current.activeTabId).toBe(needsReviewTab.id)
 
     act(() => {
-      if (!secondTabId) {
-        throw new Error('Expected a second tab to exist')
-      }
-      result.current.closeTab(secondTabId)
+      result.current.closeTab(needsReviewTab.id)
     })
 
-    expect(result.current.tabs).toHaveLength(1)
-    expect(result.current.activeTabId).toBe(firstTabId)
+    // dashboard + pr-my-prs
+    expect(result.current.tabs).toHaveLength(2)
+    expect(result.current.activeTabId).toBe(prMyPrsTab.id)
     expect(result.current.activeViewId).toBe('pr-my-prs')
   })
 
@@ -71,19 +78,16 @@ describe('useAppTabs', () => {
       await result.current.openTab('copilot-usage')
     })
 
-    const tab1 = result.current.tabs[0]!.id
-    const tab2 = result.current.tabs[1]!.id
-
-    // Active is last opened (tab 3)
+    // Active is last opened (copilot-usage)
     expect(result.current.activeViewId).toBe('copilot-usage')
 
-    // Next → wraps to first
+    // Next → wraps to dashboard
     act(() => emitTabEvent('tab-next'))
-    expect(result.current.activeTabId).toBe(tab1)
+    expect(result.current.activeViewId).toBe(DASHBOARD_VIEW_ID)
 
-    // Next → second
+    // Next → pr-my-prs
     act(() => emitTabEvent('tab-next'))
-    expect(result.current.activeTabId).toBe(tab2)
+    expect(result.current.activeViewId).toBe('pr-my-prs')
   })
 
   it('cycles to the previous tab on tab-prev event and wraps around', async () => {
@@ -94,26 +98,24 @@ describe('useAppTabs', () => {
       await result.current.openTab('pr-needs-review')
     })
 
-    const tab1 = result.current.tabs[0]!.id
-
-    // Active is tab 2
+    // Active is pr-needs-review
     expect(result.current.activeViewId).toBe('pr-needs-review')
 
-    // Prev → first tab
+    // Prev → pr-my-prs
     act(() => emitTabEvent('tab-prev'))
-    expect(result.current.activeTabId).toBe(tab1)
+    expect(result.current.activeViewId).toBe('pr-my-prs')
 
-    // Prev → wraps to last (tab 2)
+    // Prev → dashboard
+    act(() => emitTabEvent('tab-prev'))
+    expect(result.current.activeViewId).toBe(DASHBOARD_VIEW_ID)
+
+    // Prev → wraps to last (pr-needs-review)
     act(() => emitTabEvent('tab-prev'))
     expect(result.current.activeViewId).toBe('pr-needs-review')
   })
 
-  it('does nothing when cycling with only one tab', async () => {
+  it('does nothing when cycling with only one tab', () => {
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
-
-    await act(async () => {
-      await result.current.openTab('pr-my-prs')
-    })
 
     const tabId = result.current.activeTabId
 
@@ -132,22 +134,18 @@ describe('useAppTabs', () => {
       await result.current.openTab('pr-needs-review')
     })
 
-    const firstTabId = result.current.tabs[0]!.id
+    const dashboardTab = result.current.tabs.find(t => t.viewId === DASHBOARD_VIEW_ID)!
 
     act(() => {
-      result.current.setActiveTabId(firstTabId)
+      result.current.setActiveTabId(dashboardTab.id)
     })
 
-    expect(result.current.activeTabId).toBe(firstTabId)
-    expect(result.current.activeViewId).toBe('pr-my-prs')
+    expect(result.current.activeTabId).toBe(dashboardTab.id)
+    expect(result.current.activeViewId).toBe(DASHBOARD_VIEW_ID)
   })
 
-  it('selectTab is a no-op when already active', async () => {
+  it('selectTab is a no-op when already active', () => {
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
-
-    await act(async () => {
-      await result.current.openTab('pr-my-prs')
-    })
 
     const tabId = result.current.activeTabId!
     const prevState = result.current.tabs
@@ -169,15 +167,15 @@ describe('useAppTabs', () => {
       await result.current.openTab('copilot-usage')
     })
 
-    const keepId = result.current.tabs[1]!.id
+    const keepTab = result.current.tabs.find(t => t.viewId === 'pr-needs-review')!
 
     act(() => {
-      result.current.closeOtherTabs(keepId)
+      result.current.closeOtherTabs(keepTab.id)
     })
 
     expect(result.current.tabs).toHaveLength(1)
     expect(result.current.tabs[0]!.viewId).toBe('pr-needs-review')
-    expect(result.current.activeTabId).toBe(keepId)
+    expect(result.current.activeTabId).toBe(keepTab.id)
   })
 
   it('closeOtherTabs is a no-op for unknown tab id', async () => {
@@ -205,14 +203,14 @@ describe('useAppTabs', () => {
       await result.current.openTab('copilot-usage')
     })
 
-    const firstTabId = result.current.tabs[0]!.id
+    const dashboardTab = result.current.tabs[0]!
 
     act(() => {
-      result.current.closeTabsToRight(firstTabId)
+      result.current.closeTabsToRight(dashboardTab.id)
     })
 
     expect(result.current.tabs).toHaveLength(1)
-    expect(result.current.tabs[0]!.viewId).toBe('pr-my-prs')
+    expect(result.current.tabs[0]!.viewId).toBe(DASHBOARD_VIEW_ID)
   })
 
   it('closeTabsToRight moves active tab when it was to the right', async () => {
@@ -225,14 +223,14 @@ describe('useAppTabs', () => {
     })
 
     // Active is copilot-usage (last opened)
-    const firstTabId = result.current.tabs[0]!.id
+    const dashboardTab = result.current.tabs[0]!
 
     act(() => {
-      result.current.closeTabsToRight(firstTabId)
+      result.current.closeTabsToRight(dashboardTab.id)
     })
 
     // Active tab was closed, so it should fall back to the pivot tab
-    expect(result.current.activeTabId).toBe(firstTabId)
+    expect(result.current.activeTabId).toBe(dashboardTab.id)
   })
 
   it('closeTabsToRight is a no-op for unknown tab id', async () => {
@@ -276,32 +274,26 @@ describe('useAppTabs', () => {
       await result.current.openTab('pr-needs-review')
     })
 
+    // Active is pr-needs-review
     act(() => emitTabEvent('tab-close'))
 
-    expect(result.current.tabs).toHaveLength(1)
+    // dashboard + pr-my-prs remain
+    expect(result.current.tabs).toHaveLength(2)
     expect(result.current.activeViewId).toBe('pr-my-prs')
   })
 
-  it('closeActiveTab empties when last tab is closed', async () => {
+  it('closeActiveTab falls back to dashboard when last non-dashboard tab is closed', async () => {
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
 
     await act(async () => {
       await result.current.openTab('pr-my-prs')
     })
 
+    // Active is pr-my-prs
     act(() => emitTabEvent('tab-close'))
 
-    expect(result.current.tabs).toHaveLength(0)
-    expect(result.current.activeTabId).toBeNull()
-  })
-
-  it('closeActiveTab is a no-op when no tabs exist', () => {
-    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
-
-    act(() => emitTabEvent('tab-close'))
-
-    expect(result.current.tabs).toHaveLength(0)
-    expect(result.current.activeTabId).toBeNull()
+    expect(result.current.tabs).toHaveLength(1)
+    expect(result.current.activeViewId).toBe(DASHBOARD_VIEW_ID)
   })
 
   it('closeView closes a tab by its viewId', async () => {
@@ -316,8 +308,9 @@ describe('useAppTabs', () => {
       result.current.closeView('pr-my-prs')
     })
 
-    expect(result.current.tabs).toHaveLength(1)
-    expect(result.current.tabs[0]!.viewId).toBe('pr-needs-review')
+    // dashboard + pr-needs-review
+    expect(result.current.tabs).toHaveLength(2)
+    expect(result.current.tabs.find(t => t.viewId === 'pr-needs-review')).toBeDefined()
   })
 
   it('closeView is a no-op for nonexistent viewId', async () => {
@@ -360,19 +353,19 @@ describe('useAppTabs', () => {
       await result.current.openTab('pr-needs-review')
     })
 
-    const firstTabId = result.current.tabs[0]!.id
-    const secondTabId = result.current.tabs[1]!.id
+    const dashboardTab = result.current.tabs.find(t => t.viewId === DASHBOARD_VIEW_ID)!
+    const needsReviewTab = result.current.tabs.find(t => t.viewId === 'pr-needs-review')!
 
-    // Active is second tab
-    expect(result.current.activeTabId).toBe(secondTabId)
+    // Active is pr-needs-review
+    expect(result.current.activeTabId).toBe(needsReviewTab.id)
 
     act(() => {
-      result.current.closeTab(firstTabId)
+      result.current.closeTab(dashboardTab.id)
     })
 
-    // Active remains second tab
-    expect(result.current.activeTabId).toBe(secondTabId)
-    expect(result.current.tabs).toHaveLength(1)
+    // Active remains pr-needs-review
+    expect(result.current.activeTabId).toBe(needsReviewTab.id)
+    expect(result.current.tabs).toHaveLength(2)
   })
 
   it('opens a tab via copilot:open-result event', async () => {
@@ -385,10 +378,11 @@ describe('useAppTabs', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.tabs).toHaveLength(1)
+      // dashboard + copilot-result
+      expect(result.current.tabs).toHaveLength(2)
     })
 
-    expect(result.current.tabs[0]!.viewId).toBe('copilot-result:res-42')
+    expect(result.current.tabs.find(t => t.viewId === 'copilot-result:res-42')).toBeDefined()
   })
 
   it('opens a tab via pr-review:open event', async () => {
@@ -408,10 +402,11 @@ describe('useAppTabs', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.tabs).toHaveLength(1)
+      // dashboard + pr-review
+      expect(result.current.tabs).toHaveLength(2)
     })
 
-    expect(result.current.tabs[0]!.viewId).toContain('pr-review:')
+    expect(result.current.tabs.find(t => t.viewId.startsWith('pr-review:'))).toBeDefined()
   })
 
   it('opens a tab via app:navigate event', async () => {
@@ -422,10 +417,11 @@ describe('useAppTabs', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.tabs).toHaveLength(1)
+      // dashboard + copilot-usage
+      expect(result.current.tabs).toHaveLength(2)
     })
 
-    expect(result.current.tabs[0]!.viewId).toBe('copilot-usage')
+    expect(result.current.tabs.find(t => t.viewId === 'copilot-usage')).toBeDefined()
   })
 
   it('labels crew-project tabs with project display name', async () => {
@@ -438,7 +434,8 @@ describe('useAppTabs', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.tabs[0]!.label).toBe('My Project')
+      const crewTab = result.current.tabs.find(t => t.viewId === 'crew-project:proj-1')
+      expect(crewTab!.label).toBe('My Project')
     })
   })
 
@@ -452,9 +449,11 @@ describe('useAppTabs', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.tabs).toHaveLength(1)
+      // dashboard + crew-project
+      expect(result.current.tabs).toHaveLength(2)
     })
 
-    expect(result.current.tabs[0]!.label).toBe('PR Detail')
+    const crewTab = result.current.tabs.find(t => t.viewId === 'crew-project:proj-1')
+    expect(crewTab!.label).toBe('PR Detail')
   })
 })

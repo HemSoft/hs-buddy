@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 export interface DashboardCardDef {
   id: string
@@ -16,27 +16,7 @@ export const DASHBOARD_CARDS: DashboardCardDef[] = [
   { id: 'finance', title: 'Finance', defaultVisible: true, span: 1 },
 ]
 
-const STORAGE_KEY = 'dashboard:cards'
-
 type CardVisibility = Record<string, boolean>
-
-function readStored(): CardVisibility | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as CardVisibility
-  } catch {
-    // corrupt or unavailable
-  }
-  return null
-}
-
-function writeStored(vis: CardVisibility) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(vis))
-  } catch {
-    // localStorage unavailable
-  }
-}
 
 function buildDefaults(): CardVisibility {
   const defaults: CardVisibility = {}
@@ -46,29 +26,50 @@ function buildDefaults(): CardVisibility {
   return defaults
 }
 
+function sanitize(raw: unknown): CardVisibility | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const result: CardVisibility = {}
+  for (const card of DASHBOARD_CARDS) {
+    const val = (raw as Record<string, unknown>)[card.id]
+    if (typeof val === 'boolean') result[card.id] = val
+  }
+  return Object.keys(result).length > 0 ? result : null
+}
+
 function mergeWithDefaults(stored: CardVisibility | null): CardVisibility {
   const defaults = buildDefaults()
   if (!stored) return defaults
-  const merged: CardVisibility = { ...defaults }
-  for (const card of DASHBOARD_CARDS) {
-    if (typeof stored[card.id] === 'boolean') {
-      merged[card.id] = stored[card.id]
-    }
-  }
-  return merged
+  return { ...defaults, ...stored }
 }
 
 export function useDashboardCards() {
-  const [visibility, setVisibility] = useState<CardVisibility>(() =>
-    mergeWithDefaults(readStored())
-  )
+  const [visibility, setVisibility] = useState<CardVisibility>(buildDefaults)
+  const mutatedRef = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    window.ipcRenderer
+      .invoke('config:get-dashboard-cards')
+      .then((raw: unknown) => {
+        if (cancelled || mutatedRef.current) return
+        const sanitized = sanitize(raw)
+        if (sanitized) {
+          setVisibility(mergeWithDefaults(sanitized))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const isVisible = useCallback((cardId: string) => visibility[cardId] !== false, [visibility])
 
   const toggleCard = useCallback((cardId: string) => {
+    mutatedRef.current = true
     setVisibility(prev => {
       const next = { ...prev, [cardId]: !prev[cardId] }
-      writeStored(next)
+      window.ipcRenderer.invoke('config:set-dashboard-cards', next).catch(() => {})
       return next
     })
   }, [])

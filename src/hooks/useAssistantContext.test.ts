@@ -50,7 +50,14 @@ describe('useAssistantContext', () => {
     const { result } = renderHook(() => useAssistantContext(null))
     expect(result.current.viewType).toBe('welcome')
     expect(result.current.viewId).toBeNull()
-    expect(result.current.summary).toBe('The user is on the Welcome screen.')
+    expect(result.current.summary).toBe('No tab is open.')
+  })
+
+  it('returns welcome context for dashboard viewId', () => {
+    const { result } = renderHook(() => useAssistantContext('dashboard'))
+    expect(result.current.viewType).toBe('welcome')
+    expect(result.current.viewId).toBe('dashboard')
+    expect(result.current.summary).toBe('The user is on the Dashboard screen.')
   })
 
   it('parses pr-detail: prefix', () => {

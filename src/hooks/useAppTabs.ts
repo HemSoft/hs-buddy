@@ -31,13 +31,29 @@ interface TabState {
   activeTabId: string | null
 }
 
+export const DASHBOARD_VIEW_ID = 'dashboard'
+
 export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
-  const [tabState, setTabState] = useState<TabState>({
-    tabs: [],
-    activeTabId: null,
+  const [tabState, setTabState] = useState<TabState>(() => {
+    const dashboardTab: Tab = {
+      id: 'tab-dashboard',
+      label: 'Dashboard',
+      viewId: DASHBOARD_VIEW_ID,
+    }
+    return {
+      tabs: [dashboardTab],
+      activeTabId: dashboardTab.id,
+    }
   })
   const { tabs, activeTabId } = tabState
   const nextTabIdRef = useRef(0)
+
+  // Fire analytics for the initial dashboard tab
+  const onViewOpenRef = useRef(onViewOpen)
+  onViewOpenRef.current = onViewOpen
+  useEffect(() => {
+    onViewOpenRef.current(DASHBOARD_VIEW_ID)
+  }, [])
 
   const openTab = useCallback(
     async (viewId: string) => {

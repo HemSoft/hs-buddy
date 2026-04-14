@@ -1,10 +1,17 @@
-import { describe, expect, it, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useDashboardCards, DASHBOARD_CARDS } from './useDashboardCards'
+
+const mockInvoke = vi.fn()
 
 describe('useDashboardCards', () => {
   beforeEach(() => {
-    localStorage.clear()
+    vi.clearAllMocks()
+    mockInvoke.mockResolvedValue({})
+    Object.defineProperty(window, 'ipcRenderer', {
+      configurable: true,
+      value: { invoke: mockInvoke },
+    })
   })
 
   it('returns all cards with defaults', () => {
@@ -31,35 +38,79 @@ describe('useDashboardCards', () => {
     expect(result.current.visibleCards.find(c => c.id === 'weather')).toBeUndefined()
   })
 
-  it('persists visibility to localStorage', () => {
+  it('persists visibility via IPC on toggle', () => {
     const { result } = renderHook(() => useDashboardCards())
 
     act(() => {
       result.current.toggleCard('weather')
     })
 
-    // Re-render hook to simulate re-mount
-    const { result: result2 } = renderHook(() => useDashboardCards())
-    expect(result2.current.isVisible('weather')).toBe(false)
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'config:set-dashboard-cards',
+      expect.objectContaining({ weather: false })
+    )
   })
 
-  it('merges stored prefs with new cards gracefully', () => {
-    // Store a partial config (missing some cards)
-    localStorage.setItem('dashboard:cards', JSON.stringify({ 'command-center': false }))
+  it('loads stored prefs from IPC on mount', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-dashboard-cards') {
+        return Promise.resolve({ 'command-center': false })
+      }
+      return Promise.resolve({})
+    })
 
     const { result } = renderHook(() => useDashboardCards())
-    expect(result.current.isVisible('command-center')).toBe(false)
+
+    await waitFor(() => {
+      expect(result.current.isVisible('command-center')).toBe(false)
+    })
     // Other cards should use their defaults
     expect(result.current.isVisible('workspace-pulse')).toBe(true)
     expect(result.current.isVisible('weather')).toBe(true)
   })
 
-  it('handles corrupt localStorage gracefully', () => {
-    localStorage.setItem('dashboard:cards', 'not-json')
+  it('handles corrupt IPC data gracefully', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-dashboard-cards') {
+        return Promise.resolve('not-an-object')
+      }
+      return Promise.resolve({})
+    })
 
     const { result } = renderHook(() => useDashboardCards())
-    // Should fall back to defaults
-    expect(result.current.visibleCards.length).toBe(DASHBOARD_CARDS.length)
+
+    // Wait for useEffect to run, then verify defaults are still in place
+    await waitFor(() => {
+      expect(result.current.visibleCards.length).toBe(DASHBOARD_CARDS.length)
+    })
+  })
+
+  it('ignores late IPC load after user toggles a card', async () => {
+    let resolveLoad: (value: unknown) => void
+    const loadPromise = new Promise(resolve => {
+      resolveLoad = resolve
+    })
+
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-dashboard-cards') return loadPromise
+      return Promise.resolve({})
+    })
+
+    const { result } = renderHook(() => useDashboardCards())
+
+    // User toggles before IPC load resolves
+    act(() => {
+      result.current.toggleCard('weather')
+    })
+    expect(result.current.isVisible('weather')).toBe(false)
+
+    // Late IPC load resolves with weather: true
+    await act(async () => {
+      resolveLoad!({ weather: true })
+    })
+
+    // User's toggle should NOT be overwritten
+    expect(result.current.isVisible('weather')).toBe(false)
   })
 
   it('toggling card back on restores visibility', () => {

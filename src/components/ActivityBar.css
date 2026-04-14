@@ -59,6 +59,12 @@
   outline: none;
 }
 
+.activity-bar-separator {
+  height: 1px;
+  margin: 4px 10px;
+  background-color: var(--border-secondary);
+}
+
 /* Custom Tooltip */
 .activity-bar-tooltip {
   position: fixed;

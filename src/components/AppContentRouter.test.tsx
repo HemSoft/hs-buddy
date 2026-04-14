@@ -202,6 +202,11 @@ describe('AppContentRouter', () => {
 
   it('renders WelcomePanel when activeViewId is null', () => {
     renderRouter(null)
+    expect(screen.getByText('Open a tab to get started')).toBeInTheDocument()
+  })
+
+  it('renders WelcomePanel for dashboard viewId', () => {
+    renderRouter('dashboard')
     expect(screen.getByText('WelcomePanel')).toBeInTheDocument()
   })
 

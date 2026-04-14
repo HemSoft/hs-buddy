@@ -163,6 +163,7 @@ function createConfig(overrides: Partial<AppConfig['ui']> = {}): AppConfig {
       showBookmarkedOnly: false,
       assistantOpen: false,
       favoriteUsers: [],
+      dashboardCards: {},
       ...overrides,
     },
     pr: { refreshInterval: 15, autoRefresh: true, recentlyMergedDays: 7 },

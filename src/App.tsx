@@ -20,7 +20,7 @@ import { useAssistantContext } from './hooks/useAssistantContext'
 import { useActiveGitHubAccount } from './hooks/useActiveGitHubAccount'
 import { useAppLayout } from './hooks/useAppLayout'
 import { useAppSessionStats } from './hooks/useAppSessionStats'
-import { useAppTabs } from './hooks/useAppTabs'
+import { useAppTabs, DASHBOARD_VIEW_ID } from './hooks/useAppTabs'
 import { DEFAULT_ASSISTANT_PANE_SIZE } from './appUtils'
 import './App.css'
 
@@ -91,6 +91,10 @@ function App() {
     [openTab]
   )
 
+  const handleHomeClick = useCallback(() => {
+    openTab(DASHBOARD_VIEW_ID)
+  }, [openTab])
+
   const assistantContext = useAssistantContext(activeViewId)
   const showLoading = !layoutLoaded || (migrationLoading && !migrationComplete)
 
@@ -109,7 +113,12 @@ function App() {
         </div>
       ) : (
         <div className="app-body">
-          <ActivityBar selectedSection={selectedSection} onSectionSelect={handleSectionSelect} />
+          <ActivityBar
+            selectedSection={selectedSection}
+            onSectionSelect={handleSectionSelect}
+            isDashboardActive={activeViewId === DASHBOARD_VIEW_ID}
+            onHomeClick={handleHomeClick}
+          />
           <Allotment
             onChange={handlePaneChange}
             defaultSizes={assistantOpen ? paneSizes : paneSizes.slice(0, 2)}

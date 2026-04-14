@@ -2,6 +2,7 @@ import { parsePRDetailRoute } from '../utils/prDetailView'
 import { parsePRReviewInfo } from './pr-review/PRReviewInfo'
 
 export const viewLabels: Record<string, string> = {
+  dashboard: 'Dashboard',
   'pr-my-prs': 'My PRs',
   'pr-needs-review': 'Needs Review',
   'pr-recently-merged': 'Recently Merged',

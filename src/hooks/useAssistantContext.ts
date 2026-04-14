@@ -83,7 +83,16 @@ export function useAssistantContext(activeViewId: string | null): AssistantConte
       return {
         viewType: 'welcome',
         viewId: null,
-        summary: 'The user is on the Welcome screen.',
+        summary: 'No tab is open.',
+        metadata: {},
+      }
+    }
+
+    if (activeViewId === 'dashboard') {
+      return {
+        viewType: 'welcome',
+        viewId: 'dashboard',
+        summary: 'The user is on the Dashboard screen.',
         metadata: {},
       }
     }

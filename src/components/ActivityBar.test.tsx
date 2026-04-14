@@ -3,20 +3,27 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ActivityBar } from './ActivityBar'
 
-function renderActivityBar(selectedSection = 'github') {
+function renderActivityBar(selectedSection = 'github', isDashboardActive = false) {
   const onSectionSelect = vi.fn()
+  const onHomeClick = vi.fn()
   const view = render(
-    <ActivityBar selectedSection={selectedSection} onSectionSelect={onSectionSelect} />
+    <ActivityBar
+      selectedSection={selectedSection}
+      onSectionSelect={onSectionSelect}
+      isDashboardActive={isDashboardActive}
+      onHomeClick={onHomeClick}
+    />
   )
 
-  return { ...view, onSectionSelect }
+  return { ...view, onSectionSelect, onHomeClick }
 }
 
 describe('ActivityBar', () => {
-  it('renders all 10 section buttons', () => {
+  it('renders all 10 section buttons plus home button', () => {
     renderActivityBar()
 
     const expectedLabels = [
+      'Dashboard',
       'GitHub',
       'Skills',
       'Tasks',
@@ -100,9 +107,10 @@ describe('ActivityBar', () => {
   it('applies the active class only to the selected section', () => {
     renderActivityBar('copilot')
 
-    const activeButtons = screen
+    const sectionButtons = screen
       .getAllByRole('button')
-      .filter(button => button.className.includes('active'))
+      .filter(button => button.getAttribute('aria-label') !== 'Dashboard')
+    const activeButtons = sectionButtons.filter(button => button.className.includes('active'))
 
     expect(activeButtons).toHaveLength(1)
     expect(activeButtons[0]).toBe(screen.getByRole('button', { name: 'Copilot' }))
@@ -110,15 +118,31 @@ describe('ActivityBar', () => {
 
   it('updates the active state when selectedSection changes', () => {
     const onSectionSelect = vi.fn()
+    const onHomeClick = vi.fn()
     const { rerender } = render(
-      <ActivityBar selectedSection="github" onSectionSelect={onSectionSelect} />
+      <ActivityBar selectedSection="github" onSectionSelect={onSectionSelect} onHomeClick={onHomeClick} />
     )
 
     expect(screen.getByRole('button', { name: 'GitHub' })).toHaveClass('active')
 
-    rerender(<ActivityBar selectedSection="tasks" onSectionSelect={onSectionSelect} />)
+    rerender(<ActivityBar selectedSection="tasks" onSectionSelect={onSectionSelect} onHomeClick={onHomeClick} />)
 
     expect(screen.getByRole('button', { name: 'GitHub' })).not.toHaveClass('active')
     expect(screen.getByRole('button', { name: 'Tasks' })).toHaveClass('active')
+  })
+
+  it('calls onHomeClick when dashboard button is clicked', async () => {
+    const user = userEvent.setup()
+    const { onHomeClick } = renderActivityBar()
+
+    await user.click(screen.getByRole('button', { name: 'Dashboard' }))
+
+    expect(onHomeClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks dashboard button as active when isDashboardActive is true', () => {
+    renderActivityBar('github', true)
+
+    expect(screen.getByRole('button', { name: 'Dashboard' })).toHaveClass('active')
   })
 })

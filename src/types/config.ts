@@ -45,6 +45,7 @@ export interface AppConfig {
     showBookmarkedOnly: boolean // Filter org repos to bookmarked only
     assistantOpen: boolean // Whether the Copilot Assistant pane is open
     favoriteUsers: string[] // Favorite user keys ('org/login') that sort to the top
+    dashboardCards: Record<string, boolean> // Dashboard card visibility (cardId → visible)
   }
   pr: {
     refreshInterval: number // minutes
@@ -182,6 +183,10 @@ export const configSchema: Schema<AppConfig> = {
         items: { type: 'string' },
         default: [],
       },
+      dashboardCards: {
+        type: 'object',
+        default: {},
+      },
     },
     required: [
       'theme',
@@ -200,6 +205,7 @@ export const configSchema: Schema<AppConfig> = {
       'showBookmarkedOnly',
       'assistantOpen',
       'favoriteUsers',
+      'dashboardCards',
     ],
   },
   pr: {
@@ -300,6 +306,7 @@ export const defaultConfig: AppConfig = {
     showBookmarkedOnly: false,
     assistantOpen: false,
     favoriteUsers: [],
+    dashboardCards: {},
   },
   pr: {
     refreshInterval: 15,

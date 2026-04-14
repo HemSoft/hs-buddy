@@ -9,6 +9,7 @@ import {
   Users,
   Clock,
   Bookmark,
+  Home,
 } from 'lucide-react'
 import { useState } from 'react'
 import './ActivityBar.css'
@@ -16,6 +17,8 @@ import './ActivityBar.css'
 interface ActivityBarProps {
   selectedSection: string
   onSectionSelect: (sectionId: string) => void
+  isDashboardActive?: boolean
+  onHomeClick?: () => void
 }
 
 const sections = [
@@ -31,7 +34,7 @@ const sections = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-export function ActivityBar({ selectedSection, onSectionSelect }: ActivityBarProps) {
+export function ActivityBar({ selectedSection, onSectionSelect, isDashboardActive, onHomeClick }: ActivityBarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number } | null>(null)
 
@@ -49,6 +52,16 @@ export function ActivityBar({ selectedSection, onSectionSelect }: ActivityBarPro
   return (
     <div className="activity-bar">
       <div className="activity-bar-items">
+        <button
+          className={`activity-bar-item ${isDashboardActive ? 'active' : ''}`}
+          onClick={onHomeClick}
+          onMouseEnter={e => handleMouseEnter('home', e)}
+          onMouseLeave={handleMouseLeave}
+          aria-label="Dashboard"
+        >
+          <Home size={24} />
+        </button>
+        <div className="activity-bar-separator" />
         {sections.map(section => {
           const Icon = section.icon
           const isActive = selectedSection === section.id
@@ -71,7 +84,7 @@ export function ActivityBar({ selectedSection, onSectionSelect }: ActivityBarPro
       {/* Custom Tooltip */}
       {hoveredItem && tooltipPosition && (
         <div className="activity-bar-tooltip" style={{ top: tooltipPosition.top }}>
-          {sections.find(s => s.id === hoveredItem)?.label}
+          {hoveredItem === 'home' ? 'Dashboard' : sections.find(s => s.id === hoveredItem)?.label}
         </div>
       )}
     </div>

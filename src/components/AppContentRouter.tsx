@@ -91,11 +91,21 @@ export function AppContentRouter({
 }: AppContentRouterProps) {
   if (!activeViewId) {
     return (
-      <WelcomePanel prCounts={prCounts} onNavigate={onNavigate} onSectionChange={onSectionChange} />
+      <div className="content-placeholder">
+        <div className="content-body" style={{ textAlign: 'center', paddingTop: '120px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+            Open a tab to get started
+          </p>
+        </div>
+      </div>
     )
   }
 
   switch (activeViewId) {
+    case 'dashboard':
+      return (
+        <WelcomePanel prCounts={prCounts} onNavigate={onNavigate} onSectionChange={onSectionChange} />
+      )
     case 'pr-my-prs':
     case 'pr-needs-review':
     case 'pr-recently-merged':

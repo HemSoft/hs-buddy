@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.710] - 2026-04-15
+
+### Fixed
+
+- Restore synchronous dashboard card persistence via localStorage cache
+- Harden dashboard card persistence against malformed data and race conditions
+- Resync from authoritative store on save failure
+- Improve test coverage to meet CI thresholds
+- Remove side effects from useState initializer and state updater
+- Add unmount guard to async resync path in useDashboardCards
+
 ## [0.1.709] - 2026-04-15
 
 ### Fixed

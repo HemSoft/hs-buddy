@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useIsMounted } from './useIsMounted'
 
 export interface DashboardCardDef {
   id: string
@@ -16,6 +17,8 @@ export const DASHBOARD_CARDS: DashboardCardDef[] = [
   { id: 'finance', title: 'Finance', defaultVisible: true, span: 1 },
 ]
 
+const CACHE_KEY = 'dashboard:cards'
+
 type CardVisibility = Record<string, boolean>
 
 function buildDefaults(): CardVisibility {
@@ -26,7 +29,36 @@ function buildDefaults(): CardVisibility {
   return defaults
 }
 
-function sanitize(raw: unknown): CardVisibility | null {
+/** Read cached visibility from localStorage — pure, no side effects (StrictMode safe). */
+function readCache(): CardVisibility | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    return sanitize(parsed)
+  } catch {
+    return null
+  }
+}
+
+/** Write visibility to localStorage cache. */
+function writeCache(vis: CardVisibility): void {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(vis))
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+function clearCache(): void {
+  try {
+    localStorage.removeItem(CACHE_KEY)
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+export function sanitize(raw: unknown): CardVisibility | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const result: CardVisibility = {}
   for (const card of DASHBOARD_CARDS) {
@@ -43,9 +75,32 @@ function mergeWithDefaults(stored: CardVisibility | null): CardVisibility {
 }
 
 export function useDashboardCards() {
-  const [visibility, setVisibility] = useState<CardVisibility>(buildDefaults)
+  // Synchronous init from localStorage cache — correct from the first render
+  const [visibility, setVisibility] = useState<CardVisibility>(() => mergeWithDefaults(readCache()))
+  const visibilityRef = useRef(visibility)
   const mutatedRef = useRef(false)
+  const toggleVersionRef = useRef(0)
+  const mountedRef = useIsMounted()
 
+  // Keep ref in sync with state for use outside updater functions
+  visibilityRef.current = visibility
+
+  // Deferred cache cleanup: clear invalid localStorage entries after mount.
+  // Keeps the useState initializer side-effect free (StrictMode safe).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY)
+      if (raw !== null && sanitize(JSON.parse(raw)) === null) {
+        console.warn('[useDashboardCards] Cleared invalid cached visibility on mount')
+        clearCache()
+      }
+    } catch (err) {
+      console.warn('[useDashboardCards] Failed to parse cached visibility:', err)
+      clearCache()
+    }
+  }, [])
+
+  // Async IPC load from electron-store (authoritative source)
   useEffect(() => {
     let cancelled = false
     window.ipcRenderer
@@ -53,11 +108,28 @@ export function useDashboardCards() {
       .then((raw: unknown) => {
         if (cancelled || mutatedRef.current) return
         const sanitized = sanitize(raw)
-        if (sanitized) {
-          setVisibility(mergeWithDefaults(sanitized))
+        // If sanitize rejects the data, only proceed when raw was literally {}
+        // (meaning "all defaults"). Otherwise treat as load failure to avoid
+        // overwriting a valid cache with defaults from malformed data.
+        if (sanitized === null) {
+          const isEmptyObject =
+            typeof raw === 'object' &&
+            raw !== null &&
+            !Array.isArray(raw) &&
+            Object.keys(raw as Record<string, unknown>).length === 0
+          if (!isEmptyObject) {
+            console.warn('[useDashboardCards] Malformed IPC data, keeping cached state')
+            return
+          }
         }
+        const merged = mergeWithDefaults(sanitized)
+        writeCache(merged)
+        visibilityRef.current = merged
+        setVisibility(merged)
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        console.warn('[useDashboardCards] Failed to load from config store:', err)
+      })
     return () => {
       cancelled = true
     }
@@ -65,14 +137,66 @@ export function useDashboardCards() {
 
   const isVisible = useCallback((cardId: string) => visibility[cardId] !== false, [visibility])
 
-  const toggleCard = useCallback((cardId: string) => {
-    mutatedRef.current = true
-    setVisibility(prev => {
+  const toggleCard = useCallback(
+    (cardId: string) => {
+      mutatedRef.current = true
+      const currentVersion = ++toggleVersionRef.current
+      const prev = visibilityRef.current
       const next = { ...prev, [cardId]: !prev[cardId] }
-      window.ipcRenderer.invoke('config:set-dashboard-cards', next).catch(() => {})
-      return next
-    })
-  }, [])
+
+      // Update ref immediately so rapid toggles read the latest state
+      visibilityRef.current = next
+      setVisibility(next)
+      writeCache(next)
+
+      window.ipcRenderer.invoke('config:set-dashboard-cards', next).catch((err: unknown) => {
+        console.warn('[useDashboardCards] Failed to save to config store:', err)
+        // Only resync if no newer toggle has occurred since this one and component is still mounted
+        if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+        // Re-read the authoritative store so the UI converges back
+        window.ipcRenderer
+          .invoke('config:get-dashboard-cards')
+          .then((raw: unknown) => {
+            if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+            const sanitized = sanitize(raw)
+            if (sanitized === null) {
+              const isEmptyObject =
+                typeof raw === 'object' &&
+                raw !== null &&
+                !Array.isArray(raw) &&
+                Object.keys(raw as Record<string, unknown>).length === 0
+              if (!isEmptyObject) {
+                console.warn(
+                  '[useDashboardCards] Malformed IPC data after save failure, reverting local state'
+                )
+                mutatedRef.current = false
+                writeCache(prev)
+                visibilityRef.current = prev
+                setVisibility(prev)
+                return
+              }
+            }
+            const merged = mergeWithDefaults(sanitized)
+            mutatedRef.current = false
+            writeCache(merged)
+            visibilityRef.current = merged
+            setVisibility(merged)
+          })
+          .catch((reloadErr: unknown) => {
+            if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+            console.warn(
+              '[useDashboardCards] Failed to reload config store after save failure:',
+              reloadErr
+            )
+            mutatedRef.current = false
+            writeCache(prev)
+            visibilityRef.current = prev
+            setVisibility(prev)
+          })
+      })
+    },
+    [mountedRef]
+  )
 
   const visibleCards = DASHBOARD_CARDS.filter(c => isVisible(c.id))
 

@@ -588,7 +588,7 @@ jobs:
 
       - name: Upload React Doctor report
         if: steps.scan.outputs.has_react == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: react-doctor-report
           path: .tmp/react-doctor.txt

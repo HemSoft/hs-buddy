@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.707] - 2026-04-15
+
+### Changed
+
+- Migrate to React 19
+
 ## [0.1.706] - 2026-04-15
 
 ### Added

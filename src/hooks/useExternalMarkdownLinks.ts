@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
 
-export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement>) {
+export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const container = containerRef.current
     if (!container) {

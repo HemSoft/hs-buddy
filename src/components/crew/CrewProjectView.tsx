@@ -28,7 +28,7 @@ interface SessionStarterProps {
 interface ConversationHistoryProps {
   conversationHistory: CrewChatMessage[]
   sending: boolean
-  chatEndRef: RefObject<HTMLDivElement>
+  chatEndRef: RefObject<HTMLDivElement | null>
 }
 
 interface ChangedFilesPanelProps {

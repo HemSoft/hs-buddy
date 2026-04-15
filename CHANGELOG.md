@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.709] - 2026-04-15
+
+### Fixed
+
+- Remove dependency-review job (requires GHAS not enabled on repo)
+
+## [0.1.708] - 2026-04-15
+
+### Fixed
+
+- Replace oven-sh/setup-bun with actions/setup-node in security workflow
+
 ## [0.1.707] - 2026-04-15
 
 ### Changed

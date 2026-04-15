@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.706] - 2026-04-15
+
+### Added
+
+- Migrate ESLint 8 to ESLint 9 with flat config
+
+### Changed
+
+- Improve branch coverage to 80%+ for scorecard Gold tier
+
+### Fixed
+
+- Align workflow action versions with main (v6/v7)
+- Remove shebangs from BOM-encoded PowerShell scripts
+- Pin GitHub Actions to immutable commit SHAs
+- Move mid-file imports to top in RepoNode.test.tsx
+- Correct misleading test names and assertions for review feedback
+
 ## [0.1.705] - 2026-04-14
 
 ### Changed
@@ -36,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve typecheck errors in test files
 - Stabilize test mocks and address PR review findings
 - Address PR review comments on security and CI workflows
+- Add UTF-8 BOM to remaining 19 PowerShell scripts
+- Resolve PSScriptAnalyzer ParseError in loop-state.ps1
+- Ratchet coverage thresholds to current floor
 
 ## [0.1.704] - 2026-04-14
 

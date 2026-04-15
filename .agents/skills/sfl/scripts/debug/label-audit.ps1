@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Audit GitHub labels for consistency, sprawl, and simplification opportunities.
 .DESCRIPTION

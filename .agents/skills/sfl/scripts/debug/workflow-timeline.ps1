@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Build a chronological timeline of workflow runs touching a specific PR.
 .DESCRIPTION

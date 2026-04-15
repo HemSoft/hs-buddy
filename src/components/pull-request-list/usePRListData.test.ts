@@ -478,4 +478,166 @@ describe('usePRListData', () => {
     expect(result.current.handleCopyLink).toBeDefined()
     expect(result.current.handleApprove).toBeDefined()
   })
+
+  it('skips approve if PR is already approved', async () => {
+    const pr = makePR({ iApproved: true })
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await act(async () => {
+      await result.current.handleApprove(pr)
+    })
+    expect(mockApprovePullRequest).not.toHaveBeenCalled()
+  })
+
+  it('handles approve failure gracefully', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockApprovePullRequest.mockRejectedValueOnce(new Error('forbidden'))
+    const pr = makePR()
+    dataCache.set('my-prs', [pr], Date.now() - 16 * 60_000)
+    mockFetchMyPRs.mockResolvedValue([pr])
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.handleApprove(pr)
+    })
+    expect(result.current.approving).toBeNull()
+    errorSpy.mockRestore()
+  })
+
+  it('handleBookmarkRepo is a no-op without context menu', async () => {
+    const createBookmark = vi.fn()
+    mockUseRepoBookmarkMutations.mockReturnValue({ create: createBookmark, remove: vi.fn() })
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await act(async () => {
+      await result.current.handleBookmarkRepo()
+    })
+    expect(createBookmark).not.toHaveBeenCalled()
+  })
+
+  it('handleAIReview is a no-op without context menu', async () => {
+    const listener = vi.fn()
+    window.addEventListener('pr-review:open', listener as EventListener)
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await act(async () => {
+      await result.current.handleAIReview()
+    })
+    expect(listener).not.toHaveBeenCalled()
+    window.removeEventListener('pr-review:open', listener as EventListener)
+  })
+
+  it('handleRequestCopilotReview requests review via GitHub client', async () => {
+    const mockRequestCopilotReview = vi.fn().mockResolvedValue(undefined)
+    mockGitHubClient.mockImplementation(function MockGitHubClient() {
+      return {
+        fetchMyPRs: mockFetchMyPRs,
+        fetchNeedsReview: mockFetchNeedsReview,
+        fetchRecentlyMerged: mockFetchRecentlyMerged,
+        fetchNeedANudge: mockFetchNeedANudge,
+        approvePullRequest: mockApprovePullRequest,
+        requestCopilotReview: mockRequestCopilotReview,
+      }
+    })
+
+    const pr = makePR()
+    dataCache.set('my-prs', [pr], Date.now())
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 1, clientY: 2 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    await act(async () => {
+      await result.current.handleRequestCopilotReview()
+    })
+
+    expect(mockRequestCopilotReview).toHaveBeenCalledWith('relias-engineering', 'hs-buddy', 420)
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('handleRequestCopilotReview is a no-op without context menu', async () => {
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await act(async () => {
+      await result.current.handleRequestCopilotReview()
+    })
+    // No error thrown, just silently returns
+  })
+
+  it('handleCopyLink is a no-op without context menu', async () => {
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await act(async () => {
+      await result.current.handleCopyLink()
+    })
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
+  })
+
+  it('getTitle returns default for unknown mode', () => {
+    // Cast to bypass TypeScript union type and exercise the switch default branch
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { result } = renderHook(() => usePRListData('unknown-mode' as any))
+    expect(result.current.getTitle()).toBe('Pull Requests')
+  })
+
+  it('handleAddressComments is a no-op without context menu', () => {
+    const promptListener = vi.fn()
+    window.addEventListener('assistant:send-prompt', promptListener as EventListener)
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    act(() => {
+      result.current.handleAddressComments()
+    })
+    expect(promptListener).not.toHaveBeenCalled()
+    window.removeEventListener('assistant:send-prompt', promptListener as EventListener)
+  })
+
+  it('handleApproveFromMenu is a no-op without context menu', async () => {
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await act(async () => {
+      await result.current.handleApproveFromMenu()
+    })
+    expect(mockApprovePullRequest).not.toHaveBeenCalled()
+  })
+
+  it('shows refreshing state for existing data on stale cache', async () => {
+    const cachedPr = makePR({ id: 1 })
+    dataCache.set('my-prs', [cachedPr], Date.now() - 16 * 60_000)
+    mockFetchMyPRs.mockResolvedValue([cachedPr])
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    // Should show refreshing (not loading) since we have existing data
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('handles progress callback with done status', async () => {
+    mockFetchMyPRs.mockImplementation(async (progressCb?: (p: unknown) => void) => {
+      progressCb?.({
+        currentAccount: 1,
+        totalAccounts: 1,
+        accountName: 'alice',
+        org: 'test-org',
+        status: 'done',
+        prsFound: 5,
+        totalPrsFound: 0,
+      })
+      return [makePR()]
+    })
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+  })
+
+  it('skips PR settings loading state', async () => {
+    mockUsePRSettings.mockReturnValue({
+      recentlyMergedDays: 14,
+      refreshInterval: 15,
+      loading: true,
+    })
+
+    renderHook(() => usePRListData('my-prs'))
+    expect(mockFetchMyPRs).not.toHaveBeenCalled()
+  })
 })

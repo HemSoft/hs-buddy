@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-# Disables a workflow by name or ID.
+﻿# Disables a workflow by name or ID.
 
 param(
     [Parameter(Mandatory, Position = 0)]

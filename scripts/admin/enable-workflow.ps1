@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-# Enables a workflow by name or ID.
+﻿# Enables a workflow by name or ID.
 
 param(
     [Parameter(Mandatory, Position = 0)]

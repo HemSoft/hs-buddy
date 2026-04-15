@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     Catalog all workflows with type classification (agentic vs standard).
 .DESCRIPTION

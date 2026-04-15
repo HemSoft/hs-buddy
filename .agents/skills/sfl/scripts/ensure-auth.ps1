@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Ensures the correct gh CLI account is active for the target repo.
 .DESCRIPTION

@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     Stage 2 — Enable Reporting Workflows
 

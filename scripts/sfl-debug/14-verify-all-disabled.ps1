@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     Stage 14 — Verify All Disabled
 

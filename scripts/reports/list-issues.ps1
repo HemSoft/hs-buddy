@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-# Lists open issues with status, created date, and labels.
+﻿# Lists open issues with status, created date, and labels.
 
 param(
     [ValidateSet("open", "closed", "all")]

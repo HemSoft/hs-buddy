@@ -1,4 +1,4 @@
-$raw = try { [Console]::In.ReadToEnd() } catch { '' }
+﻿$raw = try { [Console]::In.ReadToEnd() } catch { '' }
 if ($raw) {
     try {
         $json = $raw | ConvertFrom-Json

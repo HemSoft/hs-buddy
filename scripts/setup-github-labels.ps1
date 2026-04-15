@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Creates the Set it Free label taxonomy in a GitHub repository.
 

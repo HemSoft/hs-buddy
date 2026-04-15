@@ -81,7 +81,7 @@ export function registerCopilotHandlers(): void {
       } catch (error) {
         const errorMessage = getErrorMessage(error)
         console.error('[CopilotHandlers] chat-send failed:', errorMessage)
-        throw new Error(errorMessage)
+        throw new Error(errorMessage, { cause: error })
       }
     }
   )
@@ -101,7 +101,7 @@ export function registerCopilotHandlers(): void {
       } catch (error) {
         const errorMessage = getErrorMessage(error)
         console.error('[CopilotHandlers] quick-prompt failed:', errorMessage)
-        throw new Error(errorMessage)
+        throw new Error(errorMessage, { cause: error })
       }
     }
   )

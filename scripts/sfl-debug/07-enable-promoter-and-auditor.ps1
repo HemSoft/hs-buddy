@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     Stage 7 — Enable SFL PR Router + SFL Auditor
 

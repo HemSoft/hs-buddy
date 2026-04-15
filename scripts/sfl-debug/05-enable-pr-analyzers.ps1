@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     Stage 5 — Enable SFL Analyzers A/B/C
 

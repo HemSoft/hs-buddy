@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
   Debug a GitHub Actions agentic workflow run by extracting key information
   from the logs in a structured, targeted way.

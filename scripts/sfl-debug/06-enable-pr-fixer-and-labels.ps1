@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     Stage 6 — Enable PR Fixer + PR Label Actions
 

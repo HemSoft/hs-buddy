@@ -1,4 +1,4 @@
-# Start hs-buddy with Aspire orchestration in DEBUG mode
+﻿# Start hs-buddy with Aspire orchestration in DEBUG mode
 # Launches Convex dev server + Vite/Electron with CDP remote debugging
 #
 # Usage:

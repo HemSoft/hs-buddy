@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Full ecosystem snapshot — issues, PRs, labels, recent workflow runs.
 .DESCRIPTION

@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-# Lists pull requests with status, created/updated dates, and labels.
+﻿# Lists pull requests with status, created/updated dates, and labels.
 
 param(
     [ValidateSet("open", "closed", "merged", "all")]

@@ -261,4 +261,160 @@ describe('usePRReviewData', () => {
       expect(result.current.prompt).toContain(defaultPrInfo.prUrl)
     })
   })
+
+  it('handleRunNow is a no-op while already submitting', async () => {
+    let resolveExecute: (v: unknown) => void
+    mockCopilotExecute.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveExecute = resolve
+        })
+    )
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // Start first run
+    let firstRun: Promise<void>
+    act(() => {
+      firstRun = result.current.handleRunNow()
+    })
+
+    // Try second run while first is in progress
+    await act(async () => {
+      await result.current.handleRunNow()
+    })
+
+    // Only one execute call
+    expect(mockCopilotExecute).toHaveBeenCalledTimes(1)
+
+    // Resolve the first run
+    resolveExecute!({ success: true, resultId: 'r1' })
+    await act(async () => {
+      await firstRun!
+    })
+  })
+
+  it('handleSchedule is a no-op while already submitting', async () => {
+    vi.useFakeTimers()
+    let resolveExecute: (v: unknown) => void
+    mockCopilotExecute.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveExecute = resolve
+        })
+    )
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // Start first handleRunNow to set submitting=true
+    let firstRun: Promise<void>
+    act(() => {
+      firstRun = result.current.handleRunNow()
+    })
+
+    // handleSchedule should be a no-op
+    await act(async () => {
+      await result.current.handleSchedule()
+    })
+
+    // Still only one call
+    expect(mockCopilotExecute).toHaveBeenCalledTimes(1)
+
+    resolveExecute!({ success: true, resultId: 'r1' })
+    await act(async () => {
+      await firstRun!
+    })
+    vi.useRealTimers()
+  })
+
+  it('handleSaveAsDefault sets error on failure', async () => {
+    // First invoke is the template load on mount, second is the save
+    mockIpcInvoke.mockResolvedValueOnce('').mockRejectedValueOnce(new Error('save failed'))
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // Wait for mount effect to complete
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 0))
+    })
+
+    await act(async () => {
+      await result.current.handleSaveAsDefault()
+    })
+
+    expect(result.current.error).toBe('save failed')
+    expect(result.current.savingDefault).toBe(false)
+  })
+
+  it('handleRunNow uses fallback error when result has no error message', async () => {
+    mockCopilotExecute.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    await act(async () => {
+      await result.current.handleRunNow()
+    })
+
+    expect(result.current.error).toBe('Failed to start PR review')
+  })
+
+  it('buildReviewSnapshot returns undefined when prInfo is incomplete', async () => {
+    const incompletePrInfo: PRReviewInfo = {
+      prUrl: 'https://github.com/org/repo/pull/42',
+      prTitle: 'Test',
+      prNumber: 0,
+      repo: '',
+      org: '',
+      author: 'octocat',
+    }
+    const { result } = renderHook(() => usePRReviewData(incompletePrInfo))
+
+    await act(async () => {
+      await result.current.handleRunNow()
+    })
+
+    expect(mockFetchPRBranches).not.toHaveBeenCalled()
+  })
+
+  it('buildReviewSnapshot handles fetch errors gracefully', async () => {
+    mockFetchPRBranches.mockRejectedValueOnce(new Error('fetch failed'))
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    await act(async () => {
+      await result.current.handleRunNow()
+    })
+
+    // Should still have submitted the review despite snapshot failure
+    expect(mockCopilotExecute).toHaveBeenCalled()
+    expect(result.current.submitting).toBe(false)
+  })
+
+  it('uses empty account when no accounts match and no configured account', () => {
+    mockUseCopilotSettings.mockReturnValue({ model: 'claude-sonnet-4.5', ghAccount: '' })
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'bob', org: 'other-org' }],
+      loading: false,
+    })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+    expect(result.current.account).toBe('')
+  })
+
+  it('uses default model when no configured model', () => {
+    mockUseCopilotSettings.mockReturnValue({ model: '', ghAccount: 'default-account' })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+    expect(result.current.model).toBe('claude-sonnet-4.5')
+  })
+
+  it('handleSchedule succeeds when snapshot fetch fails internally', async () => {
+    vi.useFakeTimers()
+    mockFetchPRBranches.mockRejectedValueOnce(new Error('snapshot fail'))
+    // buildReviewSnapshot catches errors internally and returns undefined,
+    // so handleSchedule still completes successfully with a null snapshot
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    await act(async () => {
+      await result.current.handleSchedule()
+    })
+
+    expect(result.current.scheduled).toBe(true)
+    expect(result.current.submitting).toBe(false)
+    expect(result.current.error).toBeNull()
+    vi.useRealTimers()
+  })
 })

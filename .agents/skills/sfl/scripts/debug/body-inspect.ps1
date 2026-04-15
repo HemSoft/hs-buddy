@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Inspect PR body structure, detect bloat, and measure content health.
 .DESCRIPTION

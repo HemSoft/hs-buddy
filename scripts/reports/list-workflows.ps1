@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-# Lists all workflows with name, status, last run result, and elapsed time.
+﻿# Lists all workflows with name, status, last run result, and elapsed time.
 
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Waits, then checks GitHub Actions for failures and attempts remediation.
 .DESCRIPTION

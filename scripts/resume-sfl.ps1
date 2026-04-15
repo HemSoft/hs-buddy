@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-# Re-enables all SFL scheduled workflows.
+﻿# Re-enables all SFL scheduled workflows.
 
 
 $InformationPreference = 'Continue'

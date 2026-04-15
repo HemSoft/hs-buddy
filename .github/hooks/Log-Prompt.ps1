@@ -1,4 +1,4 @@
-# Log-Prompt.ps1 - Captures the actual prompt text from UserPromptSubmit stdin JSON
+﻿# Log-Prompt.ps1 - Captures the actual prompt text from UserPromptSubmit stdin JSON
 $raw = try { [Console]::In.ReadToEnd() } catch { '' }
 
 $prompt = 'N/A'

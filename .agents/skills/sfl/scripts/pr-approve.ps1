@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Submits an approval review for a pull request by number.
 .DESCRIPTION

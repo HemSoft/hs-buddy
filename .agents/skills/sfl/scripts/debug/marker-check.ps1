@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Check all open PRs for idempotency markers.
 .DESCRIPTION

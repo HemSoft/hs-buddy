@@ -20,10 +20,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: 22
 
@@ -81,7 +81,7 @@ jobs:
 
       - name: Create or refresh SFL issue
         id: create_issue
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           HAS_REACT: ${{ steps.scan.outputs.has_react }}
           SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit_code }}
@@ -571,7 +571,7 @@ jobs:
 
       - name: Dispatch SFL Gate
         if: steps.create_issue.outputs.issue_number != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           ISSUE_NUMBER: ${{ steps.create_issue.outputs.issue_number }}
         with:
@@ -588,7 +588,7 @@ jobs:
 
       - name: Upload React Doctor report
         if: steps.scan.outputs.has_react == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: react-doctor-report
           path: .tmp/react-doctor.txt

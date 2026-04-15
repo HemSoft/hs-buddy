@@ -124,9 +124,8 @@ if (!changelog.includes(`## [${version}]`)) {
 // An empty header is: ## [x.y.z] - date\n followed by whitespace then another ## [ or EOF
 // But NOT the current version header (we just created it and are about to fill it)
 const emptyHeaderRegex = /## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}\n\s*(?=## \[|$)/g
-let cleaned = changelog
 const removedVersions: string[] = []
-cleaned = changelog.replace(emptyHeaderRegex, (fullMatch, ver) => {
+const cleaned = changelog.replace(emptyHeaderRegex, (fullMatch, ver) => {
   if (ver === version) return fullMatch // Keep the current version
   removedVersions.push(ver)
   return ''

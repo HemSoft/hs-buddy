@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Creates an SFL-ready issue with the labels needed for pipeline pickup.
 .DESCRIPTION

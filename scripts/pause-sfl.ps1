@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-# Disables all SFL scheduled workflows to stop overnight runs.
+﻿# Disables all SFL scheduled workflows to stop overnight runs.
 
 
 $InformationPreference = 'Continue'

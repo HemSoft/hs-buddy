@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     SFL Health Check — automated pass/fail report on pipeline health.
 .DESCRIPTION

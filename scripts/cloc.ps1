@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
   Count lines of code excluding generated/vendored/build artifacts.
 #>

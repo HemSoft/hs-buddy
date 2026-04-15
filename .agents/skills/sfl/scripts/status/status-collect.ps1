@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Repo = "relias-engineering/hs-buddy",
     [string]$LastCheckUtc,

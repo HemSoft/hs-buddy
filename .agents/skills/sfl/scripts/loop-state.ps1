@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#
+﻿<#
 .SYNOPSIS
     Shows the current state of the SFL loop — what's being processed right now.
 .DESCRIPTION
@@ -85,7 +84,7 @@ if ($agentPRs -and $agentPRs.Count -gt 0) {
             $cIcon = if ($analyzerC) { [char]0x2705 } else { [char]0x23F3 }
             $iIcon = if ($issueProcessor) { [char]0x2705 } else { [char]0x23F3 }
 
-            Write-Information "${DGray}    Cycle $cycle: A=$aIcon B=$bIcon C=$cIcon Implementer=$iIcon${Reset}"
+            Write-Information "${DGray}    Cycle ${cycle}: A=$aIcon B=$bIcon C=$cIcon Implementer=$iIcon${Reset}"
 
             # Check verdicts
             if ($analyzerA -and $analyzerB -and $analyzerC) {

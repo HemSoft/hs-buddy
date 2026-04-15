@@ -1,5 +1,4 @@
-#!/usr/bin/env pwsh
-<#!
+﻿<#!
 .SYNOPSIS
     Runs React Doctor with UTF-8 output and saves report artifacts in the repo.
 

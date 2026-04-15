@@ -1,4 +1,4 @@
-# Start Convex dev server
+﻿# Start Convex dev server
 # Dashboard available at http://127.0.0.1:6790/
 # Local backend state: ~/.convex/anonymous-convex-backend-state/anonymous-hs-buddy/
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Deep forensic analysis of a single PR in the agentic pipeline.
 .DESCRIPTION

@@ -270,14 +270,18 @@ export function registerGitHubHandlers(): void {
 
       // Provide helpful error message
       if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
-        throw new Error('GitHub CLI (gh) is not installed. Install from: https://cli.github.com/')
+        throw new Error('GitHub CLI (gh) is not installed. Install from: https://cli.github.com/', {
+          cause: error,
+        })
       } else if (errorMessage.includes('not logged in')) {
         throw new Error(
-          `Not logged in to GitHub CLI${username ? ` for account '${username}'` : ''}. Run: gh auth login`
+          `Not logged in to GitHub CLI${username ? ` for account '${username}'` : ''}. Run: gh auth login`,
+          { cause: error }
         )
       } else if (errorMessage.includes('no account found')) {
         throw new Error(
-          `GitHub account '${username}' not found in GitHub CLI. Run: gh auth login -h github.com`
+          `GitHub account '${username}' not found in GitHub CLI. Run: gh auth login -h github.com`,
+          { cause: error }
         )
       }
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Dispatches SFL Analyzer A for a pull request, starting the A→B→C chain.
 .DESCRIPTION

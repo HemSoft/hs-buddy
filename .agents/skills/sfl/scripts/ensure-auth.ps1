@@ -20,6 +20,9 @@ param(
     [switch]$Quiet
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+
 # Org -> required gh account mapping
 $OrgAccountMap = @{
     "relias-engineering" = "fhemmerrelias"
@@ -47,17 +50,17 @@ if ($authOutput -match 'account (\S+) \(keyring\)\s*\n\s*- Active account: true'
 
 if ($currentAccount -eq $requiredAccount) {
     if (-not $Quiet) {
-        Write-Host "  gh auth: $currentAccount (correct for $org)" -ForegroundColor Green
+        Write-Information "${esc}[92m  gh auth: $currentAccount (correct for $org)${esc}[0m"
     }
     return $true
 }
 
 # Need to switch
-Write-Host "  gh auth: switching $currentAccount -> $requiredAccount (for $org)" -ForegroundColor Yellow
+Write-Information "${esc}[93m  gh auth: switching $currentAccount -> $requiredAccount (for $org)${esc}[0m"
 $switchResult = gh auth switch --user $requiredAccount 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to switch to $requiredAccount : $switchResult"
     return $false
 }
-Write-Host "  gh auth: now $requiredAccount" -ForegroundColor Green
+Write-Information "${esc}[92m  gh auth: now $requiredAccount${esc}[0m"
 return $true

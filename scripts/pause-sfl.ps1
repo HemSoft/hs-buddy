@@ -1,6 +1,9 @@
 #!/usr/bin/env pwsh
 # Disables all SFL scheduled workflows to stop overnight runs.
 
+
+$InformationPreference = 'Continue'
+$esc = [char]27
 $repo = "relias-engineering/hs-buddy"
 
 $workflows = @(
@@ -18,20 +21,20 @@ $workflows = @(
     "PR Label Actions"
 )
 
-Write-Host "Pausing all SFL workflows..." -ForegroundColor Yellow
+Write-Information "${esc}[93mPausing all SFL workflows...${esc}[0m"
 
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'disabled_manually') {
-        Write-Host "  Already disabled: $wf" -ForegroundColor DarkGray
+        Write-Information "${esc}[90m  Already disabled: $wf${esc}[0m"
     } else {
         gh workflow disable $wf --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Disabled: $wf" -ForegroundColor DarkGray
+            Write-Information "${esc}[90m  Disabled: $wf${esc}[0m"
         } else {
-            Write-Host "  Failed:   $wf" -ForegroundColor Red
+            Write-Information "${esc}[91m  Failed:   $wf${esc}[0m"
         }
     }
 }
 
-Write-Host "`nAll SFL workflows paused." -ForegroundColor Green
+Write-Information "${esc}[92m`nAll SFL workflows paused.${esc}[0m"

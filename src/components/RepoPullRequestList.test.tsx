@@ -5,12 +5,12 @@ import { RepoPullRequestList } from './RepoPullRequestList'
 const mockEnqueue = vi.fn()
 const mockOpenExternal = vi.fn()
 
-vi.mock('../hooks/useConfig', () => ({
-  useGitHubAccounts: () => ({
-    accounts: [{ username: 'alice', org: 'test-org' }],
-    loading: false,
-  }),
-}))
+vi.mock('../hooks/useConfig', () => {
+  const accounts = [{ username: 'alice', org: 'test-org' }]
+  return {
+    useGitHubAccounts: () => ({ accounts, loading: false }),
+  }
+})
 
 vi.mock('../hooks/useTaskQueue', () => ({
   useTaskQueue: () => ({ enqueue: mockEnqueue }),

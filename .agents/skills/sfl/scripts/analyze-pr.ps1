@@ -27,12 +27,14 @@ param(
     [string]$Repo = "relias-engineering/hs-buddy"
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+
 $ErrorActionPreference = 'Stop'
 $esc = [char]27
 $Cyan   = "${esc}[36m"
 $Green  = "${esc}[32m"
 $Red    = "${esc}[31m"
-$Yellow = "${esc}[33m"
 $White  = "${esc}[37m"
 $DGray  = "${esc}[90m"
 $Reset  = "${esc}[0m"
@@ -44,40 +46,40 @@ try {
     $authOk = $false
 }
 if (-not $authOk) {
-    Write-Host "${Red}Auth preflight failed.${Reset}" -ForegroundColor Red
+    Write-Information "${esc}[91m${Red}Auth preflight failed.${Reset}${esc}[0m"
     return $false
 }
 
 # --- Resolve PR ---
 if ($PRNumber -le 0) {
-    Write-Host "${Cyan}No PR number supplied. Finding oldest open draft PR with agent:pr label...${Reset}"
+    Write-Information "${Cyan}No PR number supplied. Finding oldest open draft PR with agent:pr label...${Reset}"
     $PRNumber = gh pr list --repo $Repo --state open --label "agent:pr" --json number,isDraft,createdAt `
         --jq '[.[] | select(.isDraft == true)] | sort_by(.createdAt) | .[0].number // empty' 2>&1
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$PRNumber")) {
-        Write-Host "${Red}No open draft PR with agent:pr label found.${Reset}" -ForegroundColor Red
+        Write-Information "${esc}[91m${Red}No open draft PR with agent:pr label found.${Reset}${esc}[0m"
         return $false
     }
     $PRNumber = [int]$PRNumber
-    Write-Host "${Green}Auto-selected PR #$PRNumber${Reset}"
+    Write-Information "${Green}Auto-selected PR #$PRNumber${Reset}"
 }
 
 # --- Validate PR exists ---
 $prJson = gh pr view $PRNumber --repo $Repo --json number,title,state,isDraft,labels 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "${Red}PR #$PRNumber not found in $Repo.${Reset}" -ForegroundColor Red
+    Write-Information "${esc}[91m${Red}PR #$PRNumber not found in $Repo.${Reset}${esc}[0m"
     return $false
 }
 $pr = $prJson | ConvertFrom-Json
-Write-Host ""
-Write-Host "${White}PR #$($pr.number): $($pr.title)${Reset}"
-Write-Host "${DGray}  State: $($pr.state)  Draft: $($pr.isDraft)${Reset}"
+Write-Information ""
+Write-Information "${White}PR #$($pr.number): $($pr.title)${Reset}"
+Write-Information "${DGray}  State: $($pr.state)  Draft: $($pr.isDraft)${Reset}"
 $labelNames = ($pr.labels | ForEach-Object { $_.name }) -join ", "
 if ($labelNames) {
-    Write-Host "${DGray}  Labels: $labelNames${Reset}"
+    Write-Information "${DGray}  Labels: $labelNames${Reset}"
 }
 
 if ($pr.state -ne "OPEN") {
-    Write-Host "${Red}PR is $($pr.state) — cannot analyze a closed/merged PR.${Reset}" -ForegroundColor Red
+    Write-Information "${esc}[91m${Red}PR is $($pr.state) — cannot analyze a closed/merged PR.${Reset}${esc}[0m"
     return $false
 }
 
@@ -90,12 +92,12 @@ $workflowFile = switch ($Only) {
 $analyzerName = "Analyzer $Only"
 
 # --- Dispatch ---
-Write-Host ""
-Write-Host "${Cyan}Dispatching $analyzerName for PR #$PRNumber...${Reset}"
+Write-Information ""
+Write-Information "${Cyan}Dispatching $analyzerName for PR #$PRNumber...${Reset}"
 
 gh workflow run $workflowFile --repo $Repo -f "pull-request-number=$PRNumber" 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "${Red}Failed to dispatch $analyzerName.${Reset}" -ForegroundColor Red
+    Write-Information "${esc}[91m${Red}Failed to dispatch $analyzerName.${Reset}${esc}[0m"
     return $false
 }
 
@@ -103,6 +105,6 @@ $chainMsg = if ($Only -eq "A") { " (chains to B → C automatically)" }
             elseif ($Only -eq "B") { " (chains to C automatically)" }
             else { "" }
 
-Write-Host "${Green}✓ $analyzerName dispatched for PR #$PRNumber$chainMsg${Reset}"
-Write-Host "${DGray}  View runs: https://github.com/$Repo/actions${Reset}"
+Write-Information "${Green}✓ $analyzerName dispatched for PR #$PRNumber$chainMsg${Reset}"
+Write-Information "${DGray}  View runs: https://github.com/$Repo/actions${Reset}"
 return $true

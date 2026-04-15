@@ -33,6 +33,8 @@ param(
     [switch] $DryRun
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -70,8 +72,10 @@ $Labels = @(
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function Write-Status([string]$Emoji, [string]$Message, [ConsoleColor]$Color = "Cyan") {
-    Write-Host "$Emoji  $Message" -ForegroundColor $Color
+function Write-Status([string]$Emoji, [string]$Message, [string]$ColorName = "Cyan") {
+    $code = @{ 'Red'='91';'Green'='92';'Yellow'='93';'Cyan'='96';'White'='97';'DarkGray'='90' }[$ColorName]
+    if (-not $code) { $code = '96' }
+    Write-Information "${esc}[${code}m$Emoji  $Message${esc}[0m"
 }
 
 function Get-GhToken {
@@ -89,20 +93,20 @@ function Invoke-GhApi {
         [hashtable] $Body
     )
 
-    $args = @("api", "--method", $Method, $Endpoint)
+    $ghArgs = @("api", "--method", $Method, $Endpoint)
     if ($Body) {
         foreach ($key in $Body.Keys) {
-            $args += @("-f", "$key=$($Body[$key])")
+            $ghArgs += @("-f", "$key=$($Body[$key])")
         }
     }
 
-    $result = & gh @args 2>&1
+    $result = & gh @ghArgs 2>&1
     $exitCode = $LASTEXITCODE
 
     return @{ ExitCode = $exitCode; Output = $result }
 }
 
-function Get-ExistingLabels {
+function Get-ExistingLabelList {
     $response = & gh api "repos/$Owner/$Repo/labels" --paginate 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to list labels: $response"
@@ -128,7 +132,7 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 # Fetch existing labels
 Write-Status "📋" "Fetching existing labels…"
 try {
-    $existing = Get-ExistingLabels
+    $existing = Get-ExistingLabelList
     Write-Status "✅" "Found $($existing.Count) existing label(s)"
 } catch {
     Write-Error $_
@@ -187,8 +191,8 @@ foreach ($label in $Labels) {
 }
 
 # ── Summary ───────────────────────────────────────────────────────────────────
-Write-Host ""
-Write-Host "─────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Information ""
+Write-Information "${esc}[90m─────────────────────────────────────────${esc}[0m"
 if ($DryRun) {
     Write-Status "🔍" "Dry run complete. $($Labels.Count) label(s) would be processed." Yellow
 } else {

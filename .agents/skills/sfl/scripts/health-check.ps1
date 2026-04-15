@@ -13,6 +13,10 @@ param(
     [string]$Repo = "relias-engineering/hs-buddy"
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+$ansi = @{ 'Red'='91';'Green'='92';'Yellow'='93';'DarkYellow'='33';'DarkGray'='90';'Cyan'='96';'White'='97';'Magenta'='95' }
+
 $ErrorActionPreference = "Stop"
 
 function Get-LinkedIssueNumber {
@@ -37,10 +41,10 @@ function Get-LinkedIssueNumber {
     return $null
 }
 
-Write-Host "`n=== SFL HEALTH CHECK ===" -ForegroundColor Cyan
-Write-Host "Repo: $Repo"
-Write-Host "Time: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')) (local)"
-Write-Host ""
+Write-Information "${esc}[96m`n=== SFL HEALTH CHECK ===${esc}[0m"
+Write-Information "Repo: $Repo"
+Write-Information "Time: $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')) (local)"
+Write-Information ""
 
 $results = @()
 
@@ -245,46 +249,44 @@ $results += [PSCustomObject]@{
 }
 
 # --- Output Table ---
-Write-Host ""
-Write-Host ("  {0,-3} {1,-25} {2,-6} {3}" -f "#", "Check", "Result", "Detail") -ForegroundColor White
-Write-Host ("  " + ("-" * 70)) -ForegroundColor DarkGray
+Write-Information ""
+Write-Information ("${esc}[97m" + ("  {0,-3} {1,-25} {2,-6} {3}" -f "#", "Check", "Result", "Detail") + "${esc}[0m")
+Write-Information ("${esc}[90m" + ("  " + ("-" * 70)) + "${esc}[0m")
 
 foreach ($r in $results) {
     $color = if ($r.Result -eq [char]0x2705) { "Green" } else { "Red" }
-    Write-Host ("  {0,-3} {1,-25} " -f $r.N, $r.Check) -NoNewline
-    Write-Host ("{0,-6} " -f $r.Result) -NoNewline -ForegroundColor $color
-    Write-Host $r.Detail
+    Write-Information ("  {0,-3} {1,-25} ${esc}[$($ansi[$color])m{2,-6} ${esc}[0m{3}" -f $r.N, $r.Check, $r.Result, $r.Detail)
 }
 
 # --- Verdict ---
 $failures = $results | Where-Object { $_.Result -eq [char]0x274C }
-Write-Host ""
+Write-Information ""
 if ($failures.Count -eq 0) {
-    Write-Host "  Verdict: CLEAN" -ForegroundColor Green
+    Write-Information "${esc}[92m  Verdict: CLEAN${esc}[0m"
 } else {
-    Write-Host "  Verdict: PROBLEMS FOUND ($($failures.Count) check(s) failed)" -ForegroundColor Red
-    Write-Host ""
+    Write-Information "${esc}[91m  Verdict: PROBLEMS FOUND ($($failures.Count) check(s) failed)${esc}[0m"
+    Write-Information ""
     foreach ($f in $failures) {
-        Write-Host "  $([char]0x274C) $($f.Check): $($f.Detail)" -ForegroundColor Red
+        Write-Information "${esc}[91m  $([char]0x274C) $($f.Check): $($f.Detail)${esc}[0m"
     }
 }
 
 # --- Detail sections for failures ---
 if ($harmonyFails.Count -gt 0) {
-    Write-Host "`n  --- Harmony Failures ---" -ForegroundColor Yellow
-    foreach ($hf in $harmonyFails) { Write-Host "    $hf" -ForegroundColor DarkYellow }
+    Write-Information "${esc}[93m`n  --- Harmony Failures ---${esc}[0m"
+    foreach ($hf in $harmonyFails) { Write-Information "${esc}[33m    $hf${esc}[0m" }
 }
 if ($markerIssues.Count -gt 0) {
-    Write-Host "`n  --- Marker Issues ---" -ForegroundColor Yellow
-    foreach ($mi in $markerIssues) { Write-Host "    $mi" -ForegroundColor DarkYellow }
+    Write-Information "${esc}[93m`n  --- Marker Issues ---${esc}[0m"
+    foreach ($mi in $markerIssues) { Write-Information "${esc}[33m    $mi${esc}[0m" }
 }
 if ($driftIssues.Count -gt 0) {
-    Write-Host "`n  --- Model Drift ---" -ForegroundColor Yellow
-    foreach ($di in $driftIssues) { Write-Host "    $di" -ForegroundColor DarkYellow }
+    Write-Information "${esc}[93m`n  --- Model Drift ---${esc}[0m"
+    foreach ($di in $driftIssues) { Write-Information "${esc}[33m    $di${esc}[0m" }
 }
 if ($stateIssues.Count -gt 0) {
-    Write-Host "`n  --- Workflow State Issues ---" -ForegroundColor Yellow
-    foreach ($si in $stateIssues) { Write-Host "    $si" -ForegroundColor DarkYellow }
+    Write-Information "${esc}[93m`n  --- Workflow State Issues ---${esc}[0m"
+    foreach ($si in $stateIssues) { Write-Information "${esc}[33m    $si${esc}[0m" }
 }
 
-Write-Host "`n=== HEALTH CHECK COMPLETE ===" -ForegroundColor Cyan
+Write-Information "${esc}[96m`n=== HEALTH CHECK COMPLETE ===${esc}[0m"

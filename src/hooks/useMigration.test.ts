@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useMigrateToConvex } from './useMigration'
 
@@ -53,7 +53,11 @@ describe('useMigrateToConvex', () => {
     })
   })
 
-  it('returns isLoading true while Convex queries are undefined', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('reports loading while Convex queries are undefined', () => {
     const { result } = renderHook(() => useMigrateToConvex())
     expect(result.current.isLoading).toBe(true)
     expect(result.current.isComplete).toBe(false)
@@ -118,8 +122,6 @@ describe('useMigrateToConvex', () => {
     })
 
     expect(result.current.isComplete).toBe(true)
-
-    vi.useRealTimers()
   })
 
   it('handles migration error gracefully', async () => {

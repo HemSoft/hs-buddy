@@ -52,9 +52,9 @@ function makeComment(overrides: Partial<PRReviewComment> = {}): PRReviewComment 
     createdAt: '2025-06-01T12:00:00Z',
     updatedAt: '2025-06-01T12:00:00Z',
     diffHunk: '@@ -1,3 +1,4 @@\n hello\n+world',
-    path: 'src/app.ts',
+    bodyHtml: '<p>Looks good to me</p>',
     url: 'https://github.com/test-org/hs-buddy/pull/42#comment-1',
-    reactionGroups: [],
+    reactions: [],
     ...overrides,
   }
 }
@@ -65,9 +65,9 @@ function makeThread(overrides: Partial<PRReviewThread> = {}): PRReviewThread {
     path: 'src/app.ts',
     line: 10,
     startLine: null,
+    diffSide: null,
     isResolved: false,
     isOutdated: false,
-    isCollapsed: false,
     comments: [makeComment()],
     ...overrides,
   }

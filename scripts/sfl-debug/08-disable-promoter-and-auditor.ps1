@@ -12,20 +12,23 @@
     This is the first step in a gradual shutdown.
 #>
 
+
+$InformationPreference = 'Continue'
+$esc = [char]27
 $ErrorActionPreference = 'Stop'
 $repo = gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
-Write-Host ""
-Write-Host "=== Stage 8: Disable SFL PR Router + SFL Auditor ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "This will disable:" -ForegroundColor White
-Write-Host "  - SFL PR Router   (no more PASS/BLOCKING routing)" -ForegroundColor White
-Write-Host "  - SFL Auditor     (no more label hygiene)" -ForegroundColor White
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[96m=== Stage 8: Disable SFL PR Router + SFL Auditor ===${esc}[0m"
+Write-Information ""
+Write-Information "${esc}[97mThis will disable:${esc}[0m"
+Write-Information "${esc}[97m  - SFL PR Router   (no more PASS/BLOCKING routing)${esc}[0m"
+Write-Information "${esc}[97m  - SFL Auditor     (no more label hygiene)${esc}[0m"
+Write-Information ""
 
 $confirm = Read-Host "Disable SFL PR Router + SFL Auditor? [y/N]"
 if ($confirm -notin @('y', 'Y', 'yes')) {
-    Write-Host "Aborted." -ForegroundColor Yellow
+    Write-Information "${esc}[93mAborted.${esc}[0m"
     return
 }
 
@@ -37,18 +40,18 @@ $workflows = @(
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf.Name --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'disabled_manually') {
-        Write-Host "  Already disabled: $($wf.Name)" -ForegroundColor DarkGray
+        Write-Information "${esc}[90m  Already disabled: $($wf.Name)${esc}[0m"
     } else {
         gh workflow disable $wf.Name --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Disabled: $($wf.Name)" -ForegroundColor DarkGray
+            Write-Information "${esc}[90m  Disabled: $($wf.Name)${esc}[0m"
         } else {
-            Write-Host "  Failed:   $($wf.Name)" -ForegroundColor Red
+            Write-Information "${esc}[91m  Failed:   $($wf.Name)${esc}[0m"
         }
     }
 }
 
-Write-Host ""
-Write-Host "SFL PR Router + SFL Auditor disabled." -ForegroundColor Green
-Write-Host "Next step: Stage 9 (09-disable-pr-fixer-and-labels.ps1)" -ForegroundColor Cyan
-Write-Host ""
+Write-Information ""
+Write-Information "${esc}[92mSFL PR Router + SFL Auditor disabled.${esc}[0m"
+Write-Information "${esc}[96mNext step: Stage 9 (09-disable-pr-fixer-and-labels.ps1)${esc}[0m"
+Write-Information ""

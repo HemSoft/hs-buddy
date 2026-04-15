@@ -7,6 +7,9 @@ param(
     [int]$Limit = 30
 )
 
+
+$InformationPreference = 'Continue'
+$esc = [char]27
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 $repo = "relias-engineering/hs-buddy"
@@ -14,7 +17,7 @@ $repo = "relias-engineering/hs-buddy"
 $prs = gh pr list --repo $repo --state $State --limit $Limit --json number,title,state,isDraft,createdAt,updatedAt,labels | ConvertFrom-Json
 
 if (-not $prs -or $prs.Count -eq 0) {
-    Write-Host "No $State PRs found." -ForegroundColor DarkGray
+    Write-Information "${esc}[90mNo $State PRs found.${esc}[0m"
     return
 }
 
@@ -35,4 +38,4 @@ $results = foreach ($pr in $prs | Sort-Object number) {
 }
 
 $results | Format-Table -AutoSize
-Write-Host "$($prs.Count) PR(s)" -ForegroundColor DarkGray
+Write-Information "${esc}[90m$($prs.Count) PR(s)${esc}[0m"

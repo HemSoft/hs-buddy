@@ -14,23 +14,27 @@ param(
     [string]$Repo = "relias-engineering/hs-buddy"
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+$ansi = @{ 'Red'='91';'Green'='92';'Yellow'='93';'DarkYellow'='33';'DarkGray'='90';'Cyan'='96';'White'='97';'Magenta'='95' }
+
 $ErrorActionPreference = "Stop"
 
-Write-Host "`n=== BODY INSPECTION: PR #$PRNumber ===" -ForegroundColor Cyan
+Write-Information "${esc}[96m`n=== BODY INSPECTION: PR #$PRNumber ===${esc}[0m"
 
 $pr = gh pr view $PRNumber --repo $Repo --json number,title,body 2>&1 | ConvertFrom-Json
 $body = $pr.body
 
 if (-not $body) {
-    Write-Host "PR body is EMPTY." -ForegroundColor Red
+    Write-Information "${esc}[91mPR body is EMPTY.${esc}[0m"
     return
 }
 
 $lines = $body -split "`n"
 $chars = $body.Length
 
-Write-Host "Title: $($pr.title)"
-Write-Host "Body size: $chars chars, $($lines.Count) lines"
+Write-Information "Title: $($pr.title)"
+Write-Information "Body size: $chars chars, $($lines.Count) lines"
 
 # Size classification
 $sizeClass = if ($chars -gt 50000) { "CRITICAL BLOAT" }
@@ -46,10 +50,10 @@ $sizeColor = switch ($sizeClass) {
     "Large"             { "DarkYellow" }
     "Healthy"           { "Green" }
 }
-Write-Host "Size class: $sizeClass" -ForegroundColor $sizeColor
+Write-Information "${esc}[$($ansi[$sizeColor])mSize class: $sizeClass${esc}[0m"
 
 # Heading analysis
-Write-Host "`n--- HEADING STRUCTURE ---" -ForegroundColor Yellow
+Write-Information "${esc}[93m`n--- HEADING STRUCTURE ---${esc}[0m"
 $headings = $lines | Where-Object { $_ -match "^#{1,4} " }
 $headingCounts = @{}
 foreach ($h in $headings) {
@@ -59,16 +63,16 @@ foreach ($h in $headings) {
 
 $duplicateHeadings = $headingCounts.GetEnumerator() | Where-Object { $_.Value -gt 1 }
 if ($duplicateHeadings) {
-    Write-Host "  DUPLICATE HEADINGS DETECTED:" -ForegroundColor Red
+    Write-Information "${esc}[91m  DUPLICATE HEADINGS DETECTED:${esc}[0m"
     foreach ($dh in $duplicateHeadings) {
-        Write-Host "    $($dh.Value)x: $($dh.Key)" -ForegroundColor DarkYellow
+        Write-Information "${esc}[33m    $($dh.Value)x: $($dh.Key)${esc}[0m"
     }
 } else {
-    Write-Host "  No duplicate headings." -ForegroundColor Green
+    Write-Information "${esc}[92m  No duplicate headings.${esc}[0m"
 }
 
 # Section analysis
-Write-Host "`n--- SECTION ANALYSIS ---" -ForegroundColor Yellow
+Write-Information "${esc}[93m`n--- SECTION ANALYSIS ---${esc}[0m"
 $sections = @{
     "Analyzer A Reviews" = ([regex]::Matches($body, "(?:PR Analysis A|Analysis: Correctness)")).Count
     "Analyzer B Reviews" = ([regex]::Matches($body, "(?:PR Analysis B|Analysis: Security)")).Count
@@ -83,12 +87,12 @@ $sections = @{
 foreach ($s in ($sections.GetEnumerator() | Sort-Object Value -Descending)) {
     if ($s.Value -gt 0) {
         $color = if ($s.Value -gt 3) { "Red" } elseif ($s.Value -gt 1) { "Yellow" } else { "Green" }
-        Write-Host "  $($s.Key): $($s.Value)" -ForegroundColor $color
+        Write-Information "${esc}[$($ansi[$color])m  $($s.Key): $($s.Value)${esc}[0m"
     }
 }
 
 # Detect repeated blocks (sign of idempotency failure)
-Write-Host "`n--- REPETITION DETECTION ---" -ForegroundColor Yellow
+Write-Information "${esc}[93m`n--- REPETITION DETECTION ---${esc}[0m"
 $blockSize = 200
 $blocks = @{}
 for ($i = 0; $i -lt $body.Length - $blockSize; $i += $blockSize) {
@@ -104,12 +108,12 @@ $repeatedBlocks = ($blocks.Values | Where-Object { $_ -gt 1 }).Count
 $totalBlocks = $blocks.Count
 $repeatPct = if ($totalBlocks -gt 0) { [math]::Round(($repeatedBlocks / $totalBlocks) * 100, 1) } else { 0 }
 
-Write-Host "  Content blocks: $totalBlocks"
-Write-Host "  Repeated blocks: $repeatedBlocks ($repeatPct%)" -ForegroundColor $(if ($repeatPct -gt 30) { "Red" } elseif ($repeatPct -gt 10) { "Yellow" } else { "Green" })
+Write-Information "  Content blocks: $totalBlocks"
+Write-Information ("${esc}[$($ansi[$(if ($repeatPct -gt 30) { 'Red' } elseif ($repeatPct -gt 10) { 'Yellow' } else { 'Green' })])m  Repeated blocks: $repeatedBlocks ($repeatPct%)${esc}[0m")
 
 if ($repeatPct -gt 20) {
-    Write-Host "  HIGH REPETITION: Idempotency is likely failing." -ForegroundColor Red
-    Write-Host "  Analyzers are appending duplicate content instead of skipping." -ForegroundColor DarkGray
+    Write-Information "${esc}[91m  HIGH REPETITION: Idempotency is likely failing.${esc}[0m"
+    Write-Information "${esc}[90m  Analyzers are appending duplicate content instead of skipping.${esc}[0m"
 }
 
 # Health score
@@ -121,6 +125,6 @@ if ($repeatPct -gt 20) { $score -= 25 }
 if ($sections["Legacy Markers"] -gt 0) { $score -= 10 }
 
 $scoreColor = if ($score -ge 80) { "Green" } elseif ($score -ge 50) { "Yellow" } else { "Red" }
-Write-Host "`nBody Health Score: $score/100" -ForegroundColor $scoreColor
+Write-Information "${esc}[$($ansi[$scoreColor])m`nBody Health Score: $score/100${esc}[0m"
 
-Write-Host "`n=== BODY INSPECTION COMPLETE ===" -ForegroundColor Cyan
+Write-Information "${esc}[96m`n=== BODY INSPECTION COMPLETE ===${esc}[0m"

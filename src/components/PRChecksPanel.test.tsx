@@ -42,7 +42,7 @@ vi.mock('../utils/errorUtils', () => ({
 import { PRChecksPanel } from './PRChecksPanel'
 
 const basePR: PRDetailInfo = {
-  source: 'github',
+  source: 'GitHub',
   repository: 'acme/webapp',
   id: 42,
   title: 'Fix the thing',

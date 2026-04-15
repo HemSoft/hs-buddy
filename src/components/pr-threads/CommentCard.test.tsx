@@ -20,11 +20,8 @@ function makeComment(overrides: Partial<PRReviewComment> = {}): PRReviewComment 
     bodyHtml: '<p>Great work on this PR!</p>',
     createdAt: '2025-06-10T10:00:00Z',
     updatedAt: '2025-06-10T10:00:00Z',
-    path: null,
-    line: null,
+    url: 'https://github.com/test-org/hs-buddy/pull/42#comment-1',
     diffHunk: null,
-    outdated: false,
-    subjectType: 'LINE',
     reactions: [],
     ...overrides,
   }

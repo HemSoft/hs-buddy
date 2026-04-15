@@ -12,6 +12,8 @@ param(
     [string]$Repo = "relias-engineering/hs-buddy"
 )
 
+
+$InformationPreference = 'Continue'
 $ErrorActionPreference = 'Continue'
 $reportPath = Join-Path $PSScriptRoot ".." "action-monitor-report.md"
 $workflows = @(
@@ -23,12 +25,12 @@ $workflows = @(
 function Write-Report {
     param([string]$Line)
     $Line | Out-File -FilePath $reportPath -Append -Encoding utf8
-    Write-Host $Line
+    Write-Information $Line
 }
 
 # --- Wait ---
 $target = (Get-Date).AddMinutes($DelayMinutes)
-Write-Host "[$((Get-Date).ToString('HH:mm:ss'))] Monitoring started. Will check at $($target.ToString('HH:mm:ss')) ($DelayMinutes min delay)..."
+Write-Information "[$((Get-Date).ToString('HH:mm:ss'))] Monitoring started. Will check at $($target.ToString('HH:mm:ss')) ($DelayMinutes min delay)..."
 Start-Sleep -Seconds ($DelayMinutes * 60)
 
 # --- Begin evaluation ---
@@ -179,5 +181,5 @@ if ($failedWorkflows.Count -eq 0) {
 
 Write-Report ""
 Write-Report "Report saved to: $reportPath"
-Write-Host ""
-Write-Host "=== Monitor complete. Report at: $reportPath ==="
+Write-Information ""
+Write-Information "=== Monitor complete. Report at: $reportPath ==="

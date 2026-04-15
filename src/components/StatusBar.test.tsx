@@ -113,6 +113,85 @@ describe('StatusBar', () => {
     expect(onNavigate).toHaveBeenCalledWith('pr-my-prs')
   })
 
+  it('navigates to schedules on Enter key', () => {
+    const onNavigate = vi.fn()
+    render(<StatusBar onNavigate={onNavigate} scheduleCount={2} />)
+    const schedButton = screen.getByText('2 schedules').closest('[role="button"]')
+    fireEvent.keyDown(schedButton!, { key: 'Enter' })
+    expect(onNavigate).toHaveBeenCalledWith('automation-schedules')
+  })
+
+  it('does not navigate on non-Enter key', () => {
+    const onNavigate = vi.fn()
+    render(<StatusBar onNavigate={onNavigate} scheduleCount={2} />)
+    const schedButton = screen.getByText('2 schedules').closest('[role="button"]')
+    fireEvent.keyDown(schedButton!, { key: 'Tab' })
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('navigates to jobs on Enter key', () => {
+    const onNavigate = vi.fn()
+    render(<StatusBar onNavigate={onNavigate} jobCount={3} />)
+    const jobButton = screen.getByText('3 jobs').closest('[role="button"]')
+    fireEvent.keyDown(jobButton!, { key: 'Enter' })
+    expect(onNavigate).toHaveBeenCalledWith('automation-runs')
+  })
+
+  it('navigates to account on Enter key', () => {
+    const onNavigate = vi.fn()
+    render(<StatusBar onNavigate={onNavigate} activeGitHubAccount="user2" />)
+    const acctButton = screen.getByText('@user2').closest('[role="button"]')
+    fireEvent.keyDown(acctButton!, { key: 'Enter' })
+    expect(onNavigate).toHaveBeenCalledWith('settings-accounts')
+  })
+
+  it('shows idle auto-refresh active when no nextRefreshLabel', () => {
+    const status: BackgroundStatus = {
+      phase: 'idle',
+      activeLabel: null,
+      activeTasks: 0,
+      nextRefreshSecs: null,
+      lastRefreshedAt: null,
+      lastRefreshedLabel: null,
+      nextRefreshLabel: null,
+    }
+    render(<StatusBar backgroundStatus={status} />)
+    expect(screen.getByText('Auto-refresh active')).toBeTruthy()
+  })
+
+  it('shows syncing without label using default Syncing text', () => {
+    const status: BackgroundStatus = {
+      phase: 'syncing',
+      activeLabel: null,
+      activeTasks: 1,
+      nextRefreshSecs: null,
+      lastRefreshedAt: null,
+      lastRefreshedLabel: null,
+      nextRefreshLabel: null,
+    }
+    render(<StatusBar backgroundStatus={status} />)
+    expect(screen.getByText('Syncing...')).toBeTruthy()
+  })
+
+  it('shows syncing multi-task without label', () => {
+    const status: BackgroundStatus = {
+      phase: 'syncing',
+      activeLabel: null,
+      activeTasks: 5,
+      nextRefreshSecs: null,
+      lastRefreshedAt: null,
+      lastRefreshedLabel: null,
+      nextRefreshLabel: null,
+    }
+    render(<StatusBar backgroundStatus={status} />)
+    expect(screen.getByText(/5 remaining · Syncing\.\.\./)).toBeTruthy()
+  })
+
+  it('does not show Copilot when assistantActive is false', () => {
+    const { container } = render(<StatusBar assistantActive={false} />)
+    expect(container.querySelector('.status-item-copilot')).toBeNull()
+  })
+
   it('renders date and time in the right section', () => {
     render(<StatusBar />)
     // Time section should exist (format depends on locale)

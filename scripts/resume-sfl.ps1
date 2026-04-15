@@ -1,6 +1,9 @@
 #!/usr/bin/env pwsh
 # Re-enables all SFL scheduled workflows.
 
+
+$InformationPreference = 'Continue'
+$esc = [char]27
 $repo = "relias-engineering/hs-buddy"
 
 $workflows = @(
@@ -18,20 +21,20 @@ $workflows = @(
     "PR Label Actions"
 )
 
-Write-Host "Resuming all SFL workflows..." -ForegroundColor Yellow
+Write-Information "${esc}[93mResuming all SFL workflows...${esc}[0m"
 
 foreach ($wf in $workflows) {
     $state = gh workflow view $wf --repo $repo --json state --jq '.state' 2>&1
     if ($state -eq 'active') {
-        Write-Host "  Already enabled: $wf" -ForegroundColor DarkGray
+        Write-Information "${esc}[90m  Already enabled: $wf${esc}[0m"
     } else {
         gh workflow enable $wf --repo $repo 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Enabled: $wf" -ForegroundColor Green
+            Write-Information "${esc}[92m  Enabled: $wf${esc}[0m"
         } else {
-            Write-Host "  Failed:  $wf" -ForegroundColor Red
+            Write-Information "${esc}[91m  Failed:  $wf${esc}[0m"
         }
     }
 }
 
-Write-Host "`nAll SFL workflows resumed." -ForegroundColor Green
+Write-Information "${esc}[92m`nAll SFL workflows resumed.${esc}[0m"

@@ -1,4 +1,4 @@
-﻿# Start hs-buddy Electron app (requires Convex dev server running)
+# Start hs-buddy Electron app (requires Convex dev server running)
 
 # Check port 3210 (Convex API) — this is the port the app actually connects to.
 # Port 6790 (dashboard) can stay alive from an orphaned backend, giving a false positive.

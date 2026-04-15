@@ -51,6 +51,25 @@ jobs:
       - name: Run tests with coverage
         run: bun run test:coverage
 
+      - name: Report coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "## Test Coverage" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Category | Covered |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|----------|---------|" >> "$GITHUB_STEP_SUMMARY"
+            node -e "
+              const data = require('./coverage/coverage-summary.json');
+              const t = data.total;
+              ['statements','branches','functions','lines'].forEach(k => {
+                const pct = t[k].pct.toFixed(1);
+                const line = '| ' + k.charAt(0).toUpperCase() + k.slice(1) + ' | ' + pct + '% |';
+                require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
+              });
+            "
+          fi
+
       - name: Upload Cobertura and lcov coverage reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -58,6 +77,13 @@ jobs:
           name: cobertura-coverage
           path: coverage/
           retention-days: 30
+
+      - name: Security audit (non-blocking, scorecard visibility only)
+        run: |
+          npm i --package-lock-only --ignore-scripts --silent 2>/dev/null
+          npm audit --audit-level=critical
+          rm -f package-lock.json
+        continue-on-error: true
 
       - name: Build (vite + electron)
         run: npx tsc && npx vite build

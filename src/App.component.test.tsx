@@ -101,6 +101,7 @@ vi.mock('./hooks/useAppSessionStats', () => ({
 }))
 
 vi.mock('./hooks/useAppTabs', () => ({
+  DASHBOARD_VIEW_ID: 'dashboard',
   useAppTabs: () => ({
     activeTabId: 'welcome',
     activeViewId: 'welcome',

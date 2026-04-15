@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve coverage with extracted helpers and component tests
 - Improve coverage across 5 components (+71 tests)
 - Format useCopilotReviewMonitor test file for CI
+- Deduplicate getUniqueOrgs and mapRepoPRToPullRequest
 
 ### Fixed
 
@@ -24,9 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UseTaskQueue cancel test now exercises cancel() and asserts AbortError
 - Address PR review comments on type safety and test coverage
 - Replace token-like test string with clearly fake placeholder
+- Resolve CI typecheck failures and PR review feedback
+- Address PR review feedback - remove BOM and strengthen test
+- Remove UTF-8 BOM from all PowerShell scripts
+- Address PR review comments for param block and mock fidelity
 - Address PR review findings for Copilot review monitor
 - Add react-doctor config to skip dead code detection
 - Address PR review findings for polling, keyboard events, and tests
+- Address CI failures and PR review comments
+- Resolve typecheck errors in test files
+- Stabilize test mocks and address PR review findings
+- Address PR review comments on security and CI workflows
 
 ## [0.1.704] - 2026-04-14
 
@@ -78,12 +87,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Sync Finance 'Updated X ago' timestamp with actual data load time
+- Eliminate all 239 PSScriptAnalyzer warnings across 48 PowerShell files
 - Remove unused CopilotReviewState export to improve react-doctor score
 - Eliminate remaining array-index-as-key warnings for react-doctor 100/100
 
 ### Changed
 
+- Add coverage summary and security audit for scorecard detection
+- Add 118 tests across 10 component test files
+- Add tests for OrgDetailPanel and PullRequestDetailPanel
+- Boost branch coverage to 80%+ with 91 new tests across 11 files
+- Ratchet coverage thresholds to 86/80/82/88
 - Improve react-doctor score from 97 to 99/100
+
+### Added
+
+- Improve scorecard with tests, security scanning, and dependabot
 
 ## [0.1.695] - 2026-04-13
 

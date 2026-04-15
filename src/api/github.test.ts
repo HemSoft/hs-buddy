@@ -14,6 +14,7 @@ const mockOctokit = {
     listReviews: vi.fn(),
     listFiles: vi.fn(),
     createReview: vi.fn(),
+    requestReviewers: vi.fn(),
   },
   users: {
     getAuthenticated: vi.fn(),
@@ -60,6 +61,7 @@ const mockOctokit = {
   teams: {
     list: vi.fn(),
     getMembershipForUserInOrg: vi.fn(),
+    listMembersInOrg: vi.fn(),
   },
 }
 
@@ -1828,6 +1830,318 @@ describe('GitHubClient', () => {
         },
         { id: 101, user: null, state: 'APPROVED', submitted_at: null },
       ])
+    })
+  })
+
+  describe('requestCopilotReview', () => {
+    it('calls pulls.requestReviewers with copilot bot', async () => {
+      mockOctokit.pulls.requestReviewers = vi.fn().mockResolvedValue({ data: {} })
+      await client.requestCopilotReview('myorg', 'myrepo', 42)
+      expect(mockOctokit.pulls.requestReviewers).toHaveBeenCalledWith({
+        owner: 'myorg',
+        repo: 'myrepo',
+        pull_number: 42,
+        reviewers: ['copilot-pull-request-reviewer[bot]'],
+      })
+    })
+  })
+
+  describe('fetchOrgTeams', () => {
+    it('returns teams from paginate', async () => {
+      mockOctokit.paginate.mockResolvedValueOnce([
+        {
+          slug: 'alpha',
+          name: 'Alpha',
+          description: 'Team A',
+          members_count: 5,
+          repos_count: 10,
+          html_url: 'https://github.com/orgs/myorg/teams/alpha',
+        },
+      ])
+      const result = await client.fetchOrgTeams('myorg')
+      expect(result.teams).toEqual([
+        {
+          slug: 'alpha',
+          name: 'Alpha',
+          description: 'Team A',
+          memberCount: 5,
+          repoCount: 10,
+          url: 'https://github.com/orgs/myorg/teams/alpha',
+        },
+      ])
+    })
+
+    it('returns empty teams on error', async () => {
+      mockOctokit.paginate.mockRejectedValueOnce(new Error('forbidden'))
+      // Second account also fails
+      mockOctokit.paginate.mockRejectedValueOnce(new Error('forbidden'))
+      const result = await client.fetchOrgTeams('myorg')
+      expect(result.teams).toEqual([])
+    })
+  })
+
+  describe('fetchTeamMembers', () => {
+    it('returns members with resolved names', async () => {
+      mockOctokit.teams.listMembersInOrg = vi.fn()
+      mockOctokit.paginate.mockResolvedValueOnce([
+        { login: 'bob', avatar_url: 'https://avatars/bob' },
+      ])
+      // Mock graphql for fetchUserNames
+      mockGraphql.mockResolvedValueOnce({ ubob: { login: 'bob', name: 'Bob Smith' } })
+      const result = await client.fetchTeamMembers('myorg', 'alpha')
+      expect(result.members).toEqual([
+        { login: 'bob', name: 'Bob Smith', avatarUrl: 'https://avatars/bob' },
+      ])
+    })
+
+    it('returns empty members when all accounts fail', async () => {
+      mockOctokit.teams.listMembersInOrg = vi.fn()
+      mockOctokit.paginate.mockRejectedValue(new Error('no access'))
+      const result = await client.fetchTeamMembers('myorg', 'alpha')
+      expect(result.members).toEqual([])
+    })
+  })
+
+  describe('fetchMyPRs', () => {
+    it('returns PRs from search and deduplicates across accounts', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: 'https://av/myorg' } })
+
+      const prItem = {
+        number: 10,
+        title: 'Fix bug',
+        html_url: 'https://github.com/myorg/myrepo/pull/10',
+        user: { login: 'user1', avatar_url: 'https://avatars/user1' },
+        state: 'open',
+        assignees: [],
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-02T00:00:00Z',
+        closed_at: null,
+      }
+
+      // Both accounts return the same PR (dedup test)
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { items: [prItem] },
+      })
+
+      // Mock listReviews and pulls.get for batch processing
+      mockOctokit.pulls.listReviews.mockResolvedValue({
+        data: [
+          { user: { login: 'reviewer1' }, state: 'APPROVED', submitted_at: '2025-01-02T00:00:00Z' },
+        ],
+      })
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { head: { ref: 'fix-branch' }, base: { ref: 'main' } },
+      })
+
+      // Mock GraphQL for fetchBatchThreadStats
+      mockGraphql.mockResolvedValue({
+        pr0: {
+          pullRequest: {
+            reviewThreads: {
+              totalCount: 2,
+              nodes: [{ isResolved: true }, { isResolved: false }],
+            },
+          },
+        },
+      })
+
+      const prs = await client.fetchMyPRs()
+      // Should be deduplicated to 1 PR even though 2 accounts returned it
+      expect(prs.length).toBe(1)
+      expect(prs[0].title).toBe('Fix bug')
+      expect(prs[0].approvalCount).toBe(1)
+      expect(prs[0].headBranch).toBe('fix-branch')
+    })
+
+    it('reports progress callback', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({ data: { items: [] } })
+      mockGraphql.mockResolvedValue({})
+
+      const progress = vi.fn()
+      await client.fetchMyPRs(progress)
+      // Should have been called with authenticating, fetching, done for each account
+      expect(progress).toHaveBeenCalled()
+      const statuses = progress.mock.calls.map(
+        (c: unknown[]) => (c[0] as { status: string }).status
+      )
+      expect(statuses).toContain('authenticating')
+      expect(statuses).toContain('fetching')
+      expect(statuses).toContain('done')
+    })
+
+    it('throws when all accounts fail auth', async () => {
+      // Make getGitHubCLIToken return null for all accounts
+      mockInvoke.mockResolvedValue(null)
+      // Need a fresh client since tokens are cached
+      const freshConfig = {
+        accounts: [
+          { username: 'noauth1', org: 'o1' },
+          { username: 'noauth2', org: 'o2' },
+        ],
+      }
+      const c = new GitHubClient(freshConfig)
+      await expect(c.fetchMyPRs()).rejects.toThrow('GitHub CLI authentication not available')
+    })
+  })
+
+  describe('fetchNeedsReview', () => {
+    it('filters out PRs the user already approved', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+
+      const prItem = {
+        number: 20,
+        title: 'PR I approved',
+        html_url: 'https://github.com/myorg/repo/pull/20',
+        user: { login: 'other', avatar_url: '' },
+        state: 'open',
+        assignees: [],
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-02T00:00:00Z',
+        closed_at: null,
+      }
+
+      // needs-review runs 2 queries per account: review-requested + assignee
+      // Account 1 (user1/myorg): return the PR from first query only
+      // Account 2 (user2/otherorg): return empty so it doesn't re-introduce the PR
+      mockOctokit.search.issuesAndPullRequests
+        .mockResolvedValueOnce({ data: { items: [prItem] } }) // user1 query 1
+        .mockResolvedValueOnce({ data: { items: [] } }) // user1 query 2
+        .mockResolvedValue({ data: { items: [] } }) // user2 queries
+
+      // I (user1) already approved this PR
+      mockOctokit.pulls.listReviews.mockResolvedValue({
+        data: [
+          { user: { login: 'user1' }, state: 'APPROVED', submitted_at: '2025-01-02T00:00:00Z' },
+        ],
+      })
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { head: { ref: 'feat' }, base: { ref: 'main' } },
+      })
+      mockGraphql.mockResolvedValue({})
+
+      const prs = await client.fetchNeedsReview()
+      // Should be filtered out because I already approved
+      expect(prs.length).toBe(0)
+    })
+  })
+
+  describe('fetchNeedANudge', () => {
+    it('keeps only PRs the user approved', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: {
+          items: [
+            {
+              number: 30,
+              title: 'Approved PR',
+              html_url: 'https://github.com/myorg/repo/pull/30',
+              user: { login: 'other', avatar_url: '' },
+              state: 'open',
+              assignees: [],
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-02T00:00:00Z',
+              closed_at: null,
+            },
+          ],
+        },
+      })
+
+      // I (user1) approved
+      mockOctokit.pulls.listReviews.mockResolvedValue({
+        data: [
+          { user: { login: 'user1' }, state: 'APPROVED', submitted_at: '2025-01-02T00:00:00Z' },
+        ],
+      })
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { head: { ref: 'feat' }, base: { ref: 'main' } },
+      })
+      mockGraphql.mockResolvedValue({})
+
+      const prs = await client.fetchNeedANudge()
+      expect(prs.length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('fetchRecentlyMerged', () => {
+    it('sorts by merge date descending', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+      const items = [
+        {
+          number: 40,
+          title: 'Older',
+          html_url: 'https://github.com/myorg/repo/pull/40',
+          user: { login: 'user1', avatar_url: '' },
+          state: 'closed',
+          assignees: [],
+          created_at: '2025-01-01T00:00:00Z',
+          updated_at: '2025-01-02T00:00:00Z',
+          closed_at: '2025-01-02T00:00:00Z',
+        },
+        {
+          number: 41,
+          title: 'Newer',
+          html_url: 'https://github.com/myorg/repo/pull/41',
+          user: { login: 'user1', avatar_url: '' },
+          state: 'closed',
+          assignees: [],
+          created_at: '2025-01-01T00:00:00Z',
+          updated_at: '2025-01-03T00:00:00Z',
+          closed_at: '2025-01-03T00:00:00Z',
+        },
+      ]
+      // First account returns both
+      mockOctokit.search.issuesAndPullRequests
+        .mockResolvedValueOnce({ data: { items } }) // author query
+        .mockResolvedValueOnce({ data: { items: [] } }) // reviewed-by query
+        // Second account returns nothing
+        .mockResolvedValue({ data: { items: [] } })
+
+      mockOctokit.pulls.listReviews.mockResolvedValue({ data: [] })
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { head: { ref: 'feat' }, base: { ref: 'main' } },
+      })
+      mockGraphql.mockResolvedValue({})
+
+      const prs = await client.fetchRecentlyMerged()
+      expect(prs.length).toBe(2)
+      // Newer (closed_at 2025-01-03) should come first
+      expect(prs[0].title).toBe('Newer')
+      expect(prs[1].title).toBe('Older')
+    })
+  })
+
+  describe('fetchOrgMembers', () => {
+    it('falls back to user endpoint on 404', async () => {
+      // First paginate call (org members) throws 404
+      mockOctokit.paginate.mockRejectedValueOnce(new Error('Not Found'))
+      // users.getByUsername returns user info
+      mockOctokit.users.getByUsername.mockResolvedValueOnce({
+        data: {
+          login: 'myorg',
+          name: 'My Org',
+          avatar_url: 'https://av/myorg',
+          html_url: 'https://github.com/myorg',
+          type: 'User',
+        },
+      })
+
+      const result = await client.fetchOrgMembers('myorg')
+      expect(result.members).toEqual([
+        {
+          login: 'myorg',
+          name: 'My Org',
+          avatarUrl: 'https://av/myorg',
+          url: 'https://github.com/myorg',
+          type: 'User',
+        },
+      ])
+      expect(result.isUserNamespace).toBe(true)
+    })
+
+    it('throws when all accounts fail', async () => {
+      mockOctokit.paginate.mockRejectedValue(new Error('Server Error'))
+      await expect(client.fetchOrgMembers('myorg')).rejects.toThrow('Could not fetch members')
     })
   })
 })

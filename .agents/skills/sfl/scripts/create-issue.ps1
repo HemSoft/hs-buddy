@@ -6,7 +6,7 @@
     `agent:fixable` so SFL can process it.
 
     You can provide freeform issue intent via -What and optionally source
-    content from a TODO section via -TodoItem. When -TodoItem is provided,
+    text from a TODO section via -TodoItem. When -TodoItem is provided,
     the script pulls that section from TODO.md and embeds it in the issue body.
 .PARAMETER What
     Short summary of what the issue should be about.
@@ -46,6 +46,9 @@ param(
     [switch]$DryRun
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+
 function Get-PlainTaskName {
     param([string]$TaskCell)
 
@@ -75,7 +78,7 @@ function Get-TodoSection {
     return $match.Groups['body'].Value.Trim()
 }
 
-function Get-TodoRowNotes {
+function Get-TodoRowNote {
     param(
         [string]$Markdown,
         [string]$Heading
@@ -124,7 +127,7 @@ if (-not [string]::IsNullOrWhiteSpace($TodoItem)) {
         return $false
     }
 
-    $todoNotes = Get-TodoRowNotes -Markdown $todoMarkdown -Heading $TodoItem
+    $todoNotes = Get-TodoRowNote -Markdown $todoMarkdown -Heading $TodoItem
 }
 
 $finalTitle = $Title.Trim()
@@ -187,10 +190,10 @@ $bodyLines.Add('This issue is intentionally labeled for SFL pickup (`agent:fixab
 $issueBody = ($bodyLines -join "`n")
 
 if ($DryRun) {
-    Write-Host "[DRY RUN] Repo: $Repo" -ForegroundColor Cyan
-    Write-Host "[DRY RUN] Title: $finalTitle" -ForegroundColor Cyan
-    Write-Host "[DRY RUN] Labels: $($Labels -join ', ')" -ForegroundColor Cyan
-    Write-Host "`n$issueBody"
+    Write-Information "${esc}[96m[DRY RUN] Repo: $Repo${esc}[0m"
+    Write-Information "${esc}[96m[DRY RUN] Title: $finalTitle${esc}[0m"
+    Write-Information "${esc}[96m[DRY RUN] Labels: $($Labels -join ', ')${esc}[0m"
+    Write-Information "`n$issueBody"
     return $true
 }
 
@@ -209,7 +212,7 @@ try {
         return $false
     }
 
-    Write-Host "Created issue: $result" -ForegroundColor Green
+    Write-Information "${esc}[92mCreated issue: $result${esc}[0m"
     return $true
 } finally {
     if (Test-Path -LiteralPath $bodyFile) {

@@ -267,4 +267,198 @@ describe('BrowserTabView', () => {
 
     expect(wv.setZoomLevel).toHaveBeenCalledWith(2)
   })
+
+  it('applies stored zoom level on stop-loading when non-zero', async () => {
+    localStorage.setItem('browser-zoom-level', '2')
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview') as HTMLElement & {
+      setZoomLevel: ReturnType<typeof vi.fn>
+    }
+    webview.setZoomLevel = vi.fn()
+    act(() => {
+      webview.dispatchEvent(new Event('did-stop-loading'))
+    })
+    await waitFor(() => {
+      expect(webview.setZoomLevel).toHaveBeenCalledWith(2)
+    })
+  })
+
+  it('does not apply zoom on stop-loading when level is 0', async () => {
+    localStorage.removeItem('browser-zoom-level')
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview') as HTMLElement & {
+      setZoomLevel: ReturnType<typeof vi.fn>
+    }
+    webview.setZoomLevel = vi.fn()
+    act(() => {
+      webview.dispatchEvent(new Event('did-stop-loading'))
+    })
+    await waitFor(() => {
+      expect(document.querySelector('.browser-tab-spinner')).not.toBeInTheDocument()
+    })
+    expect(webview.setZoomLevel).not.toHaveBeenCalled()
+  })
+
+  it('handles Ctrl+Tab before-input-event to dispatch tab-next', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event', { cancelable: true })
+    Object.defineProperty(event, 'input', {
+      value: { type: 'keyDown', key: 'Tab', control: true, meta: false, shift: false },
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'app:tab-next' }))
+    dispatchSpy.mockRestore()
+  })
+
+  it('handles Ctrl+Shift+Tab before-input-event to dispatch tab-prev', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event', { cancelable: true })
+    Object.defineProperty(event, 'input', {
+      value: { type: 'keyDown', key: 'Tab', control: true, meta: false, shift: true },
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'app:tab-prev' }))
+    dispatchSpy.mockRestore()
+  })
+
+  it('handles Ctrl+F4 before-input-event to dispatch tab-close', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event', { cancelable: true })
+    Object.defineProperty(event, 'input', {
+      value: { type: 'keyDown', key: 'F4', control: true, meta: false, shift: false },
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'app:tab-close' }))
+    dispatchSpy.mockRestore()
+  })
+
+  it('ignores before-input-event without input property', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event')
+    // No input property
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    // Should not dispatch any app events
+    const appEvents = dispatchSpy.mock.calls.filter(c => (c[0] as Event).type.startsWith('app:'))
+    expect(appEvents).toHaveLength(0)
+    dispatchSpy.mockRestore()
+  })
+
+  it('ignores before-input-event with non-keyDown type', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event')
+    Object.defineProperty(event, 'input', {
+      value: { type: 'keyUp', key: 'Tab', control: true, meta: false, shift: false },
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    const appEvents = dispatchSpy.mock.calls.filter(c => (c[0] as Event).type.startsWith('app:'))
+    expect(appEvents).toHaveLength(0)
+    dispatchSpy.mockRestore()
+  })
+
+  it('handles Alt+= keyboard shortcut for zoom in', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview') as HTMLElement & {
+      setZoomLevel: ReturnType<typeof vi.fn>
+    }
+    webview.setZoomLevel = vi.fn()
+    fireEvent.keyDown(window, { key: '=', altKey: true })
+    expect(localStorage.getItem('browser-zoom-level')).toBeTruthy()
+  })
+
+  it('handles Alt++ keyboard shortcut for zoom in', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview') as HTMLElement & {
+      setZoomLevel: ReturnType<typeof vi.fn>
+    }
+    webview.setZoomLevel = vi.fn()
+    fireEvent.keyDown(window, { key: '+', altKey: true })
+    expect(localStorage.getItem('browser-zoom-level')).toBeTruthy()
+  })
+
+  it('handles Alt+- keyboard shortcut for zoom out', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview') as HTMLElement & {
+      setZoomLevel: ReturnType<typeof vi.fn>
+    }
+    webview.setZoomLevel = vi.fn()
+    fireEvent.keyDown(window, { key: '-', altKey: true })
+    expect(localStorage.getItem('browser-zoom-level')).toBeTruthy()
+  })
+
+  it('ignores keyboard shortcut without altKey', () => {
+    localStorage.removeItem('browser-zoom-level')
+    render(<BrowserTabView url="https://example.com" />)
+    fireEvent.keyDown(window, { key: '=', altKey: false })
+    expect(localStorage.getItem('browser-zoom-level')).toBeNull()
+  })
+
+  it('shows reload button when not loading', async () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    act(() => {
+      webview.dispatchEvent(new Event('did-stop-loading'))
+    })
+    await waitFor(() => {
+      expect(screen.getByTitle('Reload')).toBeInTheDocument()
+    })
+  })
+
+  it('shows stop button when loading', () => {
+    render(<BrowserTabView url="https://example.com" />)
+    expect(screen.getByTitle('Stop')).toBeInTheDocument()
+  })
+
+  it('dispatches start-loading event', async () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    // First stop loading
+    act(() => {
+      webview.dispatchEvent(new Event('did-stop-loading'))
+    })
+    await waitFor(() => {
+      expect(document.querySelector('.browser-tab-spinner')).not.toBeInTheDocument()
+    })
+    // Then start loading again
+    act(() => {
+      webview.dispatchEvent(new Event('did-start-loading'))
+    })
+    await waitFor(() => {
+      expect(document.querySelector('.browser-tab-spinner')).toBeInTheDocument()
+    })
+  })
+
+  it('handles meta key (Cmd) in before-input-event', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event', { cancelable: true })
+    Object.defineProperty(event, 'input', {
+      value: { type: 'keyDown', key: 'Tab', control: false, meta: true, shift: false },
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'app:tab-next' }))
+    dispatchSpy.mockRestore()
+  })
 })

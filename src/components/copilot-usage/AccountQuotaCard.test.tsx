@@ -23,6 +23,17 @@ vi.mock('../../utils/dateUtils', () => ({
 const testAccount: GitHubAccount = { username: 'testuser', org: 'acme' }
 
 function makeQuotaData(overrides: Record<string, unknown> = {}) {
+  const emptySnapshot = {
+    entitlement: 0,
+    overage_count: 0,
+    overage_permitted: false,
+    percent_remaining: 100,
+    quota_id: '',
+    quota_remaining: 0,
+    remaining: 0,
+    unlimited: false,
+    timestamp_utc: '2026-04-14T00:00:00Z',
+  }
   return {
     login: 'testuser',
     copilot_plan: 'individual',
@@ -30,8 +41,8 @@ function makeQuotaData(overrides: Record<string, unknown> = {}) {
     quota_reset_date_utc: '2026-05-01T00:00:00Z',
     organization_login_list: [] as string[],
     quota_snapshots: {
-      chat: {} as Record<string, unknown>,
-      completions: {} as Record<string, unknown>,
+      chat: { ...emptySnapshot, quota_id: 'chat' },
+      completions: { ...emptySnapshot, quota_id: 'completions' },
       premium_interactions: {
         entitlement: 300,
         overage_count: 0,

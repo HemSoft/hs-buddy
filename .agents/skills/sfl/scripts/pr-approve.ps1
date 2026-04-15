@@ -28,6 +28,9 @@ param(
     [string]$Body = "SFL admin approval via pr-approve command."
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+
 $authOk = & "$PSScriptRoot/ensure-auth.ps1" -Repo $Repo -Quiet
 if (-not $authOk) {
     Write-Error "Auth preflight failed. Approval not submitted."
@@ -37,7 +40,7 @@ if (-not $authOk) {
 $autoSelected = $false
 if ($PRNumber -le 0) {
     $autoSelected = $true
-    Write-Host "No PRNumber supplied. Selecting oldest OPEN non-draft PR with label 'human:ready-for-review'..." -ForegroundColor Cyan
+    Write-Information "${esc}[96mNo PRNumber supplied. Selecting oldest OPEN non-draft PR with label 'human:ready-for-review'...${esc}[0m"
     $selected = gh pr list --repo $Repo --state open --label "human:ready-for-review" --json number,isDraft,createdAt --jq '[.[] | select(.isDraft == false)] | sort_by(.createdAt) | .[0].number // empty' 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to query candidate PRs in $Repo : $selected"
@@ -49,7 +52,7 @@ if ($PRNumber -le 0) {
     }
 
     [int]$PRNumber = $selected.Trim()
-    Write-Host "Selected PR #$PRNumber" -ForegroundColor Yellow
+    Write-Information "${esc}[93mSelected PR #$PRNumber${esc}[0m"
 }
 
 # Validate PR and evaluate SFL readiness criteria before approval.
@@ -92,15 +95,15 @@ if ($missingCriteria.Count -gt 0) {
 }
 
 if ($autoSelected) {
-    Write-Host "Merge suggestion: PR #$PRNumber meets SFL criteria and is a candidate to merge after human review." -ForegroundColor Green
+    Write-Information "${esc}[92mMerge suggestion: PR #$PRNumber meets SFL criteria and is a candidate to merge after human review.${esc}[0m"
 }
 
-Write-Host "Submitting approval for PR #$PRNumber in $Repo..." -ForegroundColor Cyan
+Write-Information "${esc}[96mSubmitting approval for PR #$PRNumber in $Repo...${esc}[0m"
 $approveResult = gh pr review $PRNumber --repo $Repo --approve --body $Body 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to approve PR #$PRNumber : $approveResult"
     return $false
 }
 
-Write-Host "Approved PR #$PRNumber" -ForegroundColor Green
+Write-Information "${esc}[92mApproved PR #$PRNumber${esc}[0m"
 return $true

@@ -71,7 +71,6 @@ if ($unused.Count -gt 0) {
 Write-Information "${esc}[35m`n--- SIMPLIFICATION OPPORTUNITIES ---${esc}[0m"
 
 $agentLabels = $categories["agent"]
-$prLabels = $categories["pr"]
 $riskLabels = $categories["risk"]
 
 if ($agentLabels -and $agentLabels.Count -gt 4) {

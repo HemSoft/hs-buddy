@@ -32,7 +32,7 @@ function Get-LinkedIssueNumber {
     return $null
 }
 
-function To-Eastern($utcText) {
+function ConvertTo-Eastern($utcText) {
     $utc = [DateTime]::Parse($utcText).ToUniversalTime()
     $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Eastern Standard Time")
     $local = [System.TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
@@ -40,8 +40,8 @@ function To-Eastern($utcText) {
     return "{0} {1}" -f $local.ToString("yyyy-MM-dd hh:mm tt"), $abbr
 }
 
-$nowEt = To-Eastern $data.nowUtc
-$lastEt = To-Eastern $data.lastCheckUtc
+$nowEt = ConvertTo-Eastern $data.nowUtc
+$lastEt = ConvertTo-Eastern $data.lastCheckUtc
 
 Write-Output "## Status — $nowEt"
 Write-Output "(last checked: $lastEt)"

@@ -66,7 +66,7 @@ vi.mock('../utils/errorUtils', () => ({
 }))
 
 const basePR: PRDetailInfo = {
-  source: 'github',
+  source: 'GitHub',
   repository: 'acme/webapp',
   id: 42,
   title: 'Fix something',
@@ -88,16 +88,21 @@ function makeThreadsResult(overrides: Partial<PRThreadsResult> = {}): PRThreadsR
         id: 't1',
         isResolved: false,
         isOutdated: false,
+        path: 'src/app.ts',
+        line: 10,
+        startLine: null,
+        diffSide: null,
         comments: [
           {
             id: 'c1',
             body: 'Fix this',
+            bodyHtml: '<p>Fix this</p>',
             author: 'bob',
             createdAt: '2025-01-01',
             updatedAt: '2025-01-01',
             authorAvatarUrl: '',
-            path: 'src/app.ts',
-            line: 10,
+            url: 'https://github.com/acme/webapp/pull/42#comment-c1',
+            diffHunk: null,
             reactions: [],
           },
         ],
@@ -106,16 +111,21 @@ function makeThreadsResult(overrides: Partial<PRThreadsResult> = {}): PRThreadsR
         id: 't2',
         isResolved: true,
         isOutdated: false,
+        path: 'src/app.ts',
+        line: 20,
+        startLine: null,
+        diffSide: null,
         comments: [
           {
             id: 'c2',
             body: 'Done',
+            bodyHtml: '<p>Done</p>',
             author: 'alice',
             createdAt: '2025-01-01',
             updatedAt: '2025-01-01',
             authorAvatarUrl: '',
-            path: 'src/app.ts',
-            line: 20,
+            url: 'https://github.com/acme/webapp/pull/42#comment-c2',
+            diffHunk: null,
             reactions: [],
           },
         ],
@@ -124,22 +134,28 @@ function makeThreadsResult(overrides: Partial<PRThreadsResult> = {}): PRThreadsR
         id: 't3',
         isResolved: false,
         isOutdated: true,
+        path: 'src/old.ts',
+        line: 5,
+        startLine: null,
+        diffSide: null,
         comments: [
           {
             id: 'c3',
             body: 'Old comment',
+            bodyHtml: '<p>Old comment</p>',
             author: 'charlie',
             createdAt: '2025-01-01',
             updatedAt: '2025-01-01',
             authorAvatarUrl: '',
-            path: 'src/old.ts',
-            line: 5,
+            url: 'https://github.com/acme/webapp/pull/42#comment-c3',
+            diffHunk: null,
             reactions: [],
           },
         ],
       },
     ],
     issueComments: [],
+    reviews: [],
     ...overrides,
   }
 }
@@ -273,12 +289,13 @@ describe('usePRThreadsPanel', () => {
     const newComment = {
       id: 'c-new',
       body: 'Reply text',
+      bodyHtml: '<p>Reply text</p>',
       author: 'alice',
       createdAt: '2025-01-02',
       updatedAt: '2025-01-02',
       authorAvatarUrl: '',
-      path: 'src/app.ts',
-      line: 10,
+      url: 'https://github.com/acme/webapp/pull/42#comment-c-new',
+      diffHunk: null,
       reactions: [],
     }
 
@@ -493,7 +510,7 @@ describe('usePRThreadsPanel', () => {
     mockEnqueue.mockResolvedValueOnce(undefined)
 
     await act(async () => {
-      await result.current.handleReactToComment('c1', '+1')
+      await result.current.handleReactToComment('c1', 'THUMBS_UP')
     })
 
     // Should have enqueued the reaction (3rd call: branches, threads, reaction)

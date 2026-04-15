@@ -200,9 +200,9 @@ describe('AppContentRouter', () => {
     expect(screen.getByText('UserDetail:relias-engineering/octocat')).toBeInTheDocument()
   })
 
-  it('renders WelcomePanel when activeViewId is null', () => {
+  it('renders placeholder when activeViewId is null', () => {
     renderRouter(null)
-    expect(screen.getByText('WelcomePanel')).toBeInTheDocument()
+    expect(screen.getByText('Open a tab to get started')).toBeInTheDocument()
   })
 
   it.each([

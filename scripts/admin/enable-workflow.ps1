@@ -6,13 +6,16 @@ param(
     [string]$Workflow
 )
 
+
+$InformationPreference = 'Continue'
+$esc = [char]27
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 $repo = "relias-engineering/hs-buddy"
 
 gh workflow enable $Workflow --repo $repo 2>&1
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "Enabled: $Workflow" -ForegroundColor Green
+    Write-Information "${esc}[92mEnabled: $Workflow${esc}[0m"
 } else {
-    Write-Host "Failed to enable: $Workflow" -ForegroundColor Red
+    Write-Information "${esc}[91mFailed to enable: $Workflow${esc}[0m"
 }

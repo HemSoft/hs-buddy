@@ -7,6 +7,9 @@ param(
     [int]$Limit = 30
 )
 
+
+$InformationPreference = 'Continue'
+$esc = [char]27
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 $repo = "relias-engineering/hs-buddy"
@@ -14,7 +17,7 @@ $repo = "relias-engineering/hs-buddy"
 $issues = gh issue list --repo $repo --state $State --limit $Limit --json number,title,state,createdAt,labels | ConvertFrom-Json
 
 if (-not $issues -or $issues.Count -eq 0) {
-    Write-Host "No $State issues found." -ForegroundColor DarkGray
+    Write-Information "${esc}[90mNo $State issues found.${esc}[0m"
     return
 }
 
@@ -32,4 +35,4 @@ $results = foreach ($issue in $issues | Sort-Object number) {
 }
 
 $results | Format-Table -AutoSize
-Write-Host "$($issues.Count) issue(s)" -ForegroundColor DarkGray
+Write-Information "${esc}[90m$($issues.Count) issue(s)${esc}[0m"

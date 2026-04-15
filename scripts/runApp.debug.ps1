@@ -1,4 +1,4 @@
-﻿# Start hs-buddy Electron app in DEBUG mode (CDP remote debugging on port 9222)
+# Start hs-buddy Electron app in DEBUG mode (CDP remote debugging on port 9222)
 # Requires Convex dev server running.
 #
 # Usage:

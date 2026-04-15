@@ -14,10 +14,13 @@ param(
     [string]$Repo = "relias-engineering/hs-buddy"
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+
 $ErrorActionPreference = "Stop"
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
-Write-Host "`n=== WORKFLOW INVENTORY ===" -ForegroundColor Cyan
+Write-Information "${esc}[96m`n=== WORKFLOW INVENTORY ===${esc}[0m"
 
 # Get all files in .github/workflows/
 $files = gh api "repos/$Repo/contents/.github/workflows" --jq '.[].name' 2>&1
@@ -95,34 +98,34 @@ $enriched = foreach ($item in $inventory | Sort-Object Type, Name) {
 }
 
 # Display
-Write-Host ""
-Write-Host "--- AGENTIC WORKFLOWS ---" -ForegroundColor Yellow
+Write-Information ""
+Write-Information "${esc}[93m--- AGENTIC WORKFLOWS ---${esc}[0m"
 $agentic = $enriched | Where-Object { $_.Type -eq "Agentic" }
 if ($agentic) {
     $agentic | Format-Table Name, Files, State, LastRun -AutoSize
 } else {
-    Write-Host "  None found." -ForegroundColor DarkGray
+    Write-Information "${esc}[90m  None found.${esc}[0m"
 }
 
-Write-Host "--- STANDARD WORKFLOWS ---" -ForegroundColor Yellow
+Write-Information "${esc}[93m--- STANDARD WORKFLOWS ---${esc}[0m"
 $standard = $enriched | Where-Object { $_.Type -eq "Standard" }
 if ($standard) {
     $standard | Format-Table Name, Files, State, LastRun -AutoSize
 } else {
-    Write-Host "  None found." -ForegroundColor DarkGray
+    Write-Information "${esc}[90m  None found.${esc}[0m"
 }
 
 # Summary
 $agenticMissing = $agentic | Where-Object { $_.Files -match 'missing lock' }
-Write-Host "--- SUMMARY ---" -ForegroundColor Cyan
-Write-Host "  Agentic workflows:  $($agentic.Count)"
-Write-Host "  Standard workflows: $($standard.Count)"
-Write-Host "  Total logical:      $($agentic.Count + $standard.Count)"
+Write-Information "${esc}[96m--- SUMMARY ---${esc}[0m"
+Write-Information "  Agentic workflows:  $($agentic.Count)"
+Write-Information "  Standard workflows: $($standard.Count)"
+Write-Information "  Total logical:      $($agentic.Count + $standard.Count)"
 if ($agenticMissing.Count -gt 0) {
-    Write-Host "  Missing lock files: $($agenticMissing.Count)" -ForegroundColor Red
+    Write-Information "${esc}[91m  Missing lock files: $($agenticMissing.Count)${esc}[0m"
     foreach ($m in $agenticMissing) {
-        Write-Host "    $($m.Name) — needs 'gh aw compile'" -ForegroundColor DarkYellow
+        Write-Information "${esc}[33m    $($m.Name) — needs 'gh aw compile'${esc}[0m"
     }
 }
 
-Write-Host "`n=== INVENTORY COMPLETE ===" -ForegroundColor Cyan
+Write-Information "${esc}[96m`n=== INVENTORY COMPLETE ===${esc}[0m"

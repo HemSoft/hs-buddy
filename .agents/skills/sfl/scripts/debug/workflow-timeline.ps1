@@ -17,15 +17,19 @@ param(
     [string]$Repo = "relias-engineering/hs-buddy"
 )
 
+$InformationPreference = 'Continue'
+$esc = [char]27
+$ansi = @{ 'Red'='91';'Green'='92';'Yellow'='93';'DarkYellow'='33';'DarkGray'='90';'Cyan'='96';'White'='97';'Magenta'='95' }
+
 $ErrorActionPreference = "Stop"
 
-Write-Host "`n=== WORKFLOW TIMELINE: PR #$PRNumber ===" -ForegroundColor Cyan
+Write-Information "${esc}[96m`n=== WORKFLOW TIMELINE: PR #$PRNumber ===${esc}[0m"
 
 # Get PR branch
 $pr = gh pr view $PRNumber --repo $Repo --json headRefName,createdAt,labels,body 2>&1 | ConvertFrom-Json
 $branch = $pr.headRefName
-Write-Host "PR Branch: $branch"
-Write-Host "PR Created: $($pr.createdAt)"
+Write-Information "PR Branch: $branch"
+Write-Information "PR Created: $($pr.createdAt)"
 
 # Pipeline workflows in execution order
 $workflows = @(
@@ -64,11 +68,11 @@ foreach ($wf in $workflows) {
 $sorted = $allRuns | Sort-Object StartedAt
 
 if ($sorted.Count -eq 0) {
-    Write-Host "No workflow runs found after PR creation." -ForegroundColor Yellow
+    Write-Information "${esc}[93mNo workflow runs found after PR creation.${esc}[0m"
     return
 }
 
-Write-Host "`nTimeline ($($sorted.Count) runs since PR creation):`n"
+Write-Information "`nTimeline ($($sorted.Count) runs since PR creation):`n"
 
 $prevTime = $null
 foreach ($run in $sorted) {
@@ -85,40 +89,37 @@ foreach ($run in $sorted) {
     }
 
     $statusStr = if ($run.Status -eq "completed") { $run.Conclusion } else { $run.Status }
-    Write-Host "  $($run.StartedAt) | " -NoNewline
-    Write-Host "$($run.Workflow.PadRight(20))" -NoNewline -ForegroundColor Cyan
-    Write-Host " | $statusStr" -NoNewline -ForegroundColor $conclusionColor
-    Write-Host "$gap"
+    Write-Information "  $($run.StartedAt) | ${esc}[96m$($run.Workflow.PadRight(20))${esc}[0m | ${esc}[$($ansi[$conclusionColor])m$statusStr${esc}[0m$gap"
 
     $prevTime = $run.StartedAt
 }
 
 # Summary by workflow
-Write-Host "`n--- RUN COUNTS ---" -ForegroundColor Yellow
+Write-Information "${esc}[93m`n--- RUN COUNTS ---${esc}[0m"
 $grouped = $sorted | Group-Object Workflow | Sort-Object Count -Descending
 foreach ($g in $grouped) {
     $successes = ($g.Group | Where-Object { $_.Conclusion -eq "success" }).Count
     $failures = ($g.Group | Where-Object { $_.Conclusion -eq "failure" }).Count
-    Write-Host "  $($g.Name): $($g.Count) runs ($successes ok, $failures failed)" -ForegroundColor $(if ($failures -gt 0) { "Yellow" } else { "Green" })
+    Write-Information ("${esc}[$($ansi[$(if ($failures -gt 0) { 'Yellow' } else { 'Green' })])m  $($g.Name): $($g.Count) runs ($successes ok, $failures failed)${esc}[0m")
 }
 
 # Detect patterns
-Write-Host "`n--- PATTERN DETECTION ---" -ForegroundColor Magenta
+Write-Information "${esc}[95m`n--- PATTERN DETECTION ---${esc}[0m"
 $analyzerRuns = $sorted | Where-Object { $_.Workflow -match "sfl-analyzer-[abc]" }
 if ($analyzerRuns.Count -gt 9) {
-    Write-Host "  WARNING: $($analyzerRuns.Count) analyzer runs detected." -ForegroundColor Red
-    Write-Host "  This suggests analyzers are re-running without progression." -ForegroundColor Red
-    Write-Host "  Check marker output in PR body." -ForegroundColor Yellow
+    Write-Information "${esc}[91m  WARNING: $($analyzerRuns.Count) analyzer runs detected.${esc}[0m"
+    Write-Information "${esc}[91m  This suggests analyzers are re-running without progression.${esc}[0m"
+    Write-Information "${esc}[93m  Check marker output in PR body.${esc}[0m"
 }
 
 $labelActionsRuns = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-label-actions" }
 if ($labelActionsRuns.Count -eq 0 -and $analyzerRuns.Count -ge 3) {
-    Write-Host "  WARNING: Analyzer chain completed but label-actions has not run." -ForegroundColor Red
-    Write-Host "  Check explicit Analyzer C -> label-actions dispatch." -ForegroundColor Yellow
+    Write-Information "${esc}[91m  WARNING: Analyzer chain completed but label-actions has not run.${esc}[0m"
+    Write-Information "${esc}[93m  Check explicit Analyzer C -> label-actions dispatch.${esc}[0m"
 }
 if ($labelActionsRuns.Count -gt 0 -and $analyzerRuns.Count -gt 3) {
-    Write-Host "  WARNING: Multiple analyzer runs detected for one PR cycle." -ForegroundColor Yellow
-    Write-Host "  Check marker output and Analyzer A handoff idempotency." -ForegroundColor Yellow
+    Write-Information "${esc}[93m  WARNING: Multiple analyzer runs detected for one PR cycle.${esc}[0m"
+    Write-Information "${esc}[93m  Check marker output and Analyzer A handoff idempotency.${esc}[0m"
 }
 
 $prBody = $pr.body
@@ -131,17 +132,17 @@ if ($cycleMatches.Count -gt 0) {
 $analyzerCMarker = "<!-- MARKER:sfl-analyzer-c cycle:$currentCycle -->"
 
 if ($prBody.Contains($analyzerCMarker) -and $labelActionsRuns.Count -eq 0) {
-    Write-Host "  WARNING: Analyzer C completed for cycle $currentCycle but label-actions has not run." -ForegroundColor Red
-    Write-Host "  This usually means Analyzer C wrote review state but did not emit dispatch_workflow to sfl-pr-label-actions." -ForegroundColor Yellow
+    Write-Information "${esc}[91m  WARNING: Analyzer C completed for cycle $currentCycle but label-actions has not run.${esc}[0m"
+    Write-Information "${esc}[93m  This usually means Analyzer C wrote review state but did not emit dispatch_workflow to sfl-pr-label-actions.${esc}[0m"
 }
 
 $latestAnalyzerC = $sorted | Where-Object { $_.Workflow -eq "sfl-analyzer-c" } | Sort-Object StartedAt -Descending | Select-Object -First 1
 $latestLabelActions = $sorted | Where-Object { $_.Workflow -eq "sfl-pr-label-actions" } | Sort-Object StartedAt -Descending | Select-Object -First 1
 if ($latestAnalyzerC -and $latestLabelActions) {
     if ([datetime]$latestAnalyzerC.StartedAt -gt [datetime]$latestLabelActions.StartedAt) {
-        Write-Host "  WARNING: Latest Analyzer C run is newer than latest label-actions run." -ForegroundColor Red
-        Write-Host "  The post-Analyzer-C handoff appears stuck on the current cycle." -ForegroundColor Yellow
+        Write-Information "${esc}[91m  WARNING: Latest Analyzer C run is newer than latest label-actions run.${esc}[0m"
+        Write-Information "${esc}[93m  The post-Analyzer-C handoff appears stuck on the current cycle.${esc}[0m"
     }
 }
 
-Write-Host "`n=== TIMELINE COMPLETE ===" -ForegroundColor Cyan
+Write-Information "${esc}[96m`n=== TIMELINE COMPLETE ===${esc}[0m"

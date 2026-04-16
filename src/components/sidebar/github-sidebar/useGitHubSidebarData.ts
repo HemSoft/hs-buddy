@@ -577,14 +577,16 @@ export function useGitHubSidebarData() {
         }
         return
       }
-      await createBookmark({
+      const result = await createBookmark({
         folder: org,
         owner: org,
         repo: repoName,
         url: repoUrl,
         description: '',
       })
-      incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
+      if (result?.inserted) {
+        incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
+      }
     },
     [bookmarkedRepoKeys, bookmarks, createBookmark, removeBookmark, incrementStat]
   )
@@ -596,7 +598,11 @@ export function useGitHubSidebarData() {
     repoUrl: string
   ) => {
     e.stopPropagation()
-    await toggleBookmarkRepoByValues(org, repoName, repoUrl)
+    try {
+      await toggleBookmarkRepoByValues(org, repoName, repoUrl)
+    } catch (err) {
+      console.error(`[Bookmark] toggle failed for ${org}/${repoName}:`, err)
+    }
   }
 
   const fetchRepoCountsForRepo = useCallback(

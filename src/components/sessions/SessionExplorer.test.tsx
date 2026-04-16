@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterAll, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { SessionExplorer } from './SessionExplorer'
 
@@ -51,6 +51,18 @@ vi.mock('../../hooks/useCopilotSessions', () => ({
 
 describe('SessionExplorer', () => {
   const onSelectSession = vi.fn()
+
+  // Pin the clock to noon so every Date.now() call — in both the test and the
+  // component — sees the same wall-clock instant. This eliminates flakes caused
+  // by midnight boundaries or CI running in UTC.
+  beforeAll(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-15T12:00:00'))
+  })
+
+  afterAll(() => {
+    vi.useRealTimers()
+  })
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -298,8 +310,8 @@ describe('SessionExplorer', () => {
   })
 
   it('shows date group labels', () => {
-    // The first session is from 1 hour ago → "Today"
-    // The second session is from 2 days ago → "This Week"
+    // With the clock pinned to 2026-06-15T12:00:00, the default mock's
+    // Date.now() - 3600000 is firmly "Today" and Date.now() - 2*DAY is "This Week".
     render(<SessionExplorer onSelectSession={onSelectSession} />)
     expect(screen.getByText('Today')).toBeTruthy()
     expect(screen.getByText('This Week')).toBeTruthy()

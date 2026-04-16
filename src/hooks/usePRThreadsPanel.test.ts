@@ -650,4 +650,448 @@ describe('usePRThreadsPanel', () => {
     expect(calls).toHaveLength(0)
     dispatchSpy.mockRestore()
   })
+
+  it('sets currentHeadSha to null when branches fetch fails with non-abort error', async () => {
+    mockEnqueue
+      .mockReset()
+      .mockRejectedValueOnce(new Error('Network error')) // branches fetch fails
+      .mockResolvedValueOnce(makeThreadsResult()) // threads still works
+
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    // needsRefresh should be false since currentHeadSha is null
+    expect(result.current.needsRefresh).toBe(false)
+  })
+
+  it('silently ignores abort error from branches fetch', async () => {
+    mockEnqueue
+      .mockReset()
+      .mockRejectedValueOnce(new DOMException('Aborted', 'AbortError')) // branches aborted
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    // Should not error — abort is silently handled
+    expect(result.current.error).toBeNull()
+  })
+
+  it('sets currentHeadSha to null when PR has no owner', async () => {
+    const noOwnerPR: PRDetailInfo = {
+      ...basePR,
+      url: 'not-a-github-url',
+      org: undefined,
+    }
+
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce(null) // branches
+      .mockRejectedValueOnce(new Error('Could not parse owner/repo from PR URL'))
+
+    const { result } = renderHook(() => usePRThreadsPanel(noOwnerPR))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    expect(result.current.needsRefresh).toBe(false)
+  })
+
+  it('handleReactToComment does nothing when ownerRepo is null', async () => {
+    const badPR: PRDetailInfo = {
+      ...basePR,
+      url: 'not-a-github-url',
+      org: undefined,
+    }
+
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce(null) // branches
+      .mockRejectedValueOnce(new Error('Could not parse'))
+
+    const { result } = renderHook(() => usePRThreadsPanel(badPR))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    const callsBefore = mockEnqueue.mock.calls.length
+
+    await act(async () => {
+      await result.current.handleReactToComment('c1', 'THUMBS_UP')
+    })
+
+    // Should not have enqueued anything new
+    expect(mockEnqueue.mock.calls.length).toBe(callsBefore)
+  })
+
+  it('handleReactToComment silently ignores abort error', async () => {
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    mockEnqueue.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await act(async () => {
+      await result.current.handleReactToComment('c1', 'THUMBS_UP')
+    })
+
+    // Abort errors should NOT be logged
+    const errorCalls = consoleSpy.mock.calls.filter(
+      c => typeof c[0] === 'string' && c[0].includes('Failed to add reaction')
+    )
+    expect(errorCalls).toHaveLength(0)
+    consoleSpy.mockRestore()
+  })
+
+  it('handleAddComment does nothing when ownerRepo is null', async () => {
+    const badPR: PRDetailInfo = {
+      ...basePR,
+      url: 'not-a-github-url',
+      org: undefined,
+    }
+
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error('parse error'))
+
+    const { result } = renderHook(() => usePRThreadsPanel(badPR))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    act(() => {
+      result.current.setCommentText('Some text')
+    })
+
+    const callsBefore = mockEnqueue.mock.calls.length
+
+    await act(async () => {
+      await result.current.handleAddComment()
+    })
+
+    // No new enqueue calls since ownerRepo is null
+    expect(mockEnqueue.mock.calls.length).toBe(callsBefore)
+    expect(result.current.sendingComment).toBe(false)
+  })
+
+  it('handleReplyAdded is a no-op when data is null', async () => {
+    // Keep enqueue pending so data stays null
+    let resolveThreads!: (v: PRThreadsResult) => void
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce({ headSha: 'abc123' })
+      .mockReturnValueOnce(new Promise<PRThreadsResult>(r => (resolveThreads = r)))
+
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    // data is still null while threads are loading
+    expect(result.current.data).toBeNull()
+
+    act(() => {
+      result.current.handleReplyAdded('t1', {
+        id: 'c-x',
+        body: 'reply',
+        bodyHtml: '<p>reply</p>',
+        author: 'alice',
+        createdAt: '2025-01-01',
+        updatedAt: '2025-01-01',
+        authorAvatarUrl: '',
+        url: '',
+        diffHunk: null,
+        reactions: [],
+      })
+    })
+
+    // data should remain null (the !prev guard returns prev unchanged)
+    expect(result.current.data).toBeNull()
+
+    // Clean up: resolve so hook settles
+    resolveThreads(makeThreadsResult())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  it('handleResolveToggled is a no-op when data is null', async () => {
+    let resolveThreads!: (v: PRThreadsResult) => void
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce({ headSha: 'abc123' })
+      .mockReturnValueOnce(new Promise<PRThreadsResult>(r => (resolveThreads = r)))
+
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    expect(result.current.data).toBeNull()
+
+    act(() => {
+      result.current.handleResolveToggled('t1', true)
+    })
+
+    expect(result.current.data).toBeNull()
+
+    resolveThreads(makeThreadsResult())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  it('handleAddComment does nothing when sendingComment is already true', async () => {
+    // Use a never-resolving promise to keep sendingComment=true
+    let resolveComment!: (v: unknown) => void
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockEnqueue.mockReturnValueOnce(new Promise(r => (resolveComment = r)))
+
+    act(() => {
+      result.current.setCommentText('First comment')
+    })
+
+    // Start the first comment — sendingComment becomes true
+    let firstPromise: Promise<void>
+    act(() => {
+      firstPromise = result.current.handleAddComment()
+    })
+
+    // While first is in-flight, calling again should be a no-op
+    const callsBefore = mockEnqueue.mock.calls.length
+    await act(async () => {
+      await result.current.handleAddComment()
+    })
+    expect(mockEnqueue.mock.calls.length).toBe(callsBefore)
+
+    // Clean up
+    resolveComment({
+      id: 'c-ok',
+      body: 'First comment',
+      author: 'alice',
+      createdAt: '2025-01-02',
+      updatedAt: '2025-01-02',
+      authorAvatarUrl: '',
+      reactions: [],
+    })
+    await act(async () => {
+      await firstPromise!
+    })
+  })
+
+  it('owner falls back to ownerRepo.owner when pr.org is undefined', async () => {
+    const prNoOrg: PRDetailInfo = {
+      ...basePR,
+      org: undefined,
+      // URL still valid so parseOwnerRepoFromUrl returns { owner: 'acme', repo: 'webapp' }
+    }
+
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce({ headSha: 'abc123' })
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    const { result } = renderHook(() => usePRThreadsPanel(prNoOrg))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Data loaded successfully — owner was derived from ownerRepo
+    expect(result.current.data).not.toBeNull()
+  })
+
+  it('branches effect sets currentHeadSha to null when headSha is falsy', async () => {
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce({ headSha: '' }) // falsy headSha
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    mockUseLatestPRReviewRun.mockReturnValue({
+      reviewedHeadSha: 'some-sha',
+      reviewedThreadStats: { unresolved: 2, outdated: 1 },
+      resultId: 'r1',
+    })
+
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // currentHeadSha is null (empty string → null via || null), reviewedHeadSha exists
+    // needsRefresh requires both to be truthy, so it falls to threadSnapshotChanged
+    expect(result.current.data).not.toBeNull()
+  })
+
+  it('branches effect early returns when pr.id is falsy', async () => {
+    const prNoId: PRDetailInfo = {
+      ...basePR,
+      id: 0,
+    }
+
+    mockEnqueue.mockReset().mockResolvedValueOnce(makeThreadsResult())
+
+    const { result } = renderHook(() => usePRThreadsPanel(prNoId))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Only 1 enqueue call (fetchThreads), no branches fetch
+    expect(mockEnqueue).toHaveBeenCalledTimes(1)
+  })
+
+  it('handleReactToComment logs non-abort errors', async () => {
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockEnqueue.mockRejectedValueOnce(new Error('API error'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await act(async () => {
+      await result.current.handleReactToComment('c1', 'THUMBS_UP')
+    })
+
+    const errorCalls = consoleSpy.mock.calls.filter(
+      c => typeof c[0] === 'string' && c[0].includes('Failed to add reaction')
+    )
+    expect(errorCalls).toHaveLength(1)
+    consoleSpy.mockRestore()
+  })
+
+  it('activeThreads/resolvedThreads/filteredThreads return empty arrays when data is null', () => {
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    // Data hasn't loaded yet
+    expect(result.current.data).toBeNull()
+    expect(result.current.activeThreads).toEqual([])
+    expect(result.current.resolvedThreads).toEqual([])
+    expect(result.current.filteredThreads).toEqual([])
+  })
+
+  it('threadSnapshotChanged is false when reviewedThreadStats is absent', async () => {
+    mockUseLatestPRReviewRun.mockReturnValue({
+      reviewedHeadSha: 'abc123',
+      reviewedThreadStats: null,
+      resultId: 'r1',
+    })
+
+    mockEnqueue
+      .mockReset()
+      .mockResolvedValueOnce({ headSha: 'abc123' })
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Same head SHA + no thread stats = no refresh needed
+    expect(result.current.needsRefresh).toBe(false)
+  })
+
+  it('needsRefresh false when currentHeadSha is null even if reviewedHeadSha exists', async () => {
+    mockUseLatestPRReviewRun.mockReturnValue({
+      reviewedHeadSha: 'sha-abc',
+      reviewedThreadStats: { unresolved: 2, outdated: 1 }, // matches actual counts
+      resultId: 'r1',
+    })
+
+    // Branches fetch fails → currentHeadSha stays null
+    mockEnqueue
+      .mockReset()
+      .mockRejectedValueOnce(new Error('fail'))
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // SHA comparison requires both truthy → false; thread stats match → false
+    expect(result.current.needsRefresh).toBe(false)
+  })
+
+  it('stale fetchThreads result is discarded', async () => {
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Set up two concurrent fetchThreads calls
+    let resolveFirst!: (v: PRThreadsResult) => void
+    const staleResult = makeThreadsResult({ threads: [] })
+    const freshResult = makeThreadsResult()
+
+    mockEnqueue
+      .mockReturnValueOnce(new Promise<PRThreadsResult>(r => (resolveFirst = r)))
+      .mockResolvedValueOnce(freshResult)
+
+    // Fire first fetch (will be stale)
+    let firstPromise: Promise<void>
+    act(() => {
+      firstPromise = result.current.fetchThreads()
+    })
+
+    // Fire second fetch immediately (this one wins)
+    await act(async () => {
+      await result.current.fetchThreads()
+    })
+
+    // Now resolve the first (stale) — its requestId is outdated
+    resolveFirst(staleResult)
+    await act(async () => {
+      await firstPromise!
+    })
+
+    // Data should be from the fresh call, not the stale one
+    expect(result.current.data!.threads).toHaveLength(3)
+  })
+
+  it('stale fetchThreads error is discarded', async () => {
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let rejectFirst!: (e: Error) => void
+    mockEnqueue
+      .mockReturnValueOnce(new Promise<PRThreadsResult>((_, rej) => (rejectFirst = rej)))
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    let firstPromise: Promise<void>
+    act(() => {
+      firstPromise = result.current.fetchThreads()
+    })
+
+    // Second call supersedes the first
+    await act(async () => {
+      await result.current.fetchThreads()
+    })
+
+    // Reject the stale first call
+    rejectFirst(new Error('Old error'))
+    await act(async () => {
+      await firstPromise!
+    })
+
+    // Error should not be set because the request was stale
+    expect(result.current.error).toBeNull()
+    expect(result.current.data).not.toBeNull()
+  })
+
+  it('fetchThreads ignores abort errors', async () => {
+    const { result } = renderHook(() => usePRThreadsPanel(basePR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockEnqueue.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+
+    await act(async () => {
+      await result.current.fetchThreads()
+    })
+
+    // Abort error should not set the error state
+    expect(result.current.error).toBeNull()
+  })
 })

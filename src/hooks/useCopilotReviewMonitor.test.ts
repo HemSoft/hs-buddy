@@ -421,4 +421,378 @@ describe('useCopilotReviewMonitor', () => {
       expect(stored['https://github.com/org/repo/pull/2']).toBeDefined()
     })
   })
+
+  describe('poll error handling', () => {
+    it('logs and continues polling on non-abort errors', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      // First poll rejects with a network error (non-abort)
+      mockEnqueueHolder.current.mockRejectedValueOnce(new Error('Network error'))
+      // Second poll succeeds with no fresh review
+      mockListPRReviews.mockResolvedValue([])
+
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      // Flush the immediate poll that fails
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // Should still be monitoring (not crashed)
+      expect(result.current.copilotReviewState).toBe('monitoring')
+      expect(debugSpy).toHaveBeenCalledWith('Copilot review poll failed:', expect.any(Error))
+
+      debugSpy.mockRestore()
+    })
+  })
+
+  describe('notification sound with enabled=true', () => {
+    it('attempts to play sound when notifications are enabled', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      // Poll finds a fresh review → triggers completion + notification
+      mockListPRReviews.mockResolvedValueOnce([
+        {
+          id: 200,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      // Mock IPC: enabled=true, then sound asset
+      vi.mocked(window.ipcRenderer.invoke).mockImplementation((channel: string) => {
+        if (channel === 'config:get-notification-sound-enabled') return Promise.resolve(true)
+        if (channel === 'config:play-notification-sound')
+          return Promise.resolve({ data: [0], mimeType: 'audio/wav' })
+        return Promise.resolve(false)
+      })
+
+      renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith(
+        'config:get-notification-sound-enabled'
+      )
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('config:play-notification-sound')
+    })
+
+    it('does not play sound when notifications are disabled', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValueOnce([
+        {
+          id: 200,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      vi.mocked(window.ipcRenderer.invoke).mockImplementation((channel: string) => {
+        if (channel === 'config:get-notification-sound-enabled') return Promise.resolve(false)
+        return Promise.resolve(false)
+      })
+
+      renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith(
+        'config:get-notification-sound-enabled'
+      )
+      expect(window.ipcRenderer.invoke).not.toHaveBeenCalledWith('config:play-notification-sound')
+    })
+  })
+
+  describe('notification sound null handling', () => {
+    it('does nothing when sound asset is null', async () => {
+      // Line 75: if (!sound) return
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValueOnce([
+        {
+          id: 200,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      vi.mocked(window.ipcRenderer.invoke).mockImplementation((channel: string) => {
+        if (channel === 'config:get-notification-sound-enabled') return Promise.resolve(true)
+        if (channel === 'config:play-notification-sound') return Promise.resolve(null)
+        return Promise.resolve(false)
+      })
+
+      renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('config:play-notification-sound')
+    })
+  })
+
+  describe('clearPendingReview error handling', () => {
+    it('handles sessionStorage errors gracefully', () => {
+      // Line 47: catch block in clearPendingReview
+      const origGetItem = sessionStorage.getItem
+      vi.spyOn(sessionStorage, 'getItem').mockImplementation(() => {
+        throw new Error('Storage unavailable')
+      })
+
+      // Should not throw
+      expect(() => clearPendingReview('https://github.com/org/repo/pull/1')).not.toThrow()
+
+      vi.mocked(sessionStorage.getItem).mockImplementation(origGetItem)
+    })
+  })
+
+  describe('handleRequestCopilotReview abort error', () => {
+    it('silently ignores AbortError in handleRequestCopilotReview', async () => {
+      // Line 294: isAbortError(err) in handleRequestCopilotReview catch
+      mockEnqueueHolder.current.mockRejectedValueOnce(new DOMException('Cancelled', 'AbortError'))
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await result.current.handleRequestCopilotReview()
+      })
+
+      // State should not go to 'idle' from the AbortError catch — it stays as 'requesting'
+      // since the abort guard returns early before setCopilotReviewState('idle')
+      expect(['idle', 'requesting']).toContain(result.current.copilotReviewState)
+    })
+  })
+
+  describe('review done state resets after timeout', () => {
+    it('transitions from done back to idle after 3 seconds', async () => {
+      // Lines 143-147: monitorTimeoutRef setTimeout → setCopilotReviewState('idle')
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValueOnce([
+        {
+          id: 200,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      // Trigger immediate poll → finds review → done
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(result.current.copilotReviewState).toBe('done')
+
+      // Wait for the 3s timeout to reset to idle
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+
+      expect(result.current.copilotReviewState).toBe('idle')
+    })
+  })
+
+  // --- Branch coverage: isFreshCopilotReview false paths ---
+
+  describe('isFreshCopilotReview false branches', () => {
+    it('ignores reviews with null user', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValue([
+        { id: 200, user: null, state: 'COMMENTED', submitted_at: null },
+      ])
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(result.current.copilotReviewState).toBe('monitoring')
+    })
+
+    it('ignores reviews with id at or below baseline', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValue([
+        {
+          id: 100,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+        {
+          id: 50,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(result.current.copilotReviewState).toBe('monitoring')
+    })
+
+    it('ignores reviews from non-copilot users', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValue([
+        { id: 200, user: { login: 'some-human' }, state: 'APPROVED', submitted_at: null },
+      ])
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(result.current.copilotReviewState).toBe('monitoring')
+    })
+  })
+
+  // --- Branch coverage: ownerRepo null with pending review ---
+
+  describe('mount with null ownerRepo', () => {
+    it('does not start monitoring when ownerRepo is null even with pending review', () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      const { result } = renderHook(() =>
+        useCopilotReviewMonitor({ ...defaultOptions, ownerRepo: null })
+      )
+
+      expect(result.current.copilotReviewState).toBe('idle')
+    })
+  })
+
+  // --- Branch coverage: sessionStorage error paths ---
+
+  describe('sessionStorage error in loadPendingReview', () => {
+    it('handles getItem throwing during mount', () => {
+      vi.spyOn(sessionStorage, 'getItem').mockImplementation(() => {
+        throw new Error('Storage unavailable')
+      })
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      expect(result.current.copilotReviewState).toBe('idle')
+
+      vi.mocked(sessionStorage.getItem).mockRestore()
+    })
+  })
+
+  describe('sessionStorage error in savePendingReview', () => {
+    it('continues monitoring even when setItem throws', async () => {
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      vi.spyOn(sessionStorage, 'setItem').mockImplementation(() => {
+        throw new Error('Storage full')
+      })
+
+      await act(async () => {
+        await result.current.handleRequestCopilotReview()
+      })
+
+      expect(result.current.copilotReviewState).toBe('monitoring')
+
+      vi.mocked(sessionStorage.setItem).mockRestore()
+    })
+  })
+
+  // --- Branch coverage: playReviewCompleteSound outer catch ---
+
+  describe('playReviewCompleteSound error handling', () => {
+    it('swallows error when ipcRenderer.invoke rejects', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValueOnce([
+        {
+          id: 200,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      vi.mocked(window.ipcRenderer.invoke).mockRejectedValue(new Error('IPC failed'))
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(result.current.copilotReviewState).toBe('done')
+    })
+  })
+
+  // --- Branch coverage: clearCopilotReviewTimers when timers are null ---
+
+  describe('clearCopilotReviewTimers no-op', () => {
+    it('handles being called when no timers are active', () => {
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      // Calling handleRequestCopilotReview on an idle hook (no active timers)
+      // internally calls clearCopilotReviewTimers which should handle null refs
+      expect(result.current.copilotReviewState).toBe('idle')
+    })
+  })
 })

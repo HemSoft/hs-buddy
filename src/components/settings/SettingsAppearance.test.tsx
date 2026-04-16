@@ -345,4 +345,58 @@ describe('SettingsAppearance', () => {
       "'Fira Code', Consolas, monospace"
     )
   })
+
+  it('falls back to defaults for empty config UI fields', () => {
+    renderAppearance({
+      config: createConfig({
+        accentColor: '',
+        fontColor: '',
+        bgPrimary: '',
+        bgSecondary: '',
+        statusBarBg: '',
+        statusBarFg: '',
+        fontFamily: '',
+        monoFontFamily: '',
+      }),
+    })
+
+    expect(screen.getByTestId('accent-color')).toHaveTextContent('#0e639c')
+    expect(screen.getByTestId('font-color')).toHaveTextContent('#cccccc')
+    expect(screen.getByTestId('bg-primary')).toHaveTextContent('#1e1e1e')
+    expect(screen.getByTestId('bg-secondary')).toHaveTextContent('#252526')
+    expect(screen.getByTestId('status-bg')).toHaveTextContent('#181818')
+    expect(screen.getByTestId('status-fg')).toHaveTextContent('#9d9d9d')
+    expect(screen.getByTestId('ui-font')).toHaveTextContent('Inter')
+    expect(screen.getByTestId('mono-font')).toHaveTextContent('Cascadia Code')
+  })
+
+  it('applies dark theme defaults when switching from light to dark', async () => {
+    const api = createApi()
+    renderAppearance({ api, config: createConfig({ theme: 'light' }) })
+
+    fireEvent.click(screen.getByTestId('theme-dark'))
+
+    await waitFor(() => expect(api.setTheme).toHaveBeenCalledWith('dark'))
+    expect(api.setAccentColor).toHaveBeenCalledWith(DARK_DEFAULTS.accentColor)
+    expect(api.setFontColor).toHaveBeenCalledWith(DARK_DEFAULTS.fontColor)
+    expect(api.setBgPrimary).toHaveBeenCalledWith(DARK_DEFAULTS.bgPrimary)
+    expect(api.setBgSecondary).toHaveBeenCalledWith(DARK_DEFAULTS.bgSecondary)
+    expect(api.setStatusBarBg).toHaveBeenCalledWith(DARK_DEFAULTS.statusBarBg)
+    expect(api.setStatusBarFg).toHaveBeenCalledWith(DARK_DEFAULTS.statusBarFg)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+  })
+
+  it('resets colors using dark theme defaults when theme is dark', async () => {
+    const api = createApi()
+    renderAppearance({ api, config: createConfig({ theme: 'dark' }) })
+
+    fireEvent.click(screen.getByTestId('reset-colors'))
+
+    await waitFor(() => expect(api.setAccentColor).toHaveBeenCalledWith(DARK_DEFAULTS.accentColor))
+    expect(api.setFontColor).toHaveBeenCalledWith(DARK_DEFAULTS.fontColor)
+    expect(api.setBgPrimary).toHaveBeenCalledWith(DARK_DEFAULTS.bgPrimary)
+    expect(api.setBgSecondary).toHaveBeenCalledWith(DARK_DEFAULTS.bgSecondary)
+    expect(api.setStatusBarBg).toHaveBeenCalledWith(DARK_DEFAULTS.statusBarBg)
+    expect(api.setStatusBarFg).toHaveBeenCalledWith(DARK_DEFAULTS.statusBarFg)
+  })
 })

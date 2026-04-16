@@ -107,6 +107,142 @@ describe('ScheduleOverviewPanel', () => {
     expect(screen.getByText('1 paused')).toBeInTheDocument()
   })
 
+  it('defaults to 3 when config returns an out-of-range value', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-schedule-forecast-days') return Promise.resolve(999)
+      return Promise.resolve(undefined)
+    })
+    mockSchedules = []
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(screen.getByText('No scheduled runs in the next 3 days.')).toBeInTheDocument()
+  })
+
+  it('handles config load failure and renders with default days', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-schedule-forecast-days')
+        return Promise.reject(new Error('IPC error'))
+      return Promise.resolve(undefined)
+    })
+    mockSchedules = []
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(screen.getByText('No scheduled runs in the next 3 days.')).toBeInTheDocument()
+  })
+
+  it('shows "(unknown job)" and defaults workerType when schedule has no job', async () => {
+    mockSchedules = [
+      {
+        _id: 'sched-nojob',
+        name: 'No Job Schedule',
+        enabled: true,
+        cron: '0 12 * * *',
+        job: null,
+      },
+    ]
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(screen.getAllByText('(unknown job)').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('exec').length).toBeGreaterThan(0)
+  })
+
+  it('handles schedules with timezone and renders skill worker badge', async () => {
+    mockSchedules = [
+      {
+        _id: 'sched-tz',
+        name: 'TZ Schedule',
+        enabled: true,
+        cron: '0 12 * * *',
+        timezone: 'America/New_York',
+        job: { name: 'TZ Job', workerType: 'skill' },
+      },
+    ]
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(screen.getAllByText('TZ Schedule').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('skill').length).toBeGreaterThan(0)
+  })
+
+  it('renders default worker badge class for unknown workerType', async () => {
+    mockSchedules = [
+      {
+        _id: 'sched-unknown',
+        name: 'Unknown Worker',
+        enabled: true,
+        cron: '0 12 * * *',
+        job: { name: 'Custom Job', workerType: 'webhook' },
+      },
+    ]
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(screen.getAllByText('webhook').length).toBeGreaterThan(0)
+  })
+
+  it('renders singular text for 1 active schedule, 1 run, and 1 day forecast', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-schedule-forecast-days') return Promise.resolve(1)
+      return Promise.resolve(undefined)
+    })
+    mockSchedules = [
+      {
+        _id: 'sched-single',
+        name: 'Single Schedule',
+        enabled: true,
+        cron: '0 12 * * *',
+        job: { name: 'Single Job', workerType: 'exec' },
+      },
+    ]
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(
+      screen.getByText((_, node) => node?.textContent === '1 active schedule')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText((_, node) => node?.textContent === '1 run in next 1 day')
+    ).toBeInTheDocument()
+  })
+
+  it('does not throw when clicking an occurrence without onOpenSchedule', async () => {
+    mockSchedules = [
+      {
+        _id: 'sched-click',
+        name: 'Clickable',
+        enabled: true,
+        cron: '0 12 * * *',
+        job: { name: 'Click Job', workerType: 'exec' },
+      },
+    ]
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(() => {
+      fireEvent.click(screen.getAllByTitle(/Schedule: Clickable/)[0])
+    }).not.toThrow()
+  })
+
+  it('handles config save failure silently', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-schedule-forecast-days') return Promise.resolve(3)
+      if (channel === 'config:set-schedule-forecast-days')
+        return Promise.reject(new Error('save fail'))
+      return Promise.resolve(undefined)
+    })
+    mockSchedules = []
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    fireEvent.change(screen.getByTestId('forecast-dropdown'), { target: { value: '7' } })
+    await act(async () => {})
+
+    expect(screen.getByText('No scheduled runs in the next 7 days.')).toBeInTheDocument()
+  })
+
   it('groups upcoming runs, skips invalid schedules, persists forecast changes, and opens a schedule', async () => {
     const onOpenSchedule = vi.fn()
     mockSchedules = [

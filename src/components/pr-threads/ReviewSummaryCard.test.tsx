@@ -98,4 +98,51 @@ describe('ReviewSummaryCard', () => {
     // The title should contain the updatedAt date (June 15), not createdAt (January 10)
     expect(timeEl?.getAttribute('title')).toContain('6/15/2025')
   })
+
+  it('uses createdAt when it is later than updatedAt', () => {
+    const createdAt = '2025-06-20T10:00:00Z'
+    const updatedAt = '2025-01-05T10:00:00Z'
+
+    render(<ReviewSummaryCard review={makeReview({ createdAt, updatedAt })} />)
+    const timeEl = document.querySelector('.thread-comment-time')
+    expect(timeEl).toBeInTheDocument()
+    expect(timeEl?.getAttribute('title')).toContain('6/20/2025')
+  })
+
+  it('uses createdAt when createdAt equals updatedAt', () => {
+    const sameDate = '2025-03-01T10:00:00Z'
+
+    render(<ReviewSummaryCard review={makeReview({ createdAt: sameDate, updatedAt: sameDate })} />)
+    const timeEl = document.querySelector('.thread-comment-time')
+    expect(timeEl).toBeInTheDocument()
+    expect(timeEl?.getAttribute('title')).toContain('3/1/2025')
+  })
+
+  it('renders avatar placeholder when authorAvatarUrl is empty string', () => {
+    render(<ReviewSummaryCard review={makeReview({ authorAvatarUrl: '' as unknown as null })} />)
+    expect(screen.getByText('O')).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('renders the details element as open by default', () => {
+    render(<ReviewSummaryCard review={makeReview()} />)
+    const details = document.querySelector('details')
+    expect(details).toBeInTheDocument()
+    expect(details).toHaveAttribute('open')
+  })
+
+  it('prevents default on View on GitHub click', () => {
+    render(<ReviewSummaryCard review={makeReview()} />)
+    const btn = screen.getByText('View on GitHub')
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+    btn.dispatchEvent(event)
+    expect(preventDefaultSpy).toHaveBeenCalled()
+  })
+
+  it('renders markdown body in dark color mode', () => {
+    render(<ReviewSummaryCard review={makeReview()} />)
+    const markdownContainer = document.querySelector('[data-color-mode="dark"]')
+    expect(markdownContainer).toBeInTheDocument()
+  })
 })

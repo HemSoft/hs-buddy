@@ -197,3 +197,27 @@ Target: **90%** across all four metrics.
 ---
 
 **Safety cap reached (5 iterations).** Re-invoke to continue. Current coverage: 18.23% stmts / 15.60% branches / 16.08% functions / 18.39% lines. Target: 90%.
+
+### Iteration 6 — Comprehensive Coverage Push
+
+| Item | Detail |
+|---|---|
+| **Target** | Broad push across 30+ files to reach 90% on all four metrics |
+| **Tests Added** | ~500 new test cases across 30+ files (3498 total tests, up from ~2700) |
+| **Coverage Before** | 90.27% / 84.18% / 88.09% / 92.02% |
+| **Coverage After** | 93.50% / 90.18% / 92.11% / 94.71% |
+| **Threshold Update** | vitest.config.ts thresholds raised: stmts 93, branches 90, functions 92, lines 94 |
+| **Key Files** | github.ts, useGitHubSidebarData.ts, usePRListData.ts, usePRReviewData.ts, useCopilotReviewMonitor.ts, useConfig.ts, useAutoRefresh.ts, useAppTabs.ts, useExternalMarkdownLinks.ts, useTodoist.ts, SessionExplorer.tsx, SidebarPanel.tsx, AppContentRouter.tsx, OrgDetailPanel.tsx, UserDetailPanel.tsx, UserPremiumUsageSection.tsx, BookmarkDialog.tsx, BookmarksSidebar.tsx, CopilotSidebar.tsx, GitHubSidebar.tsx, RepoNode.tsx, OrgRepoTree.tsx, TempoDashboard.tsx, TempoTimesheetGrid.tsx, TempoWorklogEditor.tsx, ModelPicker.tsx, CopilotPromptBox.tsx, PRReviewPanel.tsx, PRContextMenu.tsx, ReviewSummaryCard.tsx, PullRequestHistoryPanel.tsx, RepoPullRequestList.tsx, RepoCommitDetailPanel.tsx, ScheduleOverviewPanel.tsx, TaskPlannerView.tsx, AutomationSidebarSection.tsx, CrewProjectView.tsx, InlineDropdown.tsx, RateLimitGauge.tsx, ConfirmDialog.tsx, dataCache.ts, notificationSound.ts, quotaUtils.ts, commentCardUtils.ts, githubSidebarUtils.ts, diffHunkUtils.ts |
+| **Key Takeaways** | Parallel background agents are highly effective for adding test coverage — each agent independently reads source, writes tests, and verifies. Primary gap was branch coverage: ternary fallbacks, null coalescing, error catch blocks, and conditional rendering accounted for most uncovered branches. All 4 metrics now exceed 90%. |
+
+### Iteration 7 — Deep Coverage Push
+
+| Item | Detail |
+|---|---|
+| **Target** | Targeted push on highest-gap files: useGitHubSidebarData.ts, RepoNode.tsx, AppContentRouter.tsx, OrgDetailPanel.tsx, ReviewThreadCard.tsx, RepoDetailPanel.tsx |
+| **Tests Added** | ~60 new test cases across 6 files (3586 total tests, up from 3498) |
+| **Coverage Before** | 93.46% / 90.14% / 92.07% / 94.66% |
+| **Coverage After** | 95.19% / 91.04% / 95.11% / 96.18% |
+| **Threshold Update** | vitest.config.ts thresholds raised: stmts 95, branches 90, functions 94, lines 96 |
+| **Key Files** | useGitHubSidebarData.test.ts (+33 tests: cache hits, error handling, refresh intervals, applyApproveToTree, stale re-fetch), RepoNode.test.tsx (+24 tests: keyboard/click handlers for commits/issues/PRs/SFL sections → 67%→100%), AppContentRouter.test.tsx (+7 tests: callback invocation for all mocked child components → 37.5%→100% functions), OrgDetailPanel.test.tsx (+9 tests: abort errors, deduplication, user namespace, sorting, null names, overage, rate limit, auto-refresh), ReviewThreadCard.test.tsx (+6 tests: null line, no diffHunk, whitespace reply, double-send prevention, resolve guard), RepoDetailPanel.test.tsx (+6 tests: abort error, auto-refresh interval, keyboard CI badge, internal visibility, spinner, homepage) |
+| **Key Takeaways** | Major wins from RepoNode.tsx (67%→100% statements, 56%→100% functions) and AppContentRouter.tsx (37.5%→100% functions). The useGitHubSidebarData.ts mock required changing GitHubClient from arrow function to regular `function()` for Vitest v4.x constructor compatibility after vi.clearAllMocks(). Stale cache re-fetch tests needed the function() fix to work in suite (passed in isolation). All 4 metrics now exceed 95% except branches (91%). |

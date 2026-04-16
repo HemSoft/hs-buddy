@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 
-const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
-  mockEnqueue: vi.fn(),
-  mockCacheGet: vi.fn(),
-  stableAccounts: [{ username: 'alice', org: 'test-org' }],
-}))
+const { mockEnqueue, mockCacheGet, stableAccounts, mockParseOwnerRepo, mockIsAbortError } =
+  vi.hoisted(() => ({
+    mockEnqueue: vi.fn(),
+    mockCacheGet: vi.fn(),
+    stableAccounts: [{ username: 'alice', org: 'test-org' }],
+    mockParseOwnerRepo: vi.fn(),
+    mockIsAbortError: vi.fn(),
+  }))
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
@@ -30,13 +33,21 @@ vi.mock('../services/dataCache', () => ({
 
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-  isAbortError: () => false,
+  isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
   throwIfAborted: () => {},
 }))
 
 vi.mock('../utils/dateUtils', () => ({
   formatDistanceToNow: () => '3 hours ago',
   formatDateFull: () => 'Jun 1, 2025',
+}))
+
+vi.mock('../utils/githubUrl', () => ({
+  parseOwnerRepoFromUrl: (...args: unknown[]) => mockParseOwnerRepo(...args),
+}))
+
+vi.mock('../utils/assistantPrompts', () => ({
+  buildAddressCommentsPrompt: () => 'prompt-text',
 }))
 
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
@@ -105,6 +116,8 @@ describe('PullRequestHistoryPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCacheGet.mockReturnValue(null)
+    mockParseOwnerRepo.mockReturnValue({ owner: 'test-org', repo: 'hs-buddy' })
+    mockIsAbortError.mockReturnValue(false)
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -303,5 +316,317 @@ describe('PullRequestHistoryPanel', () => {
       expect(screen.getByText('B')).toBeInTheDocument()
       expect(screen.getByText('bob')).toBeInTheDocument()
     })
+  })
+
+  it('opens PR URL when Open PR button is clicked', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Open PR')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Open PR'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/pull/42'
+    )
+  })
+
+  it('shows merged date when PR is merged', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory({ mergedAt: '2025-06-03T10:00:00Z' }))
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      // formatDateFull is mocked to return 'Jun 1, 2025'
+      // Three date cards: Created, Last Updated, Merged - all show 'Jun 1, 2025'
+      const dates = screen.getAllByText('Jun 1, 2025')
+      expect(dates.length).toBe(3)
+    })
+  })
+
+  it('opens timeline event link on click', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} focus="commits" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Initial commit')).toBeInTheDocument()
+    })
+
+    // The first timeline event has a URL so it renders as a button
+    fireEvent.click(screen.getByText('Initial commit'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/commit/abc123'
+    )
+  })
+
+  it('renders timeline event without link when url is null', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeHistory({
+        timeline: [
+          {
+            id: 'ev-no-url',
+            type: 'commit',
+            author: 'reviewer1',
+            summary: 'WIP commit no link',
+            occurredAt: '2025-06-02T08:00:00Z',
+            url: null,
+          },
+        ],
+      })
+    )
+    render(<PullRequestHistoryPanel pr={defaultPr} focus="commits" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('WIP commit no link')).toBeInTheDocument()
+    })
+    // No-URL events render as plain text, not a button
+    const el = screen.getByText('WIP commit no link')
+    expect(el.tagName).not.toBe('BUTTON')
+  })
+
+  it('shows org and repo in non-embedded header', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('test-org')).toBeInTheDocument()
+      expect(screen.getByText('hs-buddy')).toBeInTheDocument()
+      expect(screen.getByText('#42')).toBeInTheDocument()
+    })
+  })
+
+  it('shows issue comment and review comment breakdown', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Issue comments')).toBeInTheDocument()
+      expect(screen.getByText('3')).toBeInTheDocument()
+      expect(screen.getByText('Review comments')).toBeInTheDocument()
+      expect(screen.getByText('7')).toBeInTheDocument()
+    })
+  })
+
+  it('shows reviewer time when updatedAt is provided', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('3 hours ago')).toBeInTheDocument()
+    })
+  })
+
+  it('renders reviewer avatar image when avatarUrl is present', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      const avatar = document.querySelector('.reviewer-avatar') as HTMLImageElement
+      expect(avatar).toBeInTheDocument()
+      expect(avatar.src).toBe('https://example.com/r1.png')
+    })
+  })
+
+  it('context menu opens on unaddressed thread card right-click', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+
+    expect(screen.getByText('Address Unresolved Comments')).toBeInTheDocument()
+    expect(screen.getByText('Request Copilot Review')).toBeInTheDocument()
+  })
+
+  it('closes context menu on overlay click', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    expect(screen.getByText('Address Unresolved Comments')).toBeInTheDocument()
+
+    const overlay = document.querySelector('.pr-context-menu-overlay') as HTMLElement
+    fireEvent.click(overlay)
+    expect(screen.queryByText('Address Unresolved Comments')).not.toBeInTheDocument()
+  })
+
+  it('disables Address Comments when no unaddressed threads', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory({ threadsUnaddressed: 0 }))
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    const addressBtn = screen.getByText('Address Unresolved Comments').closest('button')!
+    expect(addressBtn).toBeDisabled()
+  })
+
+  it('closes context menu on Escape key', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    expect(screen.getByText('Address Unresolved Comments')).toBeInTheDocument()
+
+    // PullRequestHistoryPanel uses window.addEventListener('keydown', ...)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(screen.queryByText('Address Unresolved Comments')).not.toBeInTheDocument()
+  })
+
+  it('shows error when parseOwnerRepoFromUrl returns null', async () => {
+    mockParseOwnerRepo.mockReturnValue(null)
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load PR history')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Could not parse owner/repo from PR URL')).toBeInTheDocument()
+  })
+
+  it('handleRequestCopilotReview returns early when parseOwnerRepoFromUrl is null', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    expect(screen.getByText('Request Copilot Review')).toBeInTheDocument()
+
+    // Make parseOwnerRepoFromUrl return null for the request copilot review call
+    mockParseOwnerRepo.mockReturnValue(null)
+
+    // Click Request Copilot Review - should return early without closing menu
+    fireEvent.click(screen.getByText('Request Copilot Review'))
+
+    // Menu should remain open because setMenu(null) is not called when ownerRepo is null
+    expect(screen.getByText('Request Copilot Review')).toBeInTheDocument()
+  })
+
+  it('handleAddressComments dispatches assistant prompt and closes menu', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+
+    const promptHandler = vi.fn()
+    window.addEventListener('assistant:send-prompt', promptHandler as EventListener)
+
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+
+    const addressBtn = screen.getByText('Address Unresolved Comments')
+    fireEvent.click(addressBtn)
+
+    // Menu should close after clicking
+    await waitFor(() => {
+      expect(screen.queryByText('Address Unresolved Comments')).not.toBeInTheDocument()
+    })
+
+    expect(promptHandler).toHaveBeenCalled()
+    const event = promptHandler.mock.calls[0][0] as CustomEvent
+    expect(event.detail.prompt).toBe('prompt-text')
+
+    window.removeEventListener('assistant:send-prompt', promptHandler as EventListener)
+  })
+
+  it('uses source as fallback when org is undefined in header', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={{ ...defaultPr, org: undefined }} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('PR History')).toBeInTheDocument()
+    })
+    // pr.org is undefined so pr.source ('GitHub') should appear in subtitle
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
+    expect(screen.queryByText('test-org')).not.toBeInTheDocument()
+  })
+
+  it('uses source as org fallback in handleAddressComments', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    const promptHandler = vi.fn()
+    window.addEventListener('assistant:send-prompt', promptHandler as EventListener)
+
+    render(<PullRequestHistoryPanel pr={{ ...defaultPr, org: undefined }} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    fireEvent.click(screen.getByText('Address Unresolved Comments'))
+
+    await waitFor(() => {
+      expect(promptHandler).toHaveBeenCalled()
+    })
+
+    window.removeEventListener('assistant:send-prompt', promptHandler as EventListener)
+  })
+
+  it('does not show error when fetch is aborted', async () => {
+    mockIsAbortError.mockReturnValue(true)
+    mockEnqueue.mockRejectedValue(new DOMException('Aborted', 'AbortError'))
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalled()
+    })
+    // Abort errors are silently ignored; loading state remains
+    expect(screen.getByText('Loading PR history…')).toBeInTheDocument()
+    expect(screen.queryByText('Failed to load PR history')).not.toBeInTheDocument()
+  })
+
+  it('handles undefined timeline with nullish coalescing', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory({ timeline: undefined }))
+    render(<PullRequestHistoryPanel pr={defaultPr} focus="commits" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No timeline events')).toBeInTheDocument()
+    })
+  })
+
+  it('closes context menu on window scroll', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    expect(screen.getByText('Address Unresolved Comments')).toBeInTheDocument()
+
+    act(() => {
+      window.dispatchEvent(new Event('scroll'))
+    })
+    expect(screen.queryByText('Address Unresolved Comments')).not.toBeInTheDocument()
   })
 })

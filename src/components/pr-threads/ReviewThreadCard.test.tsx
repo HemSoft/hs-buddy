@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReviewThreadCard } from './ReviewThreadCard'
 import type { PRDetailInfo } from '../../utils/prDetailView'
 import type { PRReviewThread, PRReviewComment } from '../../api/github'
@@ -15,6 +15,14 @@ vi.mock('../../hooks/useConfig', () => ({
 
 vi.mock('../../hooks/useTaskQueue', () => ({
   useTaskQueue: () => ({ enqueue: mockEnqueue }),
+}))
+
+vi.mock('../../utils/githubUrl', () => ({
+  parseOwnerRepoFromUrl: () => ({ owner: 'test-org', repo: 'hs-buddy' }),
+}))
+
+vi.mock('../../utils/errorUtils', () => ({
+  throwIfAborted: () => {},
 }))
 
 vi.mock('./DiffHunk', () => ({
@@ -258,5 +266,215 @@ describe('ReviewThreadCard', () => {
     const comments = [makeComment({ id: 'c1' }), makeComment({ id: 'c2' })]
     renderCard(makeThread({ comments }))
     expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  describe('reply success and error flows', () => {
+    it('calls onReplyAdded on successful reply send', async () => {
+      const newComment = makeComment({ id: 'new-reply', body: 'reply text' })
+      mockEnqueue.mockResolvedValue(newComment)
+      renderCard()
+
+      // Open reply form
+      fireEvent.click(screen.getByText('Reply'))
+      const textarea = screen.getByPlaceholderText('Write a reply...')
+      fireEvent.change(textarea, { target: { value: 'My reply text' } })
+
+      // Click send
+      const sendButtons = screen.getAllByRole('button', { name: /Reply/i })
+      const sendBtn = sendButtons.find(btn => btn.classList.contains('thread-reply-send'))!
+      fireEvent.click(sendBtn)
+
+      await waitFor(() => {
+        expect(onReplyAdded).toHaveBeenCalledWith('thread-1', newComment)
+      })
+    })
+
+    it('preserves reply text and keeps form open on send error', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockEnqueue.mockRejectedValue(new Error('Send failed'))
+      renderCard()
+
+      fireEvent.click(screen.getByText('Reply'))
+      const textarea = screen.getByPlaceholderText('Write a reply...')
+      fireEvent.change(textarea, { target: { value: 'My reply text' } })
+
+      const sendButtons = screen.getAllByRole('button', { name: /Reply/i })
+      const sendBtn = sendButtons.find(btn => btn.classList.contains('thread-reply-send'))!
+      fireEvent.click(sendBtn)
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to reply:', expect.any(Error))
+      })
+
+      // Form should still be open with text preserved
+      expect(screen.getByPlaceholderText('Write a reply...')).toHaveValue('My reply text')
+      // onReplyAdded should NOT be called on error
+      expect(onReplyAdded).not.toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+  })
+
+  describe('resolve success and error flows', () => {
+    it('calls onResolveToggled on successful resolve', async () => {
+      mockEnqueue.mockResolvedValue(undefined)
+      renderCard(makeThread({ isResolved: false }))
+
+      fireEvent.click(screen.getByText('Resolve conversation'))
+
+      await waitFor(() => {
+        expect(onResolveToggled).toHaveBeenCalledWith('thread-1', true)
+      })
+    })
+
+    it('calls onResolveToggled with false for unresolve', async () => {
+      mockEnqueue.mockResolvedValue(undefined)
+      renderCard(makeThread({ isResolved: true }))
+
+      // Expand the resolved thread first
+      fireEvent.click(screen.getByRole('button', { name: /src\/app.ts/i }))
+      fireEvent.click(screen.getByText('Unresolve'))
+
+      await waitFor(() => {
+        expect(onResolveToggled).toHaveBeenCalledWith('thread-1', false)
+      })
+    })
+
+    it('re-enables resolve button after error and does not call onResolveToggled', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockEnqueue.mockRejectedValue(new Error('Resolve failed'))
+      renderCard(makeThread({ isResolved: false }))
+
+      fireEvent.click(screen.getByText('Resolve conversation'))
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to toggle resolve:', expect.any(Error))
+      })
+
+      // Button should be re-enabled after error (done_resolving in finally)
+      await waitFor(() => {
+        const resolveBtn = screen.getByText('Resolve conversation').closest('button')
+        expect(resolveBtn).not.toBeDisabled()
+      })
+
+      expect(onResolveToggled).not.toHaveBeenCalled()
+      consoleSpy.mockRestore()
+    })
+  })
+
+  it('sends reply via Ctrl+Enter shortcut and triggers onReplyAdded', async () => {
+    const newComment = makeComment({ id: 'ctrl-reply', body: 'ctrl+enter reply' })
+    mockEnqueue.mockResolvedValue(newComment)
+    renderCard()
+
+    fireEvent.click(screen.getByText('Reply'))
+    const textarea = screen.getByPlaceholderText('Write a reply...')
+    fireEvent.change(textarea, { target: { value: 'ctrl+enter reply' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
+
+    await waitFor(() => {
+      expect(onReplyAdded).toHaveBeenCalledWith('thread-1', newComment)
+    })
+  })
+
+  it('sends reply via Meta+Enter shortcut', async () => {
+    const newComment = makeComment({ id: 'meta-reply', body: 'meta reply' })
+    mockEnqueue.mockResolvedValue(newComment)
+    renderCard()
+
+    fireEvent.click(screen.getByText('Reply'))
+    const textarea = screen.getByPlaceholderText('Write a reply...')
+    fireEvent.change(textarea, { target: { value: 'meta reply' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true })
+
+    await waitFor(() => {
+      expect(onReplyAdded).toHaveBeenCalledWith('thread-1', newComment)
+    })
+  })
+
+  it('does not show line label when thread.line is null', () => {
+    renderCard(makeThread({ line: null }))
+    expect(screen.queryByText(/Comment on line/)).not.toBeInTheDocument()
+  })
+
+  it('does not render DiffHunk when first comment has no diffHunk', () => {
+    const comment = makeComment({ diffHunk: null })
+    renderCard(makeThread({ comments: [comment] }))
+    expect(screen.queryByTestId('diff-hunk')).not.toBeInTheDocument()
+  })
+
+  it('does not send reply when text is whitespace only via Ctrl+Enter', () => {
+    renderCard()
+    fireEvent.click(screen.getByText('Reply'))
+    const textarea = screen.getByPlaceholderText('Write a reply...')
+    fireEvent.change(textarea, { target: { value: '   ' } })
+
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
+    expect(mockEnqueue).not.toHaveBeenCalled()
+  })
+
+  it('prevents duplicate send via Ctrl+Enter while already sending', async () => {
+    let resolveEnqueue!: (value: PRReviewComment) => void
+    mockEnqueue.mockImplementation(
+      () =>
+        new Promise<PRReviewComment>(resolve => {
+          resolveEnqueue = resolve
+        })
+    )
+    renderCard()
+
+    fireEvent.click(screen.getByText('Reply'))
+    const textarea = screen.getByPlaceholderText('Write a reply...')
+    fireEvent.change(textarea, { target: { value: 'My reply' } })
+
+    // Click send button — starts sending
+    const sendButtons = screen.getAllByRole('button', { name: /Reply/i })
+    const sendBtn = sendButtons.find(btn => btn.classList.contains('thread-reply-send'))!
+    fireEvent.click(sendBtn)
+
+    // Try to send again via Ctrl+Enter while already sending
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
+
+    expect(mockEnqueue).toHaveBeenCalledTimes(1)
+
+    // Clean up pending promise
+    const newComment = makeComment({ id: 'dup-reply', body: 'reply' })
+    resolveEnqueue(newComment)
+    await waitFor(() => {
+      expect(onReplyAdded).toHaveBeenCalledWith('thread-1', newComment)
+    })
+  })
+
+  it('shows singular line label when startLine equals line', () => {
+    renderCard(makeThread({ line: 15, startLine: 15 }))
+    expect(screen.getByText('Comment on line 15')).toBeInTheDocument()
+    expect(screen.queryByText(/Comment on lines/)).not.toBeInTheDocument()
+  })
+
+  it('disables resolve button and re-enables after resolve completes', async () => {
+    let resolveEnqueue!: () => void
+    mockEnqueue.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          resolveEnqueue = resolve
+        })
+    )
+    renderCard(makeThread({ isResolved: false }))
+
+    fireEvent.click(screen.getByText('Resolve conversation'))
+
+    await waitFor(() => {
+      const resolveBtn = screen.getByText('Resolve conversation').closest('button')
+      expect(resolveBtn).toBeDisabled()
+    })
+
+    resolveEnqueue()
+    await waitFor(() => {
+      expect(onResolveToggled).toHaveBeenCalledWith('thread-1', true)
+    })
+    await waitFor(() => {
+      const resolveBtn = screen.getByText('Resolve conversation').closest('button')
+      expect(resolveBtn).not.toBeDisabled()
+    })
   })
 })

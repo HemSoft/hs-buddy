@@ -320,4 +320,100 @@ describe('SidebarPanel', () => {
     expect(screen.getByText('Today')).toBeTruthy()
     expect(screen.getByText('Upcoming')).toBeTruthy()
   })
+
+  it('does not open context menu on right-click of non-automation items (Escape is a no-op)', () => {
+    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    const item = screen.getByText('Accounts').closest('[role="button"]')!
+    fireEvent.contextMenu(item)
+    // Context menu should NOT appear for non-automation items
+    expect(screen.queryByText('New Schedule')).toBeFalsy()
+    expect(screen.queryByText('New Job')).toBeFalsy()
+    // Escape keydown is a no-op when no context menu is open
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText('New Schedule')).toBeFalsy()
+  })
+
+  it('does not render context menu overlay initially', () => {
+    const onCreateNew = vi.fn()
+    const { container } = render(
+      <SidebarPanel
+        section="settings"
+        onItemSelect={onItemSelect}
+        selectedItem={null}
+        onCreateNew={onCreateNew}
+      />
+    )
+    expect(container.querySelector('.context-menu-overlay')).toBeNull()
+    expect(container.querySelector('.context-menu')).toBeNull()
+  })
+
+  it('does not auto-select for sections with multiple items', () => {
+    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    // settings has 6 items - should NOT auto-select
+    expect(onItemSelect).not.toHaveBeenCalled()
+  })
+
+  it('renders count without progress ring when no badgeProgress', () => {
+    const { container } = render(
+      <SidebarPanel
+        section="settings"
+        onItemSelect={onItemSelect}
+        selectedItem={null}
+        counts={{ 'settings-accounts': 7 }}
+      />
+    )
+    expect(screen.getByText('7')).toBeTruthy()
+    // Should not have a progress ring
+    expect(container.querySelector('.sidebar-item-count-ring')).toBeNull()
+  })
+
+  it('does not show count when counts not provided for item', () => {
+    const { container } = render(
+      <SidebarPanel
+        section="settings"
+        onItemSelect={onItemSelect}
+        selectedItem={null}
+        counts={{}}
+      />
+    )
+    const countElements = container.querySelectorAll('.sidebar-item-count')
+    expect(countElements.length).toBe(0)
+  })
+
+  it('handles multiple sections being expanded', () => {
+    const { rerender } = render(
+      <SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />
+    )
+    expect(screen.getByText('Accounts')).toBeTruthy()
+
+    // Switch to tasks section
+    rerender(<SidebarPanel section="tasks" onItemSelect={onItemSelect} selectedItem={null} />)
+    expect(screen.getByText('Today')).toBeTruthy()
+
+    // Switch back to settings - should still be expanded
+    rerender(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    expect(screen.getByText('Accounts')).toBeTruthy()
+  })
+
+  it('selects item via Space key on sidebar item', () => {
+    render(<SidebarPanel section="tasks" onItemSelect={onItemSelect} selectedItem={null} />)
+    const item = screen.getByText('Today').closest('[role="button"]')!
+    fireEvent.keyDown(item, { key: ' ' })
+    expect(onItemSelect).toHaveBeenCalledWith('tasks-today')
+  })
+
+  it('does not respond to non-Enter/Space keys on section header', () => {
+    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    const header = screen.getByText('Settings').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: 'Tab' })
+    // Items should still be visible (not toggled)
+    expect(screen.getByText('Accounts')).toBeTruthy()
+  })
+
+  it('does not respond to non-Enter/Space keys on sidebar items', () => {
+    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
+    const item = screen.getByText('Accounts').closest('[role="button"]')!
+    fireEvent.keyDown(item, { key: 'Tab' })
+    expect(onItemSelect).not.toHaveBeenCalled()
+  })
 })

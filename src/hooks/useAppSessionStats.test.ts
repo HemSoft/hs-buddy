@@ -111,4 +111,45 @@ describe('useAppSessionStats', () => {
     window.dispatchEvent(new Event('beforeunload'))
     expect(mockRecordSessionEnd).not.toHaveBeenCalled()
   })
+
+  it('handles recordSessionStart rejection gracefully', () => {
+    mockRecordSessionStart.mockRejectedValue(new Error('start failed'))
+    // Should not throw
+    expect(() => renderHook(() => useAppSessionStats())).not.toThrow()
+  })
+
+  it('handles checkpointUptime rejection gracefully', () => {
+    mockCheckpointUptime.mockRejectedValue(new Error('checkpoint failed'))
+    renderHook(() => useAppSessionStats())
+    // Should not throw when timer fires
+    expect(() => vi.advanceTimersByTime(5 * 60 * 1000)).not.toThrow()
+  })
+
+  it('handles recordSessionEnd rejection gracefully', () => {
+    mockRecordSessionEnd.mockRejectedValue(new Error('end failed'))
+    renderHook(() => useAppSessionStats())
+    // Should not throw
+    expect(() => window.dispatchEvent(new Event('beforeunload'))).not.toThrow()
+  })
+
+  it('handles increment rejection in trackViewOpen gracefully', () => {
+    mockIncrement.mockRejectedValue(new Error('increment failed'))
+    const { result } = renderHook(() => useAppSessionStats())
+    // Should not throw
+    expect(() => {
+      act(() => {
+        result.current.trackViewOpen('pr-my-prs')
+      })
+    }).not.toThrow()
+  })
+
+  it('trackViewOpen does not increment PR stat for unknown PR view', () => {
+    const { result } = renderHook(() => useAppSessionStats())
+    act(() => {
+      result.current.trackViewOpen('pr-need-a-nudge')
+    })
+    // Only tabsOpened should be called, not any PR-specific stat
+    expect(mockIncrement).toHaveBeenCalledTimes(1)
+    expect(mockIncrement).toHaveBeenCalledWith({ field: 'tabsOpened' })
+  })
 })

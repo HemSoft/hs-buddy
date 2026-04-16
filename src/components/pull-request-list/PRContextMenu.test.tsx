@@ -80,4 +80,130 @@ describe('PRContextMenu', () => {
     expect(screen.getByRole('button', { name: /already approved/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /unbookmark buddy/i })).toBeTruthy()
   })
+
+  it('enables address comments when there are unresolved threads', () => {
+    const onAddressComments = vi.fn()
+    render(
+      <PRContextMenu
+        x={0}
+        y={0}
+        pr={{ ...basePr, threadsUnaddressed: 3 }}
+        bookmarkedRepoKeys={new Set()}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn()}
+        onCopyLink={vi.fn()}
+        onBookmark={vi.fn()}
+        onRequestCopilotReview={vi.fn()}
+        onAddressComments={onAddressComments}
+        onClose={vi.fn()}
+      />
+    )
+
+    const btn = screen.getByRole('button', { name: /address unresolved comments \(3\)/i })
+    expect(btn).not.toBeDisabled()
+    fireEvent.click(btn)
+    expect(onAddressComments).toHaveBeenCalledOnce()
+  })
+
+  it('disables address comments when threadsUnaddressed is explicitly 0', () => {
+    render(
+      <PRContextMenu
+        x={0}
+        y={0}
+        pr={{ ...basePr, threadsUnaddressed: 0 }}
+        bookmarkedRepoKeys={new Set()}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn()}
+        onCopyLink={vi.fn()}
+        onBookmark={vi.fn()}
+        onRequestCopilotReview={vi.fn()}
+        onAddressComments={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /no unresolved comments/i })).toBeDisabled()
+  })
+
+  it('disables address comments when threadsUnaddressed is null', () => {
+    render(
+      <PRContextMenu
+        x={0}
+        y={0}
+        pr={{ ...basePr, threadsUnaddressed: null }}
+        bookmarkedRepoKeys={new Set()}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn()}
+        onCopyLink={vi.fn()}
+        onBookmark={vi.fn()}
+        onRequestCopilotReview={vi.fn()}
+        onAddressComments={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /no unresolved comments/i })).toBeDisabled()
+  })
+
+  it('invokes onRequestCopilotReview when clicked', () => {
+    const onRequestCopilotReview = vi.fn()
+    render(
+      <PRContextMenu
+        x={0}
+        y={0}
+        pr={basePr}
+        bookmarkedRepoKeys={new Set()}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn()}
+        onCopyLink={vi.fn()}
+        onBookmark={vi.fn()}
+        onRequestCopilotReview={onRequestCopilotReview}
+        onAddressComments={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /request copilot review/i }))
+    expect(onRequestCopilotReview).toHaveBeenCalledOnce()
+  })
+
+  it('uses org from PR to build repo key for bookmark check', () => {
+    render(
+      <PRContextMenu
+        x={0}
+        y={0}
+        pr={{ ...basePr, org: 'custom-org' }}
+        bookmarkedRepoKeys={new Set(['custom-org/buddy'])}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn()}
+        onCopyLink={vi.fn()}
+        onBookmark={vi.fn()}
+        onRequestCopilotReview={vi.fn()}
+        onAddressComments={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /unbookmark buddy/i })).toBeTruthy()
+  })
+
+  it('shows bookmark text when repo is not bookmarked', () => {
+    render(
+      <PRContextMenu
+        x={0}
+        y={0}
+        pr={basePr}
+        bookmarkedRepoKeys={new Set(['other-org/other-repo'])}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn()}
+        onCopyLink={vi.fn()}
+        onBookmark={vi.fn()}
+        onRequestCopilotReview={vi.fn()}
+        onAddressComments={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /^bookmark buddy$/i })).toBeTruthy()
+  })
 })

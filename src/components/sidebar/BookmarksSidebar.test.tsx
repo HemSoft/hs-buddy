@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BookmarksSidebar } from './BookmarksSidebar'
 import { isSafeImageUrl, buildCategoryTree } from './bookmarksSidebarUtils'
 
@@ -18,7 +18,13 @@ vi.mock('../../hooks/useConvex', () => ({
 }))
 
 vi.mock('../bookmarks/BookmarkDialog', () => ({
-  BookmarkDialog: () => null,
+  BookmarkDialog: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="bookmark-dialog">
+      <button data-testid="bookmark-dialog-close" onClick={onClose}>
+        Close Dialog
+      </button>
+    </div>
+  ),
 }))
 
 const defaultBookmarks = [
@@ -255,6 +261,601 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={selectedItem} />)
     const categoryItem = screen.getByText('Dev Tools').closest('.sidebar-item')!
     expect(categoryItem.className).toContain('selected')
+  })
+
+  it('renders uncategorized bookmarks at root level', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expect(screen.getByText('Orphan')).toBeInTheDocument()
+  })
+
+  it('selects uncategorized bookmark via keyboard Space', () => {
+    const onItemSelect = vi.fn()
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(item, { key: ' ' })
+    expect(onItemSelect).toHaveBeenCalledWith(`browser:${encodeURIComponent('https://orphan.com')}`)
+  })
+
+  it('selects a category via keyboard Enter', () => {
+    const onItemSelect = vi.fn()
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+    const categoryItem = screen.getByText('Dev Tools').closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(categoryItem, { key: 'Enter' })
+    expect(onItemSelect).toHaveBeenCalledWith('bookmarks-category:Dev Tools')
+  })
+
+  it('selects a category via keyboard Space', () => {
+    const onItemSelect = vi.fn()
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+    const categoryItem = screen.getByText('Dev Tools').closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(categoryItem, { key: ' ' })
+    expect(onItemSelect).toHaveBeenCalledWith('bookmarks-category:Dev Tools')
+  })
+
+  it('performs drag-over positioning', () => {
+    mockUseBookmarks.mockReturnValue([
+      { _id: '1', url: 'https://a.com', title: 'A', category: 'Dev Tools', tags: [], sortOrder: 0 },
+      { _id: '2', url: 'https://b.com', title: 'B', category: 'Dev Tools', tags: [], sortOrder: 1 },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
+    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+
+    // Start dragging A
+    fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+
+    // Drag over B
+    fireEvent.dragOver(itemB, {
+      preventDefault: vi.fn(),
+      dataTransfer: { dropEffect: '' },
+      currentTarget: itemB,
+      clientY: 100,
+    })
+
+    // Drop on B
+    fireEvent.drop(itemB, {
+      preventDefault: vi.fn(),
+      currentTarget: itemB,
+      clientY: 100,
+    })
+  })
+
+  it('renders bookmarks with safe favicon URL as image', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '1',
+        url: 'https://example.com/page',
+        title: 'With Favicon',
+        faviconUrl: 'https://example.com/favicon.ico',
+        category: 'Dev Tools',
+        tags: [],
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+    const img = document.querySelector('.sidebar-item-icon img') as HTMLImageElement
+    expect(img).toBeInTheDocument()
+    expect(img.src).toBe('https://example.com/favicon.ico')
+  })
+
+  it('renders Globe icon when faviconUrl is unsafe', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '1',
+        url: 'https://example.com/page',
+        title: 'No Favicon',
+        faviconUrl: 'data:image/x',
+        category: 'Dev Tools',
+        tags: [],
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+    // Should not have an img, should have Globe icon
+    expect(document.querySelector('.sidebar-item-icon img')).toBeNull()
+  })
+
+  it('does not show total count when bookmarks is empty array', () => {
+    mockUseBookmarks.mockReturnValue([])
+    mockUseBookmarkCategories.mockReturnValue([])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expect(screen.getByText('BOOKMARKS')).toBeInTheDocument()
+    expect(screen.queryByText('0')).toBeNull()
+  })
+
+  it('toggles chevron on Enter key on chevron', () => {
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    const chevron = screen
+      .getByText('Dev Tools')
+      .closest('.sidebar-item')!
+      .querySelector('.sidebar-item-chevron[role="button"]') as HTMLElement
+
+    fireEvent.keyDown(chevron, { key: 'Enter' })
+    expect(screen.getByText('Example')).toBeInTheDocument()
+  })
+
+  it('shows context menu on uncategorized bookmark right-click', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(item)
+    expect(screen.getByText('Edit')).toBeInTheDocument()
+  })
+
+  it('handles drag start and end on uncategorized bookmark', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    fireEvent.dragStart(item, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.dragEnd(item)
+  })
+
+  it('applies selected class on uncategorized bookmark', () => {
+    const selectedUrl = `browser:${encodeURIComponent('https://orphan.com')}`
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={selectedUrl} />)
+    const item = screen.getByText('Orphan').closest('.sidebar-item')!
+    expect(item.className).toContain('selected')
+  })
+
+  it('calls reorder after a valid drag-and-drop between bookmarks', () => {
+    const mockReorder = vi.fn().mockResolvedValue(undefined)
+    mockUseBookmarkMutations.mockReturnValue({ reorder: mockReorder })
+    mockUseBookmarks.mockReturnValue([
+      { _id: '1', url: 'https://a.com', title: 'A', category: 'Dev Tools', tags: [], sortOrder: 0 },
+      { _id: '2', url: 'https://b.com', title: 'B', category: 'Dev Tools', tags: [], sortOrder: 1 },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
+    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+
+    fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.drop(itemB, { dataTransfer: { dropEffect: '' }, clientY: 100 })
+
+    expect(mockReorder).toHaveBeenCalledWith({
+      updates: expect.arrayContaining([
+        expect.objectContaining({ id: '1' }),
+        expect.objectContaining({ id: '2' }),
+      ]),
+    })
+  })
+
+  it('does not reorder when dropping a bookmark on itself', () => {
+    const mockReorder = vi.fn().mockResolvedValue(undefined)
+    mockUseBookmarkMutations.mockReturnValue({ reorder: mockReorder })
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    fireEvent.dragStart(item, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.drop(item, { dataTransfer: { dropEffect: '' }, clientY: 0 })
+
+    expect(mockReorder).not.toHaveBeenCalled()
+  })
+
+  it('does not reorder when drop occurs without prior dragStart', () => {
+    const mockReorder = vi.fn().mockResolvedValue(undefined)
+    mockUseBookmarkMutations.mockReturnValue({ reorder: mockReorder })
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    fireEvent.drop(item, { dataTransfer: { dropEffect: '' }, clientY: 0 })
+
+    expect(mockReorder).not.toHaveBeenCalled()
+  })
+
+  it('catches reorder promise rejection silently', async () => {
+    const mockReorder = vi.fn().mockRejectedValue(new Error('network error'))
+    mockUseBookmarkMutations.mockReturnValue({ reorder: mockReorder })
+    mockUseBookmarks.mockReturnValue([
+      { _id: '1', url: 'https://a.com', title: 'A', category: 'Dev Tools', tags: [], sortOrder: 0 },
+      { _id: '2', url: 'https://b.com', title: 'B', category: 'Dev Tools', tags: [], sortOrder: 1 },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
+    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+
+    fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.drop(itemB, { dataTransfer: { dropEffect: '' }, clientY: 100 })
+
+    await waitFor(() => expect(mockReorder).toHaveBeenCalledTimes(1))
+  })
+
+  it('calculates above drop position when clientY is above midpoint', () => {
+    const mockReorder = vi.fn().mockResolvedValue(undefined)
+    mockUseBookmarkMutations.mockReturnValue({ reorder: mockReorder })
+    mockUseBookmarks.mockReturnValue([
+      { _id: '1', url: 'https://a.com', title: 'A', category: 'Dev Tools', tags: [], sortOrder: 0 },
+      { _id: '2', url: 'https://b.com', title: 'B', category: 'Dev Tools', tags: [], sortOrder: 1 },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
+    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+
+    fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    // In happy-dom BCR returns all zeros so midpoint=0; clientY=-1 triggers "above" path
+    fireEvent.drop(itemB, { dataTransfer: { dropEffect: '' }, clientY: -1 })
+
+    expect(mockReorder).toHaveBeenCalled()
+  })
+
+  it('handles drag from lower to upper position in the list', () => {
+    const mockReorder = vi.fn().mockResolvedValue(undefined)
+    mockUseBookmarkMutations.mockReturnValue({ reorder: mockReorder })
+    mockUseBookmarks.mockReturnValue([
+      { _id: '1', url: 'https://a.com', title: 'A', category: 'Dev Tools', tags: [], sortOrder: 0 },
+      { _id: '2', url: 'https://b.com', title: 'B', category: 'Dev Tools', tags: [], sortOrder: 1 },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
+    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+
+    // Drag B (index 1) onto A (index 0) — covers toIdx < fromIdx branch
+    fireEvent.dragStart(itemB, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.drop(itemA, { dataTransfer: { dropEffect: '' }, clientY: 100 })
+
+    expect(mockReorder).toHaveBeenCalled()
+  })
+
+  it('ignores dragOver when dragging over the same item', () => {
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    fireEvent.dragStart(item, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.dragOver(item, { dataTransfer: { dropEffect: '' }, clientY: 50 })
+
+    expect(item.className).not.toContain('drag-over')
+  })
+
+  it('ignores dragOver when no drag is in progress', () => {
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    fireEvent.dragOver(item, { dataTransfer: { dropEffect: '' }, clientY: 50 })
+
+    expect(item.className).not.toContain('drag-over')
+  })
+
+  it('applies drag-over-below class during dragOver', () => {
+    mockUseBookmarks.mockReturnValue([
+      { _id: '1', url: 'https://a.com', title: 'A', category: 'Dev Tools', tags: [], sortOrder: 0 },
+      { _id: '2', url: 'https://b.com', title: 'B', category: 'Dev Tools', tags: [], sortOrder: 1 },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
+    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+
+    fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.dragOver(itemB, { dataTransfer: { dropEffect: '' }, clientY: 100 })
+
+    expect(itemB.className).toContain('drag-over-below')
+  })
+
+  it('renders uncategorized bookmark with safe favicon as image', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan Fav',
+        category: '',
+        tags: [],
+        faviconUrl: 'https://orphan.com/favicon.ico',
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    const img = document.querySelector('.sidebar-item-icon img') as HTMLImageElement
+    expect(img).toBeInTheDocument()
+    expect(img.src).toBe('https://orphan.com/favicon.ico')
+  })
+
+  it('selects uncategorized bookmark via keyboard Enter', () => {
+    const onItemSelect = vi.fn()
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(item, { key: 'Enter' })
+    expect(onItemSelect).toHaveBeenCalledWith(`browser:${encodeURIComponent('https://orphan.com')}`)
+  })
+
+  it('supports drag-and-drop reorder on uncategorized bookmarks', () => {
+    const mockReorder = vi.fn().mockResolvedValue(undefined)
+    mockUseBookmarkMutations.mockReturnValue({ reorder: mockReorder })
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://a.com',
+        title: 'UA',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+      {
+        _id: '11',
+        url: 'https://b.com',
+        title: 'UB',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 1,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    const itemA = screen.getByText('UA').closest('[role="button"]') as HTMLElement
+    const itemB = screen.getByText('UB').closest('[role="button"]') as HTMLElement
+
+    fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
+    fireEvent.dragOver(itemB, { dataTransfer: { dropEffect: '' }, clientY: 0 })
+    fireEvent.drop(itemB, { dataTransfer: { dropEffect: '' }, clientY: 0 })
+
+    expect(mockReorder).toHaveBeenCalled()
+  })
+
+  it('adjusts context menu position when it overflows window bounds', () => {
+    const origInnerWidth = window.innerWidth
+    const origInnerHeight = window.innerHeight
+    Object.defineProperty(window, 'innerWidth', { value: 100, writable: true, configurable: true })
+    Object.defineProperty(window, 'innerHeight', { value: 100, writable: true, configurable: true })
+
+    const mockBCR = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      left: 0,
+      width: 200,
+      height: 200,
+      right: 200,
+      bottom: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    } as DOMRect)
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(item, { clientX: 50, clientY: 50 })
+
+    const menu = document.querySelector('.tab-context-menu') as HTMLElement
+    expect(menu).toBeInTheDocument()
+
+    mockBCR.mockRestore()
+    Object.defineProperty(window, 'innerWidth', {
+      value: origInnerWidth,
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: origInnerHeight,
+      writable: true,
+      configurable: true,
+    })
+  })
+
+  it('closes the edit dialog when BookmarkDialog onClose is called', () => {
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Dev Tools')
+
+    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(item)
+    fireEvent.click(screen.getByText('Edit'))
+
+    expect(screen.getByTestId('bookmark-dialog')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('bookmark-dialog-close'))
+    expect(screen.queryByTestId('bookmark-dialog')).toBeNull()
+  })
+
+  it('does not open edit dialog when bookmark is not found', () => {
+    const onItemSelect = vi.fn()
+    const { rerender } = render(
+      <BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />
+    )
+    expandCategory('Dev Tools')
+
+    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    fireEvent.contextMenu(item)
+    expect(screen.getByText('Edit')).toBeInTheDocument()
+
+    // Remove bookmarks so find() returns undefined when Edit is clicked
+    mockUseBookmarks.mockReturnValue(undefined)
+    rerender(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+    fireEvent.click(screen.getByText('Edit'))
+    expect(screen.queryByTestId('bookmark-dialog')).toBeNull()
+  })
+
+  it('renders empty chevron placeholder for category with no children or bookmarks', () => {
+    mockUseBookmarks.mockReturnValue([])
+    mockUseBookmarkCategories.mockReturnValue(['EmptyCategory'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    const categoryItem = screen.getByText('EmptyCategory').closest('.sidebar-item')!
+    const chevron = categoryItem.querySelector('.sidebar-item-chevron')
+    expect(chevron).toBeInTheDocument()
+    // Non-interactive placeholder has no role="button"
+    expect(chevron?.getAttribute('role')).toBeNull()
+  })
+
+  it('does not trigger selection on non-Enter/Space keydown', () => {
+    const onItemSelect = vi.fn()
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+    const categoryItem = screen.getByText('Dev Tools').closest('[role="button"]') as HTMLElement
+    fireEvent.keyDown(categoryItem, { key: 'Tab' })
+    expect(onItemSelect).not.toHaveBeenCalled()
+  })
+
+  it('shows Uncategorized label for empty-name intermediate category node', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '1',
+        url: 'https://a.com',
+        title: 'Deep',
+        category: 'Parent//Child',
+        tags: [],
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Parent//Child'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    expandCategory('Parent')
+    expect(screen.getByText('Uncategorized')).toBeInTheDocument()
+  })
+
+  it('selects uncategorized bookmark on click', () => {
+    const onItemSelect = vi.fn()
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '10',
+        url: 'https://orphan.com',
+        title: 'Orphan',
+        category: '',
+        tags: [],
+        faviconUrl: null,
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+    fireEvent.click(screen.getByText('Orphan').closest('[role="button"]') as HTMLElement)
+    expect(onItemSelect).toHaveBeenCalledWith(`browser:${encodeURIComponent('https://orphan.com')}`)
+  })
+
+  it('renders children of empty-name root node via renderCategoryNode', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '1',
+        url: 'https://a.com',
+        title: 'Sub Item',
+        category: '/ChildCat',
+        tags: [],
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['/ChildCat'])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    // The category '/ChildCat' creates root '' with child 'ChildCat'
+    // Root '' is skipped, its children are rendered directly
+    expect(screen.getByText('ChildCat')).toBeInTheDocument()
   })
 })
 

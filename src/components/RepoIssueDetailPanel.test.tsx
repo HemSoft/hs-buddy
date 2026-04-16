@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 
 const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
   mockEnqueue: vi.fn(),
@@ -257,6 +257,123 @@ describe('RepoIssueDetailPanel', () => {
 
     await waitFor(() => {
       expect(screen.getByText('2 replies')).toBeInTheDocument()
+    })
+  })
+
+  it('uses cached data when available and does not call enqueue', async () => {
+    const cachedDetail = makeIssueDetail()
+    mockCacheGet.mockReturnValue({ data: cachedDetail })
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    // Should render from cache immediately without loading state
+    expect(screen.getByText('#42 Login fails intermittently')).toBeInTheDocument()
+    expect(screen.queryByText('Loading issue…')).not.toBeInTheDocument()
+    // enqueue should not be called since cache was available
+    expect(mockEnqueue).not.toHaveBeenCalled()
+  })
+
+  it('clicks refresh button to force-refetch data', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('#42 Login fails intermittently')).toBeInTheDocument()
+    })
+
+    mockEnqueue.mockClear()
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ title: 'Updated Title' }))
+
+    fireEvent.click(screen.getByText('Refresh'))
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalled()
+    })
+  })
+
+  it('opens issue on GitHub when button clicked', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Open on GitHub')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Open on GitHub'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/issues/42'
+    )
+  })
+
+  it('opens comment link on GitHub', async () => {
+    const comments = [
+      {
+        id: 'c1',
+        body: 'Some comment',
+        author: 'bob',
+        authorAvatarUrl: 'https://example.com/bob.png',
+        createdAt: '2025-06-02T12:00:00Z',
+        updatedAt: '2025-06-02T12:00:00Z',
+        url: 'https://github.com/test-org/hs-buddy/issues/42#issuecomment-1',
+      },
+    ]
+    mockEnqueue.mockResolvedValue(makeIssueDetail({ comments }))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('bob')).toBeInTheDocument()
+    })
+
+    const linkBtn = document.querySelector('.repo-issue-detail-link-btn') as HTMLElement
+    fireEvent.click(linkBtn)
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/issues/42#issuecomment-1'
+    )
+  })
+
+  it('retries on error via retry button', async () => {
+    mockEnqueue.mockRejectedValueOnce(new Error('Not found'))
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load issue')).toBeInTheDocument()
+    })
+
+    mockEnqueue.mockResolvedValueOnce(makeIssueDetail())
+    fireEvent.click(screen.getByText('Retry'))
+
+    await waitFor(() => {
+      expect(screen.getByText('#42 Login fails intermittently')).toBeInTheDocument()
+    })
+  })
+
+  it('disables refresh button while loading', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Refresh')).toBeInTheDocument()
+    })
+
+    // Simulate a pending refresh
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    fireEvent.click(screen.getByText('Refresh'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Refresh').closest('button')).toBeDisabled()
+    })
+  })
+
+  it('shows assignee login only when name is null', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeIssueDetail({
+        assignees: [{ login: 'charlie', name: null, avatarUrl: 'https://example.com/c.png' }],
+      })
+    )
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('charlie')).toBeInTheDocument()
+      expect(screen.queryByText(/\(/)).not.toBeInTheDocument()
     })
   })
 })

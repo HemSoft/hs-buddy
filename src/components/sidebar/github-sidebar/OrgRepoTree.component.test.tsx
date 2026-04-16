@@ -304,4 +304,456 @@ describe('OrgRepoTree', () => {
     fireEvent.keyDown(orgHeader, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('org-detail:my-org')
   })
+
+  it('applies refresh-active class when refresh indicator is active', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      refreshIndicators: { 'org-repos:my-org': 'active' },
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelector('.refresh-active')).toBeTruthy()
+  })
+
+  it('applies refresh-pending class when refresh indicator is pending', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      refreshIndicators: { 'org-repos:my-org': 'pending' },
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelector('.refresh-pending')).toBeTruthy()
+  })
+
+  it('does not apply refresh class when no indicator present', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      refreshIndicators: {},
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelector('.refresh-active')).toBeNull()
+    expect(container.querySelector('.refresh-pending')).toBeNull()
+  })
+
+  it('shows contributor count next to user names', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      orgMembers: {
+        'my-org': [{ login: 'alice', name: 'Alice', avatarUrl: '', url: '', type: 'User' }],
+      },
+      orgContributorCounts: { 'my-org': { alice: 42 } },
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('42')).toBeTruthy()
+  })
+
+  it('does not show contributor count when count is zero', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      orgMembers: {
+        'my-org': [{ login: 'alice', name: 'Alice', avatarUrl: '', url: '', type: 'User' }],
+      },
+      orgContributorCounts: { 'my-org': { alice: 0 } },
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    const userItem = container.querySelector('.sidebar-org-user-child')!
+    expect(userItem.querySelector('.sidebar-item-count')).toBeNull()
+  })
+
+  it('fires onUserContextMenu on right-click of user item', () => {
+    const onUserContextMenu = vi.fn()
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      orgMembers: {
+        'my-org': [{ login: 'alice', name: 'Alice', avatarUrl: '', url: '', type: 'User' }],
+      },
+      onUserContextMenu,
+    })
+    render(<OrgRepoTree {...props} />)
+    const userEl = screen.getByText('Alice (alice)').closest('[role="button"]')!
+    fireEvent.contextMenu(userEl)
+    expect(onUserContextMenu).toHaveBeenCalledWith(expect.anything(), 'my-org', 'alice')
+  })
+
+  it('applies selected class to user item when selectedItem matches', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      orgMembers: {
+        'my-org': [{ login: 'alice', name: 'Alice', avatarUrl: '', url: '', type: 'User' }],
+      },
+      selectedItem: 'org-user:my-org/alice',
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelector('.sidebar-org-user-child.selected')).toBeTruthy()
+  })
+
+  it('applies selected class to org header when selectedItem matches', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      selectedItem: 'org-detail:my-org',
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelector('.sidebar-org-item.selected')).toBeTruthy()
+  })
+
+  it('shows bookmarked count in org header when showBookmarkedOnly is true', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      orgRepos: {
+        'my-org': [
+          {
+            name: 'repo-a',
+            fullName: 'my-org/repo-a',
+            description: null,
+            url: '',
+            defaultBranch: 'main',
+            language: null,
+            stargazersCount: 0,
+            forksCount: 0,
+            isPrivate: false,
+            isArchived: false,
+            updatedAt: null,
+            pushedAt: null,
+          },
+          {
+            name: 'repo-b',
+            fullName: 'my-org/repo-b',
+            description: null,
+            url: '',
+            defaultBranch: 'main',
+            language: null,
+            stargazersCount: 0,
+            forksCount: 0,
+            isPrivate: false,
+            isArchived: false,
+            updatedAt: null,
+            pushedAt: null,
+          },
+          {
+            name: 'repo-c',
+            fullName: 'my-org/repo-c',
+            description: null,
+            url: '',
+            defaultBranch: 'main',
+            language: null,
+            stargazersCount: 0,
+            forksCount: 0,
+            isPrivate: false,
+            isArchived: false,
+            updatedAt: null,
+            pushedAt: null,
+          },
+        ],
+      },
+      showBookmarkedOnly: true,
+      bookmarkedRepoKeys: new Set(['my-org/repo-a']),
+    })
+    render(<OrgRepoTree {...props} />)
+    // With bookmarkedOnly, count should show 1 (bookmarked) not 3 (total)
+    expect(screen.getByText('1')).toBeTruthy()
+  })
+
+  it('calls onToggleOrgUserGroup when clicking Users section header', () => {
+    const onToggleOrgUserGroup = vi.fn()
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      orgMembers: {
+        'my-org': [{ login: 'alice', name: null, avatarUrl: '', url: '', type: 'User' }],
+      },
+      onToggleOrgUserGroup,
+    })
+    render(<OrgRepoTree {...props} />)
+    fireEvent.click(screen.getByText('Users'))
+    expect(onToggleOrgUserGroup).toHaveBeenCalledWith('my-org')
+  })
+
+  it('calls onToggleOrgTeamGroup when clicking Teams section header', () => {
+    const onToggleOrgTeamGroup = vi.fn()
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      orgTeams: {
+        'my-org': [
+          {
+            slug: 'eng',
+            name: 'Engineering',
+            description: null,
+            memberCount: 3,
+            repoCount: 1,
+            url: '',
+          },
+        ],
+      },
+      onToggleOrgTeamGroup,
+    })
+    render(<OrgRepoTree {...props} />)
+    fireEvent.click(screen.getByText('Teams'))
+    expect(onToggleOrgTeamGroup).toHaveBeenCalledWith('my-org')
+  })
+
+  it('calls onToggleTeam when clicking a team node', () => {
+    const onToggleTeam = vi.fn()
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgTeamGroups: new Set(['my-org']),
+      orgTeams: {
+        'my-org': [
+          {
+            slug: 'eng',
+            name: 'Engineering',
+            description: null,
+            memberCount: 3,
+            repoCount: 1,
+            url: '',
+          },
+        ],
+      },
+      onToggleTeam,
+    })
+    render(<OrgRepoTree {...props} />)
+    fireEvent.click(screen.getByText('Engineering'))
+    expect(onToggleTeam).toHaveBeenCalledWith('my-org', 'eng')
+  })
+
+  it('handles keyboard Space on user item', () => {
+    const onItemSelect = vi.fn()
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      orgMembers: {
+        'my-org': [{ login: 'bob', name: null, avatarUrl: '', url: '', type: 'User' }],
+      },
+      onItemSelect,
+    })
+    render(<OrgRepoTree {...props} />)
+    const userEl = screen.getByText('bob').closest('[role="button"]')!
+    fireEvent.keyDown(userEl, { key: ' ' })
+    expect(onItemSelect).toHaveBeenCalledWith('org-user:my-org/bob')
+  })
+
+  it('handles keyboard Enter on team node', () => {
+    const onToggleTeam = vi.fn()
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgTeamGroups: new Set(['my-org']),
+      orgTeams: {
+        'my-org': [
+          {
+            slug: 'eng',
+            name: 'Engineering',
+            description: null,
+            memberCount: 0,
+            repoCount: 0,
+            url: '',
+          },
+        ],
+      },
+      onToggleTeam,
+    })
+    render(<OrgRepoTree {...props} />)
+    const teamEl = screen.getByText('Engineering').closest('[role="button"]')!
+    fireEvent.keyDown(teamEl, { key: 'Enter' })
+    expect(onToggleTeam).toHaveBeenCalledWith('my-org', 'eng')
+  })
+
+  it('shows loading teams spinner', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      loadingOrgTeams: new Set(['my-org']),
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelectorAll('.spin').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows loading users spinner', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      loadingOrgMembers: new Set(['my-org']),
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelectorAll('.spin').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows selected team member when selectedItem matches', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgTeamGroups: new Set(['my-org']),
+      expandedTeams: new Set(['my-org/eng']),
+      orgTeams: {
+        'my-org': [
+          {
+            slug: 'eng',
+            name: 'Engineering',
+            description: null,
+            memberCount: 1,
+            repoCount: 0,
+            url: '',
+          },
+        ],
+      },
+      teamMembers: {
+        'my-org/eng': [{ login: 'dev1', name: 'Dev One', avatarUrl: null }],
+      },
+      selectedItem: 'org-user:my-org/dev1',
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    expect(container.querySelector('.sidebar-team-member-child.selected')).toBeTruthy()
+  })
+
+  it('handles keyboard Enter on team member item', () => {
+    const onItemSelect = vi.fn()
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgTeamGroups: new Set(['my-org']),
+      expandedTeams: new Set(['my-org/eng']),
+      orgTeams: {
+        'my-org': [
+          {
+            slug: 'eng',
+            name: 'Engineering',
+            description: null,
+            memberCount: 1,
+            repoCount: 0,
+            url: '',
+          },
+        ],
+      },
+      teamMembers: {
+        'my-org/eng': [{ login: 'dev1', name: null, avatarUrl: null }],
+      },
+      onItemSelect,
+    })
+    render(<OrgRepoTree {...props} />)
+    const memberEl = screen.getByText('dev1').closest('[role="button"]')!
+    fireEvent.keyDown(memberEl, { key: 'Enter' })
+    expect(onItemSelect).toHaveBeenCalledWith('org-user:my-org/dev1')
+  })
+
+  it('shows "Loading repos..." when org is expanded and loading', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      loadingOrgs: new Set(['my-org']),
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('Loading repos...')).toBeTruthy()
+  })
+
+  it('shows "No repos found" when expanded org has no repos', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      orgRepos: { 'my-org': [] },
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('No repos found')).toBeTruthy()
+  })
+
+  it('shows "No bookmarked repos" when bookmarked filter has no matches', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      orgRepos: {
+        'my-org': [
+          {
+            name: 'repo-a',
+            fullName: 'my-org/repo-a',
+            description: null,
+            url: '',
+            defaultBranch: 'main',
+            language: null,
+            stargazersCount: 0,
+            forksCount: 0,
+            isPrivate: false,
+            isArchived: false,
+            updatedAt: null,
+            pushedAt: null,
+          },
+        ],
+      },
+      showBookmarkedOnly: true,
+      bookmarkedRepoKeys: new Set(),
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('No bookmarked repos')).toBeTruthy()
+  })
+
+  it('shows loading team members spinner when team is expanded and loading', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgTeamGroups: new Set(['my-org']),
+      expandedTeams: new Set(['my-org/eng']),
+      orgTeams: {
+        'my-org': [
+          {
+            slug: 'eng',
+            name: 'Engineering',
+            description: null,
+            memberCount: 3,
+            repoCount: 0,
+            url: '',
+          },
+        ],
+      },
+      loadingTeamMembers: new Set(['my-org/eng']),
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('Loading members...')).toBeTruthy()
+  })
+
+  it('shows "via @username" auth label when meta exists and not loading', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      orgMeta: { 'my-org': { authenticatedAs: 'octocat', isUserNamespace: false } },
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('via @octocat')).toBeTruthy()
+  })
+
+  it('hides auth label while loading', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      orgMeta: { 'my-org': { authenticatedAs: 'octocat', isUserNamespace: false } },
+      loadingOrgs: new Set(['my-org']),
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.queryByText('via @octocat')).toBeFalsy()
+  })
+
+  it('shows expanded users section loading state', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      loadingOrgMembers: new Set(['my-org']),
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('Loading users...')).toBeTruthy()
+  })
+
+  it('shows expanded teams section loading state', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgTeamGroups: new Set(['my-org']),
+      loadingOrgTeams: new Set(['my-org']),
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.getByText('Loading teams...')).toBeTruthy()
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 
 /* ── hoisted mocks ── */
 vi.mock('./components/TitleBar', () => ({
@@ -7,11 +7,11 @@ vi.mock('./components/TitleBar', () => ({
 }))
 
 vi.mock('./components/ActivityBar', () => ({
-  ActivityBar: () => <div data-testid="activity-bar" />,
+  ActivityBar: vi.fn(() => <div data-testid="activity-bar" />),
 }))
 
 vi.mock('./components/SidebarPanel', () => ({
-  SidebarPanel: () => <div data-testid="sidebar-panel" />,
+  SidebarPanel: vi.fn(() => <div data-testid="sidebar-panel" />),
 }))
 
 vi.mock('./components/TabBar', () => ({
@@ -32,7 +32,7 @@ vi.mock('./components/AppErrorBoundary', () => ({
 }))
 
 vi.mock('./components/AppContentRouter', () => ({
-  AppContentRouter: () => <div data-testid="content-router" />,
+  AppContentRouter: vi.fn(() => <div data-testid="content-router" />),
 }))
 
 vi.mock('./components/AssistantPanel', () => ({
@@ -71,7 +71,7 @@ vi.mock('./hooks/useAppAppearance', () => ({
 }))
 
 vi.mock('./hooks/usePRSidebarBadges', () => ({
-  usePRSidebarBadges: () => ({
+  usePRSidebarBadges: vi.fn().mockReturnValue({
     prCounts: { 'pr-list': 5 },
     badgeProgress: null,
     setPRCount: vi.fn(),
@@ -102,7 +102,7 @@ vi.mock('./hooks/useAppSessionStats', () => ({
 
 vi.mock('./hooks/useAppTabs', () => ({
   DASHBOARD_VIEW_ID: 'dashboard',
-  useAppTabs: () => ({
+  useAppTabs: vi.fn().mockReturnValue({
     activeTabId: 'welcome',
     activeViewId: 'welcome',
     closeAllTabs: vi.fn(),
@@ -117,6 +117,19 @@ vi.mock('./hooks/useAppTabs', () => ({
 }))
 
 import App from './App'
+import { ActivityBar } from './components/ActivityBar'
+import { SidebarPanel } from './components/SidebarPanel'
+import { AppContentRouter } from './components/AppContentRouter'
+import { useAppTabs } from './hooks/useAppTabs'
+import { usePRSidebarBadges } from './hooks/usePRSidebarBadges'
+import { useMigrateToConvex } from './hooks/useMigration'
+
+const MockActivityBar = vi.mocked(ActivityBar)
+const MockSidebarPanel = vi.mocked(SidebarPanel)
+const MockAppContentRouter = vi.mocked(AppContentRouter)
+const MockUseAppTabs = vi.mocked(useAppTabs)
+const MockUsePRSidebarBadges = vi.mocked(usePRSidebarBadges)
+const MockUseMigrateToConvex = vi.mocked(useMigrateToConvex)
 
 describe('App component', () => {
   beforeEach(() => {
@@ -151,5 +164,96 @@ describe('App loading state', () => {
     render(<App />)
     expect(screen.getByText('Loading...')).toBeInTheDocument()
     expect(screen.getByText('Initializing configuration')).toBeInTheDocument()
+  })
+})
+
+describe('App callbacks', () => {
+  let mockOpenTab: ReturnType<typeof vi.fn>
+  let mockSetPRCount: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    mockOpenTab = vi.fn()
+    mockSetPRCount = vi.fn()
+
+    // Ensure migration is complete (may be overridden by earlier tests)
+    MockUseMigrateToConvex.mockReturnValue({ isComplete: true, isLoading: false })
+
+    MockUseAppTabs.mockReturnValue({
+      activeTabId: 'welcome',
+      activeViewId: 'welcome',
+      closeAllTabs: vi.fn(),
+      closeOtherTabs: vi.fn(),
+      closeTab: vi.fn(),
+      closeTabsToRight: vi.fn(),
+      closeView: vi.fn(),
+      openTab: mockOpenTab as (viewId: string) => Promise<void>,
+      setActiveTabId: vi.fn(),
+      tabs: [{ id: 'welcome', label: 'Welcome', viewId: 'welcome' }],
+    })
+
+    MockUsePRSidebarBadges.mockReturnValue({
+      prCounts: { 'pr-list': 5 },
+      badgeProgress: {},
+      setPRCount: mockSetPRCount as (viewId: string, count: number) => void,
+    })
+  })
+
+  function getLastCallProps(mockFn: ReturnType<typeof vi.fn>): Record<string, unknown> {
+    const calls = mockFn.mock.calls
+    return calls[calls.length - 1][0] as Record<string, unknown>
+  }
+
+  it('handleHomeClick calls openTab with dashboard view ID', () => {
+    render(<App />)
+    const props = getLastCallProps(MockActivityBar)
+    act(() => {
+      ;(props.onHomeClick as () => void)()
+    })
+    expect(mockOpenTab).toHaveBeenCalledWith('dashboard')
+  })
+
+  it('handleSectionSelect opens bookmarks tab when bookmarks section selected', () => {
+    render(<App />)
+    const props = getLastCallProps(MockActivityBar)
+    act(() => {
+      ;(props.onSectionSelect as (id: string) => void)('bookmarks')
+    })
+    expect(mockOpenTab).toHaveBeenCalledWith('bookmarks-all')
+  })
+
+  it('handleItemSelect opens tab for selected view', () => {
+    render(<App />)
+    const props = getLastCallProps(MockSidebarPanel)
+    act(() => {
+      ;(props.onItemSelect as (id: string) => void)('pr-my-prs')
+    })
+    expect(mockOpenTab).toHaveBeenCalledWith('pr-my-prs')
+  })
+
+  it('handleCreateNew opens job editor for job type', () => {
+    render(<App />)
+    const props = getLastCallProps(MockSidebarPanel)
+    act(() => {
+      ;(props.onCreateNew as (type: string) => void)('job')
+    })
+    expect(screen.getByTestId('job-editor')).toBeInTheDocument()
+  })
+
+  it('handleCreateNew opens schedule editor for schedule type', () => {
+    render(<App />)
+    const props = getLastCallProps(MockSidebarPanel)
+    act(() => {
+      ;(props.onCreateNew as (type: string) => void)('schedule')
+    })
+    expect(screen.getByTestId('schedule-editor')).toBeInTheDocument()
+  })
+
+  it('handlePRCountChange calls setPRCount with viewId and count', () => {
+    render(<App />)
+    const props = getLastCallProps(MockAppContentRouter)
+    act(() => {
+      ;(props.onPRCountChange as (viewId: string, count: number) => void)('pr-my-prs', 10)
+    })
+    expect(mockSetPRCount).toHaveBeenCalledWith('pr-my-prs', 10)
   })
 })

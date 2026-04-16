@@ -369,4 +369,66 @@ describe('useAutoRefresh', () => {
 
     expect(result.current.lastRefreshedAt).toBeNull()
   })
+
+  it('falls back to 0 when defaultIntervalMin is not in INTERVAL_OPTIONS', () => {
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 999))
+    expect(result.current.intervalMinutes).toBe(0)
+  })
+
+  it('handles corrupt JSON in localStorage gracefully', () => {
+    localStorage.setItem('card-refresh:finance', '{bad json')
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 15))
+    expect(result.current.enabled).toBe(false)
+    expect(result.current.intervalMinutes).toBe(15)
+  })
+
+  it('handles non-finite lastRefreshed timestamp in localStorage', () => {
+    localStorage.setItem('card-last-refreshed:finance', 'not-a-number')
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 15))
+    expect(result.current.lastRefreshedAt).toBeNull()
+  })
+
+  it('handles zero lastRefreshed timestamp in localStorage', () => {
+    localStorage.setItem('card-last-refreshed:finance', '0')
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 15))
+    expect(result.current.lastRefreshedAt).toBeNull()
+  })
+
+  it('does not stamp if unmounted after async refresh resolves', async () => {
+    const underlying = vi.fn(() => Promise.resolve())
+    const { result, unmount } = renderHook(() => useAutoRefresh('finance', underlying, 15))
+    act(() => {
+      result.current.refresh()
+    })
+    unmount()
+    await act(async () => {
+      await Promise.resolve()
+    })
+    // Can't check result after unmount, but no error thrown
+  })
+
+  it('clamps update() with a non-allowed interval to the previous value', () => {
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 5))
+    act(() => {
+      result.current.setInterval(5)
+    })
+    expect(result.current.intervalMinutes).toBe(5)
+    act(() => {
+      result.current.update({ intervalMinutes: 999 })
+    })
+    expect(result.current.intervalMinutes).toBe(5)
+  })
+
+  it('handles localStorage throwing on write', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota')
+    })
+    const { result } = renderHook(() => useAutoRefresh('finance', vi.fn(), 15))
+    act(() => {
+      result.current.setInterval(5)
+    })
+    // No error thrown despite localStorage failure
+    expect(result.current.enabled).toBe(true)
+    vi.mocked(Storage.prototype.setItem).mockRestore()
+  })
 })

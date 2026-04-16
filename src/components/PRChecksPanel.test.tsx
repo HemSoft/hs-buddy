@@ -440,4 +440,189 @@ describe('PRChecksPanel', () => {
       expect(screen.getByText('No description provided')).toBeTruthy()
     })
   })
+
+  it('shows "Neutral" overall state label', async () => {
+    setupEnqueue(makeChecks({ overallState: 'neutral' }))
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Neutral')).toBeTruthy()
+    })
+  })
+
+  it('shows "Pending" overall state label', async () => {
+    setupEnqueue(makeChecks({ overallState: 'pending' }))
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Pending').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('shows "No checks" for unknown overall state', async () => {
+    setupEnqueue(makeChecks({ overallState: 'unknown' as PRChecksSummary['overallState'] }))
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No checks')).toBeTruthy()
+    })
+  })
+
+  it('shows all failure conclusion variants', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [
+          {
+            id: 10,
+            name: 'startup-check',
+            status: 'completed',
+            conclusion: 'startup_failure',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 11,
+            name: 'action-check',
+            status: 'completed',
+            conclusion: 'action_required',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 12,
+            name: 'cancel-check',
+            status: 'completed',
+            conclusion: 'cancelled',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+          {
+            id: 13,
+            name: 'stale-check',
+            status: 'completed',
+            conclusion: 'stale',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+        ],
+        statusContexts: [],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('startup failure')).toBeTruthy()
+    })
+    expect(screen.getByText('action required')).toBeTruthy()
+    expect(screen.getByText('cancelled')).toBeTruthy()
+    expect(screen.getByText('stale')).toBeTruthy()
+  })
+
+  it('shows neutral conclusion label', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [
+          {
+            id: 20,
+            name: 'neutral-check',
+            status: 'completed',
+            conclusion: 'neutral',
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+        ],
+        statusContexts: [],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('neutral')).toBeTruthy()
+    })
+  })
+
+  it('shows fallback label for unknown conclusion', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [
+          {
+            id: 30,
+            name: 'unknown-check',
+            status: 'completed',
+            conclusion: null,
+            detailsUrl: null,
+            startedAt: null,
+            completedAt: null,
+            appName: null,
+          },
+        ],
+        statusContexts: [],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Completed')).toBeTruthy()
+    })
+  })
+
+  it('shows status context fallback label for unknown state', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [],
+        statusContexts: [
+          {
+            id: 40,
+            context: 'ci/unknown',
+            state: 'some_unknown_state',
+            description: 'Unknown state',
+            targetUrl: null,
+            createdAt: null,
+            updatedAt: null,
+          },
+        ],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('some_unknown_state')).toBeTruthy()
+    })
+  })
+
+  it('opens status context targetUrl when Details button clicked', async () => {
+    setupEnqueue(
+      makeChecks({
+        checkRuns: [],
+        statusContexts: [
+          {
+            id: 50,
+            context: 'ci/deploy',
+            state: 'success',
+            description: 'Deployed',
+            targetUrl: 'https://deploy.example.com/50',
+            createdAt: null,
+            updatedAt: null,
+          },
+        ],
+      })
+    )
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Details')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByText('Details'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith('https://deploy.example.com/50')
+  })
 })

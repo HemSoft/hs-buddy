@@ -640,4 +640,551 @@ describe('usePRListData', () => {
     renderHook(() => usePRListData('my-prs'))
     expect(mockFetchMyPRs).not.toHaveBeenCalled()
   })
+
+  it('handleContextMenu opens context menu', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    const pr = result.current.prs[0]
+    const mockEvent = {
+      preventDefault: vi.fn(),
+      clientX: 100,
+      clientY: 200,
+    } as unknown as React.MouseEvent
+    act(() => result.current.handleContextMenu(mockEvent, pr))
+    expect(result.current.contextMenu).not.toBeNull()
+    expect(result.current.contextMenu?.x).toBe(100)
+    expect(result.current.contextMenu?.y).toBe(200)
+  })
+
+  it('closeContextMenu clears context menu', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    const pr = result.current.prs[0]
+    const mockEvent = {
+      preventDefault: vi.fn(),
+      clientX: 10,
+      clientY: 20,
+    } as unknown as React.MouseEvent
+    act(() => result.current.handleContextMenu(mockEvent, pr))
+    expect(result.current.contextMenu).not.toBeNull()
+    act(() => result.current.closeContextMenu())
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('context menu closes on Escape keydown', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    const pr = result.current.prs[0]
+    const mockEvent = {
+      preventDefault: vi.fn(),
+      clientX: 10,
+      clientY: 20,
+    } as unknown as React.MouseEvent
+    act(() => result.current.handleContextMenu(mockEvent, pr))
+    expect(result.current.contextMenu).not.toBeNull()
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('handleCopyLink copies PR URL to clipboard', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    const pr = result.current.prs[0]
+    const mockEvent = {
+      preventDefault: vi.fn(),
+      clientX: 10,
+      clientY: 20,
+    } as unknown as React.MouseEvent
+    act(() => result.current.handleContextMenu(mockEvent, pr))
+    await act(async () => {
+      await result.current.handleCopyLink()
+    })
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(pr.url)
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('handleAIReview dispatches pr-review:open event', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    const pr = result.current.prs[0]
+    const mockEvent = {
+      preventDefault: vi.fn(),
+      clientX: 10,
+      clientY: 20,
+    } as unknown as React.MouseEvent
+    act(() => result.current.handleContextMenu(mockEvent, pr))
+
+    const eventSpy = vi.fn()
+    window.addEventListener('pr-review:open', eventSpy)
+    try {
+      await act(async () => {
+        await result.current.handleAIReview()
+      })
+      expect(eventSpy).toHaveBeenCalled()
+      expect(result.current.contextMenu).toBeNull()
+    } finally {
+      window.removeEventListener('pr-review:open', eventSpy)
+    }
+  })
+
+  it('handleAddressComments dispatches assistant:send-prompt event', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    const pr = result.current.prs[0]
+    const mockEvent = {
+      preventDefault: vi.fn(),
+      clientX: 10,
+      clientY: 20,
+    } as unknown as React.MouseEvent
+    act(() => result.current.handleContextMenu(mockEvent, pr))
+
+    const eventSpy = vi.fn()
+    window.addEventListener('assistant:send-prompt', eventSpy)
+    try {
+      act(() => result.current.handleAddressComments())
+      expect(eventSpy).toHaveBeenCalled()
+      expect(result.current.contextMenu).toBeNull()
+    } finally {
+      window.removeEventListener('assistant:send-prompt', eventSpy)
+    }
+  })
+
+  it('handleManualRefresh triggers a refetch', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    mockFetchMyPRs.mockClear()
+    await act(async () => {
+      result.current.handleManualRefresh()
+    })
+    // Wait for the refetch to happen
+    await waitFor(() => expect(mockFetchMyPRs).toHaveBeenCalled())
+  })
+
+  it('handleBookmarkRepo creates bookmark when not bookmarked', async () => {
+    const mockCreate = vi.fn().mockResolvedValue(undefined)
+    mockUseRepoBookmarkMutations.mockReturnValue({
+      create: mockCreate,
+      remove: vi.fn().mockResolvedValue(undefined),
+    })
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    const pr = result.current.prs[0]
+    const mockEvent = {
+      preventDefault: vi.fn(),
+      clientX: 10,
+      clientY: 20,
+    } as unknown as React.MouseEvent
+    act(() => result.current.handleContextMenu(mockEvent, pr))
+    await act(async () => {
+      await result.current.handleBookmarkRepo()
+    })
+    expect(mockCreate).toHaveBeenCalled()
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('handleBookmarkRepo does nothing without context menu', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.handleBookmarkRepo()
+    })
+    // No crash, context menu stays null
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('handleAIReview does nothing without context menu', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.handleAIReview()
+    })
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('handleCopyLink does nothing without context menu', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR()])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.handleCopyLink()
+    })
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('getTitle returns correct title for each mode', async () => {
+    mockFetchMyPRs.mockResolvedValue([])
+    const { result: myPrs } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(myPrs.current.loading).toBe(false))
+    expect(myPrs.current.getTitle()).toBe('My Pull Requests')
+
+    mockFetchNeedsReview.mockResolvedValue([])
+    const { result: needsReview } = renderHook(() => usePRListData('needs-review'))
+    await waitFor(() => expect(needsReview.current.loading).toBe(false))
+    expect(needsReview.current.getTitle()).toBe('PRs Needing Review')
+
+    mockFetchRecentlyMerged.mockResolvedValue([])
+    const { result: merged } = renderHook(() => usePRListData('recently-merged'))
+    await waitFor(() => expect(merged.current.loading).toBe(false))
+    expect(merged.current.getTitle()).toBe('Recently Merged PRs')
+
+    mockFetchNeedANudge.mockResolvedValue([])
+    const { result: nudge } = renderHook(() => usePRListData('need-a-nudge'))
+    await waitFor(() => expect(nudge.current.loading).toBe(false))
+    expect(nudge.current.getTitle()).toContain('Needs a nudge')
+  })
+
+  it('getProgressColor returns correct colors', async () => {
+    mockFetchMyPRs.mockResolvedValue([])
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.getProgressColor).toBeTypeOf('function')
+  })
+
+  // --- Branch coverage: progress callback branches ---
+
+  it('handles progress callback with non-done status', async () => {
+    mockFetchMyPRs.mockImplementation(async (progressCb?: (p: unknown) => void) => {
+      progressCb?.({
+        currentAccount: 1,
+        totalAccounts: 1,
+        accountName: 'alice',
+        org: 'test-org',
+        status: 'fetching',
+        totalPrsFound: 0,
+      })
+      return [makePR()]
+    })
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+    expect(result.current.totalPrsFound).toBe(0)
+  })
+
+  it('handles progress with done status but prsFound undefined', async () => {
+    mockFetchMyPRs.mockImplementation(async (progressCb?: (p: unknown) => void) => {
+      progressCb?.({
+        currentAccount: 1,
+        totalAccounts: 1,
+        accountName: 'alice',
+        org: 'test-org',
+        status: 'done',
+        totalPrsFound: 0,
+      })
+      return [makePR()]
+    })
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+    expect(result.current.totalPrsFound).toBe(0)
+  })
+
+  // --- Branch coverage: null/falsy guards ---
+
+  it('handles null bookmarks in bookmarkedRepoKeys and handleBookmarkRepo', async () => {
+    const createBookmark = vi.fn().mockResolvedValue(undefined)
+    mockUseRepoBookmarks.mockReturnValue(null)
+    mockUseRepoBookmarkMutations.mockReturnValue({
+      create: createBookmark,
+      remove: vi.fn().mockResolvedValue(undefined),
+    })
+
+    const pr = makePR({ org: '' })
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 1, clientY: 2 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    await act(async () => {
+      await result.current.handleBookmarkRepo()
+    })
+
+    expect(createBookmark).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: '', repo: 'hs-buddy' })
+    )
+  })
+
+  it('handleRequestCopilotReview returns early when URL cannot be parsed', async () => {
+    const mockRequestCopilotReview = vi.fn()
+    mockGitHubClient.mockImplementation(function MockGitHubClient() {
+      return {
+        fetchMyPRs: mockFetchMyPRs,
+        fetchNeedsReview: mockFetchNeedsReview,
+        fetchRecentlyMerged: mockFetchRecentlyMerged,
+        fetchNeedANudge: mockFetchNeedANudge,
+        approvePullRequest: mockApprovePullRequest,
+        requestCopilotReview: mockRequestCopilotReview,
+      }
+    })
+
+    const pr = makePR({ url: 'not-a-github-url' })
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 1, clientY: 2 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    await act(async () => {
+      await result.current.handleRequestCopilotReview()
+    })
+
+    expect(mockRequestCopilotReview).not.toHaveBeenCalled()
+  })
+
+  it('handleApprove returns early when URL cannot be parsed', async () => {
+    const pr = makePR({ url: 'not-a-github-url', iApproved: false })
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    await act(async () => {
+      await result.current.handleApprove(pr)
+    })
+
+    expect(mockApprovePullRequest).not.toHaveBeenCalled()
+  })
+
+  it('handleCopyLink handles missing clipboard API', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
+    const pr = makePR()
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 1, clientY: 2 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    await act(async () => {
+      await result.current.handleCopyLink()
+    })
+
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('handleAddressComments uses pr.source when pr.org is empty', () => {
+    const promptListener = vi.fn()
+    window.addEventListener('assistant:send-prompt', promptListener as EventListener)
+
+    const pr = makePR({ org: '', source: 'GitHub' })
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 1, clientY: 2 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    act(() => {
+      result.current.handleAddressComments()
+    })
+
+    expect(promptListener).toHaveBeenCalled()
+    expect(result.current.contextMenu).toBeNull()
+
+    window.removeEventListener('assistant:send-prompt', promptListener as EventListener)
+  })
+
+  // --- Branch coverage: error handling paths ---
+
+  it('handles non-Error thrown during fetch', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockFetchMyPRs.mockRejectedValue('string error')
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    await waitFor(() => expect(result.current.error).toBe('Failed to fetch PRs'))
+    expect(result.current.loading).toBe(false)
+    errorSpy.mockRestore()
+  })
+
+  it('silently ignores AbortError during fetch', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    mockFetchMyPRs.mockRejectedValue(new DOMException('Cancelled', 'AbortError'))
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    await waitFor(() => expect(mockFetchMyPRs).toHaveBeenCalled())
+    await act(async () => {})
+
+    expect(result.current.error).toBeNull()
+    logSpy.mockRestore()
+  })
+
+  // --- Branch coverage: auto-refresh interval guards ---
+
+  it('skips auto-refresh when refreshInterval is zero', async () => {
+    mockUsePRSettings.mockReturnValue({
+      recentlyMergedDays: 14,
+      refreshInterval: 0,
+      loading: false,
+    })
+    mockFetchMyPRs.mockResolvedValue([])
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.updateTimes).toBeNull()
+  })
+
+  it('skips auto-refresh when refreshInterval is negative', async () => {
+    mockUsePRSettings.mockReturnValue({
+      recentlyMergedDays: 14,
+      refreshInterval: -1,
+      loading: false,
+    })
+    mockFetchMyPRs.mockResolvedValue([])
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  // --- Branch coverage: cache subscription key mismatch ---
+
+  it('ignores cache subscription updates for different modes', async () => {
+    const onCountChange = vi.fn()
+    dataCache.set('my-prs', [makePR({ id: 1 })], Date.now())
+
+    const { result } = renderHook(() => usePRListData('my-prs', onCountChange))
+    onCountChange.mockClear()
+
+    act(() => {
+      dataCache.set('needs-review', [makePR({ id: 99 })], Date.now())
+    })
+
+    expect(result.current.prs).toEqual([makePR({ id: 1 })])
+    expect(onCountChange).not.toHaveBeenCalled()
+  })
+
+  // --- Branch coverage: approve edge cases ---
+
+  it('handleApprove skips cache update when cache is empty', async () => {
+    const pr = makePR()
+    mockFetchMyPRs.mockResolvedValue([pr])
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    await dataCache.clear()
+
+    await act(async () => {
+      await result.current.handleApprove(pr)
+    })
+
+    expect(mockApprovePullRequest).toHaveBeenCalled()
+    expect(result.current.approving).toBeNull()
+  })
+
+  it('markApproved skips item already approved in state', async () => {
+    const pr = makePR({ iApproved: true, approvalCount: 2 })
+    dataCache.set('my-prs', [pr], Date.now())
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    expect(result.current.prs[0].iApproved).toBe(true)
+
+    const prToApprove = { ...pr, iApproved: false }
+
+    await act(async () => {
+      await result.current.handleApprove(prToApprove)
+    })
+
+    expect(mockApprovePullRequest).toHaveBeenCalled()
+    expect(result.current.prs[0].iApproved).toBe(true)
+    expect(result.current.prs[0].approvalCount).toBe(2)
+  })
+
+  // --- Branch coverage: handleCopyLink with writeText property missing ---
+
+  it('handleCopyLink handles clipboard without writeText method', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {},
+      writable: true,
+      configurable: true,
+    })
+
+    const pr = makePR()
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 1, clientY: 2 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    await act(async () => {
+      await result.current.handleCopyLink()
+    })
+
+    expect(result.current.contextMenu).toBeNull()
+  })
+
+  // --- Branch coverage: handleRequestCopilotReview error path ---
+
+  it('handleRequestCopilotReview logs error on failure', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const mockRequestCopilotReview = vi.fn().mockRejectedValue(new Error('Request failed'))
+    mockGitHubClient.mockImplementation(function MockGitHubClient() {
+      return {
+        fetchMyPRs: mockFetchMyPRs,
+        fetchNeedsReview: mockFetchNeedsReview,
+        fetchRecentlyMerged: mockFetchRecentlyMerged,
+        fetchNeedANudge: mockFetchNeedANudge,
+        approvePullRequest: mockApprovePullRequest,
+        requestCopilotReview: mockRequestCopilotReview,
+      }
+    })
+
+    const pr = makePR()
+    dataCache.set('my-prs', [pr], Date.now())
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 1, clientY: 2 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    await act(async () => {
+      await result.current.handleRequestCopilotReview()
+    })
+
+    expect(errorSpy).toHaveBeenCalledWith('Failed to request Copilot review:', expect.any(Error))
+    expect(result.current.contextMenu).toBeNull()
+    errorSpy.mockRestore()
+  })
 })

@@ -229,4 +229,109 @@ describe('InlineDropdown', () => {
 
     expect(onChange).toHaveBeenCalledWith('b')
   })
+
+  it('does nothing when ArrowUp is pressed while the dropdown is closed', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderDropdown()
+    const combobox = screen.getByRole('combobox')
+
+    combobox.focus()
+    await user.keyboard('{ArrowUp}')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('defaults focusIndex to 0 when the current value is not in enabled options', async () => {
+    const user = userEvent.setup()
+    const { container } = renderDropdown({ value: 'nonexistent' })
+    const combobox = screen.getByRole('combobox')
+
+    combobox.focus()
+    await user.keyboard('{ArrowDown}')
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(container.querySelector('.idropdown-item-focused')).toHaveTextContent('Alpha')
+  })
+
+  it('opens the dropdown when Enter is pressed while closed', async () => {
+    const user = userEvent.setup()
+    renderDropdown()
+    const combobox = screen.getByRole('combobox')
+
+    combobox.focus()
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+  })
+
+  it('does not render icon span when no icon is provided', () => {
+    const { container } = renderDropdown()
+
+    expect(container.querySelector('.idropdown-icon')).not.toBeInTheDocument()
+  })
+
+  it('ignores hover and focus events on disabled option items', async () => {
+    const user = userEvent.setup()
+    const options: DropdownOption[] = [
+      { value: 'a', label: 'Alpha' },
+      { value: 'b', label: 'Beta', disabled: true },
+      { value: 'c', label: 'Charlie' },
+    ]
+    const { container } = renderDropdown({ options })
+
+    await user.click(screen.getByRole('button'))
+    const disabledOption = screen.getByRole('option', { name: /beta/i })
+
+    // Hover over disabled option should not change focus
+    await user.hover(disabledOption)
+    expect(container.querySelector('.idropdown-item-focused')).toHaveTextContent('Alpha')
+
+    // Focus on disabled option should not change focusIndex
+    fireEvent.focus(disabledOption)
+    expect(container.querySelector('.idropdown-item-focused')).toHaveTextContent('Alpha')
+  })
+
+  it('ignores keyDown on disabled option items', async () => {
+    const user = userEvent.setup()
+    const options: DropdownOption[] = [
+      { value: 'a', label: 'Alpha' },
+      { value: 'b', label: 'Beta', disabled: true },
+      { value: 'c', label: 'Charlie' },
+    ]
+    const { onChange } = renderDropdown({ options })
+
+    await user.click(screen.getByRole('button'))
+    const disabledOption = screen.getByRole('option', { name: /beta/i })
+
+    // KeyDown on disabled item returns early — the item handler does NOT call
+    // handleSelect('b'). The event bubbles to the combobox which selects
+    // whatever is focused (Alpha), proving the disabled guard works.
+    fireEvent.keyDown(disabledOption, { key: 'Enter' })
+    expect(onChange).not.toHaveBeenCalledWith('b')
+  })
+
+  it('selects an option via Enter keyDown on the option element itself', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderDropdown()
+
+    await user.click(screen.getByRole('button'))
+    const option = screen.getByRole('option', { name: /charlie/i })
+
+    fireEvent.keyDown(option, { key: 'Enter' })
+
+    expect(onChange).toHaveBeenCalledWith('c')
+  })
+
+  it('selects an option via Space keyDown on the option element itself', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderDropdown()
+
+    await user.click(screen.getByRole('button'))
+    const option = screen.getByRole('option', { name: /beta/i })
+
+    fireEvent.keyDown(option, { key: ' ' })
+
+    expect(onChange).toHaveBeenCalledWith('b')
+  })
 })

@@ -10,17 +10,27 @@ vi.mock('./pr-review/usePRReviewData', () => ({
 }))
 
 vi.mock('./shared/AccountPicker', () => ({
-  AccountPicker: ({ value }: { value: string }) => (
-    <select data-testid="account-picker" defaultValue={value}>
+  AccountPicker: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <select
+      data-testid="account-picker"
+      defaultValue={value}
+      onChange={e => onChange(e.target.value)}
+    >
       <option>{value}</option>
+      <option value="bob">bob</option>
     </select>
   ),
 }))
 
 vi.mock('./shared/ModelPicker', () => ({
-  ModelPicker: ({ value }: { value: string }) => (
-    <select data-testid="model-picker" defaultValue={value}>
+  ModelPicker: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <select
+      data-testid="model-picker"
+      defaultValue={value}
+      onChange={e => onChange(e.target.value)}
+    >
       <option>{value}</option>
+      <option value="gpt-4o">gpt-4o</option>
     </select>
   ),
 }))
@@ -34,8 +44,34 @@ vi.mock('./pr-review/PRInfoCard', () => ({
 }))
 
 vi.mock('./pr-review/PromptSection', () => ({
-  PromptSection: ({ prompt }: { prompt: string }) => (
-    <div data-testid="prompt-section">{prompt}</div>
+  PromptSection: ({
+    prompt,
+    onToggleExpanded,
+    onPromptChange,
+    onResetPrompt,
+    onSaveAsDefault,
+  }: {
+    prompt: string
+    onToggleExpanded: () => void
+    onPromptChange: (v: string) => void
+    onResetPrompt: () => void
+    onSaveAsDefault: () => void
+  }) => (
+    <div data-testid="prompt-section">
+      {prompt}
+      <button data-testid="toggle-expanded" onClick={onToggleExpanded}>
+        Toggle
+      </button>
+      <button data-testid="change-prompt" onClick={() => onPromptChange('new prompt')}>
+        Change
+      </button>
+      <button data-testid="reset-prompt" onClick={onResetPrompt}>
+        Reset
+      </button>
+      <button data-testid="save-default" onClick={onSaveAsDefault}>
+        Save
+      </button>
+    </div>
   ),
 }))
 
@@ -173,5 +209,108 @@ describe('PRReviewPanel', () => {
     const onSubmitted = vi.fn()
     render(<PRReviewPanel prInfo={defaultPrInfo} onSubmitted={onSubmitted} />)
     expect(mockUsePRReviewData).toHaveBeenCalledWith(defaultPrInfo, onSubmitted)
+  })
+
+  it('hides premium usage badge when account is empty', () => {
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ account: '' }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    expect(screen.queryByTestId('premium-badge')).not.toBeInTheDocument()
+  })
+
+  it('renders schedule delay dropdown with all options', () => {
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    const select = document.querySelector('.pr-review-delay-select') as HTMLSelectElement
+    expect(select).toBeInTheDocument()
+    expect(select.options).toHaveLength(6)
+    expect(select.value).toBe('5')
+  })
+
+  it('calls setScheduleDelay when delay is changed', () => {
+    const setScheduleDelay = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ setScheduleDelay }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    const select = document.querySelector('.pr-review-delay-select') as HTMLSelectElement
+    fireEvent.change(select, { target: { value: '30' } })
+    expect(setScheduleDelay).toHaveBeenCalledWith(30)
+  })
+
+  it('disables schedule delay dropdown when submitting', () => {
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ submitting: true }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    const select = document.querySelector('.pr-review-delay-select') as HTMLSelectElement
+    expect(select).toBeDisabled()
+  })
+
+  it('does not show error when error is null', () => {
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    expect(document.querySelector('.pr-review-error')).not.toBeInTheDocument()
+  })
+
+  it('calls setPromptExpanded with toggler when PromptSection toggles expanded', () => {
+    const setPromptExpanded = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ setPromptExpanded }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    fireEvent.click(screen.getByTestId('toggle-expanded'))
+    expect(setPromptExpanded).toHaveBeenCalledWith(expect.any(Function))
+    // Verify the toggler function flips the value
+    const toggler = setPromptExpanded.mock.calls[0][0]
+    expect(toggler(false)).toBe(true)
+    expect(toggler(true)).toBe(false)
+  })
+
+  it('calls setPrompt when PromptSection changes prompt', () => {
+    const setPrompt = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ setPrompt }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    fireEvent.click(screen.getByTestId('change-prompt'))
+    expect(setPrompt).toHaveBeenCalledWith('new prompt')
+  })
+
+  it('calls handleResetPrompt when PromptSection resets prompt', () => {
+    const handleResetPrompt = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ handleResetPrompt }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    fireEvent.click(screen.getByTestId('reset-prompt'))
+    expect(handleResetPrompt).toHaveBeenCalled()
+  })
+
+  it('calls handleSaveAsDefault when PromptSection saves default', () => {
+    const handleSaveAsDefault = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ handleSaveAsDefault }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    fireEvent.click(screen.getByTestId('save-default'))
+    expect(handleSaveAsDefault).toHaveBeenCalled()
+  })
+
+  it('calls setAccount when AccountPicker value changes', () => {
+    const setAccount = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ setAccount }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    fireEvent.change(screen.getByTestId('account-picker'), { target: { value: 'bob' } })
+    expect(setAccount).toHaveBeenCalledWith('bob')
+  })
+
+  it('calls setModel when ModelPicker value changes', () => {
+    const setModel = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ setModel }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    fireEvent.change(screen.getByTestId('model-picker'), { target: { value: 'gpt-4o' } })
+    expect(setModel).toHaveBeenCalledWith('gpt-4o')
+  })
+
+  it('enables buttons when not submitting and prompt has content', () => {
+    mockUsePRReviewData.mockReturnValue(
+      createMockHookReturn({ submitting: false, prompt: 'Review this' })
+    )
+    render(<PRReviewPanel prInfo={defaultPrInfo} />)
+    expect(screen.getByText('Run Now').closest('button')).not.toBeDisabled()
+    expect(screen.getByText('Schedule').closest('button')).not.toBeDisabled()
+  })
+
+  it('passes onClose to ScheduledMessage when scheduled', () => {
+    const onClose = vi.fn()
+    mockUsePRReviewData.mockReturnValue(createMockHookReturn({ scheduled: true }))
+    render(<PRReviewPanel prInfo={defaultPrInfo} onClose={onClose} />)
+    expect(screen.getByTestId('scheduled-message')).toBeInTheDocument()
   })
 })

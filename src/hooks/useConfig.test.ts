@@ -1,6 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useConfig, useGitHubAccounts, usePRSettings, useCopilotSettings } from './useConfig'
+import {
+  useConfig,
+  useGitHubAccounts,
+  usePRSettings,
+  useCopilotSettings,
+  useNotificationSettings,
+} from './useConfig'
 
 // Mock Convex hooks
 const mockCreate = vi.fn()
@@ -59,6 +65,50 @@ describe('useConfig', () => {
       expect(result.current.api).toBeDefined()
       expect(result.current.api.setTheme).toBeInstanceOf(Function)
       expect(result.current.api.getSystemFonts).toBeInstanceOf(Function)
+    })
+
+    it('api.setTheme invokes IPC with correct channel', async () => {
+      const { result } = renderHook(() => useConfig())
+      mockInvoke.mockResolvedValueOnce({ success: true })
+      await result.current.api.setTheme('dark')
+      expect(mockInvoke).toHaveBeenCalledWith('config:set-theme', 'dark')
+    })
+
+    it('api.setAccentColor invokes IPC via ipcConfigSetter', async () => {
+      const { result } = renderHook(() => useConfig())
+      mockInvoke.mockResolvedValueOnce({ success: true })
+      await result.current.api.setAccentColor('#ff0000')
+      expect(mockInvoke).toHaveBeenCalledWith('config:set-accent-color', '#ff0000')
+    })
+
+    it('api.getSystemFonts invokes IPC', async () => {
+      const { result } = renderHook(() => useConfig())
+      mockInvoke.mockResolvedValueOnce(['Arial', 'Helvetica'])
+      const fonts = await result.current.api.getSystemFonts()
+      expect(mockInvoke).toHaveBeenCalledWith('system:get-fonts')
+      expect(fonts).toEqual(['Arial', 'Helvetica'])
+    })
+
+    it('api.getStorePath invokes IPC', async () => {
+      const { result } = renderHook(() => useConfig())
+      mockInvoke.mockResolvedValueOnce('/path/to/store')
+      const path = await result.current.api.getStorePath()
+      expect(mockInvoke).toHaveBeenCalledWith('config:get-store-path')
+      expect(path).toBe('/path/to/store')
+    })
+
+    it('api.openInEditor invokes IPC', async () => {
+      const { result } = renderHook(() => useConfig())
+      mockInvoke.mockResolvedValueOnce({ success: true })
+      await result.current.api.openInEditor()
+      expect(mockInvoke).toHaveBeenCalledWith('config:open-in-editor')
+    })
+
+    it('api.reset invokes IPC', async () => {
+      const { result } = renderHook(() => useConfig())
+      mockInvoke.mockResolvedValueOnce({ success: true })
+      await result.current.api.reset()
+      expect(mockInvoke).toHaveBeenCalledWith('config:reset')
     })
 
     it('refresh reloads config', async () => {
@@ -182,6 +232,21 @@ describe('useConfig', () => {
       await result.current.setAutoRefresh(true)
       expect(mockUpdatePR).toHaveBeenCalledWith({ autoRefresh: true })
     })
+
+    it('setRecentlyMergedDays calls Convex updatePR', async () => {
+      mockSettings = { pr: { refreshInterval: 10, autoRefresh: true, recentlyMergedDays: 7 } }
+      const { result } = renderHook(() => usePRSettings())
+      await result.current.setRecentlyMergedDays(30)
+      expect(mockUpdatePR).toHaveBeenCalledWith({ recentlyMergedDays: 30 })
+    })
+
+    it('returns fallback values when PR settings have null fields', () => {
+      mockSettings = { pr: { refreshInterval: null, autoRefresh: null, recentlyMergedDays: null } }
+      const { result } = renderHook(() => usePRSettings())
+      expect(result.current.refreshInterval).toBe(15)
+      expect(result.current.autoRefresh).toBe(false)
+      expect(result.current.recentlyMergedDays).toBe(7)
+    })
   })
 
   describe('useCopilotSettings', () => {
@@ -211,6 +276,190 @@ describe('useConfig', () => {
       const { result } = renderHook(() => useCopilotSettings())
       await result.current.setModel('claude-sonnet-4.5')
       expect(mockUpdateCopilot).toHaveBeenCalledWith({ model: 'claude-sonnet-4.5' })
+    })
+
+    it('setPremiumModel calls Convex updateCopilot', async () => {
+      mockSettings = { copilot: { ghAccount: '', model: 'gpt-4', premiumModel: 'claude-opus-4.6' } }
+      const { result } = renderHook(() => useCopilotSettings())
+      await result.current.setPremiumModel('gpt-4o')
+      expect(mockUpdateCopilot).toHaveBeenCalledWith({ premiumModel: 'gpt-4o' })
+    })
+
+    it('returns fallback values when copilot settings have null fields', () => {
+      mockSettings = { copilot: { ghAccount: null, model: null, premiumModel: null } }
+      const { result } = renderHook(() => useCopilotSettings())
+      expect(result.current.ghAccount).toBe('')
+      expect(result.current.model).toBe('claude-sonnet-4.5')
+      expect(result.current.premiumModel).toBe('claude-opus-4.6')
+    })
+  })
+
+  describe('useNotificationSettings', () => {
+    it('loads enabled and soundPath from IPC', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(true) // get-notification-sound-enabled
+        .mockResolvedValueOnce('/sounds/alert.wav') // get-notification-sound-path
+      const { result } = renderHook(() => useNotificationSettings())
+      expect(result.current.loading).toBe(true)
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(result.current.enabled).toBe(true)
+      expect(result.current.soundPath).toBe('/sounds/alert.wav')
+    })
+
+    it('handles load error gracefully', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke.mockRejectedValue(new Error('IPC broken'))
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(result.current.enabled).toBe(false)
+      expect(result.current.soundPath).toBe('')
+      consoleSpy.mockRestore()
+    })
+
+    it('setEnabled returns true and updates state on success', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(false) // initial load: enabled
+        .mockResolvedValueOnce('') // initial load: soundPath
+        .mockResolvedValueOnce({ success: true }) // setEnabled call
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let returnVal: boolean
+      await act(async () => {
+        returnVal = await result.current.setEnabled(true)
+      })
+      expect(returnVal!).toBe(true)
+      expect(result.current.enabled).toBe(true)
+    })
+
+    it('setEnabled returns false when IPC result is not success', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(false) // initial load: enabled
+        .mockResolvedValueOnce('') // initial load: soundPath
+        .mockResolvedValueOnce({ success: false }) // setEnabled call
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let returnVal: boolean
+      await act(async () => {
+        returnVal = await result.current.setEnabled(true)
+      })
+      expect(returnVal!).toBe(false)
+      expect(result.current.enabled).toBe(false) // unchanged
+    })
+
+    it('setEnabled returns false on IPC error', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce('')
+        .mockRejectedValueOnce(new Error('IPC failed'))
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let returnVal: boolean
+      await act(async () => {
+        returnVal = await result.current.setEnabled(true)
+      })
+      expect(returnVal!).toBe(false)
+      consoleSpy.mockRestore()
+    })
+
+    it('setSoundPath returns true and updates state on success', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(true) // initial load: enabled
+        .mockResolvedValueOnce('') // initial load: soundPath
+        .mockResolvedValueOnce({ success: true }) // setSoundPath call
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let returnVal: boolean
+      await act(async () => {
+        returnVal = await result.current.setSoundPath('/new/path.wav')
+      })
+      expect(returnVal!).toBe(true)
+      expect(result.current.soundPath).toBe('/new/path.wav')
+    })
+
+    it('setSoundPath returns false when IPC result is not success', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce('/old.wav')
+        .mockResolvedValueOnce({ success: false })
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let returnVal: boolean
+      await act(async () => {
+        returnVal = await result.current.setSoundPath('/new.wav')
+      })
+      expect(returnVal!).toBe(false)
+      expect(result.current.soundPath).toBe('/old.wav') // unchanged
+    })
+
+    it('setSoundPath returns false on IPC error', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce('')
+        .mockRejectedValueOnce(new Error('IPC failed'))
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let returnVal: boolean
+      await act(async () => {
+        returnVal = await result.current.setSoundPath('/new.wav')
+      })
+      expect(returnVal!).toBe(false)
+      consoleSpy.mockRestore()
+    })
+
+    it('pickSoundFile returns filePath on success', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(true) // initial load: enabled
+        .mockResolvedValueOnce('') // initial load: soundPath
+        .mockResolvedValueOnce({ success: true, filePath: '/picked/sound.mp3' }) // pick dialog
+        .mockResolvedValueOnce({ success: true }) // setSoundPath IPC
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let filePath: string | null
+      await act(async () => {
+        filePath = await result.current.pickSoundFile()
+      })
+      expect(filePath!).toBe('/picked/sound.mp3')
+      expect(result.current.soundPath).toBe('/picked/sound.mp3')
+    })
+
+    it('pickSoundFile returns null when dialog cancelled', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce({ success: false, canceled: true })
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let filePath: string | null
+      await act(async () => {
+        filePath = await result.current.pickSoundFile()
+      })
+      expect(filePath!).toBeNull()
+    })
+
+    it('pickSoundFile returns null when save fails', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce({ success: true, filePath: '/picked/sound.mp3' }) // pick succeeds
+        .mockResolvedValueOnce({ success: false }) // but save fails
+      const { result } = renderHook(() => useNotificationSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      let filePath: string | null
+      await act(async () => {
+        filePath = await result.current.pickSoundFile()
+      })
+      expect(filePath!).toBeNull()
     })
   })
 })

@@ -26,6 +26,14 @@ vi.mock('../api/github', () => ({
   })),
 }))
 
+vi.mock('../utils/githubUrl', () => ({
+  formatFileStatus: (s: string) => s.toUpperCase(),
+  parseOwnerRepoFromUrl: (url: string) => {
+    if (url === 'invalid://url') return null
+    return { owner: 'test-org', repo: 'hs-buddy' }
+  },
+}))
+
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   isAbortError: () => false,
@@ -213,5 +221,99 @@ describe('PRFilesChangedPanel', () => {
       expect(screen.getByText('-3')).toBeInTheDocument()
       expect(screen.getByText('11 changes')).toBeInTheDocument()
     })
+  })
+
+  it('uses cached data when available', () => {
+    mockCacheGet.mockReturnValue({ data: makeFilesChangedSummary() })
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+    // Should immediately show data without loading
+    expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    expect(screen.queryByText('Loading changed files...')).not.toBeInTheDocument()
+  })
+
+  it('shows error when URL cannot be parsed', async () => {
+    mockCacheGet.mockReturnValue(null)
+    const badPr = { ...defaultPr, url: 'invalid://url' }
+    render(<PRFilesChangedPanel pr={badPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Could not parse owner\/repo/)).toBeInTheDocument()
+    })
+  })
+
+  it('shows refresh indicator when loading with existing data', async () => {
+    // First load succeeds
+    let resolveSecond: (value: unknown) => void
+    mockEnqueue.mockResolvedValueOnce(makeFilesChangedSummary()).mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveSecond = resolve
+        })
+    )
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    // Click refresh to trigger loading with existing data
+    fireEvent.click(screen.getByText('Refresh'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Refreshing changed files...')).toBeInTheDocument()
+    })
+
+    // Resolve second request
+    resolveSecond!(makeFilesChangedSummary())
+  })
+
+  it('shows previousFilename when file was renamed', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeFilesChangedSummary({
+        files: [
+          {
+            filename: 'src/newName.ts',
+            status: 'renamed',
+            additions: 0,
+            deletions: 0,
+            changes: 0,
+            patch: null,
+            blobUrl: null,
+            previousFilename: 'src/oldName.ts',
+          },
+        ],
+      })
+    )
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('from src/oldName.ts')).toBeInTheDocument()
+    })
+  })
+
+  it('handles Space key for file expansion', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: ' ' })
+    expect(screen.getByText('-old')).toBeInTheDocument()
+  })
+
+  it('returns null when detail is null and not loading/error', async () => {
+    // This tests the null detail guard at line 131
+    mockCacheGet.mockReturnValue(null)
+    mockEnqueue.mockResolvedValue(null)
+    const { container } = render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading changed files...')).not.toBeInTheDocument()
+    })
+    // Container should be empty since detail is null with no error
+    expect(container.querySelector('.pr-files-container')).not.toBeInTheDocument()
   })
 })

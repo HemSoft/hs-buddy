@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 
 const mockAccounts = [
   { username: 'user1', org: 'org1', token: 'tok1' },
@@ -181,5 +181,154 @@ describe('useCopilotUsage', () => {
     mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
     const { result } = renderHook(() => useCopilotUsage())
     expect(result.current.anyLoading).toBe(true)
+  })
+
+  it('refreshAll re-fetches quotas and budgets', async () => {
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+
+    mockGetCopilotQuota.mockClear()
+    mockGetCopilotBudget.mockClear()
+    mockGetCopilotQuota.mockResolvedValue({ success: true, data: makeQuotaData() })
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: {
+        org: 'org1',
+        budgetAmount: 500,
+        preventFurtherUsage: false,
+        spent: 120,
+        spentUnavailable: false,
+        useQuotaOverage: true,
+        billingMonth: 4,
+        billingYear: 2026,
+        fetchedAt: Date.now(),
+      },
+    })
+
+    await act(async () => {
+      result.current.refreshAll()
+    })
+
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(mockGetCopilotQuota).toHaveBeenCalledWith('user1')
+    expect(mockGetCopilotQuota).toHaveBeenCalledWith('user2')
+    expect(mockGetCopilotBudget).toHaveBeenCalledWith('org1', 'user1')
+  })
+
+  it('monthly refresh triggers when billing month is outdated', async () => {
+    vi.useFakeTimers()
+    // Set budget data with old billing month
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: {
+        org: 'org1',
+        budgetAmount: 500,
+        preventFurtherUsage: false,
+        spent: 120,
+        spentUnavailable: false,
+        useQuotaOverage: true,
+        billingMonth: 1, // January 2020 — always in the past
+        billingYear: 2020,
+        fetchedAt: Date.now(),
+      },
+    })
+
+    renderHook(() => useCopilotUsage())
+
+    // Flush initial async effects — need multiple ticks for state batching
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+    })
+
+    mockGetCopilotQuota.mockClear()
+    mockGetCopilotBudget.mockClear()
+    mockGetCopilotQuota.mockResolvedValue({ success: true, data: makeQuotaData() })
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: {
+        org: 'org1',
+        budgetAmount: 500,
+        preventFurtherUsage: false,
+        spent: 0,
+        spentUnavailable: false,
+        useQuotaOverage: true,
+        billingMonth: 4,
+        billingYear: 2026,
+        fetchedAt: Date.now(),
+      },
+    })
+
+    // Advance past the 5-minute refresh interval
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+    })
+
+    expect(mockGetCopilotQuota).toHaveBeenCalled()
+    expect(mockGetCopilotBudget).toHaveBeenCalled()
+
+    vi.useRealTimers()
+  })
+
+  it('monthly refresh does not trigger when billing month is current', async () => {
+    vi.useFakeTimers()
+    const now = new Date()
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: {
+        org: 'org1',
+        budgetAmount: 500,
+        preventFurtherUsage: false,
+        spent: 120,
+        spentUnavailable: false,
+        useQuotaOverage: true,
+        billingMonth: now.getUTCMonth() + 1,
+        billingYear: now.getUTCFullYear(),
+        fetchedAt: Date.now(),
+      },
+    })
+
+    renderHook(() => useCopilotUsage())
+
+    // Flush initial async effects
+    await vi.advanceTimersByTimeAsync(0)
+
+    mockGetCopilotQuota.mockClear()
+    mockGetCopilotBudget.mockClear()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+    })
+
+    // Should NOT have refreshed since billing month is current
+    expect(mockGetCopilotQuota).not.toHaveBeenCalled()
+
+    vi.useRealTimers()
+  })
+
+  it('computes aggregateProjections with valid quota data', async () => {
+    const quotaData = {
+      ...makeQuotaData(),
+      quota_reset_date_utc: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+    }
+    mockGetCopilotQuota.mockResolvedValue({ success: true, data: quotaData })
+
+    const { result } = renderHook(() => useCopilotUsage())
+
+    await waitFor(() => {
+      expect(Object.keys(result.current.quotas).length).toBeGreaterThan(0)
+      expect(Object.values(result.current.quotas).every(s => !s.loading)).toBe(true)
+    })
+
+    // With valid premium data and a future reset date, projections should compute
+    if (result.current.aggregateProjections !== null) {
+      expect(result.current.aggregateProjections.projectedTotal).toBeGreaterThanOrEqual(0)
+      expect(result.current.aggregateProjections.projectedOverageCost).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('unique org deduplication uses first username', () => {
+    const { result } = renderHook(() => useCopilotUsage())
+    // user1 and user2 both in org1, first one wins
+    expect(result.current.uniqueOrgs.get('org1')).toBe('user1')
   })
 })

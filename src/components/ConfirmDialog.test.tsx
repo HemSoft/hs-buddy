@@ -112,4 +112,13 @@ describe('ConfirmDialog', () => {
     expect(dialog).toHaveAttribute('aria-labelledby', 'confirm-dialog-title')
     expect(dialog).toHaveAttribute('aria-describedby', 'confirm-dialog-desc')
   })
+
+  it('does not call onCancel for non-Escape keys', () => {
+    const { onCancel } = renderDialog()
+
+    fireEvent.keyDown(window, { key: 'Enter' })
+    fireEvent.keyDown(window, { key: 'Tab' })
+
+    expect(onCancel).not.toHaveBeenCalled()
+  })
 })

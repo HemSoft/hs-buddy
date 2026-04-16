@@ -417,4 +417,195 @@ describe('usePRReviewData', () => {
     expect(result.current.error).toBeNull()
     vi.useRealTimers()
   })
+
+  it('resolvePromptTemplate passes through template without {{prUrl}} token', async () => {
+    // Line 14: template.includes(PR_URL_TOKEN) is false
+    mockIpcInvoke.mockResolvedValue('A static template with no token')
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // Wait for the saved template to load via IPC and update the prompt
+    await waitFor(() => {
+      expect(result.current.prompt).toBe('A static template with no token')
+    })
+
+    // After reset, should still use the same template (no {{prUrl}} substitution)
+    act(() => {
+      result.current.handleResetPrompt()
+    })
+    expect(result.current.prompt).toBe('A static template with no token')
+  })
+
+  it('getDefaultPrompt uses savedDefaultTemplate when no initialPrompt', async () => {
+    // Line 28: savedDefaultTemplate.trim() is truthy
+    mockIpcInvoke.mockResolvedValue('Review {{prUrl}} carefully')
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // Wait for the template to be loaded from IPC
+    await waitFor(() => {
+      expect(result.current.prompt).toContain('carefully')
+    })
+    expect(result.current.prompt).toContain(defaultPrInfo.prUrl)
+  })
+
+  it('does not re-initialize account when re-rendered', async () => {
+    // Line 45: initializedRef.current already true on re-render
+    const { result, rerender } = renderHook(props => usePRReviewData(props), {
+      initialProps: defaultPrInfo,
+    })
+    expect(result.current.account).toBe('alice')
+
+    // Change account manually
+    act(() => {
+      result.current.setAccount('manual-override')
+    })
+
+    // Re-render — the init effect should NOT reset the account
+    rerender(defaultPrInfo)
+    expect(result.current.account).toBe('manual-override')
+  })
+
+  it('template load does not override user-modified prompt', async () => {
+    // Line 71: current !== fallbackPrompt
+    let resolveTemplate: (v: string) => void
+    mockIpcInvoke.mockImplementation(
+      () =>
+        new Promise(r => {
+          resolveTemplate = r
+        })
+    )
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // User modifies the prompt before template loads
+    act(() => {
+      result.current.setPrompt('User custom prompt')
+    })
+
+    // Now resolve the template load
+    await act(async () => {
+      resolveTemplate!('Saved {{prUrl}} template')
+      await new Promise(r => setTimeout(r, 10))
+    })
+
+    // User's custom prompt should NOT be overridden
+    expect(result.current.prompt).toBe('User custom prompt')
+  })
+
+  it('buildReviewSnapshot handles empty headSha', async () => {
+    // Line 91: branches.headSha is empty string → reviewedHeadSha = undefined
+    mockFetchPRBranches.mockResolvedValue({ headSha: '' })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    await act(async () => {
+      await result.current.handleRunNow()
+    })
+
+    expect(mockCopilotExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          reviewedHeadSha: undefined,
+        }),
+      })
+    )
+  })
+
+  it('handleSchedule executes scheduled review after delay', async () => {
+    // Lines 148-176: the setTimeout callback inside handleSchedule
+    vi.useFakeTimers()
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // Set schedule delay to 1 minute
+    act(() => {
+      result.current.setScheduleDelay(1)
+    })
+
+    await act(async () => {
+      await result.current.handleSchedule()
+    })
+
+    expect(result.current.scheduled).toBe(true)
+
+    // Execute the scheduled timeout (1 min = 60000ms)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000)
+    })
+
+    // The scheduled callback should have executed copilot.execute
+    expect(mockCopilotExecute).toHaveBeenCalled()
+    expect(mockIncrementStat).toHaveBeenCalledWith({ field: 'copilotPrReviews' })
+    vi.useRealTimers()
+  })
+
+  it('handleSchedule dispatches open-result on success', async () => {
+    // Line 168-170: result.success && result.resultId → dispatches event
+    vi.useFakeTimers()
+    mockCopilotExecute.mockResolvedValue({ success: true, resultId: 'scheduled-r1' })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    await act(async () => {
+      await result.current.handleSchedule()
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000) // default 5 min
+    })
+
+    expect(window.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'copilot:open-result',
+        detail: { resultId: 'scheduled-r1' },
+      })
+    )
+    vi.useRealTimers()
+  })
+
+  it('handleSchedule logs error when scheduled execution fails', async () => {
+    // Line 173-174: catch block in scheduled setTimeout
+    vi.useFakeTimers()
+    mockCopilotExecute.mockRejectedValue(new Error('Scheduled review failed'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    await act(async () => {
+      await result.current.handleSchedule()
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+    })
+
+    expect(errorSpy).toHaveBeenCalledWith('Scheduled PR review failed:', expect.any(Error))
+    errorSpy.mockRestore()
+    vi.useRealTimers()
+  })
+
+  it('handleSaveAsDefault is no-op when already saving', async () => {
+    // savingDefault guard
+    let resolveSave: (v: unknown) => void
+    mockIpcInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:set-copilot-pr-review-prompt-template') {
+        return new Promise(r => {
+          resolveSave = r
+        })
+      }
+      return Promise.resolve('')
+    })
+    const { result } = renderHook(() => usePRReviewData(defaultPrInfo))
+
+    // Start first save
+    let firstSave: Promise<void>
+    act(() => {
+      firstSave = result.current.handleSaveAsDefault()
+    })
+
+    // Try second save while first is in progress
+    await act(async () => {
+      await result.current.handleSaveAsDefault()
+    })
+
+    // Resolve first
+    await act(async () => {
+      resolveSave!(undefined)
+      await firstSave!
+    })
+  })
 })

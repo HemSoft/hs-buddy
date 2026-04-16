@@ -118,4 +118,85 @@ describe('AutomationSidebarSection', () => {
 
     expect(onItemSelect).toHaveBeenCalledWith('automation-runs')
   })
+
+  it('handles null jobs and schedules gracefully', () => {
+    render(
+      <AutomationSidebarSection
+        jobs={null}
+        schedules={null}
+        selectedItem={null}
+        onItemSelect={onItemSelect}
+      />
+    )
+    // No disclosure buttons when jobs/schedules are null
+    expect(screen.queryByRole('button', { name: /Expand Jobs/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Expand Schedules/ })).toBeNull()
+  })
+
+  it('shows count badge without progress ring when badgeProgress is absent', () => {
+    render(
+      <AutomationSidebarSection
+        jobs={[]}
+        schedules={[]}
+        selectedItem={null}
+        onItemSelect={onItemSelect}
+        counts={{ 'automation-runs': 5 }}
+      />
+    )
+    expect(screen.getByText('5')).toBeTruthy()
+    // No progress ring tooltip
+    expect(screen.queryByTitle(/complete/)).toBeNull()
+  })
+
+  it('highlights selected schedule and job items', () => {
+    render(
+      <AutomationSidebarSection
+        jobs={jobs}
+        schedules={[{ _id: 'sch-1', name: 'Daily', enabled: true }]}
+        selectedItem="schedule-detail:sch-1"
+        onItemSelect={onItemSelect}
+      />
+    )
+    // Expand schedules
+    fireEvent.click(screen.getByText('Schedules').closest('button')!)
+    const scheduleBtn = screen.getByText('Daily').closest('button')!
+    expect(scheduleBtn.className).toContain('selected')
+    // Enabled schedule should not show "off"
+    expect(screen.queryByText('off')).toBeNull()
+  })
+
+  it('highlights selected job item and uses name as fallback title', () => {
+    render(
+      <AutomationSidebarSection
+        jobs={[{ _id: 'j1', name: 'My Job', workerType: 'exec' }]}
+        schedules={[]}
+        selectedItem="job-detail:j1"
+        onItemSelect={onItemSelect}
+      />
+    )
+    // Expand jobs, then expand Shell Commands
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Jobs' }))
+    fireEvent.click(screen.getByText('Shell Commands'))
+    const jobBtn = screen.getByText('My Job').closest('button')!
+    expect(jobBtn.className).toContain('selected')
+    // No description → title falls back to name
+    expect(jobBtn.getAttribute('title')).toBe('My Job')
+  })
+
+  it('toggles jobs section closed when clicking main button', () => {
+    render(
+      <AutomationSidebarSection
+        jobs={jobs}
+        schedules={[]}
+        selectedItem={null}
+        onItemSelect={onItemSelect}
+      />
+    )
+    // Open
+    fireEvent.click(screen.getByText('Jobs').closest('button')!)
+    expect(screen.getByText('Shell Commands')).toBeTruthy()
+    // Close
+    fireEvent.click(screen.getByText('Jobs').closest('button')!)
+    expect(screen.queryByText('Shell Commands')).toBeNull()
+  })
 })

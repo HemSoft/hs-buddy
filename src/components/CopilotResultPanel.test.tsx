@@ -5,7 +5,10 @@ import userEvent from '@testing-library/user-event'
 const mocks = vi.hoisted(() => ({
   useCopilotResult: vi.fn(),
   remove: vi.fn(),
-  useGitHubAccounts: vi.fn(() => ({ accounts: [] })),
+  useGitHubAccounts: vi.fn((): { accounts: Array<{ username: string; org: string }> } => ({
+    accounts: [],
+  })),
+  addPRComment: vi.fn(),
 }))
 
 vi.mock('@uiw/react-markdown-preview', () => ({
@@ -21,6 +24,12 @@ vi.mock('../hooks/useConvex', () => ({
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => mocks.useGitHubAccounts(),
+}))
+
+vi.mock('../api/github', () => ({
+  GitHubClient: function () {
+    return { addPRComment: (...args: unknown[]) => mocks.addPRComment(...args) }
+  },
 }))
 
 vi.mock('../hooks/useExternalMarkdownLinks', () => ({
@@ -171,5 +180,81 @@ describe('CopilotResultPanel', () => {
     const openBtn = screen.getByTitle('Open PR on GitHub')
     await user.click(openBtn)
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://github.com/acme/web/pull/42')
+  })
+
+  it('logs error when retry fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    ;(window.copilot.execute as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('SDK failure')
+    )
+    const user = userEvent.setup()
+    render(<CopilotResultPanel resultId="r1" />)
+    const retryBtn = screen.getByTitle('Re-run this prompt')
+    await user.click(retryBtn)
+    expect(consoleSpy).toHaveBeenCalledWith('Failed to retry prompt:', expect.any(Error))
+    consoleSpy.mockRestore()
+  })
+
+  it('publishes review as PR comment', async () => {
+    mocks.addPRComment.mockResolvedValue(undefined)
+    mocks.useGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'alice', org: 'acme' }],
+    })
+    mockResult.category = 'pr-review'
+    mockResult.status = 'completed'
+    mockResult.result = 'Looks good!'
+    mockResult.model = 'gpt-4'
+    mockResult.metadata = { org: 'acme', repo: 'web', prNumber: 42, prTitle: 'Fix bug' }
+
+    render(<CopilotResultPanel resultId="r1" />)
+
+    const publishBtn = screen.getByTitle('Publish review as PR comment')
+    expect(publishBtn).not.toBeDisabled()
+    fireEvent.click(publishBtn)
+
+    await waitFor(() => {
+      expect(mocks.addPRComment).toHaveBeenCalledWith(
+        'acme',
+        'web',
+        42,
+        expect.stringContaining('Looks good!')
+      )
+    })
+    // Should show success state
+    await waitFor(() => {
+      expect(screen.getByTitle('Published to PR')).toBeInTheDocument()
+    })
+  })
+
+  it('logs error when publish to PR fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.addPRComment.mockRejectedValueOnce(new Error('API error'))
+    mocks.useGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'alice', org: 'acme' }],
+    })
+    mockResult.category = 'pr-review'
+    mockResult.status = 'completed'
+    mockResult.result = 'Review text'
+    mockResult.metadata = { org: 'acme', repo: 'web', prNumber: 42, prTitle: 'Fix' }
+
+    const user = userEvent.setup()
+    render(<CopilotResultPanel resultId="r1" />)
+
+    const publishBtn = screen.getByTitle('Publish review as PR comment')
+    await user.click(publishBtn)
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to publish review to PR:', expect.any(Error))
+    })
+    consoleSpy.mockRestore()
+  })
+
+  it('does not show publish button when metadata is missing', () => {
+    mockResult.category = 'pr-review'
+    mockResult.status = 'completed'
+    mockResult.result = 'Review text'
+    mockResult.metadata = { org: 'acme' } // missing repo and prNumber
+    render(<CopilotResultPanel resultId="r1" />)
+    expect(screen.queryByTitle('Publish review as PR comment')).not.toBeInTheDocument()
   })
 })

@@ -30,6 +30,11 @@ describe('getUniqueOrgs', () => {
   it('handles single account', () => {
     expect(getUniqueOrgs([{ org: 'solo' }])).toEqual(['solo'])
   })
+
+  it('filters out empty string orgs', () => {
+    const accounts = [{ org: '' }, { org: 'valid' }]
+    expect(getUniqueOrgs(accounts)).toEqual(['valid'])
+  })
 })
 
 /* ── mapRepoPRToPullRequest ─────────────────────────────────────── */
@@ -116,5 +121,49 @@ describe('mapRepoPRToPullRequest', () => {
     const pr = { ...basePR, url: '' }
     const result = mapRepoPRToPullRequest(pr, 'org')
     expect(result.repository).toBe('')
+  })
+
+  it('falls back to full URL when URL has insufficient segments', () => {
+    const pr = { ...basePR, url: 'https://github.com' }
+    const result = mapRepoPRToPullRequest(pr, 'org')
+    // split('/')[4] is undefined → falls back to pr.url
+    expect(result.repository).toBe('https://github.com')
+  })
+
+  it('returns null date when both updatedAt and createdAt are empty', () => {
+    const pr = { ...basePR, updatedAt: '', createdAt: '' }
+    const result = mapRepoPRToPullRequest(pr, 'org')
+    expect(result.date).toBe('')
+    expect(result.created).toBeNull()
+  })
+
+  it('handles null approvalCount via nullish coalescing', () => {
+    const pr = { ...basePR, approvalCount: null } as unknown as RepoPullRequest
+    const result = mapRepoPRToPullRequest(pr, 'org')
+    expect(result.approvalCount).toBe(0)
+  })
+
+  it('handles null assigneeCount via nullish coalescing', () => {
+    const pr = { ...basePR, assigneeCount: null } as unknown as RepoPullRequest
+    const result = mapRepoPRToPullRequest(pr, 'org')
+    expect(result.assigneeCount).toBe(0)
+  })
+
+  it('handles null iApproved via nullish coalescing', () => {
+    const pr = { ...basePR, iApproved: null } as unknown as RepoPullRequest
+    const result = mapRepoPRToPullRequest(pr, 'org')
+    expect(result.iApproved).toBe(false)
+  })
+
+  it('handles zero approvalCount correctly (not coalesced)', () => {
+    const pr = { ...basePR, approvalCount: 0 }
+    const result = mapRepoPRToPullRequest(pr, 'org')
+    expect(result.approvalCount).toBe(0)
+  })
+
+  it('maps authorAvatarUrl as empty string to undefined via || operator', () => {
+    const pr = { ...basePR, authorAvatarUrl: '' as unknown as string | null }
+    const result = mapRepoPRToPullRequest(pr, 'org')
+    expect(result.authorAvatarUrl).toBeUndefined()
   })
 })

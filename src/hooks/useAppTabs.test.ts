@@ -478,4 +478,135 @@ describe('useAppTabs', () => {
 
     expect(result.current.tabs).toBe(tabsBefore)
   })
+
+  it('does not open tab when pr-review:open has no prUrl', async () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('pr-review:open', { detail: {} }))
+    })
+
+    expect(result.current.tabs).toHaveLength(1)
+    expect(result.current.tabs[0]!.viewId).toBe(DASHBOARD_VIEW_ID)
+  })
+
+  it('does not open tab when app:navigate has no viewId', async () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('app:navigate', { detail: {} }))
+    })
+
+    expect(result.current.tabs).toHaveLength(1)
+    expect(result.current.tabs[0]!.viewId).toBe(DASHBOARD_VIEW_ID)
+  })
+
+  it('closeView is no-op for non-existent viewId', async () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      await result.current.openTab('pr-my-prs')
+    })
+
+    const tabsBefore = result.current.tabs
+
+    act(() => {
+      result.current.closeView('nonexistent-view')
+    })
+
+    expect(result.current.tabs).toBe(tabsBefore)
+  })
+
+  it('closeOtherTabs is no-op for non-existent keepTabId', async () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      await result.current.openTab('pr-my-prs')
+    })
+
+    const tabsBefore = result.current.tabs
+
+    act(() => {
+      result.current.closeOtherTabs('nonexistent-id')
+    })
+
+    expect(result.current.tabs).toBe(tabsBefore)
+  })
+
+  it('closeTabsToRight is no-op for non-existent tabId', async () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      await result.current.openTab('pr-my-prs')
+    })
+
+    const tabsBefore = result.current.tabs
+
+    act(() => {
+      result.current.closeTabsToRight('nonexistent-id')
+    })
+
+    expect(result.current.tabs).toBe(tabsBefore)
+  })
+
+  it('syncCrewTabLabels returns same state when no labels change', async () => {
+    // First call for openTab's resolveCrewProjectLabel, second for syncCrewTabLabels
+    mockListProjects.mockResolvedValue([{ id: 'proj-1', displayName: 'Stable Label' }])
+
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      await result.current.openTab('crew-project:proj-1')
+    })
+
+    await waitFor(() => {
+      expect(findTab(result.current.tabs, 'crew-project:proj-1')?.label).toBe('Stable Label')
+    })
+
+    // Force the effect to re-run by opening another crew tab
+    mockListProjects.mockResolvedValue([
+      { id: 'proj-1', displayName: 'Stable Label' },
+      { id: 'proj-x', displayName: 'X' },
+    ])
+
+    await act(async () => {
+      await result.current.openTab('crew-project:proj-x')
+    })
+
+    await waitFor(() => {
+      expect(findTab(result.current.tabs, 'crew-project:proj-x')).toBeDefined()
+    })
+
+    // proj-1 label should remain unchanged
+    expect(findTab(result.current.tabs, 'crew-project:proj-1')?.label).toBe('Stable Label')
+  })
+
+  it('falls back to timestamp-based tab ID when crypto.randomUUID is unavailable', async () => {
+    const originalRandomUUID = crypto.randomUUID
+    // Remove randomUUID to trigger the fallback branch
+    Object.defineProperty(crypto, 'randomUUID', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    })
+
+    try {
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+
+      const tab = findTab(result.current.tabs, 'pr-my-prs')
+      expect(tab).toBeDefined()
+      // Fallback generates: `tab-${Date.now()}-${counter}`
+      expect(tab!.id).toMatch(/^tab-\d+-\d+$/)
+    } finally {
+      Object.defineProperty(crypto, 'randomUUID', {
+        value: originalRandomUUID,
+        configurable: true,
+        writable: true,
+      })
+    }
+  })
 })

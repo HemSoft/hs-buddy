@@ -25,6 +25,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Remove dependency-review job (requires GHAS not enabled on repo)
+- Resolve 12 failing tests in useGitHubSidebarData.test.ts
+- Resolve type errors and add missing test assertions
+- Replace explicit any with proper types in CopilotPromptBox test mocks
+- Address CI failures and review feedback
+- Address PR review feedback for test accuracy
+- Use Object.defineProperty for ipcRenderer stub instead of replacing window
+
+### Changed
+
+- Improve coverage across hooks and components
+- Improve coverage across 8 component test files
+- Improve coverage for RepoNode, OrgRepoTree, and TempoTimesheetGrid
+- Improve coverage across 5 components (+0.8% statements, +0.8% lines)
+- Improve test coverage across 6 files (+46 tests)
+- Improve coverage across 4 components (+530 lines)
+- Improve coverage across 5 components (+24 tests)
+- Improve branch and function coverage for RepoCommitDetailPanel
+- Improve branch and function coverage
+- Improve branch and function coverage for UserDetailPanel
+- Improve TempoDashboard branch and function coverage
+- Improve branch/function coverage for ScheduleOverviewPanel and TaskPlannerView
+- Improve branch/function coverage for TempoTimesheetGrid and ModelPicker
+- Improve branch/function coverage for CopilotSidebar and GitHubSidebar
+- Improve branch/function coverage for RateLimitGauge and ConfirmDialog
+- Improve branch coverage for utility files
+- Improve branch/function coverage for dataCache and notificationSound
+- Improve branch/function coverage for PRReviewPanel, PRContextMenu, ReviewSummaryCard
+- Improve BookmarksSidebar branch and function coverage
+- Improve branch coverage for SettingsAppearance and useAppTabs
+- Improve branch coverage for usePRListData and useCopilotReviewMonitor
+- Improve branch coverage for TempoWorklogEditor and useTodoist
+- Improve branch coverage for BookmarkDialog
+- Improve branch coverage for SidebarPanel and WelcomePanel
+- Add branch coverage for AutomationSidebarSection, useAutoRefresh; raise thresholds to 90%+
+- Improve AppContentRouter function coverage with callback tests
+- Improve coverage for ReviewThreadCard and RepoDetailPanel
+- Improve RepoNode coverage to 100% statements and functions
+- Add 11 tests covering uncovered branches
+- Ratchet coverage thresholds to 95/91/95/96
 
 ## [0.1.708] - 2026-04-15
 

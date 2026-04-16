@@ -314,4 +314,159 @@ describe('GitHubSidebar', () => {
     expect(mockSidebarData.setPrContextMenu).toHaveBeenCalledWith(null)
     expect(mockSidebarData.setUserContextMenu).toHaveBeenCalledWith(null)
   })
+
+  it('supports keyDown on Pull Requests section header', () => {
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    fireEvent.keyDown(screen.getByText('Pull Requests').closest('[role="button"]') as HTMLElement, {
+      key: ' ',
+    })
+    expect(mockSidebarData.toggleSection).toHaveBeenCalledWith('pull-requests')
+  })
+
+  it('supports click on Organizations section header', () => {
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    fireEvent.click(screen.getByText('Organizations').closest('[role="button"]') as HTMLElement)
+    expect(mockSidebarData.toggleSection).toHaveBeenCalledWith('organizations')
+  })
+
+  it('ignores non-activating keys on section headers', () => {
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    fireEvent.keyDown(screen.getByText('Pull Requests').closest('[role="button"]') as HTMLElement, {
+      key: 'Tab',
+    })
+    fireEvent.keyDown(screen.getByText('Organizations').closest('[role="button"]') as HTMLElement, {
+      key: 'Tab',
+    })
+    expect(mockSidebarData.toggleSection).not.toHaveBeenCalled()
+  })
+
+  it('renders collapsed sections without child content', () => {
+    mockSidebarData.expandedSections = new Set<string>()
+
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    expect(screen.getByText('Pull Requests')).toBeTruthy()
+    expect(screen.getByText('Organizations')).toBeTruthy()
+    expect(screen.queryByTestId('pr-tree-section')).toBeNull()
+    expect(screen.queryByTestId('org-repo-tree')).toBeNull()
+  })
+
+  it('displays user login when name is not available', () => {
+    mockSidebarData.orgMembers = { acme: [{ login: 'bob' }] } as typeof mockSidebarData.orgMembers
+    mockSidebarData.userContextMenu = { org: 'acme', login: 'bob', x: 0, y: 0 }
+
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    expect(screen.getByText('bob')).toBeTruthy()
+  })
+
+  it('uses empty string for org when PR has no org', async () => {
+    mockSidebarData.prContextMenu = {
+      x: 0,
+      y: 0,
+      pr: {
+        title: 'No org PR',
+        url: 'https://github.com/someone/repo/pull/1',
+        repository: 'repo',
+        org: undefined,
+      },
+    }
+
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    fireEvent.click(screen.getByText('Bookmark Repo'))
+
+    await waitFor(() => {
+      expect(mockSidebarData.toggleBookmarkRepoByValues).toHaveBeenCalledWith(
+        '',
+        'repo',
+        'https://github.com/someone/repo'
+      )
+    })
+  })
+
+  it('handles copyToClipboard failure in PR context menu', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockSidebarData.copyToClipboard = vi.fn().mockRejectedValue(new Error('copy failed'))
+    mockSidebarData.prContextMenu = {
+      x: 0,
+      y: 0,
+      pr: {
+        title: 'Failing copy',
+        url: 'https://github.com/acme/repo/pull/99',
+        repository: 'repo',
+        org: 'acme',
+      },
+    }
+
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    fireEvent.click(screen.getByText('Copy PR Link'))
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to copy PR link:', expect.any(Error))
+    })
+
+    expect(mockSidebarData.setPrContextMenu).toHaveBeenCalledWith(null)
+    consoleSpy.mockRestore()
+  })
+
+  it('renders bookmarked-only active state', () => {
+    mockSidebarData.showBookmarkedOnly = true
+
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    expect(screen.getByTitle('Showing bookmarked only')).toBeTruthy()
+    expect(screen.getByTitle('Showing bookmarked only').className).toContain('active')
+  })
+
+  it('handles ipcRenderer.invoke rejection in bookmark filter', async () => {
+    ;(window.ipcRenderer.invoke as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('ipc fail')
+    )
+
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    fireEvent.click(screen.getByTitle('Showing all repos'))
+
+    // Should not throw — the .catch(() => {}) swallows the error
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith(
+        'config:set-show-bookmarked-only',
+        true
+      )
+    })
+  })
+
+  it('displays user login when orgMembers has no entry for the user', () => {
+    mockSidebarData.orgMembers = { acme: [] } as typeof mockSidebarData.orgMembers
+    mockSidebarData.userContextMenu = { org: 'acme', login: 'unknown', x: 0, y: 0 }
+
+    render(
+      <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
+    )
+
+    expect(screen.getByText('unknown')).toBeTruthy()
+  })
 })

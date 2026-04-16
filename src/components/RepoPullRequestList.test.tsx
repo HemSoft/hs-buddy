@@ -2,8 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { RepoPullRequestList } from './RepoPullRequestList'
 
-const mockEnqueue = vi.fn()
-const mockOpenExternal = vi.fn()
+const { mockEnqueue, mockOpenExternal, mockViewMode, mockIsAbortError, mockCacheGet } = vi.hoisted(
+  () => ({
+    mockEnqueue: vi.fn(),
+    mockOpenExternal: vi.fn(),
+    mockViewMode: vi.fn(),
+    mockIsAbortError: vi.fn(),
+    mockCacheGet: vi.fn(),
+  })
+)
 
 vi.mock('../hooks/useConfig', () => {
   const accounts = [{ username: 'alice', org: 'test-org' }]
@@ -17,14 +24,20 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../hooks/useViewMode', () => ({
-  useViewMode: () => ['grid', vi.fn()],
+  useViewMode: () => mockViewMode(),
 }))
 
 vi.mock('../services/dataCache', () => ({
   dataCache: {
-    get: vi.fn().mockReturnValue(null),
+    get: (...args: unknown[]) => mockCacheGet(...args),
     set: vi.fn(),
   },
+}))
+
+vi.mock('../utils/errorUtils', () => ({
+  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
+  throwIfAborted: () => {},
 }))
 
 vi.mock('../api/github', () => ({
@@ -61,6 +74,9 @@ function makePR(overrides = {}) {
 describe('RepoPullRequestList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsAbortError.mockReturnValue(false)
+    mockCacheGet.mockReturnValue(null)
+    mockViewMode.mockReturnValue(['card', vi.fn()])
     Object.defineProperty(window, 'shell', {
       value: { openExternal: mockOpenExternal },
       writable: true,
@@ -218,5 +234,187 @@ describe('RepoPullRequestList', () => {
     await waitFor(() => {
       expect(screen.getByText('Add feature')).toBeInTheDocument()
     })
+  })
+
+  it('renders list view mode with table', async () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    mockEnqueue.mockResolvedValue([
+      makePR(),
+      makePR({ number: 2, title: 'Fix bug', state: 'merged' }),
+      makePR({ number: 3, title: 'Closed PR', state: 'closed' }),
+      makePR({ number: 4, title: 'Draft PR', draft: true }),
+    ])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    // Table headers should be visible
+    expect(screen.getByText('Title')).toBeInTheDocument()
+    expect(screen.getByText('Author')).toBeInTheDocument()
+    expect(screen.getByText('Updated')).toBeInTheDocument()
+    expect(screen.getByText('Reviews')).toBeInTheDocument()
+    // Draft badge in list view
+    expect(screen.getByText('Draft')).toBeInTheDocument()
+  })
+
+  it('shows refreshing indicator when loading with existing PRs', async () => {
+    let resolveSecond: (value: unknown) => void
+    mockEnqueue.mockResolvedValueOnce([makePR()]).mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveSecond = resolve
+        })
+    )
+
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+
+    // Trigger refresh
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Refreshing pull requests...')).toBeInTheDocument()
+    })
+
+    resolveSecond!([makePR()])
+  })
+
+  it('shows approval count in list view', async () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    mockEnqueue.mockResolvedValue([makePR({ approvalCount: 5 })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('5')).toBeInTheDocument()
+    })
+  })
+
+  it('handles PR click in list view', async () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenPR = vi.fn()
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+
+    // In list view, click the table row
+    fireEvent.click(screen.getByText('Add feature').closest('tr')!)
+    expect(onOpenPR).toHaveBeenCalled()
+  })
+
+  it('shows empty state for closed PRs', async () => {
+    mockEnqueue.mockResolvedValue([])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="closed" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No closed pull requests')).toBeInTheDocument()
+    })
+  })
+
+  it('silently ignores abort errors', async () => {
+    mockIsAbortError.mockReturnValue(true)
+    mockEnqueue.mockRejectedValue(new DOMException('Aborted', 'AbortError'))
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalled()
+    })
+    expect(screen.queryByText('Failed to load pull requests')).not.toBeInTheDocument()
+  })
+
+  it('uses cached data without calling enqueue', async () => {
+    const cachedPRs = [makePR()]
+    mockCacheGet.mockReturnValue({ data: cachedPRs })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    expect(mockEnqueue).not.toHaveBeenCalled()
+  })
+
+  it('renders PR without avatar image in card view when authorAvatarUrl is null', async () => {
+    mockEnqueue.mockResolvedValue([makePR({ authorAvatarUrl: null })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    expect(document.querySelector('.repo-pr-avatar')).not.toBeInTheDocument()
+  })
+
+  it('renders PR without avatar image in list view when authorAvatarUrl is null', async () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    mockEnqueue.mockResolvedValue([makePR({ authorAvatarUrl: null })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    expect(document.querySelector('.list-view-avatar')).not.toBeInTheDocument()
+  })
+
+  it('hides approval badge in card view when approvalCount is null', async () => {
+    mockEnqueue.mockResolvedValue([makePR({ approvalCount: null })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    expect(document.querySelector('.repo-pr-approvals')).not.toBeInTheDocument()
+  })
+
+  it('hides approval badge in list view when approvalCount is null', async () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    mockEnqueue.mockResolvedValue([makePR({ approvalCount: null })])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    expect(document.querySelector('.list-view-approvals')).not.toBeInTheDocument()
+  })
+
+  it('handles PR click gracefully when window.shell is undefined', async () => {
+    Object.defineProperty(window, 'shell', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+    mockEnqueue.mockResolvedValue([makePR()])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+    // Should not throw when shell is undefined (optional chaining)
+    fireEvent.click(screen.getByText('Add feature').closest('button')!)
+  })
+
+  it('maps PR detail ID correctly with null optional fields', async () => {
+    const nullFieldsPR = makePR({
+      authorAvatarUrl: null,
+      approvalCount: null,
+      assigneeCount: null,
+      iApproved: null,
+      createdAt: null,
+      updatedAt: null,
+    })
+    const onOpenPR = vi.fn()
+    mockEnqueue.mockResolvedValue([nullFieldsPR])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Add feature').closest('button')!)
+    expect(onOpenPR).toHaveBeenCalled()
   })
 })

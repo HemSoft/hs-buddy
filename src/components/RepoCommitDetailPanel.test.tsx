@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
-  mockEnqueue: vi.fn(),
-  mockCacheGet: vi.fn(),
-  stableAccounts: [{ username: 'alice', org: 'test-org' }],
-}))
+const { mockEnqueue, mockCacheGet, mockCacheSet, mockIsAbortError, stableAccounts } = vi.hoisted(
+  () => ({
+    mockEnqueue: vi.fn(),
+    mockCacheGet: vi.fn(),
+    mockCacheSet: vi.fn(),
+    mockIsAbortError: vi.fn(() => false),
+    stableAccounts: [{ username: 'alice', org: 'test-org' }],
+  })
+)
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
@@ -16,7 +20,7 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../services/dataCache', () => ({
-  dataCache: { get: mockCacheGet, set: vi.fn(), isFresh: vi.fn() },
+  dataCache: { get: mockCacheGet, set: mockCacheSet, isFresh: vi.fn() },
 }))
 
 vi.mock('../api/github', () => ({
@@ -27,7 +31,7 @@ vi.mock('../api/github', () => ({
 
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-  isAbortError: () => false,
+  isAbortError: mockIsAbortError,
   throwIfAborted: () => {},
 }))
 
@@ -226,5 +230,266 @@ describe('RepoCommitDetailPanel', () => {
     const header = screen.getByText('src/app.ts').closest('[role="button"]')!
     fireEvent.keyDown(header, { key: 'Enter' })
     expect(screen.getByText('-old')).toBeInTheDocument()
+  })
+
+  it('handles keyboard expansion via Space key', async () => {
+    mockEnqueue.mockResolvedValue(makeCommitDetail())
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: ' ' })
+    expect(screen.getByText('-old')).toBeInTheDocument()
+  })
+
+  it('ignores non-activation keys on file header', async () => {
+    mockEnqueue.mockResolvedValue(makeCommitDetail())
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: 'Tab' })
+    expect(screen.queryByText('-old')).not.toBeInTheDocument()
+  })
+
+  it('collapses an expanded file on second click', async () => {
+    mockEnqueue.mockResolvedValue(makeCommitDetail())
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    fireEvent.click(header)
+    expect(screen.getByText('-old')).toBeInTheDocument()
+
+    fireEvent.click(header)
+    expect(screen.queryByText('-old')).not.toBeInTheDocument()
+  })
+
+  it('renders from cache without fetching', async () => {
+    const cached = makeCommitDetail()
+    mockCacheGet.mockReturnValue({ data: cached })
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    expect(screen.getByText('Fix login bug')).toBeInTheDocument()
+    expect(screen.queryByText('Loading commit...')).not.toBeInTheDocument()
+  })
+
+  it('returns null when no detail, no loading, and no error', async () => {
+    mockEnqueue.mockResolvedValue(null)
+    const { container } = render(
+      <RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading commit...')).not.toBeInTheDocument()
+    })
+    expect(container.querySelector('.repo-commit-detail-container')).toBeNull()
+  })
+
+  it('hides avatar when authorAvatarUrl is null', async () => {
+    mockEnqueue.mockResolvedValue(makeCommitDetail({ authorAvatarUrl: null }))
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('octocat')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('hides parents section when parents array is empty', async () => {
+    mockEnqueue.mockResolvedValue(makeCommitDetail({ parents: [] }))
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix login bug')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Parents')).not.toBeInTheDocument()
+  })
+
+  it('shows previousFilename when present', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeCommitDetail({
+        files: [
+          {
+            filename: 'src/new-name.ts',
+            status: 'renamed',
+            additions: 0,
+            deletions: 0,
+            changes: 0,
+            patch: null,
+            blobUrl: null,
+            previousFilename: 'src/old-name.ts',
+          },
+        ],
+      })
+    )
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('from src/old-name.ts')).toBeInTheDocument()
+    })
+  })
+
+  it('hides open-file button when blobUrl is null', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeCommitDetail({
+        files: [
+          {
+            filename: 'src/app.ts',
+            status: 'modified',
+            additions: 1,
+            deletions: 0,
+            changes: 1,
+            patch: '+line',
+            blobUrl: null,
+            previousFilename: null,
+          },
+        ],
+      })
+    )
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+    expect(screen.queryByTitle('Open file on GitHub')).not.toBeInTheDocument()
+  })
+
+  it('opens file blob URL and stops propagation', async () => {
+    mockEnqueue.mockResolvedValue(makeCommitDetail())
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Open file on GitHub')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTitle('Open file on GitHub'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/blob/abc/src/app.ts'
+    )
+  })
+
+  it('shows empty diff message for file with no patch', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeCommitDetail({
+        files: [
+          {
+            filename: 'binary.png',
+            status: 'added',
+            additions: 0,
+            deletions: 0,
+            changes: 0,
+            patch: null,
+            blobUrl: null,
+            previousFilename: null,
+          },
+        ],
+      })
+    )
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('binary.png')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('binary.png').closest('[role="button"]')!
+    fireEvent.click(header)
+    expect(screen.getByText(/GitHub did not provide a patch preview/)).toBeInTheDocument()
+  })
+
+  it('shows refreshing indicator when loading with existing detail', async () => {
+    let resolveEnqueue: (value: unknown) => void
+    mockEnqueue
+      .mockResolvedValueOnce(makeCommitDetail())
+      .mockImplementationOnce(() => new Promise(resolve => (resolveEnqueue = resolve)))
+
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix login bug')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTitle('Refresh'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Refreshing commit details...')).toBeInTheDocument()
+    })
+
+    resolveEnqueue!(makeCommitDetail())
+  })
+
+  it('retries fetch when Retry button is clicked in error state', async () => {
+    mockEnqueue.mockRejectedValueOnce(new Error('Network error'))
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load commit')).toBeInTheDocument()
+    })
+
+    mockEnqueue.mockResolvedValueOnce(makeCommitDetail())
+    fireEvent.click(screen.getByText(/Retry/))
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix login bug')).toBeInTheDocument()
+    })
+  })
+
+  it('silently ignores abort errors', async () => {
+    const abortError = new DOMException('Aborted', 'AbortError')
+    mockIsAbortError.mockReturnValue(true)
+    mockEnqueue.mockRejectedValue(abortError)
+
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    // Should not show error state — abort errors are silently ignored
+    await waitFor(() => {
+      expect(screen.queryByText('Loading commit...')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText('Failed to load commit')).not.toBeInTheDocument()
+  })
+
+  it('renders empty line in patch as a space', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeCommitDetail({
+        files: [
+          {
+            filename: 'src/app.ts',
+            status: 'modified',
+            additions: 1,
+            deletions: 0,
+            changes: 1,
+            patch: '+added\n\n context',
+            blobUrl: null,
+            previousFilename: null,
+          },
+        ],
+      })
+    )
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    fireEvent.click(header)
+
+    const diffContainer = document.querySelector('.repo-commit-diff')
+    expect(diffContainer).toBeTruthy()
+    const lines = diffContainer!.querySelectorAll('div[class*="diff-line"]')
+    // The empty line between '+added' and ' context' should render as a space
+    const emptyLine = Array.from(lines).find(el => el.textContent === ' ')
+    expect(emptyLine).toBeTruthy()
   })
 })

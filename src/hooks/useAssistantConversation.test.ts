@@ -97,4 +97,30 @@ describe('useAssistantConversation', () => {
     expect(result.current.isStreaming).toBe(false)
     expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('copilot:chat-abort')
   })
+
+  it('abortResponse marks empty assistant messages as aborted', async () => {
+    // Make IPC hang so the assistant message stays empty
+    vi.mocked(window.ipcRenderer.invoke).mockImplementation(
+      (channel: string) =>
+        channel === 'copilot:chat-abort' ? Promise.resolve() : new Promise(() => {}) // never resolves
+    )
+
+    const { result } = renderHook(() => useAssistantConversation(context))
+
+    // Start sending — this creates a user + empty assistant message
+    act(() => {
+      void result.current.sendMessage('Hello')
+    })
+
+    expect(result.current.messages).toHaveLength(2)
+    expect(result.current.messages[1].role).toBe('assistant')
+    expect(result.current.messages[1].content).toBe('')
+
+    // Abort while the assistant message still has empty content
+    act(() => {
+      result.current.abortResponse()
+    })
+
+    expect(result.current.messages[1].content).toBe('*(response aborted)*')
+  })
 })

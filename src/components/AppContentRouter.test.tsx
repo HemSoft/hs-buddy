@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const capturedCallbacks: Record<string, (...args: any[]) => void> = {}
 
 vi.mock('./PullRequestList', () => ({
   PullRequestList: ({
@@ -47,7 +50,10 @@ vi.mock('./RepoDetailPanel', () => ({
 }))
 
 vi.mock('./RepoCommitListPanel', () => ({
-  RepoCommitListPanel: () => <div>RepoCommitListPanel</div>,
+  RepoCommitListPanel: (props: { onOpenCommit: (sha: string) => void }) => {
+    capturedCallbacks.onOpenCommit = props.onOpenCommit
+    return <div>RepoCommitListPanel</div>
+  },
 }))
 
 vi.mock('./RepoCommitDetailPanel', () => ({
@@ -55,7 +61,10 @@ vi.mock('./RepoCommitDetailPanel', () => ({
 }))
 
 vi.mock('./RepoIssueList', () => ({
-  RepoIssueList: () => <div>RepoIssueList</div>,
+  RepoIssueList: (props: { onOpenIssue: (issueNumber: number) => void; state?: string }) => {
+    capturedCallbacks.onOpenIssue = props.onOpenIssue
+    return <div>RepoIssueList</div>
+  },
 }))
 
 vi.mock('./RepoIssueDetailPanel', () => ({
@@ -79,11 +88,18 @@ vi.mock('./CopilotResultPanel', () => ({
 }))
 
 vi.mock('./CopilotResultsList', () => ({
-  CopilotResultsList: () => <div>CopilotResultsList</div>,
+  CopilotResultsList: (props: { onOpenResult: (resultId: string) => void }) => {
+    capturedCallbacks.onOpenResult = props.onOpenResult
+    return <div>CopilotResultsList</div>
+  },
 }))
 
 vi.mock('./PRReviewPanel', () => ({
-  PRReviewPanel: () => <div>PRReviewPanel</div>,
+  PRReviewPanel: (props: { onSubmitted: (resultId: string) => void; onClose: () => void }) => {
+    capturedCallbacks.prReviewOnSubmitted = props.onSubmitted
+    capturedCallbacks.prReviewOnClose = props.onClose
+    return <div>PRReviewPanel</div>
+  },
   parsePRReviewInfo: () => null,
 }))
 
@@ -112,7 +128,10 @@ vi.mock('./tempo/TempoDashboard', () => ({
 }))
 
 vi.mock('./sessions/SessionExplorer', () => ({
-  SessionExplorer: () => <div>SessionExplorer</div>,
+  SessionExplorer: (props: { onSelectSession: (filePath: string) => void }) => {
+    capturedCallbacks.onSelectSession = props.onSelectSession
+    return <div>SessionExplorer</div>
+  },
 }))
 
 vi.mock('./sessions/SessionDetail', () => ({
@@ -162,6 +181,8 @@ import { AppContentRouter } from './AppContentRouter'
 
 function renderRouter(activeViewId: string | null = null) {
   const onPRCountChange = vi.fn()
+  const onOpenTab = vi.fn()
+  const onCloseView = vi.fn()
 
   render(
     <AppContentRouter
@@ -169,16 +190,20 @@ function renderRouter(activeViewId: string | null = null) {
       prCounts={{}}
       onNavigate={vi.fn()}
       onSectionChange={vi.fn()}
-      onOpenTab={vi.fn()}
-      onCloseView={vi.fn()}
+      onOpenTab={onOpenTab}
+      onCloseView={onCloseView}
       onPRCountChange={onPRCountChange}
     />
   )
 
-  return { onPRCountChange }
+  return { onPRCountChange, onOpenTab, onCloseView }
 }
 
 describe('AppContentRouter', () => {
+  beforeEach(() => {
+    for (const key in capturedCallbacks) delete capturedCallbacks[key]
+  })
+
   it.each(['pr-my-prs', 'pr-needs-review', 'pr-recently-merged', 'pr-need-a-nudge'])(
     'renders PullRequestList for %s using the matching mode',
     async activeViewId => {
@@ -346,5 +371,119 @@ describe('AppContentRouter', () => {
   it('uses viewLabels for unknown view header', () => {
     renderRouter('some-known-view')
     expect(screen.getByText('Known View')).toBeInTheDocument()
+  })
+
+  it('renders WelcomePanel for dashboard route', () => {
+    renderRouter('dashboard')
+    expect(screen.getByText('WelcomePanel')).toBeInTheDocument()
+  })
+
+  it('renders ScheduleOverview for automation-schedules route', () => {
+    renderRouter('automation-schedules')
+    expect(screen.getByText('ScheduleOverview')).toBeInTheDocument()
+  })
+
+  it('renders settings-notifications route', () => {
+    renderRouter('settings-notifications')
+    expect(screen.getByText('SettingsNotifications')).toBeInTheDocument()
+  })
+
+  it('renders fallback "Content" heading for truly unknown view', () => {
+    renderRouter('completely-unknown-xyz')
+    expect(screen.getByText('Content')).toBeInTheDocument()
+  })
+
+  it('returns invalid repo-detail with no slash', () => {
+    renderRouter('repo-detail:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns invalid repo-commit with bad format', () => {
+    renderRouter('repo-commit:badformat')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns invalid repo-issue with non-numeric issue number', () => {
+    renderRouter('repo-issue:acme/widget/notanumber')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for org-detail with empty org', () => {
+    renderRouter('org-detail:')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-commits with no slash', () => {
+    renderRouter('repo-commits:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-prs with no slash', () => {
+    renderRouter('repo-prs:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-prs-closed with no slash', () => {
+    renderRouter('repo-prs-closed:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-issues with no slash', () => {
+    renderRouter('repo-issues:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-issues-closed with no slash', () => {
+    renderRouter('repo-issues-closed:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for org-user with no slash', () => {
+    renderRouter('org-user:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('CopilotResultsList onOpenResult calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('copilot-all-results')
+    capturedCallbacks.onOpenResult('test-result-id')
+    expect(onOpenTab).toHaveBeenCalledWith('copilot-result:test-result-id')
+  })
+
+  it('SessionExplorer onSelectSession calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('copilot-sessions')
+    capturedCallbacks.onSelectSession('/path/to/session.jsonl')
+    expect(onOpenTab).toHaveBeenCalledWith(
+      `copilot-session-detail:${btoa('/path/to/session.jsonl')}`
+    )
+  })
+
+  it('RepoCommitListPanel onOpenCommit calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('repo-commits:acme/widget')
+    capturedCallbacks.onOpenCommit('abc1234')
+    expect(onOpenTab).toHaveBeenCalledWith('repo-commit:acme/widget/abc1234')
+  })
+
+  it('RepoIssueList (closed) onOpenIssue calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('repo-issues-closed:acme/widget')
+    capturedCallbacks.onOpenIssue(42)
+    expect(onOpenTab).toHaveBeenCalledWith('repo-issue:acme/widget/42')
+  })
+
+  it('RepoIssueList (open) onOpenIssue calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('repo-issues:acme/widget')
+    capturedCallbacks.onOpenIssue(99)
+    expect(onOpenTab).toHaveBeenCalledWith('repo-issue:acme/widget/99')
+  })
+
+  it('PRReviewPanel onSubmitted calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('pr-review:valid-pr')
+    capturedCallbacks.prReviewOnSubmitted('result-456')
+    expect(onOpenTab).toHaveBeenCalledWith('copilot-result:result-456')
+  })
+
+  it('PRReviewPanel onClose calls onCloseView', () => {
+    const { onCloseView } = renderRouter('pr-review:valid-pr')
+    capturedCallbacks.prReviewOnClose()
+    expect(onCloseView).toHaveBeenCalledWith('pr-review:valid-pr')
   })
 })

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
+const { mockEnqueue, mockCacheGet, stableAccounts, mockUseViewMode } = vi.hoisted(() => ({
   mockEnqueue: vi.fn(),
   mockCacheGet: vi.fn(),
   stableAccounts: [{ username: 'alice', org: 'test-org' }],
+  mockUseViewMode: vi.fn(),
 }))
 
 vi.mock('../hooks/useConfig', () => ({
@@ -16,7 +17,7 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../hooks/useViewMode', () => ({
-  useViewMode: () => ['grid', vi.fn()],
+  useViewMode: (...args: unknown[]) => mockUseViewMode(...args),
 }))
 
 vi.mock('../services/dataCache', () => ({
@@ -66,6 +67,7 @@ describe('RepoIssueList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCacheGet.mockReturnValue(null)
+    mockUseViewMode.mockReturnValue(['card', vi.fn()])
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -231,5 +233,94 @@ describe('RepoIssueList', () => {
     expect(window.shell.openExternal).toHaveBeenCalledWith(
       'https://github.com/test-org/hs-buddy/issues/1'
     )
+  })
+
+  it('uses cached data without fetching when available', async () => {
+    const cachedIssues = [makeIssue({ title: 'Cached issue' })]
+    mockCacheGet.mockReturnValue({ data: cachedIssues, fetchedAt: Date.now() })
+    mockEnqueue.mockReturnValue(new Promise(() => {})) // never resolves
+
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    // Should render cached data immediately without loading
+    expect(screen.getByText('Cached issue')).toBeInTheDocument()
+    expect(screen.queryByText('Loading issues...')).not.toBeInTheDocument()
+  })
+
+  it('renders list view with table columns', async () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    const issues = [
+      makeIssue({
+        number: 1,
+        title: 'First issue',
+        author: 'alice',
+        labels: [{ name: 'bug', color: 'ff0000' }],
+      }),
+      makeIssue({ number: 2, title: 'Second issue', author: 'bob', labels: [] }),
+    ]
+    mockEnqueue.mockResolvedValue(issues)
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('First issue')).toBeInTheDocument()
+    })
+
+    // Verify table headers
+    expect(screen.getByText('Title')).toBeInTheDocument()
+    expect(screen.getByText('Author')).toBeInTheDocument()
+    expect(screen.getByText('Labels')).toBeInTheDocument()
+    expect(screen.getByText('Updated')).toBeInTheDocument()
+
+    // Verify label rendered in list view
+    expect(screen.getByText('bug')).toBeInTheDocument()
+
+    // Verify both issue titles present
+    expect(screen.getByText('Second issue')).toBeInTheDocument()
+  })
+
+  it('calls onOpenIssue in list view when row is clicked', async () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenIssue = vi.fn()
+    mockEnqueue.mockResolvedValue([makeIssue()])
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" onOpenIssue={onOpenIssue} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Bug report').closest('tr')!)
+    expect(onOpenIssue).toHaveBeenCalledWith(1)
+  })
+
+  it('opens external URL in list view when no onOpenIssue handler', async () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    mockEnqueue.mockResolvedValue([makeIssue()])
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Bug report').closest('tr')!)
+    expect(window.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/issues/1'
+    )
+  })
+
+  it('retries fetch on retry button click', async () => {
+    mockEnqueue.mockRejectedValueOnce(new Error('Network error'))
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load issues')).toBeInTheDocument()
+    })
+
+    // Reset and configure the next fetch to succeed
+    mockEnqueue.mockResolvedValueOnce([makeIssue({ title: 'Recovered issue' })])
+    fireEvent.click(screen.getByText('Retry'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Recovered issue')).toBeInTheDocument()
+    })
   })
 })

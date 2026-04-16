@@ -274,4 +274,161 @@ describe('CrewProjectView', () => {
     expect(await screen.findByText('Session encountered an error')).toBeTruthy()
     expect(screen.getByText('Error: Copilot unavailable')).toBeTruthy()
   })
+
+  it('shows empty conversation prompt when session has no messages', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id, { conversationHistory: [] }),
+    }
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    expect(await screen.findByText('Send a message to start the conversation.')).toBeTruthy()
+  })
+
+  it('does not send when Shift+Enter is pressed', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: 'Hello' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true })
+
+    expect(mockChatSend).not.toHaveBeenCalled()
+  })
+
+  it('handles chatSend returning a plain string response', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+    mockChatSend.mockResolvedValue('Plain string reply')
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: 'Question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+
+    expect(await screen.findByText('Plain string reply')).toBeTruthy()
+  })
+
+  it('shows fallback text when chatSend returns object with no content', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+    mockChatSend.mockResolvedValue({ content: null })
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: 'Question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+
+    expect(await screen.findByText('No response received.')).toBeTruthy()
+  })
+
+  it('stringifies non-Error thrown values in the catch block', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+    mockChatSend.mockRejectedValue('raw string error')
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: 'Question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+
+    expect(await screen.findByText('Error: raw string error')).toBeTruthy()
+  })
+
+  it('renders changed files without additions or deletions', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id, {
+        changedFiles: [{ filePath: 'README.md', status: 'added' }],
+      }),
+    }
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    expect(await screen.findByText('README.md')).toBeTruthy()
+    // No +N or -N spans should be present
+    expect(screen.queryByText(/^\+\d+$/)).toBeNull()
+    expect(screen.queryByText(/^-\d+$/)).toBeNull()
+  })
+
+  it('shows the sending indicator while waiting for a response', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+
+    // Never resolve so we stay in sending state
+    mockChatSend.mockReturnValue(new Promise(() => {}))
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: 'Question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+
+    expect(await screen.findByText('Thinking…')).toBeTruthy()
+  })
+
+  it('does not send when message is only whitespace', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: '   ' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+
+    expect(mockChatSend).not.toHaveBeenCalled()
+  })
+
+  it('handles chatSend returning undefined response gracefully', async () => {
+    const project = createProject({ id: 'project-1' })
+
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+    mockChatSend.mockResolvedValue(undefined)
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: 'Question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+
+    expect(await screen.findByText('No response received.')).toBeTruthy()
+  })
 })

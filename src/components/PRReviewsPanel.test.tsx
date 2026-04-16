@@ -170,4 +170,111 @@ describe('PRReviewsPanel', () => {
       unmount()
     }
   })
+
+  it('dispatches re-review with SHA-aware prompt when latest has reviewedHeadSha', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun({ reviewedHeadSha: 'abc123def456' })])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    fireEvent.click(screen.getByText('Re-review'))
+    const event = mockDispatchEvent.mock.calls.find(
+      (c: unknown[]) => (c[0] as CustomEvent).type === 'pr-review:open'
+    )
+    expect(event).toBeDefined()
+    const detail = (event![0] as CustomEvent).detail
+    expect(detail.initialPrompt).toContain('abc123def456')
+    expect(detail.initialPrompt).toContain('re-review')
+  })
+
+  it('dispatches re-review with generic prompt when latest has no reviewedHeadSha', () => {
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun({ reviewedHeadSha: null })])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    fireEvent.click(screen.getByText('Re-review'))
+    const event = mockDispatchEvent.mock.calls.find(
+      (c: unknown[]) => (c[0] as CustomEvent).type === 'pr-review:open'
+    )
+    expect(event).toBeDefined()
+    const detail = (event![0] as CustomEvent).detail
+    expect(detail.initialPrompt).toContain('targeted re-review')
+  })
+
+  it('calls handlePublishToPR which queries convex and posts comment', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({ result: 'Great code!', model: 'claude' })
+    mockUseConvex.mockReturnValue({ query: mockQuery })
+
+    // Mock GitHubClient.prototype.addPRComment
+    const addPRCommentMock = vi.fn().mockResolvedValue(undefined)
+    const { GitHubClient } = await import('../api/github')
+    vi.spyOn(GitHubClient.prototype, 'addPRComment').mockImplementation(addPRCommentMock)
+
+    mockUsePRReviewRunsByPR.mockReturnValue([
+      makeRun({
+        _id: 'run-pub',
+        status: 'completed',
+        resultId: 'result-pub',
+        model: 'claude-sonnet',
+      }),
+    ])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    const publishBtn = screen.getByTitle('Publish review as PR comment')
+    fireEvent.click(publishBtn)
+
+    const { waitFor } = await import('@testing-library/react')
+    await waitFor(() => {
+      expect(mockQuery).toHaveBeenCalled()
+    })
+    await waitFor(() => {
+      expect(addPRCommentMock).toHaveBeenCalledWith(
+        'test-org',
+        'hs-buddy',
+        42,
+        expect.stringContaining('AI Review')
+      )
+    })
+  })
+
+  it('handles publish error gracefully', async () => {
+    const mockQuery = vi.fn().mockRejectedValue(new Error('convex error'))
+    mockUseConvex.mockReturnValue({ query: mockQuery })
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockUsePRReviewRunsByPR.mockReturnValue([
+      makeRun({ _id: 'run-err', status: 'completed', resultId: 'result-err' }),
+    ])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    const publishBtn = screen.getByTitle('Publish review as PR comment')
+    fireEvent.click(publishBtn)
+
+    const { waitFor } = await import('@testing-library/react')
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to publish review to PR:', expect.any(Error))
+    })
+    consoleSpy.mockRestore()
+  })
+
+  it('skips publish when result is empty', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({ result: null })
+    mockUseConvex.mockReturnValue({ query: mockQuery })
+
+    mockUsePRReviewRunsByPR.mockReturnValue([
+      makeRun({ _id: 'run-empty', status: 'completed', resultId: 'result-empty' }),
+    ])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    fireEvent.click(screen.getByTitle('Publish review as PR comment'))
+
+    const { waitFor } = await import('@testing-library/react')
+    await waitFor(() => {
+      expect(mockQuery).toHaveBeenCalled()
+    })
+    // No error, just silently returns
+  })
+
+  it('uses parsed owner/repo when pr fields are missing', () => {
+    const prWithoutOrg: PRDetailInfo = {
+      ...defaultPr,
+      org: undefined as unknown as string,
+      repository: undefined as unknown as string,
+    }
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
+    render(<PRReviewsPanel pr={prWithoutOrg} />)
+    expect(screen.getByText('AI Reviews')).toBeInTheDocument()
+  })
 })

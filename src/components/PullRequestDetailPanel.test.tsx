@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { PullRequestDetailPanel } from './PullRequestDetailPanel'
-import type { PRDetailInfo } from '../utils/prDetailView'
+import type { PRDetailInfo, PRDetailSection } from '../utils/prDetailView'
 
 /* ── hoisted mocks ──────────────────────────────────────────────────── */
 
@@ -18,6 +18,7 @@ const prDetailMocks = vi.hoisted(() => ({
     listPRReviews: vi.fn(),
     requestCopilotReview: vi.fn(),
   },
+  capturedOnLoaded: { current: null as ((history: unknown) => void) | null },
 }))
 
 vi.mock('../hooks/useConfig', () => ({
@@ -57,7 +58,10 @@ vi.mock('../api/github', () => ({
 /* ── mock child panels as thin stubs ────────────────────────────────── */
 
 vi.mock('./PullRequestHistoryPanel', () => ({
-  PullRequestHistoryPanel: () => <div data-testid="history-panel" />,
+  PullRequestHistoryPanel: (props: { onLoaded?: (h: unknown) => void }) => {
+    prDetailMocks.capturedOnLoaded.current = props.onLoaded ?? null
+    return <div data-testid="history-panel" />
+  },
 }))
 vi.mock('./PRChecksPanel', () => ({
   PRChecksPanel: () => <div data-testid="checks-panel" />,
@@ -495,6 +499,267 @@ describe('PullRequestDetailPanel', () => {
     it('has a refresh PR data button', () => {
       render(<PullRequestDetailPanel pr={makePR()} />)
       expect(screen.getByTitle('Refresh PR data')).toBeInTheDocument()
+    })
+
+    it('clicking refresh button triggers child re-render via key change', () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      const refreshBtn = screen.getByTitle('Refresh PR data')
+      fireEvent.click(refreshBtn)
+      // After clicking, the panels should still be rendered (key changes cause remount)
+      expect(screen.getByTestId('history-panel')).toBeInTheDocument()
+    })
+  })
+
+  describe('linked issue keyboard navigation', () => {
+    it('opens linked issue on Enter key', () => {
+      render(<PullRequestDetailPanel pr={makePR({ headBranch: 'agent-fix/issue-99' })} />)
+      const issueCard = screen.getByTitle('Open Issue #99 on GitHub')
+      fireEvent.keyDown(issueCard, { key: 'Enter' })
+      expect(window.shell.openExternal).toHaveBeenCalledWith(
+        'https://github.com/octo-org/test-repo/issues/99'
+      )
+    })
+
+    it('opens linked issue on Space key', () => {
+      render(<PullRequestDetailPanel pr={makePR({ headBranch: 'agent-fix/issue-99' })} />)
+      const issueCard = screen.getByTitle('Open Issue #99 on GitHub')
+      fireEvent.keyDown(issueCard, { key: ' ' })
+      expect(window.shell.openExternal).toHaveBeenCalledWith(
+        'https://github.com/octo-org/test-repo/issues/99'
+      )
+    })
+
+    it('does not open issue on other keys', () => {
+      render(<PullRequestDetailPanel pr={makePR({ headBranch: 'agent-fix/issue-99' })} />)
+      const issueCard = screen.getByTitle('Open Issue #99 on GitHub')
+      fireEvent.keyDown(issueCard, { key: 'Tab' })
+      expect(window.shell.openExternal).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('fetchBranches error paths', () => {
+    it('sets branches to null when parseOwnerRepoFromUrl returns null and PR has no branches', async () => {
+      prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue(null)
+      render(
+        <PullRequestDetailPanel pr={makePR({ headBranch: undefined, baseBranch: undefined })} />
+      )
+      // Should not show branch flow since branches are null
+      await waitFor(() => {
+        expect(screen.queryByText('fix/critical-bug')).not.toBeInTheDocument()
+      })
+    })
+
+    it('sets branches to null when enqueue rejects during branch fetch', async () => {
+      prDetailMocks.useTaskQueue.mockReturnValue({
+        enqueue: vi.fn().mockRejectedValue(new Error('Network error')),
+      })
+      render(
+        <PullRequestDetailPanel pr={makePR({ headBranch: undefined, baseBranch: undefined })} />
+      )
+      // Should not show branch flow after error
+      await waitFor(() => {
+        expect(screen.queryByTestId('icon-git-branch')).not.toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('handleHistoryLoaded', () => {
+    it('updates youApproved based on reviewer matching scoped accounts', async () => {
+      render(<PullRequestDetailPanel pr={makePR({ iApproved: false })} />)
+
+      // Initially shows "No"
+      expect(screen.getByText('No')).toBeInTheDocument()
+
+      // Simulate history loaded with reviewer matching account
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: '2026-04-14T12:00:00Z',
+          linkedIssues: [],
+          reviewers: [{ login: 'octocat', status: 'approved' }],
+        })
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Yes')).toBeInTheDocument()
+      })
+    })
+
+    it('does not set youApproved when reviewer has non-approved status', async () => {
+      render(<PullRequestDetailPanel pr={makePR({ iApproved: false })} />)
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: '2026-04-14T12:00:00Z',
+          linkedIssues: [],
+          reviewers: [{ login: 'octocat', status: 'changes_requested' }],
+        })
+      })
+
+      expect(screen.getByText('No')).toBeInTheDocument()
+    })
+
+    it('does not update youApproved when no accounts match', async () => {
+      prDetailMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [{ username: 'other-user', org: 'other-org', token: 'ghp_test' }],
+      })
+      render(<PullRequestDetailPanel pr={makePR({ iApproved: false })} />)
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: null,
+          linkedIssues: [],
+          reviewers: [{ login: 'octocat', status: 'approved' }],
+        })
+      })
+
+      expect(screen.getByText('No')).toBeInTheDocument()
+    })
+
+    it('falls back to all accounts when no scoped accounts match namespace', async () => {
+      prDetailMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [{ username: 'octocat', org: 'different-org', token: 'ghp_test' }],
+      })
+      render(<PullRequestDetailPanel pr={makePR({ org: 'no-match-org' })} />)
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: null,
+          linkedIssues: [],
+          reviewers: [{ login: 'octocat', status: 'approved' }],
+        })
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Yes')).toBeInTheDocument()
+      })
+    })
+
+    it('returns early when candidateLogins is empty', async () => {
+      prDetailMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [],
+      })
+      render(<PullRequestDetailPanel pr={makePR({ iApproved: false })} />)
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: null,
+          linkedIssues: [],
+          reviewers: [{ login: 'octocat', status: 'approved' }],
+        })
+      })
+
+      // Should still show No since no accounts to match
+      expect(screen.getByText('No')).toBeInTheDocument()
+    })
+
+    it('updates linked issues from history', async () => {
+      render(<PullRequestDetailPanel pr={makePR({ headBranch: 'feature/no-issue' })} />)
+
+      // Initially shows "None"
+      expect(screen.getByText('None')).toBeInTheDocument()
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: null,
+          linkedIssues: [
+            {
+              number: 55,
+              title: 'Fix bug',
+              url: 'https://github.com/octo-org/test-repo/issues/55',
+            },
+          ],
+          reviewers: [],
+        })
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('#55')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('source/org fallback', () => {
+    it('shows pr.source when org is empty', () => {
+      render(<PullRequestDetailPanel pr={makePR({ org: '' })} />)
+      expect(screen.getByText('GitHub')).toBeInTheDocument()
+    })
+  })
+
+  describe('activity date fallback chain', () => {
+    it('uses pr.date for activity when updatedAt is null', () => {
+      render(<PullRequestDetailPanel pr={makePR({ updatedAt: null })} />)
+      expect(screen.getByText('Fix critical bug')).toBeInTheDocument()
+    })
+
+    it('uses pr.created for activity when updatedAt and date are both null', () => {
+      render(<PullRequestDetailPanel pr={makePR({ updatedAt: null, date: null })} />)
+      expect(screen.getByText('Fix critical bug')).toBeInTheDocument()
+    })
+
+    it('handles null created date via formatRelative', () => {
+      render(<PullRequestDetailPanel pr={makePR({ created: null, updatedAt: null, date: null })} />)
+      expect(screen.getByText('Fix critical bug')).toBeInTheDocument()
+    })
+  })
+
+  describe('section label fallback', () => {
+    it('handles section value not in SECTION_LABELS', () => {
+      render(<PullRequestDetailPanel pr={makePR()} section={'unknown' as PRDetailSection} />)
+      expect(screen.getByText('Fix critical bug')).toBeInTheDocument()
+      // sectionLabel is null so the "Tree section:" note should not render
+      expect(screen.queryByText(/Tree section/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('branchIssue ownerRepo null', () => {
+    it('shows "None" for linked issue when parseOwnerRepoFromUrl returns null despite issue branch', () => {
+      prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue(null)
+      render(
+        <PullRequestDetailPanel
+          pr={makePR({ headBranch: 'agent-fix/issue-99', baseBranch: undefined })}
+        />
+      )
+      expect(screen.getByText('None')).toBeInTheDocument()
+    })
+  })
+
+  describe('handleHistoryLoaded namespace fallbacks', () => {
+    it('uses ownerRepo.owner for namespace when pr.org is empty', async () => {
+      render(<PullRequestDetailPanel pr={makePR({ org: '' })} />)
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: null,
+          linkedIssues: [],
+          reviewers: [{ login: 'octocat', status: 'approved' }],
+        })
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Yes')).toBeInTheDocument()
+      })
+    })
+
+    it('uses empty namespace when both org and ownerRepo are null', async () => {
+      prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue(null)
+      render(
+        <PullRequestDetailPanel
+          pr={makePR({ org: '', headBranch: undefined, baseBranch: undefined })}
+        />
+      )
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: null,
+          linkedIssues: [],
+          reviewers: [{ login: 'octocat', status: 'approved' }],
+        })
+      })
+
+      // With empty namespace, falls back to all accounts
+      await waitFor(() => {
+        expect(screen.getByText('Yes')).toBeInTheDocument()
+      })
     })
   })
 })

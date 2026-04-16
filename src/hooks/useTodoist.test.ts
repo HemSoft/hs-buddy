@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useTodoistUpcoming, useTodoistProjects, useTaskActions } from './useTodoist'
 
+const mockMountedRef = vi.hoisted(() => ({ current: true }))
 vi.mock('./useIsMounted', () => ({
-  useIsMounted: () => ({ current: true }),
+  useIsMounted: () => mockMountedRef,
 }))
 
 const mockGetUpcoming = vi.fn()
@@ -46,6 +47,7 @@ describe('useTodoistUpcoming', () => {
     vi.useFakeTimers()
     vi.setSystemTime(FIXED_NOW)
     vi.clearAllMocks()
+    mockMountedRef.current = true
   })
 
   afterEach(() => {
@@ -144,10 +146,58 @@ describe('useTodoistUpcoming', () => {
     })
     expect(result.current.dayGroups.length).toBe(3)
   })
+
+  it('uses fallback message when API error has no message', async () => {
+    mockGetUpcoming.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useTodoistUpcoming())
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(result.current.error).toBe('Failed to fetch tasks')
+  })
+
+  it('handles non-Error thrown exceptions', async () => {
+    mockGetUpcoming.mockRejectedValue('string error')
+    const { result } = renderHook(() => useTodoistUpcoming())
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(result.current.error).toBe('Failed to fetch tasks')
+  })
+
+  it('skips state updates when unmounted after fetch', async () => {
+    mockGetUpcoming.mockImplementation(async () => {
+      mockMountedRef.current = false
+      return {
+        success: true,
+        data: { [todayKey()]: [{ id: '1', content: 'A', priority: 1, order: 0 }] },
+      }
+    })
+    const { result } = renderHook(() => useTodoistUpcoming())
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(result.current.dayGroups).toEqual([])
+  })
+
+  it('skips error state when unmounted during catch', async () => {
+    mockGetUpcoming.mockImplementation(async () => {
+      mockMountedRef.current = false
+      throw new Error('Network error')
+    })
+    const { result } = renderHook(() => useTodoistUpcoming())
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(result.current.error).toBeNull()
+  })
 })
 
 describe('useTodoistProjects', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockMountedRef.current = true
+  })
 
   it('returns initial empty state', () => {
     const { result } = renderHook(() => useTodoistProjects())
@@ -165,6 +215,24 @@ describe('useTodoistProjects', () => {
 
   it('handles failure silently', async () => {
     mockGetProjects.mockRejectedValue(new Error('fail'))
+    const { result } = renderHook(() => useTodoistProjects())
+    await act(async () => {
+      await result.current.load()
+    })
+    expect(result.current.projects).toEqual([])
+  })
+
+  it('does not update projects when result is unsuccessful', async () => {
+    mockGetProjects.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useTodoistProjects())
+    await act(async () => {
+      await result.current.load()
+    })
+    expect(result.current.projects).toEqual([])
+  })
+
+  it('does not update projects when data is null', async () => {
+    mockGetProjects.mockResolvedValue({ success: true, data: null })
     const { result } = renderHook(() => useTodoistProjects())
     await act(async () => {
       await result.current.load()
@@ -219,6 +287,33 @@ describe('useTaskActions', () => {
     const { result } = renderHook(() => useTaskActions(onRefresh))
     await act(async () => {
       await result.current.complete('t1')
+    })
+    expect(onRefresh).not.toHaveBeenCalled()
+  })
+
+  it('does not refresh when reopen fails', async () => {
+    mockReopenTask.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useTaskActions(onRefresh))
+    await act(async () => {
+      await result.current.reopen('t1')
+    })
+    expect(onRefresh).not.toHaveBeenCalled()
+  })
+
+  it('does not refresh when create fails', async () => {
+    mockCreateTask.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useTaskActions(onRefresh))
+    await act(async () => {
+      await result.current.create({ content: 'New' })
+    })
+    expect(onRefresh).not.toHaveBeenCalled()
+  })
+
+  it('does not refresh when remove fails', async () => {
+    mockDeleteTask.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useTaskActions(onRefresh))
+    await act(async () => {
+      await result.current.remove('t1')
     })
     expect(onRefresh).not.toHaveBeenCalled()
   })

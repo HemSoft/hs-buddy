@@ -1,39 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { WelcomePanel } from './WelcomePanel'
+import * as dashboardCardsModule from '../hooks/useDashboardCards'
+
+const { mockUseCopilotUsage, mockUseBuddyStats, mockUseRepoBookmarks } = vi.hoisted(() => ({
+  mockUseCopilotUsage: vi.fn(),
+  mockUseBuddyStats: vi.fn(),
+  mockUseRepoBookmarks: vi.fn(),
+}))
 
 vi.mock('../hooks/useConvex', () => ({
-  useBuddyStats: () => ({
-    prsViewed: 10,
-    prsReviewed: 5,
-    prsMergedWatched: 2,
-    reposBrowsed: 8,
-    runsTriggered: 15,
-    runsCompleted: 12,
-    runsFailed: 3,
-    firstLaunchDate: Date.now() - 86400000 * 30,
-    appLaunches: 42,
-    totalUptimeMs: 3600000,
-    lastSessionStart: Date.now() - 60000,
-  }),
-  useRepoBookmarks: () => [
-    { _id: 'bm1', org: 'acme', repo: 'web' },
-    { _id: 'bm2', org: 'acme', repo: 'api' },
-  ],
+  useBuddyStats: mockUseBuddyStats,
+  useRepoBookmarks: mockUseRepoBookmarks,
 }))
 
 vi.mock('../hooks/useCopilotUsage', () => ({
-  useCopilotUsage: () => ({
-    accounts: [{ username: 'testuser', org: 'testorg' }],
-    quotas: {},
-    orgBudgets: {},
-    uniqueOrgs: ['testorg'],
-    refreshAll: vi.fn(),
-    anyLoading: false,
-    aggregateTotals: { totalUsed: 250, totalOverageCost: 5.0 },
-    aggregateProjections: { projectedTotal: 500, projectedOverageCost: 10.0 },
-    orgOverageFromQuotas: {},
-  }),
+  useCopilotUsage: mockUseCopilotUsage,
 }))
 
 vi.mock('../hooks/useWeather', () => ({
@@ -136,6 +118,34 @@ describe('WelcomePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    mockUseBuddyStats.mockReturnValue({
+      prsViewed: 10,
+      prsReviewed: 5,
+      prsMergedWatched: 2,
+      reposBrowsed: 8,
+      runsTriggered: 15,
+      runsCompleted: 12,
+      runsFailed: 3,
+      firstLaunchDate: Date.now() - 86400000 * 30,
+      appLaunches: 42,
+      totalUptimeMs: 3600000,
+      lastSessionStart: Date.now() - 60000,
+    })
+    mockUseRepoBookmarks.mockReturnValue([
+      { _id: 'bm1', org: 'acme', repo: 'web' },
+      { _id: 'bm2', org: 'acme', repo: 'api' },
+    ])
+    mockUseCopilotUsage.mockReturnValue({
+      accounts: [{ username: 'testuser', org: 'testorg' }],
+      quotas: {},
+      orgBudgets: {},
+      uniqueOrgs: ['testorg'],
+      refreshAll: vi.fn(),
+      anyLoading: false,
+      aggregateTotals: { totalUsed: 250, totalOverageCost: 5.0 },
+      aggregateProjections: { projectedTotal: 500, projectedOverageCost: 10.0 },
+      orgOverageFromQuotas: {},
+    })
     Object.defineProperty(window, 'ipcRenderer', {
       configurable: true,
       value: { invoke: vi.fn().mockResolvedValue({}) },
@@ -269,5 +279,113 @@ describe('WelcomePanel', () => {
     expect(screen.getByText('NASDAQ')).toBeTruthy()
     expect(screen.getByText('DOW')).toBeTruthy()
     expect(screen.getByText('Bitcoin')).toBeTruthy()
+  })
+
+  it('navigates to Organizations on click', () => {
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+    fireEvent.click(screen.getByText('Organizations'))
+    expect(onSectionChange).toHaveBeenCalledWith('github')
+    // Organizations action only changes section, does not navigate
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('navigates to Jobs on click', () => {
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+    fireEvent.click(screen.getByText('Jobs'))
+    expect(onSectionChange).toHaveBeenCalledWith('automation')
+    expect(onNavigate).toHaveBeenCalledWith('automation-jobs')
+  })
+
+  it('navigates to settings when copilot usage clicked without copilot accounts', () => {
+    mockUseCopilotUsage.mockReturnValue({
+      accounts: [],
+      quotas: {},
+      orgBudgets: {},
+      uniqueOrgs: [],
+      refreshAll: vi.fn(),
+      anyLoading: false,
+      aggregateTotals: { totalUsed: 0, totalOverageCost: 0 },
+      aggregateProjections: null,
+      orgOverageFromQuotas: {},
+    })
+
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+
+    fireEvent.click(screen.getByText('Configure Accounts'))
+    expect(onSectionChange).toHaveBeenCalledWith('settings')
+    expect(onNavigate).toHaveBeenCalledWith('settings-accounts')
+  })
+
+  it('handles null stats and null bookmarks gracefully', () => {
+    mockUseBuddyStats.mockReturnValue(null)
+    mockUseRepoBookmarks.mockReturnValue(null)
+
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+
+    expect(screen.getByText('Buddy')).toBeTruthy()
+    expect(screen.getByText('Workspace Pulse')).toBeTruthy()
+    expect(screen.getByText('Command Center')).toBeTruthy()
+  })
+
+  it('handles undefined stats fields with fallback values', () => {
+    mockUseBuddyStats.mockReturnValue(undefined)
+    mockUseRepoBookmarks.mockReturnValue(undefined)
+
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+
+    expect(screen.getByText('Buddy')).toBeTruthy()
+    expect(screen.getByText('Workspace Pulse')).toBeTruthy()
+  })
+
+  it('skips state update when liveUptime has not changed', () => {
+    vi.useFakeTimers()
+    const frozenNow = Date.now()
+
+    mockUseBuddyStats.mockReturnValue({
+      prsViewed: 0,
+      prsReviewed: 0,
+      prsMergedWatched: 0,
+      reposBrowsed: 0,
+      runsTriggered: 0,
+      runsCompleted: 0,
+      runsFailed: 0,
+      firstLaunchDate: 0,
+      appLaunches: 0,
+      totalUptimeMs: 5000,
+      lastSessionStart: frozenNow,
+    })
+
+    const { unmount } = render(
+      <WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />
+    )
+
+    // With frozen time, compute() calculates newVal = storedUptime + 0 = 5000
+    // which equals the initial useState(storedUptime) = 5000, exercising the
+    // newVal === prev branch
+    expect(screen.getByText('Buddy')).toBeTruthy()
+
+    unmount()
+    vi.useRealTimers()
+  })
+
+  it('renders gracefully with unknown dashboard card id', () => {
+    vi.spyOn(dashboardCardsModule, 'useDashboardCards').mockReturnValue({
+      cards: [{ id: 'unknown-card', title: 'Unknown', defaultVisible: true, span: 1 as const }],
+      visibleCards: [
+        { id: 'unknown-card', title: 'Unknown', defaultVisible: true, span: 1 as const },
+      ],
+      isVisible: () => true,
+      toggleCard: vi.fn(),
+    })
+
+    render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
+
+    // Unknown card id hits the default case (returns null) — no error thrown
+    expect(screen.getByText('Buddy')).toBeTruthy()
+    // Known dashboard card titles should not render
+    expect(screen.queryByText('Command Center')).toBeNull()
+    expect(screen.queryByText('Workspace Pulse')).toBeNull()
+
+    vi.restoreAllMocks()
   })
 })

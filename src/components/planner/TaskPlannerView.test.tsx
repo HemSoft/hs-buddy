@@ -210,6 +210,192 @@ describe('TaskPlannerView', () => {
     expect(screen.queryByPlaceholderText('Task name')).not.toBeInTheDocument()
   })
 
+  it('does not render PriorityDot for priority 1 and hides empty labels', () => {
+    mocks.useTodoistUpcoming.mockReturnValue({
+      dayGroups: [makeGroup({ tasks: [makeTask({ priority: 1, labels: [] })] })],
+      isLoading: false,
+      error: null,
+      refresh: mocks.refresh,
+    })
+
+    render(<TaskPlannerView />)
+
+    expect(screen.getByText('Plan sprint')).toBeInTheDocument()
+    expect(screen.queryByTitle(/Priority/)).not.toBeInTheDocument()
+    expect(screen.queryByText('focus')).not.toBeInTheDocument()
+  })
+
+  it('renders task without project name when project is not in map', () => {
+    mocks.useTodoistProjects.mockReturnValue({
+      projects: [],
+      load: mocks.loadProjects,
+    })
+
+    render(<TaskPlannerView />)
+
+    expect(screen.getByText('Plan sprint')).toBeInTheDocument()
+    expect(screen.queryByText('Work')).not.toBeInTheDocument()
+  })
+
+  it('renders overdue day section with correct styling and no date span', () => {
+    mocks.useTodoistUpcoming.mockReturnValue({
+      dayGroups: [makeGroup({ label: 'Overdue', date: 'overdue', tasks: [makeTask()] })],
+      isLoading: false,
+      error: null,
+      refresh: mocks.refresh,
+    })
+
+    const { container } = render(<TaskPlannerView />)
+
+    expect(screen.getByText('Overdue')).toBeInTheDocument()
+    expect(container.querySelector('.planner-day-overdue')).toBeInTheDocument()
+    expect(container.querySelector('.planner-day-date')).not.toBeInTheDocument()
+  })
+
+  it('renders today mode with tasks as a flat list', () => {
+    mocks.useTodoistUpcoming.mockReturnValue({
+      dayGroups: [makeGroup({ tasks: [makeTask()] })],
+      isLoading: false,
+      error: null,
+      refresh: mocks.refresh,
+    })
+
+    const { container } = render(<TaskPlannerView mode="today" />)
+
+    expect(screen.getByText('Plan sprint')).toBeInTheDocument()
+    expect(container.querySelector('.planner-today-flat')).toBeInTheDocument()
+    expect(container.querySelector('.planner-day-section')).not.toBeInTheDocument()
+  })
+
+  it('shows empty message in today mode when all tasks are being completed', async () => {
+    mocks.useTodoistUpcoming.mockReturnValue({
+      dayGroups: [makeGroup({ tasks: [makeTask()] })],
+      isLoading: false,
+      error: null,
+      refresh: mocks.refresh,
+    })
+    mocks.complete.mockReturnValue(new Promise(() => {}))
+
+    render(<TaskPlannerView mode="today" />)
+    expect(screen.getByText('Plan sprint')).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Complete task: Plan sprint' }))
+    })
+
+    expect(screen.getByText('No tasks for today')).toBeInTheDocument()
+  })
+
+  it('shows fallback message when complete returns success:false without error', async () => {
+    mocks.complete.mockResolvedValueOnce({ success: false })
+
+    render(<TaskPlannerView />)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Complete task: Plan sprint' }))
+    })
+
+    expect(screen.getByText('Failed to complete task')).toBeInTheDocument()
+  })
+
+  it('shows fallback message when complete throws a non-Error value', async () => {
+    mocks.complete.mockRejectedValueOnce('string error')
+
+    render(<TaskPlannerView />)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Complete task: Plan sprint' }))
+    })
+
+    expect(screen.getByText('Failed to complete task')).toBeInTheDocument()
+  })
+
+  it('shows error when create throws an Error', async () => {
+    mocks.create.mockRejectedValueOnce(new Error('Create network fail'))
+
+    render(<TaskPlannerView />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    fireEvent.change(screen.getByPlaceholderText('Task name'), {
+      target: { value: 'New task' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    })
+
+    expect(screen.getByText('Create network fail')).toBeInTheDocument()
+  })
+
+  it('shows fallback when create throws a non-Error value', async () => {
+    mocks.create.mockRejectedValueOnce(42)
+
+    render(<TaskPlannerView />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    fireEvent.change(screen.getByPlaceholderText('Task name'), {
+      target: { value: 'New task' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    })
+
+    expect(screen.getByText('Failed to create task')).toBeInTheDocument()
+  })
+
+  it('shows fallback when create returns success:false without error', async () => {
+    mocks.create.mockResolvedValueOnce({ success: false })
+
+    render(<TaskPlannerView />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    fireEvent.change(screen.getByPlaceholderText('Task name'), {
+      target: { value: 'New task' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    })
+
+    expect(screen.getByText('Failed to create task')).toBeInTheDocument()
+  })
+
+  it('does not submit inline form with empty/whitespace content', () => {
+    render(<TaskPlannerView />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
+
+    fireEvent.change(screen.getByPlaceholderText('Task name'), {
+      target: { value: '   ' },
+    })
+    const form = screen.getByPlaceholderText('Task name').closest('form')!
+    fireEvent.submit(form)
+
+    expect(mocks.create).not.toHaveBeenCalled()
+  })
+
+  it('replaces previous action error when a new error occurs', async () => {
+    mocks.complete.mockResolvedValueOnce({ success: false, error: 'First error' })
+
+    render(<TaskPlannerView />)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Complete task: Plan sprint' }))
+    })
+    expect(screen.getByText('First error')).toBeInTheDocument()
+
+    // Trigger second error by creating a task that fails
+    mocks.create.mockResolvedValueOnce({ success: false, error: 'Second error' })
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    fireEvent.change(screen.getByPlaceholderText('Task name'), {
+      target: { value: 'Another' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    })
+
+    expect(screen.getByText('Second error')).toBeInTheDocument()
+  })
+
   it('creates a task from the inline form and surfaces create failures', async () => {
     mocks.create.mockResolvedValueOnce({ success: false, error: 'Could not create task' })
 

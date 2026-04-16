@@ -435,4 +435,101 @@ describe('OrgRepoTree', () => {
     const { container } = render(<OrgRepoTree {...props} />)
     expect(container.querySelector('.sidebar-item-count')).not.toBeInTheDocument()
   })
+
+  // handleItemKeyDown: non-Enter/Space key does nothing (early return branch)
+  it('does not trigger action when pressing Tab on org header', () => {
+    const onItemSelect = vi.fn()
+    const props = createDefaultProps({
+      uniqueOrgs: ['my-org'],
+      onItemSelect,
+    })
+    render(<OrgRepoTree {...props} />)
+    const orgHeader = screen.getByText('my-org').closest('[role="button"]')!
+    fireEvent.keyDown(orgHeader, { key: 'Tab' })
+    expect(onItemSelect).not.toHaveBeenCalled()
+  })
+
+  // handleItemKeyDown: stopPropagation=true via chevron keyboard Enter
+  it('calls onToggleOrg via keyboard Enter on chevron', () => {
+    const onToggleOrg = vi.fn()
+    const onItemSelect = vi.fn()
+    const props = createDefaultProps({
+      uniqueOrgs: ['my-org'],
+      onToggleOrg,
+      onItemSelect,
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    const chevron = container.querySelector('.sidebar-item-chevron')!
+    fireEvent.keyDown(chevron, { key: 'Enter' })
+    expect(onToggleOrg).toHaveBeenCalledWith('my-org')
+    // stopPropagation prevents onItemSelect on the parent from firing
+    expect(onItemSelect).not.toHaveBeenCalled()
+  })
+
+  // OrgTeamsSection header keyboard Enter
+  it('calls onToggleOrgTeamGroup via keyboard Enter on Teams header', () => {
+    const onToggleOrgTeamGroup = vi.fn()
+    const props = createDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      orgTeams: { 'my-org': [makeTeam('backend', 'Backend')] },
+      onToggleOrgTeamGroup,
+    })
+    render(<OrgRepoTree {...props} />)
+    const teamsHeader = screen.getByText('Teams').closest('[role="button"]')!
+    fireEvent.keyDown(teamsHeader, { key: 'Enter' })
+    expect(onToggleOrgTeamGroup).toHaveBeenCalledWith('my-org')
+  })
+
+  // OrgUsersSection header keyboard Enter
+  it('calls onToggleOrgUserGroup via keyboard Enter on Users header', () => {
+    const onToggleOrgUserGroup = vi.fn()
+    const props = createDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      orgMembers: { 'my-org': [makeMember('alice')] },
+      onToggleOrgUserGroup,
+    })
+    render(<OrgRepoTree {...props} />)
+    const usersHeader = screen.getByText('Users').closest('[role="button"]')!
+    fireEvent.keyDown(usersHeader, { key: 'Enter' })
+    expect(onToggleOrgUserGroup).toHaveBeenCalledWith('my-org')
+  })
+
+  // OrgTeamNode team member click
+  it('calls onItemSelect when clicking a team member', () => {
+    const onItemSelect = vi.fn()
+    const props = createDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgTeamGroups: new Set(['my-org']),
+      orgTeams: { 'my-org': [makeTeam('backend', 'Backend')] },
+      expandedTeams: new Set(['my-org/backend']),
+      teamMembers: { 'my-org/backend': [makeTeamMember('dev1', 'Dev One')] },
+      onItemSelect,
+    })
+    render(<OrgRepoTree {...props} />)
+    fireEvent.click(screen.getByText('Dev One (dev1)'))
+    expect(onItemSelect).toHaveBeenCalledWith('org-user:my-org/dev1')
+  })
+
+  // OrgUsersSection sort: bFav ternary true branch (both members are favorites)
+  it('sorts correctly when multiple users are favorites', () => {
+    const props = createDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      orgMembers: {
+        'my-org': [makeMember('alice'), makeMember('bob'), makeMember('charlie')],
+      },
+      favoriteUsers: new Set(['my-org/alice', 'my-org/charlie']),
+    })
+    const { container } = render(<OrgRepoTree {...props} />)
+    const userLabels = container.querySelectorAll('.sidebar-org-user-child .sidebar-item-label')
+    const labels = Array.from(userLabels).map(el => el.textContent)
+    // favorites (alice, charlie) come before non-favorite (bob), alphabetically within group
+    expect(labels.indexOf('alice')).toBeLessThan(labels.indexOf('bob'))
+    expect(labels.indexOf('charlie')).toBeLessThan(labels.indexOf('bob'))
+    expect(labels.indexOf('alice')).toBeLessThan(labels.indexOf('charlie'))
+  })
 })

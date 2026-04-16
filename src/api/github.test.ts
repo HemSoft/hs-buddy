@@ -2144,4 +2144,457 @@ describe('GitHubClient', () => {
       await expect(client.fetchOrgMembers('myorg')).rejects.toThrow('Could not fetch members')
     })
   })
+
+  describe('fetchOrgTeams', () => {
+    it('returns teams with mapped fields', async () => {
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          slug: 'alpha',
+          name: 'Alpha Team',
+          description: 'The A team',
+          members_count: 5,
+          repos_count: 3,
+          html_url: 'https://github.com/orgs/myorg/teams/alpha',
+        },
+      ])
+      const result = await client.fetchOrgTeams('myorg')
+      expect(result.teams).toHaveLength(1)
+      expect(result.teams[0].slug).toBe('alpha')
+      expect(result.teams[0].memberCount).toBe(5)
+    })
+
+    it('returns empty teams when all accounts fail', async () => {
+      mockOctokit.paginate.mockRejectedValue(new Error('forbidden'))
+      const result = await client.fetchOrgTeams('myorg')
+      expect(result.teams).toEqual([])
+    })
+
+    it('handles team without optional fields', async () => {
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          slug: 'beta',
+          name: 'Beta',
+          description: null,
+          html_url: 'https://github.com/orgs/myorg/teams/beta',
+        },
+      ])
+      const result = await client.fetchOrgTeams('myorg')
+      expect(result.teams[0].description).toBeNull()
+      expect(result.teams[0].memberCount).toBe(0)
+      expect(result.teams[0].repoCount).toBe(0)
+    })
+  })
+
+  describe('fetchRepoCommitDetail', () => {
+    it('maps commit detail with all optional fallbacks', async () => {
+      mockOctokit.repos.getCommit.mockResolvedValue({
+        data: {
+          sha: 'abc123',
+          commit: {
+            message: 'fix: thing\n\nDetailed description',
+            author: { name: 'Bot', date: '2026-01-01T00:00:00Z' },
+            committer: { date: '2026-01-01T01:00:00Z' },
+          },
+          author: null,
+          html_url: 'https://github.com/myorg/repo/commit/abc123',
+          parents: [{ sha: 'parent1', html_url: null }],
+          stats: null,
+          files: [
+            {
+              filename: 'README.md',
+              previous_filename: undefined,
+              status: undefined,
+              additions: undefined,
+              deletions: undefined,
+              changes: undefined,
+              patch: undefined,
+              blob_url: undefined,
+            },
+          ],
+        },
+      })
+
+      const result = await client.fetchRepoCommitDetail('myorg', 'repo', 'abc123')
+      expect(result.sha).toBe('abc123')
+      expect(result.messageHeadline).toBe('fix: thing')
+      expect(result.author).toBe('Bot')
+      expect(result.authorAvatarUrl).toBeNull()
+      expect(result.committedDate).toBe('2026-01-01T01:00:00Z')
+      expect(result.stats).toEqual({ additions: 0, deletions: 0, total: 0 })
+      expect(result.files[0].status).toBe('modified')
+      expect(result.files[0].additions).toBe(0)
+      expect(result.files[0].patch).toBeNull()
+      expect(result.files[0].blobUrl).toBeNull()
+      expect(result.files[0].previousFilename).toBeNull()
+      // Parent URL fallback
+      expect(result.parents[0].url).toContain('/commit/parent1')
+    })
+
+    it('maps commit with no committer date fallback to author date', async () => {
+      mockOctokit.repos.getCommit.mockResolvedValue({
+        data: {
+          sha: 'abc',
+          commit: {
+            message: 'msg',
+            author: { name: 'Dev', date: '2026-02-01T00:00:00Z' },
+            committer: { date: undefined },
+          },
+          author: { login: 'dev', avatar_url: 'https://av/dev' },
+          html_url: 'https://github.com/myorg/repo/commit/abc',
+          parents: [],
+          stats: { additions: 10, deletions: 5, total: 15 },
+          files: [],
+        },
+      })
+
+      const result = await client.fetchRepoCommitDetail('myorg', 'repo', 'abc')
+      expect(result.author).toBe('dev')
+      expect(result.authorAvatarUrl).toBe('https://av/dev')
+      expect(result.committedDate).toBe('2026-02-01T00:00:00Z')
+      expect(result.stats).toEqual({ additions: 10, deletions: 5, total: 15 })
+    })
+  })
+
+  describe('fetchRepoIssueDetail', () => {
+    it('maps issue detail with null/missing optional fields', async () => {
+      mockOctokit.issues.get.mockResolvedValue({
+        data: {
+          number: 42,
+          title: 'Bug report',
+          state: 'open',
+          user: null,
+          html_url: 'https://github.com/myorg/repo/issues/42',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-02T00:00:00Z',
+          labels: [],
+          comments: 0,
+          assignees: [],
+          body: null,
+          closed_at: null,
+          state_reason: null,
+          milestone: null,
+        },
+      })
+      mockOctokit.issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: 1,
+            user: null,
+            body: null,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            html_url: 'https://github.com/myorg/repo/issues/42#issuecomment-1',
+          },
+        ],
+      })
+
+      const result = await client.fetchRepoIssueDetail('myorg', 'repo', 42)
+      expect(result.author).toBe('unknown')
+      expect(result.authorAvatarUrl).toBeNull()
+      expect(result.body).toBe('')
+      expect(result.milestone).toBeNull()
+      expect(result.stateReason).toBeNull()
+      expect(result.comments[0].author).toBe('unknown')
+      expect(result.comments[0].authorAvatarUrl).toBeNull()
+      expect(result.comments[0].body).toBe('')
+    })
+
+    it('maps issue with milestone and assignees', async () => {
+      mockOctokit.issues.get.mockResolvedValue({
+        data: {
+          number: 43,
+          title: 'Feature',
+          state: 'closed',
+          user: { login: 'alice', avatar_url: 'https://av/alice' },
+          html_url: 'https://github.com/myorg/repo/issues/43',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-02T00:00:00Z',
+          labels: [{ name: 'enhancement', color: '00ff00' }],
+          comments: 1,
+          assignees: [{ login: 'bob', avatar_url: 'https://av/bob' }],
+          body: 'Description',
+          closed_at: '2026-01-03T00:00:00Z',
+          state_reason: 'completed',
+          milestone: { title: 'v1.0', due_on: '2026-02-01T00:00:00Z' },
+        },
+      })
+      mockOctokit.issues.listComments.mockResolvedValue({ data: [] })
+      // Mock fetchUserNames via GraphQL
+      mockGraphql.mockResolvedValue({ user_bob: { name: 'Bob Smith' } })
+
+      const result = await client.fetchRepoIssueDetail('myorg', 'repo', 43)
+      expect(result.milestone).toEqual({ title: 'v1.0', dueOn: '2026-02-01T00:00:00Z' })
+      expect(result.assignees[0].login).toBe('bob')
+      expect(result.closedAt).toBe('2026-01-03T00:00:00Z')
+      expect(result.stateReason).toBe('completed')
+    })
+  })
+
+  describe('fetchPRThreads', () => {
+    it('maps thread and comment data with null fallbacks', async () => {
+      mockGraphql.mockResolvedValue({
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              nodes: [
+                {
+                  id: 'thread-1',
+                  isResolved: false,
+                  isOutdated: true,
+                  path: 'src/test.ts',
+                  line: 10,
+                  startLine: 5,
+                  diffSide: 'RIGHT',
+                  comments: {
+                    nodes: [
+                      {
+                        id: 'c1',
+                        author: null,
+                        body: null,
+                        bodyHTML: null,
+                        createdAt: '2026-01-01T00:00:00Z',
+                        updatedAt: '2026-01-01T00:00:00Z',
+                        url: 'https://github.com/myorg/repo/pull/1#c1',
+                        diffHunk: null,
+                        reactionGroups: null,
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+            comments: {
+              nodes: [
+                {
+                  id: 'ic1',
+                  author: null,
+                  body: null,
+                  bodyHTML: null,
+                  createdAt: '2026-01-01T00:00:00Z',
+                  updatedAt: '2026-01-01T00:00:00Z',
+                  url: 'https://github.com/myorg/repo/pull/1#ic1',
+                  reactionGroups: [],
+                },
+              ],
+            },
+            reviews: {
+              nodes: [
+                {
+                  id: 'r1',
+                  state: 'APPROVED',
+                  author: null,
+                  body: 'LGTM',
+                  bodyHTML: '<p>LGTM</p>',
+                  submittedAt: '2026-01-01T00:00:00Z',
+                  updatedAt: '2026-01-01T00:00:00Z',
+                  url: 'https://github.com/myorg/repo/pull/1#r1',
+                },
+                {
+                  id: 'r2',
+                  state: 'COMMENTED',
+                  author: { login: 'reviewer' },
+                  body: null,
+                  bodyHTML: null,
+                  submittedAt: null,
+                  updatedAt: null,
+                  url: null,
+                },
+              ],
+            },
+          },
+        },
+      })
+
+      const result = await client.fetchPRThreads('myorg', 'repo', 1)
+      expect(result.threads).toHaveLength(1)
+      expect(result.threads[0].comments[0].author).toBe('unknown')
+      expect(result.threads[0].comments[0].authorAvatarUrl).toBeNull()
+      expect(result.threads[0].comments[0].body).toBe('')
+      expect(result.threads[0].comments[0].bodyHtml).toBeNull()
+      expect(result.threads[0].comments[0].diffHunk).toBeNull()
+      expect(result.issueComments).toHaveLength(1)
+      expect(result.issueComments[0].author).toBe('unknown')
+      // Reviews: only r1 passes filter (has both submittedAt and body)
+      expect(result.reviews).toHaveLength(1)
+      expect(result.reviews[0].author).toBe('unknown')
+    })
+  })
+
+  describe('fetchRepoPRs edge cases', () => {
+    it('handles PR labels with label objects missing color', async () => {
+      mockOctokit.pulls.list.mockResolvedValue({
+        data: [
+          {
+            number: 1,
+            title: 'PR',
+            state: 'open',
+            user: { login: 'dev' },
+            html_url: 'h',
+            created_at: 'c',
+            updated_at: 'u',
+            labels: [
+              { name: 'bug', color: null },
+              { name: null, color: undefined },
+            ],
+            head: { ref: 'f' },
+            base: { ref: 'm' },
+            assignees: [{ login: 'a' }, { login: 'b' }],
+            draft: true,
+          },
+        ],
+      })
+      mockOctokit.users.getAuthenticated.mockResolvedValue({ data: { login: 'dev' } })
+      mockOctokit.pulls.listReviews.mockResolvedValue({ data: [] })
+
+      const result = await client.fetchRepoPRs('myorg', 'repo')
+      expect(result[0].labels[0].color).toBe('808080')
+      expect(result[0].labels[1].name).toBe('')
+      expect(result[0].draft).toBe(true)
+      expect(result[0].assigneeCount).toBe(2)
+    })
+  })
+
+  describe('fetchRepoDetail', () => {
+    it('handles optional data failures gracefully', async () => {
+      mockOctokit.repos.get.mockResolvedValue({
+        data: {
+          name: 'repo',
+          full_name: 'myorg/repo',
+          description: null,
+          html_url: 'https://github.com/myorg/repo',
+          homepage: null,
+          language: null,
+          default_branch: 'main',
+          visibility: 'private',
+          archived: false,
+          fork: false,
+          created_at: '2025-01-01T00:00:00Z',
+          updated_at: '2025-06-01T00:00:00Z',
+          pushed_at: null,
+          size: 1000,
+          stargazers_count: 0,
+          forks_count: 0,
+          watchers_count: 0,
+          open_issues_count: 0,
+          topics: [],
+          license: null,
+        },
+      })
+      // Languages fail
+      mockOctokit.repos.listLanguages.mockRejectedValue(new Error('fail'))
+      // Commits fail
+      mockOctokit.repos.listCommits.mockRejectedValue(new Error('fail'))
+      // Contributors fail
+      mockOctokit.repos.listContributors.mockRejectedValue(new Error('fail'))
+      // PRs fail
+      mockOctokit.pulls.list.mockRejectedValue(new Error('fail'))
+      // Workflows fail
+      mockOctokit.actions.listWorkflowRunsForRepo.mockRejectedValue(new Error('fail'))
+
+      const result = await client.fetchRepoDetail('myorg', 'repo')
+      expect(result.name).toBe('repo')
+      expect(result.languages).toEqual({})
+      expect(result.recentCommits).toEqual([])
+      expect(result.topContributors).toEqual([])
+      expect(result.openPRCount).toBe(0)
+      expect(result.latestWorkflowRun).toBeNull()
+    })
+
+    it('maps commit with missing author login', async () => {
+      mockOctokit.repos.get.mockResolvedValue({
+        data: {
+          name: 'r',
+          full_name: 'o/r',
+          description: 'd',
+          html_url: 'h',
+          homepage: null,
+          language: 'TypeScript',
+          default_branch: 'main',
+          visibility: 'public',
+          archived: false,
+          fork: false,
+          created_at: 'c',
+          updated_at: 'u',
+          pushed_at: 'p',
+          size: 500,
+          stargazers_count: 10,
+          forks_count: 2,
+          watchers_count: 5,
+          open_issues_count: 3,
+          topics: ['ts'],
+          license: { spdx_id: 'MIT' },
+        },
+      })
+      mockOctokit.repos.listLanguages.mockResolvedValue({ data: { TypeScript: 1000 } })
+      mockOctokit.repos.listCommits.mockResolvedValue({
+        data: [
+          {
+            sha: 'a1',
+            commit: { message: 'msg', author: { date: 'd1' } },
+            author: null,
+            html_url: 'h1',
+          },
+        ],
+      })
+      mockOctokit.repos.listContributors.mockResolvedValue({
+        data: [{ login: null, avatar_url: null, contributions: null, html_url: null }],
+      })
+      mockOctokit.pulls.list.mockResolvedValue({ data: [{ number: 1 }] })
+      mockOctokit.actions.listWorkflowRunsForRepo.mockResolvedValue({
+        data: {
+          workflow_runs: [
+            {
+              id: 1,
+              name: 'CI',
+              status: 'completed',
+              conclusion: 'success',
+              created_at: 'c',
+              updated_at: 'u',
+              html_url: 'h',
+              head_branch: 'main',
+            },
+          ],
+        },
+      })
+      // Mock fetchUserNames
+      mockGraphql.mockResolvedValue({})
+
+      const result = await client.fetchRepoDetail('myorg', 'repo')
+      expect(result.license).toBe('MIT')
+      expect(result.openPRCount).toBe(3) // comes from open_issues_count when PR list has data
+      expect(result.latestWorkflowRun).not.toBeNull()
+    })
+  })
+
+  describe('getRateLimit', () => {
+    it('returns rate limit data', async () => {
+      mockOctokit.rateLimit.get.mockResolvedValue({
+        data: {
+          resources: {
+            core: { limit: 5000, remaining: 4999, reset: 1234567890, used: 1 },
+          },
+        },
+      })
+      const result = await client.getRateLimit('myorg')
+      expect(result.limit).toBe(5000)
+      expect(result.remaining).toBe(4999)
+    })
+
+    it('tries next account on failure', async () => {
+      mockOctokit.rateLimit.get.mockRejectedValueOnce(new Error('fail')).mockResolvedValueOnce({
+        data: {
+          resources: {
+            core: { limit: 5000, remaining: 4000, reset: 123, used: 1000 },
+          },
+        },
+      })
+      const result = await client.getRateLimit('myorg')
+      expect(result.remaining).toBe(4000)
+    })
+
+    it('throws when all accounts fail', async () => {
+      mockOctokit.rateLimit.get.mockRejectedValue(new Error('fail'))
+      await expect(client.getRateLimit('myorg')).rejects.toThrow('Could not fetch rate limit')
+    })
+  })
 })

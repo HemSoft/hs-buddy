@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.712] - 2026-04-16
+
+### Fixed
+
+- Add .npmrc to suppress npm peer-dep errors during aspire restore
+
 ## [0.1.711] - 2026-04-16
 
 ### Added

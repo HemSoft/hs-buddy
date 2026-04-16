@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.711] - 2026-04-16
+
+### Added
+
+- Log score history on status command
+
 ## [0.1.710] - 2026-04-15
 
 ### Fixed

@@ -29,44 +29,62 @@ scorecard.
 
 1. Fetch the scorecard HTML from the org-metrics repo:
 
-```bash
-gh api repos/relias-engineering/org-metrics/contents/reports/scorecard-hs-buddy.html --jq '.content'
-```
+   ```bash
+   gh api repos/relias-engineering/org-metrics/contents/reports/scorecard-hs-buddy.html --jq '.content'
+   ```
 
 2. Base64-decode the content and extract the JSON blob from the
    `<script type="application/json" id="scorecard-data">` tag.
 
-3. Present a concise report:
+3. **Log the score** to `score-history.log` in this skill's directory
+   (`.agents/skills/scorecard/score-history.log`). Append one line per fetch
+   using this pipe-delimited format:
 
-```
-## Scorecard Status — hs-buddy
+   ```text
+   <ISO-8601 timestamp> | <score>/<max> | <classification> | Bronze: <pts>/<max> (<passed>/<total>) | Silver: <pts>/<max> (<passed>/<total>) | Gold: <pts>/<max> (<passed>/<total>)
+   ```
 
-**Score**: X / 100 (Classification: None|Bronze|Silver|Gold)
+   Example:
 
-### Tier Breakdown
-| Tier   | Passed | Total | Points | Max |
-|--------|--------|-------|--------|-----|
-| Bronze | X      | Y     | X      | 30  |
-| Silver | X      | Y     | X      | 35  |
-| Gold   | X      | Y     | X      | 35  |
+   ```text
+   2026-04-15T21:10:18Z | 54/100 | None | Bronze: 25/30 (6/7) | Silver: 11/35 (3/8) | Gold: 18/35 (4/6)
+   ```
 
-### Failing Rules
-| Tier | Rule | Points | Detail |
-|------|------|--------|--------|
-| ...  | ...  | ...    | ...    |
+   Create the file if it does not exist. Always append — never overwrite.
+   Only log after a successful fetch and JSON parse. If the fetch or parse
+   fails, skip logging (do not write partial or error lines).
 
-### Passing Rules
-| Tier | Rule | Points |
-|------|------|--------|
-| ...  | ...  | ...    |
+4. Present a concise report:
 
-### Linting Summary
-| Language | Tool | Errors | Warnings | Files |
-|----------|------|--------|----------|-------|
-| ...      | ...  | ...    | ...      | ...   |
+   ```markdown
+   ## Scorecard Status — hs-buddy
 
-_Report generated YYYY-MM-DD HH:MM ET_
-```
+   **Score**: X / 100 (Classification: None|Bronze|Silver|Gold)
+
+   ### Tier Breakdown
+   | Tier   | Passed | Total | Points | Max |
+   |--------|--------|-------|--------|-----|
+   | Bronze | X      | Y     | X      | 30  |
+   | Silver | X      | Y     | X      | 35  |
+   | Gold   | X      | Y     | X      | 35  |
+
+   ### Failing Rules
+   | Tier | Rule | Points | Detail |
+   |------|------|--------|--------|
+   | ...  | ...  | ...    | ...    |
+
+   ### Passing Rules
+   | Tier | Rule | Points |
+   |------|------|--------|
+   | ...  | ...  | ...    |
+
+   ### Linting Summary
+   | Language | Tool | Errors | Warnings | Files |
+   |----------|------|--------|----------|-------|
+   | ...      | ...  | ...    | ...      | ...   |
+
+   _Report generated YYYY-MM-DD HH:MM ET_
+   ```
 
 ### `scorecard improve`
 
@@ -110,29 +128,29 @@ Analyzes failing rules and recommends the single highest-impact improvement.
 
 5. Present the recommendation:
 
-```
-## Scorecard Improvement Recommendation
+   ```markdown
+   ## Scorecard Improvement Recommendation
 
-**Current Score**: X / 100 (Classification: None|Bronze|Silver|Gold)
+   **Current Score**: X / 100 (Classification: None|Bronze|Silver|Gold)
 
-### Recommended Fix
+   ### Recommended Fix
 
-- **Rule**: <Rule Title>
-- **Tier**: Bronze|Silver|Gold
-- **Points**: X pts
-- **Current Detail**: <detail from scorecard data>
-- **Projected Score**: ~X / 100 after fix
+   - **Rule**: <Rule Title>
+   - **Tier**: Bronze|Silver|Gold
+   - **Points**: X pts
+   - **Current Detail**: <detail from scorecard data>
+   - **Projected Score**: ~X / 100 after fix
 
-### Fix Strategy
+   ### Fix Strategy
 
-<Specific actionable steps to fix this rule>
+   <Specific actionable steps to fix this rule>
 
-### Non-Agent-Fixable Failures (informational)
+   ### Non-Agent-Fixable Failures (informational)
 
-| Rule | Tier | Points | Why |
-|------|------|--------|-----|
-| ...  | ...  | ...    | Requires admin action |
-```
+   | Rule | Tier | Points | Why |
+   |------|------|--------|-----|
+   | ...  | ...  | ...    | Requires admin action |
+   ```
 
 6. Ask the user if they want to:
    - Create an SFL issue for the recommended fix (use the `sfl` skill)

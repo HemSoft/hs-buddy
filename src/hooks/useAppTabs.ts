@@ -24,16 +24,18 @@ function createTabId(nextTabIdRef: { current: number }): string {
 
 interface UseAppTabsOptions {
   onViewOpen: (viewId: string) => void
+  onViewClose?: (viewId: string) => void
 }
 
 interface TabState {
   tabs: Tab[]
   activeTabId: string | null
+  pendingCloses: string[]
 }
 
 export const DASHBOARD_VIEW_ID = 'dashboard'
 
-export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
+export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
   const [tabState, setTabState] = useState<TabState>(() => {
     const dashboardTab: Tab = {
       id: 'tab-dashboard',
@@ -43,10 +45,15 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
     return {
       tabs: [dashboardTab],
       activeTabId: dashboardTab.id,
+      pendingCloses: [],
     }
   })
   const { tabs, activeTabId } = tabState
   const nextTabIdRef = useRef(0)
+
+  // Stable ref so callbacks can read latest onViewClose without dep-array churn
+  const onViewCloseRef = useRef(onViewClose)
+  onViewCloseRef.current = onViewClose
 
   // Fire analytics for the initial dashboard tab
   const onViewOpenRef = useRef(onViewOpen)
@@ -54,6 +61,17 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
   useEffect(() => {
     onViewOpenRef.current(DASHBOARD_VIEW_ID)
   }, [])
+
+  // Flush pending onViewClose callbacks after every state commit.
+  // pendingCloses lives in state so updaters stay pure (safe under StrictMode).
+  useEffect(() => {
+    if (tabState.pendingCloses.length === 0) return
+    const cb = onViewCloseRef.current
+    if (cb) {
+      for (const viewId of tabState.pendingCloses) cb(viewId)
+    }
+    setTabState(prev => (prev.pendingCloses.length === 0 ? prev : { ...prev, pendingCloses: [] }))
+  }, [tabState.pendingCloses])
 
   const openTab = useCallback(
     async (viewId: string) => {
@@ -89,6 +107,7 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
         return {
           tabs: [...previousState.tabs, newTab],
           activeTabId: newTabId,
+          pendingCloses: previousState.pendingCloses,
         }
       })
     },
@@ -195,18 +214,23 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
         return previousState
       }
 
+      const closedViewId = previousState.tabs.find(tab => tab.id === tabId)?.viewId
+      const pendingCloses = closedViewId ? [closedViewId] : []
+
       if (previousState.activeTabId === tabId && nextTabs.length > 0) {
         const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
         const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
         return {
           tabs: nextTabs,
           activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
+          pendingCloses,
         }
       }
 
       return {
         tabs: nextTabs,
         activeTabId: nextTabs.length === 0 ? null : previousState.activeTabId,
+        pendingCloses,
       }
     })
   }, [])
@@ -241,27 +265,35 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
 
   const closeOtherTabs = useCallback((keepTabId: string) => {
     setTabState(previousState => {
+      if (!previousState.tabs.some(tab => tab.id === keepTabId)) return previousState
       const kept = previousState.tabs.filter(tab => tab.id === keepTabId)
       if (kept.length === 0) return previousState
-      return { tabs: kept, activeTabId: keepTabId }
+      const closed = previousState.tabs.filter(tab => tab.id !== keepTabId).map(tab => tab.viewId)
+      return { tabs: kept, activeTabId: keepTabId, pendingCloses: closed }
     })
   }, [])
 
   const closeTabsToRight = useCallback((tabId: string) => {
     setTabState(previousState => {
-      const index = previousState.tabs.findIndex(tab => tab.id === tabId)
-      if (index === -1) return previousState
-      const kept = previousState.tabs.slice(0, index + 1)
+      const idx = previousState.tabs.findIndex(tab => tab.id === tabId)
+      if (idx === -1) return previousState
+      const closed = previousState.tabs.slice(idx + 1).map(tab => tab.viewId)
+      if (closed.length === 0) return previousState
+      const kept = previousState.tabs.slice(0, idx + 1)
       const activeStillOpen = kept.some(tab => tab.id === previousState.activeTabId)
       return {
         tabs: kept,
         activeTabId: activeStillOpen ? previousState.activeTabId : tabId,
+        pendingCloses: closed,
       }
     })
   }, [])
 
   const closeAllTabs = useCallback(() => {
-    setTabState({ tabs: [], activeTabId: null })
+    setTabState(previousState => {
+      const closed = previousState.tabs.map(tab => tab.viewId)
+      return { tabs: [], activeTabId: null, pendingCloses: closed }
+    })
   }, [])
 
   const selectNextTab = useCallback(() => {
@@ -285,11 +317,17 @@ export function useAppTabs({ onViewOpen }: UseAppTabsOptions) {
   const closeActiveTab = useCallback(() => {
     setTabState(prev => {
       if (!prev.activeTabId || prev.tabs.length === 0) return prev
+      const closedViewId = prev.tabs.find(t => t.id === prev.activeTabId)?.viewId
+      const pendingCloses = closedViewId ? [closedViewId] : []
       const nextTabs = prev.tabs.filter(t => t.id !== prev.activeTabId)
-      if (nextTabs.length === 0) return { tabs: [], activeTabId: null }
+      if (nextTabs.length === 0) return { tabs: [], activeTabId: null, pendingCloses }
       const closedIndex = prev.tabs.findIndex(t => t.id === prev.activeTabId)
       const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
-      return { tabs: nextTabs, activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null }
+      return {
+        tabs: nextTabs,
+        activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
+        pendingCloses,
+      }
     })
   }, [])
 

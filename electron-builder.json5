@@ -8,7 +8,11 @@
   "files": [
     "dist",
     "dist-electron",
-    "public"
+    "public",
+    "node_modules/node-pty/**/*"
+  ],
+  "asarUnpack": [
+    "node_modules/node-pty/**/*"
   ],
   "win": {
     "target": [

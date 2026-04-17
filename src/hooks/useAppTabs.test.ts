@@ -517,6 +517,103 @@ describe('useAppTabs', () => {
     expect(result.current.tabs).toBe(tabsBefore)
   })
 
+  describe('onViewClose callback', () => {
+    it('fires onViewClose when closing a tab', async () => {
+      const onViewClose = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn(), onViewClose }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+
+      const tab = findTab(result.current.tabs, 'pr-my-prs')!
+
+      act(() => {
+        result.current.closeTab(tab.id)
+      })
+
+      await waitFor(() => {
+        expect(onViewClose).toHaveBeenCalledWith('pr-my-prs')
+      })
+    })
+
+    it('fires onViewClose for each tab when closing others', async () => {
+      const onViewClose = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn(), onViewClose }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+        await result.current.openTab('pr-needs-review')
+        await result.current.openTab('copilot-usage')
+      })
+
+      const keepTab = findTab(result.current.tabs, 'pr-my-prs')!
+
+      act(() => {
+        result.current.closeOtherTabs(keepTab.id)
+      })
+
+      await waitFor(() => {
+        expect(onViewClose).toHaveBeenCalledTimes(3)
+      })
+    })
+
+    it('fires onViewClose for tabs to the right', async () => {
+      const onViewClose = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn(), onViewClose }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+        await result.current.openTab('pr-needs-review')
+        await result.current.openTab('copilot-usage')
+      })
+
+      const prMyPrsTab = findTab(result.current.tabs, 'pr-my-prs')!
+
+      act(() => {
+        result.current.closeTabsToRight(prMyPrsTab.id)
+      })
+
+      await waitFor(() => {
+        expect(onViewClose).toHaveBeenCalledWith('pr-needs-review')
+        expect(onViewClose).toHaveBeenCalledWith('copilot-usage')
+      })
+    })
+
+    it('fires onViewClose for all tabs when closing all', async () => {
+      const onViewClose = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn(), onViewClose }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+
+      act(() => {
+        result.current.closeAllTabs()
+      })
+
+      await waitFor(() => {
+        // Dashboard + pr-my-prs
+        expect(onViewClose).toHaveBeenCalledTimes(2)
+      })
+    })
+
+    it('fires onViewClose when closing active tab via event', async () => {
+      const onViewClose = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn(), onViewClose }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+
+      act(() => emitTabEvent('tab-close'))
+
+      await waitFor(() => {
+        expect(onViewClose).toHaveBeenCalledWith('pr-my-prs')
+      })
+    })
+  })
+
   it('closeOtherTabs is no-op for non-existent keepTabId', async () => {
     const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
 

@@ -11,6 +11,7 @@ import { registerTempoHandlers } from './tempoHandlers'
 import { registerCopilotSessionHandlers } from './copilotSessionHandlers'
 import { registerTodoistHandlers } from './todoistHandlers'
 import { registerFinanceHandlers } from './financeHandlers'
+import { registerTerminalHandlers } from './terminalHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
   // Patch ipcMain.handle before any handlers register — gives every
@@ -28,4 +29,5 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerCopilotSessionHandlers()
   registerTodoistHandlers()
   registerFinanceHandlers()
+  registerTerminalHandlers(win)
 }

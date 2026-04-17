@@ -132,6 +132,17 @@ contextBridge.exposeInMainWorld('finance', {
   fetchQuote: (symbol: string) => ipcRenderer.invoke('finance:fetch-quote', symbol),
 })
 
+contextBridge.exposeInMainWorld('terminal', {
+  spawn: (opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }) =>
+    ipcRenderer.invoke('terminal:spawn', opts),
+  attach: (sessionId: string) => ipcRenderer.invoke('terminal:attach', sessionId),
+  write: (sessionId: string, data: string) =>
+    ipcRenderer.send('terminal:write', sessionId, data),
+  resize: (sessionId: string, cols: number, rows: number) =>
+    ipcRenderer.send('terminal:resize', sessionId, cols, rows),
+  kill: (sessionId: string) => ipcRenderer.invoke('terminal:kill', sessionId),
+})
+
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
     ipcRenderer.invoke('copilot:execute', args),

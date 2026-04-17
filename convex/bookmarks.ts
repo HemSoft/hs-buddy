@@ -67,14 +67,14 @@ export const create = mutation({
       throw new Error('Category is required')
     }
 
-    // Check for duplicate URL
-    const existing = await ctx.db
+    // Check for duplicate URL within the same category
+    const duplicateInCategory = await ctx.db
       .query('bookmarks')
-      .withIndex('by_url', q => q.eq('url', args.url))
+      .withIndex('by_url_category', q => q.eq('url', args.url).eq('category', args.category))
       .first()
 
-    if (existing) {
-      throw new Error(`URL is already bookmarked: ${args.url}`)
+    if (duplicateInCategory) {
+      throw new Error(`URL is already bookmarked in this category: ${args.url}`)
     }
 
     const now = Date.now()
@@ -139,15 +139,17 @@ export const update = mutation({
       throw new Error('Maximum 50 tags allowed')
     }
 
-    // If URL changed, check for duplicate
-    if (args.url !== undefined && args.url !== existing.url) {
-      const newUrl = args.url
-      const duplicate = await ctx.db
+    // If URL or category changed, check for duplicate in target category
+    const targetCategory = args.category ?? existing.category
+    const targetUrl = args.url ?? existing.url
+    if (args.url !== undefined || args.category !== undefined) {
+      const matchingInCategory = await ctx.db
         .query('bookmarks')
-        .withIndex('by_url', q => q.eq('url', newUrl))
-        .first()
-      if (duplicate) {
-        throw new Error(`URL is already bookmarked: ${args.url}`)
+        .withIndex('by_url_category', q => q.eq('url', targetUrl).eq('category', targetCategory))
+        .take(2)
+      const hasDuplicate = matchingInCategory.some(b => b._id !== args.id)
+      if (hasDuplicate) {
+        throw new Error(`URL is already bookmarked in this category: ${targetUrl}`)
       }
     }
 

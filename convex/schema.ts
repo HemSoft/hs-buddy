@@ -379,5 +379,6 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_category', ['category'])
-    .index('by_url', ['url']),
+    .index('by_url', ['url'])
+    .index('by_url_category', ['url', 'category']),
 })

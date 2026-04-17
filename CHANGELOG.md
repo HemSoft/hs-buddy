@@ -9,17 +9,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.724] - 2026-04-17
+
+### Fixed
+
+- Make setTabState updaters pure for StrictMode safety
+
+## [0.1.723] - 2026-04-17
+
+### Fixed
+
+- Address PR review — safe onViewClose flush + guarded startup command
+
+## [0.1.722] - 2026-04-17
+
+### Fixed
+
+- Address PR review — orphaned PTY, stale onViewClose, attach sender
+
+## [0.1.721] - 2026-04-17
+
+### Changed
+
+- Migrate terminal IPC calls to typed window.terminal API
+
+## [0.1.720] - 2026-04-17
+
+### Fixed
+
+- Address PR #604 review comments
+
+## [0.1.719] - 2026-04-17
+
+### Fixed
+
+- Fall back to powershell.exe when pwsh.exe is unavailable
+
+## [0.1.718] - 2026-04-17
+
+### Changed
+
+- Add coverage for TerminalPane error and post-spawn attach paths
+
+## [0.1.717] - 2026-04-17
+
+### Fixed
+
+- Read tab state from ref before setTabState to fix onViewClose race
+- Add seq cursor to terminal data events to prevent duplicate output on attach
+
+## [0.1.716] - 2026-04-17
+
+### Fixed
+
+- Address PR #604 review comments
+- Address PR review comments for terminal pane
+- Address PR review — derive closed tabs inside state updater, route terminal output per-session
+
+## [0.1.715] - 2026-04-17
+
+### Fixed
+
+- Lazy-load TerminalPane to code-split xterm.js from main bundle
+
+## [0.1.714] - 2026-04-17
+
+### Fixed
+
+- Resolve onViewClose timing bug and address PR review feedback
+
 ## [0.1.713] - 2026-04-17
 
 ### Fixed
 
 - Upgrade vite 5→6.4.2 to fix GHSA-4w7w-66w2-5vf9 path traversal
+- Address PR review feedback for terminal and bookmarks
+
+### Changed
+
+- Add tests for terminal pane to meet coverage thresholds
+
+### Fixed
+
+- Use createRequire for node-pty in ESM context
 
 ## [0.1.712] - 2026-04-16
 
 ### Fixed
 
 - Add .npmrc to suppress npm peer-dep errors during aspire restore
+- Address PR review feedback for embedded terminal pane
+
+### Added
+
+- Embedded terminal pane with xterm.js + node-pty
 
 ## [0.1.711] - 2026-04-16
 

@@ -1,0 +1,36 @@
+.terminal-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1e1e1e;
+}
+
+.terminal-pane-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--bg-secondary, #252526);
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.terminal-pane-title {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  font-family: var(--font-family, 'Segoe UI', sans-serif);
+}
+
+.terminal-pane-body {
+  flex: 1;
+  padding: 4px;
+  overflow: hidden;
+}
+
+/* Override xterm.js defaults to fill container */
+.terminal-pane-body .xterm {
+  height: 100%;
+}
+
+.terminal-pane-body .xterm-viewport {
+  overflow-y: auto !important;
+}

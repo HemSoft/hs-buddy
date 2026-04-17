@@ -181,6 +181,24 @@ interface Window {
       error?: string
     }>
   }
+  terminal: {
+    spawn: (opts: {
+      cwd?: string
+      cols?: number
+      rows?: number
+      startupCommand?: string
+    }) => Promise<{ success: boolean; sessionId?: string; cwd?: string; error?: string }>
+    attach: (sessionId: string) => Promise<{
+      success: boolean
+      buffer?: string
+      cursor?: number
+      alive?: boolean
+      error?: string
+    }>
+    write: (sessionId: string, data: string) => void
+    resize: (sessionId: string, cols: number, rows: number) => void
+    kill: (sessionId: string) => Promise<{ success: boolean; error?: string }>
+  }
   copilot: {
     execute: (args: {
       prompt: string

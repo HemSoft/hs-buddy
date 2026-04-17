@@ -9,6 +9,7 @@ import { ScheduleEditor, JobEditor } from './components/automation'
 import { StatusBar } from './components/StatusBar'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { AppContentRouter } from './components/AppContentRouter'
+import { killTerminalSession } from './components/terminal/terminalSessions'
 import { AssistantPanel } from './components/AssistantPanel'
 import { useSchedules, useJobs } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
@@ -36,6 +37,12 @@ function App() {
   useAppAppearance()
   const backgroundStatus = useBackgroundStatus()
   const { trackViewOpen } = useAppSessionStats()
+  const handleViewClose = useCallback((viewId: string) => {
+    if (viewId.startsWith('terminal:')) {
+      killTerminalSession(viewId)
+    }
+  }, [])
+
   const {
     activeTabId,
     activeViewId,
@@ -49,6 +56,7 @@ function App() {
     tabs,
   } = useAppTabs({
     onViewOpen: trackViewOpen,
+    onViewClose: handleViewClose,
   })
   const {
     assistantOpen,

@@ -38,16 +38,28 @@ scorecard.
 
 3. **Log the score** to `score-history.log` in this skill's directory
    (`.agents/skills/scorecard/score-history.log`). Append one line per fetch
-   using this pipe-delimited format:
+   using this pipe-delimited format. **Timestamps must be in US Eastern Time
+   (America/New_York)** as ISO-8601 with explicit offset, so EST uses `-05:00`
+   and EDT uses `-04:00` automatically:
 
    ```text
-   <ISO-8601 timestamp> | <score>/<max> | <classification> | Bronze: <pts>/<max> (<passed>/<total>) | Silver: <pts>/<max> (<passed>/<total>) | Gold: <pts>/<max> (<passed>/<total>)
+   <ISO-8601 Eastern timestamp> | <score>/<max> | <classification> | Bronze: <pts>/<max> (<passed>/<total>) | Silver: <pts>/<max> (<passed>/<total>) | Gold: <pts>/<max> (<passed>/<total>)
    ```
 
-   Example:
+   Example (EDT):
 
    ```text
-   2026-04-15T21:10:18Z | 54/100 | None | Bronze: 25/30 (6/7) | Silver: 11/35 (3/8) | Gold: 18/35 (4/6)
+   2026-04-15T17:10:18-04:00 | 54/100 | None | Bronze: 25/30 (6/7) | Silver: 11/35 (3/8) | Gold: 18/35 (4/6)
+   ```
+
+   PowerShell one-liner to produce the timestamp:
+
+   ```powershell
+   $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById('Eastern Standard Time')
+   $et = [System.TimeZoneInfo]::ConvertTime((Get-Date).ToUniversalTime(), $tz)
+   $offset = $tz.GetUtcOffset($et)
+   $sign = if ($offset.TotalMinutes -ge 0) { '+' } else { '-' }
+   $ts = '{0}{1}{2:00}:{3:00}' -f $et.ToString('yyyy-MM-ddTHH:mm:ss'), $sign, [math]::Abs($offset.Hours), [math]::Abs($offset.Minutes)
    ```
 
    Create the file if it does not exist. Always append — never overwrite.
@@ -83,7 +95,7 @@ scorecard.
    |----------|------|--------|----------|-------|
    | ...      | ...  | ...    | ...      | ...   |
 
-   _Report generated YYYY-MM-DD HH:MM ET_
+   _Report generated YYYY-MM-DD HH:MM ET_ (always US Eastern Time — EST or EDT as applicable)
    ```
 
 ### `scorecard improve`

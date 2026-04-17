@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.713] - 2026-04-17
+
+### Fixed
+
+- Upgrade vite 5→6.4.2 to fix GHSA-4w7w-66w2-5vf9 path traversal
+
 ## [0.1.712] - 2026-04-16
 
 ### Fixed

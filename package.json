@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.712",
+  "version": "0.1.713",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -101,7 +101,7 @@
     "sharp": "^0.34.5",
     "typescript": "^5.2.2",
     "typescript-eslint": "^8.58.2",
-    "vite": "^5.1.6",
+    "vite": "^6.4.2",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.5",
     "vitest": "^4.1.0",

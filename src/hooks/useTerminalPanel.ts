@@ -96,7 +96,6 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         })
         .catch(() => {})
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.terminalPanelHeight, loaded])
 
   // Restore terminal tabs from Convex on first load (only if no tabs exist yet)
@@ -109,7 +108,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     async function restoreTabs() {
       const savedTabs = settings!.terminalTabs!
       const restored: TerminalTab[] = await Promise.all(
-        savedTabs.map(async (saved) => {
+        savedTabs.map(async saved => {
           let cwd = saved.cwd
           // Re-resolve cwd for repo-based tabs (path may have changed or been empty)
           if (saved.repoSlug) {
@@ -118,7 +117,9 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
               try {
                 const result = await window.terminal.resolveRepoPath(owner, repo)
                 if (result.path) cwd = result.path
-              } catch { /* keep saved cwd */ }
+              } catch {
+                /* keep saved cwd */
+              }
             }
           }
           return {
@@ -153,7 +154,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         repoSlug: t.repoSlug,
         color: t.color,
       }))
-      updateTerminalTabs({ tabs: payload }).catch((err) => {
+      updateTerminalTabs({ tabs: payload }).catch(err => {
         console.warn('Failed to persist terminal tabs:', err)
       })
     }, TABS_SAVE_DEBOUNCE_MS)
@@ -281,19 +282,22 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     [activeTerminalTabId]
   )
 
-  const onPanelResize = useCallback((sizes: number[]) => {
-    // sizes[0] = content height, sizes[1] = terminal panel height
-    if (sizes.length >= 2 && sizes[1] > 0) {
-      const clamped = clampPanelHeight(sizes[1])
-      setPanelHeight(clamped)
+  const onPanelResize = useCallback(
+    (sizes: number[]) => {
+      // sizes[0] = content height, sizes[1] = terminal panel height
+      if (sizes.length >= 2 && sizes[1] > 0) {
+        const clamped = clampPanelHeight(sizes[1])
+        setPanelHeight(clamped)
 
-      if (heightSaveTimeoutRef.current) clearTimeout(heightSaveTimeoutRef.current)
-      heightSaveTimeoutRef.current = setTimeout(() => {
-        window.ipcRenderer.invoke('config:set-terminal-panel-height', clamped).catch(() => {})
-        updateTerminalPanelHeight({ height: clamped }).catch(() => {})
-      }, PANEL_HEIGHT_SAVE_DEBOUNCE_MS)
-    }
-  }, [updateTerminalPanelHeight])
+        if (heightSaveTimeoutRef.current) clearTimeout(heightSaveTimeoutRef.current)
+        heightSaveTimeoutRef.current = setTimeout(() => {
+          window.ipcRenderer.invoke('config:set-terminal-panel-height', clamped).catch(() => {})
+          updateTerminalPanelHeight({ height: clamped }).catch(() => {})
+        }, PANEL_HEIGHT_SAVE_DEBOUNCE_MS)
+      }
+    },
+    [updateTerminalPanelHeight]
+  )
 
   // Keyboard shortcut: Ctrl+`
   useEffect(() => {

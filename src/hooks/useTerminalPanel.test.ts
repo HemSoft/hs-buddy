@@ -9,6 +9,17 @@ vi.mock('../components/terminal/terminalSessions', () => ({
   killTerminalSession: vi.fn(),
 }))
 
+const mockUpdateTerminalPanelHeight = vi.fn().mockResolvedValue(undefined)
+const mockUpdateTerminalTabs = vi.fn().mockResolvedValue(undefined)
+
+vi.mock('./useConvex', () => ({
+  useSettings: () => undefined,
+  useSettingsMutations: () => ({
+    updateTerminalPanelHeight: mockUpdateTerminalPanelHeight,
+    updateTerminalTabs: mockUpdateTerminalTabs,
+  }),
+}))
+
 import { killTerminalSession, getSessionId } from '../components/terminal/terminalSessions'
 import { useTerminalPanel } from './useTerminalPanel'
 

@@ -1,4 +1,12 @@
-import { type SyntheticEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type SyntheticEvent,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { X, Plus, TerminalSquare, GripHorizontal } from 'lucide-react'
 import type { TerminalTab } from '../../hooks/useTerminalPanel'
 import { TerminalTabContextMenu } from './TerminalTabContextMenu'
@@ -31,7 +39,9 @@ export function TerminalPanel({
   onTabCwdChange,
   onOpenFolderView,
 }: TerminalPanelProps) {
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: TerminalTab } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: TerminalTab } | null>(
+    null
+  )
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragTabIdRef = useRef<string | null>(null)
 
@@ -43,13 +53,10 @@ export function TerminalPanel({
     [onTabClose]
   )
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, tab: TerminalTab) => {
-      e.preventDefault()
-      setContextMenu({ x: e.clientX, y: e.clientY, tab })
-    },
-    []
-  )
+  const handleContextMenu = useCallback((e: React.MouseEvent, tab: TerminalTab) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, tab })
+  }, [])
 
   // Close context menu when active tab changes
   useEffect(() => {
@@ -72,13 +79,16 @@ export function TerminalPanel({
     setDragOverId(null)
   }, [])
 
-  const handleDrop = useCallback((e: React.DragEvent, toId: string) => {
-    e.preventDefault()
-    const fromId = dragTabIdRef.current
-    if (fromId && fromId !== toId) onReorderTabs(fromId, toId)
-    dragTabIdRef.current = null
-    setDragOverId(null)
-  }, [onReorderTabs])
+  const handleDrop = useCallback(
+    (e: React.DragEvent, toId: string) => {
+      e.preventDefault()
+      const fromId = dragTabIdRef.current
+      if (fromId && fromId !== toId) onReorderTabs(fromId, toId)
+      dragTabIdRef.current = null
+      setDragOverId(null)
+    },
+    [onReorderTabs]
+  )
 
   const activeTab = tabs.find(t => t.id === activeTabId)
 
@@ -99,7 +109,7 @@ export function TerminalPanel({
               className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''} ${dragOverId === tab.id ? 'drag-over' : ''}`}
               title={tab.cwd || tab.title}
               onContextMenu={e => handleContextMenu(e, tab)}
-              style={tab.color ? { '--tab-color': tab.color } as React.CSSProperties : undefined}
+              style={tab.color ? ({ '--tab-color': tab.color } as React.CSSProperties) : undefined}
               draggable
               onDragStart={e => handleDragStart(e, tab.id)}
               onDragOver={e => handleDragOver(e, tab.id)}
@@ -142,7 +152,7 @@ export function TerminalPanel({
               key={activeTab.id}
               viewKey={activeTab.id}
               cwd={activeTab.cwd || undefined}
-              onCwdChange={(newCwd) => onTabCwdChange(activeTab.id, newCwd)}
+              onCwdChange={newCwd => onTabCwdChange(activeTab.id, newCwd)}
             />
           </Suspense>
         ) : (

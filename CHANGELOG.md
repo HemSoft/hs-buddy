@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-resolve cwd on tab restore
 - Track working directory via OSC 7 for accurate persistence
 - Inject OSC 7 prompt wrapper at shell spawn
+- Resolve 3 ESLint errors blocking CI and coverage artifacts
+- Resolve formatting, test failures, and coverage thresholds
 - File preview stuck on Loading due to StrictMode double-mount
 
 ### Added
@@ -45,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Scope Terminal Folder View & File Preview feature
+- Harden coverage artifact for scorecard detection
 
 ## [0.1.732] - 2026-04-18
 

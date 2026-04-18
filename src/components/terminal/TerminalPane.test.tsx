@@ -24,6 +24,7 @@ vi.mock('@xterm/xterm', () => {
     this.dispose = mockDispose
     this.loadAddon = mockLoadAddon
     this.onData = mockOnData
+    this.options = {}
   })
   return { Terminal: TerminalClass }
 })
@@ -64,6 +65,14 @@ vi.stubGlobal('ResizeObserver', function MockResizeObserver(this: unknown, callb
     disconnect: mockResizeObserverDisconnect,
   }
 })
+
+// Mock document.fonts (not available in happy-dom)
+if (!document.fonts) {
+  Object.defineProperty(document, 'fonts', {
+    value: { load: vi.fn().mockResolvedValue([]) },
+    configurable: true,
+  })
+}
 
 import { getSessionId, setSessionId, removeSession } from './terminalSessions'
 import { TerminalPane } from './TerminalPane'

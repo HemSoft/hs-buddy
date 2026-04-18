@@ -14,7 +14,13 @@ interface TerminalPaneProps {
   onCwdChange?: (newCwd: string) => void
 }
 
-export function TerminalPane({ viewKey, cwd, startupCommand, onExit, onCwdChange }: TerminalPaneProps) {
+export function TerminalPane({
+  viewKey,
+  cwd,
+  startupCommand,
+  onExit,
+  onCwdChange,
+}: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)

@@ -39,7 +39,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={vi.fn()}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -58,7 +57,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={vi.fn()}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -80,7 +78,6 @@ describe('TerminalPanel', () => {
         onTabSelect={onTabSelect}
         onTabClose={vi.fn()}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -99,7 +96,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={onTabClose}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -119,7 +115,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={vi.fn()}
         onAddTab={onAddTab}
-
         {...defaultHandlers}
       />
     )
@@ -136,7 +131,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={vi.fn()}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -153,7 +147,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={vi.fn()}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -172,7 +165,6 @@ describe('TerminalPanel', () => {
         onTabSelect={onTabSelect}
         onTabClose={onTabClose}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -194,7 +186,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={vi.fn()}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )
@@ -214,7 +205,6 @@ describe('TerminalPanel', () => {
         onTabSelect={vi.fn()}
         onTabClose={onTabClose}
         onAddTab={vi.fn()}
-
         {...defaultHandlers}
       />
     )

@@ -269,9 +269,10 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
         if (session.oscBuffer.length > 512) {
           session.oscBuffer = session.oscBuffer.slice(-512)
         }
+        // eslint-disable-next-line no-control-regex -- intentional terminal escape sequences (OSC 7)
         const osc7Regex = /\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/g
-        let osc7Match: RegExpExecArray | null = null
         let lastOsc7: RegExpExecArray | null = null
+        let osc7Match: RegExpExecArray | null
         while ((osc7Match = osc7Regex.exec(session.oscBuffer)) !== null) {
           lastOsc7 = osc7Match
         }

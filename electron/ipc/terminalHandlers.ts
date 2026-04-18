@@ -17,12 +17,32 @@ let _ptyLoadError: unknown = null
 try {
   _pty = _require('node-pty')
 } catch (err) {
-  // Fallback: try requiring from the app root (handles cases where
-  // import.meta.url points to a bundled file in dist-electron/).
+  // Fallback: node-pty's internal loadNativeModule uses relative require() calls
+  // to find conpty.node. This can fail when the module resolver is patched
+  // (e.g., by OpenTelemetry's require-in-the-middle). Temporarily patch
+  // Module._resolveFilename to resolve .node files from the known prebuilds dir.
   try {
-    const appRoot = path.resolve(path.dirname(import.meta.url.replace('file:///', '')), '..')
-    const appRequire = createRequire(path.join(appRoot, 'package.json'))
-    _pty = appRequire('node-pty')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Module = _require('module') as typeof import('module') & {
+      _resolveFilename: (...args: unknown[]) => string
+    }
+    const ptyRoot = path.dirname(_require.resolve('node-pty/package.json'))
+    const prebuildDir = path.join(ptyRoot, 'prebuilds', `${process.platform}-${process.arch}`)
+    const origResolve = Module._resolveFilename
+
+    Module._resolveFilename = function (request: string, ...rest: unknown[]) {
+      if (request.endsWith('.node')) {
+        const candidate = path.join(prebuildDir, path.basename(request))
+        if (existsSync(candidate)) return candidate
+      }
+      return origResolve.call(this, request, ...rest)
+    }
+
+    try {
+      _pty = _require('node-pty')
+    } finally {
+      Module._resolveFilename = origResolve
+    }
   } catch {
     _ptyLoadError = err
   }

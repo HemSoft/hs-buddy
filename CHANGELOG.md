@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use Nerd Font in terminal for powerline glyph support
 - Preload Nerd Font and force xterm.js re-measure
 - Load node-pty eagerly to avoid require hook interference
+- Add resolver fallback for native module loading
 
 ## [0.1.732] - 2026-04-18
 

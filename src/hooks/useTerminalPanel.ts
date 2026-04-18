@@ -105,16 +105,35 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     if (terminalTabsRef.current.length > 0) return
     restoredRef.current = true
 
-    const restored: TerminalTab[] = settings.terminalTabs.map((saved) => ({
-      id: `term-restore-${crypto.randomUUID()}`,
-      title: saved.title,
-      cwd: saved.cwd,
-      repoSlug: saved.repoSlug,
-      color: saved.color,
-    }))
-    terminalTabsRef.current = restored
-    setTerminalTabs(restored)
-    if (restored.length > 0) setActiveTerminalTabId(restored[0].id)
+    async function restoreTabs() {
+      const savedTabs = settings!.terminalTabs!
+      const restored: TerminalTab[] = await Promise.all(
+        savedTabs.map(async (saved) => {
+          let cwd = saved.cwd
+          // Re-resolve cwd for repo-based tabs (path may have changed or been empty)
+          if (saved.repoSlug) {
+            const [owner, repo] = saved.repoSlug.split('/')
+            if (owner && repo) {
+              try {
+                const result = await window.terminal.resolveRepoPath(owner, repo)
+                if (result.path) cwd = result.path
+              } catch { /* keep saved cwd */ }
+            }
+          }
+          return {
+            id: `term-restore-${crypto.randomUUID()}`,
+            title: saved.title,
+            cwd,
+            repoSlug: saved.repoSlug,
+            color: saved.color,
+          }
+        })
+      )
+      terminalTabsRef.current = restored
+      setTerminalTabs(restored)
+      if (restored.length > 0) setActiveTerminalTabId(restored[0].id)
+    }
+    void restoreTabs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.terminalTabs, loaded])
 

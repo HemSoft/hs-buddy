@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { codeToHtml, type BundledLanguage } from 'shiki'
 import { FileText, AlertCircle } from 'lucide-react'
 import './FilePreview.css'
 
@@ -24,17 +25,32 @@ function getFileName(filePath: string): string {
   return parts[parts.length - 1] || filePath
 }
 
+/** Map our language identifiers to Shiki's BundledLanguage names */
+const LANG_MAP: Record<string, string> = {
+  shell: 'shellscript',
+  gitignore: 'ini',
+  makefile: 'make',
+  plaintext: 'text',
+}
+
+function toShikiLang(lang: string): BundledLanguage {
+  return (LANG_MAP[lang] ?? lang) as BundledLanguage
+}
+
 export function FilePreview({ filePath }: FilePreviewProps) {
   const [data, setData] = useState<FileData | null>(null)
+  const [highlightedHtml, setHighlightedHtml] = useState<string>('')
   const [loading, setLoading] = useState(true)
-  const codeRef = useRef<HTMLPreElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
+  // Load the file
   useEffect(() => {
     if (!filePath) return
 
     let cancelled = false
     setLoading(true)
     setData(null)
+    setHighlightedHtml('')
     window.filesystem
       .readFile(filePath)
       .then(result => {
@@ -48,6 +64,46 @@ export function FilePreview({ filePath }: FilePreviewProps) {
       })
     return () => { cancelled = true }
   }, [filePath])
+
+  // Highlight with Shiki once content is loaded
+  useEffect(() => {
+    if (!data?.content || data.error) return
+    if (data.content === '') {
+      setHighlightedHtml('')
+      return
+    }
+
+    const content = data.content
+    const language = data.language
+    let cancelled = false
+
+    codeToHtml(content, {
+      lang: toShikiLang(language),
+      theme: 'dark-plus',
+    })
+      .then(html => {
+        if (!cancelled && html.includes('class="shiki')) setHighlightedHtml(html)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          codeToHtml(content, { lang: 'text', theme: 'dark-plus' })
+            .then(html => { if (!cancelled && html.includes('class="shiki')) setHighlightedHtml(html) })
+            .catch(() => { if (!cancelled) setHighlightedHtml('') })
+        }
+      })
+    return () => { cancelled = true }
+  }, [data])
+
+  const lineCount = useMemo(() => {
+    if (!data?.content) return 0
+    return data.content.split('\n').length
+  }, [data?.content])
+
+  // Calculate gutter width based on line count digits
+  const gutterWidth = useMemo(() => {
+    const digits = Math.max(2, String(lineCount).length)
+    return `${digits + 1}ch`
+  }, [lineCount])
 
   if (loading) {
     return (
@@ -72,30 +128,21 @@ export function FilePreview({ filePath }: FilePreviewProps) {
     )
   }
 
-  const lines = data.content.split('\n')
-  const lineCount = lines.length
-
   return (
     <div className="file-preview">
       <div className="file-preview-header">
         <FileText size={14} />
         <span className="file-preview-filename">{getFileName(filePath)}</span>
         <span className="file-preview-meta">
-          {data.language} · {lineCount} lines · {formatFileSize(data.size)}
+          {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} · {formatFileSize(data.size)}
         </span>
       </div>
-      <div className="file-preview-content">
-        <pre ref={codeRef} className={`file-preview-code language-${data.language}`}>
-          <code>
-            {lines.map((line, i) => (
-              <div key={i} className="file-preview-line">
-                <span className="file-preview-line-number">{i + 1}</span>
-                <span className="file-preview-line-content">{line || ' '}</span>
-              </div>
-            ))}
-          </code>
-        </pre>
-      </div>
+      <div
+        ref={contentRef}
+        className="file-preview-content shiki-container"
+        style={{ '--line-number-width': gutterWidth } as React.CSSProperties}
+        dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+      />
     </div>
   )
 }

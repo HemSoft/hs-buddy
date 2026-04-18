@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.733",
+  "version": "0.1.734",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -72,7 +72,8 @@
     "node-pty": "^1.1.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "remark-gemoji": "^8.0.0"
+    "remark-gemoji": "^8.0.0",
+    "shiki": "^4.0.2"
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",

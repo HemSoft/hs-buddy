@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.734] - 2026-04-18
+
+### Added
+
+- Integrate Shiki syntax highlighting into file preview
+
 ## [0.1.733] - 2026-04-18
 
 ### Fixed

@@ -48,45 +48,50 @@
   font-size: 13px;
 }
 
+/* Shiki-highlighted content container */
 .file-preview-content {
   flex: 1;
   overflow: auto;
 }
 
-.file-preview-code {
+.shiki-container pre.shiki {
   margin: 0;
   padding: 8px 0;
   font-family: 'CaskaydiaCove NFM', 'Cascadia Code', 'Fira Code', Consolas, monospace;
   font-size: 13px;
   line-height: 1.5;
   tab-size: 4;
-  color: var(--text-primary, #d4d4d4);
+  counter-reset: line;
+  overflow-x: auto;
 }
 
-.file-preview-line {
-  display: flex;
-  min-height: 20px;
+.shiki-container pre.shiki code {
+  display: block;
 }
 
-.file-preview-line:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.file-preview-line-number {
+.shiki-container pre.shiki code .line {
   display: inline-block;
-  min-width: 48px;
-  padding-right: 12px;
+  width: 100%;
+  min-height: 20px;
+  padding-left: calc(var(--line-number-width, 3ch) + 24px);
+  position: relative;
+}
+
+.shiki-container pre.shiki code .line::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: var(--line-number-width, 3ch);
+  position: absolute;
+  left: 8px;
   text-align: right;
   color: var(--text-secondary, #555);
   user-select: none;
-  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 
-.file-preview-line-content {
-  flex: 1;
-  white-space: pre;
-  padding-right: 16px;
+.shiki-container pre.shiki code .line:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 /* Empty state when no file selected */

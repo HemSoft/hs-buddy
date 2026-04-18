@@ -28,10 +28,14 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
     const container = containerRef.current
     if (!container) return
 
+    const NERD_FONT_FAMILY = "'CaskaydiaCove NFM', 'CaskaydiaCove NF', 'FiraCode Nerd Font Mono'"
+    const FALLBACK_FAMILY = "'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace"
+    const FULL_FONT_FAMILY = `${NERD_FONT_FAMILY}, ${FALLBACK_FAMILY}`
+
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: "'CaskaydiaCove NF', 'CaskaydiaCove NFM', 'FiraCode Nerd Font Mono', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace",
+      fontFamily: FULL_FONT_FAMILY,
       theme: {
         background: '#1e1e1e',
         foreground: '#cccccc',
@@ -60,6 +64,15 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
     term.open(container)
+
+    // Force xterm.js to re-measure glyphs once the Nerd Font is available.
+    // Canvas-based renderers measure at open() time; if the font hasn't loaded
+    // yet, powerline/icon glyphs render as boxes until a re-measure is triggered.
+    void document.fonts.load(`14px ${NERD_FONT_FAMILY}`).then(() => {
+      if (mountedRef.current && termRef.current) {
+        termRef.current.options.fontFamily = FULL_FONT_FAMILY
+      }
+    })
 
     termRef.current = term
     fitRef.current = fitAddon

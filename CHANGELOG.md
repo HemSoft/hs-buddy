@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address 3 unresolved PR review comments
 - Restore scroll on all content views after terminal panel addition
 - Use Nerd Font in terminal for powerline glyph support
+- Preload Nerd Font and force xterm.js re-measure
 
 ## [0.1.732] - 2026-04-18
 

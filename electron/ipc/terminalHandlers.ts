@@ -8,44 +8,36 @@ import path from 'node:path'
 // node-pty is a native CJS module — use createRequire for ESM compatibility.
 // IMPORTANT: Load eagerly at module scope so it happens BEFORE OpenTelemetry's
 // require-in-the-middle hook patches Module.prototype.require in initTelemetry().
-// Lazy loading caused intermittent "require is not defined" errors because the
-// patched require chain can break native CJS module loading.
 const _require = createRequire(import.meta.url)
+
+// Patch Module._resolveFilename BEFORE loading node-pty.
+// On Windows, node-pty defers native module loading until spawn() is called —
+// WindowsPtyAgent's constructor calls loadNativeModule('conpty') which uses
+// relative require() paths that can fail when the resolver is patched by
+// OpenTelemetry's require-in-the-middle hook. This permanent patch ensures
+// .node files resolve correctly from the known prebuilds directory.
+const Module = _require('module') as typeof import('module') & {
+  _resolveFilename: (...args: unknown[]) => string
+}
+const ptyRoot = path.dirname(_require.resolve('node-pty/package.json'))
+const prebuildDir = path.join(ptyRoot, 'prebuilds', `${process.platform}-${process.arch}`)
+const origResolve = Module._resolveFilename
+
+Module._resolveFilename = function (request: string, ...rest: unknown[]) {
+  if (request.endsWith('.node')) {
+    const candidate = path.join(prebuildDir, path.basename(request))
+    if (existsSync(candidate)) return candidate
+  }
+  return origResolve.call(this, request, ...rest)
+}
+
 let _pty: typeof import('node-pty') | null = null
 let _ptyLoadError: unknown = null
 
 try {
   _pty = _require('node-pty')
 } catch (err) {
-  // Fallback: node-pty's internal loadNativeModule uses relative require() calls
-  // to find conpty.node. This can fail when the module resolver is patched
-  // (e.g., by OpenTelemetry's require-in-the-middle). Temporarily patch
-  // Module._resolveFilename to resolve .node files from the known prebuilds dir.
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Module = _require('module') as typeof import('module') & {
-      _resolveFilename: (...args: unknown[]) => string
-    }
-    const ptyRoot = path.dirname(_require.resolve('node-pty/package.json'))
-    const prebuildDir = path.join(ptyRoot, 'prebuilds', `${process.platform}-${process.arch}`)
-    const origResolve = Module._resolveFilename
-
-    Module._resolveFilename = function (request: string, ...rest: unknown[]) {
-      if (request.endsWith('.node')) {
-        const candidate = path.join(prebuildDir, path.basename(request))
-        if (existsSync(candidate)) return candidate
-      }
-      return origResolve.call(this, request, ...rest)
-    }
-
-    try {
-      _pty = _require('node-pty')
-    } finally {
-      Module._resolveFilename = origResolve
-    }
-  } catch {
-    _ptyLoadError = err
-  }
+  _ptyLoadError = err
 }
 
 function getPty(): typeof import('node-pty') {

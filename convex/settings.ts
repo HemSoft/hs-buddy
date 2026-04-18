@@ -43,6 +43,7 @@ export const get = query({
         ...DEFAULT_SETTINGS,
         viewModes: {} as Record<string, 'card' | 'list'>,
         terminalPanelHeight: undefined as number | undefined,
+        terminalTabs: undefined as Array<{ title: string; cwd: string; repoSlug?: string; color?: string }> | undefined,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -203,6 +204,37 @@ export const updateTerminalPanelHeight = mutation({
         key: 'default',
         ...DEFAULT_SETTINGS,
         terminalPanelHeight: height,
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+  },
+})
+
+/**
+ * Persist terminal tab configurations (title, cwd, color, order)
+ */
+export const updateTerminalTabs = mutation({
+  args: {
+    tabs: v.array(v.object({
+      title: v.string(),
+      cwd: v.string(),
+      repoSlug: v.optional(v.string()),
+      color: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, { tabs }) => {
+    const existing = await getDefaultSettings(ctx.db)
+    const now = Date.now()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { terminalTabs: tabs, updatedAt: now })
+      return existing._id
+    } else {
+      return await ctx.db.insert('settings', {
+        key: 'default',
+        ...DEFAULT_SETTINGS,
+        terminalTabs: tabs,
         createdAt: now,
         updatedAt: now,
       })

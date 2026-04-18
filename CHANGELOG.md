@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resizable panel with Convex persistence
 - Tab rename and custom color via context menu
 - Add tab drag-to-reorder
+- Persist tab state to Convex
 
 ## [0.1.732] - 2026-04-18
 

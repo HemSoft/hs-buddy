@@ -41,6 +41,7 @@ export function useSettingsMutations() {
   const updateCopilot = useMutation(api.settings.updateCopilot)
   const updateViewMode = useMutation(api.settings.updateViewMode)
   const updateTerminalPanelHeight = useMutation(api.settings.updateTerminalPanelHeight)
+  const updateTerminalTabs = useMutation(api.settings.updateTerminalTabs)
   const reset = useMutation(api.settings.reset)
   const initFromMigration = useMutation(api.settings.initFromMigration)
 
@@ -49,6 +50,7 @@ export function useSettingsMutations() {
     updateCopilot,
     updateViewMode,
     updateTerminalPanelHeight,
+    updateTerminalTabs,
     reset,
     initFromMigration,
   }

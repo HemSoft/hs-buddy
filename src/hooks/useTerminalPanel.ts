@@ -4,6 +4,7 @@ import { killTerminalSession, getSessionId } from '../components/terminal/termin
 import { useSettings, useSettingsMutations } from './useConvex'
 
 const PANEL_HEIGHT_SAVE_DEBOUNCE_MS = 300
+const TABS_SAVE_DEBOUNCE_MS = 500
 const DEFAULT_TERMINAL_PANEL_HEIGHT = 300
 const MIN_PANEL_HEIGHT = 100
 const MAX_PANEL_HEIGHT = 1200
@@ -48,6 +49,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const [panelHeight, setPanelHeight] = useState(DEFAULT_TERMINAL_PANEL_HEIGHT)
   const [loaded, setLoaded] = useState(false)
   const heightSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tabsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const terminalTabsRef = useRef(terminalTabs)
   terminalTabsRef.current = terminalTabs
   const terminalOpenRef = useRef(terminalOpen)
@@ -57,7 +59,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
 
   // Convex persistence
   const settings = useSettings()
-  const { updateTerminalPanelHeight } = useSettingsMutations()
+  const { updateTerminalPanelHeight, updateTerminalTabs } = useSettingsMutations()
 
   // Load persisted state on mount (local IPC is fast/immediate)
   useEffect(() => {
@@ -96,10 +98,53 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.terminalPanelHeight, loaded])
 
-  // Cleanup debounce timer on unmount
+  // Restore terminal tabs from Convex on first load (only if no tabs exist yet)
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (restoredRef.current || !loaded || !settings?.terminalTabs?.length) return
+    if (terminalTabsRef.current.length > 0) return
+    restoredRef.current = true
+
+    const restored: TerminalTab[] = settings.terminalTabs.map((saved) => ({
+      id: `term-restore-${crypto.randomUUID()}`,
+      title: saved.title,
+      cwd: saved.cwd,
+      repoSlug: saved.repoSlug,
+      color: saved.color,
+    }))
+    terminalTabsRef.current = restored
+    setTerminalTabs(restored)
+    if (restored.length > 0) setActiveTerminalTabId(restored[0].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.terminalTabs, loaded])
+
+  // Auto-persist terminal tabs to Convex (debounced, skip initial mount)
+  const isInitialMount = useRef(true)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    if (tabsSaveTimeoutRef.current) clearTimeout(tabsSaveTimeoutRef.current)
+    tabsSaveTimeoutRef.current = setTimeout(() => {
+      const payload = terminalTabs.map(t => ({
+        title: t.title,
+        cwd: t.cwd,
+        repoSlug: t.repoSlug,
+        color: t.color,
+      }))
+      updateTerminalTabs({ tabs: payload }).catch((err) => {
+        console.warn('Failed to persist terminal tabs:', err)
+      })
+    }, TABS_SAVE_DEBOUNCE_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminalTabs])
+
+  // Cleanup debounce timers on unmount
   useEffect(() => {
     return () => {
       if (heightSaveTimeoutRef.current) clearTimeout(heightSaveTimeoutRef.current)
+      if (tabsSaveTimeoutRef.current) clearTimeout(tabsSaveTimeoutRef.current)
     }
   }, [])
 

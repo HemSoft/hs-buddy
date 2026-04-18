@@ -91,6 +91,8 @@ interface TerminalSession {
   sender: WebContents
   /** Timer for delayed startup command — cleared on kill to prevent writing to a dead PTY */
   startupTimer?: ReturnType<typeof setTimeout>
+  /** Buffer for partial OSC 7 sequences split across data chunks */
+  oscBuffer: string
 }
 
 const sessions = new Map<string, TerminalSession>()
@@ -197,6 +199,26 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
       const sessionId = randomUUID()
 
       const shell = isWindows ? resolveWindowsShell() : process.env.SHELL || '/bin/bash'
+
+      // Build shell args: inject OSC 7 prompt wrapper so the shell reports CWD changes
+      let shellArgs: string[] = []
+      if (isWindows && (shell === 'pwsh.exe' || shell === 'powershell.exe')) {
+        // Wrap the default prompt to emit OSC 7 (invisible escape sequence).
+        // Uses -EncodedCommand to avoid quoting issues.
+        // Loads the user profile first so custom prompts are preserved.
+        const osc7Setup = [
+          '& { . $PROFILE } 2>$null',
+          '$__hsb_op=$function:prompt',
+          'function global:prompt{',
+          '$e=[char]0x1b',
+          "[Console]::Write(\"$e]7;file:///$($PWD.Path.Replace('\\','/'))$e\\\")",
+          '& $__hsb_op',
+          '}',
+        ].join(';')
+        const encoded = Buffer.from(osc7Setup, 'utf16le').toString('base64')
+        shellArgs = ['-NoLogo', '-NoExit', '-EncodedCommand', encoded]
+      }
+
       const spawnOptions = {
         name: 'xterm-256color',
         cols: opts.cols || 120,
@@ -208,7 +230,7 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
 
       let ptyProcess
       try {
-        ptyProcess = getPty().spawn(shell, [], spawnOptions)
+        ptyProcess = getPty().spawn(shell, shellArgs, spawnOptions)
       } catch (error) {
         return {
           success: false,
@@ -225,6 +247,7 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
         alive: true,
         disposables: [],
         sender: event.sender,
+        oscBuffer: '',
       }
       sessions.set(sessionId, session)
 
@@ -240,14 +263,21 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
 
         // Detect OSC 7 (current working directory) from shell prompt
         // Format: \x1b]7;file:///C:/path\x07  or  \x1b]7;file:///C:/path\x1b\\
-        // Use lastMatch to get the most recent cwd if multiple prompts arrive in one chunk
+        // Buffer handles sequences split across data chunks
+        session.oscBuffer += data
+        // Only keep last 512 chars to avoid unbounded growth
+        if (session.oscBuffer.length > 512) {
+          session.oscBuffer = session.oscBuffer.slice(-512)
+        }
         const osc7Regex = /\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/g
         let osc7Match: RegExpExecArray | null = null
         let lastOsc7: RegExpExecArray | null = null
-        while ((osc7Match = osc7Regex.exec(data)) !== null) {
+        while ((osc7Match = osc7Regex.exec(session.oscBuffer)) !== null) {
           lastOsc7 = osc7Match
         }
         if (lastOsc7) {
+          // Clear buffer up to end of last match to prevent re-processing
+          session.oscBuffer = session.oscBuffer.slice(lastOsc7.index + lastOsc7[0].length)
           const decoded = decodeURIComponent(lastOsc7[1])
           const newCwd = path.resolve(decoded)
           if (newCwd !== session.cwd) {

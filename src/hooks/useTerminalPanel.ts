@@ -35,6 +35,7 @@ interface UseTerminalPanelReturn {
   renameTerminalTab: (tabId: string, title: string) => void
   setTerminalTabColor: (tabId: string, color: string | undefined) => void
   reorderTerminalTabs: (fromId: string, toId: string) => void
+  updateTabCwd: (tabId: string, cwd: string) => void
   panelHeight: number
   onPanelResize: (sizes: number[]) => void
   loaded: boolean
@@ -355,6 +356,16 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     })
   }, [])
 
+  const updateTabCwd = useCallback((tabId: string, cwd: string) => {
+    setTerminalTabs(prev => {
+      const tab = prev.find(t => t.id === tabId)
+      if (!tab || tab.cwd === cwd) return prev
+      const next = prev.map(t => (t.id === tabId ? { ...t, cwd } : t))
+      terminalTabsRef.current = next
+      return next
+    })
+  }, [])
+
   return {
     terminalOpen,
     terminalTabs,
@@ -366,6 +377,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     renameTerminalTab,
     setTerminalTabColor,
     reorderTerminalTabs,
+    updateTabCwd,
     panelHeight,
     onPanelResize,
     loaded,

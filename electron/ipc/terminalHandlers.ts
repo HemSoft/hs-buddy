@@ -237,6 +237,18 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
         }
         session.outputSeq++
         safeSend(session.sender, 'terminal:data', sessionId, data, session.outputSeq)
+
+        // Detect OSC 7 (current working directory) from shell prompt
+        // Format: \x1b]7;file:///C:/path\x07  or  \x1b]7;file:///C:/path\x1b\\
+        const osc7Match = data.match(/\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/)
+        if (osc7Match) {
+          const decoded = decodeURIComponent(osc7Match[1])
+          const newCwd = path.resolve(decoded)
+          if (newCwd !== session.cwd) {
+            session.cwd = newCwd
+            safeSend(session.sender, 'terminal:cwd-changed', sessionId, newCwd)
+          }
+        }
       })
 
       const exitDisposable = ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {

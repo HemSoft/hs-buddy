@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent double output from React StrictMode double-mount
 - Sash width was 4px, preventing resize drag
 - Re-resolve cwd on tab restore
+- Track working directory via OSC 7 for accurate persistence
 
 ### Added
 

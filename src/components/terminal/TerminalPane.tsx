@@ -11,9 +11,10 @@ interface TerminalPaneProps {
   cwd?: string
   startupCommand?: string
   onExit?: (exitCode: number) => void
+  onCwdChange?: (newCwd: string) => void
 }
 
-export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalPaneProps) {
+export function TerminalPane({ viewKey, cwd, startupCommand, onExit, onCwdChange }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -149,6 +150,8 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
       }
       sessionIdRef.current = result.sessionId
       setSessionId(viewKey, result.sessionId)
+      // Report the resolved cwd back so the tab state stays accurate
+      if (result.cwd) onCwdChange?.(result.cwd)
 
       // Flush any output that arrived before sessionIdRef was set
       const attachResult = await window.terminal.attach(result.sessionId)
@@ -184,6 +187,12 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
       }
     }
 
+    const onCwdChanged = (_event: unknown, sid: string, newCwd: string) => {
+      if (sid === sessionIdRef.current) {
+        onCwdChange?.(newCwd)
+      }
+    }
+
     // Defer data/exit listener registration until after initSession completes
     // so the attach buffer is fully replayed and attachCursorRef is set,
     // preventing duplicate output from racing IPC events.
@@ -192,6 +201,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
       if (!active) return
       window.ipcRenderer.on('terminal:data', onData)
       window.ipcRenderer.on('terminal:exit', onSessionExit)
+      window.ipcRenderer.on('terminal:cwd-changed', onCwdChanged)
     })()
 
     // Debounced resize
@@ -226,6 +236,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
       inputDisposable.dispose()
       window.ipcRenderer.off('terminal:data', onData)
       window.ipcRenderer.off('terminal:exit', onSessionExit)
+      window.ipcRenderer.off('terminal:cwd-changed', onCwdChanged)
 
       // Do NOT kill PTY here — session survives tab switches.
       // PTY is killed only via killTerminalSession() on explicit tab close.

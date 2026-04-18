@@ -6,27 +6,31 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 
 // node-pty is a native CJS module — use createRequire for ESM compatibility.
-// Load lazily to provide a clear error if the native module can't be found.
+// IMPORTANT: Load eagerly at module scope so it happens BEFORE OpenTelemetry's
+// require-in-the-middle hook patches Module.prototype.require in initTelemetry().
+// Lazy loading caused intermittent "require is not defined" errors because the
+// patched require chain can break native CJS module loading.
 const _require = createRequire(import.meta.url)
 let _pty: typeof import('node-pty') | null = null
+let _ptyLoadError: unknown = null
+
+try {
+  _pty = _require('node-pty')
+} catch (err) {
+  // Fallback: try requiring from the app root (handles cases where
+  // import.meta.url points to a bundled file in dist-electron/).
+  try {
+    const appRoot = path.resolve(path.dirname(import.meta.url.replace('file:///', '')), '..')
+    const appRequire = createRequire(path.join(appRoot, 'package.json'))
+    _pty = appRequire('node-pty')
+  } catch {
+    _ptyLoadError = err
+  }
+}
 
 function getPty(): typeof import('node-pty') {
   if (_pty) return _pty
-
-  try {
-    _pty = _require('node-pty')
-  } catch (primaryError) {
-    // Fallback: try requiring from the app root (handles cases where
-    // import.meta.url points to a bundled file in dist-electron/).
-    try {
-      const appRequire = createRequire(path.join(app.getAppPath(), 'package.json'))
-      _pty = appRequire('node-pty')
-    } catch {
-      throw primaryError
-    }
-  }
-
-  return _pty!
+  throw _ptyLoadError ?? new Error('node-pty failed to load (unknown reason)')
 }
 
 const MAX_SCROLLBACK_BUFFER = 100_000

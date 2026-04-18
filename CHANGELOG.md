@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Address 3 unresolved PR review comments
+- Restore scroll on all content views after terminal panel addition
 
 ## [0.1.732] - 2026-04-18
 

@@ -10,31 +10,44 @@ import path from 'node:path'
 // require-in-the-middle hook patches Module.prototype.require in initTelemetry().
 const _require = createRequire(import.meta.url)
 
-// Patch Module._resolveFilename BEFORE loading node-pty.
-// On Windows, node-pty defers native module loading until spawn() is called —
-// WindowsPtyAgent's constructor calls loadNativeModule('conpty') which uses
-// relative require() paths that can fail when the resolver is patched by
-// OpenTelemetry's require-in-the-middle hook. This permanent patch ensures
-// .node files resolve correctly from the known prebuilds directory.
-const Module = _require('module') as typeof import('module') & {
-  _resolveFilename: (...args: unknown[]) => string
-}
-const ptyRoot = path.dirname(_require.resolve('node-pty/package.json'))
-const prebuildDir = path.join(ptyRoot, 'prebuilds', `${process.platform}-${process.arch}`)
-const origResolve = Module._resolveFilename
-
-Module._resolveFilename = function (request: string, ...rest: unknown[]) {
-  if (request.endsWith('.node')) {
-    const candidate = path.join(prebuildDir, path.basename(request))
-    if (existsSync(candidate)) return candidate
-  }
-  return origResolve.call(this, request, ...rest)
-}
-
 let _pty: typeof import('node-pty') | null = null
 let _ptyLoadError: unknown = null
 
 try {
+  // Monkey-patch node-pty's loadNativeModule BEFORE the first spawn().
+  // On Windows, node-pty defers native module loading: WindowsPtyAgent's
+  // constructor lazily calls loadNativeModule('conpty'), which uses the CJS
+  // `require()` local to utils.js. OpenTelemetry's require-in-the-middle hook
+  // replaces Module.prototype.require, which can cause that local `require`
+  // to throw "ReferenceError: require is not defined" for native .node files.
+  // Fix: replace loadNativeModule with a version that uses our own _require
+  // (from createRequire) with an absolute path — immune to OTEL interference.
+  const ptyUtils = _require('node-pty/lib/utils') as {
+    loadNativeModule: (name: string) => { dir: string; module: unknown }
+  }
+  const origLoadNative = ptyUtils.loadNativeModule
+  const ptyRoot = path.dirname(_require.resolve('node-pty/package.json'))
+
+  ptyUtils.loadNativeModule = function (name: string) {
+    // Try the original first — it works fine outside of OTEL interference.
+    try {
+      return origLoadNative(name)
+    } catch {
+      // Fallback: use process.dlopen() to load the native addon directly,
+      // bypassing Module.prototype.require entirely. This is immune to
+      // OTEL's require-in-the-middle hook interference.
+      const nativePath = path.join(
+        ptyRoot,
+        'prebuilds',
+        `${process.platform}-${process.arch}`,
+        `${name}.node`
+      )
+      const nativeModule = { exports: {} } as { exports: Record<string, unknown> }
+      process.dlopen(nativeModule, nativePath)
+      return { dir: path.dirname(nativePath), module: nativeModule.exports }
+    }
+  }
+
   _pty = _require('node-pty')
 } catch (err) {
   _ptyLoadError = err

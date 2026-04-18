@@ -240,9 +240,15 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
 
         // Detect OSC 7 (current working directory) from shell prompt
         // Format: \x1b]7;file:///C:/path\x07  or  \x1b]7;file:///C:/path\x1b\\
-        const osc7Match = data.match(/\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/)
-        if (osc7Match) {
-          const decoded = decodeURIComponent(osc7Match[1])
+        // Use lastMatch to get the most recent cwd if multiple prompts arrive in one chunk
+        const osc7Regex = /\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/g
+        let osc7Match: RegExpExecArray | null = null
+        let lastOsc7: RegExpExecArray | null = null
+        while ((osc7Match = osc7Regex.exec(data)) !== null) {
+          lastOsc7 = osc7Match
+        }
+        if (lastOsc7) {
+          const decoded = decodeURIComponent(lastOsc7[1])
           const newCwd = path.resolve(decoded)
           if (newCwd !== session.cwd) {
             session.cwd = newCwd

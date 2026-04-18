@@ -1,0 +1,110 @@
+.terminal-ctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.terminal-ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 160px;
+  background: var(--bg-secondary, #252526);
+  border: 1px solid var(--border-color, #3c3c3c);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.terminal-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary, #ccc);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.terminal-ctx-item:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.terminal-ctx-separator {
+  height: 1px;
+  background: var(--border-color, #3c3c3c);
+  margin: 4px 6px;
+}
+
+.terminal-ctx-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 2px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.terminal-ctx-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px 4px;
+}
+
+.terminal-ctx-color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.1s, transform 0.1s;
+}
+
+.terminal-ctx-color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.terminal-ctx-color-swatch.active {
+  border-color: var(--text-primary, #fff);
+}
+
+.terminal-ctx-color-reset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color, #555);
+  background: transparent;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.terminal-ctx-color-reset:hover {
+  border-color: var(--text-primary, #ccc);
+  color: var(--text-primary, #ccc);
+}
+
+.terminal-ctx-rename {
+  padding: 4px;
+}
+
+.terminal-ctx-rename-input {
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--bg-primary, #1e1e1e);
+  border: 1px solid var(--accent-color, #007acc);
+  border-radius: 4px;
+  color: var(--text-primary, #ccc);
+  font-size: 12px;
+  outline: none;
+}

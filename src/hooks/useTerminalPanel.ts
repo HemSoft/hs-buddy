@@ -19,6 +19,8 @@ export interface TerminalTab {
   cwd: string
   /** Owner/repo slug if opened from a repo context */
   repoSlug?: string
+  /** Custom tab color (CSS color value) */
+  color?: string
 }
 
 interface UseTerminalPanelReturn {
@@ -29,6 +31,8 @@ interface UseTerminalPanelReturn {
   addTerminalTab: (repoContext: RepoContext | null) => Promise<TerminalTab | undefined>
   closeTerminalTab: (tabId: string) => void
   selectTerminalTab: (tabId: string) => void
+  renameTerminalTab: (tabId: string, title: string) => void
+  setTerminalTabColor: (tabId: string, color: string | undefined) => void
   panelHeight: number
   onPanelResize: (sizes: number[]) => void
   loaded: boolean
@@ -252,6 +256,26 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     setActiveTerminalTabId(tabId)
   }, [])
 
+  const renameTerminalTab = useCallback((tabId: string, title: string) => {
+    const trimmed = title.trim()
+    if (!trimmed) return
+    setTerminalTabs(prev => {
+      const tab = prev.find(t => t.id === tabId)
+      if (!tab || tab.title === trimmed) return prev
+      const next = prev.map(t => (t.id === tabId ? { ...t, title: trimmed } : t))
+      terminalTabsRef.current = next
+      return next
+    })
+  }, [])
+
+  const setTerminalTabColor = useCallback((tabId: string, color: string | undefined) => {
+    setTerminalTabs(prev => {
+      const next = prev.map(t => (t.id === tabId ? { ...t, color } : t))
+      terminalTabsRef.current = next
+      return next
+    })
+  }, [])
+
   return {
     terminalOpen,
     terminalTabs,
@@ -260,6 +284,8 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     addTerminalTab,
     closeTerminalTab,
     selectTerminalTab,
+    renameTerminalTab,
+    setTerminalTabColor,
     panelHeight,
     onPanelResize,
     loaded,

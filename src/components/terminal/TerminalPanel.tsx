@@ -1,6 +1,7 @@
-import { type SyntheticEvent, lazy, Suspense, useCallback } from 'react'
+import { type SyntheticEvent, lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { X, Plus, TerminalSquare, GripHorizontal } from 'lucide-react'
 import type { TerminalTab } from '../../hooks/useTerminalPanel'
+import { TerminalTabContextMenu } from './TerminalTabContextMenu'
 import './TerminalPanel.css'
 
 const TerminalPane = lazy(() => import('./TerminalPane').then(m => ({ default: m.TerminalPane })))
@@ -11,6 +12,8 @@ interface TerminalPanelProps {
   onTabSelect: (tabId: string) => void
   onTabClose: (tabId: string) => void
   onAddTab: () => void
+  onRenameTab: (tabId: string, title: string) => void
+  onSetTabColor: (tabId: string, color: string | undefined) => void
 }
 
 export function TerminalPanel({
@@ -19,7 +22,11 @@ export function TerminalPanel({
   onTabSelect,
   onTabClose,
   onAddTab,
+  onRenameTab,
+  onSetTabColor,
 }: TerminalPanelProps) {
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: TerminalTab } | null>(null)
+
   const handleTabClose = useCallback(
     (e: SyntheticEvent, tabId: string) => {
       e.stopPropagation()
@@ -27,6 +34,19 @@ export function TerminalPanel({
     },
     [onTabClose]
   )
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, tab: TerminalTab) => {
+      e.preventDefault()
+      setContextMenu({ x: e.clientX, y: e.clientY, tab })
+    },
+    []
+  )
+
+  // Close context menu when active tab changes
+  useEffect(() => {
+    setContextMenu(null)
+  }, [activeTabId])
 
   const activeTab = tabs.find(t => t.id === activeTabId)
 
@@ -46,7 +66,10 @@ export function TerminalPanel({
               key={tab.id}
               className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''}`}
               title={tab.cwd || tab.title}
+              onContextMenu={e => handleContextMenu(e, tab)}
+              style={tab.color ? { '--tab-color': tab.color } as React.CSSProperties : undefined}
             >
+              {tab.color && <span className="terminal-panel-tab-color-dot" />}
               <button
                 type="button"
                 className="terminal-panel-tab-button"
@@ -88,6 +111,16 @@ export function TerminalPanel({
           <div className="terminal-panel-empty">No terminal sessions. Click + to open one.</div>
         )}
       </div>
+      {contextMenu && (
+        <TerminalTabContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          tab={contextMenu.tab}
+          onRename={onRenameTab}
+          onSetColor={onSetTabColor}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }

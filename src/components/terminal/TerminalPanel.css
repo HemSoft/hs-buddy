@@ -134,6 +134,15 @@
   outline-offset: -1px;
 }
 
+.terminal-panel-tab-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--tab-color);
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
 .terminal-panel-tab:focus-within .terminal-panel-tab-close {
   opacity: 0.6;
 }

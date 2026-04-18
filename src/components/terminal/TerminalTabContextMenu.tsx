@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Pencil, Palette, X } from 'lucide-react'
+import { Pencil, Palette, FolderOpen, X } from 'lucide-react'
 import type { TerminalTab } from '../../hooks/useTerminalPanel'
 import './TerminalTabContextMenu.css'
 
@@ -21,6 +21,7 @@ interface TerminalTabContextMenuProps {
   tab: TerminalTab
   onRename: (tabId: string, title: string) => void
   onSetColor: (tabId: string, color: string | undefined) => void
+  onOpenFolderView: (cwd: string) => void
   onClose: () => void
 }
 
@@ -30,6 +31,7 @@ export function TerminalTabContextMenu({
   tab,
   onRename,
   onSetColor,
+  onOpenFolderView,
   onClose,
 }: TerminalTabContextMenuProps) {
   const [mode, setMode] = useState<'menu' | 'rename'>('menu')
@@ -76,6 +78,18 @@ export function TerminalTabContextMenu({
               <Pencil size={14} />
               Rename
             </button>
+            {tab.cwd && (
+              <button
+                className="terminal-ctx-item"
+                onClick={() => {
+                  onOpenFolderView(tab.cwd)
+                  onClose()
+                }}
+              >
+                <FolderOpen size={14} />
+                Folder View
+              </button>
+            )}
             <div className="terminal-ctx-separator" />
             <div className="terminal-ctx-label">
               <Palette size={12} />

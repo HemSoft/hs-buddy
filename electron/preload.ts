@@ -132,6 +132,11 @@ contextBridge.exposeInMainWorld('finance', {
   fetchQuote: (symbol: string) => ipcRenderer.invoke('finance:fetch-quote', symbol),
 })
 
+contextBridge.exposeInMainWorld('filesystem', {
+  readDir: (dirPath: string) => ipcRenderer.invoke('fs:read-dir', dirPath),
+  readFile: (filePath: string) => ipcRenderer.invoke('fs:read-file', filePath),
+})
+
 contextBridge.exposeInMainWorld('terminal', {
   spawn: (opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }) =>
     ipcRenderer.invoke('terminal:spawn', opts),

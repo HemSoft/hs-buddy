@@ -181,6 +181,18 @@ interface Window {
       error?: string
     }>
   }
+  filesystem: {
+    readDir: (dirPath: string) => Promise<{
+      entries: Array<{ name: string; type: 'file' | 'directory'; size: number }>
+      error?: string
+    }>
+    readFile: (filePath: string) => Promise<{
+      content: string
+      language: string
+      size: number
+      error?: string
+    }>
+  }
   terminal: {
     spawn: (opts: {
       cwd?: string

@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tab rename and custom color via context menu
 - Add tab drag-to-reorder
 - Persist tab state to Convex
+- Add Terminal Folder View & File Preview feature
 
 ### Changed
 

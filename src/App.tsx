@@ -124,6 +124,13 @@ function App() {
     void addTerminalTab(repoContext)
   }, [addTerminalTab, activeViewId])
 
+  const handleOpenFolderView = useCallback(
+    (cwd: string) => {
+      openTab(`folder-view:${encodeURIComponent(cwd)}`)
+    },
+    [openTab],
+  )
+
   const assistantContext = useAssistantContext(activeViewId)
   const showLoading = !layoutLoaded || !terminalLoaded || (migrationLoading && !migrationComplete)
 
@@ -205,6 +212,7 @@ function App() {
                       onSetTabColor={setTerminalTabColor}
                       onReorderTabs={reorderTerminalTabs}
                       onTabCwdChange={updateTabCwd}
+                      onOpenFolderView={handleOpenFolderView}
                     />
                   </Allotment.Pane>
                 </Allotment>

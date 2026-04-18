@@ -31,6 +31,7 @@ import { SessionDetail } from './sessions/SessionDetail'
 import { TaskPlannerView } from './planner/TaskPlannerView'
 import { BookmarkList } from './bookmarks/BookmarkList'
 import { BrowserTabView } from './BrowserTabView'
+import { FolderExplorerView } from './explorer/FolderExplorerView'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -164,6 +165,10 @@ export function AppContentRouter({
     case 'bookmarks-all':
       return <BookmarkList key="bookmarks-all" onOpenTab={onOpenTab} />
     default:
+      if (activeViewId.startsWith('folder-view:')) {
+        const folderPath = decodeURIComponent(activeViewId.slice('folder-view:'.length))
+        return <FolderExplorerView key={activeViewId} rootPath={folderPath} />
+      }
       if (activeViewId.startsWith('bookmarks-category:')) {
         const category = activeViewId.replace('bookmarks-category:', '')
         return (

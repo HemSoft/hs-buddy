@@ -50,6 +50,11 @@ export function getViewLabel(viewId: string): string {
       return 'Browser'
     }
   }
+  if (viewId.startsWith('folder-view:')) {
+    const folderPath = decodeURIComponent(viewId.slice('folder-view:'.length))
+    const name = folderPath.replace(/\//g, '\\').split('\\').pop() || 'Explorer'
+    return `📂 ${name}`
+  }
   if (viewId.startsWith('bookmarks-category:')) {
     const category = viewId.replace('bookmarks-category:', '')
     return category

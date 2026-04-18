@@ -16,6 +16,7 @@ interface TerminalPanelProps {
   onSetTabColor: (tabId: string, color: string | undefined) => void
   onReorderTabs: (fromId: string, toId: string) => void
   onTabCwdChange: (tabId: string, cwd: string) => void
+  onOpenFolderView: (cwd: string) => void
 }
 
 export function TerminalPanel({
@@ -28,6 +29,7 @@ export function TerminalPanel({
   onSetTabColor,
   onReorderTabs,
   onTabCwdChange,
+  onOpenFolderView,
 }: TerminalPanelProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: TerminalTab } | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
@@ -154,6 +156,7 @@ export function TerminalPanel({
           tab={contextMenu.tab}
           onRename={onRenameTab}
           onSetColor={onSetTabColor}
+          onOpenFolderView={onOpenFolderView}
           onClose={() => setContextMenu(null)}
         />
       )}

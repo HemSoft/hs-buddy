@@ -71,6 +71,7 @@ function App() {
     selectTerminalTab,
     renameTerminalTab,
     setTerminalTabColor,
+    reorderTerminalTabs,
     panelHeight,
     onPanelResize,
     loaded: terminalLoaded,
@@ -201,6 +202,7 @@ function App() {
                       onAddTab={handleAddTerminalTab}
                       onRenameTab={renameTerminalTab}
                       onSetTabColor={setTerminalTabColor}
+                      onReorderTabs={reorderTerminalTabs}
                     />
                   </Allotment.Pane>
                 </Allotment>

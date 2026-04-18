@@ -80,6 +80,10 @@
   color: var(--text-primary, #ccc);
 }
 
+.terminal-panel-tab.drag-over {
+  border-left: 2px solid var(--accent-color, #007acc);
+}
+
 .terminal-panel-tab-button {
   display: flex;
   align-items: center;

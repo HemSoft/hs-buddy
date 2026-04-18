@@ -33,6 +33,7 @@ interface UseTerminalPanelReturn {
   selectTerminalTab: (tabId: string) => void
   renameTerminalTab: (tabId: string, title: string) => void
   setTerminalTabColor: (tabId: string, color: string | undefined) => void
+  reorderTerminalTabs: (fromId: string, toId: string) => void
   panelHeight: number
   onPanelResize: (sizes: number[]) => void
   loaded: boolean
@@ -276,6 +277,20 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     })
   }, [])
 
+  const reorderTerminalTabs = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return
+    setTerminalTabs(prev => {
+      const fromIdx = prev.findIndex(t => t.id === fromId)
+      const toIdx = prev.findIndex(t => t.id === toId)
+      if (fromIdx === -1 || toIdx === -1) return prev
+      const next = [...prev]
+      const [moved] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, moved)
+      terminalTabsRef.current = next
+      return next
+    })
+  }, [])
+
   return {
     terminalOpen,
     terminalTabs,
@@ -286,6 +301,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     selectTerminalTab,
     renameTerminalTab,
     setTerminalTabColor,
+    reorderTerminalTabs,
     panelHeight,
     onPanelResize,
     loaded,

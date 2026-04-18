@@ -1,4 +1,4 @@
-import { type SyntheticEvent, lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { type SyntheticEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { X, Plus, TerminalSquare, GripHorizontal } from 'lucide-react'
 import type { TerminalTab } from '../../hooks/useTerminalPanel'
 import { TerminalTabContextMenu } from './TerminalTabContextMenu'
@@ -14,6 +14,7 @@ interface TerminalPanelProps {
   onAddTab: () => void
   onRenameTab: (tabId: string, title: string) => void
   onSetTabColor: (tabId: string, color: string | undefined) => void
+  onReorderTabs: (fromId: string, toId: string) => void
 }
 
 export function TerminalPanel({
@@ -24,8 +25,11 @@ export function TerminalPanel({
   onAddTab,
   onRenameTab,
   onSetTabColor,
+  onReorderTabs,
 }: TerminalPanelProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: TerminalTab } | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const dragTabIdRef = useRef<string | null>(null)
 
   const handleTabClose = useCallback(
     (e: SyntheticEvent, tabId: string) => {
@@ -48,6 +52,30 @@ export function TerminalPanel({
     setContextMenu(null)
   }, [activeTabId])
 
+  const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
+    dragTabIdRef.current = tabId
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent, tabId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverId(tabId)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    dragTabIdRef.current = null
+    setDragOverId(null)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent, toId: string) => {
+    e.preventDefault()
+    const fromId = dragTabIdRef.current
+    if (fromId && fromId !== toId) onReorderTabs(fromId, toId)
+    dragTabIdRef.current = null
+    setDragOverId(null)
+  }, [onReorderTabs])
+
   const activeTab = tabs.find(t => t.id === activeTabId)
 
   return (
@@ -64,10 +92,15 @@ export function TerminalPanel({
           {tabs.map(tab => (
             <div
               key={tab.id}
-              className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''}`}
+              className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''} ${dragOverId === tab.id ? 'drag-over' : ''}`}
               title={tab.cwd || tab.title}
               onContextMenu={e => handleContextMenu(e, tab)}
               style={tab.color ? { '--tab-color': tab.color } as React.CSSProperties : undefined}
+              draggable
+              onDragStart={e => handleDragStart(e, tab.id)}
+              onDragOver={e => handleDragOver(e, tab.id)}
+              onDragEnd={handleDragEnd}
+              onDrop={e => handleDrop(e, tab.id)}
             >
               {tab.color && <span className="terminal-panel-tab-color-dot" />}
               <button

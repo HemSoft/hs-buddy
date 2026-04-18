@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add tab drag-to-reorder
 - Persist tab state to Convex
 
+### Changed
+
+- Scope Terminal Folder View & File Preview feature
+
 ## [0.1.732] - 2026-04-18
 
 ### Fixed

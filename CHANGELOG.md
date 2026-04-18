@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use process.dlopen fallback for native module loading
 - Prevent double output from React StrictMode double-mount
 
+### Added
+
+- Resizable panel with Convex persistence
+
 ## [0.1.732] - 2026-04-18
 
 ### Fixed

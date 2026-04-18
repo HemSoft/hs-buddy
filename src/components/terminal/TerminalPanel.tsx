@@ -1,5 +1,5 @@
 import { type SyntheticEvent, lazy, Suspense, useCallback } from 'react'
-import { X, Plus, TerminalSquare } from 'lucide-react'
+import { X, Plus, TerminalSquare, GripHorizontal } from 'lucide-react'
 import type { TerminalTab } from '../../hooks/useTerminalPanel'
 import './TerminalPanel.css'
 
@@ -32,6 +32,9 @@ export function TerminalPanel({
 
   return (
     <div className="terminal-panel">
+      <div className="terminal-panel-resize-grip" title="Drag to resize">
+        <GripHorizontal size={14} />
+      </div>
       <div className="terminal-panel-header">
         <div className="terminal-panel-label">
           <TerminalSquare size={12} />

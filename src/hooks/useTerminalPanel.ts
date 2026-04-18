@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getRepoContextFromViewId, type RepoContext } from '../utils/repoContext'
 import { killTerminalSession, getSessionId } from '../components/terminal/terminalSessions'
+import { useSettings, useSettingsMutations } from './useConvex'
 
 const PANEL_HEIGHT_SAVE_DEBOUNCE_MS = 300
 const DEFAULT_TERMINAL_PANEL_HEIGHT = 300
@@ -49,7 +50,11 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const activeViewIdRef = useRef(activeViewId)
   activeViewIdRef.current = activeViewId
 
-  // Load persisted state on mount
+  // Convex persistence
+  const settings = useSettings()
+  const { updateTerminalPanelHeight } = useSettingsMutations()
+
+  // Load persisted state on mount (local IPC is fast/immediate)
   useEffect(() => {
     let cancelled = false
     Promise.allSettled([
@@ -69,6 +74,22 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       cancelled = true
     }
   }, [])
+
+  // Sync from Convex when available (fills in on new machines with no local config)
+  useEffect(() => {
+    if (settings?.terminalPanelHeight != null && loaded) {
+      // Only apply Convex value if local didn't have one (first launch on new device)
+      window.ipcRenderer
+        .invoke('config:get-terminal-panel-height')
+        .then((local: unknown) => {
+          if (local == null) {
+            setPanelHeight(clampPanelHeight(settings.terminalPanelHeight!))
+          }
+        })
+        .catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.terminalPanelHeight, loaded])
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -199,9 +220,10 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       if (heightSaveTimeoutRef.current) clearTimeout(heightSaveTimeoutRef.current)
       heightSaveTimeoutRef.current = setTimeout(() => {
         window.ipcRenderer.invoke('config:set-terminal-panel-height', clamped).catch(() => {})
+        updateTerminalPanelHeight({ height: clamped }).catch(() => {})
       }, PANEL_HEIGHT_SAVE_DEBOUNCE_MS)
     }
-  }, [])
+  }, [updateTerminalPanelHeight])
 
   // Keyboard shortcut: Ctrl+`
   useEffect(() => {

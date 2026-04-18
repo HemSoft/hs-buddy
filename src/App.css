@@ -30,6 +30,11 @@
   width: 4px !important;
 }
 
+/* Vertical allotment sashes (e.g., terminal panel) need a taller grab area */
+[class*='split-view-container'][class*='vertical'] > [class*='sash-container'] > .sash {
+  --sash-hover-size: 8px;
+}
+
 .sash:hover,
 .sash.active,
 .sash:active,

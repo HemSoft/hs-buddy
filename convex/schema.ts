@@ -45,6 +45,7 @@ export default defineSchema({
       })
     ),
     viewModes: v.optional(v.record(v.string(), v.union(v.literal('card'), v.literal('list')))),
+    terminalPanelHeight: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_key', ['key']),

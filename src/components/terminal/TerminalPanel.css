@@ -3,7 +3,23 @@
   flex-direction: column;
   height: 100%;
   background: #1e1e1e;
+}
+
+.terminal-panel-resize-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 6px;
+  cursor: row-resize;
+  color: var(--text-secondary, #666);
   border-top: 1px solid var(--border-color, #333);
+  transition: background-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.terminal-panel-resize-grip:hover {
+  background: var(--sash-hover, #505055);
+  color: var(--text-primary, #ccc);
 }
 
 .terminal-panel-header {

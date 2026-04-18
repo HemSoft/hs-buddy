@@ -42,6 +42,7 @@ export const get = query({
         key: 'default' as const,
         ...DEFAULT_SETTINGS,
         viewModes: {} as Record<string, 'card' | 'list'>,
+        terminalPanelHeight: undefined as number | undefined,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -176,6 +177,32 @@ export const updateViewMode = mutation({
         key: 'default',
         ...DEFAULT_SETTINGS,
         viewModes: { [pageKey]: mode },
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+  },
+})
+
+/**
+ * Update terminal panel height preference
+ */
+export const updateTerminalPanelHeight = mutation({
+  args: {
+    height: v.number(),
+  },
+  handler: async (ctx, { height }) => {
+    const existing = await getDefaultSettings(ctx.db)
+    const now = Date.now()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { terminalPanelHeight: height, updatedAt: now })
+      return existing._id
+    } else {
+      return await ctx.db.insert('settings', {
+        key: 'default',
+        ...DEFAULT_SETTINGS,
+        terminalPanelHeight: height,
         createdAt: now,
         updatedAt: now,
       })

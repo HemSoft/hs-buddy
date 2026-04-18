@@ -31,7 +31,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: "'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace",
+      fontFamily: "'CaskaydiaCove NF', 'CaskaydiaCove NFM', 'FiraCode Nerd Font Mono', 'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace",
       theme: {
         background: '#1e1e1e',
         foreground: '#cccccc',

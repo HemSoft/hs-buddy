@@ -9,7 +9,7 @@ import { ScheduleEditor, JobEditor } from './components/automation'
 import { StatusBar } from './components/StatusBar'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { AppContentRouter } from './components/AppContentRouter'
-import { killTerminalSession } from './components/terminal/terminalSessions'
+import { TerminalPanel } from './components/terminal/TerminalPanel'
 import { AssistantPanel } from './components/AssistantPanel'
 import { useSchedules, useJobs } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
@@ -22,7 +22,9 @@ import { useActiveGitHubAccount } from './hooks/useActiveGitHubAccount'
 import { useAppLayout } from './hooks/useAppLayout'
 import { useAppSessionStats } from './hooks/useAppSessionStats'
 import { useAppTabs, DASHBOARD_VIEW_ID } from './hooks/useAppTabs'
+import { useTerminalPanel } from './hooks/useTerminalPanel'
 import { DEFAULT_ASSISTANT_PANE_SIZE } from './appUtils'
+import { getRepoContextFromViewId } from './utils/repoContext'
 import './App.css'
 
 function App() {
@@ -37,11 +39,6 @@ function App() {
   useAppAppearance()
   const backgroundStatus = useBackgroundStatus()
   const { trackViewOpen } = useAppSessionStats()
-  const handleViewClose = useCallback((viewId: string) => {
-    if (viewId.startsWith('terminal:')) {
-      killTerminalSession(viewId)
-    }
-  }, [])
 
   const {
     activeTabId,
@@ -56,7 +53,6 @@ function App() {
     tabs,
   } = useAppTabs({
     onViewOpen: trackViewOpen,
-    onViewClose: handleViewClose,
   })
   const {
     assistantOpen,
@@ -65,6 +61,18 @@ function App() {
     paneSizes,
     toggleAssistant,
   } = useAppLayout()
+  const {
+    terminalOpen,
+    terminalTabs,
+    activeTerminalTabId,
+    toggleTerminal,
+    addTerminalTab,
+    closeTerminalTab,
+    selectTerminalTab,
+    panelHeight,
+    onPanelResize,
+    loaded: terminalLoaded,
+  } = useTerminalPanel(activeViewId)
   const activeGitHubAccount = useActiveGitHubAccount()
 
   const handlePRCountChange = useCallback(
@@ -103,12 +111,26 @@ function App() {
     openTab(DASHBOARD_VIEW_ID)
   }, [openTab])
 
+  const handleToggleTerminal = useCallback(() => {
+    toggleTerminal(activeViewId)
+  }, [toggleTerminal, activeViewId])
+
+  const handleAddTerminalTab = useCallback(() => {
+    const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
+    void addTerminalTab(repoContext)
+  }, [addTerminalTab, activeViewId])
+
   const assistantContext = useAssistantContext(activeViewId)
-  const showLoading = !layoutLoaded || (migrationLoading && !migrationComplete)
+  const showLoading = !layoutLoaded || !terminalLoaded || (migrationLoading && !migrationComplete)
 
   return (
     <div className="app">
-      <TitleBar assistantOpen={assistantOpen} onToggleAssistant={toggleAssistant} />
+      <TitleBar
+        assistantOpen={assistantOpen}
+        onToggleAssistant={toggleAssistant}
+        terminalOpen={terminalOpen}
+        onToggleTerminal={handleToggleTerminal}
+      />
       {showLoading ? (
         <div
           className="app-body"
@@ -152,19 +174,32 @@ function App() {
                   onCloseTabsToRight={closeTabsToRight}
                   onCloseAllTabs={closeAllTabs}
                 />
-                <div className="main-content">
-                  <AppErrorBoundary resetKey={activeViewId}>
-                    <AppContentRouter
-                      activeViewId={activeViewId}
-                      prCounts={prCounts}
-                      onNavigate={handleItemSelect}
-                      onSectionChange={handleSectionSelect}
-                      onOpenTab={openTab}
-                      onCloseView={closeView}
-                      onPRCountChange={handlePRCountChange}
+                <Allotment vertical onChange={onPanelResize}>
+                  <Allotment.Pane minSize={200}>
+                    <div className="main-content">
+                      <AppErrorBoundary resetKey={activeViewId}>
+                        <AppContentRouter
+                          activeViewId={activeViewId}
+                          prCounts={prCounts}
+                          onNavigate={handleItemSelect}
+                          onSectionChange={handleSectionSelect}
+                          onOpenTab={openTab}
+                          onCloseView={closeView}
+                          onPRCountChange={handlePRCountChange}
+                        />
+                      </AppErrorBoundary>
+                    </div>
+                  </Allotment.Pane>
+                  <Allotment.Pane minSize={150} preferredSize={panelHeight} visible={terminalOpen}>
+                    <TerminalPanel
+                      tabs={terminalTabs}
+                      activeTabId={activeTerminalTabId}
+                      onTabSelect={selectTerminalTab}
+                      onTabClose={closeTerminalTab}
+                      onAddTab={handleAddTerminalTab}
                     />
-                  </AppErrorBoundary>
-                </div>
+                  </Allotment.Pane>
+                </Allotment>
               </div>
             </Allotment.Pane>
             {assistantOpen && (

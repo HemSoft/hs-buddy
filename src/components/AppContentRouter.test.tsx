@@ -152,22 +152,6 @@ vi.mock('./BrowserTabView', () => ({
   BrowserTabView: ({ url }: { url: string }) => <div>BrowserTab:{url}</div>,
 }))
 
-vi.mock('./terminal/TerminalPane', () => ({
-  TerminalPane: ({
-    viewKey,
-    cwd,
-    startupCommand,
-  }: {
-    viewKey: string
-    cwd?: string
-    startupCommand?: string
-  }) => (
-    <div>
-      TerminalPane:{viewKey}|cwd={cwd ?? 'none'}|cmd={startupCommand ?? 'none'}
-    </div>
-  ),
-}))
-
 vi.mock('./pr-review/PRReviewInfo', () => ({
   parsePRReviewInfo: (viewId: string) => {
     if (viewId === 'pr-review:valid-pr') {
@@ -286,29 +270,6 @@ describe('AppContentRouter', () => {
     const encoded = encodeURIComponent('https://example.com')
     renderRouter(`browser:${encoded}`)
     expect(screen.getByText('BrowserTab:https://example.com')).toBeInTheDocument()
-  })
-
-  it('renders terminal route with plain cwd', async () => {
-    const encoded = encodeURIComponent('D:\\github\\my-repo')
-    renderRouter(`terminal:${encoded}`)
-    expect(
-      await screen.findByText(`TerminalPane:terminal:${encoded}|cwd=D:\\github\\my-repo|cmd=none`)
-    ).toBeInTheDocument()
-  })
-
-  it('renders terminal route with JSON payload', async () => {
-    const encoded = encodeURIComponent(JSON.stringify({ cwd: '/test/path', cmd: 'gh copilot' }))
-    renderRouter(`terminal:${encoded}`)
-    expect(
-      await screen.findByText(`TerminalPane:terminal:${encoded}|cwd=/test/path|cmd=gh copilot`)
-    ).toBeInTheDocument()
-  })
-
-  it('renders terminal route with malformed percent-encoding', async () => {
-    renderRouter('terminal:%E0%A4%A')
-    expect(
-      await screen.findByText('TerminalPane:terminal:%E0%A4%A|cwd=%E0%A4%A|cmd=none')
-    ).toBeInTheDocument()
   })
 
   it('renders crew-project route', () => {

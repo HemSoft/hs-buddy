@@ -136,11 +136,12 @@ contextBridge.exposeInMainWorld('terminal', {
   spawn: (opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }) =>
     ipcRenderer.invoke('terminal:spawn', opts),
   attach: (sessionId: string) => ipcRenderer.invoke('terminal:attach', sessionId),
-  write: (sessionId: string, data: string) =>
-    ipcRenderer.send('terminal:write', sessionId, data),
+  write: (sessionId: string, data: string) => ipcRenderer.send('terminal:write', sessionId, data),
   resize: (sessionId: string, cols: number, rows: number) =>
     ipcRenderer.send('terminal:resize', sessionId, cols, rows),
   kill: (sessionId: string) => ipcRenderer.invoke('terminal:kill', sessionId),
+  resolveRepoPath: (owner: string, repo: string) =>
+    ipcRenderer.invoke('terminal:resolve-repo-path', { owner, repo }),
 })
 
 contextBridge.exposeInMainWorld('copilot', {

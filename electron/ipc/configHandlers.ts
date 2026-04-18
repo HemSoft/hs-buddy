@@ -60,6 +60,30 @@ export function registerConfigHandlers(): void {
     return { success: true }
   })
 
+  // Terminal Panel
+  ipcMain.handle('config:get-terminal-open', () => {
+    return configManager.getUiValue('terminalOpen')
+  })
+
+  ipcMain.handle('config:set-terminal-open', (_event: IpcMainInvokeEvent, value: boolean) => {
+    if (typeof value !== 'boolean') return { success: false }
+    configManager.setUiValue('terminalOpen', value)
+    return { success: true }
+  })
+
+  ipcMain.handle('config:get-terminal-panel-height', () => {
+    return configManager.getUiValue('terminalPanelHeight')
+  })
+
+  ipcMain.handle(
+    'config:set-terminal-panel-height',
+    (_event: IpcMainInvokeEvent, value: number) => {
+      if (!Number.isFinite(value) || value < 100 || value > 1200) return { success: false }
+      configManager.setUiValue('terminalPanelHeight', value)
+      return { success: true }
+    }
+  )
+
   // Schedule Forecast Days
   ipcMain.handle('config:get-schedule-forecast-days', () => {
     return configManager.getScheduleForecastDays()

@@ -5,9 +5,29 @@ import { existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 
-// node-pty is a native CJS module — use createRequire for ESM compatibility
-const require = createRequire(import.meta.url)
-const pty = require('node-pty')
+// node-pty is a native CJS module — use createRequire for ESM compatibility.
+// Load lazily to provide a clear error if the native module can't be found.
+const _require = createRequire(import.meta.url)
+let _pty: typeof import('node-pty') | null = null
+
+function getPty(): typeof import('node-pty') {
+  if (_pty) return _pty
+
+  try {
+    _pty = _require('node-pty')
+  } catch (primaryError) {
+    // Fallback: try requiring from the app root (handles cases where
+    // import.meta.url points to a bundled file in dist-electron/).
+    try {
+      const appRequire = createRequire(path.join(app.getAppPath(), 'package.json'))
+      _pty = appRequire('node-pty')
+    } catch {
+      throw primaryError
+    }
+  }
+
+  return _pty!
+}
 
 const MAX_SCROLLBACK_BUFFER = 100_000
 
@@ -66,7 +86,74 @@ function safeSend(sender: WebContents, channel: string, ...args: unknown[]): voi
   }
 }
 
+/**
+ * Resolve a GitHub owner/repo to a local clone directory.
+ * Probes common directory patterns under well-known clone roots.
+ */
+function resolveRepoPath(owner: string, repo: string): string | null {
+  const home = process.env.USERPROFILE || process.env.HOME || app.getPath('home')
+  const driveRoot = path.parse(home).root // e.g. D:\ on Windows, / on Unix
+  const cloneRoots: string[] = []
+
+  // On Windows, probe common fixed drives for a top-level github folder
+  if (process.platform === 'win32') {
+    for (const letter of ['C', 'D', 'E', 'F']) {
+      cloneRoots.push(path.join(`${letter}:\\`, 'github'))
+    }
+  } else {
+    cloneRoots.push(path.join(driveRoot, 'github'))
+  }
+
+  cloneRoots.push(
+    path.join(home, 'github'), // e.g. C:\Users\User\github or ~/github
+    path.join(home, 'repos'),
+    path.join(home, 'projects'),
+    path.join(home, 'source', 'repos') // Visual Studio default
+  )
+
+  // Generate org-folder candidates from the GitHub owner name
+  const orgCandidates = new Set<string>()
+  orgCandidates.add(owner) // exact: relias-engineering
+  const dashIdx = owner.indexOf('-')
+  if (dashIdx > 0) {
+    const short = owner.substring(0, dashIdx)
+    orgCandidates.add(short) // short: relias
+    orgCandidates.add(short.charAt(0).toUpperCase() + short.slice(1)) // capitalized: Relias
+  }
+  orgCandidates.add(owner.charAt(0).toUpperCase() + owner.slice(1)) // capitalized full: Relias-engineering
+
+  for (const root of cloneRoots) {
+    if (!existsSync(root)) continue
+
+    for (const org of orgCandidates) {
+      const candidate = path.join(root, org, repo)
+      if (isValidCwd(candidate)) return candidate
+    }
+
+    // Also check root/repo directly (no org subfolder)
+    const directCandidate = path.join(root, repo)
+    if (isValidCwd(directCandidate)) return directCandidate
+  }
+
+  return null
+}
+
+function isValidRepoSlug(value: unknown): value is string {
+  // Require alphanumeric first char (matches GitHub naming rules) which
+  // naturally rejects ".", "..", and names starting with "-" or "_".
+  return typeof value === 'string' && value.length > 0 && /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value)
+}
+
 export function registerTerminalHandlers(_win: BrowserWindow): void {
+  // Resolve owner/repo to a local directory path
+  ipcMain.handle('terminal:resolve-repo-path', async (_event, opts: unknown) => {
+    if (!opts || typeof opts !== 'object') return { path: null }
+    const { owner, repo } = opts as { owner?: unknown; repo?: unknown }
+    if (!isValidRepoSlug(owner) || !isValidRepoSlug(repo)) return { path: null }
+    const resolved = resolveRepoPath(owner, repo)
+    return { path: resolved }
+  })
+
   ipcMain.handle(
     'terminal:spawn',
     async (
@@ -92,7 +179,7 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
 
       let ptyProcess
       try {
-        ptyProcess = pty.spawn(shell, [], spawnOptions)
+        ptyProcess = getPty().spawn(shell, [], spawnOptions)
       } catch (error) {
         return {
           success: false,

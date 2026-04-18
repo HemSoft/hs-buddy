@@ -164,6 +164,8 @@ function createConfig(overrides: Partial<AppConfig['ui']> = {}): AppConfig {
       assistantOpen: false,
       favoriteUsers: [],
       dashboardCards: {},
+      terminalOpen: false,
+      terminalPanelHeight: 300,
       ...overrides,
     },
     pr: { refreshInterval: 15, autoRefresh: true, recentlyMergedDays: 7 },

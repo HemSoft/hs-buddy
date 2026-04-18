@@ -45,7 +45,7 @@ function WelcomeHeader({
         </div>
         <div className="welcome-header-meta">
           <div className="welcome-header-meta-top">
-            <div className="welcome-version-badge">Version 0.1.724</div>
+            <div className="welcome-version-badge">Version 0.1.733</div>
             <DashboardConfigDropdown cards={cards} isVisible={isVisible} toggleCard={toggleCard} />
           </div>
           {liveUptime > 0 && (

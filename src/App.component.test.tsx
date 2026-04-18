@@ -100,6 +100,25 @@ vi.mock('./hooks/useAppSessionStats', () => ({
   useAppSessionStats: () => ({ trackViewOpen: vi.fn() }),
 }))
 
+vi.mock('./hooks/useTerminalPanel', () => ({
+  useTerminalPanel: () => ({
+    terminalOpen: false,
+    terminalTabs: [],
+    activeTerminalTabId: null,
+    toggleTerminal: vi.fn(),
+    addTerminalTab: vi.fn(),
+    closeTerminalTab: vi.fn(),
+    selectTerminalTab: vi.fn(),
+    panelHeight: 300,
+    onPanelResize: vi.fn(),
+    loaded: true,
+  }),
+}))
+
+vi.mock('./components/terminal/TerminalPanel', () => ({
+  TerminalPanel: () => <div data-testid="terminal-panel" />,
+}))
+
 vi.mock('./hooks/useAppTabs', () => ({
   DASHBOARD_VIEW_ID: 'dashboard',
   useAppTabs: vi.fn().mockReturnValue({

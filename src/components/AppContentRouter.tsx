@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react'
 import { PullRequestList } from './PullRequestList'
 import { ScheduleDetailPanel, ScheduleOverviewPanel, JobDetailPanel, RunList } from './automation'
 import {
@@ -35,11 +34,6 @@ import { BrowserTabView } from './BrowserTabView'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
-
-// Lazy-load TerminalPane to code-split xterm.js (~380KB) out of the main bundle
-const TerminalPane = lazy(() =>
-  import('./terminal/TerminalPane').then(m => ({ default: m.TerminalPane }))
-)
 
 function parseOwnerRepo(slug: string): { owner: string; repo: string } | null {
   const slashIdx = slug.indexOf('/')
@@ -170,43 +164,6 @@ export function AppContentRouter({
     case 'bookmarks-all':
       return <BookmarkList key="bookmarks-all" onOpenTab={onOpenTab} />
     default:
-      if (activeViewId.startsWith('terminal:')) {
-        const encoded = activeViewId.slice('terminal:'.length)
-        let termCwd: string | undefined
-        let termCmd: string | undefined
-        let decoded: string
-        try {
-          decoded = decodeURIComponent(encoded)
-        } catch {
-          decoded = encoded
-        }
-        try {
-          const parsed = JSON.parse(decoded)
-          termCwd = parsed.cwd
-          termCmd = parsed.cmd
-        } catch {
-          termCwd = decoded
-        }
-        return (
-          <Suspense
-            fallback={
-              <div
-                className="content-placeholder"
-                style={{ padding: '24px', color: 'var(--text-secondary)' }}
-              >
-                Loading terminal…
-              </div>
-            }
-          >
-            <TerminalPane
-              key={activeViewId}
-              viewKey={activeViewId}
-              cwd={termCwd}
-              startupCommand={termCmd}
-            />
-          </Suspense>
-        )
-      }
       if (activeViewId.startsWith('bookmarks-category:')) {
         const category = activeViewId.replace('bookmarks-category:', '')
         return (

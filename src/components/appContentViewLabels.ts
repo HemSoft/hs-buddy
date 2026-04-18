@@ -41,32 +41,7 @@ function parseRepoViewId(viewId: string, prefix: string): { repoName: string; su
   }
 }
 
-function safeDecodeURIComponent(value: string): string | null {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return null
-  }
-}
-
 export function getViewLabel(viewId: string): string {
-  if (viewId.startsWith('terminal:')) {
-    const encoded = viewId.slice('terminal:'.length)
-    const decoded = safeDecodeURIComponent(encoded)
-
-    if (decoded === null) {
-      return 'Terminal'
-    }
-
-    try {
-      const parsed = JSON.parse(decoded)
-      const folder = (parsed.cwd || '').split(/[\\/]/).pop()
-      return folder ? `Terminal: ${folder}` : 'Terminal'
-    } catch {
-      const folder = decoded.split(/[\\/]/).pop()
-      return folder ? `Terminal: ${folder}` : 'Terminal'
-    }
-  }
   if (viewId.startsWith('browser:')) {
     try {
       const url = decodeURIComponent(viewId.slice('browser:'.length))

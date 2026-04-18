@@ -44,6 +44,8 @@ export interface AppConfig {
     displayWorkArea: DisplayRect // Saved display work area for robust restore
     showBookmarkedOnly: boolean // Filter org repos to bookmarked only
     assistantOpen: boolean // Whether the Copilot Assistant pane is open
+    terminalOpen: boolean // Whether the bottom terminal panel is open
+    terminalPanelHeight: number // Preferred height of the terminal panel in pixels
     favoriteUsers: string[] // Favorite user keys ('org/login') that sort to the top
     dashboardCards: Record<string, boolean> // Dashboard card visibility (cardId → visible)
   }
@@ -178,6 +180,16 @@ export const configSchema: Schema<AppConfig> = {
         type: 'boolean',
         default: false,
       },
+      terminalOpen: {
+        type: 'boolean',
+        default: false,
+      },
+      terminalPanelHeight: {
+        type: 'number',
+        minimum: 100,
+        maximum: 1200,
+        default: 300,
+      },
       favoriteUsers: {
         type: 'array',
         items: { type: 'string' },
@@ -204,6 +216,8 @@ export const configSchema: Schema<AppConfig> = {
       'displayId',
       'showBookmarkedOnly',
       'assistantOpen',
+      'terminalOpen',
+      'terminalPanelHeight',
       'favoriteUsers',
       'dashboardCards',
     ],
@@ -305,6 +319,8 @@ export const defaultConfig: AppConfig = {
     displayWorkArea: { x: 0, y: 0, width: 0, height: 0 },
     showBookmarkedOnly: false,
     assistantOpen: false,
+    terminalOpen: false,
+    terminalPanelHeight: 300,
     favoriteUsers: [],
     dashboardCards: {},
   },

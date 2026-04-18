@@ -143,37 +143,6 @@ describe('getViewLabel', () => {
     })
   })
 
-  describe('terminal: prefix', () => {
-    it('extracts folder name from JSON cwd', () => {
-      const encoded = encodeURIComponent(JSON.stringify({ cwd: 'D:\\github\\my-repo' }))
-      expect(getViewLabel(`terminal:${encoded}`)).toBe('Terminal: my-repo')
-    })
-
-    it('extracts folder name from plain path', () => {
-      const encoded = encodeURIComponent('D:\\projects\\cool-app')
-      expect(getViewLabel(`terminal:${encoded}`)).toBe('Terminal: cool-app')
-    })
-
-    it('returns "Terminal" when JSON has no cwd', () => {
-      const encoded = encodeURIComponent(JSON.stringify({ cmd: 'npm start' }))
-      expect(getViewLabel(`terminal:${encoded}`)).toBe('Terminal')
-    })
-
-    it('returns "Terminal" for empty cwd in JSON', () => {
-      const encoded = encodeURIComponent(JSON.stringify({ cwd: '' }))
-      expect(getViewLabel(`terminal:${encoded}`)).toBe('Terminal')
-    })
-
-    it('returns "Terminal" for malformed percent-encoding', () => {
-      expect(getViewLabel('terminal:%E0%A4%A')).toBe('Terminal')
-    })
-
-    it('extracts folder from forward-slash path', () => {
-      const encoded = encodeURIComponent('/home/user/my-project')
-      expect(getViewLabel(`terminal:${encoded}`)).toBe('Terminal: my-project')
-    })
-  })
-
   describe('browser: prefix', () => {
     it('extracts hostname from a valid URL', () => {
       const encoded = encodeURIComponent('https://example.com/path')

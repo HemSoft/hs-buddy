@@ -9,11 +9,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.733] - 2026-04-18
+
+### Fixed
+
+- Address 3 unresolved PR review comments
+
+## [0.1.732] - 2026-04-18
+
+### Fixed
+
+- Address PR review feedback on useTerminalPanel
+
+## [0.1.731] - 2026-04-18
+
+### Fixed
+
+- Address PR review feedback on terminal panel
+
+## [0.1.730] - 2026-04-18
+
+### Fixed
+
+- Move toggleTerminal side effects out of state updater
+
+## [0.1.729] - 2026-04-18
+
+### Fixed
+
+- Refactor addTerminalTab to avoid side effects inside state updater
+
+## [0.1.728] - 2026-04-18
+
+### Fixed
+
+- Address PR #606 round-4 review comments
+
+## [0.1.727] - 2026-04-18
+
+### Fixed
+
+- Address PR #606 review comments
+- Address PR #606 round-3 review comments
+
+### Changed
+
+- Remove test-pty.mjs debug file
+
+## [0.1.726] - 2026-04-18
+
+### Fixed
+
+- Address PR #606 round-2 review comments
+
+## [0.1.725] - 2026-04-18
+
+### Fixed
+
+- Address PR #606 review comments for terminal panel
+
 ## [0.1.724] - 2026-04-17
 
 ### Fixed
 
 - Make setTabState updaters pure for StrictMode safety
+
+### Added
+
+- Redesign terminal as VS Code-style bottom panel with tabbed sessions
 
 ## [0.1.723] - 2026-04-17
 
@@ -227,7 +290,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve coverage for hooks (+47 tests, 4 files)
 - Add ralph*.ps1 and ralph*.log to .gitignore
-- Untrack ralph*.ps1 now covered by .gitignore
+- Untrack ralph\*.ps1 now covered by .gitignore
 - Remove unused ralph-round-done.mp3 asset
 
 ## [0.1.696] - 2026-04-13
@@ -1701,7 +1764,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Pre-fetch agent-fix/* branches for dispatch runs
+- Pre-fetch agent-fix/\* branches for dispatch runs
 
 ## [0.1.325] - 2026-03-11
 
@@ -1982,7 +2045,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Add target '*' to pr-fixer push-to-pull-request-branch safe-output
+- Add target '\*' to pr-fixer push-to-pull-request-branch safe-output
 
 ## [0.1.215] - 2026-03-01
 

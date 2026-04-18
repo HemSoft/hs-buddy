@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { getSessionId, setSessionId, removeSession } from './terminalSessions'
@@ -22,7 +22,6 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
   const lastResizeRef = useRef<{ cols: number; rows: number } | null>(null)
   /** Cursor from the last attach — data events with seq ≤ this are already in the buffer */
   const attachCursorRef = useRef<number>(0)
-  const [actualCwd, setActualCwd] = useState<string | undefined>(cwd)
 
   useEffect(() => {
     mountedRef.current = true
@@ -136,7 +135,6 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
       }
       sessionIdRef.current = result.sessionId
       setSessionId(viewKey, result.sessionId)
-      if (result.cwd) setActualCwd(result.cwd)
 
       // Flush any output that arrived before sessionIdRef was set
       const attachResult = await window.terminal.attach(result.sessionId)
@@ -226,11 +224,6 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
 
   return (
     <div className="terminal-pane">
-      <div className="terminal-pane-header">
-        <span className="terminal-pane-title">
-          Terminal{actualCwd ? `: ${actualCwd.split(/[\\/]/).pop()}` : ''}
-        </span>
-      </div>
       <div className="terminal-pane-body" ref={containerRef} />
     </div>
   )

@@ -198,6 +198,7 @@ interface Window {
     write: (sessionId: string, data: string) => void
     resize: (sessionId: string, cols: number, rows: number) => void
     kill: (sessionId: string) => Promise<{ success: boolean; error?: string }>
+    resolveRepoPath: (owner: string, repo: string) => Promise<{ path: string | null }>
   }
   copilot: {
     execute: (args: {

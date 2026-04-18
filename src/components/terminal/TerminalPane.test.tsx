@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock terminalSessions before importing the component
@@ -104,18 +104,8 @@ describe('TerminalPane', () => {
   })
 
   it('renders the terminal pane container', () => {
-    render(<TerminalPane viewKey="test-key" />)
-    expect(screen.getByText('Terminal')).toBeInTheDocument()
-  })
-
-  it('displays cwd folder name in header', () => {
-    render(<TerminalPane viewKey="test-key" cwd="D:\\github\\my-repo" />)
-    expect(screen.getByText('Terminal: my-repo')).toBeInTheDocument()
-  })
-
-  it('displays cwd folder name with forward slashes', () => {
-    render(<TerminalPane viewKey="test-key" cwd="/home/user/projects/cool-app" />)
-    expect(screen.getByText('Terminal: cool-app')).toBeInTheDocument()
+    const { container } = render(<TerminalPane viewKey="test-key" />)
+    expect(container.querySelector('.terminal-pane')).toBeInTheDocument()
   })
 
   it('spawns a new PTY session when no existing session', async () => {

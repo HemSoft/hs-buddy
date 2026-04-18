@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Users, Sparkles } from 'lucide-react'
+import { Users, Sparkles, TerminalSquare } from 'lucide-react'
 import { AboutModal } from './AboutModal'
 import './TitleBar.css'
 
@@ -19,9 +19,16 @@ interface Menu {
 interface TitleBarProps {
   assistantOpen?: boolean
   onToggleAssistant?: () => void
+  terminalOpen?: boolean
+  onToggleTerminal?: () => void
 }
 
-export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
+export function TitleBar({
+  assistantOpen,
+  onToggleAssistant,
+  terminalOpen,
+  onToggleTerminal,
+}: TitleBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showAbout, setShowAbout] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
@@ -154,9 +161,18 @@ export function TitleBar({ assistantOpen, onToggleAssistant }: TitleBarProps) {
           <Users size={14} />
         </span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.724</span>
+        <span className="title-version">V0.1.733</span>
       </div>
       <div className="window-controls">
+        <button
+          type="button"
+          className={`window-control-button terminal-toggle-button ${terminalOpen ? 'active' : ''}`}
+          onClick={onToggleTerminal}
+          title="Toggle Terminal (Ctrl+`)"
+          aria-label="Toggle Terminal (Ctrl+`)"
+        >
+          <TerminalSquare size={14} />
+        </button>
         <button
           className={`window-control-button copilot-toggle-button ${assistantOpen ? 'active' : ''}`}
           onClick={onToggleAssistant}

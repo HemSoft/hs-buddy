@@ -27,15 +27,14 @@ function getFileName(filePath: string): string {
 export function FilePreview({ filePath }: FilePreviewProps) {
   const [data, setData] = useState<FileData | null>(null)
   const [loading, setLoading] = useState(true)
-  const prevPathRef = useRef<string>('')
   const codeRef = useRef<HTMLPreElement>(null)
 
   useEffect(() => {
-    if (!filePath || filePath === prevPathRef.current) return
-    prevPathRef.current = filePath
+    if (!filePath) return
 
     let cancelled = false
     setLoading(true)
+    setData(null)
     window.filesystem
       .readFile(filePath)
       .then(result => {

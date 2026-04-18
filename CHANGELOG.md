@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-resolve cwd on tab restore
 - Track working directory via OSC 7 for accurate persistence
 - Inject OSC 7 prompt wrapper at shell spawn
+- File preview stuck on Loading due to StrictMode double-mount
 
 ### Added
 

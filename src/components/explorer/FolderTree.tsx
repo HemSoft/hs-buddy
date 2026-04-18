@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File } from 'lucide-react'
 import './FolderTree.css'
 
@@ -28,7 +28,6 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
   const [nodes, setNodes] = useState<TreeNode[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const prevRootRef = useRef(rootPath)
 
   const loadDirectory = useCallback(async (dirPath: string): Promise<TreeNode[]> => {
     const result = await window.filesystem.readDir(dirPath)
@@ -46,13 +45,11 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
   // Load root directory
   useEffect(() => {
     if (!rootPath) return
-    // Avoid reloading if root hasn't changed
-    if (prevRootRef.current === rootPath && nodes.length > 0) return
-    prevRootRef.current = rootPath
 
     let cancelled = false
     setLoading(true)
     setError(null)
+    setNodes([])
     loadDirectory(rootPath)
       .then(loaded => {
         if (!cancelled) setNodes(loaded)
@@ -64,7 +61,7 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [rootPath, loadDirectory, nodes.length])
+  }, [rootPath, loadDirectory])
 
   const toggleExpand = useCallback(async (nodePath: string) => {
     setNodes(prev => {

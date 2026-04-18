@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Patch resolver BEFORE spawn, not on require failure
 - Use process.dlopen fallback for native module loading
 - Prevent double output from React StrictMode double-mount
+- Sash width was 4px, preventing resize drag
 
 ### Added
 

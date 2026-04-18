@@ -25,13 +25,18 @@
   --sash-hover-size: 4px;
 }
 
-.sash {
+.sash.sash-vertical {
   background-color: var(--sash-bg) !important;
   width: 4px !important;
 }
 
-/* Vertical allotment sashes (e.g., terminal panel) need a taller grab area */
-[class*='split-view-container'][class*='vertical'] > [class*='sash-container'] > .sash {
+.sash.sash-horizontal {
+  background-color: var(--sash-bg) !important;
+  height: 4px !important;
+}
+
+/* Horizontal sashes (e.g., terminal panel) need a wider grab area */
+.sash.sash-horizontal {
   --sash-hover-size: 8px;
 }
 

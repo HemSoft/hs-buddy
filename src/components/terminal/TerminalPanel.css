@@ -15,11 +15,7 @@
   border-top: 1px solid var(--border-color, #333);
   transition: background-color 0.15s, color 0.15s;
   flex-shrink: 0;
-}
-
-.terminal-panel-resize-grip:hover {
-  background: var(--sash-hover, #505055);
-  color: var(--text-primary, #ccc);
+  pointer-events: none;
 }
 
 .terminal-panel-header {

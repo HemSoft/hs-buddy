@@ -18,13 +18,14 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const sessionIdRef = useRef<string | null>(null)
-  const mountedRef = useRef(true)
   const lastResizeRef = useRef<{ cols: number; rows: number } | null>(null)
   /** Cursor from the last attach — data events with seq ≤ this are already in the buffer */
   const attachCursorRef = useRef<number>(0)
 
   useEffect(() => {
-    mountedRef.current = true
+    // Per-invocation flag — set to false in cleanup so stale async flows
+    // from React StrictMode's double-mount don't register duplicate listeners.
+    let active = true
     const container = containerRef.current
     if (!container) return
 
@@ -69,7 +70,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
     // Canvas-based renderers measure at open() time; if the font hasn't loaded
     // yet, powerline/icon glyphs render as boxes until a re-measure is triggered.
     void document.fonts.load(`14px ${NERD_FONT_FAMILY}`).then(() => {
-      if (mountedRef.current && termRef.current) {
+      if (active && termRef.current) {
         termRef.current.options.fontFamily = FULL_FONT_FAMILY
       }
     })
@@ -97,7 +98,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
           sessionIdRef.current = existingSessionId
           const result = await window.terminal.attach(existingSessionId)
 
-          if (!mountedRef.current) return
+          if (!active) return
 
           if (result.success && result.buffer) {
             term.write(result.buffer)
@@ -111,15 +112,15 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
           if (!result.success) {
             // Session was cleaned up — spawn fresh
             removeSession(viewKey)
-            if (!mountedRef.current) return
+            if (!active) return
             await spawnNew()
           }
         } else {
-          if (!mountedRef.current) return
+          if (!active) return
           await spawnNew()
         }
       } catch (error) {
-        if (!mountedRef.current) return
+        if (!active) return
         term.writeln('\r\n\x1b[31m[Failed to initialize terminal session]\x1b[0m')
         console.error('Failed to initialize terminal session', error)
       }
@@ -133,8 +134,8 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
         startupCommand,
       })
 
-      // If unmounted while spawn was in flight, kill the orphaned PTY immediately
-      if (!mountedRef.current) {
+      // If deactivated while spawn was in flight, kill the orphaned PTY immediately
+      if (!active) {
         if (result.success && result.sessionId) {
           void window.terminal.kill(result.sessionId)
         }
@@ -151,7 +152,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
 
       // Flush any output that arrived before sessionIdRef was set
       const attachResult = await window.terminal.attach(result.sessionId)
-      if (!mountedRef.current) return
+      if (!active) return
       if (attachResult.success && attachResult.buffer) {
         term.write(attachResult.buffer)
       }
@@ -188,7 +189,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
     // preventing duplicate output from racing IPC events.
     void (async () => {
       await initSession()
-      if (!mountedRef.current) return
+      if (!active) return
       window.ipcRenderer.on('terminal:data', onData)
       window.ipcRenderer.on('terminal:exit', onSessionExit)
     })()
@@ -219,7 +220,7 @@ export function TerminalPane({ viewKey, cwd, startupCommand, onExit }: TerminalP
     resizeObserver.observe(container)
 
     return () => {
-      mountedRef.current = false
+      active = false
       resizeObserver.disconnect()
       if (resizeTimer) clearTimeout(resizeTimer)
       inputDisposable.dispose()

@@ -39,11 +39,20 @@ export function TerminalPanel({
   onTabCwdChange,
   onOpenFolderView,
 }: TerminalPanelProps) {
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: TerminalTab } | null>(
-    null
-  )
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number
+    y: number
+    tab: TerminalTab
+  } | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragTabIdRef = useRef<string | null>(null)
+
+  // Clear stale context menu when switching tabs so it doesn't resurrect on return
+  useEffect(() => {
+    setContextMenuState(null)
+  }, [activeTabId])
+
+  const contextMenu = contextMenuState
 
   const handleTabClose = useCallback(
     (e: SyntheticEvent, tabId: string) => {
@@ -55,13 +64,8 @@ export function TerminalPanel({
 
   const handleContextMenu = useCallback((e: React.MouseEvent, tab: TerminalTab) => {
     e.preventDefault()
-    setContextMenu({ x: e.clientX, y: e.clientY, tab })
+    setContextMenuState({ x: e.clientX, y: e.clientY, tab })
   }, [])
-
-  // Close context menu when active tab changes
-  useEffect(() => {
-    setContextMenu(null)
-  }, [activeTabId])
 
   const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
     dragTabIdRef.current = tabId
@@ -167,7 +171,7 @@ export function TerminalPanel({
           onRename={onRenameTab}
           onSetColor={onSetTabColor}
           onOpenFolderView={onOpenFolderView}
-          onClose={() => setContextMenu(null)}
+          onClose={() => setContextMenuState(null)}
         />
       )}
     </div>

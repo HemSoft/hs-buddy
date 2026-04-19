@@ -11,6 +11,69 @@ interface BookmarksSidebarProps {
   selectedItem: string | null
 }
 
+type DragOver = { id: string; position: 'above' | 'below' } | null
+
+interface BookmarkItemProps {
+  bm: { _id: string; url: string; title: string; faviconUrl?: string }
+  selectedItem: string | null
+  dragOver: DragOver
+  paddingLeft: string
+  onItemSelect: (viewId: string) => void
+  onContextMenu: (e: React.MouseEvent, id: string) => void
+  onDragStart: (e: React.DragEvent, id: string) => void
+  onDragOver: (e: React.DragEvent, id: string) => void
+  onDragEnd: () => void
+  onDrop: (e: React.DragEvent, id: string) => void
+}
+
+function BookmarkItem({
+  bm,
+  selectedItem,
+  dragOver,
+  paddingLeft,
+  onItemSelect,
+  onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+}: BookmarkItemProps) {
+  const bmViewId = `browser:${encodeURIComponent(bm.url)}`
+  return (
+    <div
+      key={bm._id}
+      className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''} ${dragOver && dragOver.id === bm._id ? `drag-over-${dragOver.position}` : ''}`}
+      style={{ paddingLeft }}
+      onClick={() => onItemSelect(bmViewId)}
+      onContextMenu={e => onContextMenu(e, bm._id)}
+      draggable
+      onDragStart={e => onDragStart(e, bm._id)}
+      onDragOver={e => onDragOver(e, bm._id)}
+      onDragEnd={onDragEnd}
+      onDrop={e => onDrop(e, bm._id)}
+      role="button"
+      tabIndex={0}
+      title={bm.url}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onItemSelect(bmViewId)
+        }
+      }}
+    >
+      <span className="sidebar-item-chevron" style={{ width: 12 }} />
+      <span className="sidebar-item-icon">
+        {bm.faviconUrl && isSafeImageUrl(bm.faviconUrl) ? (
+          <img src={bm.faviconUrl} alt="" width={14} height={14} style={{ borderRadius: 2 }} />
+        ) : (
+          <Globe size={14} />
+        )}
+      </span>
+      <span className="sidebar-item-label">{bm.title}</span>
+    </div>
+  )
+}
+
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [contextMenu, setContextMenu] = useState<{
@@ -21,8 +84,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   const [editingBookmark, setEditingBookmark] = useState<
     NonNullable<typeof bookmarks>[number] | null
   >(null)
-  const [dragOverId, setDragOverId] = useState<string | null>(null)
-  const [dragOverPosition, setDragOverPosition] = useState<'above' | 'below'>('below')
+  const [dragOver, setDragOver] = useState<DragOver>(null)
   const draggedIdRef = useRef<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const bookmarks = useBookmarks()
@@ -58,13 +120,12 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     e.dataTransfer.dropEffect = 'move'
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const midY = rect.top + rect.height / 2
-    setDragOverId(targetId)
-    setDragOverPosition(e.clientY < midY ? 'above' : 'below')
+    setDragOver({ id: targetId, position: e.clientY < midY ? 'above' : 'below' })
   }, [])
 
   const handleDragEnd = useCallback(() => {
     draggedIdRef.current = null
-    setDragOverId(null)
+    setDragOver(null)
   }, [])
 
   const handleDrop = useCallback(
@@ -72,7 +133,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       e.preventDefault()
       const draggedId = draggedIdRef.current
       draggedIdRef.current = null
-      setDragOverId(null)
+      setDragOver(null)
       if (!draggedId || draggedId === targetId) return
 
       const list = [...categoryBookmarks]
@@ -141,7 +202,6 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       list.push(b)
       map.set(b.category, list)
     })
-    // Sort each category's bookmarks by sortOrder
     for (const [, list] of map) {
       list.sort((a, b) => a.sortOrder - b.sortOrder)
     }
@@ -202,49 +262,21 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
           {hasChildren && isExpanded && (
             <>
               {node.children.map(child => renderCategoryNode(child, depth + 1))}
-              {directBookmarks.map(bm => {
-                const bmViewId = `browser:${encodeURIComponent(bm.url)}`
-                const isDragTarget = dragOverId === bm._id
-                return (
-                  <div
-                    key={bm._id}
-                    className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''} ${isDragTarget ? `drag-over-${dragOverPosition}` : ''}`}
-                    style={{ paddingLeft: `${12 + (depth + 1) * 16}px` }}
-                    onClick={() => onItemSelect(bmViewId)}
-                    onContextMenu={e => handleContextMenu(e, bm._id)}
-                    draggable
-                    onDragStart={e => handleDragStart(e, bm._id)}
-                    onDragOver={e => handleDragOver(e, bm._id)}
-                    onDragEnd={handleDragEnd}
-                    onDrop={e => handleDrop(e, bm._id, directBookmarks)}
-                    role="button"
-                    tabIndex={0}
-                    title={bm.url}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        onItemSelect(bmViewId)
-                      }
-                    }}
-                  >
-                    <span className="sidebar-item-chevron" style={{ width: 12 }} />
-                    <span className="sidebar-item-icon">
-                      {bm.faviconUrl && isSafeImageUrl(bm.faviconUrl) ? (
-                        <img
-                          src={bm.faviconUrl}
-                          alt=""
-                          width={14}
-                          height={14}
-                          style={{ borderRadius: 2 }}
-                        />
-                      ) : (
-                        <Globe size={14} />
-                      )}
-                    </span>
-                    <span className="sidebar-item-label">{bm.title}</span>
-                  </div>
-                )
-              })}
+              {directBookmarks.map(bm => (
+                <BookmarkItem
+                  key={bm._id}
+                  bm={bm}
+                  selectedItem={selectedItem}
+                  dragOver={dragOver}
+                  paddingLeft={`${12 + (depth + 1) * 16}px`}
+                  onItemSelect={onItemSelect}
+                  onContextMenu={handleContextMenu}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                  onDrop={e => handleDrop(e, bm._id, directBookmarks)}
+                />
+              ))}
             </>
           )}
         </div>
@@ -261,8 +293,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       handleDragOver,
       handleDragEnd,
       handleDrop,
-      dragOverId,
-      dragOverPosition,
+      dragOver,
     ]
   )
 
@@ -275,54 +306,25 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       <div className="sidebar-panel-content">
         {categoryTree.length > 0 ? (
           categoryTree.flatMap(node => {
-            // Skip empty-name root nodes — render their children directly
             if (!node.name) {
               const uncatBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
               return [
                 ...node.children.map(child => renderCategoryNode(child, 0)),
-                ...uncatBookmarks.map(bm => {
-                  const bmViewId = `browser:${encodeURIComponent(bm.url)}`
-                  const isDragTarget = dragOverId === bm._id
-                  return (
-                    <div
-                      key={bm._id}
-                      className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''} ${isDragTarget ? `drag-over-${dragOverPosition}` : ''}`}
-                      style={{ paddingLeft: '12px' }}
-                      onClick={() => onItemSelect(bmViewId)}
-                      onContextMenu={e => handleContextMenu(e, bm._id)}
-                      draggable
-                      onDragStart={e => handleDragStart(e, bm._id)}
-                      onDragOver={e => handleDragOver(e, bm._id)}
-                      onDragEnd={handleDragEnd}
-                      onDrop={e => handleDrop(e, bm._id, uncatBookmarks)}
-                      role="button"
-                      tabIndex={0}
-                      title={bm.url}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          onItemSelect(bmViewId)
-                        }
-                      }}
-                    >
-                      <span className="sidebar-item-chevron" style={{ width: 12 }} />
-                      <span className="sidebar-item-icon">
-                        {bm.faviconUrl && isSafeImageUrl(bm.faviconUrl) ? (
-                          <img
-                            src={bm.faviconUrl}
-                            alt=""
-                            width={14}
-                            height={14}
-                            style={{ borderRadius: 2 }}
-                          />
-                        ) : (
-                          <Globe size={14} />
-                        )}
-                      </span>
-                      <span className="sidebar-item-label">{bm.title}</span>
-                    </div>
-                  )
-                }),
+                ...uncatBookmarks.map(bm => (
+                  <BookmarkItem
+                    key={bm._id}
+                    bm={bm}
+                    selectedItem={selectedItem}
+                    dragOver={dragOver}
+                    paddingLeft="12px"
+                    onItemSelect={onItemSelect}
+                    onContextMenu={handleContextMenu}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                    onDrop={e => handleDrop(e, bm._id, uncatBookmarks)}
+                  />
+                )),
               ]
             }
             return [renderCategoryNode(node, 0)]

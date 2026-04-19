@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useReducer, useEffect, useRef, useMemo } from 'react'
 import { codeToHtml, type BundledLanguage } from 'shiki'
 import { FileText, AlertCircle } from 'lucide-react'
 import './FilePreview.css'
@@ -12,6 +12,32 @@ interface FileData {
   language: string
   size: number
   error?: string
+}
+
+type FilePreviewState = { data: FileData | null; highlightedHtml: string; loading: boolean }
+type FilePreviewAction =
+  | { type: 'load-start' }
+  | { type: 'load-success'; data: FileData }
+  | { type: 'load-error' }
+  | { type: 'set-highlight'; html: string }
+
+function filePreviewReducer(state: FilePreviewState, action: FilePreviewAction): FilePreviewState {
+  switch (action.type) {
+    case 'load-start':
+      return { data: null, highlightedHtml: '', loading: true }
+    case 'load-success':
+      return { ...state, data: action.data, loading: false }
+    case 'load-error':
+      return {
+        ...state,
+        data: { content: '', language: 'plaintext', size: 0, error: 'Failed to load file' },
+        loading: false,
+      }
+    case 'set-highlight':
+      return { ...state, highlightedHtml: action.html }
+    default:
+      return state
+  }
 }
 
 function formatFileSize(bytes: number): string {
@@ -38,9 +64,12 @@ function toShikiLang(lang: string): BundledLanguage {
 }
 
 export function FilePreview({ filePath }: FilePreviewProps) {
-  const [data, setData] = useState<FileData | null>(null)
-  const [highlightedHtml, setHighlightedHtml] = useState<string>('')
-  const [loading, setLoading] = useState(true)
+  const [state, dispatch] = useReducer(filePreviewReducer, {
+    data: null,
+    highlightedHtml: '',
+    loading: true,
+  })
+  const { data, highlightedHtml, loading } = state
   const contentRef = useRef<HTMLDivElement>(null)
 
   // Load the file
@@ -48,20 +77,14 @@ export function FilePreview({ filePath }: FilePreviewProps) {
     if (!filePath) return
 
     let cancelled = false
-    setLoading(true)
-    setData(null)
-    setHighlightedHtml('')
+    dispatch({ type: 'load-start' })
     window.filesystem
       .readFile(filePath)
       .then(result => {
-        if (!cancelled) setData(result)
+        if (!cancelled) dispatch({ type: 'load-success', data: result })
       })
       .catch(() => {
-        if (!cancelled)
-          setData({ content: '', language: 'plaintext', size: 0, error: 'Failed to load file' })
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) dispatch({ type: 'load-error' })
       })
     return () => {
       cancelled = true
@@ -72,7 +95,7 @@ export function FilePreview({ filePath }: FilePreviewProps) {
   useEffect(() => {
     if (!data?.content || data.error) return
     if (data.content === '') {
-      setHighlightedHtml('')
+      dispatch({ type: 'set-highlight', html: '' })
       return
     }
 
@@ -85,16 +108,17 @@ export function FilePreview({ filePath }: FilePreviewProps) {
       theme: 'dark-plus',
     })
       .then(html => {
-        if (!cancelled && html.includes('class="shiki')) setHighlightedHtml(html)
+        if (!cancelled && html.includes('class="shiki')) dispatch({ type: 'set-highlight', html })
       })
       .catch(() => {
         if (!cancelled) {
           codeToHtml(content, { lang: 'text', theme: 'dark-plus' })
             .then(html => {
-              if (!cancelled && html.includes('class="shiki')) setHighlightedHtml(html)
+              if (!cancelled && html.includes('class="shiki'))
+                dispatch({ type: 'set-highlight', html })
             })
             .catch(() => {
-              if (!cancelled) setHighlightedHtml('')
+              if (!cancelled) dispatch({ type: 'set-highlight', html: '' })
             })
         }
       })

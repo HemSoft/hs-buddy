@@ -44,10 +44,10 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
       case 'daily':
         return `Runs daily at ${fmtTime(hour, minute)}`
       case 'weekly': {
-        const dayNames = [...selectedDays]
-          .sort()
-          .map(d => DAYS_OF_WEEK.find(day => day.value === d)?.label)
-          .filter(Boolean)
+        const dayNames = [...selectedDays].sort().flatMap(d => {
+          const label = DAYS_OF_WEEK.find(day => day.value === d)?.label
+          return label ? [label] : []
+        })
         return `Runs every ${dayNames.join(', ')} at ${fmtTime(hour, minute)}`
       }
       case 'monthly':

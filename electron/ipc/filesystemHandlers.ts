@@ -108,6 +108,7 @@ function detectLanguage(filePath: string): string {
 
 interface DirEntry {
   name: string
+  path: string
   type: 'file' | 'directory'
   size: number
 }
@@ -136,6 +137,7 @@ export function registerFilesystemHandlers(): void {
             const st = await stat(fullPath)
             entries.push({
               name: item.name,
+              path: fullPath,
               type: item.isDirectory() ? 'directory' : 'file',
               size: st.size,
             })

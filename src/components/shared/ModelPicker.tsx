@@ -153,7 +153,7 @@ export function ModelPicker({
           display: 'flex',
           alignItems: 'center',
           gap: '4px',
-          fontSize: '11px',
+          fontSize: '12px',
           color: 'var(--text-secondary)',
         }}
       >

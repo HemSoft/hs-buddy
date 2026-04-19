@@ -9,20 +9,30 @@ const win = window as any
  * Mock data for filesystem API responses
  */
 const mockRootEntries = [
-  { name: 'node_modules', type: 'directory' as const, size: 0 },
-  { name: 'src', type: 'directory' as const, size: 0 },
-  { name: 'package.json', type: 'file' as const, size: 245 },
+  { name: 'node_modules', path: 'C:\\project\\node_modules', type: 'directory' as const, size: 0 },
+  { name: 'src', path: 'C:\\project\\src', type: 'directory' as const, size: 0 },
+  { name: 'package.json', path: 'C:\\project\\package.json', type: 'file' as const, size: 245 },
 ]
 
 const mockSrcEntries = [
-  { name: 'components', type: 'directory' as const, size: 0 },
-  { name: 'utils', type: 'directory' as const, size: 0 },
-  { name: 'main.tsx', type: 'file' as const, size: 512 },
+  { name: 'components', path: 'C:\\project\\src\\components', type: 'directory' as const, size: 0 },
+  { name: 'utils', path: 'C:\\project\\src\\utils', type: 'directory' as const, size: 0 },
+  { name: 'main.tsx', path: 'C:\\project\\src\\main.tsx', type: 'file' as const, size: 512 },
 ]
 
 const mockComponentsEntries = [
-  { name: 'Button.tsx', type: 'file' as const, size: 128 },
-  { name: 'Modal.tsx', type: 'file' as const, size: 256 },
+  {
+    name: 'Button.tsx',
+    path: 'C:\\project\\src\\components\\Button.tsx',
+    type: 'file' as const,
+    size: 128,
+  },
+  {
+    name: 'Modal.tsx',
+    path: 'C:\\project\\src\\components\\Modal.tsx',
+    type: 'file' as const,
+    size: 256,
+  },
 ]
 
 /**

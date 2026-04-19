@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, FolderGit2, Plus, Trash2, Circle } from 'lucide-react'
 import { useEffect, useCallback, useReducer } from 'react'
 import type { CrewProject, CrewSession } from '../../types/crew'
+import './Crew.css'
 
 interface CrewSidebarProps {
   onItemSelect: (itemId: string) => void
@@ -159,20 +160,10 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
         <h2>THE CREW</h2>
         <button
           type="button"
-          className="sidebar-header-action"
+          className="sidebar-header-action crew-add-project-btn"
           onClick={handleAddProject}
           disabled={isAddingProject}
           title="Add Project"
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: isAddingProject ? 'wait' : 'pointer',
-            color: 'inherit',
-            padding: '2px',
-            display: 'flex',
-            alignItems: 'center',
-            opacity: isAddingProject ? 0.6 : 1,
-          }}
         >
           <Plus size={16} />
         </button>
@@ -242,19 +233,9 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
                       </button>
                       <button
                         type="button"
-                        className="sidebar-item-action"
+                        className="sidebar-item-action crew-remove-project-btn"
                         onClick={e => handleRemoveProject(e, project.id)}
                         title="Remove project"
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: 'inherit',
-                          padding: '2px',
-                          opacity: 0.5,
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
                       >
                         <Trash2 size={12} />
                       </button>

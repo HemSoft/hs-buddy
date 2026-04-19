@@ -541,10 +541,10 @@ Rules:
       return
     }
 
-    const tags = state.tagsInput
-      .split(',')
-      .map(t => t.trim())
-      .filter(Boolean)
+    const tags = state.tagsInput.split(',').flatMap(t => {
+      const trimmed = t.trim()
+      return trimmed ? [trimmed] : []
+    })
 
     if (tags.length > 50) {
       dispatch({ type: 'setError', value: 'Maximum 50 tags allowed' })

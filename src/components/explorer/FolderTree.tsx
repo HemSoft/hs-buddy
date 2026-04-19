@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useReducer, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File } from 'lucide-react'
 import './FolderTree.css'
 
 interface DirEntry {
   name: string
+  path: string
   type: 'file' | 'directory'
   size: number
 }
@@ -24,10 +25,35 @@ interface FolderTreeProps {
   selectedFile?: string
 }
 
+type FolderTreeState = { nodes: TreeNode[]; loading: boolean; error: string | null }
+type FolderTreeAction =
+  | { type: 'root-load-start' }
+  | { type: 'root-load-success'; nodes: TreeNode[] }
+  | { type: 'root-load-error'; error: string }
+  | { type: 'update-nodes'; updater: (nodes: TreeNode[]) => TreeNode[] }
+
+function folderTreeReducer(state: FolderTreeState, action: FolderTreeAction): FolderTreeState {
+  switch (action.type) {
+    case 'root-load-start':
+      return { nodes: [], loading: true, error: null }
+    case 'root-load-success':
+      return { ...state, nodes: action.nodes, loading: false }
+    case 'root-load-error':
+      return { ...state, error: action.error, loading: false }
+    case 'update-nodes':
+      return { ...state, nodes: action.updater(state.nodes) }
+    default:
+      return state
+  }
+}
+
 export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeProps) {
-  const [nodes, setNodes] = useState<TreeNode[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [state, dispatch] = useReducer(folderTreeReducer, {
+    nodes: [],
+    loading: false,
+    error: null,
+  })
+  const { nodes, loading, error } = state
   const pendingLoads = useRef(new Set<string>())
   const mountedRef = useRef(true)
   const nodesRef = useRef<TreeNode[]>([])
@@ -47,7 +73,7 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
     if (result.error) throw new Error(result.error)
     return result.entries.map((entry: DirEntry) => ({
       name: entry.name,
-      path: `${dirPath}\\${entry.name}`,
+      path: entry.path,
       type: entry.type,
       size: entry.size,
       loaded: false,
@@ -60,18 +86,17 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
     if (!rootPath) return
 
     let cancelled = false
-    setLoading(true)
-    setError(null)
-    setNodes([])
+    dispatch({ type: 'root-load-start' })
     loadDirectory(rootPath)
       .then(loaded => {
-        if (!cancelled) setNodes(loaded)
+        if (!cancelled) dispatch({ type: 'root-load-success', nodes: loaded })
       })
       .catch(err => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load directory')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled)
+          dispatch({
+            type: 'root-load-error',
+            error: err instanceof Error ? err.message : 'Failed to load directory',
+          })
       })
     return () => {
       cancelled = true
@@ -98,19 +123,22 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
         !target.loaded &&
         !pendingLoads.current.has(nodePath)
 
-      setNodes(prev => {
-        const update = (items: TreeNode[]): TreeNode[] =>
-          items.map(node => {
-            if (node.path === nodePath) {
-              if (node.type !== 'directory') return node
-              return { ...node, expanded: !node.expanded }
-            }
-            if (node.children) {
-              return { ...node, children: update(node.children) }
-            }
-            return node
-          })
-        return update(prev)
+      dispatch({
+        type: 'update-nodes',
+        updater: prev => {
+          const update = (items: TreeNode[]): TreeNode[] =>
+            items.map(node => {
+              if (node.path === nodePath) {
+                if (node.type !== 'directory') return node
+                return { ...node, expanded: !node.expanded }
+              }
+              if (node.children) {
+                return { ...node, children: update(node.children) }
+              }
+              return node
+            })
+          return update(prev)
+        },
       })
 
       if (needsLoad) {
@@ -118,18 +146,21 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
         try {
           const children = await loadDirectory(nodePath)
           if (!mountedRef.current) return
-          setNodes(prev => {
-            const update = (items: TreeNode[]): TreeNode[] =>
-              items.map(node => {
-                if (node.path === nodePath) {
-                  return { ...node, children, loaded: true, expanded: true }
-                }
-                if (node.children) {
-                  return { ...node, children: update(node.children) }
-                }
-                return node
-              })
-            return update(prev)
+          dispatch({
+            type: 'update-nodes',
+            updater: prev => {
+              const update = (items: TreeNode[]): TreeNode[] =>
+                items.map(node => {
+                  if (node.path === nodePath) {
+                    return { ...node, children, loaded: true }
+                  }
+                  if (node.children) {
+                    return { ...node, children: update(node.children) }
+                  }
+                  return node
+                })
+              return update(prev)
+            },
           })
         } catch {
           // Silently fail on subdirectory load errors

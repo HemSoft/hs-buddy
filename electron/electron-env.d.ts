@@ -183,7 +183,7 @@ interface Window {
   }
   filesystem: {
     readDir: (dirPath: string) => Promise<{
-      entries: Array<{ name: string; type: 'file' | 'directory'; size: number }>
+      entries: Array<{ name: string; path: string; type: 'file' | 'directory'; size: number }>
       error?: string
     }>
     readFile: (filePath: string) => Promise<{

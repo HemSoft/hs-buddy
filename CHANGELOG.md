@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mock getBoundingClientRect before opening context menu in overflow tests
 - Address PR review comments - remove duplicate tests and fix Convex sync test
 - Use Object.defineProperty for viewport mocking in TabBar tests
+- Improve react-doctor score from 93 to 99/100
+- Address PR review comments for react-doctor improvements
+- Address PR review comments — null-safe dragOver and accurate PR description
+- Clear context menu state on tab change to prevent stale resurrection
+- Preserve expanded state during async directory load
 
 ### Changed
 

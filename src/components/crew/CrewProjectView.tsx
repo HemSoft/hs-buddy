@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import type { CrewProject, CrewSession, CrewChatMessage } from '../../types/crew'
+import './Crew.css'
 
 interface CrewProjectViewProps {
   projectId: string
@@ -81,22 +82,8 @@ function ProjectHeader({ project }: ProjectHeaderProps) {
 
 function SessionStarter({ onStartSession }: SessionStarterProps) {
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <button
-        onClick={onStartSession}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '10px 20px',
-          background: 'var(--accent-primary, #0e639c)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '13px',
-        }}
-      >
+    <div className="crew-session-starter">
+      <button onClick={onStartSession} className="crew-start-btn">
         <Plus size={16} /> Start Session
       </button>
     </div>
@@ -130,7 +117,7 @@ function ConversationHistory({
               msg.role === 'assistant' ? '3px solid var(--accent-primary, #0e639c)' : 'none',
           }}
         >
-          <div style={{ fontSize: '11px', opacity: 0.6, marginBottom: '4px' }}>
+          <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>
             {msg.role === 'user' ? 'You' : 'Copilot'}
           </div>
           <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{msg.content}</div>
@@ -170,7 +157,7 @@ function ChangedFilesPanel({ changedFiles, onKeepFile, onUndoFile }: ChangedFile
     >
       <div
         style={{
-          fontSize: '11px',
+          fontSize: '12px',
           fontWeight: 600,
           marginBottom: '6px',
           opacity: 0.7,
@@ -251,15 +238,7 @@ function MessageComposer({
   const sendDisabled = sending || !message.trim()
 
   return (
-    <div
-      style={{
-        borderTop: '1px solid var(--bg-secondary, #333)',
-        padding: '12px 16px',
-        display: 'flex',
-        gap: '8px',
-        alignItems: 'flex-end',
-      }}
-    >
+    <div className="crew-chat-input-area">
       <textarea
         value={message}
         onChange={event => onMessageChange(event.target.value)}
@@ -267,50 +246,12 @@ function MessageComposer({
         placeholder="Ask Copilot about this project…"
         rows={2}
         disabled={sending}
-        style={{
-          flex: 1,
-          resize: 'none',
-          background: 'var(--bg-secondary, #252526)',
-          color: 'inherit',
-          border: '1px solid var(--bg-secondary, #333)',
-          borderRadius: '4px',
-          padding: '8px',
-          fontSize: '13px',
-          fontFamily: 'inherit',
-        }}
+        className="crew-chat-textarea"
       />
-      <button
-        onClick={onSendMessage}
-        disabled={sendDisabled}
-        style={{
-          background: 'var(--accent-primary, #0e639c)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          padding: '8px',
-          cursor: sendDisabled ? 'default' : 'pointer',
-          opacity: sendDisabled ? 0.5 : 1,
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
+      <button onClick={onSendMessage} disabled={sendDisabled} className="crew-chat-send-btn">
         <Send size={16} />
       </button>
-      <button
-        onClick={onClearSession}
-        title="Clear session"
-        style={{
-          background: 'none',
-          color: 'inherit',
-          border: '1px solid var(--bg-secondary, #333)',
-          borderRadius: '4px',
-          padding: '8px',
-          cursor: 'pointer',
-          opacity: 0.6,
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
+      <button onClick={onClearSession} title="Clear session" className="crew-chat-clear-btn">
         <Trash2 size={16} />
       </button>
     </div>

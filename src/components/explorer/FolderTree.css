@@ -25,6 +25,7 @@
 
 .folder-tree-node {
   list-style: none;
+  outline: none;
 }
 
 .folder-tree-row {
@@ -36,7 +37,6 @@
   cursor: pointer;
   border-radius: 3px;
   transition: background-color 0.1s;
-  outline: none;
 }
 
 .folder-tree-row:hover {
@@ -48,7 +48,7 @@
   color: var(--text-primary, #ccc);
 }
 
-.folder-tree-row:focus-visible {
+.folder-tree-node:focus-visible > .folder-tree-row {
   outline: 1px solid var(--accent-color, #007acc);
   outline-offset: -1px;
 }

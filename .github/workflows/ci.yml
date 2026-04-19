@@ -49,6 +49,7 @@ jobs:
         continue-on-error: true
 
       - name: Run tests with coverage
+        if: ${{ !cancelled() }}
         run: bun run test:coverage
 
       - name: Report coverage summary
@@ -73,20 +74,32 @@ jobs:
       - name: Prepare coverage artifacts for scorecard
         if: always()
         run: |
+          mkdir -p coverage-upload
           if [ -f coverage/cobertura-coverage.xml ]; then
             # Strip DOCTYPE to avoid DTD resolution failures in downstream parsers
-            sed -i '/<!DOCTYPE/d' coverage/cobertura-coverage.xml
+            # Use grep -v to write a clean copy (avoids sed -i portability issues)
+            grep -v '<!DOCTYPE' coverage/cobertura-coverage.xml > coverage-upload/cobertura-coverage.xml || true
+            if [ ! -s coverage-upload/cobertura-coverage.xml ]; then
+              echo "::warning::Failed to create cleaned Cobertura XML (file missing or empty)"
+              rm -f coverage-upload/cobertura-coverage.xml
+            elif grep -q '<!DOCTYPE' coverage-upload/cobertura-coverage.xml; then
+              echo "::warning::DOCTYPE still present — removing Cobertura XML to prevent parser hangs"
+              rm -f coverage-upload/cobertura-coverage.xml
+            else
+              echo "✓ DOCTYPE stripped from Cobertura XML"
+            fi
           fi
+          # Copy remaining coverage files flat for scorecard compatibility
+          [ -f coverage/coverage-summary.json ] && cp coverage/coverage-summary.json coverage-upload/
+          [ -f coverage/lcov.info ] && cp coverage/lcov.info coverage-upload/
+          ls -la coverage-upload/ 2>/dev/null || echo "::warning::No coverage files to upload"
 
       - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: cobertura-coverage
-          path: |
-            coverage/cobertura-coverage.xml
-            coverage/coverage-summary.json
-            coverage/lcov.info
+          path: coverage-upload/*
           if-no-files-found: warn
           retention-days: 30
 

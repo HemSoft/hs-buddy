@@ -25,6 +25,7 @@ const defaultHandlers = {
   onSetTabColor: vi.fn(),
   onReorderTabs: vi.fn(),
   onTabCwdChange: vi.fn(),
+  onOpenFolderView: vi.fn(),
 }
 
 describe('TerminalPanel', () => {

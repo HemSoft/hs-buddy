@@ -128,7 +128,7 @@ function App() {
     (cwd: string) => {
       openTab(`folder-view:${encodeURIComponent(cwd)}`)
     },
-    [openTab],
+    [openTab]
   )
 
   const assistantContext = useAssistantContext(activeViewId)

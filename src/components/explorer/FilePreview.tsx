@@ -57,12 +57,15 @@ export function FilePreview({ filePath }: FilePreviewProps) {
         if (!cancelled) setData(result)
       })
       .catch(() => {
-        if (!cancelled) setData({ content: '', language: 'plaintext', size: 0, error: 'Failed to load file' })
+        if (!cancelled)
+          setData({ content: '', language: 'plaintext', size: 0, error: 'Failed to load file' })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [filePath])
 
   // Highlight with Shiki once content is loaded
@@ -87,11 +90,17 @@ export function FilePreview({ filePath }: FilePreviewProps) {
       .catch(() => {
         if (!cancelled) {
           codeToHtml(content, { lang: 'text', theme: 'dark-plus' })
-            .then(html => { if (!cancelled && html.includes('class="shiki')) setHighlightedHtml(html) })
-            .catch(() => { if (!cancelled) setHighlightedHtml('') })
+            .then(html => {
+              if (!cancelled && html.includes('class="shiki')) setHighlightedHtml(html)
+            })
+            .catch(() => {
+              if (!cancelled) setHighlightedHtml('')
+            })
         }
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [data])
 
   const lineCount = useMemo(() => {
@@ -134,7 +143,8 @@ export function FilePreview({ filePath }: FilePreviewProps) {
         <FileText size={14} />
         <span className="file-preview-filename">{getFileName(filePath)}</span>
         <span className="file-preview-meta">
-          {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} · {formatFileSize(data.size)}
+          {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} ·{' '}
+          {formatFileSize(data.size)}
         </span>
       </div>
       <div

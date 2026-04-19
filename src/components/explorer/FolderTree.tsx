@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File } from 'lucide-react'
 import './FolderTree.css'
 
@@ -28,6 +28,19 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
   const [nodes, setNodes] = useState<TreeNode[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const pendingLoads = useRef(new Set<string>())
+  const mountedRef = useRef(true)
+  const nodesRef = useRef<TreeNode[]>([])
+
+  useLayoutEffect(() => {
+    nodesRef.current = nodes
+  }, [nodes])
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const loadDirectory = useCallback(async (dirPath: string): Promise<TreeNode[]> => {
     const result = await window.filesystem.readDir(dirPath)
@@ -60,80 +73,80 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [rootPath, loadDirectory])
 
-  const toggleExpand = useCallback(async (nodePath: string) => {
-    setNodes(prev => {
-      const update = (items: TreeNode[]): TreeNode[] =>
-        items.map(node => {
-          if (node.path === nodePath) {
-            if (node.type !== 'directory') return node
-            return { ...node, expanded: !node.expanded }
-          }
-          if (node.children) {
-            return { ...node, children: update(node.children) }
-          }
-          return node
-        })
-      return update(prev)
-    })
-
-    // Load children if not yet loaded
-    setNodes(prev => {
-      const find = (items: TreeNode[]): TreeNode | undefined => {
+  const toggleExpand = useCallback(
+    async (nodePath: string) => {
+      // Derive load decision outside the updater to keep it pure (React StrictMode safe)
+      const findNode = (items: TreeNode[]): TreeNode | undefined => {
         for (const item of items) {
           if (item.path === nodePath) return item
           if (item.children) {
-            const found = find(item.children)
+            const found = findNode(item.children)
             if (found) return found
           }
         }
         return undefined
       }
-      const node = find(prev)
-      if (!node || node.loaded || node.type !== 'directory') return prev
-      return prev // Return as-is, load async below
-    })
+      const target = findNode(nodesRef.current)
+      const needsLoad =
+        target?.type === 'directory' &&
+        !target.expanded &&
+        !target.loaded &&
+        !pendingLoads.current.has(nodePath)
 
-    // Check if we need to load
-    const findNode = (items: TreeNode[]): TreeNode | undefined => {
-      for (const item of items) {
-        if (item.path === nodePath) return item
-        if (item.children) {
-          const found = findNode(item.children)
-          if (found) return found
+      setNodes(prev => {
+        const update = (items: TreeNode[]): TreeNode[] =>
+          items.map(node => {
+            if (node.path === nodePath) {
+              if (node.type !== 'directory') return node
+              return { ...node, expanded: !node.expanded }
+            }
+            if (node.children) {
+              return { ...node, children: update(node.children) }
+            }
+            return node
+          })
+        return update(prev)
+      })
+
+      if (needsLoad) {
+        pendingLoads.current.add(nodePath)
+        try {
+          const children = await loadDirectory(nodePath)
+          if (!mountedRef.current) return
+          setNodes(prev => {
+            const update = (items: TreeNode[]): TreeNode[] =>
+              items.map(node => {
+                if (node.path === nodePath) {
+                  return { ...node, children, loaded: true, expanded: true }
+                }
+                if (node.children) {
+                  return { ...node, children: update(node.children) }
+                }
+                return node
+              })
+            return update(prev)
+          })
+        } catch {
+          // Silently fail on subdirectory load errors
+        } finally {
+          pendingLoads.current.delete(nodePath)
         }
       }
-      return undefined
-    }
+    },
+    [loadDirectory]
+  )
 
-    const targetNode = findNode(nodes)
-    if (targetNode && !targetNode.loaded && targetNode.type === 'directory') {
-      try {
-        const children = await loadDirectory(nodePath)
-        setNodes(prev => {
-          const update = (items: TreeNode[]): TreeNode[] =>
-            items.map(node => {
-              if (node.path === nodePath) {
-                return { ...node, children, loaded: true, expanded: true }
-              }
-              if (node.children) {
-                return { ...node, children: update(node.children) }
-              }
-              return node
-            })
-          return update(prev)
-        })
-      } catch {
-        // Silently fail on subdirectory load errors
-      }
-    }
-  }, [nodes, loadDirectory])
-
-  const handleFileClick = useCallback((filePath: string) => {
-    onFileSelect(filePath)
-  }, [onFileSelect])
+  const handleFileClick = useCallback(
+    (filePath: string) => {
+      onFileSelect(filePath)
+    },
+    [onFileSelect]
+  )
 
   if (loading && nodes.length === 0) {
     return <div className="folder-tree-loading">Loading…</div>
@@ -201,7 +214,7 @@ function TreeNodeItem({
   const isDir = node.type === 'directory'
   const isSelected = selectedFile === node.path
 
-  const handleClick = useCallback(() => {
+  const activate = useCallback(() => {
     if (isDir) {
       onToggle(node.path)
     } else {
@@ -209,38 +222,64 @@ function TreeNodeItem({
     }
   }, [isDir, node.path, onToggle, onFileClick])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      handleClick()
-    }
-  }, [handleClick])
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      activate()
+    },
+    [activate]
+  )
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.stopPropagation()
+        activate()
+      }
+    },
+    [activate]
+  )
 
   return (
-    <li className="folder-tree-node" role="treeitem" aria-expanded={isDir ? node.expanded : undefined}>
+    <li
+      className="folder-tree-node"
+      role="treeitem"
+      aria-selected={isSelected}
+      aria-expanded={isDir ? node.expanded : undefined}
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+    >
       <div
         className={`folder-tree-row ${isSelected ? 'selected' : ''}`}
         style={{ paddingLeft: `${depth * 16 + 4}px` }}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="button"
       >
         <span className="folder-tree-icon">
           {isDir ? (
-            node.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+            node.expanded ? (
+              <ChevronDown size={14} />
+            ) : (
+              <ChevronRight size={14} />
+            )
           ) : (
             <span style={{ width: 14, display: 'inline-block' }} />
           )}
         </span>
         <span className="folder-tree-type-icon">
           {isDir ? (
-            node.expanded ? <FolderOpen size={14} /> : <Folder size={14} />
+            node.expanded ? (
+              <FolderOpen size={14} />
+            ) : (
+              <Folder size={14} />
+            )
           ) : (
             <File size={14} />
           )}
         </span>
-        <span className="folder-tree-name" title={node.name}>{node.name}</span>
+        <span className="folder-tree-name" title={node.name}>
+          {node.name}
+        </span>
       </div>
       {isDir && node.expanded && node.children && (
         <TreeNodeList

@@ -219,6 +219,7 @@ your changes address. This is **mandatory** — pushing code without replying
 leaves threads unresolved and stalls the review cycle.
 
 For each addressed thread, call `reply_to_pull_request_review_comment` with:
+
 - `comment_id`: the ID of the original review comment (top of the thread)
 - `body`: a brief explanation of what you changed and why it resolves the
   feedback (e.g., "Added `aria-label` to the icon buttons in

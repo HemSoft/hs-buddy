@@ -58,7 +58,7 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 
 ### Label lifecycle state machine
 
-```
+```text
 # Report issue (no automation ever touches this)
 [report created] → report  (permanent — no further transitions)
 
@@ -186,7 +186,7 @@ Any human with write access to the repo can:
 - Remove `agent:human-required` or `agent:escalated` and replace with `agent:fixable` to
   re-authorize automation
 - Add `agent:pause` to any in-flight item to halt the agent immediately
- - Remove `agent:fixable` from an issue and apply `agent:human-required` to keep it out of automation
+- Remove `agent:fixable` from an issue and apply `agent:human-required` to keep it out of automation
 
 ---
 

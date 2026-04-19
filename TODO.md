@@ -140,25 +140,25 @@ A built-in file explorer that shows the directory/file structure of the active t
 
 #### Phase 2: File Preview Pane
 
-7. **File read IPC**: `terminal:read-file` handler — reads file contents (capped at 1MB, returns error for binary). Returns `{ content: string, language: string }`.
-8. **Preview component**: `FilePreview.tsx` — syntax-highlighted read-only code view. Use Shiki or highlight.js (lighter than Monaco for read-only). Show filename, line count, and file size in a header bar.
-9. **Integration with app layout**: File previews open as "ephemeral" tabs in `TabBar` (italic title, like VS Code's preview mode). Clicking another file replaces the ephemeral tab; double-clicking pins it.
-10. **Tab viewId convention**: `file-preview://<absolute-path>` so the router can render `FilePreview` for these IDs.
+1. **File read IPC**: `terminal:read-file` handler — reads file contents (capped at 1MB, returns error for binary). Returns `{ content: string, language: string }`.
+2. **Preview component**: `FilePreview.tsx` — syntax-highlighted read-only code view. Use Shiki or highlight.js (lighter than Monaco for read-only). Show filename, line count, and file size in a header bar.
+3. **Integration with app layout**: File previews open as "ephemeral" tabs in `TabBar` (italic title, like VS Code's preview mode). Clicking another file replaces the ephemeral tab; double-clicking pins it.
+4. **Tab viewId convention**: `file-preview://<absolute-path>` so the router can render `FilePreview` for these IDs.
 
 #### Phase 3: Folder ↔ Terminal Sync
 
-11. **Auto-navigate on CWD change**: When the terminal's CWD changes (via existing `onCwdChange` callback), the folder view root updates automatically.
-12. **Navigate terminal from folder view**: Right-click a folder → "Open Terminal Here" changes the active terminal's CWD by writing `cd "<path>"\r` to the PTY.
-13. **Breadcrumb bar**: Show the current path as a clickable breadcrumb above the folder tree for quick navigation up the hierarchy.
+1. **Auto-navigate on CWD change**: When the terminal's CWD changes (via existing `onCwdChange` callback), the folder view root updates automatically.
+2. **Navigate terminal from folder view**: Right-click a folder → "Open Terminal Here" changes the active terminal's CWD by writing `cd "<path>"\r` to the PTY.
+3. **Breadcrumb bar**: Show the current path as a clickable breadcrumb above the folder tree for quick navigation up the hierarchy.
 
 #### Phase 4: Polish & UX
 
-14. **File icons**: Use file-type icons (e.g., `vscode-icons` set or a custom SVG sprite) based on file extension.
-15. **Search/filter**: Quick filter input at the top of the folder view to narrow visible files.
-16. **Keyboard navigation**: Arrow keys to navigate tree, Enter to preview, Ctrl+Shift+E to toggle folder view.
-17. **Drag-and-drop to terminal**: Drag a file from the folder view to the terminal pane → inserts its path as text.
-18. **Binary file handling**: Show a "Binary file — cannot preview" placeholder with file size and type info.
-19. **Large file handling**: Files >1MB show a warning and truncate preview. Option to "Open Externally" via system default app.
+1. **File icons**: Use file-type icons (e.g., `vscode-icons` set or a custom SVG sprite) based on file extension.
+2. **Search/filter**: Quick filter input at the top of the folder view to narrow visible files.
+3. **Keyboard navigation**: Arrow keys to navigate tree, Enter to preview, Ctrl+Shift+E to toggle folder view.
+4. **Drag-and-drop to terminal**: Drag a file from the folder view to the terminal pane → inserts its path as text.
+5. **Binary file handling**: Show a "Binary file — cannot preview" placeholder with file size and type info.
+6. **Large file handling**: Files >1MB show a warning and truncate preview. Option to "Open Externally" via system default app.
 
 **Architecture Notes:**
 

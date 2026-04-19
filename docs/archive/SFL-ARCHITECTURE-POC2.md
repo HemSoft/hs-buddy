@@ -281,7 +281,7 @@ All three analyzers run independently on the same PR. The value is **model diver
 
 ## 4. Sequence — Step by Step
 
-```
+```text
 PHASE 1 — DISCOVERY (Daily)
 ════════════════════════════
   ┌─────────────────┐    ┌─────────────────────┐
@@ -449,7 +449,7 @@ CONTINUOUS — HEALTH CHECK (Hourly)
 
 ### Issue Label State Machine
 
-```
+```text
 agent:fixable  →  agent:in-progress  →  (PR merged → issue closed)
                                      →  agent:human-required (if risk too high)
                                      →  agent:escalated (if repeated failures)
@@ -458,7 +458,7 @@ agent:fixable  →  agent:in-progress  →  (PR merged → issue closed)
 
 ### PR Label State Machine
 
-```
+```text
 agent:pr + pr:cycle-1
        → [analyzers review] → pr:cycle-1 markers written
   → [fixer pushes fixes] → pr:cycle-1

@@ -3,7 +3,7 @@ import {
   lazy,
   Suspense,
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
@@ -43,16 +43,35 @@ export function TerminalPanel({
     x: number
     y: number
     tab: TerminalTab
+    openedForTabId: string | null
+    activationSeq: number
   } | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragTabIdRef = useRef<string | null>(null)
 
-  // Clear stale context menu when switching tabs so it doesn't resurrect on return
-  useEffect(() => {
-    setContextMenuState(null)
+  // Monotonic sequence incremented on every committed activeTabId change.
+  // A ref avoids forcing a second render on each tab switch while still
+  // preventing context-menu resurrection after tab round-trips.
+  const activationSeqRef = useRef(0)
+  useLayoutEffect(() => {
+    activationSeqRef.current += 1
   }, [activeTabId])
 
-  const contextMenu = contextMenuState
+  // Derive context menu visibility — menu is only shown when tab ID and activation
+  // sequence both match, preventing resurrection after tab round-trips.
+  const contextMenu =
+    contextMenuState?.openedForTabId === activeTabId &&
+    contextMenuState?.activationSeq === activationSeqRef.current
+      ? contextMenuState
+      : null
+
+  const handleTabSelect = useCallback(
+    (tabId: string) => {
+      setContextMenuState(null)
+      onTabSelect(tabId)
+    },
+    [onTabSelect]
+  )
 
   const handleTabClose = useCallback(
     (e: SyntheticEvent, tabId: string) => {
@@ -62,10 +81,19 @@ export function TerminalPanel({
     [onTabClose]
   )
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, tab: TerminalTab) => {
-    e.preventDefault()
-    setContextMenuState({ x: e.clientX, y: e.clientY, tab })
-  }, [])
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, tab: TerminalTab) => {
+      e.preventDefault()
+      setContextMenuState({
+        x: e.clientX,
+        y: e.clientY,
+        tab,
+        openedForTabId: activeTabId,
+        activationSeq: activationSeqRef.current,
+      })
+    },
+    [activeTabId]
+  )
 
   const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
     dragTabIdRef.current = tabId
@@ -124,7 +152,7 @@ export function TerminalPanel({
               <button
                 type="button"
                 className="terminal-panel-tab-button"
-                onClick={() => onTabSelect(tab.id)}
+                onClick={() => handleTabSelect(tab.id)}
               >
                 <span className="terminal-panel-tab-title">{tab.title}</span>
               </button>

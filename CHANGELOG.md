@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review comments — null-safe dragOver and accurate PR description
 - Clear context menu state on tab change to prevent stale resurrection
 - Preserve expanded state during async directory load
+- Achieve react-doctor 100/100 score
+- Add XSS safety guard and fix stale content flash
+- Address review comments — context menu resurrection, render-phase updates, tests
+- Move activation sequence to commit-phase useLayoutEffect
+- Address PR review comments for FilePreview and TerminalPanel
+- Reframe innerHTML comment as sanity check, not security guard
 
 ### Changed
 

@@ -9,6 +9,7 @@ vi.mock('./TerminalPane', () => ({
   ),
 }))
 vi.mock('./TerminalPanel.css', () => ({}))
+vi.mock('./TerminalTabContextMenu.css', () => ({}))
 
 import { TerminalPanel } from './TerminalPanel'
 import type { TerminalTab } from '../../hooks/useTerminalPanel'
@@ -219,5 +220,152 @@ describe('TerminalPanel', () => {
     // But click still works
     fireEvent.click(closeBtn)
     expect(onTabClose).toHaveBeenCalledWith('tab-0')
+  })
+
+  describe('context menu lifecycle', () => {
+    it('opens context menu on right-click', () => {
+      const tabs = makeTabs(2)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      fireEvent.contextMenu(tab0)
+
+      expect(screen.getByText('Rename')).toBeInTheDocument()
+    })
+
+    it('hides context menu when active tab changes', () => {
+      const tabs = makeTabs(2)
+      const { rerender } = render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      fireEvent.contextMenu(tab0)
+      expect(screen.getByText('Rename')).toBeInTheDocument()
+
+      // Switch to a different tab
+      rerender(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-1"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument()
+    })
+
+    it('does not resurrect context menu after tab round-trip', () => {
+      const tabs = makeTabs(3)
+      const { rerender } = render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      // Open context menu on tab-0
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      fireEvent.contextMenu(tab0)
+      expect(screen.getByText('Rename')).toBeInTheDocument()
+
+      // Switch away to tab-1 (simulates add-tab making a new tab active)
+      rerender(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-1"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument()
+
+      // Switch back to tab-0 (simulates closing the new tab, returning to original)
+      rerender(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      // Context menu must NOT reappear
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument()
+    })
+
+    it('closes context menu when clicking a tab', () => {
+      const onTabSelect = vi.fn()
+      const tabs = makeTabs(2)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={onTabSelect}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      fireEvent.contextMenu(tab0)
+      expect(screen.getByText('Rename')).toBeInTheDocument()
+
+      // Click a different tab
+      fireEvent.click(screen.getByText('Tab 1'))
+      expect(onTabSelect).toHaveBeenCalledWith('tab-1')
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument()
+    })
+
+    it('closes context menu via overlay click', () => {
+      const tabs = makeTabs(1)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      fireEvent.contextMenu(tab0)
+      expect(screen.getByText('Rename')).toBeInTheDocument()
+
+      // Click the overlay to close
+      const overlay = document.querySelector('.terminal-ctx-overlay')!
+      fireEvent.click(overlay)
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument()
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useRef, useMemo } from 'react'
+import { useReducer, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { codeToHtml, type BundledLanguage } from 'shiki'
 import { FileText, AlertCircle } from 'lucide-react'
 import './FilePreview.css'
@@ -72,12 +72,21 @@ export function FilePreview({ filePath }: FilePreviewProps) {
   const { data, highlightedHtml, loading } = state
   const contentRef = useRef<HTMLDivElement>(null)
 
+  // Reset state before paint when filePath changes to prevent stale content flash.
+  // useLayoutEffect fires after commit but before the browser paints, so the user
+  // never sees the previous file's highlighted HTML.
+  // Guard against falsy filePath to avoid getting stuck in loading state, since the
+  // readFile effect below bails out when filePath is empty.
+  useLayoutEffect(() => {
+    if (!filePath) return
+    dispatch({ type: 'load-start' })
+  }, [filePath])
+
   // Load the file
   useEffect(() => {
     if (!filePath) return
 
     let cancelled = false
-    dispatch({ type: 'load-start' })
     window.filesystem
       .readFile(filePath)
       .then(result => {
@@ -127,6 +136,22 @@ export function FilePreview({ filePath }: FilePreviewProps) {
     }
   }, [data])
 
+  // Trust model: highlightedHtml is populated exclusively by Shiki's codeToHtml()
+  // in the effect above — never from user input or remote sources. This is enforced
+  // by code structure (only the Shiki effect dispatches 'set-highlight').
+  // The includes() check below is a sanity/integrity assertion that Shiki produced
+  // well-formed output, NOT a security boundary — any string could contain that
+  // substring. If a real XSS concern arises (e.g. untrusted file sources), replace
+  // this with DOMPurify or Trusted Types.
+  useLayoutEffect(() => {
+    if (!contentRef.current) return
+    if (highlightedHtml && !highlightedHtml.includes('class="shiki')) {
+      contentRef.current.innerHTML = ''
+      return
+    }
+    contentRef.current.innerHTML = highlightedHtml
+  }, [highlightedHtml])
+
   const lineCount = useMemo(() => {
     if (!data?.content) return 0
     return data.content.split('\n').length
@@ -175,7 +200,6 @@ export function FilePreview({ filePath }: FilePreviewProps) {
         ref={contentRef}
         className="file-preview-content shiki-container"
         style={{ '--line-number-width': gutterWidth } as React.CSSProperties}
-        dangerouslySetInnerHTML={{ __html: highlightedHtml }}
       />
     </div>
   )

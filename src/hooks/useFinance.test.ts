@@ -201,4 +201,51 @@ describe('useFinance', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toBeTruthy()
   })
+
+  it('ignores duplicate symbol in addSymbol', async () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
+    localStorage.setItem(
+      'finance:cache',
+      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: Date.now(), version: 3 })
+    )
+    const { result } = renderHook(() => useFinance())
+    const before = result.current.watchlist.length
+    act(() => {
+      result.current.addSymbol('AAPL')
+    })
+    expect(result.current.watchlist).toHaveLength(before)
+  })
+
+  it('handles partial fetch failure (some symbols succeed)', async () => {
+    mockFetchQuote.mockImplementation(async (sym: string) => {
+      if (sym === '^GSPC') return { success: true, quote: { ...QUOTE_AAPL, symbol: '^GSPC' } }
+      return { success: false, error: `No data for ${sym}` }
+    })
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // Should still have the successful quote, no error since partial success
+    expect(result.current.quotes.length).toBeGreaterThanOrEqual(1)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('ignores cache with version 0 (undefined version)', () => {
+    localStorage.setItem(
+      'finance:cache',
+      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: Date.now() })
+    )
+    const { result } = renderHook(() => useFinance())
+    // version is undefined, so (undefined ?? 0) < 3 → true → returns null → loading
+    expect(result.current.loading).toBe(true)
+  })
+
+  it('skips fetch on mount when valid cache exists', async () => {
+    localStorage.setItem(
+      'finance:cache',
+      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: Date.now(), version: 3 })
+    )
+    const { result } = renderHook(() => useFinance())
+    expect(result.current.loading).toBe(false)
+    // The mount effect checks readCache() and skips refresh when cache is valid
+    expect(mockFetchQuote).not.toHaveBeenCalled()
+  })
 })

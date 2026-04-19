@@ -795,4 +795,212 @@ describe('useCopilotReviewMonitor', () => {
       expect(result.current.copilotReviewState).toBe('idle')
     })
   })
+
+  // --- Branch coverage: playReviewCompleteSound !enabled branch ---
+
+  describe('playReviewCompleteSound with disabled notifications', () => {
+    it('returns early when sound notifications are disabled', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValueOnce([
+        {
+          id: 200,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      // Mock IPC: enabled=false → early return at line 69
+      vi.mocked(window.ipcRenderer.invoke).mockImplementation((channel: string) => {
+        if (channel === 'config:get-notification-sound-enabled') return Promise.resolve(false)
+        return Promise.resolve(false)
+      })
+
+      renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // Should reach 'done' state but not attempt to play sound
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith(
+        'config:get-notification-sound-enabled'
+      )
+      // Should NOT call the sound play endpoint
+      expect(window.ipcRenderer.invoke).not.toHaveBeenCalledWith('config:play-notification-sound')
+    })
+  })
+
+  // --- Branch coverage: playReviewCompleteSound !sound branch ---
+
+  describe('playReviewCompleteSound with null sound asset', () => {
+    it('returns early when sound asset is null (line 75 !sound)', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      mockListPRReviews.mockResolvedValueOnce([
+        {
+          id: 200,
+          user: { login: 'copilot-pull-request-reviewer[bot]' },
+          state: 'COMMENTED',
+          submitted_at: null,
+        },
+      ])
+
+      // Mock IPC: enabled=true but sound returns null → early return at line 75
+      vi.mocked(window.ipcRenderer.invoke).mockImplementation((channel: string) => {
+        if (channel === 'config:get-notification-sound-enabled') return Promise.resolve(true)
+        if (channel === 'config:play-notification-sound') return Promise.resolve(null)
+        return Promise.resolve(false)
+      })
+
+      renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // Should call get-notification-sound-enabled and play-notification-sound
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith(
+        'config:get-notification-sound-enabled'
+      )
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('config:play-notification-sound')
+    })
+  })
+
+  // --- Branch coverage: pollOnce catch with AbortError ---
+
+  describe('pollOnce catch with AbortError', () => {
+    it('silently returns on AbortError in pollOnce (line 213)', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      // Make the first enqueued call (pollOnce) reject with AbortError
+      // This simulates cancellation of the polling task
+      const abortErr = new DOMException('Aborted', 'AbortError')
+      mockEnqueueHolder.current.mockImplementationOnce(async (fn, _opts) => {
+        // Execute the poll function which should reject with AbortError
+        const controller = new AbortController()
+        mockListPRReviews.mockRejectedValueOnce(abortErr)
+        return fn(controller.signal)
+      })
+
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // AbortError should be silently ignored (not logged)
+      expect(debugSpy).not.toHaveBeenCalledWith(
+        'Copilot review poll failed:',
+        expect.any(DOMException)
+      )
+      expect(result.current.copilotReviewState).toBe('monitoring')
+
+      debugSpy.mockRestore()
+    })
+  })
+
+  // --- Branch coverage: runImmediately catch with AbortError ---
+
+  describe('runImmediately catch with AbortError', () => {
+    it('silently returns on AbortError in runImmediately (line 228)', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      // Make mockListPRReviews reject with AbortError for the immediate run
+      const abortErr = new DOMException('Aborted', 'AbortError')
+      mockListPRReviews.mockRejectedValueOnce(abortErr)
+
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      // Trigger the immediate poll
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // AbortError should be silently ignored
+      expect(debugSpy).not.toHaveBeenCalledWith(
+        'Copilot review poll failed:',
+        expect.any(DOMException)
+      )
+      expect(result.current.copilotReviewState).toBe('monitoring')
+
+      debugSpy.mockRestore()
+    })
+  })
+
+  // --- Branch coverage: handleRequestCopilotReview catch with AbortError true branch ---
+
+  describe('handleRequestCopilotReview catch AbortError branch', () => {
+    it('silently returns on AbortError without setting idle state (line 294)', async () => {
+      const abortErr = new DOMException('Request aborted', 'AbortError')
+      mockEnqueueHolder.current.mockRejectedValueOnce(abortErr)
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      expect(result.current.copilotReviewState).toBe('idle')
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      await act(async () => {
+        await result.current.handleRequestCopilotReview()
+      })
+
+      // AbortError should NOT trigger the console.error log (line 295)
+      expect(errorSpy).not.toHaveBeenCalledWith(
+        'Failed to request Copilot review:',
+        expect.any(DOMException)
+      )
+      // Should not set state to idle since AbortError returns early
+      expect(['idle', 'requesting']).toContain(result.current.copilotReviewState)
+
+      errorSpy.mockRestore()
+    })
+  })
+
+  // --- Branch coverage: handleRequestCopilotReview catch non-AbortError branch ---
+
+  describe('handleRequestCopilotReview catch non-AbortError branch', () => {
+    it('sets state to idle on non-AbortError (line 296)', async () => {
+      const networkErr = new Error('Network request failed')
+      mockEnqueueHolder.current.mockRejectedValueOnce(networkErr)
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      expect(result.current.copilotReviewState).toBe('idle')
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      await act(async () => {
+        await result.current.handleRequestCopilotReview()
+      })
+
+      // Non-AbortError should log the error (line 295)
+      expect(errorSpy).toHaveBeenCalledWith('Failed to request Copilot review:', expect.any(Error))
+      // Should set state back to idle (line 296)
+      expect(result.current.copilotReviewState).toBe('idle')
+
+      errorSpy.mockRestore()
+    })
+  })
 })

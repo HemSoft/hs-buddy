@@ -88,6 +88,15 @@ describe('useBackgroundStatus', () => {
     expect(result.current.lastRefreshedLabel).toBe('2 minutes ago')
   })
 
+  it('falls back to "GitHub data" when running task name is null', () => {
+    mockQueue.runningCount = 0
+    mockQueue.pendingCount = 1
+    mockQueue.getRunningTaskName.mockReturnValue(null)
+    const { result } = renderHook(() => useBackgroundStatus())
+    expect(result.current.activeTasks).toBe(1)
+    expect(result.current.activeLabel).toBe('GitHub data')
+  })
+
   it('shows null countdown when syncing', () => {
     mockQueue.runningCount = 1
     mockQueue.getRunningTaskName.mockReturnValue('needs-review')

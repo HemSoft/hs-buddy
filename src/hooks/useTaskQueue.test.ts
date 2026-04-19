@@ -88,6 +88,23 @@ describe('useTaskQueue', () => {
     expect(result.current.pendingCount).toBe(0)
   })
 
+  it('stats interval skips setStats after unmount with tracked tasks', () => {
+    const { result, unmount } = renderHook(() => useTaskQueue('test-unmount-interval'))
+
+    const neverResolve = new Promise<string>(() => {})
+    act(() => {
+      result.current.enqueue(() => neverResolve).catch(() => {})
+    })
+
+    // Unmount while a task is tracked
+    unmount()
+
+    // Advance past interval — should not throw (mountedRef.current = false)
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+  })
+
   it('stats interval updates when tracked tasks exist', async () => {
     const { result } = renderHook(() => useTaskQueue('test-interval-update'))
 

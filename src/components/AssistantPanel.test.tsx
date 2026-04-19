@@ -184,4 +184,22 @@ describe('AssistantPanel', () => {
     render(<AssistantPanel context={ctxPR} />)
     expect(screen.getByText('Summarize this PR')).toBeTruthy()
   })
+
+  it('falls back to welcome suggestions for unknown viewType', () => {
+    vi.mocked(useAssistantConversation).mockReturnValue({
+      messages: [],
+      isStreaming: false,
+      sendMessage: mockSendMessage,
+      clearConversation: mockClearConversation,
+      abortResponse: mockAbortResponse,
+    })
+    const ctxUnknown = {
+      viewType: 'settings' as never,
+      viewId: null,
+      summary: '',
+      metadata: {},
+    }
+    render(<AssistantPanel context={ctxUnknown} />)
+    expect(screen.getByText('What can you do?')).toBeTruthy()
+  })
 })

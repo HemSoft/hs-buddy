@@ -116,6 +116,15 @@ describe('buildCronExpression', () => {
       )
     ).toBe('*/5 * * * 1-5')
   })
+
+  it('returns default expression for unknown frequency', () => {
+    expect(
+      buildCronExpression(
+        { frequency: 'unknown' as never, minute: 0, hour: 9, dayOfMonth: 1, selectedDays: [1] },
+        ''
+      )
+    ).toBe('0 * * * *')
+  })
 })
 
 describe('parseCronValue + buildCronExpression roundtrip', () => {

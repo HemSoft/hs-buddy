@@ -2,6 +2,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { FolderTree } from './FolderTree'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- window.filesystem is injected at runtime
+const win = window as any
+
 /**
  * Mock data for filesystem API responses
  */
@@ -48,11 +51,11 @@ function createMockFilesystemAPI() {
 
 describe('FolderTree', () => {
   beforeEach(() => {
-    ;(window as any).filesystem = createMockFilesystemAPI()
+    win.filesystem = createMockFilesystemAPI()
   })
 
   afterEach(() => {
-    delete (window as any).filesystem
+    delete win.filesystem
   })
 
   it('renders root entries on initial mount', async () => {
@@ -123,7 +126,7 @@ describe('FolderTree', () => {
 
   it('does not load children multiple times on repeated clicks', async () => {
     const mockFilesystem = createMockFilesystemAPI()
-    ;(window as any).filesystem = mockFilesystem
+    win.filesystem = mockFilesystem
 
     render(<FolderTree rootPath={'C:\\project'} onFileSelect={vi.fn()} />)
 
@@ -223,7 +226,7 @@ describe('FolderTree', () => {
   })
 
   it('handles empty directories', async () => {
-    ;(window as any).filesystem = {
+    win.filesystem = {
       readDir: vi.fn(async () => {
         return { error: null, entries: [] }
       }),
@@ -300,5 +303,92 @@ describe('FolderTree', () => {
       expect(screen.getByText('components')).toBeInTheDocument()
       expect(screen.getByText('utils')).toBeInTheDocument()
     })
+  })
+
+  it('shows error when root directory load fails', async () => {
+    win.filesystem = {
+      readDir: vi.fn(async () => {
+        throw new Error('Permission denied')
+      }),
+    }
+
+    render(<FolderTree rootPath={'C:\\restricted'} onFileSelect={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Permission denied')).toBeInTheDocument()
+    })
+  })
+
+  it('shows fallback error message for non-Error throws', async () => {
+    win.filesystem = {
+      readDir: vi.fn(async () => {
+        throw 'string error'
+      }),
+    }
+
+    render(<FolderTree rootPath={'C:\\bad'} onFileSelect={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load directory')).toBeInTheDocument()
+    })
+  })
+
+  it('activates a file via Enter keypress', async () => {
+    const onFileSelect = vi.fn()
+    render(<FolderTree rootPath={'C:\\project'} onFileSelect={onFileSelect} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('package.json')).toBeInTheDocument()
+    })
+
+    const fileNode = screen.getByText('package.json').closest('li')
+    fireEvent.keyDown(fileNode!, { key: 'Enter' })
+
+    expect(onFileSelect).toHaveBeenCalledWith('C:\\project\\package.json')
+  })
+
+  it('activates a file via Space keypress', async () => {
+    const onFileSelect = vi.fn()
+    render(<FolderTree rootPath={'C:\\project'} onFileSelect={onFileSelect} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('package.json')).toBeInTheDocument()
+    })
+
+    const fileNode = screen.getByText('package.json').closest('li')
+    fireEvent.keyDown(fileNode!, { key: ' ' })
+
+    expect(onFileSelect).toHaveBeenCalledWith('C:\\project\\package.json')
+  })
+
+  it('toggles directory via Enter keypress', async () => {
+    render(<FolderTree rootPath={'C:\\project'} onFileSelect={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src')).toBeInTheDocument()
+    })
+
+    const srcLi = screen.getByText('src').closest('li')
+    expect(srcLi).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.keyDown(srcLi!, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(srcLi).toHaveAttribute('aria-expanded', 'true')
+    })
+  })
+
+  it('ignores non-Enter/Space keypresses on tree nodes', async () => {
+    const onFileSelect = vi.fn()
+    render(<FolderTree rootPath={'C:\\project'} onFileSelect={onFileSelect} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('package.json')).toBeInTheDocument()
+    })
+
+    const fileNode = screen.getByText('package.json').closest('li')
+    fireEvent.keyDown(fileNode!, { key: 'Tab' })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
   })
 })

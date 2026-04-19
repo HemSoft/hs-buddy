@@ -28,6 +28,7 @@ const mockOctokit = {
     getCombinedStatusForRef: vi.fn(),
     getCommit: vi.fn(),
     listForOrg: vi.fn(),
+    listForUser: vi.fn(),
   },
   actions: {
     listWorkflowRunsForRepo: vi.fn(),
@@ -141,6 +142,18 @@ describe('GitHubClient', () => {
 
     it('returns null on error', async () => {
       mockInvoke.mockRejectedValueOnce(new Error('fail'))
+      const result = await GitHubClient.getActiveCliAccount()
+      expect(result).toBeNull()
+    })
+
+    it('catches IPC invocation errors and returns null', async () => {
+      mockInvoke.mockRejectedValueOnce(new Error('IPC connection lost'))
+      const result = await GitHubClient.getActiveCliAccount()
+      expect(result).toBeNull()
+    })
+
+    it('catches timeout errors from IPC renderer and returns null', async () => {
+      mockInvoke.mockRejectedValueOnce(new Error('Timeout'))
       const result = await GitHubClient.getActiveCliAccount()
       expect(result).toBeNull()
     })
@@ -904,6 +917,25 @@ describe('GitHubClient', () => {
       expect(result.latestWorkflowRun).toBeNull()
       expect(result.visibility).toBe('private') // falls back to private flag
     })
+
+    it('throws error when getOctokitForOwner fails (auth catch block)', async () => {
+      // Mock the getOctokit method to return null for all accounts, triggering getOctokitForOwner to throw
+      // We need to use a fresh config where none of the accounts can authenticate
+      mockInvoke.mockImplementation((_channel: string, _username: string) => {
+        // Return no token for any account (simulates failed auth)
+        if (_channel === 'github:get-cli-token') return Promise.resolve(null)
+        return Promise.resolve(null)
+      })
+
+      const noAuthConfig = {
+        accounts: [{ username: 'noauth-user', org: 'some-org' }],
+      }
+      const noAuthClient = new GitHubClient(noAuthConfig)
+
+      await expect(noAuthClient.fetchRepoDetail('some-org', 'repo')).rejects.toThrow(
+        /No authenticated GitHub account available to fetch some-org\/repo/
+      )
+    })
   })
 
   describe('fetchRepoCounts', () => {
@@ -1581,6 +1613,78 @@ describe('GitHubClient', () => {
       expect(result.orgRole).toBeNull()
       expect(result.teams).toEqual([])
     })
+
+    it('handles GraphQL query failure (profile returns null)', async () => {
+      // Simulate GraphQL failing to get user profile
+      mockGraphql.mockResolvedValue({ user: null })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      // When GraphQL fails (returns null), commitsToday should be 0
+      expect(result.commitsToday).toBe(0)
+      expect(result.orgRole).toBe('member')
+    })
+
+    it('handles team membership check failures silently', async () => {
+      // Simulate paginate returning teams but getMembershipForUserInOrg failing
+      mockGraphql.mockResolvedValue({
+        user: {
+          contributionsCollection: { contributionCalendar: { totalContributions: 5 } },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([
+        { slug: 'engineering', name: 'Engineering', description: 'Eng team' },
+      ])
+      // getMembershipForUserInOrg throws for each team (catch block silently ignores)
+      mockOctokit.teams.getMembershipForUserInOrg.mockRejectedValue(
+        new Error('Not a member of this team')
+      )
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      // Teams should be empty because membership check failed for all
+      expect(result.teams).toEqual([])
+      expect(result.orgRole).toBe('member')
+    })
+
+    it('handles per-repo commit fetch failures silently', async () => {
+      // When paginate on repos.listCommits fails for a repo, should continue with events fallback
+      mockGraphql.mockResolvedValue({
+        user: {
+          contributionsCollection: { contributionCalendar: { totalContributions: 0 } },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({
+        data: [{ name: 'repo1' }, { name: 'repo2' }],
+      })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockRejectedValue(new Error('Repo listing failed'))
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      // Should fall back to 0 commits when per-repo fetch fails
+      expect(result.commitsToday).toBe(0)
+    })
   })
 
   describe('fetchOrgOverview', () => {
@@ -1982,6 +2086,57 @@ describe('GitHubClient', () => {
       }
       const c = new GitHubClient(freshConfig)
       await expect(c.fetchMyPRs()).rejects.toThrow('GitHub CLI authentication not available')
+    })
+
+    it('handles search query 404 errors silently (no warn log)', async () => {
+      // Simulate a 404 error from search API (org doesn't exist or no access)
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+      mockOctokit.search.issuesAndPullRequests.mockRejectedValue(
+        new Error('API Error 404 Not Found')
+      )
+      mockOctokit.paginate.mockResolvedValue([])
+      mockGraphql.mockResolvedValue({})
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+      const result = await client.fetchMyPRs()
+
+      // Should return empty PRs when search fails
+      expect(result).toEqual([])
+      // 404 errors should use debug logging, not warn
+      const debugCalls = debugSpy.mock.calls.filter(
+        call => typeof call[0] === 'string' && call[0].includes('No search results (404)')
+      )
+      expect(debugCalls.length).toBeGreaterThan(0)
+      expect(warnSpy).not.toHaveBeenCalled()
+
+      warnSpy.mockRestore()
+      debugSpy.mockRestore()
+    })
+
+    it('logs warning for non-404 search errors', async () => {
+      // Simulate a non-404 error from search API (e.g., 500 server error)
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+      mockOctokit.search.issuesAndPullRequests.mockRejectedValue(
+        new Error('API Error 500 Internal Server Error')
+      )
+      mockOctokit.paginate.mockResolvedValue([])
+      mockGraphql.mockResolvedValue({})
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const result = await client.fetchMyPRs()
+
+      // Should return empty PRs when search fails
+      expect(result).toEqual([])
+      // Non-404 errors should use warn logging
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Search query failed'),
+        expect.any(Error)
+      )
+
+      warnSpy.mockRestore()
     })
   })
 
@@ -2595,6 +2750,267 @@ describe('GitHubClient', () => {
     it('throws when all accounts fail', async () => {
       mockOctokit.rateLimit.get.mockRejectedValue(new Error('fail'))
       await expect(client.getRateLimit('myorg')).rejects.toThrow('Could not fetch rate limit')
+    })
+  })
+
+  /* eslint-disable @typescript-eslint/no-explicit-any -- private method bracket access requires any casts */
+  describe('Uncovered catch blocks - error handling', () => {
+    describe('getGitHubCLIToken catch block', () => {
+      it('returns null when token fetch fails', async () => {
+        mockInvoke.mockImplementation((_channel: string, username: string) => {
+          if (_channel === 'github:get-cli-token' && username === 'error-user') {
+            return Promise.reject(new Error('Token fetch failed'))
+          }
+          if (_channel === 'github:get-cli-token') return Promise.resolve(`token-${username}`)
+          return Promise.resolve(null)
+        })
+        const result = await (client as any)['getGitHubCLIToken']('error-user')
+        expect(result).toBeNull()
+      })
+    })
+
+    describe('fetchOrgTeams catch block (account loop)', () => {
+      it('continues to next account when team fetch fails', async () => {
+        // Make paginate throw on first call, return teams on second
+        mockOctokit.paginate
+          .mockRejectedValueOnce(new Error('403 Forbidden'))
+          .mockResolvedValueOnce([
+            {
+              id: 1,
+              slug: 'team1',
+              name: 'Team 1',
+              html_url: 'https://github.com/orgs/myorg/teams/team1',
+            },
+          ])
+
+        const result = await client.fetchOrgTeams('myorg')
+        expect(result.teams).toHaveLength(1)
+        expect(result.teams[0].slug).toBe('team1')
+      })
+
+      it('returns empty teams when all accounts fail', async () => {
+        mockOctokit.paginate.mockRejectedValue(new Error('403 Forbidden'))
+        const result = await client.fetchOrgTeams('myorg')
+        expect(result.teams).toEqual([])
+      })
+    })
+
+    describe('fetchTeamMembers catch block', () => {
+      it('continues to next account when members fetch fails', async () => {
+        // First account fails, second account succeeds
+        mockOctokit.paginate
+          .mockRejectedValueOnce(new Error('403 Forbidden'))
+          .mockResolvedValueOnce([{ login: 'member1', avatar_url: 'https://avatar1' }])
+
+        mockGraphql.mockResolvedValue({})
+
+        const result = await client.fetchTeamMembers('myorg', 'team1')
+        expect(result.members).toHaveLength(1)
+        expect(result.members[0].login).toBe('member1')
+      })
+
+      it('returns empty members array when all accounts fail', async () => {
+        mockOctokit.paginate.mockRejectedValue(new Error('403 Forbidden'))
+
+        const result = await client.fetchTeamMembers('myorg', 'team1')
+        expect(result.members).toEqual([])
+      })
+    })
+
+    describe('fetchUserNames catch block (GraphQL batch)', () => {
+      it('returns empty names map when GraphQL batch fails', async () => {
+        mockGraphql.mockRejectedValue(new Error('GraphQL error'))
+
+        const result = await (client as any)['fetchUserNames'](['user1', 'user2'], 'myorg')
+        expect(result.size).toBe(0)
+      })
+
+      it('returns empty map for empty login list', async () => {
+        const result = await (client as any)['fetchUserNames']([], 'myorg')
+        expect(result.size).toBe(0)
+      })
+    })
+
+    describe('resolveOrgAvatar catch blocks (nested try-catch)', () => {
+      it('falls back to user endpoint when org lookup fails', async () => {
+        clearOrgAvatarCache()
+        // First call (org.get) fails, second call (users.getByUsername) succeeds
+        mockOctokit.orgs.get.mockRejectedValueOnce(new Error('404 Not Found'))
+        mockOctokit.users.getByUsername.mockResolvedValueOnce({
+          data: { avatar_url: 'https://user-avatar' },
+        })
+
+        const result = await (client as any)['resolveOrgAvatar'](mockOctokit, 'someuser')
+        expect(result).toBe('https://user-avatar')
+      })
+
+      it('returns null when both org and user lookup fail', async () => {
+        clearOrgAvatarCache()
+        mockOctokit.orgs.get.mockRejectedValueOnce(new Error('404 Not Found'))
+        mockOctokit.users.getByUsername.mockRejectedValueOnce(new Error('404 Not Found'))
+
+        const result = await (client as any)['resolveOrgAvatar'](mockOctokit, 'missing')
+        expect(result).toBeNull()
+      })
+
+      it('caches null avatar for missing org/user', async () => {
+        clearOrgAvatarCache()
+        mockOctokit.orgs.get.mockRejectedValue(new Error('404'))
+        mockOctokit.users.getByUsername.mockRejectedValue(new Error('404'))
+
+        const result1 = await (client as any)['resolveOrgAvatar'](mockOctokit, 'missing')
+        expect(result1).toBeNull()
+
+        // Second call should use cache without calling octokit
+        const result2 = await (client as any)['resolveOrgAvatar'](mockOctokit, 'missing')
+        expect(result2).toBeNull()
+        expect(mockOctokit.orgs.get).toHaveBeenCalledTimes(1)
+      })
+    })
+
+    describe('fetchBatchThreadStats catch block', () => {
+      it('handles GraphQL batch error gracefully', async () => {
+        mockGraphql.mockRejectedValue(new Error('GraphQL error'))
+
+        const prs = [
+          {
+            number: 1,
+            title: 'PR 1',
+            state: 'open' as const,
+            author: 'user1',
+            labels: [],
+            url: 'url1',
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-02T00:00:00Z',
+            headBranch: 'feature',
+            baseBranch: 'main',
+            approvalCount: 0,
+            iApproved: false,
+          },
+        ]
+
+        // Add internal metadata fields the method expects
+        const prsWithMeta = prs.map(pr => ({
+          ...pr,
+          _owner: 'myorg',
+          _repo: 'repo',
+          _prNumber: pr.number,
+        }))
+
+        // Should not throw, just log warning
+        await (client as any)['fetchBatchThreadStats'](prsWithMeta)
+        // PRs should still have their existing properties
+        expect(prsWithMeta[0].number).toBe(1)
+      })
+    })
+
+    describe('fetchSFLStatus catch block (workflow mapping)', () => {
+      it('returns null latestRun when workflow run fetch fails', async () => {
+        mockOctokit.actions.listRepoWorkflows.mockResolvedValue({
+          data: {
+            workflows: [
+              {
+                id: 1,
+                name: 'SFL: Issue Processor',
+                state: 'active',
+              },
+            ],
+          },
+        })
+
+        // Simulate error when fetching latest run
+        mockOctokit.actions.listWorkflowRuns.mockRejectedValue(new Error('403 Forbidden'))
+
+        const result = await client.fetchSFLStatus('myorg', 'repo')
+        expect(result.isSFLEnabled).toBe(true)
+        expect(result.workflows[0].latestRun).toBeNull()
+      })
+    })
+
+    describe('getRateLimit catch block (account loop)', () => {
+      it('continues to next account on rate limit fetch error', async () => {
+        mockOctokit.rateLimit.get
+          .mockRejectedValueOnce(new Error('403 Forbidden'))
+          .mockResolvedValueOnce({
+            data: {
+              resources: {
+                core: {
+                  limit: 5000,
+                  remaining: 4500,
+                  reset: 1234567890,
+                  used: 500,
+                },
+              },
+            },
+          })
+
+        const result = await client.getRateLimit('myorg')
+        expect(result.limit).toBe(5000)
+        expect(result.remaining).toBe(4500)
+      })
+    })
+
+    describe('fetchAllOrgOrUserRepos non-404 re-throw', () => {
+      it('re-throws non-404 errors during org repo fetch', async () => {
+        mockOctokit.repos.listForOrg.mockRejectedValue(new Error('500 Internal Server Error'))
+
+        await expect(
+          (client as any)['fetchAllOrgOrUserRepos'](mockOctokit, 'myorg')
+        ).rejects.toThrow('500 Internal Server Error')
+      })
+
+      it('falls back to user repos on 404 org not found', async () => {
+        mockOctokit.repos.listForOrg.mockRejectedValue(new Error('404 Not Found'))
+        mockOctokit.repos.listForUser.mockResolvedValue({
+          data: [
+            {
+              name: 'repo1',
+              full_name: 'user1/repo1',
+              html_url: 'https://github.com/user1/repo1',
+              description: 'A repo',
+              default_branch: 'main',
+              stargazers_count: 10,
+              forks_count: 2,
+              language: 'TypeScript',
+              private: false,
+              archived: false,
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+        })
+
+        const result = await (client as any)['fetchAllOrgOrUserRepos'](mockOctokit, 'someuser')
+        expect(result.isUserNamespace).toBe(true)
+        expect(result.repos).toHaveLength(1)
+      })
+    })
+
+    describe('fetchAllOrgOrUserMembers non-404 re-throw', () => {
+      it('re-throws non-404 errors during org members fetch', async () => {
+        mockOctokit.paginate.mockRejectedValue(new Error('500 Internal Server Error'))
+
+        await expect(
+          (client as any)['fetchAllOrgOrUserMembers'](mockOctokit, 'myorg')
+        ).rejects.toThrow('500 Internal Server Error')
+      })
+
+      it('falls back to user on 404 org not found', async () => {
+        mockOctokit.paginate.mockRejectedValue(new Error('404 Not Found'))
+        mockOctokit.users.getByUsername.mockResolvedValue({
+          data: {
+            login: 'someuser',
+            name: 'Some User',
+            avatar_url: 'https://avatar',
+            html_url: 'https://github.com/someuser',
+            type: 'User',
+          },
+        })
+
+        const result = await (client as any)['fetchAllOrgOrUserMembers'](mockOctokit, 'someuser')
+        expect(result.isUserNamespace).toBe(true)
+        expect(result.members).toHaveLength(1)
+        expect(result.members[0].login).toBe('someuser')
+      })
     })
   })
 })

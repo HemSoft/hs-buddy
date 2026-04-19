@@ -706,4 +706,52 @@ describe('useAppTabs', () => {
       })
     }
   })
+
+  describe('branch coverage', () => {
+    it('uses PR Detail fallback label when resolveCrewProjectLabel throws', async () => {
+      const onViewOpen = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen }))
+
+      mockListProjects.mockRejectedValue(new Error('Network error'))
+
+      await act(async () => {
+        await result.current.openTab('crew-project:proj-1')
+      })
+
+      const tab = findTab(result.current.tabs, 'crew-project:proj-1')
+      expect(tab?.label).toBe('PR Detail')
+    })
+
+    it('does not open tab when copilot:open-result event has no resultId', async () => {
+      const onViewOpen = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen }))
+
+      const tabsBefore = result.current.tabs
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent('copilot:open-result', { detail: {} }))
+      })
+
+      await waitFor(() => {
+        expect(result.current.tabs).toBe(tabsBefore)
+      })
+    })
+
+    it('returns unchanged state when closeOtherTabs called with non-existent keepTabId', async () => {
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+        await result.current.openTab('pr-needs-review')
+      })
+
+      const tabsBefore = result.current.tabs
+
+      act(() => {
+        result.current.closeOtherTabs('fake-id')
+      })
+
+      expect(result.current.tabs).toBe(tabsBefore)
+    })
+  })
 })

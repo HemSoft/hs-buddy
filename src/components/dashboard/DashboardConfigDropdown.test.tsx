@@ -140,4 +140,26 @@ describe('DashboardConfigDropdown', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
     expect(screen.queryAllByRole('menuitemcheckbox')).toHaveLength(0)
   })
+
+  it('does not close menu when clicking inside the dropdown', () => {
+    render(
+      <DashboardConfigDropdown cards={sampleCards} isVisible={isVisible} toggleCard={toggleCard} />
+    )
+    fireEvent.click(screen.getByTitle('Configure dashboard cards'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+
+    fireEvent.mouseDown(screen.getByRole('menu'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+
+  it('does not close menu on non-Escape keydown', () => {
+    render(
+      <DashboardConfigDropdown cards={sampleCards} isVisible={isVisible} toggleCard={toggleCard} />
+    )
+    fireEvent.click(screen.getByTitle('Configure dashboard cards'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
 })

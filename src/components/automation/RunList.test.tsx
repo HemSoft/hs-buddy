@@ -298,4 +298,16 @@ describe('RunList', () => {
     // Re-clicking should toggle (no crash)
     fireEvent.click(rows[1])
   })
+
+  it('catches errors when cancel fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockCancel.mockRejectedValue(new Error('cancel failed'))
+    render(<RunList />)
+    const cancelBtn = screen.getByTestId('cancel-run-2')
+    fireEvent.click(cancelBtn)
+    await vi.waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to cancel run:', expect.any(Error))
+    })
+    consoleSpy.mockRestore()
+  })
 })

@@ -26,6 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop event bubbling and purify state updater
 - Align focus-visible CSS with treeitem focus target
 - Address final review findings — useLayoutEffect for nodesRef and grep guard
+- Address PR review comments and CI typecheck failures
+- Resolve CI lint and format failures
+- Mock getBoundingClientRect before opening context menu in overflow tests
+- Address PR review comments - remove duplicate tests and fix Convex sync test
+- Use Object.defineProperty for viewport mocking in TabBar tests
+
+### Changed
+
+- Push branch coverage to 90% with targeted tests across 22 files
+- Push branch coverage safely above 90% threshold
 
 ## [0.1.733] - 2026-04-18
 

@@ -73,4 +73,16 @@ describe('useViewMode', () => {
     renderHook(() => useViewMode('test-page'))
     expect(mockUpdateViewMode).not.toHaveBeenCalled()
   })
+
+  it('skips seeding when key was already seeded on a prior effect run', () => {
+    mockSettings = { viewModes: { 'test-page': 'card' } }
+    const { result, rerender } = renderHook(() => useViewMode('test-page'))
+    expect(result.current[0]).toBe('card')
+
+    // Change convexMode for same key — effect should early-return (already seeded)
+    mockSettings = { viewModes: { 'test-page': 'list' } }
+    rerender()
+    // Still 'card' because re-seeding is skipped
+    expect(result.current[0]).toBe('card')
+  })
 })

@@ -197,4 +197,15 @@ describe('AccountQuotaCard', () => {
     render(<AccountQuotaCard account={testAccount} state={state} />)
     expect(screen.getByText('time:1700000000000')).toBeInTheDocument()
   })
+
+  it('does not show fetched-at timestamp when fetchedAt is null', () => {
+    const state: AccountQuotaState = {
+      data: makeQuotaData() as AccountQuotaState['data'],
+      loading: false,
+      error: null,
+      fetchedAt: null,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(document.querySelector('.usage-fetched-at')).not.toBeInTheDocument()
+  })
 })

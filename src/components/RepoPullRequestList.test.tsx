@@ -417,4 +417,18 @@ describe('RepoPullRequestList', () => {
     fireEvent.click(screen.getByText('Add feature').closest('button')!)
     expect(onOpenPR).toHaveBeenCalled()
   })
+
+  it('falls back to full URL when url segment [4] is missing', async () => {
+    const malformedPR = makePR({ url: 'https://github.com' })
+    const onOpenPR = vi.fn()
+    mockEnqueue.mockResolvedValue([malformedPR])
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Add feature')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Add feature').closest('button')!)
+    expect(onOpenPR).toHaveBeenCalled()
+  })
 })

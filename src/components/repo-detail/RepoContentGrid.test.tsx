@@ -142,4 +142,11 @@ describe('RepoContentGrid', () => {
     )
     expect(screen.getByText('bot')).toBeInTheDocument()
   })
+
+  it('sets language percentage to 0 when totalBytes is 0', () => {
+    render(<RepoContentGrid detail={makeDetail({ languages: { TypeScript: 0 } })} />)
+    expect(screen.getByText('Languages')).toBeInTheDocument()
+    expect(screen.getByText('TypeScript')).toBeInTheDocument()
+    expect(screen.getByText('0.0%')).toBeInTheDocument()
+  })
 })

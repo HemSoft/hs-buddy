@@ -126,6 +126,26 @@ describe('applyReactionToResult', () => {
     })
   })
 
+  describe('when targeting a thread comment while issue comments exist', () => {
+    it('leaves non-matching issue comments unchanged', () => {
+      const threadComment = makeComment('c1', [
+        { content: 'THUMBS_UP', count: 1, viewerHasReacted: false },
+      ])
+      const issueComment = makeComment('ic1', [
+        { content: 'HEART', count: 3, viewerHasReacted: false },
+      ])
+      const result = makeResult([threadComment], [issueComment])
+
+      const updated = applyReactionToResult(result, 'c1', 'THUMBS_UP')
+
+      // Thread comment should be updated
+      expect(updated.threads[0].comments[0].reactions[0].viewerHasReacted).toBe(true)
+      // Issue comment should remain unchanged
+      expect(updated.issueComments[0].reactions[0].viewerHasReacted).toBe(false)
+      expect(updated.issueComments[0].reactions[0].count).toBe(3)
+    })
+  })
+
   describe('immutability', () => {
     it('does not mutate the original result', () => {
       const comment = makeComment('c1', [{ content: 'HOORAY', count: 1, viewerHasReacted: false }])

@@ -100,4 +100,24 @@ describe('SidebarPRContextMenu', () => {
 
     expect(screen.getByRole('button', { name: /already approved/i })).toBeDisabled()
   })
+
+  it('handles pr.org being undefined by using empty string in bookmark key', () => {
+    const prNoOrg = { ...basePr, org: undefined } as unknown as typeof basePr
+    render(
+      <SidebarPRContextMenu
+        pr={prNoOrg}
+        x={0}
+        y={0}
+        approvingPrKey={null}
+        bookmarkedRepoKeys={new Set(['/hs-buddy'])}
+        onOpen={vi.fn()}
+        onCopyLink={vi.fn()}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn().mockResolvedValue(undefined)}
+        onBookmark={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: /unbookmark hs-buddy/i })).toBeTruthy()
+  })
 })

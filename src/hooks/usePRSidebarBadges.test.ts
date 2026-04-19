@@ -109,4 +109,32 @@ describe('usePRSidebarBadges', () => {
     expect(badge.progress).toBeLessThanOrEqual(45)
     vi.useRealTimers()
   })
+
+  it('shows "Updated just now" tooltip when cache was fetched less than 1m ago', () => {
+    vi.useFakeTimers()
+    mockGet.mockImplementation((key: string) => {
+      if (key === 'my-prs') return { data: [], fetchedAt: Date.now() - 10000 }
+      return null
+    })
+    const { result } = renderHook(() => usePRSidebarBadges())
+    const badge = result.current.badgeProgress['pr-my-prs']
+    expect(badge.tooltip).toMatch(/Updated just now/)
+    vi.useRealTimers()
+  })
+
+  it('ignores valid cache key with null data in subscription callback', () => {
+    let cacheCallback: ((key: string) => void) | null = null
+    mockSubscribe.mockImplementation((cb: (key: string) => void) => {
+      cacheCallback = cb
+      return vi.fn()
+    })
+    const { result } = renderHook(() => usePRSidebarBadges())
+    const before = { ...result.current.prCounts }
+    // Return cache entry with no data
+    mockGet.mockReturnValue({ fetchedAt: Date.now() })
+    act(() => {
+      cacheCallback?.('my-prs')
+    })
+    expect(result.current.prCounts).toEqual(before)
+  })
 })

@@ -56,6 +56,17 @@ describe('useAppLayout', () => {
     expect(result.current.assistantOpen).toBe(true)
   })
 
+  it('still toggles assistant when IPC invoke rejects', async () => {
+    vi.mocked(window.ipcRenderer.invoke).mockRejectedValue(new Error('IPC down'))
+    const { result } = renderHook(() => useAppLayout())
+
+    act(() => {
+      result.current.toggleAssistant()
+    })
+
+    expect(result.current.assistantOpen).toBe(true)
+  })
+
   it('handles pane size changes', async () => {
     const { result } = renderHook(() => useAppLayout())
 
@@ -147,6 +158,18 @@ describe('useAppLayout', () => {
     })
 
     expect(result.current.assistantOpen).toBe(true)
+  })
+
+  it('ignores keydown events that are not Ctrl+Shift+A', () => {
+    const { result } = renderHook(() => useAppLayout())
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'B', ctrlKey: true, shiftKey: true })
+      )
+    })
+
+    expect(result.current.assistantOpen).toBe(false)
   })
 
   it('falls back to defaults when IPC calls are rejected', async () => {

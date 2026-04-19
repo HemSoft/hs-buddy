@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
-import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi, afterEach } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TabBar, type Tab } from './TabBar'
 
@@ -33,6 +33,10 @@ function renderTabBar(props: Partial<ComponentProps<typeof TabBar>> = {}) {
 }
 
 describe('TabBar', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renders nothing when tabs array is empty', () => {
     const { container } = renderTabBar({ tabs: [] })
 
@@ -249,6 +253,106 @@ describe('TabBar', () => {
 
       fireEvent.keyDown(window, { key: 'Escape' })
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    it('adjusts context menu position when it overflows the viewport right edge', async () => {
+      renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      // Mock viewport via Object.defineProperty (reliable in happy-dom)
+      // and getBoundingClientRect BEFORE opening context menu
+      const origInnerWidth = window.innerWidth
+      const origInnerHeight = window.innerHeight
+      Object.defineProperty(window, 'innerWidth', {
+        value: 800,
+        writable: true,
+        configurable: true,
+      })
+      Object.defineProperty(window, 'innerHeight', {
+        value: 600,
+        writable: true,
+        configurable: true,
+      })
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        right: 900,
+        bottom: 200,
+        width: 150,
+        height: 100,
+        top: 100,
+        left: 750,
+        x: 750,
+        y: 100,
+        toJSON: () => {},
+      })
+
+      fireEvent.contextMenu(tabs[0], { clientX: 780, clientY: 100 })
+
+      await waitFor(() => {
+        const menu = screen.getByRole('menu')
+        // viewport(800) - menuWidth(150) - gap(4) = 646
+        expect(menu.style.left).toBe('646px')
+      })
+
+      Object.defineProperty(window, 'innerWidth', {
+        value: origInnerWidth,
+        writable: true,
+        configurable: true,
+      })
+      Object.defineProperty(window, 'innerHeight', {
+        value: origInnerHeight,
+        writable: true,
+        configurable: true,
+      })
+    })
+
+    it('adjusts context menu position when it overflows the viewport bottom edge', async () => {
+      renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      // Mock viewport via Object.defineProperty (reliable in happy-dom)
+      // and getBoundingClientRect BEFORE opening context menu
+      const origInnerWidth = window.innerWidth
+      const origInnerHeight = window.innerHeight
+      Object.defineProperty(window, 'innerWidth', {
+        value: 800,
+        writable: true,
+        configurable: true,
+      })
+      Object.defineProperty(window, 'innerHeight', {
+        value: 400,
+        writable: true,
+        configurable: true,
+      })
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        right: 250,
+        bottom: 500,
+        width: 150,
+        height: 150,
+        top: 350,
+        left: 100,
+        x: 100,
+        y: 350,
+        toJSON: () => {},
+      })
+
+      fireEvent.contextMenu(tabs[0], { clientX: 100, clientY: 350 })
+
+      await waitFor(() => {
+        const menu = screen.getByRole('menu')
+        // viewport(400) - menuHeight(150) - gap(4) = 246
+        expect(menu.style.top).toBe('246px')
+      })
+
+      Object.defineProperty(window, 'innerWidth', {
+        value: origInnerWidth,
+        writable: true,
+        configurable: true,
+      })
+      Object.defineProperty(window, 'innerHeight', {
+        value: origInnerHeight,
+        writable: true,
+        configurable: true,
+      })
     })
   })
 })

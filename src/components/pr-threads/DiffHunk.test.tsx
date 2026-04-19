@@ -160,4 +160,18 @@ describe('DiffHunk', () => {
     expect(container.querySelector('.diff-hunk')).toBeTruthy()
     expect(container.querySelectorAll('.diff-line')).toHaveLength(0)
   })
+
+  it('trims a hunk without @@ header (wasTrimmed=true, parsed=null)', () => {
+    const lines: string[] = []
+    for (let i = 1; i <= 10; i++) lines.push(` line ${i}`)
+    const { container } = render(<DiffHunk hunk={lines.join('\n')} />)
+
+    // Should still show truncation indicator
+    expect(container.querySelector('.diff-truncated')).toBeTruthy()
+    // No range line since no @@ header
+    expect(container.querySelector('.diff-range')).toBeNull()
+    // Line numbers should start from defaults (1, 1) since parsed is null
+    const contentLines = container.querySelectorAll('.diff-line:not(.diff-truncated)')
+    expect(contentLines.length).toBe(6)
+  })
 })

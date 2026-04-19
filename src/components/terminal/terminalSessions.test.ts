@@ -89,6 +89,21 @@ describe('terminalSessions', () => {
     consoleSpy.mockRestore()
   })
 
+  it('does not restore old sessionId when a new one was set during the kill', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockKill.mockRejectedValueOnce(new Error('kill failed'))
+    setSessionId('view-1', 'old-id')
+    killTerminalSession('view-1')
+    // Another call re-sets the session before the catch runs
+    setSessionId('view-1', 'new-id')
+    await vi.waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalled()
+    })
+    // The catch should NOT overwrite 'new-id' with 'old-id'
+    expect(getSessionId('view-1')).toBe('new-id')
+    consoleSpy.mockRestore()
+  })
+
   it('manages multiple sessions independently', () => {
     setSessionId('view-a', 'sess-1')
     setSessionId('view-b', 'sess-2')

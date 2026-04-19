@@ -11,9 +11,10 @@ vi.mock('../components/terminal/terminalSessions', () => ({
 
 const mockUpdateTerminalPanelHeight = vi.fn().mockResolvedValue(undefined)
 const mockUpdateTerminalTabs = vi.fn().mockResolvedValue(undefined)
+let mockSettingsReturn: Record<string, unknown> | undefined = undefined
 
 vi.mock('./useConvex', () => ({
-  useSettings: () => undefined,
+  useSettings: () => mockSettingsReturn,
   useSettingsMutations: () => ({
     updateTerminalPanelHeight: mockUpdateTerminalPanelHeight,
     updateTerminalTabs: mockUpdateTerminalTabs,
@@ -29,6 +30,7 @@ const mockResolveRepoPath = vi.fn()
 describe('useTerminalPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSettingsReturn = undefined
     Object.defineProperty(window, 'ipcRenderer', {
       configurable: true,
       value: { invoke: mockInvoke },
@@ -528,5 +530,293 @@ describe('useTerminalPanel', () => {
     // Should focus the existing tab for acme/widget
     const acmeTab = result.current.terminalTabs.find(t => t.repoSlug === 'acme/widget')
     expect(result.current.activeTerminalTabId).toBe(acmeTab!.id)
+  })
+
+  // Uncovered branch tests
+  it('onPanelResize with NaN should not change panelHeight', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    const heightBefore = result.current.panelHeight
+    act(() => {
+      result.current.onPanelResize([500, NaN])
+    })
+
+    expect(result.current.panelHeight).toBe(heightBefore)
+  })
+
+  it('closeTerminalTab with non-existent tabId should be no-op', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    const tabsBefore = result.current.terminalTabs.length
+    act(() => {
+      result.current.closeTerminalTab('non-existent')
+    })
+
+    expect(result.current.terminalTabs.length).toBe(tabsBefore)
+    expect(result.current.activeTerminalTabId).toBe(tab!.id)
+  })
+
+  it('closeTerminalTab for non-active tab should not change activeTerminalTabId', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab1: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    let tab2: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab1 = await result.current.addTerminalTab(null)
+    })
+    await act(async () => {
+      tab2 = await result.current.addTerminalTab(null)
+    })
+
+    // Select tab1 (tab2 is currently active)
+    act(() => {
+      result.current.selectTerminalTab(tab1!.id)
+    })
+    expect(result.current.activeTerminalTabId).toBe(tab1!.id)
+
+    // Close tab2 (the non-active tab)
+    act(() => {
+      result.current.closeTerminalTab(tab2!.id)
+    })
+
+    expect(result.current.activeTerminalTabId).toBe(tab1!.id)
+    expect(result.current.terminalTabs.length).toBe(1)
+  })
+
+  it('renameTerminalTab with empty string should not rename', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    const titleBefore = result.current.terminalTabs[0].title
+    act(() => {
+      result.current.renameTerminalTab(tab!.id, '')
+    })
+
+    expect(result.current.terminalTabs[0].title).toBe(titleBefore)
+  })
+
+  it('renameTerminalTab with whitespace-only string should not rename', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    const titleBefore = result.current.terminalTabs[0].title
+    act(() => {
+      result.current.renameTerminalTab(tab!.id, '   ')
+    })
+
+    expect(result.current.terminalTabs[0].title).toBe(titleBefore)
+  })
+
+  it('renameTerminalTab with same title should not change tabs', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    const title = result.current.terminalTabs[0].title
+    const tabsBefore = result.current.terminalTabs
+
+    act(() => {
+      result.current.renameTerminalTab(tab!.id, title)
+    })
+
+    expect(result.current.terminalTabs).toBe(tabsBefore)
+  })
+
+  it('renameTerminalTab with non-existent tabId should be no-op', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    await act(async () => {
+      await result.current.addTerminalTab(null)
+    })
+
+    const tabsBefore = result.current.terminalTabs
+    act(() => {
+      result.current.renameTerminalTab('fake-id', 'New Name')
+    })
+
+    expect(result.current.terminalTabs).toBe(tabsBefore)
+  })
+
+  it('setTerminalTabColor sets and clears color', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    // Set color
+    act(() => {
+      result.current.setTerminalTabColor(tab!.id, '#ff0000')
+    })
+
+    expect(result.current.terminalTabs[0].color).toBe('#ff0000')
+
+    // Clear color
+    act(() => {
+      result.current.setTerminalTabColor(tab!.id, undefined)
+    })
+
+    expect(result.current.terminalTabs[0].color).toBeUndefined()
+  })
+
+  it('reorderTerminalTabs with same ID should be no-op', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    const tabsBefore = result.current.terminalTabs
+    act(() => {
+      result.current.reorderTerminalTabs(tab!.id, tab!.id)
+    })
+
+    expect(result.current.terminalTabs).toBe(tabsBefore)
+  })
+
+  it('reorderTerminalTabs with invalid IDs should be no-op', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    await act(async () => {
+      await result.current.addTerminalTab(null)
+    })
+
+    const tabsBefore = result.current.terminalTabs
+    act(() => {
+      result.current.reorderTerminalTabs('fake1', 'fake2')
+    })
+
+    expect(result.current.terminalTabs).toBe(tabsBefore)
+  })
+
+  it('reorderTerminalTabs successfully reorders tabs', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tabA: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    let tabC: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+
+    await act(async () => {
+      tabA = await result.current.addTerminalTab(null)
+    })
+    await act(async () => {
+      await result.current.addTerminalTab(null)
+    })
+    await act(async () => {
+      tabC = await result.current.addTerminalTab(null)
+    })
+
+    expect(result.current.terminalTabs[0].id).toBe(tabA!.id)
+    expect(result.current.terminalTabs[2].id).toBe(tabC!.id)
+
+    // Move A to C's position
+    act(() => {
+      result.current.reorderTerminalTabs(tabA!.id, tabC!.id)
+    })
+
+    // Verify order changed
+    expect(result.current.terminalTabs[0].id).not.toBe(tabA!.id)
+  })
+
+  it('updateTabCwd with same cwd should be no-op', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    const tabsBefore = result.current.terminalTabs
+    act(() => {
+      result.current.updateTabCwd(tab!.id, tab!.cwd)
+    })
+
+    expect(result.current.terminalTabs).toBe(tabsBefore)
+  })
+
+  it('updateTabCwd with non-existent tabId should be no-op', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    await act(async () => {
+      await result.current.addTerminalTab(null)
+    })
+
+    const tabsBefore = result.current.terminalTabs
+    act(() => {
+      result.current.updateTabCwd('fake', '/new/path')
+    })
+
+    expect(result.current.terminalTabs).toBe(tabsBefore)
+  })
+
+  it('updateTabCwd successfully updates working directory', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    const cwdBefore = result.current.terminalTabs[0].cwd
+    act(() => {
+      result.current.updateTabCwd(tab!.id, '/new/path')
+    })
+
+    expect(result.current.terminalTabs[0].cwd).toBe('/new/path')
+    expect(result.current.terminalTabs[0].cwd).not.toBe(cwdBefore)
+  })
+
+  it('Convex sync applies height when local config is null', async () => {
+    // Provide settings with a terminalPanelHeight so the Convex sync effect fires
+    mockSettingsReturn = { terminalPanelHeight: 450 }
+
+    let panelHeightCallCount = 0
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-terminal-open') return Promise.resolve(false)
+      // First panel-height call (initial load) returns 300, second call (sync check) returns null
+      if (channel === 'config:get-terminal-panel-height') {
+        panelHeightCallCount += 1
+        return panelHeightCallCount === 2 ? Promise.resolve(null) : Promise.resolve(300)
+      }
+      return Promise.resolve()
+    })
+
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    // Convex sync effect should apply the settings value since local config is null
+    await vi.waitFor(() => expect(result.current.panelHeight).toBe(450))
+    expect(panelHeightCallCount).toBe(2)
   })
 })

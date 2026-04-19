@@ -43,6 +43,14 @@ describe('useAutoRefresh', () => {
     expect(result.current.intervalMinutes).toBe(15)
   })
 
+  it('ignores non-numeric lastRefreshed in localStorage', () => {
+    localStorage.setItem('card-last-refreshed:bad-ts', 'not-a-number')
+    const refresh = vi.fn()
+    const { result } = renderHook(() => useAutoRefresh('bad-ts', refresh, 15))
+
+    expect(result.current.lastRefreshedAt).toBeNull()
+  })
+
   it('persists settings to localStorage on update', () => {
     const refresh = vi.fn()
     const { result } = renderHook(() => useAutoRefresh('finance', refresh, 15))

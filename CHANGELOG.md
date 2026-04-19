@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move activation sequence to commit-phase useLayoutEffect
 - Address PR review comments for FilePreview and TerminalPanel
 - Reframe innerHTML comment as sanity check, not security guard
+- Disable broken deadCode check in react-doctor config
 
 ### Changed
 

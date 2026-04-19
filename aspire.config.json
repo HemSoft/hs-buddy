@@ -6,6 +6,7 @@
   "sdk": {
     "version": "13.2.2"
   },
+  "channel": "daily",
   "profiles": {
     "https": {
       "applicationUrl": "https://localhost:61211;http://localhost:48889",

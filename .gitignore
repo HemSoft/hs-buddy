@@ -56,3 +56,6 @@ bench-output.txt
 # Ralph loop scripts and logs
 ralph*.ps1
 ralph*.log
+
+# Per-developer hooks settings (audio toggle, etc.)
+.github/hooks/hooks-settings.json

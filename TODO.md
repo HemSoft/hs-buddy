@@ -2,16 +2,14 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 🚧 | Critical | Raise test coverage from 20% to 50% | At 29.88% (974 tests, 90 files). |
+| ✅ | Critical | Raise test coverage from 20% to 50% | 2026-04-20: At 99.98% (4,090 tests, 198 files, 189/192 src files covered). Thresholds set to 100%. |
 | 📋 | High | Wire coverage:ratchet into CI | Run `bun run coverage:ratchet` after test:coverage passes so thresholds auto-increment |
-| 📋 | High | Add Gherkin BDD specs for remaining critical paths | Only 3 features covered (task-queue, budget-discovery, quota-projection). Next: copilot sessions, data cache, PR list |
-| 📋 | High | [Make benchmarks gate CI](#benchmark-regression-detection) | Benchmarks run with `continue-on-error: true` — performance regressions are invisible. Need baseline comparison and failure thresholds |
+| 📋 | High | Add Gherkin BDD specs for remaining critical paths | Next: copilot sessions, data cache, PR list |
 | 📋 | Medium | Add format:check to pre-commit hook | CI has it but Husky pre-commit doesn't |
 | 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | New feature: categorized link management with quick-launch and tagging |
 | 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | Add table/grid view as alternative to card view on list pages |
 | 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
 | 📋 | Low | Evaluate Playwright component testing for TSX coverage | Many 0% component files are hard to unit-test |
-| 📋 | High | [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap) | ESLint plugins (sonarjs, unicorn, strict), Electron security, architecture enforcement, E2E testing |
 | ✅ | High | SFL Queue Monitor workflow | 2026-04-01: Deployed to 3 repos with agent:queue label |
 | ✅ | Medium | Quality gates overhaul | 2026-03-31: CI gates, commitlint, vitest-cucumber BDD, coverage ratchet (PR #408) |
 | ✅ | Medium | Benchmarking tests for critical paths | 2026-03-30: 3 bench files (dateUtils, jsonSerialization, copilotSessionParsing) |
@@ -80,64 +78,11 @@
 
 ## Progress
 
-**Remaining: 10** | **Completed: 64** (86%)
+**Remaining: 8** | **Completed: 64** (89%)
 
 ---
 
 ## Remaining Items
-
-### Benchmark Regression Detection
-
-Benchmarks currently run in CI with `continue-on-error: true`, meaning performance regressions pass silently. There are 10 bench files covering critical paths but no mechanism to detect degradation.
-
-**Current State:**
-
-- 10 bench files: `dateUtils`, `jsonSerialization`, `copilotSessionParsing`, `copilotSessionService`, `reactions`, `quotaUtils`, `budgetUtils`, `taskQueue`, `cronUtils`, `tempoUtils`
-- `bun run bench` runs `vitest bench` — produces timing data but discards it
-- CI step: `continue-on-error: true` — never blocks merges
-
-**Proposed Approach:**
-
-1. **Baseline file**: Store benchmark baselines in a committed JSON file (e.g., `benchmarks/baseline.json`)
-2. **Comparison script**: `bun run bench:check` — runs benchmarks, compares against baseline, fails if any benchmark degrades >20%
-3. **CI integration**: Replace `continue-on-error: true` with the comparison script as a blocking step
-4. **Baseline update**: `bun run bench:update` — regenerates baselines after intentional changes (like coverage ratchet pattern)
-5. **Vitest bench `--compare`**: Vitest has built-in `--compare` flag that can compare against a baseline file — evaluate before building custom tooling
-
-### Code Quality Tooling Roadmap
-
-Research-backed inventory of code quality tools to evaluate and adopt. The repo already has an excellent foundation (ESLint 9, Prettier, TypeScript strict, Vitest at 100% coverage thresholds, Knip, e18e, commitlint, Husky, markdownlint, npm-audit-ci, Copilot Code Review, react-doctor, SFL Analyzers ×3, repo-audit, simplisticate audit, coverage ratchet, bundle-size guard, benchmarks). These items fill the remaining gaps.
-
-#### Tier 1 — ESLint Plugin Quick Wins (single PR)
-
-| Tool | What It Adds | Effort |
-|------|-------------|--------|
-| **eslint-plugin-sonarjs** | Cognitive complexity limits, duplicate branch detection, identical expressions, no-collapsible-if — finds bugs ESLint core misses | Low |
-| **eslint-plugin-unicorn** | 100+ modern JS/TS idioms: prefer `for-of`, better error handling, naming conventions, no `Array.forEach` | Low |
-| **eslint-plugin-perfectionist** | Auto-sorted imports, exports, object keys, union types — reduces merge conflicts from ordering churn | Low |
-| **typescript-eslint `strict` config** | Upgrade from `recommended` → `strict`: adds `no-unnecessary-condition`, `no-confusing-void-expression`, `prefer-literal-enum-member` | Low-Med |
-| **@e18e/eslint-plugin** | Inline e18e dependency health checks in editor — complements existing `@e18e/cli analyze` in CI | Very Low |
-
-#### Tier 2 — Security & Architecture
-
-| Tool | What It Adds | Effort |
-|------|-------------|--------|
-| **Electronegativity** | Electron-specific security scanner: `nodeIntegration`, `contextIsolation`, `sandbox`, CSP, `webSecurity` — npm audit doesn't cover Electron config | Low |
-| **dependency-cruiser** | Enforce architectural boundaries ("electron/ can't import src/components"), detect circular deps, generate SVG/Mermaid architecture diagrams | Medium |
-| **Socket.dev** | Supply chain security beyond npm audit — detects typosquatting, install scripts, behavior analysis. GitHub App, free tier | Low |
-
-#### Tier 3 — Advanced Testing
-
-| Tool | What It Adds | Effort |
-|------|-------------|--------|
-| **Playwright for Electron** | E2E tests for the actual desktop app — Playwright has first-class `_electron` support. TODO.md already notes evaluating this | High |
-| **Stryker mutation testing** | Measures test *effectiveness* not just coverage — even at 100% coverage, surviving mutants reveal weak assertions. Has `@stryker-mutator/vitest-runner` | Medium |
-
-#### Tier 4 — Platform (Optional)
-
-| Tool | What It Adds | Effort |
-|------|-------------|--------|
-| **SonarCloud** | Unified quality dashboard: 350+ TS rules, technical debt trends, code duplication, PR decoration. Free for org repos | Medium |
 
 ### Bookmarks
 

@@ -77,9 +77,11 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
         )
 
         setDetail(result)
+        /* v8 ignore start -- cacheKey is always truthy when owner && repo pass the early-return guard */
         if (cacheKey) {
           dataCache.set(cacheKey, result)
         }
+        /* v8 ignore stop */
       } catch (err) {
         if (isAbortError(err)) return
         setError(getErrorMessage(err))
@@ -225,9 +227,11 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
                       className="repo-commit-file-open-btn"
                       onClick={event => {
                         event.stopPropagation()
+                        /* v8 ignore start -- button only renders inside {file.blobUrl && (...)} guard */
                         if (file.blobUrl) {
                           window.shell?.openExternal(file.blobUrl)
                         }
+                        /* v8 ignore stop */
                       }}
                       title="Open file on GitHub"
                     >

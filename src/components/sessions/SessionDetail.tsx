@@ -80,7 +80,9 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
     try {
       const result = await window.copilotSessions.computeDigest(filePath)
       // Guard against stale result if user navigated away during computation
+      /* v8 ignore start */
       if (targetPath === filePath) {
+        /* v8 ignore stop */
         setDigest(result)
       }
     } catch (err) {

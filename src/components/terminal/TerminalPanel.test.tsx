@@ -2,8 +2,19 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./TerminalPane', () => ({
-  TerminalPane: ({ viewKey, cwd }: { viewKey: string; cwd?: string }) => (
+  TerminalPane: ({
+    viewKey,
+    cwd,
+    onCwdChange,
+  }: {
+    viewKey: string
+    cwd?: string
+    onCwdChange?: (cwd: string) => void
+  }) => (
     <div data-testid={`terminal-pane-${viewKey}`} data-cwd={cwd ?? ''}>
+      <button data-testid="cwd-change-trigger" onClick={() => onCwdChange?.('/new/path')}>
+        change cwd
+      </button>
       mock terminal
     </div>
   ),
@@ -220,6 +231,182 @@ describe('TerminalPanel', () => {
     // But click still works
     fireEvent.click(closeBtn)
     expect(onTabClose).toHaveBeenCalledWith('tab-0')
+  })
+
+  describe('drag and drop', () => {
+    const mockDataTransfer = () => ({ effectAllowed: '', dropEffect: '' })
+
+    it('applies drag-over class during dragOver', () => {
+      const tabs = makeTabs(2)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tab1 = screen.getByText('Tab 1').closest('.terminal-panel-tab')!
+      fireEvent.dragOver(tab1, { dataTransfer: mockDataTransfer() })
+      expect(tab1.className).toContain('drag-over')
+    })
+
+    it('calls onReorderTabs on drop with different tab', () => {
+      const onReorderTabs = vi.fn()
+      const tabs = makeTabs(2)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+          onReorderTabs={onReorderTabs}
+        />
+      )
+
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      const tab1 = screen.getByText('Tab 1').closest('.terminal-panel-tab')!
+
+      fireEvent.dragStart(tab0, { dataTransfer: mockDataTransfer() })
+      fireEvent.dragOver(tab1, { dataTransfer: mockDataTransfer() })
+      fireEvent.drop(tab1, { dataTransfer: mockDataTransfer() })
+
+      expect(onReorderTabs).toHaveBeenCalledWith('tab-0', 'tab-1')
+    })
+
+    it('does not reorder when dropping on same tab', () => {
+      const onReorderTabs = vi.fn()
+      const tabs = makeTabs(2)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+          onReorderTabs={onReorderTabs}
+        />
+      )
+
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      fireEvent.dragStart(tab0, { dataTransfer: mockDataTransfer() })
+      fireEvent.drop(tab0, { dataTransfer: mockDataTransfer() })
+
+      expect(onReorderTabs).not.toHaveBeenCalled()
+    })
+
+    it('removes drag-over class on dragEnd', () => {
+      const tabs = makeTabs(2)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tab1 = screen.getByText('Tab 1').closest('.terminal-panel-tab')!
+      fireEvent.dragOver(tab1, { dataTransfer: mockDataTransfer() })
+      expect(tab1.className).toContain('drag-over')
+
+      fireEvent.dragEnd(tab1)
+      expect(tab1.className).not.toContain('drag-over')
+    })
+
+    it('resets drag state on drop', () => {
+      const tabs = makeTabs(2)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tab0 = screen.getByText('Tab 0').closest('.terminal-panel-tab')!
+      const tab1 = screen.getByText('Tab 1').closest('.terminal-panel-tab')!
+
+      fireEvent.dragStart(tab0, { dataTransfer: mockDataTransfer() })
+      fireEvent.dragOver(tab1, { dataTransfer: mockDataTransfer() })
+      expect(tab1.className).toContain('drag-over')
+
+      fireEvent.drop(tab1, { dataTransfer: mockDataTransfer() })
+      expect(tab1.className).not.toContain('drag-over')
+      expect(tab0.className).not.toContain('drag-over')
+    })
+  })
+
+  describe('tab colors', () => {
+    it('shows color dot when tab has color', () => {
+      const tabs: TerminalTab[] = [
+        { id: 'tab-0', title: 'Tab 0', cwd: '/repo/0', color: '#ff0000' },
+      ]
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      expect(document.querySelector('.terminal-panel-tab-color-dot')).toBeInTheDocument()
+    })
+
+    it('applies --tab-color CSS variable', () => {
+      const tabs: TerminalTab[] = [
+        { id: 'tab-0', title: 'Tab 0', cwd: '/repo/0', color: '#ff0000' },
+      ]
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+        />
+      )
+
+      const tabEl = screen.getByText('Tab 0').closest('.terminal-panel-tab') as HTMLElement
+      expect(tabEl.style.getPropertyValue('--tab-color')).toBe('#ff0000')
+    })
+  })
+
+  describe('onCwdChange callback', () => {
+    it('passes cwd change to onTabCwdChange handler', async () => {
+      const onTabCwdChange = vi.fn()
+      const tabs = makeTabs(1)
+      render(
+        <TerminalPanel
+          tabs={tabs}
+          activeTabId="tab-0"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onAddTab={vi.fn()}
+          {...defaultHandlers}
+          onTabCwdChange={onTabCwdChange}
+        />
+      )
+
+      const trigger = await screen.findByTestId('cwd-change-trigger')
+      fireEvent.click(trigger)
+      expect(onTabCwdChange).toHaveBeenCalledWith('tab-0', '/new/path')
+    })
   })
 
   describe('context menu lifecycle', () => {

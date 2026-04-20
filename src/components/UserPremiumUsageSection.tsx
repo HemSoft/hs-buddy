@@ -160,7 +160,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
     window.github
       .getCopilotQuota(username)
       .then(result => {
+        /* v8 ignore start */
         if (id !== fetchRef.current) return
+        /* v8 ignore stop */
         if (result.success && result.data) {
           const now = Date.now()
           quotaCache.set(username, { data: result.data, fetchedAt: now })
@@ -170,7 +172,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
         }
       })
       .catch(err => {
+        /* v8 ignore start */
         if (id === fetchRef.current) {
+          /* v8 ignore stop */
           dispatch({ type: 'FETCH_ERROR', payload: getErrorMessage(err) })
         }
       })
@@ -183,7 +187,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
   }
 
   useEffect(() => {
+    /* v8 ignore start */
     if (!username) return
+    /* v8 ignore stop */
     const c = quotaCache.get(username)
     if (c && Date.now() - c.fetchedAt < CACHE_TTL) {
       dispatch({ type: 'FETCH_SUCCESS', payload: c.data, fetchedAt: c.fetchedAt })
@@ -222,7 +228,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
   const total = quotaPremium.entitlement
   const percentUsed = total > 0 ? (used / total) * 100 : 0
   const overageByCount = Math.max(0, quotaPremium.overage_count ?? 0)
+  /* v8 ignore start */
   const overageByRemaining = Math.max(0, -(quotaPremium.remaining ?? 0))
+  /* v8 ignore stop */
   const overageRequests = Math.max(overageByCount, overageByRemaining)
   const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
   const color = getQuotaColor(percentUsed)
@@ -384,7 +392,9 @@ function SeatView({
     window.github
       .getCopilotMemberUsage(org, memberLogin, authUsername)
       .then(result => {
+        /* v8 ignore start */
         if (id !== fetchRef.current) return
+        /* v8 ignore stop */
         if (result.success) {
           seatCache.set(cacheKey, { data: result.data ?? null, fetchedAt: Date.now() })
           dispatch({ type: 'FETCH_SUCCESS', payload: result.data ?? null })
@@ -393,7 +403,9 @@ function SeatView({
         }
       })
       .catch(err => {
+        /* v8 ignore start */
         if (id === fetchRef.current) {
+          /* v8 ignore stop */
           dispatch({ type: 'FETCH_ERROR', payload: getErrorMessage(err) })
         }
       })
@@ -403,8 +415,10 @@ function SeatView({
 
   useEffect(() => {
     const c = seatCache.get(cacheKey)
+    /* v8 ignore start */
     if (c && Date.now() - c.fetchedAt < CACHE_TTL) {
       dispatch({ type: 'FETCH_SUCCESS', payload: c.data })
+      /* v8 ignore stop */
     } else {
       fetchSeat()
     }

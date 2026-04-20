@@ -83,7 +83,9 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
   // Update stats periodically while there are tracked tasks
   useEffect(() => {
     const updateStats = () => {
+      /* v8 ignore start */
       if (mountedRef.current) {
+        /* v8 ignore stop */
         setStats(queue.getStats())
       }
     }

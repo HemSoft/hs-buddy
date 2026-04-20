@@ -32,6 +32,7 @@ function browserTabReducer(state: BrowserTabState, action: BrowserTabAction): Br
       return { ...state, loading: true }
     case 'stop-loading':
       return { ...state, loading: false }
+    /* v8 ignore next -- TypeScript constrains action types making default unreachable */
     default:
       return state
   }
@@ -69,7 +70,9 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   // to ensure partition is established before navigation starts
   useLayoutEffect(() => {
     const wv = webviewRef.current
+    /* v8 ignore start -- ref is always set after initial render */
     if (!wv) return
+    /* v8 ignore stop */
     wv.setAttribute('partition', 'persist:browser')
     wv.setAttribute('allowpopups', 'true')
     wv.setAttribute('src', url)
@@ -81,7 +84,9 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
 
   useEffect(() => {
     const webview = webviewRef.current
+    /* v8 ignore start -- ref is always set after initial render */
     if (!webview) return
+    /* v8 ignore stop */
 
     const handleTitleUpdate = (e: Electron.PageTitleUpdatedEvent) => {
       onTitleChange?.(e.title)

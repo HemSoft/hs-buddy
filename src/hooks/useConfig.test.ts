@@ -199,6 +199,45 @@ describe('useConfig', () => {
       expect(res.success).toBe(false)
       expect(res.error).toBe('Account not found')
     })
+
+    it('removeAccount returns error when Convex remove throws', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
+      mockRemove.mockRejectedValue(new Error('Remove failed'))
+      const { result } = renderHook(() => useGitHubAccounts())
+      const res = await result.current.removeAccount('user1', 'myorg')
+      expect(res.success).toBe(false)
+      expect(res.error).toBe('Remove failed')
+    })
+
+    it('updateAccount returns error when Convex update throws', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
+      mockUpdate.mockRejectedValue(new Error('Update failed'))
+      const { result } = renderHook(() => useGitHubAccounts())
+      const res = await result.current.updateAccount('user1', 'myorg', { org: 'neworg' })
+      expect(res.success).toBe(false)
+      expect(res.error).toBe('Update failed')
+    })
+
+    it('updates accountsRef when Convex accounts change across renders', () => {
+      mockConvexAccounts = [{ _id: '1', username: 'user1', org: 'org-a' }]
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      expect(result.current.accounts).toHaveLength(1)
+
+      mockConvexAccounts = [
+        { _id: '1', username: 'user1', org: 'org-a' },
+        { _id: '2', username: 'user2', org: 'org-b' },
+      ]
+      rerender()
+      expect(result.current.accounts).toHaveLength(2)
+      expect(result.current.accounts[1].username).toBe('user2')
+    })
+
+    it('falls back to electron-store accounts when contentKey changes and Convex unavailable', async () => {
+      mockConvexAccounts = undefined
+      const { result } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(result.current.accounts.length).toBeGreaterThan(0))
+      expect(result.current.accounts[0].username).toBe('user1')
+    })
   })
 
   describe('usePRSettings', () => {

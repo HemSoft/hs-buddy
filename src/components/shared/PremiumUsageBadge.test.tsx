@@ -59,4 +59,29 @@ describe('PremiumUsageBadge', () => {
     const { container } = render(<PremiumUsageBadge username="" />)
     expect(container.querySelector('.premium-usage-badge')).toBeNull()
   })
+
+  it('handles successful response with result.success true but result.data falsy', async () => {
+    vi.mocked(window.github.getCopilotQuota).mockResolvedValueOnce({
+      success: true,
+      data: undefined,
+    })
+    const { container } = render(<PremiumUsageBadge username="testuser2" />)
+    await waitFor(() => {
+      expect(container.querySelector('.premium-usage-badge')).toBeNull()
+    })
+  })
+
+  it('caches quota and uses it on subsequent renders', async () => {
+    const { rerender, container } = render(<PremiumUsageBadge username="cacheduser" />)
+    await waitFor(() => {
+      expect(container.querySelector('.premium-usage-badge')).toBeTruthy()
+    })
+
+    // Should have been called once for cacheduser
+    expect(vi.mocked(window.github.getCopilotQuota)).toHaveBeenCalledTimes(1)
+
+    // Rerender with same user - should use cache
+    rerender(<PremiumUsageBadge username="cacheduser" />)
+    expect(vi.mocked(window.github.getCopilotQuota)).toHaveBeenCalledTimes(1)
+  })
 })

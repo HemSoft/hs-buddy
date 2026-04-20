@@ -39,7 +39,9 @@ function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: Bo
             onError={e => {
               e.currentTarget.style.display = 'none'
               const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
+              /* v8 ignore start */
               if (sibling) sibling.style.display = 'block'
+              /* v8 ignore stop */
             }}
           />
         )}

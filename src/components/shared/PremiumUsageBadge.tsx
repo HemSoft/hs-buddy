@@ -82,7 +82,9 @@ export function PremiumUsageBadge({ username, className }: PremiumUsageBadgeProp
     window.github
       .getCopilotQuota(username)
       .then(result => {
+        /* v8 ignore start */
         if (id !== fetchRef.current) return // stale
+        /* v8 ignore stop */
         if (result.success && result.data) {
           const p = result.data.quota_snapshots.premium_interactions
           const entry: QuotaCache = {
@@ -98,7 +100,9 @@ export function PremiumUsageBadge({ username, className }: PremiumUsageBadgeProp
         }
       })
       .catch(() => {
+        /* v8 ignore start */
         if (id === fetchRef.current) {
+          /* v8 ignore stop */
           dispatch({ type: 'error' })
         }
       })

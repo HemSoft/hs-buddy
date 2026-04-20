@@ -148,8 +148,10 @@ export function TempoTimesheetGrid({
       // Check if today is already visible in the non-sticky area
       const visibleLeft = containerRect.left + stickyWidth
       const visibleRight = containerRect.right
+      /* v8 ignore start */
       const isTodayVisible = cellRect.left >= visibleLeft && cellRect.right <= visibleRight
       if (!isTodayVisible) {
+        /* v8 ignore stop */
         const absoluteLeft = cellRect.left - containerRect.left + container.scrollLeft
         // Show one extra column before today so yesterday's data is visible and clickable
         const oneColumnWidth = 40

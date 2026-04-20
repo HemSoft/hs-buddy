@@ -334,4 +334,42 @@ describe('InlineDropdown', () => {
 
     expect(onChange).toHaveBeenCalledWith('b')
   })
+
+  it('does not call handleSelect for non-Enter/Space keyDown on an enabled option', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderDropdown()
+
+    await user.click(screen.getByRole('button'))
+    const option = screen.getByRole('option', { name: /charlie/i })
+
+    fireEvent.keyDown(option, { key: 'Tab' })
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('ignores toggle when dropdown is disabled', async () => {
+    const user = userEvent.setup()
+    renderDropdown({ disabled: true })
+
+    // Click the button — should NOT open listbox
+    await user.click(screen.getByRole('button'))
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('ignores keydown on disabled option element', async () => {
+    const user = userEvent.setup()
+    const options: DropdownOption[] = [
+      { value: 'a', label: 'Alpha' },
+      { value: 'b', label: 'Beta', disabled: true },
+      { value: 'c', label: 'Charlie' },
+    ]
+    const { onChange } = renderDropdown({ options })
+
+    await user.click(screen.getByRole('button'))
+    const disabledOption = screen.getByRole('option', { name: /beta/i })
+
+    // Space keydown on disabled option — handler returns early
+    fireEvent.keyDown(disabledOption, { key: ' ' })
+    expect(onChange).not.toHaveBeenCalledWith('b')
+  })
 })

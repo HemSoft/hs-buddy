@@ -1679,4 +1679,48 @@ describe('useGitHubSidebarData', () => {
     })
     expect(mockFetchRepoCommits).toHaveBeenCalled()
   })
+
+  it('refresh interval fires for repo issues', async () => {
+    vi.useFakeTimers()
+    mockRefreshInterval = 1
+    mockIsFresh.mockReturnValue(false)
+    const { result, unmount } = renderHook(() => useGitHubSidebarData())
+
+    // Expand a repo issue group to register it in fetchedRepoIssuesRef
+    await act(async () => {
+      result.current.toggleRepoIssueStateGroup('acme', 'my-repo', 'open')
+    })
+    mockFetchRepoIssues.mockClear()
+
+    // Advance past the interval
+    await act(async () => {
+      vi.advanceTimersByTime(1 * 60_000 + 100)
+    })
+
+    expect(mockFetchRepoIssues).toHaveBeenCalled()
+    unmount()
+    vi.useRealTimers()
+  })
+
+  it('refresh interval fires for repo counts', async () => {
+    vi.useFakeTimers()
+    mockRefreshInterval = 1
+    mockIsFresh.mockReturnValue(false)
+    const { result, unmount } = renderHook(() => useGitHubSidebarData())
+
+    // Expand a repo to register it in fetchedCountsRef
+    await act(async () => {
+      result.current.toggleRepo('acme', 'my-repo')
+    })
+    mockFetchRepoCounts.mockClear()
+
+    // Advance past the interval
+    await act(async () => {
+      vi.advanceTimersByTime(1 * 60_000 + 100)
+    })
+
+    expect(mockFetchRepoCounts).toHaveBeenCalled()
+    unmount()
+    vi.useRealTimers()
+  })
 })

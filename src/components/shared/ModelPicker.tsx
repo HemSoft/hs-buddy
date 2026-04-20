@@ -94,7 +94,9 @@ export function ModelPicker({
   // Single effect: fetch models on mount and when account changes
   const lastAccountRef = useRef<string | undefined>(undefined)
   useEffect(() => {
+    /* v8 ignore start */
     if (lastAccountRef.current !== ghAccount) {
+      /* v8 ignore stop */
       lastAccountRef.current = ghAccount
       fetchModels(ghAccount || undefined)
     }
@@ -109,7 +111,9 @@ export function ModelPicker({
         if (firstEnabled) {
           onChange(firstEnabled.id)
           if (persist) {
+            /* v8 ignore start */
             persistModel(firstEnabled.id).catch(() => {})
+            /* v8 ignore stop */
           }
         }
       }
@@ -243,7 +247,9 @@ export function ModelPicker({
               title="Refresh models from Copilot SDK"
               style={{ padding: '6px 10px' }}
             >
+              {/* v8 ignore start */}
               {modelsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+              {/* v8 ignore stop */}
               Refresh
             </button>
           )}

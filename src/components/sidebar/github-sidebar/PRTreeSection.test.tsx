@@ -151,4 +151,96 @@ describe('PRTreeSection', () => {
     const dot = screen.getByRole('img', { name: /new pull request/i })
     expect(dot).toHaveClass('sidebar-new-dot')
   })
+
+  it('handles Space key on PR child node', () => {
+    const prViewId = createPRDetailViewId(basePr)
+    const { onItemSelect } = renderSection({
+      expandedPrGroups: new Set([baseItem.id]),
+      expandedPRNodes: new Set([prViewId]),
+    })
+
+    const childButtons = document.querySelectorAll('.sidebar-pr-child')
+    fireEvent.keyDown(childButtons[0], { key: ' ' })
+
+    expect(onItemSelect).toHaveBeenCalled()
+  })
+
+  it('shows singular label when newCount is exactly 1', () => {
+    renderSection({
+      newCounts: { [baseItem.id]: 1 },
+    })
+
+    const badge = screen.getByRole('status')
+    expect(badge).toHaveTextContent('1')
+    expect(badge).toHaveAttribute('title', '1 new PR')
+    expect(badge).toHaveAttribute('aria-label', '1 new pull request')
+  })
+
+  it('does not render PR tree when expanded group has empty data', () => {
+    renderSection({
+      expandedPrGroups: new Set([baseItem.id]),
+      prTreeData: { [baseItem.id]: [] },
+    })
+
+    expect(document.querySelector('.sidebar-pr-tree')).toBeNull()
+  })
+
+  it('does not render count badge when counts entry is undefined', () => {
+    renderSection({
+      counts: {},
+    })
+
+    expect(document.querySelector('.sidebar-item-count')).toBeNull()
+    expect(document.querySelector('.sidebar-item-count-ring')).toBeNull()
+  })
+
+  it('does not show new badge when newCounts present but item count is 0', () => {
+    renderSection({
+      newCounts: { 'other-item': 5 },
+    })
+
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('does not trigger child selection for non-interactive keys', () => {
+    const prViewId = createPRDetailViewId(basePr)
+    const { onItemSelect } = renderSection({
+      expandedPrGroups: new Set([baseItem.id]),
+      expandedPRNodes: new Set([prViewId]),
+    })
+
+    const childButtons = document.querySelectorAll('.sidebar-pr-child')
+    onItemSelect.mockClear()
+    fireEvent.keyDown(childButtons[0], { key: 'Tab' })
+
+    expect(onItemSelect).not.toHaveBeenCalled()
+  })
+
+  it('applies no refresh class when indicators are defined but state is unknown', () => {
+    renderSection({
+      refreshIndicators: {} as RefreshIndicators,
+    })
+    const sidebarItem = document.querySelector('.sidebar-item')
+    expect(sidebarItem?.className).not.toContain('refresh-active')
+    expect(sidebarItem?.className).not.toContain('refresh-pending')
+  })
+
+  it('highlights PR as selected when selectedItem matches PR view id', () => {
+    const prViewId = createPRDetailViewId(basePr)
+    renderSection({
+      expandedPrGroups: new Set([baseItem.id]),
+      selectedItem: prViewId,
+    })
+    const prItem = document.querySelector('.sidebar-pr-item.selected')
+    expect(prItem).toBeTruthy()
+  })
+
+  it('fires context menu handler on PR row', () => {
+    const { onContextMenu } = renderSection({
+      expandedPrGroups: new Set([baseItem.id]),
+    })
+    const prGroup = document.querySelector('.sidebar-pr-group') as HTMLElement
+    fireEvent.contextMenu(prGroup)
+    expect(onContextMenu).toHaveBeenCalled()
+  })
 })

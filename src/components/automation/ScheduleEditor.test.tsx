@@ -164,4 +164,32 @@ describe('ScheduleEditor', () => {
 
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('shows validation error when no job is selected', async () => {
+    mockJobs = []
+    render(<ScheduleEditor onClose={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test Schedule' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create Schedule' }))
+
+    expect(await screen.findByText('Please select a job')).toBeInTheDocument()
+  })
+
+  it('shows error when save operation fails', async () => {
+    mockCreate.mockRejectedValue(new Error('Database unavailable'))
+    render(<ScheduleEditor onClose={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test Schedule' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create Schedule' }))
+
+    expect(await screen.findByText('Database unavailable')).toBeInTheDocument()
+  })
+
+  it('changes the selected job via dropdown', () => {
+    render(<ScheduleEditor onClose={vi.fn()} />)
+
+    const jobSelect = screen.getByLabelText('Job')
+    fireEvent.change(jobSelect, { target: { value: 'job-2' } })
+    expect(jobSelect).toHaveValue('job-2')
+  })
 })

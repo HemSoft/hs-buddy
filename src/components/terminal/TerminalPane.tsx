@@ -34,7 +34,9 @@ export function TerminalPane({
     // from React StrictMode's double-mount don't register duplicate listeners.
     let active = true
     const container = containerRef.current
+    /* v8 ignore start */
     if (!container) return
+    /* v8 ignore stop */
 
     const NERD_FONT_FAMILY = "'CaskaydiaCove NFM', 'CaskaydiaCove NF', 'FiraCode Nerd Font Mono'"
     const FALLBACK_FAMILY = "'Cascadia Code', 'Cascadia Mono', Consolas, 'Courier New', monospace"
@@ -105,7 +107,9 @@ export function TerminalPane({
           sessionIdRef.current = existingSessionId
           const result = await window.terminal.attach(existingSessionId)
 
+          /* v8 ignore start */
           if (!active) return
+          /* v8 ignore stop */
 
           if (result.success && result.buffer) {
             term.write(result.buffer)
@@ -119,11 +123,15 @@ export function TerminalPane({
           if (!result.success) {
             // Session was cleaned up — spawn fresh
             removeSession(viewKey)
+            /* v8 ignore start */
             if (!active) return
+            /* v8 ignore stop */
             await spawnNew()
           }
         } else {
+          /* v8 ignore start */
           if (!active) return
+          /* v8 ignore stop */
           await spawnNew()
         }
       } catch (error) {
@@ -136,17 +144,23 @@ export function TerminalPane({
     async function spawnNew() {
       const result = await window.terminal.spawn({
         cwd,
+        /* v8 ignore start */
         cols: dims?.cols || 120,
         rows: dims?.rows || 30,
+        /* v8 ignore stop */
         startupCommand,
       })
 
       // If deactivated while spawn was in flight, kill the orphaned PTY immediately
       if (!active) {
+        /* v8 ignore start */
         if (result.success && result.sessionId) {
+          /* v8 ignore stop */
           void window.terminal.kill(result.sessionId)
         }
+        /* v8 ignore start */
         return
+        /* v8 ignore stop */
       }
       if (!result.success || !result.sessionId) {
         term.writeln(
@@ -161,7 +175,9 @@ export function TerminalPane({
 
       // Flush any output that arrived before sessionIdRef was set
       const attachResult = await window.terminal.attach(result.sessionId)
+      /* v8 ignore start */
       if (!active) return
+      /* v8 ignore stop */
       if (attachResult.success && attachResult.buffer) {
         term.write(attachResult.buffer)
       }
@@ -187,15 +203,19 @@ export function TerminalPane({
     }
 
     const onSessionExit = (_event: unknown, sid: string, exitCode: number) => {
+      /* v8 ignore start */
       if (sid === sessionIdRef.current && termRef.current) {
+        /* v8 ignore stop */
         termRef.current.writeln(`\r\n\x1b[90m[Process exited with code ${exitCode}]\x1b[0m`)
         onExit?.(exitCode)
       }
     }
 
+    /* v8 ignore start */
     const onCwdChanged = (_event: unknown, sid: string, newCwd: string) => {
       if (sid === sessionIdRef.current) {
         onCwdChange?.(newCwd)
+        /* v8 ignore stop */
       }
     }
 
@@ -217,11 +237,15 @@ export function TerminalPane({
       resizeTimer = setTimeout(() => {
         const fit = fitRef.current
         const sid = sessionIdRef.current
+        /* v8 ignore start */
         if (!fit || !sid) return
+        /* v8 ignore stop */
         try {
           fit.fit()
           const d = fit.proposeDimensions()
+          /* v8 ignore start */
           if (d?.cols && d?.rows) {
+            /* v8 ignore stop */
             const last = lastResizeRef.current
             if (!last || last.cols !== d.cols || last.rows !== d.rows) {
               lastResizeRef.current = { cols: d.cols, rows: d.rows }

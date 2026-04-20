@@ -6,6 +6,7 @@ import type { PRDetailInfo } from '../utils/prDetailView'
 const mockUsePRReviewRunsByPR = vi.fn()
 const mockUseConvex = vi.fn()
 const mockDispatchEvent = vi.fn()
+const mockParseOwnerRepoFromUrl = vi.fn()
 
 vi.mock('convex/react', () => ({
   useConvex: () => mockUseConvex(),
@@ -24,6 +25,10 @@ vi.mock('../hooks/useConfig', () => ({
     accounts: [{ username: 'alice', org: 'test-org' }],
     loading: false,
   }),
+}))
+
+vi.mock('../utils/githubUrl', () => ({
+  parseOwnerRepoFromUrl: (...args: unknown[]) => mockParseOwnerRepoFromUrl(...args),
 }))
 
 const defaultPr: PRDetailInfo = {
@@ -58,6 +63,7 @@ describe('PRReviewsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseConvex.mockReturnValue({ query: vi.fn() })
+    mockParseOwnerRepoFromUrl.mockReturnValue({ owner: 'test-org', repo: 'hs-buddy' })
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -267,6 +273,27 @@ describe('PRReviewsPanel', () => {
     // No error, just silently returns
   })
 
+  it('returns early from handlePublishToPR when owner or repo is missing', async () => {
+    mockParseOwnerRepoFromUrl.mockReturnValue(null)
+    const prNoOwner: PRDetailInfo = {
+      ...defaultPr,
+      org: undefined as unknown as string,
+      repository: undefined as unknown as string,
+    }
+    const mockQuery = vi.fn()
+    mockUseConvex.mockReturnValue({ query: mockQuery })
+    mockUsePRReviewRunsByPR.mockReturnValue([
+      makeRun({ _id: 'run-no-owner', status: 'completed', resultId: 'result-no-owner' }),
+    ])
+    render(<PRReviewsPanel pr={prNoOwner} />)
+
+    const publishBtn = screen.getByTitle('Publish review as PR comment')
+    fireEvent.click(publishBtn)
+
+    // Should return early without calling convex query
+    expect(mockQuery).not.toHaveBeenCalled()
+  })
+
   it('uses parsed owner/repo when pr fields are missing', () => {
     const prWithoutOrg: PRDetailInfo = {
       ...defaultPr,
@@ -276,5 +303,95 @@ describe('PRReviewsPanel', () => {
     mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
     render(<PRReviewsPanel pr={prWithoutOrg} />)
     expect(screen.getByText('AI Reviews')).toBeInTheDocument()
+  })
+
+  it('publishes with result.model when run model is missing', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({ result: 'Looks good!', model: 'gpt-4o' })
+    mockUseConvex.mockReturnValue({ query: mockQuery })
+
+    const addPRCommentMock = vi.fn().mockResolvedValue(undefined)
+    const { GitHubClient } = await import('../api/github')
+    vi.spyOn(GitHubClient.prototype, 'addPRComment').mockImplementation(addPRCommentMock)
+
+    mockUsePRReviewRunsByPR.mockReturnValue([
+      makeRun({
+        _id: 'run-no-model',
+        status: 'completed',
+        resultId: 'result-nm',
+        model: undefined,
+      }),
+    ])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    fireEvent.click(screen.getByTitle('Publish review as PR comment'))
+
+    const { waitFor } = await import('@testing-library/react')
+    await waitFor(() => {
+      expect(addPRCommentMock).toHaveBeenCalledWith(
+        'test-org',
+        'hs-buddy',
+        42,
+        expect.stringContaining('gpt-4o review')
+      )
+    })
+  })
+
+  it('publishes with AI fallback when both run model and result model are missing', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({ result: 'Nice!', model: undefined })
+    mockUseConvex.mockReturnValue({ query: mockQuery })
+
+    const addPRCommentMock = vi.fn().mockResolvedValue(undefined)
+    const { GitHubClient } = await import('../api/github')
+    vi.spyOn(GitHubClient.prototype, 'addPRComment').mockImplementation(addPRCommentMock)
+
+    mockUsePRReviewRunsByPR.mockReturnValue([
+      makeRun({
+        _id: 'run-no-models',
+        status: 'completed',
+        resultId: 'result-nms',
+        model: undefined,
+      }),
+    ])
+    render(<PRReviewsPanel pr={defaultPr} />)
+    fireEvent.click(screen.getByTitle('Publish review as PR comment'))
+
+    const { waitFor } = await import('@testing-library/react')
+    await waitFor(() => {
+      expect(addPRCommentMock).toHaveBeenCalledWith(
+        'test-org',
+        'hs-buddy',
+        42,
+        expect.stringContaining('AI review')
+      )
+    })
+  })
+
+  it('dispatches re-review with parsed owner when pr.org is missing', () => {
+    mockParseOwnerRepoFromUrl.mockReturnValue({ owner: 'parsed-org', repo: 'parsed-repo' })
+    const prNoOrg: PRDetailInfo = {
+      ...defaultPr,
+      org: undefined as unknown as string,
+    }
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
+    render(<PRReviewsPanel pr={prNoOrg} />)
+    fireEvent.click(screen.getByText('Re-review'))
+    const event = mockDispatchEvent.mock.calls.find(
+      (c: unknown[]) => (c[0] as CustomEvent).type === 'pr-review:open'
+    )
+    expect((event![0] as CustomEvent).detail.org).toBe('parsed-org')
+  })
+
+  it('dispatches re-review with empty org when both pr.org and owner are missing', () => {
+    mockParseOwnerRepoFromUrl.mockReturnValue(null)
+    const prNoOrg: PRDetailInfo = {
+      ...defaultPr,
+      org: undefined as unknown as string,
+    }
+    mockUsePRReviewRunsByPR.mockReturnValue([makeRun()])
+    render(<PRReviewsPanel pr={prNoOrg} />)
+    fireEvent.click(screen.getByText('Re-review'))
+    const event = mockDispatchEvent.mock.calls.find(
+      (c: unknown[]) => (c[0] as CustomEvent).type === 'pr-review:open'
+    )
+    expect((event![0] as CustomEvent).detail.org).toBe('')
   })
 })

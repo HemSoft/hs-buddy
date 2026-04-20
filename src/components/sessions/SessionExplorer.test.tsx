@@ -417,4 +417,43 @@ describe('SessionExplorer', () => {
     const countBadges = screen.getAllByText('2')
     expect(countBadges.length).toBeGreaterThanOrEqual(1)
   })
+
+  it('removes stale expanded hashes when workspace disappears', () => {
+    // Start with two workspaces
+    const twoWorkspaces = {
+      ...defaultMock(),
+      sessions: [
+        ...defaultMock().sessions,
+        {
+          sessionId: 'extra-1',
+          title: 'Extra',
+          workspaceHash: 'ws-2',
+          workspaceName: 'extra-proj',
+          turnCount: 1,
+          sizeBytes: 100,
+          modifiedAt: Date.now(),
+          createdAt: Date.now(),
+          firstPrompt: '',
+          requestCount: 0,
+          filePath: '/sessions/extra.jsonl',
+          agent: 'copilot',
+        },
+      ],
+      totalCount: 3,
+    }
+    mockReturnValue = twoWorkspaces
+    const { rerender } = render(<SessionExplorer onSelectSession={onSelectSession} />)
+
+    // Both workspaces visible
+    expect(screen.getByText('hs-buddy')).toBeTruthy()
+    expect(screen.getByText('extra-proj')).toBeTruthy()
+
+    // Remove the extra workspace
+    mockReturnValue = defaultMock()
+    rerender(<SessionExplorer onSelectSession={onSelectSession} />)
+
+    // extra-proj workspace is gone; expanded hash for ws-2 should be cleaned up
+    expect(screen.queryByText('extra-proj')).toBeNull()
+    expect(screen.getByText('hs-buddy')).toBeTruthy()
+  })
 })

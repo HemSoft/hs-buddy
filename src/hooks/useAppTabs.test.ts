@@ -737,6 +737,80 @@ describe('useAppTabs', () => {
       })
     })
 
+    it('openTab does not create duplicate when tab already active', async () => {
+      const onViewOpen = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen }))
+
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+
+      const tabCountBefore = result.current.tabs.length
+      const activeId = result.current.activeTabId
+
+      // Open the same view that is already active
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+
+      expect(result.current.tabs).toHaveLength(tabCountBefore)
+      expect(result.current.activeTabId).toBe(activeId)
+    })
+
+    it('activates existing non-active tab without creating a new one', async () => {
+      const onViewOpen = vi.fn()
+      const { result } = renderHook(() => useAppTabs({ onViewOpen }))
+
+      // Open two tabs
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+      await act(async () => {
+        await result.current.openTab('pr-needs-review')
+      })
+
+      // pr-needs-review is now active, pr-my-prs exists but is not active
+      expect(result.current.activeViewId).toBe('pr-needs-review')
+      const tabCount = result.current.tabs.length
+
+      // Re-open pr-my-prs — should activate existing tab (line 95)
+      await act(async () => {
+        await result.current.openTab('pr-my-prs')
+      })
+
+      expect(result.current.activeViewId).toBe('pr-my-prs')
+      expect(result.current.tabs).toHaveLength(tabCount) // no new tab created
+    })
+
+    it('syncCrewTabLabels exits early when unmounted before listProjects resolves', async () => {
+      // First call resolves immediately (for openTab's resolveCrewProjectLabel)
+      mockListProjects.mockResolvedValueOnce([{ id: 'proj-1', displayName: 'Label' }])
+
+      // Second call (from the useEffect sync) will hang
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let resolveSync: (value: any) => void
+      mockListProjects.mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveSync = resolve
+          })
+      )
+
+      const { result, unmount } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+      await act(async () => {
+        await result.current.openTab('crew-project:proj-1')
+      })
+
+      // Unmount while the sync effect's listProjects is still pending (isCancelled = true)
+      unmount()
+
+      // Resolve after unmount — the isCancelled guard (line 136) prevents state update
+      await act(async () => {
+        resolveSync!([{ id: 'proj-1', displayName: 'Changed' }])
+      })
+    })
+
     it('returns unchanged state when closeOtherTabs called with non-existent keepTabId', async () => {
       const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
 

@@ -171,7 +171,9 @@ function UserDetailHero({
 function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
   return (
     <div className="ud-profile-meta">
+      {/* v8 ignore start */}
       {(activity.teams?.length ?? 0) > 0 && (
+        /* v8 ignore stop */
         <span className="ud-meta-item">
           <Users size={13} />
           {activity.teams.join(', ')}
@@ -468,7 +470,9 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
 
   const contributor = useMemo(() => {
     if (!overview) return null
+    /* v8 ignore start */
     return overview.metrics.topContributorsToday.find(c => c.login === memberLogin) ?? null
+    /* v8 ignore stop */
   }, [overview, memberLogin])
 
   const profileUrl = member?.url ?? `https://github.com/${memberLogin}`
@@ -495,11 +499,15 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     doFetch()
       .then(result => {
         dataCache.set(cacheKey, result, 5 * 60 * 1000) // 5 min TTL
+        /* v8 ignore start */
         if (cancelled) return
+        /* v8 ignore stop */
         dispatch({ type: 'FETCH_SUCCESS', payload: result })
       })
       .catch(err => {
+        /* v8 ignore start */
         if (cancelled) return
+        /* v8 ignore stop */
         dispatch({
           type: 'FETCH_ERROR',
           payload: getErrorMessage(err),

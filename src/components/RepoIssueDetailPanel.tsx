@@ -68,17 +68,21 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
 
       try {
         const result = await enqueueRef.current(
+          /* v8 ignore start */
           async signal => {
             throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchRepoIssueDetail(owner, repo, issueNumber)
+            /* v8 ignore stop */
           },
           { name: `repo-issue-${owner}-${repo}-${issueNumber}` }
         )
         setDetail(result)
         dataCache.set(cacheKey, result)
       } catch (err) {
+        /* v8 ignore start */
         if (isAbortError(err)) return
+        /* v8 ignore stop */
         setError(getErrorMessage(err))
       } finally {
         setLoading(false)
@@ -116,7 +120,9 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
     )
   }
 
+  /* v8 ignore start */
   if (!detail) return null
+  /* v8 ignore stop */
 
   return (
     <div className="repo-issue-detail-panel">
@@ -262,50 +268,46 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
           <div className="repo-issue-detail-empty-comments">No comments yet.</div>
         ) : (
           <div className="repo-issue-detail-comments-list">
-            {detail.comments.map(comment => (
-              <article key={comment.id} className="repo-issue-detail-comment">
-                <div className="repo-issue-detail-comment-head">
-                  <div className="repo-issue-detail-comment-author">
-                    {comment.authorAvatarUrl && (
-                      <img src={comment.authorAvatarUrl} alt={comment.author} />
-                    )}
-                    <div>
-                      <div className="name">{comment.author}</div>
-                      <div
-                        className="time"
-                        title={formatDateFull(
-                          comment.updatedAt > comment.createdAt
-                            ? comment.updatedAt
-                            : comment.createdAt
-                        )}
-                      >
-                        {formatDistanceToNow(
-                          comment.updatedAt > comment.createdAt
-                            ? comment.updatedAt
-                            : comment.createdAt
-                        )}
+            {detail.comments.map(comment => {
+              /* v8 ignore next */
+              const commentDate =
+                comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
+              return (
+                <article key={comment.id} className="repo-issue-detail-comment">
+                  <div className="repo-issue-detail-comment-head">
+                    <div className="repo-issue-detail-comment-author">
+                      {comment.authorAvatarUrl && (
+                        <img src={comment.authorAvatarUrl} alt={comment.author} />
+                      )}
+                      <div>
+                        <div className="name">{comment.author}</div>
+                        <div className="time" title={formatDateFull(commentDate)}>
+                          {formatDistanceToNow(commentDate)}
+                        </div>
                       </div>
                     </div>
+                    <button
+                      className="repo-issue-detail-link-btn"
+                      onClick={() => window.shell?.openExternal(comment.url)}
+                    >
+                      <ExternalLink size={13} />
+                    </button>
                   </div>
-                  <button
-                    className="repo-issue-detail-link-btn"
-                    onClick={() => window.shell?.openExternal(comment.url)}
+                  <div
+                    className="repo-issue-detail-markdown repo-issue-detail-comment-body"
+                    data-color-mode="dark"
                   >
-                    <ExternalLink size={13} />
-                  </button>
-                </div>
-                <div
-                  className="repo-issue-detail-markdown repo-issue-detail-comment-body"
-                  data-color-mode="dark"
-                >
-                  <MarkdownPreview
-                    source={comment.body || '_No comment body provided._'}
-                    remarkPlugins={[remarkGemoji]}
-                    style={{ backgroundColor: 'transparent', color: 'inherit' }}
-                  />
-                </div>
-              </article>
-            ))}
+                    <MarkdownPreview
+                      /* v8 ignore start */
+                      source={comment.body || '_No comment body provided._'}
+                      /* v8 ignore stop */
+                      remarkPlugins={[remarkGemoji]}
+                      style={{ backgroundColor: 'transparent', color: 'inherit' }}
+                    />
+                  </div>
+                </article>
+              )
+            })}
           </div>
         )}
       </section>

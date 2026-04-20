@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import type { PRChecksSummary } from '../api/github'
 import type { PRDetailInfo } from '../utils/prDetailView'
 
-const { mockEnqueue, mockFetchPRChecks, stableAccounts } = vi.hoisted(() => ({
-  mockEnqueue: vi.fn(),
-  mockFetchPRChecks: vi.fn(),
-  stableAccounts: [{ username: 'testuser', token: 'tok' }],
-}))
+const { mockEnqueue, mockFetchPRChecks, stableAccounts, mockParseOwnerRepo, mockIsAbortError } =
+  vi.hoisted(() => ({
+    mockEnqueue: vi.fn(),
+    mockFetchPRChecks: vi.fn(),
+    stableAccounts: [{ username: 'testuser', token: 'tok' }],
+    mockParseOwnerRepo: vi.fn(),
+    mockIsAbortError: vi.fn(),
+  }))
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: stableAccounts }),
@@ -31,12 +34,12 @@ vi.mock('../utils/dateUtils', () => ({
 }))
 
 vi.mock('../utils/githubUrl', () => ({
-  parseOwnerRepoFromUrl: () => ({ owner: 'acme', repo: 'webapp' }),
+  parseOwnerRepoFromUrl: (...args: unknown[]) => mockParseOwnerRepo(...args),
 }))
 
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-  isAbortError: () => false,
+  isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
 }))
 
 import { PRChecksPanel } from './PRChecksPanel'
@@ -120,6 +123,8 @@ describe('PRChecksPanel', () => {
   beforeEach(() => {
     mockEnqueue.mockReset()
     mockFetchPRChecks.mockReset()
+    mockParseOwnerRepo.mockReturnValue({ owner: 'acme', repo: 'webapp' })
+    mockIsAbortError.mockReturnValue(false)
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -624,5 +629,101 @@ describe('PRChecksPanel', () => {
     })
     fireEvent.click(screen.getByText('Details'))
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://deploy.example.com/50')
+  })
+
+  it('shows error when parseOwnerRepoFromUrl returns null', async () => {
+    mockParseOwnerRepo.mockReturnValue(null)
+    mockEnqueue.mockImplementation(async () => {
+      throw new Error('Could not parse owner/repo from PR URL')
+    })
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Could not parse owner/repo from PR URL')).toBeInTheDocument()
+    })
+  })
+
+  it('silences abort errors without showing error state', async () => {
+    mockIsAbortError.mockReturnValue(true)
+    setupEnqueueError(new DOMException('Cancelled', 'AbortError'))
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalled()
+    })
+    expect(screen.queryByText('Failed to load checks')).toBeNull()
+  })
+
+  it('covers the signal.aborted early-throw in the enqueue callback', async () => {
+    mockEnqueue.mockImplementation(
+      async (cb: (signal: AbortSignal) => Promise<PRChecksSummary>) => {
+        const controller = new AbortController()
+        controller.abort()
+        return cb(controller.signal)
+      }
+    )
+    mockIsAbortError.mockReturnValue(true)
+    render(<PRChecksPanel pr={basePR} />)
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalled()
+    })
+    expect(screen.queryByText('Failed to load checks')).toBeNull()
+  })
+
+  it('discards stale success responses', async () => {
+    let resolveFirst!: (val: PRChecksSummary) => void
+    mockEnqueue
+      .mockImplementationOnce(
+        () =>
+          new Promise<PRChecksSummary>(resolve => {
+            resolveFirst = resolve
+          })
+      )
+      .mockResolvedValueOnce(makeChecks({ overallState: 'passing' }))
+
+    const { rerender } = render(<PRChecksPanel pr={basePR} />)
+
+    await act(async () => {
+      rerender(<PRChecksPanel pr={{ ...basePR, id: 99 }} />)
+    })
+
+    // "Passing" appears as both the static label and the overall state value
+    expect(screen.queryAllByText('Passing')).toHaveLength(2)
+    // "Failing" appears once as the static label only
+    expect(screen.queryAllByText('Failing')).toHaveLength(1)
+
+    await act(async () => {
+      resolveFirst(makeChecks({ overallState: 'failing' }))
+    })
+
+    // "Failing" should still appear only once (static label), not twice
+    expect(screen.queryAllByText('Failing')).toHaveLength(1)
+  })
+
+  it('discards stale error responses', async () => {
+    let rejectFirst!: (err: Error) => void
+    mockEnqueue
+      .mockImplementationOnce(
+        () =>
+          new Promise<never>((_, reject) => {
+            rejectFirst = reject
+          })
+      )
+      .mockResolvedValueOnce(makeChecks({ overallState: 'passing' }))
+
+    const { rerender } = render(<PRChecksPanel pr={basePR} />)
+
+    await act(async () => {
+      rerender(<PRChecksPanel pr={{ ...basePR, id: 99 }} />)
+    })
+
+    expect(screen.getAllByText('Passing').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      rejectFirst(new Error('Old error'))
+    })
+
+    expect(screen.queryByText('Old error')).toBeNull()
   })
 })

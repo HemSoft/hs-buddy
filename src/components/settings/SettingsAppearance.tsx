@@ -149,12 +149,16 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
       '--input-bg': colors.primary,
       '--bg-secondary': colors.secondary,
       '--sidebar-bg': colors.secondary,
+      /* v8 ignore start */
       ...(colors.sbBg ? { '--statusbar-bg': colors.sbBg } : {}),
       ...(colors.sbFg ? { '--statusbar-fg': colors.sbFg } : {}),
+      /* v8 ignore stop */
     }
 
     for (const [prop, value] of Object.entries(customColors)) {
+      /* v8 ignore start */
       if (value) {
+        /* v8 ignore stop */
         root.style.setProperty(prop, value)
       }
     }

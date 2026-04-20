@@ -1685,6 +1685,78 @@ describe('GitHubClient', () => {
       // Should fall back to 0 commits when per-repo fetch fails
       expect(result.commitsToday).toBe(0)
     })
+
+    it('handles graphql throw and returns null for profile (catch block)', async () => {
+      mockGraphql.mockRejectedValue(new Error('GraphQL network error'))
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      // userProfile is null → contribution fields fall back to null
+      expect(result.totalContributions).toBeNull()
+      expect(result.contributionWeeks).toBeNull()
+      expect(result.name).toBeNull()
+    })
+
+    it('extracts repos from reviewed PR items via repository_url', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: 'Test User',
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: '2020-01-01',
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: {
+              totalContributions: 10,
+              weeks: [],
+            },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      let searchCallCount = 0
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(() => {
+        searchCallCount++
+        // 1st = authored open, 2nd = authored merged, 3rd = reviewed
+        if (searchCallCount === 3) {
+          return Promise.resolve({
+            data: {
+              total_count: 1,
+              items: [
+                {
+                  number: 99,
+                  title: 'Reviewed PR',
+                  repository_url: 'https://api.github.com/repos/myorg/reviewed-repo',
+                  state: 'open',
+                  pull_request: {},
+                  created_at: '2026-01-01T00:00:00Z',
+                  updated_at: '2026-01-02T00:00:00Z',
+                  html_url: 'https://github.com/myorg/reviewed-repo/pull/99',
+                },
+              ],
+            },
+          })
+        }
+        return Promise.resolve({ data: { total_count: 0, items: [] } })
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'admin' },
+      })
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.activeRepos).toContain('myorg/reviewed-repo')
+    })
   })
 
   describe('fetchOrgOverview', () => {

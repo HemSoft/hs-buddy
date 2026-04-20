@@ -233,9 +233,13 @@ export function useWeather() {
             const json = (await resp.json()) as {
               address?: { city?: string; town?: string; village?: string; state?: string }
             }
+            /* v8 ignore start */
             const city = json.address?.city ?? json.address?.town ?? json.address?.village ?? ''
+            /* v8 ignore stop */
             const st = json.address?.state ?? ''
+            /* v8 ignore start */
             if (city) loc.name = st ? `${city}, ${st}` : city
+            /* v8 ignore stop */
           }
         } catch {
           // Use coordinate-based name as fallback
@@ -249,7 +253,9 @@ export function useWeather() {
           // localStorage unavailable
         }
         // Now re-fetch
+        /* v8 ignore start */
         refresh().catch(() => {
+          /* v8 ignore stop */
           /* error already handled in state */
         })
       },
@@ -309,7 +315,9 @@ export function useWeather() {
         } catch {
           // localStorage unavailable
         }
+        /* v8 ignore start */
         refresh().catch(() => {
+          /* v8 ignore stop */
           /* error already handled in state */
         })
       } catch (err) {

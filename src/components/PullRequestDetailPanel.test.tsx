@@ -676,6 +676,33 @@ describe('PullRequestDetailPanel', () => {
         expect(screen.getByText('#55')).toBeInTheDocument()
       })
     })
+
+    it('clicking linked issue opens external URL', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      await act(async () => {
+        prDetailMocks.capturedOnLoaded.current?.({
+          updatedAt: null,
+          linkedIssues: [
+            {
+              number: 55,
+              title: 'Fix bug',
+              url: 'https://github.com/octo-org/test-repo/issues/55',
+            },
+          ],
+          reviewers: [],
+        })
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Open Issue #55 on GitHub')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByTitle('Open Issue #55 on GitHub'))
+      expect(window.shell.openExternal).toHaveBeenCalledWith(
+        'https://github.com/octo-org/test-repo/issues/55'
+      )
+    })
   })
 
   describe('source/org fallback', () => {

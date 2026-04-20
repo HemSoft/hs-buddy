@@ -2,9 +2,13 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AccountPicker } from './AccountPicker'
 
+const { mockSetGhAccount } = vi.hoisted(() => ({
+  mockSetGhAccount: vi.fn(),
+}))
+
 vi.mock('../../hooks/useConfig', () => ({
   useCopilotSettings: () => ({
-    setGhAccount: vi.fn().mockResolvedValue(undefined),
+    setGhAccount: mockSetGhAccount,
   }),
   useGitHubAccounts: () => ({
     uniqueUsernames: ['alice', 'bob'],
@@ -30,6 +34,7 @@ vi.mock('../InlineDropdown', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockSetGhAccount.mockResolvedValue(undefined)
   Object.defineProperty(window, 'ipcRenderer', {
     value: {
       invoke: vi.fn().mockResolvedValue('active-user'),
@@ -71,5 +76,32 @@ describe('AccountPicker', () => {
   it('disables select when disabled', () => {
     render(<AccountPicker value="" onChange={vi.fn()} variant="select" disabled />)
     expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true)
+  })
+
+  it('persists account selection when persist prop is true', () => {
+    const onChange = vi.fn()
+    render(<AccountPicker value="" onChange={onChange} variant="select" persist />)
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } })
+    expect(mockSetGhAccount).toHaveBeenCalledWith('alice')
+  })
+
+  it('handles setGhAccount rejection gracefully', async () => {
+    mockSetGhAccount.mockRejectedValueOnce(new Error('Persist failed'))
+    const onChange = vi.fn()
+    render(<AccountPicker value="" onChange={onChange} variant="select" persist />)
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } })
+    expect(mockSetGhAccount).toHaveBeenCalledWith('alice')
+    // Should not throw — error is caught by .catch(() => {})
+  })
+
+  it('re-detects CLI account when value is cleared', () => {
+    const onChange = vi.fn()
+    render(<AccountPicker value="alice" onChange={onChange} variant="select" />)
+    expect(window.ipcRenderer.invoke).toHaveBeenCalledTimes(1)
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } })
+    expect(onChange).toHaveBeenCalledWith('')
+    expect(window.ipcRenderer.invoke).toHaveBeenCalledTimes(2)
+    expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('github:get-active-account')
   })
 })

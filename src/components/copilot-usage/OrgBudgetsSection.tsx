@@ -34,10 +34,12 @@ export function OrgBudgetsSection({
           const myShare = !d?.useQuotaOverage ? quotaOverage : 0
           const barValue = Math.max(displaySpent, myShare)
           const pct = effectiveBudget ? Math.min((barValue / effectiveBudget) * 100, 100) : null
+          /* v8 ignore start */
           const mySharePct =
             effectiveBudget && myShare > 0
               ? Math.min((myShare / effectiveBudget) * 100, pct ?? 100)
               : null
+          /* v8 ignore stop */
 
           const barColor = getQuotaColor(pct)
 

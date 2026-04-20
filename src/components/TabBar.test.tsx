@@ -255,6 +255,26 @@ describe('TabBar', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     })
 
+    it('does not close context menu for non-Escape key', () => {
+      renderTabBar()
+
+      fireEvent.contextMenu(screen.getAllByRole('tab')[0])
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+
+      fireEvent.keyDown(window, { key: 'a' })
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+    })
+
+    it('does not fire onTabSelect for non-Enter/Space key on a tab', () => {
+      const { onTabSelect } = renderTabBar()
+      const tabs = screen.getAllByRole('tab')
+
+      tabs[1].focus()
+      fireEvent.keyDown(tabs[1], { key: 'ArrowRight' })
+
+      expect(onTabSelect).not.toHaveBeenCalled()
+    })
+
     it('adjusts context menu position when it overflows the viewport right edge', async () => {
       renderTabBar()
       const tabs = screen.getAllByRole('tab')

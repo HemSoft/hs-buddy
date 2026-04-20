@@ -183,4 +183,18 @@ describe('ScheduleDetailPanel', () => {
 
     expect(screen.getByText('Loading runs...')).toBeInTheDocument()
   })
+
+  it('renders createdAt and updatedAt tooltips, missedPolicy, and job workerType', () => {
+    render(<ScheduleDetailPanel scheduleId="sched-1" />)
+
+    const metaSpans = document.querySelectorAll('.schedule-detail-meta span')
+    expect(metaSpans.length).toBe(2)
+    expect(metaSpans[0].getAttribute('title')).toBe(new Date(1).toLocaleString())
+    expect(metaSpans[1].getAttribute('title')).toBe(new Date(2).toLocaleString())
+
+    expect(screen.getByText('Missed Policy')).toBeInTheDocument()
+    expect(screen.getByText('catchup')).toBeInTheDocument()
+    expect(screen.getByText('Type')).toBeInTheDocument()
+    expect(screen.getByText('ai')).toBeInTheDocument()
+  })
 })

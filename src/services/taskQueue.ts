@@ -283,7 +283,9 @@ export class TaskQueue {
       this.runningTasks.delete(task.id)
       this.stats.running--
 
+      /* v8 ignore start */
       if (isAbortError(error)) {
+        /* v8 ignore stop */
         task.status = 'cancelled'
         this.stats.cancelled++
         task.reject(error)

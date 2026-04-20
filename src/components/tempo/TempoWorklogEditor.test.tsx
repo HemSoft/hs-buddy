@@ -415,4 +415,17 @@ describe('TempoWorklogEditor', () => {
 
     expect(screen.getByLabelText('Account')).toHaveValue('NEW')
   })
+
+  it('sets userPickedAccount flag when account dropdown is changed manually', async () => {
+    mountEditor()
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Operations (OPS)' })).toBeInTheDocument()
+    })
+
+    // Manually change the account dropdown — exercises lines 298-299
+    fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'OPS' } })
+
+    expect(screen.getByLabelText('Account')).toHaveValue('OPS')
+  })
 })

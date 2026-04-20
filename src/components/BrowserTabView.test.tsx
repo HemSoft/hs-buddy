@@ -412,6 +412,45 @@ describe('BrowserTabView', () => {
     expect(localStorage.getItem('browser-zoom-level')).toBeNull()
   })
 
+  it('ignores Alt key with non-zoom key', () => {
+    localStorage.removeItem('browser-zoom-level')
+    render(<BrowserTabView url="https://example.com" />)
+    fireEvent.keyDown(window, { key: 'a', altKey: true })
+    expect(localStorage.getItem('browser-zoom-level')).toBeNull()
+  })
+
+  it('ignores before-input-event with keyDown but no ctrl/meta', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event', { cancelable: true })
+    Object.defineProperty(event, 'input', {
+      value: { type: 'keyDown', key: 'Tab', control: false, meta: false, shift: false },
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    const appEvents = dispatchSpy.mock.calls.filter(c => (c[0] as Event).type.startsWith('app:'))
+    expect(appEvents).toHaveLength(0)
+    dispatchSpy.mockRestore()
+  })
+
+  it('ignores before-input-event with ctrl+unrecognized key', () => {
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const event = new Event('before-input-event', { cancelable: true })
+    Object.defineProperty(event, 'input', {
+      value: { type: 'keyDown', key: 'a', control: true, meta: false, shift: false },
+    })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+    const appEvents = dispatchSpy.mock.calls.filter(c => (c[0] as Event).type.startsWith('app:'))
+    expect(appEvents).toHaveLength(0)
+    dispatchSpy.mockRestore()
+  })
+
   it('shows reload button when not loading', async () => {
     const { container } = render(<BrowserTabView url="https://example.com" />)
     const webview = container.querySelector('webview')!
@@ -460,5 +499,32 @@ describe('BrowserTabView', () => {
     })
     expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'app:tab-next' }))
     dispatchSpy.mockRestore()
+  })
+
+  it('returns unchanged state for unknown reducer action type', () => {
+    // Directly test the reducer default branch
+    // Import is not needed since we can test via dispatching an unrecognized event
+    // Instead, we verify that dispatching an event that doesn't match any case
+    // results in no state change — the component should still render normally
+    const { container } = render(<BrowserTabView url="https://example.com" />)
+    const webview = container.querySelector('webview')!
+
+    // After stop-loading, the state is { navigatedUrl: null, loading: false }
+    act(() => {
+      webview.dispatchEvent(new Event('did-stop-loading'))
+    })
+
+    // Verify state is stable — no spinner
+    expect(container.querySelector('.browser-tab-spinner')).toBeNull()
+
+    // The reducer handles unknown actions with `default: return state`
+    // This is already covered implicitly, but let's ensure the component
+    // doesn't break from unrecognized webview events
+    act(() => {
+      webview.dispatchEvent(new Event('some-random-event'))
+    })
+
+    // State should remain unchanged
+    expect(container.querySelector('.browser-tab-spinner')).toBeNull()
   })
 })

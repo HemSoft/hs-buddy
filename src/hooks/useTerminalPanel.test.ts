@@ -660,6 +660,22 @@ describe('useTerminalPanel', () => {
     expect(result.current.terminalTabs).toBe(tabsBefore)
   })
 
+  it('renameTerminalTab with a different title successfully renames the tab', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    act(() => {
+      result.current.renameTerminalTab(tab!.id, 'Brand New Title')
+    })
+
+    expect(result.current.terminalTabs[0].title).toBe('Brand New Title')
+  })
+
   it('setTerminalTabColor sets and clears color', async () => {
     const { result } = renderHook(() => useTerminalPanel())
     await vi.waitFor(() => expect(result.current.loaded).toBe(true))
@@ -818,5 +834,49 @@ describe('useTerminalPanel', () => {
     // Convex sync effect should apply the settings value since local config is null
     await vi.waitFor(() => expect(result.current.panelHeight).toBe(450))
     expect(panelHeightCallCount).toBe(2)
+  })
+
+  it('addTerminalTab post-async dedup returns existing tab', async () => {
+    // Make resolveRepoPath slow so two concurrent calls can race
+    let resolveFirst!: (value: { path: string }) => void
+    let resolveSecond!: (value: { path: string }) => void
+    mockResolveRepoPath
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ path: string }>(r => {
+            resolveFirst = r
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ path: string }>(r => {
+            resolveSecond = r
+          })
+      )
+
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    // Start two concurrent addTerminalTab calls for the same repo
+    let tab1: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    let tab2: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    const p1 = act(async () => {
+      tab1 = await result.current.addTerminalTab({ owner: 'acme', repo: 'widget' })
+    })
+    const p2 = act(async () => {
+      tab2 = await result.current.addTerminalTab({ owner: 'acme', repo: 'widget' })
+    })
+
+    // Resolve the first call, creating the tab
+    resolveFirst({ path: '/repo/path' })
+    await p1
+
+    // Resolve the second call; it should hit the post-async dedup check
+    resolveSecond({ path: '/repo/path' })
+    await p2
+
+    // Both should return the same tab
+    expect(tab1!.id).toBe(tab2!.id)
+    expect(result.current.terminalTabs.length).toBe(1)
   })
 })

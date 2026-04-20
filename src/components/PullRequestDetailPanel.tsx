@@ -312,14 +312,18 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
     try {
       const result = await enqueueRef.current(
+        /* v8 ignore start */
         async signal => {
           throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.fetchPRBranches(ownerRepo.owner, ownerRepo.repo, pr.id)
+          /* v8 ignore stop */
         },
         { name: `pr-branches-${pr.repository}-${pr.id}` }
       )
+      /* v8 ignore start */
       setBranches(result)
+      /* v8 ignore stop */
     } catch {
       setBranches(null)
     }

@@ -643,4 +643,61 @@ describe('CopilotPromptBox', () => {
     render(<CopilotPromptBox onOpenResult={onOpenResult} />)
     expect(screen.getByText('Copilot SDK')).toBeTruthy()
   })
+
+  it('auto-resizes textarea when prompt changes', async () => {
+    render(<CopilotPromptBox onOpenResult={onOpenResult} />)
+    const textarea = screen.getByPlaceholderText(/ask copilot/i) as HTMLTextAreaElement
+
+    // Mock scrollHeight to simulate content height
+    Object.defineProperty(textarea, 'scrollHeight', { value: 120, configurable: true })
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Line 1\nLine 2\nLine 3' } })
+    })
+
+    // The useEffect sets style.height = 'auto' then `${Math.min(scrollHeight, 200)}px`
+    expect(textarea.style.height).toBeTruthy()
+  })
+
+  it('does not submit when prompt is empty (handleSubmit guard)', async () => {
+    render(<CopilotPromptBox onOpenResult={onOpenResult} />)
+    const textarea = screen.getByPlaceholderText(/ask copilot/i)
+
+    // Leave prompt empty and try Ctrl+Enter
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
+    })
+
+    expect(window.copilot.execute).not.toHaveBeenCalled()
+  })
+
+  it('reverts account when URL is cleared and auto-detect was active', async () => {
+    vi.useFakeTimers()
+    render(<CopilotPromptBox onOpenResult={onOpenResult} />)
+    const textarea = screen.getByPlaceholderText(/ask copilot/i)
+
+    // First, trigger auto-detection
+    await act(async () => {
+      fireEvent.change(textarea, {
+        target: { value: 'Check https://github.com/bigcorp/repo' },
+      })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+
+    // Now remove all URLs
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'no url here' } })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+
+    // The account should revert to default
+    const accountValue = screen.getByTestId('account-value')
+    expect(accountValue.textContent).toBe('testuser')
+
+    vi.useRealTimers()
+  })
 })

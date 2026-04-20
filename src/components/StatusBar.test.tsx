@@ -198,4 +198,18 @@ describe('StatusBar', () => {
     const rightSection = screen.getByText('Buddy').closest('.status-bar')
     expect(rightSection).toBeTruthy()
   })
+
+  it('updates currentTime via setInterval', () => {
+    vi.useFakeTimers()
+    const { container } = render(<StatusBar />)
+
+    // Advance time by 1 second to trigger setInterval callback
+    vi.advanceTimersByTime(1000)
+
+    // The time should have been updated (interval fires setCurrentTime)
+    // We just verify it didn't throw and the component still renders
+    expect(container.querySelector('.status-bar-right')).toBeTruthy()
+
+    vi.useRealTimers()
+  })
 })

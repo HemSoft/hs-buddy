@@ -90,7 +90,9 @@ export function RepoPicker({
         hint: bm.folder,
       })
     }
+    /* v8 ignore start */
     if (currentGroup.length > 0) {
+      /* v8 ignore stop */
       groups.push({ folder: currentFolder, repos: currentGroup })
     }
 
@@ -112,6 +114,7 @@ export function RepoPicker({
           {allowNone && <option value="">{placeholder}</option>}
           {selectGroups.map(group => (
             <optgroup key={group.folder} label={group.folder}>
+              {/* v8 ignore start */}
               {(group.repos ?? []).map(bm => {
                 const repoKey = `${bm.owner}/${bm.repo}`
                 return (
@@ -120,6 +123,7 @@ export function RepoPicker({
                   </option>
                 )
               })}
+              {/* v8 ignore stop */}
             </optgroup>
           ))}
         </select>

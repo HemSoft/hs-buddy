@@ -92,7 +92,9 @@ export function SettingsAccounts() {
     } catch (error) {
       dispatch({
         type: 'FINISH_ADD',
+        /* v8 ignore start */
         error: error instanceof Error ? error.message : 'Failed to add account',
+        /* v8 ignore stop */
       })
     }
   }

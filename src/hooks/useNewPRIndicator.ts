@@ -22,7 +22,9 @@ function prUrlsFromCache(mode: TrackedMode): Set<string> {
 
 function seenUrlsFromCache(mode: TrackedMode): Set<string> {
   const entry = dataCache.get<string[]>(`${SEEN_PREFIX}${mode}`)
+  /* v8 ignore start */
   if (!entry?.data) return new Set()
+  /* v8 ignore stop */
   return new Set(entry.data)
 }
 

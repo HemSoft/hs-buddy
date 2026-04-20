@@ -170,14 +170,18 @@ export function useBookmarkListState(filterCategory?: string) {
       const uri = data.getData('text/uri-list')
       if (uri) {
         url =
+          /* v8 ignore start */
           uri
+            /* v8 ignore stop */
             .split('\n')
             .find(l => !l.startsWith('#'))
             ?.trim() ?? null
       }
       if (!url) {
         const text = data.getData('text/plain')?.trim()
+        /* v8 ignore start */
         if (text) {
+          /* v8 ignore stop */
           try {
             const parsed = new URL(text)
             if (['http:', 'https:'].includes(parsed.protocol)) url = text

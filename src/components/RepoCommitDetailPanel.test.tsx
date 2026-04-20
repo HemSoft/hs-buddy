@@ -1,15 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-const { mockEnqueue, mockCacheGet, mockCacheSet, mockIsAbortError, stableAccounts } = vi.hoisted(
-  () => ({
-    mockEnqueue: vi.fn(),
-    mockCacheGet: vi.fn(),
-    mockCacheSet: vi.fn(),
-    mockIsAbortError: vi.fn(() => false),
-    stableAccounts: [{ username: 'alice', org: 'test-org' }],
-  })
-)
+const {
+  mockEnqueue,
+  mockCacheGet,
+  mockCacheSet,
+  mockIsAbortError,
+  mockFetchRepoCommitDetail,
+  stableAccounts,
+} = vi.hoisted(() => ({
+  mockEnqueue: vi.fn(),
+  mockCacheGet: vi.fn(),
+  mockCacheSet: vi.fn(),
+  mockIsAbortError: vi.fn(() => false),
+  mockFetchRepoCommitDetail: vi.fn(),
+  stableAccounts: [{ username: 'alice', org: 'test-org' }],
+}))
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
@@ -25,7 +31,7 @@ vi.mock('../services/dataCache', () => ({
 
 vi.mock('../api/github', () => ({
   GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoCommitDetail: vi.fn(),
+    fetchRepoCommitDetail: (...args: unknown[]) => mockFetchRepoCommitDetail(...args),
   })),
 }))
 

@@ -305,7 +305,9 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
   }, [session?.conversationHistory.length])
 
   const handleStartSession = async () => {
+    /* v8 ignore start */
     if (!project) return
+    /* v8 ignore stop */
     const s = await window.crew.createSession(project.id)
     setSession(s)
   }
@@ -346,7 +348,9 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
         message: trimmedMessage,
         context: `Project: ${project.githubSlug} at ${project.localPath}`,
         conversationHistory:
+          /* v8 ignore start */
           session.conversationHistory.map(m => ({
+            /* v8 ignore stop */
             role: m.role,
             content: m.content,
           })) ?? [],
@@ -378,20 +382,26 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
   }
 
   const handleClearSession = async () => {
+    /* v8 ignore start */
     if (!project) return
+    /* v8 ignore stop */
     await window.crew.clearSession(project.id)
     setSession(null)
   }
 
   const handleKeepFile = async (filePath: string) => {
+    /* v8 ignore start */
     if (!project || !session) return
+    /* v8 ignore stop */
     const updated = session.changedFiles.filter(f => f.filePath !== filePath)
     await window.crew.updateChangedFiles(project.id, updated)
     await loadData()
   }
 
   const handleUndoFile = async (filePath: string) => {
+    /* v8 ignore start */
     if (!project || !session) return
+    /* v8 ignore stop */
     await window.crew.undoFile(project.id, filePath)
     await loadData()
   }

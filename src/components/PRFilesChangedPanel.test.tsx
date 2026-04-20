@@ -2,11 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 
-const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
-  mockEnqueue: vi.fn(),
-  mockCacheGet: vi.fn(),
-  stableAccounts: [{ username: 'alice', org: 'test-org' }],
-}))
+const { mockEnqueue, mockCacheGet, stableAccounts, mockFetchPRFilesChanged, mockIsAbortError } =
+  vi.hoisted(() => ({
+    mockEnqueue: vi.fn(),
+    mockCacheGet: vi.fn(),
+    stableAccounts: [{ username: 'alice', org: 'test-org' }],
+    mockFetchPRFilesChanged: vi.fn(),
+    mockIsAbortError: vi.fn(),
+  }))
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
@@ -21,9 +24,11 @@ vi.mock('../services/dataCache', () => ({
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchPRFilesChanged: vi.fn(),
-  })),
+  GitHubClient: class {
+    fetchPRFilesChanged(...args: unknown[]) {
+      return mockFetchPRFilesChanged(...args)
+    }
+  },
 }))
 
 vi.mock('../utils/githubUrl', () => ({
@@ -36,7 +41,7 @@ vi.mock('../utils/githubUrl', () => ({
 
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-  isAbortError: () => false,
+  isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
   throwIfAborted: () => {},
 }))
 
@@ -97,6 +102,7 @@ describe('PRFilesChangedPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCacheGet.mockReturnValue(null)
+    mockIsAbortError.mockReturnValue(false)
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -304,6 +310,19 @@ describe('PRFilesChangedPanel', () => {
     expect(screen.getByText('-old')).toBeInTheDocument()
   })
 
+  it('ignores non-Enter/Space keyDown on file header', async () => {
+    mockEnqueue.mockResolvedValue(makeFilesChangedSummary())
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+
+    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    fireEvent.keyDown(header, { key: 'Tab' })
+    expect(screen.queryByText('-old')).not.toBeInTheDocument()
+  })
+
   it('returns null when detail is null and not loading/error', async () => {
     // This tests the null detail guard at line 131
     mockCacheGet.mockReturnValue(null)
@@ -315,5 +334,117 @@ describe('PRFilesChangedPanel', () => {
     })
     // Container should be empty since detail is null with no error
     expect(container.querySelector('.pr-files-container')).not.toBeInTheDocument()
+  })
+
+  it('throws abort when signal is already aborted in enqueue callback', async () => {
+    mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<unknown>) => {
+      const controller = new AbortController()
+      controller.abort()
+      return cb(controller.signal)
+    })
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load changed files')).toBeInTheDocument()
+    })
+  })
+
+  it('executes enqueue callback and fetches files via GitHubClient', async () => {
+    mockFetchPRFilesChanged.mockResolvedValue(makeFilesChangedSummary())
+    mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<unknown>) => {
+      const controller = new AbortController()
+      return cb(controller.signal)
+    })
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
+    expect(mockFetchPRFilesChanged).toHaveBeenCalledWith('test-org', 'hs-buddy', 42)
+  })
+
+  it('silences abort errors without showing error state', async () => {
+    mockIsAbortError.mockReturnValue(true)
+    mockEnqueue.mockRejectedValue(new DOMException('Cancelled', 'AbortError'))
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalled()
+    })
+    expect(screen.queryByText('Failed to load changed files')).not.toBeInTheDocument()
+  })
+
+  it('renders empty diff lines with a space fallback', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeFilesChangedSummary({
+        files: [
+          {
+            filename: 'src/empty.ts',
+            status: 'modified',
+            additions: 1,
+            deletions: 0,
+            changes: 1,
+            patch: '@@ -1,2 +1,3 @@\n+added\n\n context',
+            blobUrl: null,
+            previousFilename: null,
+          },
+        ],
+      })
+    )
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/empty.ts')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('src/empty.ts').closest('[role="button"]')!)
+
+    const diffContainer = document.querySelector('.repo-commit-diff')
+    expect(diffContainer).toBeInTheDocument()
+    // The empty line in the patch should render as a single space
+    const lines = diffContainer!.children
+    expect(lines.length).toBe(4)
+    expect(lines[2].textContent).toBe(' ')
+  })
+
+  it('does not render open button when file has no blobUrl', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeFilesChangedSummary({
+        files: [
+          {
+            filename: 'src/noblob.ts',
+            status: 'added',
+            additions: 1,
+            deletions: 0,
+            changes: 1,
+            patch: null,
+            blobUrl: null,
+            previousFilename: null,
+          },
+        ],
+      })
+    )
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('src/noblob.ts')).toBeInTheDocument()
+    })
+    expect(screen.queryByTitle('Open file on GitHub')).not.toBeInTheDocument()
+  })
+
+  it('retries loading when retry button is clicked in error state', async () => {
+    mockEnqueue.mockRejectedValueOnce(new Error('Network error'))
+    render(<PRFilesChangedPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load changed files')).toBeInTheDocument()
+    })
+
+    mockEnqueue.mockResolvedValueOnce(makeFilesChangedSummary())
+    fireEvent.click(screen.getByText(/Retry/))
+
+    await waitFor(() => {
+      expect(screen.getByText('src/app.ts')).toBeInTheDocument()
+    })
   })
 })

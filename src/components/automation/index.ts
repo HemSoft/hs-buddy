@@ -1,6 +1,4 @@
 export { ScheduleDetailPanel } from './ScheduleDetailPanel'
 export { ScheduleOverviewPanel } from './ScheduleOverviewPanel'
-export { ScheduleEditor } from './ScheduleEditor'
 export { JobDetailPanel } from './JobDetailPanel'
-export { JobEditor } from './JobEditor'
 export { RunList } from './RunList'

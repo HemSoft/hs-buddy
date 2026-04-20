@@ -3,7 +3,7 @@ import { render, screen, act } from '@testing-library/react'
 
 /* ── hoisted mocks ── */
 vi.mock('./components/TitleBar', () => ({
-  TitleBar: () => <div data-testid="title-bar" />,
+  TitleBar: vi.fn(() => <div data-testid="title-bar" />),
 }))
 
 vi.mock('./components/ActivityBar', () => ({
@@ -16,11 +16,6 @@ vi.mock('./components/SidebarPanel', () => ({
 
 vi.mock('./components/TabBar', () => ({
   TabBar: () => <div data-testid="tab-bar" />,
-}))
-
-vi.mock('./components/automation', () => ({
-  ScheduleEditor: () => <div data-testid="schedule-editor" />,
-  JobEditor: () => <div data-testid="job-editor" />,
 }))
 
 vi.mock('./components/StatusBar', () => ({
@@ -50,8 +45,8 @@ vi.mock('allotment', () => {
 })
 
 vi.mock('./hooks/useConvex', () => ({
-  useSchedules: () => [{ id: '1', name: 'sched' }],
-  useJobs: () => [{ id: '1', name: 'job' }],
+  useSchedules: vi.fn().mockReturnValue([{ id: '1', name: 'sched' }]),
+  useJobs: vi.fn().mockReturnValue([{ id: '1', name: 'job' }]),
 }))
 
 vi.mock('./hooks/useMigration', () => ({
@@ -87,7 +82,7 @@ vi.mock('./hooks/useActiveGitHubAccount', () => ({
 }))
 
 vi.mock('./hooks/useAppLayout', () => ({
-  useAppLayout: () => ({
+  useAppLayout: vi.fn().mockReturnValue({
     assistantOpen: false,
     handlePaneChange: vi.fn(),
     loaded: true,
@@ -101,7 +96,7 @@ vi.mock('./hooks/useAppSessionStats', () => ({
 }))
 
 vi.mock('./hooks/useTerminalPanel', () => ({
-  useTerminalPanel: () => ({
+  useTerminalPanel: vi.fn().mockReturnValue({
     terminalOpen: false,
     terminalTabs: [],
     activeTerminalTabId: null,
@@ -109,6 +104,10 @@ vi.mock('./hooks/useTerminalPanel', () => ({
     addTerminalTab: vi.fn(),
     closeTerminalTab: vi.fn(),
     selectTerminalTab: vi.fn(),
+    renameTerminalTab: vi.fn(),
+    setTerminalTabColor: vi.fn(),
+    reorderTerminalTabs: vi.fn(),
+    updateTabCwd: vi.fn(),
     panelHeight: 300,
     onPanelResize: vi.fn(),
     loaded: true,
@@ -116,7 +115,7 @@ vi.mock('./hooks/useTerminalPanel', () => ({
 }))
 
 vi.mock('./components/terminal/TerminalPanel', () => ({
-  TerminalPanel: () => <div data-testid="terminal-panel" />,
+  TerminalPanel: vi.fn(() => <div data-testid="terminal-panel" />),
 }))
 
 vi.mock('./hooks/useAppTabs', () => ({
@@ -139,16 +138,27 @@ import App from './App'
 import { ActivityBar } from './components/ActivityBar'
 import { SidebarPanel } from './components/SidebarPanel'
 import { AppContentRouter } from './components/AppContentRouter'
+import { TitleBar } from './components/TitleBar'
+import { TerminalPanel } from './components/terminal/TerminalPanel'
 import { useAppTabs } from './hooks/useAppTabs'
+import { useAppLayout } from './hooks/useAppLayout'
+import { useTerminalPanel } from './hooks/useTerminalPanel'
 import { usePRSidebarBadges } from './hooks/usePRSidebarBadges'
 import { useMigrateToConvex } from './hooks/useMigration'
+import { useSchedules, useJobs } from './hooks/useConvex'
 
 const MockActivityBar = vi.mocked(ActivityBar)
 const MockSidebarPanel = vi.mocked(SidebarPanel)
 const MockAppContentRouter = vi.mocked(AppContentRouter)
+const MockTitleBar = vi.mocked(TitleBar)
+const MockTerminalPanel = vi.mocked(TerminalPanel)
 const MockUseAppTabs = vi.mocked(useAppTabs)
+const MockUseAppLayout = vi.mocked(useAppLayout)
+const MockUseTerminalPanel = vi.mocked(useTerminalPanel)
 const MockUsePRSidebarBadges = vi.mocked(usePRSidebarBadges)
 const MockUseMigrateToConvex = vi.mocked(useMigrateToConvex)
+const MockUseSchedules = vi.mocked(useSchedules)
+const MockUseJobs = vi.mocked(useJobs)
 
 describe('App component', () => {
   beforeEach(() => {
@@ -189,10 +199,14 @@ describe('App loading state', () => {
 describe('App callbacks', () => {
   let mockOpenTab: ReturnType<typeof vi.fn>
   let mockSetPRCount: ReturnType<typeof vi.fn>
+  let mockToggleTerminal: ReturnType<typeof vi.fn>
+  let mockAddTerminalTab: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     mockOpenTab = vi.fn()
     mockSetPRCount = vi.fn()
+    mockToggleTerminal = vi.fn()
+    mockAddTerminalTab = vi.fn().mockResolvedValue(undefined)
 
     // Ensure migration is complete (may be overridden by earlier tests)
     MockUseMigrateToConvex.mockReturnValue({ isComplete: true, isLoading: false })
@@ -214,6 +228,33 @@ describe('App callbacks', () => {
       prCounts: { 'pr-list': 5 },
       badgeProgress: {},
       setPRCount: mockSetPRCount as (viewId: string, count: number) => void,
+    })
+
+    MockUseTerminalPanel.mockReturnValue({
+      terminalOpen: false,
+      terminalTabs: [],
+      activeTerminalTabId: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      toggleTerminal: mockToggleTerminal as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      addTerminalTab: mockAddTerminalTab as any,
+      closeTerminalTab: vi.fn(),
+      selectTerminalTab: vi.fn(),
+      renameTerminalTab: vi.fn(),
+      setTerminalTabColor: vi.fn(),
+      reorderTerminalTabs: vi.fn(),
+      updateTabCwd: vi.fn(),
+      panelHeight: 300,
+      onPanelResize: vi.fn(),
+      loaded: true,
+    })
+
+    MockUseAppLayout.mockReturnValue({
+      assistantOpen: false,
+      handlePaneChange: vi.fn(),
+      loaded: true,
+      paneSizes: [200, 600],
+      toggleAssistant: vi.fn(),
     })
   })
 
@@ -249,24 +290,6 @@ describe('App callbacks', () => {
     expect(mockOpenTab).toHaveBeenCalledWith('pr-my-prs')
   })
 
-  it('handleCreateNew opens job editor for job type', () => {
-    render(<App />)
-    const props = getLastCallProps(MockSidebarPanel)
-    act(() => {
-      ;(props.onCreateNew as (type: string) => void)('job')
-    })
-    expect(screen.getByTestId('job-editor')).toBeInTheDocument()
-  })
-
-  it('handleCreateNew opens schedule editor for schedule type', () => {
-    render(<App />)
-    const props = getLastCallProps(MockSidebarPanel)
-    act(() => {
-      ;(props.onCreateNew as (type: string) => void)('schedule')
-    })
-    expect(screen.getByTestId('schedule-editor')).toBeInTheDocument()
-  })
-
   it('handlePRCountChange calls setPRCount with viewId and count', () => {
     render(<App />)
     const props = getLastCallProps(MockAppContentRouter)
@@ -274,5 +297,128 @@ describe('App callbacks', () => {
       ;(props.onPRCountChange as (viewId: string, count: number) => void)('pr-my-prs', 10)
     })
     expect(mockSetPRCount).toHaveBeenCalledWith('pr-my-prs', 10)
+  })
+
+  it('handleToggleTerminal calls toggleTerminal with activeViewId', () => {
+    render(<App />)
+    const props = getLastCallProps(MockTitleBar)
+    act(() => {
+      ;(props.onToggleTerminal as () => void)()
+    })
+    expect(mockToggleTerminal).toHaveBeenCalledWith('welcome')
+  })
+
+  it('handleAddTerminalTab calls addTerminalTab with repo context', () => {
+    render(<App />)
+    const props = getLastCallProps(MockTerminalPanel)
+    act(() => {
+      ;(props.onAddTab as () => void)()
+    })
+    // activeViewId is 'welcome', getRepoContextFromViewId('welcome') returns null
+    expect(mockAddTerminalTab).toHaveBeenCalledWith(null)
+  })
+
+  it('handleAddTerminalTab passes null when activeViewId is null', () => {
+    MockUseAppTabs.mockReturnValue({
+      activeTabId: null,
+      activeViewId: null,
+      closeAllTabs: vi.fn(),
+      closeOtherTabs: vi.fn(),
+      closeTab: vi.fn(),
+      closeTabsToRight: vi.fn(),
+      closeView: vi.fn(),
+      openTab: mockOpenTab as (viewId: string) => Promise<void>,
+      setActiveTabId: vi.fn(),
+      tabs: [],
+    })
+    render(<App />)
+    const props = getLastCallProps(MockTerminalPanel)
+    act(() => {
+      ;(props.onAddTab as () => void)()
+    })
+    expect(mockAddTerminalTab).toHaveBeenCalledWith(null)
+  })
+
+  it('handleOpenFolderView opens folder-view tab', () => {
+    render(<App />)
+    const props = getLastCallProps(MockTerminalPanel)
+    act(() => {
+      ;(props.onOpenFolderView as (cwd: string) => void)('/home/user/project')
+    })
+    expect(mockOpenTab).toHaveBeenCalledWith('folder-view:%2Fhome%2Fuser%2Fproject')
+  })
+
+  it('handleSectionSelect does not open tab for non-bookmarks section', () => {
+    render(<App />)
+    mockOpenTab.mockClear()
+    const props = getLastCallProps(MockActivityBar)
+    act(() => {
+      ;(props.onSectionSelect as (id: string) => void)('github')
+    })
+    expect(mockOpenTab).not.toHaveBeenCalled()
+  })
+
+  it('renders assistant panel when assistantOpen is true with paneSizes[2]', () => {
+    MockUseAppLayout.mockReturnValue({
+      assistantOpen: true,
+      handlePaneChange: vi.fn(),
+      loaded: true,
+      paneSizes: [200, 600, 350],
+      toggleAssistant: vi.fn(),
+    })
+    render(<App />)
+    expect(screen.getByTestId('assistant-panel')).toBeInTheDocument()
+  })
+
+  it('renders assistant panel with default pane size when paneSizes[2] is absent', () => {
+    MockUseAppLayout.mockReturnValue({
+      assistantOpen: true,
+      handlePaneChange: vi.fn(),
+      loaded: true,
+      paneSizes: [200, 600],
+      toggleAssistant: vi.fn(),
+    })
+    render(<App />)
+    expect(screen.getByTestId('assistant-panel')).toBeInTheDocument()
+  })
+
+  it('shows loading when terminal is not loaded', () => {
+    MockUseTerminalPanel.mockReturnValue({
+      terminalOpen: false,
+      terminalTabs: [],
+      activeTerminalTabId: null,
+      toggleTerminal: vi.fn(),
+      addTerminalTab: vi.fn(),
+      closeTerminalTab: vi.fn(),
+      selectTerminalTab: vi.fn(),
+      renameTerminalTab: vi.fn(),
+      setTerminalTabColor: vi.fn(),
+      reorderTerminalTabs: vi.fn(),
+      updateTabCwd: vi.fn(),
+      panelHeight: 300,
+      onPanelResize: vi.fn(),
+      loaded: false,
+    })
+    render(<App />)
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+  })
+
+  it('shows loading when layout is not loaded', () => {
+    MockUseAppLayout.mockReturnValue({
+      assistantOpen: false,
+      handlePaneChange: vi.fn(),
+      loaded: false,
+      paneSizes: [200, 600],
+      toggleAssistant: vi.fn(),
+    })
+    render(<App />)
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+  })
+
+  it('covers null schedules/jobs branches', () => {
+    MockUseSchedules.mockReturnValue(undefined as never)
+    MockUseJobs.mockReturnValue(undefined as never)
+    render(<App />)
+    expect(screen.getByTestId('status-bar')).toBeInTheDocument()
   })
 })

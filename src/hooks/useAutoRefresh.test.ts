@@ -51,6 +51,23 @@ describe('useAutoRefresh', () => {
     expect(result.current.lastRefreshedAt).toBeNull()
   })
 
+  it('ignores negative lastRefreshed timestamp in localStorage', () => {
+    localStorage.setItem('card-last-refreshed:neg-ts', '-500')
+    const refresh = vi.fn()
+    const { result } = renderHook(() => useAutoRefresh('neg-ts', refresh, 15))
+
+    expect(result.current.lastRefreshedAt).toBeNull()
+  })
+
+  it('reads valid positive lastRefreshed timestamp from localStorage on mount', () => {
+    const validTs = Date.now() - 60_000
+    localStorage.setItem('card-last-refreshed:valid-ts', String(validTs))
+    const refresh = vi.fn()
+    const { result } = renderHook(() => useAutoRefresh('valid-ts', refresh, 15))
+
+    expect(result.current.lastRefreshedAt).toBe(validTs)
+  })
+
   it('persists settings to localStorage on update', () => {
     const refresh = vi.fn()
     const { result } = renderHook(() => useAutoRefresh('finance', refresh, 15))
@@ -437,6 +454,24 @@ describe('useAutoRefresh', () => {
     })
     // No error thrown despite localStorage failure
     expect(result.current.enabled).toBe(true)
+    vi.mocked(Storage.prototype.setItem).mockRestore()
+  })
+
+  it('handles localStorage.setItem throwing when writing lastRefreshed', () => {
+    const underlying = vi.fn()
+    const { result } = renderHook(() => useAutoRefresh('finance', underlying, 15))
+
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded')
+    })
+
+    // Triggering refresh writes lastRefreshed — should not crash
+    act(() => {
+      result.current.refresh()
+    })
+
+    // The in-memory timestamp is still set even if localStorage throws
+    expect(result.current.lastRefreshedAt).not.toBeNull()
     vi.mocked(Storage.prototype.setItem).mockRestore()
   })
 })

@@ -2,14 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 
-const { mockEnqueue, mockCacheGet, stableAccounts, mockParseOwnerRepo, mockIsAbortError } =
-  vi.hoisted(() => ({
-    mockEnqueue: vi.fn(),
-    mockCacheGet: vi.fn(),
-    stableAccounts: [{ username: 'alice', org: 'test-org' }],
-    mockParseOwnerRepo: vi.fn(),
-    mockIsAbortError: vi.fn(),
-  }))
+const {
+  mockEnqueue,
+  mockCacheGet,
+  stableAccounts,
+  mockParseOwnerRepo,
+  mockIsAbortError,
+  mockFetchPRHistory,
+} = vi.hoisted(() => ({
+  mockEnqueue: vi.fn(),
+  mockCacheGet: vi.fn(),
+  stableAccounts: [{ username: 'alice', org: 'test-org' }],
+  mockParseOwnerRepo: vi.fn(),
+  mockIsAbortError: vi.fn(),
+  mockFetchPRHistory: vi.fn(),
+}))
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
@@ -21,10 +28,14 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchPRHistory: vi.fn(),
-    requestCopilotReview: vi.fn(),
-  })),
+  GitHubClient: class {
+    fetchPRHistory(...args: unknown[]) {
+      return mockFetchPRHistory(...args)
+    }
+    requestCopilotReview() {
+      return Promise.resolve()
+    }
+  },
 }))
 
 vi.mock('../services/dataCache', () => ({
@@ -628,5 +639,89 @@ describe('PullRequestHistoryPanel', () => {
       window.dispatchEvent(new Event('scroll'))
     })
     expect(screen.queryByText('Address Unresolved Comments')).not.toBeInTheDocument()
+  })
+
+  it('invokes enqueue callback with throwIfAborted and GitHubClient', async () => {
+    mockFetchPRHistory.mockResolvedValue(makeHistory())
+    mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<unknown>) => {
+      const controller = new AbortController()
+      return cb(controller.signal)
+    })
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(mockFetchPRHistory).toHaveBeenCalledWith('test-org', 'hs-buddy', 42)
+    })
+  })
+
+  it('discards stale success when a newer fetch completes first', async () => {
+    let resolveFirst!: (val: unknown) => void
+    mockEnqueue.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveFirst = resolve
+        })
+    )
+
+    const { rerender } = render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    mockEnqueue.mockResolvedValueOnce(makeHistory({ commitCount: 5 }))
+    rerender(<PullRequestHistoryPanel pr={{ ...defaultPr, id: 99 }} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('5')).toBeInTheDocument()
+    })
+
+    resolveFirst(makeHistory({ commitCount: 999 }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('999')).not.toBeInTheDocument()
+    })
+  })
+
+  it('discards stale errors when a newer fetch completes first', async () => {
+    let rejectFirst!: (err: Error) => void
+    mockEnqueue.mockImplementationOnce(
+      () =>
+        new Promise<never>((_, reject) => {
+          rejectFirst = reject
+        })
+    )
+
+    const { rerender } = render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    mockEnqueue.mockResolvedValueOnce(makeHistory())
+    rerender(<PullRequestHistoryPanel pr={{ ...defaultPr, id: 99 }} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('PR History')).toBeInTheDocument()
+    })
+
+    rejectFirst(new Error('Stale network error'))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Stale network error')).not.toBeInTheDocument()
+    })
+  })
+
+  it('handleRequestCopilotReview succeeds and closes menu', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    expect(screen.getByText('Request Copilot Review')).toBeInTheDocument()
+
+    // parseOwnerRepoFromUrl returns valid result (set in beforeEach)
+    fireEvent.click(screen.getByText('Request Copilot Review'))
+
+    // Menu should close after successful request
+    await waitFor(() => {
+      expect(screen.queryByText('Request Copilot Review')).not.toBeInTheDocument()
+    })
   })
 })

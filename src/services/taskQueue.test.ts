@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { TaskQueue, getTaskQueue } from './taskQueue'
 
 describe('TaskQueue', () => {
@@ -98,8 +98,9 @@ describe('TaskQueue', () => {
 
       unblock!()
       // Wait for all to complete
-      await new Promise(r => setTimeout(r, 50))
-      expect(order).toEqual(['blocker', 'high', 'low'])
+      await vi.waitFor(() => {
+        expect(order).toEqual(['blocker', 'high', 'low'])
+      })
     })
   })
 
@@ -144,7 +145,9 @@ describe('TaskQueue', () => {
       })
 
       // Give it a tick to start running
-      await new Promise(r => setTimeout(r, 5))
+      await vi.waitFor(() => {
+        expect(queue.runningCount).toBeGreaterThan(0)
+      })
 
       const cancelled = queue.cancel(taskId)
       expect(cancelled).toBe(true)
@@ -266,12 +269,14 @@ describe('TaskQueue', () => {
       })
 
       // Give it a tick to start
-      await new Promise(r => setTimeout(r, 5))
-      expect(queue.runningCount).toBe(1)
+      await vi.waitFor(() => {
+        expect(queue.runningCount).toBe(1)
+      })
 
       unblock!()
-      await new Promise(r => setTimeout(r, 10))
-      expect(queue.runningCount).toBe(0)
+      await vi.waitFor(() => {
+        expect(queue.runningCount).toBe(0)
+      })
     })
 
     it('isEmpty is true when no tasks', async () => {
@@ -300,12 +305,49 @@ describe('TaskQueue', () => {
         { name: 'my-task' }
       )
 
-      await new Promise(r => setTimeout(r, 5))
-      expect(queue.getRunningTaskName()).toBe('my-task')
+      await vi.waitFor(() => {
+        expect(queue.getRunningTaskName()).toBe('my-task')
+      })
 
       unblock!()
-      await new Promise(r => setTimeout(r, 10))
-      expect(queue.getRunningTaskName()).toBeNull()
+      await vi.waitFor(() => {
+        expect(queue.getRunningTaskName()).toBeNull()
+      })
+    })
+
+    it('getRunningTaskNames returns names of all running tasks', async () => {
+      const queue = new TaskQueue('running-names', { concurrency: 2 })
+      let unblock1: () => void
+      let unblock2: () => void
+      const blocker1 = new Promise<void>(r => {
+        unblock1 = r
+      })
+      const blocker2 = new Promise<void>(r => {
+        unblock2 = r
+      })
+      const { promise: p1 } = queue.enqueue(
+        async () => {
+          await blocker1
+        },
+        { name: 'task-alpha' }
+      )
+      const { promise: p2 } = queue.enqueue(
+        async () => {
+          await blocker2
+        },
+        { name: 'task-beta' }
+      )
+
+      await vi.waitFor(() => {
+        expect(queue.getRunningTaskNames()).toContain('task-alpha')
+        expect(queue.getRunningTaskNames()).toContain('task-beta')
+        expect(queue.getRunningTaskNames()).toHaveLength(2)
+      })
+
+      unblock1!()
+      unblock2!()
+      await Promise.all([p1, p2])
+      expect(queue.getRunningTaskNames()).toEqual([])
     })
 
     it('getPendingTaskNames lists queued task names', async () => {
@@ -343,8 +385,9 @@ describe('TaskQueue', () => {
       )
       const { promise: pp } = queue.enqueue(async () => {}, { name: 'pending-task' })
 
-      await new Promise(r => setTimeout(r, 5))
-      expect(queue.hasTaskWithName('running-task')).toBe(true)
+      await vi.waitFor(() => {
+        expect(queue.hasTaskWithName('running-task')).toBe(true)
+      })
       expect(queue.hasTaskWithName('pending-task')).toBe(true)
       expect(queue.hasTaskWithName('nonexistent')).toBe(false)
 
@@ -352,6 +395,55 @@ describe('TaskQueue', () => {
       unblock!()
       await expect(pp).rejects.toThrow()
       await expect(rp).rejects.toThrow()
+    })
+    it('getRunningTaskName returns null when running task has no name', async () => {
+      const queue = new TaskQueue('unnamed-running')
+      let unblock: () => void
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise } = queue.enqueue(async () => {
+        await blocker
+      })
+
+      await vi.waitFor(() => {
+        expect(queue.getRunningTaskName()).toBeNull()
+      })
+
+      unblock!()
+      await promise
+    })
+
+    it('getRunningTaskNames skips tasks without names', async () => {
+      const queue = new TaskQueue('mixed-names', { concurrency: 3 })
+      let unblock: () => void
+      const blocker = new Promise<void>(r => {
+        unblock = r
+      })
+      const { promise: p1 } = queue.enqueue(
+        async () => {
+          await blocker
+        },
+        { name: 'named-one' }
+      )
+      const { promise: p2 } = queue.enqueue(async () => {
+        await blocker
+      })
+      const { promise: p3 } = queue.enqueue(
+        async () => {
+          await blocker
+        },
+        { name: 'named-two' }
+      )
+
+      await vi.waitFor(() => {
+        expect(queue.getRunningTaskNames()).toContain('named-one')
+        expect(queue.getRunningTaskNames()).toContain('named-two')
+        expect(queue.getRunningTaskNames()).toHaveLength(2)
+      })
+
+      unblock!()
+      await Promise.all([p1, p2, p3])
     })
   })
 

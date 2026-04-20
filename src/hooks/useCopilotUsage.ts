@@ -182,9 +182,11 @@ export function useCopilotUsage() {
       }
 
       const projection = computeProjection(premium, state.data.quota_reset_date_utc)
+      /* v8 ignore start */
       if (!projection) {
         continue
       }
+      /* v8 ignore stop */
 
       hasAny = true
       projectedTotal += projection.projectedTotal

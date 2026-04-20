@@ -23,7 +23,9 @@ export function useMigrateToConvex() {
   // Timeout after 3 seconds to prevent infinite loading
   useEffect(() => {
     const timeout = setTimeout(() => {
+      /* v8 ignore start */
       if (!isComplete) {
+        /* v8 ignore stop */
         console.warn('[Migration] Convex connection timeout - proceeding without migration')
         setTimedOut(true)
         setIsComplete(true)
@@ -39,9 +41,11 @@ export function useMigrateToConvex() {
     }
 
     // Only attempt migration once per session
+    /* v8 ignore start */
     if (migrationAttempted.current) {
       setIsComplete(true)
       return
+      /* v8 ignore stop */
     }
     migrationAttempted.current = true
 

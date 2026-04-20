@@ -197,6 +197,64 @@ describe('SessionDetail', () => {
     expect(screen.getByText('grep, edit')).toBeInTheDocument()
   })
 
+  it('formatDate returns empty string for zero timestamp', () => {
+    mockHookReturn.session = { ...baseSession, startTime: 0 }
+    render(<SessionDetail filePath="/test.jsonl" onBack={vi.fn()} />)
+    // startTime of 0 is rendered by formatDate(0) which returns ''
+    // The component still renders, just with empty date text
+    expect(screen.getByText('Fix Auth Flow')).toBeInTheDocument()
+  })
+
+  it('shows tool call count when toolCallCount > toolNames.length', () => {
+    mockHookReturn.session = {
+      ...baseSession,
+      results: [
+        {
+          ...baseResult,
+          toolCallCount: 8,
+          toolNames: ['grep', 'edit'],
+        },
+      ],
+    }
+    render(<SessionDetail filePath="/test.jsonl" onBack={vi.fn()} />)
+    expect(screen.getByText('grep, edit (8 calls)')).toBeInTheDocument()
+  })
+
+  it('applies warn class when searchChurn > 10', async () => {
+    mockComputeDigest.mockResolvedValue({
+      tokenEfficiency: 1.2,
+      toolDensity: 1.5,
+      searchChurn: 15,
+      estimatedCost: 0.05,
+      dominantTools: [],
+    })
+
+    const { container } = render(<SessionDetail filePath="/test.jsonl" onBack={vi.fn()} />)
+    fireEvent.click(screen.getByText('Compute Efficiency Digest'))
+
+    await waitFor(() => {
+      expect(screen.getByText('15')).toBeInTheDocument()
+    })
+    const warnEl = container.querySelector('.session-digest-warn')
+    expect(warnEl).toBeTruthy()
+    expect(warnEl!.textContent).toBe('15')
+  })
+
+  it('hides duration when totalElapsedMs is 0', () => {
+    mockHookReturn.session = {
+      ...baseSession,
+      results: [
+        {
+          ...baseResult,
+          totalElapsedMs: 0,
+        },
+      ],
+    }
+    render(<SessionDetail filePath="/test.jsonl" onBack={vi.fn()} />)
+    // The request timeline still renders
+    expect(screen.getByText('Fix the auth flow')).toBeInTheDocument()
+  })
+
   it('handles large token counts with M suffix', () => {
     mockHookReturn.session = {
       ...baseSession,
@@ -268,5 +326,28 @@ describe('SessionDetail', () => {
     }
     render(<SessionDetail filePath="/test.jsonl" onBack={vi.fn()} />)
     expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+  })
+
+  it('handles duplicate request signatures correctly', () => {
+    // Create two identical requests with same signature
+    const identicalResult: SessionRequestResult = {
+      prompt: 'Same prompt',
+      promptTokens: 1000,
+      outputTokens: 2000,
+      firstProgressMs: 100,
+      totalElapsedMs: 3000,
+      toolCallCount: 2,
+      toolNames: ['edit', 'view'],
+    }
+
+    mockHookReturn.session = {
+      ...baseSession,
+      results: [identicalResult, identicalResult],
+    }
+
+    render(<SessionDetail filePath="/test.jsonl" onBack={vi.fn()} />)
+    // Both requests should be rendered (occurrence count allows this)
+    const promptElements = screen.getAllByText('Same prompt')
+    expect(promptElements.length).toBe(2)
   })
 })

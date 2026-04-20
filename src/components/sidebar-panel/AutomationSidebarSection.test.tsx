@@ -183,6 +183,28 @@ describe('AutomationSidebarSection', () => {
     expect(jobBtn.getAttribute('title')).toBe('My Job')
   })
 
+  it('toggles schedules via the chevron button independently', () => {
+    render(
+      <AutomationSidebarSection
+        jobs={[]}
+        schedules={schedules}
+        selectedItem={null}
+        onItemSelect={onItemSelect}
+      />
+    )
+
+    // Click the chevron (not the main button text) to expand schedules
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Schedules' }))
+
+    // Chevron should NOT fire onItemSelect — only toggleSubSection
+    expect(onItemSelect).not.toHaveBeenCalled()
+    expect(screen.getByText('Nightly sync')).toBeTruthy()
+
+    // Click again to collapse
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Schedules' }))
+    expect(screen.queryByText('Nightly sync')).toBeNull()
+  })
+
   it('toggles jobs section closed when clicking main button', () => {
     render(
       <AutomationSidebarSection

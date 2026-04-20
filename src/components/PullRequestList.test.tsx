@@ -17,7 +17,17 @@ vi.mock('../hooks/useViewMode', () => ({
 }))
 
 vi.mock('./pull-request-list/PRItem', () => ({
-  PRItem: ({ pr }: { pr: { title: string } }) => <div data-testid="pr-item">{pr.title}</div>,
+  PRItem: ({
+    pr,
+    onOpen,
+  }: {
+    pr: { title: string; url?: string }
+    onOpen?: (pr: unknown) => void
+  }) => (
+    <button type="button" data-testid="pr-item" onClick={() => onOpen?.(pr)}>
+      {pr.title}
+    </button>
+  ),
 }))
 
 vi.mock('./pull-request-list/PRContextMenu', () => ({
@@ -56,6 +66,11 @@ describe('PullRequestList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUsePRListData.mockReturnValue(defaultData)
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: vi.fn() },
+      writable: true,
+      configurable: true,
+    })
   })
 
   it('shows empty state when no PRs', () => {
@@ -287,5 +302,23 @@ describe('PullRequestList', () => {
     })
     render(<PullRequestList mode="my-prs" />)
     expect(screen.getByTestId('view-mode-toggle')).toBeTruthy()
+  })
+
+  it('calls window.shell.openExternal when onOpenPR is not provided', () => {
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [
+        {
+          source: 'gh',
+          id: 1,
+          repository: 'test/repo',
+          title: 'Click me',
+          url: 'https://github.com/test/repo/pull/1',
+        },
+      ],
+    })
+    render(<PullRequestList mode="my-prs" />)
+    fireEvent.click(screen.getByTestId('pr-item'))
+    expect(window.shell.openExternal).toHaveBeenCalledWith('https://github.com/test/repo/pull/1')
   })
 })

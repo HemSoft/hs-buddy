@@ -552,6 +552,186 @@ describe('useDashboardCards', () => {
 
   // --- sanitize export tests ---
 
+  it('IPC set failure with empty-object resync data merges defaults (isEmptyObject branch)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:set-dashboard-cards') {
+        return Promise.reject(new Error('IPC set failure'))
+      }
+      // Resync returns empty object — sanitize returns null, but isEmptyObject is true
+      if (channel === 'config:get-dashboard-cards') {
+        return Promise.resolve({})
+      }
+      return Promise.resolve({})
+    })
+
+    const { result } = renderHook(() => useDashboardCards())
+
+    expect(result.current.isVisible('weather')).toBe(true)
+
+    act(() => {
+      result.current.toggleCard('weather')
+    })
+
+    expect(result.current.isVisible('weather')).toBe(false)
+
+    // The resync returns {} → sanitize returns null → isEmptyObject=true
+    // → skips revert → mergeWithDefaults(null) → all defaults (weather=true)
+    await waitFor(() => {
+      expect(result.current.isVisible('weather')).toBe(true)
+    })
+
+    warnSpy.mockRestore()
+  })
+
+  it('IPC set failure resync aborted after unmount (line 160 mountedRef check)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    let resolveResync!: (value: unknown) => void
+    const resyncPromise = new Promise(r => {
+      resolveResync = r
+    })
+    let getCallCount = 0
+
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:set-dashboard-cards') {
+        return Promise.reject(new Error('save fail'))
+      }
+      if (channel === 'config:get-dashboard-cards') {
+        getCallCount++
+        if (getCallCount === 1) return Promise.resolve({}) // initial load
+        return resyncPromise // resync after save failure
+      }
+      return Promise.resolve({})
+    })
+
+    const { result, unmount } = renderHook(() => useDashboardCards())
+
+    await waitFor(() => expect(getCallCount).toBe(1))
+
+    // Toggle weather off (save will fail)
+    act(() => {
+      result.current.toggleCard('weather')
+    })
+
+    // Wait for save failure to trigger resync
+    await waitFor(() => expect(getCallCount).toBe(2))
+
+    // Unmount while resync is pending
+    unmount()
+
+    // Resolve the resync — should be discarded because mounted=false
+    await act(async () => {
+      resolveResync({
+        weather: true,
+        'command-center': true,
+        'workspace-pulse': true,
+        finance: true,
+      })
+    })
+
+    warnSpy.mockRestore()
+  })
+
+  it('IPC set failure resync aborted when newer toggle occurs during resync (line 160 version check)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    let resolveResync!: (value: unknown) => void
+    const resyncPromise = new Promise(r => {
+      resolveResync = r
+    })
+    let getCallCount = 0
+    let setCallCount = 0
+
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:set-dashboard-cards') {
+        setCallCount++
+        if (setCallCount === 1) return Promise.reject(new Error('save fail'))
+        return Promise.resolve({}) // second toggle succeeds
+      }
+      if (channel === 'config:get-dashboard-cards') {
+        getCallCount++
+        if (getCallCount === 1) return Promise.resolve({}) // initial load
+        return resyncPromise // resync after first save failure
+      }
+      return Promise.resolve({})
+    })
+
+    const { result } = renderHook(() => useDashboardCards())
+
+    await waitFor(() => expect(getCallCount).toBe(1))
+
+    // Toggle weather off (save will fail)
+    act(() => {
+      result.current.toggleCard('weather')
+    })
+
+    // Wait for save failure to trigger resync request
+    await waitFor(() => expect(getCallCount).toBe(2))
+
+    // While resync is pending, toggle finance (increments version)
+    act(() => {
+      result.current.toggleCard('finance')
+    })
+
+    // Resolve the stale resync — should be discarded because version changed
+    await act(async () => {
+      resolveResync({
+        weather: true,
+        finance: true,
+        'command-center': true,
+        'workspace-pulse': true,
+      })
+    })
+
+    // Finance should stay hidden (the resync was discarded due to version mismatch)
+    expect(result.current.isVisible('finance')).toBe(false)
+
+    warnSpy.mockRestore()
+  })
+
+  it('IPC set failure reload failure aborted after unmount', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    let rejectResync!: (err: Error) => void
+    const resyncPromise = new Promise<never>((_, reject) => {
+      rejectResync = reject
+    })
+    let getCallCount = 0
+
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:set-dashboard-cards') {
+        return Promise.reject(new Error('save fail'))
+      }
+      if (channel === 'config:get-dashboard-cards') {
+        getCallCount++
+        if (getCallCount === 1) return Promise.resolve({})
+        return resyncPromise
+      }
+      return Promise.resolve({})
+    })
+
+    const { result, unmount } = renderHook(() => useDashboardCards())
+
+    await waitFor(() => expect(getCallCount).toBe(1))
+
+    act(() => {
+      result.current.toggleCard('weather')
+    })
+
+    await waitFor(() => expect(getCallCount).toBe(2))
+
+    unmount()
+
+    // Reject resync after unmount — should be silently discarded
+    await act(async () => {
+      rejectResync(new Error('IPC reload failure'))
+    })
+
+    warnSpy.mockRestore()
+  })
+
   it('sanitize returns null for empty object', () => {
     expect(sanitize({})).toBeNull()
   })

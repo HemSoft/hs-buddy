@@ -138,6 +138,31 @@ describe('useMigrateToConvex', () => {
     expect(mockBulkImportAccounts).not.toHaveBeenCalled()
   })
 
+  it('skips migration on re-render when already attempted', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
+    mockInitSettings.mockResolvedValue(undefined)
+
+    const { result, rerender } = renderHook(() => useMigrateToConvex())
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+    })
+
+    const callCount = mockBulkImportAccounts.mock.calls.length
+
+    // Re-render triggers the effect again, but migrationAttempted.current prevents re-run
+    rerender()
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+    })
+
+    // Should not have called bulkImport again
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(callCount)
+  })
+
   it('skips import when electron-store has no accounts', async () => {
     mockExistingAccounts = []
     mockExistingSettings = {}
@@ -151,5 +176,46 @@ describe('useMigrateToConvex', () => {
 
     expect(mockBulkImportAccounts).not.toHaveBeenCalled()
     expect(mockInitSettings).not.toHaveBeenCalled()
+  })
+
+  it('handles when bulkImportAccounts returns no imported accounts', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([]) // Empty array - line 62 coverage
+
+    const { result } = renderHook(() => useMigrateToConvex())
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+    })
+
+    expect(mockBulkImportAccounts).toHaveBeenCalled()
+    // Should still complete even though no accounts were imported
+    expect(result.current.isComplete).toBe(true)
+  })
+
+  it('re-render after completion does not re-run migration (line 42 coverage)', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
+    mockInitSettings.mockResolvedValue(undefined)
+
+    const { result, rerender } = renderHook(() => useMigrateToConvex())
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+    })
+
+    const callCount = mockBulkImportAccounts.mock.calls.length
+
+    // Rerender - should not call again due to migrationAttempted.current guard
+    rerender()
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+    })
+
+    // Call count should not increase
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(callCount)
   })
 })

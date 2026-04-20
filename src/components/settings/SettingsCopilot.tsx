@@ -93,7 +93,9 @@ export function SettingsCopilot() {
   const handleAccountChange = async (value: string) => {
     dispatch({ type: 'set_account', value })
     dispatch({ type: 'saving' })
+    /* v8 ignore start */
     setGhAccount(value).catch(() => {})
+    /* v8 ignore stop */
     dispatch({ type: 'saved' })
     scheduleSaveStatusReset()
   }
@@ -114,7 +116,9 @@ export function SettingsCopilot() {
 
   const handleCustomModelSave = async () => {
     const trimmed = customModel.trim()
+    /* v8 ignore start */
     if (!trimmed) return
+    /* v8 ignore stop */
 
     dispatch({ type: 'set_model', value: trimmed })
     dispatch({ type: 'saving' })

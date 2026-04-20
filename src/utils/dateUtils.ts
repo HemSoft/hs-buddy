@@ -45,6 +45,7 @@ export function formatDistanceToNow(timestamp: number | string | Date): string {
   const diff = now - time
 
   if (diff < MINUTE) {
+    // Covers future timestamps (diff <= 0) and very recent ones (diff < 60s)
     return 'just now'
   }
 
@@ -73,9 +74,11 @@ export function formatDistanceToNow(timestamp: number | string | Date): string {
     }
   }
 
+  /* v8 ignore start -- defensive guard; unreachable because diff >= MINUTE guarantees at least one unit matches */
   if (parts.length === 0) {
     return 'just now'
   }
+  /* v8 ignore stop */
 
   if (parts.length === 1) {
     return `${parts[0]} ago`

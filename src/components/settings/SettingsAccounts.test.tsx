@@ -132,4 +132,64 @@ describe('SettingsAccounts', () => {
       expect(screen.queryByText('Both username and organization are required')).toBeNull()
     })
   })
+
+  it('removes account after confirmation', async () => {
+    mockRemoveAccount.mockResolvedValue(undefined)
+    render(<SettingsAccounts />)
+
+    // Click the remove button on the existing account
+    const removeButton = screen.getByTitle('Remove account')
+    fireEvent.click(removeButton)
+
+    // Confirm dialog should appear — find the danger button specifically
+    const confirmButton = await waitFor(() => {
+      const btn = document.querySelector('.confirm-dialog-btn-danger') as HTMLButtonElement
+      expect(btn).toBeTruthy()
+      return btn
+    })
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(mockRemoveAccount).toHaveBeenCalledWith('existing-user', 'existing-org')
+    })
+  })
+
+  it('does not remove account when confirmation is cancelled', async () => {
+    render(<SettingsAccounts />)
+
+    const removeButton = screen.getByTitle('Remove account')
+    fireEvent.click(removeButton)
+
+    // Cancel the dialog
+    const cancelButton = await screen.findByRole('button', { name: /cancel/i })
+    fireEvent.click(cancelButton)
+
+    expect(mockRemoveAccount).not.toHaveBeenCalled()
+  })
+
+  it('shows loading state when accounts are loading', () => {
+    mockLoading = true
+    render(<SettingsAccounts />)
+    expect(screen.getByText('Loading accounts...')).toBeTruthy()
+  })
+
+  it('shows empty state when no accounts are configured', () => {
+    mockAccounts = []
+    render(<SettingsAccounts />)
+    expect(screen.getByText('No GitHub accounts configured')).toBeTruthy()
+  })
+
+  it('shows generic error message when addAccount returns failure with no error property', async () => {
+    mockAddAccount.mockResolvedValue({ success: false })
+
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getByRole('button', { name: /add account/i }))
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'new-user' } })
+    fireEvent.change(screen.getByLabelText('Organization'), { target: { value: 'new-org' } })
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+    expect(await screen.findByText('Failed to add account')).toBeTruthy()
+    expect(screen.getByLabelText('Username')).toHaveValue('new-user')
+  })
 })

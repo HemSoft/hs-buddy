@@ -326,9 +326,41 @@ describe('useCopilotUsage', () => {
     }
   })
 
+  it('aggregateProjections returns null when no accounts have premium_interactions', async () => {
+    // Return quota data without premium_interactions so the loop skips all
+    const noPremiumQuota = {
+      ...makeQuotaData(),
+      quota_snapshots: {
+        chat: makeQuotaData().quota_snapshots.chat,
+        completions: makeQuotaData().quota_snapshots.completions,
+      },
+    }
+    mockGetCopilotQuota.mockResolvedValue({ success: true, data: noPremiumQuota })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.aggregateProjections).toBeNull()
+  })
+
   it('unique org deduplication uses first username', () => {
     const { result } = renderHook(() => useCopilotUsage())
     // user1 and user2 both in org1, first one wins
     expect(result.current.uniqueOrgs.get('org1')).toBe('user1')
+  })
+
+  it('handles quota fetch error with no error message (line 51)', async () => {
+    // Test the `error: result.error || 'Unknown error'` branch
+    mockGetCopilotQuota.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.quotas['user1']?.error).toBe('Unknown error')
+  })
+
+  it('handles budget fetch error with no error message (line 76)', async () => {
+    // Test the `error: result.error || 'Unknown error'` branch
+    mockGetCopilotBudget.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.orgBudgets['org1']?.error).toBe('Unknown error')
   })
 })

@@ -287,4 +287,120 @@ describe('BookmarkList', () => {
     fireEvent.click(card)
     expect(onOpenTab).toHaveBeenCalled()
   })
+
+  it('closes the add bookmark dialog via onClose callback', () => {
+    render(<BookmarkList />)
+    fireEvent.click(screen.getByTitle('Add bookmark'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTitle('Close'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('shows last segment for category with path separator', () => {
+    mockBookmarksReturn = [
+      {
+        ...mockBookmarks[0],
+        category: 'Dev/Tools',
+      },
+    ]
+    mockCategoriesReturn = ['Dev', 'Dev/Tools']
+    render(<BookmarkList />)
+    const categoryBadge = document.querySelector('.bookmark-card-category')
+    expect(categoryBadge?.textContent).toContain('Tools')
+  })
+
+  it('does not render tag badges when tags array is empty', () => {
+    mockBookmarksReturn = [
+      {
+        ...mockBookmarks[0],
+        tags: [],
+      },
+    ]
+    render(<BookmarkList />)
+    expect(document.querySelectorAll('.bookmark-card-tag')).toHaveLength(0)
+  })
+
+  it('ignores keyDown events from child elements of the card', () => {
+    const openInAppBrowserSpy = vi.fn()
+    window.shell.openInAppBrowser = openInAppBrowserSpy as never
+    render(<BookmarkList />)
+    const titleEl = screen.getByText('GitHub')
+    fireEvent.keyDown(titleEl, { key: 'Enter' })
+    expect(openInAppBrowserSpy).not.toHaveBeenCalled()
+  })
+
+  it('renders bookmark with no description', () => {
+    mockBookmarksReturn = [
+      {
+        ...mockBookmarks[0],
+        description: '',
+      },
+    ]
+    render(<BookmarkList />)
+    expect(document.querySelector('.bookmark-card-desc')).toBeNull()
+  })
+
+  it('opens bookmark via Space key on the card itself', () => {
+    const openInAppBrowserSpy = vi.fn()
+    window.shell.openInAppBrowser = openInAppBrowserSpy as never
+    render(<BookmarkList />)
+    const card = document.querySelectorAll('.bookmark-card')[0] as HTMLElement
+    fireEvent.keyDown(card, { key: ' ' })
+    expect(openInAppBrowserSpy).toHaveBeenCalledWith(mockBookmarks[0].url, mockBookmarks[0].title)
+  })
+
+  it('applies drag-over class when dragOver event fires', () => {
+    render(<BookmarkList />)
+    const container = document.querySelector('.bookmark-list-container') as HTMLElement
+    const dataTransfer = { types: ['text/uri-list'] }
+    fireEvent.dragOver(container, { dataTransfer, preventDefault: vi.fn() })
+    expect(container.className).toContain('bookmark-drop-active')
+  })
+
+  it('renders with null categories without crashing', () => {
+    mockCategoriesReturn = undefined
+    render(<BookmarkList />)
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
+  })
+
+  it('renders bookmark with faviconUrl and hides it on error', () => {
+    mockBookmarksReturn = [
+      {
+        ...mockBookmarks[0],
+        faviconUrl: 'https://github.com/favicon.ico',
+      },
+    ]
+    render(<BookmarkList />)
+    const img = document.querySelector('.bookmark-favicon') as HTMLImageElement
+    expect(img).toBeTruthy()
+    fireEvent.error(img)
+    expect(img.style.display).toBe('none')
+  })
+
+  it('opens bookmark via Enter key on the card itself', () => {
+    const openInAppBrowserSpy = vi.fn()
+    window.shell.openInAppBrowser = openInAppBrowserSpy as never
+    render(<BookmarkList />)
+    const card = document.querySelectorAll('.bookmark-card')[0] as HTMLElement
+    fireEvent.keyDown(card, { key: 'Enter' })
+    expect(openInAppBrowserSpy).toHaveBeenCalledWith(mockBookmarks[0].url, mockBookmarks[0].title)
+  })
+
+  it('does not open bookmark for non-interactive key on the card itself', () => {
+    const openInAppBrowserSpy = vi.fn()
+    window.shell.openInAppBrowser = openInAppBrowserSpy as never
+    render(<BookmarkList />)
+    const card = document.querySelectorAll('.bookmark-card')[0] as HTMLElement
+    fireEvent.keyDown(card, { key: 'Tab' })
+    expect(openInAppBrowserSpy).not.toHaveBeenCalled()
+  })
+
+  it('passes empty array for categories when categories are undefined and dialog is open', () => {
+    mockCategoriesReturn = undefined
+    render(<BookmarkList />)
+    const addBtn = screen.getByTitle('Add bookmark')
+    fireEvent.click(addBtn)
+    expect(document.querySelector('.bookmark-dialog')).toBeTruthy()
+  })
 })

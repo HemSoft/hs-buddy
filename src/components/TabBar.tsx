@@ -71,7 +71,12 @@ export function TabBar({
     }
 
     if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
-      setContextMenu(prev => (prev ? { ...prev, x: adjustedX, y: adjustedY } : null))
+      setContextMenu(prev => {
+        /* v8 ignore start -- prev is always truthy when context menu position needs adjustment */
+        if (!prev) return null
+        /* v8 ignore stop */
+        return { ...prev, x: adjustedX, y: adjustedY }
+      })
     }
   }, [contextMenu])
 

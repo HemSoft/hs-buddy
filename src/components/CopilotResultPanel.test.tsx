@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 const mocks = vi.hoisted(() => ({
@@ -256,5 +256,98 @@ describe('CopilotResultPanel', () => {
     mockResult.metadata = { org: 'acme' } // missing repo and prNumber
     render(<CopilotResultPanel resultId="r1" />)
     expect(screen.queryByTitle('Publish review as PR comment')).not.toBeInTheDocument()
+  })
+
+  it('shows copied state and resets after timeout', async () => {
+    vi.useFakeTimers()
+    render(<CopilotResultPanel resultId="r1" />)
+    const copyBtn = screen.getByTitle('Copy markdown')
+
+    await act(async () => {
+      fireEvent.click(copyBtn)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(screen.getByTitle('Copy markdown')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('handlePublishToPR returns early when metadata is null', async () => {
+    mocks.useGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'alice', org: 'acme' }],
+    })
+    mockResult.category = 'pr-review'
+    mockResult.status = 'completed'
+    mockResult.result = 'Review text'
+    mockResult.metadata = null
+    render(<CopilotResultPanel resultId="r1" />)
+    // Publish button should not be present when metadata is null
+    expect(screen.queryByTitle('Publish review as PR comment')).not.toBeInTheDocument()
+  })
+
+  it('copy button does nothing when result.result is empty', async () => {
+    mockResult.result = ''
+    mockResult.status = 'completed'
+    render(<CopilotResultPanel resultId="r1" />)
+    // When result is empty, the copy button should not be rendered
+    expect(screen.queryByTitle('Copy markdown')).not.toBeInTheDocument()
+  })
+
+  it('handlePublishToPR returns early when result becomes empty', async () => {
+    mocks.useGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'alice', org: 'acme' }],
+    })
+    mockResult.category = 'pr-review'
+    mockResult.status = 'completed'
+    mockResult.result = 'Review text'
+    mockResult.metadata = { org: 'acme', repo: 'web', prNumber: 42, prTitle: 'Fix' }
+
+    render(<CopilotResultPanel resultId="r1" />)
+    const publishBtn = screen.getByTitle('Publish review as PR comment')
+
+    // Mutate the shared result object so handler sees empty result
+    mockResult.result = ''
+    fireEvent.click(publishBtn)
+
+    expect(mocks.addPRComment).not.toHaveBeenCalled()
+  })
+
+  it('handlePublishToPR returns early when metadata loses org/repo/prNumber', async () => {
+    mocks.useGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'alice', org: 'acme' }],
+    })
+    mockResult.category = 'pr-review'
+    mockResult.status = 'completed'
+    mockResult.result = 'Review text'
+    mockResult.metadata = { org: 'acme', repo: 'web', prNumber: 42, prTitle: 'Fix' }
+
+    render(<CopilotResultPanel resultId="r1" />)
+    const publishBtn = screen.getByTitle('Publish review as PR comment')
+
+    // Mutate metadata to remove required fields
+    ;(mockResult.metadata as Record<string, unknown>).org = undefined
+    fireEvent.click(publishBtn)
+
+    expect(mocks.addPRComment).not.toHaveBeenCalled()
+  })
+
+  it('retry button with undefined category and metadata calls execute with undefined values', async () => {
+    mockResult.category = undefined
+    mockResult.metadata = undefined
+    const user = userEvent.setup()
+    render(<CopilotResultPanel resultId="r1" />)
+    const retryBtn = screen.getByTitle('Re-run this prompt')
+    await user.click(retryBtn)
+    expect(window.copilot.execute).toHaveBeenCalledWith({
+      prompt: 'Summarize this code',
+      category: undefined,
+      metadata: undefined,
+    })
   })
 })

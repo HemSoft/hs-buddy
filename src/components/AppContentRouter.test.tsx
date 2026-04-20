@@ -9,21 +9,30 @@ vi.mock('./PullRequestList', () => ({
   PullRequestList: ({
     mode,
     onCountChange,
+    onOpenPR,
   }: {
     mode: string
     onCountChange: (count: number) => void
-  }) => (
-    <button data-testid="pull-request-list" data-mode={mode} onClick={() => onCountChange(7)}>
-      PullRequestList
-    </button>
-  ),
+    onOpenPR: (viewId: string) => void
+  }) => {
+    capturedCallbacks.prListOnCountChange = onCountChange
+    capturedCallbacks.prListOnOpenPR = onOpenPR
+    return (
+      <button data-testid="pull-request-list" data-mode={mode} onClick={() => onCountChange(7)}>
+        PullRequestList
+      </button>
+    )
+  },
 }))
 
 vi.mock('./automation', () => ({
   ScheduleDetailPanel: ({ scheduleId }: { scheduleId: string }) => (
     <div>ScheduleDetail:{scheduleId}</div>
   ),
-  ScheduleOverviewPanel: () => <div>ScheduleOverview</div>,
+  ScheduleOverviewPanel: (props: { onOpenSchedule: (id: string) => void }) => {
+    capturedCallbacks.onOpenSchedule = props.onOpenSchedule
+    return <div>ScheduleOverview</div>
+  },
   JobDetailPanel: ({ jobId }: { jobId: string }) => <div>JobDetail:{jobId}</div>,
   RunList: () => <div>RunList</div>,
 }))
@@ -80,7 +89,10 @@ vi.mock('./PullRequestDetailPanel', () => ({
 }))
 
 vi.mock('./CopilotPromptBox', () => ({
-  CopilotPromptBox: () => <div>CopilotPromptBox</div>,
+  CopilotPromptBox: (props: { onOpenResult: (resultId: string) => void }) => {
+    capturedCallbacks.copilotPromptOnOpenResult = props.onOpenResult
+    return <div>CopilotPromptBox</div>
+  },
 }))
 
 vi.mock('./CopilotResultPanel', () => ({
@@ -135,7 +147,10 @@ vi.mock('./sessions/SessionExplorer', () => ({
 }))
 
 vi.mock('./sessions/SessionDetail', () => ({
-  SessionDetail: ({ filePath }: { filePath: string }) => <div>SessionDetail:{filePath}</div>,
+  SessionDetail: (props: { filePath: string; onBack: () => void }) => {
+    capturedCallbacks.sessionDetailOnBack = props.onBack
+    return <div>SessionDetail:{props.filePath}</div>
+  },
 }))
 
 vi.mock('./planner/TaskPlannerView', () => ({
@@ -146,6 +161,10 @@ vi.mock('./bookmarks/BookmarkList', () => ({
   BookmarkList: ({ filterCategory }: { filterCategory?: string }) => (
     <div>BookmarkList:{filterCategory ?? 'all'}</div>
   ),
+}))
+
+vi.mock('./explorer/FolderExplorerView', () => ({
+  FolderExplorerView: ({ rootPath }: { rootPath: string }) => <div>FolderExplorer:{rootPath}</div>,
 }))
 
 vi.mock('./BrowserTabView', () => ({
@@ -183,12 +202,13 @@ function renderRouter(activeViewId: string | null = null) {
   const onPRCountChange = vi.fn()
   const onOpenTab = vi.fn()
   const onCloseView = vi.fn()
+  const onNavigate = vi.fn()
 
   render(
     <AppContentRouter
       activeViewId={activeViewId}
       prCounts={{}}
-      onNavigate={vi.fn()}
+      onNavigate={onNavigate}
       onSectionChange={vi.fn()}
       onOpenTab={onOpenTab}
       onCloseView={onCloseView}
@@ -196,7 +216,7 @@ function renderRouter(activeViewId: string | null = null) {
     />
   )
 
-  return { onPRCountChange, onOpenTab, onCloseView }
+  return { onPRCountChange, onOpenTab, onCloseView, onNavigate }
 }
 
 describe('AppContentRouter', () => {
@@ -443,6 +463,26 @@ describe('AppContentRouter', () => {
     expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
   })
 
+  it('returns fallback for repo-commit with trailing slash (empty sha)', () => {
+    renderRouter('repo-commit:acme/widget/')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-commit with invalid ownerRepo part', () => {
+    renderRouter('repo-commit:noslash/sha123')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-issue with invalid ownerRepo part', () => {
+    renderRouter('repo-issue:noslash/42')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
+  it('returns fallback for repo-issue with no slash', () => {
+    renderRouter('repo-issue:noslash')
+    expect(screen.getByText('This feature is coming soon!')).toBeInTheDocument()
+  })
+
   it('CopilotResultsList onOpenResult calls onOpenTab', () => {
     const { onOpenTab } = renderRouter('copilot-all-results')
     capturedCallbacks.onOpenResult('test-result-id')
@@ -485,5 +525,36 @@ describe('AppContentRouter', () => {
     const { onCloseView } = renderRouter('pr-review:valid-pr')
     capturedCallbacks.prReviewOnClose()
     expect(onCloseView).toHaveBeenCalledWith('pr-review:valid-pr')
+  })
+
+  it('renders folder-view route with decoded path', () => {
+    const path = '/my/folder/path'
+    renderRouter(`folder-view:${encodeURIComponent(path)}`)
+    expect(screen.getByText(`FolderExplorer:${path}`)).toBeInTheDocument()
+  })
+
+  it('PullRequestList onOpenPR calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('pr-my-prs')
+    capturedCallbacks.prListOnOpenPR('pr-detail:some-pr')
+    expect(onOpenTab).toHaveBeenCalledWith('pr-detail:some-pr')
+  })
+
+  it('ScheduleOverviewPanel onOpenSchedule calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('automation-schedules')
+    capturedCallbacks.onOpenSchedule('sched-123')
+    expect(onOpenTab).toHaveBeenCalledWith('schedule-detail:sched-123')
+  })
+
+  it('CopilotPromptBox onOpenResult calls onOpenTab', () => {
+    const { onOpenTab } = renderRouter('copilot-prompt')
+    capturedCallbacks.copilotPromptOnOpenResult('res-789')
+    expect(onOpenTab).toHaveBeenCalledWith('copilot-result:res-789')
+  })
+
+  it('SessionDetail onBack calls onNavigate with copilot-sessions', () => {
+    const encoded = btoa('/path/to/session.jsonl')
+    const { onNavigate } = renderRouter(`copilot-session-detail:${encoded}`)
+    capturedCallbacks.sessionDetailOnBack()
+    expect(onNavigate).toHaveBeenCalledWith('copilot-sessions')
   })
 })

@@ -228,4 +228,89 @@ describe('SettingsNotifications', () => {
       ).toBeInTheDocument()
     })
   })
+
+  it('shows error when IPC invoke rejects with an error', async () => {
+    mockInvoke.mockRejectedValueOnce(new Error('IPC failed'))
+
+    render(<SettingsNotifications />)
+
+    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Could not play this file.')).toBeInTheDocument()
+    })
+  })
+
+  it('renders toggle in inactive state when notifications are disabled', () => {
+    mockNotificationSettings.mockReturnValue({
+      enabled: false,
+      soundPath: 'C:\\sounds\\ding.wav',
+      loading: false,
+      setEnabled: mockSetEnabled,
+      setSoundPath: mockSetSoundPath,
+      pickSoundFile: mockPickSoundFile,
+    })
+
+    render(<SettingsNotifications />)
+
+    const toggle = screen.getByRole('button', { name: /enable sound notification/i })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(toggle).not.toHaveClass('active')
+  })
+
+  it('stale audio onended/onerror do not clean up the new preview', async () => {
+    render(<SettingsNotifications />)
+
+    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+    await waitFor(() => expect(MockAudio.instances).toHaveLength(1))
+    const staleAudio = MockAudio.instances[0]
+
+    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+    await waitFor(() => expect(MockAudio.instances).toHaveLength(2))
+
+    revokeObjectURL.mockClear()
+
+    await act(async () => {
+      staleAudio.onended?.()
+    })
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+
+    await act(async () => {
+      staleAudio.onerror?.()
+    })
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('stale audio play rejection does not clean up the new preview', async () => {
+    let rejectPlay!: () => void
+    let callCount = 0
+    const DeferredPlayAudio = class extends MockAudio {
+      play = vi.fn().mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return new Promise<void>((_, reject) => {
+            rejectPlay = reject
+          })
+        }
+        return Promise.resolve()
+      })
+    }
+    globalThis.Audio = DeferredPlayAudio as unknown as typeof Audio
+
+    render(<SettingsNotifications />)
+
+    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+    await waitFor(() => expect(MockAudio.instances).toHaveLength(1))
+
+    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+    await waitFor(() => expect(MockAudio.instances).toHaveLength(2))
+
+    revokeObjectURL.mockClear()
+
+    await act(async () => {
+      rejectPlay()
+    })
+
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+  })
 })

@@ -25,6 +25,24 @@ vi.mock('../../utils/errorUtils', () => ({
   throwIfAborted: () => {},
 }))
 
+const mockReplyToReviewThread = vi.fn()
+const mockResolveReviewThread = vi.fn()
+const mockUnresolveReviewThread = vi.fn()
+
+vi.mock('../../api/github', () => ({
+  GitHubClient: class {
+    replyToReviewThread(...args: unknown[]) {
+      return mockReplyToReviewThread(...args)
+    }
+    resolveReviewThread(...args: unknown[]) {
+      return mockResolveReviewThread(...args)
+    }
+    unresolveReviewThread(...args: unknown[]) {
+      return mockUnresolveReviewThread(...args)
+    }
+  },
+}))
+
 vi.mock('./DiffHunk', () => ({
   DiffHunk: ({ hunk }: { hunk: string }) => <div data-testid="diff-hunk">{hunk}</div>,
 }))
@@ -475,6 +493,63 @@ describe('ReviewThreadCard', () => {
     await waitFor(() => {
       const resolveBtn = screen.getByText('Resolve conversation').closest('button')
       expect(resolveBtn).not.toBeDisabled()
+    })
+  })
+
+  it('invokes throwIfAborted and GitHubClient in reply callback', async () => {
+    mockReplyToReviewThread.mockResolvedValue(
+      makeComment({ id: 'cb-reply', body: 'callback reply' })
+    )
+    mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<unknown>) => {
+      const controller = new AbortController()
+      return cb(controller.signal)
+    })
+    renderCard()
+
+    fireEvent.click(screen.getByText('Reply'))
+    const textarea = screen.getByPlaceholderText('Write a reply...')
+    fireEvent.change(textarea, { target: { value: 'Test reply' } })
+
+    const sendButtons = screen.getAllByRole('button', { name: /Reply/i })
+    const sendBtn = sendButtons.find(btn => btn.classList.contains('thread-reply-send'))!
+    fireEvent.click(sendBtn)
+
+    await waitFor(() => {
+      expect(mockReplyToReviewThread).toHaveBeenCalled()
+      expect(onReplyAdded).toHaveBeenCalled()
+    })
+  })
+
+  it('invokes throwIfAborted and GitHubClient in resolve callback', async () => {
+    mockResolveReviewThread.mockResolvedValue(undefined)
+    mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<unknown>) => {
+      const controller = new AbortController()
+      return cb(controller.signal)
+    })
+    renderCard(makeThread({ isResolved: false }))
+
+    fireEvent.click(screen.getByText('Resolve conversation'))
+
+    await waitFor(() => {
+      expect(mockResolveReviewThread).toHaveBeenCalled()
+      expect(onResolveToggled).toHaveBeenCalledWith('thread-1', true)
+    })
+  })
+
+  it('invokes throwIfAborted and GitHubClient in unresolve callback', async () => {
+    mockUnresolveReviewThread.mockResolvedValue(undefined)
+    mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<unknown>) => {
+      const controller = new AbortController()
+      return cb(controller.signal)
+    })
+    renderCard(makeThread({ isResolved: true }))
+
+    fireEvent.click(screen.getByRole('button', { name: /src\/app.ts/i }))
+    fireEvent.click(screen.getByText('Unresolve'))
+
+    await waitFor(() => {
+      expect(mockUnresolveReviewThread).toHaveBeenCalled()
+      expect(onResolveToggled).toHaveBeenCalledWith('thread-1', false)
     })
   })
 })

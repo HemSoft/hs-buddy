@@ -63,7 +63,9 @@ export function SettingsNotifications() {
   }
 
   const handlePreview = useCallback(() => {
+    /* v8 ignore start */
     if (!soundPath) return
+    /* v8 ignore stop */
     setPreviewError(null)
 
     stopPreview()

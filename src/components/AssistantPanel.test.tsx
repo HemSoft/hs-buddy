@@ -202,4 +202,16 @@ describe('AssistantPanel', () => {
     render(<AssistantPanel context={ctxUnknown} />)
     expect(screen.getByText('What can you do?')).toBeTruthy()
   })
+
+  it('auto-resizes textarea on input change', () => {
+    render(<AssistantPanel context={context} />)
+    const textarea = screen.getByPlaceholderText('Ask a question...') as HTMLTextAreaElement
+
+    Object.defineProperty(textarea, 'scrollHeight', { value: 80, configurable: true })
+
+    fireEvent.change(textarea, { target: { value: 'Hello world' } })
+
+    // The useEffect sets height = 'auto' then `${Math.min(scrollHeight, 120)}px`
+    expect(textarea.style.height).toBeTruthy()
+  })
 })

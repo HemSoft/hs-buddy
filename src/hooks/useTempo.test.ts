@@ -145,6 +145,28 @@ describe('useCapexMap', () => {
     const { result } = renderHook(() => useCapexMap(['P-1', 'P-2']))
     await waitFor(() => expect(result.current).toEqual({ 'P-1': true, 'P-2': false }))
   })
+
+  it('does not set capex map when result is unsuccessful', async () => {
+    mockGetCapexMap.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useCapexMap(['P-1']))
+    await waitFor(() => expect(mockGetCapexMap).toHaveBeenCalled())
+    expect(result.current).toEqual({})
+  })
+
+  it('does not set capex map when result data is null', async () => {
+    mockGetCapexMap.mockResolvedValue({ success: true, data: null })
+    const { result } = renderHook(() => useCapexMap(['P-1']))
+    await waitFor(() => expect(mockGetCapexMap).toHaveBeenCalled())
+    expect(result.current).toEqual({})
+  })
+
+  it('skips stale capex result after unmount', async () => {
+    let resolveCapex!: (v: unknown) => void
+    mockGetCapexMap.mockReturnValue(new Promise(r => (resolveCapex = r)))
+    const { unmount } = renderHook(() => useCapexMap(['P-1']))
+    unmount()
+    resolveCapex({ success: true, data: { 'P-1': true } })
+  })
 })
 
 describe('useUserSchedule', () => {
@@ -170,6 +192,14 @@ describe('useUserSchedule', () => {
     const { result } = renderHook(() => useUserSchedule('2026-04-01', '2026-04-30'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toBe('Failed to load schedule')
+  })
+
+  it('skips stale schedule result after unmount', async () => {
+    let resolveSchedule!: (v: unknown) => void
+    mockGetSchedule.mockReturnValue(new Promise(r => (resolveSchedule = r)))
+    const { unmount } = renderHook(() => useUserSchedule('2026-04-01', '2026-04-30'))
+    unmount()
+    resolveSchedule({ success: true, data: [] })
   })
 })
 
@@ -221,6 +251,44 @@ describe('useTempoActions', () => {
       await result.current.create({ issueKey: 'X', hours: 1, date: '2026-04-13' })
     })
     expect(onMutated).not.toHaveBeenCalled()
+  })
+
+  it('does not call onMutated when update fails', async () => {
+    mockUpdateWorklog.mockResolvedValue({ success: false })
+    const onMutated = vi.fn()
+    const { result } = renderHook(() => useTempoActions(onMutated))
+    await act(async () => {
+      await result.current.update(42, { hours: 3 })
+    })
+    expect(onMutated).not.toHaveBeenCalled()
+  })
+
+  it('does not call onMutated when remove fails', async () => {
+    mockDeleteWorklog.mockResolvedValue({ success: false })
+    const onMutated = vi.fn()
+    const { result } = renderHook(() => useTempoActions(onMutated))
+    await act(async () => {
+      await result.current.remove(42)
+    })
+    expect(onMutated).not.toHaveBeenCalled()
+  })
+
+  it('update succeeds without onMutated callback', async () => {
+    mockUpdateWorklog.mockResolvedValue({ success: true })
+    const { result } = renderHook(() => useTempoActions())
+    await act(async () => {
+      await result.current.update(42, { hours: 3 })
+    })
+    expect(result.current.pending).toBe(false)
+  })
+
+  it('remove succeeds without onMutated callback', async () => {
+    mockDeleteWorklog.mockResolvedValue({ success: true })
+    const { result } = renderHook(() => useTempoActions())
+    await act(async () => {
+      await result.current.remove(42)
+    })
+    expect(result.current.pending).toBe(false)
   })
 
   it('sets pending during operations', async () => {

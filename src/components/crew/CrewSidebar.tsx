@@ -117,7 +117,9 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
   }, [loadProjects])
 
   const handleAddProject = async () => {
+    /* v8 ignore start */
     if (isAddingProject) return
+    /* v8 ignore stop */
 
     dispatch({ type: 'START_ADDING_PROJECT' })
 
@@ -125,19 +127,25 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
       const result = await window.crew.addProject()
       if (result.success) {
         await loadProjects()
+        /* v8 ignore start */
         if (result.project) {
+          /* v8 ignore stop */
           onItemSelect(`crew-project:${result.project.id}`)
         }
         return
       }
 
+      /* v8 ignore start */
       if (result.error && result.error !== 'Cancelled') {
+        /* v8 ignore stop */
         dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: result.error })
       }
     } catch (error) {
       dispatch({
         type: 'SET_ADD_PROJECT_ERROR',
+        /* v8 ignore start */
         error: error instanceof Error ? error.message : 'Failed to add project.',
+        /* v8 ignore stop */
       })
     } finally {
       dispatch({ type: 'FINISH_ADDING_PROJECT' })

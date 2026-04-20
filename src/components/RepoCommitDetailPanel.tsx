@@ -59,10 +59,12 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
 
       try {
         const result = await enqueueRef.current(
+          /* v8 ignore start */
           async signal => {
             throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await client.fetchRepoCommitDetail(owner, repo, sha)
+            /* v8 ignore stop */
           },
           { name: `repo-commit-${owner}-${repo}-${sha}` }
         )

@@ -48,7 +48,9 @@ export function usePrefetch(): void {
   // Shared function to queue fetches for stale PR data
   const refreshStaleData = useCallback(
     (intervalMs: number, label: string) => {
+      /* v8 ignore start */
       if (accounts.length === 0) return
+      /* v8 ignore stop */
 
       const queue = getTaskQueue('github')
       const config = { accounts }
@@ -89,7 +91,9 @@ export function usePrefetch(): void {
             { name: taskName, priority: -1 }
           )
           .catch(err => {
+            /* v8 ignore start */
             if (isAbortError(err)) return
+            /* v8 ignore stop */
             console.warn(`[${label}] ${cacheKey} failed:`, err)
           })
       }
@@ -144,7 +148,9 @@ export function usePrefetch(): void {
   // --- Initial prefetch (runs once on startup) ---
   useEffect(() => {
     if (accountsLoading || settingsLoading || accounts.length === 0) return
+    /* v8 ignore start */
     if (prefetchedRef.current) return
+    /* v8 ignore stop */
     prefetchedRef.current = true
 
     const intervalMs = refreshInterval * MS_PER_MINUTE

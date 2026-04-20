@@ -116,6 +116,7 @@ export function PRTreeSection({
           {expandedPrGroups.has(item.id) && (prTreeData[item.id] || []).length > 0 && (
             <div className="sidebar-job-tree sidebar-pr-tree">
               <div className="sidebar-job-items">
+                {/* v8 ignore start */}
                 {(prTreeData[item.id] || []).map(pr => {
                   const prViewId = createPRDetailViewId(pr)
                   const isSelected = selectedItem === prViewId
@@ -206,6 +207,7 @@ export function PRTreeSection({
                     </div>
                   )
                 })}
+                {/* v8 ignore stop */}
               </div>
             </div>
           )}

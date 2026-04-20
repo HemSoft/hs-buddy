@@ -189,4 +189,16 @@ describe('JobEditor', () => {
     expect(screen.getByRole('button', { name: 'Skill Claude skills' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
   })
+
+  it('selects exec worker type when Exec button is clicked', () => {
+    renderEditor()
+    fireEvent.click(screen.getByRole('button', { name: 'Exec Shell commands' }))
+    expect(mockForm.setWorkerType).toHaveBeenCalledWith('exec')
+  })
+
+  it('selects skill worker type when Skill button is clicked', () => {
+    renderEditor()
+    fireEvent.click(screen.getByRole('button', { name: 'Skill Claude skills' }))
+    expect(mockForm.setWorkerType).toHaveBeenCalledWith('skill')
+  })
 })

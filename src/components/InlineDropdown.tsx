@@ -76,7 +76,9 @@ export function InlineDropdown({
   const enabledOptions = options.filter(o => !o.disabled)
 
   const handleToggle = useCallback(() => {
+    /* v8 ignore start -- button's disabled HTML attr prevents onClick from firing */
     if (disabled) return
+    /* v8 ignore stop */
     setIsOpen(prev => {
       if (!prev) {
         // Opening — set focus to current value

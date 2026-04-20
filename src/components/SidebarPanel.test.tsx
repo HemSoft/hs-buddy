@@ -302,14 +302,6 @@ describe('SidebarPanel', () => {
     expect(screen.getByText('5')).toBeTruthy()
   })
 
-  it('does not show context menu on right-click of non-automation item', () => {
-    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Accounts').closest('[role="button"]')!
-    fireEvent.contextMenu(item)
-    expect(screen.queryByText('New Schedule')).toBeFalsy()
-    expect(screen.queryByText('New Job')).toBeFalsy()
-  })
-
   it('expands new section when section prop changes', () => {
     const { rerender } = render(
       <SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />
@@ -319,32 +311,6 @@ describe('SidebarPanel', () => {
     rerender(<SidebarPanel section="tasks" onItemSelect={onItemSelect} selectedItem={null} />)
     expect(screen.getByText('Today')).toBeTruthy()
     expect(screen.getByText('Upcoming')).toBeTruthy()
-  })
-
-  it('does not open context menu on right-click of non-automation items (Escape is a no-op)', () => {
-    render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Accounts').closest('[role="button"]')!
-    fireEvent.contextMenu(item)
-    // Context menu should NOT appear for non-automation items
-    expect(screen.queryByText('New Schedule')).toBeFalsy()
-    expect(screen.queryByText('New Job')).toBeFalsy()
-    // Escape keydown is a no-op when no context menu is open
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByText('New Schedule')).toBeFalsy()
-  })
-
-  it('does not render context menu overlay initially', () => {
-    const onCreateNew = vi.fn()
-    const { container } = render(
-      <SidebarPanel
-        section="settings"
-        onItemSelect={onItemSelect}
-        selectedItem={null}
-        onCreateNew={onCreateNew}
-      />
-    )
-    expect(container.querySelector('.context-menu-overlay')).toBeNull()
-    expect(container.querySelector('.context-menu')).toBeNull()
   })
 
   it('does not auto-select for sections with multiple items', () => {

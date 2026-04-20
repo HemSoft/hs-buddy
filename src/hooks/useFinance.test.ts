@@ -195,6 +195,25 @@ describe('useFinance', () => {
     expect(result.current.watchlist).not.toContain('AAPL')
   })
 
+  it('removeSymbol removes quote from state', async () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
+    localStorage.setItem(
+      'finance:cache',
+      JSON.stringify({
+        quotes: [{ ...QUOTE_AAPL, symbol: '^GSPC' }, QUOTE_AAPL],
+        timestamp: Date.now(),
+        version: 3,
+      })
+    )
+    const { result } = renderHook(() => useFinance())
+    expect(result.current.quotes).toHaveLength(2)
+    act(() => {
+      result.current.removeSymbol('AAPL')
+    })
+    expect(result.current.quotes.every(q => q.symbol !== 'AAPL')).toBe(true)
+    expect(result.current.watchlist).not.toContain('AAPL')
+  })
+
   it('handles rejected fetchQuote promises', async () => {
     mockFetchQuote.mockRejectedValue(new Error('Network error'))
     const { result } = renderHook(() => useFinance())

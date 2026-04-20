@@ -60,6 +60,28 @@ describe('parseCronValue', () => {
     expect(result.minute).toBe(0) // parseInt('abc') || 0
     expect(result.hour).toBe(9) // parseInt('def') || 9
   })
+
+  it('falls back to 0 for non-numeric minute in hourly cron', () => {
+    const result = parseCronValue('abc * * * *')
+    expect(result.frequency).toBe('hourly')
+    expect(result.minute).toBe(0)
+  })
+
+  it('falls back to defaults for non-numeric fields in weekly cron', () => {
+    const result = parseCronValue('abc def * * 1,3')
+    expect(result.frequency).toBe('weekly')
+    expect(result.minute).toBe(0)
+    expect(result.hour).toBe(9)
+    expect(result.selectedDays).toEqual([1, 3])
+  })
+
+  it('falls back to defaults for non-numeric fields in monthly cron', () => {
+    const result = parseCronValue('abc def ghi * *')
+    expect(result.frequency).toBe('monthly')
+    expect(result.minute).toBe(0)
+    expect(result.hour).toBe(9)
+    expect(result.dayOfMonth).toBe(1)
+  })
 })
 
 describe('buildCronExpression', () => {

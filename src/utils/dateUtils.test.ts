@@ -78,6 +78,12 @@ describe('formatDistanceToNow', () => {
     expect(formatDistanceToNow('2026-06-15T11:55:00.000Z')).toBe('5 minutes ago')
   })
 
+  it('returns "just now" for future timestamps', () => {
+    const now = Date.now()
+    expect(formatDistanceToNow(now + 60_000)).toBe('just now')
+    expect(formatDistanceToNow(now + 3_600_000)).toBe('just now')
+  })
+
   it('returns empty string for invalid values', () => {
     expect(formatDistanceToNow('not-a-date')).toBe('')
     expect(formatDistanceToNow(NaN)).toBe('')

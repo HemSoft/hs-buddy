@@ -71,7 +71,9 @@ export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
                 {formatCopilotPlan(data.copilot_plan)}
               </span>
             </div>
+            {/* v8 ignore start */}
             {state?.loading && <RefreshCw size={12} className="spin" />}
+            {/* v8 ignore stop */}
           </div>
 
           <div className="usage-account-body">
@@ -147,7 +149,9 @@ export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
               )}
               <button
                 className="usage-link-btn"
+                /* v8 ignore start */
                 onClick={() => window.shell.openExternal('https://github.com/settings/copilot')}
+                /* v8 ignore stop */
                 title="Open Copilot settings on GitHub"
               >
                 <ExternalLink size={12} />

@@ -180,6 +180,52 @@ describe('useTodoistUpcoming', () => {
     expect(result.current.dayGroups).toEqual([])
   })
 
+  it('sorts overdue tasks by priority desc then order asc', async () => {
+    mockGetUpcoming.mockResolvedValue({
+      success: true,
+      data: {
+        [yesterdayKey()]: [
+          { id: '1', content: 'Low prio', priority: 1, order: 2 },
+          { id: '2', content: 'High prio', priority: 4, order: 1 },
+          { id: '3', content: 'High prio early', priority: 4, order: 0 },
+        ],
+      },
+    })
+    const { result } = renderHook(() => useTodoistUpcoming(7))
+    await act(async () => {
+      await result.current.refresh()
+    })
+    const overdueGroup = result.current.dayGroups.find(g => g.label === 'Overdue')!
+    expect(overdueGroup.tasks[0].content).toBe('High prio early')
+    expect(overdueGroup.tasks[1].content).toBe('High prio')
+    expect(overdueGroup.tasks[2].content).toBe('Low prio')
+  })
+
+  it('sorts day group tasks by priority desc then order asc', async () => {
+    mockGetUpcoming.mockResolvedValue({
+      success: true,
+      data: {
+        [todayKey()]: [
+          { id: '1', content: 'Low', priority: 1, order: 5 },
+          { id: '2', content: 'High first', priority: 4, order: 0 },
+          { id: '3', content: 'High second', priority: 4, order: 3 },
+          { id: '4', content: 'Med', priority: 2, order: 1 },
+        ],
+      },
+    })
+    const { result } = renderHook(() => useTodoistUpcoming(7))
+    await act(async () => {
+      await result.current.refresh()
+    })
+    const todayGroup = result.current.dayGroups.find(g => g.label === 'Today')!
+    expect(todayGroup.tasks.map(t => t.content)).toEqual([
+      'High first',
+      'High second',
+      'Med',
+      'Low',
+    ])
+  })
+
   it('skips error state when unmounted during catch', async () => {
     mockGetUpcoming.mockImplementation(async () => {
       mockMountedRef.current = false

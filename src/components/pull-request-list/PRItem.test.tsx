@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { PRItem } from './PRItem'
 import type { PullRequest } from '../../types/pullRequest'
@@ -36,6 +36,10 @@ const basePr: PullRequest = {
 describe('PRItem', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('renders PR metadata, branches, avatars, and thread badges', () => {
@@ -146,5 +150,138 @@ describe('PRItem', () => {
     )
     expect(onOpen).not.toHaveBeenCalled()
     expect(screen.getByText('GH')).toBeTruthy()
+  })
+
+  it('shows BB label for non-GitHub source without org avatar', () => {
+    render(
+      <PRItem
+        pr={{ ...basePr, source: 'Bitbucket' as PullRequest['source'], orgAvatarUrl: undefined }}
+        mode="my-prs"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    expect(screen.getByText('BB')).toBeTruthy()
+  })
+
+  it('hides branch flow when baseBranch is undefined', () => {
+    render(
+      <PRItem
+        pr={{ ...basePr, baseBranch: undefined }}
+        mode="my-prs"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    expect(screen.queryByText(/into/i)).toBeNull()
+  })
+
+  it('hides thread badges when thread counts are null', () => {
+    render(
+      <PRItem
+        pr={{ ...basePr, threadsAddressed: undefined, threadsUnaddressed: undefined }}
+        mode="my-prs"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    expect(document.querySelector('.pr-thread-status')).toBeNull()
+  })
+
+  it('shows question mark when assigneeCount is zero', () => {
+    render(
+      <PRItem
+        pr={{ ...basePr, assigneeCount: 0 }}
+        mode="my-prs"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    expect(screen.getByText('1/? approvals')).toBeTruthy()
+  })
+
+  it('does not trigger onOpen for non-interactive keys', () => {
+    const onOpen = vi.fn()
+    render(
+      <PRItem
+        pr={basePr}
+        mode="my-prs"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={onOpen}
+      />
+    )
+    fireEvent.keyDown(screen.getByRole('link'), { key: 'Tab' })
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('falls back through date chain in recently-merged mode', () => {
+    render(
+      <PRItem
+        pr={{ ...basePr, date: null }}
+        mode="recently-merged"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    expect(mockFormatDistanceToNow).toHaveBeenCalledWith(basePr.created)
+  })
+
+  it('uses Date.now when date and created are both null in recently-merged mode', () => {
+    const now = 1700000000000
+    vi.spyOn(Date, 'now').mockReturnValue(now)
+    render(
+      <PRItem
+        pr={{ ...basePr, date: null, created: null }}
+        mode="recently-merged"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    expect(mockFormatDistanceToNow).toHaveBeenCalledWith(now)
+  })
+
+  it('uses Date.now when created is null in non-recently-merged mode', () => {
+    const now = 1700000000000
+    vi.spyOn(Date, 'now').mockReturnValue(now)
+    render(
+      <PRItem
+        pr={{ ...basePr, created: null }}
+        mode="my-prs"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    expect(mockFormatDistanceToNow).toHaveBeenCalledWith(now)
+  })
+
+  it('falls back to pr.source in avatar alt when org is empty', () => {
+    render(
+      <PRItem
+        pr={{ ...basePr, org: '' }}
+        mode="my-prs"
+        approving={null}
+        onApprove={vi.fn()}
+        onContextMenu={vi.fn()}
+        onOpen={vi.fn()}
+      />
+    )
+    const img = document.querySelector('.pr-org-avatar') as HTMLImageElement
+    expect(img.alt).toBe('GitHub')
   })
 })

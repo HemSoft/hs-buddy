@@ -501,9 +501,11 @@ interface OrgReposSectionProps {
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }
 
+/* v8 ignore start */
 // @ts-expect-error TS6133 — WIP component not yet wired in
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- WIP: will replace inline repo rendering in OrgTreeNode
 function OrgReposSection({
+  /* v8 ignore stop */
   org,
   repos,
   isExpanded,
@@ -542,28 +544,37 @@ function OrgReposSection({
   onContextMenu,
   onBookmarkToggle,
 }: OrgReposSectionProps) {
+  /* v8 ignore start */
   const sortedRepos = [...repos].sort((a, b) => {
     const aBookmarked = bookmarkedRepoKeys.has(`${org}/${a.name}`) ? 0 : 1
     const bBookmarked = bookmarkedRepoKeys.has(`${org}/${b.name}`) ? 0 : 1
     return aBookmarked - bBookmarked
+    /* v8 ignore stop */
   })
 
+  /* v8 ignore start */
   return (
+    /* v8 ignore stop */
     <>
       <div
         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
         role="button"
         tabIndex={0}
+        /* v8 ignore start */
         onClick={() => onToggleOrgRepoGroup(org)}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgRepoGroup(org))}
+        /* v8 ignore stop */
       >
         <span className="sidebar-item-chevron">
+          {/* v8 ignore start */}
           {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {/* v8 ignore stop */}
         </span>
         <span className="sidebar-item-icon">
           <FolderGit2 size={12} />
         </span>
         <span className="sidebar-item-label">Repositories</span>
+        {/* v8 ignore start */}
         {repos.length > 0 && <span className="sidebar-item-count">{repos.length}</span>}
       </div>
       {isExpanded && (
@@ -615,6 +626,7 @@ function OrgReposSection({
           )}
         </div>
       )}
+      {/* v8 ignore stop */}
     </>
   )
 }

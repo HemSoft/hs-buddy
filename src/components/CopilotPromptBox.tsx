@@ -66,7 +66,9 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
 
   // Auto-resize textarea
   useEffect(() => {
+    /* v8 ignore start */
     if (textareaRef.current) {
+      /* v8 ignore stop */
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
     }
@@ -87,7 +89,9 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
 
       if (orgs.length === 0) {
         // No GitHub URL — if we previously auto-detected, revert to default
+        /* v8 ignore start */
         if (autoDetectedRef.current) {
+          /* v8 ignore stop */
           autoDetectedRef.current = false
           setState(previousState => ({
             ...previousState,

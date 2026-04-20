@@ -96,6 +96,16 @@ describe('useBookmarkListState', () => {
   })
 
   describe('reducer actions', () => {
+    it('reducer ignores unknown action type', () => {
+      const { result } = renderHook(() => useBookmarkListState())
+      const stateBefore = result.current.state
+      act(() => {
+        // @ts-expect-error - intentionally dispatching unknown action
+        result.current.dispatch({ type: 'nonexistent-action' })
+      })
+      expect(result.current.state).toEqual(stateBefore)
+    })
+
     it('set-search updates searchQuery', () => {
       const { result } = renderHook(() => useBookmarkListState())
       act(() => result.current.dispatch({ type: 'set-search', query: 'react' }))

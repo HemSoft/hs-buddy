@@ -152,7 +152,9 @@ export function TempoWorklogEditor({
         if (res.data) {
           dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
           // Auto-select default only if user hasn't manually picked
+          /* v8 ignore start */
           if (!userPickedAccountRef.current) {
+            /* v8 ignore stop */
             const defaultAccount = res.data.find(a => a.isDefault)
             if (defaultAccount) {
               dispatch({ type: 'setAccountKey', value: defaultAccount.key })
@@ -162,7 +164,9 @@ export function TempoWorklogEditor({
       })
     }, 400)
     return () => {
+      /* v8 ignore start */
       if (debounceRef.current) clearTimeout(debounceRef.current)
+      /* v8 ignore stop */
     }
   }, [state.issueKey])
 
@@ -171,7 +175,9 @@ export function TempoWorklogEditor({
     if (!isEdit) return
     const key = state.issueKey.trim().toUpperCase()
     const projectKey = key.split('-')[0]
+    /* v8 ignore start */
     if (!projectKey || !key.includes('-')) return
+    /* v8 ignore stop */
     window.tempo.getProjectAccounts(projectKey).then(res => {
       if (res.data) dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
     })

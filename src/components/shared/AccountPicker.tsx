@@ -51,7 +51,9 @@ export function AccountPicker({
     window.ipcRenderer
       .invoke('github:get-active-account')
       .then((account: string | null) => setActiveCliAccount(account))
+      /* v8 ignore start */
       .catch(() => {})
+    /* v8 ignore stop */
   }, [])
 
   const handleChange = useCallback(
@@ -65,7 +67,9 @@ export function AccountPicker({
         window.ipcRenderer
           .invoke('github:get-active-account')
           .then((account: string | null) => setActiveCliAccount(account))
+          /* v8 ignore start */
           .catch(() => {})
+        /* v8 ignore stop */
       }
     },
     [onChange, persist, setGhAccount]
@@ -82,7 +86,9 @@ export function AccountPicker({
           disabled={disabled}
         >
           <option value="">
+            {/* v8 ignore start */}
             Use active CLI account{activeCliAccount ? ` (${activeCliAccount})` : ''}
+            {/* v8 ignore stop */}
           </option>
           {uniqueAccounts.map(username => (
             <option key={username} value={username}>

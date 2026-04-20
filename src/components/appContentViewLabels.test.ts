@@ -209,4 +209,14 @@ describe('getViewLabel', () => {
       expect(getViewLabel(`pr-detail:${encoded}?section=checks`)).toBe('#42 my-repo · Checks')
     })
   })
+
+  describe('folder-view: prefix', () => {
+    it('extracts the folder name from a path', () => {
+      expect(getViewLabel('folder-view:Documents%2FProjects%2Fmy-app')).toBe('📂 my-app')
+    })
+
+    it('falls back to "Explorer" for an empty path', () => {
+      expect(getViewLabel('folder-view:')).toBe('📂 Explorer')
+    })
+  })
 })

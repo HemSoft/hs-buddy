@@ -413,6 +413,30 @@ describe('usePrefetch', () => {
     expect(prs[1].id).toBe(5)
   })
 
+  it('refreshStaleData returns early when accounts are empty (auto-refresh path)', () => {
+    // Render with accounts → timer set up
+    const { rerender } = renderHook(() => usePrefetch())
+    mockEnqueue.mockClear()
+
+    // Simulate accounts becoming empty by returning empty accounts
+    mockUseGitHubAccounts.mockReturnValue({ accounts: [], loading: false })
+    rerender()
+
+    // Advance timer — the old timer was cleared by cleanup, no new timer for empty accounts
+    vi.advanceTimersByTime(30_000)
+    expect(mockEnqueue).not.toHaveBeenCalled()
+  })
+
+  it('skips re-prefetch on rerender (prefetchedRef guard)', () => {
+    const { rerender } = renderHook(() => usePrefetch())
+    const firstCount = mockEnqueue.mock.calls.length
+    expect(firstCount).toBeGreaterThan(0)
+
+    // Force rerender with same deps — prefetchedRef should guard
+    rerender()
+    expect(mockEnqueue.mock.calls.length).toBe(firstCount)
+  })
+
   it('fetches and caches org repos data', async () => {
     const mockClient = {
       fetchMyPRs: vi.fn().mockResolvedValue([]),

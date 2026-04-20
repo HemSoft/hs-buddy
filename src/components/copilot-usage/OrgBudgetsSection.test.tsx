@@ -171,4 +171,61 @@ describe('OrgBudgetsSection', () => {
     const el = screen.getByText(/2026/)
     expect(el).toBeInTheDocument()
   })
+
+  it('shows my-share bar and label when quota overage exists with useQuotaOverage false', () => {
+    const orgs = new Map([['acme', 'token']])
+    const overages = new Map([['acme', 15]])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({
+          useQuotaOverage: false,
+          budgetAmount: 100,
+        }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={overages} />
+    )
+    expect(screen.getByText(/mine/)).toBeInTheDocument()
+    expect(document.querySelector('.usage-budget-bar-myshare')).toBeTruthy()
+  })
+
+  it('shows "from quota" when useQuotaOverage is true and no budget is set', () => {
+    const orgs = new Map([['unknown-org', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      'unknown-org': {
+        data: makeOrgBudgetData({
+          useQuotaOverage: true,
+          budgetAmount: null,
+        }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+    expect(screen.getByText('from quota')).toBeInTheDocument()
+  })
+
+  it('hides error message when data is present even if error is set', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData() as OrgBudgetState['data'],
+        loading: false,
+        error: 'Some error',
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+    expect(screen.queryByText('Failed to load')).not.toBeInTheDocument()
+    expect(screen.getByText(/spent/)).toBeInTheDocument()
+  })
 })

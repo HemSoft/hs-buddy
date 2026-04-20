@@ -431,4 +431,42 @@ describe('CrewProjectView', () => {
 
     expect(await screen.findByText('No response received.')).toBeTruthy()
   })
+
+  it('handles appendMessageToSession when session becomes null mid-send', async () => {
+    const project = createProject({ id: 'project-1' })
+    projects = [project]
+    sessionsByProject = {
+      [project.id]: createSession(project.id),
+    }
+
+    let resolveChatSend!: (value: unknown) => void
+    mockChatSend.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveChatSend = resolve
+        })
+    )
+
+    render(<CrewProjectView projectId={project.id} />)
+
+    const textarea = await screen.findByPlaceholderText('Ask Copilot about this project…')
+    fireEvent.change(textarea, { target: { value: 'Hello' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' })
+
+    await waitFor(() => {
+      expect(mockChatSend).toHaveBeenCalled()
+    })
+
+    fireEvent.click(screen.getByTitle('Clear session'))
+
+    await waitFor(() => {
+      expect(mockClearSession).toHaveBeenCalled()
+    })
+
+    resolveChatSend({ content: 'Reply after clear' })
+
+    await waitFor(() => {
+      expect(mockUpdateSessionStatus).toHaveBeenCalledWith(project.id, 'idle')
+    })
+  })
 })

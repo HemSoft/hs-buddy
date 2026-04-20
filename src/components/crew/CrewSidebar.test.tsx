@@ -168,4 +168,32 @@ describe('CrewSidebar', () => {
 
     expect(await screen.findByText('No projects yet')).toBeTruthy()
   })
+
+  it('breaks displayName ties using githubSlug', async () => {
+    projects = [
+      createProject({ id: 'z-proj', displayName: 'Same Name', githubSlug: 'org/zebra' }),
+      createProject({ id: 'a-proj', displayName: 'Same Name', githubSlug: 'org/alpha' }),
+    ]
+
+    const onItemSelect = vi.fn()
+    render(<CrewSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+    const buttons = await screen.findAllByText('Same Name')
+    expect(buttons).toHaveLength(2)
+
+    fireEvent.click(buttons[0])
+    expect(onItemSelect).toHaveBeenCalledWith('crew-project:a-proj')
+  })
+
+  it('handles non-Error thrown values in addProject catch block', async () => {
+    projects = [createProject({ id: 'alpha', displayName: 'Alpha' })]
+    mockAddProject.mockRejectedValue('string error value')
+
+    render(<CrewSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    await screen.findByText('Alpha')
+    fireEvent.click(screen.getByTitle('Add Project'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to add project.')
+  })
 })

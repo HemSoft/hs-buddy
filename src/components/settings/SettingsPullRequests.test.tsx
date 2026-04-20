@@ -6,12 +6,16 @@ const mockSetRefreshInterval = vi.fn()
 const mockSetAutoRefresh = vi.fn()
 const mockSetRecentlyMergedDays = vi.fn()
 
+let mockLoading = false
+
+let mockAutoRefresh = true
+
 vi.mock('../../hooks/useConfig', () => ({
   usePRSettings: () => ({
     refreshInterval: 5,
-    autoRefresh: true,
+    autoRefresh: mockAutoRefresh,
     recentlyMergedDays: 14,
-    loading: false,
+    loading: mockLoading,
     setRefreshInterval: mockSetRefreshInterval,
     setAutoRefresh: mockSetAutoRefresh,
     setRecentlyMergedDays: mockSetRecentlyMergedDays,
@@ -21,6 +25,14 @@ vi.mock('../../hooks/useConfig', () => ({
 describe('SettingsPullRequests', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLoading = false
+    mockAutoRefresh = true
+  })
+
+  it('renders loading state', () => {
+    mockLoading = true
+    render(<SettingsPullRequests />)
+    expect(screen.getByText('Loading PR settings...')).toBeTruthy()
   })
 
   it('renders page heading', () => {
@@ -61,5 +73,13 @@ describe('SettingsPullRequests', () => {
     const selects = screen.getAllByRole('combobox')
     fireEvent.change(selects[1], { target: { value: '30' } })
     expect(mockSetRecentlyMergedDays).toHaveBeenCalledWith(30)
+  })
+
+  it('renders inactive toggle when autoRefresh is false', () => {
+    mockAutoRefresh = false
+    render(<SettingsPullRequests />)
+    const toggle = screen.getByRole('button', { name: /enable auto refresh/i })
+    expect(toggle.className).not.toContain('active')
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
   })
 })

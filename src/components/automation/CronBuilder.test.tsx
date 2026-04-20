@@ -213,4 +213,44 @@ describe('CronBuilder', () => {
     expect(screen.getByText('Weekly')).toHaveClass('active')
     expect(screen.getByText('Runs every Mon, Wed, Fri at 9:00 AM')).toBeInTheDocument()
   })
+
+  it('switches to daily frequency via button click', () => {
+    function Harness() {
+      const [value, setValue] = useState('0 9 * * 1')
+
+      return (
+        <CronBuilder
+          value={value}
+          onChange={cron => {
+            onChange(cron)
+            setValue(cron)
+          }}
+        />
+      )
+    }
+
+    render(<Harness />)
+    fireEvent.click(screen.getByText('Daily'))
+    expect(onChange).toHaveBeenLastCalledWith('0 9 * * *')
+  })
+
+  it('switches to weekly frequency via button click', () => {
+    function Harness() {
+      const [value, setValue] = useState('0 9 * * *')
+
+      return (
+        <CronBuilder
+          value={value}
+          onChange={cron => {
+            onChange(cron)
+            setValue(cron)
+          }}
+        />
+      )
+    }
+
+    render(<Harness />)
+    fireEvent.click(screen.getByText('Weekly'))
+    expect(onChange).toHaveBeenLastCalledWith('0 9 * * 1')
+  })
 })

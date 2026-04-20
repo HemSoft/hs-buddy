@@ -978,6 +978,83 @@ describe('useCopilotReviewMonitor', () => {
     })
   })
 
+  // --- Branch coverage: pollOnce catch with non-AbortError (line 214) ---
+
+  describe('pollOnce catch with non-AbortError', () => {
+    it('logs debug message on non-AbortError in pollOnce (line 214)', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      // First poll (runImmediately): no review found
+      mockListPRReviews.mockResolvedValueOnce([])
+
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      // Let runImmediately complete (no review found → scheduleNextPoll)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      expect(result.current.copilotReviewState).toBe('monitoring')
+
+      // Second poll (pollOnce via timer): reject with non-abort error
+      mockListPRReviews.mockRejectedValueOnce(new Error('Network flaky'))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COPILOT_REVIEW_POLL_MS)
+      })
+
+      expect(debugSpy).toHaveBeenCalledWith('Copilot review poll failed:', expect.any(Error))
+      expect(result.current.copilotReviewState).toBe('monitoring')
+
+      debugSpy.mockRestore()
+    })
+  })
+
+  // --- Branch coverage: pollOnce catch with AbortError via timer (line 213) ---
+
+  describe('pollOnce catch with AbortError via timer', () => {
+    it('silently returns on AbortError in pollOnce triggered by timer', async () => {
+      const pending = { prUrl: defaultOptions.prUrl, baselineReviewId: 100 }
+      sessionStorage.setItem(
+        'hs-buddy:pending-copilot-reviews',
+        JSON.stringify({ [defaultOptions.prUrl]: pending })
+      )
+
+      // First poll (runImmediately): no review found
+      mockListPRReviews.mockResolvedValueOnce([])
+
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+      const { result } = renderHook(() => useCopilotReviewMonitor(defaultOptions))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      expect(result.current.copilotReviewState).toBe('monitoring')
+
+      // Second poll (pollOnce via timer): reject with AbortError
+      mockListPRReviews.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COPILOT_REVIEW_POLL_MS)
+      })
+
+      // AbortError should be silently ignored — not logged as debug
+      expect(debugSpy).not.toHaveBeenCalledWith(
+        'Copilot review poll failed:',
+        expect.any(DOMException)
+      )
+      expect(result.current.copilotReviewState).toBe('monitoring')
+
+      debugSpy.mockRestore()
+    })
+  })
+
   // --- Branch coverage: handleRequestCopilotReview catch non-AbortError branch ---
 
   describe('handleRequestCopilotReview catch non-AbortError branch', () => {

@@ -857,6 +857,24 @@ describe('BookmarksSidebar', () => {
     // Root '' is skipped, its children are rendered directly
     expect(screen.getByText('ChildCat')).toBeInTheDocument()
   })
+
+  it('renders uncategorized bookmarks in the unnamed root node', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: 'uncat1',
+        url: 'https://no-cat.example.com',
+        title: 'No Category',
+        category: '',
+        tags: [],
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue([''])
+
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    // Bookmark with empty category is rendered via the !node.name branch
+    expect(screen.getByText('No Category')).toBeInTheDocument()
+  })
 })
 
 describe('isSafeImageUrl', () => {

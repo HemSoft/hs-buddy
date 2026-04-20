@@ -3,23 +3,30 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SettingsCopilot } from './SettingsCopilot'
 
-const mockSetGhAccount = vi.fn().mockResolvedValue(undefined)
-const mockSetModel = vi.fn().mockResolvedValue(undefined)
+const mocks = vi.hoisted(() => {
+  const mockSetGhAccount = vi.fn().mockResolvedValue(undefined)
+  const mockSetModel = vi.fn().mockResolvedValue(undefined)
 
-const mockUseCopilotSettings = vi.fn().mockReturnValue({
-  ghAccount: 'testuser',
-  model: 'gpt-4o',
-  loading: false,
-  setGhAccount: mockSetGhAccount,
-  setModel: mockSetModel,
+  return {
+    mockSetGhAccount,
+    mockSetModel,
+    useCopilotSettings: vi.fn().mockReturnValue({
+      ghAccount: 'testuser',
+      model: 'gpt-4o',
+      loading: false,
+      setGhAccount: mockSetGhAccount,
+      setModel: mockSetModel,
+    }),
+    useGitHubAccounts: vi.fn().mockReturnValue({
+      uniqueUsernames: ['testuser', 'orguser'],
+      accounts: [],
+    }),
+  }
 })
 
 vi.mock('../../hooks/useConfig', () => ({
-  useCopilotSettings: (...args: unknown[]) => mockUseCopilotSettings(...args),
-  useGitHubAccounts: vi.fn().mockReturnValue({
-    uniqueUsernames: ['testuser', 'orguser'],
-    accounts: [],
-  }),
+  useCopilotSettings: (...args: unknown[]) => mocks.useCopilotSettings(...args),
+  useGitHubAccounts: (...args: unknown[]) => mocks.useGitHubAccounts(...args),
 }))
 
 vi.mock('../shared/AccountPicker', () => ({
@@ -69,14 +76,18 @@ vi.mock('../shared/ModelPicker', () => ({
 describe('SettingsCopilot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSetGhAccount.mockResolvedValue(undefined)
-    mockSetModel.mockResolvedValue(undefined)
-    mockUseCopilotSettings.mockReturnValue({
+    mocks.mockSetGhAccount.mockResolvedValue(undefined)
+    mocks.mockSetModel.mockResolvedValue(undefined)
+    mocks.useCopilotSettings.mockReturnValue({
       ghAccount: 'testuser',
       model: 'gpt-4o',
       loading: false,
-      setGhAccount: mockSetGhAccount,
-      setModel: mockSetModel,
+      setGhAccount: mocks.mockSetGhAccount,
+      setModel: mocks.mockSetModel,
+    })
+    mocks.useGitHubAccounts.mockReturnValue({
+      uniqueUsernames: ['testuser', 'orguser'],
+      accounts: [],
     })
   })
 
@@ -96,12 +107,12 @@ describe('SettingsCopilot', () => {
   })
 
   it('shows loading state', () => {
-    mockUseCopilotSettings.mockReturnValue({
+    mocks.useCopilotSettings.mockReturnValue({
       ghAccount: '',
       model: '',
       loading: true,
-      setGhAccount: mockSetGhAccount,
-      setModel: mockSetModel,
+      setGhAccount: mocks.mockSetGhAccount,
+      setModel: mocks.mockSetModel,
     })
 
     render(<SettingsCopilot />)
@@ -129,7 +140,7 @@ describe('SettingsCopilot', () => {
     })
 
     // handleAccountChange is effectively synchronous (fire-and-forget promise)
-    expect(mockSetGhAccount).toHaveBeenCalledWith('orguser')
+    expect(mocks.mockSetGhAccount).toHaveBeenCalledWith('orguser')
     expect(screen.getByText('Saved')).toBeInTheDocument()
 
     // Auto-resets after 2 seconds
@@ -148,7 +159,7 @@ describe('SettingsCopilot', () => {
     })
 
     await waitFor(() => {
-      expect(mockSetModel).toHaveBeenCalledWith('claude-3-5-sonnet')
+      expect(mocks.mockSetModel).toHaveBeenCalledWith('claude-3-5-sonnet')
     })
   })
 
@@ -178,7 +189,7 @@ describe('SettingsCopilot', () => {
     fireEvent.click(screen.getByText('Apply'))
 
     await waitFor(() => {
-      expect(mockSetModel).toHaveBeenCalledWith('my-custom-model')
+      expect(mocks.mockSetModel).toHaveBeenCalledWith('my-custom-model')
     })
   })
 
@@ -194,15 +205,84 @@ describe('SettingsCopilot', () => {
   })
 
   it('shows "Active CLI account" when no account is set', () => {
-    mockUseCopilotSettings.mockReturnValue({
+    mocks.useCopilotSettings.mockReturnValue({
       ghAccount: '',
       model: 'gpt-4o',
       loading: false,
-      setGhAccount: mockSetGhAccount,
-      setModel: mockSetModel,
+      setGhAccount: mocks.mockSetGhAccount,
+      setModel: mocks.mockSetModel,
     })
 
     render(<SettingsCopilot />)
     expect(screen.getByText('Active CLI account')).toBeTruthy()
+  })
+
+  it('clears save reset timeout on unmount', () => {
+    vi.useFakeTimers()
+    const { unmount } = render(<SettingsCopilot />)
+
+    // Trigger a save to start the timer
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'orguser' },
+    })
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+
+    // Unmount before the timer fires — cleanup should clear the timeout
+    unmount()
+
+    // Advance time past the reset window — should not throw
+    vi.advanceTimersByTime(3000)
+    vi.useRealTimers()
+  })
+
+  it('saves custom model on Enter key', async () => {
+    const user = userEvent.setup()
+    render(<SettingsCopilot />)
+
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: '__custom__' },
+    })
+
+    const input = screen.getByPlaceholderText('Enter custom model name')
+    await user.clear(input)
+    await user.type(input, 'my-enter-model')
+
+    // Press Enter on the input
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(mocks.mockSetModel).toHaveBeenCalledWith('my-enter-model')
+    })
+  })
+
+  it('shows error when no GitHub accounts are configured', () => {
+    mocks.useGitHubAccounts.mockReturnValue({
+      uniqueUsernames: [],
+      accounts: [],
+    })
+
+    render(<SettingsCopilot />)
+    expect(
+      screen.getByText('No GitHub accounts configured. Add accounts in the Accounts settings page.')
+    ).toBeTruthy()
+  })
+
+  it('clears previous timeout when scheduling a new one', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<SettingsCopilot />)
+
+    // Trigger first account change
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'orguser' },
+    })
+    expect(mocks.mockSetGhAccount).toHaveBeenCalledWith('orguser')
+
+    // Trigger second account change before timer fires
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'testuser' },
+    })
+    expect(mocks.mockSetGhAccount).toHaveBeenLastCalledWith('testuser')
+
+    vi.useRealTimers()
   })
 })

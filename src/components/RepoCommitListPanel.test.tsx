@@ -2,14 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { RepoCommit } from '../api/github'
 
-const { mockEnqueue, mockFetchRepoCommits, mockCacheGet, mockCacheSet, stableAccounts } =
-  vi.hoisted(() => ({
-    mockEnqueue: vi.fn(),
-    mockFetchRepoCommits: vi.fn(),
-    mockCacheGet: vi.fn(),
-    mockCacheSet: vi.fn(),
-    stableAccounts: [{ username: 'alice', org: 'test-org' }],
-  }))
+const {
+  mockEnqueue,
+  mockFetchRepoCommits,
+  mockCacheGet,
+  mockCacheSet,
+  stableAccounts,
+  isAbortErrorCtrl,
+} = vi.hoisted(() => ({
+  mockEnqueue: vi.fn(),
+  mockFetchRepoCommits: vi.fn(),
+  mockCacheGet: vi.fn(),
+  mockCacheSet: vi.fn(),
+  stableAccounts: [{ username: 'alice', org: 'test-org' }],
+  isAbortErrorCtrl: { returnValue: false },
+}))
 
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: stableAccounts, loading: false }),
@@ -20,9 +27,9 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoCommits: mockFetchRepoCommits,
-  })),
+  GitHubClient: vi.fn().mockImplementation(function () {
+    return { fetchRepoCommits: mockFetchRepoCommits }
+  }),
 }))
 
 vi.mock('../services/dataCache', () => ({
@@ -35,11 +42,12 @@ vi.mock('../utils/dateUtils', () => ({
 
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-  isAbortError: () => false,
+  isAbortError: () => isAbortErrorCtrl.returnValue,
   throwIfAborted: () => {},
 }))
 
 import { RepoCommitListPanel } from './RepoCommitListPanel'
+import { GitHubClient } from '../api/github'
 
 function makeCommit(overrides: Partial<RepoCommit> = {}): RepoCommit {
   return {
@@ -64,7 +72,11 @@ function setupEnqueueError(error: Error) {
 describe('RepoCommitListPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    isAbortErrorCtrl.returnValue = false
     mockCacheGet.mockReturnValue(null)
+    vi.mocked(GitHubClient).mockImplementation(function () {
+      return { fetchRepoCommits: mockFetchRepoCommits } as unknown as GitHubClient
+    })
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
       writable: true,
@@ -226,5 +238,88 @@ describe('RepoCommitListPanel', () => {
       key: ' ',
     })
     expect(onOpenCommit).toHaveBeenCalled()
+  })
+
+  it('invokes enqueue callback with throwIfAborted and GitHubClient', async () => {
+    mockFetchRepoCommits.mockResolvedValue([makeCommit()])
+    mockEnqueue.mockImplementation(async (cb: (signal: AbortSignal) => Promise<unknown>) => {
+      const controller = new AbortController()
+      return cb(controller.signal)
+    })
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(mockFetchRepoCommits).toHaveBeenCalledWith('acme', 'webapp')
+    })
+    expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+  })
+
+  it('shows spin class on refresh button while loading', async () => {
+    setupEnqueue([makeCommit()])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
+
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    fireEvent.click(screen.getByTitle('Refresh'))
+
+    await waitFor(() => {
+      const icon = document.querySelector('.repo-commits-refresh-btn .spin')
+      expect(icon).toBeTruthy()
+    })
+  })
+
+  it('silently ignores abort errors', async () => {
+    isAbortErrorCtrl.returnValue = true
+    setupEnqueueError(new DOMException('Aborted', 'AbortError'))
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No commits found')).toBeTruthy()
+    })
+    expect(screen.queryByText('Failed to load commits')).toBeNull()
+  })
+
+  it('shows loading indicator when refreshing with existing commits', async () => {
+    setupEnqueue([makeCommit()])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
+
+    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    fireEvent.click(screen.getByTitle('Refresh'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Refreshing commit list...')).toBeTruthy()
+    })
+  })
+
+  it('renders commit without author avatar when authorAvatarUrl is missing', async () => {
+    setupEnqueue([makeCommit({ authorAvatarUrl: undefined })])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
+    expect(document.querySelector('.repo-commit-avatar')).toBeNull()
+  })
+
+  it('does not trigger commit click for non-interactive keys', async () => {
+    setupEnqueue([makeCommit()])
+    const onOpenCommit = vi.fn()
+    render(<RepoCommitListPanel owner="acme" repo="webapp" onOpenCommit={onOpenCommit} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('fix: resolve login issue')).toBeTruthy()
+    })
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /fix: resolve login issue/i }), {
+      key: 'Tab',
+    })
+    expect(onOpenCommit).not.toHaveBeenCalled()
   })
 })

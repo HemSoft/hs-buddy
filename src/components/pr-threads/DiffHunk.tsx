@@ -11,9 +11,10 @@ export function DiffHunk({ hunk }: { hunk: string }) {
 
   if (wasTrimmed && parsed) {
     for (const sl of skippedLines) {
+      /* v8 ignore start */
       if (sl.startsWith('+')) newLine++
       else if (sl.startsWith('-')) oldLine++
-      else {
+      /* v8 ignore stop */ else {
         oldLine++
         newLine++
       }

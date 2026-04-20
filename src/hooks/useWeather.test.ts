@@ -434,6 +434,139 @@ describe('useWeather', () => {
     expect(saved.name).toBe('Hamlet, NC')
   })
 
+  it('ignores cache with no version field', () => {
+    localStorage.setItem(
+      'weather:cache',
+      JSON.stringify({ data: { temperature: 72 }, timestamp: Date.now() })
+    )
+    const { result } = renderHook(() => useWeather())
+    expect(result.current.loading).toBe(true)
+  })
+
+  it('fetch error does not update state when signal is aborted', async () => {
+    let rejectFetch!: (err: Error) => void
+    mockFetch.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        rejectFetch = reject
+      })
+    )
+
+    const { unmount } = renderHook(() => useWeather())
+
+    // Unmount aborts the signal
+    unmount()
+
+    // Reject after unmount — catch block should skip state update
+    await act(async () => {
+      rejectFetch(new Error('Network gone'))
+      // Give the microtask queue time to process the rejection
+      await new Promise(r => setTimeout(r, 0))
+    })
+  })
+
+  it('useMyLocation reverse geocoding resp.ok false falls back to coordinates', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 51.5, longitude: -0.12 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockResolvedValueOnce({ ok: false, status: 500 }) // reverse geocoding resp not ok
+      .mockResolvedValue(makeApiResponse()) // weather refresh
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    // Falls back to coordinate-based name since reverse geocoding response was not ok
+    expect(saved.name).toContain('51.50')
+  })
+
+  it('useMyLocation reverse geocoding with town and no city', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 40.71, longitude: -74.01 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ address: { town: 'SmallTown', state: 'NY' } }),
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toBe('SmallTown, NY')
+  })
+
+  it('useMyLocation reverse geocoding with village only', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 40.71, longitude: -74.01 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ address: { village: 'Hamlet' } }),
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    expect(saved.name).toBe('Hamlet')
+  })
+
   it('setLocationBySearch uses city without state', async () => {
     const { result } = renderHook(() => useWeather())
     await waitFor(() => expect(result.current.loading).toBe(false))

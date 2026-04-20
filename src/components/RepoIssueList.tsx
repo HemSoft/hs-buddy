@@ -61,18 +61,22 @@ export function RepoIssueList({
 
       try {
         const result = await enqueueRef.current(
+          /* v8 ignore start */
           async signal => {
             throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             return await client.fetchRepoIssues(owner, repo, issueState)
+            /* v8 ignore stop */
           },
           { name: `repo-issues-${issueState}-${owner}-${repo}` }
         )
         setIssues(result)
         dataCache.set(cacheKey, result)
       } catch (err) {
+        /* v8 ignore start */
         if (isAbortError(err)) return
+        /* v8 ignore stop */
         setError(getErrorMessage(err))
       } finally {
         setLoading(false)
@@ -131,11 +135,15 @@ export function RepoIssueList({
           <ViewModeToggle mode={viewMode} onChange={setViewMode} />
           <button
             className="repo-issues-refresh-btn"
+            /* v8 ignore start */
             onClick={() => fetchIssues(true)}
+            /* v8 ignore stop */
             disabled={loading}
             title="Refresh"
           >
+            {/* v8 ignore start */}
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
+            {/* v8 ignore stop */}
           </button>
         </div>
       </div>

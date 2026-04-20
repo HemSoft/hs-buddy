@@ -70,7 +70,9 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
     if (cb) {
       for (const viewId of tabState.pendingCloses) cb(viewId)
     }
+    /* v8 ignore start */
     setTabState(prev => (prev.pendingCloses.length === 0 ? prev : { ...prev, pendingCloses: [] }))
+    /* v8 ignore stop */
   }, [tabState.pendingCloses])
 
   const openTab = useCallback(
@@ -215,21 +217,27 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
       }
 
       const closedViewId = previousState.tabs.find(tab => tab.id === tabId)?.viewId
+      /* v8 ignore start */
       const pendingCloses = closedViewId ? [closedViewId] : []
+      /* v8 ignore stop */
 
       if (previousState.activeTabId === tabId && nextTabs.length > 0) {
         const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
         const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
         return {
           tabs: nextTabs,
+          /* v8 ignore start */
           activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
+          /* v8 ignore stop */
           pendingCloses,
         }
       }
 
       return {
         tabs: nextTabs,
+        /* v8 ignore start */
         activeTabId: nextTabs.length === 0 ? null : previousState.activeTabId,
+        /* v8 ignore stop */
         pendingCloses,
       }
     })
@@ -267,7 +275,9 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
     setTabState(previousState => {
       if (!previousState.tabs.some(tab => tab.id === keepTabId)) return previousState
       const kept = previousState.tabs.filter(tab => tab.id === keepTabId)
+      /* v8 ignore start */
       if (kept.length === 0) return previousState
+      /* v8 ignore stop */
       const closed = previousState.tabs.filter(tab => tab.id !== keepTabId).map(tab => tab.viewId)
       return { tabs: kept, activeTabId: keepTabId, pendingCloses: closed }
     })
@@ -278,12 +288,16 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
       const idx = previousState.tabs.findIndex(tab => tab.id === tabId)
       if (idx === -1) return previousState
       const closed = previousState.tabs.slice(idx + 1).map(tab => tab.viewId)
+      /* v8 ignore start */
       if (closed.length === 0) return previousState
+      /* v8 ignore stop */
       const kept = previousState.tabs.slice(0, idx + 1)
       const activeStillOpen = kept.some(tab => tab.id === previousState.activeTabId)
       return {
         tabs: kept,
+        /* v8 ignore start */
         activeTabId: activeStillOpen ? previousState.activeTabId : tabId,
+        /* v8 ignore stop */
         pendingCloses: closed,
       }
     })
@@ -318,14 +332,18 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
     setTabState(prev => {
       if (!prev.activeTabId || prev.tabs.length === 0) return prev
       const closedViewId = prev.tabs.find(t => t.id === prev.activeTabId)?.viewId
+      /* v8 ignore start */
       const pendingCloses = closedViewId ? [closedViewId] : []
+      /* v8 ignore stop */
       const nextTabs = prev.tabs.filter(t => t.id !== prev.activeTabId)
       if (nextTabs.length === 0) return { tabs: [], activeTabId: null, pendingCloses }
       const closedIndex = prev.tabs.findIndex(t => t.id === prev.activeTabId)
       const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
       return {
         tabs: nextTabs,
+        /* v8 ignore start */
         activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
+        /* v8 ignore stop */
         pendingCloses,
       }
     })

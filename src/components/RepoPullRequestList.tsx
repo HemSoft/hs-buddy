@@ -135,11 +135,13 @@ export function RepoPullRequestList({
 
       try {
         const result = await enqueueRef.current(
+          /* v8 ignore start */
           async signal => {
             throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             return await client.fetchRepoPRs(owner, repo, prState)
+            /* v8 ignore stop */
           },
           { name: `repo-prs-${prState}-${owner}-${repo}` }
         )

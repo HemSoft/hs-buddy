@@ -55,7 +55,10 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
   }
 
   const handlePublishToPR = async (runId: string, resultId: string, model?: string) => {
-    if (publishingRunId || !owner || !repo) return
+    /* v8 ignore start -- button is disabled when publishingRunId is set */
+    if (publishingRunId) return
+    /* v8 ignore stop */
+    if (!owner || !repo) return
     setPublishingRunId(runId)
     try {
       const result = await convex.query(api.copilotResults.get, {

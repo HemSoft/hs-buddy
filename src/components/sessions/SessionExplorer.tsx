@@ -84,7 +84,9 @@ function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] 
     const byDate: Record<string, SessionSummary[]> = {}
     for (const s of wsSessions) {
       const label = getDateGroup(s.modifiedAt)
+      /* v8 ignore start */
       if (!byDate[label]) byDate[label] = []
+      /* v8 ignore stop */
       byDate[label].push(s)
     }
     const dateGroups = dateOrder

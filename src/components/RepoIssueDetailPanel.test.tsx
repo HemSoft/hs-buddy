@@ -210,7 +210,7 @@ describe('RepoIssueDetailPanel', () => {
         author: 'bob',
         authorAvatarUrl: 'https://example.com/bob.png',
         createdAt: '2025-06-02T12:00:00Z',
-        updatedAt: '2025-06-02T12:00:00Z',
+        updatedAt: '2025-06-05T15:00:00Z',
         url: 'https://github.com/test-org/hs-buddy/issues/42#issuecomment-1',
       },
     ]

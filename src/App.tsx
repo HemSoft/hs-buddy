@@ -5,7 +5,6 @@ import { TitleBar } from './components/TitleBar'
 import { ActivityBar } from './components/ActivityBar'
 import { SidebarPanel } from './components/SidebarPanel'
 import { TabBar } from './components/TabBar'
-import { ScheduleEditor, JobEditor } from './components/automation'
 import { StatusBar } from './components/StatusBar'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { AppContentRouter } from './components/AppContentRouter'
@@ -30,8 +29,6 @@ import './App.css'
 function App() {
   const [selectedSection, setSelectedSection] = useState<string>('github')
   const { prCounts, badgeProgress, setPRCount } = usePRSidebarBadges()
-  const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false)
-  const [jobEditorOpen, setJobEditorOpen] = useState(false)
   const schedules = useSchedules()
   const jobs = useJobs()
   const { isComplete: migrationComplete, isLoading: migrationLoading } = useMigrateToConvex()
@@ -85,14 +82,6 @@ function App() {
     },
     [setPRCount]
   )
-
-  const handleCreateNew = useCallback((type: 'schedule' | 'job') => {
-    if (type === 'schedule') {
-      setScheduleEditorOpen(true)
-    } else {
-      setJobEditorOpen(true)
-    }
-  }, [])
 
   const handleSectionSelect = useCallback(
     (sectionId: string) => {
@@ -171,7 +160,6 @@ function App() {
                 selectedItem={activeViewId}
                 counts={prCounts}
                 badgeProgress={badgeProgress}
-                onCreateNew={handleCreateNew}
               />
             </Allotment.Pane>
             <Allotment.Pane minSize={400}>
@@ -239,10 +227,6 @@ function App() {
         onNavigate={openTab}
         assistantActive={assistantOpen}
       />
-      {/* App-level Job Editor modal (triggered from sidebar "New Job") */}
-      {jobEditorOpen && <JobEditor onClose={() => setJobEditorOpen(false)} />}
-      {/* App-level Schedule Editor modal (triggered from sidebar "New Schedule") */}
-      {scheduleEditorOpen && <ScheduleEditor onClose={() => setScheduleEditorOpen(false)} />}
     </div>
   )
 }

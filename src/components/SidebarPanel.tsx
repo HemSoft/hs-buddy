@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { BookmarksSidebar } from './sidebar/BookmarksSidebar'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
@@ -15,7 +15,6 @@ interface SidebarPanelProps {
   selectedItem: string | null
   counts?: Record<string, number>
   badgeProgress?: Record<string, { progress: number; color: string; tooltip: string }>
-  onCreateNew?: (type: 'schedule' | 'job') => void
 }
 
 const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
@@ -77,12 +76,8 @@ export function SidebarPanel({
   selectedItem,
   counts = DEFAULT_COUNTS,
   badgeProgress = DEFAULT_BADGE_PROGRESS,
-  onCreateNew,
 }: SidebarPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(
-    null
-  )
   const data = sectionData[section]
   const jobs = useJobs()
   const schedules = useSchedules()
@@ -98,19 +93,6 @@ export function SidebarPanel({
       onItemSelect(items[0].id)
     }
   }, [section, onItemSelect])
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null)
-  }, [])
-
-  useEffect(() => {
-    if (!contextMenu) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeContextMenu()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [contextMenu, closeContextMenu])
 
   if (!data) return null
 
@@ -148,34 +130,8 @@ export function SidebarPanel({
 
   const isExpanded = expandedSections.has(section)
 
-  const handleContextMenu = (e: React.MouseEvent, itemId: string) => {
-    if (itemId === 'automation-schedules' || itemId === 'automation-jobs') {
-      e.preventDefault()
-      setContextMenu({ x: e.clientX, y: e.clientY, itemId })
-    }
-  }
-
-  const handleCreateNew = () => {
-    if (contextMenu) {
-      if (contextMenu.itemId === 'automation-schedules') onCreateNew?.('schedule')
-      else if (contextMenu.itemId === 'automation-jobs') onCreateNew?.('job')
-      setContextMenu(null)
-    }
-  }
-
   return (
     <div className="sidebar-panel">
-      {contextMenu && (
-        <>
-          <div className="context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
-          <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
-            <button onClick={handleCreateNew}>
-              <Plus size={14} />
-              {contextMenu.itemId === 'automation-schedules' ? 'New Schedule' : 'New Job'}
-            </button>
-          </div>
-        </>
-      )}
       <div className="sidebar-panel-header">
         <h2>{data.title.toUpperCase()}</h2>
       </div>
@@ -218,7 +174,6 @@ export function SidebarPanel({
                     key={item.id}
                     className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
                     onClick={() => onItemSelect(item.id)}
-                    onContextMenu={e => handleContextMenu(e, item.id)}
                     role="button"
                     tabIndex={0}
                     onKeyDown={e => {

@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Increase coverage to 100% for 8 target components
 - Cover updatedAt > createdAt branch in RepoIssueDetailPanel
 - Cover catch callback in abortResponse for 100% function coverage
+- Log iteration 10 — coverage verified at 100% all metrics
 
 ## [0.1.733] - 2026-04-18
 

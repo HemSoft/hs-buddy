@@ -2,8 +2,6 @@ import './PullRequestList.css'
 import './shared/ListView.css'
 import {
   GitPullRequest,
-  GitPullRequestClosed,
-  GitMerge,
   Loader2,
   RefreshCw,
   ThumbsUp,
@@ -14,10 +12,46 @@ import { PRItem } from './pull-request-list/PRItem'
 import { PRContextMenu } from './pull-request-list/PRContextMenu'
 import { usePRListData } from './pull-request-list/usePRListData'
 import { ViewModeToggle } from './shared/ViewModeToggle'
+import { PRStateIcon } from './shared/PRStateIcon'
 import { useViewMode } from '../hooks/useViewMode'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { createPRDetailViewId } from '../utils/prDetailView'
 import type { PullRequest } from '../types/pullRequest'
+
+interface UpdateTimesDisplayProps {
+  lastUpdated: string
+  nextUpdate: string
+  progress: number
+  getProgressColor: (progress: number) => string
+}
+
+function UpdateTimesDisplay({
+  lastUpdated,
+  nextUpdate,
+  progress,
+  getProgressColor,
+}: UpdateTimesDisplayProps) {
+  return (
+    <div className="update-times">
+      <div className="update-times-content">
+        <span className="update-label">Updated</span>
+        <span className="update-time">{lastUpdated}</span>
+        <span className="update-separator">·</span>
+        <span className="update-label">Next</span>
+        <span className="update-time">{nextUpdate}</span>
+      </div>
+      <div className="update-progress-track">
+        <div
+          className="update-progress-bar"
+          style={{
+            width: `${progress}%`,
+            backgroundColor: getProgressColor(progress),
+          }}
+        />
+      </div>
+    </div>
+  )
+}
 
 interface PRListTableViewProps {
   prs: PullRequest[]
@@ -50,13 +84,7 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
               onContextMenu={e => handleContextMenu(e, pr)}
             >
               <td className="col-status">
-                {pr.state === 'merged' ? (
-                  <GitMerge size={14} className="list-view-status-merged" />
-                ) : pr.state === 'closed' ? (
-                  <GitPullRequestClosed size={14} className="list-view-status-closed" />
-                ) : (
-                  <GitPullRequest size={14} className="list-view-status-open" />
-                )}
+                <PRStateIcon state={pr.state} />
               </td>
               <td className="col-title">
                 <span className="col-number">#{pr.id}</span> {pr.title}
@@ -233,24 +261,12 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
           <h2>{getTitle()}</h2>
           <div className="pr-header-actions">
             {updateTimes && (
-              <div className="update-times">
-                <div className="update-times-content">
-                  <span className="update-label">Updated</span>
-                  <span className="update-time">{updateTimes.lastUpdated}</span>
-                  <span className="update-separator">·</span>
-                  <span className="update-label">Next</span>
-                  <span className="update-time">{updateTimes.nextUpdate}</span>
-                </div>
-                <div className="update-progress-track">
-                  <div
-                    className="update-progress-bar"
-                    style={{
-                      width: `${updateTimes.progress}%`,
-                      backgroundColor: getProgressColor(updateTimes.progress),
-                    }}
-                  />
-                </div>
-              </div>
+              <UpdateTimesDisplay
+                lastUpdated={updateTimes.lastUpdated}
+                nextUpdate={updateTimes.nextUpdate}
+                progress={updateTimes.progress}
+                getProgressColor={getProgressColor}
+              />
             )}
             <button
               className="refresh-button"
@@ -281,24 +297,12 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
             {refreshing && <span className="refreshing-badge">Refreshing...</span>}
           </span>
           {updateTimes && (
-            <div className="update-times">
-              <div className="update-times-content">
-                <span className="update-label">Updated</span>
-                <span className="update-time">{updateTimes.lastUpdated}</span>
-                <span className="update-separator">·</span>
-                <span className="update-label">Next</span>
-                <span className="update-time">{updateTimes.nextUpdate}</span>
-              </div>
-              <div className="update-progress-track">
-                <div
-                  className="update-progress-bar"
-                  style={{
-                    width: `${updateTimes.progress}%`,
-                    backgroundColor: getProgressColor(updateTimes.progress),
-                  }}
-                />
-              </div>
-            </div>
+            <UpdateTimesDisplay
+              lastUpdated={updateTimes.lastUpdated}
+              nextUpdate={updateTimes.nextUpdate}
+              progress={updateTimes.progress}
+              getProgressColor={getProgressColor}
+            />
           )}
           <ViewModeToggle mode={viewMode} onChange={setViewMode} />
           <button

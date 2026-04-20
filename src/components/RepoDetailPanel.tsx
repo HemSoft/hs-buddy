@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffect } from 'react'
 import {
   ExternalLink,
   RefreshCw,
@@ -8,20 +8,17 @@ import {
   Archive,
   GitFork,
   Scale,
-  Loader2,
-  AlertCircle,
   Tag,
   Link,
 } from 'lucide-react'
-import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
-import { GitHubClient, type RepoDetail } from '../api/github'
-import { dataCache } from '../services/dataCache'
+import { usePRSettings } from '../hooks/useConfig'
+import { useGitHubData } from '../hooks/useGitHubData'
+import { PanelLoadingState, PanelErrorState } from './shared/PanelStates'
+import type { RepoDetail } from '../api/github'
 import { MS_PER_MINUTE } from '../constants'
 import { RepoStatsBar } from './repo-detail/RepoStatsBar'
 import { RepoContentGrid } from './repo-detail/RepoContentGrid'
 import { getLanguageColor, getWorkflowStatusInfo } from './repo-detail/repoDetailUtils'
-import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import './RepoDetailPanel.css'
 
 interface RepoDetailPanelProps {
@@ -30,97 +27,37 @@ interface RepoDetailPanelProps {
 }
 
 export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
-  const [detail, setDetail] = useState<RepoDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { accounts } = useGitHubAccounts()
+  const {
+    data: detail,
+    loading,
+    error,
+    refresh,
+  } = useGitHubData<RepoDetail>({
+    cacheKey: `repo-detail:${owner}/${repo}`,
+    taskName: `repo-detail-${owner}-${repo}`,
+    /* v8 ignore next */
+    fetchFn: client => client.fetchRepoDetail(owner, repo),
+  })
   const { refreshInterval } = usePRSettings()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  const cacheKey = `repo-detail:${owner}/${repo}`
-
-  const fetchDetail = useCallback(
-    async (forceRefresh = false) => {
-      // Check cache first
-      if (!forceRefresh) {
-        const cached = dataCache.get<RepoDetail>(cacheKey)
-        if (cached?.data) {
-          setDetail(cached.data)
-          setLoading(false)
-          return
-        }
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const result = await enqueueRef.current(
-          /* v8 ignore start */
-          async signal => {
-            throwIfAborted(signal)
-            const config = { accounts }
-            const client = new GitHubClient(config, 7)
-            return await client.fetchRepoDetail(owner, repo)
-            /* v8 ignore stop */
-          },
-          { name: `repo-detail-${owner}-${repo}` }
-        )
-        setDetail(result)
-        dataCache.set(cacheKey, result)
-      } catch (err) {
-        if (isAbortError(err)) return
-        setError(getErrorMessage(err))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [owner, repo, accounts, cacheKey]
-  )
-
-  // Fetch on mount
-  useEffect(() => {
-    fetchDetail()
-  }, [fetchDetail])
 
   // Auto-refresh based on PR settings interval
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
     /* v8 ignore start */
-    const timer = setInterval(() => fetchDetail(true), intervalMs)
+    const timer = setInterval(() => refresh(), intervalMs)
     /* v8 ignore stop */
     return () => clearInterval(timer)
-  }, [refreshInterval, fetchDetail])
+  }, [refreshInterval, refresh])
 
   if (loading && !detail) {
     return (
-      <div className="repo-detail-loading">
-        <Loader2 size={32} className="spin" />
-        <p>Loading repository details...</p>
-        <p className="repo-detail-loading-sub">
-          {owner}/{repo}
-        </p>
-      </div>
+      <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
     )
   }
 
   if (error && !detail) {
-    return (
-      <div className="repo-detail-error">
-        <AlertCircle size={32} />
-        <p className="error-message">Failed to load repository</p>
-        <p className="error-detail">{error}</p>
-        <button className="repo-detail-retry-btn" onClick={() => fetchDetail(true)}>
-          <RefreshCw size={14} />
-          Retry
-        </button>
-      </div>
-    )
+    return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
   }
 
   if (!detail) return null
@@ -241,7 +178,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
           )}
           <button
             className="repo-detail-action-btn repo-detail-refresh-btn"
-            onClick={() => fetchDetail(true)}
+            onClick={refresh}
             disabled={loading}
             title="Refresh"
           >

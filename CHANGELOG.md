@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add self-view contribution detection for UserDetailPanel
 
+### Changed
+
+- Extract useGitHubData hook to eliminate fetch/cache/loading boilerplate
+- Extract shared Convex domain helpers to reduce duplication
+- Extract shared storage utils and deduplicate LoadPhase type
+- Simplify RepoPullRequestList and extract label style utility
+- Extract useToggleSet hook and onKeyboardActivate utility
+- Extract ExpandableFileList and consolidate PR mapper
+- Extract useLatest hook and UpdateTimesDisplay component
+- Fix code smells in PR threads hook and panel
+- Extract shared InlineRefreshIndicator, PanelEmptyState, and PRStateIcon components
+
+### Fixed
+
+- Address PR review feedback on useGitHubData and StatusBar
+- Address PR review feedback and formatting issues
+- Address PR review comments and restore 100% coverage
+- Make readSettings() pure by deferring corrupt localStorage repair to useEffect
+- Address PR review comments for useAutoRefresh and PanelStates
+- Use useLayoutEffect for cacheKey reset to prevent stale data flash
+- Invalidate in-flight requests on cacheKey change
+
 ## [0.1.736] - 2026-04-20
 
 ### Fixed

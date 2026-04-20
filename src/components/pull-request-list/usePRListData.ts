@@ -3,6 +3,7 @@ import type { PullRequest } from '../../types/pullRequest'
 import { GitHubClient, type ProgressCallback } from '../../api/github'
 import { useGitHubAccounts, usePRSettings, useCopilotSettings } from '../../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConvex'
+import { useLatest } from '../../hooks/useLatest'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
 import { buildAddressCommentsPrompt } from '../../utils/assistantPrompts'
@@ -66,18 +67,9 @@ export function usePRListData(
     [bookmarks]
   )
 
-  const onCountChangeRef = useRef(onCountChange)
-  const enqueueRef = useRef(enqueue)
-  const cancelAllRef = useRef(cancelAll)
-  useEffect(() => {
-    onCountChangeRef.current = onCountChange
-  }, [onCountChange])
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-  useEffect(() => {
-    cancelAllRef.current = cancelAll
-  }, [cancelAll])
+  const onCountChangeRef = useLatest(onCountChange)
+  const enqueueRef = useLatest(enqueue)
+  const cancelAllRef = useLatest(cancelAll)
 
   useEffect(() => {
     const unsubscribe = dataCache.subscribe(key => {
@@ -94,7 +86,7 @@ export function usePRListData(
       }
     })
     return unsubscribe
-  }, [mode])
+  }, [mode, onCountChangeRef])
 
   useEffect(() => {
     const updateTimesDisplay = () => {
@@ -200,7 +192,7 @@ export function usePRListData(
       console.error('Failed to request Copilot review:', err)
     }
     setContextMenu(null)
-  }, [contextMenu, accounts, recentlyMergedDays])
+  }, [contextMenu, accounts, recentlyMergedDays, enqueueRef])
 
   const handleAddressComments = useCallback(() => {
     if (!contextMenu) return
@@ -257,7 +249,7 @@ export function usePRListData(
         setApproving(null)
       }
     },
-    [accounts, mode, recentlyMergedDays]
+    [accounts, mode, recentlyMergedDays, enqueueRef]
   )
 
   const handleApproveFromMenu = useCallback(async () => {
@@ -422,6 +414,7 @@ export function usePRListData(
     fetchPRs()
     return () => {
       fetchInProgressRef.current = false
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- useLatest ref always holds current value
       cancelAllRef.current()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

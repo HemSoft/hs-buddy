@@ -8,9 +8,10 @@ import {
   Zap,
   Database,
 } from 'lucide-react'
-import { useState } from 'react'
 import { useCopilotResultsRecent, useCopilotActiveCount } from '../../hooks/useConvex'
+import { useToggleSet } from '../../hooks/useToggleSet'
 import { formatDistanceToNow } from '../../utils/dateUtils'
+import { onKeyboardActivate } from '../../utils/keyboard'
 import { getStatusIcon } from '../shared/statusDisplay'
 
 interface CopilotSidebarProps {
@@ -19,20 +20,11 @@ interface CopilotSidebarProps {
 }
 
 export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['copilot-prompt']))
+  const { has: isExpanded, toggle: toggleSection } = useToggleSet(['copilot-prompt'])
   const recentResults = useCopilotResultsRecent(15)
   const activeCount = useCopilotActiveCount()
 
   const totalActive = (activeCount?.pending ?? 0) + (activeCount?.running ?? 0)
-
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev)
-      if (next.has(sectionId)) next.delete(sectionId)
-      else next.add(sectionId)
-      return next
-    })
-  }
 
   return (
     <div className="sidebar-panel">
@@ -48,15 +40,10 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
             role="button"
             tabIndex={0}
             onClick={() => toggleSection('copilot-prompt')}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleSection('copilot-prompt')
-              }
-            }}
+            onKeyDown={onKeyboardActivate(() => toggleSection('copilot-prompt'))}
           >
             <div className="sidebar-section-title">
-              {expandedSections.has('copilot-prompt') ? (
+              {isExpanded('copilot-prompt') ? (
                 <ChevronDown size={14} />
               ) : (
                 <ChevronRight size={14} />
@@ -67,19 +54,14 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
               <span>Prompt</span>
             </div>
           </div>
-          {expandedSections.has('copilot-prompt') && (
+          {isExpanded('copilot-prompt') && (
             <div className="sidebar-section-items">
               <div
                 className={`sidebar-item ${selectedItem === 'copilot-prompt' ? 'selected' : ''}`}
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect('copilot-prompt')}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onItemSelect('copilot-prompt')
-                  }
-                }}
+                onKeyDown={onKeyboardActivate(() => onItemSelect('copilot-prompt'))}
               >
                 <span className="sidebar-item-icon">
                   <Sparkles size={14} />
@@ -91,12 +73,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect('copilot-all-results')}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onItemSelect('copilot-all-results')
-                  }
-                }}
+                onKeyDown={onKeyboardActivate(() => onItemSelect('copilot-all-results'))}
               >
                 <span className="sidebar-item-icon">
                   <FileText size={14} />
@@ -111,12 +88,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect('copilot-usage')}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onItemSelect('copilot-usage')
-                  }
-                }}
+                onKeyDown={onKeyboardActivate(() => onItemSelect('copilot-usage'))}
               >
                 <span className="sidebar-item-icon">
                   <Zap size={14} />
@@ -128,12 +100,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                 role="button"
                 tabIndex={0}
                 onClick={() => onItemSelect('copilot-sessions')}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onItemSelect('copilot-sessions')
-                  }
-                }}
+                onKeyDown={onKeyboardActivate(() => onItemSelect('copilot-sessions'))}
               >
                 <span className="sidebar-item-icon">
                   <Database size={14} />
@@ -151,15 +118,10 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
             role="button"
             tabIndex={0}
             onClick={() => toggleSection('copilot-results')}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleSection('copilot-results')
-              }
-            }}
+            onKeyDown={onKeyboardActivate(() => toggleSection('copilot-results'))}
           >
             <div className="sidebar-section-title">
-              {expandedSections.has('copilot-results') ? (
+              {isExpanded('copilot-results') ? (
                 <ChevronDown size={14} />
               ) : (
                 <ChevronRight size={14} />
@@ -170,7 +132,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
               <span>Recent Results</span>
             </div>
           </div>
-          {expandedSections.has('copilot-results') && (
+          {isExpanded('copilot-results') && (
             <div className="sidebar-section-items">
               {!recentResults || recentResults.length === 0 ? (
                 <div className="sidebar-item sidebar-item-empty">
@@ -192,12 +154,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
                       role="button"
                       tabIndex={0}
                       onClick={() => onItemSelect(viewId)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          onItemSelect(viewId)
-                        }
-                      }}
+                      onKeyDown={onKeyboardActivate(() => onItemSelect(viewId))}
                       title={r.prompt}
                     >
                       <span className="sidebar-item-icon">{getStatusIcon(r.status, 12)}</span>

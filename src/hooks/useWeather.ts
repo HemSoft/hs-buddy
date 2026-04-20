@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 
 export interface ForecastDay {
   date: string
@@ -76,46 +77,24 @@ export function weatherCodeToDescription(code: number): string {
 }
 
 function readCache(): { data: WeatherData; timestamp: number } | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as { data: WeatherData; timestamp: number; version?: number }
-      if ((parsed.version ?? 0) < CACHE_VERSION) return null // stale schema
-      if (Date.now() - parsed.timestamp < CACHE_TTL_MS) return parsed
-    }
-  } catch {
-    // corrupt or unavailable
+  const parsed = safeGetJson<{ data: WeatherData; timestamp: number; version?: number }>(CACHE_KEY)
+  if (parsed) {
+    if ((parsed.version ?? 0) < CACHE_VERSION) return null // stale schema
+    if (Date.now() - parsed.timestamp < CACHE_TTL_MS) return parsed
   }
   return null
 }
 
 function writeCache(data: WeatherData) {
-  try {
-    localStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify({ data, timestamp: Date.now(), version: CACHE_VERSION })
-    )
-  } catch {
-    // localStorage unavailable
-  }
+  safeSetJson(CACHE_KEY, { data, timestamp: Date.now(), version: CACHE_VERSION })
 }
 
 function readSavedLocation(): GeoLocation | null {
-  try {
-    const raw = localStorage.getItem(LOCATION_KEY)
-    if (raw) return JSON.parse(raw) as GeoLocation
-  } catch {
-    // corrupt or unavailable
-  }
-  return null
+  return safeGetJson<GeoLocation>(LOCATION_KEY)
 }
 
 function writeSavedLocation(loc: GeoLocation) {
-  try {
-    localStorage.setItem(LOCATION_KEY, JSON.stringify(loc))
-  } catch {
-    // localStorage unavailable
-  }
+  safeSetJson(LOCATION_KEY, loc)
 }
 
 async function fetchWeather(loc: GeoLocation, signal: AbortSignal): Promise<WeatherData> {
@@ -247,11 +226,7 @@ export function useWeather() {
 
         writeSavedLocation(loc)
         // Clear cache so next refresh uses new location
-        try {
-          localStorage.removeItem(CACHE_KEY)
-        } catch {
-          // localStorage unavailable
-        }
+        safeRemoveItem(CACHE_KEY)
         // Now re-fetch
         /* v8 ignore start */
         refresh().catch(() => {
@@ -310,11 +285,7 @@ export function useWeather() {
         }
 
         writeSavedLocation(loc)
-        try {
-          localStorage.removeItem(CACHE_KEY)
-        } catch {
-          // localStorage unavailable
-        }
+        safeRemoveItem(CACHE_KEY)
         /* v8 ignore start */
         refresh().catch(() => {
           /* v8 ignore stop */

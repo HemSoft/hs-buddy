@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import type { PRReviewComment, PRReviewSummary, PRReviewThread } from '../api/github'
+import { formatTime } from '../utils/dateUtils'
 import { usePRThreadsPanel } from '../hooks/usePRThreadsPanel'
 import { ReviewThreadCard } from './pr-threads/ReviewThreadCard'
 import { ReviewSummaryCard } from './pr-threads/ReviewSummaryCard'
@@ -75,9 +76,8 @@ function formatDateHeader(iso: string): string {
   })
 }
 
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+function formatTimeLabel(iso: string): string {
+  return formatTime(new Date(iso), { numeric: true })
 }
 
 function groupByDate(entries: TimelineEntry[]): Map<string, TimelineEntry[]> {
@@ -287,7 +287,7 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
                     </div>
                     <div className="pr-timeline-content">
                       <div className="pr-timeline-meta">
-                        <span className="pr-timeline-time">{formatTime(entry.timestamp)}</span>
+                        <span className="pr-timeline-time">{formatTimeLabel(entry.timestamp)}</span>
                         <span className="pr-timeline-type-badge">
                           {entry.type === 'thread' ? 'review thread' : entry.type}
                         </span>

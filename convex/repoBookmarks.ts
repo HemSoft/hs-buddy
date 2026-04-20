@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
+import { notFoundError } from './lib/domain'
 
 /**
  * Repo Bookmark CRUD operations
@@ -76,7 +77,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get('repoBookmarks', args.id)
     if (!existing) {
-      throw new Error(`Bookmark ${args.id} not found`)
+      throw notFoundError('Bookmark', args.id)
     }
 
     const updateData: Record<string, unknown> = {

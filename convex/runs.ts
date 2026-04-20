@@ -3,6 +3,7 @@ import { mutation, query } from './_generated/server'
 import type { DatabaseWriter } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { MS_PER_DAY } from './lib/constants'
+import { isPendingOrRunning, notFoundError, runStatusValidator } from './lib/domain'
 import { projectJob } from './lib/projections'
 import { incrementStat } from './lib/stats'
 
@@ -103,7 +104,7 @@ export const create = mutation({
     // Verify job exists
     const job = await ctx.db.get('jobs', args.jobId)
     if (!job) {
-      throw new Error(`Job ${args.jobId} not found`)
+      throw notFoundError('Job', args.jobId)
     }
 
     const id = await ctx.db.insert('runs', {
@@ -141,7 +142,7 @@ async function finalizeRun(
 ) {
   const run = await db.get(runId)
   if (!run) {
-    throw new Error(`Run ${runId} not found`)
+    throw notFoundError('Run', runId)
   }
   const completedAt = Date.now()
   await db.patch(runId, {
@@ -193,10 +194,10 @@ export const cancel = mutation({
   handler: async (ctx, args) => {
     const run = await ctx.db.get('runs', args.id)
     if (!run) {
-      throw new Error(`Run ${args.id} not found`)
+      throw notFoundError('Run', args.id)
     }
 
-    if (run.status !== 'pending' && run.status !== 'running') {
+    if (!isPendingOrRunning(run.status)) {
       throw new Error(`Cannot cancel run with status: ${run.status}`)
     }
 
@@ -212,13 +213,7 @@ export const cancel = mutation({
 // Get runs by status (for monitoring pending/running)
 export const listByStatus = query({
   args: {
-    status: v.union(
-      v.literal('pending'),
-      v.literal('running'),
-      v.literal('completed'),
-      v.literal('failed'),
-      v.literal('cancelled')
-    ),
+    status: runStatusValidator,
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -289,7 +284,7 @@ export const cleanup = mutation({
     for (const run of oldRuns) {
       // Only delete runs older than cutoff and not active
       if (run.startedAt >= cutoff) break
-      if (run.status !== 'running' && run.status !== 'pending') {
+      if (!isPendingOrRunning(run.status)) {
         await ctx.db.delete('runs', run._id)
         deleted++
       }

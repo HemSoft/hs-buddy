@@ -20,6 +20,10 @@ vi.mock('../hooks/useTaskQueue', () => ({
   useTaskQueue: () => ({ enqueue: mockEnqueue }),
 }))
 
+vi.mock('../services/dataCache', () => ({
+  dataCache: { get: vi.fn(() => null), set: vi.fn(), isFresh: vi.fn() },
+}))
+
 vi.mock('../api/github', () => ({
   GitHubClient: class {
     fetchPRChecks(...args: unknown[]) {
@@ -40,6 +44,9 @@ vi.mock('../utils/githubUrl', () => ({
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
+  throwIfAborted: (signal: AbortSignal) => {
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+  },
 }))
 
 import { PRChecksPanel } from './PRChecksPanel'
@@ -631,16 +638,14 @@ describe('PRChecksPanel', () => {
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://deploy.example.com/50')
   })
 
-  it('shows error when parseOwnerRepoFromUrl returns null', async () => {
+  it('shows error when parseOwnerRepoFromUrl returns null without retry button', async () => {
     mockParseOwnerRepo.mockReturnValue(null)
-    mockEnqueue.mockImplementation(async () => {
-      throw new Error('Could not parse owner/repo from PR URL')
-    })
     render(<PRChecksPanel pr={basePR} />)
 
     await waitFor(() => {
       expect(screen.getByText('Could not parse owner/repo from PR URL')).toBeInTheDocument()
     })
+    expect(screen.queryByText('Retry')).not.toBeInTheDocument()
   })
 
   it('silences abort errors without showing error state', async () => {

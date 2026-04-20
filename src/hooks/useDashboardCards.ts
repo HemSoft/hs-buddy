@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useIsMounted } from './useIsMounted'
+import { safeGetItem, safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 
 export interface DashboardCardDef {
   id: string
@@ -31,31 +32,18 @@ function buildDefaults(): CardVisibility {
 
 /** Read cached visibility from localStorage — pure, no side effects (StrictMode safe). */
 function readCache(): CardVisibility | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const parsed: unknown = JSON.parse(raw)
-    return sanitize(parsed)
-  } catch {
-    return null
-  }
+  const parsed = safeGetJson<unknown>(CACHE_KEY)
+  if (parsed === null) return null
+  return sanitize(parsed)
 }
 
 /** Write visibility to localStorage cache. */
 function writeCache(vis: CardVisibility): void {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(vis))
-  } catch {
-    // localStorage unavailable
-  }
+  safeSetJson(CACHE_KEY, vis)
 }
 
 function clearCache(): void {
-  try {
-    localStorage.removeItem(CACHE_KEY)
-  } catch {
-    // localStorage unavailable
-  }
+  safeRemoveItem(CACHE_KEY)
 }
 
 export function sanitize(raw: unknown): CardVisibility | null {
@@ -88,9 +76,11 @@ export function useDashboardCards() {
   // Deferred cache cleanup: clear invalid localStorage entries after mount.
   // Keeps the useState initializer side-effect free (StrictMode safe).
   useEffect(() => {
+    const raw = safeGetItem(CACHE_KEY)
+    if (raw === null) return
     try {
-      const raw = localStorage.getItem(CACHE_KEY)
-      if (raw !== null && sanitize(JSON.parse(raw)) === null) {
+      const parsed: unknown = JSON.parse(raw)
+      if (sanitize(parsed) === null) {
         console.warn('[useDashboardCards] Cleared invalid cached visibility on mount')
         clearCache()
       }

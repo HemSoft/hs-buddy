@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { query, mutation, type DatabaseReader } from './_generated/server'
+import { SINGLETON_KEY } from './lib/domain'
 
 // Default settings values
 const DEFAULT_SETTINGS = {
@@ -24,7 +25,7 @@ function definedFields<T extends Record<string, unknown>>(updates: T): Partial<T
 async function getDefaultSettings(db: DatabaseReader) {
   return db
     .query('settings')
-    .withIndex('by_key', q => q.eq('key', 'default'))
+    .withIndex('by_key', q => q.eq('key', SINGLETON_KEY))
     .first()
 }
 
@@ -39,11 +40,13 @@ export const get = query({
     // Return settings or defaults
     return (
       settings ?? {
-        key: 'default' as const,
+        key: SINGLETON_KEY,
         ...DEFAULT_SETTINGS,
         viewModes: {} as Record<string, 'card' | 'list'>,
         terminalPanelHeight: undefined as number | undefined,
-        terminalTabs: undefined as Array<{ title: string; cwd: string; repoSlug?: string; color?: string }> | undefined,
+        terminalTabs: undefined as
+          | Array<{ title: string; cwd: string; repoSlug?: string; color?: string }>
+          | undefined,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -78,7 +81,7 @@ export const updatePR = mutation({
     } else {
       // Create new settings document
       return await ctx.db.insert('settings', {
-        key: 'default',
+        key: SINGLETON_KEY,
         pr: {
           ...DEFAULT_SETTINGS.pr,
           ...definedFields(updates),
@@ -116,7 +119,7 @@ export const updateCopilot = mutation({
       return existing._id
     } else {
       return await ctx.db.insert('settings', {
-        key: 'default',
+        key: SINGLETON_KEY,
         pr: DEFAULT_SETTINGS.pr,
         copilot: {
           ...DEFAULT_SETTINGS.copilot,
@@ -147,7 +150,7 @@ export const reset = mutation({
       })
     } else {
       await ctx.db.insert('settings', {
-        key: 'default',
+        key: SINGLETON_KEY,
         ...DEFAULT_SETTINGS,
         viewModes: {},
         createdAt: now,
@@ -175,7 +178,7 @@ export const updateViewMode = mutation({
       return existing._id
     } else {
       return await ctx.db.insert('settings', {
-        key: 'default',
+        key: SINGLETON_KEY,
         ...DEFAULT_SETTINGS,
         viewModes: { [pageKey]: mode },
         createdAt: now,
@@ -201,7 +204,7 @@ export const updateTerminalPanelHeight = mutation({
       return existing._id
     } else {
       return await ctx.db.insert('settings', {
-        key: 'default',
+        key: SINGLETON_KEY,
         ...DEFAULT_SETTINGS,
         terminalPanelHeight: height,
         createdAt: now,
@@ -216,12 +219,14 @@ export const updateTerminalPanelHeight = mutation({
  */
 export const updateTerminalTabs = mutation({
   args: {
-    tabs: v.array(v.object({
-      title: v.string(),
-      cwd: v.string(),
-      repoSlug: v.optional(v.string()),
-      color: v.optional(v.string()),
-    })),
+    tabs: v.array(
+      v.object({
+        title: v.string(),
+        cwd: v.string(),
+        repoSlug: v.optional(v.string()),
+        color: v.optional(v.string()),
+      })
+    ),
   },
   handler: async (ctx, { tabs }) => {
     const existing = await getDefaultSettings(ctx.db)
@@ -232,7 +237,7 @@ export const updateTerminalTabs = mutation({
       return existing._id
     } else {
       return await ctx.db.insert('settings', {
-        key: 'default',
+        key: SINGLETON_KEY,
         ...DEFAULT_SETTINGS,
         terminalTabs: tabs,
         createdAt: now,
@@ -260,7 +265,7 @@ export const initFromMigration = mutation({
     if (!existing) {
       const now = Date.now()
       await ctx.db.insert('settings', {
-        key: 'default',
+        key: SINGLETON_KEY,
         pr,
         createdAt: now,
         updatedAt: now,

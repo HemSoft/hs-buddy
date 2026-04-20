@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { GitCommit, ExternalLink, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
-import { useGitHubAccounts } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
-import { GitHubClient, type RepoCommit } from '../api/github'
+import { useCallback } from 'react'
+import { GitCommit, ExternalLink, RefreshCw } from 'lucide-react'
+import { useGitHubData } from '../hooks/useGitHubData'
+import type { RepoCommit } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
-import { dataCache } from '../services/dataCache'
-import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
+import {
+  PanelLoadingState,
+  PanelErrorState,
+  InlineRefreshIndicator,
+  PanelEmptyState,
+} from './shared/PanelStates'
 import './RepoDetailPanel.css'
 import './RepoCommitPanels.css'
 
@@ -16,57 +19,12 @@ interface RepoCommitListPanelProps {
 }
 
 export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitListPanelProps) {
-  const cacheKey = `repo-commits:${owner}/${repo}`
-  const cachedEntry = dataCache.get<RepoCommit[]>(cacheKey)
-  const [commits, setCommits] = useState<RepoCommit[]>(cachedEntry?.data || [])
-  const [loading, setLoading] = useState(!cachedEntry?.data)
-  const [error, setError] = useState<string | null>(null)
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
-
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  const fetchCommits = useCallback(
-    async (forceRefresh = false) => {
-      if (!forceRefresh) {
-        const cached = dataCache.get<RepoCommit[]>(cacheKey)
-        if (cached?.data) {
-          setCommits(cached.data)
-          setLoading(false)
-          return
-        }
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchRepoCommits(owner, repo)
-          },
-          { name: `repo-commits-${owner}-${repo}` }
-        )
-        setCommits(result)
-        dataCache.set(cacheKey, result)
-      } catch (err) {
-        if (isAbortError(err)) return
-        setError(getErrorMessage(err))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [owner, repo, accounts, cacheKey]
-  )
-
-  useEffect(() => {
-    fetchCommits()
-  }, [fetchCommits])
+  const { data, loading, error, refresh } = useGitHubData<RepoCommit[]>({
+    cacheKey: `repo-commits:${owner}/${repo}`,
+    taskName: `repo-commits-${owner}-${repo}`,
+    fetchFn: client => client.fetchRepoCommits(owner, repo),
+  })
+  const commits = data ?? []
 
   const handleCommitClick = useCallback(
     (commit: RepoCommit) => {
@@ -80,28 +38,11 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
   )
 
   if (loading && commits.length === 0) {
-    return (
-      <div className="repo-commits-loading">
-        <Loader2 size={32} className="spin" />
-        <p>Loading commits...</p>
-        <p className="repo-commits-loading-sub">
-          {owner}/{repo}
-        </p>
-      </div>
-    )
+    return <PanelLoadingState message="Loading commits..." subtitle={`${owner}/${repo}`} />
   }
 
   if (error && commits.length === 0) {
-    return (
-      <div className="repo-commits-error">
-        <AlertCircle size={32} />
-        <p className="error-message">Failed to load commits</p>
-        <p className="error-detail">{error}</p>
-        <button className="repo-commits-refresh-btn" onClick={() => fetchCommits(true)}>
-          <RefreshCw size={14} /> Retry
-        </button>
-      </div>
-    )
+    return <PanelErrorState title="Failed to load commits" error={error} onRetry={refresh} />
   }
 
   return (
@@ -121,7 +62,7 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
           <span className="repo-commits-count">{commits.length} recent</span>
           <button
             className="repo-commits-refresh-btn"
-            onClick={() => fetchCommits(true)}
+            onClick={refresh}
             disabled={loading}
             title="Refresh"
           >
@@ -131,18 +72,15 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
       </div>
 
       {loading && commits.length > 0 && (
-        <div className="repo-commits-loading-indicator" role="status" aria-live="polite">
-          <Loader2 size={14} className="spin" />
-          <span>Refreshing commit list...</span>
-        </div>
+        <InlineRefreshIndicator message="Refreshing commit list..." />
       )}
 
       {commits.length === 0 ? (
-        <div className="repo-commits-empty">
-          <GitCommit size={48} />
-          <p>No commits found</p>
-          <p className="empty-subtitle">This repository does not have any visible commits yet.</p>
-        </div>
+        <PanelEmptyState
+          icon={<GitCommit size={48} />}
+          message="No commits found"
+          subtitle="This repository does not have any visible commits yet."
+        />
       ) : (
         <div className="repo-commits-page-list">
           {commits.map(commit => (

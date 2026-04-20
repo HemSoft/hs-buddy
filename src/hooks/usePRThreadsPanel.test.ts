@@ -216,6 +216,82 @@ describe('usePRThreadsPanel', () => {
     expect(result.current.error).toBe('Network error')
   })
 
+  it('ignores stale fetchPRBranches success when re-rendered with different PR', async () => {
+    let resolveFetchBranches!: (value: { headSha: string }) => void
+    const pendingBranches = new Promise<{ headSha: string }>(r => {
+      resolveFetchBranches = r
+    })
+
+    // First render: fetchPRBranches hangs, fetchThreads resolves normally
+    mockEnqueue
+      .mockReset()
+      .mockReturnValueOnce(pendingBranches)
+      .mockResolvedValueOnce(makeThreadsResult())
+      // Second render: both resolve immediately
+      .mockResolvedValueOnce({ headSha: 'new-sha' })
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    const { result, rerender } = renderHook(
+      (props: { pr: typeof basePR }) => usePRThreadsPanel(props.pr),
+      { initialProps: { pr: basePR } }
+    )
+
+    // Re-render with a different PR id to increment headShaRequestRef
+    const newPR = { ...basePR, id: 99 }
+    rerender({ pr: newPR })
+
+    // Wait for second render's fetch to complete
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    // Resolve the first (now stale) request — the guard on line 55 should skip it
+    await act(async () => {
+      resolveFetchBranches({ headSha: 'stale-sha' })
+    })
+
+    // Hook should not crash; loading should remain settled
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('ignores stale fetchPRBranches error when re-rendered with different PR', async () => {
+    let rejectFetchBranches!: (err: Error) => void
+    const pendingBranches = new Promise<{ headSha: string }>((_r, reject) => {
+      rejectFetchBranches = reject
+    })
+
+    // First render: fetchPRBranches hangs, fetchThreads resolves normally
+    mockEnqueue
+      .mockReset()
+      .mockReturnValueOnce(pendingBranches)
+      .mockResolvedValueOnce(makeThreadsResult())
+      // Second render: both resolve immediately
+      .mockResolvedValueOnce({ headSha: 'fresh-sha' })
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    const { result, rerender } = renderHook(
+      (props: { pr: typeof basePR }) => usePRThreadsPanel(props.pr),
+      { initialProps: { pr: basePR } }
+    )
+
+    // Re-render with different PR to increment headShaRequestRef
+    const newPR = { ...basePR, id: 77 }
+    rerender({ pr: newPR })
+
+    // Wait for second render's fetch to complete
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    // Reject the stale request — the guard on line 62 should skip it
+    await act(async () => {
+      rejectFetchBranches(new Error('stale error'))
+    })
+
+    // Hook should not crash; loading should remain settled
+    expect(result.current.loading).toBe(false)
+  })
+
   it('computes activeThreads from unresolved threads', async () => {
     const { result } = renderHook(() => usePRThreadsPanel(basePR))
 

@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
+import { notFoundError } from './lib/domain'
 import { projectJob } from './lib/projections'
 
 /**
@@ -70,7 +71,7 @@ export const create = mutation({
     // Verify job exists
     const job = await ctx.db.get('jobs', args.jobId)
     if (!job) {
-      throw new Error(`Job ${args.jobId} not found`)
+      throw notFoundError('Job', args.jobId)
     }
 
     const now = Date.now()
@@ -114,7 +115,7 @@ export const update = mutation({
 
     const existing = await ctx.db.get('schedules', id)
     if (!existing) {
-      throw new Error(`Schedule ${id} not found`)
+      throw notFoundError('Schedule', id)
     }
 
     const now = Date.now()
@@ -159,7 +160,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get('schedules', args.id)
     if (!existing) {
-      throw new Error(`Schedule ${args.id} not found`)
+      throw notFoundError('Schedule', args.id)
     }
 
     await ctx.db.delete('schedules', args.id)
@@ -173,7 +174,7 @@ export const toggle = mutation({
   handler: async (ctx, args) => {
     const schedule = await ctx.db.get('schedules', args.id)
     if (!schedule) {
-      throw new Error(`Schedule ${args.id} not found`)
+      throw notFoundError('Schedule', args.id)
     }
 
     const newEnabled = !schedule.enabled
@@ -204,7 +205,7 @@ export const advanceNextRun = mutation({
   handler: async (ctx, args) => {
     const schedule = await ctx.db.get('schedules', args.id)
     if (!schedule) {
-      throw new Error(`Schedule ${args.id} not found`)
+      throw notFoundError('Schedule', args.id)
     }
 
     const patch: Record<string, unknown> = {

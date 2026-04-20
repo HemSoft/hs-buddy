@@ -1,10 +1,12 @@
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { BookmarksSidebar } from './sidebar/BookmarksSidebar'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
 import { CrewSidebar } from './crew/CrewSidebar'
 import { useJobs, useSchedules } from '../hooks/useConvex'
+import { useToggleSet } from '../hooks/useToggleSet'
+import { onKeyboardActivate } from '../utils/keyboard'
 import { AutomationSidebarSection } from './sidebar-panel/AutomationSidebarSection'
 import type { SidebarItem } from './sidebar/github-sidebar/useGitHubSidebarData'
 import './SidebarPanel.css'
@@ -77,22 +79,23 @@ export function SidebarPanel({
   counts = DEFAULT_COUNTS,
   badgeProgress = DEFAULT_BADGE_PROGRESS,
 }: SidebarPanelProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([section]))
+  const {
+    has: isSectionExpanded,
+    toggle: toggleSection,
+    add: expandSection,
+  } = useToggleSet([section])
   const data = sectionData[section]
   const jobs = useJobs()
   const schedules = useSchedules()
 
   useEffect(() => {
-    setExpandedSections(prev => {
-      if (prev.has(section)) return prev
-      return new Set([...prev, section])
-    })
+    expandSection(section)
     // Auto-select when a section has exactly one item
     const items = sectionData[section]?.items
     if (items?.length === 1) {
       onItemSelect(items[0].id)
     }
-  }, [section, onItemSelect])
+  }, [section, onItemSelect, expandSection])
 
   if (!data) return null
 
@@ -119,16 +122,7 @@ export function SidebarPanel({
     return <CopilotSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
   }
 
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev)
-      if (next.has(sectionId)) next.delete(sectionId)
-      else next.add(sectionId)
-      return next
-    })
-  }
-
-  const isExpanded = expandedSections.has(section)
+  const isExpanded = isSectionExpanded(section)
 
   return (
     <div className="sidebar-panel">
@@ -142,12 +136,7 @@ export function SidebarPanel({
             role="button"
             tabIndex={0}
             onClick={() => toggleSection(section)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleSection(section)
-              }
-            }}
+            onKeyDown={onKeyboardActivate(() => toggleSection(section))}
           >
             <div className="sidebar-section-title">
               {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -176,12 +165,7 @@ export function SidebarPanel({
                     onClick={() => onItemSelect(item.id)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        onItemSelect(item.id)
-                      }
-                    }}
+                    onKeyDown={onKeyboardActivate(() => onItemSelect(item.id))}
                   >
                     <span className="sidebar-item-icon">
                       <FileText size={14} />

@@ -1,20 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import {
-  CircleDot,
-  ExternalLink,
-  Loader2,
-  RefreshCw,
-  AlertCircle,
-  MessageSquare,
-  Clock,
-} from 'lucide-react'
-import { useGitHubAccounts } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
-import { GitHubClient, type RepoIssue } from '../api/github'
+import { CircleDot, ExternalLink, RefreshCw, MessageSquare, Clock } from 'lucide-react'
+import { useGitHubData } from '../hooks/useGitHubData'
+import type { RepoIssue } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
-import { dataCache } from '../services/dataCache'
-import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
+import { getLabelStyle } from '../utils/labelStyle'
 import { ViewModeToggle } from './shared/ViewModeToggle'
+import { PanelLoadingState, PanelErrorState, PanelEmptyState } from './shared/PanelStates'
 import { useViewMode } from '../hooks/useViewMode'
 import './RepoIssueList.css'
 import './shared/ListView.css'
@@ -32,86 +22,26 @@ export function RepoIssueList({
   issueState = 'open',
   onOpenIssue,
 }: RepoIssueListProps) {
-  const cacheKey = `repo-issues:${issueState}:${owner}/${repo}`
-  const cachedEntry = dataCache.get<RepoIssue[]>(cacheKey)
-  const [issues, setIssues] = useState<RepoIssue[]>(cachedEntry?.data || [])
-  const [loading, setLoading] = useState(!cachedEntry?.data)
-  const [error, setError] = useState<string | null>(null)
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
+  const { data, loading, error, refresh } = useGitHubData<RepoIssue[]>({
+    cacheKey: `repo-issues:${issueState}:${owner}/${repo}`,
+    taskName: `repo-issues-${issueState}-${owner}-${repo}`,
+    /* v8 ignore next */
+    fetchFn: client => client.fetchRepoIssues(owner, repo, issueState),
+  })
+  const issues = data ?? []
   const [viewMode, setViewMode] = useViewMode(`repo-issues-${owner}-${repo}`)
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  const fetchIssues = useCallback(
-    async (forceRefresh = false) => {
-      if (!forceRefresh) {
-        const cached = dataCache.get<RepoIssue[]>(cacheKey)
-        if (cached?.data) {
-          setIssues(cached.data)
-          setLoading(false)
-          return
-        }
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const result = await enqueueRef.current(
-          /* v8 ignore start */
-          async signal => {
-            throwIfAborted(signal)
-            const config = { accounts }
-            const client = new GitHubClient(config, 7)
-            return await client.fetchRepoIssues(owner, repo, issueState)
-            /* v8 ignore stop */
-          },
-          { name: `repo-issues-${issueState}-${owner}-${repo}` }
-        )
-        setIssues(result)
-        dataCache.set(cacheKey, result)
-      } catch (err) {
-        /* v8 ignore start */
-        if (isAbortError(err)) return
-        /* v8 ignore stop */
-        setError(getErrorMessage(err))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [owner, repo, issueState, accounts, cacheKey]
-  )
-
-  useEffect(() => {
-    fetchIssues()
-  }, [fetchIssues])
 
   if (loading && issues.length === 0) {
     return (
-      <div className="repo-issues-loading">
-        <Loader2 size={32} className="spin" />
-        <p>Loading issues...</p>
-        <p className="repo-issues-loading-sub">
-          {owner}/{repo} · {issueState}
-        </p>
-      </div>
+      <PanelLoadingState
+        message="Loading issues..."
+        subtitle={`${owner}/${repo} · ${issueState}`}
+      />
     )
   }
 
   if (error && issues.length === 0) {
-    return (
-      <div className="repo-issues-error">
-        <AlertCircle size={32} />
-        <p className="error-message">Failed to load issues</p>
-        <p className="error-detail">{error}</p>
-        <button className="repo-issues-retry-btn" onClick={() => fetchIssues(true)}>
-          <RefreshCw size={14} /> Retry
-        </button>
-      </div>
-    )
+    return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
   }
 
   return (
@@ -136,7 +66,7 @@ export function RepoIssueList({
           <button
             className="repo-issues-refresh-btn"
             /* v8 ignore start */
-            onClick={() => fetchIssues(true)}
+            onClick={refresh}
             /* v8 ignore stop */
             disabled={loading}
             title="Refresh"
@@ -149,11 +79,11 @@ export function RepoIssueList({
       </div>
 
       {issues.length === 0 ? (
-        <div className="repo-issues-empty">
-          <CircleDot size={48} />
-          <p>No {issueState} issues</p>
-          <p className="empty-subtitle">This repository has no {issueState} issues right now.</p>
-        </div>
+        <PanelEmptyState
+          icon={<CircleDot size={48} />}
+          message={`No ${issueState} issues`}
+          subtitle={`This repository has no ${issueState} issues right now.`}
+        />
       ) : viewMode === 'list' ? (
         <div className="repo-issues-list" style={{ padding: 0 }}>
           <table className="list-view-table">
@@ -199,11 +129,7 @@ export function RepoIssueList({
                       <span
                         key={label.name}
                         className="list-view-label"
-                        style={{
-                          backgroundColor: `#${label.color}20`,
-                          color: `#${label.color}`,
-                          borderColor: `#${label.color}40`,
-                        }}
+                        style={getLabelStyle(label.color)}
                       >
                         {label.name}
                       </span>
@@ -242,11 +168,7 @@ export function RepoIssueList({
                         <span
                           key={label.name}
                           className="repo-issue-label"
-                          style={{
-                            backgroundColor: `#${label.color}20`,
-                            color: `#${label.color}`,
-                            borderColor: `#${label.color}40`,
-                          }}
+                          style={getLabelStyle(label.color)}
                         >
                           {label.name}
                         </span>

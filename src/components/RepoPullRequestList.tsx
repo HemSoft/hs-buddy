@@ -1,24 +1,19 @@
-import { useEffect, useCallback, useReducer, useRef } from 'react'
-import {
-  GitPullRequest,
-  GitPullRequestClosed,
-  GitMerge,
-  ExternalLink,
-  Loader2,
-  RefreshCw,
-  AlertCircle,
-  Clock,
-  GitBranch,
-  ThumbsUp,
-} from 'lucide-react'
-import { useGitHubAccounts } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
-import { GitHubClient, type RepoPullRequest } from '../api/github'
+import { useCallback } from 'react'
+import { GitPullRequest, ExternalLink, RefreshCw, Clock, GitBranch, ThumbsUp } from 'lucide-react'
+import { useGitHubData } from '../hooks/useGitHubData'
+import type { RepoPullRequest } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
-import { dataCache } from '../services/dataCache'
 import { createPRDetailViewId } from '../utils/prDetailView'
-import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
+import { mapRepoPRToPullRequest } from '../utils/prMapper'
+import { getLabelStyle } from '../utils/labelStyle'
 import { ViewModeToggle } from './shared/ViewModeToggle'
+import {
+  PanelLoadingState,
+  PanelErrorState,
+  InlineRefreshIndicator,
+  PanelEmptyState,
+} from './shared/PanelStates'
+import { PRStateIcon } from './shared/PRStateIcon'
 import { useViewMode } from '../hooks/useViewMode'
 import './RepoPullRequestList.css'
 import './shared/ListView.css'
@@ -30,67 +25,8 @@ interface RepoPullRequestListProps {
   onOpenPR?: (viewId: string) => void
 }
 
-interface RepoPullRequestListState {
-  prs: RepoPullRequest[]
-  loading: boolean
-  error: string | null
-}
-
-type RepoPullRequestListAction =
-  | { type: 'RESET_FROM_CACHE'; payload: RepoPullRequestListState }
-  | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: RepoPullRequest[] }
-  | { type: 'FETCH_ERROR'; payload: string }
-  | { type: 'FETCH_FINISH' }
-
-function getRepoPullRequestListState(cacheKey: string): RepoPullRequestListState {
-  const cachedEntry = dataCache.get<RepoPullRequest[]>(cacheKey)
-
-  return {
-    prs: cachedEntry?.data || [],
-    loading: !cachedEntry?.data,
-    error: null,
-  }
-}
-
-function repoPullRequestListReducer(
-  state: RepoPullRequestListState,
-  action: RepoPullRequestListAction
-): RepoPullRequestListState {
-  switch (action.type) {
-    case 'RESET_FROM_CACHE':
-      return action.payload
-    case 'FETCH_START':
-      return { ...state, loading: true, error: null }
-    case 'FETCH_SUCCESS':
-      return { prs: action.payload, loading: false, error: null }
-    case 'FETCH_ERROR':
-      return { ...state, error: action.payload }
-    case 'FETCH_FINISH':
-      return { ...state, loading: false }
-  }
-}
-
 function mapToPRDetailId(pr: RepoPullRequest, owner: string): string {
-  return createPRDetailViewId({
-    source: 'GitHub',
-    repository: pr.url.split('/')[4] || pr.url,
-    id: pr.number,
-    title: pr.title,
-    author: pr.author,
-    authorAvatarUrl: pr.authorAvatarUrl || undefined,
-    url: pr.url,
-    state: pr.state,
-    approvalCount: pr.approvalCount ?? 0,
-    assigneeCount: pr.assigneeCount ?? 0,
-    iApproved: pr.iApproved ?? false,
-    created: pr.createdAt ? new Date(pr.createdAt) : null,
-    updatedAt: pr.updatedAt,
-    headBranch: pr.headBranch,
-    baseBranch: pr.baseBranch,
-    date: pr.updatedAt || pr.createdAt,
-    org: owner,
-  })
+  return createPRDetailViewId(mapRepoPRToPullRequest(pr, owner))
 }
 
 export function RepoPullRequestList({
@@ -99,70 +35,14 @@ export function RepoPullRequestList({
   prState = 'open',
   onOpenPR,
 }: RepoPullRequestListProps) {
-  const cacheKey = `repo-prs:${prState}:${owner}/${repo}`
-  const [state, dispatch] = useReducer(
-    repoPullRequestListReducer,
-    cacheKey,
-    getRepoPullRequestListState
-  )
-  const { prs, loading, error } = state
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
+  const { data, loading, error, refresh } = useGitHubData<RepoPullRequest[]>({
+    cacheKey: `repo-prs:${prState}:${owner}/${repo}`,
+    taskName: `repo-prs-${prState}-${owner}-${repo}`,
+    /* v8 ignore next */
+    fetchFn: client => client.fetchRepoPRs(owner, repo, prState),
+  })
+  const prs = data ?? []
   const [viewMode, setViewMode] = useViewMode(`repo-prs-${owner}-${repo}`)
-
-  useEffect(() => {
-    dispatch({
-      type: 'RESET_FROM_CACHE',
-      payload: getRepoPullRequestListState(cacheKey),
-    })
-  }, [cacheKey])
-
-  const fetchPRs = useCallback(
-    async (forceRefresh = false) => {
-      if (!forceRefresh) {
-        const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
-        if (cached?.data) {
-          dispatch({ type: 'FETCH_SUCCESS', payload: cached.data })
-          return
-        }
-      }
-
-      dispatch({ type: 'FETCH_START' })
-
-      try {
-        const result = await enqueueRef.current(
-          /* v8 ignore start */
-          async signal => {
-            throwIfAborted(signal)
-            const config = { accounts }
-            const client = new GitHubClient(config, 7)
-            return await client.fetchRepoPRs(owner, repo, prState)
-            /* v8 ignore stop */
-          },
-          { name: `repo-prs-${prState}-${owner}-${repo}` }
-        )
-        dispatch({ type: 'FETCH_SUCCESS', payload: result })
-        dataCache.set(cacheKey, result)
-      } catch (err) {
-        if (isAbortError(err)) return
-        dispatch({
-          type: 'FETCH_ERROR',
-          payload: getErrorMessage(err),
-        })
-      } finally {
-        dispatch({ type: 'FETCH_FINISH' })
-      }
-    },
-    [owner, repo, prState, accounts, cacheKey]
-  )
-
-  useEffect(() => {
-    fetchPRs()
-  }, [fetchPRs])
 
   const handlePRClick = useCallback(
     (pr: RepoPullRequest) => {
@@ -176,28 +56,11 @@ export function RepoPullRequestList({
   )
 
   if (loading && prs.length === 0) {
-    return (
-      <div className="repo-prs-loading">
-        <Loader2 size={32} className="spin" />
-        <p>Loading pull requests...</p>
-        <p className="repo-prs-loading-sub">
-          {owner}/{repo}
-        </p>
-      </div>
-    )
+    return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
   }
 
   if (error && prs.length === 0) {
-    return (
-      <div className="repo-prs-error">
-        <AlertCircle size={32} />
-        <p className="error-message">Failed to load pull requests</p>
-        <p className="error-detail">{error}</p>
-        <button className="repo-prs-retry-btn" onClick={() => fetchPRs(true)}>
-          <RefreshCw size={14} /> Retry
-        </button>
-      </div>
-    )
+    return <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
   }
 
   return (
@@ -221,7 +84,7 @@ export function RepoPullRequestList({
           <ViewModeToggle mode={viewMode} onChange={setViewMode} />
           <button
             className="repo-prs-refresh-btn"
-            onClick={() => fetchPRs(true)}
+            onClick={refresh}
             disabled={loading}
             title="Refresh"
           >
@@ -231,20 +94,15 @@ export function RepoPullRequestList({
       </div>
 
       {loading && prs.length > 0 && (
-        <div className="repo-prs-loading-indicator" role="status" aria-live="polite">
-          <Loader2 size={14} className="spin" />
-          <span>Refreshing pull requests...</span>
-        </div>
+        <InlineRefreshIndicator message="Refreshing pull requests..." />
       )}
 
       {!loading && prs.length === 0 ? (
-        <div className="repo-prs-empty">
-          <GitPullRequest size={48} />
-          <p>No {prState} pull requests</p>
-          <p className="empty-subtitle">
-            This repository has no {prState} pull requests right now.
-          </p>
-        </div>
+        <PanelEmptyState
+          icon={<GitPullRequest size={48} />}
+          message={`No ${prState} pull requests`}
+          subtitle={`This repository has no ${prState} pull requests right now.`}
+        />
       ) : viewMode === 'list' ? (
         <div className="repo-prs-list" style={{ padding: 0 }}>
           <table className="list-view-table">
@@ -261,14 +119,10 @@ export function RepoPullRequestList({
               {prs.map(pr => (
                 <tr key={pr.number} onClick={() => handlePRClick(pr)}>
                   <td className="col-status">
-                    {pr.state === 'merged' ? (
-                      <GitMerge size={14} className="list-view-status-merged" />
-                    ) : pr.state === 'closed' ? (
-                      <GitPullRequestClosed size={14} className="list-view-status-closed" />
-                    ) : pr.draft ? (
+                    {pr.draft ? (
                       <GitPullRequest size={14} className="list-view-status-draft" />
                     ) : (
-                      <GitPullRequest size={14} className="list-view-status-open" />
+                      <PRStateIcon state={pr.state} />
                     )}
                   </td>
                   <td className="col-title">
@@ -321,11 +175,7 @@ export function RepoPullRequestList({
                       <span
                         key={label.name}
                         className="repo-pr-label"
-                        style={{
-                          backgroundColor: `#${label.color}20`,
-                          color: `#${label.color}`,
-                          borderColor: `#${label.color}40`,
-                        }}
+                        style={getLabelStyle(label.color)}
                       >
                         {label.name}
                       </span>

@@ -38,6 +38,13 @@ describe('readWatchlist', () => {
     expect(readWatchlist()).toContain('^GSPC')
   })
 
+  it('falls back to default when stored value is truthy but not an array', () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify({ not: 'array' }))
+    const list = readWatchlist()
+    expect(list).toContain('^GSPC')
+    expect(list).toHaveLength(4)
+  })
+
   it('returns empty array for persisted empty watchlist', () => {
     localStorage.setItem('finance:watchlist', '[]')
     expect(readWatchlist()).toEqual([])

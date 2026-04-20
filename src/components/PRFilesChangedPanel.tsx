@@ -1,21 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  AlertCircle,
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  FileCode2,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react'
-import { GitHubClient, type PRFilesChangedSummary } from '../api/github'
-import { useGitHubAccounts } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
-import { dataCache } from '../services/dataCache'
-import { getDiffLineClass } from '../utils/diffUtils'
-import { formatFileStatus, parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { useMemo } from 'react'
+import { FileCode2, RefreshCw } from 'lucide-react'
+import type { PRFilesChangedSummary } from '../api/github'
+import { useGitHubData } from '../hooks/useGitHubData'
+import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import type { PRDetailInfo } from '../utils/prDetailView'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { PanelLoadingState, PanelErrorState, InlineRefreshIndicator } from './shared/PanelStates'
+import { ExpandableFileList } from './shared/ExpandableFileList'
 import './RepoDetailPanel.css'
 import './RepoCommitPanels.css'
 import './PRFilesChangedPanel.css'
@@ -29,104 +19,32 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   const owner = ownerRepo?.owner ?? null
   const repo = ownerRepo?.repo ?? null
   const cacheKey = owner && repo ? `pr-files:${owner}/${repo}/${pr.id}` : null
-  const cachedEntry = cacheKey ? dataCache.get<PRFilesChangedSummary>(cacheKey) : null
-  const [detail, setDetail] = useState<PRFilesChangedSummary | null>(cachedEntry?.data || null)
-  const [loading, setLoading] = useState(!cachedEntry?.data)
-  const [error, setError] = useState<string | null>(null)
-  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
 
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
+  const {
+    data: detail,
+    loading,
+    error: fetchError,
+    refresh,
+  } = useGitHubData<PRFilesChangedSummary>({
+    cacheKey,
+    taskName: `pr-files-${pr.repository}-${pr.id}`,
+    fetchFn: client => client.fetchPRFilesChanged(owner!, repo!, pr.id),
+  })
 
-  useEffect(() => {
-    setExpandedFiles(new Set())
-  }, [pr.id, pr.url])
-
-  const fetchFilesChanged = useCallback(
-    async (forceRefresh = false) => {
-      if (!owner || !repo) {
-        setError('Could not parse owner/repo from PR URL')
-        setLoading(false)
-        return
-      }
-
-      if (!forceRefresh && cacheKey) {
-        const cached = dataCache.get<PRFilesChangedSummary>(cacheKey)
-        if (cached?.data) {
-          setDetail(cached.data)
-          setLoading(false)
-          return
-        }
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchPRFilesChanged(owner, repo, pr.id)
-          },
-          { name: `pr-files-${pr.repository}-${pr.id}` }
-        )
-
-        setDetail(result)
-        /* v8 ignore start -- cacheKey is always truthy when owner && repo pass the early-return guard */
-        if (cacheKey) {
-          dataCache.set(cacheKey, result)
-        }
-        /* v8 ignore stop */
-      } catch (err) {
-        if (isAbortError(err)) return
-        setError(getErrorMessage(err))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [accounts, cacheKey, owner, repo, pr.id, pr.repository]
-  )
-
-  useEffect(() => {
-    fetchFilesChanged()
-  }, [fetchFilesChanged])
-
-  const toggleFile = useCallback((filename: string) => {
-    setExpandedFiles(prev => {
-      const next = new Set(prev)
-      if (next.has(filename)) {
-        next.delete(filename)
-      } else {
-        next.add(filename)
-      }
-      return next
-    })
-  }, [])
+  // Surface a parse error when URL is unparseable (cacheKey is null → hook won't fetch)
+  const error = !cacheKey ? 'Could not parse owner/repo from PR URL' : fetchError
 
   if (loading && !detail) {
-    return (
-      <div className="repo-commits-loading">
-        <Loader2 size={32} className="spin" />
-        <p>Loading changed files...</p>
-      </div>
-    )
+    return <PanelLoadingState message="Loading changed files..." />
   }
 
   if (error && !detail) {
     return (
-      <div className="repo-commits-error">
-        <AlertCircle size={32} />
-        <p className="error-message">Failed to load changed files</p>
-        <p className="error-detail">{error}</p>
-        <button className="repo-commits-refresh-btn" onClick={() => fetchFilesChanged(true)}>
-          <RefreshCw size={14} /> Retry
-        </button>
-      </div>
+      <PanelErrorState
+        title="Failed to load changed files"
+        error={error}
+        onRetry={cacheKey ? refresh : undefined}
+      />
     )
   }
 
@@ -134,12 +52,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
 
   return (
     <div className="pr-files-container">
-      {loading && detail && (
-        <div className="repo-commits-loading-indicator" role="status" aria-live="polite">
-          <Loader2 size={14} className="spin" />
-          <span>Refreshing changed files...</span>
-        </div>
-      )}
+      {loading && detail && <InlineRefreshIndicator message="Refreshing changed files..." />}
 
       <div className="pr-files-summary-grid">
         <div className="repo-detail-card pr-files-summary-card">
@@ -165,7 +78,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
           <FileCode2 size={16} />
           <span>Files changed</span>
         </div>
-        <button className="repo-detail-action-btn" onClick={() => fetchFilesChanged(true)}>
+        <button className="repo-detail-action-btn" onClick={refresh}>
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
@@ -176,97 +89,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
           <p>No changed files were reported for this pull request.</p>
         </div>
       ) : (
-        <div className="repo-commit-files">
-          {detail.files.map(file => (
-            <div
-              key={file.filename}
-              className={`repo-detail-card repo-commit-file-card ${expandedFiles.has(file.filename) ? 'repo-commit-file-card-expanded' : 'repo-commit-file-card-collapsed'}`}
-            >
-              <div
-                className="repo-commit-file-header repo-commit-file-toggle"
-                onClick={() => toggleFile(file.filename)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    toggleFile(file.filename)
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-expanded={expandedFiles.has(file.filename)}
-              >
-                <div className="repo-commit-file-header-main">
-                  <span className="repo-commit-file-chevron">
-                    {expandedFiles.has(file.filename) ? (
-                      <ChevronDown size={14} />
-                    ) : (
-                      <ChevronRight size={14} />
-                    )}
-                  </span>
-                  <span
-                    className={`repo-commit-file-status repo-commit-file-status-${file.status}`}
-                  >
-                    {formatFileStatus(file.status)}
-                  </span>
-                  <h3>{file.filename}</h3>
-                  {file.previousFilename && (
-                    <span className="repo-commit-file-previous">from {file.previousFilename}</span>
-                  )}
-                </div>
-                <div className="repo-commit-file-header-meta">
-                  <span className="repo-commit-file-stat repo-commit-file-stat-added">
-                    +{file.additions}
-                  </span>
-                  <span className="repo-commit-file-stat repo-commit-file-stat-removed">
-                    -{file.deletions}
-                  </span>
-                  <span className="repo-commit-file-stat">{file.changes} changes</span>
-                  {file.blobUrl && (
-                    <button
-                      type="button"
-                      className="repo-commit-file-open-btn"
-                      onClick={event => {
-                        event.stopPropagation()
-                        /* v8 ignore start -- button only renders inside {file.blobUrl && (...)} guard */
-                        if (file.blobUrl) {
-                          window.shell?.openExternal(file.blobUrl)
-                        }
-                        /* v8 ignore stop */
-                      }}
-                      title="Open file on GitHub"
-                    >
-                      <ExternalLink size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {expandedFiles.has(file.filename) ? (
-                file.patch ? (
-                  <div className="repo-commit-diff" role="presentation">
-                    {(() => {
-                      let charOffset = 0
-                      return file.patch.split('\n').map(line => {
-                        const key = `${file.filename}-line-${charOffset}-${line.slice(0, 20)}`
-                        charOffset += line.length + 1
-                        return (
-                          <Fragment key={key}>
-                            <div className={getDiffLineClass(line)}>{line || ' '}</div>
-                          </Fragment>
-                        )
-                      })
-                    })()}
-                  </div>
-                ) : (
-                  <div className="repo-commit-diff-empty">
-                    GitHub did not provide a patch preview for this file. This usually means the
-                    file is binary, too large, or the change is a pure rename.
-                  </div>
-                )
-              ) : null}
-            </div>
-          ))}
-        </div>
+        <ExpandableFileList files={detail.files} resetKey={`${pr.id}:${pr.url}`} />
       )}
     </div>
   )

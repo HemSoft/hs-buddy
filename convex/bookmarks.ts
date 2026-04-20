@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
+import { notFoundError } from './lib/domain'
 
 // List all bookmarks
 export const list = query({
@@ -118,7 +119,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.id)
     if (!existing) {
-      throw new Error(`Bookmark ${args.id} not found`)
+      throw notFoundError('Bookmark', args.id)
     }
 
     // Validate URL if changed
@@ -182,7 +183,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.id)
     if (!existing) {
-      throw new Error(`Bookmark ${args.id} not found`)
+      throw notFoundError('Bookmark', args.id)
     }
     await ctx.db.delete(args.id)
     return args.id

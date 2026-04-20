@@ -1,6 +1,8 @@
 import { ChevronDown, ChevronRight, FolderOpen, Globe } from 'lucide-react'
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import { useBookmarks, useBookmarkCategories, useBookmarkMutations } from '../../hooks/useConvex'
+import { useToggleSet } from '../../hooks/useToggleSet'
+import { onKeyboardActivate } from '../../utils/keyboard'
 import { BookmarkDialog } from '../bookmarks/BookmarkDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { isSafeImageUrl, buildCategoryTree } from './bookmarksSidebarUtils'
@@ -77,7 +79,7 @@ function BookmarkItem({
 }
 
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+  const { has: isSectionExpanded, toggle: toggleSection } = useToggleSet()
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
@@ -92,15 +94,6 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   const bookmarks = useBookmarks()
   const categories = useBookmarkCategories()
   const { reorder } = useBookmarkMutations()
-
-  const toggleSection = useCallback((sectionId: string) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev)
-      if (next.has(sectionId)) next.delete(sectionId)
-      else next.add(sectionId)
-      return next
-    })
-  }, [])
 
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
 
@@ -225,7 +218,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       const catViewId = `bookmarks-category:${node.fullPath}`
       const directBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
       const hasChildren = node.children.length > 0 || directBookmarks.length > 0
-      const isExpanded = expandedSections.has(`cat:${node.fullPath}`)
+      const isExpanded = isSectionExpanded(`cat:${node.fullPath}`)
       const displayCount = node.totalCount
 
       return (
@@ -236,12 +229,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
             onClick={() => onItemSelect(catViewId)}
             role="button"
             tabIndex={0}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onItemSelect(catViewId)
-              }
-            }}
+            onKeyDown={onKeyboardActivate(() => onItemSelect(catViewId))}
           >
             {hasChildren ? (
               <span
@@ -297,7 +285,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       )
     },
     [
-      expandedSections,
+      isSectionExpanded,
       selectedItem,
       onItemSelect,
       toggleSection,

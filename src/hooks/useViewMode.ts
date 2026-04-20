@@ -1,17 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSettings, useSettingsMutations } from './useConvex'
+import { safeGetItem, safeSetItem } from '../utils/storage'
 
 export type ViewMode = 'card' | 'list'
 
 const STORAGE_PREFIX = 'viewMode:'
 
 function readLocal(storageKey: string): ViewMode | null {
-  try {
-    const v = localStorage.getItem(storageKey)
-    if (v === 'card' || v === 'list') return v
-  } catch {
-    // localStorage unavailable
-  }
+  const v = safeGetItem(storageKey)
+  if (v === 'card' || v === 'list') return v
   return null
 }
 
@@ -50,22 +47,13 @@ export function useViewMode(key: string, defaultMode: ViewMode = 'card') {
 
     // No localStorage value — accept Convex value as seed
     setModeState(convexMode)
-    try {
-      localStorage.setItem(storageKey, convexMode)
-    } catch {
-      // localStorage unavailable
-    }
+    safeSetItem(storageKey, convexMode)
   }, [convexMode, storageKey, key, updateViewMode])
 
   const setMode = useCallback(
     (next: ViewMode) => {
       setModeState(next)
-      // Write to localStorage for instant reads on next mount
-      try {
-        localStorage.setItem(storageKey, next)
-      } catch {
-        // localStorage unavailable
-      }
+      safeSetItem(storageKey, next)
       // Persist to Convex (async, fire-and-forget)
       updateViewMode({ pageKey: key, mode: next })
     },

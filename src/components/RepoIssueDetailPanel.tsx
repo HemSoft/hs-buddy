@@ -1,25 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '@uiw/react-markdown-preview'
 import remarkGemoji from 'remark-gemoji'
 import {
-  AlertCircle,
   CalendarClock,
   CheckCircle2,
   CircleDot,
   Clock,
   ExternalLink,
-  Loader2,
   MessageSquare,
   RefreshCw,
   Tag,
   UserRound,
 } from 'lucide-react'
-import { useGitHubAccounts } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
-import { GitHubClient, type RepoIssueDetail } from '../api/github'
-import { dataCache } from '../services/dataCache'
+import { useGitHubData } from '../hooks/useGitHubData'
+import type { RepoIssueDetail } from '../api/github'
 import { formatDateFull, formatDistanceToNow } from '../utils/dateUtils'
-import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
+import { getLabelStyle } from '../utils/labelStyle'
+import { PanelLoadingState, PanelErrorState } from './shared/PanelStates'
 import './RepoIssueDetailPanel.css'
 
 interface RepoIssueDetailPanelProps {
@@ -39,85 +35,26 @@ function IssueStateBadge({ state }: { state: string }) {
 }
 
 export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDetailPanelProps) {
-  const cacheKey = `repo-issue:${owner}/${repo}/${issueNumber}`
-  const cachedEntry = dataCache.get<RepoIssueDetail>(cacheKey)
-  const [detail, setDetail] = useState<RepoIssueDetail | null>(cachedEntry?.data || null)
-  const [loading, setLoading] = useState(!cachedEntry?.data)
-  const [error, setError] = useState<string | null>(null)
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
-
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  const fetchIssueDetail = useCallback(
-    async (forceRefresh = false) => {
-      if (!forceRefresh) {
-        const cached = dataCache.get<RepoIssueDetail>(cacheKey)
-        if (cached?.data) {
-          setDetail(cached.data)
-          setLoading(false)
-          return
-        }
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const result = await enqueueRef.current(
-          /* v8 ignore start */
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchRepoIssueDetail(owner, repo, issueNumber)
-            /* v8 ignore stop */
-          },
-          { name: `repo-issue-${owner}-${repo}-${issueNumber}` }
-        )
-        setDetail(result)
-        dataCache.set(cacheKey, result)
-      } catch (err) {
-        /* v8 ignore start */
-        if (isAbortError(err)) return
-        /* v8 ignore stop */
-        setError(getErrorMessage(err))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [accounts, cacheKey, issueNumber, owner, repo]
-  )
-
-  useEffect(() => {
-    fetchIssueDetail()
-  }, [fetchIssueDetail])
+  const {
+    data: detail,
+    loading,
+    error,
+    refresh,
+  } = useGitHubData<RepoIssueDetail>({
+    cacheKey: `repo-issue:${owner}/${repo}/${issueNumber}`,
+    taskName: `repo-issue-${owner}-${repo}-${issueNumber}`,
+    /* v8 ignore next */
+    fetchFn: client => client.fetchRepoIssueDetail(owner, repo, issueNumber),
+  })
 
   if (loading && !detail) {
     return (
-      <div className="repo-issue-detail-loading">
-        <Loader2 size={32} className="spin" />
-        <p>Loading issue…</p>
-        <p className="repo-issue-detail-loading-sub">
-          {owner}/{repo} #{issueNumber}
-        </p>
-      </div>
+      <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
     )
   }
 
   if (error && !detail) {
-    return (
-      <div className="repo-issue-detail-error">
-        <AlertCircle size={32} />
-        <p className="error-message">Failed to load issue</p>
-        <p className="error-detail">{error}</p>
-        <button className="repo-issue-detail-refresh" onClick={() => fetchIssueDetail(true)}>
-          <RefreshCw size={14} /> Retry
-        </button>
-      </div>
-    )
+    return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
   }
 
   /* v8 ignore start */
@@ -155,11 +92,7 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
           </div>
         </div>
         <div className="repo-issue-detail-hero-actions">
-          <button
-            className="repo-issue-detail-btn ghost"
-            onClick={() => fetchIssueDetail(true)}
-            disabled={loading}
-          >
+          <button className="repo-issue-detail-btn ghost" onClick={refresh} disabled={loading}>
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
             Refresh
           </button>
@@ -222,11 +155,7 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
                   <span
                     key={label.name}
                     className="repo-issue-detail-label"
-                    style={{
-                      backgroundColor: `#${label.color}20`,
-                      color: `#${label.color}`,
-                      borderColor: `#${label.color}40`,
-                    }}
+                    style={getLabelStyle(label.color)}
                   >
                     <Tag size={10} />
                     {label.name}

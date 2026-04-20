@@ -1,6 +1,7 @@
 import type { OrgOverviewResult } from '../api/github'
+import type { RefreshableLoadPhase } from '../types/loadPhase'
 
-export type LoadPhase = 'idle' | 'loading' | 'refreshing' | 'ready' | 'error'
+export type LoadPhase = RefreshableLoadPhase
 
 export interface PersonalQuotaSummary {
   used: number

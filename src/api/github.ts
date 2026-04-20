@@ -95,7 +95,8 @@ export interface RepoCommit {
   url: string
 }
 
-export interface RepoCommitFile {
+/** Shared shape for file-level diff entries (commits and PR file changes). */
+export interface DiffFile {
   filename: string
   previousFilename: string | null
   status: string
@@ -105,6 +106,8 @@ export interface RepoCommitFile {
   patch: string | null
   blobUrl: string | null
 }
+
+export type RepoCommitFile = DiffFile
 
 export interface RepoCommitDetail {
   sha: string
@@ -344,16 +347,7 @@ export interface RepoPullRequest {
   iApproved: boolean
 }
 
-export interface PRFileChange {
-  filename: string
-  previousFilename: string | null
-  status: string
-  additions: number
-  deletions: number
-  changes: number
-  patch: string | null
-  blobUrl: string | null
-}
+export type PRFileChange = DiffFile
 
 export interface PRFilesChangedSummary {
   files: PRFileChange[]

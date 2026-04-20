@@ -1,49 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { RepoPullRequestList } from './RepoPullRequestList'
 
-const { mockEnqueue, mockOpenExternal, mockViewMode, mockIsAbortError, mockCacheGet } = vi.hoisted(
-  () => ({
-    mockEnqueue: vi.fn(),
-    mockOpenExternal: vi.fn(),
-    mockViewMode: vi.fn(),
-    mockIsAbortError: vi.fn(),
-    mockCacheGet: vi.fn(),
-  })
-)
+const { mockOpenExternal, mockViewMode, mockRefresh, mockUseGitHubData } = vi.hoisted(() => ({
+  mockOpenExternal: vi.fn(),
+  mockViewMode: vi.fn(),
+  mockRefresh: vi.fn(),
+  mockUseGitHubData: vi.fn(),
+}))
 
-vi.mock('../hooks/useConfig', () => {
-  const accounts = [{ username: 'alice', org: 'test-org' }]
-  return {
-    useGitHubAccounts: () => ({ accounts, loading: false }),
-  }
-})
-
-vi.mock('../hooks/useTaskQueue', () => ({
-  useTaskQueue: () => ({ enqueue: mockEnqueue }),
+vi.mock('../hooks/useGitHubData', () => ({
+  useGitHubData: (...args: unknown[]) => mockUseGitHubData(...args),
 }))
 
 vi.mock('../hooks/useViewMode', () => ({
   useViewMode: () => mockViewMode(),
-}))
-
-vi.mock('../services/dataCache', () => ({
-  dataCache: {
-    get: (...args: unknown[]) => mockCacheGet(...args),
-    set: vi.fn(),
-  },
-}))
-
-vi.mock('../utils/errorUtils', () => ({
-  getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
-  isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
-  throwIfAborted: () => {},
-}))
-
-vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoPRs: vi.fn(),
-  })),
 }))
 
 vi.mock('./shared/ViewModeToggle', () => ({
@@ -74,9 +45,8 @@ function makePR(overrides = {}) {
 describe('RepoPullRequestList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockIsAbortError.mockReturnValue(false)
-    mockCacheGet.mockReturnValue(null)
     mockViewMode.mockReturnValue(['card', vi.fn()])
+    mockRefresh.mockImplementation(() => Promise.resolve())
     Object.defineProperty(window, 'shell', {
       value: { openExternal: mockOpenExternal },
       writable: true,
@@ -84,320 +54,242 @@ describe('RepoPullRequestList', () => {
     })
   })
 
+  function setupHook(overrides: Partial<ReturnType<typeof mockUseGitHubData>> = {}) {
+    mockUseGitHubData.mockReturnValue({
+      data: null,
+      loading: true,
+      error: null,
+      refresh: mockRefresh,
+      ...overrides,
+    })
+  }
+
   it('shows loading state initially', () => {
-    mockEnqueue.mockReturnValue(new Promise(() => {}))
+    setupHook({ data: null, loading: true })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
     expect(screen.getByText('Loading pull requests...')).toBeInTheDocument()
   })
 
-  it('shows error state with retry button', async () => {
-    mockEnqueue.mockRejectedValue(new Error('Network error'))
+  it('shows error state with retry button', () => {
+    setupHook({ data: null, loading: false, error: 'Network error' })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Failed to load pull requests')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Failed to load pull requests')).toBeInTheDocument()
     expect(screen.getByText('Network error')).toBeInTheDocument()
     expect(screen.getByText(/Retry/)).toBeInTheDocument()
   })
 
-  it('renders PR list after loading', async () => {
-    const prs = [makePR(), makePR({ number: 2, title: 'Fix bug' })]
-    mockEnqueue.mockResolvedValue(prs)
+  it('renders PR list after loading', () => {
+    setupHook({ data: [makePR(), makePR({ number: 2, title: 'Fix bug' })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Add feature')).toBeInTheDocument()
     expect(screen.getByText('Fix bug')).toBeInTheDocument()
   })
 
-  it('shows empty state when no PRs exist', async () => {
-    mockEnqueue.mockResolvedValue([])
+  it('shows empty state when no PRs exist', () => {
+    setupHook({ data: [], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('No open pull requests')).toBeInTheDocument()
-    })
+    expect(screen.getByText('No open pull requests')).toBeInTheDocument()
   })
 
-  it('displays PR count in header', async () => {
-    mockEnqueue.mockResolvedValue([makePR()])
+  it('displays PR count in header', () => {
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('1 open')).toBeInTheDocument()
-    })
+    expect(screen.getByText('1 open')).toBeInTheDocument()
   })
 
-  it('calls onOpenPR when a PR is clicked', async () => {
+  it('calls onOpenPR when a PR is clicked', () => {
     const onOpenPR = vi.fn()
-    mockEnqueue.mockResolvedValue([makePR()])
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
 
     fireEvent.click(screen.getByText('Add feature').closest('button')!)
     expect(onOpenPR).toHaveBeenCalled()
   })
 
-  it('opens external URL when no onOpenPR handler', async () => {
-    mockEnqueue.mockResolvedValue([makePR()])
+  it('opens external URL when no onOpenPR handler', () => {
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
 
     fireEvent.click(screen.getByText('Add feature').closest('button')!)
     expect(mockOpenExternal).toHaveBeenCalledWith('https://github.com/test-org/hs-buddy/pull/1')
   })
 
-  it('shows draft badge for draft PRs', async () => {
-    mockEnqueue.mockResolvedValue([makePR({ draft: true })])
+  it('shows draft badge for draft PRs', () => {
+    setupHook({ data: [makePR({ draft: true })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Draft')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 
-  it('renders labels on PR items', async () => {
-    mockEnqueue.mockResolvedValue([makePR({ labels: [{ name: 'bug', color: 'ff0000' }] })])
+  it('renders labels on PR items', () => {
+    setupHook({ data: [makePR({ labels: [{ name: 'bug', color: 'ff0000' }] })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('bug')).toBeInTheDocument()
-    })
+    expect(screen.getByText('bug')).toBeInTheDocument()
   })
 
-  it('shows branch flow information', async () => {
-    mockEnqueue.mockResolvedValue([makePR()])
+  it('shows branch flow information', () => {
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('main')).toBeInTheDocument()
-      expect(screen.getByText('feature-branch')).toBeInTheDocument()
-    })
+    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(screen.getByText('feature-branch')).toBeInTheDocument()
   })
 
-  it('shows header with owner/repo', async () => {
-    mockEnqueue.mockResolvedValue([makePR()])
+  it('shows header with owner/repo', () => {
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('test-org')).toBeInTheDocument()
-      expect(screen.getByText('hs-buddy')).toBeInTheDocument()
-    })
+    expect(screen.getByText('test-org')).toBeInTheDocument()
+    expect(screen.getByText('hs-buddy')).toBeInTheDocument()
   })
 
-  it('shows Open Pull Requests label for open state', async () => {
-    mockEnqueue.mockResolvedValue([makePR()])
+  it('shows Open Pull Requests label for open state', () => {
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="open" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Open Pull Requests')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Open Pull Requests')).toBeInTheDocument()
   })
 
-  it('shows Closed Pull Requests label for closed state', async () => {
-    mockEnqueue.mockResolvedValue([makePR()])
+  it('shows Closed Pull Requests label for closed state', () => {
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="closed" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Closed Pull Requests')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Closed Pull Requests')).toBeInTheDocument()
   })
 
-  it('shows approval count when present', async () => {
-    mockEnqueue.mockResolvedValue([makePR({ approvalCount: 3 })])
+  it('shows approval count when present', () => {
+    setupHook({ data: [makePR({ approvalCount: 3 })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('3')).toBeInTheDocument()
-    })
+    expect(screen.getByText('3')).toBeInTheDocument()
   })
 
-  it('retries fetch on retry button click', async () => {
-    mockEnqueue.mockRejectedValueOnce(new Error('fail'))
+  it('calls refresh on retry button click', () => {
+    setupHook({ data: null, loading: false, error: 'fail' })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText(/Retry/)).toBeInTheDocument()
-    })
-
-    mockEnqueue.mockResolvedValue([makePR()])
     fireEvent.click(screen.getByText(/Retry/))
-
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
+    expect(mockRefresh).toHaveBeenCalled()
   })
 
-  it('renders list view mode with table', async () => {
+  it('renders list view mode with table', () => {
     mockViewMode.mockReturnValue(['list', vi.fn()])
-    mockEnqueue.mockResolvedValue([
-      makePR(),
-      makePR({ number: 2, title: 'Fix bug', state: 'merged' }),
-      makePR({ number: 3, title: 'Closed PR', state: 'closed' }),
-      makePR({ number: 4, title: 'Draft PR', draft: true }),
-    ])
+    setupHook({
+      data: [
+        makePR(),
+        makePR({ number: 2, title: 'Fix bug', state: 'merged' }),
+        makePR({ number: 3, title: 'Closed PR', state: 'closed' }),
+        makePR({ number: 4, title: 'Draft PR', draft: true }),
+      ],
+      loading: false,
+    })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
-    // Table headers should be visible
+    expect(screen.getByText('Add feature')).toBeInTheDocument()
     expect(screen.getByText('Title')).toBeInTheDocument()
     expect(screen.getByText('Author')).toBeInTheDocument()
     expect(screen.getByText('Updated')).toBeInTheDocument()
     expect(screen.getByText('Reviews')).toBeInTheDocument()
-    // Draft badge in list view
     expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 
-  it('shows refreshing indicator when loading with existing PRs', async () => {
-    let resolveSecond: (value: unknown) => void
-    mockEnqueue.mockResolvedValueOnce([makePR()]).mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveSecond = resolve
-        })
-    )
-
+  it('shows refreshing indicator when loading with existing PRs', () => {
+    setupHook({ data: [makePR()], loading: true })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
-
-    // Trigger refresh
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Refreshing pull requests...')).toBeInTheDocument()
-    })
-
-    resolveSecond!([makePR()])
+    expect(screen.getByText('Refreshing pull requests...')).toBeInTheDocument()
   })
 
-  it('shows approval count in list view', async () => {
+  it('shows approval count in list view', () => {
     mockViewMode.mockReturnValue(['list', vi.fn()])
-    mockEnqueue.mockResolvedValue([makePR({ approvalCount: 5 })])
+    setupHook({ data: [makePR({ approvalCount: 5 })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('5')).toBeInTheDocument()
-    })
+    expect(screen.getByText('5')).toBeInTheDocument()
   })
 
-  it('handles PR click in list view', async () => {
+  it('handles PR click in list view', () => {
     mockViewMode.mockReturnValue(['list', vi.fn()])
     const onOpenPR = vi.fn()
-    mockEnqueue.mockResolvedValue([makePR()])
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
-
-    // In list view, click the table row
     fireEvent.click(screen.getByText('Add feature').closest('tr')!)
     expect(onOpenPR).toHaveBeenCalled()
   })
 
-  it('shows empty state for closed PRs', async () => {
-    mockEnqueue.mockResolvedValue([])
+  it('shows empty state for closed PRs', () => {
+    setupHook({ data: [], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="closed" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('No closed pull requests')).toBeInTheDocument()
-    })
+    expect(screen.getByText('No closed pull requests')).toBeInTheDocument()
   })
 
-  it('silently ignores abort errors', async () => {
-    mockIsAbortError.mockReturnValue(true)
-    mockEnqueue.mockRejectedValue(new DOMException('Aborted', 'AbortError'))
-    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+  it('passes correct options to useGitHubData', () => {
+    setupHook({ data: null, loading: true })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="open" />)
 
-    await waitFor(() => {
-      expect(mockEnqueue).toHaveBeenCalled()
-    })
-    expect(screen.queryByText('Failed to load pull requests')).not.toBeInTheDocument()
+    expect(mockUseGitHubData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cacheKey: 'repo-prs:open:test-org/hs-buddy',
+        taskName: 'repo-prs-open-test-org-hs-buddy',
+      })
+    )
   })
 
-  it('uses cached data without calling enqueue', async () => {
-    const cachedPRs = [makePR()]
-    mockCacheGet.mockReturnValue({ data: cachedPRs })
+  it('renders PR without avatar image in card view when authorAvatarUrl is null', () => {
+    setupHook({ data: [makePR({ authorAvatarUrl: null })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
-    expect(mockEnqueue).not.toHaveBeenCalled()
-  })
-
-  it('renders PR without avatar image in card view when authorAvatarUrl is null', async () => {
-    mockEnqueue.mockResolvedValue([makePR({ authorAvatarUrl: null })])
-    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Add feature')).toBeInTheDocument()
     expect(document.querySelector('.repo-pr-avatar')).not.toBeInTheDocument()
   })
 
-  it('renders PR without avatar image in list view when authorAvatarUrl is null', async () => {
+  it('renders PR without avatar image in list view when authorAvatarUrl is null', () => {
     mockViewMode.mockReturnValue(['list', vi.fn()])
-    mockEnqueue.mockResolvedValue([makePR({ authorAvatarUrl: null })])
+    setupHook({ data: [makePR({ authorAvatarUrl: null })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Add feature')).toBeInTheDocument()
     expect(document.querySelector('.list-view-avatar')).not.toBeInTheDocument()
   })
 
-  it('hides approval badge in card view when approvalCount is null', async () => {
-    mockEnqueue.mockResolvedValue([makePR({ approvalCount: null })])
+  it('hides approval badge in card view when approvalCount is null', () => {
+    setupHook({ data: [makePR({ approvalCount: null })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Add feature')).toBeInTheDocument()
     expect(document.querySelector('.repo-pr-approvals')).not.toBeInTheDocument()
   })
 
-  it('hides approval badge in list view when approvalCount is null', async () => {
+  it('hides approval badge in list view when approvalCount is null', () => {
     mockViewMode.mockReturnValue(['list', vi.fn()])
-    mockEnqueue.mockResolvedValue([makePR({ approvalCount: null })])
+    setupHook({ data: [makePR({ approvalCount: null })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Add feature')).toBeInTheDocument()
     expect(document.querySelector('.list-view-approvals')).not.toBeInTheDocument()
   })
 
-  it('handles PR click gracefully when window.shell is undefined', async () => {
+  it('handles PR click gracefully when window.shell is undefined', () => {
     Object.defineProperty(window, 'shell', {
       value: undefined,
       writable: true,
       configurable: true,
     })
-    mockEnqueue.mockResolvedValue([makePR()])
+    setupHook({ data: [makePR()], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
     // Should not throw when shell is undefined (optional chaining)
     fireEvent.click(screen.getByText('Add feature').closest('button')!)
   })
 
-  it('maps PR detail ID correctly with null optional fields', async () => {
+  it('maps PR detail ID correctly with null optional fields', () => {
     const nullFieldsPR = makePR({
       authorAvatarUrl: null,
       approvalCount: null,
@@ -407,26 +299,18 @@ describe('RepoPullRequestList', () => {
       updatedAt: null,
     })
     const onOpenPR = vi.fn()
-    mockEnqueue.mockResolvedValue([nullFieldsPR])
+    setupHook({ data: [nullFieldsPR], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
 
     fireEvent.click(screen.getByText('Add feature').closest('button')!)
     expect(onOpenPR).toHaveBeenCalled()
   })
 
-  it('falls back to full URL when url segment [4] is missing', async () => {
+  it('falls back to full URL when url segment [4] is missing', () => {
     const malformedPR = makePR({ url: 'https://github.com' })
     const onOpenPR = vi.fn()
-    mockEnqueue.mockResolvedValue([malformedPR])
+    setupHook({ data: [malformedPR], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Add feature')).toBeInTheDocument()
-    })
 
     fireEvent.click(screen.getByText('Add feature').closest('button')!)
     expect(onOpenPR).toHaveBeenCalled()

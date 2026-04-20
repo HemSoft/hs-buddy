@@ -31,6 +31,7 @@ import {
 } from '../api/github'
 import { UserPremiumUsageSection } from './UserPremiumUsageSection'
 import { ContributionGraph } from './ContributionGraph'
+import { PRStateIcon } from './shared/PRStateIcon'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { getErrorMessage } from '../utils/errorUtils'
 import './UserDetailPanel.css'
@@ -48,18 +49,14 @@ function navigateToView(viewId: string) {
   )
 }
 
-function PRStateIcon({ state }: { state: string }) {
-  switch (state) {
-    case 'merged':
-      return <GitMerge size={13} className="ud-pr-icon ud-pr-merged" />
-    case 'open':
-      return <GitPullRequest size={13} className="ud-pr-icon ud-pr-open" />
-    default:
-      return <GitPullRequest size={13} className="ud-pr-icon ud-pr-closed" />
-  }
-}
-
 function PRRow({ pr }: { pr: UserPRSummary }) {
+  const iconClass =
+    pr.state === 'merged'
+      ? 'ud-pr-icon ud-pr-merged'
+      : pr.state === 'open'
+        ? 'ud-pr-icon ud-pr-open'
+        : 'ud-pr-icon ud-pr-closed'
+
   return (
     <button
       type="button"
@@ -67,7 +64,7 @@ function PRRow({ pr }: { pr: UserPRSummary }) {
       onClick={() => window.shell.openExternal(pr.url)}
       title={`${pr.repo}#${pr.number}`}
     >
-      <PRStateIcon state={pr.state} />
+      <PRStateIcon state={pr.state} size={13} className={iconClass} />
       <span className="ud-pr-title">{pr.title}</span>
       <span className="ud-pr-meta">
         {pr.repo.split('/')[1]}#{pr.number}

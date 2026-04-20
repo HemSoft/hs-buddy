@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -9,6 +8,7 @@ import {
   Brain,
   Zap,
 } from 'lucide-react'
+import { useToggleSet } from '../../hooks/useToggleSet'
 
 interface Job {
   _id: string
@@ -51,7 +51,7 @@ export function AutomationSidebarSection({
   counts = EMPTY_COUNTS,
   badgeProgress = EMPTY_BADGE_PROGRESS,
 }: AutomationSidebarSectionProps) {
-  const [expandedSubSections, setExpandedSubSections] = useState<Set<string>>(new Set())
+  const { has: isExpanded, toggle: toggleSubSection } = useToggleSet()
 
   const jobsByType = jobs
     ? {
@@ -60,15 +60,6 @@ export function AutomationSidebarSection({
         skill: jobs.filter(j => j.workerType === 'skill'),
       }
     : null
-
-  const toggleSubSection = (key: string) => {
-    setExpandedSubSections(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
 
   const items = [
     { id: 'automation-jobs', label: 'Jobs' },
@@ -97,11 +88,9 @@ export function AutomationSidebarSection({
                     e.stopPropagation()
                     toggleSubSection('automation-jobs')
                   }}
-                  aria-label={
-                    expandedSubSections.has('automation-jobs') ? 'Collapse Jobs' : 'Expand Jobs'
-                  }
+                  aria-label={isExpanded('automation-jobs') ? 'Collapse Jobs' : 'Expand Jobs'}
                 >
-                  {expandedSubSections.has('automation-jobs') ? (
+                  {isExpanded('automation-jobs') ? (
                     <ChevronDown size={12} />
                   ) : (
                     <ChevronRight size={12} />
@@ -116,12 +105,10 @@ export function AutomationSidebarSection({
                     toggleSubSection('automation-schedules')
                   }}
                   aria-label={
-                    expandedSubSections.has('automation-schedules')
-                      ? 'Collapse Schedules'
-                      : 'Expand Schedules'
+                    isExpanded('automation-schedules') ? 'Collapse Schedules' : 'Expand Schedules'
                   }
                 >
-                  {expandedSubSections.has('automation-schedules') ? (
+                  {isExpanded('automation-schedules') ? (
                     <ChevronDown size={12} />
                   ) : (
                     <ChevronRight size={12} />
@@ -150,7 +137,7 @@ export function AutomationSidebarSection({
                   </span>
                 ) : item.id === 'automation-schedules' && schedules && schedules.length > 0 ? (
                   <span className="sidebar-item-icon">
-                    {expandedSubSections.has('automation-schedules') ? (
+                    {isExpanded('automation-schedules') ? (
                       <FolderOpen size={14} />
                     ) : (
                       <Folder size={14} />
@@ -193,7 +180,7 @@ export function AutomationSidebarSection({
 
             {/* Schedule sub-tree */}
             {item.id === 'automation-schedules' &&
-              expandedSubSections.has('automation-schedules') &&
+              isExpanded('automation-schedules') &&
               schedules && (
                 <div className="sidebar-job-tree">
                   <div className="sidebar-job-items">
@@ -219,57 +206,51 @@ export function AutomationSidebarSection({
               )}
 
             {/* Job sub-tree */}
-            {item.id === 'automation-jobs' &&
-              expandedSubSections.has('automation-jobs') &&
-              jobsByType && (
-                <div className="sidebar-job-tree">
-                  {(['exec', 'ai', 'skill'] as const).map(type => {
-                    const typeJobs = jobsByType[type]
-                    if (typeJobs.length === 0) return null
-                    const info = workerTypeInfo[type]
-                    const typeKey = `jobs-${type}`
-                    const isTypeExpanded = expandedSubSections.has(typeKey)
-                    return (
-                      <div key={type} className="sidebar-job-category">
-                        <button
-                          type="button"
-                          className="sidebar-job-category-header"
-                          onClick={() => toggleSubSection(typeKey)}
-                        >
-                          <span className="sidebar-item-chevron">
-                            {isTypeExpanded ? (
-                              <ChevronDown size={12} />
-                            ) : (
-                              <ChevronRight size={12} />
-                            )}
-                          </span>
-                          <span className="sidebar-item-icon">{info.icon}</span>
-                          <span className="sidebar-item-label">{info.label}</span>
-                          <span className="sidebar-item-count">{typeJobs.length}</span>
-                        </button>
-                        {isTypeExpanded && (
-                          <div className="sidebar-job-items">
-                            {typeJobs.map(job => (
-                              <button
-                                key={job._id}
-                                type="button"
-                                className={`sidebar-item sidebar-job-item ${selectedItem === `job-detail:${job._id}` ? 'selected' : ''}`}
-                                onClick={() => onItemSelect(`job-detail:${job._id}`)}
-                                title={job.description || job.name}
-                              >
-                                <span className="sidebar-item-icon">
-                                  <FileText size={12} />
-                                </span>
-                                <span className="sidebar-item-label">{job.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+            {item.id === 'automation-jobs' && isExpanded('automation-jobs') && jobsByType && (
+              <div className="sidebar-job-tree">
+                {(['exec', 'ai', 'skill'] as const).map(type => {
+                  const typeJobs = jobsByType[type]
+                  if (typeJobs.length === 0) return null
+                  const info = workerTypeInfo[type]
+                  const typeKey = `jobs-${type}`
+                  const isTypeExpanded = isExpanded(typeKey)
+                  return (
+                    <div key={type} className="sidebar-job-category">
+                      <button
+                        type="button"
+                        className="sidebar-job-category-header"
+                        onClick={() => toggleSubSection(typeKey)}
+                      >
+                        <span className="sidebar-item-chevron">
+                          {isTypeExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        </span>
+                        <span className="sidebar-item-icon">{info.icon}</span>
+                        <span className="sidebar-item-label">{info.label}</span>
+                        <span className="sidebar-item-count">{typeJobs.length}</span>
+                      </button>
+                      {isTypeExpanded && (
+                        <div className="sidebar-job-items">
+                          {typeJobs.map(job => (
+                            <button
+                              key={job._id}
+                              type="button"
+                              className={`sidebar-item sidebar-job-item ${selectedItem === `job-detail:${job._id}` ? 'selected' : ''}`}
+                              onClick={() => onItemSelect(`job-detail:${job._id}`)}
+                              title={job.description || job.name}
+                            >
+                              <span className="sidebar-item-icon">
+                                <FileText size={12} />
+                              </span>
+                              <span className="sidebar-item-label">{job.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )
       })}

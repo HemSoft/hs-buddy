@@ -1,21 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
   Clock3,
   ExternalLink,
-  Loader2,
   MinusCircle,
   PlayCircle,
   XCircle,
 } from 'lucide-react'
-import { GitHubClient, type PRChecksSummary } from '../api/github'
-import { useGitHubAccounts } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
+import type { PRChecksSummary } from '../api/github'
+import { useGitHubData } from '../hooks/useGitHubData'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
-import { getErrorMessage, isAbortError } from '../utils/errorUtils'
+import { PanelLoadingState, PanelErrorState } from './shared/PanelStates'
 import './PRChecksPanel.css'
 
 interface PRChecksPanelProps {
@@ -89,79 +87,35 @@ function getOverallStateLabel(state: PRChecksSummary['overallState']): string {
 }
 
 export function PRChecksPanel({ pr }: PRChecksPanelProps) {
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
-  const latestRequestRef = useRef(0)
-  const [error, setError] = useState<string | null>(null)
-  const [checks, setChecks] = useState<PRChecksSummary | null>(null)
+  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
+  const owner = ownerRepo?.owner ?? null
+  const repo = ownerRepo?.repo ?? null
+  const cacheKey = owner && repo ? `pr-checks:${owner}/${repo}/${pr.id}` : null
 
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
+  const {
+    data: checks,
+    error: fetchError,
+    refresh,
+  } = useGitHubData<PRChecksSummary>({
+    cacheKey,
+    taskName: `pr-checks-${pr.repository}-${pr.id}`,
+    fetchFn: client => client.fetchPRChecks(owner!, repo!, pr.id),
+  })
 
-  const fetchChecks = useCallback(async () => {
-    const requestId = latestRequestRef.current + 1
-    latestRequestRef.current = requestId
-
-    setError(null)
-
-    try {
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (!ownerRepo) {
-        throw new Error('Could not parse owner/repo from PR URL')
-      }
-
-      const result = await enqueueRef.current(
-        async signal => {
-          if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
-          const client = new GitHubClient({ accounts }, 7)
-          return await client.fetchPRChecks(ownerRepo.owner, ownerRepo.repo, pr.id)
-        },
-        { name: `pr-checks-${pr.repository}-${pr.id}` }
-      )
-
-      if (requestId !== latestRequestRef.current) {
-        return
-      }
-
-      setChecks(result)
-    } catch (err) {
-      if (isAbortError(err)) {
-        return
-      }
-
-      if (requestId !== latestRequestRef.current) {
-        return
-      }
-
-      setError(getErrorMessage(err))
-    }
-  }, [accounts, pr.id, pr.repository, pr.url])
-
-  useEffect(() => {
-    fetchChecks()
-  }, [fetchChecks])
+  const error = !cacheKey ? 'Could not parse owner/repo from PR URL' : fetchError
 
   if (error) {
     return (
-      <div className="pr-checks-error">
-        <p className="pr-checks-error-title">Failed to load checks</p>
-        <p className="pr-checks-error-detail">{error}</p>
-        <button className="pr-checks-retry" onClick={fetchChecks}>
-          Retry
-        </button>
-      </div>
+      <PanelErrorState
+        title="Failed to load checks"
+        error={error}
+        onRetry={cacheKey ? refresh : undefined}
+      />
     )
   }
 
   if (!checks) {
-    return (
-      <div className="pr-checks-loading">
-        <Loader2 size={28} className="spin" />
-        <p>Loading checks…</p>
-      </div>
-    )
+    return <PanelLoadingState message="Loading checks…" size={28} />
   }
 
   return (

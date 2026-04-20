@@ -6,6 +6,7 @@ import {
   type PRThreadsResult,
 } from '../api/github'
 import { useGitHubAccounts } from './useConfig'
+import { useLatest } from './useLatest'
 import { useLatestPRReviewRun } from './useConvex'
 import { useTaskQueue } from './useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
@@ -16,8 +17,9 @@ import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUti
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
+  const enqueueRef = useLatest(enqueue)
   const latestThreadsRequestRef = useRef(0)
+  const headShaRequestRef = useRef(0)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
   const owner = pr.org || ownerRepo?.owner
   const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
@@ -31,14 +33,12 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const [showResolved, setShowResolved] = useState(true)
 
   useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  useEffect(() => {
     if (!owner || !pr.repository || !pr.id) {
       setCurrentHeadSha(null)
       return
     }
+
+    const requestId = ++headShaRequestRef.current
 
     enqueueRef
       .current(
@@ -51,14 +51,18 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         },
         { name: `pr-head-${pr.repository}-${pr.id}` }
       )
-      .then(result => setCurrentHeadSha(result.headSha || null))
+      .then(result => {
+        if (requestId !== headShaRequestRef.current) return
+        setCurrentHeadSha(result.headSha || null)
+      })
       .catch(err => {
         /* v8 ignore start */
         if (isAbortError(err)) return
         /* v8 ignore stop */
+        if (requestId !== headShaRequestRef.current) return
         setCurrentHeadSha(null)
       })
-  }, [accounts, owner, pr.repository, pr.id])
+  }, [accounts, owner, pr.repository, pr.id, enqueueRef])
 
   const fetchThreads = useCallback(async () => {
     const requestId = latestThreadsRequestRef.current + 1
@@ -102,7 +106,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         setLoading(false)
       }
     }
-  }, [accounts, pr.id, pr.repository, ownerRepo])
+  }, [accounts, pr.id, pr.repository, ownerRepo, enqueueRef])
 
   useEffect(() => {
     fetchThreads()
@@ -163,7 +167,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     } finally {
       setSendingComment(false)
     }
-  }, [commentText, sendingComment, ownerRepo, pr.id, pr.repository, accounts])
+  }, [commentText, sendingComment, ownerRepo, pr.id, pr.repository, accounts, enqueueRef])
 
   const handleReactToComment = useCallback(
     async (commentId: string, content: PRCommentReactionContent) => {
@@ -189,7 +193,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         console.error('Failed to add reaction:', err)
       }
     },
-    [accounts, ownerRepo, pr.repository, pr.id]
+    [accounts, ownerRepo, pr.repository, pr.id, enqueueRef]
   )
 
   const activeThreads = useMemo(

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 
 export interface QuoteData {
   symbol: string
@@ -25,50 +26,34 @@ const WATCHLIST_KEY = 'finance:watchlist'
 const DEFAULT_WATCHLIST = ['^GSPC', '^IXIC', '^DJI', 'BTC-USD']
 
 function readCache(): { quotes: QuoteData[]; timestamp: number } | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as { quotes: QuoteData[]; timestamp: number; version?: number }
-      if ((parsed.version ?? 0) < CACHE_VERSION) return null
-      /* v8 ignore start */
-      if (Date.now() - parsed.timestamp < CACHE_TTL_MS) return parsed
-      /* v8 ignore stop */
-    }
-  } catch {
-    // corrupt or unavailable
+  const parsed = safeGetJson<{ quotes: QuoteData[]; timestamp: number; version?: number }>(
+    CACHE_KEY
+  )
+  if (parsed) {
+    if ((parsed.version ?? 0) < CACHE_VERSION) return null
+    /* v8 ignore start */
+    if (Date.now() - parsed.timestamp < CACHE_TTL_MS) return parsed
+    /* v8 ignore stop */
   }
   return null
 }
 
 function writeCache(quotes: QuoteData[], timestamp: number) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ quotes, timestamp, version: CACHE_VERSION }))
-  } catch {
-    // localStorage unavailable
-  }
+  safeSetJson(CACHE_KEY, { quotes, timestamp, version: CACHE_VERSION })
 }
 
 export function readWatchlist(): string[] {
-  try {
-    const raw = localStorage.getItem(WATCHLIST_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as string[]
-      if (Array.isArray(parsed)) {
-        return parsed.length > 0 ? parsed : []
-      }
+  const parsed = safeGetJson<string[]>(WATCHLIST_KEY)
+  if (parsed) {
+    if (Array.isArray(parsed)) {
+      return parsed.length > 0 ? parsed : []
     }
-  } catch {
-    // corrupt or unavailable
   }
   return DEFAULT_WATCHLIST
 }
 
 function writeWatchlist(symbols: string[]) {
-  try {
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(symbols))
-  } catch {
-    // localStorage unavailable
-  }
+  safeSetJson(WATCHLIST_KEY, symbols)
 }
 
 async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
@@ -173,11 +158,7 @@ export function useFinance() {
       writeWatchlist(next)
       setWatchlistState(next)
 
-      try {
-        localStorage.removeItem(CACHE_KEY)
-      } catch {
-        /* noop */
-      }
+      safeRemoveItem(CACHE_KEY)
       /* v8 ignore start */
       refresh(next).catch(() => {
         /* v8 ignore stop */

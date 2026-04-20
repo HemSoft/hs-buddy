@@ -1,5 +1,6 @@
-import { v } from "convex/values";
-import { mutation, query, type DatabaseReader } from "./_generated/server";
+import { v } from 'convex/values'
+import { mutation, query, type DatabaseReader } from './_generated/server'
+import { SINGLETON_KEY } from './lib/domain'
 
 /**
  * Buddy Stats — centralized usage statistics (singleton pattern)
@@ -28,33 +29,33 @@ const DEFAULT_STATS = {
   copilotPrReviews: 0,
   firstLaunchDate: 0,
   totalUptimeMs: 0,
-};
+}
 
 /** Valid counter field names for increment/batchIncrement */
 const COUNTER_FIELDS = new Set([
-  "appLaunches",
-  "tabsOpened",
-  "prsViewed",
-  "prsReviewed",
-  "prsMergedWatched",
-  "reposBrowsed",
-  "repoDetailViews",
-  "jobsCreated",
-  "runsTriggered",
-  "runsCompleted",
-  "runsFailed",
-  "schedulesCreated",
-  "bookmarksCreated",
-  "settingsChanged",
-  "searchesPerformed",
-  "copilotPrReviews",
-]);
+  'appLaunches',
+  'tabsOpened',
+  'prsViewed',
+  'prsReviewed',
+  'prsMergedWatched',
+  'reposBrowsed',
+  'repoDetailViews',
+  'jobsCreated',
+  'runsTriggered',
+  'runsCompleted',
+  'runsFailed',
+  'schedulesCreated',
+  'bookmarksCreated',
+  'settingsChanged',
+  'searchesPerformed',
+  'copilotPrReviews',
+])
 
 async function getDefaultStats(db: DatabaseReader) {
   return db
-    .query("buddyStats")
-    .withIndex("by_key", (q) => q.eq("key", "default"))
-    .first();
+    .query('buddyStats')
+    .withIndex('by_key', q => q.eq('key', SINGLETON_KEY))
+    .first()
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────
@@ -64,21 +65,21 @@ async function getDefaultStats(db: DatabaseReader) {
  */
 export const get = query({
   args: {},
-  handler: async (ctx) => {
-    const doc = await getDefaultStats(ctx.db);
+  handler: async ctx => {
+    const doc = await getDefaultStats(ctx.db)
 
-    if (doc) return doc;
+    if (doc) return doc
 
     // Return in-memory defaults (not persisted) until first mutation
     return {
-      key: "default" as const,
+      key: SINGLETON_KEY,
       ...DEFAULT_STATS,
       lastSessionStart: undefined,
       createdAt: 0,
       updatedAt: 0,
-    };
+    }
   },
-});
+})
 
 // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -92,34 +93,34 @@ export const increment = mutation({
   },
   handler: async (ctx, { field, amount }) => {
     if (!COUNTER_FIELDS.has(field)) {
-      throw new Error(`Invalid stat field: ${field}`);
+      throw new Error(`Invalid stat field: ${field}`)
     }
 
-    const amt = amount ?? 1;
-    const now = Date.now();
+    const amt = amount ?? 1
+    const now = Date.now()
 
-    const existing = await getDefaultStats(ctx.db);
+    const existing = await getDefaultStats(ctx.db)
 
     if (existing) {
-      const current = (existing as Record<string, unknown>)[field] as number ?? 0;
-      await ctx.db.patch("buddyStats", existing._id, {
+      const current = ((existing as Record<string, unknown>)[field] as number) ?? 0
+      await ctx.db.patch('buddyStats', existing._id, {
         [field]: current + amt,
         updatedAt: now,
-      });
-      return existing._id;
+      })
+      return existing._id
     } else {
       // First-ever stat write — create the document
-      return await ctx.db.insert("buddyStats", {
-        key: "default",
+      return await ctx.db.insert('buddyStats', {
+        key: SINGLETON_KEY,
         ...DEFAULT_STATS,
         [field]: amt,
         firstLaunchDate: now,
         createdAt: now,
         updatedAt: now,
-      });
+      })
     }
   },
-});
+})
 
 /**
  * Increment multiple counter fields in a single transaction.
@@ -130,40 +131,40 @@ export const batchIncrement = mutation({
     fields: v.any(), // Record<string, number>
   },
   handler: async (ctx, { fields }) => {
-    const entries = Object.entries(fields as Record<string, number>);
+    const entries = Object.entries(fields as Record<string, number>)
     for (const [key] of entries) {
       if (!COUNTER_FIELDS.has(key)) {
-        throw new Error(`Invalid stat field: ${key}`);
+        throw new Error(`Invalid stat field: ${key}`)
       }
     }
 
-    const now = Date.now();
+    const now = Date.now()
 
-    const existing = await getDefaultStats(ctx.db);
+    const existing = await getDefaultStats(ctx.db)
 
     if (existing) {
-      const patch: Record<string, unknown> = { updatedAt: now };
+      const patch: Record<string, unknown> = { updatedAt: now }
       for (const [key, amount] of entries) {
-        const current = (existing as Record<string, unknown>)[key] as number ?? 0;
-        patch[key] = current + amount;
+        const current = ((existing as Record<string, unknown>)[key] as number) ?? 0
+        patch[key] = current + amount
       }
-      await ctx.db.patch("buddyStats", existing._id, patch);
-      return existing._id;
+      await ctx.db.patch('buddyStats', existing._id, patch)
+      return existing._id
     } else {
       const doc: Record<string, unknown> = {
-        key: "default",
+        key: SINGLETON_KEY,
         ...DEFAULT_STATS,
         firstLaunchDate: now,
         createdAt: now,
         updatedAt: now,
-      };
-      for (const [key, amount] of entries) {
-        doc[key] = amount;
       }
-      return await ctx.db.insert("buddyStats", doc as never);
+      for (const [key, amount] of entries) {
+        doc[key] = amount
+      }
+      return await ctx.db.insert('buddyStats', doc as never)
     }
   },
-});
+})
 
 /**
  * Record a new session start.
@@ -173,41 +174,41 @@ export const batchIncrement = mutation({
  */
 export const recordSessionStart = mutation({
   args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+  handler: async ctx => {
+    const now = Date.now()
 
-    const existing = await getDefaultStats(ctx.db);
+    const existing = await getDefaultStats(ctx.db)
 
     if (existing) {
       // If a session is already active, don't double-count
       if (existing.lastSessionStart) {
-        return existing._id;
+        return existing._id
       }
 
       const patch: Record<string, unknown> = {
         appLaunches: existing.appLaunches + 1,
         lastSessionStart: now,
         updatedAt: now,
-      };
+      }
       // Set firstLaunchDate if it was never set (or zero)
       if (!existing.firstLaunchDate) {
-        patch.firstLaunchDate = now;
+        patch.firstLaunchDate = now
       }
-      await ctx.db.patch("buddyStats", existing._id, patch);
-      return existing._id;
+      await ctx.db.patch('buddyStats', existing._id, patch)
+      return existing._id
     } else {
-      return await ctx.db.insert("buddyStats", {
-        key: "default",
+      return await ctx.db.insert('buddyStats', {
+        key: SINGLETON_KEY,
         ...DEFAULT_STATS,
         appLaunches: 1,
         firstLaunchDate: now,
         lastSessionStart: now,
         createdAt: now,
         updatedAt: now,
-      });
+      })
     }
   },
-});
+})
 
 /**
  * Record session end — flush accumulated uptime.
@@ -215,22 +216,22 @@ export const recordSessionStart = mutation({
  */
 export const recordSessionEnd = mutation({
   args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+  handler: async ctx => {
+    const now = Date.now()
 
-    const existing = await getDefaultStats(ctx.db);
+    const existing = await getDefaultStats(ctx.db)
 
-    if (!existing || !existing.lastSessionStart) return;
+    if (!existing || !existing.lastSessionStart) return
 
-    const elapsed = Math.max(0, now - existing.lastSessionStart);
+    const elapsed = Math.max(0, now - existing.lastSessionStart)
 
-    await ctx.db.patch("buddyStats", existing._id, {
+    await ctx.db.patch('buddyStats', existing._id, {
       totalUptimeMs: existing.totalUptimeMs + elapsed,
       lastSessionStart: undefined,
       updatedAt: now,
-    });
+    })
   },
-});
+})
 
 /**
  * Checkpoint uptime without ending the session.
@@ -239,19 +240,19 @@ export const recordSessionEnd = mutation({
  */
 export const checkpointUptime = mutation({
   args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+  handler: async ctx => {
+    const now = Date.now()
 
-    const existing = await getDefaultStats(ctx.db);
+    const existing = await getDefaultStats(ctx.db)
 
-    if (!existing || !existing.lastSessionStart) return;
+    if (!existing || !existing.lastSessionStart) return
 
-    const elapsed = Math.max(0, now - existing.lastSessionStart);
+    const elapsed = Math.max(0, now - existing.lastSessionStart)
 
-    await ctx.db.patch("buddyStats", existing._id, {
+    await ctx.db.patch('buddyStats', existing._id, {
       totalUptimeMs: existing.totalUptimeMs + elapsed,
       lastSessionStart: now,
       updatedAt: now,
-    });
+    })
   },
-});
+})

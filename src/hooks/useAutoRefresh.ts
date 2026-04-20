@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { formatDistanceToNow, formatSecondsCountdown } from '../utils/dateUtils'
+import { safeGetItem, safeSetItem, safeGetJson, safeSetJson } from '../utils/storage'
 
 interface AutoRefreshSettings {
   enabled: boolean
@@ -25,58 +26,54 @@ function readSettings(cardId: string, defaultInterval: number): AutoRefreshSetti
     enabled: false,
     intervalMinutes: ALLOWED_INTERVALS.has(defaultInterval) ? defaultInterval : 0,
   }
-  try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${cardId}`)
-    if (raw) {
-      const parsed = JSON.parse(raw) as AutoRefreshSettings
-      if (
-        typeof parsed.enabled === 'boolean' &&
-        typeof parsed.intervalMinutes === 'number' &&
-        Number.isFinite(parsed.intervalMinutes) &&
-        ALLOWED_INTERVALS.has(parsed.intervalMinutes)
-      ) {
-        // Normalize: enabled requires a positive interval
-        return {
-          ...parsed,
-          enabled: parsed.enabled && parsed.intervalMinutes > 0,
-        }
+  const parsed = safeGetJson<AutoRefreshSettings>(`${STORAGE_PREFIX}${cardId}`)
+  if (parsed) {
+    if (
+      typeof parsed.enabled === 'boolean' &&
+      typeof parsed.intervalMinutes === 'number' &&
+      Number.isFinite(parsed.intervalMinutes) &&
+      ALLOWED_INTERVALS.has(parsed.intervalMinutes)
+    ) {
+      // Normalize: enabled requires a positive interval
+      return {
+        ...parsed,
+        enabled: parsed.enabled && parsed.intervalMinutes > 0,
       }
-      // Corrupt entry — reset to fallback
-      localStorage.setItem(`${STORAGE_PREFIX}${cardId}`, JSON.stringify(fallback))
     }
-  } catch {
-    // corrupt or unavailable
+    // Corrupt entry — return fallback (repair write is deferred to useEffect)
   }
   return fallback
 }
 
+function isStoredSettingsCorrupt(cardId: string): boolean {
+  const key = `${STORAGE_PREFIX}${cardId}`
+  const raw = safeGetItem(key)
+  if (raw === null) return false // Key doesn't exist — nothing to repair
+  const parsed = safeGetJson<AutoRefreshSettings>(key)
+  if (!parsed) return true // Raw exists but parse failed — corrupt JSON
+  return !(
+    typeof parsed.enabled === 'boolean' &&
+    typeof parsed.intervalMinutes === 'number' &&
+    Number.isFinite(parsed.intervalMinutes) &&
+    ALLOWED_INTERVALS.has(parsed.intervalMinutes)
+  )
+}
+
 function writeSettings(cardId: string, settings: AutoRefreshSettings) {
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}${cardId}`, JSON.stringify(settings))
-  } catch {
-    // localStorage unavailable
-  }
+  safeSetJson(`${STORAGE_PREFIX}${cardId}`, settings)
 }
 
 function readLastRefreshed(cardId: string): number | null {
-  try {
-    const raw = localStorage.getItem(`${LAST_REFRESHED_PREFIX}${cardId}`)
-    if (raw) {
-      const ts = Number(raw)
-      if (Number.isFinite(ts) && ts > 0) return ts
-    }
-  } catch {
-    // corrupt or unavailable
+  const raw = safeGetItem(`${LAST_REFRESHED_PREFIX}${cardId}`)
+  if (raw) {
+    const ts = Number(raw)
+    if (Number.isFinite(ts) && ts > 0) return ts
   }
   return null
 }
 
 function writeLastRefreshed(cardId: string, ts: number) {
-  try {
-    localStorage.setItem(`${LAST_REFRESHED_PREFIX}${cardId}`, String(ts))
-  } catch {
-    // localStorage unavailable
-  }
+  safeSetItem(`${LAST_REFRESHED_PREFIX}${cardId}`, String(ts))
 }
 
 /**
@@ -97,6 +94,16 @@ export function useAutoRefresh(
 ) {
   const [settings, setSettings] = useState(() => readSettings(cardId, defaultIntervalMin))
   const [lastRefreshedAt, setLastRefreshedAt] = useState(() => readLastRefreshed(cardId))
+
+  // Repair corrupt localStorage after mount (keeps the useState initializer pure)
+  useEffect(() => {
+    if (isStoredSettingsCorrupt(cardId)) {
+      writeSettings(cardId, settings)
+    }
+    // Intentionally only on mount — settings here is the initial fallback value
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardId])
+
   const refreshRef = useRef(refreshFn)
   refreshRef.current = refreshFn
   const pausedRef = useRef(paused)

@@ -42,7 +42,9 @@ vi.mock('../utils/githubUrl', () => ({
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
-  throwIfAborted: () => {},
+  throwIfAborted: (signal: AbortSignal) => {
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+  },
 }))
 
 vi.mock('../utils/dateUtils', () => ({
@@ -237,7 +239,7 @@ describe('PRFilesChangedPanel', () => {
     expect(screen.queryByText('Loading changed files...')).not.toBeInTheDocument()
   })
 
-  it('shows error when URL cannot be parsed', async () => {
+  it('shows error when URL cannot be parsed without retry button', async () => {
     mockCacheGet.mockReturnValue(null)
     const badPr = { ...defaultPr, url: 'invalid://url' }
     render(<PRFilesChangedPanel pr={badPr} />)
@@ -245,6 +247,7 @@ describe('PRFilesChangedPanel', () => {
     await waitFor(() => {
       expect(screen.getByText(/Could not parse owner\/repo/)).toBeInTheDocument()
     })
+    expect(screen.queryByText(/Retry/)).not.toBeInTheDocument()
   })
 
   it('shows refresh indicator when loading with existing data', async () => {

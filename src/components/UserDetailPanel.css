@@ -141,7 +141,7 @@
 
 .ud-metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
 }
 
@@ -469,10 +469,6 @@
   .ud-action-btn {
     flex: 1;
     justify-content: center;
-  }
-
-  .ud-metric-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .ud-section-grid {

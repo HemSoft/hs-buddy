@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move v8 ignore directives to standalone positions
 - Scope v8 ignore directives precisely to uncovered branches
 - Address PR review feedback on coverage config and dateUtils
+- Use auto-fit grid for UserDetailPanel metric cards
 
 ### Changed
 

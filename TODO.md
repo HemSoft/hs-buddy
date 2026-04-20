@@ -5,10 +5,22 @@
 | 📋 | High | Wire coverage:ratchet into CI | Run `bun run coverage:ratchet` after test:coverage passes so thresholds auto-increment |
 | 📋 | High | Add Gherkin BDD specs for remaining critical paths | Next: copilot sessions, data cache, PR list |
 | 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
+| 📋 | High | [Electron Main Process Test Suite](#electron-main-process-test-suite) | **0 test files across 38 source files** — IPC handlers, services, workers, root modules all untested |
+| 📋 | High | [IPC Contract Testing](#ipc-contract-testing) | 16 IPC handler files are the renderer↔main bridge with zero contract validation |
+| 📋 | High | [Convex Server Function Tests](#convex-server-function-tests) | **0 tests across 16 server functions** — bookmarks, jobs, runs, schedules, settings, etc. |
+| 📋 | High | [Performance Testing Suite](#performance-testing-suite) | Electron startup time, memory leak detection, IPC throughput, React render profiling, benchmark CI gating |
+| 📋 | High | [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap) | ESLint plugins (sonarjs, unicorn, strict), Electron security, architecture enforcement, E2E testing |
 | 📋 | Medium | Add format:check to pre-commit hook | CI has it but Husky pre-commit doesn't |
 | 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | New feature: categorized link management with quick-launch and tagging |
 | 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | Add table/grid view as alternative to card view on list pages |
+| 📋 | Medium | [Harden CI Soft-Fail Steps](#harden-ci-soft-fail-steps) | e18e and npm-audit both `continue-on-error: true` — make e18e blocking, add audit severity threshold |
+| 📋 | Medium | Add Convex typecheck to CI | Run `npx convex typecheck` in CI to catch schema/function type errors |
+| 📋 | Medium | [Electron Worker Tests](#electron-worker-tests) | dispatcher, execWorker, offlineSync, skillWorker, aiWorker — untested execution infrastructure |
+| 📋 | Medium | Add runtime a11y testing with axe-core | vitest-axe catches runtime ARIA violations that jsx-a11y ESLint misses |
+| 📋 | Medium | Add CONTRIBUTING.md | Contributor setup (Bun, Convex, env vars), PR conventions, testing expectations |
 | 📋 | Low | Evaluate Playwright component testing for TSX coverage | Many 0% component files are hard to unit-test |
+| 📋 | Low | Add CODEOWNERS file | Define file ownership for electron/, convex/, src/components/, .github/workflows/ |
+| 📋 | Low | Evaluate visual regression testing | Playwright screenshots or Percy/Chromatic for catching unintended UI changes |
 | ✅ | High | Raise test coverage from 20% to 50% | 2026-04-20: At 99.98% (4,090 tests, 198 files). Thresholds set to 100%. |
 | ✅ | High | SFL Queue Monitor workflow | 2026-04-01: Deployed to 3 repos with agent:queue label |
 | ✅ | Medium | Quality gates overhaul | 2026-03-31: CI gates, commitlint, vitest-cucumber BDD, coverage ratchet (PR #408) |
@@ -77,11 +89,127 @@
 
 ## Progress
 
-**Remaining: 7** | **Completed: 65** (90%)
+**Remaining: 19** | **Completed: 65** (77%)
 
 ---
 
 ## Remaining Items
+
+### Electron Main Process Test Suite
+
+The entire `electron/` directory has **0 test files** across approximately 38 source files. This is the largest untested surface in the codebase.
+
+**Untested Files:**
+- **IPC Handlers (16 files):** cacheHandlers, configHandlers, copilotHandlers, copilotSessionHandlers, crewHandlers, filesystemHandlers, financeHandlers, githubHandlers (27KB), instrumentIpc, ipcHandler, shellHandlers, tempoHandlers, terminalHandlers (14KB), todoistHandlers, windowHandlers, index
+- **Services (8 files):** copilotClient, copilotService, copilotSessionService, crewService, tempoClient, todoistClient (bench files exist but no unit tests)
+- **Workers (7 files):** aiWorker, dispatcher, execWorker, offlineSync, skillWorker, types, index
+- **Root Modules (7 files):** main.ts, preload.ts, config.ts, cache.ts, menu.ts, telemetry.ts, jsonFileStore.ts, utils.ts, zoom.ts
+
+**Implementation Plan:**
+1. Create `vitest.electron.config.ts` with `environment: 'node'` (not happy-dom)
+2. Create `electron/__mocks__/electron.ts` to mock BrowserWindow, ipcMain, app, dialog, shell
+3. Add `"test:electron": "vitest run --config vitest.electron.config.ts"` script
+4. Add `test:electron` step to CI pipeline
+5. Start with IPC handlers (highest-value tests) → services → workers → root modules
+
+### IPC Contract Testing
+
+The 16 IPC handler files in `electron/ipc/` register channels that the renderer process relies on. There is zero validation that these contracts are maintained — a renamed channel silently breaks features at runtime.
+
+**Approach:**
+1. Extract a shared `IPC_CHANNELS` constant (or generate from TypeScript types)
+2. Write contract tests that verify each handler registers expected channels
+3. Test request/response shapes match what the renderer sends/expects
+4. Biggest risks: `githubHandlers.ts` (27KB, most complex), `terminalHandlers.ts` (14KB), `configHandlers.ts` (7KB)
+
+### Convex Server Function Tests
+
+All 16 Convex server functions have **zero test coverage**. These handle persistent data operations (bookmarks, stats, jobs, schedules, settings) — bugs here corrupt user data.
+
+**Scope:**
+- bookmarks, buddyStats, copilotResults, copilotUsageHistory, featureIntakes
+- githubAccounts, jobs, prReviewRuns, repoBookmarks, runs
+- scheduleScanner, schedules, schema, sessionDigests, settings
+- Plus `convex/lib/` helpers
+
+**Implementation:**
+1. Install `convex-test` package for in-memory Convex backend testing
+2. Create `convex/__tests__/` directory with test files per module
+3. Add `"test:convex": "vitest run --config vitest.convex.config.ts"` script
+4. Prioritize: mutations (data-modifying) > queries > actions (external API calls)
+
+### Performance Testing Suite
+
+Comprehensive performance monitoring beyond unit benchmarks. The app needs Electron-specific performance testing that catches regressions across startup, memory, IPC, and rendering.
+
+**Key Areas:**
+
+1. **Benchmark CI Gating** — Benchmarks currently run with `continue-on-error: true` — performance regressions are invisible. Store bench results as JSON artifact, compare PR against main baseline, fail if any benchmark regresses >15%. Use `vitest bench --outputJson` + a `scripts/bench-compare.ts` comparator
+2. **Electron Startup Time** — Measure time from `app.whenReady()` to first meaningful paint. Track in CI and alert on regression (target: <3s cold start)
+3. **Memory Leak Detection** — Use `process.memoryUsage()` snapshots before/after heavy operations. Detect growth in heapUsed over repeated cycles. Focus on: IPC handler leaks, event listener accumulation, renderer process growth
+4. **IPC Throughput Testing** — Measure round-trip latency for critical IPC channels under load. Benchmark: githubHandlers (API calls), terminalHandlers (shell I/O), configHandlers (file I/O)
+5. **React Render Performance** — Add `why-did-you-render` in development mode to flag unnecessary re-renders. Track render counts for heavy components (PR list, org tree, schedule editor)
+6. **Lighthouse CI** — Run Lighthouse on the renderer process to score performance, a11y, and best practices
+
+**Implementation:**
+1. Create `perf/` directory for performance test scripts
+2. Add `"perf:startup"` and `"perf:memory"` scripts to package.json
+3. Integrate startup time tracking into CI (fail if >5s)
+4. Add `why-did-you-render` as devDependency with development-only setup
+5. Add bench-compare script for CI gating of vitest bench results
+
+### Code Quality Tooling Roadmap
+
+The repo already has excellent tooling (ESLint 9, Prettier, TypeScript strict, Vitest 100% thresholds, Knip, e18e, commitlint, Husky, markdownlint, bundle-size tracking, npm-audit-ci, Copilot Code Review, react-doctor, vitest-cucumber BDD, coverage ratchet, repo-audit, SFL Analyzers ×3, test-coverage-audit, simplisticate-audit). These are the remaining genuine gaps:
+
+**Tier 1 — ESLint Plugin Expansion (High value, low effort):**
+- `eslint-plugin-sonarjs` — catches cognitive complexity, duplicate branches, identical expressions
+- `eslint-plugin-unicorn` — modern JS best practices, performance patterns, no abbreviations
+- Upgrade `typescript-eslint` from `recommended` → `strict` preset (adds no-unnecessary-condition, no-confusing-void-expression, etc.)
+
+**Tier 2 — Electron Security (Medium value, medium effort):**
+- `electronegativity` — static analysis for Electron security misconfigurations (nodeIntegration, contextIsolation, webSecurity)
+- Add as CI step: `npx electronegativity -i electron/ -r`
+
+**Tier 3 — Architecture Enforcement (Medium value, medium effort):**
+- `dependency-cruiser` — enforce import boundaries (e.g., components can't import from electron/, convex/ can't import from src/)
+- `.dependency-cruiser.cjs` config with forbidden rules
+- Add as CI step
+
+**Tier 4 — E2E Testing (High value, high effort):**
+- Playwright with Electron adapter for full app E2E tests
+- Start with critical user flows: app launch, settings, PR list navigation
+- Consider `@playwright/test` with `electron.launch()` API
+
+### Harden CI Soft-Fail Steps
+
+Three CI steps currently run with `continue-on-error: true`, meaning failures are invisible:
+
+| Step | Current Behavior | Recommended Change |
+|------|-----------------|-------------------|
+| `e18e` | Soft-fail | **Make blocking** — dependency health is a quality gate |
+| `npm-audit` | Soft-fail | Add `--audit-level=high` to fail only on high/critical vulns |
+| `bench` | Soft-fail | Gate via bench-compare script (see Performance Testing Suite) |
+
+**Implementation:**
+1. Remove `continue-on-error: true` from e18e step in ci.yml
+2. Change npm-audit step to: `npx npm-audit-ci --moderate` (or `--high`)
+3. Benchmark gating covered in Performance Testing Suite
+
+### Electron Worker Tests
+
+The `electron/workers/` directory contains critical execution infrastructure with **zero tests**:
+
+- **dispatcher.ts (8KB)** — Routes tasks to correct worker, manages concurrency
+- **execWorker.ts (5KB)** — Spawns child processes, handles timeouts and abort signals
+- **offlineSync.ts (7KB)** — Queues operations during offline, replays on reconnect
+- **skillWorker.ts (2KB)** — Spawns Copilot CLI for skill execution
+- **aiWorker.ts (1KB)** — Spawns Copilot CLI for AI tasks
+
+**Priority test scenarios:**
+- Dispatcher: correct routing, concurrency limits, error propagation
+- ExecWorker: timeout behavior, abort signal handling, stdout/stderr capture
+- OfflineSync: queue persistence, replay ordering, conflict resolution on reconnect
 
 ### Bookmarks
 

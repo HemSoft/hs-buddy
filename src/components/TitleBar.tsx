@@ -167,7 +167,7 @@ export function TitleBar({
           <Users size={14} />
         </span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.734</span>
+        <span className="title-version">V0.1.737</span>
       </div>
       <div className="window-controls">
         <button

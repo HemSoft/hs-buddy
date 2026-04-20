@@ -1616,7 +1616,13 @@ describe('GitHubClient', () => {
 
     it('handles GraphQL query failure (profile returns null)', async () => {
       // Simulate GraphQL failing to get user profile
-      mockGraphql.mockResolvedValue({ user: null })
+      mockGraphql.mockResolvedValue({
+        user: null,
+        viewer: {
+          login: 'user1',
+          contributionsCollection: { contributionCalendar: { totalContributions: 0, weeks: [] } },
+        },
+      })
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
       mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
         data: { total_count: 0, items: [] },
@@ -1638,6 +1644,10 @@ describe('GitHubClient', () => {
       mockGraphql.mockResolvedValue({
         user: {
           contributionsCollection: { contributionCalendar: { totalContributions: 5 } },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: { contributionCalendar: { totalContributions: 5, weeks: [] } },
         },
       })
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
@@ -1667,6 +1677,10 @@ describe('GitHubClient', () => {
       mockGraphql.mockResolvedValue({
         user: {
           contributionsCollection: { contributionCalendar: { totalContributions: 0 } },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: { contributionCalendar: { totalContributions: 0, weeks: [] } },
         },
       })
       mockOctokit.repos.listForOrg.mockResolvedValue({
@@ -1702,7 +1716,141 @@ describe('GitHubClient', () => {
       // userProfile is null → contribution fields fall back to null
       expect(result.totalContributions).toBeNull()
       expect(result.contributionWeeks).toBeNull()
+      expect(result.contributionSource).toBe('public')
       expect(result.name).toBeNull()
+    })
+
+    it('uses viewer contribution data for self-view', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: 'User One',
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: '2020-01-01',
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: {
+              totalContributions: 0,
+              weeks: [],
+            },
+          },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: {
+            contributionCalendar: {
+              totalContributions: 42,
+              weeks: [
+                {
+                  contributionDays: [
+                    { date: '2026-01-01', contributionCount: 5, color: '#30a14e' },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+
+      // user1 is viewing their own profile → self-view uses viewer data
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.contributionSource).toBe('self')
+      expect(result.totalContributions).toBe(42)
+      expect(result.contributionWeeks).toHaveLength(1)
+    })
+
+    it('uses user contribution data for cross-user view', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: 'Other User',
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: '2020-01-01',
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: {
+              totalContributions: 0,
+              weeks: [],
+            },
+          },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: {
+            contributionCalendar: {
+              totalContributions: 42,
+              weeks: [
+                {
+                  contributionDays: [
+                    { date: '2026-01-01', contributionCount: 5, color: '#30a14e' },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+
+      // Viewing 'other-user' while authenticated as 'user1' → public view
+      const result = await client.fetchUserActivity('myorg', 'other-user')
+      expect(result.contributionSource).toBe('public')
+      expect(result.totalContributions).toBe(0)
+    })
+
+    it('handles case-insensitive self-view detection', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: null,
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: null,
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 0, weeks: [] },
+          },
+        },
+        viewer: {
+          login: 'User1',
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 15, weeks: [] },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
+        data: { role: 'member' },
+      })
+
+      // viewer.login is 'User1', username is 'user1' → case-insensitive match
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.contributionSource).toBe('self')
+      expect(result.totalContributions).toBe(15)
     })
 
     it('extracts repos from reviewed PR items via repository_url', async () => {
@@ -1720,6 +1868,10 @@ describe('GitHubClient', () => {
               weeks: [],
             },
           },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: { contributionCalendar: { totalContributions: 10, weeks: [] } },
         },
       })
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })

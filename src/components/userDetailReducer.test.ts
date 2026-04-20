@@ -32,6 +32,7 @@ const mockActivity = {
   commitsToday: 0,
   totalContributions: null,
   contributionWeeks: null,
+  contributionSource: 'public',
 } satisfies UserActivitySummary
 
 const idleState: ActivityState = {

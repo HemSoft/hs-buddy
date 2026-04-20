@@ -245,6 +245,8 @@ export interface UserActivitySummary {
   totalContributions: number | null
   /** Weekly contribution calendar data for the heatmap */
   contributionWeeks: ContributionWeek[] | null
+  /** Whether the contribution data comes from the viewer's own profile or public view of another user */
+  contributionSource: 'self' | 'public'
 }
 
 export interface UserPRSummary {
@@ -3082,6 +3084,21 @@ export class GitHubClient {
                 }
               }
             } | null
+            viewer: {
+              login: string
+              contributionsCollection: {
+                contributionCalendar: {
+                  totalContributions: number
+                  weeks: Array<{
+                    contributionDays: Array<{
+                      contributionCount: number
+                      date: string
+                      color: string
+                    }>
+                  }>
+                }
+              }
+            }
           }>(
             `
               query ($login: String!) {
@@ -3095,6 +3112,21 @@ export class GitHubClient {
                     emoji
                     message
                   }
+                  contributionsCollection {
+                    contributionCalendar {
+                      totalContributions
+                      weeks {
+                        contributionDays {
+                          contributionCount
+                          date
+                          color
+                        }
+                      }
+                    }
+                  }
+                }
+                viewer {
+                  login
                   contributionsCollection {
                     contributionCalendar {
                       totalContributions
@@ -3249,10 +3281,17 @@ export class GitHubClient {
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
-      totalContributions:
-        userProfile?.user?.contributionsCollection.contributionCalendar.totalContributions ?? null,
-      contributionWeeks:
-        userProfile?.user?.contributionsCollection.contributionCalendar.weeks ?? null,
+      ...(() => {
+        const isViewingSelf = userProfile?.viewer?.login?.toLowerCase() === username.toLowerCase()
+        const calendar = isViewingSelf
+          ? userProfile?.viewer?.contributionsCollection.contributionCalendar
+          : userProfile?.user?.contributionsCollection.contributionCalendar
+        return {
+          totalContributions: calendar?.totalContributions ?? null,
+          contributionWeeks: calendar?.weeks ?? null,
+          contributionSource: isViewingSelf ? ('self' as const) : ('public' as const),
+        }
+      })(),
     }
   }
 

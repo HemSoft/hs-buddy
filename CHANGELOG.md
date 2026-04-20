@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.737] - 2026-04-20
+
+### Added
+
+- Add self-view contribution detection for UserDetailPanel
+
+## [0.1.736] - 2026-04-20
+
+### Fixed
+
+- Always render contribution graph for cross-user views
+
 ## [0.1.734] - 2026-04-18
 
 ### Added

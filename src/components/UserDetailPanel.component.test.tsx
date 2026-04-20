@@ -48,6 +48,7 @@ const { mockActivity, dataCacheStore, stableAccounts } = vi.hoisted(() => {
     commitsToday: 3,
     totalContributions: 500,
     contributionWeeks: null,
+    contributionSource: 'public',
   }
   const store: Record<string, { data: unknown; fetchedAt: number }> = {}
   return { mockActivity: activity, dataCacheStore: store, stableAccounts: accounts }

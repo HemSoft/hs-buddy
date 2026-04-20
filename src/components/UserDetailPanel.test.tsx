@@ -76,6 +76,7 @@ function makeActivity(overrides: Partial<UserActivitySummary> = {}): UserActivit
     commitsToday: 0,
     totalContributions: null,
     contributionWeeks: null,
+    contributionSource: 'public',
     ...overrides,
   }
 }
@@ -799,6 +800,36 @@ describe('UserDetailPanel – uncovered branches & functions', () => {
 
       const { container } = render(<UserDetailPanel org="acme" memberLogin="no-contrib" />)
       expect(container.querySelector('[data-testid="contribution-graph-stub"]')).toBeNull()
+    })
+
+    it('shows contribution graph even for public view with 0 contributions', () => {
+      const cached = makeActivity({
+        totalContributions: 0,
+        contributionWeeks: [],
+        contributionSource: 'public',
+      })
+      dataCacheStore['user-activity:v3:acme/other-user'] = {
+        data: cached,
+        fetchedAt: Date.now(),
+      }
+
+      render(<UserDetailPanel org="acme" memberLogin="other-user" />)
+      expect(screen.getByTestId('contribution-graph-stub')).toBeTruthy()
+    })
+
+    it('renders graph for self-view even with 0 contributions', () => {
+      const cached = makeActivity({
+        totalContributions: 0,
+        contributionWeeks: [],
+        contributionSource: 'self',
+      })
+      dataCacheStore['user-activity:v3:acme/self-user'] = {
+        data: cached,
+        fetchedAt: Date.now(),
+      }
+
+      render(<UserDetailPanel org="acme" memberLogin="self-user" />)
+      expect(screen.getByTestId('contribution-graph-stub')).toBeTruthy()
     })
   })
 

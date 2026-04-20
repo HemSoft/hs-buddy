@@ -32,9 +32,10 @@ function browserTabReducer(state: BrowserTabState, action: BrowserTabAction): Br
       return { ...state, loading: true }
     case 'stop-loading':
       return { ...state, loading: false }
-    /* v8 ignore next -- TypeScript constrains action types making default unreachable */
+    /* v8 ignore start -- TypeScript constrains action types making default unreachable */
     default:
       return state
+    /* v8 ignore stop */
   }
 }
 

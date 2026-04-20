@@ -2,37 +2,34 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| ✅ | Critical | Raise test coverage from 20% to 50% | 2026-04-20: At 99.98% (4,090 tests, 198 files, 189/192 src files covered). Thresholds set to 100%. |
 | 📋 | High | Wire coverage:ratchet into CI | Run `bun run coverage:ratchet` after test:coverage passes so thresholds auto-increment |
 | 📋 | High | Add Gherkin BDD specs for remaining critical paths | Next: copilot sessions, data cache, PR list |
+| 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
 | 📋 | Medium | Add format:check to pre-commit hook | CI has it but Husky pre-commit doesn't |
 | 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | New feature: categorized link management with quick-launch and tagging |
 | 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | Add table/grid view as alternative to card view on list pages |
-| 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
 | 📋 | Low | Evaluate Playwright component testing for TSX coverage | Many 0% component files are hard to unit-test |
+| ✅ | High | Raise test coverage from 20% to 50% | 2026-04-20: At 99.98% (4,090 tests, 198 files). Thresholds set to 100%. |
 | ✅ | High | SFL Queue Monitor workflow | 2026-04-01: Deployed to 3 repos with agent:queue label |
 | ✅ | Medium | Quality gates overhaul | 2026-03-31: CI gates, commitlint, vitest-cucumber BDD, coverage ratchet (PR #408) |
 | ✅ | Medium | Benchmarking tests for critical paths | 2026-03-30: 3 bench files (dateUtils, jsonSerialization, copilotSessionParsing) |
 | ✅ | Medium | Task Planner (Todoist Integration) | 2026-03-30: 7-day upcoming view, Todoist REST API, IPC handlers |
 | ✅ | Medium | Copilot Session Explorer | 2026-03-29: JSONL parsing, workspace grouping, streaming parser |
 | ✅ | Medium | Session Insights & Feedback Loop | 2026-03-29: Digest computation, Convex persistence, digest UI |
-| ✅ | Medium | Add branch cleanup to repo-audit | 2026-03-22: Branch Hygiene scope added to repo-audit + sfl-auditor |
 | ✅ | High | Add GitHub organization metrics detail view | 2026-03-22: Skeleton loader, per-phase error handling, roster controls |
+| ✅ | Medium | Add branch cleanup to repo-audit | 2026-03-22: Branch Hygiene scope added to repo-audit + sfl-auditor |
 | ✅ | Medium | Capture Copilot usage history | 2026-03-09: Issue #137 / PR #138; snapshots persist for trends |
 | ✅ | High | Build project-scoped Copilot workspaces | 2026-03-08: Local project registration and project-scoped sessions |
 | ✅ | High | SFL Loop monitoring in Organizations tree | 2026-03-08: Organizations tree shows SFL workflow health per repo |
 | ✅ | High | Unify issue processor and fixer | 2026-03-07: Retired pr-fixer; sfl-issue-processor is single implementer |
 | ✅ | High | Global Copilot Assistant Panel | 2026-03-04: PR #104 merged via SFL pipeline |
 | ✅ | High | Simplisticate E2E Test | 2026-03-04: End-to-end SFL validation run completed |
-| ✅ | Critical | Simplisticate Workflows | 2026-03-03: Event-driven triggers, human review handoff |
+| ✅ | High | Simplisticate Workflows | 2026-03-03: Event-driven triggers, human review handoff |
+| ✅ | High | SFL Auto-Merge mode | 2026-03: Simplified to human-review handoff via A→B→C→label-actions |
 | ✅ | Medium | Copilot Usage month-end projection | 2026-03: Per-account trend projection with daily rate |
-| ✅ | Medium | Run 30-day Set it Free pilot | Removed — ongoing operational concern, not a dev task |
-| ✅ | Critical | SFL Auto-Merge mode | 2026-03: Simplified to human-review handoff via A→B→C→label-actions |
-| ✅ | Medium | Elegant status bar queue display | 2026-02: "X of N · TaskName" with batch tracking |
-| ✅ | Medium | Copilot enterprise budget reset fix | 2026-02: UTC dates, auto-refresh on month boundary |
-| ✅ | Critical | SFL Simplification — Replace supersession model | 2026-02: pr-fixer rewritten with push-to-pull-request-branch |
-| ✅ | Critical | SFL Simplification — Label pruning | 2026-02: 39→27 labels, removed 12 unused |
-| ✅ | Critical | Build sfl-auditor workflow | 2026-02: Audits label consistency, repairs orphaned state |
+| ✅ | High | SFL Simplification — Replace supersession model | 2026-02: pr-fixer rewritten with push-to-pull-request-branch |
+| ✅ | High | SFL Simplification — Label pruning | 2026-02: 39→27 labels, removed 12 unused |
+| ✅ | High | Build sfl-auditor workflow | 2026-02: Audits label consistency, repairs orphaned state |
 | ✅ | High | SFL Simplification — Reduce PR Fixer prompt | 2026-02: 365→164 lines via V2 architecture |
 | ✅ | High | SFL Simplification — Adopt new safe-outputs | 2026-02: add-comment, add-labels/remove-labels adopted |
 | ✅ | High | SFL Complexity gate for future sessions | 2026-02: Session Start Gate added to SKILL.md |
@@ -54,6 +51,13 @@
 | ✅ | High | Job management UI | 2026-02: CRUD, context menus, worker-type forms |
 | ✅ | High | Implement Convex cron job | 2026-02: Runs every minute via crons.ts |
 | ✅ | High | Data prefetch + persistent cache | 2026-02: PR data survives restarts, background refresh |
+| ✅ | Medium | Repos of Interest feature | 2026-02: Folder-organized bookmark system |
+| ✅ | Medium | Add run history view | 2026-02: Real-time status, filters, expandable output |
+| ✅ | Medium | Implement skill-worker | 2026-02: Copilot CLI spawn, --allow-all mode |
+| ✅ | Medium | Implement ai-worker | 2026-02: Copilot CLI spawn, model selection, abort |
+| ✅ | Medium | Elegant status bar queue display | 2026-02: "X of N · TaskName" with batch tracking |
+| ✅ | Medium | Copilot enterprise budget reset fix | 2026-02: UTC dates, auto-refresh on month boundary |
+| ✅ | Low | Implement offline queue | 2026-02: Catch-up logic on reconnect |
 | ✅ | High | Tabbed window system for PRs | 2025-01: Tabs above content area, no duplicates |
 | ✅ | High | Fix Recently Merged date range | 2025-01: 30-day default, configurable in Settings |
 | ✅ | High | App-wide task queue system | 2025-01: Named queues with concurrency control |
@@ -62,10 +66,6 @@
 | ✅ | High | Define Convex schema | 2025-01: convex/schema.ts with jobs, schedules, runs |
 | ✅ | High | Add Convex client to Electron | 2025-01: ConvexClientProvider, useConvex hooks |
 | ✅ | High | Implement schedule CRUD functions | 2025-01: convex/schedules.ts, jobs.ts, runs.ts |
-| ✅ | Medium | Repos of Interest feature | 2026-02: Folder-organized bookmark system |
-| ✅ | Medium | Add run history view | 2026-02: Real-time status, filters, expandable output |
-| ✅ | Medium | Implement skill-worker | 2026-02: Copilot CLI spawn, --allow-all mode |
-| ✅ | Medium | Implement ai-worker | 2026-02: Copilot CLI spawn, model selection, abort |
 | ✅ | Medium | Create schedule editor dialog | 2025-02: Modal with CronBuilder, job selector |
 | ✅ | Medium | Add Workflows activity bar icon | 2025-01: RefreshCw icon in ActivityBar |
 | ✅ | Medium | Build Schedules sidebar + list | 2025-01: ScheduleList component with status badges |
@@ -74,11 +74,10 @@
 | ✅ | Medium | Fix taskbar app name | 2025-01: "HS-body" → "Buddy" |
 | ✅ | Medium | Create Help menu with About window | 2025-01: About dialog with branding |
 | ✅ | Medium | Design and create app icon | 2025-01: Gold/orange gradient Users icon |
-| ✅ | Low | Implement offline queue | 2026-02: Catch-up logic on reconnect |
 
 ## Progress
 
-**Remaining: 8** | **Completed: 64** (89%)
+**Remaining: 7** | **Completed: 65** (90%)
 
 ---
 

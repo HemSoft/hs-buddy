@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cover catch callback in abortResponse for 100% function coverage
 - Log iteration 10 — coverage verified at 100% all metrics
 - Mark test coverage TODO as complete
+- Clean up TODO.md per best practices
 
 ## [0.1.733] - 2026-04-18
 

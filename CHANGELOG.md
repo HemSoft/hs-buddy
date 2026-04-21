@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract shared InlineRefreshIndicator, PanelEmptyState, and PRStateIcon components
 - Update bundle-size baseline for @opentelemetry/sdk-node 0.215.0
 - Lazy-load OpenTelemetry SDK to reduce main bundle by ~78%
+- Switch usage grids from auto-fill to auto-fit for better responsiveness
 
 ### Fixed
 

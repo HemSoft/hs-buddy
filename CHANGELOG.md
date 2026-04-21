@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin Date.now in AccountQuotaCard test to prevent flaky collision
 - Add missing vitest imports for beforeAll/afterAll
 - Contribution grid fallback for EMU org members
+- Always use user(login:) path for contribution calendar data
 
 ## [0.1.736] - 2026-04-20
 

@@ -1721,7 +1721,7 @@ describe('GitHubClient', () => {
       expect(result.name).toBeNull()
     })
 
-    it('uses viewer contribution data for self-view', async () => {
+    it('always uses user path for contribution data (includes private contributions)', async () => {
       mockGraphql.mockResolvedValue({
         user: {
           name: 'User One',
@@ -1732,16 +1732,7 @@ describe('GitHubClient', () => {
           status: null,
           contributionsCollection: {
             contributionCalendar: {
-              totalContributions: 0,
-              weeks: [],
-            },
-          },
-        },
-        viewer: {
-          login: 'user1',
-          contributionsCollection: {
-            contributionCalendar: {
-              totalContributions: 42,
+              totalContributions: 1735,
               weeks: [
                 {
                   contributionDays: [
@@ -1749,6 +1740,15 @@ describe('GitHubClient', () => {
                   ],
                 },
               ],
+            },
+          },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: {
+            contributionCalendar: {
+              totalContributions: 11,
+              weeks: [],
             },
           },
         },
@@ -1763,10 +1763,10 @@ describe('GitHubClient', () => {
         data: { role: 'member' },
       })
 
-      // user1 is viewing their own profile → self-view uses viewer data
+      // Self-view still uses user(login:) path which respects profile privacy settings
       const result = await client.fetchUserActivity('myorg', 'user1')
       expect(result.contributionSource).toBe('self')
-      expect(result.totalContributions).toBe(42)
+      expect(result.totalContributions).toBe(1735)
       expect(result.contributionWeeks).toHaveLength(1)
     })
 
@@ -1828,13 +1828,13 @@ describe('GitHubClient', () => {
           createdAt: null,
           status: null,
           contributionsCollection: {
-            contributionCalendar: { totalContributions: 0, weeks: [] },
+            contributionCalendar: { totalContributions: 15, weeks: [] },
           },
         },
         viewer: {
           login: 'User1',
           contributionsCollection: {
-            contributionCalendar: { totalContributions: 15, weeks: [] },
+            contributionCalendar: { totalContributions: 3, weeks: [] },
           },
         },
       })

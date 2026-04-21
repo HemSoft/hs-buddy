@@ -3351,9 +3351,10 @@ export class GitHubClient {
       commitsToday,
       ...(await (async () => {
         const isViewingSelf = userProfile?.viewer?.login?.toLowerCase() === username.toLowerCase()
-        const calendar = isViewingSelf
-          ? userProfile?.viewer?.contributionsCollection.contributionCalendar
-          : userProfile?.user?.contributionsCollection.contributionCalendar
+        // Always use user(login:) path — it respects the user's "Include private
+        // contributions" profile setting and returns the correct calendar.
+        // The viewer path is only used for login detection, not contribution data.
+        const calendar = userProfile?.user?.contributionsCollection.contributionCalendar
 
         const totalContributions = calendar?.totalContributions ?? null
         const contributionWeeks = calendar?.weeks ?? null

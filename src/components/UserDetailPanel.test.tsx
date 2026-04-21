@@ -77,6 +77,7 @@ function makeActivity(overrides: Partial<UserActivitySummary> = {}): UserActivit
     totalContributions: null,
     contributionWeeks: null,
     contributionSource: 'public',
+    needsReadUserScope: false,
     ...overrides,
   }
 }

@@ -6,6 +6,8 @@ interface ContributionGraphProps {
   weeks: ContributionWeek[]
   totalContributions: number
   source?: 'self' | 'public' | 'org-commits'
+  needsScopeUpgrade?: boolean
+  onRequestScopeUpgrade?: () => void
 }
 
 const CELL_SIZE = 10
@@ -30,7 +32,13 @@ function toDarkColor(color: string): string {
   return color
 }
 
-export function ContributionGraph({ weeks, totalContributions, source }: ContributionGraphProps) {
+export function ContributionGraph({
+  weeks,
+  totalContributions,
+  source,
+  needsScopeUpgrade,
+  onRequestScopeUpgrade,
+}: ContributionGraphProps) {
   const monthLabels = useMemo(() => {
     const labels: Array<{ text: string; x: number }> = []
     let lastMonth = -1
@@ -107,6 +115,24 @@ export function ContributionGraph({ weeks, totalContributions, source }: Contrib
           )}
         </svg>
       </div>
+      {needsScopeUpgrade && (
+        <div className="ud-contrib-scope-banner">
+          <span>⚠️ Private contributions may be hidden.</span>
+          {onRequestScopeUpgrade ? (
+            <button
+              type="button"
+              className="ud-contrib-scope-btn"
+              onClick={onRequestScopeUpgrade}
+            >
+              Authorize
+            </button>
+          ) : (
+            <span className="ud-contrib-scope-hint">
+              Run: <code>gh auth refresh -h github.com --scopes read:user</code>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -94,6 +94,7 @@ import {
   eventSummary,
   EVENT_LABELS,
   clearOrgAvatarCache,
+  clearAllCaches,
   getOrgAvatarCacheEntry,
 } from './github'
 
@@ -109,6 +110,7 @@ describe('GitHubClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    clearAllCaches()
     // Return token for any account
     mockInvoke.mockImplementation((_channel: string, username: string) => {
       if (_channel === 'github:get-cli-token') return Promise.resolve(`token-${username}`)
@@ -2082,6 +2084,85 @@ describe('GitHubClient', () => {
       // Falls back to original zero-contribution result
       expect(result.contributionSource).toBe('public')
       expect(result.totalContributions).toBe(0)
+    })
+
+    it('sets needsReadUserScope=true when token lacks read:user scope', async () => {
+      const emptySearch = { data: { total_count: 0, items: [] } }
+      // First search call returns headers WITHOUT read:user
+      let callNum = 0
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(() => {
+        callNum++
+        if (callNum === 1) {
+          return Promise.resolve({
+            ...emptySearch,
+            headers: { 'x-oauth-scopes': 'repo, read:org, gist' },
+          })
+        }
+        return Promise.resolve(emptySearch)
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockGraphql.mockResolvedValue({
+        user: null,
+        viewer: { login: 'user1', contributionsCollection: { contributionCalendar: { totalContributions: 0, weeks: [] } } },
+      })
+      mockOctokit.orgs.getMembershipForUser.mockRejectedValue(new Error('nope'))
+      mockOctokit.paginate.mockResolvedValue([])
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.needsReadUserScope).toBe(true)
+    })
+
+    it('sets needsReadUserScope=false when token has read:user scope', async () => {
+      const emptySearch = { data: { total_count: 0, items: [] } }
+      let callNum = 0
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(() => {
+        callNum++
+        if (callNum === 1) {
+          return Promise.resolve({
+            ...emptySearch,
+            headers: { 'x-oauth-scopes': 'repo, read:org, read:user' },
+          })
+        }
+        return Promise.resolve(emptySearch)
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockGraphql.mockResolvedValue({
+        user: null,
+        viewer: { login: 'user1', contributionsCollection: { contributionCalendar: { totalContributions: 0, weeks: [] } } },
+      })
+      mockOctokit.orgs.getMembershipForUser.mockRejectedValue(new Error('nope'))
+      mockOctokit.paginate.mockResolvedValue([])
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.needsReadUserScope).toBe(false)
+    })
+
+    it('sets needsReadUserScope=false when token has parent user scope', async () => {
+      const emptySearch = { data: { total_count: 0, items: [] } }
+      let callNum = 0
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(() => {
+        callNum++
+        if (callNum === 1) {
+          return Promise.resolve({
+            ...emptySearch,
+            headers: { 'x-oauth-scopes': 'repo, user' },
+          })
+        }
+        return Promise.resolve(emptySearch)
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockGraphql.mockResolvedValue({
+        user: null,
+        viewer: { login: 'user1', contributionsCollection: { contributionCalendar: { totalContributions: 0, weeks: [] } } },
+      })
+      mockOctokit.orgs.getMembershipForUser.mockRejectedValue(new Error('nope'))
+      mockOctokit.paginate.mockResolvedValue([])
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.needsReadUserScope).toBe(false)
     })
   })
 

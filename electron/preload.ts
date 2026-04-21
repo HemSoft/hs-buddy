@@ -48,6 +48,11 @@ contextBridge.exposeInMainWorld('github', {
   getCliToken: (username?: string) => ipcRenderer.invoke('github:get-cli-token', username),
   getActiveAccount: () => ipcRenderer.invoke('github:get-active-account'),
   switchAccount: (username: string) => ipcRenderer.invoke('github:switch-account', username),
+  refreshAuthScopes: () =>
+    ipcRenderer.invoke('github:refresh-auth-scopes') as Promise<{
+      success: boolean
+      error?: string
+    }>,
   getCopilotUsage: (org: string, username?: string) =>
     ipcRenderer.invoke('github:get-copilot-usage', org, username),
   getCopilotQuota: (username: string) => ipcRenderer.invoke('github:get-copilot-quota', username),

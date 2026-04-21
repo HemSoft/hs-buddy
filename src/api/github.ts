@@ -250,6 +250,8 @@ export interface UserActivitySummary {
   contributionWeeks: ContributionWeek[] | null
   /** Where the contribution data comes from: viewer's own profile, public API, or org commit search fallback */
   contributionSource: 'self' | 'public' | 'org-commits'
+  /** True when the token lacks `read:user` scope — private contributions may be hidden */
+  needsReadUserScope: boolean
 }
 
 export interface UserPRSummary {
@@ -660,10 +662,39 @@ const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 // Module-level caches (persist across GitHubClient instances)
 const tokenCache: Map<string, string> = new Map()
 const orgAvatarCache: Map<string, string | null> = new Map() // null = tried and failed
+/** Per-account scope cache: tracks whether the token for a given username has `read:user`. */
+const scopeCache: Map<string, boolean> = new Map()
 
 /** Test-only: reset the org avatar cache between tests. */
 export function clearOrgAvatarCache(): void {
   orgAvatarCache.clear()
+}
+
+/** Clear all module-level caches (token, scope, avatar). Used after auth scope refresh. */
+export function clearAllCaches(): void {
+  tokenCache.clear()
+  scopeCache.clear()
+  orgAvatarCache.clear()
+}
+
+/**
+ * Check whether an Octokit REST response's `x-oauth-scopes` header includes
+ * `read:user` (or its parent scope `user`).  Caches per account username.
+ */
+function checkReadUserScope(
+  headers: Record<string, string | number | undefined> | undefined,
+  accountKey: string
+): boolean {
+  if (scopeCache.has(accountKey)) return scopeCache.get(accountKey)!
+  if (!headers) return false // unknown — don't cache
+
+  const raw = headers['x-oauth-scopes']
+  if (typeof raw !== 'string') return false // header absent — don't cache
+
+  const scopes = raw.split(/,\s*/)
+  const has = scopes.some(s => s === 'read:user' || s === 'user')
+  scopeCache.set(accountKey, has)
+  return has
 }
 
 /** Test-only: inspect the org avatar cache. */
@@ -3086,6 +3117,9 @@ export class GitHubClient {
 
     const emptySearch = { data: { total_count: 0, items: [] } } as const
 
+    // Track whether we detected `read:user` scope from any REST response header
+    let hasReadUser = scopeCache.get(org)
+
     // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile + contributions, org membership, teams
     const [
       authoredOpen,
@@ -3103,6 +3137,16 @@ export class GitHubClient {
           per_page: 15,
           sort: 'updated',
           order: 'desc',
+        })
+        .then(res => {
+          // Piggyback: detect token scopes from the first successful REST response
+          if (hasReadUser === undefined) {
+            hasReadUser = checkReadUserScope(
+              res.headers as Record<string, string | number | undefined>,
+              org
+            )
+          }
+          return res
         })
         .catch(() => emptySearch),
       octokit.search
@@ -3349,6 +3393,7 @@ export class GitHubClient {
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
+      needsReadUserScope: hasReadUser === false,
       ...(await (async () => {
         const isViewingSelf = userProfile?.viewer?.login?.toLowerCase() === username.toLowerCase()
         // Always use user(login:) path — it respects the user's "Include private

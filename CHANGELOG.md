@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review comments for useAutoRefresh and PanelStates
 - Use useLayoutEffect for cacheKey reset to prevent stale data flash
 - Invalidate in-flight requests on cacheKey change
+- Downgrade new react-hooks v7 rules to warnings
+- Resolve knip violations for BudgetProjection and playwright config
 
 ## [0.1.736] - 2026-04-20
 

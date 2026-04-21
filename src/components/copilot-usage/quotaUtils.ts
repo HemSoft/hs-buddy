@@ -90,7 +90,7 @@ export function computeProjection(premium: QuotaSnapshot, resetDateStr: string):
   return { projectedTotal, projectedOverage, projectedOverageCost, projectedPercent, dailyRate }
 }
 
-export interface BudgetProjection {
+interface BudgetProjection {
   projectedSpend: number
   dailySpendRate: number
 }

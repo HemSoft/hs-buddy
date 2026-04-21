@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { AccountQuotaCard } from './AccountQuotaCard'
 import type { GitHubAccount } from '../../types/config'
@@ -60,6 +60,16 @@ function makeQuotaData(overrides: Record<string, unknown> = {}) {
 }
 
 describe('AccountQuotaCard', () => {
+  // Pin Date.now() so computeProjection produces deterministic values that
+  // don't collide with the stat numbers (120, 180, 300) on any calendar day.
+  beforeAll(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-15T12:00:00Z'))
+  })
+  afterAll(() => {
+    vi.useRealTimers()
+  })
+
   it('shows loading state when loading with no data', () => {
     const state: AccountQuotaState = { data: null, loading: true, error: null, fetchedAt: null }
     render(<AccountQuotaCard account={testAccount} state={state} />)

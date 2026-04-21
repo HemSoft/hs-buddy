@@ -5,9 +5,7 @@ import { MONTH_SHORT } from '../utils/dateUtils'
 interface ContributionGraphProps {
   weeks: ContributionWeek[]
   totalContributions: number
-  source?: 'self' | 'public' | 'org-commits'
-  needsScopeUpgrade?: boolean
-  onRequestScopeUpgrade?: () => void
+  source?: 'graphql' | 'org-activity'
 }
 
 const CELL_SIZE = 10
@@ -36,8 +34,6 @@ export function ContributionGraph({
   weeks,
   totalContributions,
   source,
-  needsScopeUpgrade,
-  onRequestScopeUpgrade,
 }: ContributionGraphProps) {
   const monthLabels = useMemo(() => {
     const labels: Array<{ text: string; x: number }> = []
@@ -63,7 +59,7 @@ export function ContributionGraph({
       <div className="ud-contrib-header">
         <span className="ud-contrib-total">
           {totalContributions.toLocaleString()}{' '}
-          {source === 'org-commits' ? 'org commits' : 'contributions'} in the last year
+          {source === 'org-activity' ? 'org contributions' : 'contributions'} in the last year
         </span>
       </div>
       <div className="ud-contrib-scroll">
@@ -115,24 +111,6 @@ export function ContributionGraph({
           )}
         </svg>
       </div>
-      {needsScopeUpgrade && (
-        <div className="ud-contrib-scope-banner">
-          <span>⚠️ Private contributions may be hidden.</span>
-          {onRequestScopeUpgrade ? (
-            <button
-              type="button"
-              className="ud-contrib-scope-btn"
-              onClick={onRequestScopeUpgrade}
-            >
-              Authorize
-            </button>
-          ) : (
-            <span className="ud-contrib-scope-hint">
-              Run: <code>gh auth refresh -h github.com --scopes read:user</code>
-            </span>
-          )}
-        </div>
-      )}
     </div>
   )
 }

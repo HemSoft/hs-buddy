@@ -23,7 +23,6 @@ import { activityReducer, createInitialActivityState } from './userDetailReducer
 
 import {
   GitHubClient,
-  clearAllCaches,
   type OrgMemberResult,
   type OrgOverviewResult,
   type UserActivitySummary,
@@ -261,11 +260,9 @@ function UserMetricsGrid({
 function UserContributionSection({
   activity,
   activityPhase,
-  onScopeUpgrade,
 }: {
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
-  onScopeUpgrade?: () => void
 }) {
   if (
     activityPhase === 'ready' &&
@@ -282,8 +279,6 @@ function UserContributionSection({
           weeks={activity.contributionWeeks}
           totalContributions={activity.totalContributions}
           source={activity.contributionSource}
-          needsScopeUpgrade={activity.needsReadUserScope}
-          onRequestScopeUpgrade={onScopeUpgrade}
         />
       </section>
     )
@@ -456,15 +451,6 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     setRefreshKey(k => k + 1)
   }, [cacheKey])
 
-  const handleScopeUpgrade = useCallback(async () => {
-    const result = await window.github.refreshAuthScopes()
-    if (result.success) {
-      clearAllCaches()
-      dataCache.delete(cacheKey)
-      setRefreshKey(k => k + 1)
-    }
-  }, [cacheKey])
-
   const members = useMemo(
     () => dataCache.get<OrgMemberResult>(`org-members:${org}`)?.data ?? null,
     [org]
@@ -566,7 +552,6 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       <UserContributionSection
         activity={activity}
         activityPhase={activityPhase}
-        onScopeUpgrade={handleScopeUpgrade}
       />
 
       {/* ── PR Grid (Authored + Reviewed) ── */}

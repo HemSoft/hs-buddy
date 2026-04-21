@@ -76,8 +76,7 @@ function makeActivity(overrides: Partial<UserActivitySummary> = {}): UserActivit
     commitsToday: 0,
     totalContributions: null,
     contributionWeeks: null,
-    contributionSource: 'public',
-    needsReadUserScope: false,
+    contributionSource: 'graphql',
     ...overrides,
   }
 }

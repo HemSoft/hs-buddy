@@ -318,20 +318,6 @@ export function registerGitHubHandlers(): void {
     }
   })
 
-  // Refresh GitHub CLI auth to add `read:user` scope (opens browser for OAuth)
-  ipcMain.handle('github:refresh-auth-scopes', async () => {
-    try {
-      // gh auth refresh adds scopes to the active account; opens browser for OAuth
-      await execAsync('gh auth refresh -h github.com --scopes read:user', {
-        encoding: 'utf8',
-        timeout: 120_000, // 2 min — user must complete browser auth
-      })
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  })
-
   // Get Copilot premium request usage for an org via gh api
   ipcMain.handle('github:get-copilot-usage', async (_event, org: string, username?: string) => {
     try {

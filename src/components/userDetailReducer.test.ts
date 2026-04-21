@@ -32,7 +32,7 @@ const mockActivity = {
   commitsToday: 0,
   totalContributions: null,
   contributionWeeks: null,
-  contributionSource: 'public',
+  contributionSource: 'graphql',
 } satisfies UserActivitySummary
 
 const idleState: ActivityState = {

@@ -248,10 +248,8 @@ export interface UserActivitySummary {
   totalContributions: number | null
   /** Weekly contribution calendar data for the heatmap */
   contributionWeeks: ContributionWeek[] | null
-  /** Where the contribution data comes from: viewer's own profile, public API, or org commit search fallback */
-  contributionSource: 'self' | 'public' | 'org-commits'
-  /** True when the token lacks `read:user` scope — private contributions may be hidden */
-  needsReadUserScope: boolean
+  /** Where the contribution data comes from: GraphQL API or org-wide search API */
+  contributionSource: 'graphql' | 'org-activity'
 }
 
 export interface UserPRSummary {
@@ -662,39 +660,16 @@ const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 // Module-level caches (persist across GitHubClient instances)
 const tokenCache: Map<string, string> = new Map()
 const orgAvatarCache: Map<string, string | null> = new Map() // null = tried and failed
-/** Per-account scope cache: tracks whether the token for a given username has `read:user`. */
-const scopeCache: Map<string, boolean> = new Map()
 
 /** Test-only: reset the org avatar cache between tests. */
 export function clearOrgAvatarCache(): void {
   orgAvatarCache.clear()
 }
 
-/** Clear all module-level caches (token, scope, avatar). Used after auth scope refresh. */
+/** Clear all module-level caches (token, avatar). */
 export function clearAllCaches(): void {
   tokenCache.clear()
-  scopeCache.clear()
   orgAvatarCache.clear()
-}
-
-/**
- * Check whether an Octokit REST response's `x-oauth-scopes` header includes
- * `read:user` (or its parent scope `user`).  Caches per account username.
- */
-function checkReadUserScope(
-  headers: Record<string, string | number | undefined> | undefined,
-  accountKey: string
-): boolean {
-  if (scopeCache.has(accountKey)) return scopeCache.get(accountKey)!
-  if (!headers) return false // unknown — don't cache
-
-  const raw = headers['x-oauth-scopes']
-  if (typeof raw !== 'string') return false // header absent — don't cache
-
-  const scopes = raw.split(/,\s*/)
-  const has = scopes.some(s => s === 'read:user' || s === 'user')
-  scopeCache.set(accountKey, has)
-  return has
 }
 
 /** Test-only: inspect the org avatar cache. */
@@ -855,7 +830,7 @@ export function computeQuartiles(counts: number[]): number[] {
 }
 
 /**
- * Build a contribution calendar from an array of commit date strings.
+ * Build a contribution calendar from an array of activity date strings.
  * Produces the same ContributionWeek[] structure as the GitHub GraphQL API,
  * with weeks aligned to Sundays.
  */
@@ -3117,10 +3092,7 @@ export class GitHubClient {
 
     const emptySearch = { data: { total_count: 0, items: [] } } as const
 
-    // Track whether we detected `read:user` scope from any REST response header
-    let hasReadUser = scopeCache.get(org)
-
-    // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile + contributions, org membership, teams
+    // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile, org membership, teams, contribution dates
     const [
       authoredOpen,
       authoredMerged,
@@ -3130,6 +3102,7 @@ export class GitHubClient {
       userProfile,
       orgMembership,
       userTeams,
+      contributionDates,
     ] = await Promise.all([
       octokit.search
         .issuesAndPullRequests({
@@ -3137,16 +3110,6 @@ export class GitHubClient {
           per_page: 15,
           sort: 'updated',
           order: 'desc',
-        })
-        .then(res => {
-          // Piggyback: detect token scopes from the first successful REST response
-          if (hasReadUser === undefined) {
-            hasReadUser = checkReadUserScope(
-              res.headers as Record<string, string | number | undefined>,
-              org
-            )
-          }
-          return res
         })
         .catch(() => emptySearch),
       octokit.search
@@ -3196,21 +3159,7 @@ export class GitHubClient {
                 }
               }
             } | null
-            viewer: {
-              login: string
-              contributionsCollection: {
-                contributionCalendar: {
-                  totalContributions: number
-                  weeks: Array<{
-                    contributionDays: Array<{
-                      contributionCount: number
-                      date: string
-                      color: string
-                    }>
-                  }>
-                }
-              }
-            }
+            viewer: { login: string }
           }>(
             `
               query ($login: String!) {
@@ -3237,21 +3186,7 @@ export class GitHubClient {
                     }
                   }
                 }
-                viewer {
-                  login
-                  contributionsCollection {
-                    contributionCalendar {
-                      totalContributions
-                      weeks {
-                        contributionDays {
-                          contributionCount
-                          date
-                          color
-                        }
-                      }
-                    }
-                  }
-                }
+                viewer { login }
               }
             `,
             {
@@ -3279,6 +3214,8 @@ export class GitHubClient {
           return memberTeams
         })
         .catch(() => [] as string[]),
+      // Fetch all contribution dates (commits + PRs + issues) via search API
+      this.searchUserActivityDates(octokit, org, username).catch(() => [] as string[]),
     ])
 
     const extractRepo = (repoUrl: string) => {
@@ -3393,55 +3330,44 @@ export class GitHubClient {
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
-      needsReadUserScope: hasReadUser === false,
-      ...(await (async () => {
-        const isViewingSelf = userProfile?.viewer?.login?.toLowerCase() === username.toLowerCase()
-        // Always use user(login:) path — it respects the user's "Include private
-        // contributions" profile setting and returns the correct calendar.
-        // The viewer path is only used for login detection, not contribution data.
-        const calendar = userProfile?.user?.contributionsCollection.contributionCalendar
+      ...((() => {
+        // Use search-derived org activity as the primary contribution source.
+        // Falls back to GraphQL calendar when search returns less data (e.g. token has read:user).
+        const graphqlCalendar = userProfile?.user?.contributionsCollection?.contributionCalendar
+        const graphqlTotal = graphqlCalendar?.totalContributions ?? 0
 
-        const totalContributions = calendar?.totalContributions ?? null
-        const contributionWeeks = calendar?.weeks ?? null
-
-        // When viewing another user and GitHub returns 0 public contributions,
-        // fall back to org commit search if the user clearly has org activity.
-        if (
-          !isViewingSelf &&
-          totalContributions === 0 &&
-          (authoredOpen.data.total_count > 0 ||
-            authoredMerged.data.total_count > 0 ||
-            commitsToday > 0)
-        ) {
-          try {
-            const commitDates = await this.searchUserCommitDates(octokit, org, username)
-            if (commitDates.length > 0) {
-              const derived = buildContributionCalendar(commitDates)
-              return {
-                totalContributions: derived.totalContributions,
-                contributionWeeks: derived.weeks,
-                contributionSource: 'org-commits' as const,
-              }
-            }
-          } catch {
-            // Fall through to zero-contribution GraphQL result
+        if (contributionDates.length > 0 && contributionDates.length >= graphqlTotal) {
+          const derived = buildContributionCalendar(contributionDates)
+          return {
+            totalContributions: derived.totalContributions,
+            contributionWeeks: derived.weeks,
+            contributionSource: 'org-activity' as const,
           }
         }
 
+        if (graphqlCalendar) {
+          return {
+            totalContributions: graphqlTotal,
+            contributionWeeks: graphqlCalendar.weeks,
+            contributionSource: 'graphql' as const,
+          }
+        }
+
+        // No data from either source
         return {
-          totalContributions,
-          contributionWeeks,
-          contributionSource: isViewingSelf ? ('self' as const) : ('public' as const),
+          totalContributions: null as number | null,
+          contributionWeeks: null as ContributionWeek[] | null,
+          contributionSource: 'org-activity' as const,
         }
       })()),
     }
   }
 
   /**
-   * Search for commit dates by a user across an org using the commit search API.
-   * Returns up to 1000 commit date strings (ISO 8601) from the last year.
+   * Search for all contribution dates (commits, PRs, issues) by a user across an org.
+   * Runs three search streams in parallel, each returning up to 1000 results.
    */
-  private async searchUserCommitDates(
+  private async searchUserActivityDates(
     octokit: Octokit,
     org: string,
     username: string
@@ -3449,28 +3375,56 @@ export class GitHubClient {
     const yearAgo = new Date()
     yearAgo.setFullYear(yearAgo.getFullYear() - 1)
     const since = yearAgo.toISOString().split('T')[0]
-    const q = `org:${org} author:${username} committer-date:>=${since}`
 
-    const dates: string[] = []
-    let page = 1
-    const maxPages = 10
-
-    while (page <= maxPages) {
-      const result = await octokit.search.commits({
-        q,
-        sort: 'committer-date',
-        per_page: 100,
-        page,
-      })
-      for (const item of result.data.items) {
-        const date = item.commit.committer?.date ?? item.commit.author?.date
-        if (date) dates.push(date)
+    const paginateSearch = async (
+      searchFn: (opts: { q: string; sort: string; per_page: number; page: number }) => Promise<{ data: { items: Array<{ commit?: { committer?: { date?: string }; author?: { date?: string } }; created_at?: string }> } }>,
+      q: string,
+      sort: string,
+      extractDate: (item: Record<string, unknown>) => string | undefined
+    ): Promise<string[]> => {
+      const dates: string[] = []
+      let page = 1
+      const maxPages = 10
+      while (page <= maxPages) {
+        const result = await searchFn({ q, sort, per_page: 100, page })
+        for (const item of result.data.items) {
+          const date = extractDate(item as unknown as Record<string, unknown>)
+          if (date) dates.push(date)
+        }
+        if (result.data.items.length < 100) break
+        page++
       }
-      if (result.data.items.length < 100) break
-      page++
+      return dates
     }
 
-    return dates
+    const [commitDates, prDates, issueDates] = await Promise.all([
+      // Commits
+      paginateSearch(
+        opts => octokit.search.commits(opts),
+        `org:${org} author:${username} committer-date:>=${since}`,
+        'committer-date',
+        (item: Record<string, unknown>) => {
+          const commit = item.commit as { committer?: { date?: string }; author?: { date?: string } } | undefined
+          return commit?.committer?.date ?? commit?.author?.date
+        }
+      ).catch(() => [] as string[]),
+      // Pull requests
+      paginateSearch(
+        opts => octokit.search.issuesAndPullRequests(opts),
+        `org:${org} is:pr author:${username} created:>=${since}`,
+        'created',
+        (item: Record<string, unknown>) => item.created_at as string | undefined
+      ).catch(() => [] as string[]),
+      // Issues
+      paginateSearch(
+        opts => octokit.search.issuesAndPullRequests(opts),
+        `org:${org} is:issue author:${username} created:>=${since}`,
+        'created',
+        (item: Record<string, unknown>) => item.created_at as string | undefined
+      ).catch(() => [] as string[]),
+    ])
+
+    return [...commitDates, ...prDates, ...issueDates]
   }
 
   async getRateLimit(

@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Contribution grid fallback for EMU org members
 - Always use user(login:) path for contribution calendar data
 - Detect missing read:user scope and show upgrade banner for contribution grid
+- Use search API for contribution grid data instead of scope-gated GraphQL
 
 ## [0.1.736] - 2026-04-20
 

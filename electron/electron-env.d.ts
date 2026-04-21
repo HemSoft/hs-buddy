@@ -67,7 +67,6 @@ interface Window {
     getCliToken: (username?: string) => Promise<string>
     getActiveAccount: () => Promise<string | null>
     switchAccount: (username: string) => Promise<{ success: boolean; error?: string }>
-    refreshAuthScopes: () => Promise<{ success: boolean; error?: string }>
     getCopilotUsage: (
       org: string,
       username?: string

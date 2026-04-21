@@ -5,6 +5,7 @@ import { MONTH_SHORT } from '../utils/dateUtils'
 interface ContributionGraphProps {
   weeks: ContributionWeek[]
   totalContributions: number
+  source?: 'self' | 'public' | 'org-commits'
 }
 
 const CELL_SIZE = 10
@@ -29,7 +30,7 @@ function toDarkColor(color: string): string {
   return color
 }
 
-export function ContributionGraph({ weeks, totalContributions }: ContributionGraphProps) {
+export function ContributionGraph({ weeks, totalContributions, source }: ContributionGraphProps) {
   const monthLabels = useMemo(() => {
     const labels: Array<{ text: string; x: number }> = []
     let lastMonth = -1
@@ -53,7 +54,8 @@ export function ContributionGraph({ weeks, totalContributions }: ContributionGra
     <div className="ud-contrib-graph">
       <div className="ud-contrib-header">
         <span className="ud-contrib-total">
-          {totalContributions.toLocaleString()} contributions in the last year
+          {totalContributions.toLocaleString()}{' '}
+          {source === 'org-commits' ? 'org commits' : 'contributions'} in the last year
         </span>
       </div>
       <div className="ud-contrib-scroll">

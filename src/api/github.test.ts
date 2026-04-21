@@ -40,6 +40,7 @@ const mockOctokit = {
   },
   search: {
     issuesAndPullRequests: vi.fn(),
+    commits: vi.fn(),
   },
   paginate: vi.fn(),
   orgs: {
@@ -1908,6 +1909,232 @@ describe('GitHubClient', () => {
 
       const result = await client.fetchUserActivity('myorg', 'user1')
       expect(result.activeRepos).toContain('myorg/reviewed-repo')
+    })
+
+    it('falls back to org commit search when viewing another user with 0 public contributions but org activity', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: 'Other User',
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: '2020-01-01',
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 0, weeks: [] },
+          },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 42, weeks: [] },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      let searchCallCount = 0
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(() => {
+        searchCallCount++
+        // 2nd call = authored merged, return activity so fallback triggers
+        if (searchCallCount === 2) {
+          return Promise.resolve({ data: { total_count: 3, items: [] } })
+        }
+        return Promise.resolve({ data: { total_count: 0, items: [] } })
+      })
+      mockOctokit.search.commits.mockResolvedValue({
+        data: {
+          items: [
+            {
+              commit: {
+                committer: { date: '2026-03-15T10:00:00Z' },
+                author: { date: '2026-03-15T10:00:00Z' },
+              },
+            },
+            {
+              commit: {
+                committer: { date: '2026-03-15T11:00:00Z' },
+                author: { date: '2026-03-15T11:00:00Z' },
+              },
+            },
+            {
+              commit: {
+                committer: { date: '2026-03-16T09:00:00Z' },
+                author: { date: '2026-03-16T09:00:00Z' },
+              },
+            },
+          ],
+        },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({ data: { role: 'member' } })
+
+      const result = await client.fetchUserActivity('myorg', 'other-user')
+      expect(result.contributionSource).toBe('org-commits')
+      expect(result.totalContributions).toBe(3)
+      expect(result.contributionWeeks!.length).toBeGreaterThan(0)
+    })
+
+    it('does not trigger fallback for self-view with 0 contributions', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: 'User One',
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: '2020-01-01',
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 0, weeks: [] },
+          },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 0, weeks: [] },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 5, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({ data: { role: 'member' } })
+
+      const result = await client.fetchUserActivity('myorg', 'user1')
+      expect(result.contributionSource).toBe('self')
+      expect(result.totalContributions).toBe(0)
+      // search.commits should not be called for self-view
+      expect(mockOctokit.search.commits).not.toHaveBeenCalled()
+    })
+
+    it('does not trigger fallback when there is no evidence of org activity', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: 'Other User',
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: '2020-01-01',
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 0, weeks: [] },
+          },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 42, weeks: [] },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({ data: { role: 'member' } })
+
+      const result = await client.fetchUserActivity('myorg', 'other-user')
+      expect(result.contributionSource).toBe('public')
+      expect(result.totalContributions).toBe(0)
+      expect(mockOctokit.search.commits).not.toHaveBeenCalled()
+    })
+
+    it('falls back to zero when commit search fails', async () => {
+      mockGraphql.mockResolvedValue({
+        user: {
+          name: 'Other User',
+          bio: null,
+          company: null,
+          location: null,
+          createdAt: '2020-01-01',
+          status: null,
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 0, weeks: [] },
+          },
+        },
+        viewer: {
+          login: 'user1',
+          contributionsCollection: {
+            contributionCalendar: { totalContributions: 42, weeks: [] },
+          },
+        },
+      })
+      mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
+      let searchCallCount = 0
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(() => {
+        searchCallCount++
+        if (searchCallCount === 1) {
+          return Promise.resolve({ data: { total_count: 2, items: [] } })
+        }
+        return Promise.resolve({ data: { total_count: 0, items: [] } })
+      })
+      mockOctokit.search.commits.mockRejectedValue(new Error('Search API error'))
+      mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
+      mockOctokit.orgs.getMembershipForUser.mockResolvedValue({ data: { role: 'member' } })
+
+      const result = await client.fetchUserActivity('myorg', 'other-user')
+      // Falls back to original zero-contribution result
+      expect(result.contributionSource).toBe('public')
+      expect(result.totalContributions).toBe(0)
+    })
+  })
+
+  describe('buildContributionCalendar', () => {
+    it('builds weeks aligned to Sundays from commit dates', async () => {
+      const { buildContributionCalendar } = await import('./github')
+      const result = buildContributionCalendar([
+        '2026-03-15T10:00:00Z',
+        '2026-03-15T11:00:00Z',
+        '2026-03-16T09:00:00Z',
+      ])
+      expect(result.totalContributions).toBe(3)
+      expect(result.weeks.length).toBeGreaterThan(50)
+      const activeDays = result.weeks
+        .flatMap(w => w.contributionDays)
+        .filter(d => d.contributionCount > 0)
+      expect(activeDays).toHaveLength(2)
+      expect(activeDays.find(d => d.date === '2026-03-15')?.contributionCount).toBe(2)
+      expect(activeDays.find(d => d.date === '2026-03-16')?.contributionCount).toBe(1)
+    })
+
+    it('returns empty weeks for no commits', async () => {
+      const { buildContributionCalendar } = await import('./github')
+      const result = buildContributionCalendar([])
+      expect(result.totalContributions).toBe(0)
+      expect(result.weeks.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('computeQuartiles', () => {
+    it('returns default quartiles for empty input', async () => {
+      const { computeQuartiles } = await import('./github')
+      expect(computeQuartiles([])).toEqual([1, 2, 3])
+    })
+
+    it('computes quartiles from non-zero counts', async () => {
+      const { computeQuartiles } = await import('./github')
+      const result = computeQuartiles([0, 1, 2, 3, 4, 5, 6, 7, 8])
+      expect(result).toHaveLength(3)
+      expect(result[0]).toBeLessThanOrEqual(result[1])
+      expect(result[1]).toBeLessThanOrEqual(result[2])
+    })
+  })
+
+  describe('assignContributionColor', () => {
+    it('returns empty color for zero count', async () => {
+      const { assignContributionColor } = await import('./github')
+      expect(assignContributionColor(0, [1, 2, 3])).toBe('#ebedf0')
+    })
+
+    it('returns highest level for counts above Q3', async () => {
+      const { assignContributionColor } = await import('./github')
+      expect(assignContributionColor(10, [1, 2, 3])).toBe('#216e39')
     })
   })
 

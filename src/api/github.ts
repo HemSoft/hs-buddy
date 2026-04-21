@@ -248,8 +248,8 @@ export interface UserActivitySummary {
   totalContributions: number | null
   /** Weekly contribution calendar data for the heatmap */
   contributionWeeks: ContributionWeek[] | null
-  /** Whether the contribution data comes from the viewer's own profile or public view of another user */
-  contributionSource: 'self' | 'public'
+  /** Where the contribution data comes from: viewer's own profile, public API, or org commit search fallback */
+  contributionSource: 'self' | 'public' | 'org-commits'
 }
 
 export interface UserPRSummary {
@@ -801,6 +801,80 @@ function countCheckStatuses(
     successful,
     neutral,
   }
+}
+
+/** GitHub light-theme contribution colors for the 5 levels (0–4). */
+const CONTRIB_COLORS = ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'] as const
+
+/** Assign quartile-based contribution colors from daily counts. */
+export function assignContributionColor(count: number, quartiles: number[]): string {
+  if (count === 0) return CONTRIB_COLORS[0]
+  if (count <= quartiles[0]) return CONTRIB_COLORS[1]
+  if (count <= quartiles[1]) return CONTRIB_COLORS[2]
+  if (count <= quartiles[2]) return CONTRIB_COLORS[3]
+  return CONTRIB_COLORS[4]
+}
+
+/** Compute quartile boundaries (25th, 50th, 75th percentile) from non-zero counts. */
+export function computeQuartiles(counts: number[]): number[] {
+  const nonZero = counts.filter(c => c > 0).sort((a, b) => a - b)
+  if (nonZero.length === 0) return [1, 2, 3]
+  const q = (p: number) => nonZero[Math.min(Math.floor(p * nonZero.length), nonZero.length - 1)]
+  return [q(0.25), q(0.5), q(0.75)]
+}
+
+/**
+ * Build a contribution calendar from an array of commit date strings.
+ * Produces the same ContributionWeek[] structure as the GitHub GraphQL API,
+ * with weeks aligned to Sundays.
+ */
+export function buildContributionCalendar(commitDates: string[]): {
+  totalContributions: number
+  weeks: ContributionWeek[]
+} {
+  const dateCounts = new Map<string, number>()
+  for (const d of commitDates) {
+    const day = d.split('T')[0]
+    dateCounts.set(day, (dateCounts.get(day) ?? 0) + 1)
+  }
+
+  const now = new Date()
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const start = new Date(end)
+  start.setFullYear(start.getFullYear() - 1)
+  // Align start to Sunday
+  start.setDate(start.getDate() - start.getDay())
+
+  // First pass — collect all daily counts
+  const allDays: Array<{ date: string; count: number }> = []
+  const cursor = new Date(start)
+  while (cursor <= end) {
+    const dateStr = cursor.toISOString().split('T')[0]
+    allDays.push({ date: dateStr, count: dateCounts.get(dateStr) ?? 0 })
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  const quartiles = computeQuartiles(allDays.map(d => d.count))
+
+  // Second pass — build weeks with colors
+  const weeks: ContributionWeek[] = []
+  let weekDays: ContributionDay[] = []
+  for (const { date, count } of allDays) {
+    weekDays.push({
+      date,
+      contributionCount: count,
+      color: assignContributionColor(count, quartiles),
+    })
+    if (weekDays.length === 7) {
+      weeks.push({ contributionDays: weekDays })
+      weekDays = []
+    }
+  }
+  if (weekDays.length > 0) {
+    weeks.push({ contributionDays: weekDays })
+  }
+
+  return { totalContributions: commitDates.length, weeks }
 }
 
 export class GitHubClient {
@@ -3275,18 +3349,82 @@ export class GitHubClient {
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
-      ...(() => {
+      ...(await (async () => {
         const isViewingSelf = userProfile?.viewer?.login?.toLowerCase() === username.toLowerCase()
         const calendar = isViewingSelf
           ? userProfile?.viewer?.contributionsCollection.contributionCalendar
           : userProfile?.user?.contributionsCollection.contributionCalendar
+
+        const totalContributions = calendar?.totalContributions ?? null
+        const contributionWeeks = calendar?.weeks ?? null
+
+        // When viewing another user and GitHub returns 0 public contributions,
+        // fall back to org commit search if the user clearly has org activity.
+        if (
+          !isViewingSelf &&
+          totalContributions === 0 &&
+          (authoredOpen.data.total_count > 0 ||
+            authoredMerged.data.total_count > 0 ||
+            commitsToday > 0)
+        ) {
+          try {
+            const commitDates = await this.searchUserCommitDates(octokit, org, username)
+            if (commitDates.length > 0) {
+              const derived = buildContributionCalendar(commitDates)
+              return {
+                totalContributions: derived.totalContributions,
+                contributionWeeks: derived.weeks,
+                contributionSource: 'org-commits' as const,
+              }
+            }
+          } catch {
+            // Fall through to zero-contribution GraphQL result
+          }
+        }
+
         return {
-          totalContributions: calendar?.totalContributions ?? null,
-          contributionWeeks: calendar?.weeks ?? null,
+          totalContributions,
+          contributionWeeks,
           contributionSource: isViewingSelf ? ('self' as const) : ('public' as const),
         }
-      })(),
+      })()),
     }
+  }
+
+  /**
+   * Search for commit dates by a user across an org using the commit search API.
+   * Returns up to 1000 commit date strings (ISO 8601) from the last year.
+   */
+  private async searchUserCommitDates(
+    octokit: Octokit,
+    org: string,
+    username: string
+  ): Promise<string[]> {
+    const yearAgo = new Date()
+    yearAgo.setFullYear(yearAgo.getFullYear() - 1)
+    const since = yearAgo.toISOString().split('T')[0]
+    const q = `org:${org} author:${username} committer-date:>=${since}`
+
+    const dates: string[] = []
+    let page = 1
+    const maxPages = 10
+
+    while (page <= maxPages) {
+      const result = await octokit.search.commits({
+        q,
+        sort: 'committer-date',
+        per_page: 100,
+        page,
+      })
+      for (const item of result.data.items) {
+        const date = item.commit.committer?.date ?? item.commit.author?.date
+        if (date) dates.push(date)
+      }
+      if (result.data.items.length < 100) break
+      page++
+    }
+
+    return dates
   }
 
   async getRateLimit(

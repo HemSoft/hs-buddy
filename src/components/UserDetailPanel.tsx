@@ -278,6 +278,7 @@ function UserContributionSection({
         <ContributionGraph
           weeks={activity.contributionWeeks}
           totalContributions={activity.totalContributions}
+          source={activity.contributionSource}
         />
       </section>
     )

@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Align OTel 0.x packages to 0.215.0 and remove unused semantic-conventions
 - Pin Date.now in AccountQuotaCard test to prevent flaky collision
 - Add missing vitest imports for beforeAll/afterAll
+- Contribution grid fallback for EMU org members
 
 ## [0.1.736] - 2026-04-20
 

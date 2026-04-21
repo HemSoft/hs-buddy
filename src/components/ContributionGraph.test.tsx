@@ -102,4 +102,19 @@ describe('ContributionGraph', () => {
     // Custom color should be passed through toDarkColor unchanged
     expect(rects[0].getAttribute('fill')).toBe('#ff00ff')
   })
+
+  it('shows "org commits" label when source is org-commits', () => {
+    render(<ContributionGraph weeks={WEEKS} totalContributions={42} source="org-commits" />)
+    expect(screen.getByText('42 org commits in the last year')).toBeTruthy()
+  })
+
+  it('shows "contributions" label for self source', () => {
+    render(<ContributionGraph weeks={WEEKS} totalContributions={42} source="self" />)
+    expect(screen.getByText('42 contributions in the last year')).toBeTruthy()
+  })
+
+  it('shows "contributions" label when source is omitted', () => {
+    render(<ContributionGraph weeks={WEEKS} totalContributions={42} />)
+    expect(screen.getByText('42 contributions in the last year')).toBeTruthy()
+  })
 })

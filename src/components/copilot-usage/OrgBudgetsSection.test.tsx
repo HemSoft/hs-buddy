@@ -228,4 +228,187 @@ describe('OrgBudgetsSection', () => {
     expect(screen.queryByText('Failed to load')).not.toBeInTheDocument()
     expect(screen.getByText(/spent/)).toBeInTheDocument()
   })
+
+  describe('budget projection', () => {
+    // Mid-April 2026 fetchedAt so it falls within the billing period
+    const midApril2026 = Date.UTC(2026, 3, 15, 12, 0, 0) // Apr 15, 2026 12:00 UTC
+
+    it('renders projection when spend data and valid billing period exist', () => {
+      const orgs = new Map([['acme', 'token']])
+      const budgets: Record<string, OrgBudgetState> = {
+        acme: {
+          data: makeOrgBudgetData({
+            spent: 300,
+            budgetAmount: 1000,
+            fetchedAt: midApril2026,
+            spentUnavailable: false,
+          }) as OrgBudgetState['data'],
+          loading: false,
+          error: null,
+        },
+      }
+
+      render(
+        <OrgBudgetsSection
+          uniqueOrgs={orgs}
+          orgBudgets={budgets}
+          orgOverageFromQuotas={new Map()}
+        />
+      )
+      expect(screen.getByText('Month-End Projection')).toBeInTheDocument()
+      expect(screen.getByText('Projected')).toBeInTheDocument()
+      expect(screen.getByText('Per Day')).toBeInTheDocument()
+    })
+
+    it('does not render projection when useQuotaOverage is true', () => {
+      const orgs = new Map([['acme', 'token']])
+      const budgets: Record<string, OrgBudgetState> = {
+        acme: {
+          data: makeOrgBudgetData({
+            spent: 300,
+            useQuotaOverage: true,
+            fetchedAt: midApril2026,
+          }) as OrgBudgetState['data'],
+          loading: false,
+          error: null,
+        },
+      }
+
+      render(
+        <OrgBudgetsSection
+          uniqueOrgs={orgs}
+          orgBudgets={budgets}
+          orgOverageFromQuotas={new Map()}
+        />
+      )
+      expect(screen.queryByText('Month-End Projection')).not.toBeInTheDocument()
+    })
+
+    it('does not render projection when spentUnavailable is true', () => {
+      const orgs = new Map([['acme', 'token']])
+      const budgets: Record<string, OrgBudgetState> = {
+        acme: {
+          data: makeOrgBudgetData({
+            spent: 300,
+            spentUnavailable: true,
+            fetchedAt: midApril2026,
+          }) as OrgBudgetState['data'],
+          loading: false,
+          error: null,
+        },
+      }
+
+      render(
+        <OrgBudgetsSection
+          uniqueOrgs={orgs}
+          orgBudgets={budgets}
+          orgOverageFromQuotas={new Map()}
+        />
+      )
+      expect(screen.queryByText('Month-End Projection')).not.toBeInTheDocument()
+    })
+
+    it('does not render projection when fetchedAt is outside billing period', () => {
+      const orgs = new Map([['acme', 'token']])
+      const budgets: Record<string, OrgBudgetState> = {
+        acme: {
+          data: makeOrgBudgetData({
+            spent: 300,
+            fetchedAt: 1700000000000, // Nov 2023 — outside Apr 2026
+          }) as OrgBudgetState['data'],
+          loading: false,
+          error: null,
+        },
+      }
+
+      render(
+        <OrgBudgetsSection
+          uniqueOrgs={orgs}
+          orgBudgets={budgets}
+          orgOverageFromQuotas={new Map()}
+        />
+      )
+      expect(screen.queryByText('Month-End Projection')).not.toBeInTheDocument()
+    })
+
+    it('shows "Over Budget" when projected spend exceeds budget', () => {
+      const orgs = new Map([['acme', 'token']])
+      // 5 days in, already $500 spent on a $1000 budget → projects to ~$3000
+      const fiveDaysIn = Date.UTC(2026, 3, 6, 0, 0, 0) // Apr 6
+      const budgets: Record<string, OrgBudgetState> = {
+        acme: {
+          data: makeOrgBudgetData({
+            spent: 500,
+            budgetAmount: 1000,
+            fetchedAt: fiveDaysIn,
+            spentUnavailable: false,
+          }) as OrgBudgetState['data'],
+          loading: false,
+          error: null,
+        },
+      }
+
+      render(
+        <OrgBudgetsSection
+          uniqueOrgs={orgs}
+          orgBudgets={budgets}
+          orgOverageFromQuotas={new Map()}
+        />
+      )
+      expect(screen.getByText('Over Budget')).toBeInTheDocument()
+    })
+
+    it('does not show "Over Budget" when projected spend is within budget', () => {
+      const orgs = new Map([['acme', 'token']])
+      // 25 days in, $10 spent on a $1000 budget → projects to ~$12
+      const latePeriod = Date.UTC(2026, 3, 26, 0, 0, 0) // Apr 26
+      const budgets: Record<string, OrgBudgetState> = {
+        acme: {
+          data: makeOrgBudgetData({
+            spent: 10,
+            budgetAmount: 1000,
+            fetchedAt: latePeriod,
+            spentUnavailable: false,
+          }) as OrgBudgetState['data'],
+          loading: false,
+          error: null,
+        },
+      }
+
+      render(
+        <OrgBudgetsSection
+          uniqueOrgs={orgs}
+          orgBudgets={budgets}
+          orgOverageFromQuotas={new Map()}
+        />
+      )
+      expect(screen.queryByText('Over Budget')).not.toBeInTheDocument()
+    })
+
+    it('does not show "Over Budget" when no budget is set', () => {
+      const orgs = new Map([['unknown-org', 'token']])
+      const budgets: Record<string, OrgBudgetState> = {
+        'unknown-org': {
+          data: makeOrgBudgetData({
+            spent: 300,
+            budgetAmount: null,
+            fetchedAt: midApril2026,
+            spentUnavailable: false,
+          }) as OrgBudgetState['data'],
+          loading: false,
+          error: null,
+        },
+      }
+
+      render(
+        <OrgBudgetsSection
+          uniqueOrgs={orgs}
+          orgBudgets={budgets}
+          orgOverageFromQuotas={new Map()}
+        />
+      )
+      expect(screen.getByText('Month-End Projection')).toBeInTheDocument()
+      expect(screen.queryByText('Over Budget')).not.toBeInTheDocument()
+    })
+  })
 })

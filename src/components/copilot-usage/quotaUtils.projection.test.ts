@@ -3,6 +3,7 @@ import {
   OVERAGE_COST_PER_REQUEST,
   formatCurrency,
   computeProjection,
+  computeBudgetProjection,
   getQuotaColor,
 } from './quotaUtils'
 import type { QuotaSnapshot } from './quotaUtils'
@@ -146,5 +147,77 @@ describe('computeProjection', () => {
       expect(result.projectedOverage).toBe(0)
       expect(result.projectedOverageCost).toBe(0)
     }
+  })
+})
+
+describe('computeBudgetProjection', () => {
+  // April 2026 billing period: Apr 1 – Apr 30 (30 days)
+  const billingYear = 2026
+  const billingMonth = 4
+  const periodStartMs = Date.UTC(2026, 3, 1) // Apr 1 00:00 UTC
+  const periodEndMs = Date.UTC(2026, 4, 1) // May 1 00:00 UTC
+
+  it('returns null when spent is zero', () => {
+    const midMonth = periodStartMs + 15 * 86_400_000
+    expect(computeBudgetProjection(0, billingYear, billingMonth, midMonth)).toBeNull()
+  })
+
+  it('returns null when spent is negative', () => {
+    const midMonth = periodStartMs + 15 * 86_400_000
+    expect(computeBudgetProjection(-5, billingYear, billingMonth, midMonth)).toBeNull()
+  })
+
+  it('returns null when asOfMs is before the billing period', () => {
+    const beforePeriod = periodStartMs - 86_400_000
+    expect(computeBudgetProjection(100, billingYear, billingMonth, beforePeriod)).toBeNull()
+  })
+
+  it('returns null when asOfMs is after the billing period', () => {
+    expect(computeBudgetProjection(100, billingYear, billingMonth, periodEndMs)).toBeNull()
+    expect(
+      computeBudgetProjection(100, billingYear, billingMonth, periodEndMs + 86_400_000)
+    ).toBeNull()
+  })
+
+  it('returns null when less than 1 second has elapsed', () => {
+    expect(computeBudgetProjection(100, billingYear, billingMonth, periodStartMs + 500)).toBeNull()
+  })
+
+  it('projects spend to month-end at midpoint', () => {
+    // 15 days into a 30-day month, $300 spent → ~$600 projected
+    const midMonth = periodStartMs + 15 * 86_400_000
+    const result = computeBudgetProjection(300, billingYear, billingMonth, midMonth)
+
+    expect(result).not.toBeNull()
+    expect(result!.projectedSpend).toBeCloseTo(600, 0)
+    expect(result!.dailySpendRate).toBeCloseTo(20, 0)
+  })
+
+  it('projects correctly at 1/3 of the month', () => {
+    // 10 days into 30-day month, $200 spent → ~$600 projected
+    const tenDaysIn = periodStartMs + 10 * 86_400_000
+    const result = computeBudgetProjection(200, billingYear, billingMonth, tenDaysIn)
+
+    expect(result).not.toBeNull()
+    expect(result!.projectedSpend).toBeCloseTo(600, 0)
+    expect(result!.dailySpendRate).toBeCloseTo(20, 0)
+  })
+
+  it('projects low spend correctly', () => {
+    // 20 days in, only $10 spent → ~$15 projected
+    const twentyDaysIn = periodStartMs + 20 * 86_400_000
+    const result = computeBudgetProjection(10, billingYear, billingMonth, twentyDaysIn)
+
+    expect(result).not.toBeNull()
+    expect(result!.projectedSpend).toBeCloseTo(15, 0)
+    expect(result!.dailySpendRate).toBeCloseTo(0.5, 1)
+  })
+
+  it('defaults asOfMs to Date.now() when omitted', () => {
+    // Just verify it doesn't throw and returns something reasonable
+    // for the current month (may be null if we're not in April 2026)
+    const result = computeBudgetProjection(100, billingYear, billingMonth)
+    // Result depends on current date — just ensure no crash
+    expect(result === null || typeof result.projectedSpend === 'number').toBe(true)
   })
 })

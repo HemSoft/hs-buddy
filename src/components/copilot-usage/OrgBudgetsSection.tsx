@@ -1,5 +1,5 @@
-import { Building2, RefreshCw, ShieldAlert } from 'lucide-react'
-import { formatCurrency, getQuotaColor } from './quotaUtils'
+import { Building2, RefreshCw, ShieldAlert, TrendingUp } from 'lucide-react'
+import { formatCurrency, getQuotaColor, computeBudgetProjection } from './quotaUtils'
 import type { OrgBudgetState } from './types'
 import { formatTime } from '../../utils/dateUtils'
 
@@ -101,6 +101,52 @@ export function OrgBudgetsSection({
                       </span>
                     )}
                   </div>
+
+                  {!d.useQuotaOverage &&
+                    !d.spentUnavailable &&
+                    (() => {
+                      const budgetProjection = computeBudgetProjection(
+                        d.spent,
+                        d.billingYear,
+                        d.billingMonth,
+                        d.fetchedAt
+                      )
+                      if (!budgetProjection) return null
+                      const overBudget =
+                        effectiveBudget !== null
+                          ? Math.max(0, budgetProjection.projectedSpend - effectiveBudget)
+                          : null
+                      return (
+                        <div className="usage-projection">
+                          <div className="usage-projection-header">
+                            <TrendingUp size={12} />
+                            <span>Month-End Projection</span>
+                          </div>
+                          <div className="usage-projection-stats">
+                            <div className="usage-projection-stat">
+                              <span className="usage-projection-value">
+                                {formatCurrency(budgetProjection.projectedSpend)}
+                              </span>
+                              <span className="usage-projection-label">Projected</span>
+                            </div>
+                            <div className="usage-projection-stat">
+                              <span className="usage-projection-value">
+                                {formatCurrency(budgetProjection.dailySpendRate)}
+                              </span>
+                              <span className="usage-projection-label">Per Day</span>
+                            </div>
+                            {overBudget !== null && overBudget > 0 && (
+                              <div className="usage-projection-stat usage-projection-overage">
+                                <span className="usage-projection-value">
+                                  {formatCurrency(overBudget)}
+                                </span>
+                                <span className="usage-projection-label">Over Budget</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   <div className="usage-budget-footer">
                     <span className="usage-budget-period">
                       {new Date(d.billingYear, d.billingMonth - 1).toLocaleDateString(undefined, {

@@ -90,6 +90,41 @@ export function computeProjection(premium: QuotaSnapshot, resetDateStr: string):
   return { projectedTotal, projectedOverage, projectedOverageCost, projectedPercent, dailyRate }
 }
 
+export interface BudgetProjection {
+  projectedSpend: number
+  dailySpendRate: number
+}
+
+/**
+ * Projects org-level budget spending to month-end based on elapsed billing period.
+ * Returns null when the billing period hasn't started, has already ended,
+ * or when there's zero spend to project from.
+ */
+export function computeBudgetProjection(
+  spent: number,
+  billingYear: number,
+  billingMonth: number,
+  asOfMs: number = Date.now()
+): BudgetProjection | null {
+  if (spent <= 0) return null
+
+  const periodStart = new Date(Date.UTC(billingYear, billingMonth - 1, 1))
+  const periodEnd = new Date(Date.UTC(billingYear, billingMonth, 1))
+
+  if (asOfMs < periodStart.getTime() || asOfMs >= periodEnd.getTime()) return null
+
+  const totalMs = periodEnd.getTime() - periodStart.getTime()
+  const elapsedMs = asOfMs - periodStart.getTime()
+
+  if (elapsedMs < 1000) return null
+
+  const fractionElapsed = elapsedMs / totalMs
+  const dailySpendRate = (spent / elapsedMs) * 86_400_000
+  const projectedSpend = spent / fractionElapsed
+
+  return { projectedSpend, dailySpendRate }
+}
+
 export function getQuotaColor(pct: number | null): string {
   if (pct === null) return '#4ec9b0'
   if (pct >= 90) return '#e85d5d'

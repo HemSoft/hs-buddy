@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add self-view contribution detection for UserDetailPanel
+- Add month-end spending projection to org budget cards
 
 ### Changed
 

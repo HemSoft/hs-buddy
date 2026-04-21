@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { AccountQuotaCard } from './AccountQuotaCard'
 import type { GitHubAccount } from '../../types/config'
 import type { AccountQuotaState } from './quotaUtils'
@@ -110,9 +110,10 @@ describe('AccountQuotaCard', () => {
       fetchedAt: 1700000000000,
     }
     render(<AccountQuotaCard account={testAccount} state={state} />)
-    expect(screen.getByText('120')).toBeInTheDocument() // used
-    expect(screen.getByText('180')).toBeInTheDocument() // remaining
-    expect(screen.getByText('300')).toBeInTheDocument() // entitlement
+    const stats = within(screen.getByTestId('quota-stats'))
+    expect(stats.getByText('120')).toBeInTheDocument() // used
+    expect(stats.getByText('180')).toBeInTheDocument() // remaining
+    expect(stats.getByText('300')).toBeInTheDocument() // entitlement
   })
 
   it('shows overage cost when overage requests exist', () => {

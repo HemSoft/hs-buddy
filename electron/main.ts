@@ -11,7 +11,7 @@ import { getDispatcher, runOfflineSync } from './workers'
 import { stopSharedClient } from './services/copilotClient'
 
 // Initialize OpenTelemetry before anything else touches HTTP/DNS
-initTelemetry()
+await initTelemetry()
 
 // Enable CDP remote debugging when BUDDY_DEBUG_PORT is set (e.g. via runApp.debug.ps1)
 const debugPort = process.env.BUDDY_DEBUG_PORT

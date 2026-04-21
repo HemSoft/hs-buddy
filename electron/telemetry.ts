@@ -3,20 +3,14 @@
  * Exports structured logs, traces (spans), and metrics to the Aspire
  * dashboard via OTLP/proto when OTEL_EXPORTER_OTLP_ENDPOINT is set.
  *
+ * Heavy SDK packages are lazy-loaded via dynamic import() to avoid bundling
+ * ~2 MB of code that's only used during development (with Aspire).
+ * The lightweight API packages provide no-op implementations by default.
+ *
  * Call `initTelemetry()` before any other imports that use HTTP/DNS
  * so the auto-instrumentations can patch them.
  */
 
-import { NodeSDK } from '@opentelemetry/sdk-node'
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto'
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-proto'
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-proto'
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
-import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs'
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
-import { DnsInstrumentation } from '@opentelemetry/instrumentation-dns'
-import { resourceFromAttributes } from '@opentelemetry/resources'
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 import {
   trace,
   metrics,
@@ -35,8 +29,8 @@ import { logs, SeverityNumber } from '@opentelemetry/api-logs'
 // State
 // ---------------------------------------------------------------------------
 
-let sdk: NodeSDK | null = null
-let loggerProvider: LoggerProvider | null = null
+let sdk: { shutdown(): Promise<void> } | null = null
+let loggerProvider: { shutdown(): Promise<void> } | null = null
 let meter: Meter | null = null
 
 // Metrics handles (lazy-initialized)
@@ -53,8 +47,11 @@ let windowOpenCounter: Counter | null = null
  * Initialize OpenTelemetry if OTEL_EXPORTER_OTLP_ENDPOINT is set
  * (Aspire injects this automatically for managed resources).
  * Safe to call even when Aspire is not running — it's a no-op.
+ *
+ * Heavy SDK packages are dynamically imported only when telemetry is enabled,
+ * keeping the main bundle small for production use.
  */
-export function initTelemetry(): void {
+export async function initTelemetry(): Promise<void> {
   if (sdk) return // Already initialized
 
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
@@ -68,57 +65,86 @@ export function initTelemetry(): void {
     diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG)
   }
 
-  const serviceName = process.env.OTEL_SERVICE_NAME ?? 'buddy'
-  const serviceVersion = process.env.npm_package_version ?? '0.0.0'
+  try {
+    // Dynamically import heavy SDK packages (only when telemetry is enabled)
+    const [
+      { NodeSDK },
+      { OTLPTraceExporter },
+      { OTLPMetricExporter },
+      { OTLPLogExporter },
+      { PeriodicExportingMetricReader },
+      { BatchLogRecordProcessor, LoggerProvider },
+      { HttpInstrumentation },
+      { DnsInstrumentation },
+      { resourceFromAttributes },
+    ] = await Promise.all([
+      import('@opentelemetry/sdk-node'),
+      import('@opentelemetry/exporter-trace-otlp-proto'),
+      import('@opentelemetry/exporter-metrics-otlp-proto'),
+      import('@opentelemetry/exporter-logs-otlp-proto'),
+      import('@opentelemetry/sdk-metrics'),
+      import('@opentelemetry/sdk-logs'),
+      import('@opentelemetry/instrumentation-http'),
+      import('@opentelemetry/instrumentation-dns'),
+      import('@opentelemetry/resources'),
+    ])
 
-  const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: serviceName,
-    [ATTR_SERVICE_VERSION]: serviceVersion,
-  })
+    const serviceName = process.env.OTEL_SERVICE_NAME ?? 'buddy'
+    const serviceVersion = process.env.npm_package_version ?? '0.0.0'
 
-  // --- Log exporter (separate provider so we can emit logs programmatically) ---
-  const logExporter = new OTLPLogExporter({ url: `${endpoint}/v1/logs` })
-  loggerProvider = new LoggerProvider({
-    resource,
-    processors: [new BatchLogRecordProcessor(logExporter)],
-  })
-  logs.setGlobalLoggerProvider(loggerProvider)
+    const resource = resourceFromAttributes({
+      'service.name': serviceName,
+      'service.version': serviceVersion,
+    })
 
-  // --- Trace + Metrics SDK ---
-  sdk = new NodeSDK({
-    resource,
-    traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
-    metricReader: new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics` }),
-      exportIntervalMillis: 15_000,
-    }),
-    instrumentations: [new HttpInstrumentation(), new DnsInstrumentation()],
-  })
+    // --- Log exporter (separate provider so we can emit logs programmatically) ---
+    const logExporter = new OTLPLogExporter({ url: `${endpoint}/v1/logs` })
+    const lp = new LoggerProvider({
+      resource,
+      processors: [new BatchLogRecordProcessor(logExporter)],
+    })
+    logs.setGlobalLoggerProvider(lp)
+    loggerProvider = lp
 
-  sdk.start()
+    // --- Trace + Metrics SDK ---
+    const nodeSdk = new NodeSDK({
+      resource,
+      traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
+      metricReader: new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics` }),
+        exportIntervalMillis: 15_000,
+      }),
+      instrumentations: [new HttpInstrumentation(), new DnsInstrumentation()],
+    })
 
-  // Create the shared meter
-  meter = metrics.getMeter(serviceName, serviceVersion)
+    nodeSdk.start()
+    sdk = nodeSdk
 
-  // Initialize metric instruments
-  ipcCallCounter = meter.createCounter('buddy.ipc.calls', {
-    description: 'Number of IPC handler invocations',
-    unit: '{calls}',
-  })
-  ipcDurationHistogram = meter.createHistogram('buddy.ipc.duration', {
-    description: 'IPC handler execution time',
-    unit: 'ms',
-  })
-  ipcErrorCounter = meter.createCounter('buddy.ipc.errors', {
-    description: 'Number of IPC handler errors',
-    unit: '{errors}',
-  })
-  windowOpenCounter = meter.createCounter('buddy.windows.opened', {
-    description: 'Number of browser windows opened',
-    unit: '{windows}',
-  })
+    // Create the shared meter
+    meter = metrics.getMeter(serviceName, serviceVersion)
 
-  console.log(`[Telemetry] Initialized — exporting to ${endpoint} as '${serviceName}'`)
+    // Initialize metric instruments
+    ipcCallCounter = meter.createCounter('buddy.ipc.calls', {
+      description: 'Number of IPC handler invocations',
+      unit: '{calls}',
+    })
+    ipcDurationHistogram = meter.createHistogram('buddy.ipc.duration', {
+      description: 'IPC handler execution time',
+      unit: 'ms',
+    })
+    ipcErrorCounter = meter.createCounter('buddy.ipc.errors', {
+      description: 'Number of IPC handler errors',
+      unit: '{errors}',
+    })
+    windowOpenCounter = meter.createCounter('buddy.windows.opened', {
+      description: 'Number of browser windows opened',
+      unit: '{windows}',
+    })
+
+    console.log(`[Telemetry] Initialized — exporting to ${endpoint} as '${serviceName}'`)
+  } catch (err) {
+    console.warn('[Telemetry] Failed to load SDK packages (non-fatal):', err)
+  }
 }
 
 /**

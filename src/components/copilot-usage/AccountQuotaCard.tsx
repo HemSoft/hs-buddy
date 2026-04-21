@@ -83,7 +83,7 @@ export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
               size={110}
               strokeWidth={9}
             />
-            <div className="usage-account-stats">
+            <div className="usage-account-stats" data-testid="quota-stats">
               <div className="usage-stat">
                 <span className="usage-stat-value">{used.toLocaleString()}</span>
                 <span className="usage-stat-label">Used</span>

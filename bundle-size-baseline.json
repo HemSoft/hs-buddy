@@ -1,25 +1,25 @@
 {
-  "updatedAt": "2026-04-17T17:04:51.530Z",
+  "updatedAt": "2026-04-21T04:46:53.754Z",
   "bundles": [
     {
       "file": "dist-electron/main.js",
-      "sizeBytes": 2745733,
-      "sizeHuman": "2.62 MB"
+      "sizeBytes": 1050482,
+      "sizeHuman": "1.00 MB"
     },
     {
       "file": "dist/assets/index.js",
-      "sizeBytes": 2216275,
-      "sizeHuman": "2.11 MB"
+      "sizeBytes": 2404422,
+      "sizeHuman": "2.29 MB"
     },
     {
       "file": "dist/assets/TerminalPane.js",
-      "sizeBytes": 337408,
-      "sizeHuman": "329.50 kB"
+      "sizeBytes": 337662,
+      "sizeHuman": "329.75 kB"
     },
     {
       "file": "dist/assets/index.css",
-      "sizeBytes": 289870,
-      "sizeHuman": "283.08 kB"
+      "sizeBytes": 301937,
+      "sizeHuman": "294.86 kB"
     },
     {
       "file": "dist/assets/TerminalPane.css",
@@ -28,8 +28,8 @@
     },
     {
       "file": "dist-electron/preload.mjs",
-      "sizeBytes": 4464,
-      "sizeHuman": "4.36 kB"
+      "sizeBytes": 4705,
+      "sizeHuman": "4.59 kB"
     }
   ]
 }

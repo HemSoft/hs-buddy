@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract useLatest hook and UpdateTimesDisplay component
 - Fix code smells in PR threads hook and panel
 - Extract shared InlineRefreshIndicator, PanelEmptyState, and PRStateIcon components
+- Update bundle-size baseline for @opentelemetry/sdk-node 0.215.0
+- Lazy-load OpenTelemetry SDK to reduce main bundle by ~78%
 
 ### Fixed
 
@@ -39,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Invalidate in-flight requests on cacheKey change
 - Downgrade new react-hooks v7 rules to warnings
 - Resolve knip violations for BudgetProjection and playwright config
+- Scope quota stat assertions to avoid date-sensitive collision
+- Align OTel 0.x packages to 0.215.0 and remove unused semantic-conventions
 
 ## [0.1.736] - 2026-04-20
 

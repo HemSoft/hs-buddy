@@ -18,7 +18,7 @@ const baselinePath = resolve(root, 'bundle-size-baseline.json')
 
 // 5% growth allowed before warning, 10% before failure
 const WARN_THRESHOLD = 0.05
-const FAIL_THRESHOLD = 0.10
+const FAIL_THRESHOLD = 0.1
 
 interface BundleEntry {
   file: string
@@ -64,12 +64,18 @@ function collectBundles(): BundleEntry[] {
   // Electron main — Vite code-splits into a stub (main.js) + chunk (main-{hash}.js).
   // Track the largest main*.js as the real payload.
   if (existsSync(distElectronDir)) {
-    const mainFiles = readdirSync(distElectronDir).filter(f => f.startsWith('main') && f.endsWith('.js'))
+    const mainFiles = readdirSync(distElectronDir).filter(
+      f => f.startsWith('main') && f.endsWith('.js')
+    )
     if (mainFiles.length > 0) {
       const largest = mainFiles
         .map(f => ({ name: f, size: statSync(resolve(distElectronDir, f)).size }))
         .sort((a, b) => b.size - a.size)[0]
-      bundles.push({ file: `dist-electron/${largest.name}`, sizeBytes: largest.size, sizeHuman: humanSize(largest.size) })
+      bundles.push({
+        file: `dist-electron/${largest.name}`,
+        sizeBytes: largest.size,
+        sizeHuman: humanSize(largest.size),
+      })
     }
   }
 
@@ -92,18 +98,24 @@ try {
   }
 
   if (isUpdate) {
+    // Deduplicate by normalized name, keeping the largest file for each
+    const deduped = new Map<string, BundleEntry>()
+    for (const b of bundles) {
+      const norm = normalizeFile(b.file)
+      const existing = deduped.get(norm)
+      if (!existing || b.sizeBytes > existing.sizeBytes) {
+        deduped.set(norm, { file: norm, sizeBytes: b.sizeBytes, sizeHuman: b.sizeHuman })
+      }
+    }
+
     const baseline: Baseline = {
       updatedAt: new Date().toISOString(),
-      bundles: bundles.map(b => ({
-        file: normalizeFile(b.file),
-        sizeBytes: b.sizeBytes,
-        sizeHuman: b.sizeHuman,
-      })),
+      bundles: [...deduped.values()].sort((a, b) => b.sizeBytes - a.sizeBytes),
     }
     writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n')
     console.log('Bundle size baseline updated:')
-    for (const b of bundles) {
-      console.log(`  ${normalizeFile(b.file).padEnd(35)} ${b.sizeHuman}`)
+    for (const b of baseline.bundles) {
+      console.log(`  ${b.file.padEnd(35)} ${b.sizeHuman}`)
     }
     process.exit(0)
   }
@@ -125,7 +137,9 @@ try {
   let hasWarning = false
 
   console.log('Bundle size check:')
-  console.log(`  ${'Bundle'.padEnd(35)} ${'Current'.padStart(12)} ${'Baseline'.padStart(12)} ${'Δ'.padStart(10)}`)
+  console.log(
+    `  ${'Bundle'.padEnd(35)} ${'Current'.padStart(12)} ${'Baseline'.padStart(12)} ${'Δ'.padStart(10)}`
+  )
   console.log(`  ${'─'.repeat(35)} ${'─'.repeat(12)} ${'─'.repeat(12)} ${'─'.repeat(10)}`)
 
   for (const bundle of bundles) {
@@ -141,14 +155,23 @@ try {
     const pct = base.sizeBytes > 0 ? delta / base.sizeBytes : 0
     const pctStr = `${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(1)}%`
     let marker = ''
-    if (pct > FAIL_THRESHOLD) { marker = ' FAIL'; hasFailure = true }
-    else if (pct > WARN_THRESHOLD) { marker = ' WARN'; hasWarning = true }
+    if (pct > FAIL_THRESHOLD) {
+      marker = ' FAIL'
+      hasFailure = true
+    } else if (pct > WARN_THRESHOLD) {
+      marker = ' WARN'
+      hasWarning = true
+    }
 
-    console.log(`  ${norm.padEnd(35)} ${bundle.sizeHuman.padStart(12)} ${base.sizeHuman.padStart(12)} ${pctStr.padStart(10)}${marker}`)
+    console.log(
+      `  ${norm.padEnd(35)} ${bundle.sizeHuman.padStart(12)} ${base.sizeHuman.padStart(12)} ${pctStr.padStart(10)}${marker}`
+    )
   }
 
   if (hasFailure) {
-    console.error('\nBundle size increased beyond 10% threshold. Run `bun run bundle-size:update` to accept the new sizes.')
+    console.error(
+      '\nBundle size increased beyond 10% threshold. Run `bun run bundle-size:update` to accept the new sizes.'
+    )
     process.exit(1)
   }
   if (hasWarning) {

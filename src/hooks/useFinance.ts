@@ -240,10 +240,7 @@ export function useFinance() {
         if (sanitized === null) return
         const current = watchlistRef.current
         // Skip update if values match to avoid unnecessary refresh
-        if (
-          sanitized.length === current.length &&
-          sanitized.every((s, i) => s === current[i])
-        ) {
+        if (sanitized.length === current.length && sanitized.every((s, i) => s === current[i])) {
           return
         }
         writeWatchlist(sanitized)

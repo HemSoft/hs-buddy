@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { readWatchlist, useFinance } from './useFinance'
 
@@ -72,6 +72,10 @@ describe('useFinance', () => {
       }
       return Promise.resolve({ success: true })
     })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('starts in loading state when no cache', () => {
@@ -326,10 +330,7 @@ describe('useFinance', () => {
     const { result } = renderHook(() => useFinance())
     await waitFor(() => expect(result.current.watchlist).toEqual(['NVDA', 'MSFT']))
     // localStorage should now be primed with the IPC values
-    expect(JSON.parse(localStorage.getItem('finance:watchlist') ?? '[]')).toEqual([
-      'NVDA',
-      'MSFT',
-    ])
+    expect(JSON.parse(localStorage.getItem('finance:watchlist') ?? '[]')).toEqual(['NVDA', 'MSFT'])
   })
 
   it('does not override local mutation when IPC load resolves later', async () => {
@@ -369,6 +370,85 @@ describe('useFinance', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     // Defensive: empty IPC response must not wipe the user's persisted list
     expect(result.current.watchlist).toEqual(['^GSPC', 'AAPL'])
+  })
+
+  it('logs warning when IPC persist rejects', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:set-finance-watchlist') {
+        return Promise.reject(new Error('IPC write failed'))
+      }
+      if (channel === 'config:get-finance-watchlist') return Promise.resolve(null)
+      return Promise.resolve({ success: true })
+    })
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => {
+      result.current.addSymbol('TSLA')
+    })
+    // Flush the rejected promise's .catch handler
+    await waitFor(() =>
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[useFinance] Failed to persist watchlist via IPC:',
+        expect.any(Error)
+      )
+    )
+  })
+
+  it('skips update when IPC returns identical watchlist', async () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        return Promise.resolve(['^GSPC', 'AAPL'])
+      }
+      return Promise.resolve({ success: true })
+    })
+
+    // Install spies BEFORE rendering so every side effect is tracked
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem')
+    const fetchCallsBefore = mockFetchQuote.mock.calls.length
+
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Flush any pending IPC microtasks
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Initial mount triggers refresh() for the 2-symbol watchlist
+    const initialFetchCount = mockFetchQuote.mock.calls.length - fetchCallsBefore
+    expect(initialFetchCount).toBe(2) // one per symbol on mount
+    // No EXTRA fetches from the IPC path — the identical-watchlist skip prevents a second refresh()
+    // (if skip logic regressed, we'd see 4 calls instead of 2)
+
+    // No localStorage writes for the watchlist key — skip prevents persist
+    const watchlistWrites = setItemSpy.mock.calls.filter(([key]) => key === 'finance:watchlist')
+    expect(watchlistWrites).toHaveLength(0)
+    // No cache removal — skip prevents safeRemoveItem(CACHE_KEY)
+    const cacheRemovals = removeItemSpy.mock.calls.filter(([key]) => key === 'finance:cache')
+    expect(cacheRemovals).toHaveLength(0)
+
+    expect(result.current.watchlist).toEqual(['^GSPC', 'AAPL'])
+  })
+
+  it('logs warning when IPC config load rejects', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        return Promise.reject(new Error('IPC read failed'))
+      }
+      return Promise.resolve({ success: true })
+    })
+    renderHook(() => useFinance())
+    await waitFor(() =>
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[useFinance] Failed to load watchlist from config store:',
+        expect.any(Error)
+      )
+    )
   })
 
   it('survives missing ipcRenderer gracefully', async () => {

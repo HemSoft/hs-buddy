@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 const {
   mockEnqueue,
@@ -184,7 +184,7 @@ describe('RepoCommitDetailPanel', () => {
     })
 
     fireEvent.click(screen.getByText('src/app.ts').closest('[role="button"]')!)
-    expect(screen.getByText('-old')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
   })
 
   it('opens commit on GitHub', async () => {
@@ -235,7 +235,7 @@ describe('RepoCommitDetailPanel', () => {
 
     const header = screen.getByText('src/app.ts').closest('[role="button"]')!
     fireEvent.keyDown(header, { key: 'Enter' })
-    expect(screen.getByText('-old')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
   })
 
   it('handles keyboard expansion via Space key', async () => {
@@ -248,7 +248,7 @@ describe('RepoCommitDetailPanel', () => {
 
     const header = screen.getByText('src/app.ts').closest('[role="button"]')!
     fireEvent.keyDown(header, { key: ' ' })
-    expect(screen.getByText('-old')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
   })
 
   it('ignores non-activation keys on file header', async () => {
@@ -261,6 +261,9 @@ describe('RepoCommitDetailPanel', () => {
 
     const header = screen.getByText('src/app.ts').closest('[role="button"]')!
     fireEvent.keyDown(header, { key: 'Tab' })
+
+    // Flush microtasks/macrotasks so any async expansion would have occurred
+    await act(async () => {})
     expect(screen.queryByText('-old')).not.toBeInTheDocument()
   })
 
@@ -274,10 +277,10 @@ describe('RepoCommitDetailPanel', () => {
 
     const header = screen.getByText('src/app.ts').closest('[role="button"]')!
     fireEvent.click(header)
-    expect(screen.getByText('-old')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
 
     fireEvent.click(header)
-    expect(screen.queryByText('-old')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('-old')).not.toBeInTheDocument())
   })
 
   it('renders from cache without fetching', async () => {
@@ -411,7 +414,9 @@ describe('RepoCommitDetailPanel', () => {
 
     const header = screen.getByText('binary.png').closest('[role="button"]')!
     fireEvent.click(header)
-    expect(screen.getByText(/GitHub did not provide a patch preview/)).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByText(/GitHub did not provide a patch preview/)).toBeInTheDocument()
+    )
   })
 
   it('shows refreshing indicator when loading with existing detail', async () => {

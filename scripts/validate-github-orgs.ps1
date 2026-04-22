@@ -86,9 +86,9 @@ $hasErrors = $false
 foreach ($test in $testOrgs) {
     $account = $test.Account
     $org = $test.Org
-    
+
     Write-Information "${White}  Testing: $account -> $org${Reset}"
-    
+
     # Check if account is authenticated
     if ($account -notin $accounts) {
         Write-Information "${Red}    ERROR: Account '$account' is not authenticated${Reset}"
@@ -96,17 +96,17 @@ foreach ($test in $testOrgs) {
         $hasErrors = $true
         continue
     }
-    
+
     # Test org access using gh api
     try {
         $null = gh auth token --user $account 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "Failed to get token for $account"
         }
-        
+
         # Test org access
         gh api orgs/$org --silent 2>&1 | Out-Null
-        
+
         if ($LASTEXITCODE -eq 0) {
             Write-Information "${Green}    OK: Access confirmed${Reset}"
         } else {

@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wire coverage:ratchet into CI pipeline
 - Add format:check to pre-commit hook
 - Mark BDD specs TODO item as complete
+- Cover remaining uncovered paths in useFinance
+- Fix Prettier formatting in useFinance.ts
+- Assert no side effects on identical watchlist skip
 
 ### Fixed
 
@@ -64,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore missing spaces after backtick-delimited text in TODO.md
 - Tighten SemVer validation and fix TODO.md typo regression
 - Persist watchlist via electron-store across sessions
+- Wrap toggle assertions in waitFor for CI stability
+- Install spies before renderHook in identical-watchlist test
+- Use afterEach restoreAllMocks instead of manual mockRestore
+- Use act() flush instead of waitFor for negative assertion
 
 ## [0.1.736] - 2026-04-20
 

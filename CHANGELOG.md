@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cover remaining uncovered paths in useFinance
 - Fix Prettier formatting in useFinance.ts
 - Assert no side effects on identical watchlist skip
+- Use userEvent for keyboard activation test on StatusBar
 
 ### Fixed
 
@@ -71,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Install spies before renderHook in identical-watchlist test
 - Use afterEach restoreAllMocks instead of manual mockRestore
 - Use act() flush instead of waitFor for negative assertion
+- Use semantic button element for clickable StatusBar items
+- Remove redundant onKeyDown from native button elements
 
 ## [0.1.736] - 2026-04-20
 

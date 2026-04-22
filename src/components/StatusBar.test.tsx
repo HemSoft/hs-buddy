@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { StatusBar } from './StatusBar'
 import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
 
@@ -104,45 +105,46 @@ describe('StatusBar', () => {
     expect(screen.getByText('Copilot')).toBeTruthy()
   })
 
-  it('renders keyboard-navigable PR button', () => {
+  it('renders clickable items as native buttons for keyboard accessibility', () => {
+    const onNavigate = vi.fn()
+    render(
+      <StatusBar
+        onNavigate={onNavigate}
+        prCount={1}
+        scheduleCount={2}
+        jobCount={3}
+        activeGitHubAccount="user1"
+      />
+    )
+    const prButton = screen.getByText('1 PRs').closest('button')
+    const schedButton = screen.getByText('2 schedules').closest('button')
+    const jobButton = screen.getByText('3 jobs').closest('button')
+    const acctButton = screen.getByText('@user1').closest('button')
+    expect(prButton).toBeTruthy()
+    expect(schedButton).toBeTruthy()
+    expect(jobButton).toBeTruthy()
+    expect(acctButton).toBeTruthy()
+    expect(prButton!.getAttribute('type')).toBe('button')
+  })
+
+  it('renders static items as divs, not buttons', () => {
+    render(<StatusBar />)
+    const buddyItem = screen.getByText('Buddy').closest('.status-item')
+    expect(buddyItem).toBeTruthy()
+    expect(buddyItem!.tagName).toBe('DIV')
+  })
+
+  it('activates native button via keyboard Enter and Space', async () => {
+    const user = userEvent.setup()
     const onNavigate = vi.fn()
     render(<StatusBar onNavigate={onNavigate} prCount={1} />)
-    const prButton = screen.getByText('1 PRs').closest('[role="button"]')
-    expect(prButton).toBeTruthy()
-    fireEvent.keyDown(prButton!, { key: 'Enter' })
+    const prButton = screen.getByText('1 PRs').closest('button')!
+    prButton.focus()
+    await user.keyboard('{Enter}')
     expect(onNavigate).toHaveBeenCalledWith('pr-my-prs')
-  })
-
-  it('navigates to schedules on Enter key', () => {
-    const onNavigate = vi.fn()
-    render(<StatusBar onNavigate={onNavigate} scheduleCount={2} />)
-    const schedButton = screen.getByText('2 schedules').closest('[role="button"]')
-    fireEvent.keyDown(schedButton!, { key: 'Enter' })
-    expect(onNavigate).toHaveBeenCalledWith('automation-schedules')
-  })
-
-  it('does not navigate on non-Enter key', () => {
-    const onNavigate = vi.fn()
-    render(<StatusBar onNavigate={onNavigate} scheduleCount={2} />)
-    const schedButton = screen.getByText('2 schedules').closest('[role="button"]')
-    fireEvent.keyDown(schedButton!, { key: 'Tab' })
-    expect(onNavigate).not.toHaveBeenCalled()
-  })
-
-  it('navigates to jobs on Enter key', () => {
-    const onNavigate = vi.fn()
-    render(<StatusBar onNavigate={onNavigate} jobCount={3} />)
-    const jobButton = screen.getByText('3 jobs').closest('[role="button"]')
-    fireEvent.keyDown(jobButton!, { key: 'Enter' })
-    expect(onNavigate).toHaveBeenCalledWith('automation-runs')
-  })
-
-  it('navigates to account on Enter key', () => {
-    const onNavigate = vi.fn()
-    render(<StatusBar onNavigate={onNavigate} activeGitHubAccount="user2" />)
-    const acctButton = screen.getByText('@user2').closest('[role="button"]')
-    fireEvent.keyDown(acctButton!, { key: 'Enter' })
-    expect(onNavigate).toHaveBeenCalledWith('settings-accounts')
+    onNavigate.mockClear()
+    await user.keyboard(' ')
+    expect(onNavigate).toHaveBeenCalledWith('pr-my-prs')
   })
 
   it('shows idle auto-refresh active when no nextRefreshLabel', () => {

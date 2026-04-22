@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { onKeyboardActivate } from '../utils/keyboard'
 import {
   GitPullRequest,
   Calendar,
@@ -25,19 +24,31 @@ interface StatusBarItemProps {
 }
 
 function StatusBarItem({ icon: Icon, text, tooltip, onClick, className = '' }: StatusBarItemProps) {
-  return (
-    <div
-      className={`status-item${onClick ? ' status-item-clickable' : ''} ${className}`.trim()}
-      data-tooltip={tooltip}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={onClick ? onKeyboardActivate(onClick) : undefined}
-    >
+  const content = (
+    <>
       <span className="status-icon">
         <Icon size={12} />
       </span>
       <span className="status-text">{text}</span>
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={`status-item status-item-clickable ${className}`.trim()}
+        data-tooltip={tooltip}
+        onClick={onClick}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <div className={`status-item ${className}`.trim()} data-tooltip={tooltip}>
+      {content}
     </div>
   )
 }

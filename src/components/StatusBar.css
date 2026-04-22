@@ -45,6 +45,12 @@
   cursor: default;
   transition: background-color 0.15s ease;
   position: relative;
+  /* Reset button defaults when rendered as <button> */
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
 }
 
 .status-item:hover {

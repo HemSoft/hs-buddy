@@ -42,6 +42,15 @@ function writeCache(quotes: QuoteData[], timestamp: number) {
   safeSetJson(CACHE_KEY, { quotes, timestamp, version: CACHE_VERSION })
 }
 
+/**
+ * Read the watchlist from the localStorage sync cache.
+ *
+ * NOTE: localStorage is only the synchronous first-paint cache. The
+ * authoritative source is electron-store (loaded via IPC on mount). See
+ * `useFinance` below for the full lifecycle. This pattern mirrors
+ * `useDashboardCards` and is the project-wide convention for user
+ * preferences that must survive across sessions.
+ */
 export function readWatchlist(): string[] {
   const parsed = safeGetJson<string[]>(WATCHLIST_KEY)
   if (parsed) {
@@ -54,6 +63,20 @@ export function readWatchlist(): string[] {
 
 function writeWatchlist(symbols: string[]) {
   safeSetJson(WATCHLIST_KEY, symbols)
+}
+
+function sanitizeWatchlist(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null
+  const cleaned = raw
+    .filter((s): s is string => typeof s === 'string')
+    .map(s => s.toUpperCase().trim())
+    .filter(s => s.length > 0)
+  // Dedupe while preserving order
+  const deduped = Array.from(new Set(cleaned))
+  // Treat an empty result as invalid — a corrupt/zeroed config should never
+  // silently wipe the user's watchlist. The IPC load path will keep whatever
+  // is currently in state (defaults or localStorage cache).
+  return deduped.length > 0 ? deduped : null
 }
 
 async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
@@ -92,6 +115,20 @@ async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
   return results
 }
 
+/**
+ * Persist watchlist to electron-store via IPC. Fire-and-forget; failures are
+ * logged but do not block the UI. The localStorage cache (already written by
+ * the caller) ensures the next render still sees the new value.
+ */
+function persistWatchlist(symbols: string[]): void {
+  /* v8 ignore start */
+  if (!window.ipcRenderer?.invoke) return
+  /* v8 ignore stop */
+  window.ipcRenderer.invoke('config:set-finance-watchlist', symbols).catch((err: unknown) => {
+    console.warn('[useFinance] Failed to persist watchlist via IPC:', err)
+  })
+}
+
 export function useFinance() {
   const [watchlist, setWatchlistState] = useState<string[]>(readWatchlist)
 
@@ -112,6 +149,9 @@ export function useFinance() {
   const abortRef = useRef(false)
   const watchlistRef = useRef(watchlist)
   watchlistRef.current = watchlist
+  // Tracks whether the user has mutated the watchlist locally. If so, we must
+  // NOT overwrite their changes when the async IPC load resolves.
+  const mutatedRef = useRef(false)
 
   const refresh = useCallback((symbols?: string[]) => {
     const list = symbols ?? watchlistRef.current
@@ -151,11 +191,13 @@ export function useFinance() {
       const upper = symbol.toUpperCase().trim()
       if (!upper) return
 
-      const current = readWatchlist()
+      const current = watchlistRef.current
       if (current.includes(upper)) return
 
       const next = [...current, upper]
+      mutatedRef.current = true
       writeWatchlist(next)
+      persistWatchlist(next)
       setWatchlistState(next)
 
       safeRemoveItem(CACHE_KEY)
@@ -169,15 +211,59 @@ export function useFinance() {
   )
 
   const removeSymbol = useCallback((symbol: string) => {
-    const current = readWatchlist()
+    const current = watchlistRef.current
     const next = current.filter(s => s !== symbol)
+    mutatedRef.current = true
     writeWatchlist(next)
+    persistWatchlist(next)
     setWatchlistState(next)
 
     setState(prev => ({
       ...prev,
       quotes: prev.quotes.filter(q => q.symbol !== symbol),
     }))
+  }, [])
+
+  // Async IPC load from electron-store (authoritative source). Mirrors the
+  // useDashboardCards pattern: localStorage is the sync first-paint cache,
+  // electron-store is the persistent source of truth across app restarts.
+  useEffect(() => {
+    let cancelled = false
+    /* v8 ignore start */
+    if (!window.ipcRenderer?.invoke) return
+    /* v8 ignore stop */
+    window.ipcRenderer
+      .invoke('config:get-finance-watchlist')
+      .then((raw: unknown) => {
+        if (cancelled || mutatedRef.current) return
+        const sanitized = sanitizeWatchlist(raw)
+        if (sanitized === null) return
+        const current = watchlistRef.current
+        // Skip update if values match to avoid unnecessary refresh
+        if (
+          sanitized.length === current.length &&
+          sanitized.every((s, i) => s === current[i])
+        ) {
+          return
+        }
+        writeWatchlist(sanitized)
+        watchlistRef.current = sanitized
+        setWatchlistState(sanitized)
+        // Re-fetch quotes against the authoritative list
+        safeRemoveItem(CACHE_KEY)
+        /* v8 ignore start */
+        refresh(sanitized).catch(() => {
+          /* v8 ignore stop */
+          /* error already handled in state */
+        })
+      })
+      .catch((err: unknown) => {
+        console.warn('[useFinance] Failed to load watchlist from config store:', err)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

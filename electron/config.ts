@@ -107,6 +107,24 @@ class ConfigManager {
     this.store.set('notifications.reviewCompleteSoundPath', filePath)
   }
 
+  // Finance Settings
+  getFinanceWatchlist(): string[] {
+    return this.store.get('finance.watchlist', defaultConfig.finance.watchlist)
+  }
+
+  setFinanceWatchlist(symbols: string[]): void {
+    // Defensive: ensure array of strings, dedupe, uppercase
+    const cleaned = Array.from(
+      new Set(
+        (Array.isArray(symbols) ? symbols : [])
+          .filter((s): s is string => typeof s === 'string')
+          .map(s => s.toUpperCase().trim())
+          .filter(s => s.length > 0)
+      )
+    )
+    this.store.set('finance.watchlist', cleaned)
+  }
+
   // Full config access
   getConfig(): AppConfig {
     return this.store.store

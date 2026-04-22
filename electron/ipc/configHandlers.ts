@@ -197,6 +197,22 @@ export function registerConfigHandlers(): void {
     }
   })
 
+  // Finance Watchlist
+  ipcMain.handle('config:get-finance-watchlist', () => {
+    return configManager.getFinanceWatchlist()
+  })
+
+  ipcMain.handle(
+    'config:set-finance-watchlist',
+    (_event: IpcMainInvokeEvent, symbols: unknown) => {
+      if (!Array.isArray(symbols) || !symbols.every(s => typeof s === 'string')) {
+        return { success: false }
+      }
+      configManager.setFinanceWatchlist(symbols)
+      return { success: true }
+    }
+  )
+
   // Full Config
   ipcMain.handle('config:get-config', () => {
     return configManager.getConfig()

@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Convert bold pseudo-headers to h4 and fix flaky test
 - Restore missing spaces after backtick-delimited text in TODO.md
 - Tighten SemVer validation and fix TODO.md typo regression
+- Persist watchlist via electron-store across sessions
 
 ## [0.1.736] - 2026-04-20
 

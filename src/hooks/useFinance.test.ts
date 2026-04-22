@@ -9,6 +9,13 @@ Object.defineProperty(window, 'finance', {
   configurable: true,
 })
 
+const mockInvoke = vi.fn()
+Object.defineProperty(window, 'ipcRenderer', {
+  value: { invoke: mockInvoke },
+  writable: true,
+  configurable: true,
+})
+
 const QUOTE_AAPL = {
   symbol: 'AAPL',
   name: 'Apple Inc',
@@ -56,6 +63,15 @@ describe('useFinance', () => {
     vi.clearAllMocks()
     localStorage.clear()
     mockFetchQuote.mockResolvedValue({ success: true, quote: QUOTE_AAPL })
+    // Default: IPC returns nothing useful so it doesn't override local state.
+    // Individual tests override this when they care about the IPC load.
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        // Return a non-array so sanitizer rejects → no override
+        return Promise.resolve(null)
+      }
+      return Promise.resolve({ success: true })
+    })
   })
 
   it('starts in loading state when no cache', () => {
@@ -273,5 +289,108 @@ describe('useFinance', () => {
     expect(result.current.loading).toBe(false)
     // The mount effect checks readCache() and skips refresh when cache is valid
     expect(mockFetchQuote).not.toHaveBeenCalled()
+  })
+
+  it('persists watchlist via IPC when adding a symbol', async () => {
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => {
+      result.current.addSymbol('TSLA')
+    })
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'config:set-finance-watchlist',
+      expect.arrayContaining(['TSLA'])
+    )
+  })
+
+  it('persists watchlist via IPC when removing a symbol', async () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => {
+      result.current.removeSymbol('AAPL')
+    })
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'config:set-finance-watchlist',
+      expect.not.arrayContaining(['AAPL'])
+    )
+  })
+
+  it('hydrates watchlist from IPC on mount when localStorage is empty', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        return Promise.resolve(['NVDA', 'MSFT'])
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.watchlist).toEqual(['NVDA', 'MSFT']))
+    // localStorage should now be primed with the IPC values
+    expect(JSON.parse(localStorage.getItem('finance:watchlist') ?? '[]')).toEqual([
+      'NVDA',
+      'MSFT',
+    ])
+  })
+
+  it('does not override local mutation when IPC load resolves later', async () => {
+    let resolveIpc: ((v: unknown) => void) | null = null
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        return new Promise(resolve => {
+          resolveIpc = resolve
+        })
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { result } = renderHook(() => useFinance())
+    // User adds a symbol BEFORE IPC load resolves
+    act(() => {
+      result.current.addSymbol('TSLA')
+    })
+    expect(result.current.watchlist).toContain('TSLA')
+
+    // Now IPC resolves with stale data — must not clobber the user's add
+    await act(async () => {
+      resolveIpc?.(['NVDA'])
+      await Promise.resolve()
+    })
+    expect(result.current.watchlist).toContain('TSLA')
+  })
+
+  it('does not clear watchlist when IPC returns empty array', async () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        return Promise.resolve([])
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // Defensive: empty IPC response must not wipe the user's persisted list
+    expect(result.current.watchlist).toEqual(['^GSPC', 'AAPL'])
+  })
+
+  it('survives missing ipcRenderer gracefully', async () => {
+    const orig = window.ipcRenderer
+    Object.defineProperty(window, 'ipcRenderer', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // addSymbol must not throw when IPC is unavailable
+    expect(() =>
+      act(() => {
+        result.current.addSymbol('XYZ')
+      })
+    ).not.toThrow()
+    expect(result.current.watchlist).toContain('XYZ')
+    Object.defineProperty(window, 'ipcRenderer', {
+      value: orig,
+      writable: true,
+      configurable: true,
+    })
   })
 })

@@ -67,6 +67,9 @@ export interface AppConfig {
     playSoundOnReviewComplete: boolean // Play an audio file when a Copilot PR review finishes
     reviewCompleteSoundPath: string // Absolute path to a local audio file (empty = no sound)
   }
+  finance: {
+    watchlist: string[] // Ticker symbols tracked on the Finance dashboard card
+  }
 }
 
 /**
@@ -292,6 +295,17 @@ export const configSchema: Schema<AppConfig> = {
     },
     required: ['playSoundOnReviewComplete', 'reviewCompleteSoundPath'],
   },
+  finance: {
+    type: 'object',
+    properties: {
+      watchlist: {
+        type: 'array',
+        items: { type: 'string' },
+        default: ['^GSPC', '^IXIC', '^DJI', 'BTC-USD'],
+      },
+    },
+    required: ['watchlist'],
+  },
 }
 
 /**
@@ -341,5 +355,8 @@ export const defaultConfig: AppConfig = {
   notifications: {
     playSoundOnReviewComplete: false,
     reviewCompleteSoundPath: '',
+  },
+  finance: {
+    watchlist: ['^GSPC', '^IXIC', '^DJI', 'BTC-USD'],
   },
 }

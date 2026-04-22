@@ -177,6 +177,7 @@ function createConfig(overrides: Partial<AppConfig['ui']> = {}): AppConfig {
     },
     automation: { scheduleForecastDays: 3 },
     notifications: { playSoundOnReviewComplete: false, reviewCompleteSoundPath: '' },
+    finance: { watchlist: [] },
   }
 }
 

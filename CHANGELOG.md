@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use Object.defineProperty for ipcRenderer mock instead of stubGlobal
 - Use Reflect.deleteProperty to fix TS2790 in data-cache steps
 - Resolve Prettier formatting and restore Date.now spy in afterAll
+- Resolve lint warnings for scorecard Gold tier
 
 ## [0.1.736] - 2026-04-20
 

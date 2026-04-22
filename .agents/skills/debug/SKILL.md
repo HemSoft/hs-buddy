@@ -42,7 +42,7 @@ Debug the hs-buddy Electron desktop app (React 19 + TypeScript + Vite + Convex).
 
 ## Architecture Overview
 
-```
+```text
 Electron Main Process
   └─ BrowserWindow (frame: false)
        └─ Vite Dev Server (localhost:5173)
@@ -62,6 +62,7 @@ Electron Main Process
 Diagnose runtime issues in the running app.
 
 **Steps:**
+
 1. Connect to `http://localhost:5173` via Playwright MCP browser tools
 2. Check console errors — common patterns:
    - `WebSocket connection to 'ws://127.0.0.1:3210/...' failed` → Convex dev server is offline
@@ -71,6 +72,7 @@ Diagnose runtime issues in the running app.
 4. Look for React error boundaries that swallowed errors silently
 
 **Common root causes:**
+
 | Symptom | Root Cause | Fix |
 |---------|-----------|-----|
 | Infinite "Loading..." spinner | Convex dev server not running | `npx convex dev` |
@@ -83,6 +85,7 @@ Diagnose runtime issues in the running app.
 Write or run Playwright E2E tests.
 
 **Configuration:** `playwright.config.ts`
+
 - Test directory: `./e2e/`
 - Base URL: `http://localhost:5173`
 - Project name: `electron-e2e`
@@ -90,6 +93,7 @@ Write or run Playwright E2E tests.
 - Screenshots on failure, trace on first retry
 
 **Running tests:**
+
 ```bash
 npx playwright test                           # All E2E tests
 npx playwright test e2e/bookmarks.spec.ts     # Single file
@@ -97,11 +101,13 @@ npx playwright test --project=electron-e2e    # Specific project
 ```
 
 **Prerequisites before running:**
+
 1. Start the app: `bun run dev` (launches Vite on localhost:5173)
 2. Start Convex: `npx convex dev` (local backend on port 3210)
 3. Tests connect to the running Vite server, NOT directly to Electron
 
 **Writing new E2E tests — TDD pattern:**
+
 1. Write tests that demonstrate the bug (red phase)
 2. Run tests to confirm they fail
 3. Fix the component code
@@ -109,6 +115,7 @@ npx playwright test --project=electron-e2e    # Specific project
 5. Add matching Vitest unit tests for CI (E2E needs live app, unit tests don't)
 
 **Navigation pattern for E2E tests:**
+
 ```typescript
 // Navigate to a view via the activity bar
 const button = page.locator('[title*="Bookmark" i], [aria-label*="Bookmark" i]')
@@ -126,12 +133,14 @@ Navigate Playwright MCP to `http://localhost:5173/`. This gives access to the fu
 
 **Option B — CDP (full Electron context):**
 If the app was launched with `--remote-debugging-port=9222`:
+
 ```typescript
 // In playwright config or test
 connectOverCDP: 'http://127.0.0.1:9222'
 ```
 
 **Playwright MCP browser tools workflow:**
+
 1. `browser_navigate` to `http://localhost:5173/`
 2. `browser_snapshot` to see current page state
 3. `browser_console_messages` to check for errors
@@ -205,6 +214,7 @@ it('shows error after timeout', async () => {
 ### Mocking Limitations
 
 Existing unit tests mock `useConvex` entirely:
+
 ```typescript
 vi.mock('../../hooks/useConvex', () => ({
   useBookmarks: () => mockBookmarksReturn,
@@ -212,6 +222,7 @@ vi.mock('../../hooks/useConvex', () => ({
 ```
 
 This means unit tests **cannot** catch connectivity issues. For connectivity bugs:
+
 - Use E2E tests against the live app (catches real WebSocket failures)
 - Add timeout/error handling to components (testable with fake timers)
 - Both layers are needed: E2E for detection, unit tests for CI regression
@@ -219,14 +230,17 @@ This means unit tests **cannot** catch connectivity issues. For connectivity bug
 ## Troubleshooting
 
 **Playwright can't connect to localhost:5173:**
+
 - Ensure `bun run dev` is running
 - Check that Vite hasn't crashed (port conflict, syntax error)
 
 **Tests pass locally but E2E fails:**
+
 - E2E requires live app + Convex; CI only runs Vitest unit tests
 - Add a `test:e2e` script that documents prerequisites
 
 **Console shows IPC errors in browser:**
+
 - Expected when accessing via `localhost:5173` directly (not inside Electron)
 - `window.electronAPI` / `window.shell` only exist in Electron context
 - Components should gracefully handle missing IPC with fallbacks

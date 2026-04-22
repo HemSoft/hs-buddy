@@ -60,6 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use Reflect.deleteProperty to fix TS2790 in data-cache steps
 - Resolve Prettier formatting and restore Date.now spy in afterAll
 - Resolve lint warnings for scorecard Gold tier
+- Convert bold pseudo-headers to h4 and fix flaky test
+- Restore missing spaces after backtick-delimited text in TODO.md
+- Tighten SemVer validation and fix TODO.md typo regression
 
 ## [0.1.736] - 2026-04-20
 

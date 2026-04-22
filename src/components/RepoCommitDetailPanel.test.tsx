@@ -491,9 +491,11 @@ describe('RepoCommitDetailPanel', () => {
     const header = screen.getByText('src/app.ts').closest('[role="button"]')!
     fireEvent.click(header)
 
-    const diffContainer = document.querySelector('.repo-commit-diff')
-    expect(diffContainer).toBeTruthy()
-    const lines = diffContainer!.querySelectorAll('div[class*="diff-line"]')
+    await waitFor(() => {
+      expect(document.querySelector('.repo-commit-diff')).toBeTruthy()
+    })
+    const diffContainer = document.querySelector('.repo-commit-diff')!
+    const lines = diffContainer.querySelectorAll('div[class*="diff-line"]')
     // The empty line between '+added' and ' context' should render as a space
     const emptyLine = Array.from(lines).find(el => el.textContent === ' ')
     expect(emptyLine).toBeTruthy()

@@ -99,14 +99,14 @@
 
 The entire `electron/` directory has **0 test files** across approximately 38 source files. This is the largest untested surface in the codebase.
 
-**Untested Files:**
+#### Untested Electron Files
 
 - **IPC Handlers (16 files):** cacheHandlers, configHandlers, copilotHandlers, copilotSessionHandlers, crewHandlers, filesystemHandlers, financeHandlers, githubHandlers (27KB), instrumentIpc, ipcHandler, shellHandlers, tempoHandlers, terminalHandlers (14KB), todoistHandlers, windowHandlers, index
 - **Services (8 files):** copilotClient, copilotService, copilotSessionService, crewService, tempoClient, todoistClient (bench files exist but no unit tests)
 - **Workers (7 files):** aiWorker, dispatcher, execWorker, offlineSync, skillWorker, types, index
 - **Root Modules (7 files):** main.ts, preload.ts, config.ts, cache.ts, menu.ts, telemetry.ts, jsonFileStore.ts, utils.ts, zoom.ts
 
-**Implementation Plan:**
+#### Electron Test Implementation Plan
 
 1. Create `vitest.electron.config.ts` with `environment: 'node'` (not happy-dom)
 2. Create `electron/__mocks__/electron.ts` to mock BrowserWindow, ipcMain, app, dialog, shell
@@ -118,7 +118,7 @@ The entire `electron/` directory has **0 test files** across approximately 38 so
 
 The 16 IPC handler files in `electron/ipc/` register channels that the renderer process relies on. There is zero validation that these contracts are maintained — a renamed channel silently breaks features at runtime.
 
-**Approach:**
+#### Contract Testing Approach
 
 1. Extract a shared `IPC_CHANNELS` constant (or generate from TypeScript types)
 2. Write contract tests that verify each handler registers expected channels
@@ -129,16 +129,16 @@ The 16 IPC handler files in `electron/ipc/` register channels that the renderer 
 
 All 16 Convex server functions have **zero test coverage**. These handle persistent data operations (bookmarks, stats, jobs, schedules, settings) — bugs here corrupt user data.
 
-**Scope:**
+#### Convex Test Scope
 
 - bookmarks, buddyStats, copilotResults, copilotUsageHistory, featureIntakes
 - githubAccounts, jobs, prReviewRuns, repoBookmarks, runs
 - scheduleScanner, schedules, schema, sessionDigests, settings
 - Plus `convex/lib/` helpers
 
-**Implementation:**
+#### Convex Test Implementation
 
-1. Install `convex-test`package for in-memory Convex backend testing
+1. Install `convex-test` package for in-memory Convex backend testing
 2. Create `convex/__tests__/` directory with test files per module
 3. Add `"test:convex": "vitest run --config vitest.convex.config.ts"` script
 4. Prioritize: mutations (data-modifying) > queries > actions (external API calls)
@@ -147,7 +147,7 @@ All 16 Convex server functions have **zero test coverage**. These handle persist
 
 Comprehensive performance monitoring beyond unit benchmarks. The app needs Electron-specific performance testing that catches regressions across startup, memory, IPC, and rendering.
 
-**Key Areas:**
+#### Key Performance Areas
 
 1. **Benchmark CI Gating** — Benchmarks currently run with `continue-on-error: true` — performance regressions are invisible. Store bench results as JSON artifact, compare PR against main baseline, fail if any benchmark regresses >15%. Use `vitest bench --outputJson` + a `scripts/bench-compare.ts` comparator
 2. **Electron Startup Time** — Measure time from `app.whenReady()` to first meaningful paint. Track in CI and alert on regression (target: <3s cold start)
@@ -156,9 +156,9 @@ Comprehensive performance monitoring beyond unit benchmarks. The app needs Elect
 5. **React Render Performance** — Add `why-did-you-render` in development mode to flag unnecessary re-renders. Track render counts for heavy components (PR list, org tree, schedule editor)
 6. **Lighthouse CI** — Run Lighthouse on the renderer process to score performance, a11y, and best practices
 
-**Implementation:**
+#### Performance Test Implementation
 
-1. Create `perf/` directoryfor performance test scripts
+1. Create `perf/` directory for performance test scripts
 2. Add `"perf:startup"` and `"perf:memory"` scripts to package.json
 3. Integrate startup time tracking into CI (fail if >5s)
 4. Add `why-did-you-render` as devDependency with development-only setup
@@ -168,26 +168,26 @@ Comprehensive performance monitoring beyond unit benchmarks. The app needs Elect
 
 The repo already has excellent tooling (ESLint 9, Prettier, TypeScript strict, Vitest 100% thresholds, Knip, e18e, commitlint, Husky, markdownlint, bundle-size tracking, npm-audit-ci, Copilot Code Review, react-doctor, vitest-cucumber BDD, coverage ratchet, repo-audit, SFL Analyzers ×3, test-coverage-audit, simplisticate-audit). These are the remaining genuine gaps:
 
-**Tier 1 — ESLint Plugin Expansion (High value, low effort):**
+#### Tier 1 — ESLint Plugin Expansion
 
-- `eslint-plugin-sonarjs`— catches cognitive complexity, duplicate branches, identical expressions
+- `eslint-plugin-sonarjs` — catches cognitive complexity, duplicate branches, identical expressions
 - `eslint-plugin-unicorn` — modern JS best practices, performance patterns, no abbreviations
 - Upgrade `typescript-eslint` from `recommended` → `strict` preset (adds no-unnecessary-condition, no-confusing-void-expression, etc.)
 
-**Tier 2 — Electron Security (Medium value, medium effort):**
+#### Tier 2 — Electron Security
 
-- `electronegativity`— static analysis for Electron security misconfigurations (nodeIntegration, contextIsolation, webSecurity)
+- `electronegativity` — static analysis for Electron security misconfigurations (nodeIntegration, contextIsolation, webSecurity)
 - Add as CI step: `npx electronegativity -i electron/ -r`
 
-**Tier 3 — Architecture Enforcement (Medium value, medium effort):**
+#### Tier 3 — Architecture Enforcement
 
-- `dependency-cruiser`— enforce import boundaries (e.g., components can't import from electron/, convex/ can't import from src/)
+- `dependency-cruiser` — enforce import boundaries (e.g., components can't import from electron/, convex/ can't import from src/)
 - `.dependency-cruiser.cjs` config with forbidden rules
 - Add as CI step
 
-**Tier 4 — E2E Testing (High value, high effort):**
+#### Tier 4 — E2E Testing
 
-- Playwright with Electron adapterfor full app E2E tests
+- Playwright with Electron adapter for full app E2E tests
 - Start with critical user flows: app launch, settings, PR list navigation
 - Consider `@playwright/test` with `electron.launch()` API
 
@@ -201,9 +201,9 @@ Three CI steps currently run with `continue-on-error: true`, meaning failures ar
 | `npm-audit` | Soft-fail | Add `--audit-level=high` to fail only on high/critical vulns |
 | `bench` | Soft-fail | Gate via bench-compare script (see Performance Testing Suite) |
 
-**Implementation:**
+#### CI Hardening Steps
 
-1. Remove `continue-on-error: true`from e18e step in ci.yml
+1. Remove `continue-on-error: true` from e18e step in ci.yml
 2. Change npm-audit step to: `npx npm-audit-ci --moderate` (or `--high`)
 3. Benchmark gating covered in Performance Testing Suite
 
@@ -217,7 +217,7 @@ The `electron/workers/` directory contains critical execution infrastructure wit
 - **skillWorker.ts (2KB)** — Spawns Copilot CLI for skill execution
 - **aiWorker.ts (1KB)** — Spawns Copilot CLI for AI tasks
 
-**Priority test scenarios:**
+#### Priority Test Scenarios
 
 - Dispatcher: correct routing, concurrency limits, error propagation
 - ExecWorker: timeout behavior, abort signal handling, stdout/stderr capture
@@ -227,7 +227,7 @@ The `electron/workers/` directory contains critical execution infrastructure wit
 
 A new feature for managing a personal collection of URLs and links with rich categorization and fast access.
 
-**Core Concepts:**
+#### Bookmark Core Concepts
 
 - **Link entries**: URL, title, description, favicon, category, tags
 - **Categories**: User-defined folders/groups (e.g., "Dev Tools", "Docs", "Design Inspo")
@@ -235,7 +235,7 @@ A new feature for managing a personal collection of URLs and links with rich cat
 - **Quick-launch**: Open links from the app with one click or keyboard shortcut
 - **Import/Export**: Bring in browser bookmarks, export as JSON/HTML
 
-**UI Ideas:**
+#### Bookmark UI Ideas
 
 - New sidebar icon in the ActivityBar
 - List view with search/filter bar (by category, tag, or free text)
@@ -244,12 +244,12 @@ A new feature for managing a personal collection of URLs and links with rich cat
 - Context menus for edit, copy URL, open, delete
 - "Add Bookmark" dialog with auto-fetch of page title and favicon from URL
 
-**Data:**
+#### Bookmark Data Model
 
 - Convex table for persistence and real-time sync
 - Schema: `url`, `title`, `description`, `faviconUrl`, `category`, `tags[]`, `createdAt`, `lastVisited`, `sortOrder`
 
-**Nice-to-haves (future):**
+#### Future Enhancements
 
 - Dead link detection (periodic health check)
 - Usage stats (most visited, recently added)
@@ -260,13 +260,13 @@ A new feature for managing a personal collection of URLs and links with rich cat
 
 A built-in file explorer that shows the directory/file structure of the active terminal session's working directory, paired with a code preview pane above the terminal — similar to VS Code's explorer + editor layout.
 
-**Core Behaviour:**
+#### Core Behaviour
 
 - **Synced to terminal CWD**: The folder view shows the directory tree for whichever terminal tab is active. When the user switches terminal tabs, the folder view updates to reflect that tab's current working directory (leveraging the OSC 7 CWD tracking already implemented).
 - **File preview**: Clicking a file in the folder view opens a read-only code preview in the main content area (above the terminal, replacing `AppContentRouter`'s current view or in a new "file preview" tab).
 - **Syntax highlighting**: Use a lightweight approach — Monaco Editor (already bundled for most Electron apps), Shiki, or a simpler `<pre>` with highlight.js for common languages (C#, TypeScript, JSON, Markdown, YAML, Python, etc.).
 
-**Implementation Phases:**
+#### Implementation Phases
 
 #### Phase 1: Folder View Sidebar (foundation)
 
@@ -299,14 +299,14 @@ A built-in file explorer that shows the directory/file structure of the active t
 5. **Binary file handling**: Show a "Binary file — cannot preview" placeholder with file size and type info.
 6. **Large file handling**: Files >1MB show a warning and truncate preview. Option to "Open Externally" via system default app.
 
-**Architecture Notes:**
+#### Architecture Notes
 
 - The folder view state (open/closed, root path) is per-terminal-tab and persists in Convex alongside `title`, `cwd`, `color`.
 - The `Allotment` layout in `App.tsx` already handles vertical splits (main content | terminal). The folder view adds a horizontal split within the terminal region: `[FolderView | TerminalPane]`.
 - File preview reuses the existing `TabBar` / `AppContentRouter` infrastructure — it's just a new view type.
 - IPC boundary: all filesystem access goes through Electron main process (never `fs` from renderer). This preserves the security model.
 
-**New Files (estimated):**
+#### New Files
 
 | File | Purpose |
 |------|---------|
@@ -316,12 +316,12 @@ A built-in file explorer that shows the directory/file structure of the active t
 | `src/components/FilePreview.css` | Styles |
 | `electron/ipc/filesystemHandlers.ts` | `read-dir` and `read-file` IPC handlers |
 
-**Dependencies to evaluate:**
+#### Dependencies to Evaluate
 
 - **Shiki** (syntax highlighting, ~2MB, WASM-based, accurate) vs **highlight.js** (~1MB, regex-based, fast)
 - No new native modules needed — `fs.readdir` / `fs.readFile` are sufficient
 
-**Risks:**
+#### Terminal Feature Risks
 
 - 🟡 Large directories (node_modules) — must implement lazy loading + exclusion patterns (`.gitignore`-aware)
 - 🟡 Security — main process must validate paths are within the tab's CWD subtree to prevent directory traversal
@@ -331,18 +331,18 @@ A built-in file explorer that shows the directory/file structure of the active t
 
 Add a switchable Card ↔ List (table) view mode to all pages that render collections as cards. When a list has many items, a compact table/grid is easier to scan.
 
-**Affected Pages:**
+#### Affected Pages
 
 - `PullRequestList.tsx` — PR cards (CSS grid, 400px min)
 - `RepoIssueList.tsx` — issue cards
 - `RepoPullRequestList.tsx` — repo-scoped PR cards
 - `RunList.tsx` / `RunCard.tsx` — workflow run cards
 
-**Existing Pattern to Follow:**
+#### Existing Pattern
 
 - `TempoDashboard.tsx` already has a Grid ↔ Timeline toggle (Grid3x3 / List icons). Extract and generalize this pattern.
 
-**Implementation Plan:**
+#### View Toggle Implementation Plan
 
 1. Create a shared `ViewModeToggle` component (Card icon / List icon toggle button group)
 2. Create a shared `useViewMode(key)` hook that persists preference per page to localStorage
@@ -352,13 +352,13 @@ Add a switchable Card ↔ List (table) view mode to all pages that render collec
    - List view = compact table with sortable columns (title, status, author, date, etc.)
 4. Refactor `TempoDashboard` to use the shared `ViewModeToggle` + `useViewMode` instead of its local state
 
-**List View Columns by Page:**
+#### List View Columns
 
 - PRs: Title, Status (icon), Author, Repo, Updated, Reviews
 - Issues: Title, Status (icon), Author, Labels, Updated
 - Runs: Name, Status (icon), Duration, Triggered, Result
 
-**UX Details:**
+#### UX Details
 
 - Toggle persists across sessions (localStorage keyed by page)
 - Smooth transition between views (no jarring flash)

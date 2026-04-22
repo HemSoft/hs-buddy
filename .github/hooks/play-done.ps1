@@ -9,7 +9,7 @@ if ($raw) {
                 try {
                     $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
                     if ($null -ne $settings.audioEnabled) { $audioEnabled = $settings.audioEnabled }
-                } catch { $null = $_ }
+                } catch { Write-Verbose "Settings file unreadable: $_" }
             }
             if ($audioEnabled) {
                 Start-Process -NoNewWindow -FilePath 'ffplay' -ArgumentList '-nodisp', '-autoexit', '-volume', '50', '.github/hooks/done.mp3'

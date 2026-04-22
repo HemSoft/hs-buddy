@@ -43,8 +43,9 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
   } = useGitHubData<RepoIssueDetail>({
     cacheKey: `repo-issue:${owner}/${repo}/${issueNumber}`,
     taskName: `repo-issue-${owner}-${repo}-${issueNumber}`,
-    /* v8 ignore next */
+    /* v8 ignore start */
     fetchFn: client => client.fetchRepoIssueDetail(owner, repo, issueNumber),
+    /* v8 ignore stop */
   })
 
   if (loading && !detail) {

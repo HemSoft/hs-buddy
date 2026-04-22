@@ -25,8 +25,9 @@ export function RepoIssueList({
   const { data, loading, error, refresh } = useGitHubData<RepoIssue[]>({
     cacheKey: `repo-issues:${issueState}:${owner}/${repo}`,
     taskName: `repo-issues-${issueState}-${owner}-${repo}`,
-    /* v8 ignore next */
+    /* v8 ignore start */
     fetchFn: client => client.fetchRepoIssues(owner, repo, issueState),
+    /* v8 ignore stop */
   })
   const issues = data ?? []
   const [viewMode, setViewMode] = useViewMode(`repo-issues-${owner}-${repo}`)

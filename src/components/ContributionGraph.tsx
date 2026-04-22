@@ -30,11 +30,7 @@ function toDarkColor(color: string): string {
   return color
 }
 
-export function ContributionGraph({
-  weeks,
-  totalContributions,
-  source,
-}: ContributionGraphProps) {
+export function ContributionGraph({ weeks, totalContributions, source }: ContributionGraphProps) {
   const monthLabels = useMemo(() => {
     const labels: Array<{ text: string; x: number }> = []
     let lastMonth = -1

@@ -52,6 +52,20 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun run test:coverage
 
+      - name: Ratchet coverage thresholds
+        if: ${{ success() }}
+        run: bun run coverage:ratchet
+
+      - name: Verify coverage thresholds are up to date
+        if: ${{ success() }}
+        run: |
+          if ! git diff --quiet vitest.config.ts; then
+            echo "::error::Coverage thresholds are stale. Run 'bun run test:coverage && bun run coverage:ratchet' locally and commit the updated vitest.config.ts"
+            git diff vitest.config.ts
+            exit 1
+          fi
+          echo "✓ Coverage thresholds are up to date"
+
       - name: Report coverage summary
         if: always()
         run: |

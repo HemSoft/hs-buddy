@@ -1854,31 +1854,29 @@ describe('GitHubClient', () => {
         viewer: { login: 'user1' },
       })
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
-      mockOctokit.search.issuesAndPullRequests.mockImplementation(
-        (opts: { q: string }) => {
-          // Return reviewed PR for the review query
-          if (opts.q.includes('reviewed-by:')) {
-            return Promise.resolve({
-              data: {
-                total_count: 1,
-                items: [
-                  {
-                    number: 99,
-                    title: 'Reviewed PR',
-                    repository_url: 'https://api.github.com/repos/myorg/reviewed-repo',
-                    state: 'open',
-                    pull_request: {},
-                    created_at: '2026-01-01T00:00:00Z',
-                    updated_at: '2026-01-02T00:00:00Z',
-                    html_url: 'https://github.com/myorg/reviewed-repo/pull/99',
-                  },
-                ],
-              },
-            })
-          }
-          return Promise.resolve({ data: { total_count: 0, items: [] } })
+      mockOctokit.search.issuesAndPullRequests.mockImplementation((opts: { q: string }) => {
+        // Return reviewed PR for the review query
+        if (opts.q.includes('reviewed-by:')) {
+          return Promise.resolve({
+            data: {
+              total_count: 1,
+              items: [
+                {
+                  number: 99,
+                  title: 'Reviewed PR',
+                  repository_url: 'https://api.github.com/repos/myorg/reviewed-repo',
+                  state: 'open',
+                  pull_request: {},
+                  created_at: '2026-01-01T00:00:00Z',
+                  updated_at: '2026-01-02T00:00:00Z',
+                  html_url: 'https://github.com/myorg/reviewed-repo/pull/99',
+                },
+              ],
+            },
+          })
         }
-      )
+        return Promise.resolve({ data: { total_count: 0, items: [] } })
+      })
       mockOctokit.search.commits.mockResolvedValue({ data: { items: [] } })
       mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
       mockOctokit.paginate.mockResolvedValue([])
@@ -1907,35 +1905,31 @@ describe('GitHubClient', () => {
       })
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
       // PR/issue date searches also return items
-      mockOctokit.search.issuesAndPullRequests.mockImplementation(
-        (opts: { q: string }) => {
-          if (opts.q.includes('is:pr') && opts.q.includes('created:>=')) {
-            return Promise.resolve({
-              data: {
-                total_count: 2,
-                items: [
-                  { created_at: '2026-03-10T10:00:00Z' },
-                  { created_at: '2026-03-11T10:00:00Z' },
-                ],
-              },
-            })
-          }
-          if (opts.q.includes('is:issue') && opts.q.includes('created:>=')) {
-            return Promise.resolve({
-              data: {
-                total_count: 1,
-                items: [{ created_at: '2026-03-12T10:00:00Z' }],
-              },
-            })
-          }
-          return Promise.resolve({ data: { total_count: 0, items: [] } })
+      mockOctokit.search.issuesAndPullRequests.mockImplementation((opts: { q: string }) => {
+        if (opts.q.includes('is:pr') && opts.q.includes('created:>=')) {
+          return Promise.resolve({
+            data: {
+              total_count: 2,
+              items: [
+                { created_at: '2026-03-10T10:00:00Z' },
+                { created_at: '2026-03-11T10:00:00Z' },
+              ],
+            },
+          })
         }
-      )
+        if (opts.q.includes('is:issue') && opts.q.includes('created:>=')) {
+          return Promise.resolve({
+            data: {
+              total_count: 1,
+              items: [{ created_at: '2026-03-12T10:00:00Z' }],
+            },
+          })
+        }
+        return Promise.resolve({ data: { total_count: 0, items: [] } })
+      })
       mockOctokit.search.commits.mockResolvedValue({
         data: {
-          items: [
-            { commit: { committer: { date: '2026-03-15T10:00:00Z' } } },
-          ],
+          items: [{ commit: { committer: { date: '2026-03-15T10:00:00Z' } } }],
         },
       })
       mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
@@ -2002,6 +1996,19 @@ describe('GitHubClient', () => {
       expect(result.totalContributions).toBe(0)
       expect(result.weeks.length).toBeGreaterThan(0)
     })
+
+    it('produces no partial week when total days is divisible by 7', async () => {
+      // 2026-04-18 (Saturday) aligns start to 2025-04-13 (Sunday), giving exactly 371 days = 53 weeks
+      vi.useFakeTimers({ now: new Date('2026-04-18T12:00:00Z') })
+      try {
+        const { buildContributionCalendar } = await import('./github')
+        const result = buildContributionCalendar([])
+        expect(result.weeks).toHaveLength(53)
+        expect(result.weeks.every(w => w.contributionDays.length === 7)).toBe(true)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   describe('computeQuartiles', () => {
@@ -2023,6 +2030,21 @@ describe('GitHubClient', () => {
     it('returns empty color for zero count', async () => {
       const { assignContributionColor } = await import('./github')
       expect(assignContributionColor(0, [1, 2, 3])).toBe('#ebedf0')
+    })
+
+    it('returns Q1 color for counts at or below first quartile', async () => {
+      const { assignContributionColor } = await import('./github')
+      expect(assignContributionColor(1, [1, 2, 3])).toBe('#9be9a8')
+    })
+
+    it('returns Q2 color for counts at or below second quartile', async () => {
+      const { assignContributionColor } = await import('./github')
+      expect(assignContributionColor(2, [1, 2, 3])).toBe('#40c463')
+    })
+
+    it('returns Q3 color for counts at or below third quartile', async () => {
+      const { assignContributionColor } = await import('./github')
+      expect(assignContributionColor(3, [1, 2, 3])).toBe('#30a14e')
     })
 
     it('returns highest level for counts above Q3', async () => {

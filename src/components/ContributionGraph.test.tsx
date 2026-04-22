@@ -103,13 +103,13 @@ describe('ContributionGraph', () => {
     expect(rects[0].getAttribute('fill')).toBe('#ff00ff')
   })
 
-  it('shows "org commits" label when source is org-commits', () => {
-    render(<ContributionGraph weeks={WEEKS} totalContributions={42} source="org-commits" />)
-    expect(screen.getByText('42 org commits in the last year')).toBeTruthy()
+  it('shows "org contributions" label when source is org-activity', () => {
+    render(<ContributionGraph weeks={WEEKS} totalContributions={42} source="org-activity" />)
+    expect(screen.getByText('42 org contributions in the last year')).toBeTruthy()
   })
 
-  it('shows "contributions" label for self source', () => {
-    render(<ContributionGraph weeks={WEEKS} totalContributions={42} source="self" />)
+  it('shows "contributions" label for graphql source', () => {
+    render(<ContributionGraph weeks={WEEKS} totalContributions={42} source="graphql" />)
     expect(screen.getByText('42 contributions in the last year')).toBeTruthy()
   })
 

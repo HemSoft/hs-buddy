@@ -3186,7 +3186,9 @@ export class GitHubClient {
                     }
                   }
                 }
-                viewer { login }
+                viewer {
+                  login
+                }
               }
             `,
             {
@@ -3330,7 +3332,7 @@ export class GitHubClient {
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
-      ...((() => {
+      ...(() => {
         // Use search-derived org activity as the primary contribution source.
         // Falls back to GraphQL calendar when search returns less data (e.g. token has read:user).
         const graphqlCalendar = userProfile?.user?.contributionsCollection?.contributionCalendar
@@ -3359,7 +3361,7 @@ export class GitHubClient {
           contributionWeeks: null as ContributionWeek[] | null,
           contributionSource: 'org-activity' as const,
         }
-      })()),
+      })(),
     }
   }
 
@@ -3376,10 +3378,15 @@ export class GitHubClient {
     yearAgo.setFullYear(yearAgo.getFullYear() - 1)
     const since = yearAgo.toISOString().split('T')[0]
 
-    const paginateSearch = async (
-      searchFn: (opts: { q: string; sort: string; per_page: number; page: number }) => Promise<{ data: { items: Array<{ commit?: { committer?: { date?: string }; author?: { date?: string } }; created_at?: string }> } }>,
+    const paginateSearch = async <S extends string>(
+      searchFn: (opts: {
+        q: string
+        sort: S
+        per_page: number
+        page: number
+      }) => Promise<{ data: { items: unknown[] } }>,
       q: string,
-      sort: string,
+      sort: S,
       extractDate: (item: Record<string, unknown>) => string | undefined
     ): Promise<string[]> => {
       const dates: string[] = []
@@ -3388,7 +3395,7 @@ export class GitHubClient {
       while (page <= maxPages) {
         const result = await searchFn({ q, sort, per_page: 100, page })
         for (const item of result.data.items) {
-          const date = extractDate(item as unknown as Record<string, unknown>)
+          const date = extractDate(item as Record<string, unknown>)
           if (date) dates.push(date)
         }
         if (result.data.items.length < 100) break
@@ -3404,7 +3411,9 @@ export class GitHubClient {
         `org:${org} author:${username} committer-date:>=${since}`,
         'committer-date',
         (item: Record<string, unknown>) => {
-          const commit = item.commit as { committer?: { date?: string }; author?: { date?: string } } | undefined
+          const commit = item.commit as
+            | { committer?: { date?: string }; author?: { date?: string } }
+            | undefined
           return commit?.committer?.date ?? commit?.author?.date
         }
       ).catch(() => [] as string[]),

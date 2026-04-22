@@ -549,10 +549,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       )}
 
       {/* ── Contribution Graph ── */}
-      <UserContributionSection
-        activity={activity}
-        activityPhase={activityPhase}
-      />
+      <UserContributionSection activity={activity} activityPhase={activityPhase} />
 
       {/* ── PR Grid (Authored + Reviewed) ── */}
       <UserPullRequestSections activity={activity} activityPhase={activityPhase} />

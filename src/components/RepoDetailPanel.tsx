@@ -35,8 +35,9 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   } = useGitHubData<RepoDetail>({
     cacheKey: `repo-detail:${owner}/${repo}`,
     taskName: `repo-detail-${owner}-${repo}`,
-    /* v8 ignore next */
+    /* v8 ignore start */
     fetchFn: client => client.fetchRepoDetail(owner, repo),
+    /* v8 ignore stop */
   })
   const { refreshInterval } = usePRSettings()
 

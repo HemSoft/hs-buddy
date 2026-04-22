@@ -22,8 +22,9 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
   } = useGitHubData<RepoCommitDetail>({
     cacheKey: `repo-commit:${owner}/${repo}/${sha}`,
     taskName: `repo-commit-${owner}-${repo}-${sha}`,
-    /* v8 ignore next */
+    /* v8 ignore start */
     fetchFn: client => client.fetchRepoCommitDetail(owner, repo, sha),
+    /* v8 ignore stop */
   })
 
   if (loading && !detail) {

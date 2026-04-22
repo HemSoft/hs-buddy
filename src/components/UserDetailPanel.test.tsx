@@ -806,7 +806,7 @@ describe('UserDetailPanel – uncovered branches & functions', () => {
       const cached = makeActivity({
         totalContributions: 0,
         contributionWeeks: [],
-        contributionSource: 'public',
+        contributionSource: 'graphql',
       })
       dataCacheStore['user-activity:v3:acme/other-user'] = {
         data: cached,
@@ -821,7 +821,7 @@ describe('UserDetailPanel – uncovered branches & functions', () => {
       const cached = makeActivity({
         totalContributions: 0,
         contributionWeeks: [],
-        contributionSource: 'self',
+        contributionSource: 'graphql',
       })
       dataCacheStore['user-activity:v3:acme/self-user'] = {
         data: cached,

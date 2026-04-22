@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add self-view contribution detection for UserDetailPanel
 - Add month-end spending projection to org budget cards
+- Add Gherkin specs for data-cache, pr-mapper, pr-detail-routing
 
 ### Changed
 
@@ -30,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update bundle-size baseline for @opentelemetry/sdk-node 0.215.0
 - Lazy-load OpenTelemetry SDK to reduce main bundle by ~78%
 - Switch usage grids from auto-fill to auto-fit for better responsiveness
+- Wire coverage:ratchet into CI pipeline
+- Add format:check to pre-commit hook
+- Mark BDD specs TODO item as complete
 
 ### Fixed
 
@@ -50,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Always use user(login:) path for contribution calendar data
 - Detect missing read:user scope and show upgrade banner for contribution grid
 - Use search API for contribution grid data instead of scope-gated GraphQL
+- Address PR review feedback and fix ContributionGraph test failure
+- Resolve CI failures — TypeScript errors and coverage gaps
+- Use Object.defineProperty for ipcRenderer mock instead of stubGlobal
+- Use Reflect.deleteProperty to fix TS2790 in data-cache steps
+- Resolve Prettier formatting and restore Date.now spy in afterAll
 
 ## [0.1.736] - 2026-04-20
 

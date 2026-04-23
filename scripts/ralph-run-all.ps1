@@ -7,6 +7,7 @@ param(
     [string]$Model,
     [string]$WorkUntil,
     [switch]$NoAudio,
+    [switch]$SkipReview,
     [switch]$Help
 )
 
@@ -35,7 +36,7 @@ if ($Help) {
 }
 
 # --- Verify git state ---
-$repoRoot = (git rev-parse --show-toplevel 2>&1).Trim() -replace '/', '\'
+$repoRoot = ([string](git rev-parse --show-toplevel 2>&1)).Trim() -replace '/', '\'
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Not inside a git repository." -ForegroundColor Red
     exit 1
@@ -130,6 +131,7 @@ for ($i = 0; $i -lt $scripts.Count; $i++) {
     # Build args — always pass -Autopilot
     $scriptArgs = @{ Autopilot = $true }
     if ($NoAudio) { $scriptArgs['NoAudio'] = $true }
+    if ($SkipReview) { $scriptArgs['SkipReview'] = $true }
     if ($Model) { $scriptArgs['Model'] = $Model }
     if ($WorkUntil) { $scriptArgs['WorkUntil'] = $WorkUntil }
 

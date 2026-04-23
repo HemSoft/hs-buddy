@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminate code smells and duplication across components and utils
 - Consolidate CSS spin, adopt useToggleSet, dedup refresh & escape handlers
 - Extract shared PR review helpers and eliminate code smells
+- Add -SkipReview pass-through and ralph-simplisticate-repeat helper
 
 ### Fixed
 

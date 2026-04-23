@@ -33,6 +33,7 @@ import { UserPremiumUsageSection } from './UserPremiumUsageSection'
 import { ContributionGraph } from './ContributionGraph'
 import { PRStateIcon } from './shared/PRStateIcon'
 import { formatDistanceToNow } from '../utils/dateUtils'
+import { getRepoShortName } from '../utils/githubUrl'
 import { getErrorMessage } from '../utils/errorUtils'
 import './UserDetailPanel.css'
 
@@ -67,7 +68,7 @@ function PRRow({ pr }: { pr: UserPRSummary }) {
       <PRStateIcon state={pr.state} size={13} className={iconClass} />
       <span className="ud-pr-title">{pr.title}</span>
       <span className="ud-pr-meta">
-        {pr.repo.split('/')[1]}#{pr.number}
+        {getRepoShortName(pr.repo)}#{pr.number}
       </span>
       <span className="ud-pr-age">{formatDistanceToNow(pr.updatedAt)}</span>
     </button>
@@ -78,7 +79,7 @@ function EventRow({ event }: { event: UserEvent }) {
   return (
     <div className="ud-event-row">
       <span className="ud-event-type">{event.summary}</span>
-      <span className="ud-event-repo">{event.repo.split('/')[1] ?? event.repo}</span>
+      <span className="ud-event-repo">{getRepoShortName(event.repo)}</span>
       <span className="ud-event-age">{formatDistanceToNow(event.createdAt)}</span>
     </div>
   )
@@ -405,7 +406,7 @@ function UserRepositoriesSection({ activeRepos }: { activeRepos: string[] }) {
             onClick={() => navigateToView(`repo-detail:${repo}`)}
           >
             <FolderGit2 size={12} />
-            {repo.split('/')[1] ?? repo}
+            {getRepoShortName(repo)}
           </button>
         ))}
       </div>

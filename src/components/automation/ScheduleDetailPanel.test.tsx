@@ -19,11 +19,15 @@ vi.mock('../../hooks/useConvex', () => ({
   useScheduleMutations: () => ({ toggle: mockToggle, remove: mockRemove }),
 }))
 
-vi.mock('../../utils/dateUtils', () => ({
-  formatDistanceToNow: (value: number) => mockFormatDistanceToNow(value),
-  format: (value: number, fmt: string) => mockFormat(value, fmt),
-  WEEKDAY_SHORT: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-}))
+vi.mock('../../utils/dateUtils', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/dateUtils')>('../../utils/dateUtils')
+  return {
+    ...actual,
+    formatDistanceToNow: (value: number) => mockFormatDistanceToNow(value),
+    format: (value: number, fmt: string) => mockFormat(value, fmt),
+  }
+})
 
 vi.mock('./ScheduleEditor', () => ({
   ScheduleEditor: ({ scheduleId }: { scheduleId: string }) => (

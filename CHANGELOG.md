@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix Prettier formatting in useFinance.ts
 - Assert no side effects on identical watchlist skip
 - Use userEvent for keyboard activation test on StatusBar
+- Eliminate magic numbers, extract shared PR hook, inline dead wrapper
+- Eliminate code smells and duplication across components and utils
+- Consolidate CSS spin, adopt useToggleSet, dedup refresh & escape handlers
+- Extract shared PR review helpers and eliminate code smells
 
 ### Fixed
 
@@ -74,6 +78,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use act() flush instead of waitFor for negative assertion
 - Use semantic button element for clickable StatusBar items
 - Remove redundant onKeyDown from native button elements
+- Resolve CI failures and memoize useToggleSet return value
+- Use MutableRefObject for fetchedRef parameters
+- Make useToggleSet.toggle return previous membership atomically
+- Sync currentRef in all useToggleSet mutators
 
 ## [0.1.736] - 2026-04-20
 

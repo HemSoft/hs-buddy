@@ -12,6 +12,7 @@ import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
 import { isAbortError, throwIfAborted } from '../../utils/errorUtils'
+import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
 
 interface LoadingProgress {
   currentAccount: number
@@ -157,20 +158,16 @@ export function usePRListData(
   const handleAIReview = useCallback(async () => {
     if (!contextMenu) return
     const { pr } = contextMenu
-    window.dispatchEvent(
-      new CustomEvent('pr-review:open', {
-        detail: {
-          prUrl: pr.url,
-          prTitle: pr.title,
-          prNumber: pr.id,
-          repo: pr.repository,
-          /* v8 ignore start */
-          org: pr.org || '',
-          /* v8 ignore stop */
-          author: pr.author,
-        },
-      })
-    )
+    dispatchPRReviewOpen({
+      prUrl: pr.url,
+      prTitle: pr.title,
+      prNumber: pr.id,
+      repo: pr.repository,
+      /* v8 ignore start */
+      org: pr.org || '',
+      /* v8 ignore stop */
+      author: pr.author,
+    })
     setContextMenu(null)
   }, [contextMenu])
 

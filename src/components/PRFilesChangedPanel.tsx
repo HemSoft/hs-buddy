@@ -1,8 +1,6 @@
-import { useMemo } from 'react'
 import { FileCode2, RefreshCw } from 'lucide-react'
 import type { PRFilesChangedSummary } from '../api/github'
-import { useGitHubData } from '../hooks/useGitHubData'
-import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { usePRPanelData } from '../hooks/usePRPanelData'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { PanelLoadingState, PanelErrorState, InlineRefreshIndicator } from './shared/PanelStates'
 import { ExpandableFileList } from './shared/ExpandableFileList'
@@ -15,24 +13,19 @@ interface PRFilesChangedPanelProps {
 }
 
 export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
-  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = ownerRepo?.owner ?? null
-  const repo = ownerRepo?.repo ?? null
-  const cacheKey = owner && repo ? `pr-files:${owner}/${repo}/${pr.id}` : null
-
   const {
     data: detail,
     loading,
-    error: fetchError,
+    error,
     refresh,
-  } = useGitHubData<PRFilesChangedSummary>({
     cacheKey,
-    taskName: `pr-files-${pr.repository}-${pr.id}`,
-    fetchFn: client => client.fetchPRFilesChanged(owner!, repo!, pr.id),
-  })
-
-  // Surface a parse error when URL is unparseable (cacheKey is null → hook won't fetch)
-  const error = !cacheKey ? 'Could not parse owner/repo from PR URL' : fetchError
+  } = usePRPanelData<PRFilesChangedSummary>(
+    pr,
+    'pr-files',
+    /* v8 ignore start */
+    (client, owner, repo, prNumber) => client.fetchPRFilesChanged(owner, repo, prNumber)
+    /* v8 ignore stop */
+  )
 
   if (loading && !detail) {
     return <PanelLoadingState message="Loading changed files..." />

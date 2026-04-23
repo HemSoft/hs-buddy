@@ -172,15 +172,6 @@
   animation: spin 1.5s linear infinite;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* Syncing status item */
 .status-item-syncing {
   color: var(--accent-primary, #0078d4);

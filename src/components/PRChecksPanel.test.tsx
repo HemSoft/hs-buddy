@@ -39,6 +39,7 @@ vi.mock('../utils/dateUtils', () => ({
 
 vi.mock('../utils/githubUrl', () => ({
   parseOwnerRepoFromUrl: (...args: unknown[]) => mockParseOwnerRepo(...args),
+  PR_URL_PARSE_ERROR: 'Could not parse owner/repo from PR URL',
 }))
 
 vi.mock('../utils/errorUtils', () => ({

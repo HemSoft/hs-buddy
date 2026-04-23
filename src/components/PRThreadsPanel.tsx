@@ -11,6 +11,7 @@ import {
 import type { PRDetailInfo } from '../utils/prDetailView'
 import type { PRReviewComment, PRReviewSummary, PRReviewThread } from '../api/github'
 import { formatTime } from '../utils/dateUtils'
+import { MS_PER_MINUTE } from '../constants'
 import { usePRThreadsPanel } from '../hooks/usePRThreadsPanel'
 import { ReviewThreadCard } from './pr-threads/ReviewThreadCard'
 import { ReviewSummaryCard } from './pr-threads/ReviewSummaryCard'
@@ -57,7 +58,7 @@ function buildTimeline(
     const aTime = new Date(a.timestamp).getTime()
     const bTime = new Date(b.timestamp).getTime()
     const timeDiff = aTime - bTime
-    if (Math.abs(timeDiff) < 60_000) {
+    if (Math.abs(timeDiff) < MS_PER_MINUTE) {
       const typeDiff = typeOrder[a.type] - typeOrder[b.type]
       return typeDiff !== 0 ? typeDiff : timeDiff
     }

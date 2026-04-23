@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseOwnerRepoFromUrl, formatFileStatus } from './githubUrl'
+import { parseOwnerRepoFromUrl, formatFileStatus, getRepoShortName } from './githubUrl'
 
 describe('parseOwnerRepoFromUrl', () => {
   it('extracts owner and repo from a PR URL', () => {
@@ -27,5 +27,27 @@ describe('formatFileStatus', () => {
 
   it('handles strings without hyphens', () => {
     expect(formatFileStatus('modified')).toBe('modified')
+  })
+})
+
+describe('getRepoShortName', () => {
+  it('extracts repo name from owner/repo format', () => {
+    expect(getRepoShortName('acme/widget')).toBe('widget')
+  })
+
+  it('returns the full string when no slash is present', () => {
+    expect(getRepoShortName('widget')).toBe('widget')
+  })
+
+  it('handles deeply nested paths by returning second segment', () => {
+    expect(getRepoShortName('org/repo/extra')).toBe('repo')
+  })
+
+  it('falls back to full string when second segment is empty', () => {
+    expect(getRepoShortName('owner/')).toBe('owner/')
+  })
+
+  it('falls back to full string for leading slash', () => {
+    expect(getRepoShortName('/repo')).toBe('repo')
   })
 })

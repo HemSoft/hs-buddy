@@ -10,9 +10,10 @@ import { useLatest } from './useLatest'
 import { useLatestPRReviewRun } from './useConvex'
 import { useTaskQueue } from './useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
-import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { parseOwnerRepoFromUrl, PR_URL_PARSE_ERROR } from '../utils/githubUrl'
 import { applyReactionToResult } from '../utils/reactions'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
+import { buildReReviewPrompt, dispatchPRReviewOpen } from '../utils/prReviewEvents'
 
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
@@ -71,7 +72,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     setLoading(true)
     setError(null)
     try {
-      if (!ownerRepo) throw new Error('Could not parse owner/repo from PR URL')
+      if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
 
       const result = await enqueueRef.current(
         /* v8 ignore start */
@@ -243,25 +244,19 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   }, [latestReview])
 
   const requestReReview = useCallback(() => {
-    const prompt = latestReview?.reviewedHeadSha
-      ? `Please re-review ${pr.url}. Focus only on commits after ${latestReview.reviewedHeadSha} and unresolved/outdated review conversations.`
-      : `Please do a targeted re-review on ${pr.url}. Focus on newly pushed commits and unresolved review conversations.`
+    const prompt = buildReReviewPrompt(pr.url, latestReview?.reviewedHeadSha)
 
-    window.dispatchEvent(
-      new CustomEvent('pr-review:open', {
-        detail: {
-          prUrl: pr.url,
-          prTitle: pr.title,
-          prNumber: pr.id,
-          repo: pr.repository,
-          /* v8 ignore start */
-          org: owner || '',
-          /* v8 ignore stop */
-          author: pr.author,
-          initialPrompt: prompt,
-        },
-      })
-    )
+    dispatchPRReviewOpen({
+      prUrl: pr.url,
+      prTitle: pr.title,
+      prNumber: pr.id,
+      repo: pr.repository,
+      /* v8 ignore start */
+      org: owner || '',
+      /* v8 ignore stop */
+      author: pr.author,
+      initialPrompt: prompt,
+    })
   }, [latestReview, pr.url, pr.title, pr.id, pr.repository, pr.author, owner])
 
   return {

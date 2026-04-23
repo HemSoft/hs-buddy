@@ -27,6 +27,36 @@ describe('useToggleSet', () => {
     expect(result.current.has('x')).toBe(false)
   })
 
+  it('toggle returns true when key was present (removed)', () => {
+    const { result } = renderHook(() => useToggleSet(['a']))
+    let wasPresent: boolean | undefined
+    act(() => {
+      wasPresent = result.current.toggle('a')
+    })
+    expect(wasPresent).toBe(true)
+  })
+
+  it('toggle returns false when key was absent (added)', () => {
+    const { result } = renderHook(() => useToggleSet())
+    let wasPresent: boolean | undefined
+    act(() => {
+      wasPresent = result.current.toggle('a')
+    })
+    expect(wasPresent).toBe(false)
+  })
+
+  it('rapid toggles report correct previous membership via ref', () => {
+    const { result } = renderHook(() => useToggleSet())
+    const returns: boolean[] = []
+    act(() => {
+      returns.push(result.current.toggle('k'))
+      returns.push(result.current.toggle('k'))
+      returns.push(result.current.toggle('k'))
+    })
+    // false (absent→added), true (present→removed), false (absent→added)
+    expect(returns).toEqual([false, true, false])
+  })
+
   it('add is idempotent', () => {
     const { result } = renderHook(() => useToggleSet(['a']))
     const prevSet = result.current.set
@@ -65,5 +95,42 @@ describe('useToggleSet', () => {
     const { result } = renderHook(() => useToggleSet(['a']))
     act(() => result.current.reset())
     expect(result.current.set.size).toBe(0)
+  })
+
+  it('add then toggle in same tick sees up-to-date membership', () => {
+    const { result } = renderHook(() => useToggleSet())
+    let wasPresent: boolean | undefined
+    act(() => {
+      result.current.add('x')
+      wasPresent = result.current.toggle('x')
+    })
+    // add('x') made it present, so toggle should see it and return true (removed)
+    expect(wasPresent).toBe(true)
+    expect(result.current.has('x')).toBe(false)
+  })
+
+  it('remove then toggle in same tick sees up-to-date membership', () => {
+    const { result } = renderHook(() => useToggleSet(['x']))
+    let wasPresent: boolean | undefined
+    act(() => {
+      result.current.remove('x')
+      wasPresent = result.current.toggle('x')
+    })
+    // remove('x') made it absent, so toggle should return false (added)
+    expect(wasPresent).toBe(false)
+    expect(result.current.has('x')).toBe(true)
+  })
+
+  it('reset then toggle in same tick sees reset state', () => {
+    const { result } = renderHook(() => useToggleSet(['a', 'b']))
+    let wasPresent: boolean | undefined
+    act(() => {
+      result.current.reset(['c'])
+      wasPresent = result.current.toggle('a')
+    })
+    // reset cleared 'a', so toggle should return false (added)
+    expect(wasPresent).toBe(false)
+    expect(result.current.has('a')).toBe(true)
+    expect(result.current.has('c')).toBe(true)
   })
 })

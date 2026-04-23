@@ -18,6 +18,7 @@ import type { PRDetailInfo } from '../utils/prDetailView'
 import { usePRReviewRunsByPR } from '../hooks/useConvex'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { formatDateCompact } from '../utils/dateUtils'
+import { buildReReviewPrompt, dispatchPRReviewOpen } from '../utils/prReviewEvents'
 import './PRReviewsPanel.css'
 
 interface PRReviewsPanelProps {
@@ -77,23 +78,17 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
   }
 
   const handleReReview = () => {
-    const prompt = latest?.reviewedHeadSha
-      ? `Please re-review ${pr.url}. Focus only on changes introduced after commit ${latest.reviewedHeadSha}. Prioritize unresolved or outdated review conversations and verify whether prior findings are addressed.`
-      : `Please do a targeted re-review on ${pr.url}. Focus on newly pushed commits and unresolved review conversations.`
+    const prompt = buildReReviewPrompt(pr.url, latest?.reviewedHeadSha)
 
-    window.dispatchEvent(
-      new CustomEvent('pr-review:open', {
-        detail: {
-          prUrl: pr.url,
-          prTitle: pr.title,
-          prNumber: pr.id,
-          repo: pr.repository,
-          org: pr.org || owner || '',
-          author: pr.author,
-          initialPrompt: prompt,
-        },
-      })
-    )
+    dispatchPRReviewOpen({
+      prUrl: pr.url,
+      prTitle: pr.title,
+      prNumber: pr.id,
+      repo: pr.repository,
+      org: pr.org || owner || '',
+      author: pr.author,
+      initialPrompt: prompt,
+    })
   }
 
   if (runs === undefined) {

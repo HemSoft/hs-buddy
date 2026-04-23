@@ -1,6 +1,6 @@
 import { Calendar, Clock, Play, Pause, Edit, Trash2, AlertCircle } from 'lucide-react'
 import { useSchedule, useScheduleMutations, useScheduleRuns } from '../../hooks/useConvex'
-import { formatDistanceToNow, format, WEEKDAY_SHORT } from '../../utils/dateUtils'
+import { formatDistanceToNow, format, formatDuration, WEEKDAY_SHORT } from '../../utils/dateUtils'
 import { useState } from 'react'
 import { ScheduleEditor } from './ScheduleEditor'
 import { useConfirm } from '../../hooks/useConfirm'
@@ -251,11 +251,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
                     {formatDistanceToNow(run.startedAt)}
                   </span>
                   {run.duration !== undefined && (
-                    <span className="run-duration">
-                      {run.duration < 1000
-                        ? `${run.duration}ms`
-                        : `${(run.duration / 1000).toFixed(1)}s`}
-                    </span>
+                    <span className="run-duration">{formatDuration(run.duration)}</span>
                   )}
                 </div>
               ))}

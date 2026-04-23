@@ -5,7 +5,6 @@ import {
   ExternalLink,
   GitCommit,
   History,
-  Loader2,
   MessageCircle,
   MessageSquareWarning,
   Sparkles,
@@ -13,12 +12,14 @@ import {
 } from 'lucide-react'
 import { GitHubClient, type PRHistorySummary } from '../api/github'
 import { useGitHubAccounts, useCopilotSettings } from '../hooks/useConfig'
+import { useLatest } from '../hooks/useLatest'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
-import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
+import { parseOwnerRepoFromUrl, PR_URL_PARSE_ERROR } from '../utils/githubUrl'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { buildAddressCommentsPrompt } from '../utils/assistantPrompts'
+import { PanelLoadingState, PanelErrorState } from './shared/PanelStates'
 import './PullRequestHistoryPanel.css'
 
 interface PullRequestHistoryPanelProps {
@@ -26,29 +27,6 @@ interface PullRequestHistoryPanelProps {
   embedded?: boolean
   focus?: 'all' | 'commits'
   onLoaded?: (history: PRHistorySummary) => void
-}
-
-function PullRequestHistoryLoadingState() {
-  return (
-    <div className="pr-history-loading">
-      <Loader2 size={28} className="spin" />
-      <p>Loading PR history…</p>
-    </div>
-  )
-}
-
-function PullRequestHistoryErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
-  return (
-    <div className="pr-history-error">
-      <p className="error-message">Failed to load PR history</p>
-      {/* v8 ignore start */}
-      <p className="error-detail">{error || 'Unknown error'}</p>
-      {/* v8 ignore stop */}
-      <button className="pr-history-retry" onClick={onRetry}>
-        Retry
-      </button>
-    </div>
-  )
 }
 
 function PullRequestHistoryHeader({ pr, embedded }: { pr: PRDetailInfo; embedded: boolean }) {
@@ -334,15 +312,11 @@ export function PullRequestHistoryPanel({
 }: PullRequestHistoryPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useRef(enqueue)
+  const enqueueRef = useLatest(enqueue)
   const latestRequestRef = useRef(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<PRHistorySummary | null>(null)
-
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
 
   const fetchHistory = useCallback(async () => {
     const requestId = latestRequestRef.current + 1
@@ -354,7 +328,7 @@ export function PullRequestHistoryPanel({
     try {
       const ownerRepo = parseOwnerRepoFromUrl(pr.url)
       if (!ownerRepo) {
-        throw new Error('Could not parse owner/repo from PR URL')
+        throw new Error(PR_URL_PARSE_ERROR)
       }
 
       const result = await enqueueRef.current(
@@ -387,22 +361,29 @@ export function PullRequestHistoryPanel({
         setLoading(false)
       }
     }
-  }, [accounts, pr.id, pr.repository, pr.url, onLoaded])
+  }, [accounts, pr.id, pr.repository, pr.url, onLoaded, enqueueRef])
 
   useEffect(() => {
     fetchHistory()
   }, [fetchHistory])
 
   if (loading && !history) {
-    return <PullRequestHistoryLoadingState />
+    return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
   }
 
   if (error) {
-    return <PullRequestHistoryErrorState error={error} onRetry={fetchHistory} />
+    return (
+      <PanelErrorState
+        title="Failed to load PR history"
+        error={error}
+        onRetry={fetchHistory}
+        className="pr-history-error"
+      />
+    )
   }
 
   if (!history) {
-    return <PullRequestHistoryLoadingState />
+    return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
   }
 
   const timeline = history.timeline ?? []

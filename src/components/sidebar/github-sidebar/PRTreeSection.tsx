@@ -8,12 +8,12 @@ import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 interface PRTreeSectionProps {
   prItems: SidebarItem[]
   prTreeData: Record<string, PullRequest[]>
-  expandedPrGroups: Set<string>
-  expandedPRNodes: Set<string>
+  expandedPrGroups: ReadonlySet<string>
+  expandedPRNodes: ReadonlySet<string>
   counts: Record<string, number>
   badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
   newCounts?: Record<string, number>
-  newUrls?: Set<string>
+  newUrls?: ReadonlySet<string>
   refreshIndicators?: RefreshIndicators
   selectedItem: string | null
   onItemSelect: (itemId: string) => void

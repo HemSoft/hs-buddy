@@ -450,15 +450,6 @@
   margin: 4px 0 0 0;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .pr-list-empty svg {
   color: var(--text-secondary);
   opacity: 0.5;

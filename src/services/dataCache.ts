@@ -12,6 +12,8 @@
  *   dataCache.isFresh('my-prs', 15 * 60 * 1000)  // Check staleness
  */
 
+import { MS_PER_MINUTE } from '../constants'
+
 interface CacheEntry<T = unknown> {
   data: T
   fetchedAt: number
@@ -135,7 +137,7 @@ export const dataCache = {
     const stats: Record<string, { ageMs: number; ageFormatted: string }> = {}
     for (const [key, entry] of Object.entries(memoryCache)) {
       const ageMs = now - entry.fetchedAt
-      const minutes = Math.floor(ageMs / 60000)
+      const minutes = Math.floor(ageMs / MS_PER_MINUTE)
       const hours = Math.floor(minutes / 60)
       stats[key] = {
         ageMs,

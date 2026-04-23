@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use act() flush instead of waitFor for negative assertion
 - Use semantic button element for clickable StatusBar items
 - Remove redundant onKeyDown from native button elements
+- Stop ignoring scripts/ ralph files
 
 ## [0.1.736] - 2026-04-20
 

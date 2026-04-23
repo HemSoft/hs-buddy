@@ -53,9 +53,11 @@ _cdp.cjs
 .playwright-mcp/
 bench-output.txt
 
-# Ralph loop scripts and logs
-ralph*.ps1
-ralph*.log
+# Ralph loop logs (root only — scripts/ralph* should be tracked)
+/ralph*.log
+
+# Never ignore anything in scripts/ (overrides *.log* etc.)
+!scripts/**
 
 # Per-developer hooks settings (audio toggle, etc.)
 .github/hooks/hooks-settings.json

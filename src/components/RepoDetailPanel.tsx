@@ -19,6 +19,7 @@ import { MS_PER_MINUTE } from '../constants'
 import { RepoStatsBar } from './repo-detail/RepoStatsBar'
 import { RepoContentGrid } from './repo-detail/RepoContentGrid'
 import { getLanguageColor, getWorkflowStatusInfo } from './repo-detail/repoDetailUtils'
+import { onKeyboardActivate } from '../utils/keyboard'
 import './RepoDetailPanel.css'
 
 interface RepoDetailPanelProps {
@@ -130,14 +131,9 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
                     role="button"
                     tabIndex={0}
                     onClick={() => window.shell?.openExternal(detail.latestWorkflowRun!.url)}
-                    onKeyDown={e => {
-                      /* v8 ignore start */
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        /* v8 ignore stop */
-                        e.preventDefault()
-                        window.shell?.openExternal(detail.latestWorkflowRun!.url)
-                      }
-                    }}
+                    onKeyDown={onKeyboardActivate(() =>
+                      window.shell?.openExternal(detail.latestWorkflowRun!.url)
+                    )}
                   >
                     {/* v8 ignore start */}
                     <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />

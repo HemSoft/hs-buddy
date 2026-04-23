@@ -25,23 +25,9 @@
 
 .pr-history-loading,
 .pr-history-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  height: auto;
   padding: 24px 0;
-  color: var(--text-secondary);
   flex-shrink: 0;
-}
-
-.pr-history-retry {
-  border: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
 }
 
 .pr-history-header {
@@ -365,17 +351,4 @@
 
 .timeline-summary a:hover {
   text-decoration: underline;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }

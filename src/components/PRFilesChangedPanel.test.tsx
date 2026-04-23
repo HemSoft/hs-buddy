@@ -37,6 +37,7 @@ vi.mock('../utils/githubUrl', () => ({
     if (url === 'invalid://url') return null
     return { owner: 'test-org', repo: 'hs-buddy' }
   },
+  PR_URL_PARSE_ERROR: 'Could not parse owner/repo from PR URL',
 }))
 
 vi.mock('../utils/errorUtils', () => ({

@@ -58,36 +58,36 @@ interface OrgRepoTreeProps {
   orgRepos: Record<string, OrgRepo[]>
   orgMeta: Record<string, OrgMeta>
   orgMembers: Record<string, OrgMember[]>
-  loadingOrgMembers: Set<string>
-  expandedOrgUserGroups: Set<string>
+  loadingOrgMembers: ReadonlySet<string>
+  expandedOrgUserGroups: ReadonlySet<string>
   orgTeams: Record<string, OrgTeam[]>
-  loadingOrgTeams: Set<string>
-  expandedOrgTeamGroups: Set<string>
-  expandedTeams: Set<string>
+  loadingOrgTeams: ReadonlySet<string>
+  expandedOrgTeamGroups: ReadonlySet<string>
+  expandedTeams: ReadonlySet<string>
   teamMembers: Record<string, TeamMember[]>
-  loadingTeamMembers: Set<string>
+  loadingTeamMembers: ReadonlySet<string>
   orgContributorCounts: Record<string, Record<string, number>>
-  loadingOrgs: Set<string>
-  expandedOrgs: Set<string>
-  expandedRepos: Set<string>
-  expandedRepoIssueGroups: Set<string>
-  expandedRepoIssueStateGroups: Set<string>
-  expandedRepoPRGroups: Set<string>
-  expandedRepoPRStateGroups: Set<string>
-  expandedRepoCommitGroups: Set<string>
-  expandedPRNodes: Set<string>
+  loadingOrgs: ReadonlySet<string>
+  expandedOrgs: ReadonlySet<string>
+  expandedRepos: ReadonlySet<string>
+  expandedRepoIssueGroups: ReadonlySet<string>
+  expandedRepoIssueStateGroups: ReadonlySet<string>
+  expandedRepoPRGroups: ReadonlySet<string>
+  expandedRepoPRStateGroups: ReadonlySet<string>
+  expandedRepoCommitGroups: ReadonlySet<string>
+  expandedPRNodes: ReadonlySet<string>
   repoCounts: Record<string, RepoCounts>
-  loadingRepoCounts: Set<string>
+  loadingRepoCounts: ReadonlySet<string>
   repoPrTreeData: Record<string, PullRequest[]>
   repoCommitTreeData: Record<string, RepoCommit[]>
   repoIssueTreeData: Record<string, RepoIssue[]>
-  loadingRepoCommits: Set<string>
-  loadingRepoPRs: Set<string>
-  loadingRepoIssues: Set<string>
+  loadingRepoCommits: ReadonlySet<string>
+  loadingRepoPRs: ReadonlySet<string>
+  loadingRepoIssues: ReadonlySet<string>
   sflStatusData: Record<string, SFLRepoStatus>
-  loadingSFLStatus: Set<string>
-  expandedSFLGroups: Set<string>
-  bookmarkedRepoKeys: Set<string>
+  loadingSFLStatus: ReadonlySet<string>
+  expandedSFLGroups: ReadonlySet<string>
+  bookmarkedRepoKeys: ReadonlySet<string>
   showBookmarkedOnly: boolean
   selectedItem: string | null
   refreshTick: number
@@ -106,7 +106,7 @@ interface OrgRepoTreeProps {
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
-  favoriteUsers: Set<string>
+  favoriteUsers: ReadonlySet<string>
   onUserContextMenu: (e: React.MouseEvent, org: string, login: string) => void
   refreshIndicators?: RefreshIndicators
 }
@@ -180,9 +180,9 @@ function OrgHeader({
 interface OrgTeamNodeProps {
   org: string
   team: OrgTeam
-  expandedTeams: Set<string>
+  expandedTeams: ReadonlySet<string>
   teamMembers: Record<string, TeamMember[]>
-  loadingTeamMembers: Set<string>
+  loadingTeamMembers: ReadonlySet<string>
   selectedItem: string | null
   onToggleTeam: (org: string, teamSlug: string) => void
   onItemSelect: (itemId: string) => void
@@ -276,9 +276,9 @@ interface OrgTeamsSectionProps {
   teams: OrgTeam[]
   isExpanded: boolean
   isLoading: boolean
-  expandedTeams: Set<string>
+  expandedTeams: ReadonlySet<string>
   teamMembers: Record<string, TeamMember[]>
-  loadingTeamMembers: Set<string>
+  loadingTeamMembers: ReadonlySet<string>
   selectedItem: string | null
   onToggleOrgTeamGroup: (org: string) => void
   onToggleTeam: (org: string, teamSlug: string) => void
@@ -362,7 +362,7 @@ interface OrgUsersSectionProps {
   org: string
   members: OrgMember[]
   contributorCounts: Record<string, number>
-  favoriteUsers: Set<string>
+  favoriteUsers: ReadonlySet<string>
   isExpanded: boolean
   isLoading: boolean
   selectedItem: string | null
@@ -466,25 +466,25 @@ interface OrgReposSectionProps {
   repos: OrgRepo[]
   isExpanded: boolean
   showBookmarkedOnly: boolean
-  bookmarkedRepoKeys: Set<string>
-  expandedRepos: Set<string>
-  expandedRepoIssueGroups: Set<string>
-  expandedRepoIssueStateGroups: Set<string>
-  expandedRepoPRGroups: Set<string>
-  expandedRepoPRStateGroups: Set<string>
-  expandedRepoCommitGroups: Set<string>
-  expandedPRNodes: Set<string>
+  bookmarkedRepoKeys: ReadonlySet<string>
+  expandedRepos: ReadonlySet<string>
+  expandedRepoIssueGroups: ReadonlySet<string>
+  expandedRepoIssueStateGroups: ReadonlySet<string>
+  expandedRepoPRGroups: ReadonlySet<string>
+  expandedRepoPRStateGroups: ReadonlySet<string>
+  expandedRepoCommitGroups: ReadonlySet<string>
+  expandedPRNodes: ReadonlySet<string>
   repoCounts: Record<string, RepoCounts>
-  loadingRepoCounts: Set<string>
+  loadingRepoCounts: ReadonlySet<string>
   repoPrTreeData: Record<string, PullRequest[]>
   repoCommitTreeData: Record<string, RepoCommit[]>
   repoIssueTreeData: Record<string, RepoIssue[]>
-  loadingRepoCommits: Set<string>
-  loadingRepoPRs: Set<string>
-  loadingRepoIssues: Set<string>
+  loadingRepoCommits: ReadonlySet<string>
+  loadingRepoPRs: ReadonlySet<string>
+  loadingRepoIssues: ReadonlySet<string>
   sflStatusData: Record<string, SFLRepoStatus>
-  loadingSFLStatus: Set<string>
-  expandedSFLGroups: Set<string>
+  loadingSFLStatus: ReadonlySet<string>
+  expandedSFLGroups: ReadonlySet<string>
   selectedItem: string | null
   refreshTick: number
   onToggleOrgRepoGroup: (org: string) => void

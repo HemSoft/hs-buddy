@@ -19,9 +19,14 @@ vi.mock('../../hooks/useConvex', () => ({
   useRunMutations: () => ({ create: mockCreateRun }),
 }))
 
-vi.mock('../../utils/dateUtils', () => ({
-  formatDistanceToNow: (value: number) => mockFormatDistanceToNow(value),
-}))
+vi.mock('../../utils/dateUtils', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/dateUtils')>('../../utils/dateUtils')
+  return {
+    ...actual,
+    formatDistanceToNow: (value: number) => mockFormatDistanceToNow(value),
+  }
+})
 
 vi.mock('./job-list/jobRowUtils', () => ({
   getWorkerIcon: (workerType: string) => <span data-testid={`worker-icon-${workerType}`} />,

@@ -30,25 +30,25 @@ import {
 interface RepoNodeProps {
   org: string
   repo: OrgRepo
-  bookmarkedRepoKeys: Set<string>
-  expandedRepos: Set<string>
-  expandedRepoIssueGroups: Set<string>
-  expandedRepoIssueStateGroups: Set<string>
-  expandedRepoPRGroups: Set<string>
-  expandedRepoPRStateGroups: Set<string>
-  expandedRepoCommitGroups: Set<string>
-  expandedPRNodes: Set<string>
+  bookmarkedRepoKeys: ReadonlySet<string>
+  expandedRepos: ReadonlySet<string>
+  expandedRepoIssueGroups: ReadonlySet<string>
+  expandedRepoIssueStateGroups: ReadonlySet<string>
+  expandedRepoPRGroups: ReadonlySet<string>
+  expandedRepoPRStateGroups: ReadonlySet<string>
+  expandedRepoCommitGroups: ReadonlySet<string>
+  expandedPRNodes: ReadonlySet<string>
   repoCounts: Record<string, RepoCounts>
-  loadingRepoCounts: Set<string>
+  loadingRepoCounts: ReadonlySet<string>
   repoPrTreeData: Record<string, PullRequest[]>
   repoCommitTreeData: Record<string, RepoCommit[]>
   repoIssueTreeData: Record<string, RepoIssue[]>
-  loadingRepoCommits: Set<string>
-  loadingRepoPRs: Set<string>
-  loadingRepoIssues: Set<string>
+  loadingRepoCommits: ReadonlySet<string>
+  loadingRepoPRs: ReadonlySet<string>
+  loadingRepoIssues: ReadonlySet<string>
   sflStatusData: Record<string, SFLRepoStatus>
-  loadingSFLStatus: Set<string>
-  expandedSFLGroups: Set<string>
+  loadingSFLStatus: ReadonlySet<string>
+  expandedSFLGroups: ReadonlySet<string>
   selectedItem: string | null
   refreshTick: number
   onToggleRepo: (org: string, repoName: string) => void
@@ -138,7 +138,7 @@ interface RepoCommitsSectionProps {
   org: string
   repoName: string
   repoKey: string
-  expandedRepoCommitGroups: Set<string>
+  expandedRepoCommitGroups: ReadonlySet<string>
   repoCommitTreeData: Record<string, RepoCommit[]>
   loading: boolean
   selectedItem: string | null
@@ -251,8 +251,8 @@ interface RepoIssuesSectionProps {
   repoName: string
   repoKey: string
   counts?: RepoCounts
-  expandedRepoIssueGroups: Set<string>
-  expandedRepoIssueStateGroups: Set<string>
+  expandedRepoIssueGroups: ReadonlySet<string>
+  expandedRepoIssueStateGroups: ReadonlySet<string>
   repoIssueTreeData: Record<string, RepoIssue[]>
   isCountLoading: boolean
   isOpenIssuesLoading: boolean
@@ -524,9 +524,9 @@ interface RepoPullRequestsSectionProps {
   counts?: RepoCounts
   repoCountsUpdatedLabel: string | null
   refreshTick: number
-  expandedRepoPRGroups: Set<string>
-  expandedRepoPRStateGroups: Set<string>
-  expandedPRNodes: Set<string>
+  expandedRepoPRGroups: ReadonlySet<string>
+  expandedRepoPRStateGroups: ReadonlySet<string>
+  expandedPRNodes: ReadonlySet<string>
   repoPrTreeData: Record<string, PullRequest[]>
   isCountLoading: boolean
   isOpenPRsLoading: boolean
@@ -881,7 +881,7 @@ function RepoSFLSection({
 function renderPRNode(
   pr: PullRequest,
   repoKey: string,
-  expandedPRNodes: Set<string>,
+  expandedPRNodes: ReadonlySet<string>,
   selectedItem: string | null,
   onItemSelect: (itemId: string) => void,
   onTogglePRNode: (prViewId: string) => void,

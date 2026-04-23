@@ -50,6 +50,7 @@ vi.mock('../utils/githubUrl', () => ({
     const m = url.match(/github\.com\/([^/]+)\/([^/]+)/)
     return m ? { owner: m[1], repo: m[2] } : null
   },
+  PR_URL_PARSE_ERROR: 'Could not parse owner/repo from PR URL',
 }))
 
 vi.mock('../utils/reactions', () => ({

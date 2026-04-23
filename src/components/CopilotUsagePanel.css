@@ -561,12 +561,3 @@
 .usage-header-projected-overage .usage-header-summary-value {
   color: #e89b3c;
 }
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}

@@ -64,8 +64,8 @@ export function usePRSidebarBadges() {
         const elapsed = now - cached.fetchedAt
         const remaining = Math.max(0, intervalMs - elapsed)
         const progress = Math.min(100, Math.max(0, (elapsed / intervalMs) * 100))
-        const elapsedMin = Math.floor(elapsed / 60000)
-        const remainingMin = Math.ceil(remaining / 60000)
+        const elapsedMin = Math.floor(elapsed / MS_PER_MINUTE)
+        const remainingMin = Math.ceil(remaining / MS_PER_MINUTE)
         const tooltip =
           elapsedMin < 1
             ? `Updated just now · Next in ${remainingMin}m`

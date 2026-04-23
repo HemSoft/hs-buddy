@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
@@ -9,10 +8,9 @@ import {
   XCircle,
 } from 'lucide-react'
 import type { PRChecksSummary } from '../api/github'
-import { useGitHubData } from '../hooks/useGitHubData'
+import { usePRPanelData } from '../hooks/usePRPanelData'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
-import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { PanelLoadingState, PanelErrorState } from './shared/PanelStates'
 import './PRChecksPanel.css'
 
@@ -87,22 +85,18 @@ function getOverallStateLabel(state: PRChecksSummary['overallState']): string {
 }
 
 export function PRChecksPanel({ pr }: PRChecksPanelProps) {
-  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = ownerRepo?.owner ?? null
-  const repo = ownerRepo?.repo ?? null
-  const cacheKey = owner && repo ? `pr-checks:${owner}/${repo}/${pr.id}` : null
-
   const {
     data: checks,
-    error: fetchError,
+    error,
     refresh,
-  } = useGitHubData<PRChecksSummary>({
     cacheKey,
-    taskName: `pr-checks-${pr.repository}-${pr.id}`,
-    fetchFn: client => client.fetchPRChecks(owner!, repo!, pr.id),
-  })
-
-  const error = !cacheKey ? 'Could not parse owner/repo from PR URL' : fetchError
+  } = usePRPanelData<PRChecksSummary>(
+    pr,
+    'pr-checks',
+    /* v8 ignore start */
+    (client, owner, repo, prNumber) => client.fetchPRChecks(owner, repo, prNumber)
+    /* v8 ignore stop */
+  )
 
   if (error) {
     return (

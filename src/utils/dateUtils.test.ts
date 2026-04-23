@@ -188,6 +188,10 @@ describe('formatDuration', () => {
     expect(formatDuration(125_000)).toBe('2m 5s')
     expect(formatDuration(3_600_000)).toBe('60m 0s')
   })
+
+  it('never produces 60s (normalizes to next minute)', () => {
+    expect(formatDuration(119_999)).toBe('2m 0s')
+  })
 })
 
 describe('formatSecondsCountdown', () => {

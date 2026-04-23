@@ -23,6 +23,7 @@ import type { PRHistorySummary, PRLinkedIssue } from '../api/github'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { throwIfAborted } from '../utils/errorUtils'
+import { onKeyboardActivate } from '../utils/keyboard'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRChecksPanel } from './PRChecksPanel'
 import { PRFilesChangedPanel } from './PRFilesChangedPanel'
@@ -43,9 +44,10 @@ const SECTION_LABELS: Record<PRDetailSection, string> = {
   'ai-reviews': 'AI Reviews',
 }
 
-function formatRelative(date: string | null): string {
-  if (!date) return ''
-  return formatDistanceToNow(date)
+const COPILOT_REVIEW_TITLES: Record<string, string> = {
+  requesting: 'Requesting Copilot review…',
+  monitoring: 'Waiting for Copilot review…',
+  done: 'Copilot review complete!',
 }
 
 // --- Sub-components extracted for react-doctor component-size ---
@@ -104,15 +106,7 @@ function PRDetailHeader({
             copilotReviewState === 'monitoring' ? ' pr-detail-copilot-monitoring' : ''
           }${copilotReviewState === 'done' ? ' pr-detail-copilot-done' : ''}`}
           onClick={handleRequestCopilotReview}
-          title={
-            copilotReviewState === 'requesting'
-              ? 'Requesting Copilot review…'
-              : copilotReviewState === 'monitoring'
-                ? 'Waiting for Copilot review…'
-                : copilotReviewState === 'done'
-                  ? 'Copilot review complete!'
-                  : 'Request Copilot Review'
-          }
+          title={COPILOT_REVIEW_TITLES[copilotReviewState] ?? 'Request Copilot Review'}
           disabled={copilotReviewState !== 'idle'}
         >
           {copilotReviewState === 'requesting' ? (
@@ -196,12 +190,7 @@ function PROverviewSection({
             type="button"
             className="pr-detail-card pr-detail-card-interactive"
             onClick={() => window.shell.openExternal(effectiveIssue.url)}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                window.shell.openExternal(effectiveIssue.url)
-              }
-            }}
+            onKeyDown={onKeyboardActivate(() => window.shell.openExternal(effectiveIssue.url))}
             title={`Open Issue #${effectiveIssue.number} on GitHub`}
           >
             <div className="pr-detail-card-title">
@@ -304,7 +293,6 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
       return
     }
 
-    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
     if (!ownerRepo) {
       setBranches(null)
       return
@@ -327,15 +315,15 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
     } catch {
       setBranches(null)
     }
-  }, [accounts, pr.id, pr.repository, pr.url, pr.headBranch, pr.baseBranch])
+  }, [accounts, ownerRepo, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
 
   useEffect(() => {
     fetchBranches()
   }, [fetchBranches])
 
   const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
-  const activityRelative = formatRelative(activityAt)
-  const createdRelative = formatRelative(pr.created)
+  const activityRelative = activityAt ? formatDistanceToNow(activityAt) : ''
+  const createdRelative = pr.created ? formatDistanceToNow(pr.created) : ''
   const stateLabel = pr.state?.trim() || 'open'
   const sectionLabel = section ? (SECTION_LABELS[section] ?? null) : null
   const checksUrl = `${pr.url}/checks`
@@ -351,7 +339,6 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
     const match = branch.match(/issue-(\d+)/)
     if (!match) return null
     const num = Number(match[1])
-    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
     if (!ownerRepo) return null
     return {
       number: num,
@@ -366,7 +353,6 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
       setHistoryUpdatedAt(history.updatedAt || null)
       setLinkedIssues(history.linkedIssues)
 
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
       const namespace = pr.org || ownerRepo?.owner || ''
 
       const scopedAccounts = namespace
@@ -390,7 +376,7 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
 
       setYouApproved(approvedByYou)
     },
-    [accounts, pr.org, pr.url]
+    [accounts, ownerRepo, pr.org]
   )
 
   return (

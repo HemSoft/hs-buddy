@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { TodoistTask, TodoistProject, DayGroup } from '../types/todoist'
-import { formatDateKey, WEEKDAY_SHORT } from '../utils/dateUtils'
+import { formatDateKey, MONTH_SHORT, WEEKDAY_SHORT } from '../utils/dateUtils'
 import { useIsMounted } from './useIsMounted'
 
 function formatDayLabel(dateStr: string): string {
@@ -13,21 +13,7 @@ function formatDayLabel(dateStr: string): string {
   if (dateStr === tomorrowStr) return 'Tomorrow'
 
   const d = new Date(dateStr + 'T00:00:00')
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ]
-  return `${WEEKDAY_SHORT[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`
+  return `${WEEKDAY_SHORT[d.getDay()]}, ${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`
 }
 
 export function useTodoistUpcoming(days: number = 7) {

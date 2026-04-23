@@ -1,7 +1,7 @@
 import { Play, Edit, Copy, Trash2, Clock, Calendar } from 'lucide-react'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { useJob, useJobMutations, useRunMutations, useJobRuns, JobId } from '../../hooks/useConvex'
-import { formatDistanceToNow } from '../../utils/dateUtils'
+import { formatDistanceToNow, formatDuration } from '../../utils/dateUtils'
 import { getWorkerIcon } from './job-list/jobRowUtils'
 import { useState } from 'react'
 import { JobEditor } from './JobEditor'
@@ -267,11 +267,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
                     {formatDistanceToNow(run.startedAt)}
                   </span>
                   {run.duration !== undefined && (
-                    <span className="run-duration">
-                      {run.duration < 1000
-                        ? `${run.duration}ms`
-                        : `${(run.duration / 1000).toFixed(1)}s`}
-                    </span>
+                    <span className="run-duration">{formatDuration(run.duration)}</span>
                   )}
                 </div>
               ))}

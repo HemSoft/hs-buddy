@@ -189,8 +189,11 @@ export function formatDateCompact(date: string | number | null | undefined): str
 
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`
+  if (ms < MINUTE) return `${(ms / 1000).toFixed(1)}s`
+  const totalSeconds = Math.round(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}m ${seconds}s`
 }
 
 export function formatSecondsCountdown(secs: number): string {
@@ -205,7 +208,7 @@ export function formatUptime(ms: number): string {
   if (ms <= 0) return '0s'
   const totalSeconds = Math.floor(ms / 1_000)
   if (totalSeconds < 60) return `${totalSeconds}s`
-  const totalMinutes = Math.floor(ms / 60_000)
+  const totalMinutes = Math.floor(ms / MINUTE)
   if (totalMinutes < 60) return `${totalMinutes}m`
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60

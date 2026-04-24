@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add run.sh for launching via Aspire on macOS
 - Reduce code repetition in useGitHubSidebarData
 - Cover Mac-specific accelerator branches in TitleBar
+- Add Cyclomatic Complexity Gate to TODO
 
 ### Fixed
 

@@ -24,6 +24,21 @@ export const MONTH_SHORT = [
   'Dec',
 ] as const
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+
 export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 /**
@@ -87,9 +102,15 @@ export function formatDistanceToNow(timestamp: number | string | Date): string {
   return `${parts[0]} and ${parts[1]} ago`
 }
 
+/** Matches all supported format tokens in a single pass (longest-first via alternation order). */
+const FORMAT_TOKEN = /yyyy|yy|MMMM|MMM|MM|M|dd|d|HH|H|hh|h|mm|m|ss|s|A|a/g
+
 /**
- * Format a timestamp or Date with a format string
- * Supports: yyyy, MM, MMM, MMMM, dd, d, HH, h, mm, ss, a
+ * Format a timestamp or Date with a format string.
+ * Supports: yyyy, yy, MMMM, MMM, MM, M, dd, d, HH, H, hh, h, mm, m, ss, s, A, a
+ *
+ * Uses a single-pass regex to avoid replacement-text corruption
+ * (e.g. "March" containing 'a' being mangled by the ampm token).
  */
 export function format(date: number | Date, formatStr: string): string {
   const d = typeof date === 'number' ? new Date(date) : date
@@ -100,29 +121,13 @@ export function format(date: number | Date, formatStr: string): string {
   const hours = d.getHours()
   const minutes = d.getMinutes()
   const seconds = d.getSeconds()
-
-  const monthNames = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ]
-
   const hour12 = hours % 12 || 12
   const ampm = hours < 12 ? 'AM' : 'PM'
 
-  const replacements: Record<string, string> = {
+  const tokens: Record<string, string> = {
     yyyy: String(year),
     yy: String(year).slice(-2),
-    MMMM: monthNames[month],
+    MMMM: MONTH_NAMES[month],
     MMM: MONTH_SHORT[month],
     MM: String(month + 1).padStart(2, '0'),
     M: String(month + 1),
@@ -136,19 +141,11 @@ export function format(date: number | Date, formatStr: string): string {
     m: String(minutes),
     ss: String(seconds).padStart(2, '0'),
     s: String(seconds),
-    a: ampm.toLowerCase(),
     A: ampm,
+    a: ampm.toLowerCase(),
   }
 
-  // Sort by length descending to replace longer patterns first
-  const patterns = Object.keys(replacements).sort((a, b) => b.length - a.length)
-
-  let result = formatStr
-  for (const pattern of patterns) {
-    result = result.replace(new RegExp(pattern, 'g'), replacements[pattern])
-  }
-
-  return result
+  return formatStr.replace(FORMAT_TOKEN, match => tokens[match])
 }
 
 function formatDateLocale(

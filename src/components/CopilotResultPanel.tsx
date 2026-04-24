@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import MarkdownPreview from '@uiw/react-markdown-preview'
-import remarkGemoji from 'remark-gemoji'
 import {
   Sparkles,
   Clock,
@@ -18,6 +16,7 @@ import { useCopilotResult, useCopilotResultMutations } from '../hooks/useConvex'
 import { useExternalMarkdownLinks } from '../hooks/useExternalMarkdownLinks'
 import { formatDateFull, formatDuration } from '../utils/dateUtils'
 import { getStatusIcon, getStatusLabel } from './shared/statusDisplay'
+import { MarkdownContent } from './shared/MarkdownContent'
 import type { Id } from '../../convex/_generated/dataModel'
 import './CopilotResultPanel.css'
 
@@ -66,6 +65,8 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     )
   }
 
+  const metadata = result.metadata as Record<string, unknown> | null
+
   const handleCopy = async () => {
     /* v8 ignore start */
     if (result.result) {
@@ -93,10 +94,9 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
 
   const handlePublishToPR = async () => {
     if (!result.result || publishing) return
-    const meta = result.metadata as Record<string, unknown> | null
-    const org = meta?.org as string | undefined
-    const repo = meta?.repo as string | undefined
-    const prNumber = meta?.prNumber as number | undefined
+    const org = metadata?.org as string | undefined
+    const repo = metadata?.repo as string | undefined
+    const prNumber = metadata?.prNumber as number | undefined
     if (!org || !repo || !prNumber) return
 
     setPublishing(true)
@@ -114,7 +114,6 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     }
   }
 
-  const metadata = result.metadata as Record<string, unknown> | null
   const canPublish =
     result.category === 'pr-review' &&
     result.status === 'completed' &&
@@ -223,13 +222,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
         )}
 
         {result.status === 'completed' && result.result && (
-          <div className="copilot-result-markdown" data-color-mode="dark">
-            <MarkdownPreview
-              source={result.result}
-              remarkPlugins={[remarkGemoji]}
-              style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}
-            />
-          </div>
+          <MarkdownContent source={result.result} className="copilot-result-markdown" />
         )}
 
         {result.status === 'failed' && (

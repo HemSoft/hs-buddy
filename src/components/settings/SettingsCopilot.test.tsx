@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SettingsCopilot } from './SettingsCopilot'
 
@@ -47,6 +47,7 @@ vi.mock('../shared/AccountPicker', () => ({
       <option value="">Default</option>
       <option value="testuser">testuser</option>
       <option value="orguser">orguser</option>
+      <option value="thirduser">thirduser</option>
     </select>
   ),
 }))
@@ -68,6 +69,7 @@ vi.mock('../shared/ModelPicker', () => ({
     >
       <option value="gpt-4o">gpt-4o</option>
       <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+      <option value="o1-preview">o1-preview</option>
       <option value="__custom__">Custom...</option>
     </select>
   ),
@@ -139,9 +141,12 @@ describe('SettingsCopilot', () => {
       target: { value: 'orguser' },
     })
 
-    // handleAccountChange is effectively synchronous (fire-and-forget promise)
     expect(mocks.mockSetGhAccount).toHaveBeenCalledWith('orguser')
-    expect(screen.getByText('Saved')).toBeInTheDocument()
+
+    // "Saved" appears after the async save resolves
+    await waitFor(() => {
+      expect(screen.getByText('Saved')).toBeInTheDocument()
+    })
 
     // Auto-resets after 2 seconds
     vi.advanceTimersByTime(2100)
@@ -217,15 +222,17 @@ describe('SettingsCopilot', () => {
     expect(screen.getByText('Active CLI account')).toBeTruthy()
   })
 
-  it('clears save reset timeout on unmount', () => {
-    vi.useFakeTimers()
+  it('clears save reset timeout on unmount', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const { unmount } = render(<SettingsCopilot />)
 
     // Trigger a save to start the timer
     fireEvent.change(screen.getByTestId('account-picker'), {
       target: { value: 'orguser' },
     })
-    expect(screen.getByText('Saved')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Saved')).toBeInTheDocument()
+    })
 
     // Unmount before the timer fires — cleanup should clear the timeout
     unmount()
@@ -284,5 +291,326 @@ describe('SettingsCopilot', () => {
     expect(mocks.mockSetGhAccount).toHaveBeenLastCalledWith('testuser')
 
     vi.useRealTimers()
+  })
+
+  it('reverts account and hides Saved indicator on failed save', async () => {
+    mocks.mockSetGhAccount.mockRejectedValueOnce(new Error('save failed'))
+    render(<SettingsCopilot />)
+
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'orguser' },
+    })
+
+    await waitFor(() => {
+      expect(mocks.mockSetGhAccount).toHaveBeenCalledWith('orguser')
+    })
+
+    // After rejection, model summary should still show original model (no state corruption)
+    await waitFor(() => {
+      const codeEl = document.querySelector('.info-box code')
+      expect(codeEl?.textContent).toBe('gpt-4o')
+    })
+
+    // "Saved" should never appear after a failed save
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+  })
+
+  it('reverts model and hides Saved indicator on failed model save', async () => {
+    mocks.mockSetModel.mockRejectedValueOnce(new Error('save failed'))
+    render(<SettingsCopilot />)
+
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'claude-3-5-sonnet' },
+    })
+
+    await waitFor(() => {
+      expect(mocks.mockSetModel).toHaveBeenCalledWith('claude-3-5-sonnet')
+    })
+
+    // Model should revert to original
+    await waitFor(() => {
+      const codeEl = document.querySelector('.info-box code')
+      expect(codeEl?.textContent).toBe('gpt-4o')
+    })
+
+    // "Saved" should never appear after a failed save
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+  })
+
+  it('reverts custom model and hides Saved indicator on failed custom model save', async () => {
+    mocks.mockSetModel.mockRejectedValueOnce(new Error('save failed'))
+    const user = userEvent.setup()
+    render(<SettingsCopilot />)
+
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: '__custom__' },
+    })
+
+    const input = screen.getByPlaceholderText('Enter custom model name')
+    await user.clear(input)
+    await user.type(input, 'bad-model')
+
+    fireEvent.click(screen.getByText('Apply'))
+
+    await waitFor(() => {
+      expect(mocks.mockSetModel).toHaveBeenCalledWith('bad-model')
+    })
+
+    // Model should revert to original
+    await waitFor(() => {
+      const codeEl = document.querySelector('.info-box code')
+      expect(codeEl?.textContent).toBe('gpt-4o')
+    })
+
+    // "Saved" should never appear after a failed save
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+  })
+
+  it('clears previous save-reset timer when a second save succeeds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<SettingsCopilot />)
+
+    // First save — timer is set (fires at T+2000ms)
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'orguser' },
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Saved')).toBeInTheDocument()
+    })
+
+    // Advance 500ms, then second save — clears first timer and sets new one (fires at T+2500ms)
+    vi.advanceTimersByTime(500)
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'claude-3-5-sonnet' },
+    })
+    await waitFor(() => {
+      expect(mocks.mockSetModel).toHaveBeenCalledWith('claude-3-5-sonnet')
+    })
+
+    // At T+2100ms: if clearTimeout didn't work, the first timer would fire and reset "Saved"
+    vi.advanceTimersByTime(1600)
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+
+    // At T+2600ms: second timer fires — "Saved" disappears
+    vi.advanceTimersByTime(500)
+    await waitFor(() => {
+      expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+    })
+
+    vi.useRealTimers()
+  })
+
+  it('ignores stale account save failure when a newer request is in-flight', async () => {
+    let rejectFirst!: (reason: Error) => void
+    const firstPromise = new Promise<void>((_, reject) => {
+      rejectFirst = reject
+    })
+    let resolveSecond!: () => void
+    const secondPromise = new Promise<void>(resolve => {
+      resolveSecond = resolve
+    })
+
+    mocks.mockSetGhAccount.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise)
+
+    render(<SettingsCopilot />)
+
+    // First change → requestId 1 (initial='testuser')
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'orguser' },
+    })
+    // Second change → requestId 2 (supersedes first, distinct from initial)
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'thirduser' },
+    })
+
+    // Flush promise callbacks and React state updates
+    await act(async () => {
+      rejectFirst(new Error('stale failure'))
+      resolveSecond()
+    })
+
+    // Second save succeeded → "Saved" should appear
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+
+    // Account should reflect the second (successful) value, not revert to initial
+    const codeEl = document.querySelector('.info-box p:first-child')
+    expect(codeEl?.textContent).toContain('thirduser')
+  })
+
+  it('ignores stale model save success when a newer request supersedes it', async () => {
+    let resolveFirst!: () => void
+    const firstPromise = new Promise<void>(resolve => {
+      resolveFirst = resolve
+    })
+    let resolveSecond!: () => void
+    const secondPromise = new Promise<void>(resolve => {
+      resolveSecond = resolve
+    })
+
+    mocks.mockSetModel.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise)
+
+    render(<SettingsCopilot />)
+
+    // First model change → requestId 1 (initial='gpt-4o')
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'claude-3-5-sonnet' },
+    })
+    // Second model change → requestId 2 (distinct from initial)
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'o1-preview' },
+    })
+
+    await act(async () => {
+      resolveFirst()
+      resolveSecond()
+    })
+
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+    const codeEl = document.querySelector('.info-box code')
+    expect(codeEl?.textContent).toBe('o1-preview')
+  })
+
+  it('ignores stale model save failure when a newer request supersedes it', async () => {
+    let rejectFirst!: (reason: Error) => void
+    const firstPromise = new Promise<void>((_, reject) => {
+      rejectFirst = reject
+    })
+    let resolveSecond!: () => void
+    const secondPromise = new Promise<void>(resolve => {
+      resolveSecond = resolve
+    })
+
+    mocks.mockSetModel.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise)
+
+    render(<SettingsCopilot />)
+
+    // First model change → requestId 1 (initial='gpt-4o')
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'claude-3-5-sonnet' },
+    })
+    // Second model change → requestId 2 (distinct from initial)
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'o1-preview' },
+    })
+
+    await act(async () => {
+      rejectFirst(new Error('stale failure'))
+      resolveSecond()
+    })
+
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+    const codeEl = document.querySelector('.info-box code')
+    expect(codeEl?.textContent).toBe('o1-preview')
+  })
+
+  it('ignores stale account save success when a newer request supersedes it', async () => {
+    let resolveFirst!: () => void
+    const firstPromise = new Promise<void>(resolve => {
+      resolveFirst = resolve
+    })
+    let resolveSecond!: () => void
+    const secondPromise = new Promise<void>(resolve => {
+      resolveSecond = resolve
+    })
+
+    mocks.mockSetGhAccount.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise)
+
+    render(<SettingsCopilot />)
+
+    // First change → requestId 1 (initial='testuser')
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'orguser' },
+    })
+    // Second change → requestId 2 (distinct from initial)
+    fireEvent.change(screen.getByTestId('account-picker'), {
+      target: { value: 'thirduser' },
+    })
+
+    await act(async () => {
+      resolveFirst()
+      resolveSecond()
+    })
+
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+    const codeEl = document.querySelector('.info-box p:first-child')
+    expect(codeEl?.textContent).toContain('thirduser')
+  })
+
+  it('ignores stale custom model save failure when a newer request supersedes it', async () => {
+    let rejectFirst!: (reason: Error) => void
+    const firstPromise = new Promise<void>((_, reject) => {
+      rejectFirst = reject
+    })
+    let resolveSecond!: () => void
+    const secondPromise = new Promise<void>(resolve => {
+      resolveSecond = resolve
+    })
+
+    mocks.mockSetModel.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise)
+
+    const user = userEvent.setup()
+    render(<SettingsCopilot />)
+
+    // Enter custom model mode and save
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: '__custom__' },
+    })
+    const input = screen.getByPlaceholderText('Enter custom model name')
+    await user.clear(input)
+    await user.type(input, 'custom-one')
+    fireEvent.click(screen.getByText('Apply'))
+
+    // Now do a regular model change that supersedes the custom save (distinct from initial 'gpt-4o')
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'o1-preview' },
+    })
+
+    await act(async () => {
+      rejectFirst(new Error('stale failure'))
+      resolveSecond()
+    })
+
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+    const codeEl = document.querySelector('.info-box code')
+    expect(codeEl?.textContent).toBe('o1-preview')
+  })
+
+  it('ignores stale custom model save success when a newer request supersedes it', async () => {
+    let resolveFirst!: () => void
+    const firstPromise = new Promise<void>(resolve => {
+      resolveFirst = resolve
+    })
+    let resolveSecond!: () => void
+    const secondPromise = new Promise<void>(resolve => {
+      resolveSecond = resolve
+    })
+
+    mocks.mockSetModel.mockReturnValueOnce(firstPromise).mockReturnValueOnce(secondPromise)
+
+    const user = userEvent.setup()
+    render(<SettingsCopilot />)
+
+    // Enter custom model mode and save
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: '__custom__' },
+    })
+    const input = screen.getByPlaceholderText('Enter custom model name')
+    await user.clear(input)
+    await user.type(input, 'custom-one')
+    fireEvent.click(screen.getByText('Apply'))
+
+    // Now do a regular model change that supersedes the custom save (distinct from initial 'gpt-4o')
+    fireEvent.change(screen.getByTestId('model-picker'), {
+      target: { value: 'o1-preview' },
+    })
+
+    await act(async () => {
+      resolveFirst()
+      resolveSecond()
+    })
+
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+    const codeEl = document.querySelector('.info-box code')
+    expect(codeEl?.textContent).toBe('o1-preview')
   })
 })

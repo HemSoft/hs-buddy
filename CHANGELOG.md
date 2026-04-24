@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce code repetition in useGitHubSidebarData
 - Cover Mac-specific accelerator branches in TitleBar
 - Add Cyclomatic Complexity Gate to TODO
+- Add comprehensive coverage for SettingsCopilot race condition handling
 
 ### Fixed
 
@@ -90,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sync currentRef in all useToggleSet mutators
 - Resolve branch coverage gaps and platform-aware PowerShell spawning
 - Use isModKey helper for platform-correct modifier detection
+- Address PR review comments — deterministic platform tests and save race condition
 
 ## [0.1.736] - 2026-04-20
 

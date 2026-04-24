@@ -135,6 +135,25 @@ describe('format', () => {
     expect(format(date, 'yyyy-MM-d')).toBe('2026-06-5')
   })
 
+  it('does not corrupt month names containing format-token characters', () => {
+    // March contains 'a' (ampm token) and 'M' (month number token)
+    const march = new Date(2026, 2, 15, 14, 30, 0)
+    expect(format(march, 'MMMM d, yyyy')).toBe('March 15, 2026')
+    expect(format(march, 'MMM d, yyyy h:mm a')).toBe('Mar 15, 2026 2:30 pm')
+
+    // May contains 'a' and 'M'
+    const may = new Date(2026, 4, 1, 9, 5, 0)
+    expect(format(may, 'MMMM d, yyyy')).toBe('May 1, 2026')
+
+    // September contains 's' (seconds token)
+    const september = new Date(2026, 8, 20, 8, 0, 0)
+    expect(format(september, 'MMMM d')).toBe('September 20')
+
+    // December contains 'd' (day token)
+    const december = new Date(2026, 11, 25, 12, 0, 0)
+    expect(format(december, 'MMMM dd, yyyy')).toBe('December 25, 2026')
+  })
+
   it('accepts numeric timestamps', () => {
     expect(format(date.getTime(), 'yyyy')).toBe('2026')
   })

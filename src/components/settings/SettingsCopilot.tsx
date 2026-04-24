@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef } from 'react'
+import { useLatest } from '../../hooks/useLatest'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { RefreshCw, User, Sparkles, Cpu, AlertCircle, CheckCircle } from 'lucide-react'
 import { AccountPicker } from '../shared/AccountPicker'
@@ -64,6 +65,10 @@ export function SettingsCopilot() {
   // Sync local state from Convex once it loads (one-time initialization)
   const initializedRef = useRef(false)
   const saveResetTimerRef = useRef<number | null>(null)
+  const accountRequestRef = useRef(0)
+  const modelRequestRef = useRef(0)
+  const ghAccountRef = useLatest(ghAccount)
+  const modelRef = useLatest(model)
 
   useEffect(() => {
     if (!loading && !initializedRef.current) {
@@ -91,13 +96,21 @@ export function SettingsCopilot() {
   }
 
   const handleAccountChange = async (value: string) => {
+    const requestId = ++accountRequestRef.current
     dispatch({ type: 'set_account', value })
     dispatch({ type: 'saving' })
-    /* v8 ignore start */
-    setGhAccount(value).catch(() => {})
-    /* v8 ignore stop */
-    dispatch({ type: 'saved' })
-    scheduleSaveStatusReset()
+    try {
+      await setGhAccount(value)
+      if (requestId === accountRequestRef.current) {
+        dispatch({ type: 'saved' })
+        scheduleSaveStatusReset()
+      }
+    } catch {
+      if (requestId === accountRequestRef.current) {
+        dispatch({ type: 'set_account', value: ghAccountRef.current })
+        dispatch({ type: 'reset_save' })
+      }
+    }
   }
 
   const handleModelChange = async (value: string) => {
@@ -106,12 +119,22 @@ export function SettingsCopilot() {
       return
     }
 
+    const requestId = ++modelRequestRef.current
     dispatch({ type: 'toggle_custom_model', enabled: false })
     dispatch({ type: 'set_model', value })
     dispatch({ type: 'saving' })
-    await setModel(value)
-    dispatch({ type: 'saved' })
-    scheduleSaveStatusReset()
+    try {
+      await setModel(value)
+      if (requestId === modelRequestRef.current) {
+        dispatch({ type: 'saved' })
+        scheduleSaveStatusReset()
+      }
+    } catch {
+      if (requestId === modelRequestRef.current) {
+        dispatch({ type: 'set_model', value: modelRef.current })
+        dispatch({ type: 'reset_save' })
+      }
+    }
   }
 
   const handleCustomModelSave = async () => {
@@ -120,11 +143,21 @@ export function SettingsCopilot() {
     if (!trimmed) return
     /* v8 ignore stop */
 
+    const requestId = ++modelRequestRef.current
     dispatch({ type: 'set_model', value: trimmed })
     dispatch({ type: 'saving' })
-    await setModel(trimmed)
-    dispatch({ type: 'saved' })
-    scheduleSaveStatusReset()
+    try {
+      await setModel(trimmed)
+      if (requestId === modelRequestRef.current) {
+        dispatch({ type: 'saved' })
+        scheduleSaveStatusReset()
+      }
+    } catch {
+      if (requestId === modelRequestRef.current) {
+        dispatch({ type: 'set_model', value: modelRef.current })
+        dispatch({ type: 'reset_save' })
+      }
+    }
   }
 
   const handleCustomModelKeyDown = (e: React.KeyboardEvent) => {

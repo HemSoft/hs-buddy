@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Sparkles, Trash2, Send, Loader2, StopCircle } from 'lucide-react'
-import MarkdownPreview from '@uiw/react-markdown-preview'
-import remarkGemoji from 'remark-gemoji'
 import type { AssistantContext } from '../types/assistant'
 import { useAssistantConversation } from '../hooks/useAssistantConversation'
 import { useExternalMarkdownLinks } from '../hooks/useExternalMarkdownLinks'
+import { MarkdownContent } from './shared/MarkdownContent'
 import './AssistantPanel.css'
 
 interface AssistantPanelProps {
@@ -127,13 +126,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
               <div key={msg.id} className={`assistant-message assistant-message-${msg.role}`}>
                 {msg.role === 'assistant' ? (
                   msg.content ? (
-                    <div className="assistant-message-markdown" data-color-mode="dark">
-                      <MarkdownPreview
-                        source={msg.content}
-                        remarkPlugins={[remarkGemoji]}
-                        style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}
-                      />
-                    </div>
+                    <MarkdownContent source={msg.content} className="assistant-message-markdown" />
                   ) : (
                     <div className="assistant-message-loading">
                       <Loader2 size={14} className="spin" />

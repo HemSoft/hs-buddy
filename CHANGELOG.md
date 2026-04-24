@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add month-end spending projection to org budget cards
 - Add Gherkin specs for data-cache, pr-mapper, pr-detail-routing
 - Add macOS cross-platform support
+- Enable cyclomatic complexity gate (warn, threshold 10)
 
 ### Changed
 

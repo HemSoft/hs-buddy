@@ -203,12 +203,11 @@ for (( i=0; i<${#scripts[@]}; i++ )); do
         printf "${CYAN}Pulling latest main before next script...${NC}\n"
         git fetch origin main 2>&1 >/dev/null
         git checkout main 2>&1 >/dev/null
-        git pull --ff-only 2>&1 >/dev/null
-        if [[ $? -ne 0 ]]; then
-            printf "${YELLOW}Warning: git pull on main failed. Continuing anyway.${NC}\n"
-        else
-            printf "${GREEN}Main is up to date.${NC}\n"
+        if ! git pull --ff-only 2>&1 >/dev/null; then
+            printf "${YELLOW}Main has diverged from origin. Resetting to origin/main...${NC}\n"
+            git reset --hard origin/main 2>&1 >/dev/null
         fi
+        printf "${GREEN}Main is up to date.${NC}\n"
     fi
 done
 

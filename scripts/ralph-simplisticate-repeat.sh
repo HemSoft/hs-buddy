@@ -68,7 +68,11 @@ for (( i=1; i<=times; i++ )); do
     if (( i < times )); then
         echo "Pulling latest main before next run..."
         git checkout main >/dev/null 2>&1
-        git pull --ff-only >/dev/null 2>&1
+        git fetch origin main >/dev/null 2>&1
+        if ! git pull --ff-only >/dev/null 2>&1; then
+            echo "Main has diverged from origin. Resetting to origin/main..."
+            git reset --hard origin/main >/dev/null 2>&1
+        fi
     fi
 done
 

@@ -93,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve branch coverage gaps and platform-aware PowerShell spawning
 - Use isModKey helper for platform-correct modifier detection
 - Address PR review comments — deterministic platform tests and save race condition
+- Harden ralph scripts with reset-on-diverge and improved simplisticate prompt
 
 ## [0.1.736] - 2026-04-20
 

@@ -30,7 +30,7 @@ if [[ ! -x "$ralph_script" ]]; then
     exit 1
 fi
 
-args=(--prompt "Find patterns of complexity or code repetition and traditional code smells and fix them." --branch "feature/simplisticate" --cleanup-worktree --max 10)
+args=(--prompt "Priority: reduce cyclomatic complexity of functions to 10 or below (ESLint 'complexity' rule threshold). Run 'npx eslint . --rule \"complexity: [error, 10]\"' to find violations, then refactor the highest-complexity functions first by extracting helper functions, simplifying conditionals, and reducing nesting. After addressing complexity, also fix any other code smells, code repetition, or unnecessary complexity you find." --branch "feature/simplisticate" --cleanup-worktree --max 10)
 $autopilot && args+=(--autopilot)
 $no_audio && args+=(--no-audio)
 $skip_review && args+=(--skip-review)

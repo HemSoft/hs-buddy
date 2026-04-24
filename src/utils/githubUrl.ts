@@ -15,3 +15,11 @@ export function formatFileStatus(status: string): string {
 export function getRepoShortName(fullRepo: string): string {
   return fullRepo.split('/')[1] || fullRepo
 }
+
+/** Parse an `owner/repo` key into its parts. Returns null if either part is empty. */
+export function parseOwnerRepoKey(key: string): { owner: string; repo: string } | null {
+  const [owner, ...repoParts] = key.split('/')
+  const repo = repoParts.join('/')
+  if (!owner || !repo) return null
+  return { owner, repo }
+}

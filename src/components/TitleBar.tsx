@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Users, Sparkles, TerminalSquare } from 'lucide-react'
 import { AboutModal } from './AboutModal'
+import { modLabel, isMac } from '../utils/platform'
 import './TitleBar.css'
 
 interface MenuItem {
@@ -36,36 +37,38 @@ export function TitleBar({
   const menus: Menu[] = [
     {
       label: 'File',
-      items: [{ label: 'Exit', accelerator: 'Alt+F4', action: () => window.close() }],
+      items: [
+        { label: 'Exit', accelerator: isMac ? '⌘Q' : 'Alt+F4', action: () => window.close() },
+      ],
     },
     {
       label: 'Edit',
       items: [
-        { label: 'Undo', accelerator: 'Ctrl+Z' },
-        { label: 'Redo', accelerator: 'Ctrl+Y' },
+        { label: 'Undo', accelerator: `${modLabel}+Z` },
+        { label: 'Redo', accelerator: isMac ? '⇧⌘Z' : 'Ctrl+Y' },
         { type: 'separator' },
-        { label: 'Cut', accelerator: 'Ctrl+X' },
-        { label: 'Copy', accelerator: 'Ctrl+C' },
-        { label: 'Paste', accelerator: 'Ctrl+V' },
+        { label: 'Cut', accelerator: `${modLabel}+X` },
+        { label: 'Copy', accelerator: `${modLabel}+C` },
+        { label: 'Paste', accelerator: `${modLabel}+V` },
         { type: 'separator' },
-        { label: 'Select All', accelerator: 'Ctrl+A' },
+        { label: 'Select All', accelerator: `${modLabel}+A` },
       ],
     },
     {
       label: 'View',
       items: [
-        { label: 'Zoom In', accelerator: 'Ctrl+Num+' },
-        { label: 'Zoom Out', accelerator: 'Ctrl+Num-' },
-        { label: 'Reset Zoom', accelerator: 'Ctrl+Num0' },
+        { label: 'Zoom In', accelerator: `${modLabel}+Num+` },
+        { label: 'Zoom Out', accelerator: `${modLabel}+Num-` },
+        { label: 'Reset Zoom', accelerator: `${modLabel}+Num0` },
         { type: 'separator' },
-        { label: 'Reload', accelerator: 'Ctrl+R', action: () => window.location.reload() },
+        { label: 'Reload', accelerator: `${modLabel}+R`, action: () => window.location.reload() },
         {
           label: 'Toggle DevTools',
-          accelerator: 'Ctrl+Shift+I',
+          accelerator: isMac ? '⌥⌘I' : 'Ctrl+Shift+I',
           action: () => window.ipcRenderer.send('toggle-devtools'),
         },
         { type: 'separator' },
-        { label: 'Full Screen', accelerator: 'F11' },
+        { label: 'Full Screen', accelerator: isMac ? '⌃⌘F' : 'F11' },
       ],
     },
     {
@@ -174,15 +177,15 @@ export function TitleBar({
           type="button"
           className={`window-control-button terminal-toggle-button ${terminalOpen ? 'active' : ''}`}
           onClick={onToggleTerminal}
-          title="Toggle Terminal (Ctrl+`)"
-          aria-label="Toggle Terminal (Ctrl+`)"
+          title={`Toggle Terminal (${modLabel}+\`)`}
+          aria-label={`Toggle Terminal (${modLabel}+\`)`}
         >
           <TerminalSquare size={14} />
         </button>
         <button
           className={`window-control-button copilot-toggle-button ${assistantOpen ? 'active' : ''}`}
           onClick={onToggleAssistant}
-          title="Toggle Copilot Assistant (Ctrl+Shift+A)"
+          title={`Toggle Copilot Assistant (${modLabel}+Shift+A)`}
         >
           <Sparkles size={14} />
         </button>

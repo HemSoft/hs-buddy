@@ -23,6 +23,7 @@ import { useTaskQueue } from '../../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../../utils/prDetailView'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
 import { throwIfAborted } from '../../utils/errorUtils'
+import { modLabel } from '../../utils/platform'
 import { DiffHunk } from './DiffHunk'
 import { CommentCard } from './CommentCard'
 
@@ -243,7 +244,9 @@ export function ReviewThreadCard({
                   disabled={sending}
                 />
                 <div className="thread-reply-buttons">
-                  <span className="thread-reply-hint">Ctrl+Enter to send - Esc to cancel</span>
+                  <span className="thread-reply-hint">
+                    {modLabel}+Enter to send - Esc to cancel
+                  </span>
                   <button
                     className="thread-reply-cancel"
                     onClick={() => dispatch({ type: 'cancel_reply' })}

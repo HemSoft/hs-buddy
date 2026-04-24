@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { DEFAULT_ASSISTANT_PANE_SIZE, DEFAULT_PANE_SIZES, normalizePaneSizes } from '../appUtils'
+import { isModKey } from '../utils/platform'
 
 const PANE_SAVE_DEBOUNCE_MS = 300
 
@@ -105,7 +106,7 @@ export function useAppLayout() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.shiftKey && event.key === 'A') {
+      if (isModKey(event) && event.shiftKey && event.key === 'A') {
         event.preventDefault()
         toggleAssistant()
       }

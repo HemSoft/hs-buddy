@@ -160,6 +160,19 @@ describe('useAppLayout', () => {
     expect(result.current.assistantOpen).toBe(true)
   })
 
+  it('toggles assistant via Ctrl+Shift+A keyboard shortcut', () => {
+    const { result } = renderHook(() => useAppLayout())
+    expect(result.current.assistantOpen).toBe(false)
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'A', ctrlKey: true, shiftKey: true })
+      )
+    })
+
+    expect(result.current.assistantOpen).toBe(true)
+  })
+
   it('ignores keydown events that are not Ctrl+Shift+A', () => {
     const { result } = renderHook(() => useAppLayout())
 

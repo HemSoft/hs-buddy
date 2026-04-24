@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getRepoContextFromViewId, type RepoContext } from '../utils/repoContext'
 import { killTerminalSession, getSessionId } from '../components/terminal/terminalSessions'
+import { isModKey } from '../utils/platform'
 import { useSettings, useSettingsMutations } from './useConvex'
 
 const PANEL_HEIGHT_SAVE_DEBOUNCE_MS = 300
@@ -323,7 +324,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       /* v8 ignore start */
-      if (event.ctrlKey && event.key === '`') {
+      if (isModKey(event) && event.key === '`') {
         /* v8 ignore stop */
         event.preventDefault()
         toggleTerminal(activeViewIdRef.current)

@@ -25,7 +25,7 @@ import {
   type RepoPullRequest,
 } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
-import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
+import { parseOwnerRepoFromUrl, parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
 import { dispatchPRReviewOpen } from '../../../utils/prReviewEvents'
 import type { PullRequest } from '../../../types/pullRequest'
@@ -45,12 +45,11 @@ function refreshStaleOwnerRepoKeys(
     /* v8 ignore start */
     if (dataCache.isFresh(cacheKey, intervalMs)) continue
     /* v8 ignore stop */
-    const [org, ...repoParts] = key.split('/')
-    const repoName = repoParts.join('/')
+    const parsed = parseOwnerRepoKey(key)
     /* v8 ignore start */
-    if (!org || !repoName) continue
+    if (!parsed) continue
     /* v8 ignore stop */
-    refreshFn(org, repoName)
+    refreshFn(parsed.owner, parsed.repo)
   }
 }
 
@@ -67,13 +66,28 @@ function refreshStaleStateOwnerRepoKeys(
     if (dataCache.isFresh(cacheKey, intervalMs)) continue
     /* v8 ignore stop */
     const [state, ownerRepo] = key.split(':', 2)
-    const [org, ...repoParts] = ownerRepo.split('/')
-    const repoName = repoParts.join('/')
+    const parsed = parseOwnerRepoKey(ownerRepo)
     /* v8 ignore start */
-    if (!org || !repoName || (state !== 'open' && state !== 'closed')) continue
+    if (!parsed || (state !== 'open' && state !== 'closed')) continue
     /* v8 ignore stop */
-    refreshFn(org, repoName, state)
+    refreshFn(parsed.owner, parsed.repo, state)
   }
+}
+
+type LoadingSetSetter = React.Dispatch<React.SetStateAction<Set<string>>>
+
+/** Adds a key to a loading-state Set. */
+function addToLoadingSet(setter: LoadingSetSetter, key: string) {
+  setter(prev => new Set(prev).add(key))
+}
+
+/** Removes a key from a loading-state Set. */
+function removeFromLoadingSet(setter: LoadingSetSetter, key: string) {
+  setter(prev => {
+    const next = new Set(prev)
+    next.delete(key)
+    return next
+  })
 }
 
 /** Closes a context menu on Escape key press. */
@@ -229,7 +243,56 @@ export function useGitHubSidebarData() {
   }, [uniqueOrgs.join(',')])
 
   useEffect(() => {
+    /** Simple cache subscriptions: prefix → extract key → update state with data. */
+    const simpleSubs: Array<{ prefix: string; handle: (repoKey: string) => void }> = [
+      {
+        prefix: 'repo-counts:',
+        handle: repoKey => {
+          const updated = dataCache.get<RepoCounts>(`repo-counts:${repoKey}`)
+          /* v8 ignore start */
+          if (updated?.data) {
+            /* v8 ignore stop */
+            setRepoCounts(prev => ({ ...prev, [repoKey]: updated.data }))
+          }
+        },
+      },
+      {
+        prefix: 'repo-commits:',
+        handle: repoKey => {
+          const updated = dataCache.get<RepoCommit[]>(`repo-commits:${repoKey}`)
+          /* v8 ignore start */
+          if (updated?.data) {
+            /* v8 ignore stop */
+            setRepoCommitTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
+          }
+        },
+      },
+      {
+        prefix: 'repo-issues:',
+        handle: repoKey => {
+          const updated = dataCache.get<RepoIssue[]>(`repo-issues:${repoKey}`)
+          /* v8 ignore start */
+          if (updated?.data) {
+            /* v8 ignore stop */
+            setRepoIssueTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
+          }
+        },
+      },
+      {
+        prefix: 'sfl-status:',
+        handle: repoKey => {
+          const updated = dataCache.get<SFLRepoStatus>(`sfl-status:${repoKey}`)
+          /* v8 ignore start */
+          if (updated?.data) {
+            /* v8 ignore stop */
+            setSflStatusData(prev => ({ ...prev, [repoKey]: updated.data }))
+          }
+        },
+      },
+    ]
+
     const unsubscribe = dataCache.subscribe(key => {
+      // org-repos: complex handler (updates two state slices with validation)
       if (key.startsWith('org-repos:')) {
         const org = key.replace('org-repos:', '')
         const updated = dataCache.get<OrgRepoResult>(key)
@@ -247,16 +310,8 @@ export function useGitHubSidebarData() {
         }
         return
       }
-      if (key.startsWith('repo-counts:')) {
-        const repoKey = key.replace('repo-counts:', '')
-        const updated = dataCache.get<RepoCounts>(key)
-        /* v8 ignore start */
-        if (updated?.data) {
-          /* v8 ignore stop */
-          setRepoCounts(prev => ({ ...prev, [repoKey]: updated.data }))
-        }
-        return
-      }
+
+      // repo-prs: complex handler (parses state:owner/repo and maps data)
       if (key.startsWith('repo-prs:')) {
         const repoKey = key.replace('repo-prs:', '')
         const updated = dataCache.get<RepoPullRequest[]>(key)
@@ -264,46 +319,22 @@ export function useGitHubSidebarData() {
         if (!updated?.data) return
         /* v8 ignore stop */
         const [, ownerRepo] = repoKey.split(':', 2)
-        const [org, ...repoParts] = ownerRepo.split('/')
-        const repoName = repoParts.join('/')
+        const parsed = parseOwnerRepoKey(ownerRepo)
         /* v8 ignore start */
-        if (!org || !repoName) return
+        if (!parsed) return
         /* v8 ignore stop */
         setRepoPrTreeData(prev => ({
           ...prev,
-          [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
+          [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, parsed.owner)),
         }))
         return
       }
-      if (key.startsWith('repo-commits:')) {
-        const repoKey = key.replace('repo-commits:', '')
-        const updated = dataCache.get<RepoCommit[]>(key)
-        /* v8 ignore start */
-        if (updated?.data) {
-          /* v8 ignore stop */
-          setRepoCommitTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
-        }
-        return
-      }
-      if (key.startsWith('repo-issues:')) {
-        const repoKey = key.replace('repo-issues:', '')
-        const updated = dataCache.get<RepoIssue[]>(key)
-        /* v8 ignore start */
-        if (updated?.data) {
-          /* v8 ignore stop */
-          setRepoIssueTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
-        }
-        return
-      }
-      /* v8 ignore start */
-      if (key.startsWith('sfl-status:')) {
-        /* v8 ignore stop */
-        const repoKey = key.replace('sfl-status:', '')
-        const updated = dataCache.get<SFLRepoStatus>(key)
-        /* v8 ignore start */
-        if (updated?.data) {
-          /* v8 ignore stop */
-          setSflStatusData(prev => ({ ...prev, [repoKey]: updated.data }))
+
+      // Table-driven simple subscriptions
+      for (const sub of simpleSubs) {
+        if (key.startsWith(sub.prefix)) {
+          sub.handle(key.replace(sub.prefix, ''))
+          return
         }
       }
     })
@@ -377,7 +408,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         dataCache.delete(`org-repos:${org}`)
       }
-      setLoadingOrgs(prev => new Set([...prev, org]))
+      addToLoadingSet(setLoadingOrgs, org)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -404,11 +435,7 @@ export function useGitHubSidebarData() {
         console.error(`Failed to fetch repos for ${org}:`, error)
         setOrgRepos(prev => ({ ...prev, [org]: [] }))
       } finally {
-        setLoadingOrgs(prev => {
-          const next = new Set(prev)
-          next.delete(org)
-          return next
-        })
+        removeFromLoadingSet(setLoadingOrgs, org)
       }
     },
     [accounts]
@@ -440,7 +467,7 @@ export function useGitHubSidebarData() {
         return
       }
 
-      setLoadingOrgMembers(prev => new Set(prev).add(org))
+      addToLoadingSet(setLoadingOrgMembers, org)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -458,11 +485,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`[OrgMembers] ${org} failed:`, error)
       } finally {
-        setLoadingOrgMembers(prev => {
-          const next = new Set(prev)
-          next.delete(org)
-          return next
-        })
+        removeFromLoadingSet(setLoadingOrgMembers, org)
       }
     },
     [accounts]
@@ -472,15 +495,14 @@ export function useGitHubSidebarData() {
     async (org: string, forceRefresh = false) => {
       const cacheKey = `org-overview:${org}`
       const cached = dataCache.get<OrgOverviewResult>(cacheKey)
+
+      const toContributorMap = (overview: OrgOverviewResult) =>
+        Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
+
       if (cached?.data && !forceRefresh) {
         setOrgContributorCounts(prev => ({
           ...prev,
-          [org]: Object.fromEntries(
-            cached.data.metrics.topContributorsToday.map(contributor => [
-              contributor.login,
-              contributor.commits,
-            ])
-          ),
+          [org]: toContributorMap(cached.data),
         }))
         return
       }
@@ -496,12 +518,7 @@ export function useGitHubSidebarData() {
         )
         setOrgContributorCounts(prev => ({
           ...prev,
-          [org]: Object.fromEntries(
-            result.metrics.topContributorsToday.map(contributor => [
-              contributor.login,
-              contributor.commits,
-            ])
-          ),
+          [org]: toContributorMap(result),
         }))
         dataCache.set(cacheKey, result)
       } catch (error) {
@@ -544,7 +561,7 @@ export function useGitHubSidebarData() {
         return
       }
 
-      setLoadingOrgTeams(prev => new Set(prev).add(org))
+      addToLoadingSet(setLoadingOrgTeams, org)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -562,11 +579,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`[OrgTeams] ${org} failed:`, error)
       } finally {
-        setLoadingOrgTeams(prev => {
-          const next = new Set(prev)
-          next.delete(org)
-          return next
-        })
+        removeFromLoadingSet(setLoadingOrgTeams, org)
       }
     },
     [accounts]
@@ -598,7 +611,7 @@ export function useGitHubSidebarData() {
         return
       }
 
-      setLoadingTeamMembers(prev => new Set(prev).add(key))
+      addToLoadingSet(setLoadingTeamMembers, key)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -616,11 +629,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`[TeamMembers] ${key} failed:`, error)
       } finally {
-        setLoadingTeamMembers(prev => {
-          const next = new Set(prev)
-          next.delete(key)
-          return next
-        })
+        removeFromLoadingSet(setLoadingTeamMembers, key)
       }
     },
     [accounts]
@@ -694,7 +703,7 @@ export function useGitHubSidebarData() {
         setRepoCounts(prev => ({ ...prev, [key]: cached.data }))
         return
       }
-      setLoadingRepoCounts(prev => new Set([...prev, key]))
+      addToLoadingSet(setLoadingRepoCounts, key)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -713,11 +722,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`Failed to fetch counts for ${key}:`, error)
       } finally {
-        setLoadingRepoCounts(prev => {
-          const next = new Set(prev)
-          next.delete(key)
-          return next
-        })
+        removeFromLoadingSet(setLoadingRepoCounts, key)
       }
     },
     [accounts]
@@ -734,7 +739,7 @@ export function useGitHubSidebarData() {
           return
         }
       }
-      setLoadingSFLStatus(prev => new Set([...prev, key]))
+      addToLoadingSet(setLoadingSFLStatus, key)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -752,11 +757,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`[SFLStatus] ${key} failed:`, error)
       } finally {
-        setLoadingSFLStatus(prev => {
-          const next = new Set(prev)
-          next.delete(key)
-          return next
-        })
+        removeFromLoadingSet(setLoadingSFLStatus, key)
       }
     },
     [accounts]
@@ -795,7 +796,7 @@ export function useGitHubSidebarData() {
           return
         }
       }
-      setLoadingRepoPRs(prev => new Set(prev).add(key))
+      addToLoadingSet(setLoadingRepoPRs, key)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -824,11 +825,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`[RepoPRTree] ${key} failed:`, error)
       } finally {
-        setLoadingRepoPRs(prev => {
-          const next = new Set(prev)
-          next.delete(key)
-          return next
-        })
+        removeFromLoadingSet(setLoadingRepoPRs, key)
       }
     },
     [accounts, refreshInterval]
@@ -860,7 +857,7 @@ export function useGitHubSidebarData() {
           return
         }
       }
-      setLoadingRepoIssues(prev => new Set(prev).add(key))
+      addToLoadingSet(setLoadingRepoIssues, key)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -878,11 +875,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`[RepoIssueTree] ${key} failed:`, error)
       } finally {
-        setLoadingRepoIssues(prev => {
-          const next = new Set(prev)
-          next.delete(key)
-          return next
-        })
+        removeFromLoadingSet(setLoadingRepoIssues, key)
       }
     },
     [accounts, refreshInterval]
@@ -914,7 +907,7 @@ export function useGitHubSidebarData() {
           return
         }
       }
-      setLoadingRepoCommits(prev => new Set(prev).add(key))
+      addToLoadingSet(setLoadingRepoCommits, key)
       try {
         const result = await enqueueRef.current(
           async signal => {
@@ -932,11 +925,7 @@ export function useGitHubSidebarData() {
         /* v8 ignore stop */
         console.warn(`[RepoCommitTree] ${key} failed:`, error)
       } finally {
-        setLoadingRepoCommits(prev => {
-          const next = new Set(prev)
-          next.delete(key)
-          return next
-        })
+        removeFromLoadingSet(setLoadingRepoCommits, key)
       }
     },
     [accounts, refreshInterval]
@@ -1012,17 +1001,16 @@ export function useGitHubSidebarData() {
           /* v8 ignore stop */
           continue
         }
-        const [org, ...repoParts] = key.split('/')
-        const repoName = repoParts.join('/')
+        const parsed = parseOwnerRepoKey(key)
         /* v8 ignore start */
-        if (!org || !repoName) continue
+        if (!parsed) continue
         /* v8 ignore stop */
         enqueueRef
           .current(
             async signal => {
               throwIfAborted(signal)
               const client = new GitHubClient({ accounts }, 7)
-              const result = await client.fetchRepoCounts(org, repoName)
+              const result = await client.fetchRepoCounts(parsed.owner, parsed.repo)
               dataCache.set(cacheKey, result)
             },
             { name: `refresh-repo-counts-${key}`, priority: -1 }

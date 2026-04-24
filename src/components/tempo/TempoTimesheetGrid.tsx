@@ -2,6 +2,7 @@ import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { TempoIssueSummary, TempoWorklog } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
+import { isModKey, modLabel } from '../../utils/platform'
 import { Check } from 'lucide-react'
 
 interface TooltipState {
@@ -237,11 +238,11 @@ export function TempoTimesheetGrid({
                         className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''} ${hours > 0 && isCapex ? 'capex' : ''}`}
                         title={
                           hours > 0
-                            ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\nCtrl+click to copy to next empty day`
+                            ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to next empty day`
                             : `Click to log time on ${col.date}`
                         }
                         onClick={e => {
-                          if (e.ctrlKey && cellWorklogs.length > 0) {
+                          if (isModKey(e) && cellWorklogs.length > 0) {
                             onCopyToToday(cellWorklogs)
                           } else if (cellWorklogs.length === 1) {
                             onWorklogEdit(cellWorklogs[0])
@@ -258,7 +259,7 @@ export function TempoTimesheetGrid({
                         onMouseEnter={e => {
                           const text =
                             hours > 0
-                              ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\nCtrl+click — copy to next empty day`
+                              ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\n${modLabel}+click — copy to next empty day`
                               : `Click — log time on ${col.date}`
                           showTooltip(e, text)
                         }}
@@ -285,7 +286,7 @@ export function TempoTimesheetGrid({
                     key={col.date}
                     className={`tempo-grid-total-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${isDayComplete ? 'full' : dayTotal > 0 ? 'partial' : ''}`}
                     onClick={e => {
-                      if (e.ctrlKey && dayTotal > 0) {
+                      if (isModKey(e) && dayTotal > 0) {
                         onCopyToToday(worklogs.filter(w => w.date === col.date))
                       }
                     }}
@@ -293,7 +294,7 @@ export function TempoTimesheetGrid({
                       if (dayTotal > 0) {
                         showTooltip(
                           e,
-                          `${dayTotal}h total\nCtrl+click — copy all worklogs to next empty day`
+                          `${dayTotal}h total\n${modLabel}+click — copy all worklogs to next empty day`
                         )
                       }
                     }}

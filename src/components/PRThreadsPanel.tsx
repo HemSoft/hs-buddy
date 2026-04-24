@@ -13,6 +13,7 @@ import type { PRReviewComment, PRReviewSummary, PRReviewThread } from '../api/gi
 import { formatTime } from '../utils/dateUtils'
 import { MS_PER_MINUTE } from '../constants'
 import { usePRThreadsPanel } from '../hooks/usePRThreadsPanel'
+import { modLabel } from '../utils/platform'
 import { ReviewThreadCard } from './pr-threads/ReviewThreadCard'
 import { ReviewSummaryCard } from './pr-threads/ReviewSummaryCard'
 import { CommentCard } from './pr-threads/CommentCard'
@@ -340,7 +341,7 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
           disabled={sendingComment}
         />
         <div className="pr-threads-comment-actions">
-          <span className="thread-reply-hint">Ctrl+Enter to send</span>
+          <span className="thread-reply-hint">{modLabel}+Enter to send</span>
           <button
             className="pr-threads-comment-submit"
             onClick={handleAddComment}

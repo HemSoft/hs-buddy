@@ -10,6 +10,7 @@ import type { DropdownOption } from './InlineDropdown'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { getStatusEmoji } from './shared/statusDisplay'
 import { getErrorMessage } from '../utils/errorUtils'
+import { modLabel } from '../utils/platform'
 import './CopilotPromptBox.css'
 
 interface CopilotPromptBoxProps {
@@ -210,7 +211,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
             }))
           }
           onKeyDown={handleKeyDown}
-          placeholder="Ask Copilot anything... (Ctrl+Enter to send)"
+          placeholder={`Ask Copilot anything... (${modLabel}+Enter to send)`}
           rows={3}
           disabled={submitting}
         />
@@ -264,7 +265,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
               className="copilot-prompt-submit"
               onClick={handleSubmit}
               disabled={!prompt.trim() || submitting}
-              title="Send prompt (Ctrl+Enter)"
+              title={`Send prompt (${modLabel}+Enter)`}
             >
               {submitting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
             </button>

@@ -472,6 +472,35 @@ describe('TempoTimesheetGrid', () => {
     expect(onCopyToToday).toHaveBeenCalledWith([worklog])
   })
 
+  it('fires onCopyToToday when ctrl+clicking footer cell with hours', () => {
+    const onCopyToToday = vi.fn()
+
+    const { container } = render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={onCopyToToday}
+      />
+    )
+
+    const footerCells = container.querySelectorAll('.tempo-grid-total-cell')
+    const filledFooterCell = Array.from(footerCells).find(
+      cell => (cell as HTMLElement).style.cursor === 'copy'
+    ) as HTMLElement
+
+    expect(filledFooterCell).toBeDefined()
+    fireEvent.click(filledFooterCell, { ctrlKey: true })
+    expect(onCopyToToday).toHaveBeenCalledWith([worklog])
+  })
+
   it('does not fire onCopyToToday when ctrl+clicking footer cell with zero hours', () => {
     const onCopyToToday = vi.fn()
 

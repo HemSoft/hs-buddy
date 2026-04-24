@@ -12,27 +12,40 @@ import type { Worker, WorkerResult, JobConfig } from './types'
 const DEFAULT_TIMEOUT = 30_000 // 30 seconds
 const MAX_OUTPUT_SIZE = 512_000 // 512KB per stream
 
-/** Map shell name to spawn args */
+/** Map shell name to spawn args (platform-aware for PowerShell executables) */
 function getShellArgs(shell: string): { command: string; args: string[] } {
+  const isWin = process.platform === 'win32'
   switch (shell) {
     case 'powershell':
     case 'pwsh':
-      return { command: 'pwsh.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
+      return {
+        command: isWin ? 'pwsh.exe' : 'pwsh',
+        args: ['-NoProfile', '-NonInteractive', '-Command'],
+      }
     case 'powershell5':
-      return { command: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
+      return {
+        command: isWin ? 'powershell.exe' : 'powershell',
+        args: ['-NoProfile', '-NonInteractive', '-Command'],
+      }
     case 'bash':
       return { command: 'bash', args: ['-c'] }
+    case 'sh':
+      return { command: 'sh', args: ['-c'] }
+    case 'zsh':
+      return { command: 'zsh', args: ['-c'] }
     case 'cmd':
       return { command: 'cmd.exe', args: ['/c'] }
     default:
-      // Default to pwsh (PowerShell 7+) for UTF-8 support
-      return { command: 'pwsh.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
+      // Platform-aware default: PowerShell on Windows, bash elsewhere
+      return isWin
+        ? { command: 'pwsh.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
+        : { command: 'bash', args: ['-c'] }
   }
 }
 
-/** Check if a shell type is PowerShell (any shell that isn't bash or cmd) */
+/** Check if a shell type is PowerShell (any shell that isn't bash, sh, zsh, or cmd) */
 function isPowerShell(shell: string): boolean {
-  return !['bash', 'cmd'].includes(shell)
+  return !['bash', 'sh', 'zsh', 'cmd'].includes(shell)
 }
 
 export const execWorker: Worker = {
@@ -48,7 +61,8 @@ export const execWorker: Worker = {
     }
 
     const timeout = config.timeout ?? DEFAULT_TIMEOUT
-    const shell = config.shell ?? 'powershell'
+    const defaultShell = process.platform === 'win32' ? 'powershell' : 'bash'
+    const shell = config.shell ?? defaultShell
     const { command: shellCmd, args: shellArgs } = getShellArgs(shell)
 
     // For PowerShell, ensure console output encoding is UTF-8
@@ -56,7 +70,7 @@ export const execWorker: Worker = {
       ? `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${config.command!}`
       : config.command!
 
-    return new Promise<WorkerResult>((resolve) => {
+    return new Promise<WorkerResult>(resolve => {
       let stdout = ''
       let stderr = ''
       let killed = false
@@ -100,7 +114,7 @@ export const execWorker: Worker = {
       })
 
       // Handle errors (e.g. command not found)
-      child.on('error', (err) => {
+      child.on('error', err => {
         clearTimeout(timer)
         signal?.removeEventListener('abort', onAbort)
         resolve({
@@ -111,7 +125,7 @@ export const execWorker: Worker = {
       })
 
       // Process exit
-      child.on('close', (exitCode) => {
+      child.on('close', exitCode => {
         clearTimeout(timer)
         signal?.removeEventListener('abort', onAbort)
 
@@ -133,7 +147,7 @@ export const execWorker: Worker = {
         resolve({
           success,
           output: trimmedStdout || undefined,
-          error: !success ? (trimmedStderr || `Process exited with code ${exitCode}`) : undefined,
+          error: !success ? trimmedStderr || `Process exited with code ${exitCode}` : undefined,
           exitCode: exitCode ?? -1,
           duration: Date.now() - start,
         })

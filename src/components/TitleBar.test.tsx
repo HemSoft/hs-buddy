@@ -2,8 +2,20 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { TitleBar } from './TitleBar'
 
+let mockIsMac = false
+vi.mock('../utils/platform', () => ({
+  get isMac() {
+    return mockIsMac
+  },
+  get modLabel() {
+    return mockIsMac ? '⌘' : 'Ctrl'
+  },
+  isModKey: (e: { ctrlKey: boolean; metaKey: boolean }) => (mockIsMac ? e.metaKey : e.ctrlKey),
+}))
+
 // Mock IPC and shell on existing window
 beforeEach(() => {
+  mockIsMac = false
   vi.clearAllMocks()
   Object.defineProperty(window, 'ipcRenderer', {
     value: { send: vi.fn(), invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
@@ -218,5 +230,23 @@ describe('TitleBar', () => {
     const closeButton = document.querySelector('.about-close-button') as HTMLButtonElement
     fireEvent.click(closeButton)
     expect(screen.queryByText('Your Universal Productivity Companion')).toBeFalsy()
+  })
+
+  it('renders Mac-specific accelerators when isMac is true', () => {
+    mockIsMac = true
+    render(<TitleBar />)
+
+    // File menu: Exit should show ⌘Q
+    fireEvent.click(screen.getByText('File'))
+    expect(screen.getByText('⌘Q')).toBeTruthy()
+
+    // Edit menu: Redo should show ⇧⌘Z
+    fireEvent.click(screen.getByText('Edit'))
+    expect(screen.getByText('⇧⌘Z')).toBeTruthy()
+
+    // View menu: Toggle DevTools should show ⌥⌘I, Full Screen should show ⌃⌘F
+    fireEvent.click(screen.getByText('View'))
+    expect(screen.getByText('⌥⌘I')).toBeTruthy()
+    expect(screen.getByText('⌃⌘F')).toBeTruthy()
   })
 })

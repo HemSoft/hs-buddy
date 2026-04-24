@@ -7,8 +7,8 @@
  *
  * IMPORTANT: In Electron, `process.execPath` is the Electron binary, NOT
  * Node.js, so the SDK's default `getBundledCliPath()` would fail.  We
- * resolve the **native binary** (`copilot-win32-x64/copilot.exe`) and pass
- * it as `cliPath` to bypass this.
+ * resolve the **platform-specific native binary** (e.g. `copilot-win32-x64/copilot.exe`
+ * or `copilot-darwin-arm64/copilot`) and pass it as `cliPath` to bypass this.
  */
 
 import { CopilotClient, type AssistantMessageEvent } from '@github/copilot-sdk'
@@ -28,11 +28,12 @@ const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
  */
 function resolveCopilotCliPath(): string {
   const binaryName = process.platform === 'win32' ? 'copilot.exe' : 'copilot'
-  const pkgSubPath = path.join('@github', `copilot-${process.platform}-${process.arch}`, binaryName)
+  const platformPkg = `copilot-${process.platform}-${process.arch}`
+  const pkgSubPath = path.join('@github', platformPkg, binaryName)
 
   // 1. Try require.resolve (works in dev / non-asar builds)
   try {
-    const pkgJson = require.resolve('@github/copilot-win32-x64/package.json')
+    const pkgJson = require.resolve(`@github/${platformPkg}/package.json`)
     const nativePath = path.join(path.dirname(pkgJson), binaryName)
     if (existsSync(nativePath)) {
       console.log(`[CopilotClient] Using native CLI (require.resolve): ${nativePath}`)
@@ -45,6 +46,8 @@ function resolveCopilotCliPath(): string {
   // 2. Try relative to app root (works in Electron packaged builds)
   const appRoot = app?.getAppPath?.() ?? process.cwd()
   const candidates = [
+    // asar-unpacked path (packaged builds extract native binaries here)
+    path.join(appRoot + '.unpacked', 'node_modules', pkgSubPath),
     path.join(appRoot, 'node_modules', pkgSubPath),
     path.join(appRoot, '..', 'node_modules', pkgSubPath),
     path.join(process.cwd(), 'node_modules', pkgSubPath),

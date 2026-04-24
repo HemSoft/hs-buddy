@@ -12,7 +12,8 @@
     "node_modules/node-pty/**/*"
   ],
   "asarUnpack": [
-    "node_modules/node-pty/**/*"
+    "node_modules/node-pty/**/*",
+    "node_modules/@github/copilot-*/**/*"
   ],
   "win": {
     "target": [
@@ -32,8 +33,17 @@
     "deleteAppDataOnUninstall": false
   },
   "mac": {
-    "target": ["dmg"],
-    "artifactName": "${productName}-${version}.${ext}"
+    "target": [
+      {
+        "target": "dmg",
+        "arch": [
+          "arm64",
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "category": "public.app-category.productivity"
   },
   "linux": {
     "target": ["AppImage"],

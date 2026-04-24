@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add self-view contribution detection for UserDetailPanel
 - Add month-end spending projection to org budget cards
 - Add Gherkin specs for data-cache, pr-mapper, pr-detail-routing
+- Add macOS cross-platform support
 
 ### Changed
 
@@ -43,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidate CSS spin, adopt useToggleSet, dedup refresh & escape handlers
 - Extract shared PR review helpers and eliminate code smells
 - Add -SkipReview pass-through and ralph-simplisticate-repeat helper
+- Add run.sh for launching via Aspire on macOS
+- Reduce code repetition in useGitHubSidebarData
+- Cover Mac-specific accelerator branches in TitleBar
 
 ### Fixed
 
@@ -83,6 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use MutableRefObject for fetchedRef parameters
 - Make useToggleSet.toggle return previous membership atomically
 - Sync currentRef in all useToggleSet mutators
+- Resolve branch coverage gaps and platform-aware PowerShell spawning
+- Use isModKey helper for platform-correct modifier detection
 
 ## [0.1.736] - 2026-04-20
 

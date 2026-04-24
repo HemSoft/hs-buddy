@@ -43,7 +43,6 @@
   "license": "MIT",
   "dependencies": {
     "@github/copilot-sdk": "^0.2.2",
-    "@github/copilot-win32-x64": "^0.0.406",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.0.3",
     "@octokit/plugin-throttling": "^11.0.3",
@@ -109,6 +108,11 @@
     "vite-plugin-electron-renderer": "^0.14.5",
     "vitest": "^4.1.0",
     "vscode-jsonrpc": "^8.2.0"
+  },
+  "optionalDependencies": {
+    "@github/copilot-win32-x64": "^0.0.406",
+    "@github/copilot-darwin-arm64": "^0.0.406",
+    "@github/copilot-darwin-x64": "^0.0.406"
   },
   "engines": {
     "node": ">=22.0.0"

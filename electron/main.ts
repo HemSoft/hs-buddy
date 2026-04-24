@@ -154,7 +154,7 @@ function createWindow() {
     frame: false,
     icon: path.join(
       process.env.VITE_PUBLIC || path.join(process.env.APP_ROOT!, 'public'),
-      'icon.ico'
+      process.platform === 'win32' ? 'icon.ico' : 'icon.png'
     ),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),

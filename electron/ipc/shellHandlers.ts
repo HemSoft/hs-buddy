@@ -33,7 +33,7 @@ export function registerShellHandlers(): void {
         minWidth: 600,
         minHeight: 400,
         title: title ?? parsed.hostname,
-        icon: path.join(__dirname, '..', '..', 'public', 'icon.ico'),
+        icon: path.join(__dirname, '..', '..', 'public', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
@@ -159,11 +159,29 @@ export function registerShellHandlers(): void {
   // System Fonts
   ipcMain.handle('system:get-fonts', async () => {
     try {
-      // Use PowerShell to get installed fonts on Windows
-      const { stdout } = await execAsync(
-        'powershell -NoProfile -Command "[System.Reflection.Assembly]::LoadWithPartialName(\'System.Drawing\') | Out-Null; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }"',
-        { encoding: 'utf8', timeout: 10000 }
-      )
+      let stdout: string
+      if (process.platform === 'win32') {
+        // Use PowerShell to get installed fonts on Windows
+        const result = await execAsync(
+          'powershell -NoProfile -Command "[System.Reflection.Assembly]::LoadWithPartialName(\'System.Drawing\') | Out-Null; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }"',
+          { encoding: 'utf8', timeout: 10000 }
+        )
+        stdout = result.stdout
+      } else if (process.platform === 'darwin') {
+        // Use system_profiler on macOS (slower but always available)
+        const result = await execAsync(
+          'system_profiler SPFontsDataType 2>/dev/null | grep "Full Name:" | sed "s/.*Full Name: //" | sort -u',
+          { encoding: 'utf8', timeout: 15000 }
+        )
+        stdout = result.stdout
+      } else {
+        // Linux — try fc-list
+        const result = await execAsync(
+          'fc-list --format="%{family[0]}\\n" | sort -u',
+          { encoding: 'utf8', timeout: 10000 }
+        )
+        stdout = result.stdout
+      }
       const fonts = stdout
         .split('\n')
         .map(f => f.trim())
@@ -172,25 +190,16 @@ export function registerShellHandlers(): void {
       return fonts
     } catch (error) {
       console.error('Failed to get system fonts:', error)
-      // Return a reasonable fallback list of common fonts
+      // Return a reasonable fallback list of common cross-platform fonts
       return [
         'Arial',
-        'Calibri',
-        'Cambria',
-        'Cascadia Code',
-        'Cascadia Mono',
-        'Comic Sans MS',
-        'Consolas',
         'Courier New',
         'Georgia',
-        'Impact',
-        'Inter',
-        'Lucida Console',
-        'Lucida Sans Unicode',
-        'Microsoft Sans Serif',
-        'Palatino Linotype',
+        'Helvetica',
+        'Menlo',
+        'Monaco',
+        'SF Pro',
         'Segoe UI',
-        'Tahoma',
         'Times New Roman',
         'Trebuchet MS',
         'Verdana',

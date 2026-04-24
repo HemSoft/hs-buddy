@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseOwnerRepoFromUrl, formatFileStatus, getRepoShortName } from './githubUrl'
+import {
+  parseOwnerRepoFromUrl,
+  formatFileStatus,
+  getRepoShortName,
+  parseOwnerRepoKey,
+} from './githubUrl'
 
 describe('parseOwnerRepoFromUrl', () => {
   it('extracts owner and repo from a PR URL', () => {
@@ -49,5 +54,30 @@ describe('getRepoShortName', () => {
 
   it('falls back to full string for leading slash', () => {
     expect(getRepoShortName('/repo')).toBe('repo')
+  })
+})
+
+describe('parseOwnerRepoKey', () => {
+  it('parses a standard owner/repo key', () => {
+    expect(parseOwnerRepoKey('acme/widget')).toEqual({ owner: 'acme', repo: 'widget' })
+  })
+
+  it('handles repos with slashes in the name', () => {
+    expect(parseOwnerRepoKey('acme/my/nested/repo')).toEqual({
+      owner: 'acme',
+      repo: 'my/nested/repo',
+    })
+  })
+
+  it('returns null for empty string', () => {
+    expect(parseOwnerRepoKey('')).toBeNull()
+  })
+
+  it('returns null for owner-only string', () => {
+    expect(parseOwnerRepoKey('acme')).toBeNull()
+  })
+
+  it('returns null when repo part is empty', () => {
+    expect(parseOwnerRepoKey('acme/')).toBeNull()
   })
 })

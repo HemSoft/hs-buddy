@@ -94,6 +94,12 @@ vi.mock('../../../utils/githubUrl', () => ({
     const m = url.match(/github\.com\/([^/]+)\/([^/]+)/)
     return m ? { owner: m[1], repo: m[2] } : null
   },
+  parseOwnerRepoKey: (key: string) => {
+    const [owner, ...repoParts] = key.split('/')
+    const repo = repoParts.join('/')
+    if (!owner || !repo) return null
+    return { owner, repo }
+  },
 }))
 const mockIsAbortError = vi.fn().mockReturnValue(false)
 vi.mock('../../../utils/errorUtils', () => ({

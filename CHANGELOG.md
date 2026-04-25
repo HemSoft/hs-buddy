@@ -18,12 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add v8 ignore to getFreshCachedData for branch coverage
 - Prevent mount-time race condition in ExpandableFileList
 - Address PR review comments for runtime safety and type-safety
+- Resolve TypeScript errors and address review feedback
 
 ### Changed
 
 - Cover partial-week branch in buildContributionCalendar
 - Make CRAP the primary metric, tighten thresholds
 - Reduce CRAP scores via complexity reduction and test infra fix
+- Reduce CRAP scores by lowering cyclomatic complexity
 
 ### Added
 

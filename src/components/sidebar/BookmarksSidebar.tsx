@@ -77,6 +77,18 @@ function BookmarkItem({
   )
 }
 
+function categoryHasContent(node: CategoryNode, directCount: number) {
+  return node.children.length > 0 || directCount > 0
+}
+
+function categoryItemClassName(selectedItem: string | null, catViewId: string) {
+  return `sidebar-item ${selectedItem === catViewId ? 'selected' : ''}`
+}
+
+function categoryLabel(name: string) {
+  return name || 'Uncategorized'
+}
+
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
   const { has: isSectionExpanded, toggle: toggleSection } = useToggleSet()
   const [contextMenu, setContextMenu] = useState<{
@@ -216,14 +228,14 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     (node: CategoryNode, depth: number) => {
       const catViewId = `bookmarks-category:${node.fullPath}`
       const directBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
-      const hasChildren = node.children.length > 0 || directBookmarks.length > 0
+      const hasChildren = categoryHasContent(node, directBookmarks.length)
       const isExpanded = isSectionExpanded(`cat:${node.fullPath}`)
       const displayCount = node.totalCount
 
       return (
         <div key={node.fullPath}>
           <div
-            className={`sidebar-item ${selectedItem === catViewId ? 'selected' : ''}`}
+            className={categoryItemClassName(selectedItem, catViewId)}
             style={{ paddingLeft: `${12 + depth * 16}px` }}
             onClick={() => onItemSelect(catViewId)}
             role="button"
@@ -257,7 +269,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
             <span className="sidebar-item-icon">
               <FolderOpen size={14} />
             </span>
-            <span className="sidebar-item-label">{node.name || 'Uncategorized'}</span>
+            <span className="sidebar-item-label">{categoryLabel(node.name)}</span>
             {displayCount > 0 && <span className="sidebar-item-count">{displayCount}</span>}
           </div>
           {hasChildren && isExpanded && (

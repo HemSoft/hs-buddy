@@ -195,6 +195,46 @@ function ScheduleJobSection({ job }: { job?: { name: string; workerType: string 
   )
 }
 
+function resolveStatusBadge(enabled: boolean) {
+  return {
+    className: `schedule-status-badge ${enabled ? 'enabled' : 'disabled'}`,
+    label: enabled ? 'Enabled' : 'Disabled',
+  }
+}
+
+function ScheduleCronConfig({
+  schedule,
+  formatCron,
+}: {
+  schedule: { cron: string; timezone?: string; missedPolicy?: string }
+  formatCron: (cron: string) => string
+}) {
+  return (
+    <div className="schedule-detail-config">
+      <div className="config-field">
+        <span className="config-label">Cron</span>
+        <code className="config-value">{schedule.cron}</code>
+      </div>
+      <div className="config-field">
+        <span className="config-label">Frequency</span>
+        <span className="config-value">{formatCron(schedule.cron)}</span>
+      </div>
+      {schedule.timezone && (
+        <div className="config-field">
+          <span className="config-label">Timezone</span>
+          <span className="config-value">{schedule.timezone}</span>
+        </div>
+      )}
+      {schedule.missedPolicy && (
+        <div className="config-field">
+          <span className="config-label">Missed Policy</span>
+          <span className="config-value">{schedule.missedPolicy}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   const schedule = useSchedule(scheduleId as Id<'schedules'>)
   const runs = useScheduleRuns(scheduleId as Id<'schedules'>, 10)
@@ -253,6 +293,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   }
 
   const formatCron = formatCronSchedule
+  const statusBadge = resolveStatusBadge(schedule.enabled)
 
   return (
     <>
@@ -267,9 +308,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
           <div className="schedule-detail-title-row">
             <Calendar size={16} className="schedule-icon" />
             <h2>{schedule.name}</h2>
-            <span className={`schedule-status-badge ${schedule.enabled ? 'enabled' : 'disabled'}`}>
-              {schedule.enabled ? 'Enabled' : 'Disabled'}
-            </span>
+            <span className={statusBadge.className}>{statusBadge.label}</span>
           </div>
           <div className="schedule-detail-actions">
             <ScheduleHeaderActions
@@ -298,28 +337,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
 
         <div className="schedule-detail-section">
           <h3>Schedule</h3>
-          <div className="schedule-detail-config">
-            <div className="config-field">
-              <span className="config-label">Cron</span>
-              <code className="config-value">{schedule.cron}</code>
-            </div>
-            <div className="config-field">
-              <span className="config-label">Frequency</span>
-              <span className="config-value">{formatCron(schedule.cron)}</span>
-            </div>
-            {schedule.timezone && (
-              <div className="config-field">
-                <span className="config-label">Timezone</span>
-                <span className="config-value">{schedule.timezone}</span>
-              </div>
-            )}
-            {schedule.missedPolicy && (
-              <div className="config-field">
-                <span className="config-label">Missed Policy</span>
-                <span className="config-value">{schedule.missedPolicy}</span>
-              </div>
-            )}
-          </div>
+          <ScheduleCronConfig schedule={schedule} formatCron={formatCron} />
         </div>
 
         <ScheduleJobSection job={schedule.job} />

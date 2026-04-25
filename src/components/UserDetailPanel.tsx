@@ -94,6 +94,14 @@ function SectionLoader({ label }: { label: string }) {
   )
 }
 
+function formatRoleLabel(activity: UserActivitySummary | null): string {
+  return activity?.orgRole === 'admin' ? 'Admin' : 'Member'
+}
+
+function formatDisplayName(activity: UserActivitySummary | null, memberLogin: string): string {
+  return activity?.name ? `${activity.name} (${memberLogin})` : memberLogin
+}
+
 function formatHeroSubtitle(
   memberLogin: string,
   activityName: string | null | undefined,
@@ -131,10 +139,10 @@ function UserDetailHero({
       <img className="ud-hero-avatar" src={avatarUrl} alt={memberLogin} width={56} height={56} />
       <div className="ud-hero-info">
         <span className="ud-hero-kicker">
-          {activity?.orgRole === 'admin' ? 'Admin' : 'Member'} of {org}
+          {formatRoleLabel(activity)} of {org}
         </span>
         <h2 className="ud-hero-title">
-          {activity?.name ? `${activity.name} (${memberLogin})` : memberLogin}
+          {formatDisplayName(activity, memberLogin)}
           {activity?.statusEmoji && (
             <span className="ud-status-emoji" title={activity.statusMessage ?? undefined}>
               {activity.statusEmoji}
@@ -176,39 +184,36 @@ function UserDetailHero({
   )
 }
 
+function MetaItem({
+  icon: Icon,
+  value,
+}: {
+  icon: React.ComponentType<{ size: number }>
+  value: string | null | undefined
+}) {
+  if (!value) return null
+  return (
+    <span className="ud-meta-item">
+      <Icon size={13} />
+      {value}
+    </span>
+  )
+}
+
 function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
+  const teamsLabel = activity.teams?.join(', ') || null
+  const joinedDate = activity.createdAt
+    ? `GitHub since ${new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+    : null
+
   return (
     <div className="ud-profile-meta">
       {/* v8 ignore start */}
-      {(activity.teams?.length ?? 0) > 0 && (
-        /* v8 ignore stop */
-        <span className="ud-meta-item">
-          <Users size={13} />
-          {activity.teams.join(', ')}
-        </span>
-      )}
-      {activity.company && (
-        <span className="ud-meta-item">
-          <Building2 size={13} />
-          {activity.company}
-        </span>
-      )}
-      {activity.location && (
-        <span className="ud-meta-item">
-          <MapPin size={13} />
-          {activity.location}
-        </span>
-      )}
-      {activity.createdAt && (
-        <span className="ud-meta-item">
-          <Clock size={13} />
-          GitHub since{' '}
-          {new Date(activity.createdAt).toLocaleDateString('en-US', {
-            month: 'short',
-            year: 'numeric',
-          })}
-        </span>
-      )}
+      <MetaItem icon={Users} value={teamsLabel} />
+      {/* v8 ignore stop */}
+      <MetaItem icon={Building2} value={activity.company} />
+      <MetaItem icon={MapPin} value={activity.location} />
+      <MetaItem icon={Clock} value={joinedDate} />
       {activity.bio && <p className="ud-meta-bio">{activity.bio}</p>}
       {activity.statusMessage && (
         <span className="ud-meta-item ud-meta-status">

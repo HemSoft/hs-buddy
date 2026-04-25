@@ -287,6 +287,54 @@ function ThreadsTimelineHeader({
   )
 }
 
+function PRCommentForm({
+  commentTextareaRef,
+  commentText,
+  setCommentText,
+  sendingComment,
+  handleAddComment,
+}: {
+  commentTextareaRef: React.RefObject<HTMLTextAreaElement | null>
+  commentText: string
+  setCommentText: (v: string) => void
+  sendingComment: boolean
+  handleAddComment: () => void
+}) {
+  return (
+    <div className="pr-threads-add-comment">
+      <div className="pr-threads-add-comment-header">Leave a comment</div>
+      <textarea
+        ref={commentTextareaRef}
+        className="pr-threads-comment-input"
+        placeholder="Add a comment…"
+        value={commentText}
+        /* v8 ignore start */
+        onChange={e => setCommentText(e.target.value)}
+        /* v8 ignore stop */
+        onKeyDown={e => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault()
+            handleAddComment()
+          }
+        }}
+        rows={3}
+        disabled={sendingComment}
+      />
+      <div className="pr-threads-comment-actions">
+        <span className="thread-reply-hint">{modLabel}+Enter to send</span>
+        <button
+          className="pr-threads-comment-submit"
+          onClick={handleAddComment}
+          disabled={!commentText.trim() || sendingComment}
+        >
+          {sendingComment ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
+          Comment
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
   const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const {
@@ -343,7 +391,7 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         <p>Failed to load conversations</p>
         <p className="pr-threads-error-detail">
           {/* v8 ignore start */}
-          {error || 'Unknown error'}
+          {error}
           {/* v8 ignore stop */}
         </p>
         <button className="pr-threads-retry" onClick={fetchThreads}>
@@ -428,37 +476,13 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         </div>
       )}
 
-      <div className="pr-threads-add-comment">
-        <div className="pr-threads-add-comment-header">Leave a comment</div>
-        <textarea
-          ref={commentTextareaRef}
-          className="pr-threads-comment-input"
-          placeholder="Add a comment…"
-          value={commentText}
-          /* v8 ignore start */
-          onChange={e => setCommentText(e.target.value)}
-          /* v8 ignore stop */
-          onKeyDown={e => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault()
-              handleAddComment()
-            }
-          }}
-          rows={3}
-          disabled={sendingComment}
-        />
-        <div className="pr-threads-comment-actions">
-          <span className="thread-reply-hint">{modLabel}+Enter to send</span>
-          <button
-            className="pr-threads-comment-submit"
-            onClick={handleAddComment}
-            disabled={!commentText.trim() || sendingComment}
-          >
-            {sendingComment ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
-            Comment
-          </button>
-        </div>
-      </div>
+      <PRCommentForm
+        commentTextareaRef={commentTextareaRef}
+        commentText={commentText}
+        setCommentText={setCommentText}
+        sendingComment={sendingComment}
+        handleAddComment={handleAddComment}
+      />
     </div>
   )
 }

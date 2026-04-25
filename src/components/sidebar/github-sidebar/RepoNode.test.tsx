@@ -418,6 +418,24 @@ describe('RepoNode component', () => {
     expect(screen.getByText('Loading issues...')).toBeDefined()
   })
 
+  it('renders no issue items when expanded state has empty issues', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedIssueGroups = new Set(['org/hs-buddy'])
+    const expandedIssueStates = new Set(['org/hs-buddy:open'])
+    const issueData: Record<string, RepoIssue[]> = { 'open:org/hs-buddy': [] }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRepoIssueGroups={expandedIssueGroups}
+        expandedRepoIssueStateGroups={expandedIssueStates}
+        repoIssueTreeData={issueData}
+      />
+    )
+    expect(screen.getByText('Open')).toBeDefined()
+    expect(screen.queryByText('Loading issues...')).toBeNull()
+  })
+
   it('renders selected item styling', () => {
     const expanded = new Set(['org/hs-buddy'])
     const { container } = render(

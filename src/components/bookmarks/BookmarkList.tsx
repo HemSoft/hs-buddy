@@ -1,6 +1,8 @@
 import { useCallback } from 'react'
 import { Plus, Search, ExternalLink, Pencil, Trash2, Globe, Tag, FolderOpen, X } from 'lucide-react'
 import { useBookmarkListState, type Bookmark } from '../../hooks/useBookmarkListState'
+
+type BookmarkDispatch = ReturnType<typeof useBookmarkListState>['dispatch']
 import { BookmarkDialog } from './BookmarkDialog'
 import { ConfirmDialog } from '../ConfirmDialog'
 import './BookmarkList.css'
@@ -242,6 +244,52 @@ interface BookmarkListProps {
   onOpenTab?: (viewId: string) => void
 }
 
+function BookmarkDialogs({
+  dialogOpen,
+  editingBookmark,
+  categories,
+  droppedUrl,
+  droppedTitle,
+  deleteTarget,
+  deleteError,
+  dispatch,
+  handleDelete,
+}: {
+  dialogOpen: boolean
+  editingBookmark: Bookmark | null
+  categories: string[]
+  droppedUrl: string | null
+  droppedTitle: string | null
+  deleteTarget: Bookmark | null
+  deleteError: string | null
+  dispatch: BookmarkDispatch
+  handleDelete: () => void
+}) {
+  return (
+    <>
+      {dialogOpen && (
+        <BookmarkDialog
+          bookmark={editingBookmark}
+          categories={categories}
+          initialUrl={droppedUrl ?? undefined}
+          initialTitle={droppedTitle ?? undefined}
+          onClose={() => dispatch({ type: 'close-dialog' })}
+        />
+      )}
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`Delete "${deleteTarget.title}"?`}
+          description={deleteError ?? 'This bookmark will be permanently removed.'}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={handleDelete}
+          onCancel={() => dispatch({ type: 'clear-delete' })}
+        />
+      )}
+    </>
+  )
+}
+
 export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
   const {
     state,
@@ -331,26 +379,17 @@ export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
         />
       </div>
 
-      {state.dialogOpen && (
-        <BookmarkDialog
-          bookmark={state.editingBookmark}
-          categories={categories ?? []}
-          initialUrl={state.droppedUrl ?? undefined}
-          initialTitle={state.droppedTitle ?? undefined}
-          onClose={() => dispatch({ type: 'close-dialog' })}
-        />
-      )}
-
-      {state.deleteTarget && (
-        <ConfirmDialog
-          message={`Delete "${state.deleteTarget.title}"?`}
-          description={state.deleteError ?? 'This bookmark will be permanently removed.'}
-          confirmLabel="Delete"
-          variant="danger"
-          onConfirm={handleDelete}
-          onCancel={() => dispatch({ type: 'clear-delete' })}
-        />
-      )}
+      <BookmarkDialogs
+        dialogOpen={state.dialogOpen}
+        editingBookmark={state.editingBookmark}
+        categories={categories ?? []}
+        droppedUrl={state.droppedUrl}
+        droppedTitle={state.droppedTitle}
+        deleteTarget={state.deleteTarget}
+        deleteError={state.deleteError}
+        dispatch={dispatch}
+        handleDelete={handleDelete}
+      />
     </div>
   )
 }

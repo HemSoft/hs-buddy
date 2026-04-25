@@ -423,27 +423,29 @@ function QuotaView({ username, org }: { username: string; org: string }) {
   }, [username]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, loading, error } = state
-  const quotaPremium = data?.quota_snapshots?.premium_interactions
 
-  if (loading && !data) {
-    return (
-      <div className="ud-premium-loading">
-        <Loader2 size={16} className="spin" />
-        <span>Loading premium usage…</span>
-      </div>
-    )
+  if (!data) {
+    if (loading) {
+      return (
+        <div className="ud-premium-loading">
+          <Loader2 size={16} className="spin" />
+          <span>Loading premium usage…</span>
+        </div>
+      )
+    }
+    if (error) {
+      return (
+        <div className="ud-premium-error">
+          <AlertCircle size={14} />
+          <QuotaErrorMessage error={error} />
+        </div>
+      )
+    }
+    return null
   }
 
-  if (error && !data) {
-    return (
-      <div className="ud-premium-error">
-        <AlertCircle size={14} />
-        <QuotaErrorMessage error={error} />
-      </div>
-    )
-  }
-
-  if (!data || !quotaPremium) return null
+  const quotaPremium = data.quota_snapshots?.premium_interactions
+  if (!quotaPremium) return null
 
   const metrics = computeQuotaViewMetrics(quotaPremium, data.quota_reset_date_utc)
   const projection = computeProjection(quotaPremium, data.quota_reset_date_utc)

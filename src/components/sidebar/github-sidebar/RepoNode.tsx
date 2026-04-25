@@ -1,4 +1,3 @@
-/* eslint-disable react/jsx-no-comment-textnodes */
 import {
   Activity,
   CheckCircle2,
@@ -327,6 +326,56 @@ function IssueStateCountBadge({
   return null
 }
 
+const ISSUE_STATE_CONFIG = {
+  open: { Icon: CircleDot, label: 'Open' },
+  closed: { Icon: CheckCircle2, label: 'Closed' },
+} as const
+
+function IssueStateGroupExpanded({
+  isExpanded,
+  isLoading,
+  issues,
+  repoKey,
+  state,
+  selectedItem,
+  onItemSelect,
+  Icon,
+}: {
+  isExpanded: boolean
+  isLoading: boolean
+  issues: RepoIssue[]
+  repoKey: string
+  state: 'open' | 'closed'
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  Icon: typeof CircleDot
+}) {
+  if (!isExpanded) return null
+  if (isLoading) {
+    return (
+      <div className="sidebar-pr-children">
+        <div className="sidebar-item sidebar-pr-child">
+          <span className="sidebar-item-icon">
+            <Loader2 size={11} className="spin" />
+          </span>
+          <span className="sidebar-item-label">Loading issues...</span>
+        </div>
+      </div>
+    )
+  }
+  if (issues.length === 0) return null
+  return (
+    <IssueListItems
+      issues={issues}
+      repoKey={repoKey}
+      selectedItem={selectedItem}
+      onItemSelect={onItemSelect}
+      keyPrefix={state}
+      icon={Icon}
+    />
+  )
+}
+
 function IssueStateGroup({
   org,
   repoName,
@@ -356,9 +405,7 @@ function IssueStateGroup({
   onItemSelect: (itemId: string) => void
   onToggle: (org: string, repoName: string, state: 'open' | 'closed') => void
 }) {
-  const isOpen = state === 'open'
-  const Icon = isOpen ? CircleDot : CheckCircle2
-  const label = isOpen ? 'Open' : 'Closed'
+  const { Icon, label } = ISSUE_STATE_CONFIG[state]
 
   return (
     <>
@@ -396,32 +443,22 @@ function IssueStateGroup({
         </span>
         <span className="sidebar-item-label">{label}</span>
         <IssueStateCountBadge
-          isOpen={isOpen}
+          isOpen={state === 'open'}
           isLoading={isLoading}
           isCountLoading={isCountLoading}
           counts={counts}
         />
       </div>
-      {isExpanded && isLoading && (
-        <div className="sidebar-pr-children">
-          <div className="sidebar-item sidebar-pr-child">
-            <span className="sidebar-item-icon">
-              <Loader2 size={11} className="spin" />
-            </span>
-            <span className="sidebar-item-label">Loading issues...</span>
-          </div>
-        </div>
-      )}
-      {isExpanded && !isLoading && issues.length > 0 && (
-        <IssueListItems
-          issues={issues}
-          repoKey={repoKey}
-          selectedItem={selectedItem}
-          onItemSelect={onItemSelect}
-          keyPrefix={state}
-          icon={Icon}
-        />
-      )}
+      <IssueStateGroupExpanded
+        isExpanded={isExpanded}
+        isLoading={isLoading}
+        issues={issues}
+        repoKey={repoKey}
+        state={state}
+        selectedItem={selectedItem}
+        onItemSelect={onItemSelect}
+        Icon={Icon}
+      />
     </>
   )
 }
@@ -845,8 +882,8 @@ function RepoSFLSection({
   isExpanded,
   onToggleSFLGroup,
 }: RepoSFLSectionProps) {
-  if ((!sflStatus || !sflStatus.isSFLEnabled) && isLoading) {
-    return (
+  if (!sflStatus?.isSFLEnabled) {
+    return isLoading ? (
       <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
         <span className="sidebar-item-icon">
           <Activity size={12} />
@@ -854,11 +891,7 @@ function RepoSFLSection({
         <span className="sidebar-item-label">SFL Loop</span>
         <Loader2 size={10} className="spin" />
       </div>
-    )
-  }
-
-  if (!sflStatus?.isSFLEnabled) {
-    return null
+    ) : null
   }
 
   return (
@@ -886,10 +919,11 @@ function RepoSFLSection({
           <Activity size={12} />
         </span>
         <span className="sidebar-item-label">SFL Loop</span>
-        /* v8 ignore start */
-        {isLoading && <Loader2 size={10} className="spin" />}
-        /* v8 ignore stop */
-        {!isLoading && (
+        {/* v8 ignore start */}
+        {isLoading ? (
+          <Loader2 size={10} className="spin" />
+        ) : (
+          /* v8 ignore stop */
           <span
             className="sidebar-sfl-status-badge"
             title={SFL_STATUS_LABELS[sflStatus.overallStatus]}

@@ -64,6 +64,21 @@ interface DayColumn {
   holidayName?: string
 }
 
+function buildTotalCellClass(col: DayColumn, isDayComplete: boolean, dayTotal: number): string {
+  const parts = ['tempo-grid-total-cell']
+  if (col.isWeekend) parts.push('weekend')
+  if (col.isHoliday) parts.push('holiday')
+  if (col.isToday) parts.push('today')
+  if (isDayComplete) parts.push('full')
+  else if (dayTotal > 0) parts.push('partial')
+  return parts.join(' ')
+}
+
+function renderTotalCellContent(isDayComplete: boolean, dayTotal: number) {
+  if (isDayComplete) return <Check size={14} className="tempo-day-check" />
+  return dayTotal > 0 ? dayTotal : 0
+}
+
 const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
 function buildDayColumns(monthDate: Date, holidays: Record<string, string>): DayColumn[] {
@@ -309,7 +324,7 @@ export function TempoTimesheetGrid({
                 return (
                   <td
                     key={col.date}
-                    className={`tempo-grid-total-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${isDayComplete ? 'full' : dayTotal > 0 ? 'partial' : ''}`}
+                    className={buildTotalCellClass(col, isDayComplete, dayTotal)}
                     onClick={e => {
                       if (isModKey(e) && dayTotal > 0) {
                         onCopyToToday(worklogs.filter(w => w.date === col.date))
@@ -326,13 +341,7 @@ export function TempoTimesheetGrid({
                     onMouseLeave={hideTooltip}
                     style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
                   >
-                    {isDayComplete ? (
-                      <Check size={14} className="tempo-day-check" />
-                    ) : dayTotal > 0 ? (
-                      dayTotal
-                    ) : (
-                      0
-                    )}
+                    {renderTotalCellContent(isDayComplete, dayTotal)}
                   </td>
                 )
               })}

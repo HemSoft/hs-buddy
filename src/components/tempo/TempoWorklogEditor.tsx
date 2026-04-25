@@ -106,6 +106,15 @@ function tempoWorklogEditorReducer(
   /* v8 ignore stop */
 }
 
+function submitLabel(saving: boolean, isEdit: boolean) {
+  if (saving) return 'Saving...'
+  return isEdit ? 'Update' : 'Create'
+}
+
+function getAccountOptions(projectAccounts: TempoAccount[], accounts: TempoAccount[]) {
+  return projectAccounts.length > 0 ? projectAccounts : accounts
+}
+
 export function TempoWorklogEditor({
   worklog,
   defaultDate,
@@ -310,13 +319,11 @@ export function TempoWorklogEditor({
               }}
             >
               <option value="">— select account —</option>
-              {(state.projectAccounts.length > 0 ? state.projectAccounts : state.accounts).map(
-                a => (
-                  <option key={a.key} value={a.key}>
-                    {a.name} ({a.key})
-                  </option>
-                )
-              )}
+              {getAccountOptions(state.projectAccounts, state.accounts).map(a => (
+                <option key={a.key} value={a.key}>
+                  {a.name} ({a.key})
+                </option>
+              ))}
             </select>
           </div>
           {state.error && <div className="tempo-editor-error">{state.error}</div>}
@@ -325,7 +332,7 @@ export function TempoWorklogEditor({
               Cancel
             </button>
             <button type="submit" disabled={state.saving} className="tempo-btn-primary">
-              {state.saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+              {submitLabel(state.saving, isEdit)}
             </button>
           </div>
         </form>

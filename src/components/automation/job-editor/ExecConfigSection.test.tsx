@@ -5,31 +5,19 @@ import { describe, expect, it, vi } from 'vitest'
 import { ExecConfigSection } from './ExecConfigSection'
 
 function renderSection(overrides: Partial<ComponentProps<typeof ExecConfigSection>> = {}) {
-  const onCommandChange = overrides.onCommandChange ?? vi.fn()
-  const onShellChange = overrides.onShellChange ?? vi.fn()
-  const onTimeoutChange = overrides.onTimeoutChange ?? vi.fn()
-  const onCwdChange = overrides.onCwdChange ?? vi.fn()
-
-  const result = render(
-    <ExecConfigSection
-      command={overrides.command ?? ''}
-      shell={overrides.shell ?? 'powershell'}
-      timeout={overrides.timeout ?? 60000}
-      cwd={overrides.cwd ?? ''}
-      onCommandChange={onCommandChange}
-      onShellChange={onShellChange}
-      onTimeoutChange={onTimeoutChange}
-      onCwdChange={onCwdChange}
-    />
-  )
-
-  return {
-    ...result,
-    onCommandChange,
-    onShellChange,
-    onTimeoutChange,
-    onCwdChange,
+  const props: ComponentProps<typeof ExecConfigSection> = {
+    command: '',
+    shell: 'powershell',
+    timeout: 60000,
+    cwd: '',
+    onCommandChange: vi.fn(),
+    onShellChange: vi.fn(),
+    onTimeoutChange: vi.fn(),
+    onCwdChange: vi.fn(),
+    ...overrides,
   }
+  const result = render(<ExecConfigSection {...props} />)
+  return { ...result, ...props }
 }
 
 describe('ExecConfigSection', () => {

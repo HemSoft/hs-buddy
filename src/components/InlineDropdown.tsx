@@ -138,11 +138,11 @@ function DropdownMenu({
         return (
           <div
             key={opt.value}
-            className={`idropdown-item ${opt.value === value ? 'idropdown-item-selected' : ''} ${opt.disabled ? 'idropdown-item-disabled' : ''} ${isFocused ? 'idropdown-item-focused' : ''}`}
+            className={buildItemClassName(opt.value, value, opt.disabled, isFocused)}
             role="option"
             aria-selected={opt.value === value}
             aria-disabled={opt.disabled}
-            tabIndex={opt.disabled ? -1 : isFocused ? 0 : -1}
+            tabIndex={resolveItemTabIndex(opt.disabled, isFocused)}
             onClick={() => {
               if (!opt.disabled) handleSelect(opt.value)
             }}
@@ -170,6 +170,34 @@ function DropdownMenu({
       })}
     </div>
   )
+}
+
+function buildItemClassName(
+  optValue: string,
+  selectedValue: string,
+  isDisabled: boolean | undefined,
+  isFocused: boolean
+) {
+  return `idropdown-item ${optValue === selectedValue ? 'idropdown-item-selected' : ''} ${isDisabled ? 'idropdown-item-disabled' : ''} ${isFocused ? 'idropdown-item-focused' : ''}`
+}
+
+function resolveItemTabIndex(isDisabled: boolean | undefined, isFocused: boolean): number {
+  if (isDisabled) return -1
+  return isFocused ? 0 : -1
+}
+
+function resolveContainerAttrs(
+  isOpen: boolean,
+  disabled: boolean,
+  className: string,
+  listboxId: string
+) {
+  return {
+    className: `idropdown ${isOpen ? 'idropdown-open' : ''} ${disabled ? 'idropdown-disabled' : ''} ${className}`,
+    tabIndex: disabled ? -1 : 0,
+    ariaControls: isOpen ? listboxId : undefined,
+    chevronClassName: `idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`,
+  }
 }
 
 function resolveProps(raw: InlineDropdownProps) {
@@ -265,15 +293,17 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
     [disabled, isOpen, focusIndex, enabledOptions, handleSelect, handleToggle]
   )
 
+  const attrs = resolveContainerAttrs(isOpen, disabled, className, listboxId)
+
   return (
     <div
       ref={containerRef}
-      className={`idropdown ${isOpen ? 'idropdown-open' : ''} ${disabled ? 'idropdown-disabled' : ''} ${className}`}
+      className={attrs.className}
       title={title}
-      tabIndex={disabled ? -1 : 0}
+      tabIndex={attrs.tabIndex}
       role="combobox"
       aria-expanded={isOpen}
-      aria-controls={isOpen ? listboxId : undefined}
+      aria-controls={attrs.ariaControls}
       onKeyDown={handleKeyDown}
     >
       <button
@@ -285,10 +315,7 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
       >
         {icon && <span className="idropdown-icon">{icon}</span>}
         <span className="idropdown-label">{displayLabel}</span>
-        <ChevronDown
-          size={10}
-          className={`idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`}
-        />
+        <ChevronDown size={10} className={attrs.chevronClassName} />
       </button>
 
       {isOpen && (

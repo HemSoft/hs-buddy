@@ -141,18 +141,29 @@ function SelectVariant({
   )
 }
 
-export function RepoPicker({
-  value,
-  onChange,
-  disabled = false,
-  title = 'Target repository',
-  className = '',
-  variant = 'inline',
-  align = 'left',
-  placeholder = 'No repo',
-  allowNone = true,
-  id,
-}: RepoPickerProps) {
+const REPO_PICKER_DEFAULTS = {
+  disabled: false,
+  title: 'Target repository',
+  className: '',
+  variant: 'inline' as const,
+  align: 'left' as const,
+  placeholder: 'No repo',
+  allowNone: true,
+}
+
+export function RepoPicker(rawProps: RepoPickerProps) {
+  const {
+    value,
+    onChange,
+    disabled,
+    title,
+    className,
+    variant,
+    align,
+    placeholder,
+    allowNone,
+    id,
+  } = { ...REPO_PICKER_DEFAULTS, ...rawProps }
   const bookmarks = useRepoBookmarks()
 
   const { options, selectGroups } = useMemo(

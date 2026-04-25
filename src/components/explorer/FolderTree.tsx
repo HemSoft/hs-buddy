@@ -249,6 +249,16 @@ function TreeNodeList({
   )
 }
 
+function getChevronIcon(isDir: boolean, expanded: boolean) {
+  if (!isDir) return <span style={{ width: 14, display: 'inline-block' }} />
+  return expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+}
+
+function getTypeIcon(isDir: boolean, expanded: boolean) {
+  if (!isDir) return <File size={14} />
+  return expanded ? <FolderOpen size={14} /> : <Folder size={14} />
+}
+
 function TreeNodeItem({
   node,
   depth,
@@ -306,28 +316,8 @@ function TreeNodeItem({
         className={`folder-tree-row ${isSelected ? 'selected' : ''}`}
         style={{ paddingLeft: `${depth * 16 + 4}px` }}
       >
-        <span className="folder-tree-icon">
-          {isDir ? (
-            node.expanded ? (
-              <ChevronDown size={14} />
-            ) : (
-              <ChevronRight size={14} />
-            )
-          ) : (
-            <span style={{ width: 14, display: 'inline-block' }} />
-          )}
-        </span>
-        <span className="folder-tree-type-icon">
-          {isDir ? (
-            node.expanded ? (
-              <FolderOpen size={14} />
-            ) : (
-              <Folder size={14} />
-            )
-          ) : (
-            <File size={14} />
-          )}
-        </span>
+        <span className="folder-tree-icon">{getChevronIcon(isDir, node.expanded)}</span>
+        <span className="folder-tree-type-icon">{getTypeIcon(isDir, node.expanded)}</span>
         <span className="folder-tree-name" title={node.name}>
           {node.name}
         </span>

@@ -125,6 +125,24 @@ interface OrgHeaderProps {
   onItemSelect: (itemId: string) => void
 }
 
+function OrgRepoCount({
+  isLoading,
+  repoCount,
+  visibleRepoCount,
+  showBookmarkedOnly,
+}: {
+  isLoading: boolean
+  repoCount: number
+  visibleRepoCount: number
+  showBookmarkedOnly: boolean
+}) {
+  if (isLoading) return <Loader2 size={12} className="spin" />
+  if (repoCount <= 0) return null
+  return (
+    <span className="sidebar-item-count">{showBookmarkedOnly ? visibleRepoCount : repoCount}</span>
+  )
+}
+
 function OrgHeader({
   org,
   isOrgExpanded,
@@ -167,12 +185,12 @@ function OrgHeader({
           user
         </span>
       )}
-      {isLoading && <Loader2 size={12} className="spin" />}
-      {!isLoading && repoCount > 0 && (
-        <span className="sidebar-item-count">
-          {showBookmarkedOnly ? visibleRepoCount : repoCount}
-        </span>
-      )}
+      <OrgRepoCount
+        isLoading={isLoading}
+        repoCount={repoCount}
+        visibleRepoCount={visibleRepoCount}
+        showBookmarkedOnly={showBookmarkedOnly}
+      />
     </div>
   )
 }

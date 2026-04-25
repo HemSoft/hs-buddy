@@ -14,6 +14,19 @@ interface CommandCenterCardProps {
   projectedOverageCost: number | null | undefined
 }
 
+function formatAccountDescription(accountCount: number, hasCopilotAccounts: boolean): string {
+  if (!hasCopilotAccounts) return 'No accounts configured'
+  return `${accountCount} connected account${accountCount === 1 ? '' : 's'}`
+}
+
+function formatProjectedValue(projected: number | null | undefined): string {
+  return projected?.toLocaleString() ?? '...'
+}
+
+function formatOverageCostValue(cost: number | null | undefined): string {
+  return cost != null && cost > 0 ? formatCurrency(cost) : '$0.00'
+}
+
 export function CommandCenterCard({
   accountCount,
   hasCopilotAccounts,
@@ -44,9 +57,7 @@ export function CommandCenterCard({
           <div className="welcome-usage-strip-copy">
             <span className="welcome-usage-strip-name">Connected Accounts</span>
             <span className="welcome-usage-strip-description">
-              {hasCopilotAccounts
-                ? `${accountCount} connected account${accountCount === 1 ? '' : 's'}`
-                : 'No accounts configured'}
+              {formatAccountDescription(accountCount, hasCopilotAccounts)}
             </span>
           </div>
         </div>
@@ -86,18 +97,14 @@ export function CommandCenterCard({
         />
         <StatCard
           icon={<Activity size={18} />}
-          value={projectedTotal?.toLocaleString() ?? '...'}
+          value={formatProjectedValue(projectedTotal)}
           label="Projected"
           cardClassName="welcome-usage-stat-card"
           iconClassName="welcome-stat-icon-copilot-soft"
         />
         <StatCard
           icon={<ArrowRight size={18} />}
-          value={
-            projectedOverageCost != null && projectedOverageCost > 0
-              ? formatCurrency(projectedOverageCost)
-              : '$0.00'
-          }
+          value={formatOverageCostValue(projectedOverageCost)}
           label="Est. Overage"
           cardClassName="welcome-usage-stat-card welcome-usage-stat-card-accent"
           iconClassName="welcome-stat-icon-overage"

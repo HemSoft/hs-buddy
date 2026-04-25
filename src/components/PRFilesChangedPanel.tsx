@@ -27,25 +27,23 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
     /* v8 ignore stop */
   )
 
-  if (loading && !detail) {
-    return <PanelLoadingState message="Loading changed files..." />
+  if (!detail) {
+    if (loading) return <PanelLoadingState message="Loading changed files..." />
+    if (error) {
+      return (
+        <PanelErrorState
+          title="Failed to load changed files"
+          error={error}
+          onRetry={cacheKey ? refresh : undefined}
+        />
+      )
+    }
+    return null
   }
-
-  if (error && !detail) {
-    return (
-      <PanelErrorState
-        title="Failed to load changed files"
-        error={error}
-        onRetry={cacheKey ? refresh : undefined}
-      />
-    )
-  }
-
-  if (!detail) return null
 
   return (
     <div className="pr-files-container">
-      {loading && detail && <InlineRefreshIndicator message="Refreshing changed files..." />}
+      {loading && <InlineRefreshIndicator message="Refreshing changed files..." />}
 
       <div className="pr-files-summary-grid">
         <div className="repo-detail-card pr-files-summary-card">

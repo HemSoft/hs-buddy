@@ -86,6 +86,35 @@ const SELECT_STATUS_STYLE = {
   fontSize: '13px',
 } satisfies React.CSSProperties
 
+function ModelPickerNoModels({
+  showRefresh,
+  fetchModels,
+  ghAccount,
+  className,
+}: {
+  showRefresh: boolean
+  fetchModels: (forAccount?: string) => Promise<void>
+  ghAccount: string
+  className: string
+}) {
+  return (
+    <div className={className}>
+      <div style={SELECT_STATUS_STYLE}>
+        No models loaded.{' '}
+        {showRefresh && (
+          <button
+            className="settings-btn settings-btn-secondary"
+            onClick={() => fetchModels(ghAccount || undefined)}
+            style={{ padding: '4px 8px', fontSize: '12px' }}
+          >
+            <RefreshCw size={12} /> Refresh
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ModelPickerSelectVariant({
   value,
   enabledModels,
@@ -136,20 +165,12 @@ function ModelPickerSelectVariant({
 
   if (enabledModels.length === 0 && disabledModels.length === 0) {
     return (
-      <div className={className}>
-        <div style={SELECT_STATUS_STYLE}>
-          No models loaded.{' '}
-          {showRefresh && (
-            <button
-              className="settings-btn settings-btn-secondary"
-              onClick={() => fetchModels(ghAccount || undefined)}
-              style={{ padding: '4px 8px', fontSize: '12px' }}
-            >
-              <RefreshCw size={12} /> Refresh
-            </button>
-          )}
-        </div>
-      </div>
+      <ModelPickerNoModels
+        showRefresh={showRefresh}
+        fetchModels={fetchModels}
+        ghAccount={ghAccount}
+        className={className}
+      />
     )
   }
 

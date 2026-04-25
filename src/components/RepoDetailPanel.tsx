@@ -97,6 +97,47 @@ function RepoBadges({ detail }: { detail: RepoDetail }) {
   )
 }
 
+function RepoHeaderActions({
+  detail,
+  loading,
+  refresh,
+}: {
+  detail: RepoDetail
+  loading: boolean
+  refresh: () => void
+}) {
+  return (
+    <div className="repo-detail-header-actions">
+      <button
+        className="repo-detail-action-btn"
+        onClick={() => window.shell?.openExternal(detail.url)}
+        title="Open on GitHub"
+      >
+        <ExternalLink size={14} />
+        Open on GitHub
+      </button>
+      {detail.homepage && (
+        <button
+          className="repo-detail-action-btn"
+          onClick={() => window.shell?.openExternal(detail.homepage!)}
+          title="Visit homepage"
+        >
+          <Link size={14} />
+          Homepage
+        </button>
+      )}
+      <button
+        className="repo-detail-action-btn repo-detail-refresh-btn"
+        onClick={refresh}
+        disabled={loading}
+        title="Refresh"
+      >
+        <RefreshCw size={14} className={loading ? 'spin' : ''} />
+      </button>
+    </div>
+  )
+}
+
 export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   const {
     data: detail,
@@ -122,17 +163,17 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
     return () => clearInterval(timer)
   }, [refreshInterval, refresh])
 
-  if (loading && !detail) {
-    return (
-      <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
-    )
+  if (!detail) {
+    if (loading) {
+      return (
+        <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
+      )
+    }
+    if (error) {
+      return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
+    }
+    return null
   }
-
-  if (error && !detail) {
-    return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
-  }
-
-  if (!detail) return null
 
   return (
     <div className="repo-detail-container">
@@ -157,34 +198,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
             </div>
           )}
         </div>
-        <div className="repo-detail-header-actions">
-          <button
-            className="repo-detail-action-btn"
-            onClick={() => window.shell?.openExternal(detail.url)}
-            title="Open on GitHub"
-          >
-            <ExternalLink size={14} />
-            Open on GitHub
-          </button>
-          {detail.homepage && (
-            <button
-              className="repo-detail-action-btn"
-              onClick={() => window.shell?.openExternal(detail.homepage!)}
-              title="Visit homepage"
-            >
-              <Link size={14} />
-              Homepage
-            </button>
-          )}
-          <button
-            className="repo-detail-action-btn repo-detail-refresh-btn"
-            onClick={refresh}
-            disabled={loading}
-            title="Refresh"
-          >
-            <RefreshCw size={14} className={loading ? 'spin' : ''} />
-          </button>
-        </div>
+        <RepoHeaderActions detail={detail} loading={loading} refresh={refresh} />
       </div>
 
       <RepoStatsBar detail={detail} />

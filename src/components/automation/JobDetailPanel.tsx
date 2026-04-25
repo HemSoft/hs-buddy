@@ -15,6 +15,39 @@ interface JobDetailPanelProps {
   onOpenJobList?: () => void
 }
 
+type JobRun = Doc<'runs'>
+
+function JobRecentRuns({ runs }: { runs: JobRun[] | undefined }) {
+  /* v8 ignore start */
+  if (runs === undefined) {
+    return <div className="job-detail-runs-loading">Loading runs...</div>
+  }
+  /* v8 ignore stop */
+  if (runs.length === 0) {
+    return (
+      <div className="job-detail-runs-empty">
+        No runs yet. Click &quot;Run&quot; to execute this job.
+      </div>
+    )
+  }
+  return (
+    <div className="job-detail-runs">
+      {runs.map(run => (
+        <div key={run._id} className="job-run-row">
+          <span className={`run-status ${getStatusClass(run.status)}`}>{run.status}</span>
+          <span className="run-trigger">{run.triggeredBy}</span>
+          <span className="run-time" title={new Date(run.startedAt).toLocaleString()}>
+            {formatDistanceToNow(run.startedAt)}
+          </span>
+          {run.duration !== undefined && (
+            <span className="run-duration">{formatDuration(run.duration)}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ExecConfigDetails({ job }: { job: Doc<'jobs'> }) {
   return (
     <div className="job-detail-config">
@@ -261,30 +294,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
 
         <div className="job-detail-section">
           <h3>Recent Runs</h3>
-          {/* v8 ignore start */}
-          {runs === undefined ? (
-            /* v8 ignore stop */
-            <div className="job-detail-runs-loading">Loading runs...</div>
-          ) : runs.length === 0 ? (
-            <div className="job-detail-runs-empty">
-              No runs yet. Click &quot;Run&quot; to execute this job.
-            </div>
-          ) : (
-            <div className="job-detail-runs">
-              {runs.map(run => (
-                <div key={run._id} className="job-run-row">
-                  <span className={`run-status ${getStatusClass(run.status)}`}>{run.status}</span>
-                  <span className="run-trigger">{run.triggeredBy}</span>
-                  <span className="run-time" title={new Date(run.startedAt).toLocaleString()}>
-                    {formatDistanceToNow(run.startedAt)}
-                  </span>
-                  {run.duration !== undefined && (
-                    <span className="run-duration">{formatDuration(run.duration)}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <JobRecentRuns runs={runs} />
         </div>
       </div>
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}

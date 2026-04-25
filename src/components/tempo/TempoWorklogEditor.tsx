@@ -1,6 +1,6 @@
 import { useEffect, useId, useReducer, useRef } from 'react'
 import type { TempoWorklog, CreateWorklogPayload, TempoAccount } from '../../types/tempo'
-import { nextStartTime } from './tempoUtils'
+import { nextStartTime, validateWorklogFields } from './tempoUtils'
 import { X } from 'lucide-react'
 
 interface TempoWorklogEditorProps {
@@ -205,17 +205,9 @@ export function TempoWorklogEditor({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const h = parseFloat(state.hours)
-    if (!state.issueKey.trim()) {
-      dispatch({ type: 'submit:error', value: 'Issue key is required' })
-      return
-    }
-    if (isNaN(h) || h <= 0 || h > 24) {
-      dispatch({ type: 'submit:error', value: 'Hours must be between 0 and 24' })
-      return
-    }
-    if (!state.date) {
-      dispatch({ type: 'submit:error', value: 'Date is required' })
+    const error = validateWorklogFields(state.issueKey, state.hours, state.date)
+    if (error) {
+      dispatch({ type: 'submit:error', value: error })
       return
     }
 
@@ -224,7 +216,7 @@ export function TempoWorklogEditor({
       const startTime = worklog?.startTime || nextStartTime(existingWorklogs)
       await onSave({
         issueKey: state.issueKey.trim().toUpperCase(),
-        hours: h,
+        hours: parseFloat(state.hours),
         date: state.date,
         startTime,
         description: state.description,

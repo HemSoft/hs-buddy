@@ -46,27 +46,29 @@ type ThreadAction =
   | { type: 'start_resolving' }
   | { type: 'done_resolving' }
 
+type ThreadTransitions = {
+  [K in ThreadAction['type']]: (
+    s: ThreadState,
+    a: Extract<ThreadAction, { type: K }>
+  ) => ThreadState
+}
+
+const THREAD_TRANSITIONS: ThreadTransitions = {
+  toggle_expand: s => ({ ...s, expanded: !s.expanded }),
+  start_reply: s => ({ ...s, replying: true }),
+  cancel_reply: s => ({ ...s, replying: false, replyText: '' }),
+  set_reply_text: (s, a) => ({ ...s, replyText: a.text }),
+  start_sending: s => ({ ...s, sending: true }),
+  finish_sending: s => ({ ...s, sending: false, replying: false, replyText: '' }),
+  send_failed: s => ({ ...s, sending: false }),
+  start_resolving: s => ({ ...s, resolving: true }),
+  done_resolving: s => ({ ...s, resolving: false }),
+}
+
 function threadReducer(state: ThreadState, action: ThreadAction): ThreadState {
-  switch (action.type) {
-    case 'toggle_expand':
-      return { ...state, expanded: !state.expanded }
-    case 'start_reply':
-      return { ...state, replying: true }
-    case 'cancel_reply':
-      return { ...state, replying: false, replyText: '' }
-    case 'set_reply_text':
-      return { ...state, replyText: action.text }
-    case 'start_sending':
-      return { ...state, sending: true }
-    case 'finish_sending':
-      return { ...state, sending: false, replying: false, replyText: '' }
-    case 'send_failed':
-      return { ...state, sending: false }
-    case 'start_resolving':
-      return { ...state, resolving: true }
-    case 'done_resolving':
-      return { ...state, resolving: false }
-  }
+  // Table is exhaustive over ThreadAction['type'] — safe to widen at the call site
+  type Handler = (s: ThreadState, a: ThreadAction) => ThreadState
+  return (THREAD_TRANSITIONS[action.type] as Handler)(state, action)
 }
 
 function ThreadReplyForm({

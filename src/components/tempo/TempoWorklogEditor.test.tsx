@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import type { TempoWorklog } from '../../types/tempo'
@@ -427,5 +427,40 @@ describe('TempoWorklogEditor', () => {
     fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'OPS' } })
 
     expect(screen.getByLabelText('Account')).toHaveValue('OPS')
+  })
+})
+
+describe('validateWorklogFields', () => {
+  // Import directly for unit tests
+  let validateWorklogFields: typeof import('./tempoUtils').validateWorklogFields
+  beforeAll(async () => {
+    validateWorklogFields = (await import('./tempoUtils')).validateWorklogFields
+  })
+
+  it('returns null for valid fields', () => {
+    expect(validateWorklogFields('PE-123', '4', '2026-03-18')).toBeNull()
+  })
+
+  it('rejects empty issue key', () => {
+    expect(validateWorklogFields('', '4', '2026-03-18')).toBe('Issue key is required')
+    expect(validateWorklogFields('  ', '4', '2026-03-18')).toBe('Issue key is required')
+  })
+
+  it('rejects invalid hours', () => {
+    expect(validateWorklogFields('PE-1', 'abc', '2026-03-18')).toBe(
+      'Hours must be between 0 and 24'
+    )
+    expect(validateWorklogFields('PE-1', '0', '2026-03-18')).toBe('Hours must be between 0 and 24')
+    expect(validateWorklogFields('PE-1', '-1', '2026-03-18')).toBe('Hours must be between 0 and 24')
+    expect(validateWorklogFields('PE-1', '25', '2026-03-18')).toBe('Hours must be between 0 and 24')
+  })
+
+  it('accepts boundary hours values', () => {
+    expect(validateWorklogFields('PE-1', '0.01', '2026-03-18')).toBeNull()
+    expect(validateWorklogFields('PE-1', '24', '2026-03-18')).toBeNull()
+  })
+
+  it('rejects empty date', () => {
+    expect(validateWorklogFields('PE-1', '4', '')).toBe('Date is required')
   })
 })

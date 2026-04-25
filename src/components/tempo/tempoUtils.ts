@@ -8,3 +8,15 @@ export function nextStartTime(worklogs: TempoWorklog[]): string {
   const m = Math.round(startMinutes % 60)
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
+
+export function validateWorklogFields(
+  issueKey: string,
+  hours: string,
+  date: string
+): string | null {
+  if (!issueKey.trim()) return 'Issue key is required'
+  const h = parseFloat(hours)
+  if (isNaN(h) || h <= 0 || h > 24) return 'Hours must be between 0 and 24'
+  if (!date) return 'Date is required'
+  return null
+}

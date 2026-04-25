@@ -20,22 +20,42 @@ interface BudgetCardMetrics {
   barColor: string
 }
 
+function resolveEffectiveBudget(
+  d: NonNullable<OrgBudgetState['data']>,
+  org: string
+): number | null {
+  return d.budgetAmount ?? PERSONAL_BUDGETS[org.toLowerCase()] ?? null
+}
+
+function clampPct(value: number, budget: number): number {
+  return Math.min((value / budget) * 100, 100)
+}
+
 function computeBudgetCardMetrics(
   d: NonNullable<OrgBudgetState['data']>,
   org: string,
   quotaOverage: number
 ): BudgetCardMetrics {
-  const effectiveBudget = d.budgetAmount ?? PERSONAL_BUDGETS[org.toLowerCase()] ?? null
+  const effectiveBudget = resolveEffectiveBudget(d, org)
   /* v8 ignore start */
   const displaySpent = d.useQuotaOverage ? quotaOverage : (d.spent ?? 0)
   /* v8 ignore stop */
-  const myShare = !d.useQuotaOverage ? quotaOverage : 0
+  const myShare = d.useQuotaOverage ? 0 : quotaOverage
   const barValue = Math.max(displaySpent, myShare)
-  const pct = effectiveBudget ? Math.min((barValue / effectiveBudget) * 100, 100) : null
-  /* v8 ignore start */
-  const mySharePct =
-    effectiveBudget && myShare > 0 ? Math.min((myShare / effectiveBudget) * 100, pct ?? 100) : null
-  /* v8 ignore stop */
+
+  if (!effectiveBudget) {
+    return {
+      effectiveBudget,
+      displaySpent,
+      myShare,
+      pct: null,
+      mySharePct: null,
+      barColor: getQuotaColor(null),
+    }
+  }
+
+  const pct = clampPct(barValue, effectiveBudget)
+  const mySharePct = myShare > 0 ? Math.min((myShare / effectiveBudget) * 100, pct) : null
   const barColor = getQuotaColor(pct)
   return { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor }
 }
@@ -90,6 +110,21 @@ function BudgetProjectionView({
   )
 }
 
+function BudgetLimitLabel({
+  effectiveBudget,
+  useQuotaOverage,
+}: {
+  effectiveBudget: number | null
+  useQuotaOverage?: boolean
+}) {
+  if (effectiveBudget !== null) {
+    return <span className="usage-budget-limit">of {formatCurrency(effectiveBudget)}</span>
+  }
+  return (
+    <span className="usage-budget-limit">{useQuotaOverage ? 'from quota' : 'no budget set'}</span>
+  )
+}
+
 function BudgetCardBody({
   d,
   metrics,
@@ -121,13 +156,7 @@ function BudgetCardBody({
         {myShare > 0 && !d.useQuotaOverage && (
           <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
         )}
-        {effectiveBudget !== null ? (
-          <span className="usage-budget-limit">of {formatCurrency(effectiveBudget)}</span>
-        ) : (
-          <span className="usage-budget-limit">
-            {d.useQuotaOverage ? 'from quota' : 'no budget set'}
-          </span>
-        )}
+        <BudgetLimitLabel effectiveBudget={effectiveBudget} useQuotaOverage={d.useQuotaOverage} />
       </div>
 
       <BudgetProjectionView d={d} effectiveBudget={effectiveBudget} />
@@ -178,6 +207,8 @@ function BudgetCardError({ error }: { error: string }) {
   )
 }
 
+const BUDGET_CARD_DEFAULTS: OrgBudgetState = { data: null, loading: false, error: null }
+
 function BudgetCard({
   org,
   state,
@@ -187,20 +218,16 @@ function BudgetCard({
   state: OrgBudgetState
   quotaOverage: number
 }) {
-  const d = state?.data
+  const { data: d, loading, error } = { ...BUDGET_CARD_DEFAULTS, ...state }
   const metrics = d ? computeBudgetCardMetrics(d, org, quotaOverage) : null
 
   return (
     <div className="usage-budget-card">
-      <BudgetCardHeader
-        org={org}
-        loading={!!state?.loading}
-        preventFurtherUsage={d?.preventFurtherUsage}
-      />
+      <BudgetCardHeader org={org} loading={loading} preventFurtherUsage={d?.preventFurtherUsage} />
 
-      {state?.error && !d && <BudgetCardError error={state.error} />}
+      {error && !d && <BudgetCardError error={error} />}
 
-      {d && metrics && <BudgetCardBody d={d} metrics={metrics} />}
+      {metrics && <BudgetCardBody d={d!} metrics={metrics} />}
     </div>
   )
 }
@@ -223,7 +250,7 @@ export function OrgBudgetsSection({
           <BudgetCard
             key={org}
             org={org}
-            state={orgBudgets[org]}
+            state={orgBudgets[org] ?? BUDGET_CARD_DEFAULTS}
             quotaOverage={orgOverageFromQuotas.get(org) ?? 0}
           />
         ))}

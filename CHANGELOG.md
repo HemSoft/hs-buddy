@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent mount-time race condition in ExpandableFileList
 - Address PR review comments for runtime safety and type-safety
 - Resolve TypeScript errors and address review feedback
+- Sync ralph-simplisticate-repeat.sh with ai-tools template
 
 ### Changed
 

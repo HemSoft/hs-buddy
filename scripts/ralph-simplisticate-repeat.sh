@@ -51,6 +51,9 @@ if [[ ! -x "$simplisticate" ]]; then
     exit 1
 fi
 
+# Ensure ^C stops the entire repeat loop, not just the child
+trap 'echo ""; echo "Interrupted. Stopping repeat loop."; exit 130' INT
+
 for (( i=1; i<=times; i++ )); do
     echo ""
     echo "===================================="
@@ -64,6 +67,14 @@ for (( i=1; i<=times; i++ )); do
     [[ -n "$work_until" ]] && args+=(--work-until "$work_until")
 
     "$simplisticate" "${args[@]}"
+    run_exit=$?
+    if (( run_exit != 0 )); then
+        echo ""
+        echo "===================================="
+        echo "== Run $i failed (exit code $run_exit). Stopping."
+        echo "===================================="
+        exit $run_exit
+    fi
 
     if (( i < times )); then
         echo "Pulling latest main before next run..."
@@ -72,6 +83,20 @@ for (( i=1; i<=times; i++ )); do
         if ! git pull --ff-only >/dev/null 2>&1; then
             echo "Main has diverged from origin. Resetting to origin/main..."
             git reset --hard origin/main >/dev/null 2>&1
+        fi
+
+        # Close any orphaned simplisticate PRs from previous runs that were
+        # never merged (e.g., ralph-pr handoff failed, PR got merge conflicts).
+        # Their work will be redone from fresh main by the next run.
+        repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || true)
+        if [[ -n "$repo_slug" ]]; then
+            orphan_prs=$(gh pr list --repo "$repo_slug" --state open --json number,headRefName \
+                --jq '[.[] | select(.headRefName | startswith("feature/simplisticate-")) | .number] | .[]' 2>/dev/null || true)
+            for pr in $orphan_prs; do
+                echo "Closing orphaned simplisticate PR #$pr (will be superseded by next run)..."
+                gh pr close "$pr" --repo "$repo_slug" --delete-branch \
+                    --comment "Auto-closed by repeat runner: orphaned PR from a previous run. Next run creates a fresh PR from updated main." 2>/dev/null || true
+            done
         fi
     fi
 done

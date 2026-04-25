@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Cover partial-week branch in buildContributionCalendar
+- Make CRAP the primary metric, tighten thresholds
 
 ### Added
 

@@ -197,11 +197,19 @@ function QuotaDataView({
   )
 }
 
-function prepareQuotaData(state: AccountQuotaState) {
+interface QuotaViewData {
+  data: NonNullable<AccountQuotaState['data']>
+  premium: NonNullable<AccountQuotaState['data']>['quota_snapshots']['premium_interactions']
+  metrics: QuotaMetrics
+  projection: ReturnType<typeof computeProjection>
+}
+
+function prepareQuotaViewData(state: AccountQuotaState): QuotaViewData | null {
   const data = state.data
   const premium = data?.quota_snapshots?.premium_interactions
-  const metrics = premium ? computeQuotaMetrics(premium) : null
-  const projection = data && premium ? computeProjection(premium, data.quota_reset_date_utc) : null
+  if (!data || !premium) return null
+  const metrics = computeQuotaMetrics(premium)
+  const projection = computeProjection(premium, data.quota_reset_date_utc)
   return { data, premium, metrics, projection }
 }
 
@@ -232,9 +240,9 @@ function isLoadingWithoutData(loading: boolean, data: unknown): boolean {
 
 export function AccountQuotaCard({ account, state: rawState }: AccountQuotaCardProps) {
   const state = rawState ?? INITIAL_QUOTA_STATE
-  const { data, premium, metrics, projection } = prepareQuotaData(state)
-  const showLoading = isLoadingWithoutData(state.loading, data)
-  const showError = !!state.error && !data
+  const quotaView = prepareQuotaViewData(state)
+  const showLoading = isLoadingWithoutData(state.loading, state.data)
+  const showError = !!state.error && !state.data
 
   return (
     <div className="usage-account-card">
@@ -242,13 +250,13 @@ export function AccountQuotaCard({ account, state: rawState }: AccountQuotaCardP
 
       {showError && <QuotaErrorView username={account.username} error={state.error!} />}
 
-      {data && premium && metrics && (
+      {quotaView && (
         <QuotaDataView
           state={state}
-          data={data}
-          premium={premium}
-          metrics={metrics}
-          projection={projection}
+          data={quotaView.data}
+          premium={quotaView.premium}
+          metrics={quotaView.metrics}
+          projection={quotaView.projection}
         />
       )}
     </div>

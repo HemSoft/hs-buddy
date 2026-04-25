@@ -304,12 +304,7 @@ function PullRequestTimeline({
   )
 }
 
-export function PullRequestHistoryPanel({
-  pr,
-  embedded = false,
-  focus = 'all',
-  onLoaded,
-}: PullRequestHistoryPanelProps) {
+function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySummary) => void) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useLatest(enqueue)
@@ -340,21 +335,13 @@ export function PullRequestHistoryPanel({
         { name: `pr-history-${pr.repository}-${pr.id}` }
       )
 
-      if (requestId !== latestRequestRef.current) {
-        return
-      }
+      if (requestId !== latestRequestRef.current) return
 
       setHistory(result)
       onLoaded?.(result)
     } catch (err) {
-      if (isAbortError(err)) {
-        return
-      }
-
-      if (requestId !== latestRequestRef.current) {
-        return
-      }
-
+      if (isAbortError(err)) return
+      if (requestId !== latestRequestRef.current) return
       setError(getErrorMessage(err))
     } finally {
       if (requestId === latestRequestRef.current) {
@@ -366,6 +353,81 @@ export function PullRequestHistoryPanel({
   useEffect(() => {
     fetchHistory()
   }, [fetchHistory])
+
+  return { loading, error, history, fetchHistory }
+}
+
+function CommitsFocusView({
+  history,
+  activeTimeline,
+  focus,
+}: {
+  history: PRHistorySummary
+  activeTimeline: PRHistorySummary['timeline']
+  focus: 'commits'
+}) {
+  return (
+    <>
+      <div className="pr-history-metrics">
+        <div className="metric-row">
+          <span className="metric-label">
+            <GitCommit size={14} /> Commits
+          </span>
+          <span className="metric-value">{history.commitCount}</span>
+        </div>
+      </div>
+      <PullRequestTimeline focus={focus} timeline={activeTimeline} />
+    </>
+  )
+}
+
+function PRHistoryContent({
+  pr,
+  embedded,
+  focus,
+  history,
+}: {
+  pr: PullRequestHistoryPanelProps['pr']
+  embedded: boolean
+  focus: string
+  history: PRHistorySummary
+}) {
+  const timeline = history.timeline ?? []
+  const activeTimeline =
+    focus === 'commits' ? timeline.filter(event => event.type === 'commit') : timeline
+
+  return (
+    <div className={`pr-history-container ${embedded ? 'embedded' : ''}`}>
+      <PullRequestHistoryHeader pr={pr} embedded={embedded} />
+
+      {focus === 'all' && (
+        <>
+          <PullRequestHistoryOverview history={history} pr={pr} />
+          <PullRequestReviewers history={history} />
+        </>
+      )}
+
+      {focus === 'commits' && (
+        <CommitsFocusView history={history} activeTimeline={activeTimeline} focus={focus} />
+      )}
+
+      {focus === 'all' && (
+        <div className="pr-history-footer">
+          <Clock size={13} />
+          Thread status is derived from GitHub review thread resolution/outdated state.
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function PullRequestHistoryPanel({
+  pr,
+  embedded = false,
+  focus = 'all',
+  onLoaded,
+}: PullRequestHistoryPanelProps) {
+  const { loading, error, history, fetchHistory } = usePRHistoryFetch(pr, onLoaded)
 
   if (loading && !history) {
     return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
@@ -386,41 +448,5 @@ export function PullRequestHistoryPanel({
     return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
   }
 
-  const timeline = history.timeline ?? []
-  const activeTimeline =
-    focus === 'commits' ? timeline.filter(event => event.type === 'commit') : timeline
-
-  return (
-    <div className={`pr-history-container ${embedded ? 'embedded' : ''}`}>
-      <PullRequestHistoryHeader pr={pr} embedded={embedded} />
-
-      {focus === 'all' && (
-        <>
-          <PullRequestHistoryOverview history={history} pr={pr} />
-          <PullRequestReviewers history={history} />
-        </>
-      )}
-
-      {focus === 'commits' && (
-        <>
-          <div className="pr-history-metrics">
-            <div className="metric-row">
-              <span className="metric-label">
-                <GitCommit size={14} /> Commits
-              </span>
-              <span className="metric-value">{history.commitCount}</span>
-            </div>
-          </div>
-          <PullRequestTimeline focus={focus} timeline={activeTimeline} />
-        </>
-      )}
-
-      {focus === 'all' && (
-        <div className="pr-history-footer">
-          <Clock size={13} />
-          Thread status is derived from GitHub review thread resolution/outdated state.
-        </div>
-      )}
-    </div>
-  )
+  return <PRHistoryContent pr={pr} embedded={embedded} focus={focus} history={history} />
 }

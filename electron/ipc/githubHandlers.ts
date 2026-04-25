@@ -93,6 +93,31 @@ function sumBy<T>(items: T[], fn: (item: T) => number): number {
   return items.reduce((sum, item) => sum + fn(item), 0)
 }
 
+/** Shape returned by enterprise/org premium request usage APIs. */
+interface PremiumUsageItem {
+  grossQuantity: number
+  netQuantity: number
+  netAmount: number
+  model?: string
+}
+
+/** Extract premium usage items from a settled API result, returning [] on failure. */
+function extractPremiumUsageItems(
+  result: PromiseSettledResult<{ stdout: string }>
+): PremiumUsageItem[] {
+  if (result.status !== 'fulfilled') return []
+  const data = JSON.parse(result.value.stdout.trim()) as { usageItems?: PremiumUsageItem[] }
+  return data.usageItems ?? []
+}
+
+function sumGrossRequests(items: PremiumUsageItem[]): number {
+  return Math.round(sumBy(items, i => i.grossQuantity))
+}
+
+function sumNetCost(items: PremiumUsageItem[]): number {
+  return roundCents(sumBy(items, i => i.netAmount))
+}
+
 function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
   const premiumItems = items.filter(
     item => item.product === 'copilot' && item.sku === 'Copilot Premium Request'
@@ -126,6 +151,83 @@ interface CopilotUsageMetrics {
   fetchedAt: number
 }
 
+/** Try the org billing endpoint, then fall back to user.
+ *  Returns ParsedBillingUsage. Throws on non-404 errors. */
+async function fetchBillingUsage(
+  org: string,
+  execEnv: NodeJS.ProcessEnv
+): Promise<ParsedBillingUsage> {
+  let stdout: string
+  try {
+    const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
+      encoding: 'utf8',
+      timeout: API_TIMEOUT_MS,
+      env: execEnv,
+    })
+    stdout = result.stdout
+  } catch (orgError: unknown) {
+    if (!isNotFoundError(orgError)) throw orgError
+    const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
+      encoding: 'utf8',
+      timeout: API_TIMEOUT_MS,
+      env: execEnv,
+    })
+    stdout = result.stdout
+  }
+
+  const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
+  return parseBillingUsage(data.usageItems)
+}
+
+/** Parse a Copilot budget from a settled API result. */
+function extractBudgetFromResult(result: PromiseSettledResult<{ stdout: string }>): {
+  budgetAmount: number | null
+  preventFurtherUsage: boolean
+} {
+  if (result.status !== 'fulfilled') {
+    return { budgetAmount: null, preventFurtherUsage: false }
+  }
+  const data = JSON.parse(result.value.stdout.trim()) as { budgets?: BudgetItem[] }
+  const match = findCopilotBudget(data.budgets ?? [])
+  return {
+    budgetAmount: match?.budget_amount ?? null,
+    preventFurtherUsage: match?.prevent_further_usage ?? false,
+  }
+}
+
+/** Parse premium-request spend from a settled API result. */
+function extractUsageSpend(result: PromiseSettledResult<{ stdout: string }>): number {
+  if (result.status !== 'fulfilled') return 0
+  const data = JSON.parse(result.value.stdout.trim()) as {
+    usageItems?: Array<{ netAmount: number }>
+  }
+  return roundCents(data.usageItems?.reduce((sum, item) => sum + item.netAmount, 0) ?? 0)
+}
+
+/** Fetch budget + premium request spend for a non-personal org. */
+async function fetchBudgetAndSpend(
+  org: string,
+  year: number,
+  month: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{ budgetAmount: number | null; spent: number }> {
+  const [budgetResult, spendResult] = await Promise.allSettled([
+    execAsync(
+      `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+    execAsync(
+      `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+  ])
+
+  return {
+    budgetAmount: extractBudgetFromResult(budgetResult).budgetAmount,
+    spent: extractUsageSpend(spendResult),
+  }
+}
+
 /** Fetch Copilot usage + budget metrics for an org.
  *  Extracted so both the live IPC handler and the snapshot collector
  *  call the same upstream path. */
@@ -148,26 +250,7 @@ export async function fetchCopilotMetrics(
   let usageOk = false
 
   try {
-    let stdout: string
-    try {
-      const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-        encoding: 'utf8',
-        timeout: API_TIMEOUT_MS,
-        env: execEnv,
-      })
-      stdout = result.stdout
-    } catch (orgError: unknown) {
-      if (!isNotFoundError(orgError)) throw orgError
-      const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
-        encoding: 'utf8',
-        timeout: API_TIMEOUT_MS,
-        env: execEnv,
-      })
-      stdout = result.stdout
-    }
-
-    const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-    const parsed = parseBillingUsage(data.usageItems)
+    const parsed = await fetchBillingUsage(org, execEnv)
     premiumRequests = parsed.premiumRequests
     grossCost = parsed.grossCost
     discount = parsed.discount
@@ -191,29 +274,9 @@ export async function fetchCopilotMetrics(
     budgetAmount = knownPersonalBudget
   } else {
     try {
-      const [budgetResult, spendResult] = await Promise.allSettled([
-        execAsync(
-          `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
-          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-        ),
-        execAsync(
-          `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-        ),
-      ])
-
-      if (budgetResult.status === 'fulfilled') {
-        const parsed = JSON.parse(budgetResult.value.stdout.trim()) as { budgets?: BudgetItem[] }
-        const match = findCopilotBudget(parsed.budgets ?? [])
-        if (match) budgetAmount = match.budget_amount
-      }
-
-      if (spendResult.status === 'fulfilled') {
-        const parsed = JSON.parse(spendResult.value.stdout.trim()) as {
-          usageItems?: Array<{ netAmount: number }>
-        }
-        spent = roundCents(parsed.usageItems?.reduce((s, i) => s + i.netAmount, 0) ?? 0)
-      }
+      const result = await fetchBudgetAndSpend(org, year, month, execEnv)
+      budgetAmount = result.budgetAmount
+      spent = result.spent
     } catch {
       // budget/spend fetch is best-effort; usage metrics still valid
     }
@@ -241,11 +304,231 @@ export async function fetchCopilotMetrics(
   }
 }
 
+/** Try org billing endpoint, fall back to user. Throws descriptive error on double-404. */
+async function fetchOrgOrUserBillingUsage(
+  org: string,
+  execEnv: NodeJS.ProcessEnv
+): Promise<string> {
+  try {
+    const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
+      encoding: 'utf8',
+      timeout: API_TIMEOUT_MS,
+      env: execEnv,
+    })
+    return result.stdout
+  } catch (orgError: unknown) {
+    if (!isNotFoundError(orgError)) throw orgError
+
+    try {
+      const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
+        encoding: 'utf8',
+        timeout: API_TIMEOUT_MS,
+        env: execEnv,
+      })
+      return result.stdout
+    } catch (userError: unknown) {
+      if (isNotFoundError(userError)) {
+        throw new Error(
+          `No billing access for '${org}'. This may be a user account — billing data requires the 'user' token scope, or '${org}' may not be a valid org.`,
+          { cause: userError }
+        )
+      }
+      throw userError
+    }
+  }
+}
+
+/** Compute spend for a personal account using the internal quota endpoint. */
+async function fetchPersonalAccountSpend(
+  org: string,
+  username?: string
+): Promise<{ spent: number; spentError: string | null }> {
+  const quotaToken = await tryGetCliToken(username)
+  if (!quotaToken) {
+    return { spent: 0, spentError: null }
+  }
+
+  try {
+    const quotaResult = await execAsync('gh api /copilot_internal/user', {
+      encoding: 'utf8',
+      timeout: API_TIMEOUT_MS,
+      env: { ...process.env, GH_TOKEN: quotaToken },
+    })
+    const quotaData = JSON.parse(quotaResult.stdout.trim())
+    const premium = quotaData?.quota_snapshots?.premium_interactions
+    if (premium) {
+      const overageByCount = Math.max(0, premium.overage_count ?? 0)
+      const overageByRemaining = Math.max(0, -(premium.remaining ?? 0))
+      const overageRequests = Math.max(overageByCount, overageByRemaining)
+      return { spent: roundCents(overageRequests * OVERAGE_COST_PER_REQUEST), spentError: null }
+    }
+    return { spent: 0, spentError: null }
+  } catch (quotaError) {
+    console.warn(`Quota-based spend fallback failed for '${org}':`, getErrorMessage(quotaError))
+    return { spent: 0, spentError: getErrorMessage(quotaError) }
+  }
+}
+
+/** Fetch budget + spend for an org via billing APIs, with enterprise budget fallback. */
+async function fetchOrgBudgetAndSpend(
+  org: string,
+  year: number,
+  month: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{
+  budgetAmount: number | null
+  preventFurtherUsage: boolean
+  budgetError: string | null
+  spent: number
+  spentError: string | null
+}> {
+  const [budgetResult, usageResult] = await Promise.allSettled([
+    execAsync(
+      `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+    execAsync(
+      `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+  ])
+
+  let { budgetAmount, preventFurtherUsage } = extractBudgetFromResult(budgetResult)
+  let budgetError: string | null = null
+
+  if (budgetResult.status !== 'fulfilled') {
+    budgetError = getErrorMessage(budgetResult.reason)
+    console.warn(`Budget fetch failed for '${org}':`, budgetError)
+  }
+
+  // Fall back to enterprise-level budget if still no copilot budget found
+  if (budgetAmount === null) {
+    try {
+      const match = await findBudgetAcrossPages(async page => {
+        const entResult = await execAsync(
+          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+          { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+        )
+        return JSON.parse(entResult.stdout.trim())
+      }, org)
+      if (match) {
+        budgetAmount = match.budget_amount
+        preventFurtherUsage = match.prevent_further_usage
+      }
+    } catch (entError) {
+      console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
+    }
+  }
+
+  const spent = extractUsageSpend(usageResult)
+  let spentError: string | null = null
+
+  if (usageResult.status !== 'fulfilled') {
+    spentError = getErrorMessage(usageResult.reason)
+    console.warn(`Usage fetch failed for '${org}':`, spentError)
+  }
+
+  return { budgetAmount, preventFurtherUsage, budgetError, spent, spentError }
+}
+
+async function resolveBudgetData(
+  org: string,
+  year: number,
+  month: number,
+  execEnv: NodeJS.ProcessEnv,
+  username?: string
+): Promise<{
+  budgetAmount: number | null
+  preventFurtherUsage: boolean
+  spent: number
+  spentUnavailable: boolean
+  useQuotaOverage: boolean
+}> {
+  const isPersonalAccount = PERSONAL_BUDGETS[org.toLowerCase()] !== undefined
+
+  if (isPersonalAccount) {
+    const budgetAmount = PERSONAL_BUDGETS[org.toLowerCase()]
+    const personalResult = await fetchPersonalAccountSpend(org, username)
+    return {
+      budgetAmount,
+      preventFurtherUsage: false,
+      spent: personalResult.spent,
+      spentUnavailable: !!personalResult.spentError,
+      useQuotaOverage: false,
+    }
+  }
+
+  const orgResult = await fetchOrgBudgetAndSpend(org, year, month, execEnv)
+
+  if (orgResult.budgetError && orgResult.spentError) {
+    const is404 = orgResult.budgetError.includes('404') || orgResult.spentError.includes('404')
+    return {
+      budgetAmount: null,
+      preventFurtherUsage: false,
+      spent: 0,
+      spentUnavailable: true,
+      useQuotaOverage: is404,
+    }
+  }
+
+  return {
+    budgetAmount: orgResult.budgetAmount,
+    preventFurtherUsage: orgResult.preventFurtherUsage,
+    spent: orgResult.spent,
+    spentUnavailable: !!orgResult.spentError,
+    useQuotaOverage: false,
+  }
+}
+
+function classifyCliTokenError(
+  errorMessage: string,
+  username: string | undefined,
+  cause: unknown
+): Error {
+  if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
+    return new Error('GitHub CLI (gh) is not installed. Install from: https://cli.github.com/', {
+      cause,
+    })
+  }
+  if (errorMessage.includes('not logged in')) {
+    return new Error(
+      `Not logged in to GitHub CLI${username ? ` for account '${username}'` : ''}. Run: gh auth login`,
+      { cause }
+    )
+  }
+  if (errorMessage.includes('no account found')) {
+    return new Error(
+      `GitHub account '${username}' not found in GitHub CLI. Run: gh auth login -h github.com`,
+      { cause }
+    )
+  }
+  return new Error(errorMessage, { cause })
+}
+
+interface RawCopilotSeat {
+  assignee?: { login: string }
+  plan_type?: string
+  last_activity_at?: string | null
+  last_activity_editor?: string | null
+  created_at?: string
+  pending_cancellation_date?: string | null
+}
+
+function mapCopilotSeatData(seat: RawCopilotSeat, fallbackLogin: string) {
+  return {
+    login: seat.assignee?.login ?? fallbackLogin,
+    planType: seat.plan_type ?? null,
+    lastActivityAt: seat.last_activity_at ?? null,
+    lastActivityEditor: seat.last_activity_editor ?? null,
+    createdAt: seat.created_at ?? null,
+    pendingCancellation: seat.pending_cancellation_date ?? null,
+  }
+}
+
 export function registerGitHubHandlers(): void {
   // Get a GitHub CLI auth token for a specific account
   ipcMain.handle('github:get-cli-token', async (_event, username?: string) => {
     try {
-      // Use --user flag to get account-specific token if username provided
       const command = username ? `gh auth token --user ${username}` : 'gh auth token'
       const { stdout, stderr } = await execAsync(command, {
         encoding: 'utf8',
@@ -267,25 +550,7 @@ export function registerGitHubHandlers(): void {
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error)
       console.error('Failed to get GitHub CLI token:', errorMessage)
-
-      // Provide helpful error message
-      if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
-        throw new Error('GitHub CLI (gh) is not installed. Install from: https://cli.github.com/', {
-          cause: error,
-        })
-      } else if (errorMessage.includes('not logged in')) {
-        throw new Error(
-          `Not logged in to GitHub CLI${username ? ` for account '${username}'` : ''}. Run: gh auth login`,
-          { cause: error }
-        )
-      } else if (errorMessage.includes('no account found')) {
-        throw new Error(
-          `GitHub account '${username}' not found in GitHub CLI. Run: gh auth login -h github.com`,
-          { cause: error }
-        )
-      }
-
-      throw error
+      throw classifyCliTokenError(errorMessage, username, error)
     }
   })
 
@@ -321,41 +586,8 @@ export function registerGitHubHandlers(): void {
   // Get Copilot premium request usage for an org via gh api
   ipcMain.handle('github:get-copilot-usage', async (_event, org: string, username?: string) => {
     try {
-      // Get a per-account token so we don't have to switch the global active account
       const execEnv = await getTokenEnv(username)
-
-      // Try org endpoint first, then fall back to user endpoint
-      let stdout: string
-      try {
-        const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-          encoding: 'utf8',
-          timeout: API_TIMEOUT_MS,
-          env: execEnv,
-        })
-        stdout = result.stdout
-      } catch (orgError: unknown) {
-        if (!isNotFoundError(orgError)) {
-          throw orgError // re-throw non-404 errors
-        }
-
-        // Org endpoint failed with 404 — namespace might be a user account
-        try {
-          const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
-            encoding: 'utf8',
-            timeout: API_TIMEOUT_MS,
-            env: execEnv,
-          })
-          stdout = result.stdout
-        } catch (userError: unknown) {
-          if (isNotFoundError(userError)) {
-            return {
-              success: false,
-              error: `No billing access for '${org}'. This may be a user account — billing data requires the 'user' token scope, or '${org}' may not be a valid org.`,
-            }
-          }
-          throw userError
-        }
-      }
+      const stdout = await fetchOrgOrUserBillingUsage(org, execEnv)
 
       const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
       const parsed = parseBillingUsage(data.usageItems)
@@ -410,131 +642,13 @@ export function registerGitHubHandlers(): void {
       const year = now.getUTCFullYear()
       const month = now.getUTCMonth() + 1
 
-      const isPersonalAccount = PERSONAL_BUDGETS[org.toLowerCase()] !== undefined
-
-      // Parse budget — try org-level first, then fall back to enterprise-level
-      let budgetAmount: number | null = null
-      let preventFurtherUsage = false
-      let budgetError: string | null = null
-      let spent = 0
-      let spentError: string | null = null
-
-      if (isPersonalAccount) {
-        // Personal accounts don't expose org-level billing APIs — use known budget
-        // and compute spend from quota data instead
-        budgetAmount = PERSONAL_BUDGETS[org.toLowerCase()]
-
-        const quotaToken = await tryGetCliToken(username)
-        if (quotaToken) {
-          try {
-            const quotaResult = await execAsync('gh api /copilot_internal/user', {
-              encoding: 'utf8',
-              timeout: API_TIMEOUT_MS,
-              env: { ...process.env, GH_TOKEN: quotaToken },
-            })
-            const quotaData = JSON.parse(quotaResult.stdout.trim())
-            const premium = quotaData?.quota_snapshots?.premium_interactions
-            if (premium) {
-              const overageByCount = Math.max(0, premium.overage_count ?? 0)
-              const overageByRemaining = Math.max(0, -(premium.remaining ?? 0))
-              const overageRequests = Math.max(overageByCount, overageByRemaining)
-              spent = roundCents(overageRequests * OVERAGE_COST_PER_REQUEST)
-            }
-          } catch (quotaError) {
-            console.warn(
-              `Quota-based spend fallback failed for '${org}':`,
-              getErrorMessage(quotaError)
-            )
-            spentError = getErrorMessage(quotaError)
-          }
-        }
-      } else {
-        // Org-level billing API calls
-        const [budgetResult, usageResult] = await Promise.allSettled([
-          execAsync(
-            `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-          execAsync(
-            `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-        ])
-
-        if (budgetResult.status === 'fulfilled') {
-          const budgetData = JSON.parse(budgetResult.value.stdout.trim()) as {
-            budgets?: BudgetItem[]
-          }
-          const copilotBudget = findCopilotBudget(budgetData.budgets ?? [])
-          if (copilotBudget) {
-            budgetAmount = copilotBudget.budget_amount
-            preventFurtherUsage = copilotBudget.prevent_further_usage
-          }
-        } else {
-          budgetError = getErrorMessage(budgetResult.reason)
-          console.warn(`Budget fetch failed for '${org}':`, budgetError)
-        }
-
-        // Fall back to enterprise-level budget if still no copilot budget found
-        if (budgetAmount === null) {
-          try {
-            const match = await findBudgetAcrossPages(async page => {
-              const entResult = await execAsync(
-                `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-                { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
-              )
-              return JSON.parse(entResult.stdout.trim())
-            }, org)
-            if (match) {
-              budgetAmount = match.budget_amount
-              preventFurtherUsage = match.prevent_further_usage
-            }
-          } catch (entError) {
-            console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
-          }
-        }
-
-        // Parse spend
-        if (usageResult.status === 'fulfilled') {
-          const usageData = JSON.parse(usageResult.value.stdout.trim()) as {
-            usageItems?: Array<{ netAmount: number }>
-          }
-          spent = usageData.usageItems?.reduce((sum, item) => sum + item.netAmount, 0) ?? 0
-          spent = roundCents(spent)
-        } else {
-          spentError = getErrorMessage(usageResult.reason)
-          console.warn(`Usage fetch failed for '${org}':`, spentError)
-        }
-      }
-
-      // If both APIs failed, determine the reason
-      if (budgetError && spentError) {
-        const is404 = budgetError.includes('404') || spentError.includes('404')
-        return {
-          success: true,
-          data: {
-            org,
-            budgetAmount: null,
-            preventFurtherUsage: false,
-            spent: 0,
-            spentUnavailable: true,
-            useQuotaOverage: is404,
-            billingMonth: month,
-            billingYear: year,
-            fetchedAt: Date.now(),
-          },
-        }
-      }
+      const result = await resolveBudgetData(org, year, month, execEnv, username)
 
       return {
         success: true,
         data: {
           org,
-          budgetAmount,
-          preventFurtherUsage,
-          spent,
-          spentUnavailable: !!spentError,
-          useQuotaOverage: false,
+          ...result,
           billingMonth: month,
           billingYear: year,
           fetchedAt: Date.now(),
@@ -558,24 +672,10 @@ export function registerGitHubHandlers(): void {
           timeout: API_TIMEOUT_MS,
           env: execEnv,
         })
-        const seat = JSON.parse(stdout.trim()) as {
-          assignee?: { login: string }
-          plan_type?: string
-          last_activity_at?: string | null
-          last_activity_editor?: string | null
-          created_at?: string
-          pending_cancellation_date?: string | null
-        }
+        const seat = JSON.parse(stdout.trim()) as RawCopilotSeat
         return {
           success: true,
-          data: {
-            login: seat.assignee?.login ?? memberLogin,
-            planType: seat.plan_type ?? null,
-            lastActivityAt: seat.last_activity_at ?? null,
-            lastActivityEditor: seat.last_activity_editor ?? null,
-            createdAt: seat.created_at ?? null,
-            pendingCancellation: seat.pending_cancellation_date ?? null,
-          },
+          data: mapCopilotSeatData(seat, memberLogin),
         }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
@@ -621,46 +721,18 @@ export function registerGitHubHandlers(): void {
           ),
         ])
 
-        interface UsageItem {
-          grossQuantity: number
-          netQuantity: number
-          netAmount: number
-          model?: string
-        }
-        const sumGross = (items: UsageItem[]) => Math.round(sumBy(items, i => i.grossQuantity))
-        const sumNet = (items: UsageItem[]) => roundCents(sumBy(items, i => i.netAmount))
+        const userMonthItems = extractPremiumUsageItems(userMonthResult)
+        const userMonthlyRequests = sumGrossRequests(userMonthItems)
+        const userMonthlyModels = userMonthItems
+          .filter(i => i.grossQuantity > 0)
+          .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
+          .sort((a, b) => b.requests - a.requests)
 
-        let userMonthlyRequests = 0
-        let userMonthlyModels: Array<{ model: string; requests: number }> = []
-        if (userMonthResult.status === 'fulfilled') {
-          const data = JSON.parse(userMonthResult.value.stdout.trim()) as {
-            usageItems?: UsageItem[]
-          }
-          const items = data.usageItems ?? []
-          userMonthlyRequests = sumGross(items)
-          userMonthlyModels = items
-            .filter(i => i.grossQuantity > 0)
-            .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
-            .sort((a, b) => b.requests - a.requests)
-        }
+        const userTodayRequests = sumGrossRequests(extractPremiumUsageItems(userTodayResult))
 
-        let userTodayRequests = 0
-        if (userTodayResult.status === 'fulfilled') {
-          const data = JSON.parse(userTodayResult.value.stdout.trim()) as {
-            usageItems?: UsageItem[]
-          }
-          userTodayRequests = sumGross(data.usageItems ?? [])
-        }
-
-        let orgMonthlyRequests = 0
-        let orgMonthlyNetCost = 0
-        if (orgMonthResult.status === 'fulfilled') {
-          const data = JSON.parse(orgMonthResult.value.stdout.trim()) as {
-            usageItems?: UsageItem[]
-          }
-          orgMonthlyRequests = sumGross(data.usageItems ?? [])
-          orgMonthlyNetCost = sumNet(data.usageItems ?? [])
-        }
+        const orgMonthItems = extractPremiumUsageItems(orgMonthResult)
+        const orgMonthlyRequests = sumGrossRequests(orgMonthItems)
+        const orgMonthlyNetCost = sumNetCost(orgMonthItems)
 
         return {
           success: true,

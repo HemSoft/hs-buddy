@@ -237,6 +237,151 @@ function OrgMetricsGrid({
   )
 }
 
+function PersonalCopilotGrid({
+  personalQuotaSummary,
+}: {
+  personalQuotaSummary: PersonalQuotaSummary
+}) {
+  return (
+    <>
+      <MiniMetric label="Used Premium" value={personalQuotaSummary.used.toLocaleString()} />
+      <MiniMetric
+        label="Remaining"
+        value={personalQuotaSummary.remaining.toLocaleString()}
+        accent="cool"
+      />
+      <MiniMetric label="Entitlement" value={personalQuotaSummary.entitlement.toLocaleString()} />
+      <MiniMetric
+        label="Overage Cost"
+        value={formatCurrency(personalQuotaSummary.overageCost)}
+        accent="warm"
+      />
+    </>
+  )
+}
+
+function OrgCopilotGrid({ copilotUsage }: { copilotUsage: OrgCopilotUsageData | null }) {
+  return (
+    <>
+      <MiniMetric
+        label="Premium Requests"
+        value={(copilotUsage?.premiumRequests ?? 0).toLocaleString()}
+      />
+      <MiniMetric
+        label="Net Cost"
+        value={formatCurrency(copilotUsage?.netCost ?? 0)}
+        accent="warm"
+      />
+      <MiniMetric label="Gross Cost" value={formatCurrency(copilotUsage?.grossCost ?? 0)} />
+      <MiniMetric
+        label="Business Seats"
+        value={(copilotUsage?.businessSeats ?? 0).toLocaleString()}
+        accent="cool"
+      />
+    </>
+  )
+}
+
+function PersonalBudgetBand({
+  configuredAccountsCount,
+  personalQuotaSummary,
+  quotaOverage,
+}: {
+  configuredAccountsCount: number
+  personalQuotaSummary: PersonalQuotaSummary | null
+  quotaOverage: number
+}) {
+  return (
+    <div className="org-detail-budget-band">
+      <div>
+        <span className="org-detail-budget-label">Namespace Type</span>
+        <strong>Personal quota</strong>
+      </div>
+      <div>
+        <span className="org-detail-budget-label">Configured Accounts</span>
+        <strong>{configuredAccountsCount.toLocaleString()}</strong>
+      </div>
+      <div>
+        <span className="org-detail-budget-label">My Share</span>
+        <strong>{formatCurrency(personalQuotaSummary?.overageCost ?? quotaOverage)}</strong>
+      </div>
+    </div>
+  )
+}
+
+function formatBudgetAmount(budgetAmount: number | null | undefined): string {
+  return budgetAmount != null ? formatCurrency(budgetAmount) : 'Not set'
+}
+
+function OrgBudgetBand({
+  budgetState,
+  quotaOverage,
+}: {
+  budgetState: CopilotBudgetState
+  quotaOverage: number
+}) {
+  return (
+    <div className="org-detail-budget-band">
+      <div>
+        <span className="org-detail-budget-label">Budget</span>
+        <strong>{formatBudgetAmount(budgetState?.data?.budgetAmount)}</strong>
+      </div>
+      <div>
+        <span className="org-detail-budget-label">Spent</span>
+        <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
+      </div>
+      <div>
+        <span className="org-detail-budget-label">My Share</span>
+        <strong>{formatCurrency(quotaOverage)}</strong>
+      </div>
+    </div>
+  )
+}
+
+function CopilotSectionHeader({
+  isUserNamespace,
+  copilotFetchedAt,
+  personalQuotaFetchedAt,
+}: {
+  isUserNamespace: boolean
+  copilotFetchedAt?: number
+  personalQuotaFetchedAt?: number
+}) {
+  return (
+    <div className="org-detail-section-header">
+      <h3>
+        <Sparkles size={15} />
+        {isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
+      </h3>
+      /* v8 ignore start */
+      {!isUserNamespace && copilotFetchedAt && (
+        /* v8 ignore stop */
+        <span className="org-detail-fetched-at">{formatTime(copilotFetchedAt)}</span>
+      )}
+      {isUserNamespace && personalQuotaFetchedAt ? (
+        <span className="org-detail-fetched-at">{formatTime(personalQuotaFetchedAt)}</span>
+      ) : null}
+    </div>
+  )
+}
+
+function CopilotWarmingMessage({
+  show,
+  isUserNamespace,
+}: {
+  show: boolean
+  isUserNamespace: boolean
+}) {
+  if (!show) return null
+  return (
+    <div className="org-detail-empty org-detail-empty-inline">
+      {isUserNamespace
+        ? 'Waiting for personal quota data.'
+        : 'Copilot metrics are still warming up.'}
+    </div>
+  )
+}
+
 function OrgCopilotSection({
   overview,
   copilotUsage,
@@ -256,105 +401,32 @@ function OrgCopilotSection({
   liveCopilotPhase: LoadPhase
   shouldShowPersonalQuotaPulse: boolean
 }) {
+  const showWarmingMessage =
+    liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
+
   return (
     <section className="org-detail-section org-detail-copilot-section">
-      <div className="org-detail-section-header">
-        <h3>
-          <Sparkles size={15} />
-          {overview.isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
-        </h3>
-        /* v8 ignore start */
-        {!overview.isUserNamespace && copilotUsage?.fetchedAt && (
-          /* v8 ignore stop */
-          <span className="org-detail-fetched-at">{formatTime(copilotUsage.fetchedAt)}</span>
-        )}
-        {overview.isUserNamespace && personalQuotaSummary?.fetchedAt ? (
-          <span className="org-detail-fetched-at">
-            {formatTime(personalQuotaSummary.fetchedAt)}
-          </span>
-        ) : null}
-      </div>
+      <CopilotSectionHeader
+        isUserNamespace={overview.isUserNamespace}
+        copilotFetchedAt={copilotUsage?.fetchedAt}
+        personalQuotaFetchedAt={personalQuotaSummary?.fetchedAt}
+      />
       <div className="org-detail-copilot-grid">
         {shouldShowPersonalQuotaPulse && personalQuotaSummary ? (
-          <>
-            <MiniMetric label="Used Premium" value={personalQuotaSummary.used.toLocaleString()} />
-            <MiniMetric
-              label="Remaining"
-              value={personalQuotaSummary.remaining.toLocaleString()}
-              accent="cool"
-            />
-            <MiniMetric
-              label="Entitlement"
-              value={personalQuotaSummary.entitlement.toLocaleString()}
-            />
-            <MiniMetric
-              label="Overage Cost"
-              value={formatCurrency(personalQuotaSummary.overageCost)}
-              accent="warm"
-            />
-          </>
+          <PersonalCopilotGrid personalQuotaSummary={personalQuotaSummary} />
         ) : (
-          <>
-            <MiniMetric
-              label="Premium Requests"
-              value={(copilotUsage?.premiumRequests ?? 0).toLocaleString()}
-            />
-            <MiniMetric
-              label="Net Cost"
-              value={formatCurrency(copilotUsage?.netCost ?? 0)}
-              accent="warm"
-            />
-            <MiniMetric label="Gross Cost" value={formatCurrency(copilotUsage?.grossCost ?? 0)} />
-            <MiniMetric
-              label="Business Seats"
-              value={(copilotUsage?.businessSeats ?? 0).toLocaleString()}
-              accent="cool"
-            />
-          </>
+          <OrgCopilotGrid copilotUsage={copilotUsage} />
         )}
       </div>
-      {liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse && (
-        <div className="org-detail-empty org-detail-empty-inline">
-          {overview.isUserNamespace
-            ? 'Waiting for personal quota data.'
-            : 'Copilot metrics are still warming up.'}
-        </div>
-      )}
+      <CopilotWarmingMessage show={showWarmingMessage} isUserNamespace={overview.isUserNamespace} />
       {overview.isUserNamespace ? (
-        <div className="org-detail-budget-band">
-          <div>
-            <span className="org-detail-budget-label">Namespace Type</span>
-            <strong>Personal quota</strong>
-          </div>
-          <div>
-            <span className="org-detail-budget-label">Configured Accounts</span>
-            <strong>{configuredAccountsCount.toLocaleString()}</strong>
-          </div>
-          <div>
-            <span className="org-detail-budget-label">My Share</span>
-            <strong>{formatCurrency(personalQuotaSummary?.overageCost ?? quotaOverage)}</strong>
-          </div>
-        </div>
+        <PersonalBudgetBand
+          configuredAccountsCount={configuredAccountsCount}
+          personalQuotaSummary={personalQuotaSummary}
+          quotaOverage={quotaOverage}
+        />
       ) : (
-        <div className="org-detail-budget-band">
-          <div>
-            <span className="org-detail-budget-label">Budget</span>
-            <strong>
-              {budgetState?.data?.budgetAmount !== null &&
-              budgetState?.data?.budgetAmount !== undefined
-                ? formatCurrency(budgetState.data.budgetAmount)
-                : 'Not set'}
-            </strong>
-          </div>
-          <div>
-            <span className="org-detail-budget-label">Spent</span>
-            <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
-          </div>
-          <div>
-            <span className="org-detail-budget-label">My Share</span>
-            <strong>{formatCurrency(quotaOverage)}</strong>
-          </div>
-        </div>
+        <OrgBudgetBand budgetState={budgetState} quotaOverage={quotaOverage} />
       )}
     </section>
   )
@@ -664,6 +736,40 @@ function useOrgMembersData({
   }
 }
 
+/* v8 ignore start */
+function handleCopilotSuccess(
+  data: {
+    org: string
+    premiumRequests: number
+    grossCost: number
+    discount: number
+    netCost: number
+    businessSeats: number
+    fetchedAt: number
+  },
+  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>,
+  cacheKey: string
+) {
+  const metrics: OrgCopilotUsageData = {
+    org: data.org,
+    premiumRequests: data.premiumRequests,
+    grossCost: data.grossCost,
+    discount: data.discount,
+    netCost: data.netCost,
+    businessSeats: data.businessSeats,
+    fetchedAt: data.fetchedAt,
+  }
+  startTransition(() => {
+    dispatch({ type: 'success', usage: metrics })
+  })
+  dataCache.set(cacheKey, metrics)
+  /* v8 ignore stop */
+}
+
+function getCachedCopilotData(cacheKey: string): OrgCopilotUsageData | null {
+  return dataCache.get<OrgCopilotUsageData>(cacheKey)?.data ?? null
+}
+
 function useOrgCopilotData({
   org,
   enqueue,
@@ -680,7 +786,7 @@ function useOrgCopilotData({
   copilotTaskName: string
 }) {
   const enqueueRef = useRef(enqueue)
-  const cachedCopilot = dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data ?? null
+  const cachedCopilot = getCachedCopilotData(copilotCacheKey)
   const [copilotState, dispatchCopilot] = useReducer(
     orgCopilotReducer,
     cachedCopilot,
@@ -713,7 +819,7 @@ function useOrgCopilotData({
       }
 
       const queue = getTaskQueue('github')
-      const cached = dataCache.get<OrgCopilotUsageData>(copilotCacheKey)?.data ?? null
+      const cached = getCachedCopilotData(copilotCacheKey)
       /* v8 ignore start */
       if (cached && !forceRefresh) {
         dispatchCopilot({ type: 'hydrate-cache', usage: cached })
@@ -737,21 +843,7 @@ function useOrgCopilotData({
         )
         /* v8 ignore start */
         if (result.success && result.data) {
-          const metrics: OrgCopilotUsageData = {
-            /* v8 ignore stop */
-            org: result.data.org,
-            premiumRequests: result.data.premiumRequests,
-            grossCost: result.data.grossCost,
-            discount: result.data.discount,
-            netCost: result.data.netCost,
-            businessSeats: result.data.businessSeats,
-            fetchedAt: result.data.fetchedAt,
-          }
-          /* v8 ignore start */
-          startTransition(() => {
-            dispatchCopilot({ type: 'success', usage: metrics })
-          })
-          dataCache.set(copilotCacheKey, metrics)
+          handleCopilotSuccess(result.data, dispatchCopilot, copilotCacheKey)
         } else {
           dispatchCopilot({ type: 'error', error: null })
           /* v8 ignore stop */
@@ -855,6 +947,49 @@ function usePersonalQuotaSummary(
   return { personalQuotaLoading, personalQuotaSummary }
 }
 
+function computeLivePhases(
+  overviewData: ReturnType<typeof useOrgOverviewData>,
+  membersData: ReturnType<typeof useOrgMembersData>,
+  copilotData: ReturnType<typeof useOrgCopilotData>,
+  isUserNamespace: boolean,
+  personalQuotaSummary: PersonalQuotaSummary | null,
+  personalQuotaLoading: boolean,
+  githubQueue: ReturnType<typeof getTaskQueue>,
+  overviewTaskName: string,
+  membersTaskName: string,
+  copilotTaskName: string
+) {
+  const isOverviewTaskActive = githubQueue.hasTaskWithName(overviewTaskName)
+  const isMembersTaskActive = githubQueue.hasTaskWithName(membersTaskName)
+  const isCopilotTaskActive = githubQueue.hasTaskWithName(copilotTaskName)
+
+  const liveOverviewPhase = resolveRefreshPhase(
+    overviewData.overviewPhase,
+    isOverviewTaskActive,
+    overviewData.overview ? 'ready' : 'loading'
+  )
+  const liveMembersPhase = resolveRefreshPhase(
+    membersData.membersPhase,
+    isMembersTaskActive,
+    membersData.membersResult ? 'ready' : 'loading'
+  )
+  const liveCopilotPhase = isUserNamespace
+    ? resolvePersonalCopilotPhase(personalQuotaSummary, personalQuotaLoading)
+    : resolveRefreshPhase(
+        copilotData.copilotPhase,
+        isCopilotTaskActive,
+        /* v8 ignore start */
+        copilotData.copilotUsage ? 'ready' : 'error'
+        /* v8 ignore stop */
+      )
+
+  return { liveOverviewPhase, liveMembersPhase, liveCopilotPhase }
+}
+
+function getMembersFromResult(result: OrgMemberResult | null): OrgMember[] {
+  return result?.members ?? []
+}
+
 function useOrgDetailData(org: string, memberLogin?: string) {
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
@@ -912,28 +1047,18 @@ function useOrgDetailData(org: string, memberLogin?: string) {
 
   const githubQueue = getTaskQueue('github')
   void stats
-  const isOverviewTaskActive = githubQueue.hasTaskWithName(overviewTaskName)
-  const isMembersTaskActive = githubQueue.hasTaskWithName(membersTaskName)
-  const isCopilotTaskActive = githubQueue.hasTaskWithName(copilotTaskName)
-  const liveOverviewPhase = resolveRefreshPhase(
-    overviewData.overviewPhase,
-    isOverviewTaskActive,
-    overviewData.overview ? 'ready' : 'loading'
+  const { liveOverviewPhase, liveMembersPhase, liveCopilotPhase } = computeLivePhases(
+    overviewData,
+    membersData,
+    copilotData,
+    isUserNamespace,
+    personalQuotaSummary,
+    personalQuotaLoading,
+    githubQueue,
+    overviewTaskName,
+    membersTaskName,
+    copilotTaskName
   )
-  const liveMembersPhase = resolveRefreshPhase(
-    membersData.membersPhase,
-    isMembersTaskActive,
-    membersData.membersResult ? 'ready' : 'loading'
-  )
-  const liveCopilotPhase = isUserNamespace
-    ? resolvePersonalCopilotPhase(personalQuotaSummary, personalQuotaLoading)
-    : resolveRefreshPhase(
-        copilotData.copilotPhase,
-        isCopilotTaskActive,
-        /* v8 ignore start */
-        copilotData.copilotUsage ? 'ready' : 'error'
-        /* v8 ignore stop */
-      )
 
   const { fetchOverview } = overviewData
   const { fetchMembers } = membersData
@@ -1004,8 +1129,8 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     liveCopilotPhase,
     liveMembersPhase,
     liveOverviewPhase,
-    memberCount: membersData.membersResult?.members.length ?? 0,
-    members: membersData.membersResult?.members ?? [],
+    memberCount: getMembersFromResult(membersData.membersResult).length,
+    members: getMembersFromResult(membersData.membersResult),
     membersError: membersData.membersError,
     overview: overviewData.overview,
     overviewError: overviewData.overviewError,
@@ -1151,6 +1276,137 @@ function RosterFilterBar({
   )
 }
 
+function MemberRosterItem({
+  member,
+  org,
+  memberLogin,
+  contributor,
+  isConfigured,
+}: {
+  member: OrgMember
+  org: string
+  memberLogin?: string
+  contributor: OrgContributor | undefined
+  isConfigured: boolean
+}) {
+  return (
+    <button
+      className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
+      onClick={() => navigateToOrgUser(org, member.login)}
+    >
+      <span className="org-detail-roster-name">
+        {member.name ? `${member.name} (${member.login})` : member.login}
+      </span>
+      <span className="org-detail-roster-meta">
+        {member.name ? `@${member.login} · ` : ''}
+        {contributor ? `${contributor.commits} today` : 'idle today'}
+        {isConfigured ? ' · configured' : ''}
+      </span>
+    </button>
+  )
+}
+
+function MemberRosterSection({
+  org,
+  memberLogin,
+  members,
+  filteredMembers,
+  contributorMap,
+  configuredLogins,
+  rosterFilter,
+  rosterSort,
+  rosterCounts,
+  onFilterChange,
+  onSortChange,
+}: {
+  org: string
+  memberLogin?: string
+  members: OrgMember[]
+  filteredMembers: OrgMember[]
+  contributorMap: Map<string, OrgContributor>
+  configuredLogins: Set<string>
+  rosterFilter: RosterFilter
+  rosterSort: RosterSort
+  rosterCounts: { all: number; active: number; configured: number; idle: number }
+  onFilterChange: (f: RosterFilter) => void
+  onSortChange: (s: RosterSort) => void
+}) {
+  return (
+    <section className="org-detail-section">
+      <div className="org-detail-section-header">
+        <h3>
+          <Users size={15} />
+          Member Roster
+        </h3>
+      </div>
+      <RosterFilterBar
+        filter={rosterFilter}
+        sort={rosterSort}
+        onFilterChange={onFilterChange}
+        onSortChange={onSortChange}
+        counts={rosterCounts}
+      />
+      {filteredMembers.length > 0 ? (
+        <div className="org-detail-roster">
+          {filteredMembers.map(member => (
+            <MemberRosterItem
+              key={member.login}
+              member={member}
+              org={org}
+              memberLogin={memberLogin}
+              contributor={contributorMap.get(member.login)}
+              isConfigured={configuredLogins.has(member.login)}
+            />
+          ))}
+        </div>
+      ) : members.length === 0 ? (
+        <div className="org-detail-empty">No members returned for this namespace.</div>
+      ) : (
+        <div className="org-detail-empty">No members match the current filter.</div>
+      )}
+    </section>
+  )
+}
+
+function OrgDetailAlerts({
+  isUpdating,
+  membersError,
+  copilotError,
+  liveMembersPhase,
+  liveCopilotPhase,
+  onRetry,
+}: {
+  isUpdating: boolean
+  membersError: string | null
+  copilotError: string | null
+  liveMembersPhase: LoadPhase
+  liveCopilotPhase: LoadPhase
+  onRetry: () => void
+}) {
+  return (
+    <>
+      {isUpdating && (
+        <div className="org-detail-update-banner">
+          <RefreshCw size={14} className="spin" />
+          <span>
+            Updating live organization signals in the background. Existing data stays interactive.
+          </span>
+        </div>
+      )}
+      {membersError && liveMembersPhase === 'error' && (
+        /* v8 ignore start */
+        <InlineErrorBanner label="Members" message={membersError} onRetry={onRetry} />
+        /* v8 ignore stop */
+      )}
+      {copilotError && liveCopilotPhase === 'error' && (
+        /* v8 ignore start */
+        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={onRetry} />
+        /* v8 ignore stop */
+      )}
+    </>
+  )
+}
+
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const {
     budgetState,
@@ -1277,25 +1533,16 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
       <OrgMetricsGrid overview={overview} memberCount={memberCount} />
 
-      {isUpdating && (
-        <div className="org-detail-update-banner">
-          <RefreshCw size={14} className="spin" />
-          <span>
-            Updating live organization signals in the background. Existing data stays interactive.
-          </span>
-        </div>
-      )}
-
-      {membersError && liveMembersPhase === 'error' && (
+      <OrgDetailAlerts
+        isUpdating={isUpdating}
+        membersError={membersError}
+        copilotError={copilotError}
+        liveMembersPhase={liveMembersPhase}
+        liveCopilotPhase={liveCopilotPhase}
         /* v8 ignore start */
-        <InlineErrorBanner label="Members" message={membersError} onRetry={() => fetchAll(true)} />
+        onRetry={() => fetchAll(true)}
         /* v8 ignore stop */
-      )}
-      {copilotError && liveCopilotPhase === 'error' && (
-        /* v8 ignore start */
-        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={() => fetchAll(true)} />
-        /* v8 ignore stop */
-      )}
+      />
 
       <div className="org-detail-section-grid">
         <OrgCopilotSection
@@ -1329,49 +1576,19 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
       <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
 
-      <section className="org-detail-section">
-        <div className="org-detail-section-header">
-          <h3>
-            <Users size={15} />
-            Member Roster
-          </h3>
-        </div>
-        <RosterFilterBar
-          filter={rosterFilter}
-          sort={rosterSort}
-          onFilterChange={setRosterFilter}
-          onSortChange={setRosterSort}
-          counts={rosterCounts}
-        />
-        {filteredMembers.length > 0 ? (
-          <div className="org-detail-roster">
-            {filteredMembers.map(member => {
-              const contributor = contributorMap.get(member.login)
-              const isConfigured = configuredLogins.has(member.login)
-              return (
-                <button
-                  key={member.login}
-                  className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
-                  onClick={() => navigateToOrgUser(org, member.login)}
-                >
-                  <span className="org-detail-roster-name">
-                    {member.name ? `${member.name} (${member.login})` : member.login}
-                  </span>
-                  <span className="org-detail-roster-meta">
-                    {member.name ? `@${member.login} · ` : ''}
-                    {contributor ? `${contributor.commits} today` : 'idle today'}
-                    {isConfigured ? ' · configured' : ''}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        ) : members.length === 0 ? (
-          <div className="org-detail-empty">No members returned for this namespace.</div>
-        ) : (
-          <div className="org-detail-empty">No members match the current filter.</div>
-        )}
-      </section>
+      <MemberRosterSection
+        org={org}
+        memberLogin={memberLogin}
+        members={members}
+        filteredMembers={filteredMembers}
+        contributorMap={contributorMap}
+        configuredLogins={configuredLogins}
+        rosterFilter={rosterFilter}
+        rosterSort={rosterSort}
+        rosterCounts={rosterCounts}
+        onFilterChange={setRosterFilter}
+        onSortChange={setRosterSort}
+      />
     </div>
   )
 }

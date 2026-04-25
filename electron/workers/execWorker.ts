@@ -15,37 +15,73 @@ const MAX_OUTPUT_SIZE = 512_000 // 512KB per stream
 /** Map shell name to spawn args (platform-aware for PowerShell executables) */
 function getShellArgs(shell: string): { command: string; args: string[] } {
   const isWin = process.platform === 'win32'
-  switch (shell) {
-    case 'powershell':
-    case 'pwsh':
-      return {
-        command: isWin ? 'pwsh.exe' : 'pwsh',
-        args: ['-NoProfile', '-NonInteractive', '-Command'],
-      }
-    case 'powershell5':
-      return {
-        command: isWin ? 'powershell.exe' : 'powershell',
-        args: ['-NoProfile', '-NonInteractive', '-Command'],
-      }
-    case 'bash':
-      return { command: 'bash', args: ['-c'] }
-    case 'sh':
-      return { command: 'sh', args: ['-c'] }
-    case 'zsh':
-      return { command: 'zsh', args: ['-c'] }
-    case 'cmd':
-      return { command: 'cmd.exe', args: ['/c'] }
-    default:
-      // Platform-aware default: PowerShell on Windows, bash elsewhere
-      return isWin
-        ? { command: 'pwsh.exe', args: ['-NoProfile', '-NonInteractive', '-Command'] }
-        : { command: 'bash', args: ['-c'] }
+  const PS_ARGS = ['-NoProfile', '-NonInteractive', '-Command']
+
+  const shellMap: Record<string, { command: string; args: string[] }> = {
+    powershell: { command: isWin ? 'pwsh.exe' : 'pwsh', args: PS_ARGS },
+    pwsh: { command: isWin ? 'pwsh.exe' : 'pwsh', args: PS_ARGS },
+    powershell5: { command: isWin ? 'powershell.exe' : 'powershell', args: PS_ARGS },
+    bash: { command: 'bash', args: ['-c'] },
+    sh: { command: 'sh', args: ['-c'] },
+    zsh: { command: 'zsh', args: ['-c'] },
+    cmd: { command: 'cmd.exe', args: ['/c'] },
   }
+
+  // Platform-aware default: PowerShell on Windows, bash elsewhere
+  return (
+    shellMap[shell] ??
+    (isWin ? { command: 'pwsh.exe', args: PS_ARGS } : { command: 'bash', args: ['-c'] })
+  )
 }
 
 /** Check if a shell type is PowerShell (any shell that isn't bash, sh, zsh, or cmd) */
 function isPowerShell(shell: string): boolean {
   return !['bash', 'sh', 'zsh', 'cmd'].includes(shell)
+}
+
+/** Resolve the error message for a killed process. */
+function killedErrorMessage(signal: AbortSignal | undefined, timeout: number): string {
+  return signal?.aborted ? 'Cancelled by user' : `Killed after ${timeout}ms timeout`
+}
+
+/** Resolve the error message for a non-zero exit. */
+function failureErrorMessage(stderr: string, exitCode: number | null): string {
+  return stderr || `Process exited with code ${exitCode}`
+}
+
+/** Build the WorkerResult from the close event data */
+function buildWorkerResult(opts: {
+  killed: boolean
+  signal?: AbortSignal
+  exitCode: number | null
+  stdout: string
+  stderr: string
+  start: number
+  timeout: number
+}): WorkerResult {
+  const output = truncateOutput(opts.stdout.trim(), MAX_OUTPUT_SIZE) || undefined
+  const trimmedStderr = truncateOutput(opts.stderr.trim(), MAX_OUTPUT_SIZE)
+  const duration = Date.now() - opts.start
+  const exitCode = opts.exitCode ?? -1
+
+  if (opts.killed) {
+    return {
+      success: false,
+      error: killedErrorMessage(opts.signal, opts.timeout),
+      output,
+      exitCode,
+      duration,
+    }
+  }
+
+  const success = exitCode === 0
+  return {
+    success,
+    output,
+    error: success ? undefined : failureErrorMessage(trimmedStderr, opts.exitCode),
+    exitCode,
+    duration,
+  }
 }
 
 export const execWorker: Worker = {
@@ -128,29 +164,7 @@ export const execWorker: Worker = {
       child.on('close', exitCode => {
         clearTimeout(timer)
         signal?.removeEventListener('abort', onAbort)
-
-        const trimmedStdout = truncateOutput(stdout.trim(), MAX_OUTPUT_SIZE)
-        const trimmedStderr = truncateOutput(stderr.trim(), MAX_OUTPUT_SIZE)
-
-        if (killed) {
-          resolve({
-            success: false,
-            error: signal?.aborted ? 'Cancelled by user' : `Killed after ${timeout}ms timeout`,
-            output: trimmedStdout || undefined,
-            exitCode: exitCode ?? -1,
-            duration: Date.now() - start,
-          })
-          return
-        }
-
-        const success = exitCode === 0
-        resolve({
-          success,
-          output: trimmedStdout || undefined,
-          error: !success ? trimmedStderr || `Process exited with code ${exitCode}` : undefined,
-          exitCode: exitCode ?? -1,
-          duration: Date.now() - start,
-        })
+        resolve(buildWorkerResult({ killed, signal, exitCode, stdout, stderr, start, timeout }))
       })
     })
   },

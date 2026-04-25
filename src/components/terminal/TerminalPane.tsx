@@ -14,6 +14,18 @@ interface TerminalPaneProps {
   onCwdChange?: (newCwd: string) => void
 }
 
+function resolveSpawnDimensions(dims: { cols?: number; rows?: number } | undefined): {
+  cols: number
+  rows: number
+} {
+  return {
+    /* v8 ignore start */
+    cols: dims?.cols || 120,
+    rows: dims?.rows || 30,
+    /* v8 ignore stop */
+  }
+}
+
 export function TerminalPane({
   viewKey,
   cwd,
@@ -98,36 +110,34 @@ export function TerminalPane({
 
     const dims = fitAddon.proposeDimensions()
 
+    async function handleExistingSession(term: Terminal, existingSessionId: string) {
+      sessionIdRef.current = existingSessionId
+      const result = await window.terminal.attach(existingSessionId)
+
+      /* v8 ignore start */
+      if (!active) return
+      /* v8 ignore stop */
+
+      if (!result.success) {
+        removeSession(viewKey)
+        /* v8 ignore start */
+        if (!active) return
+        /* v8 ignore stop */
+        await spawnNew()
+        return
+      }
+
+      if (result.buffer) term.write(result.buffer)
+      if (result.cursor != null) attachCursorRef.current = result.cursor
+      if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+    }
+
     async function initSession() {
       try {
         const existingSessionId = getSessionId(viewKey)
 
         if (existingSessionId) {
-          // Reconnect to existing session (tab was switched away and back)
-          sessionIdRef.current = existingSessionId
-          const result = await window.terminal.attach(existingSessionId)
-
-          /* v8 ignore start */
-          if (!active) return
-          /* v8 ignore stop */
-
-          if (result.success && result.buffer) {
-            term.write(result.buffer)
-          }
-          if (result.success && result.cursor != null) {
-            attachCursorRef.current = result.cursor
-          }
-          if (result.success && !result.alive) {
-            term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
-          }
-          if (!result.success) {
-            // Session was cleaned up — spawn fresh
-            removeSession(viewKey)
-            /* v8 ignore start */
-            if (!active) return
-            /* v8 ignore stop */
-            await spawnNew()
-          }
+          await handleExistingSession(term, existingSessionId)
         } else {
           /* v8 ignore start */
           if (!active) return
@@ -144,10 +154,7 @@ export function TerminalPane({
     async function spawnNew() {
       const result = await window.terminal.spawn({
         cwd,
-        /* v8 ignore start */
-        cols: dims?.cols || 120,
-        rows: dims?.rows || 30,
-        /* v8 ignore stop */
+        ...resolveSpawnDimensions(dims),
         startupCommand,
       })
 
@@ -162,19 +169,23 @@ export function TerminalPane({
         return
         /* v8 ignore stop */
       }
+
       if (!result.success || !result.sessionId) {
         term.writeln(
           `\r\n\x1b[31mFailed to spawn terminal: ${result.error || 'Unknown error'}\x1b[0m`
         )
         return
       }
+
       sessionIdRef.current = result.sessionId
       setSessionId(viewKey, result.sessionId)
-      // Report the resolved cwd back so the tab state stays accurate
       if (result.cwd) onCwdChange?.(result.cwd)
 
-      // Flush any output that arrived before sessionIdRef was set
-      const attachResult = await window.terminal.attach(result.sessionId)
+      await applyAttachBuffer(term, result.sessionId)
+    }
+
+    async function applyAttachBuffer(term: Terminal, sid: string) {
+      const attachResult = await window.terminal.attach(sid)
       /* v8 ignore start */
       if (!active) return
       /* v8 ignore stop */
@@ -232,30 +243,32 @@ export function TerminalPane({
 
     // Debounced resize
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
+    const handleResize = () => {
+      const fit = fitRef.current
+      const sid = sessionIdRef.current
+      /* v8 ignore start */
+      if (!fit || !sid) return
+      /* v8 ignore stop */
+      try {
+        fit.fit()
+        applyResizeDimensions(fit, sid)
+      } catch {
+        // Ignore
+      }
+    }
+    function applyResizeDimensions(fit: FitAddon, sid: string) {
+      const d = fit.proposeDimensions()
+      /* v8 ignore start */
+      if (!d?.cols || !d?.rows) return
+      /* v8 ignore stop */
+      const last = lastResizeRef.current
+      if (last && last.cols === d.cols && last.rows === d.rows) return
+      lastResizeRef.current = { cols: d.cols, rows: d.rows }
+      window.terminal.resize(sid, d.cols, d.rows)
+    }
     const resizeObserver = new ResizeObserver(() => {
       if (resizeTimer) clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => {
-        const fit = fitRef.current
-        const sid = sessionIdRef.current
-        /* v8 ignore start */
-        if (!fit || !sid) return
-        /* v8 ignore stop */
-        try {
-          fit.fit()
-          const d = fit.proposeDimensions()
-          /* v8 ignore start */
-          if (d?.cols && d?.rows) {
-            /* v8 ignore stop */
-            const last = lastResizeRef.current
-            if (!last || last.cols !== d.cols || last.rows !== d.rows) {
-              lastResizeRef.current = { cols: d.cols, rows: d.rows }
-              window.terminal.resize(sid, d.cols, d.rows)
-            }
-          }
-        } catch {
-          // Ignore
-        }
-      }, 100)
+      resizeTimer = setTimeout(handleResize, 100)
     })
     resizeObserver.observe(container)
 

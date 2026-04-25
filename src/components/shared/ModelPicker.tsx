@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Cpu, Loader2, RefreshCw } from 'lucide-react'
 import { useCopilotSettings } from '../../hooks/useConfig'
-import { InlineDropdown } from '../InlineDropdown'
-import type { DropdownOption } from '../InlineDropdown'
+import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
 import { getErrorMessage } from '../../utils/errorUtils'
 
 /** Model info returned from the Copilot SDK */
@@ -38,32 +37,10 @@ interface ModelPickerProps {
   id?: string
 }
 
-/**
- * Reusable Copilot model picker.
- * Fetches available models from the Copilot SDK and renders them.
- * Supports two display variants:
- * - `inline` (default): compact InlineDropdown style
- * - `select`: standard <select> element
- */
-export function ModelPicker({
-  value,
-  onChange,
-  ghAccount = '',
-  persist = false,
-  disabled = false,
-  title = 'Copilot model',
-  className = '',
-  variant = 'inline',
-  align = 'left',
-  showRefresh = false,
-  id,
-}: ModelPickerProps) {
-  const { setModel: persistModel } = useCopilotSettings()
+function useModelFetch() {
   const [sdkModels, setSdkModels] = useState<SdkModel[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsError, setModelsError] = useState<string | null>(null)
-
-  // Track the latest fetch to cancel stale in-flight requests
   const fetchIdRef = useRef(0)
 
   const fetchModels = useCallback(async (forAccount?: string) => {
@@ -72,7 +49,6 @@ export function ModelPicker({
     setModelsError(null)
     try {
       const result = await window.copilot.listModels(forAccount || undefined)
-      // Ignore result if a newer fetch was started while we were waiting
       if (fetchIdRef.current !== thisId) return
       if (result && 'error' in result) {
         setModelsError(result.error as string)
@@ -91,8 +67,191 @@ export function ModelPicker({
     }
   }, [])
 
-  // Single effect: fetch models on mount and when account changes
   const lastAccountRef = useRef<string | undefined>(undefined)
+
+  return { sdkModels, modelsLoading, modelsError, fetchModels, lastAccountRef }
+}
+
+function billingLabel(multiplier: number): string {
+  if (multiplier <= 1) return ''
+  return ` · ${multiplier}x`
+}
+
+const SELECT_STATUS_STYLE = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '8px 0',
+  color: 'var(--text-secondary)',
+  fontSize: '13px',
+} satisfies React.CSSProperties
+
+function ModelPickerSelectVariant({
+  value,
+  enabledModels,
+  disabledModels,
+  disabled,
+  modelsLoading,
+  showRefresh,
+  modelsError,
+  fetchModels,
+  ghAccount,
+  handleChange,
+  className,
+  id,
+}: {
+  value: string
+  enabledModels: SdkModel[]
+  disabledModels: SdkModel[]
+  disabled: boolean
+  modelsLoading: boolean
+  showRefresh: boolean
+  modelsError: string | null
+  fetchModels: (forAccount?: string) => Promise<void>
+  ghAccount: string
+  handleChange: (v: string) => void
+  className: string
+  id?: string
+}) {
+  if (modelsLoading) {
+    return (
+      <div className={className}>
+        <div style={SELECT_STATUS_STYLE}>
+          <Loader2 size={16} className="spin" />
+          Fetching available models...
+        </div>
+      </div>
+    )
+  }
+
+  if (modelsError) {
+    return (
+      <div className={className}>
+        <div className="form-error" style={{ marginBottom: '8px' }}>
+          Failed to fetch models: {modelsError}
+        </div>
+      </div>
+    )
+  }
+
+  if (enabledModels.length === 0 && disabledModels.length === 0) {
+    return (
+      <div className={className}>
+        <div style={SELECT_STATUS_STYLE}>
+          No models loaded.{' '}
+          {showRefresh && (
+            <button
+              className="settings-btn settings-btn-secondary"
+              onClick={() => fetchModels(ghAccount || undefined)}
+              style={{ padding: '4px 8px', fontSize: '12px' }}
+            >
+              <RefreshCw size={12} /> Refresh
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={className}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="select-control" style={{ flex: 1 }}>
+          <select
+            id={id}
+            value={value}
+            onChange={e => handleChange(e.target.value)}
+            className="settings-select"
+            disabled={disabled}
+          >
+            {enabledModels.length > 0 && (
+              <optgroup label="Available Models">
+                {enabledModels.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                    {billingLabel(m.billingMultiplier)}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {disabledModels.length > 0 && (
+              <optgroup label="Disabled by Policy">
+                {disabledModels.map(m => (
+                  <option key={m.id} value={m.id} disabled>
+                    {m.name} (disabled)
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </div>
+        {showRefresh && (
+          <button
+            className="settings-btn settings-btn-secondary"
+            onClick={() => fetchModels(ghAccount || undefined)}
+            disabled={modelsLoading}
+            title="Refresh models from Copilot SDK"
+            style={{ padding: '6px 10px' }}
+          >
+            {/* v8 ignore start */}
+            {modelsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+            {/* v8 ignore stop */}
+            Refresh
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function useModelValidation(
+  sdkModels: { id: string; isDisabled?: boolean }[],
+  value: string,
+  onChange: (v: string) => void,
+  persist: boolean,
+  persistModel: (v: string) => Promise<void>
+) {
+  useEffect(() => {
+    if (sdkModels.length === 0) return
+    const isKnown = sdkModels.some(m => m.id === value)
+    if (isKnown || value === '') return
+    const firstEnabled = sdkModels.find(m => !m.isDisabled)
+    if (!firstEnabled) return
+    onChange(firstEnabled.id)
+    if (persist) {
+      /* v8 ignore start */
+      persistModel(firstEnabled.id).catch(() => {})
+      /* v8 ignore stop */
+    }
+  }, [sdkModels, value, onChange, persist, persistModel])
+}
+
+function buildModelOptions(enabledModels: SdkModel[], currentValue: string): DropdownOption[] {
+  return enabledModels.length > 0
+    ? enabledModels.map(m => ({
+        value: m.id,
+        label: m.name,
+        hint: m.billingMultiplier > 1 ? `${m.billingMultiplier}x` : undefined,
+      }))
+    : [{ value: currentValue, label: currentValue }]
+}
+
+/**
+ * Reusable Copilot model picker.
+ * Fetches available models from the Copilot SDK and renders them.
+ * Supports two display variants:
+ * - `inline` (default): compact InlineDropdown style
+ * - `select`: standard <select> element
+ */
+function useModelPickerSetup(
+  ghAccount: string,
+  value: string,
+  onChange: (model: string) => void,
+  persist: boolean
+) {
+  const { setModel: persistModel } = useCopilotSettings()
+  const { sdkModels, modelsLoading, modelsError, fetchModels, lastAccountRef } = useModelFetch()
+
   useEffect(() => {
     /* v8 ignore start */
     if (lastAccountRef.current !== ghAccount) {
@@ -100,25 +259,9 @@ export function ModelPicker({
       lastAccountRef.current = ghAccount
       fetchModels(ghAccount || undefined)
     }
-  }, [ghAccount, fetchModels])
+  }, [ghAccount, fetchModels, lastAccountRef])
 
-  // Validate selected model when models list refreshes
-  useEffect(() => {
-    if (sdkModels.length > 0) {
-      const isKnown = sdkModels.some(m => m.id === value)
-      if (!isKnown && value !== '') {
-        const firstEnabled = sdkModels.find(m => !m.isDisabled)
-        if (firstEnabled) {
-          onChange(firstEnabled.id)
-          if (persist) {
-            /* v8 ignore start */
-            persistModel(firstEnabled.id).catch(() => {})
-            /* v8 ignore stop */
-          }
-        }
-      }
-    }
-  }, [sdkModels, value, onChange, persist, persistModel])
+  useModelValidation(sdkModels, value, onChange, persist, persistModel)
 
   const handleChange = useCallback(
     async (newValue: string) => {
@@ -133,22 +276,48 @@ export function ModelPicker({
   const enabledModels = sdkModels.filter(m => !m.isDisabled)
   const disabledModels = sdkModels.filter(m => m.isDisabled)
 
-  /** Format billing multiplier */
-  const billingLabel = (multiplier: number) => {
-    if (multiplier <= 1) return ''
-    return ` · ${multiplier}x`
+  return {
+    sdkModels,
+    modelsLoading,
+    modelsError,
+    fetchModels,
+    handleChange,
+    enabledModels,
+    disabledModels,
   }
+}
 
-  const selectStatusStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 0',
-    color: 'var(--text-secondary)',
-    fontSize: '13px',
-  } satisfies React.CSSProperties
+const MODEL_PICKER_DEFAULTS = {
+  ghAccount: '',
+  persist: false,
+  disabled: false,
+  title: 'Copilot model',
+  className: '',
+  variant: 'inline' as const,
+  align: 'left' as const,
+  showRefresh: false,
+}
 
-  // Loading state
+export function ModelPicker(props: ModelPickerProps) {
+  const {
+    value,
+    onChange,
+    ghAccount,
+    persist,
+    disabled,
+    title,
+    className,
+    variant,
+    align,
+    showRefresh,
+    id,
+  } = {
+    ...MODEL_PICKER_DEFAULTS,
+    ...props,
+  }
+  const { modelsLoading, modelsError, fetchModels, handleChange, enabledModels, disabledModels } =
+    useModelPickerSetup(ghAccount, value, onChange, persist)
+
   if (modelsLoading && variant === 'inline') {
     return (
       <div
@@ -166,112 +335,29 @@ export function ModelPicker({
     )
   }
 
-  if (variant === 'select' && modelsLoading) {
-    return (
-      <div className={className}>
-        <div style={selectStatusStyle}>
-          <Loader2 size={16} className="spin" />
-          Fetching available models...
-        </div>
-      </div>
-    )
-  }
-
-  if (variant === 'select' && modelsError) {
-    return (
-      <div className={className}>
-        <div className="form-error" style={{ marginBottom: '8px' }}>
-          Failed to fetch models: {modelsError}
-        </div>
-      </div>
-    )
-  }
-
-  if (variant === 'select' && sdkModels.length === 0) {
-    return (
-      <div className={className}>
-        <div style={selectStatusStyle}>
-          No models loaded.{' '}
-          {showRefresh && (
-            <button
-              className="settings-btn settings-btn-secondary"
-              onClick={() => fetchModels(ghAccount || undefined)}
-              style={{ padding: '4px 8px', fontSize: '12px' }}
-            >
-              <RefreshCw size={12} /> Refresh
-            </button>
-          )}
-        </div>
-      </div>
-    )
-  }
-
   if (variant === 'select') {
     return (
-      <div className={className}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div className="select-control" style={{ flex: 1 }}>
-            <select
-              id={id}
-              value={value}
-              onChange={e => handleChange(e.target.value)}
-              className="settings-select"
-              disabled={disabled}
-            >
-              {enabledModels.length > 0 && (
-                <optgroup label="Available Models">
-                  {enabledModels.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                      {billingLabel(m.billingMultiplier)}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {disabledModels.length > 0 && (
-                <optgroup label="Disabled by Policy">
-                  {disabledModels.map(m => (
-                    <option key={m.id} value={m.id} disabled>
-                      {m.name} (disabled)
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-          {showRefresh && (
-            <button
-              className="settings-btn settings-btn-secondary"
-              onClick={() => fetchModels(ghAccount || undefined)}
-              disabled={modelsLoading}
-              title="Refresh models from Copilot SDK"
-              style={{ padding: '6px 10px' }}
-            >
-              {/* v8 ignore start */}
-              {modelsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
-              {/* v8 ignore stop */}
-              Refresh
-            </button>
-          )}
-        </div>
-      </div>
+      <ModelPickerSelectVariant
+        value={value}
+        enabledModels={enabledModels}
+        disabledModels={disabledModels}
+        disabled={disabled}
+        modelsLoading={modelsLoading}
+        showRefresh={showRefresh}
+        modelsError={modelsError}
+        fetchModels={fetchModels}
+        ghAccount={ghAccount}
+        handleChange={handleChange}
+        className={className}
+        id={id}
+      />
     )
   }
-
-  // Inline variant
-  const modelOptions: DropdownOption[] =
-    enabledModels.length > 0
-      ? enabledModels.map(m => ({
-          value: m.id,
-          label: m.name,
-          hint: m.billingMultiplier > 1 ? `${m.billingMultiplier}x` : undefined,
-        }))
-      : [{ value: value, label: value }]
 
   return (
     <InlineDropdown
       value={value}
-      options={modelOptions}
+      options={buildModelOptions(enabledModels, value)}
       onChange={handleChange}
       icon={<Cpu size={11} />}
       placeholder="Select model"

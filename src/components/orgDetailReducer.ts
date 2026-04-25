@@ -82,6 +82,28 @@ export function orgCopilotReducer(
   }
 }
 
+const METRIC_DEFAULTS: Partial<OrgOverviewResult['metrics']> = {
+  repoCount: 0,
+  privateRepoCount: 0,
+  archivedRepoCount: 0,
+  openIssueCount: 0,
+  openPullRequestCount: 0,
+  totalStars: 0,
+  totalForks: 0,
+  activeReposToday: 0,
+  commitsToday: 0,
+  topContributorsToday: [],
+}
+
+function normalizeMetrics(metrics: OrgOverviewResult['metrics']): OrgOverviewResult['metrics'] {
+  const result = { ...metrics }
+  for (const [key, defaultVal] of Object.entries(METRIC_DEFAULTS)) {
+    const k = key as keyof typeof METRIC_DEFAULTS
+    if (result[k] == null) (result as Record<string, unknown>)[k] = defaultVal
+  }
+  return result
+}
+
 export function normalizeOverview(result: OrgOverviewResult | null): OrgOverviewResult | null {
   if (!result) {
     return null
@@ -89,19 +111,7 @@ export function normalizeOverview(result: OrgOverviewResult | null): OrgOverview
 
   return {
     ...result,
-    metrics: {
-      ...result.metrics,
-      repoCount: result.metrics.repoCount ?? 0,
-      privateRepoCount: result.metrics.privateRepoCount ?? 0,
-      archivedRepoCount: result.metrics.archivedRepoCount ?? 0,
-      openIssueCount: result.metrics.openIssueCount ?? 0,
-      openPullRequestCount: result.metrics.openPullRequestCount ?? 0,
-      totalStars: result.metrics.totalStars ?? 0,
-      totalForks: result.metrics.totalForks ?? 0,
-      activeReposToday: result.metrics.activeReposToday ?? 0,
-      commitsToday: result.metrics.commitsToday ?? 0,
-      topContributorsToday: result.metrics.topContributorsToday ?? [],
-    },
+    metrics: normalizeMetrics(result.metrics),
   }
 }
 

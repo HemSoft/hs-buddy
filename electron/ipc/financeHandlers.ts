@@ -29,6 +29,84 @@ interface FinanceQuoteResult {
   error?: string
 }
 
+function extractPriceData(meta: {
+  regularMarketPrice: number
+  previousClose?: number
+  chartPreviousClose?: number
+}): { price: number; prevClose: number } | null {
+  const price = typeof meta.regularMarketPrice === 'number' ? meta.regularMarketPrice : undefined
+  const prevClose =
+    typeof meta.previousClose === 'number'
+      ? meta.previousClose
+      : typeof meta.chartPreviousClose === 'number'
+        ? meta.chartPreviousClose
+        : undefined
+  if (price === undefined || prevClose === undefined) return null
+  return { price, prevClose }
+}
+
+function calculateMarketOpen(meta: {
+  currentTradingPeriod?: { regular: { start: number; end: number } }
+}): boolean {
+  const tp = meta.currentTradingPeriod?.regular
+  if (!tp || typeof tp.start !== 'number' || typeof tp.end !== 'number') {
+    return true // default open for assets without trading periods (crypto, futures)
+  }
+  const nowEpoch = Math.floor(Date.now() / 1000)
+  return nowEpoch >= tp.start && nowEpoch < tp.end
+}
+
+interface ChartMeta {
+  symbol: string
+  regularMarketPrice: number
+  previousClose?: number
+  chartPreviousClose?: number
+  shortName?: string
+  currentTradingPeriod?: { regular: { start: number; end: number } }
+}
+
+interface ChartResponse {
+  chart: {
+    result?: Array<{ meta: ChartMeta }>
+    error?: { description: string }
+  }
+}
+
+function buildQuoteFromMeta(meta: ChartMeta, symbol: string): FinanceQuoteResult {
+  const priceData = extractPriceData(meta)
+  if (!priceData) {
+    return { success: false, error: `Incomplete data for ${symbol}` }
+  }
+
+  const { price, prevClose } = priceData
+  const change = price - prevClose
+  const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0
+
+  return {
+    success: true,
+    quote: {
+      symbol: meta.symbol,
+      name: SYMBOL_NAMES[meta.symbol] ?? meta.shortName ?? meta.symbol,
+      price,
+      change,
+      changePercent,
+      previousClose: prevClose,
+      marketOpen: calculateMarketOpen(meta),
+    },
+  }
+}
+
+function parseChartResponse(json: ChartResponse, symbol: string): FinanceQuoteResult {
+  if (json.chart.error) {
+    return { success: false, error: json.chart.error.description }
+  }
+  const meta = json.chart.result?.[0]?.meta
+  if (!meta) {
+    return { success: false, error: `No data for ${symbol}` }
+  }
+  return buildQuoteFromMeta(meta, symbol)
+}
+
 export function registerFinanceHandlers(): void {
   ipcMain.handle(
     'finance:fetch-quote',
@@ -49,66 +127,8 @@ export function registerFinanceHandlers(): void {
           return { success: false, error: `HTTP ${response.status}` }
         }
 
-        const json = (await response.json()) as {
-          chart: {
-            result?: Array<{
-              meta: {
-                symbol: string
-                regularMarketPrice: number
-                previousClose?: number
-                chartPreviousClose?: number
-                shortName?: string
-                currentTradingPeriod?: {
-                  regular: { start: number; end: number }
-                }
-              }
-            }>
-            error?: { description: string }
-          }
-        }
-
-        if (json.chart.error) {
-          return { success: false, error: json.chart.error.description }
-        }
-
-        const meta = json.chart.result?.[0]?.meta
-        if (!meta) {
-          return { success: false, error: `No data for ${upper}` }
-        }
-
-        const price = typeof meta.regularMarketPrice === 'number' ? meta.regularMarketPrice : undefined
-        const prevClose = typeof meta.previousClose === 'number'
-          ? meta.previousClose
-          : typeof meta.chartPreviousClose === 'number'
-            ? meta.chartPreviousClose
-            : undefined
-        if (price === undefined || prevClose === undefined) {
-          return { success: false, error: `Incomplete data for ${upper}` }
-        }
-
-        const change = price - prevClose
-        const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0
-
-        const tp = meta.currentTradingPeriod?.regular
-        const nowEpoch = Math.floor(Date.now() / 1000)
-        const marketOpen = tp
-          && typeof tp.start === 'number'
-          && typeof tp.end === 'number'
-          ? nowEpoch >= tp.start && nowEpoch < tp.end
-          : true // default open for assets without trading periods (crypto, futures)
-
-        return {
-          success: true,
-          quote: {
-            symbol: meta.symbol,
-            name: SYMBOL_NAMES[meta.symbol] ?? meta.shortName ?? meta.symbol,
-            price,
-            change,
-            changePercent,
-            previousClose: prevClose,
-            marketOpen,
-          },
-        }
+        const json = (await response.json()) as ChartResponse
+        return parseChartResponse(json, upper)
       } catch (err) {
         return {
           success: false,

@@ -117,41 +117,52 @@ function safeSend(sender: WebContents, channel: string, ...args: unknown[]): voi
   }
 }
 
-/**
- * Resolve a GitHub owner/repo to a local clone directory.
- * Probes common directory patterns under well-known clone roots.
- */
-function resolveRepoPath(owner: string, repo: string): string | null {
+/** Returns the list of clone root directories to probe (handles Windows drive letters vs Unix). */
+function getCloneRoots(): string[] {
   const home = process.env.USERPROFILE || process.env.HOME || app.getPath('home')
   const driveRoot = path.parse(home).root // e.g. D:\ on Windows, / on Unix
-  const cloneRoots: string[] = []
+  const roots: string[] = []
 
   // On Windows, probe common fixed drives for a top-level github folder
   if (process.platform === 'win32') {
     for (const letter of ['C', 'D', 'E', 'F']) {
-      cloneRoots.push(path.join(`${letter}:\\`, 'github'))
+      roots.push(path.join(`${letter}:\\`, 'github'))
     }
   } else {
-    cloneRoots.push(path.join(driveRoot, 'github'))
+    roots.push(path.join(driveRoot, 'github'))
   }
 
-  cloneRoots.push(
+  roots.push(
     path.join(home, 'github'), // e.g. C:\Users\User\github or ~/github
     path.join(home, 'repos'),
     path.join(home, 'projects'),
     path.join(home, 'source', 'repos') // Visual Studio default
   )
 
-  // Generate org-folder candidates from the GitHub owner name
-  const orgCandidates = new Set<string>()
-  orgCandidates.add(owner) // exact: relias-engineering
+  return roots
+}
+
+/** Generates organization folder name candidates from the owner string. */
+function getOrgCandidates(owner: string): string[] {
+  const candidates = new Set<string>()
+  candidates.add(owner) // exact: relias-engineering
   const dashIdx = owner.indexOf('-')
   if (dashIdx > 0) {
     const short = owner.substring(0, dashIdx)
-    orgCandidates.add(short) // short: relias
-    orgCandidates.add(short.charAt(0).toUpperCase() + short.slice(1)) // capitalized: Relias
+    candidates.add(short) // short: relias
+    candidates.add(short.charAt(0).toUpperCase() + short.slice(1)) // capitalized: Relias
   }
-  orgCandidates.add(owner.charAt(0).toUpperCase() + owner.slice(1)) // capitalized full: Relias-engineering
+  candidates.add(owner.charAt(0).toUpperCase() + owner.slice(1)) // capitalized full: Relias-engineering
+  return [...candidates]
+}
+
+/**
+ * Resolve a GitHub owner/repo to a local clone directory.
+ * Probes common directory patterns under well-known clone roots.
+ */
+function resolveRepoPath(owner: string, repo: string): string | null {
+  const cloneRoots = getCloneRoots()
+  const orgCandidates = getOrgCandidates(owner)
 
   for (const root of cloneRoots) {
     if (!existsSync(root)) continue
@@ -175,6 +186,131 @@ function isValidRepoSlug(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value)
 }
 
+/** Builds shell args. For Windows PowerShell, generates OSC 7 setup via encoded command. */
+function buildShellArgs(shell: string): string[] {
+  if (process.platform === 'win32' && (shell === 'pwsh.exe' || shell === 'powershell.exe')) {
+    // Wrap the default prompt to emit OSC 7 (invisible escape sequence).
+    // Uses -EncodedCommand to avoid quoting issues.
+    // Loads the user profile first so custom prompts are preserved.
+    const osc7Setup = [
+      '& { . $PROFILE } 2>$null',
+      '$__hsb_op=$function:prompt',
+      'function global:prompt{',
+      '$e=[char]0x1b',
+      "[Console]::Write(\"$e]7;file:///$($PWD.Path.Replace('\\','/'))$e\\\")",
+      '& $__hsb_op',
+      '}',
+    ].join(';')
+    const encoded = Buffer.from(osc7Setup, 'utf16le').toString('base64')
+    return ['-NoLogo', '-NoExit', '-EncodedCommand', encoded]
+  }
+  return []
+}
+
+/** Detects OSC 7 CWD sequences in PTY output and updates session.cwd. */
+function processOsc7(session: TerminalSession, data: string): void {
+  session.oscBuffer += data
+  // Only keep last 512 chars to avoid unbounded growth
+  if (session.oscBuffer.length > 512) {
+    session.oscBuffer = session.oscBuffer.slice(-512)
+  }
+  // eslint-disable-next-line no-control-regex -- intentional terminal escape sequences (OSC 7)
+  const osc7Regex = /\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/g
+  let lastOsc7: RegExpExecArray | null = null
+  let osc7Match: RegExpExecArray | null
+  while ((osc7Match = osc7Regex.exec(session.oscBuffer)) !== null) {
+    lastOsc7 = osc7Match
+  }
+  if (lastOsc7) {
+    // Clear buffer up to end of last match to prevent re-processing
+    session.oscBuffer = session.oscBuffer.slice(lastOsc7.index + lastOsc7[0].length)
+    const decoded = decodeURIComponent(lastOsc7[1])
+    const newCwd = path.resolve(decoded)
+    if (newCwd !== session.cwd) {
+      session.cwd = newCwd
+      safeSend(session.sender, 'terminal:cwd-changed', session.id, newCwd)
+    }
+  }
+}
+
+function createTerminalSession(
+  sessionId: string,
+  ptyProcess: ReturnType<ReturnType<typeof getPty>['spawn']>,
+  cwd: string,
+  sender: WebContents
+): TerminalSession {
+  const session: TerminalSession = {
+    id: sessionId,
+    pty: ptyProcess,
+    cwd,
+    outputBuffer: '',
+    outputSeq: 0,
+    alive: true,
+    disposables: [],
+    sender,
+    oscBuffer: '',
+  }
+  sessions.set(sessionId, session)
+
+  const dataDisposable = ptyProcess.onData((data: string) => {
+    session.outputBuffer += data
+    if (session.outputBuffer.length > MAX_SCROLLBACK_BUFFER) {
+      session.outputBuffer = session.outputBuffer.slice(-MAX_SCROLLBACK_BUFFER)
+    }
+    session.outputSeq++
+    safeSend(session.sender, 'terminal:data', sessionId, data, session.outputSeq)
+    processOsc7(session, data)
+  })
+
+  const exitDisposable = ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
+    const s = sessions.get(sessionId)
+    if (s) s.alive = false
+    safeSend(session.sender, 'terminal:exit', sessionId, exitCode)
+  })
+
+  session.disposables.push(dataDisposable, exitDisposable)
+  return session
+}
+
+function scheduleStartupCommand(sessionId: string, startupCommand: string): void {
+  const session = sessions.get(sessionId)
+  if (!session) return
+  session.startupTimer = setTimeout(() => {
+    const s = sessions.get(sessionId)
+    if (!s?.alive) return
+    try {
+      s.pty.write(startupCommand + '\r')
+    } catch {
+      // PTY died between alive check and write — ignore
+    }
+  }, 500)
+}
+
+function resolveSpawnShell(): { shell: string; shellArgs: string[] } {
+  const isWindows = process.platform === 'win32'
+  const shell = isWindows ? resolveWindowsShell() : process.env.SHELL || '/bin/bash'
+  return { shell, shellArgs: buildShellArgs(shell) }
+}
+
+function resolveDefaultCwd(): string {
+  const isWindows = process.platform === 'win32'
+  return isWindows ? process.env.USERPROFILE || 'C:\\' : process.env.HOME || app.getPath('home')
+}
+
+function buildSpawnOptions(
+  opts: { cols?: number; rows?: number },
+  cwd: string
+): Record<string, unknown> {
+  return {
+    name: 'xterm-256color',
+    cols: opts.cols || 120,
+    rows: opts.rows || 30,
+    cwd,
+    env: { ...process.env },
+    ...(process.platform === 'win32' ? { useConpty: true } : {}),
+  }
+}
+
 export function registerTerminalHandlers(_win: BrowserWindow): void {
   // Resolve owner/repo to a local directory path
   ipcMain.handle('terminal:resolve-repo-path', async (_event, opts: unknown) => {
@@ -191,42 +327,12 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
       event,
       opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }
     ) => {
-      const isWindows = process.platform === 'win32'
-      const defaultCwd = isWindows
-        ? process.env.USERPROFILE || 'C:\\'
-        : process.env.HOME || app.getPath('home')
+      const defaultCwd = resolveDefaultCwd()
       const cwd = opts.cwd && isValidCwd(opts.cwd) ? path.resolve(opts.cwd) : defaultCwd
       const sessionId = randomUUID()
 
-      const shell = isWindows ? resolveWindowsShell() : process.env.SHELL || '/bin/bash'
-
-      // Build shell args: inject OSC 7 prompt wrapper so the shell reports CWD changes
-      let shellArgs: string[] = []
-      if (isWindows && (shell === 'pwsh.exe' || shell === 'powershell.exe')) {
-        // Wrap the default prompt to emit OSC 7 (invisible escape sequence).
-        // Uses -EncodedCommand to avoid quoting issues.
-        // Loads the user profile first so custom prompts are preserved.
-        const osc7Setup = [
-          '& { . $PROFILE } 2>$null',
-          '$__hsb_op=$function:prompt',
-          'function global:prompt{',
-          '$e=[char]0x1b',
-          "[Console]::Write(\"$e]7;file:///$($PWD.Path.Replace('\\','/'))$e\\\")",
-          '& $__hsb_op',
-          '}',
-        ].join(';')
-        const encoded = Buffer.from(osc7Setup, 'utf16le').toString('base64')
-        shellArgs = ['-NoLogo', '-NoExit', '-EncodedCommand', encoded]
-      }
-
-      const spawnOptions = {
-        name: 'xterm-256color',
-        cols: opts.cols || 120,
-        rows: opts.rows || 30,
-        cwd,
-        env: { ...process.env },
-        ...(isWindows ? { useConpty: true } : {}),
-      }
+      const { shell, shellArgs } = resolveSpawnShell()
+      const spawnOptions = buildSpawnOptions(opts, cwd)
 
       let ptyProcess
       try {
@@ -238,75 +344,10 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
         }
       }
 
-      const session: TerminalSession = {
-        id: sessionId,
-        pty: ptyProcess,
-        cwd,
-        outputBuffer: '',
-        outputSeq: 0,
-        alive: true,
-        disposables: [],
-        sender: event.sender,
-        oscBuffer: '',
-      }
-      sessions.set(sessionId, session)
+      createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
 
-      // Forward PTY output to the renderer and buffer it
-      const dataDisposable = ptyProcess.onData((data: string) => {
-        session.outputBuffer += data
-        // Cap buffer size to prevent memory bloat
-        if (session.outputBuffer.length > MAX_SCROLLBACK_BUFFER) {
-          session.outputBuffer = session.outputBuffer.slice(-MAX_SCROLLBACK_BUFFER)
-        }
-        session.outputSeq++
-        safeSend(session.sender, 'terminal:data', sessionId, data, session.outputSeq)
-
-        // Detect OSC 7 (current working directory) from shell prompt
-        // Format: \x1b]7;file:///C:/path\x07  or  \x1b]7;file:///C:/path\x1b\\
-        // Buffer handles sequences split across data chunks
-        session.oscBuffer += data
-        // Only keep last 512 chars to avoid unbounded growth
-        if (session.oscBuffer.length > 512) {
-          session.oscBuffer = session.oscBuffer.slice(-512)
-        }
-        // eslint-disable-next-line no-control-regex -- intentional terminal escape sequences (OSC 7)
-        const osc7Regex = /\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/g
-        let lastOsc7: RegExpExecArray | null = null
-        let osc7Match: RegExpExecArray | null
-        while ((osc7Match = osc7Regex.exec(session.oscBuffer)) !== null) {
-          lastOsc7 = osc7Match
-        }
-        if (lastOsc7) {
-          // Clear buffer up to end of last match to prevent re-processing
-          session.oscBuffer = session.oscBuffer.slice(lastOsc7.index + lastOsc7[0].length)
-          const decoded = decodeURIComponent(lastOsc7[1])
-          const newCwd = path.resolve(decoded)
-          if (newCwd !== session.cwd) {
-            session.cwd = newCwd
-            safeSend(session.sender, 'terminal:cwd-changed', sessionId, newCwd)
-          }
-        }
-      })
-
-      const exitDisposable = ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
-        const s = sessions.get(sessionId)
-        if (s) s.alive = false
-        safeSend(session.sender, 'terminal:exit', sessionId, exitCode)
-      })
-
-      session.disposables.push(dataDisposable, exitDisposable)
-
-      // Send startup command after a brief delay for shell initialization
       if (opts.startupCommand) {
-        session.startupTimer = setTimeout(() => {
-          const s = sessions.get(sessionId)
-          if (!s?.alive) return
-          try {
-            s.pty.write(opts.startupCommand + '\r')
-          } catch {
-            // PTY died between alive check and write — ignore
-          }
-        }, 500)
+        scheduleStartupCommand(sessionId, opts.startupCommand)
       }
 
       return { success: true, sessionId, cwd }

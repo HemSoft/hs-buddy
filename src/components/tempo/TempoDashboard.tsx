@@ -133,14 +133,12 @@ function findPrefillWorklog(worklogs: TempoWorklog[], issueKey: string): TempoWo
   return issueWorklogs.reduce((latest, worklog) => (worklog.date > latest.date ? worklog : latest))
 }
 
-function selectNextEmptyDay(
-  issueKeys: Set<string>,
-  sourceDate: string,
-  worklogs: TempoWorklog[],
-  holidays: Record<string, string>,
-  todayKey: string
-): string {
+function buildWorklogIndexes(worklogs: TempoWorklog[]): {
+  hoursByIssueDate: Record<string, Set<string>>
+  dailyTotals: Record<string, number>
+} {
   const hoursByIssueDate: Record<string, Set<string>> = {}
+  const dailyTotals: Record<string, number> = {}
   for (const worklog of worklogs) {
     /* v8 ignore start */
     if (!hoursByIssueDate[worklog.date]) {
@@ -148,63 +146,70 @@ function selectNextEmptyDay(
       hoursByIssueDate[worklog.date] = new Set()
     }
     hoursByIssueDate[worklog.date].add(worklog.issueKey)
-  }
-
-  const dailyTotals: Record<string, number> = {}
-  for (const worklog of worklogs) {
     dailyTotals[worklog.date] = (dailyTotals[worklog.date] || 0) + worklog.hours
   }
+  return { hoursByIssueDate, dailyTotals }
+}
 
-  const holidaySet = new Set(Object.keys(holidays))
-  const start = new Date(sourceDate + 'T00:00:00')
-  start.setDate(start.getDate() + 1)
+function isWorkday(date: Date, holidaySet: Set<string>): boolean {
+  const dow = date.getDay()
+  if (dow === 0 || dow === 6) return false
+  return !holidaySet.has(formatDateKey(date))
+}
 
+function findFirstEmptyDay(
+  issueKeys: Set<string>,
+  start: Date,
+  holidaySet: Set<string>,
+  hoursByIssueDate: Record<string, Set<string>>,
+  dailyTotals: Record<string, number>
+): { dateKey: string | null; firstWorkday: string | null; firstUnfinished: string | null } {
   let firstWorkday: string | null = null
   let firstUnfinished: string | null = null
 
   for (let i = 0; i < 60; i++) {
     const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
-    const dayOfWeek = date.getDay()
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      continue
-    }
+    if (!isWorkday(date, holidaySet)) continue
 
     const dateKey = formatDateKey(date)
-    if (holidaySet.has(dateKey)) {
-      continue
-    }
-
-    if (!firstWorkday) {
-      firstWorkday = dateKey
-    }
-    if (!firstUnfinished && (dailyTotals[dateKey] || 0) < 8) {
-      firstUnfinished = dateKey
-    }
+    if (!firstWorkday) firstWorkday = dateKey
+    if (!firstUnfinished && (dailyTotals[dateKey] || 0) < 8) firstUnfinished = dateKey
 
     const dayIssues = hoursByIssueDate[dateKey]
     const hasAnyIssue = dayIssues && [...issueKeys].some(issueKey => dayIssues.has(issueKey))
-    if (!hasAnyIssue) {
-      return dateKey
-    }
+    if (!hasAnyIssue) return { dateKey, firstWorkday, firstUnfinished }
   }
 
+  return { dateKey: null, firstWorkday, firstUnfinished }
+}
+
+function selectNextEmptyDay(
+  issueKeys: Set<string>,
+  sourceDate: string,
+  worklogs: TempoWorklog[],
+  holidays: Record<string, string>,
+  todayKey: string
+): string {
+  const { hoursByIssueDate, dailyTotals } = buildWorklogIndexes(worklogs)
+  const holidaySet = new Set(Object.keys(holidays))
+  const start = new Date(sourceDate + 'T00:00:00')
+  start.setDate(start.getDate() + 1)
+
+  const { dateKey, firstWorkday, firstUnfinished } = findFirstEmptyDay(
+    issueKeys,
+    start,
+    holidaySet,
+    hoursByIssueDate,
+    dailyTotals
+  )
+
   /* v8 ignore start */
-  return firstUnfinished || firstWorkday || todayKey
+  return dateKey ?? firstUnfinished ?? firstWorkday ?? todayKey
   /* v8 ignore stop */
 }
 
-export function TempoDashboard() {
-  const [state, dispatch] = useReducer(
-    tempoDashboardReducer,
-    undefined,
-    createInitialDashboardState
-  )
-  const todayKey = formatDateKey(new Date())
-  const monthLabel = formatMonthLabel(state.viewMonth)
-  const activeEditorDate = state.editorDate || state.editingWorklog?.date || todayKey
-
-  const { from, to } = useMemo(() => getMonthRange(state.viewMonth), [state.viewMonth])
-
+function useTempoDashboardData(viewMonth: Date) {
+  const { from, to } = useMemo(() => getMonthRange(viewMonth), [viewMonth])
   const month = useTempoMonth(from, to)
   const today = useTempoToday()
   const { schedule } = useUserSchedule(from, to)
@@ -213,26 +218,29 @@ export function TempoDashboard() {
     () => schedule.reduce((sum, d) => sum + d.requiredSeconds, 0) / 3600,
     [schedule]
   )
-
   const holidays = useMemo(() => buildHolidayMap(schedule), [schedule])
-
   const refreshAll = useCallback(() => {
     month.refresh()
     today.refresh()
   }, [month, today])
-
   const actions = useTempoActions(refreshAll)
-
   const issueKeys = useMemo(
     () => [...new Set(month.worklogs.map(w => w.issueKey))],
     [month.worklogs]
   )
   const capexMap = useCapexMap(issueKeys)
 
-  const prevMonth = () => dispatch({ type: 'shiftMonth', delta: -1 })
-  const nextMonth = () => dispatch({ type: 'shiftMonth', delta: 1 })
-  const goToCurrentMonth = () => dispatch({ type: 'goToCurrentMonth' })
+  return { month, today, monthTarget, holidays, refreshAll, actions, capexMap }
+}
 
+function useTempoDashboardHandlers(
+  state: TempoDashboardState,
+  dispatch: React.Dispatch<TempoDashboardAction>,
+  month: ReturnType<typeof useTempoMonth>,
+  holidays: Record<string, string>,
+  actions: ReturnType<typeof useTempoActions>,
+  todayKey: string
+) {
   const handleEdit = (worklog: TempoWorklog) => {
     dispatch({ type: 'openEdit', worklog })
   }
@@ -251,18 +259,15 @@ export function TempoDashboard() {
   }
 
   const handleEditorSave = async (payload: CreateWorklogPayload) => {
-    let result
-    if (state.editingWorklog) {
-      result = await actions.update(state.editingWorklog.id, {
-        hours: payload.hours,
-        date: payload.date,
-        startTime: payload.startTime,
-        description: payload.description,
-        accountKey: payload.accountKey,
-      })
-    } else {
-      result = await actions.create(payload)
-    }
+    const result = state.editingWorklog
+      ? await actions.update(state.editingWorklog.id, {
+          hours: payload.hours,
+          date: payload.date,
+          startTime: payload.startTime,
+          description: payload.description,
+          accountKey: payload.accountKey,
+        })
+      : await actions.create(payload)
     if (!result.success) {
       throw new Error(result.error || 'Save failed')
     }
@@ -302,10 +307,55 @@ export function TempoDashboard() {
     }
   }
 
+  return { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay }
+}
+
+function resolveEditorDefaults(state: TempoDashboardState, todayKey: string) {
+  return {
+    defaultDate: state.editorDate || todayKey,
+    defaultIssueKey: state.prefillWorklog?.issueKey,
+    defaultAccountKey: state.prefillWorklog?.accountKey,
+    defaultDescription: state.prefillWorklog?.description,
+  }
+}
+
+function computeDashboardDerived(
+  state: TempoDashboardState,
+  month: ReturnType<typeof useTempoMonth>,
+  today: ReturnType<typeof useTempoToday>,
+  todayKey: string
+) {
+  const activeEditorDate = state.editorDate || state.editingWorklog?.date || todayKey
   const isCurrentMonth =
     state.viewMonth.getFullYear() === new Date().getFullYear() &&
     state.viewMonth.getMonth() === new Date().getMonth()
   const activeError = month.error || state.actionError
+  const todayHours = today.data?.totalHours || 0
+  const editorDefaults = resolveEditorDefaults(state, todayKey)
+  return { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults }
+}
+
+export function TempoDashboard() {
+  const [state, dispatch] = useReducer(
+    tempoDashboardReducer,
+    undefined,
+    createInitialDashboardState
+  )
+  const todayKey = formatDateKey(new Date())
+  const monthLabel = formatMonthLabel(state.viewMonth)
+
+  const { month, today, monthTarget, holidays, refreshAll, actions, capexMap } =
+    useTempoDashboardData(state.viewMonth)
+
+  const prevMonth = () => dispatch({ type: 'shiftMonth', delta: -1 })
+  const nextMonth = () => dispatch({ type: 'shiftMonth', delta: 1 })
+  const goToCurrentMonth = () => dispatch({ type: 'goToCurrentMonth' })
+
+  const { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay } =
+    useTempoDashboardHandlers(state, dispatch, month, holidays, actions, todayKey)
+
+  const { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults } =
+    computeDashboardDerived(state, month, today, todayKey)
 
   return (
     <div className="tempo-dashboard">
@@ -323,7 +373,7 @@ export function TempoDashboard() {
       />
 
       <TempoSummaryCards
-        todayHours={today.data?.totalHours || 0}
+        todayHours={todayHours}
         monthHours={month.totalHours}
         monthTarget={monthTarget}
         isCurrentMonth={isCurrentMonth}
@@ -368,10 +418,10 @@ export function TempoDashboard() {
       {state.editorOpen && (
         <TempoWorklogEditor
           worklog={state.editingWorklog}
-          defaultDate={state.editorDate || todayKey}
-          defaultIssueKey={state.prefillWorklog?.issueKey}
-          defaultAccountKey={state.prefillWorklog?.accountKey}
-          defaultDescription={state.prefillWorklog?.description}
+          defaultDate={editorDefaults.defaultDate}
+          defaultIssueKey={editorDefaults.defaultIssueKey}
+          defaultAccountKey={editorDefaults.defaultAccountKey}
+          defaultDescription={editorDefaults.defaultDescription}
           existingWorklogs={month.worklogs.filter(w => w.date === activeEditorDate)}
           onSave={handleEditorSave}
           onCancel={() => dispatch({ type: 'closeEditor' })}

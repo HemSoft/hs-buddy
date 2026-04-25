@@ -1,6 +1,10 @@
 import Store from 'electron-store'
-import type { AppConfig, GitHubAccount } from '../src/types/config'
-import { configSchema, defaultConfig } from '../src/types/config'
+import {
+  configSchema,
+  defaultConfig,
+  type AppConfig,
+  type GitHubAccount,
+} from '../src/types/config'
 
 /** Shared Convex URL — single source of truth for the main process. */
 export const CONVEX_URL =

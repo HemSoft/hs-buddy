@@ -187,6 +187,56 @@ function BookmarkFilterBar({
   )
 }
 
+function BookmarkListBody({
+  filteredBookmarks,
+  allBookmarks,
+  handleOpen,
+  handleOpenExternal,
+  dispatch,
+}: {
+  filteredBookmarks: Bookmark[]
+  allBookmarks: Bookmark[]
+  handleOpen: (bookmark: Bookmark) => void
+  handleOpenExternal: (bookmark: Bookmark) => void
+  dispatch: ReturnType<typeof useBookmarkListState>['dispatch']
+}) {
+  if (filteredBookmarks.length === 0) {
+    return (
+      <div className="bookmark-list-empty">
+        {allBookmarks.length === 0 ? (
+          <>
+            <Globe size={48} strokeWidth={1} />
+            <p>No bookmarks yet</p>
+            <p className="bookmark-empty-hint">
+              Click <strong>Add</strong> or drag a URL here to save your first link
+            </p>
+          </>
+        ) : (
+          <>
+            <Search size={48} strokeWidth={1} />
+            <p>No bookmarks match your filters</p>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {filteredBookmarks.map(bookmark => (
+        <BookmarkCard
+          key={bookmark._id}
+          bookmark={bookmark}
+          onOpen={handleOpen}
+          onOpenExternal={handleOpenExternal}
+          onEdit={b => dispatch({ type: 'open-edit', bookmark: b })}
+          onDelete={b => dispatch({ type: 'set-delete-target', bookmark: b })}
+        />
+      ))}
+    </>
+  )
+}
+
 interface BookmarkListProps {
   filterCategory?: string
   onOpenTab?: (viewId: string) => void
@@ -272,35 +322,13 @@ export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
       />
 
       <div className="bookmark-list-body">
-        {filteredBookmarks.length === 0 ? (
-          <div className="bookmark-list-empty">
-            {allBookmarks.length === 0 ? (
-              <>
-                <Globe size={48} strokeWidth={1} />
-                <p>No bookmarks yet</p>
-                <p className="bookmark-empty-hint">
-                  Click <strong>Add</strong> or drag a URL here to save your first link
-                </p>
-              </>
-            ) : (
-              <>
-                <Search size={48} strokeWidth={1} />
-                <p>No bookmarks match your filters</p>
-              </>
-            )}
-          </div>
-        ) : (
-          filteredBookmarks.map(bookmark => (
-            <BookmarkCard
-              key={bookmark._id}
-              bookmark={bookmark}
-              onOpen={handleOpen}
-              onOpenExternal={handleOpenExternal}
-              onEdit={b => dispatch({ type: 'open-edit', bookmark: b })}
-              onDelete={b => dispatch({ type: 'set-delete-target', bookmark: b })}
-            />
-          ))
-        )}
+        <BookmarkListBody
+          filteredBookmarks={filteredBookmarks}
+          allBookmarks={allBookmarks}
+          handleOpen={handleOpen}
+          handleOpenExternal={handleOpenExternal}
+          dispatch={dispatch}
+        />
       </div>
 
       {state.dialogOpen && (

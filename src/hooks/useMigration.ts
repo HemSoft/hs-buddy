@@ -2,6 +2,32 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 
+async function migrateAccounts<T>(
+  configAccounts: T[] | undefined,
+  existingAccounts: { length: number } | undefined,
+  bulkImport: (args: { accounts: T[] }) => Promise<{ length: number }>
+): Promise<void> {
+  if (!configAccounts || configAccounts.length === 0) return
+  if (!existingAccounts || existingAccounts.length > 0) return
+  console.log('[Migration] Importing GitHub accounts from electron-store...')
+  const imported = await bulkImport({ accounts: configAccounts })
+  if (imported.length > 0) {
+    console.log(`[Migration] Imported ${imported.length} GitHub accounts to Convex`)
+  }
+}
+
+async function migrateSettings<T>(
+  configPR: T | undefined,
+  existingSettings: object | null | undefined,
+  initSettings: (args: { pr: T }) => Promise<unknown>
+): Promise<void> {
+  const settingsExistInConvex = existingSettings && '_id' in existingSettings
+  if (!configPR || settingsExistInConvex) return
+  console.log('[Migration] Importing PR settings from electron-store...')
+  await initSettings({ pr: configPR })
+  console.log('[Migration] PR settings migrated to Convex')
+}
+
 /**
  * One-time migration from electron-store to Convex
  * Runs on app startup with a timeout to prevent infinite loading
@@ -54,28 +80,8 @@ export function useMigrateToConvex() {
         // Get data from electron-store
         const config = await window.ipcRenderer.invoke('config:get-config')
 
-        // Migrate GitHub accounts if any exist in electron-store AND not already in Convex
-        // Guard against undefined (convex not connected)
-        if (
-          config.github?.accounts?.length > 0 &&
-          existingAccounts &&
-          existingAccounts.length === 0
-        ) {
-          console.log('[Migration] Importing GitHub accounts from electron-store...')
-          const imported = await bulkImportAccounts({ accounts: config.github.accounts })
-          if (imported.length > 0) {
-            console.log(`[Migration] Imported ${imported.length} GitHub accounts to Convex`)
-          }
-        }
-
-        // Migrate PR settings if they exist in electron-store AND settings don't exist in Convex yet
-        // existingSettings without _id means it's a default object, not a real Convex document
-        const settingsExistInConvex = existingSettings && '_id' in existingSettings
-        if (config.pr && !settingsExistInConvex) {
-          console.log('[Migration] Importing PR settings from electron-store...')
-          await initSettings({ pr: config.pr })
-          console.log('[Migration] PR settings migrated to Convex')
-        }
+        await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
+        await migrateSettings(config.pr, existingSettings, initSettings)
       } catch (error) {
         console.error('[Migration] Failed to migrate from electron-store:', error)
       } finally {

@@ -104,6 +104,29 @@ export const create = mutation({
   },
 })
 
+function validateBookmarkUpdate(args: {
+  id: string
+  url?: string
+  title?: string
+  category?: string
+  tags?: string[]
+}) {
+  if (args.url !== undefined) {
+    const parsed = new URL(args.url)
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Only http and https URLs are allowed')
+    }
+  }
+
+  if (args.category !== undefined && !args.category.trim()) {
+    throw new Error('Category is required')
+  }
+
+  if (args.tags && args.tags.length > 50) {
+    throw new Error('Maximum 50 tags allowed')
+  }
+}
+
 // Update bookmark
 export const update = mutation({
   args: {
@@ -122,23 +145,7 @@ export const update = mutation({
       throw notFoundError('Bookmark', args.id)
     }
 
-    // Validate URL if changed
-    if (args.url !== undefined) {
-      const parsed = new URL(args.url)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        throw new Error('Only http and https URLs are allowed')
-      }
-    }
-
-    // Validate category is non-empty
-    if (args.category !== undefined && !args.category.trim()) {
-      throw new Error('Category is required')
-    }
-
-    // Validate tag count
-    if (args.tags && args.tags.length > 50) {
-      throw new Error('Maximum 50 tags allowed')
-    }
+    validateBookmarkUpdate(args)
 
     // If URL or category changed, check for duplicate in target category
     const targetCategory = args.category ?? existing.category

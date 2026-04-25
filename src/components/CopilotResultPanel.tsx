@@ -24,6 +24,28 @@ interface CopilotResultPanelProps {
   resultId: string
 }
 
+function canPublishToPR(
+  result: NonNullable<ReturnType<typeof useCopilotResult>>,
+  metadata: Record<string, unknown> | null
+): boolean {
+  return (
+    result.category === 'pr-review' &&
+    result.status === 'completed' &&
+    !!result.result &&
+    !!metadata?.org &&
+    !!metadata?.repo &&
+    !!metadata?.prNumber
+  )
+}
+
+function extractPRMetadata(metadata: Record<string, unknown> | null) {
+  const org = metadata?.org as string | undefined
+  const repo = metadata?.repo as string | undefined
+  const prNumber = metadata?.prNumber as number | undefined
+  if (!org || !repo || !prNumber) return null
+  return { org, repo, prNumber }
+}
+
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const result = useCopilotResult(resultId as Id<'copilotResults'>)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -94,10 +116,8 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
 
   const handlePublishToPR = async () => {
     if (!result.result || publishing) return
-    const org = metadata?.org as string | undefined
-    const repo = metadata?.repo as string | undefined
-    const prNumber = metadata?.prNumber as number | undefined
-    if (!org || !repo || !prNumber) return
+    const prMeta = extractPRMetadata(metadata)
+    if (!prMeta) return
 
     setPublishing(true)
     try {
@@ -105,7 +125,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       /* v8 ignore start */
       const body = `## 🤖 AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy — ${result.model || 'AI'} review*`
       /* v8 ignore stop */
-      await client.addPRComment(org, repo, prNumber, body)
+      await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
       setPublished(true)
     } catch (err) {
       console.error('Failed to publish review to PR:', err)
@@ -114,86 +134,22 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     }
   }
 
-  const canPublish =
-    result.category === 'pr-review' &&
-    result.status === 'completed' &&
-    !!result.result &&
-    !!metadata?.org &&
-    !!metadata?.repo &&
-    !!metadata?.prNumber
+  const canPublish = canPublishToPR(result, metadata)
 
   return (
     <div className="copilot-result-panel">
-      {/* Header */}
-      <div className="copilot-result-header">
-        <div className="copilot-result-header-left">
-          <Sparkles size={20} className="copilot-header-icon" />
-          <div className="copilot-result-title-info">
-            <h2>
-              {result.category === 'pr-review' && metadata?.prTitle
-                ? `PR Review: ${metadata.prTitle as string}`
-                : 'Copilot Result'}
-            </h2>
-            <div className="copilot-result-meta">
-              <span className="copilot-result-status">
-                {getStatusIcon(result.status, 16, 'status')}
-                {getStatusLabel(result.status, true)}
-              </span>
-              {result.model && <span className="copilot-result-model">{result.model}</span>}
-              <span className="copilot-result-date">{formatDateFull(result.createdAt)}</span>
-              {result.duration && (
-                <span className="copilot-result-duration">{formatDuration(result.duration)}</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="copilot-result-header-actions">
-          {result.category === 'pr-review' && !!metadata?.prUrl && (
-            <button
-              className="copilot-action-btn"
-              onClick={() => window.shell.openExternal(metadata.prUrl as string)}
-              title="Open PR on GitHub"
-            >
-              <ExternalLink size={14} />
-            </button>
-          )}
-          {canPublish && (
-            <button
-              className={`copilot-action-btn${published ? ' success' : ''}`}
-              onClick={handlePublishToPR}
-              disabled={publishing || published}
-              title={published ? 'Published to PR' : 'Publish review as PR comment'}
-            >
-              {publishing ? (
-                <Loader2 size={14} className="spin" />
-              ) : (
-                <MessageSquareShare size={14} />
-              )}
-              {published && <span className="copied-badge">✓</span>}
-            </button>
-          )}
-          {result.result && (
-            <button
-              className="copilot-action-btn"
-              onClick={handleCopy}
-              title={copied ? 'Copied!' : 'Copy markdown'}
-            >
-              <Copy size={14} />
-              {copied && <span className="copied-badge">✓</span>}
-            </button>
-          )}
-          <button className="copilot-action-btn" onClick={handleRetry} title="Re-run this prompt">
-            <RotateCcw size={14} />
-          </button>
-          <button
-            className="copilot-action-btn danger"
-            onClick={() => remove({ id: result._id })}
-            title="Delete result"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
+      <ResultHeader
+        result={result}
+        metadata={metadata}
+        canPublish={canPublish}
+        copied={copied}
+        publishing={publishing}
+        published={published}
+        onCopy={handleCopy}
+        onRetry={handleRetry}
+        onPublish={handlePublishToPR}
+        onDelete={() => remove({ id: result._id })}
+      />
 
       {/* Prompt */}
       <div className="copilot-result-prompt">
@@ -202,41 +158,225 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       </div>
 
       {/* Content */}
-      <div ref={contentRef} className="copilot-result-content">
-        {result.status === 'pending' && (
-          <div className="copilot-result-waiting">
-            <Clock size={48} />
-            <p>Waiting to start...</p>
-            <p className="waiting-subtitle">The Copilot SDK session will begin shortly.</p>
-          </div>
-        )}
+      <ResultContent
+        contentRef={contentRef}
+        status={result.status}
+        resultText={result.result}
+        error={result.error}
+        onRetry={handleRetry}
+      />
+    </div>
+  )
+}
 
-        {result.status === 'running' && (
-          <div className="copilot-result-waiting">
-            <Loader2 size={48} className="spin" />
-            <p>Copilot is working...</p>
-            <p className="waiting-subtitle">
-              Analyzing and generating response. This may take a minute.
-            </p>
+function ResultHeader({
+  result,
+  metadata,
+  canPublish,
+  copied,
+  publishing,
+  published,
+  onCopy,
+  onRetry,
+  onPublish,
+  onDelete,
+}: {
+  result: NonNullable<ReturnType<typeof useCopilotResult>>
+  metadata: Record<string, unknown> | null
+  canPublish: boolean
+  copied: boolean
+  publishing: boolean
+  published: boolean
+  onCopy: () => void
+  onRetry: () => void
+  onPublish: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div className="copilot-result-header">
+      <div className="copilot-result-header-left">
+        <Sparkles size={20} className="copilot-header-icon" />
+        <div className="copilot-result-title-info">
+          <h2>
+            {result.category === 'pr-review' && metadata?.prTitle
+              ? `PR Review: ${metadata.prTitle as string}`
+              : 'Copilot Result'}
+          </h2>
+          <div className="copilot-result-meta">
+            <span className="copilot-result-status">
+              {getStatusIcon(result.status, 16, 'status')}
+              {getStatusLabel(result.status, true)}
+            </span>
+            {result.model && <span className="copilot-result-model">{result.model}</span>}
+            <span className="copilot-result-date">{formatDateFull(result.createdAt)}</span>
+            {result.duration && (
+              <span className="copilot-result-duration">{formatDuration(result.duration)}</span>
+            )}
           </div>
-        )}
-
-        {result.status === 'completed' && result.result && (
-          <MarkdownContent source={result.result} className="copilot-result-markdown" />
-        )}
-
-        {result.status === 'failed' && (
-          <div className="copilot-result-failed">
-            <XCircle size={48} />
-            <p>Prompt execution failed</p>
-            {result.error && <pre className="error-detail">{result.error}</pre>}
-            <button className="retry-btn" onClick={handleRetry}>
-              <RotateCcw size={14} />
-              Retry
-            </button>
-          </div>
-        )}
+        </div>
       </div>
+      <ResultActions
+        result={result}
+        metadata={metadata}
+        canPublish={canPublish}
+        copied={copied}
+        publishing={publishing}
+        published={published}
+        onCopy={onCopy}
+        onRetry={onRetry}
+        onPublish={onPublish}
+        onDelete={onDelete}
+      />
+    </div>
+  )
+}
+
+function PublishButton({
+  canPublish,
+  published,
+  publishing,
+  onPublish,
+}: {
+  canPublish: boolean
+  published: boolean
+  publishing: boolean
+  onPublish: () => void
+}) {
+  if (!canPublish) return null
+  return (
+    <button
+      className={`copilot-action-btn${published ? ' success' : ''}`}
+      onClick={onPublish}
+      disabled={publishing || published}
+      title={published ? 'Published to PR' : 'Publish review as PR comment'}
+    >
+      {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
+      {published && <span className="copied-badge">✓</span>}
+    </button>
+  )
+}
+
+function CopyActionButton({
+  hasResult,
+  copied,
+  onCopy,
+}: {
+  hasResult: boolean
+  copied: boolean
+  onCopy: () => void
+}) {
+  if (!hasResult) return null
+  return (
+    <button
+      className="copilot-action-btn"
+      onClick={onCopy}
+      title={copied ? 'Copied!' : 'Copy markdown'}
+    >
+      <Copy size={14} />
+      {copied && <span className="copied-badge">✓</span>}
+    </button>
+  )
+}
+
+function ResultActions({
+  result,
+  metadata,
+  canPublish,
+  copied,
+  publishing,
+  published,
+  onCopy,
+  onRetry,
+  onPublish,
+  onDelete,
+}: {
+  result: NonNullable<ReturnType<typeof useCopilotResult>>
+  metadata: Record<string, unknown> | null
+  canPublish: boolean
+  copied: boolean
+  publishing: boolean
+  published: boolean
+  onCopy: () => void
+  onRetry: () => void
+  onPublish: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div className="copilot-result-header-actions">
+      {result.category === 'pr-review' && !!metadata?.prUrl && (
+        <button
+          className="copilot-action-btn"
+          onClick={() => window.shell.openExternal(metadata.prUrl as string)}
+          title="Open PR on GitHub"
+        >
+          <ExternalLink size={14} />
+        </button>
+      )}
+      <PublishButton
+        canPublish={canPublish}
+        published={published}
+        publishing={publishing}
+        onPublish={onPublish}
+      />
+      <CopyActionButton hasResult={!!result.result} copied={copied} onCopy={onCopy} />
+      <button className="copilot-action-btn" onClick={onRetry} title="Re-run this prompt">
+        <RotateCcw size={14} />
+      </button>
+      <button className="copilot-action-btn danger" onClick={onDelete} title="Delete result">
+        <Trash2 size={14} />
+      </button>
+    </div>
+  )
+}
+
+function ResultContent({
+  contentRef,
+  status,
+  resultText,
+  error,
+  onRetry,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>
+  status: string
+  resultText?: string | null
+  error?: string | null
+  onRetry: () => void
+}) {
+  return (
+    <div ref={contentRef} className="copilot-result-content">
+      {status === 'pending' && (
+        <div className="copilot-result-waiting">
+          <Clock size={48} />
+          <p>Waiting to start...</p>
+          <p className="waiting-subtitle">The Copilot SDK session will begin shortly.</p>
+        </div>
+      )}
+
+      {status === 'running' && (
+        <div className="copilot-result-waiting">
+          <Loader2 size={48} className="spin" />
+          <p>Copilot is working...</p>
+          <p className="waiting-subtitle">
+            Analyzing and generating response. This may take a minute.
+          </p>
+        </div>
+      )}
+
+      {status === 'completed' && resultText && (
+        <MarkdownContent source={resultText} className="copilot-result-markdown" />
+      )}
+
+      {status === 'failed' && (
+        <div className="copilot-result-failed">
+          <XCircle size={48} />
+          <p>Prompt execution failed</p>
+          {error && <pre className="error-detail">{error}</pre>}
+          <button className="retry-btn" onClick={onRetry}>
+            <RotateCcw size={14} />
+            Retry
+          </button>
+        </div>
+      )}
     </div>
   )
 }

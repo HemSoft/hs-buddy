@@ -22,6 +22,23 @@ const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
 
 // ── CLI path resolution ──────────────────────────────────────────────────
 
+function getCandidatePaths(pkgSubPath: string): string[] {
+  const appRoot = app?.getAppPath?.() ?? process.cwd()
+  return [
+    path.join(appRoot + '.unpacked', 'node_modules', pkgSubPath),
+    path.join(appRoot, 'node_modules', pkgSubPath),
+    path.join(appRoot, '..', 'node_modules', pkgSubPath),
+    path.join(process.cwd(), 'node_modules', pkgSubPath),
+  ]
+}
+
+function findExistingPath(paths: string[]): string | null {
+  for (const p of paths) {
+    if (existsSync(p)) return p
+  }
+  return null
+}
+
 /**
  * Resolve the path to the native Copilot CLI binary.
  * Checks local node_modules first, falls back to global PATH.
@@ -44,19 +61,10 @@ function resolveCopilotCliPath(): string {
   }
 
   // 2. Try relative to app root (works in Electron packaged builds)
-  const appRoot = app?.getAppPath?.() ?? process.cwd()
-  const candidates = [
-    // asar-unpacked path (packaged builds extract native binaries here)
-    path.join(appRoot + '.unpacked', 'node_modules', pkgSubPath),
-    path.join(appRoot, 'node_modules', pkgSubPath),
-    path.join(appRoot, '..', 'node_modules', pkgSubPath),
-    path.join(process.cwd(), 'node_modules', pkgSubPath),
-  ]
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      console.log(`[CopilotClient] Using native CLI (filesystem): ${candidate}`)
-      return candidate
-    }
+  const found = findExistingPath(getCandidatePaths(pkgSubPath))
+  if (found) {
+    console.log(`[CopilotClient] Using native CLI (filesystem): ${found}`)
+    return found
   }
 
   const fallback = process.platform === 'win32' ? 'copilot.cmd' : 'copilot'

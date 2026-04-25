@@ -25,12 +25,67 @@ interface LoadingProgress {
   error?: string
 }
 
+async function fetchPRsByMode(
+  githubClient: GitHubClient,
+  mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge',
+  handleProgress: ProgressCallback
+): Promise<PullRequest[]> {
+  switch (mode) {
+    case 'needs-review':
+      return await githubClient.fetchNeedsReview(handleProgress)
+    case 'recently-merged':
+      return await githubClient.fetchRecentlyMerged(handleProgress)
+    case 'need-a-nudge':
+      return await githubClient.fetchNeedANudge(handleProgress)
+    case 'my-prs':
+    default:
+      return await githubClient.fetchMyPRs(handleProgress)
+  }
+}
+
 function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {
   return items.map(item =>
     item.repository === pr.repository && item.id === pr.id && !item.iApproved
       ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
       : item
   )
+}
+
+function getFreshCachedData(mode: string, refreshInterval: number): PullRequest[] | null {
+  /* v8 ignore start */
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (!cached) return null
+  const intervalMs = refreshInterval * MS_PER_MINUTE
+  return Date.now() - cached.fetchedAt < intervalMs ? cached.data : null
+  /* v8 ignore stop */
+}
+
+function hasExistingPRData(
+  prs: PullRequest[],
+  cached: ReturnType<typeof dataCache.get<PullRequest[]>> | undefined
+): boolean {
+  /* v8 ignore start */
+  return prs.length > 0 || (cached?.data != null && cached.data.length > 0)
+  /* v8 ignore stop */
+}
+
+function applyFetchResults(
+  results: PullRequest[],
+  setPrs: (prs: PullRequest[]) => void,
+  onCountChangeRef: React.RefObject<((count: number) => void) | undefined>
+): void {
+  setPrs(results)
+  onCountChangeRef.current?.(results.length)
+}
+
+function sortPRResults(results: PullRequest[], mode: string): PullRequest[] {
+  if (mode === 'recently-merged') return results
+  return results.sort((a, b) => {
+    if (a.repository !== b.repository) {
+      return a.repository.localeCompare(b.repository)
+    }
+    return a.id - b.id
+  })
 }
 
 export function usePRListData(
@@ -299,7 +354,7 @@ export function usePRListData(
     const currentFetchId = ++fetchIdRef.current
     const fetchPRs = async () => {
       /* v8 ignore start */
-      const hasExistingData = prs.length > 0 || (cached?.data && cached.data.length > 0)
+      const hasExistingData = hasExistingPRData(prs, cached)
       /* v8 ignore stop */
       if (hasExistingData) {
         setRefreshing(true)
@@ -331,37 +386,19 @@ export function usePRListData(
         )
         const results = await enqueueRef.current(
           async signal => {
-            const freshCheck = dataCache.get<PullRequest[]>(mode)
-            if (freshCheck && !isForceRefresh) {
-              const intervalMs = refreshInterval * MS_PER_MINUTE
-              /* v8 ignore start */
-              if (Date.now() - freshCheck.fetchedAt < intervalMs) {
+            /* v8 ignore start */
+            if (!isForceRefresh) {
+              const freshData = getFreshCachedData(mode, refreshInterval)
+              if (freshData) {
                 console.log(
-                  /* v8 ignore stop */
                   `[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`
                 )
-                /* v8 ignore start */
-                return freshCheck.data
-                /* v8 ignore stop */
+                return freshData
               }
             }
+            /* v8 ignore stop */
             throwIfAborted(signal)
-            let prs: PullRequest[]
-            switch (mode) {
-              case 'needs-review':
-                prs = await githubClient.fetchNeedsReview(handleProgress)
-                break
-              case 'recently-merged':
-                prs = await githubClient.fetchRecentlyMerged(handleProgress)
-                break
-              case 'need-a-nudge':
-                prs = await githubClient.fetchNeedANudge(handleProgress)
-                break
-              case 'my-prs':
-              default:
-                prs = await githubClient.fetchMyPRs(handleProgress)
-                break
-            }
+            const prs = await fetchPRsByMode(githubClient, mode, handleProgress)
             return prs
           },
           { name: `fetch-${mode}` }
@@ -373,17 +410,9 @@ export function usePRListData(
           /* v8 ignore stop */
         }
         console.log('Found PRs:', results.length)
-        if (mode !== 'recently-merged') {
-          results.sort((a, b) => {
-            if (a.repository !== b.repository) {
-              return a.repository.localeCompare(b.repository)
-            }
-            return a.id - b.id
-          })
-        }
-        setPrs(results)
+        sortPRResults(results, mode)
+        applyFetchResults(results, setPrs, onCountChangeRef)
         dataCache.set(mode, results)
-        onCountChangeRef.current?.(results.length)
       } catch (err) {
         /* v8 ignore start */
         if (isAbortError(err)) {

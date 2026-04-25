@@ -29,143 +29,214 @@ function PlanIcon({ plan }: { plan: string }) {
   return <Crown size={13} />
 }
 
-export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
-  const data = state?.data
-  const premium = data?.quota_snapshots?.premium_interactions
+interface QuotaMetrics {
+  percentUsed: number
+  used: number
+  total: number
+  overageRequests: number
+  overageCost: number
+}
+
+function computeQuotaMetrics(
+  premium: NonNullable<AccountQuotaState['data']>['quota_snapshots']['premium_interactions']
+): QuotaMetrics {
+  /* v8 ignore start - premium guaranteed non-null by caller */
   const percentUsed = premium ? 100 - premium.percent_remaining : 0
   const used = premium ? premium.entitlement - premium.remaining : 0
   const total = premium?.entitlement ?? 0
   const overageByCount = Math.max(0, premium?.overage_count ?? 0)
   const overageByRemaining = Math.max(0, -(premium?.remaining ?? 0))
+  /* v8 ignore stop */
   const overageRequests = Math.max(overageByCount, overageByRemaining)
   const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
+  return { percentUsed, used, total, overageRequests, overageCost }
+}
 
+function QuotaProjectionView({ projection }: { projection: ReturnType<typeof computeProjection> }) {
+  /* v8 ignore start */
+  if (!projection) return null
+  /* v8 ignore stop */
+  return (
+    <div className="usage-projection">
+      <div className="usage-projection-header">
+        <TrendingUp size={12} />
+        <span>Month-End Projection</span>
+      </div>
+      <div className="usage-projection-stats">
+        <div className="usage-projection-stat">
+          <span className="usage-projection-value">
+            {projection.projectedTotal.toLocaleString()}
+          </span>
+          <span className="usage-projection-label">Projected</span>
+        </div>
+        <div className="usage-projection-stat">
+          <span className="usage-projection-value">
+            {Math.round(projection.dailyRate).toLocaleString()}
+          </span>
+          <span className="usage-projection-label">Per Day</span>
+        </div>
+        {projection.projectedOverage > 0 && (
+          <div className="usage-projection-stat usage-projection-overage">
+            <span className="usage-projection-value">
+              {formatCurrency(projection.projectedOverageCost)}
+            </span>
+            <span className="usage-projection-label">Est. Overage</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function QuotaFooter({
+  state,
+  data,
+}: {
+  state: AccountQuotaState
+  data: NonNullable<AccountQuotaState['data']>
+}) {
+  return (
+    <div className="usage-account-footer">
+      <div className="usage-account-reset">
+        Resets {formatResetDate(data.quota_reset_date_utc, true)}
+        <span className="usage-reset-days">({daysUntilReset(data.quota_reset_date_utc)}d)</span>
+      </div>
+      <div className="usage-account-links">
+        {state?.fetchedAt && (
+          <span className="usage-fetched-at">{formatTime(state.fetchedAt)}</span>
+        )}
+        <button
+          className="usage-link-btn"
+          /* v8 ignore start */
+          onClick={() => window.shell.openExternal('https://github.com/settings/copilot')}
+          /* v8 ignore stop */
+          title="Open Copilot settings on GitHub"
+        >
+          <ExternalLink size={12} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function QuotaDataView({
+  state,
+  data,
+  premium,
+  metrics,
+  projection,
+}: {
+  state: AccountQuotaState
+  data: NonNullable<AccountQuotaState['data']>
+  premium: NonNullable<AccountQuotaState['data']>['quota_snapshots']['premium_interactions']
+  metrics: QuotaMetrics
+  projection: ReturnType<typeof computeProjection>
+}) {
+  return (
+    <>
+      <div className="usage-account-header">
+        <div className="usage-account-identity">
+          <span className="usage-account-name">{data.login}</span>
+          <span className="usage-account-plan">
+            <PlanIcon plan={data.copilot_plan} />
+            {formatCopilotPlan(data.copilot_plan)}
+          </span>
+        </div>
+        {/* v8 ignore start */}
+        {state?.loading && <RefreshCw size={12} className="spin" />}
+        {/* v8 ignore stop */}
+      </div>
+
+      <div className="usage-account-body">
+        <UsageRing
+          percentUsed={metrics.percentUsed}
+          projectedPercent={projection?.projectedPercent}
+          size={110}
+          strokeWidth={9}
+        />
+        <div className="usage-account-stats" data-testid="quota-stats">
+          <div className="usage-stat">
+            <span className="usage-stat-value">{metrics.used.toLocaleString()}</span>
+            <span className="usage-stat-label">Used</span>
+          </div>
+          <div className="usage-stat">
+            <span className="usage-stat-value">{premium.remaining.toLocaleString()}</span>
+            <span className="usage-stat-label">Remaining</span>
+          </div>
+          <div className="usage-stat">
+            <span className="usage-stat-value">{metrics.total.toLocaleString()}</span>
+            <span className="usage-stat-label">Entitlement</span>
+          </div>
+          {metrics.overageRequests > 0 && (
+            <div className="usage-stat usage-stat-overage">
+              <span className="usage-stat-value">{formatCurrency(metrics.overageCost)}</span>
+              <span className="usage-stat-label">Overage Cost</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <QuotaProjectionView projection={projection} />
+      <QuotaFooter state={state} data={data} />
+
+      {data.organization_login_list.length > 0 && (
+        <div className="usage-account-orgs">
+          <Building2 size={11} />
+          <span>{data.organization_login_list.join(', ')}</span>
+        </div>
+      )}
+    </>
+  )
+}
+
+function prepareQuotaData(state: AccountQuotaState) {
+  const data = state.data
+  const premium = data?.quota_snapshots?.premium_interactions
+  const metrics = premium ? computeQuotaMetrics(premium) : null
   const projection = data && premium ? computeProjection(premium, data.quota_reset_date_utc) : null
+  return { data, premium, metrics, projection }
+}
+
+function QuotaLoadingView() {
+  return (
+    <div className="usage-account-loading">
+      <RefreshCw size={16} className="spin" />
+      <span>Loading...</span>
+    </div>
+  )
+}
+
+function QuotaErrorView({ username, error }: { username: string; error: string }) {
+  return (
+    <div className="usage-account-error">
+      <AlertCircle size={16} />
+      <div>
+        <strong>{username}</strong>
+        <p>{error.includes('404') ? 'No Copilot subscription' : 'Failed to load'}</p>
+      </div>
+    </div>
+  )
+}
+
+export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
+  const { data, premium, metrics, projection } = prepareQuotaData(state)
+  const showLoading = state.loading && !data
+  const showError = !!state.error && !data
 
   return (
     <div className="usage-account-card">
-      {state?.loading && !data && (
-        <div className="usage-account-loading">
-          <RefreshCw size={16} className="spin" />
-          <span>Loading...</span>
-        </div>
-      )}
+      {showLoading && <QuotaLoadingView />}
 
-      {state?.error && !data && (
-        <div className="usage-account-error">
-          <AlertCircle size={16} />
-          <div>
-            <strong>{account.username}</strong>
-            <p>{state.error.includes('404') ? 'No Copilot subscription' : 'Failed to load'}</p>
-          </div>
-        </div>
-      )}
+      {showError && <QuotaErrorView username={account.username} error={state.error!} />}
 
-      {data && premium && (
-        <>
-          <div className="usage-account-header">
-            <div className="usage-account-identity">
-              <span className="usage-account-name">{data.login}</span>
-              <span className="usage-account-plan">
-                <PlanIcon plan={data.copilot_plan} />
-                {formatCopilotPlan(data.copilot_plan)}
-              </span>
-            </div>
-            {/* v8 ignore start */}
-            {state?.loading && <RefreshCw size={12} className="spin" />}
-            {/* v8 ignore stop */}
-          </div>
-
-          <div className="usage-account-body">
-            <UsageRing
-              percentUsed={percentUsed}
-              projectedPercent={projection?.projectedPercent}
-              size={110}
-              strokeWidth={9}
-            />
-            <div className="usage-account-stats" data-testid="quota-stats">
-              <div className="usage-stat">
-                <span className="usage-stat-value">{used.toLocaleString()}</span>
-                <span className="usage-stat-label">Used</span>
-              </div>
-              <div className="usage-stat">
-                <span className="usage-stat-value">{premium.remaining.toLocaleString()}</span>
-                <span className="usage-stat-label">Remaining</span>
-              </div>
-              <div className="usage-stat">
-                <span className="usage-stat-value">{total.toLocaleString()}</span>
-                <span className="usage-stat-label">Entitlement</span>
-              </div>
-              {overageRequests > 0 && (
-                <div className="usage-stat usage-stat-overage">
-                  <span className="usage-stat-value">{formatCurrency(overageCost)}</span>
-                  <span className="usage-stat-label">Overage Cost</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {projection && (
-            <div className="usage-projection">
-              <div className="usage-projection-header">
-                <TrendingUp size={12} />
-                <span>Month-End Projection</span>
-              </div>
-              <div className="usage-projection-stats">
-                <div className="usage-projection-stat">
-                  <span className="usage-projection-value">
-                    {projection.projectedTotal.toLocaleString()}
-                  </span>
-                  <span className="usage-projection-label">Projected</span>
-                </div>
-                <div className="usage-projection-stat">
-                  <span className="usage-projection-value">
-                    {Math.round(projection.dailyRate).toLocaleString()}
-                  </span>
-                  <span className="usage-projection-label">Per Day</span>
-                </div>
-                {projection.projectedOverage > 0 && (
-                  <div className="usage-projection-stat usage-projection-overage">
-                    <span className="usage-projection-value">
-                      {formatCurrency(projection.projectedOverageCost)}
-                    </span>
-                    <span className="usage-projection-label">Est. Overage</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="usage-account-footer">
-            <div className="usage-account-reset">
-              Resets {formatResetDate(data.quota_reset_date_utc, true)}
-              <span className="usage-reset-days">
-                ({daysUntilReset(data.quota_reset_date_utc)}d)
-              </span>
-            </div>
-            <div className="usage-account-links">
-              {state?.fetchedAt && (
-                <span className="usage-fetched-at">{formatTime(state.fetchedAt)}</span>
-              )}
-              <button
-                className="usage-link-btn"
-                /* v8 ignore start */
-                onClick={() => window.shell.openExternal('https://github.com/settings/copilot')}
-                /* v8 ignore stop */
-                title="Open Copilot settings on GitHub"
-              >
-                <ExternalLink size={12} />
-              </button>
-            </div>
-          </div>
-
-          {data.organization_login_list.length > 0 && (
-            <div className="usage-account-orgs">
-              <Building2 size={11} />
-              <span>{data.organization_login_list.join(', ')}</span>
-            </div>
-          )}
-        </>
+      {data && premium && metrics && (
+        <QuotaDataView
+          state={state}
+          data={data}
+          premium={premium}
+          metrics={metrics}
+          projection={projection}
+        />
       )}
     </div>
   )

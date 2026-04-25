@@ -166,15 +166,10 @@ export const update = mutation({
       }
     }
 
-    const updateData: Record<string, unknown> = {
-      updatedAt: Date.now(),
+    const updateData: Record<string, unknown> = { updatedAt: Date.now() }
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) updateData[key] = value
     }
-
-    if (updates.name !== undefined) updateData.name = updates.name
-    if (updates.description !== undefined) updateData.description = updates.description
-    if (updates.workerType !== undefined) updateData.workerType = updates.workerType
-    if (updates.config !== undefined) updateData.config = updates.config
-    if (updates.inputParams !== undefined) updateData.inputParams = updates.inputParams
 
     await ctx.db.patch('jobs', id, updateData)
     return id

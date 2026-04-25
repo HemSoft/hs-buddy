@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { GitBranch, FolderGit2 } from 'lucide-react'
 import { useRepoBookmarks } from '../../hooks/useConvex'
-import { InlineDropdown } from '../InlineDropdown'
-import type { DropdownOption } from '../InlineDropdown'
+import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
 import './RepoPicker.css'
 
 interface RepoPickerProps {
@@ -35,6 +34,113 @@ interface RepoPickerProps {
  * - `inline` (default): compact InlineDropdown style
  * - `select`: standard <select> element
  */
+type RepoBookmarkList = NonNullable<ReturnType<typeof useRepoBookmarks>>
+
+function buildRepoOptions(
+  bookmarks: ReturnType<typeof useRepoBookmarks>,
+  allowNone: boolean,
+  placeholder: string
+): { options: DropdownOption[]; selectGroups: { folder: string; repos: RepoBookmarkList }[] } {
+  if (!bookmarks || bookmarks.length === 0) {
+    return { options: [], selectGroups: [] }
+  }
+
+  const sorted = [...bookmarks].sort((a, b) => {
+    if (a.folder !== b.folder) return a.folder.localeCompare(b.folder)
+    return `${a.owner}/${a.repo}`.localeCompare(`${b.owner}/${b.repo}`)
+  })
+
+  const opts: DropdownOption[] = []
+  if (allowNone) {
+    opts.push({ value: '', label: placeholder })
+  }
+
+  const groups: { folder: string; repos: RepoBookmarkList }[] = []
+  let currentFolder = ''
+  let currentGroup: RepoBookmarkList = []
+
+  for (const bm of sorted) {
+    if (bm.folder !== currentFolder) {
+      if (currentGroup.length > 0) {
+        groups.push({ folder: currentFolder, repos: currentGroup })
+      }
+      currentFolder = bm.folder
+      currentGroup = []
+    }
+    currentGroup.push(bm)
+    const repoKey = `${bm.owner}/${bm.repo}`
+    opts.push({
+      value: repoKey,
+      label: repoKey,
+      hint: bm.folder,
+    })
+  }
+  /* v8 ignore start */
+  if (currentGroup.length > 0) {
+    /* v8 ignore stop */
+    groups.push({ folder: currentFolder, repos: currentGroup })
+  }
+
+  return { options: opts, selectGroups: groups }
+}
+
+function SelectVariant({
+  id,
+  value,
+  onChange,
+  disabled,
+  loading,
+  allowNone,
+  placeholder,
+  selectGroups,
+  bookmarks,
+  className,
+}: {
+  id?: string
+  value: string
+  onChange: (value: string) => void
+  disabled: boolean
+  loading: boolean
+  allowNone: boolean
+  placeholder: string
+  selectGroups: { folder: string; repos: RepoBookmarkList }[]
+  bookmarks: ReturnType<typeof useRepoBookmarks>
+  className: string
+}) {
+  return (
+    <div className={`select-control ${className}`}>
+      <select
+        id={id}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="settings-select"
+        disabled={disabled || loading}
+      >
+        {allowNone && <option value="">{placeholder}</option>}
+        {selectGroups.map(group => (
+          <optgroup key={group.folder} label={group.folder}>
+            {/* v8 ignore start */}
+            {(group.repos ?? []).map(bm => {
+              const repoKey = `${bm.owner}/${bm.repo}`
+              return (
+                <option key={repoKey} value={repoKey}>
+                  {repoKey}
+                </option>
+              )
+            })}
+            {/* v8 ignore stop */}
+          </optgroup>
+        ))}
+      </select>
+      {!loading && bookmarks && bookmarks.length === 0 && (
+        <p className="hint" style={{ marginTop: '4px' }}>
+          No bookmarked repos. Add repos from the Repos view.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function RepoPicker({
   value,
   onChange,
@@ -49,94 +155,30 @@ export function RepoPicker({
 }: RepoPickerProps) {
   const bookmarks = useRepoBookmarks()
 
-  // Group bookmarks by folder, sort repos within each
-  const { options, selectGroups } = useMemo(() => {
-    if (!bookmarks || bookmarks.length === 0) {
-      return {
-        options: [] as DropdownOption[],
-        selectGroups: [] as { folder: string; repos: typeof bookmarks }[],
-      }
-    }
-
-    const sorted = [...bookmarks].sort((a, b) => {
-      if (a.folder !== b.folder) return a.folder.localeCompare(b.folder)
-      return `${a.owner}/${a.repo}`.localeCompare(`${b.owner}/${b.repo}`)
-    })
-
-    // Build flat options for InlineDropdown
-    const opts: DropdownOption[] = []
-    if (allowNone) {
-      opts.push({ value: '', label: placeholder })
-    }
-
-    // Group for select
-    const groups: { folder: string; repos: typeof bookmarks }[] = []
-    let currentFolder = ''
-    let currentGroup: typeof bookmarks = []
-
-    for (const bm of sorted) {
-      if (bm.folder !== currentFolder) {
-        if (currentGroup.length > 0) {
-          groups.push({ folder: currentFolder, repos: currentGroup })
-        }
-        currentFolder = bm.folder
-        currentGroup = []
-      }
-      currentGroup.push(bm)
-      const repoKey = `${bm.owner}/${bm.repo}`
-      opts.push({
-        value: repoKey,
-        label: repoKey,
-        hint: bm.folder,
-      })
-    }
-    /* v8 ignore start */
-    if (currentGroup.length > 0) {
-      /* v8 ignore stop */
-      groups.push({ folder: currentFolder, repos: currentGroup })
-    }
-
-    return { options: opts, selectGroups: groups }
-  }, [bookmarks, allowNone, placeholder])
+  const { options, selectGroups } = useMemo(
+    () => buildRepoOptions(bookmarks, allowNone, placeholder),
+    [bookmarks, allowNone, placeholder]
+  )
 
   const loading = bookmarks === undefined
 
   if (variant === 'select') {
     return (
-      <div className={`select-control ${className}`}>
-        <select
-          id={id}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className="settings-select"
-          disabled={disabled || loading}
-        >
-          {allowNone && <option value="">{placeholder}</option>}
-          {selectGroups.map(group => (
-            <optgroup key={group.folder} label={group.folder}>
-              {/* v8 ignore start */}
-              {(group.repos ?? []).map(bm => {
-                const repoKey = `${bm.owner}/${bm.repo}`
-                return (
-                  <option key={repoKey} value={repoKey}>
-                    {repoKey}
-                  </option>
-                )
-              })}
-              {/* v8 ignore stop */}
-            </optgroup>
-          ))}
-        </select>
-        {!loading && bookmarks && bookmarks.length === 0 && (
-          <p className="hint" style={{ marginTop: '4px' }}>
-            No bookmarked repos. Add repos from the Repos view.
-          </p>
-        )}
-      </div>
+      <SelectVariant
+        id={id}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        loading={loading}
+        allowNone={allowNone}
+        placeholder={placeholder}
+        selectGroups={selectGroups}
+        bookmarks={bookmarks}
+        className={className}
+      />
     )
   }
 
-  // Inline variant
   if (loading) {
     return (
       <span className={`repo-picker-loading ${className}`}>

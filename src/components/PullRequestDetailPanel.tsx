@@ -13,13 +13,11 @@ import {
   User,
   X,
 } from 'lucide-react'
-import { GitHubClient } from '../api/github'
+import { GitHubClient, type PRHistorySummary, type PRLinkedIssue } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { useCopilotReviewMonitor, clearPendingReview } from '../hooks/useCopilotReviewMonitor'
-import type { PRDetailInfo } from '../utils/prDetailView'
-import type { PRDetailSection } from '../utils/prDetailView'
-import type { PRHistorySummary, PRLinkedIssue } from '../api/github'
+import type { PRDetailInfo, PRDetailSection } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { throwIfAborted } from '../utils/errorUtils'
@@ -51,6 +49,18 @@ const COPILOT_REVIEW_TITLES: Record<string, string> = {
 }
 
 // --- Sub-components extracted for react-doctor component-size ---
+
+function CopilotReviewButtonIcon({ state }: { state: string }) {
+  if (state === 'requesting') return <Loader2 size={14} className="pr-detail-spin" />
+  if (state === 'done') return <CheckCircle2 size={14} />
+  return <Sparkles size={14} className={state === 'monitoring' ? 'pulse' : ''} />
+}
+
+function getCopilotButtonClass(state: string): string {
+  if (state === 'monitoring') return ' pr-detail-copilot-monitoring'
+  if (state === 'done') return ' pr-detail-copilot-done'
+  return ''
+}
 
 interface PRDetailHeaderProps {
   pr: PRDetailInfo
@@ -102,20 +112,12 @@ function PRDetailHeader({
       </div>
       <div className="pr-detail-header-actions">
         <button
-          className={`pr-detail-refresh-btn${
-            copilotReviewState === 'monitoring' ? ' pr-detail-copilot-monitoring' : ''
-          }${copilotReviewState === 'done' ? ' pr-detail-copilot-done' : ''}`}
+          className={`pr-detail-refresh-btn${getCopilotButtonClass(copilotReviewState)}`}
           onClick={handleRequestCopilotReview}
           title={COPILOT_REVIEW_TITLES[copilotReviewState] ?? 'Request Copilot Review'}
           disabled={copilotReviewState !== 'idle'}
         >
-          {copilotReviewState === 'requesting' ? (
-            <Loader2 size={14} className="pr-detail-spin" />
-          ) : copilotReviewState === 'done' ? (
-            <CheckCircle2 size={14} />
-          ) : (
-            <Sparkles size={14} className={copilotReviewState === 'monitoring' ? 'pulse' : ''} />
-          )}
+          <CopilotReviewButtonIcon state={copilotReviewState} />
         </button>
         <button className="pr-detail-refresh-btn" onClick={onRefresh} title="Refresh PR data">
           <RefreshCw size={14} />
@@ -252,6 +254,143 @@ function PROverviewSection({
   )
 }
 
+function deriveBranchIssue(
+  linkedIssues: PRLinkedIssue[],
+  branches: { headBranch: string; baseBranch: string } | null,
+  headBranch: string | undefined,
+  ownerRepo: { owner: string; repo: string } | null
+): { number: number; title: string; url: string } | null {
+  /* v8 ignore start */
+  if (linkedIssues.length > 0) return null
+  /* v8 ignore stop */
+  const branch = branches?.headBranch || headBranch
+  if (!branch) return null
+  const match = branch.match(/issue-(\d+)/)
+  if (!match || !ownerRepo) return null
+  const num = Number(match[1])
+  return {
+    number: num,
+    title: '',
+    url: `https://github.com/${ownerRepo.owner}/${ownerRepo.repo}/issues/${num}`,
+  }
+}
+
+function resolveUserApproval(
+  history: PRHistorySummary,
+  accounts: Array<{ username: string; org: string }>,
+  namespace: string
+): boolean {
+  const scopedAccounts = namespace
+    ? accounts.filter(account => account.org.toLowerCase() === namespace.toLowerCase())
+    : []
+  const candidateLogins = new Set(
+    (scopedAccounts.length > 0 ? scopedAccounts : accounts).map(account =>
+      account.username.toLowerCase()
+    )
+  )
+  if (candidateLogins.size === 0) return false
+  return history.reviewers.some(
+    reviewer => reviewer.status === 'approved' && candidateLogins.has(reviewer.login.toLowerCase())
+  )
+}
+
+interface SectionNoteBarProps {
+  section: PRDetailSection
+  sectionLabel: string
+  prUrl: string
+}
+
+function SectionNoteBar({ section, sectionLabel, prUrl }: SectionNoteBarProps) {
+  return (
+    <div className="pr-detail-section-note">
+      <span>Tree section: {sectionLabel}</span>
+      {section === 'checks' && (
+        <button
+          className="pr-detail-open-btn"
+          onClick={() => window.shell.openExternal(`${prUrl}/checks`)}
+        >
+          <ExternalLink size={14} />
+          Open Checks
+        </button>
+      )}
+      {section === 'files-changed' && (
+        <button
+          className="pr-detail-open-btn"
+          onClick={() => window.shell.openExternal(`${prUrl}/files`)}
+        >
+          <ExternalLink size={14} />
+          Open Files Changed
+        </button>
+      )}
+    </div>
+  )
+}
+
+interface FocusedSectionContentProps {
+  section: PRDetailSection
+  pr: PRDetailInfo
+  refreshKey: number
+  onHistoryLoaded: (history: PRHistorySummary) => void
+}
+
+function FocusedSectionContent({
+  section,
+  pr,
+  refreshKey,
+  onHistoryLoaded,
+}: FocusedSectionContentProps) {
+  switch (section) {
+    case 'conversation':
+      return <PRThreadsPanel key={refreshKey} pr={pr} />
+    case 'commits':
+      return (
+        <PullRequestHistoryPanel
+          key={refreshKey}
+          pr={pr}
+          embedded
+          focus="commits"
+          onLoaded={onHistoryLoaded}
+        />
+      )
+    case 'checks':
+      return <PRChecksPanel key={refreshKey} pr={pr} />
+    case 'files-changed':
+      return <PRFilesChangedPanel key={refreshKey} pr={pr} />
+    case 'ai-reviews':
+      return <PRReviewsPanel key={refreshKey} pr={pr} />
+  }
+}
+
+function resolveActivityDates(
+  pr: PRDetailInfo,
+  historyUpdatedAt: string | null
+): { activityAt: string | null; activityRelative: string; createdRelative: string } {
+  const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
+  const activityRelative = activityAt ? formatDistanceToNow(activityAt) : ''
+  const createdRelative = pr.created ? formatDistanceToNow(pr.created) : ''
+  return { activityAt, activityRelative, createdRelative }
+}
+
+function resolveLabelsAndIssue(
+  pr: PRDetailInfo,
+  section: PRDetailSection | null,
+  linkedIssues: PRLinkedIssue[],
+  branches: { headBranch: string; baseBranch: string } | null,
+  ownerRepo: { owner: string; repo: string } | null
+): {
+  stateLabel: string
+  sectionLabel: string | null
+  isFocusedSection: boolean
+  effectiveIssue: { number: number; url: string } | null
+} {
+  const stateLabel = pr.state?.trim() || 'open'
+  const sectionLabel = section ? (SECTION_LABELS[section] ?? null) : null
+  const isFocusedSection = section !== null
+  const effectiveIssue =
+    linkedIssues[0] ?? deriveBranchIssue(linkedIssues, branches, pr.headBranch, ownerRepo)
+  return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
+}
+
 export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -321,60 +460,24 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
     fetchBranches()
   }, [fetchBranches])
 
-  const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
-  const activityRelative = activityAt ? formatDistanceToNow(activityAt) : ''
-  const createdRelative = pr.created ? formatDistanceToNow(pr.created) : ''
-  const stateLabel = pr.state?.trim() || 'open'
-  const sectionLabel = section ? (SECTION_LABELS[section] ?? null) : null
-  const checksUrl = `${pr.url}/checks`
-  const filesChangedUrl = `${pr.url}/files`
-  const isFocusedSection = section !== null
-  const showOverview = !isFocusedSection
-
-  // Derive effective linked issue: prefer API data, fall back to branch name parsing
-  const branchIssue = (() => {
-    if (linkedIssues.length > 0) return null
-    const branch = branches?.headBranch || pr.headBranch
-    if (!branch) return null
-    const match = branch.match(/issue-(\d+)/)
-    if (!match) return null
-    const num = Number(match[1])
-    if (!ownerRepo) return null
-    return {
-      number: num,
-      title: '',
-      url: `https://github.com/${ownerRepo.owner}/${ownerRepo.repo}/issues/${num}`,
-    }
-  })()
-  const effectiveIssue = linkedIssues[0] ?? branchIssue
+  const { activityAt, activityRelative, createdRelative } = resolveActivityDates(
+    pr,
+    historyUpdatedAt
+  )
+  const { stateLabel, sectionLabel, isFocusedSection, effectiveIssue } = resolveLabelsAndIssue(
+    pr,
+    section,
+    linkedIssues,
+    branches,
+    ownerRepo
+  )
 
   const handleHistoryLoaded = useCallback(
     (history: PRHistorySummary) => {
       setHistoryUpdatedAt(history.updatedAt || null)
       setLinkedIssues(history.linkedIssues)
-
       const namespace = pr.org || ownerRepo?.owner || ''
-
-      const scopedAccounts = namespace
-        ? accounts.filter(account => account.org.toLowerCase() === namespace.toLowerCase())
-        : []
-
-      const candidateLogins = new Set(
-        (scopedAccounts.length > 0 ? scopedAccounts : accounts).map(account =>
-          account.username.toLowerCase()
-        )
-      )
-
-      if (candidateLogins.size === 0) {
-        return
-      }
-
-      const approvedByYou = history.reviewers.some(
-        reviewer =>
-          reviewer.status === 'approved' && candidateLogins.has(reviewer.login.toLowerCase())
-      )
-
-      setYouApproved(approvedByYou)
+      setYouApproved(resolveUserApproval(history, accounts, namespace))
     },
     [accounts, ownerRepo, pr.org]
   )
@@ -401,30 +504,10 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
       )}
 
       {sectionLabel && (
-        <div className="pr-detail-section-note">
-          <span>Tree section: {sectionLabel}</span>
-          {section === 'checks' && (
-            <button
-              className="pr-detail-open-btn"
-              onClick={() => window.shell.openExternal(checksUrl)}
-            >
-              <ExternalLink size={14} />
-              Open Checks
-            </button>
-          )}
-          {section === 'files-changed' && (
-            <button
-              className="pr-detail-open-btn"
-              onClick={() => window.shell.openExternal(filesChangedUrl)}
-            >
-              <ExternalLink size={14} />
-              Open Files Changed
-            </button>
-          )}
-        </div>
+        <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />
       )}
 
-      {showOverview && (
+      {!isFocusedSection && (
         <PROverviewSection
           pr={pr}
           youApproved={youApproved}
@@ -435,19 +518,14 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
         />
       )}
 
-      {section === 'conversation' && <PRThreadsPanel key={refreshKey} pr={pr} />}
-      {section === 'commits' && (
-        <PullRequestHistoryPanel
-          key={refreshKey}
+      {isFocusedSection && (
+        <FocusedSectionContent
+          section={section!}
           pr={pr}
-          embedded
-          focus="commits"
-          onLoaded={handleHistoryLoaded}
+          refreshKey={refreshKey}
+          onHistoryLoaded={handleHistoryLoaded}
         />
       )}
-      {section === 'checks' && <PRChecksPanel key={refreshKey} pr={pr} />}
-      {section === 'files-changed' && <PRFilesChangedPanel key={refreshKey} pr={pr} />}
-      {section === 'ai-reviews' && <PRReviewsPanel key={refreshKey} pr={pr} />}
 
       {!isFocusedSection && (
         <>

@@ -67,21 +67,13 @@ function appearanceReducer(state: AppearanceState, action: AppearanceAction): Ap
 }
 
 function buildAppearanceState(config: AppConfig | null): AppearanceState {
-  if (!config) {
-    return INITIAL_STATE
+  if (!config) return INITIAL_STATE
+  const result = { ...INITIAL_STATE }
+  for (const key of Object.keys(INITIAL_STATE) as (keyof AppearanceState)[]) {
+    const val = config.ui[key]
+    if (val) result[key] = val as never
   }
-
-  return {
-    theme: config.ui.theme,
-    accentColor: config.ui.accentColor || '#0e639c',
-    fontColor: config.ui.fontColor || '#cccccc',
-    bgPrimary: config.ui.bgPrimary || '#1e1e1e',
-    bgSecondary: config.ui.bgSecondary || '#252526',
-    statusBarBg: config.ui.statusBarBg || '#181818',
-    statusBarFg: config.ui.statusBarFg || '#9d9d9d',
-    fontFamily: config.ui.fontFamily || 'Inter',
-    monoFontFamily: config.ui.monoFontFamily || 'Cascadia Code',
-  }
+  return result
 }
 
 type ConfigApi = ReturnType<typeof useConfig>['api']
@@ -98,6 +90,38 @@ interface AppliedColors {
   secondary: string
   sbBg?: string
   sbFg?: string
+}
+
+const NON_UI_FONT_PATTERNS = ['emoji', 'symbol', 'webdings', 'wingdings']
+
+function isUIFont(fontName: string): boolean {
+  const lower = fontName.toLowerCase()
+  return !NON_UI_FONT_PATTERNS.some(pattern => lower.includes(pattern))
+}
+
+const MONO_FONT_PATTERNS = [
+  'mono',
+  'code',
+  'consola',
+  'courier',
+  'fixed',
+  'terminal',
+  'hack',
+  'fira',
+  'jetbrains',
+  'source code',
+  'roboto mono',
+  'ubuntu mono',
+  'droid sans mono',
+  'dejavu sans mono',
+  'inconsolata',
+  'menlo',
+  'sf mono',
+]
+
+function isMonoFont(fontName: string): boolean {
+  const lower = fontName.toLowerCase()
+  return MONO_FONT_PATTERNS.some(pattern => lower.includes(pattern))
 }
 
 function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEditorProps) {
@@ -290,34 +314,9 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
     await api.setMonoFontFamily(font)
   }
 
-  const uiFonts = systemFonts.filter(
-    f =>
-      !f.toLowerCase().includes('emoji') &&
-      !f.toLowerCase().includes('symbol') &&
-      !f.toLowerCase().includes('webdings') &&
-      !f.toLowerCase().includes('wingdings')
-  )
+  const uiFonts = systemFonts.filter(isUIFont)
 
-  const monoFonts = systemFonts.filter(
-    f =>
-      f.toLowerCase().includes('mono') ||
-      f.toLowerCase().includes('code') ||
-      f.toLowerCase().includes('consola') ||
-      f.toLowerCase().includes('courier') ||
-      f.toLowerCase().includes('fixed') ||
-      f.toLowerCase().includes('terminal') ||
-      f.toLowerCase().includes('hack') ||
-      f.toLowerCase().includes('fira') ||
-      f.toLowerCase().includes('jetbrains') ||
-      f.toLowerCase().includes('source code') ||
-      f.toLowerCase().includes('roboto mono') ||
-      f.toLowerCase().includes('ubuntu mono') ||
-      f.toLowerCase().includes('droid sans mono') ||
-      f.toLowerCase().includes('dejavu sans mono') ||
-      f.toLowerCase().includes('inconsolata') ||
-      f.toLowerCase().includes('menlo') ||
-      f.toLowerCase().includes('sf mono')
-  )
+  const monoFonts = systemFonts.filter(isMonoFont)
 
   const brandColors: ColorDef[] = [
     {

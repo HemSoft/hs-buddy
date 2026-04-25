@@ -97,6 +97,58 @@ function writeSavedLocation(loc: GeoLocation) {
   safeSetJson(LOCATION_KEY, loc)
 }
 
+interface GeocodingResult {
+  lat: string
+  lon: string
+  address?: {
+    city?: string
+    town?: string
+    village?: string
+    state?: string
+    country?: string
+  }
+  display_name?: string
+}
+
+function extractCity(address?: { city?: string; town?: string; village?: string }): string {
+  return address?.city ?? address?.town ?? address?.village ?? ''
+}
+
+function buildLocationName(city: string, state: string, fallback: string): string {
+  if (city) return state ? `${city}, ${state}` : city
+  return fallback
+}
+
+async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
+  try {
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json`,
+      { headers: { 'User-Agent': 'hs-buddy/1.0' } }
+    )
+    if (resp.ok) {
+      const json = (await resp.json()) as {
+        address?: { city?: string; town?: string; village?: string; state?: string }
+      }
+      /* v8 ignore start */
+      const city = extractCity(json.address)
+      /* v8 ignore stop */
+      const st = json.address?.state ?? ''
+      /* v8 ignore start */
+      if (city) loc.name = buildLocationName(city, st, loc.name)
+      /* v8 ignore stop */
+    }
+  } catch {
+    // Use coordinate-based name as fallback
+  }
+}
+
+function parseGeocodingResult(r: GeocodingResult, query: string): GeoLocation {
+  const city = extractCity(r.address)
+  const st = r.address?.state ?? ''
+  const name = buildLocationName(city, st, r.display_name?.split(',')[0] || query)
+  return { latitude: parseFloat(r.lat), longitude: parseFloat(r.lon), name }
+}
+
 async function fetchWeather(loc: GeoLocation, signal: AbortSignal): Promise<WeatherData> {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}` +
@@ -202,32 +254,9 @@ export function useWeather() {
           name: `${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°`,
         }
 
-        // Try to get a city name via reverse geocoding
-        try {
-          const resp = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json`,
-            { headers: { 'User-Agent': 'hs-buddy/1.0' } }
-          )
-          if (resp.ok) {
-            const json = (await resp.json()) as {
-              address?: { city?: string; town?: string; village?: string; state?: string }
-            }
-            /* v8 ignore start */
-            const city = json.address?.city ?? json.address?.town ?? json.address?.village ?? ''
-            /* v8 ignore stop */
-            const st = json.address?.state ?? ''
-            /* v8 ignore start */
-            if (city) loc.name = st ? `${city}, ${st}` : city
-            /* v8 ignore stop */
-          }
-        } catch {
-          // Use coordinate-based name as fallback
-        }
-
+        await reverseGeocodeLocation(loc)
         writeSavedLocation(loc)
-        // Clear cache so next refresh uses new location
         safeRemoveItem(CACHE_KEY)
-        // Now re-fetch
         /* v8 ignore start */
         refresh().catch(() => {
           /* v8 ignore stop */
@@ -255,35 +284,14 @@ export function useWeather() {
         )
         if (!resp.ok) throw new Error(`Geocoding error: ${resp.status}`)
 
-        const results = (await resp.json()) as Array<{
-          lat: string
-          lon: string
-          address?: {
-            city?: string
-            town?: string
-            village?: string
-            state?: string
-            country?: string
-          }
-          display_name?: string
-        }>
+        const results = (await resp.json()) as Array<GeocodingResult>
 
         if (results.length === 0) {
           setState(prev => ({ ...prev, loading: false, error: `No results for "${query}"` }))
           return
         }
 
-        const r = results[0]
-        const city = r.address?.city ?? r.address?.town ?? r.address?.village ?? ''
-        const st = r.address?.state ?? ''
-        const name = city && st ? `${city}, ${st}` : city || r.display_name?.split(',')[0] || query
-
-        const loc: GeoLocation = {
-          latitude: parseFloat(r.lat),
-          longitude: parseFloat(r.lon),
-          name,
-        }
-
+        const loc = parseGeocodingResult(results[0], query)
         writeSavedLocation(loc)
         safeRemoveItem(CACHE_KEY)
         /* v8 ignore start */

@@ -2,8 +2,6 @@ import { dataCache } from '../services/dataCache'
 import type { UserActivitySummary } from '../api/github'
 import type { LoadPhase } from '../types/loadPhase'
 
-export type { LoadPhase }
-
 export interface ActivityState {
   activity: UserActivitySummary | null
   phase: LoadPhase

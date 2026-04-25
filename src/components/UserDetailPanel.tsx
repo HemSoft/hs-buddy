@@ -94,6 +94,19 @@ function SectionLoader({ label }: { label: string }) {
   )
 }
 
+function formatHeroSubtitle(
+  memberLogin: string,
+  activityName: string | null | undefined,
+  commitsToday: number
+): string {
+  const prefix = activityName ? `${memberLogin} · ` : ''
+  const commitLabel =
+    commitsToday > 0
+      ? `${commitsToday} commit${commitsToday !== 1 ? 's' : ''} today`
+      : 'No commits today'
+  return `${prefix}${commitLabel}`
+}
+
 function UserDetailHero({
   activity,
   activityPhase,
@@ -129,10 +142,7 @@ function UserDetailHero({
           )}
         </h2>
         <p className="ud-hero-subtitle">
-          {activity?.name ? `${memberLogin} · ` : ''}
-          {commitsToday > 0
-            ? `${commitsToday} commit${commitsToday !== 1 ? 's' : ''} today`
-            : 'No commits today'}
+          {formatHeroSubtitle(memberLogin, activity?.name, commitsToday)}
         </p>
       </div>
       <div className="ud-hero-actions">
@@ -209,6 +219,20 @@ function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
   )
 }
 
+function MetricValueDisplay({
+  activity,
+  activityPhase,
+  getValue,
+}: {
+  activity: UserActivitySummary | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+  getValue: (a: UserActivitySummary) => React.ReactNode
+}) {
+  if (activityPhase === 'ready' && activity) return <>{getValue(activity)}</>
+  if (activityPhase === 'loading') return <Loader2 size={14} className="spin" />
+  return <>{'—'}</>
+}
+
 function UserMetricsGrid({
   activity,
   activityPhase,
@@ -228,31 +252,25 @@ function UserMetricsGrid({
         {commitsToday}
       </MetricCard>
       <MetricCard icon={<GitPullRequest size={18} />} label="Open PRs">
-        {activityPhase === 'ready' && activity ? (
-          activity.openPRCount
-        ) : activityPhase === 'loading' ? (
-          <Loader2 size={14} className="spin" />
-        ) : (
-          '—'
-        )}
+        <MetricValueDisplay
+          activity={activity}
+          activityPhase={activityPhase}
+          getValue={a => a.openPRCount}
+        />
       </MetricCard>
       <MetricCard icon={<GitMerge size={18} />} label="Merged (90d)" variant="cool">
-        {activityPhase === 'ready' && activity ? (
-          activity.mergedPRCount
-        ) : activityPhase === 'loading' ? (
-          <Loader2 size={14} className="spin" />
-        ) : (
-          '—'
-        )}
+        <MetricValueDisplay
+          activity={activity}
+          activityPhase={activityPhase}
+          getValue={a => a.mergedPRCount}
+        />
       </MetricCard>
       <MetricCard icon={<FolderGit2 size={18} />} label="Active Repos">
-        {activityPhase === 'ready' && activity ? (
-          activity.activeRepos.length
-        ) : activityPhase === 'loading' ? (
-          <Loader2 size={14} className="spin" />
-        ) : (
-          '—'
-        )}
+        <MetricValueDisplay
+          activity={activity}
+          activityPhase={activityPhase}
+          getValue={a => a.activeRepos.length}
+        />
       </MetricCard>
     </div>
   )
@@ -300,6 +318,44 @@ function UserContributionSection({
   return null
 }
 
+function PRListSection({
+  icon,
+  title,
+  prs,
+  keyPrefix,
+  activityPhase,
+  loadingLabel,
+  emptyLabel,
+}: {
+  icon: React.ReactNode
+  title: string
+  prs: UserPRSummary[]
+  keyPrefix: string
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+  loadingLabel: string
+  emptyLabel: string
+}) {
+  return (
+    <section className="ud-section">
+      <h3 className="ud-section-title">
+        {icon}
+        {title}
+      </h3>
+      {activityPhase === 'loading' ? (
+        <SectionLoader label={loadingLabel} />
+      ) : activityPhase === 'ready' && prs.length > 0 ? (
+        <div className="ud-pr-list">
+          {prs.map(pr => (
+            <PRRow key={`${keyPrefix}-${pr.repo}#${pr.number}`} pr={pr} />
+          ))}
+        </div>
+      ) : activityPhase === 'ready' ? (
+        <p className="ud-empty">{emptyLabel}</p>
+      ) : null}
+    </section>
+  )
+}
+
 function UserPullRequestSections({
   activity,
   activityPhase,
@@ -307,46 +363,26 @@ function UserPullRequestSections({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  const authoredPRs = activity?.recentPRsAuthored ?? []
-  const reviewedPRs = activity?.recentPRsReviewed ?? []
-
   return (
     <div className="ud-section-grid">
-      <section className="ud-section">
-        <h3 className="ud-section-title">
-          <GitPullRequest size={15} />
-          Authored
-        </h3>
-        {activityPhase === 'loading' ? (
-          <SectionLoader label="pull requests" />
-        ) : activityPhase === 'ready' && authoredPRs.length > 0 ? (
-          <div className="ud-pr-list">
-            {authoredPRs.map(pr => (
-              <PRRow key={`a-${pr.repo}#${pr.number}`} pr={pr} />
-            ))}
-          </div>
-        ) : activityPhase === 'ready' ? (
-          <p className="ud-empty">No recent pull requests.</p>
-        ) : null}
-      </section>
-
-      <section className="ud-section">
-        <h3 className="ud-section-title">
-          <Eye size={15} />
-          Reviewed
-        </h3>
-        {activityPhase === 'loading' ? (
-          <SectionLoader label="reviews" />
-        ) : activityPhase === 'ready' && reviewedPRs.length > 0 ? (
-          <div className="ud-pr-list">
-            {reviewedPRs.map(pr => (
-              <PRRow key={`r-${pr.repo}#${pr.number}`} pr={pr} />
-            ))}
-          </div>
-        ) : activityPhase === 'ready' ? (
-          <p className="ud-empty">No recent reviews.</p>
-        ) : null}
-      </section>
+      <PRListSection
+        icon={<GitPullRequest size={15} />}
+        title="Authored"
+        prs={activity?.recentPRsAuthored ?? []}
+        keyPrefix="a"
+        activityPhase={activityPhase}
+        loadingLabel="pull requests"
+        emptyLabel="No recent pull requests."
+      />
+      <PRListSection
+        icon={<Eye size={15} />}
+        title="Reviewed"
+        prs={activity?.recentPRsReviewed ?? []}
+        keyPrefix="r"
+        activityPhase={activityPhase}
+        loadingLabel="reviews"
+        emptyLabel="No recent reviews."
+      />
     </div>
   )
 }
@@ -436,7 +472,7 @@ function MetricCard({
   )
 }
 
-export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
+function useUserActivity(org: string, memberLogin: string) {
   const { accounts } = useGitHubAccounts()
   const cacheKey = `user-activity:v3:${org}/${memberLogin}`
   const [activityState, dispatch] = useReducer(
@@ -444,7 +480,6 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     cacheKey,
     createInitialActivityState
   )
-  const { activity, phase: activityPhase, error: activityError } = activityState
   const [refreshKey, setRefreshKey] = useState(0)
 
   const handleRefresh = useCallback(() => {
@@ -452,32 +487,6 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     setRefreshKey(k => k + 1)
   }, [cacheKey])
 
-  const members = useMemo(
-    () => dataCache.get<OrgMemberResult>(`org-members:${org}`)?.data ?? null,
-    [org]
-  )
-
-  const overview = useMemo(
-    () => dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null,
-    [org]
-  )
-
-  const member = useMemo(
-    () => members?.members.find(m => m.login === memberLogin) ?? null,
-    [members, memberLogin]
-  )
-
-  const contributor = useMemo(() => {
-    if (!overview) return null
-    /* v8 ignore start */
-    return overview.metrics.topContributorsToday.find(c => c.login === memberLogin) ?? null
-    /* v8 ignore stop */
-  }, [overview, memberLogin])
-
-  const profileUrl = member?.url ?? `https://github.com/${memberLogin}`
-  const avatarUrl = member?.avatarUrl ?? `https://github.com/${memberLogin}.png?size=96`
-
-  // Fetch directly on mount — user-initiated action, don't wait behind background tasks
   useEffect(() => {
     const forceRefresh = refreshKey > 0
     const cached = dataCache.get<UserActivitySummary>(cacheKey)
@@ -518,7 +527,56 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     }
   }, [accounts, org, memberLogin, cacheKey, refreshKey])
 
+  return { ...activityState, handleRefresh }
+}
+
+function useUserDetailDerivedData(
+  org: string,
+  memberLogin: string,
+  activity: UserActivitySummary | null
+) {
+  const members = useMemo(
+    () => dataCache.get<OrgMemberResult>(`org-members:${org}`)?.data ?? null,
+    [org]
+  )
+
+  const overview = useMemo(
+    () => dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null,
+    [org]
+  )
+
+  const member = useMemo(
+    () => members?.members.find(m => m.login === memberLogin) ?? null,
+    [members, memberLogin]
+  )
+
+  const contributor = useMemo(() => {
+    if (!overview) return null
+    /* v8 ignore start */
+    return overview.metrics.topContributorsToday.find(c => c.login === memberLogin) ?? null
+    /* v8 ignore stop */
+  }, [overview, memberLogin])
+
+  const profileUrl = member?.url ?? `https://github.com/${memberLogin}`
+  const avatarUrl = member?.avatarUrl ?? `https://github.com/${memberLogin}.png?size=96`
   const commitsToday = activity?.commitsToday ?? contributor?.commits ?? 0
+
+  return { profileUrl, avatarUrl, commitsToday }
+}
+
+export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
+  const {
+    activity,
+    phase: activityPhase,
+    error: activityError,
+    handleRefresh,
+  } = useUserActivity(org, memberLogin)
+
+  const { profileUrl, avatarUrl, commitsToday } = useUserDetailDerivedData(
+    org,
+    memberLogin,
+    activity
+  )
   const readyActivity = activityPhase === 'ready' ? activity : null
 
   return (

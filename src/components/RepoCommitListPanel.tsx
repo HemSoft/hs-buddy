@@ -3,6 +3,7 @@ import { GitCommit, ExternalLink, RefreshCw } from 'lucide-react'
 import { useGitHubData } from '../hooks/useGitHubData'
 import type { RepoCommit } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
+import { onKeyboardActivate } from '../utils/keyboard'
 import {
   PanelLoadingState,
   PanelErrorState,
@@ -16,6 +17,62 @@ interface RepoCommitListPanelProps {
   owner: string
   repo: string
   onOpenCommit?: (sha: string) => void
+}
+
+function CommitListBody({
+  commits,
+  loading,
+  handleCommitClick,
+}: {
+  commits: RepoCommit[]
+  loading: boolean
+  handleCommitClick: (commit: RepoCommit) => void
+}) {
+  if (commits.length === 0) {
+    return (
+      <PanelEmptyState
+        icon={<GitCommit size={48} />}
+        message="No commits found"
+        subtitle="This repository does not have any visible commits yet."
+      />
+    )
+  }
+
+  return (
+    <>
+      {loading && <InlineRefreshIndicator message="Refreshing commit list..." />}
+      <div className="repo-commits-page-list">
+        {commits.map(commit => (
+          <div
+            key={commit.sha}
+            className="repo-commit-item repo-commit-item-page"
+            onClick={() => handleCommitClick(commit)}
+            title={commit.message}
+            role="button"
+            tabIndex={0}
+            onKeyDown={onKeyboardActivate(() => handleCommitClick(commit))}
+          >
+            <div className="repo-commit-main">
+              <span className="repo-commit-sha">{commit.sha.slice(0, 7)}</span>
+              <span className="repo-commit-msg">{commit.message}</span>
+              <ExternalLink size={14} className="external-link-icon" />
+            </div>
+            <div className="repo-commit-meta">
+              {commit.authorAvatarUrl && (
+                <img
+                  src={commit.authorAvatarUrl}
+                  alt={commit.author}
+                  className="repo-commit-avatar"
+                />
+              )}
+              <span className="repo-commit-author">{commit.author}</span>
+              <span className="repo-commit-date">{formatDistanceToNow(commit.date)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
 }
 
 export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitListPanelProps) {
@@ -70,54 +127,7 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
           </button>
         </div>
       </div>
-
-      {loading && commits.length > 0 && (
-        <InlineRefreshIndicator message="Refreshing commit list..." />
-      )}
-
-      {commits.length === 0 ? (
-        <PanelEmptyState
-          icon={<GitCommit size={48} />}
-          message="No commits found"
-          subtitle="This repository does not have any visible commits yet."
-        />
-      ) : (
-        <div className="repo-commits-page-list">
-          {commits.map(commit => (
-            <div
-              key={commit.sha}
-              className="repo-commit-item repo-commit-item-page"
-              onClick={() => handleCommitClick(commit)}
-              title={commit.message}
-              role="button"
-              tabIndex={0}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  handleCommitClick(commit)
-                }
-              }}
-            >
-              <div className="repo-commit-main">
-                <span className="repo-commit-sha">{commit.sha.slice(0, 7)}</span>
-                <span className="repo-commit-msg">{commit.message}</span>
-                <ExternalLink size={14} className="external-link-icon" />
-              </div>
-              <div className="repo-commit-meta">
-                {commit.authorAvatarUrl && (
-                  <img
-                    src={commit.authorAvatarUrl}
-                    alt={commit.author}
-                    className="repo-commit-avatar"
-                  />
-                )}
-                <span className="repo-commit-author">{commit.author}</span>
-                <span className="repo-commit-date">{formatDistanceToNow(commit.date)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <CommitListBody commits={commits} loading={loading} handleCommitClick={handleCommitClick} />
     </div>
   )
 }

@@ -325,24 +325,12 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
     )
   }
 
-  const handleSendMessage = async () => {
-    if (!project || !session || !message.trim() || sending) return
-
-    const trimmedMessage = message.trim()
-
-    const userMsg: CrewChatMessage = {
-      role: 'user',
-      content: trimmedMessage,
-      timestamp: Date.now(),
-    }
-
-    setSending(true)
-    setMessage('')
-    appendMessageToSession(userMsg, 'active')
-
-    await window.crew.addMessage(project.id, userMsg)
-    await window.crew.updateSessionStatus(project.id, 'active')
-
+  const sendCopilotMessage = async (
+    project: CrewProject,
+    session: CrewSession,
+    trimmedMessage: string,
+    appendFn: (msg: CrewChatMessage, status: CrewSession['status']) => void
+  ) => {
     try {
       const response = await window.copilot.chatSend({
         message: trimmedMessage,
@@ -366,7 +354,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
 
       await window.crew.addMessage(project.id, assistantMsg)
       await window.crew.updateSessionStatus(project.id, 'idle')
-      appendMessageToSession(assistantMsg, 'idle')
+      appendFn(assistantMsg, 'idle')
     } catch (err) {
       const errorMsg: CrewChatMessage = {
         role: 'assistant',
@@ -375,7 +363,30 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
       }
       await window.crew.addMessage(project.id, errorMsg)
       await window.crew.updateSessionStatus(project.id, 'error')
-      appendMessageToSession(errorMsg, 'error')
+      appendFn(errorMsg, 'error')
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!project || !session || !message.trim() || sending) return
+
+    const trimmedMessage = message.trim()
+
+    const userMsg: CrewChatMessage = {
+      role: 'user',
+      content: trimmedMessage,
+      timestamp: Date.now(),
+    }
+
+    setSending(true)
+    setMessage('')
+    appendMessageToSession(userMsg, 'active')
+
+    try {
+      await window.crew.addMessage(project.id, userMsg)
+      await window.crew.updateSessionStatus(project.id, 'active')
+
+      await sendCopilotMessage(project, session, trimmedMessage, appendMessageToSession)
     } finally {
       setSending(false)
     }

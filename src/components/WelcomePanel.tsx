@@ -45,7 +45,7 @@ function WelcomeHeader({
         </div>
         <div className="welcome-header-meta">
           <div className="welcome-header-meta-top">
-            <div className="welcome-version-badge">Version 0.1.737</div>
+            <div className="welcome-version-badge">Version 0.1.739</div>
             <DashboardConfigDropdown cards={cards} isVisible={isVisible} toggleCard={toggleCard} />
           </div>
           {liveUptime > 0 && (
@@ -147,30 +147,79 @@ function DashboardCardContent({
   }
 }
 
-export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomePanelProps) {
-  const stats = useBuddyStats()
-  const { accounts, aggregateTotals, aggregateProjections, anyLoading, refreshAll } =
-    useCopilotUsage()
-  const { cards, visibleCards, isVisible, toggleCard } = useDashboardCards()
+const PR_STAT_DEFAULTS = { prsViewed: 0, prsReviewed: 0, prsMergedWatched: 0, reposBrowsed: 0 }
 
-  const totalPrsViewed =
-    (stats?.prsViewed ?? 0) + (stats?.prsReviewed ?? 0) + (stats?.prsMergedWatched ?? 0)
-  const activePrs = Object.values(prCounts).reduce((a, b) => a + b, 0)
-  const reposBrowsed = stats?.reposBrowsed ?? 0
-  const copilotPrReviews =
-    ((stats as Record<string, unknown> | undefined)?.copilotPrReviews as number) ?? 0
-  const runsTriggered = stats?.runsTriggered ?? 0
-  const runsCompleted = stats?.runsCompleted ?? 0
-  const runsFailed = stats?.runsFailed ?? 0
-  const repoBookmarks = useRepoBookmarks()
+function extractPrStats(stats: ReturnType<typeof useBuddyStats>) {
+  const { prsViewed, prsReviewed, prsMergedWatched, reposBrowsed } = {
+    ...PR_STAT_DEFAULTS,
+    ...(stats ?? {}),
+  }
+  return { prsViewed, prsReviewed, prsMergedWatched, reposBrowsed }
+}
+
+const RUN_STAT_DEFAULTS = { runsTriggered: 0, runsCompleted: 0, runsFailed: 0 }
+
+function extractRunAndSessionStats(
+  stats: ReturnType<typeof useBuddyStats>,
+  repoBookmarks: ReturnType<typeof useRepoBookmarks>
+) {
+  const { runsTriggered, runsCompleted, runsFailed } = { ...RUN_STAT_DEFAULTS, ...(stats ?? {}) }
   const bookmarks = repoBookmarks?.length ?? 0
-  const firstLaunch = stats?.firstLaunchDate ?? 0
-  const appLaunches = stats?.appLaunches ?? 0
-  const storedUptime = stats?.totalUptimeMs ?? 0
-  const lastSessionStart = (stats as Record<string, unknown> | undefined)?.lastSessionStart as
-    | number
-    | undefined
+  const totalFinished = runsCompleted + runsFailed
+  const successRate = totalFinished > 0 ? Math.round((runsCompleted / totalFinished) * 100) : 0
+  return { runsTriggered, runsCompleted, runsFailed, totalFinished, successRate, bookmarks }
+}
 
+const APP_STAT_DEFAULTS = {
+  copilotPrReviews: 0,
+  firstLaunchDate: 0,
+  appLaunches: 0,
+  totalUptimeMs: 0,
+  lastSessionStart: undefined as number | undefined,
+}
+
+function extractAppStats(stats: ReturnType<typeof useBuddyStats>) {
+  const { copilotPrReviews, firstLaunchDate, appLaunches, totalUptimeMs, lastSessionStart } = {
+    ...APP_STAT_DEFAULTS,
+    ...(stats ?? {}),
+  }
+  return {
+    copilotPrReviews,
+    firstLaunch: firstLaunchDate,
+    appLaunches,
+    storedUptime: totalUptimeMs,
+    lastSessionStart,
+  }
+}
+
+function useWelcomeStats(prCounts: Record<string, number>) {
+  const stats = useBuddyStats()
+  const repoBookmarks = useRepoBookmarks()
+
+  const prStats = extractPrStats(stats)
+  const runStats = extractRunAndSessionStats(stats, repoBookmarks)
+  const appStats = extractAppStats(stats)
+
+  const totalPrsViewed = prStats.prsViewed + prStats.prsReviewed + prStats.prsMergedWatched
+  const activePrs = Object.values(prCounts).reduce((a, b) => a + b, 0)
+
+  return {
+    totalPrsViewed,
+    activePrs,
+    reposBrowsed: prStats.reposBrowsed,
+    copilotPrReviews: appStats.copilotPrReviews,
+    runsTriggered: runStats.runsTriggered,
+    totalFinished: runStats.totalFinished,
+    successRate: runStats.successRate,
+    bookmarks: runStats.bookmarks,
+    firstLaunch: appStats.firstLaunch,
+    appLaunches: appStats.appLaunches,
+    storedUptime: appStats.storedUptime,
+    lastSessionStart: appStats.lastSessionStart,
+  }
+}
+
+function useLiveUptime(storedUptime: number, lastSessionStart: number | undefined) {
   const [clientSessionStart] = useState<number>(() => Date.now())
   const [liveUptime, setLiveUptime] = useState(storedUptime)
 
@@ -189,8 +238,16 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
     return () => clearInterval(timer)
   }, [storedUptime, lastSessionStart, clientSessionStart])
 
-  const totalFinished = runsCompleted + runsFailed
-  const successRate = totalFinished > 0 ? Math.round((runsCompleted / totalFinished) * 100) : 0
+  return liveUptime
+}
+
+export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomePanelProps) {
+  const { accounts, aggregateTotals, aggregateProjections, anyLoading, refreshAll } =
+    useCopilotUsage()
+  const { cards, visibleCards, isVisible, toggleCard } = useDashboardCards()
+
+  const welcomeStats = useWelcomeStats(prCounts)
+  const liveUptime = useLiveUptime(welcomeStats.storedUptime, welcomeStats.lastSessionStart)
   const hasCopilotAccounts = accounts.length > 0
 
   const handleQuickAction = (action: QuickAction) => {
@@ -237,16 +294,16 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   }
 
   const workspacePulseProps = {
-    totalPrsViewed,
-    activePrs,
-    copilotPrReviews,
-    reposBrowsed,
-    runsTriggered,
-    totalFinished,
-    successRate,
-    bookmarks,
-    firstLaunch,
-    appLaunches,
+    totalPrsViewed: welcomeStats.totalPrsViewed,
+    activePrs: welcomeStats.activePrs,
+    copilotPrReviews: welcomeStats.copilotPrReviews,
+    reposBrowsed: welcomeStats.reposBrowsed,
+    runsTriggered: welcomeStats.runsTriggered,
+    totalFinished: welcomeStats.totalFinished,
+    successRate: welcomeStats.successRate,
+    bookmarks: welcomeStats.bookmarks,
+    firstLaunch: welcomeStats.firstLaunch,
+    appLaunches: welcomeStats.appLaunches,
   }
 
   return (

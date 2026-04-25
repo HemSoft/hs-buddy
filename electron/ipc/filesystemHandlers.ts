@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import type { Dirent } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -113,6 +114,41 @@ interface DirEntry {
   size: number
 }
 
+const SKIPPED_DIRECTORIES = new Set(['node_modules', '__pycache__', '.git'])
+
+function isSkippedDirectory(name: string): boolean {
+  return SKIPPED_DIRECTORIES.has(name)
+}
+
+async function buildDirEntries(resolved: string, items: Dirent[]): Promise<DirEntry[]> {
+  const entries: DirEntry[] = []
+
+  for (const item of items) {
+    if (item.name.startsWith('.')) continue
+    if (item.isDirectory() && isSkippedDirectory(item.name)) continue
+
+    try {
+      const fullPath = path.join(resolved, item.name)
+      const st = await stat(fullPath)
+      entries.push({
+        name: item.name,
+        path: fullPath,
+        type: item.isDirectory() ? 'directory' : 'file',
+        size: st.size,
+      })
+    } catch {
+      // Skip entries we can't stat (permission errors, etc.)
+    }
+  }
+
+  entries.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'directory' ? -1 : 1
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  })
+
+  return entries
+}
+
 export function registerFilesystemHandlers(): void {
   ipcMain.handle(
     'fs:read-dir',
@@ -120,38 +156,7 @@ export function registerFilesystemHandlers(): void {
       try {
         const resolved = path.resolve(dirPath)
         const items = await readdir(resolved, { withFileTypes: true })
-        const entries: DirEntry[] = []
-
-        for (const item of items) {
-          // Skip hidden files/dirs (starting with .)
-          if (item.name.startsWith('.')) continue
-          // Skip common noise directories
-          if (
-            item.isDirectory() &&
-            (item.name === 'node_modules' || item.name === '__pycache__' || item.name === '.git')
-          )
-            continue
-
-          try {
-            const fullPath = path.join(resolved, item.name)
-            const st = await stat(fullPath)
-            entries.push({
-              name: item.name,
-              path: fullPath,
-              type: item.isDirectory() ? 'directory' : 'file',
-              size: st.size,
-            })
-          } catch {
-            // Skip entries we can't stat (permission errors, etc.)
-          }
-        }
-
-        // Sort: directories first, then alphabetical
-        entries.sort((a, b) => {
-          if (a.type !== b.type) return a.type === 'directory' ? -1 : 1
-          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-        })
-
+        const entries = await buildDirEntries(resolved, items)
         return { entries }
       } catch (err) {
         return {

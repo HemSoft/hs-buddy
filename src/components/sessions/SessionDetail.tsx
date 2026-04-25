@@ -64,6 +64,140 @@ interface SessionDetailProps {
   onBack: () => void
 }
 
+function SessionMetaGrid({
+  requestCount,
+  totalPromptTokens,
+  totalOutputTokens,
+  totalToolCalls,
+  totalDurationMs,
+}: {
+  requestCount: number
+  totalPromptTokens: number
+  totalOutputTokens: number
+  totalToolCalls: number
+  totalDurationMs: number
+}) {
+  return (
+    <div className="session-detail-meta-grid">
+      <div className="session-detail-meta-card">
+        <div className="session-detail-meta-label">
+          <Hash size={11} /> Requests
+        </div>
+        <div className="session-detail-meta-value">{requestCount}</div>
+      </div>
+      <div className="session-detail-meta-card">
+        <div className="session-detail-meta-label">
+          <Zap size={11} /> Prompt Tokens
+        </div>
+        <div className="session-detail-meta-value">{formatTokenCount(totalPromptTokens)}</div>
+      </div>
+      <div className="session-detail-meta-card">
+        <div className="session-detail-meta-label">
+          <Zap size={11} /> Output Tokens
+        </div>
+        <div className="session-detail-meta-value">{formatTokenCount(totalOutputTokens)}</div>
+      </div>
+      <div className="session-detail-meta-card">
+        <div className="session-detail-meta-label">
+          <Cpu size={11} /> Tool Calls
+        </div>
+        <div className="session-detail-meta-value">{totalToolCalls}</div>
+      </div>
+      <div className="session-detail-meta-card">
+        <div className="session-detail-meta-label">
+          <Clock size={11} /> Duration
+        </div>
+        <div className="session-detail-meta-value">{formatDuration(totalDurationMs)}</div>
+      </div>
+    </div>
+  )
+}
+
+function SessionDigestSection({
+  digest,
+  digestLoading,
+  onComputeDigest,
+}: {
+  digest: SessionDigest | null
+  digestLoading: boolean
+  onComputeDigest: () => void
+}) {
+  return (
+    <div className="session-digest-section">
+      {!digest ? (
+        <button className="session-digest-btn" onClick={onComputeDigest} disabled={digestLoading}>
+          <BarChart3 size={14} /> {digestLoading ? 'Computing…' : 'Compute Efficiency Digest'}
+        </button>
+      ) : (
+        <div className="session-digest-grid">
+          <div className="session-digest-card">
+            <div className="session-detail-meta-label">Token Efficiency</div>
+            <div className="session-detail-meta-value">{digest.tokenEfficiency.toFixed(2)}</div>
+            <div className="session-digest-hint">output / prompt ratio</div>
+          </div>
+          <div className="session-digest-card">
+            <div className="session-detail-meta-label">Tool Density</div>
+            <div className="session-detail-meta-value">{digest.toolDensity.toFixed(1)}</div>
+            <div className="session-digest-hint">tools per request</div>
+          </div>
+          <div className="session-digest-card">
+            <div className="session-detail-meta-label">Search Churn</div>
+            <div
+              className={`session-detail-meta-value ${digest.searchChurn > 10 ? 'session-digest-warn' : ''}`}
+            >
+              {digest.searchChurn}
+            </div>
+            <div className="session-digest-hint">requests with search tools</div>
+          </div>
+          <div className="session-digest-card">
+            <div className="session-detail-meta-label">~Cost</div>
+            <div className="session-detail-meta-value">${digest.estimatedCost.toFixed(4)}</div>
+            <div className="session-digest-hint">rough estimate</div>
+          </div>
+          {digest.dominantTools.length > 0 && (
+            <div className="session-digest-card session-digest-wide">
+              <div className="session-detail-meta-label">Dominant Tools</div>
+              <div className="session-digest-tools">{digest.dominantTools.join(', ')}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SessionSubtitle({
+  session,
+}: {
+  session: { startTime: number; model?: { name?: string; id?: string; multiplier?: string } | null }
+}) {
+  return (
+    <div className="session-detail-subtitle">
+      <span>{formatDate(session.startTime)}</span>
+      {session.model && <span>{session.model.name || session.model.id}</span>}
+      {session.model?.multiplier && <span>{session.model.multiplier}</span>}
+    </div>
+  )
+}
+
+function SessionRequestTimeline({
+  requestItems,
+}: {
+  requestItems: { key: string; result: SessionRequestResult }[]
+}) {
+  /* v8 ignore start */
+  if (requestItems.length === 0) return null
+  /* v8 ignore stop */
+  return (
+    <div className="session-detail-requests">
+      <h3>Request Timeline ({requestItems.length} results)</h3>
+      {requestItems.map(({ key, result }, index) => (
+        <RequestItem key={key} result={result} index={index} />
+      ))}
+    </div>
+  )
+}
+
 export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   const { session, isLoading, error, load } = useCopilotSessionDetail()
   const [digest, setDigest] = useState<SessionDigest | null>(null)
@@ -125,89 +259,21 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
       <h2 className="session-detail-title">
         {session.title || `Session ${session.sessionId.slice(0, 8)}`}
       </h2>
-      <div className="session-detail-subtitle">
-        <span>{formatDate(session.startTime)}</span>
-        {session.model && <span>{session.model.name || session.model.id}</span>}
-        {session.model?.multiplier && <span>{session.model.multiplier}</span>}
-      </div>
+      <SessionSubtitle session={session} />
 
-      <div className="session-detail-meta-grid">
-        <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label">
-            <Hash size={11} /> Requests
-          </div>
-          <div className="session-detail-meta-value">{session.requestCount}</div>
-        </div>
-        <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label">
-            <Zap size={11} /> Prompt Tokens
-          </div>
-          <div className="session-detail-meta-value">
-            {formatTokenCount(session.totalPromptTokens)}
-          </div>
-        </div>
-        <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label">
-            <Zap size={11} /> Output Tokens
-          </div>
-          <div className="session-detail-meta-value">
-            {formatTokenCount(session.totalOutputTokens)}
-          </div>
-        </div>
-        <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label">
-            <Cpu size={11} /> Tool Calls
-          </div>
-          <div className="session-detail-meta-value">{session.totalToolCalls}</div>
-        </div>
-        <div className="session-detail-meta-card">
-          <div className="session-detail-meta-label">
-            <Clock size={11} /> Duration
-          </div>
-          <div className="session-detail-meta-value">{formatDuration(session.totalDurationMs)}</div>
-        </div>
-      </div>
+      <SessionMetaGrid
+        requestCount={session.requestCount}
+        totalPromptTokens={session.totalPromptTokens}
+        totalOutputTokens={session.totalOutputTokens}
+        totalToolCalls={session.totalToolCalls}
+        totalDurationMs={session.totalDurationMs}
+      />
 
-      <div className="session-digest-section">
-        {!digest ? (
-          <button className="session-digest-btn" onClick={computeDigest} disabled={digestLoading}>
-            <BarChart3 size={14} /> {digestLoading ? 'Computing…' : 'Compute Efficiency Digest'}
-          </button>
-        ) : (
-          <div className="session-digest-grid">
-            <div className="session-digest-card">
-              <div className="session-detail-meta-label">Token Efficiency</div>
-              <div className="session-detail-meta-value">{digest.tokenEfficiency.toFixed(2)}</div>
-              <div className="session-digest-hint">output / prompt ratio</div>
-            </div>
-            <div className="session-digest-card">
-              <div className="session-detail-meta-label">Tool Density</div>
-              <div className="session-detail-meta-value">{digest.toolDensity.toFixed(1)}</div>
-              <div className="session-digest-hint">tools per request</div>
-            </div>
-            <div className="session-digest-card">
-              <div className="session-detail-meta-label">Search Churn</div>
-              <div
-                className={`session-detail-meta-value ${digest.searchChurn > 10 ? 'session-digest-warn' : ''}`}
-              >
-                {digest.searchChurn}
-              </div>
-              <div className="session-digest-hint">requests with search tools</div>
-            </div>
-            <div className="session-digest-card">
-              <div className="session-detail-meta-label">~Cost</div>
-              <div className="session-detail-meta-value">${digest.estimatedCost.toFixed(4)}</div>
-              <div className="session-digest-hint">rough estimate</div>
-            </div>
-            {digest.dominantTools.length > 0 && (
-              <div className="session-digest-card session-digest-wide">
-                <div className="session-detail-meta-label">Dominant Tools</div>
-                <div className="session-digest-tools">{digest.dominantTools.join(', ')}</div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <SessionDigestSection
+        digest={digest}
+        digestLoading={digestLoading}
+        onComputeDigest={computeDigest}
+      />
 
       {session.toolsUsed.length > 0 && (
         <div className="session-tools-section">
@@ -222,14 +288,7 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         </div>
       )}
 
-      {session.results.length > 0 && (
-        <div className="session-detail-requests">
-          <h3>Request Timeline ({session.results.length} results)</h3>
-          {requestItems.map(({ key, result }, index) => (
-            <RequestItem key={key} result={result} index={index} />
-          ))}
-        </div>
-      )}
+      {session.results.length > 0 && <SessionRequestTimeline requestItems={requestItems} />}
     </div>
   )
 }

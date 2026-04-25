@@ -5,8 +5,7 @@ import { useCopilotSettings, useGitHubAccounts } from '../hooks/useConfig'
 import { AccountPicker } from './shared/AccountPicker'
 import { ModelPicker } from './shared/ModelPicker'
 import { PremiumUsageBadge } from './shared/PremiumUsageBadge'
-import { InlineDropdown } from './InlineDropdown'
-import type { DropdownOption } from './InlineDropdown'
+import { InlineDropdown, type DropdownOption } from './InlineDropdown'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { getStatusEmoji } from './shared/statusDisplay'
 import { getErrorMessage } from '../utils/errorUtils'
@@ -32,6 +31,125 @@ interface CopilotPromptState {
   error: string | null
   localAccount: string
   localModel: string
+}
+
+function RecentResults({
+  results,
+  onOpenResult,
+}: {
+  results: NonNullable<ReturnType<typeof useCopilotResultsRecent>>
+  onOpenResult?: (resultId: string) => void
+}) {
+  return (
+    <div className="copilot-recent-results">
+      <div className="copilot-recent-header">
+        <History size={14} />
+        <span>Recent</span>
+      </div>
+      <div className="copilot-recent-list">
+        {results.map(r => (
+          <div
+            key={r._id}
+            className="copilot-recent-item"
+            onClick={() => onOpenResult?.(r._id)}
+            title={r.prompt}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onOpenResult?.(r._id)
+              }
+            }}
+          >
+            <span className="copilot-recent-status">{getStatusEmoji(r.status)}</span>
+            <span className="copilot-recent-prompt">
+              {r.prompt.length > 80 ? r.prompt.slice(0, 80) + '...' : r.prompt}
+            </span>
+            <span className="copilot-recent-time">{formatDistanceToNow(r.createdAt)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PromptInputArea({
+  state,
+  setState,
+  submitting,
+  textareaRef,
+  handleSubmit,
+  handleKeyDown,
+  localAccount,
+  localModel,
+  category,
+  autoDetectedRef,
+}: {
+  state: CopilotPromptState
+  setState: React.Dispatch<React.SetStateAction<CopilotPromptState>>
+  submitting: boolean
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  handleSubmit: () => void
+  handleKeyDown: (e: React.KeyboardEvent) => void
+  localAccount: string
+  localModel: string
+  category: string
+  autoDetectedRef: React.MutableRefObject<boolean>
+}) {
+  return (
+    <div className="copilot-prompt-input-area">
+      <textarea
+        ref={textareaRef}
+        className="copilot-prompt-textarea"
+        value={state.prompt}
+        onChange={e => setState(previousState => ({ ...previousState, prompt: e.target.value }))}
+        onKeyDown={handleKeyDown}
+        placeholder={`Ask Copilot anything... (${modLabel}+Enter to send)`}
+        rows={3}
+        disabled={submitting}
+      />
+      <div className="copilot-prompt-controls">
+        <div className="copilot-prompt-selectors">
+          <AccountPicker
+            value={localAccount}
+            onChange={val => {
+              autoDetectedRef.current = false
+              setState(previousState => ({ ...previousState, localAccount: val }))
+            }}
+            disabled={submitting}
+            title="GitHub account for Copilot"
+          />
+          {localAccount && <PremiumUsageBadge username={localAccount} />}
+          <ModelPicker
+            value={localModel}
+            onChange={val => setState(previousState => ({ ...previousState, localModel: val }))}
+            ghAccount={localAccount}
+            disabled={submitting}
+            title="Copilot model"
+            className="copilot-model-dropdown"
+          />
+        </div>
+        <div className="copilot-prompt-actions">
+          <InlineDropdown
+            value={category}
+            options={CATEGORY_OPTIONS}
+            onChange={val => setState(previousState => ({ ...previousState, category: val }))}
+            disabled={submitting}
+            align="right"
+          />
+          <button
+            className="copilot-prompt-submit"
+            onClick={handleSubmit}
+            disabled={!state.prompt.trim() || submitting}
+            title={`Send prompt (${modLabel}+Enter)`}
+          >
+            {submitting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
@@ -199,114 +317,24 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       </div>
 
       {/* Prompt input area */}
-      <div className="copilot-prompt-input-area">
-        <textarea
-          ref={textareaRef}
-          className="copilot-prompt-textarea"
-          value={prompt}
-          onChange={e =>
-            setState(previousState => ({
-              ...previousState,
-              prompt: e.target.value,
-            }))
-          }
-          onKeyDown={handleKeyDown}
-          placeholder={`Ask Copilot anything... (${modLabel}+Enter to send)`}
-          rows={3}
-          disabled={submitting}
-        />
-        <div className="copilot-prompt-controls">
-          <div className="copilot-prompt-selectors">
-            {/* Account selector */}
-            <AccountPicker
-              value={localAccount}
-              onChange={val => {
-                autoDetectedRef.current = false
-                setState(previousState => ({
-                  ...previousState,
-                  localAccount: val,
-                }))
-              }}
-              disabled={submitting}
-              title="GitHub account for Copilot"
-            />
-            {localAccount && <PremiumUsageBadge username={localAccount} />}
-
-            {/* Model selector */}
-            <ModelPicker
-              value={localModel}
-              onChange={val =>
-                setState(previousState => ({
-                  ...previousState,
-                  localModel: val,
-                }))
-              }
-              ghAccount={localAccount}
-              disabled={submitting}
-              title="Copilot model"
-              className="copilot-model-dropdown"
-            />
-          </div>
-          <div className="copilot-prompt-actions">
-            {/* Category selector */}
-            <InlineDropdown
-              value={category}
-              options={CATEGORY_OPTIONS}
-              onChange={val =>
-                setState(previousState => ({
-                  ...previousState,
-                  category: val,
-                }))
-              }
-              disabled={submitting}
-              align="right"
-            />
-            <button
-              className="copilot-prompt-submit"
-              onClick={handleSubmit}
-              disabled={!prompt.trim() || submitting}
-              title={`Send prompt (${modLabel}+Enter)`}
-            >
-              {submitting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-            </button>
-          </div>
-        </div>
-      </div>
+      <PromptInputArea
+        state={state}
+        setState={setState}
+        submitting={submitting}
+        textareaRef={textareaRef}
+        handleSubmit={handleSubmit}
+        handleKeyDown={handleKeyDown}
+        localAccount={localAccount}
+        localModel={localModel}
+        category={category}
+        autoDetectedRef={autoDetectedRef}
+      />
 
       {error && <div className="copilot-prompt-error">{error}</div>}
 
       {/* Recent results */}
       {recentResults && recentResults.length > 0 && (
-        <div className="copilot-recent-results">
-          <div className="copilot-recent-header">
-            <History size={14} />
-            <span>Recent</span>
-          </div>
-          <div className="copilot-recent-list">
-            {recentResults.map(r => (
-              <div
-                key={r._id}
-                className="copilot-recent-item"
-                onClick={() => onOpenResult?.(r._id)}
-                title={r.prompt}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onOpenResult?.(r._id)
-                  }
-                }}
-              >
-                <span className="copilot-recent-status">{getStatusEmoji(r.status)}</span>
-                <span className="copilot-recent-prompt">
-                  {r.prompt.length > 80 ? r.prompt.slice(0, 80) + '...' : r.prompt}
-                </span>
-                <span className="copilot-recent-time">{formatDistanceToNow(r.createdAt)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <RecentResults results={recentResults} onOpenResult={onOpenResult} />
       )}
     </div>
   )

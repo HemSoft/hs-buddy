@@ -1183,10 +1183,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to fetch counts for acme/my-repo:',
-      expect.any(Error)
-    )
+    expect(consoleSpy).toHaveBeenCalledWith('[RepoCounts] acme/my-repo failed:', expect.any(Error))
     consoleSpy.mockRestore()
   })
 

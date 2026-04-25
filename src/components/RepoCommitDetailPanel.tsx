@@ -13,6 +13,81 @@ interface RepoCommitDetailPanelProps {
   sha: string
 }
 
+function CommitIdentityCard({ detail }: { detail: RepoCommitDetail }) {
+  return (
+    <div className="repo-detail-card repo-commit-detail-card">
+      <div className="repo-detail-card-header">
+        <GitCommit size={16} />
+        <h3>Commit</h3>
+      </div>
+      <div className="repo-commit-detail-identity">
+        {detail.authorAvatarUrl && (
+          <img
+            src={detail.authorAvatarUrl}
+            alt={detail.author}
+            className="repo-commit-detail-avatar"
+          />
+        )}
+        <div>
+          <div className="repo-commit-detail-author">{detail.author}</div>
+          <div className="repo-commit-detail-dates">
+            Authored {formatDistanceToNow(detail.authoredDate)}
+          </div>
+        </div>
+      </div>
+      {detail.message !== detail.messageHeadline && (
+        <pre className="repo-commit-message-body">{detail.message}</pre>
+      )}
+    </div>
+  )
+}
+
+function ChangeStatsCard({ detail }: { detail: RepoCommitDetail }) {
+  return (
+    <div className="repo-detail-card repo-commit-detail-card">
+      <div className="repo-detail-card-header">
+        <FileCode2 size={16} />
+        <h3>Change Summary</h3>
+      </div>
+      <div className="repo-commit-stats-grid">
+        <div className="repo-commit-stat-box">
+          <span className="repo-commit-stat-label">Files</span>
+          <span className="repo-commit-stat-value">{detail.files.length}</span>
+        </div>
+        <div className="repo-commit-stat-box repo-commit-stat-box-added">
+          <span className="repo-commit-stat-label">Additions</span>
+          <span className="repo-commit-stat-value">+{detail.stats.additions}</span>
+        </div>
+        <div className="repo-commit-stat-box repo-commit-stat-box-removed">
+          <span className="repo-commit-stat-label">Deletions</span>
+          <span className="repo-commit-stat-value">-{detail.stats.deletions}</span>
+        </div>
+        <div className="repo-commit-stat-box">
+          <span className="repo-commit-stat-label">Total</span>
+          <span className="repo-commit-stat-value">{detail.stats.total}</span>
+        </div>
+      </div>
+      {detail.parents.length > 0 && (
+        <div className="repo-commit-parents">
+          <div className="repo-commit-parents-title">
+            <GitMerge size={14} />
+            Parents
+          </div>
+          {detail.parents.map(parent => (
+            <button
+              key={parent.sha}
+              className="repo-commit-parent-link"
+              onClick={() => window.shell?.openExternal(parent.url)}
+            >
+              {parent.sha.slice(0, 7)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPanelProps) {
   const {
     data: detail,
@@ -84,72 +159,8 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
       {loading && detail && <InlineRefreshIndicator message="Refreshing commit details..." />}
 
       <div className="repo-commit-detail-summary-grid">
-        <div className="repo-detail-card repo-commit-detail-card">
-          <div className="repo-detail-card-header">
-            <GitCommit size={16} />
-            <h3>Commit</h3>
-          </div>
-          <div className="repo-commit-detail-identity">
-            {detail.authorAvatarUrl && (
-              <img
-                src={detail.authorAvatarUrl}
-                alt={detail.author}
-                className="repo-commit-detail-avatar"
-              />
-            )}
-            <div>
-              <div className="repo-commit-detail-author">{detail.author}</div>
-              <div className="repo-commit-detail-dates">
-                Authored {formatDistanceToNow(detail.authoredDate)}
-              </div>
-            </div>
-          </div>
-          {detail.message !== detail.messageHeadline && (
-            <pre className="repo-commit-message-body">{detail.message}</pre>
-          )}
-        </div>
-
-        <div className="repo-detail-card repo-commit-detail-card">
-          <div className="repo-detail-card-header">
-            <FileCode2 size={16} />
-            <h3>Change Summary</h3>
-          </div>
-          <div className="repo-commit-stats-grid">
-            <div className="repo-commit-stat-box">
-              <span className="repo-commit-stat-label">Files</span>
-              <span className="repo-commit-stat-value">{detail.files.length}</span>
-            </div>
-            <div className="repo-commit-stat-box repo-commit-stat-box-added">
-              <span className="repo-commit-stat-label">Additions</span>
-              <span className="repo-commit-stat-value">+{detail.stats.additions}</span>
-            </div>
-            <div className="repo-commit-stat-box repo-commit-stat-box-removed">
-              <span className="repo-commit-stat-label">Deletions</span>
-              <span className="repo-commit-stat-value">-{detail.stats.deletions}</span>
-            </div>
-            <div className="repo-commit-stat-box">
-              <span className="repo-commit-stat-label">Total</span>
-              <span className="repo-commit-stat-value">{detail.stats.total}</span>
-            </div>
-          </div>
-          {detail.parents.length > 0 && (
-            <div className="repo-commit-parents">
-              <div className="repo-commit-parents-title">
-                <GitMerge size={14} />
-                Parents
-              </div>
-              {detail.parents.map(parent => (
-                <button
-                  key={parent.sha}
-                  className="repo-commit-parent-link"
-                  onClick={() => window.shell?.openExternal(parent.url)}
-                >
-                  {parent.sha.slice(0, 7)}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <CommitIdentityCard detail={detail} />
+        <ChangeStatsCard detail={detail} />
       </div>
 
       <ExpandableFileList files={detail.files} resetKey={sha} />

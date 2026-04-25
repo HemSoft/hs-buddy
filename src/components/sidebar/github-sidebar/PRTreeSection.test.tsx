@@ -27,17 +27,22 @@ const basePr: PullRequest = {
   org: 'relias-engineering',
 }
 
-function renderSection(options?: {
-  expandedPrGroups?: Set<string>
-  expandedPRNodes?: Set<string>
-  counts?: Record<string, number>
-  badgeProgress?: Record<string, { progress: number; color: string; tooltip: string }>
-  newCounts?: Record<string, number>
-  newUrls?: Set<string>
-  refreshIndicators?: RefreshIndicators
-  selectedItem?: string | null
-  prTreeData?: Record<string, PullRequest[]>
-}) {
+function createDefaultOptions() {
+  return {
+    expandedPrGroups: new Set<string>(),
+    expandedPRNodes: new Set<string>(),
+    counts: { [baseItem.id]: 2 } as Record<string, number>,
+    badgeProgress: {} as Record<string, { progress: number; color: string; tooltip: string }>,
+    newCounts: undefined as Record<string, number> | undefined,
+    newUrls: undefined as Set<string> | undefined,
+    refreshIndicators: undefined as RefreshIndicators | undefined,
+    selectedItem: null as string | null,
+    prTreeData: { [baseItem.id]: [basePr] } as Record<string, PullRequest[]>,
+  }
+}
+
+function renderSection(overrides?: Partial<ReturnType<typeof createDefaultOptions>>) {
+  const opts = { ...createDefaultOptions(), ...overrides }
   const onItemSelect = vi.fn()
   const onTogglePRGroup = vi.fn()
   const onTogglePRNode = vi.fn()
@@ -46,15 +51,15 @@ function renderSection(options?: {
   render(
     <PRTreeSection
       prItems={[baseItem]}
-      prTreeData={options?.prTreeData ?? { [baseItem.id]: [basePr] }}
-      expandedPrGroups={options?.expandedPrGroups ?? new Set()}
-      expandedPRNodes={options?.expandedPRNodes ?? new Set()}
-      counts={options?.counts ?? { [baseItem.id]: 2 }}
-      badgeProgress={options?.badgeProgress ?? {}}
-      newCounts={options?.newCounts}
-      newUrls={options?.newUrls}
-      refreshIndicators={options?.refreshIndicators}
-      selectedItem={options?.selectedItem ?? null}
+      prTreeData={opts.prTreeData}
+      expandedPrGroups={opts.expandedPrGroups}
+      expandedPRNodes={opts.expandedPRNodes}
+      counts={opts.counts}
+      badgeProgress={opts.badgeProgress}
+      newCounts={opts.newCounts}
+      newUrls={opts.newUrls}
+      refreshIndicators={opts.refreshIndicators}
+      selectedItem={opts.selectedItem}
       onItemSelect={onItemSelect}
       onTogglePRGroup={onTogglePRGroup}
       onTogglePRNode={onTogglePRNode}

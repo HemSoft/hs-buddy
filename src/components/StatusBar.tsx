@@ -9,8 +9,8 @@ import {
   RefreshCw,
   CheckCircle2,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
 import { formatTime } from '../utils/dateUtils'
 import './StatusBar.css'
@@ -61,6 +61,55 @@ interface StatusBarProps {
   backgroundStatus?: BackgroundStatus
   onNavigate?: (viewId: string) => void
   assistantActive?: boolean
+}
+
+function buildSyncingTooltip(status: BackgroundStatus): string {
+  const label = status.activeLabel || 'GitHub data'
+  const suffix = status.activeTasks > 1 ? ` — ${status.activeTasks} tasks remaining` : ''
+  return `Syncing ${label}${suffix}`
+}
+
+function buildSyncingLabel(status: BackgroundStatus): string {
+  const label = status.activeLabel || 'Syncing'
+  return status.activeTasks > 1 ? `${status.activeTasks} remaining · ${label}...` : `${label}...`
+}
+
+function buildIdleTooltip(status: BackgroundStatus): string {
+  const last = status.lastRefreshedLabel || 'never'
+  const next = status.nextRefreshLabel || '—'
+  return `Last updated ${last} · Next refresh in ${next}`
+}
+
+function BackgroundSyncStatus({ backgroundStatus }: { backgroundStatus: BackgroundStatus }) {
+  if (backgroundStatus.phase === 'syncing') {
+    return (
+      <div
+        className="status-item status-item-syncing"
+        data-tooltip={buildSyncingTooltip(backgroundStatus)}
+      >
+        <span className="status-icon spinning">
+          <RefreshCw size={12} />
+        </span>
+        <span className="status-text">{buildSyncingLabel(backgroundStatus)}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="status-item status-item-sync-idle"
+      data-tooltip={buildIdleTooltip(backgroundStatus)}
+    >
+      <span className="status-icon">
+        <CheckCircle2 size={12} />
+      </span>
+      <span className="status-text">
+        {backgroundStatus.nextRefreshLabel
+          ? `Next sync ${backgroundStatus.nextRefreshLabel}`
+          : 'Auto-refresh active'}
+      </span>
+    </div>
+  )
 }
 
 export function StatusBar({
@@ -134,35 +183,7 @@ export function StatusBar({
         {backgroundStatus && (
           <>
             <div className="status-divider" />
-            {backgroundStatus.phase === 'syncing' ? (
-              <div
-                className="status-item status-item-syncing"
-                data-tooltip={`Syncing ${backgroundStatus.activeLabel || 'GitHub data'}${backgroundStatus.activeTasks > 1 ? ` — ${backgroundStatus.activeTasks} tasks remaining` : ''}`}
-              >
-                <span className="status-icon spinning">
-                  <RefreshCw size={12} />
-                </span>
-                <span className="status-text">
-                  {backgroundStatus.activeTasks > 1
-                    ? `${backgroundStatus.activeTasks} remaining · ${backgroundStatus.activeLabel || 'Syncing'}...`
-                    : `${backgroundStatus.activeLabel || 'Syncing'}...`}
-                </span>
-              </div>
-            ) : (
-              <div
-                className="status-item status-item-sync-idle"
-                data-tooltip={`Last updated ${backgroundStatus.lastRefreshedLabel || 'never'} · Next refresh in ${backgroundStatus.nextRefreshLabel || '—'}`}
-              >
-                <span className="status-icon">
-                  <CheckCircle2 size={12} />
-                </span>
-                <span className="status-text">
-                  {backgroundStatus.nextRefreshLabel
-                    ? `Next sync ${backgroundStatus.nextRefreshLabel}`
-                    : 'Auto-refresh active'}
-                </span>
-              </div>
-            )}
+            <BackgroundSyncStatus backgroundStatus={backgroundStatus} />
           </>
         )}
       </div>

@@ -14,8 +14,7 @@ import {
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { SectionHeading, StatCard, CardHeader, CardActionBar } from './DashboardPrimitives'
-import { useWeather } from '../../hooks/useWeather'
-import type { ForecastDay } from '../../hooks/useWeather'
+import { useWeather, type ForecastDay } from '../../hooks/useWeather'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useExpandCollapse } from '../../hooks/useExpandCollapse'
 import './WeatherCard.css'
@@ -42,6 +41,140 @@ function ForecastRow({ day }: { day: ForecastDay }) {
         <span className="weather-forecast-low">{day.low}°</span>
       </span>
     </div>
+  )
+}
+
+function WeatherExpandedContent({
+  data,
+  loading,
+  error,
+  searchQuery,
+  onSearchQueryChange,
+  onSearch,
+  autoRefresh,
+  onUseMyLocation,
+}: {
+  data: ReturnType<typeof useWeather>['data']
+  loading: boolean
+  error: string | null
+  searchQuery: string
+  onSearchQueryChange: (query: string) => void
+  onSearch: () => void
+  autoRefresh: ReturnType<typeof useAutoRefresh>
+  onUseMyLocation: () => void
+}) {
+  return (
+    <>
+      <div className="weather-search">
+        <div className="weather-search-input-group">
+          <Search size={14} className="weather-search-icon" />
+          <input
+            type="text"
+            className="weather-search-input"
+            placeholder="City, state or zip code…"
+            value={searchQuery}
+            onChange={e => onSearchQueryChange(e.target.value)}
+            onKeyDown={e => {
+              /* v8 ignore start */
+              if (e.key === 'Enter') onSearch()
+              /* v8 ignore stop */
+            }}
+            aria-label="Search location"
+          />
+        </div>
+        <button
+          type="button"
+          className="welcome-usage-btn"
+          onClick={onSearch}
+          disabled={loading || !searchQuery.trim()}
+          title="Search location"
+        >
+          <span>Go</span>
+        </button>
+      </div>
+
+      {loading && !data && (
+        <div className="weather-loading">
+          <RefreshCw size={16} className="spin" />
+          <span>Fetching weather…</span>
+        </div>
+      )}
+
+      {error && !data && (
+        <div className="weather-error">
+          <span>{error}</span>
+        </div>
+      )}
+
+      {data && (
+        <>
+          <div className="weather-current">
+            <div className="weather-temp-group">
+              <div className="weather-icon-large">{weatherIcon(data.weatherCode)}</div>
+              <span className="weather-temp-value">
+                {`${data.temperature}${data.temperatureUnit}`}
+              </span>
+            </div>
+            <span className="weather-description">{data.description}</span>
+          </div>
+
+          <div className="weather-stats-grid">
+            <StatCard
+              icon={<Thermometer size={18} />}
+              value={`${data.high}° / ${data.low}°`}
+              label="High / Low"
+              cardClassName="weather-stat-card"
+              iconClassName="welcome-stat-icon-weather"
+            />
+            <StatCard
+              icon={<Droplets size={18} />}
+              value={`${data.humidity}%`}
+              label="Humidity"
+              cardClassName="weather-stat-card"
+              iconClassName="welcome-stat-icon-weather"
+            />
+            <StatCard
+              icon={<Wind size={18} />}
+              value={`${data.windSpeed} mph`}
+              label="Wind"
+              cardClassName="weather-stat-card"
+              iconClassName="welcome-stat-icon-weather"
+            />
+          </div>
+
+          {data.forecast && data.forecast.length > 0 && (
+            <div className="weather-forecast">
+              <span className="weather-forecast-label">3-Day Forecast</span>
+              <div className="weather-forecast-list">
+                {data.forecast.map(day => (
+                  <ForecastRow key={day.date} day={day} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <CardActionBar
+        onRefresh={autoRefresh.refresh}
+        loading={loading}
+        refreshTitle="Refresh weather data"
+        selectedInterval={autoRefresh.selectedValue}
+        onIntervalChange={autoRefresh.setInterval}
+        lastRefreshedLabel={autoRefresh.lastRefreshedLabel}
+        nextRefreshLabel={autoRefresh.nextRefreshLabel}
+      >
+        <button
+          type="button"
+          className="welcome-usage-btn"
+          onClick={onUseMyLocation}
+          title="Use my current location"
+        >
+          <MapPin size={14} />
+          <span>Use My Location</span>
+        </button>
+      </CardActionBar>
+    </>
   )
 }
 
@@ -89,117 +222,16 @@ export function WeatherCard() {
 
       {/* Expanded content */}
       {expanded && (
-        <>
-          <div className="weather-search">
-            <div className="weather-search-input-group">
-              <Search size={14} className="weather-search-icon" />
-              <input
-                type="text"
-                className="weather-search-input"
-                placeholder="City, state or zip code…"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => {
-                  /* v8 ignore start */
-                  if (e.key === 'Enter') handleSearch()
-                  /* v8 ignore stop */
-                }}
-                aria-label="Search location"
-              />
-            </div>
-            <button
-              type="button"
-              className="welcome-usage-btn"
-              onClick={handleSearch}
-              disabled={loading || !searchQuery.trim()}
-              title="Search location"
-            >
-              <span>Go</span>
-            </button>
-          </div>
-
-          {loading && !data && (
-            <div className="weather-loading">
-              <RefreshCw size={16} className="spin" />
-              <span>Fetching weather…</span>
-            </div>
-          )}
-
-          {error && !data && (
-            <div className="weather-error">
-              <span>{error}</span>
-            </div>
-          )}
-
-          {data && (
-            <>
-              <div className="weather-current">
-                <div className="weather-temp-group">
-                  <div className="weather-icon-large">{weatherIcon(data.weatherCode)}</div>
-                  <span className="weather-temp-value">
-                    {`${data.temperature}${data.temperatureUnit}`}
-                  </span>
-                </div>
-                <span className="weather-description">{data.description}</span>
-              </div>
-
-              <div className="weather-stats-grid">
-                <StatCard
-                  icon={<Thermometer size={18} />}
-                  value={`${data.high}° / ${data.low}°`}
-                  label="High / Low"
-                  cardClassName="weather-stat-card"
-                  iconClassName="welcome-stat-icon-weather"
-                />
-                <StatCard
-                  icon={<Droplets size={18} />}
-                  value={`${data.humidity}%`}
-                  label="Humidity"
-                  cardClassName="weather-stat-card"
-                  iconClassName="welcome-stat-icon-weather"
-                />
-                <StatCard
-                  icon={<Wind size={18} />}
-                  value={`${data.windSpeed} mph`}
-                  label="Wind"
-                  cardClassName="weather-stat-card"
-                  iconClassName="welcome-stat-icon-weather"
-                />
-              </div>
-
-              {data.forecast && data.forecast.length > 0 && (
-                <div className="weather-forecast">
-                  <span className="weather-forecast-label">3-Day Forecast</span>
-                  <div className="weather-forecast-list">
-                    {data.forecast.map(day => (
-                      <ForecastRow key={day.date} day={day} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          <CardActionBar
-            onRefresh={autoRefresh.refresh}
-            loading={loading}
-            refreshTitle="Refresh weather data"
-            selectedInterval={autoRefresh.selectedValue}
-            onIntervalChange={autoRefresh.setInterval}
-            lastRefreshedLabel={autoRefresh.lastRefreshedLabel}
-            nextRefreshLabel={autoRefresh.nextRefreshLabel}
-          >
-            <button
-              type="button"
-              className="welcome-usage-btn"
-              onClick={useMyLocation}
-              title="Use my current location"
-            >
-              <MapPin size={14} />
-              <span>Use My Location</span>
-            </button>
-          </CardActionBar>
-        </>
+        <WeatherExpandedContent
+          data={data}
+          loading={loading}
+          error={error}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          onSearch={handleSearch}
+          autoRefresh={autoRefresh}
+          onUseMyLocation={useMyLocation}
+        />
       )}
     </section>
   )

@@ -77,6 +77,82 @@ function getMissedOccurrences(
 }
 
 /**
+ * Compute the next future nextRunAt and persist it via the advanceNextRun mutation.
+ */
+async function advanceSchedule(
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  now: number,
+  lastRunAt?: number
+): Promise<void> {
+  const timezone = schedule.timezone ?? 'America/New_York'
+  const nextRunAt = calculateNextRunAt(schedule.cron, timezone, new Date(now))
+  await client.mutation(api.schedules.advanceNextRun, {
+    id: schedule._id as never,
+    nextRunAt,
+    ...(lastRunAt !== undefined ? { lastRunAt } : {}),
+  })
+}
+
+/**
+ * Create `missedCount` runs for a schedule via the create mutation.
+ */
+async function createCatchupRuns(
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  missedCount: number
+): Promise<void> {
+  for (let index = 0; index < missedCount; index += 1) {
+    await client.mutation(api.runs.create, {
+      jobId: schedule.jobId as never,
+      scheduleId: schedule._id as never,
+      triggeredBy: 'schedule',
+      input: schedule.params ?? undefined,
+    })
+  }
+}
+
+async function handleSkipPolicy(
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  now: number
+): Promise<{ runsCreated: number; action: string }> {
+  await advanceSchedule(client, schedule, now)
+  return { runsCreated: 0, action: 'skipped' }
+}
+
+async function handleCatchupPolicy(
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  now: number,
+  startFrom: number,
+  timezone: string
+): Promise<{ runsCreated: number; action: string }> {
+  const missed = getMissedOccurrences(schedule.cron, timezone, startFrom, now)
+  await createCatchupRuns(client, schedule, missed.length)
+  await advanceSchedule(client, schedule, now, missed.length > 0 ? now : undefined)
+  return { runsCreated: missed.length, action: `catchup (${missed.length} runs)` }
+}
+
+async function handleLastPolicy(
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  now: number,
+  startFrom: number,
+  timezone: string
+): Promise<{ runsCreated: number; action: string }> {
+  const missed = getMissedOccurrences(schedule.cron, timezone, startFrom, now, 1)
+  if (missed.length > 0) {
+    await createCatchupRuns(client, schedule, 1)
+  }
+  await advanceSchedule(client, schedule, now, missed.length > 0 ? now : undefined)
+  return {
+    runsCreated: missed.length > 0 ? 1 : 0,
+    action: missed.length > 0 ? 'last (1 run)' : 'no missed runs',
+  }
+}
+
+/**
  * Process a single schedule's missed runs based on its missedPolicy.
  */
 async function processSchedule(
@@ -93,74 +169,12 @@ async function processSchedule(
   }
 
   switch (schedule.missedPolicy) {
-    case 'skip': {
-      // Just advance nextRunAt to the next future occurrence
-      const nextRunAt = calculateNextRunAt(schedule.cron, timezone, new Date(now))
-      await client.mutation(api.schedules.advanceNextRun, {
-        id: schedule._id as never,
-        nextRunAt,
-      })
-      return { runsCreated: 0, action: 'skipped' }
-    }
-
-    case 'catchup': {
-      // Create runs for ALL missed cron intervals
-      const missed = getMissedOccurrences(schedule.cron, timezone, startFrom, now)
-
-      for (let index = 0; index < missed.length; index += 1) {
-        await client.mutation(api.runs.create, {
-          jobId: schedule.jobId as never,
-          scheduleId: schedule._id as never,
-          triggeredBy: 'schedule',
-          input: schedule.params ?? undefined,
-        })
-      }
-
-      // Advance nextRunAt to next future occurrence
-      const nextRunAt = calculateNextRunAt(schedule.cron, timezone, new Date(now))
-      await client.mutation(api.schedules.advanceNextRun, {
-        id: schedule._id as never,
-        nextRunAt,
-        lastRunAt: missed.length > 0 ? now : undefined,
-      })
-
-      return { runsCreated: missed.length, action: `catchup (${missed.length} runs)` }
-    }
-
-    case 'last': {
-      // Check if there were any missed occurrences at all
-      const missed = getMissedOccurrences(
-        schedule.cron,
-        timezone,
-        startFrom,
-        now,
-        1 // We only need to know if at least one was missed
-      )
-
-      if (missed.length > 0) {
-        // Create a single run covering all missed intervals
-        await client.mutation(api.runs.create, {
-          jobId: schedule.jobId as never,
-          scheduleId: schedule._id as never,
-          triggeredBy: 'schedule',
-          input: schedule.params ?? undefined,
-        })
-      }
-
-      // Advance nextRunAt to next future occurrence
-      const nextRunAt = calculateNextRunAt(schedule.cron, timezone, new Date(now))
-      await client.mutation(api.schedules.advanceNextRun, {
-        id: schedule._id as never,
-        nextRunAt,
-        lastRunAt: missed.length > 0 ? now : undefined,
-      })
-
-      return {
-        runsCreated: missed.length > 0 ? 1 : 0,
-        action: missed.length > 0 ? 'last (1 run)' : 'no missed runs',
-      }
-    }
-
+    case 'skip':
+      return handleSkipPolicy(client, schedule, now)
+    case 'catchup':
+      return handleCatchupPolicy(client, schedule, now, startFrom, timezone)
+    case 'last':
+      return handleLastPolicy(client, schedule, now, startFrom, timezone)
     default:
       return { runsCreated: 0, action: 'unknown-policy' }
   }

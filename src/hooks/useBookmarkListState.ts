@@ -2,6 +2,42 @@ import { useReducer, useMemo, useCallback, type DragEvent } from 'react'
 import { useBookmarks, useBookmarkMutations, useBookmarkCategories } from './useConvex'
 import type { Id } from '../../convex/_generated/dataModel'
 
+function extractUrlFromDataTransfer(data: DataTransfer): string | null {
+  const uri = data.getData('text/uri-list')
+  if (uri) {
+    const found =
+      /* v8 ignore start */
+      uri
+        /* v8 ignore stop */
+        .split('\n')
+        .find(l => !l.startsWith('#'))
+        ?.trim() ?? null
+    /* v8 ignore start */
+    if (found) return found
+    /* v8 ignore stop */
+  }
+  const text = data.getData('text/plain')?.trim()
+  /* v8 ignore start */
+  if (text) {
+    /* v8 ignore stop */
+    try {
+      const parsed = new URL(text)
+      if (['http:', 'https:'].includes(parsed.protocol)) return text
+    } catch {
+      /* not a valid URL */
+    }
+  }
+  return null
+}
+
+function extractTitleFromHtml(html: string, url: string): string | null {
+  if (!html) return null
+  const anchorMatch = html.match(/<a[^>]*>([^<]+)<\/a>/i)
+  const linkText = anchorMatch?.[1]?.trim()
+  if (linkText && linkText !== url && !linkText.startsWith('http')) return linkText
+  return null
+}
+
 export type Bookmark = {
   _id: Id<'bookmarks'>
   url: string
@@ -43,19 +79,11 @@ type BookmarkListAction =
   | { type: 'clear-delete' }
   | { type: 'set-drag-over'; active: boolean }
 
-function bookmarkListReducer(
+function handleDialogAction(
   state: BookmarkListState,
   action: BookmarkListAction
-): BookmarkListState {
+): BookmarkListState | null {
   switch (action.type) {
-    case 'set-search':
-      return { ...state, searchQuery: action.query }
-    case 'set-category':
-      return { ...state, selectedCategory: action.category }
-    case 'set-tag':
-      return { ...state, selectedTag: action.tag }
-    case 'clear-filters':
-      return { ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }
     case 'open-add':
       return {
         ...state,
@@ -82,17 +110,57 @@ function bookmarkListReducer(
         droppedUrl: null,
         droppedTitle: null,
       }
+    default:
+      return null
+  }
+}
+
+function handleDeleteAction(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState | null {
+  switch (action.type) {
     case 'set-delete-target':
       return { ...state, deleteTarget: action.bookmark }
     case 'set-delete-error':
       return { ...state, deleteError: action.error }
     case 'clear-delete':
       return { ...state, deleteTarget: null, deleteError: null }
+    default:
+      return null
+  }
+}
+
+function handleFilterAction(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState | null {
+  switch (action.type) {
+    case 'set-search':
+      return { ...state, searchQuery: action.query }
+    case 'set-category':
+      return { ...state, selectedCategory: action.category }
+    case 'set-tag':
+      return { ...state, selectedTag: action.tag }
+    case 'clear-filters':
+      return { ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }
     case 'set-drag-over':
       return { ...state, dragOver: action.active }
     default:
-      return state
+      return null
   }
+}
+
+function bookmarkListReducer(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState {
+  return (
+    handleFilterAction(state, action) ??
+    handleDialogAction(state, action) ??
+    handleDeleteAction(state, action) ??
+    state
+  )
 }
 
 export function useBookmarkListState(filterCategory?: string) {
@@ -166,42 +234,9 @@ export function useBookmarkListState(filterCategory?: string) {
 
   const extractDropData = useCallback(
     (data: DataTransfer): { url: string; title: string | null } | null => {
-      let url: string | null = null
-      const uri = data.getData('text/uri-list')
-      if (uri) {
-        url =
-          /* v8 ignore start */
-          uri
-            /* v8 ignore stop */
-            .split('\n')
-            .find(l => !l.startsWith('#'))
-            ?.trim() ?? null
-      }
-      if (!url) {
-        const text = data.getData('text/plain')?.trim()
-        /* v8 ignore start */
-        if (text) {
-          /* v8 ignore stop */
-          try {
-            const parsed = new URL(text)
-            if (['http:', 'https:'].includes(parsed.protocol)) url = text
-          } catch {
-            /* not a valid URL */
-          }
-        }
-      }
+      const url = extractUrlFromDataTransfer(data)
       if (!url) return null
-
-      let title: string | null = null
-      const html = data.getData('text/html')
-      if (html) {
-        const anchorMatch = html.match(/<a[^>]*>([^<]+)<\/a>/i)
-        const linkText = anchorMatch?.[1]?.trim()
-        if (linkText && linkText !== url && !linkText.startsWith('http')) {
-          title = linkText
-        }
-      }
-
+      const title = extractTitleFromHtml(data.getData('text/html'), url)
       return { url, title }
     },
     []

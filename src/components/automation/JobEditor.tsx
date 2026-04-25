@@ -1,7 +1,6 @@
 import { useId } from 'react'
 import { X, Save, Package, Terminal, Brain, Zap, AlertCircle } from 'lucide-react'
-import { useJobEditorForm } from './job-editor/useJobEditorForm'
-import type { JobConfig } from './job-editor/useJobEditorForm'
+import { useJobEditorForm, type JobConfig } from './job-editor/useJobEditorForm'
 import { ExecConfigSection } from './job-editor/ExecConfigSection'
 import { AiConfigSection } from './job-editor/AiConfigSection'
 import { SkillConfigSection } from './job-editor/SkillConfigSection'
@@ -17,6 +16,68 @@ interface JobEditorProps {
   }
   onClose: () => void
   onSaved?: () => void
+}
+
+function getEditorTitle(
+  isEditing: boolean,
+  duplicateFrom: JobEditorProps['duplicateFrom']
+): string {
+  if (isEditing) return 'Edit Job'
+  if (duplicateFrom) return 'Duplicate Job'
+  return 'Create Job'
+}
+
+function WorkerTypeSelector({
+  workerType,
+  setWorkerType,
+  isEditing,
+  workerTypeLabelId,
+}: {
+  workerType: 'exec' | 'ai' | 'skill'
+  setWorkerType: (v: 'exec' | 'ai' | 'skill') => void
+  isEditing: boolean
+  workerTypeLabelId: string
+}) {
+  return (
+    <div className="form-group">
+      <span id={workerTypeLabelId} className="form-label">
+        Worker Type
+      </span>
+      <div className="worker-type-selector" role="group" aria-labelledby={workerTypeLabelId}>
+        <button
+          type="button"
+          className={`worker-type-btn ${workerType === 'exec' ? 'active' : ''}`}
+          onClick={() => setWorkerType('exec')}
+          disabled={isEditing}
+        >
+          <Terminal size={18} />
+          <span>Exec</span>
+          <small>Shell commands</small>
+        </button>
+        <button
+          type="button"
+          className={`worker-type-btn ${workerType === 'ai' ? 'active' : ''}`}
+          onClick={() => setWorkerType('ai')}
+          disabled={isEditing}
+        >
+          <Brain size={18} />
+          <span>AI</span>
+          <small>LLM prompts</small>
+        </button>
+        <button
+          type="button"
+          className={`worker-type-btn ${workerType === 'skill' ? 'active' : ''}`}
+          onClick={() => setWorkerType('skill')}
+          disabled={isEditing}
+        >
+          <Zap size={18} />
+          <span>Skill</span>
+          <small>Claude skills</small>
+        </button>
+      </div>
+      {isEditing && <div className="form-hint">Worker type cannot be changed after creation</div>}
+    </div>
+  )
 }
 
 export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorProps) {
@@ -99,9 +160,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
         <div className="job-editor-header">
           <div className="job-editor-title">
             <Package size={20} />
-            {/* v8 ignore start */}
-            <h2>{isEditing ? 'Edit Job' : duplicateFrom ? 'Duplicate Job' : 'Create Job'}</h2>
-            {/* v8 ignore stop */}
+            <h2>{getEditorTitle(isEditing, duplicateFrom)}</h2>
           </div>
           <button className="btn-close" onClick={onClose} title="Close">
             <X size={18} />
@@ -138,46 +197,12 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
             />
           </div>
 
-          <div className="form-group">
-            <span id={workerTypeLabelId} className="form-label">
-              Worker Type
-            </span>
-            <div className="worker-type-selector" role="group" aria-labelledby={workerTypeLabelId}>
-              <button
-                type="button"
-                className={`worker-type-btn ${workerType === 'exec' ? 'active' : ''}`}
-                onClick={() => setWorkerType('exec')}
-                disabled={isEditing}
-              >
-                <Terminal size={18} />
-                <span>Exec</span>
-                <small>Shell commands</small>
-              </button>
-              <button
-                type="button"
-                className={`worker-type-btn ${workerType === 'ai' ? 'active' : ''}`}
-                onClick={() => setWorkerType('ai')}
-                disabled={isEditing}
-              >
-                <Brain size={18} />
-                <span>AI</span>
-                <small>LLM prompts</small>
-              </button>
-              <button
-                type="button"
-                className={`worker-type-btn ${workerType === 'skill' ? 'active' : ''}`}
-                onClick={() => setWorkerType('skill')}
-                disabled={isEditing}
-              >
-                <Zap size={18} />
-                <span>Skill</span>
-                <small>Claude skills</small>
-              </button>
-            </div>
-            {isEditing && (
-              <div className="form-hint">Worker type cannot be changed after creation</div>
-            )}
-          </div>
+          <WorkerTypeSelector
+            workerType={workerType}
+            setWorkerType={setWorkerType}
+            isEditing={isEditing}
+            workerTypeLabelId={workerTypeLabelId}
+          />
 
           <div className="form-divider" />
 

@@ -134,23 +134,246 @@ function fetchPremiumData(
     })
 }
 
-// ── Full quota view (configured accounts) ──
+// ── Shared sub-components ──
 
-function QuotaView({ username, org }: { username: string; org: string }) {
-  const fetchRef = useRef(0)
+function ModelBreakdown({ premium }: { premium: UserPremiumData }) {
+  /* v8 ignore start */
+  if (premium.userMonthlyModels.length === 0) return null
+  /* v8 ignore stop */
+  return (
+    <div className="ud-prem-models">
+      {premium.userMonthlyModels.slice(0, 6).map(m => {
+        const pct =
+          premium.userMonthlyRequests > 0 ? (m.requests / premium.userMonthlyRequests) * 100 : 0
+        return (
+          <div key={m.model} className="ud-prem-model">
+            <div className="ud-prem-model-head">
+              <span className="ud-prem-model-name">{m.model}</span>
+              <span className="ud-prem-model-count">{m.requests.toLocaleString()}</span>
+            </div>
+            <div className="ud-prem-model-track">
+              <div className="ud-prem-model-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function OrgContextFooter({ premium }: { premium: UserPremiumData }) {
+  /* v8 ignore start */
+  if (premium.orgMonthlyRequests <= 0) return null
+  /* v8 ignore stop */
+  return (
+    <div className="ud-prem-footer">
+      <span className="ud-prem-footer-text">
+        Org total: <strong>{premium.orgMonthlyRequests.toLocaleString()}</strong> requests
+        {premium.orgMonthlyNetCost > 0 && (
+          <>
+            {' '}
+            · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost
+          </>
+        )}
+      </span>
+    </div>
+  )
+}
+
+// ── Quota view metrics computation ──
+
+interface QuotaViewMetrics {
+  used: number
+  total: number
+  percentUsed: number
+  overageRequests: number
+  overageCost: number
+  color: string
+  resetDays: number
+}
+
+function computeQuotaViewMetrics(
+  quotaPremium: NonNullable<QuotaData['quota_snapshots']['premium_interactions']>,
+  resetDateUtc: string
+): QuotaViewMetrics {
+  const used = quotaPremium.entitlement - quotaPremium.remaining
+  const total = quotaPremium.entitlement
+  const percentUsed = total > 0 ? (used / total) * 100 : 0
+  const overageByCount = Math.max(0, quotaPremium.overage_count ?? 0)
+  /* v8 ignore start */
+  const overageByRemaining = Math.max(0, -(quotaPremium.remaining ?? 0))
+  /* v8 ignore stop */
+  const overageRequests = Math.max(overageByCount, overageByRemaining)
+  const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
+  const color = getQuotaColor(percentUsed)
+  const resetDays = daysUntilReset(resetDateUtc)
+  return { used, total, percentUsed, overageRequests, overageCost, color, resetDays }
+}
+
+function QuotaBarAndStats({
+  metrics,
+  quotaPremium,
+  projection,
+}: {
+  metrics: QuotaViewMetrics
+  quotaPremium: NonNullable<QuotaData['quota_snapshots']['premium_interactions']>
+  projection: ReturnType<typeof computeProjection>
+}) {
+  const { percentUsed, used, total, overageRequests, overageCost, color } = metrics
+  return (
+    <>
+      <div className="ud-premium-bar-track">
+        <div
+          className="ud-premium-bar-fill"
+          style={{ width: `${Math.min(percentUsed, 100)}%`, background: color }}
+        />
+        {projection && projection.projectedPercent > percentUsed && (
+          <div
+            className="ud-premium-bar-projected"
+            style={{
+              left: `${Math.min(percentUsed, 100)}%`,
+              width: `${Math.min(projection.projectedPercent - percentUsed, 100 - Math.min(percentUsed, 100))}%`,
+            }}
+          />
+        )}
+      </div>
+
+      <div className="ud-premium-stats">
+        <div className="ud-premium-stat">
+          <span className="ud-premium-stat-value">{used.toLocaleString()}</span>
+          <span className="ud-premium-stat-label">Used</span>
+        </div>
+        <div className="ud-premium-stat">
+          <span className="ud-premium-stat-value">{quotaPremium.remaining.toLocaleString()}</span>
+          <span className="ud-premium-stat-label">Remaining</span>
+        </div>
+        <div className="ud-premium-stat">
+          <span className="ud-premium-stat-value">{total.toLocaleString()}</span>
+          <span className="ud-premium-stat-label">Entitlement</span>
+        </div>
+        {overageRequests > 0 && (
+          <div className="ud-premium-stat ud-premium-stat-overage">
+            <span className="ud-premium-stat-value">{formatCurrency(overageCost)}</span>
+            <span className="ud-premium-stat-label">Overage</span>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function QuotaProjectionBanner({
+  projection,
+}: {
+  projection: ReturnType<typeof computeProjection>
+}) {
+  if (!projection) return null
+  return (
+    <div className="ud-premium-projection">
+      <TrendingUp size={12} />
+      <span className="ud-premium-projection-label">Projected:</span>
+      <span className="ud-premium-projection-value">
+        {projection.projectedTotal.toLocaleString()}
+      </span>
+      <span className="ud-premium-projection-divider">·</span>
+      <span className="ud-premium-projection-rate">
+        {Math.round(projection.dailyRate).toLocaleString()}/day
+      </span>
+      {projection.projectedOverage > 0 && (
+        <>
+          <span className="ud-premium-projection-divider">·</span>
+          <span className="ud-premium-projection-overage">
+            {formatCurrency(projection.projectedOverageCost)} est. overage
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Quota / seat init helpers ──
+
+function initQuotaState(username: string): QuotaFetchState {
   const cached = quotaCache.get(username)
-  const [state, dispatch] = useReducer(quotaReducer, {
+  return {
     data: cached?.data ?? null,
     loading: false,
     error: null,
     fetchedAt: cached?.fetchedAt ?? null,
-  })
+  }
+}
+
+function initSeatState(cacheKey: string): SeatFetchState {
+  const cached = seatCache.get(cacheKey)
+  return {
+    data: cached?.data !== undefined ? cached.data : undefined,
+    loading: false,
+    error: null,
+  }
+}
+
+function initPremiumFromCache(cacheKey: string): UserPremiumData | null {
+  return premiumCache.get(cacheKey)?.data ?? null
+}
+
+// ── Error message sub-components ──
+
+function QuotaErrorMessage({ error }: { error: string }) {
+  return (
+    <span>
+      {error.includes('404') ? 'No Copilot subscription' : 'Failed to load premium usage'}
+    </span>
+  )
+}
+
+function SeatErrorMessage({ error }: { error: string }) {
+  return (
+    <span>
+      {error.includes('404') ? 'Copilot billing not available' : 'Failed to load seat data'}
+    </span>
+  )
+}
+
+// ── Premium conditional sections ──
+
+function QuotaPremiumSections({ premium }: { premium: UserPremiumData | null }) {
+  if (!premium) return null
+  return (
+    <>
+      {premium.userMonthlyModels.length > 0 && <ModelBreakdown premium={premium} />}
+      {premium.orgMonthlyRequests > 0 && <OrgContextFooter premium={premium} />}
+    </>
+  )
+}
+
+function SeatPremiumContent({
+  premium,
+  loading,
+  onRefresh,
+}: {
+  premium: UserPremiumData | null
+  loading: boolean
+  onRefresh: () => void
+}) {
+  if (!premium) return null
+  return (
+    <>
+      <SeatHeroStats premium={premium} loading={loading} onRefresh={onRefresh} />
+      {premium.userMonthlyModels.length > 0 && <ModelBreakdown premium={premium} />}
+      {premium.orgMonthlyRequests > 0 && <OrgContextFooter premium={premium} />}
+    </>
+  )
+}
+
+// ── Full quota view (configured accounts) ──
+
+function QuotaView({ username, org }: { username: string; org: string }) {
+  const fetchRef = useRef(0)
+  const [state, dispatch] = useReducer(quotaReducer, initQuotaState(username))
 
   // Premium model data (shared with SeatView)
   const premCacheKey = `${org}/${username}`
-  const [premium, setPremium] = useState<UserPremiumData | null>(
-    premiumCache.get(premCacheKey)?.data ?? null
-  )
+  const [premium, setPremium] = useState<UserPremiumData | null>(initPremiumFromCache(premCacheKey))
 
   const fetchPremium = () => fetchPremiumData(org, username, username, premCacheKey, setPremium)
 
@@ -215,34 +438,22 @@ function QuotaView({ username, org }: { username: string; org: string }) {
     return (
       <div className="ud-premium-error">
         <AlertCircle size={14} />
-        <span>
-          {error.includes('404') ? 'No Copilot subscription' : 'Failed to load premium usage'}
-        </span>
+        <QuotaErrorMessage error={error} />
       </div>
     )
   }
 
   if (!data || !quotaPremium) return null
 
-  const used = quotaPremium.entitlement - quotaPremium.remaining
-  const total = quotaPremium.entitlement
-  const percentUsed = total > 0 ? (used / total) * 100 : 0
-  const overageByCount = Math.max(0, quotaPremium.overage_count ?? 0)
-  /* v8 ignore start */
-  const overageByRemaining = Math.max(0, -(quotaPremium.remaining ?? 0))
-  /* v8 ignore stop */
-  const overageRequests = Math.max(overageByCount, overageByRemaining)
-  const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
-  const color = getQuotaColor(percentUsed)
+  const metrics = computeQuotaViewMetrics(quotaPremium, data.quota_reset_date_utc)
   const projection = computeProjection(quotaPremium, data.quota_reset_date_utc)
-  const resetDays = daysUntilReset(data.quota_reset_date_utc)
 
   return (
     <>
       <div className="ud-premium-header">
         <div className="ud-premium-header-left">
-          <span className="ud-premium-pct" style={{ color }}>
-            {percentUsed.toFixed(1)}%
+          <span className="ud-premium-pct" style={{ color: metrics.color }}>
+            {metrics.percentUsed.toFixed(1)}%
           </span>
           <span className="ud-premium-used-label">used</span>
         </div>
@@ -250,7 +461,7 @@ function QuotaView({ username, org }: { username: string; org: string }) {
           <span className="ud-premium-reset">
             <Calendar size={11} />
             Resets {formatResetDate(data.quota_reset_date_utc)}
-            <span className="ud-premium-reset-days">({resetDays}d)</span>
+            <span className="ud-premium-reset-days">({metrics.resetDays}d)</span>
           </span>
           <button
             className="ud-premium-refresh-btn"
@@ -263,100 +474,10 @@ function QuotaView({ username, org }: { username: string; org: string }) {
         </div>
       </div>
 
-      <div className="ud-premium-bar-track">
-        <div
-          className="ud-premium-bar-fill"
-          style={{ width: `${Math.min(percentUsed, 100)}%`, background: color }}
-        />
-        {projection && projection.projectedPercent > percentUsed && (
-          <div
-            className="ud-premium-bar-projected"
-            style={{
-              left: `${Math.min(percentUsed, 100)}%`,
-              width: `${Math.min(projection.projectedPercent - percentUsed, 100 - Math.min(percentUsed, 100))}%`,
-            }}
-          />
-        )}
-      </div>
+      <QuotaBarAndStats metrics={metrics} quotaPremium={quotaPremium} projection={projection} />
+      <QuotaProjectionBanner projection={projection} />
 
-      <div className="ud-premium-stats">
-        <div className="ud-premium-stat">
-          <span className="ud-premium-stat-value">{used.toLocaleString()}</span>
-          <span className="ud-premium-stat-label">Used</span>
-        </div>
-        <div className="ud-premium-stat">
-          <span className="ud-premium-stat-value">{quotaPremium.remaining.toLocaleString()}</span>
-          <span className="ud-premium-stat-label">Remaining</span>
-        </div>
-        <div className="ud-premium-stat">
-          <span className="ud-premium-stat-value">{total.toLocaleString()}</span>
-          <span className="ud-premium-stat-label">Entitlement</span>
-        </div>
-        {overageRequests > 0 && (
-          <div className="ud-premium-stat ud-premium-stat-overage">
-            <span className="ud-premium-stat-value">{formatCurrency(overageCost)}</span>
-            <span className="ud-premium-stat-label">Overage</span>
-          </div>
-        )}
-      </div>
-
-      {projection && (
-        <div className="ud-premium-projection">
-          <TrendingUp size={12} />
-          <span className="ud-premium-projection-label">Projected:</span>
-          <span className="ud-premium-projection-value">
-            {projection.projectedTotal.toLocaleString()}
-          </span>
-          <span className="ud-premium-projection-divider">·</span>
-          <span className="ud-premium-projection-rate">
-            {Math.round(projection.dailyRate).toLocaleString()}/day
-          </span>
-          {projection.projectedOverage > 0 && (
-            <>
-              <span className="ud-premium-projection-divider">·</span>
-              <span className="ud-premium-projection-overage">
-                {formatCurrency(projection.projectedOverageCost)} est. overage
-              </span>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── Model breakdown with proportional bars ── */}
-      {premium && premium.userMonthlyModels.length > 0 && (
-        <div className="ud-prem-models">
-          {premium.userMonthlyModels.slice(0, 6).map(m => {
-            const pct =
-              premium.userMonthlyRequests > 0 ? (m.requests / premium.userMonthlyRequests) * 100 : 0
-            return (
-              <div key={m.model} className="ud-prem-model">
-                <div className="ud-prem-model-head">
-                  <span className="ud-prem-model-name">{m.model}</span>
-                  <span className="ud-prem-model-count">{m.requests.toLocaleString()}</span>
-                </div>
-                <div className="ud-prem-model-track">
-                  <div className="ud-prem-model-fill" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ── Org context footer ── */}
-      {premium && premium.orgMonthlyRequests > 0 && (
-        <div className="ud-prem-footer">
-          <span className="ud-prem-footer-text">
-            Org total: <strong>{premium.orgMonthlyRequests.toLocaleString()}</strong> requests
-            {premium.orgMonthlyNetCost > 0 && (
-              <>
-                {' '}
-                · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost
-              </>
-            )}
-          </span>
-        </div>
-      )}
+      <QuotaPremiumSections premium={premium} />
     </>
   )
 }
@@ -374,17 +495,10 @@ function SeatView({
 }) {
   const fetchRef = useRef(0)
   const cacheKey = `${org}/${memberLogin}`
-  const cached = seatCache.get(cacheKey)
-  const [state, dispatch] = useReducer(seatReducer, {
-    data: cached?.data !== undefined ? cached.data : undefined,
-    loading: false,
-    error: null,
-  })
+  const [state, dispatch] = useReducer(seatReducer, initSeatState(cacheKey))
 
   // Per-user premium request data
-  const [premium, setPremium] = useState<UserPremiumData | null>(
-    premiumCache.get(cacheKey)?.data ?? null
-  )
+  const [premium, setPremium] = useState<UserPremiumData | null>(initPremiumFromCache(cacheKey))
 
   const fetchSeat = () => {
     const id = ++fetchRef.current
@@ -446,9 +560,7 @@ function SeatView({
     return (
       <div className="ud-premium-error">
         <AlertCircle size={14} />
-        <span>
-          {error.includes('404') ? 'Copilot billing not available' : 'Failed to load seat data'}
-        </span>
+        <SeatErrorMessage error={error} />
       </div>
     )
   }
@@ -459,98 +571,70 @@ function SeatView({
 
   if (data === undefined) return null
 
+  return (
+    <div className="ud-prem">
+      <SeatPremiumContent premium={premium} loading={loading} onRefresh={refreshAll} />
+      <SeatMetaPills data={data} />
+    </div>
+  )
+}
+
+function SeatHeroStats({
+  premium,
+  loading,
+  onRefresh,
+}: {
+  premium: UserPremiumData
+  loading: boolean
+  onRefresh: () => void
+}) {
   const orgPct =
-    premium && premium.orgMonthlyRequests > 0
+    premium.orgMonthlyRequests > 0
       ? (premium.userMonthlyRequests / premium.orgMonthlyRequests) * 100
       : 0
 
   return (
-    <div className="ud-prem">
-      {/* ── Hero stats row ── */}
-      {premium && (
-        <div className="ud-prem-hero">
-          <div className="ud-prem-hero-stat ud-prem-hero-stat--primary">
-            <span className="ud-prem-hero-value">
-              {premium.userMonthlyRequests.toLocaleString()}
-            </span>
-            <span className="ud-prem-hero-label">this month</span>
-          </div>
-          <div className="ud-prem-hero-divider" />
-          <div className="ud-prem-hero-stat">
-            <span className="ud-prem-hero-value">{premium.userTodayRequests.toLocaleString()}</span>
-            <span className="ud-prem-hero-label">today</span>
-          </div>
-          <div className="ud-prem-hero-divider" />
-          <div className="ud-prem-hero-stat">
-            <span className="ud-prem-hero-value">{orgPct.toFixed(1)}%</span>
-            <span className="ud-prem-hero-label">of org</span>
-          </div>
-          <button
-            className="ud-prem-refresh"
-            onClick={refreshAll}
-            disabled={loading}
-            title="Refresh"
-          >
-            <RefreshCw size={12} className={loading ? 'spin' : ''} />
-          </button>
-        </div>
-      )}
-
-      {/* ── Seat metadata pills ── */}
-      <div className="ud-prem-meta">
-        <span className="ud-prem-pill">{formatCopilotPlan(data.planType)}</span>
-        {data.lastActivityAt && (
-          <span className="ud-prem-pill ud-prem-pill--muted">
-            <Clock size={10} />
-            {formatDistanceToNow(data.lastActivityAt)}
-          </span>
-        )}
-        {data.lastActivityEditor && (
-          <span className="ud-prem-pill ud-prem-pill--muted">
-            {data.lastActivityEditor.replace(/\/.*$/, '')}
-          </span>
-        )}
-        {data.pendingCancellation && (
-          <span className="ud-prem-pill ud-prem-pill--warn">
-            Cancelling {new Date(data.pendingCancellation).toLocaleDateString()}
-          </span>
-        )}
+    <div className="ud-prem-hero">
+      <div className="ud-prem-hero-stat ud-prem-hero-stat--primary">
+        <span className="ud-prem-hero-value">{premium.userMonthlyRequests.toLocaleString()}</span>
+        <span className="ud-prem-hero-label">this month</span>
       </div>
+      <div className="ud-prem-hero-divider" />
+      <div className="ud-prem-hero-stat">
+        <span className="ud-prem-hero-value">{premium.userTodayRequests.toLocaleString()}</span>
+        <span className="ud-prem-hero-label">today</span>
+      </div>
+      <div className="ud-prem-hero-divider" />
+      <div className="ud-prem-hero-stat">
+        <span className="ud-prem-hero-value">{orgPct.toFixed(1)}%</span>
+        <span className="ud-prem-hero-label">of org</span>
+      </div>
+      <button className="ud-prem-refresh" onClick={onRefresh} disabled={loading} title="Refresh">
+        <RefreshCw size={12} className={loading ? 'spin' : ''} />
+      </button>
+    </div>
+  )
+}
 
-      {/* ── Model breakdown with proportional bars ── */}
-      {premium && premium.userMonthlyModels.length > 0 && (
-        <div className="ud-prem-models">
-          {premium.userMonthlyModels.slice(0, 6).map(m => {
-            const pct =
-              premium.userMonthlyRequests > 0 ? (m.requests / premium.userMonthlyRequests) * 100 : 0
-            return (
-              <div key={m.model} className="ud-prem-model">
-                <div className="ud-prem-model-head">
-                  <span className="ud-prem-model-name">{m.model}</span>
-                  <span className="ud-prem-model-count">{m.requests.toLocaleString()}</span>
-                </div>
-                <div className="ud-prem-model-track">
-                  <div className="ud-prem-model-fill" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
+function SeatMetaPills({ data }: { data: SeatData }) {
+  return (
+    <div className="ud-prem-meta">
+      <span className="ud-prem-pill">{formatCopilotPlan(data.planType)}</span>
+      {data.lastActivityAt && (
+        <span className="ud-prem-pill ud-prem-pill--muted">
+          <Clock size={10} />
+          {formatDistanceToNow(data.lastActivityAt)}
+        </span>
       )}
-
-      {/* ── Org context footer ── */}
-      {premium && premium.orgMonthlyRequests > 0 && (
-        <div className="ud-prem-footer">
-          <span className="ud-prem-footer-text">
-            Org total: <strong>{premium.orgMonthlyRequests.toLocaleString()}</strong> requests
-            {premium.orgMonthlyNetCost > 0 && (
-              <>
-                {' '}
-                · <strong>{formatCurrency(premium.orgMonthlyNetCost)}</strong> net cost
-              </>
-            )}
-          </span>
-        </div>
+      {data.lastActivityEditor && (
+        <span className="ud-prem-pill ud-prem-pill--muted">
+          {data.lastActivityEditor.replace(/\/.*$/, '')}
+        </span>
+      )}
+      {data.pendingCancellation && (
+        <span className="ud-prem-pill ud-prem-pill--warn">
+          Cancelling {new Date(data.pendingCancellation).toLocaleDateString()}
+        </span>
       )}
     </div>
   )

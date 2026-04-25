@@ -13,6 +13,188 @@ interface ScheduleDetailPanelProps {
   scheduleId: string
 }
 
+function formatTimeString(hour: string, minute: string): string {
+  return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
+}
+
+function isAllWildcard(...fields: string[]): boolean {
+  return fields.every(f => f === '*')
+}
+
+function formatSpecificDaysSchedule(dayOfWeek: string, hour: string, minute: string): string {
+  const dayNames = dayOfWeek
+    .split(',')
+    /* v8 ignore start */
+    .map(d => WEEKDAY_SHORT[Number.parseInt(d, 10)] || d)
+    /* v8 ignore stop */
+    .join(', ')
+  return `${dayNames} at ${formatTimeString(hour, minute)}`
+}
+
+interface CronPattern {
+  match: (parts: string[]) => boolean
+  format: (parts: string[]) => string
+}
+
+const CRON_PATTERNS: CronPattern[] = [
+  {
+    match: ([m, h]) => m === '*' && h === '*',
+    format: () => 'Every minute',
+  },
+  {
+    match: ([m, h, dom, mo, dow]) => m !== '*' && isAllWildcard(h, dom, mo, dow),
+    format: ([m]) => `Every hour at :${m.padStart(2, '0')}`,
+  },
+  {
+    match: ([, , dom, mo, dow]) => isAllWildcard(dom, mo, dow),
+    format: ([m, h]) => `Daily at ${formatTimeString(h, m)}`,
+  },
+  {
+    match: ([, , , , dow]) => dow === '1-5',
+    format: ([m, h]) => `Weekdays at ${formatTimeString(h, m)}`,
+  },
+  {
+    /* v8 ignore start */
+    match: ([, , dom, mo, dow]) => isAllWildcard(dom, mo) && dow !== '*',
+    format: ([m, h, , , dow]) => formatSpecificDaysSchedule(dow, h, m),
+    /* v8 ignore stop */
+  },
+]
+
+function formatCronSchedule(cron: string): string {
+  const parts = cron.split(' ')
+  if (parts.length !== 5) return cron
+  /* v8 ignore start */
+  return CRON_PATTERNS.find(p => p.match(parts))?.format(parts) ?? cron
+  /* v8 ignore stop */
+}
+
+function ScheduleRecentRuns({ runs }: { runs: ReturnType<typeof useScheduleRuns> }) {
+  return (
+    <div className="schedule-detail-section">
+      <h3>Recent Runs</h3>
+      {runs === undefined ? (
+        <div className="schedule-detail-runs-loading">Loading runs...</div>
+      ) : runs.length === 0 ? (
+        <div className="schedule-detail-runs-empty">No runs yet for this schedule.</div>
+      ) : (
+        <div className="schedule-detail-runs">
+          {runs.map(run => (
+            <div key={run._id} className="schedule-run-row">
+              <span className={`run-status ${getStatusClass(run.status)}`}>{run.status}</span>
+              <span className="run-trigger">{run.triggeredBy}</span>
+              <span className="run-time" title={new Date(run.startedAt).toLocaleString()}>
+                {formatDistanceToNow(run.startedAt)}
+              </span>
+              {run.duration !== undefined && (
+                <span className="run-duration">{formatDuration(run.duration)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ScheduleHeaderActions({
+  enabled,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  enabled: boolean
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div className="schedule-detail-actions">
+      <button className="btn-action" onClick={onToggle} title={enabled ? 'Disable' : 'Enable'}>
+        {enabled ? <Pause size={14} /> : <Play size={14} />}
+        {enabled ? 'Disable' : 'Enable'}
+      </button>
+      <button className="btn-action" onClick={onEdit} title="Edit">
+        <Edit size={14} />
+        Edit
+      </button>
+      <button className="btn-action btn-danger" onClick={onDelete} title="Delete">
+        <Trash2 size={14} />
+      </button>
+    </div>
+  )
+}
+
+function ScheduleRunStatusSection({
+  lastRunAt,
+  lastRunStatus,
+  nextRunAt,
+  enabled,
+}: {
+  lastRunAt?: number
+  lastRunStatus?: string
+  nextRunAt?: number
+  enabled: boolean
+}) {
+  return (
+    <div className="schedule-detail-section">
+      <h3>Run Status</h3>
+      <div className="schedule-detail-config">
+        <div className="config-field">
+          <span className="config-label">Last Run</span>
+          <span
+            className="config-value"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            {lastRunAt ? (
+              <>
+                {/* v8 ignore start */}
+                {lastRunStatus ? (
+                  getStatusIcon(lastRunStatus)
+                ) : (
+                  <AlertCircle size={14} className="status-icon status-none" />
+                )}
+                {/* v8 ignore stop */}
+                {formatDistanceToNow(lastRunAt)}
+              </>
+            ) : (
+              'Never'
+            )}
+          </span>
+        </div>
+        {nextRunAt && enabled && (
+          <div className="config-field">
+            <span className="config-label">Next Run</span>
+            <span className="config-value">{format(nextRunAt, 'MMM d, h:mm a')}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ScheduleJobSection({ job }: { job?: { name: string; workerType: string } | null }) {
+  return (
+    <div className="schedule-detail-section">
+      <h3>Linked Job</h3>
+      {job ? (
+        <div className="schedule-detail-config">
+          <div className="config-field">
+            <span className="config-label">Job</span>
+            <span className="config-value">{job.name}</span>
+          </div>
+          <div className="config-field">
+            <span className="config-label">Type</span>
+            <span className="config-value">{job.workerType}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="schedule-detail-no-job">Job not found (may have been deleted)</div>
+      )}
+    </div>
+  )
+}
+
 export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   const schedule = useSchedule(scheduleId as Id<'schedules'>)
   const runs = useScheduleRuns(scheduleId as Id<'schedules'>, 10)
@@ -70,41 +252,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
     }
   }
 
-  const formatCron = (cron: string): string => {
-    const parts = cron.split(' ')
-    if (parts.length !== 5) return cron
-    const [minute, hour, dayOfMonth, month, dayOfWeek] = parts
-    if (minute === '*' && hour === '*') return 'Every minute'
-    if (
-      minute !== '*' &&
-      hour === '*' &&
-      dayOfMonth === '*' &&
-      month === '*' &&
-      dayOfWeek === '*'
-    ) {
-      return `Every hour at :${minute.padStart(2, '0')}`
-    }
-    if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
-      return `Daily at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
-    }
-    if (dayOfWeek === '1-5') {
-      return `Weekdays at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
-    }
-    /* v8 ignore start */
-    if (dayOfMonth === '*' && month === '*' && dayOfWeek !== '*') {
-      /* v8 ignore stop */
-      const dayNames = dayOfWeek
-        .split(',')
-        /* v8 ignore start */
-        .map(d => WEEKDAY_SHORT[Number.parseInt(d, 10)] || d)
-        /* v8 ignore stop */
-        .join(', ')
-      return `${dayNames} at ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
-    }
-    /* v8 ignore start */
-    return cron
-    /* v8 ignore stop */
-  }
+  const formatCron = formatCronSchedule
 
   return (
     <>
@@ -124,21 +272,12 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
             </span>
           </div>
           <div className="schedule-detail-actions">
-            <button
-              className="btn-action"
-              onClick={handleToggle}
-              title={schedule.enabled ? 'Disable' : 'Enable'}
-            >
-              {schedule.enabled ? <Pause size={14} /> : <Play size={14} />}
-              {schedule.enabled ? 'Disable' : 'Enable'}
-            </button>
-            <button className="btn-action" onClick={() => setEditorOpen(true)} title="Edit">
-              <Edit size={14} />
-              Edit
-            </button>
-            <button className="btn-action btn-danger" onClick={handleDelete} title="Delete">
-              <Trash2 size={14} />
-            </button>
+            <ScheduleHeaderActions
+              enabled={schedule.enabled}
+              onToggle={handleToggle}
+              onEdit={() => setEditorOpen(true)}
+              onDelete={handleDelete}
+            />
           </div>
         </div>
 
@@ -183,81 +322,16 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
           </div>
         </div>
 
-        <div className="schedule-detail-section">
-          <h3>Linked Job</h3>
-          {schedule.job ? (
-            <div className="schedule-detail-config">
-              <div className="config-field">
-                <span className="config-label">Job</span>
-                <span className="config-value">{schedule.job.name}</span>
-              </div>
-              <div className="config-field">
-                <span className="config-label">Type</span>
-                <span className="config-value">{schedule.job.workerType}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="schedule-detail-no-job">Job not found (may have been deleted)</div>
-          )}
-        </div>
+        <ScheduleJobSection job={schedule.job} />
 
-        <div className="schedule-detail-section">
-          <h3>Run Status</h3>
-          <div className="schedule-detail-config">
-            <div className="config-field">
-              <span className="config-label">Last Run</span>
-              <span
-                className="config-value"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                {schedule.lastRunAt ? (
-                  <>
-                    {/* v8 ignore start */}
-                    {schedule.lastRunStatus ? (
-                      getStatusIcon(schedule.lastRunStatus)
-                    ) : (
-                      <AlertCircle size={14} className="status-icon status-none" />
-                    )}
-                    {/* v8 ignore stop */}
-                    {formatDistanceToNow(schedule.lastRunAt)}
-                  </>
-                ) : (
-                  'Never'
-                )}
-              </span>
-            </div>
-            {schedule.nextRunAt && schedule.enabled && (
-              <div className="config-field">
-                <span className="config-label">Next Run</span>
-                <span className="config-value">{format(schedule.nextRunAt, 'MMM d, h:mm a')}</span>
-              </div>
-            )}
-          </div>
-        </div>
+        <ScheduleRunStatusSection
+          lastRunAt={schedule.lastRunAt}
+          lastRunStatus={schedule.lastRunStatus}
+          nextRunAt={schedule.nextRunAt}
+          enabled={schedule.enabled}
+        />
 
-        <div className="schedule-detail-section">
-          <h3>Recent Runs</h3>
-          {runs === undefined ? (
-            <div className="schedule-detail-runs-loading">Loading runs...</div>
-          ) : runs.length === 0 ? (
-            <div className="schedule-detail-runs-empty">No runs yet for this schedule.</div>
-          ) : (
-            <div className="schedule-detail-runs">
-              {runs.map(run => (
-                <div key={run._id} className="schedule-run-row">
-                  <span className={`run-status ${getStatusClass(run.status)}`}>{run.status}</span>
-                  <span className="run-trigger">{run.triggeredBy}</span>
-                  <span className="run-time" title={new Date(run.startedAt).toLocaleString()}>
-                    {formatDistanceToNow(run.startedAt)}
-                  </span>
-                  {run.duration !== undefined && (
-                    <span className="run-duration">{formatDuration(run.duration)}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ScheduleRecentRuns runs={runs} />
       </div>
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </>

@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.739] - 2026-04-24
+
+### Fixed
+
+- Address 8 unresolved PR review comments
+- Address PR review comments for offlineSync and scheduleScanner
+- Add v8 ignore to getFreshCachedData for branch coverage
+- Prevent mount-time race condition in ExpandableFileList
+
+### Changed
+
+- Cover partial-week branch in buildContributionCalendar
+
+## [0.1.738] - 2026-04-24
+
+### Changed
+
+- Extract sub-components and helpers to reduce cyclomatic complexity
+- Extract helpers and sub-components to reduce cyclomatic complexity
+- Fix prettier formatting across src/
+- Reduce cyclomatic complexity to ≤10 in all functions
+- Extract sub-components in AccountQuotaCard, OrgBudgetsSection, AutomationSidebarSection
+- Reduce cyclomatic complexity to ≤10 across 15 files
+- Reduce cyclomatic complexity in remaining components
+- Extract helpers to reduce complexity and eliminate duplication
+- Reduce cyclomatic complexity across 7 files
+- Reduce cyclomatic complexity and eliminate fetch boilerplate
+- Reduce cyclomatic complexity across 5 files
+- Merge duplicate imports and remove else-after-return
+
+### Fixed
+
+- Address 4 PR review comments
+- Close coverage gaps for 100% CI thresholds
+- Close coverage gaps and remove unused exports for CI
+
 ## [0.1.737] - 2026-04-20
 
 ### Added

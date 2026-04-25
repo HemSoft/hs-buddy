@@ -23,8 +23,199 @@ import { useAppSessionStats } from './hooks/useAppSessionStats'
 import { useAppTabs, DASHBOARD_VIEW_ID } from './hooks/useAppTabs'
 import { useTerminalPanel } from './hooks/useTerminalPanel'
 import { DEFAULT_ASSISTANT_PANE_SIZE } from './appUtils'
-import { getRepoContextFromViewId } from './utils/repoContext'
+import { getRepoContextFromViewId, type RepoContext } from './utils/repoContext'
 import './App.css'
+
+function useAppCallbacks(
+  openTab: (viewId: string) => void,
+  setSelectedSection: (section: string) => void,
+  toggleTerminal: (activeViewId?: string | null) => void,
+  activeViewId: string | null,
+  addTerminalTab: (repoContext: RepoContext | null) => Promise<unknown>,
+  setPRCount: (viewId: string, count: number) => void
+) {
+  const handlePRCountChange = useCallback(
+    (viewId: string, count: number) => {
+      setPRCount(viewId, count)
+    },
+    [setPRCount]
+  )
+
+  const handleSectionSelect = useCallback(
+    (sectionId: string) => {
+      setSelectedSection(sectionId)
+      if (sectionId === 'bookmarks') {
+        openTab('bookmarks-all')
+      }
+    },
+    [openTab, setSelectedSection]
+  )
+
+  const handleItemSelect = useCallback(
+    (viewId: string) => {
+      openTab(viewId)
+    },
+    [openTab]
+  )
+
+  const handleHomeClick = useCallback(() => {
+    openTab(DASHBOARD_VIEW_ID)
+  }, [openTab])
+
+  const handleToggleTerminal = useCallback(() => {
+    toggleTerminal(activeViewId)
+  }, [toggleTerminal, activeViewId])
+
+  const handleAddTerminalTab = useCallback(() => {
+    const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
+    void addTerminalTab(repoContext)
+  }, [addTerminalTab, activeViewId])
+
+  const handleOpenFolderView = useCallback(
+    (cwd: string) => {
+      openTab(`folder-view:${encodeURIComponent(cwd)}`)
+    },
+    [openTab]
+  )
+
+  return {
+    handlePRCountChange,
+    handleSectionSelect,
+    handleItemSelect,
+    handleHomeClick,
+    handleToggleTerminal,
+    handleAddTerminalTab,
+    handleOpenFolderView,
+  }
+}
+
+function AppLoadingState() {
+  return (
+    <div
+      className="app-body"
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+        <div style={{ fontSize: '14px', marginBottom: '8px' }}>Loading...</div>
+        <div style={{ fontSize: '12px', opacity: 0.7 }}>Initializing configuration</div>
+      </div>
+    </div>
+  )
+}
+
+function AppMainContent({
+  tabs,
+  activeTabId,
+  setActiveTabId,
+  closeTab,
+  closeOtherTabs,
+  closeTabsToRight,
+  closeAllTabs,
+  onPanelResize,
+  activeViewId,
+  prCounts,
+  handleItemSelect,
+  handleSectionSelect,
+  openTab,
+  closeView,
+  handlePRCountChange,
+  terminalOpen,
+  panelHeight,
+  terminalTabs,
+  activeTerminalTabId,
+  selectTerminalTab,
+  closeTerminalTab,
+  handleAddTerminalTab,
+  renameTerminalTab,
+  setTerminalTabColor,
+  reorderTerminalTabs,
+  updateTabCwd,
+  handleOpenFolderView,
+}: Pick<
+  ReturnType<typeof useAppTabs>,
+  | 'tabs'
+  | 'activeTabId'
+  | 'setActiveTabId'
+  | 'closeTab'
+  | 'closeOtherTabs'
+  | 'closeTabsToRight'
+  | 'closeAllTabs'
+  | 'openTab'
+  | 'closeView'
+  | 'activeViewId'
+> & {
+  onPanelResize: (sizes: number[]) => void
+  prCounts: Record<string, number>
+  handleItemSelect: (itemId: string) => void
+  handleSectionSelect: (sectionId: string) => void
+  handlePRCountChange: (viewId: string, count: number) => void
+  terminalOpen: boolean
+  panelHeight: number
+  terminalTabs: ReturnType<typeof useTerminalPanel>['terminalTabs']
+  activeTerminalTabId: string | null
+  selectTerminalTab: (id: string) => void
+  closeTerminalTab: (id: string) => void
+  handleAddTerminalTab: () => void
+  renameTerminalTab: ReturnType<typeof useTerminalPanel>['renameTerminalTab']
+  setTerminalTabColor: ReturnType<typeof useTerminalPanel>['setTerminalTabColor']
+  reorderTerminalTabs: ReturnType<typeof useTerminalPanel>['reorderTerminalTabs']
+  updateTabCwd: ReturnType<typeof useTerminalPanel>['updateTabCwd']
+  handleOpenFolderView: (cwd: string) => void
+}) {
+  return (
+    <div className="main-content-wrapper">
+      <TabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onTabSelect={setActiveTabId}
+        onTabClose={closeTab}
+        onCloseOtherTabs={closeOtherTabs}
+        onCloseTabsToRight={closeTabsToRight}
+        onCloseAllTabs={closeAllTabs}
+      />
+      <Allotment vertical onChange={onPanelResize}>
+        <Allotment.Pane minSize={200}>
+          <div className="main-content">
+            <AppErrorBoundary resetKey={activeViewId}>
+              <AppContentRouter
+                activeViewId={activeViewId}
+                prCounts={prCounts}
+                onNavigate={handleItemSelect}
+                onSectionChange={handleSectionSelect}
+                onOpenTab={openTab}
+                onCloseView={closeView}
+                onPRCountChange={handlePRCountChange}
+              />
+            </AppErrorBoundary>
+          </div>
+        </Allotment.Pane>
+        <Allotment.Pane minSize={150} preferredSize={panelHeight} visible={terminalOpen}>
+          <TerminalPanel
+            tabs={terminalTabs}
+            activeTabId={activeTerminalTabId}
+            onTabSelect={selectTerminalTab}
+            onTabClose={closeTerminalTab}
+            onAddTab={handleAddTerminalTab}
+            onRenameTab={renameTerminalTab}
+            onSetTabColor={setTerminalTabColor}
+            onReorderTabs={reorderTerminalTabs}
+            onTabCwdChange={updateTabCwd}
+            onOpenFolderView={handleOpenFolderView}
+          />
+        </Allotment.Pane>
+      </Allotment>
+    </div>
+  )
+}
+
+function isAppLoading(
+  layoutLoaded: boolean,
+  terminalLoaded: boolean,
+  migrationLoading: boolean,
+  migrationComplete: boolean
+) {
+  return !layoutLoaded || !terminalLoaded || (migrationLoading && !migrationComplete)
+}
 
 function App() {
   const [selectedSection, setSelectedSection] = useState<string>('github')
@@ -76,52 +267,35 @@ function App() {
   } = useTerminalPanel(activeViewId)
   const activeGitHubAccount = useActiveGitHubAccount()
 
-  const handlePRCountChange = useCallback(
-    (viewId: string, count: number) => {
-      setPRCount(viewId, count)
-    },
-    [setPRCount]
-  )
-
-  const handleSectionSelect = useCallback(
-    (sectionId: string) => {
-      setSelectedSection(sectionId)
-      if (sectionId === 'bookmarks') {
-        openTab('bookmarks-all')
-      }
-    },
-    [openTab]
-  )
-
-  const handleItemSelect = useCallback(
-    (viewId: string) => {
-      openTab(viewId)
-    },
-    [openTab]
-  )
-
-  const handleHomeClick = useCallback(() => {
-    openTab(DASHBOARD_VIEW_ID)
-  }, [openTab])
-
-  const handleToggleTerminal = useCallback(() => {
-    toggleTerminal(activeViewId)
-  }, [toggleTerminal, activeViewId])
-
-  const handleAddTerminalTab = useCallback(() => {
-    const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
-    void addTerminalTab(repoContext)
-  }, [addTerminalTab, activeViewId])
-
-  const handleOpenFolderView = useCallback(
-    (cwd: string) => {
-      openTab(`folder-view:${encodeURIComponent(cwd)}`)
-    },
-    [openTab]
+  const {
+    handlePRCountChange,
+    handleSectionSelect,
+    handleItemSelect,
+    handleHomeClick,
+    handleToggleTerminal,
+    handleAddTerminalTab,
+    handleOpenFolderView,
+  } = useAppCallbacks(
+    openTab,
+    setSelectedSection,
+    toggleTerminal,
+    activeViewId,
+    addTerminalTab,
+    setPRCount
   )
 
   const assistantContext = useAssistantContext(activeViewId)
-  const showLoading = !layoutLoaded || !terminalLoaded || (migrationLoading && !migrationComplete)
+  const showLoading = isAppLoading(
+    layoutLoaded,
+    terminalLoaded,
+    migrationLoading,
+    migrationComplete
+  )
+  const totalPRCount = Object.values(prCounts).reduce((a, b) => a + b, 0)
+  const scheduleCount = schedules?.length ?? 0
+  const jobCount = jobs?.length ?? 0
+  const defaultSizes = assistantOpen ? paneSizes : paneSizes.slice(0, 2)
+  const assistantPaneSize = paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE
 
   return (
     <div className="app">
@@ -132,15 +306,7 @@ function App() {
         onToggleTerminal={handleToggleTerminal}
       />
       {showLoading ? (
-        <div
-          className="app-body"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-            <div style={{ fontSize: '14px', marginBottom: '8px' }}>Loading...</div>
-            <div style={{ fontSize: '12px', opacity: 0.7 }}>Initializing configuration</div>
-          </div>
-        </div>
+        <AppLoadingState />
       ) : (
         <div className="app-body">
           <ActivityBar
@@ -149,10 +315,7 @@ function App() {
             isDashboardActive={activeViewId === DASHBOARD_VIEW_ID}
             onHomeClick={handleHomeClick}
           />
-          <Allotment
-            onChange={handlePaneChange}
-            defaultSizes={assistantOpen ? paneSizes : paneSizes.slice(0, 2)}
-          >
+          <Allotment onChange={handlePaneChange} defaultSizes={defaultSizes}>
             <Allotment.Pane minSize={200}>
               <SidebarPanel
                 section={selectedSection}
@@ -163,55 +326,38 @@ function App() {
               />
             </Allotment.Pane>
             <Allotment.Pane minSize={400}>
-              <div className="main-content-wrapper">
-                <TabBar
-                  tabs={tabs}
-                  activeTabId={activeTabId}
-                  onTabSelect={setActiveTabId}
-                  onTabClose={closeTab}
-                  onCloseOtherTabs={closeOtherTabs}
-                  onCloseTabsToRight={closeTabsToRight}
-                  onCloseAllTabs={closeAllTabs}
-                />
-                <Allotment vertical onChange={onPanelResize}>
-                  <Allotment.Pane minSize={200}>
-                    <div className="main-content">
-                      <AppErrorBoundary resetKey={activeViewId}>
-                        <AppContentRouter
-                          activeViewId={activeViewId}
-                          prCounts={prCounts}
-                          onNavigate={handleItemSelect}
-                          onSectionChange={handleSectionSelect}
-                          onOpenTab={openTab}
-                          onCloseView={closeView}
-                          onPRCountChange={handlePRCountChange}
-                        />
-                      </AppErrorBoundary>
-                    </div>
-                  </Allotment.Pane>
-                  <Allotment.Pane minSize={150} preferredSize={panelHeight} visible={terminalOpen}>
-                    <TerminalPanel
-                      tabs={terminalTabs}
-                      activeTabId={activeTerminalTabId}
-                      onTabSelect={selectTerminalTab}
-                      onTabClose={closeTerminalTab}
-                      onAddTab={handleAddTerminalTab}
-                      onRenameTab={renameTerminalTab}
-                      onSetTabColor={setTerminalTabColor}
-                      onReorderTabs={reorderTerminalTabs}
-                      onTabCwdChange={updateTabCwd}
-                      onOpenFolderView={handleOpenFolderView}
-                    />
-                  </Allotment.Pane>
-                </Allotment>
-              </div>
+              <AppMainContent
+                tabs={tabs}
+                activeTabId={activeTabId}
+                setActiveTabId={setActiveTabId}
+                closeTab={closeTab}
+                closeOtherTabs={closeOtherTabs}
+                closeTabsToRight={closeTabsToRight}
+                closeAllTabs={closeAllTabs}
+                onPanelResize={onPanelResize}
+                activeViewId={activeViewId}
+                prCounts={prCounts}
+                handleItemSelect={handleItemSelect}
+                handleSectionSelect={handleSectionSelect}
+                openTab={openTab}
+                closeView={closeView}
+                handlePRCountChange={handlePRCountChange}
+                terminalOpen={terminalOpen}
+                panelHeight={panelHeight}
+                terminalTabs={terminalTabs}
+                activeTerminalTabId={activeTerminalTabId}
+                selectTerminalTab={selectTerminalTab}
+                closeTerminalTab={closeTerminalTab}
+                handleAddTerminalTab={handleAddTerminalTab}
+                renameTerminalTab={renameTerminalTab}
+                setTerminalTabColor={setTerminalTabColor}
+                reorderTerminalTabs={reorderTerminalTabs}
+                updateTabCwd={updateTabCwd}
+                handleOpenFolderView={handleOpenFolderView}
+              />
             </Allotment.Pane>
             {assistantOpen && (
-              <Allotment.Pane
-                minSize={280}
-                maxSize={600}
-                preferredSize={paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE}
-              >
+              <Allotment.Pane minSize={280} maxSize={600} preferredSize={assistantPaneSize}>
                 <AssistantPanel context={assistantContext} />
               </Allotment.Pane>
             )}
@@ -219,9 +365,9 @@ function App() {
         </div>
       )}
       <StatusBar
-        prCount={Object.values(prCounts).reduce((a, b) => a + b, 0)}
-        scheduleCount={schedules?.length ?? 0}
-        jobCount={jobs?.length ?? 0}
+        prCount={totalPRCount}
+        scheduleCount={scheduleCount}
+        jobCount={jobCount}
         activeGitHubAccount={activeGitHubAccount}
         backgroundStatus={backgroundStatus}
         onNavigate={openTab}

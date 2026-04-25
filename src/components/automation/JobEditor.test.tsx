@@ -190,6 +190,19 @@ describe('JobEditor', () => {
     expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
   })
 
+  it('renders duplicate mode heading', () => {
+    mockForm = createMockForm()
+    renderEditor({
+      duplicateFrom: {
+        name: 'Existing Job',
+        description: 'Original',
+        workerType: 'exec',
+        config: { command: 'npm test' },
+      },
+    })
+    expect(screen.getByRole('heading', { name: 'Duplicate Job' })).toBeInTheDocument()
+  })
+
   it('selects exec worker type when Exec button is clicked', () => {
     renderEditor()
     fireEvent.click(screen.getByRole('button', { name: 'Exec Shell commands' }))

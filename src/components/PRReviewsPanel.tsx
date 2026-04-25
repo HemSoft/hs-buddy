@@ -25,35 +25,75 @@ interface PRReviewsPanelProps {
   pr: PRDetailInfo
 }
 
-export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
+function getLatestStatusIcon(latest: { status: string } | null) {
+  if (!latest) return null
+  if (latest.status === 'completed')
+    return <CheckCircle2 size={14} className="pr-reviews-status completed" />
+  if (latest.status === 'failed') return <XCircle size={14} className="pr-reviews-status failed" />
+  if (latest.status === 'running')
+    return <Loader2 size={14} className="spin pr-reviews-status running" />
+  return <Clock size={14} className="pr-reviews-status pending" />
+}
+
+function ReviewRunItem({
+  run,
+  publishingRunId,
+  publishedRunIds,
+  onPublish,
+  onOpenResult,
+}: {
+  run: NonNullable<ReturnType<typeof usePRReviewRunsByPR>>[number]
+  publishingRunId: string | null
+  publishedRunIds: Set<string>
+  onPublish: (runId: string, resultId: string, model?: string) => void
+  onOpenResult: (resultId: string) => void
+}) {
+  return (
+    <div className="pr-reviews-item">
+      <div className="pr-reviews-item-main">
+        <span className={`pr-reviews-pill ${run.status}`}>{run.status}</span>
+        <span className="pr-reviews-item-time">{formatDateCompact(run.createdAt)}</span>
+        {run.reviewedHeadSha && (
+          <span className="pr-reviews-item-sha mono">{run.reviewedHeadSha.slice(0, 12)}</span>
+        )}
+      </div>
+      <div className="pr-reviews-item-actions">
+        {run.status === 'completed' && (
+          <button
+            className={`pr-reviews-icon-btn${publishedRunIds.has(run._id) ? ' published' : ''}`}
+            onClick={() => onPublish(run._id, run.resultId, run.model)}
+            disabled={!!publishingRunId || publishedRunIds.has(run._id)}
+            title={
+              publishedRunIds.has(run._id) ? 'Published to PR' : 'Publish review as PR comment'
+            }
+          >
+            {publishingRunId === run._id ? (
+              <Loader2 size={12} className="spin" />
+            ) : (
+              <MessageSquareShare size={12} />
+            )}
+          </button>
+        )}
+        <button
+          className="pr-reviews-icon-btn"
+          onClick={() => onOpenResult(run.resultId)}
+          title="Open review result"
+        >
+          <ExternalLink size={12} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function usePublishToPR(pr: PRDetailInfo) {
   const parsed = parseOwnerRepoFromUrl(pr.url)
   const owner = pr.org || parsed?.owner
   const repo = pr.repository || parsed?.repo
-
   const convex = useConvex()
   const { accounts } = useGitHubAccounts()
   const [publishingRunId, setPublishingRunId] = useState<string | null>(null)
   const [publishedRunIds, setPublishedRunIds] = useState<Set<string>>(new Set())
-
-  const runs = usePRReviewRunsByPR(owner, repo, pr.id, 25)
-
-  const hasRuns = !!runs && runs.length > 0
-  const latest = hasRuns ? runs[0] : null
-
-  const latestStatusIcon = useMemo(() => {
-    if (!latest) return null
-    if (latest.status === 'completed')
-      return <CheckCircle2 size={14} className="pr-reviews-status completed" />
-    if (latest.status === 'failed')
-      return <XCircle size={14} className="pr-reviews-status failed" />
-    if (latest.status === 'running')
-      return <Loader2 size={14} className="spin pr-reviews-status running" />
-    return <Clock size={14} className="pr-reviews-status pending" />
-  }, [latest])
-
-  const handleOpenResult = (resultId: string) => {
-    window.dispatchEvent(new CustomEvent('copilot:open-result', { detail: { resultId } }))
-  }
 
   const handlePublishToPR = async (runId: string, resultId: string, model?: string) => {
     /* v8 ignore start -- button is disabled when publishingRunId is set */
@@ -75,6 +115,23 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
     } finally {
       setPublishingRunId(null)
     }
+  }
+
+  return { owner, repo, publishingRunId, publishedRunIds, handlePublishToPR }
+}
+
+export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
+  const { owner, repo, publishingRunId, publishedRunIds, handlePublishToPR } = usePublishToPR(pr)
+
+  const runs = usePRReviewRunsByPR(owner, repo, pr.id, 25)
+
+  const hasRuns = !!runs && runs.length > 0
+  const latest = hasRuns ? runs[0] : null
+
+  const latestStatusIcon = useMemo(() => getLatestStatusIcon(latest), [latest])
+
+  const handleOpenResult = (resultId: string) => {
+    window.dispatchEvent(new CustomEvent('copilot:open-result', { detail: { resultId } }))
   }
 
   const handleReReview = () => {
@@ -148,44 +205,14 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
       ) : (
         <div className="pr-reviews-list">
           {runs.map(run => (
-            <div key={run._id} className="pr-reviews-item">
-              <div className="pr-reviews-item-main">
-                <span className={`pr-reviews-pill ${run.status}`}>{run.status}</span>
-                <span className="pr-reviews-item-time">{formatDateCompact(run.createdAt)}</span>
-                {run.reviewedHeadSha && (
-                  <span className="pr-reviews-item-sha mono">
-                    {run.reviewedHeadSha.slice(0, 12)}
-                  </span>
-                )}
-              </div>
-              <div className="pr-reviews-item-actions">
-                {run.status === 'completed' && (
-                  <button
-                    className={`pr-reviews-icon-btn${publishedRunIds.has(run._id) ? ' published' : ''}`}
-                    onClick={() => handlePublishToPR(run._id, run.resultId, run.model)}
-                    disabled={!!publishingRunId || publishedRunIds.has(run._id)}
-                    title={
-                      publishedRunIds.has(run._id)
-                        ? 'Published to PR'
-                        : 'Publish review as PR comment'
-                    }
-                  >
-                    {publishingRunId === run._id ? (
-                      <Loader2 size={12} className="spin" />
-                    ) : (
-                      <MessageSquareShare size={12} />
-                    )}
-                  </button>
-                )}
-                <button
-                  className="pr-reviews-icon-btn"
-                  onClick={() => handleOpenResult(run.resultId)}
-                  title="Open review result"
-                >
-                  <ExternalLink size={12} />
-                </button>
-              </div>
-            </div>
+            <ReviewRunItem
+              key={run._id}
+              run={run}
+              publishingRunId={publishingRunId}
+              publishedRunIds={publishedRunIds}
+              onPublish={handlePublishToPR}
+              onOpenResult={handleOpenResult}
+            />
           ))}
         </div>
       )}

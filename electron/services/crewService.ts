@@ -1,5 +1,4 @@
-import { app, BrowserWindow, dialog } from 'electron'
-import type { OpenDialogOptions } from 'electron'
+import { app, BrowserWindow, dialog, type OpenDialogOptions } from 'electron'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { execFile } from 'child_process'
@@ -137,9 +136,7 @@ async function validateFolder(folderPath: string): Promise<CrewValidationResult>
   return { valid: true, gitRoot, githubSlug: slug, defaultBranch }
 }
 
-export async function addProjectFromPicker(
-  parentWindow?: BrowserWindow | null
-): Promise<CrewAddProjectResult> {
+async function showFolderPicker(parentWindow?: BrowserWindow | null): Promise<string | null> {
   const dialogOptions: OpenDialogOptions = {
     properties: ['openDirectory'],
     title: 'Select a project folder',
@@ -151,10 +148,38 @@ export async function addProjectFromPicker(
       : await dialog.showOpenDialog(dialogOptions)
 
   if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+  return result.filePaths[0]
+}
+
+function buildNewProject(validation: {
+  gitRoot: string
+  githubSlug: string
+  defaultBranch?: string
+}): CrewProject {
+  const repoName = validation.githubSlug.split('/').pop() ?? validation.githubSlug
+  const now = Date.now()
+  return {
+    id: `crew-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    displayName: repoName,
+    localPath: validation.gitRoot,
+    gitRoot: validation.gitRoot,
+    githubSlug: validation.githubSlug,
+    defaultBranch: validation.defaultBranch ?? 'main',
+    lastOpenedAt: now,
+    lastActiveAt: now,
+  }
+}
+
+export async function addProjectFromPicker(
+  parentWindow?: BrowserWindow | null
+): Promise<CrewAddProjectResult> {
+  const folderPath = await showFolderPicker(parentWindow)
+  if (!folderPath) {
     return { success: false, error: 'Cancelled' }
   }
 
-  const folderPath = result.filePaths[0]
   const validation = await validateFolder(folderPath)
   if (!validation.valid || !validation.gitRoot || !validation.githubSlug) {
     return { success: false, error: validation.error ?? 'Validation failed' }
@@ -169,19 +194,11 @@ export async function addProjectFromPicker(
     return { success: true, project: existing }
   }
 
-  const repoName = validation.githubSlug.split('/').pop() ?? validation.githubSlug
-  const now = Date.now()
-  const project: CrewProject = {
-    id: `crew-${now}-${Math.random().toString(36).slice(2, 8)}`,
-    displayName: repoName,
-    localPath: validation.gitRoot,
+  const project = buildNewProject({
     gitRoot: validation.gitRoot,
     githubSlug: validation.githubSlug,
-    defaultBranch: validation.defaultBranch ?? 'main',
-    lastOpenedAt: now,
-    lastActiveAt: now,
-  }
-
+    defaultBranch: validation.defaultBranch,
+  })
   projects.push(project)
   writeProjects(projects)
   return { success: true, project }

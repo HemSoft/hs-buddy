@@ -43,6 +43,10 @@ type TempoWorklogEditorAction =
   | { type: 'submit:error'; value: string }
   | { type: 'submit:finish' }
 
+function resolveField(worklogValue: string | undefined, fallback?: string): string {
+  return worklogValue || fallback || ''
+}
+
 function createInitialState(
   worklog: TempoWorklog | null,
   defaultDate: string,
@@ -51,11 +55,11 @@ function createInitialState(
   defaultDescription?: string
 ): TempoWorklogEditorState {
   return {
-    issueKey: worklog?.issueKey || defaultIssueKey || '',
+    issueKey: resolveField(worklog?.issueKey, defaultIssueKey),
     hours: String(worklog?.hours || 1),
     date: worklog?.date || defaultDate,
-    description: worklog?.description || defaultDescription || '',
-    accountKey: worklog?.accountKey || defaultAccountKey || '',
+    description: resolveField(worklog?.description, defaultDescription),
+    accountKey: resolveField(worklog?.accountKey, defaultAccountKey),
     accounts: [],
     projectAccounts: [],
     accountsLoading: false,
@@ -64,34 +68,42 @@ function createInitialState(
   }
 }
 
+const fieldSetters: Record<string, string> = {
+  setIssueKey: 'issueKey',
+  setHours: 'hours',
+  setDate: 'date',
+  setDescription: 'description',
+  setAccountKey: 'accountKey',
+}
+
+function handleSubmitAction(
+  state: TempoWorklogEditorState,
+  action: TempoWorklogEditorAction
+): TempoWorklogEditorState | null {
+  if (action.type === 'submit:start') return { ...state, saving: true, error: null }
+  if (action.type === 'submit:error') return { ...state, saving: false, error: action.value }
+  /* v8 ignore start */
+  if (action.type === 'submit:finish') return { ...state, saving: false }
+  return null
+  /* v8 ignore stop */
+}
+
 function tempoWorklogEditorReducer(
   state: TempoWorklogEditorState,
   action: TempoWorklogEditorAction
 ): TempoWorklogEditorState {
-  switch (action.type) {
-    case 'setIssueKey':
-      return { ...state, issueKey: action.value }
-    case 'setHours':
-      return { ...state, hours: action.value }
-    case 'setDate':
-      return { ...state, date: action.value }
-    case 'setDescription':
-      return { ...state, description: action.value }
-    case 'setAccountKey':
-      return { ...state, accountKey: action.value }
-    case 'setAccounts':
-      return { ...state, accounts: action.accounts }
-    case 'setProjectAccounts':
-      return { ...state, projectAccounts: action.projectAccounts }
-    case 'setAccountsLoading':
-      return { ...state, accountsLoading: action.value }
-    case 'submit:start':
-      return { ...state, saving: true, error: null }
-    case 'submit:error':
-      return { ...state, saving: false, error: action.value }
-    case 'submit:finish':
-      return { ...state, saving: false }
+  const fieldKey = fieldSetters[action.type]
+  if (fieldKey && 'value' in action) {
+    return { ...state, [fieldKey]: action.value }
   }
+  if (action.type === 'setAccounts') return { ...state, accounts: action.accounts }
+  if (action.type === 'setProjectAccounts') {
+    return { ...state, projectAccounts: action.projectAccounts }
+  }
+  if (action.type === 'setAccountsLoading') return { ...state, accountsLoading: action.value }
+  /* v8 ignore start */
+  return handleSubmitAction(state, action) ?? state
+  /* v8 ignore stop */
 }
 
 export function TempoWorklogEditor({

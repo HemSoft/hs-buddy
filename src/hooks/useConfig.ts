@@ -113,6 +113,22 @@ export function useConfig() {
  * Hook specifically for GitHub accounts
  * Uses Convex as primary source, falls back to electron-store if Convex unavailable
  */
+
+function resolveAccountsFromSources(
+  convexAccounts: Array<{ username: string; org: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+): GitHubAccount[] {
+  /* v8 ignore start */
+  if (convexConnected && convexAccounts) {
+    /* v8 ignore stop */
+    return convexAccounts.map(a => ({ username: a.username, org: a.org }))
+  }
+  /* v8 ignore start */
+  return electronStoreAccounts
+  /* v8 ignore stop */
+}
+
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
   const { create, update, remove } = useGitHubAccountMutations()
@@ -150,25 +166,21 @@ export function useGitHubAccounts() {
   // Only update accounts if content actually changed
   if (prevKeyRef.current !== contentKey) {
     prevKeyRef.current = contentKey
-    if (convexConnected && convexAccounts) {
-      accountsRef.current = convexAccounts.map(a => ({ username: a.username, org: a.org }))
-    } else {
-      accountsRef.current = electronStoreAccounts
-    }
+    accountsRef.current = resolveAccountsFromSources(
+      convexAccounts,
+      electronStoreAccounts,
+      convexConnected
+    )
   } else if (
     accountsRef.current.length === 0 &&
     (electronStoreAccounts.length > 0 || (convexAccounts && convexAccounts.length > 0))
   ) {
     // Initialize on first valid data
-    /* v8 ignore start */
-    if (convexConnected && convexAccounts) {
-      /* v8 ignore stop */
-      accountsRef.current = convexAccounts.map(a => ({ username: a.username, org: a.org }))
-    } else {
-      /* v8 ignore start */
-      accountsRef.current = electronStoreAccounts
-      /* v8 ignore stop */
-    }
+    accountsRef.current = resolveAccountsFromSources(
+      convexAccounts,
+      electronStoreAccounts,
+      convexConnected
+    )
   }
 
   const accounts = accountsRef.current

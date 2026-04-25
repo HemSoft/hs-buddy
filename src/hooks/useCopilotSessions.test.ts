@@ -174,11 +174,10 @@ describe('useCopilotSessionDetail', () => {
         return new Promise(r => {
           resolveFirst = r
         })
-      } else {
-        return new Promise(r => {
-          resolveSecond = r
-        })
       }
+      return new Promise(r => {
+        resolveSecond = r
+      })
     })
 
     const { result } = renderHook(() => useCopilotSessionDetail())
@@ -213,11 +212,10 @@ describe('useCopilotSessionDetail', () => {
         return new Promise((_, r) => {
           rejectFirst = r
         })
-      } else {
-        return new Promise(r => {
-          resolveSecond = r
-        })
       }
+      return new Promise(r => {
+        resolveSecond = r
+      })
     })
 
     const { result } = renderHook(() => useCopilotSessionDetail())

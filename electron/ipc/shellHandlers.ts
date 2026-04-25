@@ -1,11 +1,161 @@
 import { BrowserWindow, ipcMain, shell, net } from 'electron'
 import path from 'node:path'
+import { lookup } from 'node:dns/promises'
 import { fileURLToPath } from 'node:url'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { recordWindowOpen } from '../telemetry'
 import { execAsync } from '../utils'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const SSRF_BLOCKED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+
+const PRIVATE_IPV4_PREFIXES = ['10.', '192.168.', '169.254.']
+
+function isPrivateIP(ip: string): boolean {
+  // Strip IPv4-mapped IPv6 prefix
+  const normalized = ip.startsWith('::ffff:') ? ip.slice(7) : ip
+
+  // IPv4 checks
+  if (normalized.includes('.')) {
+    if (normalized.startsWith('127.') || normalized === '0.0.0.0') return true
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(normalized)) return true
+    return PRIVATE_IPV4_PREFIXES.some(p => normalized.startsWith(p))
+  }
+
+  // IPv6: loopback (::1), link-local (fe80::), ULA (fc00::/7)
+  const lower = normalized.toLowerCase()
+  return (
+    lower === '::1' || lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')
+  )
+}
+
+function isInternalHostname(hostname: string): boolean {
+  return (
+    SSRF_BLOCKED_HOSTNAMES.has(hostname) ||
+    hostname.startsWith('127.') ||
+    hostname.startsWith('169.254.') ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.internal')
+  )
+}
+
+async function validateUrlWithDns(url: string): Promise<URL> {
+  const parsed = new URL(url)
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Only http/https URLs supported')
+  }
+  const hostname = parsed.hostname.toLowerCase()
+  if (isInternalHostname(hostname)) {
+    throw new Error('Internal URLs not allowed')
+  }
+
+  // Resolve hostname to IPs and reject if any resolve to private/internal ranges
+  try {
+    const result = await lookup(hostname, { all: true, verbatim: true })
+    for (const { address } of result) {
+      if (isPrivateIP(address)) {
+        throw new Error('Internal URLs not allowed')
+      }
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Internal URLs not allowed') throw err
+    // DNS resolution failure — reject to be safe
+    throw new Error(`DNS resolution failed for ${hostname}`, { cause: err })
+  }
+
+  return parsed
+}
+
+function validateUrl(url: string): URL {
+  const parsed = new URL(url)
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Only http/https URLs supported')
+  }
+  if (isInternalHostname(parsed.hostname.toLowerCase())) {
+    throw new Error('Internal URLs not allowed')
+  }
+  return parsed
+}
+
+const MAX_REDIRECTS = 5
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
+
+async function readResponseBody(response: Response): Promise<string> {
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.includes('text/html')) {
+    throw new Error('Not an HTML page')
+  }
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('No body')
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+  const MAX_BYTES = 64 * 1024
+  while (totalBytes < MAX_BYTES) {
+    const { done, value } = await reader.read()
+    if (done || !value) break
+    chunks.push(value)
+    totalBytes += value.length
+  }
+  reader.cancel()
+  return Buffer.concat(chunks).toString('utf-8')
+}
+
+async function fetchPageContent(url: string): Promise<string> {
+  let currentUrl = url
+
+  for (let i = 0; i <= MAX_REDIRECTS; i++) {
+    await validateUrlWithDns(currentUrl)
+
+    const response = await net.fetch(currentUrl, {
+      signal: AbortSignal.timeout(5000),
+      redirect: 'manual',
+      headers: { Accept: 'text/html', 'User-Agent': 'hs-buddy/1.0' },
+    })
+
+    if (REDIRECT_STATUSES.has(response.status)) {
+      const location = response.headers.get('location')
+      if (!location) throw new Error('Redirect with no Location header')
+      currentUrl = new URL(location, currentUrl).href
+      continue
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+    return readResponseBody(response)
+  }
+
+  throw new Error('Too many redirects')
+}
+
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+}
+
+function extractPageTitle(html: string): string | null {
+  const titleMatch = html.match(/<title[^>]*>([\s\S]+?)<\/title>/i)
+  const rawTitle = titleMatch?.[1]?.trim()?.replace(/\s+/g, ' ')
+  if (rawTitle) return decodeHtmlEntities(rawTitle)
+
+  const ogMatch =
+    html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ??
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)
+  if (ogMatch?.[1]) return decodeHtmlEntities(ogMatch[1].trim())
+
+  return null
+}
 
 export function registerShellHandlers(): void {
   // Open external links in default browser
@@ -33,7 +183,13 @@ export function registerShellHandlers(): void {
         minWidth: 600,
         minHeight: 400,
         title: title ?? parsed.hostname,
-        icon: path.join(__dirname, '..', '..', 'public', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
+        icon: path.join(
+          __dirname,
+          '..',
+          '..',
+          'public',
+          process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+        ),
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
@@ -75,81 +231,10 @@ export function registerShellHandlers(): void {
   // Fetch page title from a URL
   ipcMain.handle('shell:fetch-page-title', async (_event, url: string) => {
     try {
-      const parsed = new URL(url)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        return { success: false, error: 'Only http/https URLs supported' }
-      }
-
-      // Block internal/private IPs to prevent SSRF
-      const hostname = parsed.hostname.toLowerCase()
-      if (
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname === '[::1]' ||
-        hostname.startsWith('169.254.') ||
-        hostname.startsWith('10.') ||
-        hostname.startsWith('192.168.') ||
-        /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
-        hostname.endsWith('.local') ||
-        hostname.endsWith('.internal')
-      ) {
-        return { success: false, error: 'Internal URLs not allowed' }
-      }
-
-      const response = await net.fetch(url, {
-        signal: AbortSignal.timeout(5000),
-        redirect: 'follow',
-        headers: { Accept: 'text/html', 'User-Agent': 'hs-buddy/1.0' },
-      })
-      if (!response.ok) {
-        return { success: false, error: `HTTP ${response.status}` }
-      }
-
-      // Only parse HTML responses
-      const contentType = response.headers.get('content-type') ?? ''
-      if (!contentType.includes('text/html')) {
-        return { success: false, error: 'Not an HTML page' }
-      }
-
-      // Read up to 64 KB — titles are always in <head>
-      const reader = response.body?.getReader()
-      if (!reader) return { success: false, error: 'No body' }
-      const chunks: Uint8Array[] = []
-      let totalBytes = 0
-      const MAX_BYTES = 64 * 1024
-      while (totalBytes < MAX_BYTES) {
-        const { done, value } = await reader.read()
-        if (done || !value) break
-        chunks.push(value)
-        totalBytes += value.length
-      }
-      reader.cancel()
-      const text = Buffer.concat(chunks).toString('utf-8')
-
-      const decodeEntities = (s: string): string =>
-        s
-          .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
-          .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&apos;/g, "'")
-          .replace(/&nbsp;/g, ' ')
-
-      // Try <title> tag (supports multiline)
-      const titleMatch = text.match(/<title[^>]*>([\s\S]+?)<\/title>/i)
-      const rawTitle = titleMatch?.[1]?.trim()?.replace(/\s+/g, ' ')
-      if (rawTitle) {
-        return { success: true, title: decodeEntities(rawTitle) }
-      }
-      // Fallback: og:title
-      const ogMatch =
-        text.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ??
-        text.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)
-      if (ogMatch?.[1]) {
-        return { success: true, title: decodeEntities(ogMatch[1].trim()) }
-      }
+      validateUrl(url)
+      const html = await fetchPageContent(url)
+      const title = extractPageTitle(html)
+      if (title) return { success: true, title }
       return { success: false, error: 'No title found' }
     } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }
@@ -176,10 +261,10 @@ export function registerShellHandlers(): void {
         stdout = result.stdout
       } else {
         // Linux — try fc-list
-        const result = await execAsync(
-          'fc-list --format="%{family[0]}\\n" | sort -u',
-          { encoding: 'utf8', timeout: 10000 }
-        )
+        const result = await execAsync('fc-list --format="%{family[0]}\\n" | sort -u', {
+          encoding: 'utf8',
+          timeout: 10000,
+        })
         stdout = result.stdout
       }
       const fonts = stdout

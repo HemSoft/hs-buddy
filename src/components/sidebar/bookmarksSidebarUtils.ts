@@ -15,46 +15,42 @@ export interface CategoryNode {
   children: CategoryNode[]
 }
 
-export function buildCategoryTree(
-  categories: string[],
-  counts: Record<string, number>
-): CategoryNode[] {
-  const root: CategoryNode[] = []
-  const nodeMap = new Map<string, CategoryNode>()
+function ensurePathExists(
+  parts: string[],
+  nodeMap: Map<string, CategoryNode>,
+  root: CategoryNode[]
+): void {
+  let currentPath = ''
+  for (let i = 0; i < parts.length; i++) {
+    const parentPath = currentPath
+    currentPath = i === 0 ? parts[i] : `${currentPath}/${parts[i]}`
 
-  // Sort so parents are processed before children
-  const sorted = [...categories].sort()
+    if (nodeMap.has(currentPath)) continue
 
-  for (const cat of sorted) {
-    const parts = cat.split('/')
-    let currentPath = ''
-
-    for (let i = 0; i < parts.length; i++) {
-      const parentPath = currentPath
-      currentPath = i === 0 ? parts[i] : `${currentPath}/${parts[i]}`
-
-      if (!nodeMap.has(currentPath)) {
-        const node: CategoryNode = {
-          name: parts[i],
-          fullPath: currentPath,
-          directCount: 0,
-          totalCount: 0,
-          children: [],
-        }
-        nodeMap.set(currentPath, node)
-
-        if (parentPath && nodeMap.has(parentPath)) {
-          nodeMap.get(parentPath)!.children.push(node)
-          /* v8 ignore start */
-        } else if (!parentPath) {
-          root.push(node)
-        }
-        /* v8 ignore stop */
-      }
+    const node: CategoryNode = {
+      name: parts[i],
+      fullPath: currentPath,
+      directCount: 0,
+      totalCount: 0,
+      children: [],
     }
-  }
+    nodeMap.set(currentPath, node)
 
-  // Assign direct counts and roll up totals
+    if (parentPath && nodeMap.has(parentPath)) {
+      nodeMap.get(parentPath)!.children.push(node)
+      /* v8 ignore start */
+    } else if (!parentPath) {
+      root.push(node)
+    }
+    /* v8 ignore stop */
+  }
+}
+
+function rollUpCounts(
+  sorted: string[],
+  counts: Record<string, number>,
+  nodeMap: Map<string, CategoryNode>
+): void {
   for (const cat of sorted) {
     const directCount = counts[cat] ?? 0
     const node = nodeMap.get(cat)
@@ -63,7 +59,6 @@ export function buildCategoryTree(
       node.directCount = directCount
     }
     /* v8 ignore stop */
-    // Add to all ancestors
     const parts = cat.split('/')
     let path = ''
     for (let i = 0; i < parts.length; i++) {
@@ -76,6 +71,22 @@ export function buildCategoryTree(
       /* v8 ignore stop */
     }
   }
+}
+
+export function buildCategoryTree(
+  categories: string[],
+  counts: Record<string, number>
+): CategoryNode[] {
+  const root: CategoryNode[] = []
+  const nodeMap = new Map<string, CategoryNode>()
+
+  const sorted = [...categories].sort()
+
+  for (const cat of sorted) {
+    ensurePathExists(cat.split('/'), nodeMap, root)
+  }
+
+  rollUpCounts(sorted, counts, nodeMap)
 
   return root
 }

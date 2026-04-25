@@ -1,5 +1,4 @@
-import { useEffect } from 'react'
-import type { RefObject } from 'react'
+import { useEffect, type RefObject } from 'react'
 
 export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement | null>) {
   useEffect(() => {

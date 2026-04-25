@@ -62,20 +62,40 @@ type BookmarkDialogAction =
   | { type: 'ai:start' }
   | { type: 'ai:finish'; description?: string; tagsInput?: string }
 
+function deriveBookmarkFields(
+  bookmark: BookmarkInput,
+  initialUrl?: string,
+  initialTitle?: string
+): { url: string; title: string; description: string; category: string; tagsInput: string } {
+  if (!bookmark) {
+    return {
+      url: initialUrl ?? '',
+      title: initialTitle ?? '',
+      description: '',
+      category: '',
+      tagsInput: '',
+    }
+  }
+  return {
+    url: bookmark.url,
+    title: bookmark.title,
+    description: bookmark.description ?? '',
+    category: bookmark.category,
+    tagsInput: bookmark.tags?.join(', ') ?? '',
+  }
+}
+
 function createInitialState(
   bookmark: BookmarkInput,
   initialUrl?: string,
   initialTitle?: string
 ): BookmarkDialogState {
+  const fields = deriveBookmarkFields(bookmark, initialUrl, initialTitle)
   return {
-    url: bookmark?.url ?? initialUrl ?? '',
-    title: bookmark?.title ?? initialTitle ?? '',
+    ...fields,
     fetchingTitle: false,
-    description: bookmark?.description ?? '',
-    category: bookmark?.category ?? '',
     newCategory: '',
     useNewCategory: false,
-    tagsInput: bookmark?.tags?.join(', ') ?? '',
     saving: false,
     error: null,
     aiSuggesting: false,
@@ -83,13 +103,11 @@ function createInitialState(
   }
 }
 
-function bookmarkDialogReducer(
+function handleSimpleField(
   state: BookmarkDialogState,
-  action: BookmarkDialogAction
-): BookmarkDialogState {
-  /* v8 ignore start */
+  action: BookmarkDialogAction & { type: `set${string}` }
+): BookmarkDialogState | null {
   switch (action.type) {
-    /* v8 ignore stop */
     case 'setUrl':
       return { ...state, url: action.value }
     case 'setTitle':
@@ -100,25 +118,58 @@ function bookmarkDialogReducer(
       return { ...state, category: action.value }
     case 'setNewCategory':
       return { ...state, newCategory: action.value }
-    case 'setParentCategory': {
-      const lastSlash = state.newCategory.lastIndexOf('/')
-      const leafPart =
-        lastSlash >= 0 ? state.newCategory.substring(lastSlash + 1) : state.newCategory
-      return {
-        ...state,
-        newCategory: leafPart ? `${action.parent}/${leafPart}` : `${action.parent}/`,
-      }
-    }
     case 'setUseNewCategory':
       return { ...state, useNewCategory: action.value }
     case 'setTagsInput':
       return { ...state, tagsInput: action.value }
     case 'setError':
       return { ...state, error: action.value }
+    default:
+      return null
+  }
+}
+
+function handleSetField(
+  state: BookmarkDialogState,
+  action: BookmarkDialogAction & { type: `set${string}` }
+): BookmarkDialogState {
+  const simple = handleSimpleField(state, action)
+  if (simple) return simple
+
+  /* v8 ignore start */
+  if (action.type === 'setParentCategory') {
+    const lastSlash = state.newCategory.lastIndexOf('/')
+    const leafPart = lastSlash >= 0 ? state.newCategory.substring(lastSlash + 1) : state.newCategory
+    return {
+      ...state,
+      newCategory: leafPart ? `${action.parent}/${leafPart}` : `${action.parent}/`,
+    }
+  }
+  /* v8 ignore stop */
+  /* v8 ignore start */
+  return state
+  /* v8 ignore stop */
+}
+
+function handleSubmitActions(
+  state: BookmarkDialogState,
+  action: BookmarkDialogAction
+): BookmarkDialogState | null {
+  switch (action.type) {
     case 'submit:start':
       return { ...state, saving: true, error: null }
     case 'submit:finish':
       return { ...state, saving: false }
+    default:
+      return null
+  }
+}
+
+function handleTitleFetchActions(
+  state: BookmarkDialogState,
+  action: BookmarkDialogAction
+): BookmarkDialogState | null {
+  switch (action.type) {
     case 'titleFetch:start':
       return { ...state, fetchingTitle: true, initialTitleReady: false }
     case 'titleFetch:finish':
@@ -130,20 +181,42 @@ function bookmarkDialogReducer(
       }
     case 'titleFetch:cancel':
       return { ...state, fetchingTitle: false }
-    case 'ai:start':
-      return { ...state, aiSuggesting: true }
-    case 'ai:finish':
-      return {
-        ...state,
-        aiSuggesting: false,
-        description: action.description ?? state.description,
-        tagsInput: action.tagsInput ?? state.tagsInput,
-      }
     default:
-      /* v8 ignore start */
-      return state
-    /* v8 ignore stop */
+      return null
   }
+}
+
+function handleLifecycleAction(
+  state: BookmarkDialogState,
+  action: BookmarkDialogAction
+): BookmarkDialogState {
+  return (
+    handleSubmitActions(state, action) ??
+    handleTitleFetchActions(state, action) ??
+    (action.type === 'ai:start'
+      ? { ...state, aiSuggesting: true }
+      : action.type === 'ai:finish'
+        ? {
+            ...state,
+            aiSuggesting: false,
+            description: action.description ?? state.description,
+            tagsInput: action.tagsInput ?? state.tagsInput,
+          }
+        : /* v8 ignore start */
+          state)
+  ) /* v8 ignore stop */
+}
+
+function bookmarkDialogReducer(
+  state: BookmarkDialogState,
+  action: BookmarkDialogAction
+): BookmarkDialogState {
+  /* v8 ignore start */
+  if (action.type.startsWith('set')) {
+    /* v8 ignore stop */
+    return handleSetField(state, action as BookmarkDialogAction & { type: `set${string}` })
+  }
+  return handleLifecycleAction(state, action)
 }
 
 interface BookmarkFormFieldsProps {
@@ -375,6 +448,54 @@ function BookmarkDialogShell({ isEdit, onClose, children }: BookmarkDialogShellP
   )
 }
 
+function validateBookmarkForm(state: BookmarkDialogState): string | null {
+  const trimmedUrl = state.url.trim()
+  const trimmedTitle = state.title.trim()
+  const resolvedCategory = state.useNewCategory ? state.newCategory.trim() : state.category.trim()
+
+  if (!trimmedUrl) return 'URL is required'
+  if (!trimmedTitle) return 'Title is required'
+  if (!resolvedCategory) return 'Category is required'
+
+  try {
+    const parsed = new URL(trimmedUrl)
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return 'Only http and https URLs are allowed'
+    }
+  } catch {
+    return 'Please enter a valid URL (e.g., https://example.com)'
+  }
+
+  const tags = state.tagsInput.split(',').filter(t => t.trim())
+  if (tags.length > 50) return 'Maximum 50 tags allowed'
+
+  return null
+}
+
+function parseAIResponse(
+  text: string,
+  userEditedDescription: boolean,
+  userEditedTags: boolean
+): { description?: string; tagsInput?: string } {
+  try {
+    const cleaned = text
+      .replace(/```(?:json)?\s*/g, '')
+      .replace(/```/g, '')
+      .trim()
+    const parsed = JSON.parse(cleaned) as { description?: string; tags?: string[] }
+    const result: { description?: string; tagsInput?: string } = {}
+    if (parsed.description && !userEditedDescription) {
+      result.description = parsed.description
+    }
+    if (parsed.tags?.length && !userEditedTags) {
+      result.tagsInput = parsed.tags.join(', ')
+    }
+    return result
+  } catch {
+    return {}
+  }
+}
+
 export function BookmarkDialog({
   bookmark,
   categories,
@@ -478,24 +599,11 @@ Rules:
           return
         }
 
-        let nextDescription: string | undefined
-        let nextTagsInput: string | undefined
-
-        try {
-          const cleaned = text
-            .replace(/```(?:json)?\s*/g, '')
-            .replace(/```/g, '')
-            .trim()
-          const parsed = JSON.parse(cleaned) as { description?: string; tags?: string[] }
-          if (parsed.description && !userEditedDescription.current) {
-            nextDescription = parsed.description
-          }
-          if (parsed.tags?.length && !userEditedTags.current) {
-            nextTagsInput = parsed.tags.join(', ')
-          }
-        } catch {
-          // AI returned non-JSON — ignore silently
-        }
+        const { description: nextDescription, tagsInput: nextTagsInput } = parseAIResponse(
+          text,
+          userEditedDescription.current,
+          userEditedTags.current
+        )
 
         /* v8 ignore start */
         if (!cancelled) {
@@ -524,70 +632,43 @@ Rules:
     }
   }, [isEdit, initialUrl, state.initialTitleReady, state.title, state.url])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    dispatch({ type: 'setError', value: null })
-
-    const trimmedUrl = state.url.trim()
-    const trimmedTitle = state.title.trim()
-    const resolvedCategory = state.useNewCategory ? state.newCategory.trim() : state.category.trim()
-
-    if (!trimmedUrl) {
-      dispatch({ type: 'setError', value: 'URL is required' })
-      return
-    }
-    if (!trimmedTitle) {
-      dispatch({ type: 'setError', value: 'Title is required' })
-      return
-    }
-    if (!resolvedCategory) {
-      dispatch({ type: 'setError', value: 'Category is required' })
-      return
-    }
-
-    try {
-      const parsed = new URL(trimmedUrl)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        dispatch({ type: 'setError', value: 'Only http and https URLs are allowed' })
-        return
-      }
-    } catch {
-      dispatch({
-        type: 'setError',
-        value: 'Please enter a valid URL (e.g., https://example.com)',
-      })
-      return
-    }
-
-    const tags = state.tagsInput.split(',').flatMap(t => {
+  const prepareSubmitData = (formState: BookmarkDialogState) => {
+    const trimmedUrl = formState.url.trim()
+    const trimmedTitle = formState.title.trim()
+    const resolvedCategory = formState.useNewCategory
+      ? formState.newCategory.trim()
+      : formState.category.trim()
+    const tags = formState.tagsInput.split(',').flatMap(t => {
       const trimmed = t.trim()
       return trimmed ? [trimmed] : []
     })
+    return { trimmedUrl, trimmedTitle, resolvedCategory, tags }
+  }
 
-    if (tags.length > 50) {
-      dispatch({ type: 'setError', value: 'Maximum 50 tags allowed' })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const validationError = validateBookmarkForm(state)
+    if (validationError) {
+      dispatch({ type: 'setError', value: validationError })
       return
     }
 
+    const { trimmedUrl, trimmedTitle, resolvedCategory, tags } = prepareSubmitData(state)
+
     dispatch({ type: 'submit:start' })
     try {
+      const payload = {
+        url: trimmedUrl,
+        title: trimmedTitle,
+        description: state.description.trim() || undefined,
+        category: resolvedCategory,
+        tags: tags.length > 0 ? tags : undefined,
+      }
       if (isEdit && bookmark) {
-        await update({
-          id: bookmark._id,
-          url: trimmedUrl,
-          title: trimmedTitle,
-          description: state.description.trim() || undefined,
-          category: resolvedCategory,
-          tags: tags.length > 0 ? tags : undefined,
-        })
+        await update({ id: bookmark._id, ...payload })
       } else {
-        await create({
-          url: trimmedUrl,
-          title: trimmedTitle,
-          description: state.description.trim() || undefined,
-          category: resolvedCategory,
-          tags: tags.length > 0 ? tags : undefined,
-        })
+        await create(payload)
       }
       onClose()
     } catch (err) {

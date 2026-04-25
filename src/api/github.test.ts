@@ -2009,6 +2009,20 @@ describe('GitHubClient', () => {
         vi.useRealTimers()
       }
     })
+
+    it('produces a partial last week when total days is not divisible by 7', async () => {
+      // Pick a Wednesday so the partial-week remainder is non-zero regardless of timezone offset
+      vi.useFakeTimers({ now: new Date('2026-04-22T12:00:00Z') })
+      try {
+        const { buildContributionCalendar } = await import('./github')
+        const result = buildContributionCalendar([])
+        const lastWeek = result.weeks[result.weeks.length - 1]
+        expect(lastWeek.contributionDays.length).toBeGreaterThan(0)
+        expect(lastWeek.contributionDays.length).toBeLessThan(7)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   describe('computeQuartiles', () => {

@@ -69,6 +69,145 @@ function threadReducer(state: ThreadState, action: ThreadAction): ThreadState {
   }
 }
 
+function ThreadReplyForm({
+  replyText,
+  sending,
+  textareaRef,
+  dispatch,
+  handleSendReply,
+}: {
+  replyText: string
+  sending: boolean
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  dispatch: React.Dispatch<ThreadAction>
+  handleSendReply: () => void
+}) {
+  return (
+    <div className="thread-reply-form">
+      <textarea
+        ref={textareaRef}
+        className="thread-reply-input"
+        placeholder="Write a reply..."
+        value={replyText}
+        onChange={e => dispatch({ type: 'set_reply_text', text: e.target.value })}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault()
+            handleSendReply()
+          }
+          if (e.key === 'Escape') {
+            dispatch({ type: 'cancel_reply' })
+          }
+        }}
+        rows={3}
+        disabled={sending}
+      />
+      <div className="thread-reply-buttons">
+        <span className="thread-reply-hint">{modLabel}+Enter to send - Esc to cancel</span>
+        <button
+          className="thread-reply-cancel"
+          onClick={() => dispatch({ type: 'cancel_reply' })}
+          disabled={sending}
+        >
+          Cancel
+        </button>
+        <button
+          className="thread-reply-send"
+          onClick={handleSendReply}
+          disabled={!replyText.trim() || sending}
+        >
+          {sending ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
+          Reply
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ThreadActionRow({
+  thread,
+  resolving,
+  dispatch,
+  handleResolveToggle,
+}: {
+  thread: PRReviewThread
+  resolving: boolean
+  dispatch: React.Dispatch<ThreadAction>
+  handleResolveToggle: () => void
+}) {
+  const resolveIcon = resolving ? (
+    <Loader2 size={13} className="spin" />
+  ) : thread.isResolved ? (
+    <RotateCcw size={13} />
+  ) : (
+    <Check size={13} />
+  )
+
+  return (
+    <div className="thread-action-row">
+      <button className="thread-reply-btn" onClick={() => dispatch({ type: 'start_reply' })}>
+        <MessageSquarePlus size={13} />
+        Reply
+      </button>
+      <button
+        className={`thread-resolve-btn ${thread.isResolved ? 'unresolve' : 'resolve'}`}
+        onClick={handleResolveToggle}
+        disabled={resolving}
+        title={thread.isResolved ? 'Unresolve conversation' : 'Resolve conversation'}
+      >
+        {resolveIcon}
+        {thread.isResolved ? 'Unresolve' : 'Resolve conversation'}
+      </button>
+    </div>
+  )
+}
+
+function ThreadHeaderBadges({ thread }: { thread: PRReviewThread }) {
+  return (
+    <div className="review-thread-header-right">
+      <span className="review-thread-comment-count">
+        <MessageCircle size={11} />
+        {thread.comments.length}
+      </span>
+      {thread.isResolved && (
+        <span className="review-thread-badge resolved">
+          <CheckCircle2 size={10} />
+          Resolved
+        </span>
+      )}
+      {thread.isOutdated && (
+        <span className="review-thread-badge outdated">
+          <Clock size={10} />
+          Outdated
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ThreadPathGroup({ thread }: { thread: PRReviewThread }) {
+  return (
+    <div className="review-thread-path-group">
+      <span className="review-thread-path">{thread.path || 'General review comment'}</span>
+      {thread.line != null && (
+        <span className="review-thread-line-label">
+          {thread.startLine != null && thread.startLine !== thread.line
+            ? `Comment on lines ${thread.startLine} to ${thread.line}`
+            : `Comment on line ${thread.line}`}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function useThreadDerivedState(thread: PRReviewThread) {
+  const firstComment = thread.comments[0]
+  const remainingComments = thread.comments.slice(1)
+  const diffHunk = firstComment?.diffHunk
+  const statusClass = thread.isResolved ? 'resolved' : thread.isOutdated ? 'outdated' : 'active'
+  return { firstComment, remainingComments, diffHunk, statusClass }
+}
+
 export function ReviewThreadCard({
   thread,
   pr,
@@ -94,11 +233,8 @@ export function ReviewThreadCard({
   const { enqueue } = useTaskQueue('github')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const firstComment = thread.comments[0]
-  const remainingComments = thread.comments.slice(1)
+  const { firstComment, remainingComments, diffHunk, statusClass } = useThreadDerivedState(thread)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const diffHunk = firstComment?.diffHunk
-  const statusClass = thread.isResolved ? 'resolved' : thread.isOutdated ? 'outdated' : 'active'
 
   const handleSendReply = useCallback(async () => {
     if (!replyText.trim() || !ownerRepo || sending) return
@@ -181,34 +317,8 @@ export function ReviewThreadCard({
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </span>
         <FileCode size={13} className="review-thread-file-icon" />
-        <div className="review-thread-path-group">
-          <span className="review-thread-path">{thread.path || 'General review comment'}</span>
-          {thread.line != null && (
-            <span className="review-thread-line-label">
-              {thread.startLine != null && thread.startLine !== thread.line
-                ? `Comment on lines ${thread.startLine} to ${thread.line}`
-                : `Comment on line ${thread.line}`}
-            </span>
-          )}
-        </div>
-        <div className="review-thread-header-right">
-          <span className="review-thread-comment-count">
-            <MessageCircle size={11} />
-            {thread.comments.length}
-          </span>
-          {thread.isResolved && (
-            <span className="review-thread-badge resolved">
-              <CheckCircle2 size={10} />
-              Resolved
-            </span>
-          )}
-          {thread.isOutdated && (
-            <span className="review-thread-badge outdated">
-              <Clock size={10} />
-              Outdated
-            </span>
-          )}
-        </div>
+        <ThreadPathGroup thread={thread} />
+        <ThreadHeaderBadges thread={thread} />
       </div>
 
       {expanded && (
@@ -224,71 +334,20 @@ export function ReviewThreadCard({
           </div>
           <div className="review-thread-actions">
             {replying ? (
-              <div className="thread-reply-form">
-                <textarea
-                  ref={textareaRef}
-                  className="thread-reply-input"
-                  placeholder="Write a reply..."
-                  value={replyText}
-                  onChange={e => dispatch({ type: 'set_reply_text', text: e.target.value })}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                      e.preventDefault()
-                      handleSendReply()
-                    }
-                    if (e.key === 'Escape') {
-                      dispatch({ type: 'cancel_reply' })
-                    }
-                  }}
-                  rows={3}
-                  disabled={sending}
-                />
-                <div className="thread-reply-buttons">
-                  <span className="thread-reply-hint">
-                    {modLabel}+Enter to send - Esc to cancel
-                  </span>
-                  <button
-                    className="thread-reply-cancel"
-                    onClick={() => dispatch({ type: 'cancel_reply' })}
-                    disabled={sending}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="thread-reply-send"
-                    onClick={handleSendReply}
-                    disabled={!replyText.trim() || sending}
-                  >
-                    {sending ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
-                    Reply
-                  </button>
-                </div>
-              </div>
+              <ThreadReplyForm
+                replyText={replyText}
+                sending={sending}
+                textareaRef={textareaRef}
+                dispatch={dispatch}
+                handleSendReply={handleSendReply}
+              />
             ) : (
-              <div className="thread-action-row">
-                <button
-                  className="thread-reply-btn"
-                  onClick={() => dispatch({ type: 'start_reply' })}
-                >
-                  <MessageSquarePlus size={13} />
-                  Reply
-                </button>
-                <button
-                  className={`thread-resolve-btn ${thread.isResolved ? 'unresolve' : 'resolve'}`}
-                  onClick={handleResolveToggle}
-                  disabled={resolving}
-                  title={thread.isResolved ? 'Unresolve conversation' : 'Resolve conversation'}
-                >
-                  {resolving ? (
-                    <Loader2 size={13} className="spin" />
-                  ) : thread.isResolved ? (
-                    <RotateCcw size={13} />
-                  ) : (
-                    <Check size={13} />
-                  )}
-                  {thread.isResolved ? 'Unresolve' : 'Resolve conversation'}
-                </button>
-              </div>
+              <ThreadActionRow
+                thread={thread}
+                resolving={resolving}
+                dispatch={dispatch}
+                handleResolveToggle={handleResolveToggle}
+              />
             )}
           </div>
         </div>

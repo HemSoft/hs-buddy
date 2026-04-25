@@ -60,6 +60,85 @@ function clampToWorkArea(
   }
 }
 
+function centerOnDisplay(
+  width: number,
+  height: number,
+  workArea: Electron.Rectangle
+): { x: number; y: number; width: number; height: number } {
+  const clampedWidth = Math.min(width, workArea.width)
+  const clampedHeight = Math.min(height, workArea.height)
+  return {
+    x: workArea.x + Math.round((workArea.width - clampedWidth) / 2),
+    y: workArea.y + Math.round((workArea.height - clampedHeight) / 2),
+    width: clampedWidth,
+    height: clampedHeight,
+  }
+}
+
+function relocateToSavedDisplay(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  savedDisplay: Electron.Display,
+  targetDisplay: Electron.Display,
+  savedDisplayBounds: Electron.Rectangle
+): { x: number; y: number; width: number; height: number } {
+  const oldBounds = savedDisplayBounds.width > 0 ? savedDisplayBounds : targetDisplay.bounds
+  return clampToWorkArea(
+    savedDisplay.workArea.x + (x - oldBounds.x),
+    savedDisplay.workArea.y + (y - oldBounds.y),
+    width,
+    height,
+    savedDisplay.workArea
+  )
+}
+
+function resolveWindowBounds(state: { x?: number; y?: number; width: number; height: number }): {
+  x?: number
+  y?: number
+  width: number
+  height: number
+} {
+  const savedDisplayId = configManager.getUiValue('displayId')
+  const savedDisplayBounds = configManager.getUiValue('displayBounds')
+  const allDisplays = screen.getAllDisplays()
+  const primaryDisplay = screen.getPrimaryDisplay()
+
+  const { x, y, width, height } = state
+
+  if (x === undefined || y === undefined) return { x, y, width, height }
+
+  const targetDisplay = screen.getDisplayMatching({ x, y, width, height })
+  const savedDisplay = allDisplays.find(d => d.id === savedDisplayId)
+
+  if (savedDisplayId === 0) return { x, y, width, height }
+
+  if (!savedDisplay) {
+    console.log(
+      `[Window] Saved display ${savedDisplayId} no longer exists. Centering on primary display.`
+    )
+    return centerOnDisplay(width, height, primaryDisplay.workArea)
+  }
+
+  if (targetDisplay.id !== savedDisplayId) {
+    console.log(
+      `[Window] Display mismatch: would open on display ${targetDisplay.id}, but was saved on display ${savedDisplayId}. Correcting.`
+    )
+    return relocateToSavedDisplay(
+      x,
+      y,
+      width,
+      height,
+      savedDisplay,
+      targetDisplay,
+      savedDisplayBounds
+    )
+  }
+
+  return clampToWorkArea(x, y, width, height, savedDisplay.workArea)
+}
+
 function createWindow() {
   // Load window state (position, size, etc.)
   const mainWindowState = windowStateKeeper({
@@ -67,82 +146,12 @@ function createWindow() {
     defaultHeight: 900,
   })
 
-  // --- Multi-monitor display validation ---
-  const savedDisplayId = configManager.getUiValue('displayId')
-  const savedDisplayBounds = configManager.getUiValue('displayBounds')
-  const allDisplays = screen.getAllDisplays()
-  const primaryDisplay = screen.getPrimaryDisplay()
-
-  // Determine the correct position and size to use
-  let windowX = mainWindowState.x
-  let windowY = mainWindowState.y
-  let windowWidth = mainWindowState.width
-  let windowHeight = mainWindowState.height
-
-  if (windowX !== undefined && windowY !== undefined) {
-    // Find what display electron-window-state would place the window on
-    const targetDisplay = screen.getDisplayMatching({
-      x: windowX,
-      y: windowY,
-      width: windowWidth,
-      height: windowHeight,
-    })
-
-    // Check if the saved display still exists
-    const savedDisplay = allDisplays.find(d => d.id === savedDisplayId)
-
-    if (savedDisplayId !== 0 && savedDisplay && targetDisplay.id !== savedDisplayId) {
-      // The window would land on a different display than where it was saved.
-      // This means the display arrangement changed. Move it to the saved display.
-      console.log(
-        `[Window] Display mismatch: would open on display ${targetDisplay.id}, but was saved on display ${savedDisplayId}. Correcting.`
-      )
-
-      // Use persisted display geometry for relative position if available,
-      // otherwise fall back to the mismatched display's current bounds
-      const oldBounds = savedDisplayBounds.width > 0 ? savedDisplayBounds : targetDisplay.bounds
-      const relativeX = windowX - oldBounds.x
-      const relativeY = windowY - oldBounds.y
-
-      const clampedWindow = clampToWorkArea(
-        savedDisplay.workArea.x + relativeX,
-        savedDisplay.workArea.y + relativeY,
-        windowWidth,
-        windowHeight,
-        savedDisplay.workArea
-      )
-      windowX = clampedWindow.x
-      windowY = clampedWindow.y
-      windowWidth = clampedWindow.width
-      windowHeight = clampedWindow.height
-    } else if (savedDisplayId !== 0 && savedDisplay) {
-      // Same display — revalidate in case DPI or work area changed
-      const clampedWindow = clampToWorkArea(
-        windowX,
-        windowY,
-        windowWidth,
-        windowHeight,
-        savedDisplay.workArea
-      )
-      windowX = clampedWindow.x
-      windowY = clampedWindow.y
-      windowWidth = clampedWindow.width
-      windowHeight = clampedWindow.height
-    } else if (savedDisplayId !== 0 && !savedDisplay) {
-      // Saved display no longer exists - center on primary display
-      console.log(
-        `[Window] Saved display ${savedDisplayId} no longer exists. Centering on primary display.`
-      )
-      const workArea = primaryDisplay.workArea
-      const clampedWidth = Math.min(windowWidth, workArea.width)
-      const clampedHeight = Math.min(windowHeight, workArea.height)
-      windowX = workArea.x + Math.round((workArea.width - clampedWidth) / 2)
-      windowY = workArea.y + Math.round((workArea.height - clampedHeight) / 2)
-      windowWidth = clampedWidth
-      windowHeight = clampedHeight
-    }
-    // else: displayId is 0 (first launch) - use windowStateKeeper's position as-is
-  }
+  const {
+    x: windowX,
+    y: windowY,
+    width: windowWidth,
+    height: windowHeight,
+  } = resolveWindowBounds(mainWindowState)
 
   win = new BrowserWindow({
     x: windowX,

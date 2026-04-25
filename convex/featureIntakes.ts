@@ -1,157 +1,152 @@
 // Used by SFL workflows via Convex HTTP API, not by the Electron renderer.
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { v } from 'convex/values'
+import { mutation, query } from './_generated/server'
 
 const intakeSourceValidator = v.union(
-  v.literal("jira"),
-  v.literal("github-issue"),
-  v.literal("manual"),
-  v.literal("other")
-);
+  v.literal('jira'),
+  v.literal('github-issue'),
+  v.literal('manual'),
+  v.literal('other')
+)
 
 const riskLabelValidator = v.union(
-  v.literal("risk:trivial"),
-  v.literal("risk:low"),
-  v.literal("risk:medium"),
-  v.literal("risk:high"),
-  v.literal("risk:critical")
-);
+  v.literal('risk:trivial'),
+  v.literal('risk:low'),
+  v.literal('risk:medium'),
+  v.literal('risk:high'),
+  v.literal('risk:critical')
+)
 
 const intakeStatusValidator = v.union(
-  v.literal("draft"),
-  v.literal("linked"),
-  v.literal("duplicate")
-);
+  v.literal('draft'),
+  v.literal('linked'),
+  v.literal('duplicate')
+)
 
-const normalizeWhitespace = (value: string): string =>
-  value.replace(/\s+/g, " ").trim();
+const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim()
 
 const toCanonicalFragment = (value: string): string =>
   normalizeWhitespace(value)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 
 const toCanonicalKey = (input: {
-  source: "jira" | "github-issue" | "manual" | "other";
-  title: string;
-  problem: string;
-  requestedOutcome?: string;
-  acceptanceCriteria: string[];
+  source: 'jira' | 'github-issue' | 'manual' | 'other'
+  title: string
+  problem: string
+  requestedOutcome?: string
+  acceptanceCriteria: string[]
 }): string => {
   const criteriaFragment = input.acceptanceCriteria
-    .map((criterion) => toCanonicalFragment(criterion))
-    .join("-");
+    .map(criterion => toCanonicalFragment(criterion))
+    .join('-')
 
   const joined = [
     input.source,
     toCanonicalFragment(input.title),
     toCanonicalFragment(input.problem),
-    toCanonicalFragment(input.requestedOutcome ?? ""),
+    toCanonicalFragment(input.requestedOutcome ?? ''),
     criteriaFragment,
   ]
     .filter(Boolean)
-    .join("-");
+    .join('-')
 
-  return `fi-${joined}`.slice(0, 220);
-};
+  return `fi-${joined}`.slice(0, 220)
+}
 
-const sourceToLabel = (source: "jira" | "github-issue" | "manual" | "other"): string => {
-  return `source:${source}`;
-};
+const sourceToLabel = (source: 'jira' | 'github-issue' | 'manual' | 'other'): string => {
+  return `source:${source}`
+}
 
 const toUniqueCriteria = (criteria: string[]): string[] => {
-  const seen = new Set<string>();
-  const cleaned: string[] = [];
+  const seen = new Set<string>()
+  const cleaned: string[] = []
 
   for (const criterion of criteria) {
-    const normalized = normalizeWhitespace(criterion);
+    const normalized = normalizeWhitespace(criterion)
     if (!normalized) {
-      continue;
+      continue
     }
 
-    const lookupKey = normalized.toLowerCase();
+    const lookupKey = normalized.toLowerCase()
     if (seen.has(lookupKey)) {
-      continue;
+      continue
     }
 
-    seen.add(lookupKey);
-    cleaned.push(normalized);
+    seen.add(lookupKey)
+    cleaned.push(normalized)
   }
 
-  return cleaned;
-};
+  return cleaned
+}
 
 const buildIssueBody = (input: {
-  source: "jira" | "github-issue" | "manual" | "other";
-  externalId: string;
-  externalUrl?: string;
-  requestedBy?: string;
-  title: string;
-  problem: string;
-  requestedOutcome?: string;
-  acceptanceCriteria: string[];
-  canonicalKey: string;
-  riskLabel: "risk:trivial" | "risk:low" | "risk:medium" | "risk:high" | "risk:critical";
+  source: 'jira' | 'github-issue' | 'manual' | 'other'
+  externalId: string
+  externalUrl?: string
+  requestedBy?: string
+  title: string
+  problem: string
+  requestedOutcome?: string
+  acceptanceCriteria: string[]
+  canonicalKey: string
+  riskLabel: 'risk:trivial' | 'risk:low' | 'risk:medium' | 'risk:high' | 'risk:critical'
 }): string => {
   const criteriaChecklist = input.acceptanceCriteria
-    .map((criterion) => `- [ ] ${criterion}`)
-    .join("\n");
+    .map(criterion => `- [ ] ${criterion}`)
+    .join('\n')
 
   const outcome = input.requestedOutcome
     ? normalizeWhitespace(input.requestedOutcome)
-    : "Define desired user/business outcome during triage.";
+    : 'Define desired user/business outcome during triage.'
 
-  const sourceUrlLine = input.externalUrl ? `- Source URL: ${input.externalUrl}` : "";
-  const requesterLine = input.requestedBy ? `- Requested by: ${normalizeWhitespace(input.requestedBy)}` : "";
+  const sourceUrlLine = input.externalUrl ? `- Source URL: ${input.externalUrl}` : ''
+  const requesterLine = input.requestedBy
+    ? `- Requested by: ${normalizeWhitespace(input.requestedBy)}`
+    : ''
 
   return [
-    "## Summary",
+    '## Summary',
     normalizeWhitespace(input.title),
-    "",
-    "## Problem",
+    '',
+    '## Problem',
     normalizeWhitespace(input.problem),
-    "",
-    "## Requested Outcome",
+    '',
+    '## Requested Outcome',
     outcome,
-    "",
-    "## Acceptance Criteria",
+    '',
+    '## Acceptance Criteria',
     criteriaChecklist,
-    "",
-    "## Source Metadata",
+    '',
+    '## Source Metadata',
     `- Source: ${sourceToLabel(input.source)}`,
     `- External ID: ${normalizeWhitespace(input.externalId)}`,
     sourceUrlLine,
     requesterLine,
     `- Risk Class: ${input.riskLabel}`,
-    "",
-    "## Agent Metadata",
-    "- Lifecycle: agent:fixable",
+    '',
+    '## Agent Metadata',
+    '- Lifecycle: agent:fixable',
     `- Idempotency key: ${input.canonicalKey}`,
-    "",
+    '',
     `<!-- buddy:feature-intake-key:${input.canonicalKey} -->`,
   ]
-    .filter((line) => line !== "")
-    .join("\n");
-};
+    .filter(line => line !== '')
+    .join('\n')
+}
 
 const buildIssueTitle = (title: string): string => {
-  const normalized = normalizeWhitespace(title);
-  return normalized.startsWith("[feature-intake]")
-    ? normalized
-    : `[feature-intake] ${normalized}`;
-};
+  const normalized = normalizeWhitespace(title)
+  return normalized.startsWith('[feature-intake]') ? normalized : `[feature-intake] ${normalized}`
+}
 
 export const list = query({
   args: {},
-  handler: async (ctx) => {
-    return await ctx.db
-      .query("featureIntakes")
-      .withIndex("by_created")
-      .order("desc")
-      .collect();
+  handler: async ctx => {
+    return await ctx.db.query('featureIntakes').withIndex('by_created').order('desc').collect()
   },
-});
+})
 
 export const listByStatus = query({
   args: {
@@ -159,21 +154,21 @@ export const listByStatus = query({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("featureIntakes")
-      .withIndex("by_status", (q) => q.eq("status", args.status))
-      .order("desc")
-      .collect();
+      .query('featureIntakes')
+      .withIndex('by_status', q => q.eq('status', args.status))
+      .order('desc')
+      .collect()
   },
-});
+})
 
 export const get = query({
   args: {
-    id: v.id("featureIntakes"),
+    id: v.id('featureIntakes'),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get(args.id)
   },
-});
+})
 
 export const getBySourceExternal = query({
   args: {
@@ -182,13 +177,73 @@ export const getBySourceExternal = query({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("featureIntakes")
-      .withIndex("by_source_external", (q) =>
-        q.eq("source", args.source).eq("externalId", args.externalId)
+      .query('featureIntakes')
+      .withIndex('by_source_external', q =>
+        q.eq('source', args.source).eq('externalId', args.externalId)
       )
-      .first();
+      .first()
   },
-});
+})
+
+function validateNormalizeInput(externalId: string, title: string, problem: string): void {
+  if (!externalId) {
+    throw new Error('externalId is required')
+  }
+  if (!title) {
+    throw new Error('title is required')
+  }
+  if (!problem) {
+    throw new Error('problem is required')
+  }
+}
+
+function buildNormalizeResult(
+  intakeId: string,
+  existingByCanonical: {
+    _id: string
+    canonicalIssueNumber?: number
+    canonicalIssueUrl?: string
+  } | null,
+  canonicalKey: string,
+  canonicalIssueTitle: string,
+  canonicalIssueBody: string,
+  canonicalIssueLabels: string[]
+) {
+  return {
+    intakeId,
+    status: existingByCanonical ? ('deduped' as const) : ('created' as const),
+    canonicalKey,
+    canonicalIssueTitle,
+    canonicalIssueBody,
+    canonicalIssueLabels,
+    duplicateOfId: existingByCanonical?._id,
+  }
+}
+
+function buildExternalDuplicateResult(existing: {
+  _id: unknown
+  canonicalKey: string
+  canonicalIssueTitle: string
+  canonicalIssueBody: string
+  canonicalIssueLabels: string[]
+}) {
+  return {
+    intakeId: existing._id,
+    status: 'existing-external' as const,
+    canonicalKey: existing.canonicalKey,
+    canonicalIssueTitle: existing.canonicalIssueTitle,
+    canonicalIssueBody: existing.canonicalIssueBody,
+    canonicalIssueLabels: existing.canonicalIssueLabels,
+  }
+}
+
+function ensureAcceptanceCriteria(raw?: string[]): string[] {
+  const criteria = toUniqueCriteria(raw ?? [])
+  if (criteria.length === 0) {
+    criteria.push('Acceptance criteria to be refined during triage.')
+  }
+  return criteria
+}
 
 export const normalize = mutation({
   args: {
@@ -204,48 +259,28 @@ export const normalize = mutation({
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const externalId = normalizeWhitespace(args.externalId);
-    const title = normalizeWhitespace(args.title);
-    const problem = normalizeWhitespace(args.problem);
+    const externalId = normalizeWhitespace(args.externalId)
+    const title = normalizeWhitespace(args.title)
+    const problem = normalizeWhitespace(args.problem)
 
-    if (!externalId) {
-      throw new Error("externalId is required");
-    }
-
-    if (!title) {
-      throw new Error("title is required");
-    }
-
-    if (!problem) {
-      throw new Error("problem is required");
-    }
+    validateNormalizeInput(externalId, title, problem)
 
     const existingByExternal = await ctx.db
-      .query("featureIntakes")
-      .withIndex("by_source_external", (q) =>
-        q.eq("source", args.source).eq("externalId", externalId)
+      .query('featureIntakes')
+      .withIndex('by_source_external', q =>
+        q.eq('source', args.source).eq('externalId', externalId)
       )
-      .first();
+      .first()
 
     if (existingByExternal) {
-      return {
-        intakeId: existingByExternal._id,
-        status: "existing-external" as const,
-        canonicalKey: existingByExternal.canonicalKey,
-        canonicalIssueTitle: existingByExternal.canonicalIssueTitle,
-        canonicalIssueBody: existingByExternal.canonicalIssueBody,
-        canonicalIssueLabels: existingByExternal.canonicalIssueLabels,
-      };
+      return buildExternalDuplicateResult(existingByExternal)
     }
 
-    const acceptanceCriteria = toUniqueCriteria(args.acceptanceCriteria ?? []);
-    if (acceptanceCriteria.length === 0) {
-      acceptanceCriteria.push("Acceptance criteria to be refined during triage.");
-    }
+    const acceptanceCriteria = ensureAcceptanceCriteria(args.acceptanceCriteria)
 
     const requestedOutcome = args.requestedOutcome
       ? normalizeWhitespace(args.requestedOutcome)
-      : undefined;
+      : undefined
 
     const canonicalKey = toCanonicalKey({
       source: args.source,
@@ -253,20 +288,16 @@ export const normalize = mutation({
       problem,
       requestedOutcome,
       acceptanceCriteria,
-    });
+    })
 
     const existingByCanonical = await ctx.db
-      .query("featureIntakes")
-      .withIndex("by_canonical_key", (q) => q.eq("canonicalKey", canonicalKey))
-      .first();
+      .query('featureIntakes')
+      .withIndex('by_canonical_key', q => q.eq('canonicalKey', canonicalKey))
+      .first()
 
-    const riskLabel = args.riskLabel ?? "risk:low";
-    const canonicalIssueTitle = buildIssueTitle(title);
-    const canonicalIssueLabels = [
-      "agent:fixable",
-      sourceToLabel(args.source),
-      riskLabel,
-    ];
+    const riskLabel = args.riskLabel ?? 'risk:low'
+    const canonicalIssueTitle = buildIssueTitle(title)
+    const canonicalIssueLabels = ['agent:fixable', sourceToLabel(args.source), riskLabel]
 
     const canonicalIssueBody = buildIssueBody({
       source: args.source,
@@ -279,12 +310,12 @@ export const normalize = mutation({
       acceptanceCriteria,
       canonicalKey,
       riskLabel,
-    });
+    })
 
-    const now = Date.now();
-    const status = existingByCanonical ? "duplicate" : "draft";
+    const now = Date.now()
+    const status = existingByCanonical ? 'duplicate' : 'draft'
 
-    const intakeId = await ctx.db.insert("featureIntakes", {
+    const intakeId = await ctx.db.insert('featureIntakes', {
       source: args.source,
       externalId,
       externalUrl: args.externalUrl,
@@ -305,41 +336,40 @@ export const normalize = mutation({
       metadata: args.metadata,
       createdAt: now,
       updatedAt: now,
-    });
+    })
 
-    return {
+    return buildNormalizeResult(
       intakeId,
-      status: existingByCanonical ? ("deduped" as const) : ("created" as const),
+      existingByCanonical,
       canonicalKey,
       canonicalIssueTitle,
       canonicalIssueBody,
-      canonicalIssueLabels,
-      duplicateOfId: existingByCanonical?._id,
-    };
+      canonicalIssueLabels
+    )
   },
-});
+})
 
 export const linkCanonicalIssue = mutation({
   args: {
-    id: v.id("featureIntakes"),
+    id: v.id('featureIntakes'),
     issueNumber: v.number(),
     issueUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get(args.id)
     if (!existing) {
-      throw new Error(`Feature intake ${args.id} not found`);
+      throw new Error(`Feature intake ${args.id} not found`)
     }
 
-    const now = Date.now();
+    const now = Date.now()
 
     await ctx.db.patch(args.id, {
-      status: "linked",
+      status: 'linked',
       canonicalIssueNumber: args.issueNumber,
       canonicalIssueUrl: args.issueUrl,
       updatedAt: now,
-    });
+    })
 
-    return args.id;
+    return args.id
   },
-});
+})

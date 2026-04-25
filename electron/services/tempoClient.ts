@@ -443,12 +443,8 @@ export async function deleteWorklog(worklogId: number): Promise<TempoResult<void
 const CAPITALIZATION_FIELD = 'customfield_11702'
 const capexCache = new Map<string, boolean>()
 
-/** Resolve Capitalization for a single issue key, with parent-epic fallback */
-async function resolveCapex(issueKey: string): Promise<boolean> {
-  const cached = capexCache.get(issueKey)
-  if (cached !== undefined) return cached
-
-  // Check disk cache (24h TTL — stale false entries from Jira outages must expire)
+/** Check disk cache for a valid (within 24h TTL) capex entry */
+function resolveCapexFromDiskCache(issueKey: string): boolean | null {
   const diskCache = readDataCache()
   const diskEntry = diskCache[`tempo:capex:${issueKey}`]
   if (
@@ -456,9 +452,34 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
     diskEntry.fetchedAt &&
     Date.now() - diskEntry.fetchedAt < DAY
   ) {
-    const val = diskEntry.data as boolean
-    capexCache.set(issueKey, val)
-    return val
+    return diskEntry.data as boolean
+  }
+  return null
+}
+
+/** Extract the capitalization value from Jira fields (array or object shape) */
+function parseCapitalizationField(fields: Record<string, unknown>): boolean | null {
+  const rawCapVal = fields[CAPITALIZATION_FIELD]
+  const capVal = Array.isArray(rawCapVal) ? rawCapVal[0] : rawCapVal
+  if (capVal?.value) return capVal.value === 'Yes'
+  return null
+}
+
+/** Set both in-memory and disk cache for a capex result */
+function cacheCapexResult(issueKey: string, value: boolean): void {
+  capexCache.set(issueKey, value)
+  writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: value, fetchedAt: Date.now() })
+}
+
+/** Resolve Capitalization for a single issue key, with parent-epic fallback */
+async function resolveCapex(issueKey: string): Promise<boolean> {
+  const cached = capexCache.get(issueKey)
+  if (cached !== undefined) return cached
+
+  const diskCached = resolveCapexFromDiskCache(issueKey)
+  if (diskCached !== null) {
+    capexCache.set(issueKey, diskCached)
+    return diskCached
   }
 
   const jiraHeaders = getJiraHeaders()
@@ -475,28 +496,21 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
       jiraHeaders
     )
 
-    // Field can be { value: string }, [{ value: string }], or null
-    const rawCapVal = issue.fields[CAPITALIZATION_FIELD]
-    const capVal = Array.isArray(rawCapVal) ? rawCapVal[0] : rawCapVal
-    if (capVal?.value) {
-      const isCapex = capVal.value === 'Yes'
-      capexCache.set(issueKey, isCapex)
-      writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: isCapex, fetchedAt: Date.now() })
-      return isCapex
+    const parsed = parseCapitalizationField(issue.fields)
+    if (parsed !== null) {
+      cacheCapexResult(issueKey, parsed)
+      return parsed
     }
 
     // Fallback to parent epic
     const parent = issue.fields.parent as { key: string } | undefined
-    const parentKey = parent?.key
-    if (parentKey) {
-      const result = await resolveCapex(parentKey)
-      capexCache.set(issueKey, result)
-      writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: result, fetchedAt: Date.now() })
+    if (parent?.key) {
+      const result = await resolveCapex(parent.key)
+      cacheCapexResult(issueKey, result)
       return result
     }
 
-    capexCache.set(issueKey, false)
-    writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: false, fetchedAt: Date.now() })
+    cacheCapexResult(issueKey, false)
     return false
   } catch (err) {
     console.error(

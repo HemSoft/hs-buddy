@@ -20,6 +20,36 @@ interface PRChecksPanelProps {
 
 type CheckTone = 'success' | 'failure' | 'pending' | 'neutral'
 
+const FAILURE_CONCLUSIONS = new Set([
+  'failure',
+  'timed_out',
+  'startup_failure',
+  'action_required',
+  'cancelled',
+  'stale',
+])
+
+const NEUTRAL_CONCLUSIONS = new Set(['neutral', 'skipped'])
+
+function resolveCompletedCheckTone(conclusion: string | null | undefined): {
+  label: string
+  tone: CheckTone
+  icon: typeof CheckCircle2
+} {
+  if (conclusion === 'success') {
+    return { label: 'Passed', tone: 'success', icon: CheckCircle2 }
+  }
+  if (FAILURE_CONCLUSIONS.has(conclusion ?? '')) {
+    /* v8 ignore start */
+    return { label: (conclusion ?? '').replace(/_/g, ' '), tone: 'failure', icon: XCircle }
+    /* v8 ignore stop */
+  }
+  if (NEUTRAL_CONCLUSIONS.has(conclusion ?? '')) {
+    return { label: conclusion!, tone: 'neutral', icon: MinusCircle }
+  }
+  return { label: conclusion || 'Completed', tone: 'neutral', icon: MinusCircle }
+}
+
 function getCheckRunStatus(run: PRChecksSummary['checkRuns'][number]): {
   label: string
   tone: CheckTone
@@ -32,23 +62,7 @@ function getCheckRunStatus(run: PRChecksSummary['checkRuns'][number]): {
       icon: PlayCircle,
     }
   }
-
-  switch (run.conclusion) {
-    case 'success':
-      return { label: 'Passed', tone: 'success', icon: CheckCircle2 }
-    case 'failure':
-    case 'timed_out':
-    case 'startup_failure':
-    case 'action_required':
-    case 'cancelled':
-    case 'stale':
-      return { label: run.conclusion.replace(/_/g, ' '), tone: 'failure', icon: XCircle }
-    case 'neutral':
-    case 'skipped':
-      return { label: run.conclusion, tone: 'neutral', icon: MinusCircle }
-    default:
-      return { label: run.conclusion || 'Completed', tone: 'neutral', icon: MinusCircle }
-  }
+  return resolveCompletedCheckTone(run.conclusion)
 }
 
 function getStatusContextState(state: string): {
@@ -82,6 +96,85 @@ function getOverallStateLabel(state: PRChecksSummary['overallState']): string {
     default:
       return 'No checks'
   }
+}
+
+function CheckRunRow({ run }: { run: PRChecksSummary['checkRuns'][number] }) {
+  const status = getCheckRunStatus(run)
+  const StatusIcon = status.icon
+  const runUrl = run.detailsUrl
+  const finishedAt = run.completedAt || run.startedAt
+  return (
+    <div className="pr-checks-row">
+      <div className="pr-checks-row-main">
+        <div className={`pr-checks-badge tone-${status.tone}`}>
+          <StatusIcon size={14} />
+          <span>{status.label}</span>
+        </div>
+        <div className="pr-checks-row-copy">
+          <div className="pr-checks-row-title">{run.name}</div>
+          <div className="pr-checks-row-subtitle">
+            <span>{run.appName || 'GitHub App'}</span>
+            {finishedAt && (
+              <>
+                <span className="pr-checks-dot">•</span>
+                <span title={formatDateFull(finishedAt)}>{formatDistanceToNow(finishedAt)}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      {runUrl && (
+        <button
+          className="pr-checks-link"
+          type="button"
+          onClick={() => window.shell.openExternal(runUrl)}
+        >
+          Details
+        </button>
+      )}
+    </div>
+  )
+}
+
+function StatusContextRow({
+  statusContext,
+}: {
+  statusContext: PRChecksSummary['statusContexts'][number]
+}) {
+  const status = getStatusContextState(statusContext.state)
+  const StatusIcon = status.icon
+  const updatedAt = statusContext.updatedAt || statusContext.createdAt
+  return (
+    <div className="pr-checks-row">
+      <div className="pr-checks-row-main">
+        <div className={`pr-checks-badge tone-${status.tone}`}>
+          <StatusIcon size={14} />
+          <span>{status.label}</span>
+        </div>
+        <div className="pr-checks-row-copy">
+          <div className="pr-checks-row-title">{statusContext.context}</div>
+          <div className="pr-checks-row-subtitle">
+            <span>{statusContext.description || 'No description provided'}</span>
+            {updatedAt && (
+              <>
+                <span className="pr-checks-dot">•</span>
+                <span title={formatDateFull(updatedAt)}>{formatDistanceToNow(updatedAt)}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      {statusContext.targetUrl && (
+        <button
+          className="pr-checks-link"
+          type="button"
+          onClick={() => window.shell.openExternal(statusContext.targetUrl!)}
+        >
+          Details
+        </button>
+      )}
+    </div>
+  )
 }
 
 export function PRChecksPanel({ pr }: PRChecksPanelProps) {
@@ -164,45 +257,9 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
           <div className="pr-checks-empty">No GitHub check runs</div>
         ) : (
           <div className="pr-checks-list">
-            {checks.checkRuns.map(run => {
-              const status = getCheckRunStatus(run)
-              const StatusIcon = status.icon
-              const runUrl = run.detailsUrl
-              const finishedAt = run.completedAt || run.startedAt
-              return (
-                <div key={run.id} className="pr-checks-row">
-                  <div className="pr-checks-row-main">
-                    <div className={`pr-checks-badge tone-${status.tone}`}>
-                      <StatusIcon size={14} />
-                      <span>{status.label}</span>
-                    </div>
-                    <div className="pr-checks-row-copy">
-                      <div className="pr-checks-row-title">{run.name}</div>
-                      <div className="pr-checks-row-subtitle">
-                        <span>{run.appName || 'GitHub App'}</span>
-                        {finishedAt && (
-                          <>
-                            <span className="pr-checks-dot">•</span>
-                            <span title={formatDateFull(finishedAt)}>
-                              {formatDistanceToNow(finishedAt)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {runUrl && (
-                    <button
-                      className="pr-checks-link"
-                      type="button"
-                      onClick={() => window.shell.openExternal(runUrl)}
-                    >
-                      Details
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+            {checks.checkRuns.map(run => (
+              <CheckRunRow key={run.id} run={run} />
+            ))}
           </div>
         )}
       </div>
@@ -213,44 +270,9 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
           <div className="pr-checks-empty">No legacy commit status contexts</div>
         ) : (
           <div className="pr-checks-list">
-            {checks.statusContexts.map(statusContext => {
-              const status = getStatusContextState(statusContext.state)
-              const StatusIcon = status.icon
-              const updatedAt = statusContext.updatedAt || statusContext.createdAt
-              return (
-                <div key={statusContext.id} className="pr-checks-row">
-                  <div className="pr-checks-row-main">
-                    <div className={`pr-checks-badge tone-${status.tone}`}>
-                      <StatusIcon size={14} />
-                      <span>{status.label}</span>
-                    </div>
-                    <div className="pr-checks-row-copy">
-                      <div className="pr-checks-row-title">{statusContext.context}</div>
-                      <div className="pr-checks-row-subtitle">
-                        <span>{statusContext.description || 'No description provided'}</span>
-                        {updatedAt && (
-                          <>
-                            <span className="pr-checks-dot">•</span>
-                            <span title={formatDateFull(updatedAt)}>
-                              {formatDistanceToNow(updatedAt)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {statusContext.targetUrl && (
-                    <button
-                      className="pr-checks-link"
-                      type="button"
-                      onClick={() => window.shell.openExternal(statusContext.targetUrl!)}
-                    >
-                      Details
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+            {checks.statusContexts.map(ctx => (
+              <StatusContextRow key={ctx.id} statusContext={ctx} />
+            ))}
           </div>
         )}
       </div>

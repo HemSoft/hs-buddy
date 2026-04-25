@@ -30,15 +30,12 @@ interface PRDetailRoute {
   section: PRDetailSection | null
 }
 
-export function createPRDetailViewId(
-  pr: PullRequest,
-  section: PRDetailSection | null = null
-): string {
+function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
   const createdDate = pr.created ? new Date(pr.created as unknown as string | number | Date) : null
   const createdIso =
     createdDate && Number.isFinite(createdDate.getTime()) ? createdDate.toISOString() : null
 
-  const info: PRDetailInfo = {
+  return {
     source: pr.source,
     repository: pr.repository,
     id: pr.id,
@@ -60,7 +57,13 @@ export function createPRDetailViewId(
     threadsTotal: pr.threadsTotal ?? null,
     threadsUnaddressed: pr.threadsUnaddressed ?? null,
   }
+}
 
+export function createPRDetailViewId(
+  pr: PullRequest,
+  section: PRDetailSection | null = null
+): string {
+  const info = buildPRDetailInfo(pr)
   const base = `pr-detail:${encodeURIComponent(JSON.stringify(info))}`
   return section ? `${base}?section=${section}` : base
 }

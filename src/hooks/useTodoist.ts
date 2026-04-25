@@ -16,6 +16,41 @@ function formatDayLabel(dateStr: string): string {
   return `${WEEKDAY_SHORT[d.getDay()]}, ${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`
 }
 
+function collectOverdueTasks(data: Record<string, unknown>, todayStr: string): TodoistTask[] {
+  const overdueTasks: TodoistTask[] = []
+  for (const [dateKey, tasks] of Object.entries(data)) {
+    if (dateKey < todayStr) {
+      overdueTasks.push(...(tasks as TodoistTask[]))
+    }
+  }
+  return overdueTasks
+}
+
+function buildDayGroups(
+  data: Record<string, unknown>,
+  overdueTasks: TodoistTask[],
+  days: number
+): DayGroup[] {
+  const groups: DayGroup[] = []
+
+  if (overdueTasks.length > 0) {
+    overdueTasks.sort((a, b) => b.priority - a.priority || a.order - b.order)
+    groups.push({ date: 'overdue', label: 'Overdue', tasks: overdueTasks })
+  }
+
+  const start = new Date()
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start)
+    d.setDate(d.getDate() + i)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const tasks = (data[dateStr] ?? []) as TodoistTask[]
+    tasks.sort((a, b) => b.priority - a.priority || a.order - b.order)
+    groups.push({ date: dateStr, label: formatDayLabel(dateStr), tasks })
+  }
+
+  return groups
+}
+
 export function useTodoistUpcoming(days: number = 7) {
   const [dayGroups, setDayGroups] = useState<DayGroup[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -34,34 +69,9 @@ export function useTodoistUpcoming(days: number = 7) {
       }
       const data = result.data ?? {}
 
-      // Collect overdue tasks (dates before today)
       const todayStr_ = formatDateKey(new Date())
-      const overdueTasks: TodoistTask[] = []
-      for (const [dateKey, tasks] of Object.entries(data)) {
-        if (dateKey < todayStr_) {
-          overdueTasks.push(...(tasks as TodoistTask[]))
-        }
-      }
-
-      const groups: DayGroup[] = []
-
-      // Overdue group (if any)
-      if (overdueTasks.length > 0) {
-        overdueTasks.sort((a, b) => b.priority - a.priority || a.order - b.order)
-        groups.push({ date: 'overdue', label: 'Overdue', tasks: overdueTasks })
-      }
-
-      // Build day groups for the next N days (always show all days, even empty)
-      const start = new Date()
-      for (let i = 0; i < days; i++) {
-        const d = new Date(start)
-        d.setDate(d.getDate() + i)
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-        const tasks = (data[dateStr] ?? []) as TodoistTask[]
-        // Sort by priority (4=highest) descending, then order
-        tasks.sort((a, b) => b.priority - a.priority || a.order - b.order)
-        groups.push({ date: dateStr, label: formatDayLabel(dateStr), tasks })
-      }
+      const overdueTasks = collectOverdueTasks(data, todayStr_)
+      const groups = buildDayGroups(data, overdueTasks, days)
       setDayGroups(groups)
     } catch (err) {
       if (mountedRef.current) {

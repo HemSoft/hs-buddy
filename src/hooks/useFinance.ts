@@ -79,12 +79,18 @@ function sanitizeWatchlist(raw: unknown): string[] | null {
   return deduped.length > 0 ? deduped : null
 }
 
+/** Extract the rejection message from a Promise.allSettled rejected entry. */
+function rejectionMessage(reason: unknown): string {
+  /* v8 ignore start */
+  return reason instanceof Error ? reason.message : String(reason)
+  /* v8 ignore stop */
+}
+
 async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
   if (!window.finance?.fetchQuote) {
     throw new Error('Finance bridge unavailable — restart the app')
   }
 
-  const results: QuoteData[] = []
   const errors: string[] = []
 
   const settled = await Promise.allSettled(
@@ -97,15 +103,14 @@ async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
       return null
     })
   )
-  for (const result of settled) {
-    if (result.status === 'fulfilled' && result.value) {
-      results.push(result.value)
-    } else if (result.status === 'rejected') {
-      /* v8 ignore start */
-      errors.push(result.reason instanceof Error ? result.reason.message : String(result.reason))
-      /* v8 ignore stop */
-    }
-  }
+
+  const results = settled.reduce<QuoteData[]>((acc, entry) => {
+    if (entry.status === 'fulfilled' && entry.value) acc.push(entry.value)
+    /* v8 ignore start */ else if (entry.status === 'rejected')
+      errors.push(rejectionMessage(entry.reason))
+    /* v8 ignore stop */
+    return acc
+  }, [])
 
   // If every symbol failed, throw so the caller sees the error
   if (results.length === 0 && errors.length > 0) {

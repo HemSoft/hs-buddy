@@ -3,12 +3,90 @@ import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
 import { isPendingOrRunning } from './lib/domain'
 import { incrementStat } from './lib/stats'
 
+import type { GenericDatabaseWriter } from 'convex/server'
+import type { DataModel, Id } from './_generated/dataModel'
+
 /**
  * Schedule Scanner Module
  *
  * Contains internal functions for scanning and processing due schedules.
  * Called by the cron job defined in crons.ts.
  */
+
+interface ScheduleRecord {
+  _id: Id<'schedules'>
+  jobId: Id<'jobs'>
+  cron: string
+  timezone?: string
+  params?: unknown
+  nextRunAt?: number
+}
+
+async function processSchedule(
+  ctx: { db: GenericDatabaseWriter<DataModel> },
+  schedule: ScheduleRecord,
+  now: number
+): Promise<{ runCreated: boolean; scheduleUpdated: boolean }> {
+  const isDue = !schedule.nextRunAt || schedule.nextRunAt <= now
+  if (!isDue) {
+    return { runCreated: false, scheduleUpdated: false }
+  }
+
+  const job = await ctx.db.get('jobs', schedule.jobId)
+  if (!job) {
+    console.error(`Job ${schedule.jobId} not found for schedule ${schedule._id}`)
+    await ctx.db.patch('schedules', schedule._id, {
+      enabled: false,
+      updatedAt: now,
+    })
+    return { runCreated: false, scheduleUpdated: true }
+  }
+
+  const recentRuns = await ctx.db
+    .query('runs')
+    .withIndex('by_schedule', q => q.eq('scheduleId', schedule._id))
+    .order('desc')
+    .take(10)
+  const existingRun = recentRuns.find(r => isPendingOrRunning(r.status)) ?? null
+
+  if (existingRun) {
+    const nextRunAt = calculateNextRunAt(
+      schedule.cron,
+      schedule.timezone ?? DEFAULT_TIMEZONE,
+      new Date(now)
+    )
+    await ctx.db.patch('schedules', schedule._id, {
+      nextRunAt,
+      updatedAt: now,
+    })
+    return { runCreated: false, scheduleUpdated: true }
+  }
+
+  await ctx.db.insert('runs', {
+    jobId: schedule.jobId,
+    scheduleId: schedule._id,
+    status: 'pending',
+    triggeredBy: 'schedule',
+    input: schedule.params,
+    startedAt: now,
+  })
+
+  await incrementStat(ctx.db, 'runsTriggered')
+
+  const nextRunAt = calculateNextRunAt(
+    schedule.cron,
+    schedule.timezone ?? DEFAULT_TIMEZONE,
+    new Date(now)
+  )
+
+  await ctx.db.patch('schedules', schedule._id, {
+    lastRunAt: now,
+    nextRunAt,
+    updatedAt: now,
+  })
+
+  return { runCreated: true, scheduleUpdated: true }
+}
 
 /**
  * Main scan and dispatch function.
@@ -33,83 +111,9 @@ export const scanAndDispatch = internalMutation({
       .collect()
 
     for (const schedule of enabledSchedules) {
-      // Check if schedule is due
-      // A schedule is due if:
-      // 1. nextRunAt is not set (needs initialization), OR
-      // 2. nextRunAt <= now (time has come)
-      const isDue = !schedule.nextRunAt || schedule.nextRunAt <= now
-
-      if (!isDue) {
-        continue
-      }
-
-      // Get the job to include input params in the run
-      const job = await ctx.db.get('jobs', schedule.jobId)
-      if (!job) {
-        console.error(`Job ${schedule.jobId} not found for schedule ${schedule._id}`)
-        // Disable the orphaned schedule
-        await ctx.db.patch('schedules', schedule._id, {
-          enabled: false,
-          updatedAt: now,
-        })
-        continue
-      }
-
-      // Check if there's already a pending or running run for this schedule
-      // to prevent duplicate runs for the same interval
-      // Get recent runs for this schedule and filter in code
-      // (avoids .filter() per Convex best practices)
-      const recentRuns = await ctx.db
-        .query('runs')
-        .withIndex('by_schedule', q => q.eq('scheduleId', schedule._id))
-        .order('desc')
-        .take(10)
-      const existingRun = recentRuns.find(r => isPendingOrRunning(r.status)) ?? null
-
-      if (existingRun) {
-        // Skip - there's already a pending/running run for this schedule
-        // Just update nextRunAt to prevent re-triggering
-        const nextRunAt = calculateNextRunAt(
-          schedule.cron,
-          schedule.timezone ?? DEFAULT_TIMEZONE,
-          new Date(now)
-        )
-        await ctx.db.patch('schedules', schedule._id, {
-          nextRunAt,
-          updatedAt: now,
-        })
-        schedulesUpdated++
-        continue
-      }
-
-      // Create a new pending run
-      await ctx.db.insert('runs', {
-        jobId: schedule.jobId,
-        scheduleId: schedule._id,
-        status: 'pending',
-        triggeredBy: 'schedule',
-        input: schedule.params,
-        startedAt: now,
-      })
-      runsCreated++
-
-      // Track the stat (matches runs.create behavior)
-      await incrementStat(ctx.db, 'runsTriggered')
-
-      // Calculate next run time (from now, not from the missed time)
-      const nextRunAt = calculateNextRunAt(
-        schedule.cron,
-        schedule.timezone ?? DEFAULT_TIMEZONE,
-        new Date(now)
-      )
-
-      // Update schedule timing
-      await ctx.db.patch('schedules', schedule._id, {
-        lastRunAt: now,
-        nextRunAt,
-        updatedAt: now,
-      })
-      schedulesUpdated++
+      const result = await processSchedule(ctx, schedule, now)
+      if (result.runCreated) runsCreated++
+      if (result.scheduleUpdated) schedulesUpdated++
     }
 
     // Log summary for debugging

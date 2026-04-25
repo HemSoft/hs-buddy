@@ -106,6 +106,57 @@ function scheduleFormReducer(
   }
 }
 
+function validateScheduleForm(name: string, jobId: string): string | null {
+  if (!name.trim()) return 'Schedule name is required'
+  if (!jobId) return 'Please select a job'
+  return null
+}
+
+function computeFormKey(
+  isEditing: boolean,
+  existingSchedule: ExistingScheduleData | null | undefined,
+  scheduleId: string | undefined,
+  defaultJobId: string
+): string {
+  if (isEditing) return `edit-${existingSchedule?._id ?? scheduleId}`
+  return `create-${defaultJobId || 'none'}`
+}
+
+function JobSelector({
+  jobs,
+  jobId,
+  isEditing,
+  selectedJob,
+  dispatch,
+}: {
+  jobs: ScheduleOption[] | undefined
+  jobId: string
+  isEditing: boolean
+  selectedJob: ScheduleOption | undefined
+  dispatch: React.Dispatch<ScheduleFormAction>
+}) {
+  if (jobs === undefined) return <div className="form-loading">Loading jobs...</div>
+  if (jobs.length === 0)
+    return <div className="form-empty">No jobs available. Create a job first.</div>
+  return (
+    <>
+      <select
+        id="schedule-job"
+        value={jobId}
+        onChange={e => dispatch({ type: 'SET_FIELD', field: 'jobId', value: e.target.value })}
+        disabled={isEditing}
+      >
+        {jobs.map(job => (
+          <option key={job._id} value={job._id}>
+            [{job.workerType}] {job.name}
+          </option>
+        ))}
+      </select>
+      {selectedJob?.description && <div className="form-hint">{selectedJob.description}</div>}
+    </>
+  )
+}
+
 function ScheduleEditorForm({
   scheduleId,
   isEditing,
@@ -124,12 +175,9 @@ function ScheduleEditorForm({
   const selectedJob = jobs?.find(job => job._id === jobId)
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      setError('Schedule name is required')
-      return
-    }
-    if (!jobId) {
-      setError('Please select a job')
+    const validationError = validateScheduleForm(name, jobId)
+    if (validationError) {
+      setError(validationError)
       return
     }
 
@@ -208,25 +256,13 @@ function ScheduleEditorForm({
 
         <div className="form-group">
           <label htmlFor="schedule-job">Job</label>
-          {jobs === undefined ? (
-            <div className="form-loading">Loading jobs...</div>
-          ) : jobs.length === 0 ? (
-            <div className="form-empty">No jobs available. Create a job first.</div>
-          ) : (
-            <select
-              id="schedule-job"
-              value={jobId}
-              onChange={e => dispatch({ type: 'SET_FIELD', field: 'jobId', value: e.target.value })}
-              disabled={isEditing}
-            >
-              {jobs.map(job => (
-                <option key={job._id} value={job._id}>
-                  [{job.workerType}] {job.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {selectedJob?.description && <div className="form-hint">{selectedJob.description}</div>}
+          <JobSelector
+            jobs={jobs}
+            jobId={jobId}
+            isEditing={isEditing}
+            selectedJob={selectedJob}
+            dispatch={dispatch}
+          />
         </div>
 
         <div className="form-group">
@@ -297,9 +333,7 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
   const isEditing = !!scheduleId
   const defaultJobId = jobs?.[0]?._id ?? ''
   const initialFormState = buildInitialScheduleFormState(existingSchedule, defaultJobId)
-  const formKey = isEditing
-    ? `edit-${existingSchedule?._id ?? scheduleId}`
-    : `create-${defaultJobId || 'none'}`
+  const formKey = computeFormKey(isEditing, existingSchedule, scheduleId, defaultJobId)
   const waitingForExistingSchedule = isEditing && !existingSchedule
 
   const handleOverlayClick = (e: React.MouseEvent) => {

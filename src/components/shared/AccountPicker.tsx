@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { User } from 'lucide-react'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
-import { InlineDropdown } from '../InlineDropdown'
-import type { DropdownOption } from '../InlineDropdown'
+import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
 
 interface AccountPickerProps {
   /** Currently selected account (empty = use active CLI account) */

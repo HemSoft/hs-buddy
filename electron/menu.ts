@@ -1,5 +1,4 @@
-import type { BrowserWindow, MenuItemConstructorOptions } from 'electron'
-import { dialog, Menu } from 'electron'
+import { dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import { saveZoomLevel } from './zoom'
 
 const ZOOM_STEP = 0.1
@@ -82,49 +81,42 @@ export function buildMenu(win: BrowserWindow): Electron.Menu {
   return Menu.buildFromTemplate(menuTemplate)
 }
 
+type ShortcutEntry = {
+  key: string
+  ctrlOrCmd?: boolean
+  shift?: boolean
+  action: (win: BrowserWindow) => void
+}
+
+const SHORTCUTS: ShortcutEntry[] = [
+  { key: '+', ctrlOrCmd: true, action: win => zoomIn(win) },
+  { key: '-', ctrlOrCmd: true, action: win => zoomOut(win) },
+  { key: '0', ctrlOrCmd: true, action: win => resetZoom(win) },
+  {
+    key: 'A',
+    ctrlOrCmd: true,
+    shift: true,
+    action: win => win.webContents.send('toggle-assistant'),
+  },
+  { key: 'Tab', ctrlOrCmd: true, shift: true, action: win => win.webContents.send('tab-prev') },
+  { key: 'Tab', ctrlOrCmd: true, action: win => win.webContents.send('tab-next') },
+  { key: 'F4', ctrlOrCmd: true, action: win => win.webContents.send('tab-close') },
+  { key: 'F11', action: win => win.setFullScreen(!win.isFullScreen()) },
+]
+
+function matchesShortcut(entry: ShortcutEntry, input: Electron.Input): boolean {
+  const ctrlOrCmd = input.control || input.meta
+  if (entry.ctrlOrCmd && !ctrlOrCmd) return false
+  if (entry.shift && !input.shift) return false
+  return input.key === entry.key
+}
+
 export function registerKeyboardShortcuts(win: BrowserWindow): void {
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
-    const ctrlOrCmd = input.control || input.meta
-
-    // Ctrl/Cmd + NumpadAdd/Plus: Zoom In
-    if (ctrlOrCmd && input.key === '+') {
-      zoomIn(win)
-      event.preventDefault()
-    }
-    // Ctrl/Cmd + NumpadSubtract/Minus: Zoom Out
-    else if (ctrlOrCmd && input.key === '-') {
-      zoomOut(win)
-      event.preventDefault()
-    }
-    // Ctrl/Cmd + 0: Reset Zoom
-    else if (ctrlOrCmd && input.key === '0') {
-      resetZoom(win)
-      event.preventDefault()
-    }
-    // Ctrl/Cmd + Shift + A: Toggle Assistant
-    else if (ctrlOrCmd && input.shift && input.key === 'A') {
-      win.webContents.send('toggle-assistant')
-      event.preventDefault()
-    }
-    // Ctrl/Cmd + Shift + Tab: Previous Tab
-    else if (ctrlOrCmd && input.shift && input.key === 'Tab') {
-      win.webContents.send('tab-prev')
-      event.preventDefault()
-    }
-    // Ctrl/Cmd + Tab: Next Tab
-    else if (ctrlOrCmd && input.key === 'Tab') {
-      win.webContents.send('tab-next')
-      event.preventDefault()
-    }
-    // Ctrl/Cmd + F4: Close Active Tab
-    else if (ctrlOrCmd && input.key === 'F4') {
-      win.webContents.send('tab-close')
-      event.preventDefault()
-    }
-    // F11: Toggle Fullscreen
-    else if (input.key === 'F11') {
-      win.setFullScreen(!win.isFullScreen())
+    const matched = SHORTCUTS.find(s => matchesShortcut(s, input))
+    if (matched) {
+      matched.action(win)
       event.preventDefault()
     }
   })

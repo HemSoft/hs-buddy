@@ -5,8 +5,8 @@ import {
   computeProjection,
   computeBudgetProjection,
   getQuotaColor,
+  type QuotaSnapshot,
 } from './quotaUtils'
-import type { QuotaSnapshot } from './quotaUtils'
 
 describe('OVERAGE_COST_PER_REQUEST', () => {
   it('is 4 cents', () => {

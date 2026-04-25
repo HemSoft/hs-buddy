@@ -33,6 +33,68 @@ interface UseJobEditorFormSource {
   config: JobConfig
 }
 
+interface ConfigSetters {
+  setCommand: (v: string) => void
+  setCwd: (v: string) => void
+  setTimeout: (v: number) => void
+  setShell: (v: 'powershell' | 'bash' | 'cmd') => void
+  setPrompt: (v: string) => void
+  setModel: (v: string) => void
+  setTargetRepo: (v: string) => void
+  setSkillName: (v: string) => void
+  setSkillAction: (v: string) => void
+  setSkillParams: (v: string) => void
+}
+
+function loadExecConfig(config: JobConfig, setters: ConfigSetters): void {
+  if (config.command) setters.setCommand(config.command)
+  if (config.cwd) setters.setCwd(config.cwd)
+  if (config.timeout) setters.setTimeout(config.timeout)
+  if (config.shell) setters.setShell(config.shell)
+}
+
+function loadAiConfig(config: JobConfig, setters: ConfigSetters): void {
+  if (config.prompt) setters.setPrompt(config.prompt)
+  if (config.model) setters.setModel(config.model)
+  if (config.repoOwner && config.repoName) {
+    setters.setTargetRepo(`${config.repoOwner}/${config.repoName}`)
+  }
+}
+
+function loadSkillConfig(config: JobConfig, setters: ConfigSetters): void {
+  if (config.skillName) setters.setSkillName(config.skillName)
+  if (config.action) setters.setSkillAction(config.action)
+  if (config.params) setters.setSkillParams(JSON.stringify(config.params, null, 2))
+}
+
+function loadSourceConfig(config: JobConfig, setters: ConfigSetters): void {
+  loadExecConfig(config, setters)
+  loadAiConfig(config, setters)
+  loadSkillConfig(config, setters)
+}
+
+function validateJobForm(
+  name: string,
+  workerType: 'exec' | 'ai' | 'skill',
+  command: string,
+  prompt: string,
+  skillName: string
+): string | null {
+  if (!name.trim()) return 'Job name is required'
+  switch (workerType) {
+    case 'exec':
+      if (!command.trim()) return 'Command is required for exec jobs'
+      break
+    case 'ai':
+      if (!prompt.trim()) return 'Prompt is required for AI jobs'
+      break
+    case 'skill':
+      if (!skillName.trim()) return 'Skill name is required for skill jobs'
+      break
+  }
+  return null
+}
+
 export function useJobEditorForm(
   jobId: string | undefined,
   duplicateFrom: UseJobEditorFormSource | undefined,
@@ -86,92 +148,75 @@ export function useJobEditorForm(
       /* v8 ignore start */
       if (source.config) {
         /* v8 ignore stop */
-        if (source.config.command) setCommand(source.config.command)
-        if (source.config.cwd) setCwd(source.config.cwd)
-        if (source.config.timeout) setTimeout(source.config.timeout)
-        if (source.config.shell) setShell(source.config.shell)
-        if (source.config.prompt) setPrompt(source.config.prompt)
-        if (source.config.model) setModel(source.config.model)
-        if (source.config.repoOwner && source.config.repoName) {
-          setTargetRepo(`${source.config.repoOwner}/${source.config.repoName}`)
-        }
-        if (source.config.skillName) setSkillName(source.config.skillName)
-        if (source.config.action) setSkillAction(source.config.action)
-        if (source.config.params) setSkillParams(JSON.stringify(source.config.params, null, 2))
+        loadSourceConfig(source.config, {
+          setCommand,
+          setCwd,
+          setTimeout,
+          setShell,
+          setPrompt,
+          setModel,
+          setTargetRepo,
+          setSkillName,
+          setSkillAction,
+          setSkillParams,
+        })
       }
     }
   }, [existingJob, duplicateFrom])
 
-  const buildConfig = (): JobConfig => {
+  const buildExecJobConfig = (): JobConfig => ({
+    command: command.trim(),
+    cwd: cwd.trim() || undefined,
     /* v8 ignore start */
-    switch (workerType) {
+    timeout: timeout || undefined,
+    /* v8 ignore stop */
+    shell,
+  })
+
+  const buildAiJobConfig = (): JobConfig => {
+    const [repoOwner, repoName] = targetRepo ? targetRepo.split('/') : [undefined, undefined]
+    return {
+      prompt: prompt.trim(),
+      /* v8 ignore start */
+      model: model.trim() || undefined,
       /* v8 ignore stop */
-      case 'exec':
-        return {
-          command: command.trim(),
-          cwd: cwd.trim() || undefined,
-          /* v8 ignore start */
-          timeout: timeout || undefined,
-          /* v8 ignore stop */
-          shell,
-        }
-      case 'ai': {
-        const [repoOwner, repoName] = targetRepo ? targetRepo.split('/') : [undefined, undefined]
-        return {
-          prompt: prompt.trim(),
-          /* v8 ignore start */
-          model: model.trim() || undefined,
-          /* v8 ignore stop */
-          repoOwner,
-          repoName,
-        }
-      }
-      case 'skill': {
-        let params: unknown = undefined
-        if (skillParams.trim()) {
-          try {
-            params = JSON.parse(skillParams)
-          } catch {
-            throw new Error('Invalid JSON in parameters')
-          }
-        }
-        return {
-          skillName: skillName.trim(),
-          action: skillAction.trim() || undefined,
-          params,
-        }
-      }
-      default:
-        /* v8 ignore start */
-        return {}
-      /* v8 ignore stop */
+      repoOwner,
+      repoName,
     }
   }
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      setError('Job name is required')
-      return
+  const buildSkillJobConfig = (): JobConfig => {
+    let params: unknown = undefined
+    if (skillParams.trim()) {
+      try {
+        params = JSON.parse(skillParams)
+      } catch {
+        throw new Error('Invalid JSON in parameters')
+      }
     }
-    switch (workerType) {
-      case 'exec':
-        if (!command.trim()) {
-          setError('Command is required for exec jobs')
-          return
-        }
-        break
-      case 'ai':
-        if (!prompt.trim()) {
-          setError('Prompt is required for AI jobs')
-          return
-        }
-        break
-      case 'skill':
-        if (!skillName.trim()) {
-          setError('Skill name is required for skill jobs')
-          return
-        }
-        break
+    return {
+      skillName: skillName.trim(),
+      action: skillAction.trim() || undefined,
+      params,
+    }
+  }
+
+  const buildConfig = (): JobConfig => {
+    const builders: Record<string, () => JobConfig> = {
+      exec: buildExecJobConfig,
+      ai: buildAiJobConfig,
+      skill: buildSkillJobConfig,
+    }
+    /* v8 ignore start */
+    return (builders[workerType] ?? (() => ({})))()
+    /* v8 ignore stop */
+  }
+
+  const handleSave = async () => {
+    const validationError = validateJobForm(name, workerType, command, prompt, skillName)
+    if (validationError) {
+      setError(validationError)
+      return
     }
     setError(null)
     setSaving(true)

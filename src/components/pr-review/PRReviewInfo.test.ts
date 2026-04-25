@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parsePRReviewInfo } from './PRReviewInfo'
-import type { PRReviewInfo } from './PRReviewInfo'
+import { parsePRReviewInfo, type PRReviewInfo } from './PRReviewInfo'
 
 describe('parsePRReviewInfo', () => {
   const sampleInfo: PRReviewInfo = {

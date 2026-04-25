@@ -185,30 +185,16 @@ function DaySection({
 
 type PlannerMode = 'today' | 'upcoming' | 'projects'
 
-export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
-  const days = mode === 'today' ? 1 : 7
-  const { dayGroups, isLoading, error, refresh } = useTodoistUpcoming(days)
-  const { projects, load: loadProjects } = useTodoistProjects()
-  const { complete, create } = useTaskActions(refresh)
+function useTaskPlannerActions(
+  complete: ReturnType<typeof useTaskActions>['complete'],
+  create: ReturnType<typeof useTaskActions>['create']
+) {
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
   const actionErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    refresh()
-    loadProjects()
-  }, [refresh, loadProjects])
-
-  // Auto-refresh every 60s
-  useEffect(() => {
-    const timer = setInterval(refresh, 60_000)
-    return () => clearInterval(timer)
-  }, [refresh])
-
-  // Clear stale completingIds when day groups are refreshed
-  useEffect(() => {
-    setCompletingIds(new Set())
-  }, [dayGroups])
+  // Clear stale completingIds when day groups are refreshed (caller passes dayGroups dep)
+  const resetCompletingIds = useCallback(() => setCompletingIds(new Set()), [])
 
   useEffect(() => {
     return () => {
@@ -217,9 +203,6 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
       }
     }
   }, [])
-
-  const projectMap = new Map<string, TodoistProject>()
-  for (const p of projects) projectMap.set(p.id, p)
 
   const showActionError = useCallback((message: string) => {
     if (actionErrorTimeoutRef.current) {
@@ -244,7 +227,6 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
       } catch (err) {
         showActionError(err instanceof Error ? err.message : 'Failed to complete task')
       }
-      // Don't clear completingIds — refresh will replace dayGroups without the task
     },
     [complete, showActionError]
   )
@@ -263,9 +245,65 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
     [create, showActionError]
   )
 
+  return { completingIds, actionError, handleComplete, handleCreate, resetCompletingIds }
+}
+
+function TodayTaskList({
+  tasks,
+  completingIds,
+  projectMap,
+  onComplete,
+}: {
+  tasks: TodoistTask[]
+  completingIds: Set<string>
+  projectMap: Map<string, TodoistProject>
+  onComplete: (id: string) => void
+}) {
+  const visible = tasks.filter(t => !completingIds.has(t.id))
+  return (
+    <div className="planner-today-flat">
+      {visible.length === 0 ? (
+        <div className="planner-empty-day">No tasks for today</div>
+      ) : (
+        visible.map(task => (
+          <TaskRow key={task.id} task={task} projectMap={projectMap} onComplete={onComplete} />
+        ))
+      )}
+    </div>
+  )
+}
+
+export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
+  const days = mode === 'today' ? 1 : 7
+  const { dayGroups, isLoading, error, refresh } = useTodoistUpcoming(days)
+  const { projects, load: loadProjects } = useTodoistProjects()
+  const { complete, create } = useTaskActions(refresh)
+  const { completingIds, actionError, handleComplete, handleCreate, resetCompletingIds } =
+    useTaskPlannerActions(complete, create)
+
+  useEffect(() => {
+    refresh()
+    loadProjects()
+  }, [refresh, loadProjects])
+
+  // Auto-refresh every 60s
+  useEffect(() => {
+    const timer = setInterval(refresh, 60_000)
+    return () => clearInterval(timer)
+  }, [refresh])
+
+  // Clear stale completingIds when day groups are refreshed
+  useEffect(() => {
+    resetCompletingIds()
+  }, [dayGroups, resetCompletingIds])
+
+  const projectMap = new Map(projects.map(p => [p.id, p] as const))
+
   const totalTasks = dayGroups.reduce((n, g) => n + g.tasks.length, 0)
 
   const heading = mode === 'today' ? 'Today' : 'Upcoming'
+  const errorMessage = error || actionError
+  const spinnerClass = isLoading ? 'spinning' : ''
 
   return (
     <div className="planner-view">
@@ -280,37 +318,26 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
             aria-label="Refresh tasks"
             title="Refresh"
           >
-            <RefreshCw size={14} className={isLoading ? 'spinning' : ''} />
+            <RefreshCw size={14} className={spinnerClass} />
           </button>
         </div>
       </div>
 
-      {(error || actionError) && (
+      {errorMessage && (
         <div className="planner-error">
           <AlertCircle size={14} />
-          <span>{error || actionError}</span>
+          <span>{errorMessage}</span>
         </div>
       )}
 
       <div className="planner-day-list">
         {mode === 'today' && dayGroups.length > 0 ? (
-          // Today mode: flat task list, no day section card
-          <div className="planner-today-flat">
-            {dayGroups[0].tasks.filter(t => !completingIds.has(t.id)).length === 0 ? (
-              <div className="planner-empty-day">No tasks for today</div>
-            ) : (
-              dayGroups[0].tasks
-                .filter(t => !completingIds.has(t.id))
-                .map(task => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    projectMap={projectMap}
-                    onComplete={handleComplete}
-                  />
-                ))
-            )}
-          </div>
+          <TodayTaskList
+            tasks={dayGroups[0].tasks}
+            completingIds={completingIds}
+            projectMap={projectMap}
+            onComplete={handleComplete}
+          />
         ) : (
           dayGroups.map(group => (
             <DaySection

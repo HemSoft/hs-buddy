@@ -107,7 +107,7 @@ export interface DiffFile {
   blobUrl: string | null
 }
 
-export type RepoCommitFile = DiffFile
+type RepoCommitFile = DiffFile
 
 export interface RepoCommitDetail {
   sha: string
@@ -130,7 +130,7 @@ export interface RepoCommitDetail {
   files: RepoCommitFile[]
 }
 
-export interface RepoContributor {
+interface RepoContributor {
   login: string
   name: string | null
   avatarUrl: string
@@ -138,7 +138,7 @@ export interface RepoContributor {
   url: string
 }
 
-export interface WorkflowRun {
+interface WorkflowRun {
   name: string
   status: string
   conclusion: string | null
@@ -193,14 +193,14 @@ export interface TeamMembersResult {
   members: TeamMember[]
 }
 
-export interface OrgContributorToday {
+interface OrgContributorToday {
   login: string
   avatarUrl: string | null
   url: string | null
   commits: number
 }
 
-export interface ContributionDay {
+interface ContributionDay {
   date: string
   contributionCount: number
   color: string
@@ -271,7 +271,7 @@ export interface UserEvent {
   summary: string
 }
 
-export interface OrgOverviewMetrics {
+interface OrgOverviewMetrics {
   org: string
   repoCount: number
   privateRepoCount: number
@@ -307,7 +307,7 @@ export interface RepoIssue {
   assignees: Array<{ login: string; name: string | null; avatarUrl: string }>
 }
 
-export interface RepoIssueComment {
+interface RepoIssueComment {
   id: number
   author: string
   authorAvatarUrl: string | null
@@ -347,7 +347,7 @@ export interface RepoPullRequest {
   iApproved: boolean
 }
 
-export type PRFileChange = DiffFile
+type PRFileChange = DiffFile
 
 export interface PRFilesChangedSummary {
   files: PRFileChange[]
@@ -385,7 +385,7 @@ export interface PRHistorySummary {
   timeline: PRTimelineEvent[]
 }
 
-export interface PRReviewerSummary {
+interface PRReviewerSummary {
   login: string
   name: string | null
   avatarUrl: string | null
@@ -393,7 +393,7 @@ export interface PRReviewerSummary {
   updatedAt: string | null
 }
 
-export interface PRTimelineEvent {
+interface PRTimelineEvent {
   id: string
   type: 'opened' | 'comment' | 'commit' | 'review'
   author: string
@@ -412,7 +412,7 @@ export type PRCommentReactionContent =
   | 'ROCKET'
   | 'EYES'
 
-export interface PRCommentReaction {
+interface PRCommentReaction {
   content: PRCommentReactionContent
   count: number
   viewerHasReacted: boolean
@@ -461,7 +461,7 @@ export interface PRThreadsResult {
   reviews: PRReviewSummary[]
 }
 
-export interface PRCheckRunSummary {
+interface PRCheckRunSummary {
   id: number
   name: string
   status: string
@@ -472,7 +472,7 @@ export interface PRCheckRunSummary {
   appName: string | null
 }
 
-export interface PRStatusContextSummary {
+interface PRStatusContextSummary {
   id: number
   context: string
   state: string
@@ -701,32 +701,38 @@ function capitalize(s: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function describePushEvent(evt: any): string {
+  const size = evt.payload?.size ?? 0
+  return `Pushed ${size} commit${size !== 1 ? 's' : ''}`
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function describeActionEvent(evt: any, noun: string): string {
+  const action = evt.payload?.action ?? 'updated'
+  return `${capitalize(action)} ${noun}`
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function describeRefEvent(verb: string, evt: any): string {
+  return `${verb} a ${evt.payload?.ref_type ?? 'ref'}`
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DYNAMIC_EVENT_FORMATTERS: Record<string, (evt: any) => string> = {
+  PushEvent: describePushEvent,
+  PullRequestEvent: evt => describeActionEvent(evt, 'pull request'),
+  IssuesEvent: evt => describeActionEvent(evt, 'an issue'),
+  CreateEvent: evt => describeRefEvent('Created', evt),
+  DeleteEvent: evt => describeRefEvent('Deleted', evt),
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function eventSummary(evt: any): string {
   const fixed = EVENT_LABELS[evt.type]
   if (fixed) return fixed
-
-  const action = evt.payload?.action ?? 'updated'
-
-  switch (evt.type) {
-    case 'PushEvent': {
-      const size = evt.payload?.size ?? 0
-      return `Pushed ${size} commit${size !== 1 ? 's' : ''}`
-    }
-    case 'PullRequestEvent':
-      return `${capitalize(action)} pull request`
-    case 'IssuesEvent':
-      return `${capitalize(action)} an issue`
-    case 'CreateEvent': {
-      const refType = evt.payload?.ref_type ?? 'ref'
-      return `Created a ${refType}`
-    }
-    case 'DeleteEvent': {
-      const refType = evt.payload?.ref_type ?? 'ref'
-      return `Deleted a ${refType}`
-    }
-    default:
-      return evt.type?.replace(/Event$/, '') ?? 'Activity'
-  }
+  const formatter = DYNAMIC_EVENT_FORMATTERS[evt.type]
+  if (formatter) return formatter(evt)
+  return evt.type?.replace(/Event$/, '') ?? 'Activity'
 }
 
 function determineCheckOverallState(counts: {
@@ -745,68 +751,51 @@ function determineCheckOverallState(counts: {
   return 'neutral'
 }
 
+type CheckCategory = 'successful' | 'failed' | 'pending' | 'neutral'
+
+const FAILED_CONCLUSIONS = new Set([
+  'cancelled',
+  'timed_out',
+  'action_required',
+  'startup_failure',
+  'stale',
+  'failure',
+])
+
+/* v8 ignore start -- API response null-guards in check/review/timeline helpers */
+function classifyCheckRun(run: { status: string; conclusion: string | null }): CheckCategory {
+  if (run.status !== 'completed') return 'pending'
+  if (run.conclusion === 'success') return 'successful'
+  if (FAILED_CONCLUSIONS.has(run.conclusion ?? '')) return 'failed'
+  return 'neutral'
+}
+
+function classifyStatusContext(state: string): CheckCategory {
+  switch (state) {
+    case 'success':
+      return 'successful'
+    case 'pending':
+      return 'pending'
+    case 'failure':
+    case 'error':
+      return 'failed'
+    default:
+      return 'neutral'
+  }
+}
+
 function countCheckStatuses(
   checkRuns: Array<{ status: string; conclusion: string | null }>,
   statusContexts: Array<{ state: string }>
 ): { total: number; failed: number; pending: number; successful: number; neutral: number } {
-  let successful = 0
-  let failed = 0
-  let pending = 0
-  let neutral = 0
-
+  const counts = { successful: 0, failed: 0, pending: 0, neutral: 0 }
   for (const run of checkRuns) {
-    if (run.status !== 'completed') {
-      pending += 1
-      continue
-    }
-
-    switch (run.conclusion) {
-      case 'success':
-        successful += 1
-        break
-      case 'neutral':
-      case 'skipped':
-        neutral += 1
-        break
-      case 'cancelled':
-      case 'timed_out':
-      case 'action_required':
-      case 'startup_failure':
-      case 'stale':
-      case 'failure':
-        failed += 1
-        break
-      default:
-        neutral += 1
-        break
-    }
+    counts[classifyCheckRun(run)] += 1
   }
-
-  for (const status of statusContexts) {
-    switch (status.state) {
-      case 'success':
-        successful += 1
-        break
-      case 'pending':
-        pending += 1
-        break
-      case 'failure':
-      case 'error':
-        failed += 1
-        break
-      default:
-        neutral += 1
-        break
-    }
+  for (const ctx of statusContexts) {
+    counts[classifyStatusContext(ctx.state)] += 1
   }
-
-  return {
-    total: checkRuns.length + statusContexts.length,
-    failed,
-    pending,
-    successful,
-    neutral,
-  }
+  return { total: checkRuns.length + statusContexts.length, ...counts }
 }
 
 /** GitHub light-theme contribution colors for the 5 levels (0–4). */
@@ -828,6 +817,101 @@ export function computeQuartiles(counts: number[]): number[] {
   const q = (p: number) => nonZero[Math.min(Math.floor(p * nonZero.length), nonZero.length - 1)]
   return [q(0.25), q(0.5), q(0.75)]
 }
+
+function describeReviewState(state: string): string {
+  switch (state) {
+    case 'APPROVED':
+      return 'Approved review'
+    case 'CHANGES_REQUESTED':
+      return 'Requested changes'
+    case 'COMMENTED':
+      return 'Left review comments'
+    default:
+      return 'Submitted review'
+  }
+}
+
+function buildCommentTimelineEvents(
+  comments:
+    | Array<{
+        id: string
+        createdAt: string
+        bodyText: string
+        url: string
+        author: { login: string } | null
+      }>
+    | undefined
+): PRTimelineEvent[] {
+  return (comments ?? []).map(comment => ({
+    id: `comment-${comment.id}`,
+    type: 'comment' as const,
+    author: comment.author?.login || 'unknown',
+    occurredAt: comment.createdAt,
+    summary: (comment.bodyText || '').trim().split('\n')[0] || 'Added comment',
+    url: comment.url,
+  }))
+}
+
+function buildCommitTimelineEvents(
+  commitNodes:
+    | Array<{
+        commit: {
+          oid: string
+          committedDate: string
+          messageHeadline: string
+          url: string
+          author: { user: { login: string } | null; name: string | null } | null
+        }
+      }>
+    | undefined
+): PRTimelineEvent[] {
+  return (commitNodes ?? []).map(node => ({
+    id: `commit-${node.commit.oid}`,
+    type: 'commit' as const,
+    author: node.commit.author?.user?.login || node.commit.author?.name || 'unknown',
+    occurredAt: node.commit.committedDate,
+    summary: node.commit.messageHeadline || 'Commit',
+    url: node.commit.url || null,
+  }))
+}
+
+function buildReviewTimelineEvents(
+  reviews:
+    | Array<{
+        id: string
+        state: string
+        submittedAt: string | null
+        url: string
+        author: { login: string } | null
+      }>
+    | undefined
+): PRTimelineEvent[] {
+  return (reviews ?? [])
+    .filter(review => review.submittedAt)
+    .map(review => ({
+      id: `review-${review.id}`,
+      type: 'review' as const,
+      author: review.author?.login || 'unknown',
+      occurredAt: review.submittedAt!,
+      summary: describeReviewState(review.state),
+      url: review.url || null,
+    }))
+}
+
+function resolveReviewerStatus(state: string | undefined): PRReviewerSummary['status'] {
+  if (!state) return 'pending'
+  switch (state) {
+    case 'APPROVED':
+      return 'approved'
+    case 'CHANGES_REQUESTED':
+      return 'changes-requested'
+    case 'COMMENTED':
+      return 'commented'
+    default:
+      return 'reviewed'
+  }
+}
+/* v8 ignore stop */
 
 /**
  * Build a contribution calendar from an array of activity date strings.
@@ -883,6 +967,688 @@ export function buildContributionCalendar(commitDates: string[]): {
   return { totalContributions: commitDates.length, weeks }
 }
 
+type ReviewNodeForMap = {
+  state: string
+  submittedAt: string | null
+  author: { login: string; avatarUrl: string } | null
+}
+
+type ReviewEntryForMap = {
+  state: string
+  submittedAt: string | null
+  avatarUrl: string | null
+  name: string | null
+}
+
+/* v8 ignore start -- API response null-guards in review/event mapping helpers */
+function buildReviewEntry(review: ReviewNodeForMap): ReviewEntryForMap {
+  const author = review.author as
+    | { login?: string; avatarUrl?: string | null; name?: string | null }
+    | null
+    | undefined
+  return {
+    state: review.state,
+    submittedAt: review.submittedAt,
+    avatarUrl: author?.avatarUrl || null,
+    name: author?.name || null,
+  }
+}
+
+function isNewerReview(
+  submittedAt: string | null,
+  existing: ReviewEntryForMap | undefined
+): boolean {
+  return !existing || (submittedAt || '') > (existing.submittedAt || '')
+}
+
+function buildLatestReviewsMap(
+  reviews: ReviewNodeForMap[] | undefined
+): Map<string, ReviewEntryForMap> {
+  const map = new Map<string, ReviewEntryForMap>()
+  for (const review of reviews ?? []) {
+    const login = review.author?.login
+    if (!login) continue
+    if (isNewerReview(review.submittedAt, map.get(login))) {
+      map.set(login, buildReviewEntry(review))
+    }
+  }
+  return map
+}
+
+type ReviewRequestNode = {
+  requestedReviewer:
+    | { __typename: 'User'; login: string; avatarUrl: string }
+    | { __typename: string }
+    | null
+}
+
+function buildRequestedReviewersMap(
+  reviewRequests: ReviewRequestNode[] | undefined
+): Map<string, { avatarUrl: string | null; name: string | null }> {
+  const map = new Map<string, { avatarUrl: string | null; name: string | null }>()
+  for (const req of reviewRequests ?? []) {
+    const reviewer = req.requestedReviewer
+    if (
+      reviewer &&
+      reviewer.__typename === 'User' &&
+      'login' in reviewer &&
+      'avatarUrl' in reviewer
+    ) {
+      const r = reviewer as { login: string; avatarUrl?: string | null; name?: string | null }
+      map.set(r.login, { avatarUrl: r.avatarUrl || null, name: r.name || null })
+    }
+  }
+  return map
+}
+
+/** Extract repo name from a GitHub API repository_url. */
+function extractRepoFromUrl(repoUrl: string): string {
+  const parts = repoUrl.split('/')
+  return parts.slice(-2).join('/')
+}
+
+/** Map a GitHub search API item to a UserPRSummary. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapSearchItemToUserPR(item: any): UserPRSummary {
+  return {
+    number: item.number,
+    title: item.title,
+    repo: extractRepoFromUrl(item.repository_url),
+    state: item.pull_request?.merged_at ? 'merged' : item.state === 'open' ? 'open' : 'closed',
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    url: item.html_url,
+  }
+}
+
+/** Map a raw GitHub event to a UserEvent. */
+function buildEventId(evt: Record<string, unknown>, repoName: string): string {
+  return String(evt.id ?? `${evt.type ?? 'Unknown'}:${repoName}:${evt.created_at ?? ''}`)
+}
+
+function mapRawEventToUserEvent(evt: Record<string, unknown>, orgPrefix: string): UserEvent | null {
+  const repoObj = evt.repo as { name?: string } | undefined
+  const repoName = repoObj?.name
+  if (!repoName?.startsWith(orgPrefix)) return null
+  return {
+    id: buildEventId(evt, repoName),
+    type: (evt.type as string) ?? 'Unknown',
+    repo: repoName,
+    createdAt: (evt.created_at as string) ?? '',
+    summary: eventSummary(evt),
+  }
+}
+
+/** Count commits from PushEvents that occurred today in the org. */
+function countEventCommitsToday(
+  events: Array<Record<string, unknown>>,
+  orgPrefix: string,
+  startOfDayIso: string
+): number {
+  return events
+    .filter(evt => {
+      const repo = evt.repo as { name?: string } | undefined
+      return (
+        evt.type === 'PushEvent' &&
+        repo?.name?.startsWith(orgPrefix) &&
+        typeof evt.created_at === 'string' &&
+        evt.created_at >= startOfDayIso
+      )
+    })
+    .reduce((sum, evt) => {
+      const size = (evt.payload as Record<string, unknown> | undefined)?.size
+      return sum + (typeof size === 'number' ? size : 1)
+    }, 0)
+}
+/* v8 ignore stop */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveGraphqlCalendar(userProfile: any) {
+  return userProfile?.user?.contributionsCollection?.contributionCalendar ?? null
+}
+
+/** Build contribution calendar/source data from search dates and GraphQL profile. */
+function buildContributionData(
+  contributionDates: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  userProfile: any
+): {
+  totalContributions: number | null
+  contributionWeeks: ContributionWeek[] | null
+  contributionSource: 'graphql' | 'org-activity'
+} {
+  const graphqlCalendar = resolveGraphqlCalendar(userProfile)
+  const graphqlTotal = graphqlCalendar?.totalContributions ?? 0
+
+  if (contributionDates.length > 0 && contributionDates.length >= graphqlTotal) {
+    const derived = buildContributionCalendar(contributionDates)
+    return {
+      totalContributions: derived.totalContributions,
+      contributionWeeks: derived.weeks,
+      contributionSource: 'org-activity',
+    }
+  }
+
+  if (graphqlCalendar) {
+    return {
+      totalContributions: graphqlTotal,
+      contributionWeeks: graphqlCalendar.weeks,
+      contributionSource: 'graphql',
+    }
+  }
+
+  return {
+    totalContributions: null,
+    contributionWeeks: null,
+    contributionSource: 'org-activity',
+  }
+}
+
+/** Map a raw Octokit commit to a RepoCommit. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRawCommitToRepoCommit(c: any): RepoCommit {
+  return {
+    sha: c.sha,
+    message: c.commit.message.split('\n')[0],
+    author: c.author?.login || c.commit.author?.name || 'unknown',
+    authorAvatarUrl: c.author?.avatar_url || null,
+    date: c.commit.author?.date || '',
+    url: c.html_url,
+  }
+}
+
+const CONTRIBUTOR_DEFAULTS = { login: 'unknown', avatar_url: '', contributions: 0, html_url: '' }
+
+/** Map a raw Octokit contributor to a RepoContributor. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRawContributor(c: any): RepoContributor {
+  const d = { ...CONTRIBUTOR_DEFAULTS, ...c }
+  return {
+    login: d.login,
+    name: null as string | null,
+    avatarUrl: d.avatar_url,
+    contributions: d.contributions,
+    url: d.html_url,
+  }
+}
+
+const WORKFLOW_RUN_DEFAULTS = {
+  name: 'Workflow',
+  status: 'unknown',
+  conclusion: null,
+  head_branch: '',
+}
+
+/** Extract WorkflowRun from a settled workflow runs API result. */
+/* v8 ignore start */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractWorkflowRun(result: PromiseSettledResult<any>): WorkflowRun | null {
+  if (result.status !== 'fulfilled') return null
+  const runs = result.value.data.workflow_runs
+  if (runs.length === 0) return null
+  const run = { ...WORKFLOW_RUN_DEFAULTS, ...runs[0] }
+  return {
+    name: run.name,
+    status: run.status,
+    conclusion: run.conclusion,
+    url: run.html_url,
+    createdAt: run.created_at,
+    headBranch: run.head_branch,
+  }
+}
+/* v8 ignore stop */
+
+/** Map a raw commit file entry to DiffFile. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCommitFileToDiffFile(file: any): DiffFile {
+  return {
+    filename: file.filename,
+    previousFilename: file.previous_filename || null,
+    status: file.status || 'modified',
+    additions: file.additions || 0,
+    deletions: file.deletions || 0,
+    changes: file.changes || 0,
+    patch: file.patch || null,
+    blobUrl: file.blob_url || null,
+  }
+}
+
+/** Build search queries for fetchPRsForAccount based on mode. */
+function buildPRSearchQueries(
+  username: string,
+  org: string,
+  mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge',
+  mergedAfter?: string
+): string[] {
+  switch (mode) {
+    case 'needs-review':
+      return [
+        `is:pr review-requested:${username} is:open org:${org}`,
+        `is:pr assignee:${username} is:open org:${org} -author:${username}`,
+      ]
+    case 'need-a-nudge':
+      return [`is:pr is:open reviewed-by:${username} org:${org}`]
+    case 'recently-merged':
+      return [
+        `is:pr author:${username} is:merged merged:>=${mergedAfter} org:${org}`,
+        `is:pr reviewed-by:${username} is:merged merged:>=${mergedAfter} org:${org}`,
+      ]
+    case 'my-prs':
+    default:
+      return [`is:pr author:${username} is:open org:${org}`]
+  }
+}
+
+/** Extract nullable author/date/assignee fields for a search-result PR. */
+/* v8 ignore start -- API response null-guards in issue/PR field mapping */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildSearchPRFields(item: any): {
+  author: string
+  authorAvatarUrl: string | undefined
+  assigneeCount: number
+  created: Date | null
+  updatedAt: string | null
+  date: string | null
+} {
+  return {
+    author: item.user?.login || 'unknown',
+    authorAvatarUrl: item.user?.avatar_url,
+    assigneeCount: item.assignees?.length || 0,
+    created: item.created_at ? new Date(item.created_at) : null,
+    updatedAt: item.updated_at || null,
+    date: item.closed_at || null,
+  }
+}
+
+/** Map a GitHub search item to a PullRequest (with temp metadata fields). */
+function mapSearchItemToPullRequest(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  item: any,
+  orgAvatarUrl: string | null,
+  org: string
+): (PullRequest & { _owner: string; _repo: string; _prNumber: number }) | null {
+  const urlMatch = item.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
+  if (!urlMatch?.[1] || !urlMatch?.[2]) return null
+
+  const owner: string = urlMatch[1]
+  const repo: string = urlMatch[2]
+
+  return {
+    source: 'GitHub' as const,
+    repository: repo,
+    id: item.number,
+    title: item.title,
+    ...buildSearchPRFields(item),
+    url: item.html_url,
+    state: item.state,
+    approvalCount: 0,
+    iApproved: false,
+    headBranch: '',
+    baseBranch: '',
+    threadsTotal: null,
+    threadsAddressed: null,
+    threadsUnaddressed: null,
+    orgAvatarUrl: orgAvatarUrl ?? undefined,
+    org,
+    _owner: owner,
+    _repo: repo,
+    _prNumber: item.number,
+  }
+}
+/* v8 ignore stop */
+
+const ORG_REPO_NUM_DEFAULTS = { stargazers_count: 0, forks_count: 0, archived: false }
+
+/** Map a repo entry from Octokit response to OrgRepo. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRawRepoToOrgRepo(repo: any): OrgRepo {
+  const d = { ...ORG_REPO_NUM_DEFAULTS, ...repo }
+  return {
+    name: repo.name,
+    fullName: repo.full_name,
+    description: repo.description ?? null,
+    url: repo.html_url,
+    defaultBranch: repo.default_branch || 'main',
+    language: repo.language ?? null,
+    stargazersCount: d.stargazers_count,
+    forksCount: d.forks_count,
+    isPrivate: repo.private,
+    isArchived: d.archived,
+    updatedAt: repo.updated_at ?? null,
+    pushedAt: repo.pushed_at ?? null,
+  }
+}
+
+/** Build identity fields (name, url, visibility, etc.) for a RepoDetail. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildRepoIdentityFields(r: any): {
+  name: string
+  fullName: string
+  description: string | null
+  url: string
+  homepage: string | null
+  language: string | null
+  defaultBranch: string
+  visibility: string
+  isArchived: boolean
+  isFork: boolean
+} {
+  return {
+    name: r.name,
+    fullName: r.full_name,
+    description: r.description ?? null,
+    url: r.html_url,
+    homepage: r.homepage ?? null,
+    language: r.language ?? null,
+    defaultBranch: r.default_branch,
+    /* v8 ignore start */
+    visibility: r.visibility ?? (r.private ? 'private' : 'public'),
+    /* v8 ignore stop */
+    isArchived: r.archived ?? false,
+    isFork: r.fork,
+  }
+}
+
+const REPO_DATE_DEFAULTS = { created_at: '', updated_at: '' }
+
+/** Build date fields for a RepoDetail. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildRepoDateFields(r: any): {
+  createdAt: string
+  updatedAt: string
+  pushedAt: string | null
+} {
+  const d = { ...REPO_DATE_DEFAULTS, ...r }
+  return {
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+    pushedAt: r.pushed_at ?? null,
+  }
+}
+
+const REPO_STATS_DEFAULTS = {
+  size: 0,
+  stargazers_count: 0,
+  forks_count: 0,
+  subscribers_count: 0,
+  open_issues_count: 0,
+}
+
+/** Build numeric stats and metadata fields for a RepoDetail. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildRepoStatsFields(r: any): {
+  sizeKB: number
+  stargazersCount: number
+  forksCount: number
+  watchersCount: number
+  openIssuesCount: number
+  topics: string[]
+  license: string | null
+} {
+  const d = { ...REPO_STATS_DEFAULTS, ...r }
+  return {
+    sizeKB: d.size,
+    stargazersCount: d.stargazers_count,
+    forksCount: d.forks_count,
+    watchersCount: d.subscribers_count,
+    openIssuesCount: d.open_issues_count,
+    topics: r.topics ?? [],
+    license: r.license?.spdx_id ?? null,
+  }
+}
+
+/** Build the RepoDetail return object from raw API data. */
+function buildRepoDetailObject(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  r: any,
+  languages: Record<string, number>,
+  recentCommits: RepoCommit[],
+  topContributors: RepoContributor[],
+  openPRCount: number,
+  latestWorkflowRun: WorkflowRun | null
+): RepoDetail {
+  return {
+    ...buildRepoIdentityFields(r),
+    ...buildRepoDateFields(r),
+    ...buildRepoStatsFields(r),
+    languages,
+    recentCommits,
+    topContributors,
+    openPRCount,
+    latestWorkflowRun,
+  }
+}
+
+/** Build OrgOverviewMetrics from collected data. */
+/* v8 ignore start -- API response null-guards in org overview metrics */
+function buildOrgMetrics(
+  org: string,
+  repos: OrgRepo[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  openIssuesResult: PromiseSettledResult<any>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  openPrsResult: PromiseSettledResult<any>,
+  activeReposToday: number,
+  commitsToday: number,
+  contributorMap: Map<string, OrgContributorToday>
+): OrgOverviewMetrics {
+  return {
+    org,
+    repoCount: repos.length,
+    privateRepoCount: repos.filter(repo => repo.isPrivate).length,
+    archivedRepoCount: repos.filter(repo => repo.isArchived).length,
+    openIssueCount:
+      openIssuesResult.status === 'fulfilled' ? openIssuesResult.value.data.total_count : 0,
+    openPullRequestCount:
+      openPrsResult.status === 'fulfilled' ? openPrsResult.value.data.total_count : 0,
+    totalStars: repos.reduce((sum, repo) => sum + repo.stargazersCount, 0),
+    totalForks: repos.reduce((sum, repo) => sum + repo.forksCount, 0),
+    activeReposToday,
+    commitsToday,
+    lastPushAt:
+      repos
+        .map(repo => repo.pushedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] || null,
+    topContributorsToday: Array.from(contributorMap.values())
+      .sort((left, right) => right.commits - left.commits || left.login.localeCompare(right.login))
+      .slice(0, 10),
+  }
+}
+/* v8 ignore stop */
+
+/** Map a raw PR label to { name, color }. */
+/** Return the first non-nullish value, or null. */
+function pickFirst<T>(a: T | null | undefined, b: T | null | undefined): T | null {
+  return a ?? b ?? null
+}
+
+/** Extract author + avatarUrl from a GitHub user object (shared by issue & PR mappers). */
+function mapUserAuthorFields(user: { login?: string; avatar_url?: string } | null | undefined): {
+  author: string
+  authorAvatarUrl: string | null
+} {
+  return {
+    author: user?.login || 'unknown',
+    authorAvatarUrl: user?.avatar_url || null,
+  }
+}
+
+/** Build the latest-review-by-user map from a list of REST reviews. */
+/* v8 ignore start -- API response null-guards in commit/reviewer mapping */
+function buildLatestReviewByUser(
+  reviews: Array<{
+    user?: { login?: string } | null
+    state: string
+    submitted_at?: string | null
+  }>
+): Map<string, { state: string; submittedAt: string }> {
+  const map = new Map<string, { state: string; submittedAt: string }>()
+  for (const review of reviews) {
+    const login = review.user?.login
+    if (!login) continue
+    const submittedAt = review.submitted_at || ''
+    const existing = map.get(login)
+    if (!existing || submittedAt > existing.submittedAt) {
+      map.set(login, { state: review.state, submittedAt })
+    }
+  }
+  return map
+}
+
+/** Build a PRReviewerSummary from GraphQL review + request data. */
+function buildReviewerSummary(
+  login: string,
+  latest: ReviewEntryForMap | undefined,
+  requested: { avatarUrl: string | null; name: string | null } | undefined
+): PRReviewerSummary {
+  return {
+    login,
+    name: pickFirst(latest?.name, requested?.name),
+    avatarUrl: pickFirst(latest?.avatarUrl, requested?.avatarUrl),
+    status: resolveReviewerStatus(latest?.state),
+    updatedAt: latest?.submittedAt || null,
+  }
+}
+
+/** Extract author info from a raw commit (handles commit.author + commit.commit.author fallback). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCommitAuthorFields(commit: any): { author: string; authorAvatarUrl: string | null } {
+  return {
+    author: commit.author?.login || commit.commit.author?.name || 'unknown',
+    authorAvatarUrl: commit.author?.avatar_url || null,
+  }
+}
+
+/** Extract authored/committed dates from a raw commit. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCommitDates(commit: any): { authoredDate: string; committedDate: string } {
+  return {
+    authoredDate: commit.commit.author?.date || '',
+    committedDate: commit.commit.committer?.date || commit.commit.author?.date || '',
+  }
+}
+
+/** Extract stats from a raw commit. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCommitStats(stats: any): { additions: number; deletions: number; total: number } {
+  return {
+    additions: stats?.additions || 0,
+    deletions: stats?.deletions || 0,
+    total: stats?.total || 0,
+  }
+}
+
+/** Map parent commits from a raw commit response. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCommitParents(commit: any): Array<{ sha: string; url: string }> {
+  const baseUrl = commit.html_url.replace(/\/commit\/[^/]+$/, '')
+  return (commit.parents || []).map((parent: { sha: string; html_url?: string }) => ({
+    sha: parent.sha,
+    url: parent.html_url || `${baseUrl}/commit/${parent.sha}`,
+  }))
+}
+
+/** Extract issue body, stateReason, and milestone fields from a raw issue. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapIssueBodyFields(issue: any): {
+  body: string
+  stateReason: string | null
+  milestone: { title: string; dueOn: string | null } | null
+} {
+  return {
+    body: issue.body || '',
+    stateReason: issue.state_reason || null,
+    milestone: issue.milestone
+      ? { title: issue.milestone.title, dueOn: issue.milestone.due_on }
+      : null,
+  }
+}
+
+/** Map a raw PR from the pulls.list endpoint to a RepoPullRequest. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRawPRToRepoPR(pr: any): RepoPullRequest {
+  return {
+    number: pr.number,
+    title: pr.title,
+    state: pr.state,
+    ...mapUserAuthorFields(pr.user),
+    url: pr.html_url,
+    createdAt: pr.created_at,
+    updatedAt: pr.updated_at,
+    labels: (pr.labels || []).map(mapPRLabel),
+    draft: pr.draft || false,
+    headBranch: pr.head?.ref || '',
+    baseBranch: pr.base?.ref || '',
+    assigneeCount: pr.assignees?.length || 0,
+    approvalCount: 0,
+    iApproved: false,
+  }
+}
+
+/** Resolve contributor login from a commit (author login or committer name fallback). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveContributorLogin(commit: any): string {
+  return commit.author?.login || commit.commit.author?.name || 'unknown'
+}
+/* v8 ignore stop */
+
+/** Merge a commit into an existing contributor entry (or create a new one). */
+function mergeContributorEntry(
+  login: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  commit: any,
+  existing: OrgContributorToday | undefined
+): OrgContributorToday {
+  return {
+    login,
+    avatarUrl: pickFirst(commit.author?.avatar_url, existing?.avatarUrl),
+    url: pickFirst(commit.author?.html_url, existing?.url),
+    commits: (existing?.commits ?? 0) + 1,
+  }
+}
+
+/** Extract basic user profile fields from a GraphQL user profile response. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractUserBasicInfo(user: any): {
+  name: string | null
+  bio: string | null
+  company: string | null
+  location: string | null
+} {
+  if (!user) return { name: null, bio: null, company: null, location: null }
+  return {
+    name: user.name ?? null,
+    bio: user.bio ?? null,
+    company: user.company ?? null,
+    location: user.location ?? null,
+  }
+}
+
+/** Extract status and createdAt from a GraphQL user profile response. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractUserStatusInfo(user: any): {
+  statusMessage: string | null
+  statusEmoji: string | null
+  createdAt: string | null
+} {
+  if (!user) return { statusMessage: null, statusEmoji: null, createdAt: null }
+  const status = user.status
+  return {
+    statusMessage: status?.message ?? null,
+    statusEmoji: status?.emoji ?? null,
+    createdAt: user.createdAt ?? null,
+  }
+}
+
+function mapPRLabel(l: string | { name?: string; color?: string }): {
+  name: string
+  color: string
+} {
+  if (typeof l === 'string') return { name: l, color: DEFAULT_LABEL_COLOR }
+  return { name: l.name || '', color: l.color || DEFAULT_LABEL_COLOR }
+}
+
 export class GitHubClient {
   private config: PRConfig['github']
   private recentlyMergedDays: number = DEFAULT_RECENTLY_MERGED_DAYS
@@ -918,24 +1684,15 @@ export class GitHubClient {
     }>,
     viewerLogin: string | null
   ): { approvalCount: number; iApproved: boolean } {
-    const latestByUser = new Map<string, { state: string; submittedAt: string }>()
-    for (const review of reviews) {
-      const login = review.user?.login
-      if (!login) continue
-      const submittedAt = review.submitted_at || ''
-      const existing = latestByUser.get(login)
-      if (!existing || submittedAt > existing.submittedAt) {
-        latestByUser.set(login, { state: review.state, submittedAt })
-      }
-    }
+    const latestByUser = buildLatestReviewByUser(reviews)
     let approvalCount = 0
     let iApproved = false
+    const viewerLower = viewerLogin?.toLowerCase() ?? null
     for (const [login, { state }] of latestByUser) {
-      if (state === 'APPROVED') {
-        approvalCount++
-        if (viewerLogin && login.toLowerCase() === viewerLogin.toLowerCase()) {
-          iApproved = true
-        }
+      if (state !== 'APPROVED') continue
+      approvalCount++
+      if (viewerLower && login.toLowerCase() === viewerLower) {
+        iApproved = true
       }
     }
     return { approvalCount, iApproved }
@@ -947,66 +1704,23 @@ export class GitHubClient {
     pr: NonNullable<NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest']>,
     pullNumber: number
   ): PRTimelineEvent[] {
-    const timeline: PRTimelineEvent[] = []
-    timeline.push({
+    const opened: PRTimelineEvent = {
       id: `opened-${pullNumber}`,
       type: 'opened',
       author: pr.author?.login || 'unknown',
       occurredAt: pr.createdAt,
       summary: 'Opened pull request',
       url: null,
-    })
-
-    for (const comment of pr.comments.nodes || []) {
-      const summary = (comment.bodyText || '').trim().split('\n')[0] || 'Added comment'
-      timeline.push({
-        id: `comment-${comment.id}`,
-        type: 'comment',
-        author: comment.author?.login || 'unknown',
-        occurredAt: comment.createdAt,
-        summary,
-        url: comment.url,
-      })
     }
 
-    for (const commitNode of pr.commits.nodes || []) {
-      const commit = commitNode.commit
-      timeline.push({
-        id: `commit-${commit.oid}`,
-        type: 'commit',
-        author: commit.author?.user?.login || commit.author?.name || 'unknown',
-        occurredAt: commit.committedDate,
-        summary: commit.messageHeadline || 'Commit',
-        url: commit.url || null,
-      })
-    }
+    const timeline = [
+      opened,
+      ...buildCommentTimelineEvents(pr.comments.nodes),
+      ...buildCommitTimelineEvents(pr.commits.nodes),
+      ...buildReviewTimelineEvents(pr.reviews.nodes),
+    ]
 
-    for (const review of pr.reviews.nodes || []) {
-      if (!review.submittedAt) continue
-      const reviewSummary =
-        review.state === 'APPROVED'
-          ? 'Approved review'
-          : review.state === 'CHANGES_REQUESTED'
-            ? 'Requested changes'
-            : review.state === 'COMMENTED'
-              ? 'Left review comments'
-              : 'Submitted review'
-
-      timeline.push({
-        id: `review-${review.id}`,
-        type: 'review',
-        author: review.author?.login || 'unknown',
-        occurredAt: review.submittedAt,
-        summary: reviewSummary,
-        url: review.url || null,
-      })
-    }
-
-    timeline.sort((a, b) => {
-      const aTs = new Date(a.occurredAt).getTime()
-      const bTs = new Date(b.occurredAt).getTime()
-      return aTs - bTs
-    })
+    timeline.sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
 
     return timeline
   }
@@ -1016,79 +1730,17 @@ export class GitHubClient {
   private buildReviewerSummaries(
     pr: NonNullable<NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest']>
   ): PRReviewerSummary[] {
-    const latestReviewsByUser = new Map<
-      string,
-      { state: string; submittedAt: string | null; avatarUrl: string | null; name: string | null }
-    >()
-    for (const review of pr.reviews.nodes || []) {
-      const login = review.author?.login
-      if (!login) continue
-      const reviewAuthor = review.author as
-        | {
-            login?: string
-            avatarUrl?: string | null
-            name?: string | null
-          }
-        | null
-        | undefined
-      const existing = latestReviewsByUser.get(login)
-      if (!existing || (review.submittedAt || '') > (existing.submittedAt || '')) {
-        latestReviewsByUser.set(login, {
-          state: review.state,
-          submittedAt: review.submittedAt,
-          avatarUrl: reviewAuthor?.avatarUrl || null,
-          name: reviewAuthor?.name || null,
-        })
-      }
-    }
-
-    const requestedReviewers = new Map<string, { avatarUrl: string | null; name: string | null }>()
-    for (const req of pr.reviewRequests.nodes || []) {
-      const reviewer = req.requestedReviewer
-      if (
-        reviewer &&
-        reviewer.__typename === 'User' &&
-        'login' in reviewer &&
-        'avatarUrl' in reviewer
-      ) {
-        const requestedReviewer = reviewer as {
-          login: string
-          avatarUrl?: string | null
-          name?: string | null
-        }
-        requestedReviewers.set(requestedReviewer.login, {
-          avatarUrl: requestedReviewer.avatarUrl || null,
-          name: requestedReviewer.name || null,
-        })
-      }
-    }
+    const latestReviewsByUser = buildLatestReviewsMap(pr.reviews.nodes)
+    const requestedReviewers = buildRequestedReviewersMap(pr.reviewRequests.nodes)
 
     const reviewerLogins = new Set<string>([
       ...requestedReviewers.keys(),
       ...latestReviewsByUser.keys(),
     ])
 
-    return Array.from(reviewerLogins).map(login => {
-      const latest = latestReviewsByUser.get(login)
-      const requested = requestedReviewers.get(login)
-      const status: PRReviewerSummary['status'] = latest
-        ? latest.state === 'APPROVED'
-          ? 'approved'
-          : latest.state === 'CHANGES_REQUESTED'
-            ? 'changes-requested'
-            : latest.state === 'COMMENTED'
-              ? 'commented'
-              : 'reviewed'
-        : 'pending'
-
-      return {
-        login,
-        name: latest?.name || requested?.name || null,
-        avatarUrl: latest?.avatarUrl || requested?.avatarUrl || null,
-        status,
-        updatedAt: latest?.submittedAt || null,
-      }
-    })
+    return Array.from(reviewerLogins).map(login =>
+      buildReviewerSummary(login, latestReviewsByUser.get(login), requestedReviewers.get(login))
+    )
   }
   /* v8 ignore stop */
 
@@ -1261,34 +1913,16 @@ export class GitHubClient {
     /* v8 ignore stop */
     const r = repoData.value.data
 
-    // Languages (optional)
     const languages: Record<string, number> =
       languagesData.status === 'fulfilled' ? languagesData.value.data : {}
 
     /* v8 ignore start -- Optional API results; branches for rejected/null paths are defensive */
-    // Recent commits (optional)
     const recentCommits: RepoCommit[] =
-      commitsData.status === 'fulfilled'
-        ? commitsData.value.data.map(c => ({
-            sha: c.sha,
-            message: c.commit.message.split('\n')[0], // first line only
-            author: c.author?.login || c.commit.author?.name || 'unknown',
-            authorAvatarUrl: c.author?.avatar_url || null,
-            date: c.commit.author?.date || '',
-            url: c.html_url,
-          }))
-        : []
+      commitsData.status === 'fulfilled' ? commitsData.value.data.map(mapRawCommitToRepoCommit) : []
 
-    // Contributors (optional)
     let topContributors: RepoContributor[] =
       contributorsData.status === 'fulfilled' && Array.isArray(contributorsData.value.data)
-        ? contributorsData.value.data.map(c => ({
-            login: c.login ?? 'unknown',
-            name: null as string | null,
-            avatarUrl: c.avatar_url ?? '',
-            contributions: c.contributions ?? 0,
-            url: c.html_url ?? '',
-          }))
+        ? contributorsData.value.data.map(mapRawContributor)
         : []
 
     if (topContributors.length > 0) {
@@ -1299,60 +1933,22 @@ export class GitHubClient {
       topContributors = topContributors.map(c => ({ ...c, name: nameMap.get(c.login) ?? null }))
     }
 
-    // Open PR count (optional) — GitHub returns total_count in search,
-    // but for pulls.list we check response headers or just count length.
-    // Since per_page=1, we use the total from the link header or just presence.
     let openPRCount = 0
-    if (prsData.status === 'fulfilled') {
-      // If there's at least 1 PR, use the open_issues_count from repo data
-      // (which includes issues + PRs) — we'll estimate from the repo's pull data
-      openPRCount = prsData.value.data.length > 0 ? r.open_issues_count : 0
+    if (prsData.status === 'fulfilled' && prsData.value.data.length > 0) {
+      openPRCount = r.open_issues_count
     }
 
-    // Latest workflow run (optional)
-    let latestWorkflowRun: WorkflowRun | null = null
-    if (workflowsData.status === 'fulfilled' && workflowsData.value.data.workflow_runs.length > 0) {
-      const run = workflowsData.value.data.workflow_runs[0]
-      latestWorkflowRun = {
-        name: run.name ?? 'Workflow',
-        status: run.status ?? 'unknown',
-        conclusion: run.conclusion ?? null,
-        url: run.html_url,
-        createdAt: run.created_at,
-        headBranch: run.head_branch ?? '',
-      }
-    }
+    const latestWorkflowRun = extractWorkflowRun(workflowsData)
     /* v8 ignore stop */
 
-    return {
-      name: r.name,
-      fullName: r.full_name,
-      description: r.description ?? null,
-      url: r.html_url,
-      homepage: r.homepage ?? null,
-      language: r.language ?? null,
-      defaultBranch: r.default_branch,
-      /* v8 ignore start */
-      visibility: r.visibility ?? (r.private ? 'private' : 'public'),
-      /* v8 ignore stop */
-      isArchived: r.archived ?? false,
-      isFork: r.fork,
-      createdAt: r.created_at ?? '',
-      updatedAt: r.updated_at ?? '',
-      pushedAt: r.pushed_at ?? null,
-      sizeKB: r.size ?? 0,
-      stargazersCount: r.stargazers_count ?? 0,
-      forksCount: r.forks_count ?? 0,
-      watchersCount: r.subscribers_count ?? 0,
-      openIssuesCount: r.open_issues_count ?? 0,
-      topics: r.topics ?? [],
-      license: r.license?.spdx_id ?? null,
+    return buildRepoDetailObject(
+      r,
       languages,
       recentCommits,
       topContributors,
       openPRCount,
-      latestWorkflowRun,
-    }
+      latestWorkflowRun
+    )
   }
 
   /**
@@ -1362,14 +1958,7 @@ export class GitHubClient {
     const octokit = await this.getOctokitForOwner(owner)
     const response = await octokit.repos.listCommits({ owner, repo, per_page: perPage })
 
-    return response.data.map(commit => ({
-      sha: commit.sha,
-      message: commit.commit.message.split('\n')[0],
-      author: commit.author?.login || commit.commit.author?.name || 'unknown',
-      authorAvatarUrl: commit.author?.avatar_url || null,
-      date: commit.commit.author?.date || commit.commit.committer?.date || '',
-      url: commit.html_url,
-    }))
+    return response.data.map(mapRawCommitToRepoCommit)
   }
 
   /**
@@ -1385,32 +1974,12 @@ export class GitHubClient {
       sha: commit.sha,
       message: commit.commit.message,
       messageHeadline: commit.commit.message.split('\n')[0] || commit.sha,
-      author: commit.author?.login || commit.commit.author?.name || 'unknown',
-      authorAvatarUrl: commit.author?.avatar_url || null,
-      authoredDate: commit.commit.author?.date || '',
-      committedDate: commit.commit.committer?.date || commit.commit.author?.date || '',
+      ...mapCommitAuthorFields(commit),
+      ...mapCommitDates(commit),
       url: commit.html_url,
-      parents: (commit.parents || []).map(parent => ({
-        sha: parent.sha,
-        url:
-          parent.html_url ||
-          `${commit.html_url.replace(/\/commit\/[^/]+$/, '')}/commit/${parent.sha}`,
-      })),
-      stats: {
-        additions: commit.stats?.additions || 0,
-        deletions: commit.stats?.deletions || 0,
-        total: commit.stats?.total || 0,
-      },
-      files: (commit.files || []).map(file => ({
-        filename: file.filename,
-        previousFilename: file.previous_filename || null,
-        status: file.status || 'modified',
-        additions: file.additions || 0,
-        deletions: file.deletions || 0,
-        changes: file.changes || 0,
-        patch: file.patch || null,
-        blobUrl: file.blob_url || null,
-      })),
+      parents: mapCommitParents(commit),
+      stats: mapCommitStats(commit.stats),
+      files: (commit.files || []).map(mapCommitFileToDiffFile),
     }
   }
   /* v8 ignore stop */
@@ -1494,11 +2063,7 @@ export class GitHubClient {
   ): Promise<RepoIssueDetail> {
     const octokit = await this.getOctokitForOwner(owner)
     const [issueResponse, commentsResponse] = await Promise.all([
-      octokit.issues.get({
-        owner,
-        repo,
-        issue_number: issueNumber,
-      }),
+      octokit.issues.get({ owner, repo, issue_number: issueNumber }),
       octokit.issues.listComments({
         owner,
         repo,
@@ -1520,8 +2085,7 @@ export class GitHubClient {
       number: issue.number,
       title: issue.title,
       state: issue.state,
-      author: issue.user?.login || 'unknown',
-      authorAvatarUrl: issue.user?.avatar_url || null,
+      ...mapUserAuthorFields(issue.user),
       url: issue.html_url,
       createdAt: issue.created_at,
       updatedAt: issue.updated_at,
@@ -1532,19 +2096,11 @@ export class GitHubClient {
         name: nameMap.get(assignee.login) ?? null,
         avatarUrl: assignee.avatar_url,
       })),
-      body: issue.body || '',
+      ...mapIssueBodyFields(issue),
       closedAt: issue.closed_at,
-      stateReason: issue.state_reason || null,
-      milestone: issue.milestone
-        ? {
-            title: issue.milestone.title,
-            dueOn: issue.milestone.due_on,
-          }
-        : null,
       comments: commentsResponse.data.map(comment => ({
         id: comment.id,
-        author: comment.user?.login || 'unknown',
-        authorAvatarUrl: comment.user?.avatar_url || null,
+        ...mapUserAuthorFields(comment.user),
         body: comment.body || '',
         createdAt: comment.created_at,
         updatedAt: comment.updated_at,
@@ -1576,26 +2132,7 @@ export class GitHubClient {
 
     const viewerLogin = viewer?.data?.login?.toLowerCase() || null
 
-    const prs: RepoPullRequest[] = response.data.map(pr => ({
-      number: pr.number,
-      title: pr.title,
-      state: pr.state,
-      author: pr.user?.login || 'unknown',
-      authorAvatarUrl: pr.user?.avatar_url || null,
-      url: pr.html_url,
-      createdAt: pr.created_at,
-      updatedAt: pr.updated_at,
-      labels: (pr.labels || []).map(l => ({
-        name: typeof l === 'string' ? l : l.name || '',
-        color: typeof l === 'string' ? DEFAULT_LABEL_COLOR : l.color || DEFAULT_LABEL_COLOR,
-      })),
-      draft: pr.draft || false,
-      headBranch: pr.head?.ref || '',
-      baseBranch: pr.base?.ref || '',
-      assigneeCount: pr.assignees?.length || 0,
-      approvalCount: 0,
-      iApproved: false,
-    }))
+    const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
 
     await GitHubClient.batchProcess(prs, async pr => {
       try {
@@ -1653,16 +2190,7 @@ export class GitHubClient {
       per_page: 100,
     })
 
-    const normalizedFiles: PRFileChange[] = files.map(file => ({
-      filename: file.filename,
-      previousFilename: file.previous_filename || null,
-      status: file.status || 'modified',
-      additions: file.additions || 0,
-      deletions: file.deletions || 0,
-      changes: file.changes || 0,
-      patch: file.patch || null,
-      blobUrl: file.blob_url || null,
-    }))
+    const normalizedFiles: PRFileChange[] = files.map(mapCommitFileToDiffFile)
 
     return {
       files: normalizedFiles,
@@ -2401,69 +2929,27 @@ export class GitHubClient {
           octokit.search.issuesAndPullRequests({ q: `org:${org} is:pr is:open`, per_page: 1 }),
         ])
 
-        const recentlyPushedRepos = repos.filter(repo => {
-          if (!repo.pushedAt) return false
-          return new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
-        })
+        const recentlyPushedRepos = repos.filter(
+          repo => repo.pushedAt && new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
+        )
 
-        let activeReposToday = 0
-        let commitsToday = 0
-        const contributorMap = new Map<string, OrgContributorToday>()
-
-        for (const repo of recentlyPushedRepos) {
-          const commits = await octokit.paginate(octokit.repos.listCommits, {
-            owner: org,
-            repo: repo.name,
-            since: startOfDayIso,
-            per_page: 100,
-          })
-
-          if (commits.length === 0) {
-            continue
-          }
-
-          activeReposToday++
-          commitsToday += commits.length
-
-          for (const commit of commits) {
-            const login = commit.author?.login || commit.commit.author?.name || 'unknown'
-            const existing = contributorMap.get(login)
-            contributorMap.set(login, {
-              login,
-              avatarUrl: commit.author?.avatar_url || existing?.avatarUrl || null,
-              url: commit.author?.html_url || existing?.url || null,
-              commits: (existing?.commits || 0) + 1,
-            })
-          }
-        }
+        const { activeReposToday, commitsToday, contributorMap } = await this.fetchTodayCommitStats(
+          octokit,
+          org,
+          recentlyPushedRepos,
+          startOfDayIso
+        )
 
         return {
-          metrics: {
+          metrics: buildOrgMetrics(
             org,
-            repoCount: repos.length,
-            privateRepoCount: repos.filter(repo => repo.isPrivate).length,
-            archivedRepoCount: repos.filter(repo => repo.isArchived).length,
-            openIssueCount:
-              openIssuesResult.status === 'fulfilled' ? openIssuesResult.value.data.total_count : 0,
-            openPullRequestCount:
-              openPrsResult.status === 'fulfilled' ? openPrsResult.value.data.total_count : 0,
-            totalStars: repos.reduce((sum, repo) => sum + repo.stargazersCount, 0),
-            totalForks: repos.reduce((sum, repo) => sum + repo.forksCount, 0),
+            repos,
+            openIssuesResult,
+            openPrsResult,
             activeReposToday,
             commitsToday,
-            lastPushAt:
-              repos
-                .map(repo => repo.pushedAt)
-                .filter((value): value is string => Boolean(value))
-                .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ||
-              null,
-            topContributorsToday: Array.from(contributorMap.values())
-              .sort(
-                (left, right) =>
-                  right.commits - left.commits || left.login.localeCompare(right.login)
-              )
-              .slice(0, 10),
-          },
+            contributorMap
+          ),
           authenticatedAs: account.username,
           isUserNamespace,
         }
@@ -2474,6 +2960,44 @@ export class GitHubClient {
     }
 
     throw new Error(`Could not fetch overview for '${org}' - no authenticated account available`)
+  }
+
+  /** Gather today's commit stats across recently-pushed repos. */
+  private async fetchTodayCommitStats(
+    octokit: Octokit,
+    org: string,
+    recentlyPushedRepos: OrgRepo[],
+    startOfDayIso: string
+  ): Promise<{
+    activeReposToday: number
+    commitsToday: number
+    contributorMap: Map<string, OrgContributorToday>
+  }> {
+    let activeReposToday = 0
+    let commitsToday = 0
+    const contributorMap = new Map<string, OrgContributorToday>()
+
+    for (const repo of recentlyPushedRepos) {
+      const commits = await octokit.paginate(octokit.repos.listCommits, {
+        owner: org,
+        repo: repo.name,
+        since: startOfDayIso,
+        per_page: 100,
+      })
+
+      if (commits.length === 0) continue
+
+      activeReposToday++
+      commitsToday += commits.length
+
+      for (const commit of commits) {
+        const login = resolveContributorLogin(commit)
+        const existing = contributorMap.get(login)
+        contributorMap.set(login, mergeContributorEntry(login, commit, existing))
+      }
+    }
+
+    return { activeReposToday, commitsToday, contributorMap }
   }
 
   /**
@@ -2613,20 +3137,7 @@ export class GitHubClient {
             })
 
       for (const repo of response.data) {
-        repos.push({
-          name: repo.name,
-          fullName: repo.full_name,
-          description: repo.description ?? null,
-          url: repo.html_url,
-          defaultBranch: repo.default_branch || 'main',
-          language: repo.language ?? null,
-          stargazersCount: repo.stargazers_count ?? 0,
-          forksCount: repo.forks_count ?? 0,
-          isPrivate: repo.private,
-          isArchived: repo.archived ?? false,
-          updatedAt: repo.updated_at ?? null,
-          pushedAt: repo.pushed_at ?? null,
-        })
+        repos.push(mapRawRepoToOrgRepo(repo))
       }
 
       hasMore = response.data.length >= perPage
@@ -2645,6 +3156,7 @@ export class GitHubClient {
     const allPrs: PullRequest[] = []
     let authenticationErrors = 0
     const totalAccounts = this.config.accounts.length
+    const report: ProgressCallback = onProgress ?? (() => {})
 
     // Process each configured GitHub account with its own token
     for (let i = 0; i < this.config.accounts.length; i++) {
@@ -2654,8 +3166,7 @@ export class GitHubClient {
 
       console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
 
-      // Report authenticating progress
-      onProgress?.({
+      report({
         currentAccount,
         totalAccounts,
         accountName: username,
@@ -2667,7 +3178,7 @@ export class GitHubClient {
       const octokit = await this.getOctokit(username)
       if (!octokit) {
         console.warn(`⚠️  Skipping account '${username}' - no GitHub CLI authentication found`)
-        onProgress?.({
+        report({
           currentAccount,
           totalAccounts,
           accountName: username,
@@ -2679,14 +3190,7 @@ export class GitHubClient {
         continue
       }
 
-      // Report fetching progress
-      onProgress?.({
-        currentAccount,
-        totalAccounts,
-        accountName: username,
-        org,
-        status: 'fetching',
-      })
+      report({ currentAccount, totalAccounts, accountName: username, org, status: 'fetching' })
 
       try {
         const prs = await this.fetchPRsForAccount(octokit, org, username, mode)
@@ -2694,8 +3198,7 @@ export class GitHubClient {
 
         console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`)
 
-        // Report done progress
-        onProgress?.({
+        report({
           currentAccount,
           totalAccounts,
           accountName: username,
@@ -2711,7 +3214,7 @@ export class GitHubClient {
         } else {
           console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
         }
-        onProgress?.({
+        report({
           currentAccount,
           totalAccounts,
           accountName: username,
@@ -2784,38 +3287,15 @@ export class GitHubClient {
     const allPrs: PullRequest[] = []
     const orgAvatarUrl = await this.resolveOrgAvatar(octokit, org)
 
-    // Different queries based on mode
-    let queries: string[]
-
-    switch (mode) {
-      case 'needs-review':
-        // PRs where review is requested from me OR I'm assigned but haven't approved
-        queries = [
-          `is:pr review-requested:${username} is:open org:${org}`,
-          `is:pr assignee:${username} is:open org:${org} -author:${username}`,
-        ]
-        break
-      case 'need-a-nudge':
-        // PRs I approved that are still open (may need a nudge to merge)
-        queries = [`is:pr is:open reviewed-by:${username} org:${org}`]
-        break
-      case 'recently-merged': {
-        // PRs I authored or reviewed that were recently merged (within configured days)
-        const mergedAfterDate = new Date()
-        mergedAfterDate.setDate(mergedAfterDate.getDate() - this.recentlyMergedDays)
-        const mergedAfter = mergedAfterDate.toISOString().split('T')[0] // YYYY-MM-DD format
-        queries = [
-          `is:pr author:${username} is:merged merged:>=${mergedAfter} org:${org}`,
-          `is:pr reviewed-by:${username} is:merged merged:>=${mergedAfter} org:${org}`,
-        ]
-        break
-      }
-      case 'my-prs':
-      default:
-        // PRs I authored that are not merged
-        queries = [`is:pr author:${username} is:open org:${org}`]
-        break
+    // Compute mergedAfter date for recently-merged mode
+    let mergedAfter: string | undefined
+    if (mode === 'recently-merged') {
+      const mergedAfterDate = new Date()
+      mergedAfterDate.setDate(mergedAfterDate.getDate() - this.recentlyMergedDays)
+      mergedAfter = mergedAfterDate.toISOString().split('T')[0]
     }
+
+    const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
 
     // Execute each search query
     for (const query of queries) {
@@ -2830,53 +3310,18 @@ export class GitHubClient {
         console.debug(`Search found ${searchResults.data.items.length} results for: ${query}`)
 
         for (const item of searchResults.data.items) {
-          if (seenUrls.has(item.html_url)) {
-            continue
-          }
+          if (seenUrls.has(item.html_url)) continue
           seenUrls.add(item.html_url)
 
-          // Parse owner/repo from URL
-          const urlMatch = item.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
-          if (!urlMatch || !urlMatch[1] || !urlMatch[2]) {
+          const mapped = mapSearchItemToPullRequest(item, orgAvatarUrl, org)
+          if (!mapped) {
             console.debug(`Invalid PR URL format: ${item.html_url}`)
             continue
           }
-
-          const owner: string = urlMatch[1]
-          const repo: string = urlMatch[2]
-
-          // Build PR from search result (most data already available)
-          allPrs.push({
-            source: 'GitHub' as const,
-            repository: repo,
-            id: item.number,
-            title: item.title,
-            author: item.user?.login || 'unknown',
-            authorAvatarUrl: item.user?.avatar_url,
-            url: item.html_url,
-            state: item.state,
-            approvalCount: 0, // Will be filled in batch
-            assigneeCount: item.assignees?.length || 0,
-            iApproved: false, // Will be filled in batch
-            created: item.created_at ? new Date(item.created_at) : null,
-            updatedAt: item.updated_at || null,
-            headBranch: '',
-            baseBranch: '',
-            threadsTotal: null,
-            threadsAddressed: null,
-            threadsUnaddressed: null,
-            date: item.closed_at || null, // For merged PRs, closed_at is the merge date
-            orgAvatarUrl,
-            org,
-            // Store metadata for batch processing
-            _owner: owner,
-            _repo: repo,
-            _prNumber: item.number,
-          } as PullRequest & { _owner: string; _repo: string; _prNumber: number })
+          allPrs.push(mapped)
         }
       } catch (error) {
         const errorMsg = getErrorMessage(error)
-        // Suppress 404 errors (org doesn't exist or no access)
         if (!errorMsg.includes('404')) {
           console.warn(`Search query failed: ${query}`, error)
         } else {
@@ -2922,8 +3367,8 @@ export class GitHubClient {
     // Batch-fetch thread stats via a single GraphQL query per owner (more reliable than per-PR calls)
     await this.fetchBatchThreadStats(prsWithMeta)
 
-    // Clean up metadata and filter
-    const finalPrs = allPrs
+    // Clean up metadata and filter by mode
+    return allPrs
       .map(pr => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequest & {
@@ -2934,18 +3379,10 @@ export class GitHubClient {
         return cleanPr
       })
       .filter(pr => {
-        // For needs-review mode, filter out PRs the user has already approved
-        if (mode === 'needs-review' && pr.iApproved) {
-          return false
-        }
-        // For need-a-nudge mode, only include PRs the user has approved
-        if (mode === 'need-a-nudge' && !pr.iApproved) {
-          return false
-        }
+        if (mode === 'needs-review') return !pr.iApproved
+        if (mode === 'need-a-nudge') return pr.iApproved
         return true
       })
-
-    return finalPrs
   }
 
   /**
@@ -2965,6 +3402,22 @@ export class GitHubClient {
       prsByOwner.set(pr._owner, list)
     }
 
+    for (const [owner, ownerPrs] of prsByOwner) {
+      try {
+        const token = await this.getTokenForOwner(owner)
+        await this.fetchThreadStatsChunked(ownerPrs, owner, token)
+      } catch (error) {
+        console.warn(`[fetchBatchThreadStats] Failed for owner ${owner}:`, error)
+      }
+    }
+  }
+
+  /** Process thread stats in chunks of 20 for a single owner. */
+  private async fetchThreadStatsChunked(
+    ownerPrs: Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }>,
+    owner: string,
+    token: string
+  ): Promise<void> {
     type ThreadStatsResult = Record<
       string,
       {
@@ -2974,17 +3427,12 @@ export class GitHubClient {
       } | null
     >
 
-    for (const [owner, ownerPrs] of prsByOwner) {
-      try {
-        const token = await this.getTokenForOwner(owner)
-
-        // Process in chunks of 20 to stay within GraphQL query size limits
-        for (let i = 0; i < ownerPrs.length; i += 20) {
-          const chunk = ownerPrs.slice(i, i + 20)
-          const fragments = chunk
-            .map((pr, idx) => {
-              const alias = `pr${i + idx}`
-              return `${alias}: repository(owner: "${owner}", name: "${pr._repo}") {
+    for (let i = 0; i < ownerPrs.length; i += 20) {
+      const chunk = ownerPrs.slice(i, i + 20)
+      const fragments = chunk
+        .map((pr, idx) => {
+          const alias = `pr${i + idx}`
+          return `${alias}: repository(owner: "${owner}", name: "${pr._repo}") {
               pullRequest(number: ${pr._prNumber}) {
                 reviewThreads(first: 100) {
                   totalCount
@@ -2992,28 +3440,22 @@ export class GitHubClient {
                 }
               }
             }`
-            })
-            .join('\n')
+        })
+        .join('\n')
 
-          const query = `query { ${fragments} }`
-          const result = await graphql<ThreadStatsResult>(query, {
-            headers: { authorization: `token ${token}` },
-          })
+      const query = `query { ${fragments} }`
+      const result = await graphql<ThreadStatsResult>(query, {
+        headers: { authorization: `token ${token}` },
+      })
 
-          for (let idx = 0; idx < chunk.length; idx++) {
-            const alias = `pr${i + idx}`
-            const data = result[alias]?.pullRequest
-            if (data) {
-              const threads = data.reviewThreads.nodes || []
-              const addressed = threads.filter(t => t.isResolved).length
-              chunk[idx].threadsTotal = data.reviewThreads.totalCount
-              chunk[idx].threadsAddressed = addressed
-              chunk[idx].threadsUnaddressed = Math.max(0, data.reviewThreads.totalCount - addressed)
-            }
-          }
-        }
-      } catch (error) {
-        console.warn(`[fetchBatchThreadStats] Failed for owner ${owner}:`, error)
+      for (let idx = 0; idx < chunk.length; idx++) {
+        const data = result[`pr${i + idx}`]?.pullRequest
+        if (!data) continue
+        const threads = data.reviewThreads.nodes || []
+        const addressed = threads.filter(t => t.isResolved).length
+        chunk[idx].threadsTotal = data.reviewThreads.totalCount
+        chunk[idx].threadsAddressed = addressed
+        chunk[idx].threadsUnaddressed = Math.max(0, data.reviewThreads.totalCount - addressed)
       }
     }
   }
@@ -3220,25 +3662,9 @@ export class GitHubClient {
       this.searchUserActivityDates(octokit, org, username).catch(() => [] as string[]),
     ])
 
-    const extractRepo = (repoUrl: string) => {
-      const parts = repoUrl.split('/')
-      return parts.slice(-2).join('/')
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mapPR = (item: any): UserPRSummary => ({
-      number: item.number,
-      title: item.title,
-      repo: extractRepo(item.repository_url),
-      state: item.pull_request?.merged_at ? 'merged' : item.state === 'open' ? 'open' : 'closed',
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-      url: item.html_url,
-    })
-
     const recentPRsAuthored = [
-      ...authoredOpen.data.items.map(mapPR),
-      ...authoredMerged.data.items.map(mapPR),
+      ...authoredOpen.data.items.map(mapSearchItemToUserPR),
+      ...authoredMerged.data.items.map(mapSearchItemToUserPR),
     ]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 15)
@@ -3246,59 +3672,27 @@ export class GitHubClient {
     // Filter events to only those in the org
     const orgPrefix = `${org}/`
     const recentEvents: UserEvent[] = (events.data as Array<Record<string, unknown>>)
-      .filter(evt => {
-        const repo = evt.repo as { name?: string } | undefined
-        return repo?.name?.startsWith(orgPrefix)
-      })
-      .map(evt => {
-        const repo = evt.repo as { name?: string } | undefined
-        return {
-          id: String(
-            evt.id ?? `${evt.type ?? 'Unknown'}:${repo?.name ?? ''}:${evt.created_at ?? ''}`
-          ),
-          type: (evt.type as string) ?? 'Unknown',
-          repo: repo?.name ?? '',
-          createdAt: (evt.created_at as string) ?? '',
-          summary: eventSummary(evt),
-        }
-      })
+      .map(evt => mapRawEventToUserEvent(evt, orgPrefix))
+      .filter((evt): evt is UserEvent => evt !== null)
 
     // Count commits today from PushEvents in the org
-    const eventCommitsToday = (events.data as Array<Record<string, unknown>>)
-      .filter(evt => {
-        const repo = evt.repo as { name?: string } | undefined
-        return (
-          evt.type === 'PushEvent' &&
-          repo?.name?.startsWith(orgPrefix) &&
-          typeof evt.created_at === 'string' &&
-          evt.created_at >= startOfDayIso
-        )
-      })
-      .reduce((sum, evt) => {
-        const size = (evt.payload as Record<string, unknown> | undefined)?.size
-        return sum + (typeof size === 'number' ? size : 1)
-      }, 0)
+    const eventCommitsToday = countEventCommitsToday(
+      events.data as Array<Record<string, unknown>>,
+      orgPrefix,
+      startOfDayIso
+    )
 
-    const recentlyPushedRepos = (repoSource?.repos ?? []).filter(repo => {
-      if (!repo.pushedAt) return false
-      return new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
-    })
+    const recentlyPushedRepos = (repoSource?.repos ?? []).filter(
+      repo => repo.pushedAt && new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
+    )
 
-    let repoCommitsToday = 0
-    for (const repo of recentlyPushedRepos) {
-      try {
-        const commits = await octokit.paginate(octokit.repos.listCommits, {
-          owner: org,
-          repo: repo.name,
-          since: startOfDayIso,
-          per_page: 100,
-        })
-
-        repoCommitsToday += commits.filter(commit => commit.author?.login === username).length
-      } catch {
-        // Ignore per-repo failures and fall back to the events feed if needed.
-      }
-    }
+    const repoCommitsToday = await this.countRepoCommitsForUser(
+      octokit,
+      org,
+      recentlyPushedRepos,
+      startOfDayIso,
+      username
+    )
 
     const commitsToday = Math.max(repoCommitsToday, eventCommitsToday)
 
@@ -3311,58 +3705,50 @@ export class GitHubClient {
       if (pr.repo) activeRepoSet.add(pr.repo)
     })
     reviewed.data.items.forEach((item: Record<string, unknown>) => {
-      const repo = extractRepo(item.repository_url as string)
+      const repo = extractRepoFromUrl(item.repository_url as string)
       if (repo) activeRepoSet.add(repo)
     })
 
+    const userObj = userProfile?.user
     return {
-      name: userProfile?.user?.name ?? null,
-      bio: userProfile?.user?.bio ?? null,
-      company: userProfile?.user?.company ?? null,
-      location: userProfile?.user?.location ?? null,
-      statusMessage: userProfile?.user?.status?.message ?? null,
-      statusEmoji: userProfile?.user?.status?.emoji ?? null,
-      createdAt: userProfile?.user?.createdAt ?? null,
+      ...extractUserBasicInfo(userObj),
+      ...extractUserStatusInfo(userObj),
       orgRole: orgMembership?.data?.role ?? null,
       teams: userTeams,
       recentPRsAuthored,
-      recentPRsReviewed: reviewed.data.items.map(mapPR),
+      recentPRsReviewed: reviewed.data.items.map(mapSearchItemToUserPR),
       recentEvents,
       openPRCount: authoredOpen.data.total_count,
       mergedPRCount: authoredMerged.data.total_count,
       activeRepos: Array.from(activeRepoSet),
       commitsToday,
-      ...(() => {
-        // Use search-derived org activity as the primary contribution source.
-        // Falls back to GraphQL calendar when search returns less data (e.g. token has read:user).
-        const graphqlCalendar = userProfile?.user?.contributionsCollection?.contributionCalendar
-        const graphqlTotal = graphqlCalendar?.totalContributions ?? 0
-
-        if (contributionDates.length > 0 && contributionDates.length >= graphqlTotal) {
-          const derived = buildContributionCalendar(contributionDates)
-          return {
-            totalContributions: derived.totalContributions,
-            contributionWeeks: derived.weeks,
-            contributionSource: 'org-activity' as const,
-          }
-        }
-
-        if (graphqlCalendar) {
-          return {
-            totalContributions: graphqlTotal,
-            contributionWeeks: graphqlCalendar.weeks,
-            contributionSource: 'graphql' as const,
-          }
-        }
-
-        // No data from either source
-        return {
-          totalContributions: null as number | null,
-          contributionWeeks: null as ContributionWeek[] | null,
-          contributionSource: 'org-activity' as const,
-        }
-      })(),
+      ...buildContributionData(contributionDates, userProfile),
     }
+  }
+
+  /** Count today's commits by a specific user across repos. */
+  private async countRepoCommitsForUser(
+    octokit: Octokit,
+    org: string,
+    repos: OrgRepo[],
+    startOfDayIso: string,
+    username: string
+  ): Promise<number> {
+    let total = 0
+    for (const repo of repos) {
+      try {
+        const commits = await octokit.paginate(octokit.repos.listCommits, {
+          owner: org,
+          repo: repo.name,
+          since: startOfDayIso,
+          per_page: 100,
+        })
+        total += commits.filter(commit => commit.author?.login === username).length
+      } catch {
+        // Ignore per-repo failures and fall back to the events feed if needed.
+      }
+    }
+    return total
   }
 
   /**

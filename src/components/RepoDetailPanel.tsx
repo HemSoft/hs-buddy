@@ -27,6 +27,76 @@ interface RepoDetailPanelProps {
   repo: string
 }
 
+function getVisibilityIcon(visibility: string) {
+  if (visibility === 'private') return <Lock size={14} />
+  if (visibility === 'internal') return <Building2 size={14} />
+  return <Globe size={14} />
+}
+
+function RepoBadges({ detail }: { detail: RepoDetail }) {
+  return (
+    <div className="repo-detail-badges">
+      <span className={`repo-badge repo-badge-${detail.visibility}`}>
+        {getVisibilityIcon(detail.visibility)}
+        {detail.visibility}
+      </span>
+      {detail.isArchived && (
+        <span className="repo-badge repo-badge-archived">
+          <Archive size={12} />
+          Archived
+        </span>
+      )}
+      {detail.isFork && (
+        <span className="repo-badge repo-badge-fork">
+          <GitFork size={12} />
+          Fork
+        </span>
+      )}
+      {detail.language && (
+        <span className="repo-badge repo-badge-lang">
+          <span
+            className="lang-dot"
+            style={{ backgroundColor: getLanguageColor(detail.language) }}
+          />
+          {detail.language}
+        </span>
+      )}
+      {detail.license && (
+        <span className="repo-badge repo-badge-license">
+          <Scale size={12} />
+          {detail.license}
+        </span>
+      )}
+      {detail.latestWorkflowRun &&
+        (() => {
+          const info = getWorkflowStatusInfo(
+            detail.latestWorkflowRun.status,
+            detail.latestWorkflowRun.conclusion
+          )
+          const StatusIcon = info.icon
+          return (
+            <span
+              className="repo-badge repo-badge-ci"
+              style={{ borderColor: info.color, color: info.color }}
+              title={`${detail.latestWorkflowRun.name} — ${info.label}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => window.shell?.openExternal(detail.latestWorkflowRun!.url)}
+              onKeyDown={onKeyboardActivate(() =>
+                window.shell?.openExternal(detail.latestWorkflowRun!.url)
+              )}
+            >
+              {/* v8 ignore start */}
+              <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
+              {/* v8 ignore stop */}
+              {info.label}
+            </span>
+          )
+        })()}
+    </div>
+  )
+}
+
 export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   const {
     data: detail,
@@ -64,15 +134,6 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
 
   if (!detail) return null
 
-  const visibilityIcon =
-    detail.visibility === 'private' ? (
-      <Lock size={14} />
-    ) : detail.visibility === 'internal' ? (
-      <Building2 size={14} />
-    ) : (
-      <Globe size={14} />
-    )
-
   return (
     <div className="repo-detail-container">
       {/* Header */}
@@ -84,65 +145,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
             <span className="repo-detail-repo">{repo}</span>
           </h2>
           {detail.description && <p className="repo-detail-description">{detail.description}</p>}
-          <div className="repo-detail-badges">
-            <span className={`repo-badge repo-badge-${detail.visibility}`}>
-              {visibilityIcon}
-              {detail.visibility}
-            </span>
-            {detail.isArchived && (
-              <span className="repo-badge repo-badge-archived">
-                <Archive size={12} />
-                Archived
-              </span>
-            )}
-            {detail.isFork && (
-              <span className="repo-badge repo-badge-fork">
-                <GitFork size={12} />
-                Fork
-              </span>
-            )}
-            {detail.language && (
-              <span className="repo-badge repo-badge-lang">
-                <span
-                  className="lang-dot"
-                  style={{ backgroundColor: getLanguageColor(detail.language) }}
-                />
-                {detail.language}
-              </span>
-            )}
-            {detail.license && (
-              <span className="repo-badge repo-badge-license">
-                <Scale size={12} />
-                {detail.license}
-              </span>
-            )}
-            {detail.latestWorkflowRun &&
-              (() => {
-                const info = getWorkflowStatusInfo(
-                  detail.latestWorkflowRun.status,
-                  detail.latestWorkflowRun.conclusion
-                )
-                const StatusIcon = info.icon
-                return (
-                  <span
-                    className="repo-badge repo-badge-ci"
-                    style={{ borderColor: info.color, color: info.color }}
-                    title={`${detail.latestWorkflowRun.name} — ${info.label}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => window.shell?.openExternal(detail.latestWorkflowRun!.url)}
-                    onKeyDown={onKeyboardActivate(() =>
-                      window.shell?.openExternal(detail.latestWorkflowRun!.url)
-                    )}
-                  >
-                    {/* v8 ignore start */}
-                    <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
-                    {/* v8 ignore stop */}
-                    {info.label}
-                  </span>
-                )
-              })()}
-          </div>
+          <RepoBadges detail={detail} />
           {detail.topics.length > 0 && (
             <div className="repo-detail-topics">
               {detail.topics.map(topic => (

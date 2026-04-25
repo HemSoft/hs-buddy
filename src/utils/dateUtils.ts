@@ -41,65 +41,50 @@ const MONTH_NAMES = [
 
 export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
+function toTimestamp(timestamp: number | string | Date): number {
+  if (timestamp instanceof Date) return timestamp.getTime()
+  if (typeof timestamp === 'string') return new Date(timestamp).getTime()
+  return timestamp
+}
+
+const RELATIVE_UNITS = [
+  { value: MONTH, label: 'month' },
+  { value: WEEK, label: 'week' },
+  { value: DAY, label: 'day' },
+  { value: HOUR, label: 'hour' },
+  { value: MINUTE, label: 'minute' },
+]
+
+function buildRelativeTimeParts(diff: number): string[] {
+  let remaining = diff
+  const parts: string[] = []
+  for (const unit of RELATIVE_UNITS) {
+    const count = Math.floor(remaining / unit.value)
+    if (count <= 0) continue
+    parts.push(`${count} ${count === 1 ? unit.label : `${unit.label}s`}`)
+    remaining -= count * unit.value
+    if (parts.length === 2) break
+  }
+  return parts
+}
+
 /**
  * Format a timestamp as relative time (e.g., "32 minutes ago", "3 days and 4 hours ago")
  */
 export function formatDistanceToNow(timestamp: number | string | Date): string {
-  const time =
-    timestamp instanceof Date
-      ? timestamp.getTime()
-      : typeof timestamp === 'string'
-        ? new Date(timestamp).getTime()
-        : timestamp
+  const time = toTimestamp(timestamp)
+  if (!Number.isFinite(time)) return ''
 
-  if (!Number.isFinite(time)) {
-    return ''
-  }
+  const diff = Date.now() - time
+  if (diff < MINUTE) return 'just now'
 
-  const now = Date.now()
-  const diff = now - time
-
-  if (diff < MINUTE) {
-    // Covers future timestamps (diff <= 0) and very recent ones (diff < 60s)
-    return 'just now'
-  }
-
-  const units = [
-    { value: MONTH, label: 'month' },
-    { value: WEEK, label: 'week' },
-    { value: DAY, label: 'day' },
-    { value: HOUR, label: 'hour' },
-    { value: MINUTE, label: 'minute' },
-  ]
-
-  let remaining = diff
-  const parts: string[] = []
-
-  for (const unit of units) {
-    const count = Math.floor(remaining / unit.value)
-    if (count <= 0) {
-      continue
-    }
-
-    parts.push(`${count} ${count === 1 ? unit.label : `${unit.label}s`}`)
-    remaining -= count * unit.value
-
-    if (parts.length === 2) {
-      break
-    }
-  }
+  const parts = buildRelativeTimeParts(diff)
 
   /* v8 ignore start -- defensive guard; unreachable because diff >= MINUTE guarantees at least one unit matches */
-  if (parts.length === 0) {
-    return 'just now'
-  }
+  if (parts.length === 0) return 'just now'
   /* v8 ignore stop */
 
-  if (parts.length === 1) {
-    return `${parts[0]} ago`
-  }
-
-  return `${parts[0]} and ${parts[1]} ago`
+  return parts.length === 1 ? `${parts[0]} ago` : `${parts[0]} and ${parts[1]} ago`
 }
 
 /** Matches all supported format tokens in a single pass (longest-first via alternation order). */

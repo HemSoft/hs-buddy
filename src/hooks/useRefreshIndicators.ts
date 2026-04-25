@@ -15,7 +15,7 @@
 import { useState, useEffect } from 'react'
 import { getTaskQueue } from '../services/taskQueue'
 
-export type RefreshState = 'idle' | 'pending' | 'active'
+type RefreshState = 'idle' | 'pending' | 'active'
 
 export type RefreshIndicators = Record<string, RefreshState>
 

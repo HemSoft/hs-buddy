@@ -18,7 +18,7 @@ import { usePRSettings } from './useConfig'
 import { PR_MODES, MS_PER_MINUTE } from '../constants'
 import { formatDistanceToNow, formatSecondsCountdown } from '../utils/dateUtils'
 
-export type SyncPhase = 'idle' | 'syncing' | 'error'
+type SyncPhase = 'idle' | 'syncing' | 'error'
 
 export interface BackgroundStatus {
   /** Current phase: idle, syncing, or error */
@@ -60,6 +60,25 @@ export function getFriendlyTaskLabel(taskName: string | null): string | null {
  * Updates every second for smooth countdown display.
  * Tracks batch progress for "Processing X of N" display.
  */
+function computeActiveLabel(activeTasks: number, runningTaskName: string | null): string | null {
+  if (activeTasks <= 0) return null
+  return getFriendlyTaskLabel(runningTaskName) ?? 'GitHub data'
+}
+
+function computeCacheAges(modes: readonly string[]): { oldestAge: number; latestRefresh: number } {
+  let oldestAge = 0
+  let latestRefresh = 0
+  for (const mode of modes) {
+    const entry = dataCache.get(mode)
+    if (entry) {
+      const age = Date.now() - entry.fetchedAt
+      if (age > oldestAge) oldestAge = age
+      if (entry.fetchedAt > latestRefresh) latestRefresh = entry.fetchedAt
+    }
+  }
+  return { oldestAge, latestRefresh }
+}
+
 export function useBackgroundStatus(): BackgroundStatus {
   const { refreshInterval } = usePRSettings()
   const [status, setStatus] = useState<BackgroundStatus>({
@@ -81,24 +100,8 @@ export function useBackgroundStatus(): BackgroundStatus {
       const pending = queue.pendingCount
       const activeTasks = running + pending
 
-      // Compute current task label
-      let activeLabel: string | null = null
-
-      if (activeTasks > 0) {
-        activeLabel = getFriendlyTaskLabel(queue.getRunningTaskName()) ?? 'GitHub data'
-      }
-
-      // Find the oldest cache entry to compute countdown
-      let oldestAge = 0
-      let latestRefresh = 0
-      for (const mode of PR_MODES) {
-        const entry = dataCache.get(mode)
-        if (entry) {
-          const age = Date.now() - entry.fetchedAt
-          if (age > oldestAge) oldestAge = age
-          if (entry.fetchedAt > latestRefresh) latestRefresh = entry.fetchedAt
-        }
-      }
+      const activeLabel = computeActiveLabel(activeTasks, queue.getRunningTaskName())
+      const { oldestAge, latestRefresh } = computeCacheAges(PR_MODES)
 
       const remaining = Math.max(0, intervalMs - oldestAge)
       const remainingSecs = Math.ceil(remaining / 1000)

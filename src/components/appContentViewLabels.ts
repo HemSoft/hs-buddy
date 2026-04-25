@@ -41,102 +41,96 @@ function parseRepoViewId(viewId: string, prefix: string): { repoName: string; su
   }
 }
 
+function getBrowserLabel(viewId: string): string {
+  try {
+    return new URL(decodeURIComponent(viewId.slice('browser:'.length))).hostname
+  } catch {
+    return 'Browser'
+  }
+}
+
+function getFolderLabel(viewId: string): string {
+  const folderPath = decodeURIComponent(viewId.slice('folder-view:'.length))
+  const name = folderPath.replace(/\//g, '\\').split('\\').pop() || 'Explorer'
+  return `📂 ${name}`
+}
+
+function getOrgUserLabel(viewId: string): string {
+  const orgUser = viewId.replace('org-user:', '')
+  const slashIdx = orgUser.indexOf('/')
+  if (slashIdx <= 0) return orgUser
+  return `${orgUser.substring(0, slashIdx)} · ${orgUser.substring(slashIdx + 1)}`
+}
+
+function getPRReviewLabel(viewId: string): string {
+  const info = parsePRReviewInfo(viewId)
+  if (!info) return 'PR Review'
+  return `Review: ${info.prTitle.length > 30 ? info.prTitle.slice(0, 30) + '…' : info.prTitle}`
+}
+
+const PR_DETAIL_SECTION_LABELS = {
+  conversation: 'Conversation',
+  commits: 'Commits',
+  checks: 'Checks',
+  'files-changed': 'Files',
+  'ai-reviews': 'AI Reviews',
+} as const
+
+function getPRDetailLabel(viewId: string): string {
+  const route = parsePRDetailRoute(viewId)
+  if (!route) return 'PR Detail'
+  const section = route.section ? ` · ${PR_DETAIL_SECTION_LABELS[route.section]}` : ''
+  return `#${route.pr.id} ${route.pr.repository}${section}`
+}
+
+type PrefixLabelEntry = { prefix: string; label: (viewId: string) => string }
+
+const prefixLabelRegistry: PrefixLabelEntry[] = [
+  { prefix: 'browser:', label: getBrowserLabel },
+  { prefix: 'folder-view:', label: getFolderLabel },
+  { prefix: 'bookmarks-category:', label: id => id.replace('bookmarks-category:', '') },
+  { prefix: 'crew-project:', label: () => 'Project Session' },
+  { prefix: 'repo-detail:', label: id => parseRepoViewId(id, 'repo-detail').repoName },
+  { prefix: 'org-detail:', label: id => `${id.replace('org-detail:', '')} Overview` },
+  { prefix: 'org-user:', label: getOrgUserLabel },
+  {
+    prefix: 'repo-commits:',
+    label: id => `${parseRepoViewId(id, 'repo-commits').repoName} Commits`,
+  },
+  {
+    prefix: 'repo-commit:',
+    label: id => {
+      const { repoName, suffix: sha } = parseRepoViewId(id, 'repo-commit')
+      return `${repoName} · ${sha.slice(0, 7)}`
+    },
+  },
+  {
+    prefix: 'repo-issue:',
+    label: id => {
+      const { repoName, suffix: num } = parseRepoViewId(id, 'repo-issue')
+      return `${repoName} · #${num}`
+    },
+  },
+  {
+    prefix: 'repo-issues-closed:',
+    label: id => `${parseRepoViewId(id, 'repo-issues-closed').repoName} Closed Issues`,
+  },
+  { prefix: 'repo-issues:', label: id => `${parseRepoViewId(id, 'repo-issues').repoName} Issues` },
+  {
+    prefix: 'repo-prs-closed:',
+    label: id => `${parseRepoViewId(id, 'repo-prs-closed').repoName} Closed PRs`,
+  },
+  { prefix: 'repo-prs:', label: id => `${parseRepoViewId(id, 'repo-prs').repoName} PRs` },
+  { prefix: 'copilot-session-detail:', label: () => 'Session Detail' },
+  { prefix: 'copilot-result:', label: () => 'Copilot Result' },
+  { prefix: 'job-detail:', label: () => 'Job Detail' },
+  { prefix: 'schedule-detail:', label: () => 'Schedule Detail' },
+  { prefix: 'pr-review:', label: getPRReviewLabel },
+  { prefix: 'pr-detail:', label: getPRDetailLabel },
+]
+
 export function getViewLabel(viewId: string): string {
-  if (viewId.startsWith('browser:')) {
-    try {
-      const url = decodeURIComponent(viewId.slice('browser:'.length))
-      return new URL(url).hostname
-    } catch {
-      return 'Browser'
-    }
-  }
-  if (viewId.startsWith('folder-view:')) {
-    const folderPath = decodeURIComponent(viewId.slice('folder-view:'.length))
-    const name = folderPath.replace(/\//g, '\\').split('\\').pop() || 'Explorer'
-    return `📂 ${name}`
-  }
-  if (viewId.startsWith('bookmarks-category:')) {
-    const category = viewId.replace('bookmarks-category:', '')
-    return category
-  }
-  if (viewId.startsWith('crew-project:')) {
-    return 'Project Session'
-  }
-  if (viewId.startsWith('repo-detail:')) {
-    return parseRepoViewId(viewId, 'repo-detail').repoName
-  }
-  if (viewId.startsWith('org-detail:')) {
-    const org = viewId.replace('org-detail:', '')
-    return `${org} Overview`
-  }
-  if (viewId.startsWith('org-user:')) {
-    const orgUser = viewId.replace('org-user:', '')
-    const slashIdx = orgUser.indexOf('/')
-    if (slashIdx > 0) {
-      const org = orgUser.substring(0, slashIdx)
-      const user = orgUser.substring(slashIdx + 1)
-      return `${org} · ${user}`
-    }
-    return orgUser
-  }
-  if (viewId.startsWith('repo-commits:')) {
-    return `${parseRepoViewId(viewId, 'repo-commits').repoName} Commits`
-  }
-  if (viewId.startsWith('repo-commit:')) {
-    const { repoName, suffix: sha } = parseRepoViewId(viewId, 'repo-commit')
-    return `${repoName} · ${sha.slice(0, 7)}`
-  }
-  if (viewId.startsWith('repo-issue:')) {
-    const { repoName, suffix: issueNumber } = parseRepoViewId(viewId, 'repo-issue')
-    return `${repoName} · #${issueNumber}`
-  }
-  if (viewId.startsWith('repo-issues:')) {
-    return `${parseRepoViewId(viewId, 'repo-issues').repoName} Issues`
-  }
-  if (viewId.startsWith('repo-issues-closed:')) {
-    return `${parseRepoViewId(viewId, 'repo-issues-closed').repoName} Closed Issues`
-  }
-  if (viewId.startsWith('repo-prs:')) {
-    return `${parseRepoViewId(viewId, 'repo-prs').repoName} PRs`
-  }
-  if (viewId.startsWith('repo-prs-closed:')) {
-    return `${parseRepoViewId(viewId, 'repo-prs-closed').repoName} Closed PRs`
-  }
-  if (viewId.startsWith('copilot-session-detail:')) {
-    return 'Session Detail'
-  }
-  if (viewId.startsWith('copilot-result:')) {
-    return 'Copilot Result'
-  }
-  if (viewId.startsWith('job-detail:')) {
-    return 'Job Detail'
-  }
-  if (viewId.startsWith('schedule-detail:')) {
-    return 'Schedule Detail'
-  }
-  if (viewId.startsWith('pr-review:')) {
-    const info = parsePRReviewInfo(viewId)
-    if (info) {
-      return `Review: ${info.prTitle.length > 30 ? info.prTitle.slice(0, 30) + '…' : info.prTitle}`
-    }
-
-    return 'PR Review'
-  }
-  if (viewId.startsWith('pr-detail:')) {
-    const route = parsePRDetailRoute(viewId)
-    if (route) {
-      const sectionLabelMap = {
-        conversation: 'Conversation',
-        commits: 'Commits',
-        checks: 'Checks',
-        'files-changed': 'Files',
-        'ai-reviews': 'AI Reviews',
-      } as const
-      const section = route.section ? ` · ${sectionLabelMap[route.section]}` : ''
-      return `#${route.pr.id} ${route.pr.repository}${section}`
-    }
-    return 'PR Detail'
-  }
-
+  const entry = prefixLabelRegistry.find(e => viewId.startsWith(e.prefix))
+  if (entry) return entry.label(viewId)
   return viewLabels[viewId] || viewId
 }

@@ -144,6 +144,25 @@ describe('getRepoContextFromViewId', () => {
     expect(getRepoContextFromViewId(viewId)).toEqual({ owner: 'acme', repo: 'widget' })
   })
 
+  it('returns null from pr-detail: when URL has no owner path segment', () => {
+    const pr = {
+      source: 'github',
+      repository: 'solo-repo',
+      id: 1,
+      title: 'Fix',
+      author: 'alice',
+      url: 'https://github.com',
+      state: 'open',
+      approvalCount: 0,
+      assigneeCount: 0,
+      iApproved: false,
+      created: null,
+      date: null,
+    }
+    const viewId = `pr-detail:${encodeURIComponent(JSON.stringify(pr))}`
+    expect(getRepoContextFromViewId(viewId)).toBeNull()
+  })
+
   it('returns null from pr-detail: when no owner can be determined', () => {
     const pr = {
       source: 'github',

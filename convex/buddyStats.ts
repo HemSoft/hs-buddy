@@ -108,17 +108,17 @@ export const increment = mutation({
         updatedAt: now,
       })
       return existing._id
-    } else {
-      // First-ever stat write — create the document
-      return await ctx.db.insert('buddyStats', {
-        key: SINGLETON_KEY,
-        ...DEFAULT_STATS,
-        [field]: amt,
-        firstLaunchDate: now,
-        createdAt: now,
-        updatedAt: now,
-      })
     }
+
+    // First-ever stat write — create the document
+    return await ctx.db.insert('buddyStats', {
+      key: SINGLETON_KEY,
+      ...DEFAULT_STATS,
+      [field]: amt,
+      firstLaunchDate: now,
+      createdAt: now,
+      updatedAt: now,
+    })
   },
 })
 
@@ -150,19 +150,19 @@ export const batchIncrement = mutation({
       }
       await ctx.db.patch('buddyStats', existing._id, patch)
       return existing._id
-    } else {
-      const doc: Record<string, unknown> = {
-        key: SINGLETON_KEY,
-        ...DEFAULT_STATS,
-        firstLaunchDate: now,
-        createdAt: now,
-        updatedAt: now,
-      }
-      for (const [key, amount] of entries) {
-        doc[key] = amount
-      }
-      return await ctx.db.insert('buddyStats', doc as never)
     }
+
+    const doc: Record<string, unknown> = {
+      key: SINGLETON_KEY,
+      ...DEFAULT_STATS,
+      firstLaunchDate: now,
+      createdAt: now,
+      updatedAt: now,
+    }
+    for (const [key, amount] of entries) {
+      doc[key] = amount
+    }
+    return await ctx.db.insert('buddyStats', doc as never)
   },
 })
 
@@ -196,17 +196,17 @@ export const recordSessionStart = mutation({
       }
       await ctx.db.patch('buddyStats', existing._id, patch)
       return existing._id
-    } else {
-      return await ctx.db.insert('buddyStats', {
-        key: SINGLETON_KEY,
-        ...DEFAULT_STATS,
-        appLaunches: 1,
-        firstLaunchDate: now,
-        lastSessionStart: now,
-        createdAt: now,
-        updatedAt: now,
-      })
     }
+
+    return await ctx.db.insert('buddyStats', {
+      key: SINGLETON_KEY,
+      ...DEFAULT_STATS,
+      appLaunches: 1,
+      firstLaunchDate: now,
+      lastSessionStart: now,
+      createdAt: now,
+      updatedAt: now,
+    })
   },
 })
 

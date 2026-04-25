@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useGitHubAccounts } from './useConfig'
-import { OVERAGE_COST_PER_REQUEST, computeProjection } from '../components/copilot-usage/quotaUtils'
-import type { AccountQuotaState } from '../components/copilot-usage/quotaUtils'
+import {
+  OVERAGE_COST_PER_REQUEST,
+  computeProjection,
+  type AccountQuotaState,
+} from '../components/copilot-usage/quotaUtils'
 import type { OrgBudgetState } from '../components/copilot-usage/types'
 import { MS_PER_MINUTE } from '../constants'
 import { getErrorMessage } from '../utils/errorUtils'

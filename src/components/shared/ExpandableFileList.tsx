@@ -1,4 +1,4 @@
-import { Fragment, useEffect } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import type { DiffFile } from '../../api/github'
 import { useToggleSet } from '../../hooks/useToggleSet'
@@ -14,8 +14,12 @@ interface ExpandableFileListProps {
 export function ExpandableFileList({ files, resetKey }: ExpandableFileListProps) {
   const { has: isFileExpanded, toggle: toggleFile, reset: resetExpanded } = useToggleSet()
 
+  const prevResetKey = useRef(resetKey)
   useEffect(() => {
-    resetExpanded()
+    if (prevResetKey.current !== resetKey) {
+      prevResetKey.current = resetKey
+      resetExpanded()
+    }
   }, [resetKey, resetExpanded])
 
   return (

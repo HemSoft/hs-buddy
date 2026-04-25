@@ -1,6 +1,5 @@
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
-import type { DatabaseWriter } from './_generated/server'
+import { mutation, query, type DatabaseWriter } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { MS_PER_DAY } from './lib/constants'
 import { isPendingOrRunning, notFoundError, runStatusValidator } from './lib/domain'

@@ -5,8 +5,7 @@ import { useToggleSet } from '../../hooks/useToggleSet'
 import { onKeyboardActivate } from '../../utils/keyboard'
 import { BookmarkDialog } from '../bookmarks/BookmarkDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
-import { isSafeImageUrl, buildCategoryTree } from './bookmarksSidebarUtils'
-import type { CategoryNode } from './bookmarksSidebarUtils'
+import { isSafeImageUrl, buildCategoryTree, type CategoryNode } from './bookmarksSidebarUtils'
 
 interface BookmarksSidebarProps {
   onItemSelect: (itemId: string) => void

@@ -11,7 +11,7 @@ export interface GitHubAccount {
 }
 
 /** Rectangle describing display bounds or work area */
-export interface DisplayRect {
+interface DisplayRect {
   x: number
   y: number
   width: number

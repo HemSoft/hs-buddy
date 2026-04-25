@@ -1,4 +1,4 @@
-export interface OrgBudgetData {
+interface OrgBudgetData {
   org: string
   budgetAmount: number | null
   preventFurtherUsage: boolean

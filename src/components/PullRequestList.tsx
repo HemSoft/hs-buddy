@@ -13,7 +13,7 @@ import { PRContextMenu } from './pull-request-list/PRContextMenu'
 import { usePRListData } from './pull-request-list/usePRListData'
 import { ViewModeToggle } from './shared/ViewModeToggle'
 import { PRStateIcon } from './shared/PRStateIcon'
-import { useViewMode } from '../hooks/useViewMode'
+import { useViewMode, type ViewMode } from '../hooks/useViewMode'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { createPRDetailViewId } from '../utils/prDetailView'
 import type { PullRequest } from '../types/pullRequest'
@@ -131,6 +131,225 @@ interface PullRequestListProps {
   onOpenPR?: (viewId: string) => void
 }
 
+function getProgressLabel(
+  progress: NonNullable<ReturnType<typeof usePRListData>['progress']>
+): string {
+  switch (progress.status) {
+    case 'authenticating':
+      return 'Authenticating...'
+    case 'fetching':
+      return 'Fetching PRs...'
+    case 'done':
+      return `Found ${progress.prsFound} PRs`
+    case 'error':
+      return `Error: ${progress.error}`
+  }
+}
+
+function computeProgressPercent(
+  progress: NonNullable<ReturnType<typeof usePRListData>['progress']>
+): number {
+  const offset = progress.status === 'done' ? 0 : 1
+  return Math.round(((progress.currentAccount - offset) / progress.totalAccounts) * 100)
+}
+
+function PRListLoadingState({
+  getTitle,
+  progress,
+  totalPrsFound,
+}: {
+  getTitle: () => string
+  progress: ReturnType<typeof usePRListData>['progress']
+  totalPrsFound: number
+}) {
+  return (
+    <div className="pr-list-container">
+      <div className="pr-list-header">
+        <h2>{getTitle()}</h2>
+        <div className="pr-header-actions">
+          <button className="refresh-button" disabled title="Refreshing...">
+            <Loader2 size={16} className="spin" />
+          </button>
+        </div>
+      </div>
+      <div className="pr-list-loading">
+        <Loader2 className="spin" size={24} />
+        {progress ? (
+          <div className="loading-progress">
+            <p className="progress-main">{getProgressLabel(progress)}</p>
+            <div className="progress-bar-container">
+              <div
+                className="progress-bar"
+                style={{ width: `${computeProgressPercent(progress)}%` }}
+              />
+            </div>
+            <p className="progress-detail">
+              Account {progress.currentAccount} of {progress.totalAccounts}: {progress.accountName}{' '}
+              ({progress.org})
+            </p>
+            {totalPrsFound > 0 && (
+              <p className="progress-total">
+                {/* v8 ignore start */}
+                {totalPrsFound} PR{totalPrsFound !== 1 ? 's' : ''} found so far
+                {/* v8 ignore stop */}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p>Loading pull requests...</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PRListErrorState({
+  getTitle,
+  accounts,
+  error,
+  handleManualRefresh,
+}: {
+  getTitle: () => string
+  accounts: ReturnType<typeof usePRListData>['accounts']
+  error: string
+  handleManualRefresh: () => void
+}) {
+  return (
+    <div className="pr-list-container">
+      <div className="pr-list-header">
+        <h2>{getTitle()}</h2>
+        <div className="pr-header-actions">
+          <button className="refresh-button" onClick={handleManualRefresh} title="Retry">
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="pr-list-error">
+        <p className="error-message">⚠️ Error loading pull requests</p>
+        {error && <p className="error-hint">{error}</p>}
+        {accounts.length === 0 && (
+          <>
+            <p className="error-hint">
+              You need to configure at least one GitHub account in Settings.
+            </p>
+            <p className="hint">
+              On first launch, environment variables (VITE_GITHUB_USERNAME, VITE_GITHUB_ORG) will be
+              migrated to the config automatically.
+            </p>
+          </>
+        )}
+        {accounts.length > 0 && (
+          <>
+            <p className="error-hint">Make sure you&apos;re authenticated with GitHub CLI:</p>
+            <ul>
+              <li>
+                <code>gh auth status</code> - Check authentication status
+              </li>
+              <li>
+                <code>gh auth login</code> - Log in to GitHub
+              </li>
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PREmptyState({
+  getTitle,
+  updateTimes,
+  getProgressColor,
+  refreshing,
+  handleManualRefresh,
+}: {
+  getTitle: () => string
+  updateTimes: { lastUpdated: string; nextUpdate: string; progress: number } | null
+  getProgressColor: (progress: number) => string
+  refreshing: boolean
+  handleManualRefresh: () => void
+}) {
+  return (
+    <div className="pr-list-container">
+      <div className="pr-list-header">
+        <h2>{getTitle()}</h2>
+        <div className="pr-header-actions">
+          {updateTimes && (
+            <UpdateTimesDisplay
+              lastUpdated={updateTimes.lastUpdated}
+              nextUpdate={updateTimes.nextUpdate}
+              progress={updateTimes.progress}
+              getProgressColor={getProgressColor}
+            />
+          )}
+          <button
+            className="refresh-button"
+            onClick={handleManualRefresh}
+            title="Refresh"
+            disabled={refreshing}
+          >
+            {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+          </button>
+        </div>
+      </div>
+      <div className="pr-list-empty">
+        <GitPullRequest size={48} />
+        <p>No pull requests found</p>
+        <p className="empty-subtitle">All clear! ✨</p>
+      </div>
+    </div>
+  )
+}
+
+function PRListActiveHeader({
+  title,
+  prCount,
+  refreshing,
+  updateTimes,
+  getProgressColor,
+  viewMode,
+  setViewMode,
+  handleManualRefresh,
+}: {
+  title: string
+  prCount: number
+  refreshing: boolean
+  updateTimes: { lastUpdated: string; nextUpdate: string; progress: number } | null
+  getProgressColor: (progress: number) => string
+  viewMode: ViewMode
+  setViewMode: (mode: ViewMode) => void
+  handleManualRefresh: () => void
+}) {
+  return (
+    <div className="pr-list-header">
+      <h2>{title}</h2>
+      <div className="pr-header-actions">
+        <span className="pr-count">
+          {prCount} PR{prCount !== 1 ? 's' : ''}
+          {refreshing && <span className="refreshing-badge">Refreshing...</span>}
+        </span>
+        {updateTimes && (
+          <UpdateTimesDisplay
+            lastUpdated={updateTimes.lastUpdated}
+            nextUpdate={updateTimes.nextUpdate}
+            progress={updateTimes.progress}
+            getProgressColor={getProgressColor}
+          />
+        )}
+        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+        <button
+          className="refresh-button"
+          onClick={handleManualRefresh}
+          title="Refresh"
+          disabled={refreshing}
+        >
+          {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestListProps) {
   const {
     prs,
@@ -161,160 +380,46 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
   const [viewMode, setViewMode] = useViewMode(`pr-list-${mode}`)
 
   if (loading) {
-    const progressPercent = progress
-      ? Math.round(
-          ((progress.currentAccount - (progress.status === 'done' ? 0 : 1)) /
-            progress.totalAccounts) *
-            100
-        )
-      : 0
-
     return (
-      <div className="pr-list-container">
-        <div className="pr-list-header">
-          <h2>{getTitle()}</h2>
-          <div className="pr-header-actions">
-            <button className="refresh-button" disabled title="Refreshing...">
-              <Loader2 size={16} className="spin" />
-            </button>
-          </div>
-        </div>
-        <div className="pr-list-loading">
-          <Loader2 className="spin" size={24} />
-          {progress ? (
-            <div className="loading-progress">
-              <p className="progress-main">
-                {progress.status === 'authenticating' && 'Authenticating...'}
-                {progress.status === 'fetching' && 'Fetching PRs...'}
-                {progress.status === 'done' && `Found ${progress.prsFound} PRs`}
-                {progress.status === 'error' && `Error: ${progress.error}`}
-              </p>
-              <div className="progress-bar-container">
-                <div className="progress-bar" style={{ width: `${progressPercent}%` }} />
-              </div>
-              <p className="progress-detail">
-                Account {progress.currentAccount} of {progress.totalAccounts}:{' '}
-                {progress.accountName} ({progress.org})
-              </p>
-              {totalPrsFound > 0 && (
-                <p className="progress-total">
-                  {/* v8 ignore start */}
-                  {totalPrsFound} PR{totalPrsFound !== 1 ? 's' : ''} found so far
-                  {/* v8 ignore stop */}
-                </p>
-              )}
-            </div>
-          ) : (
-            <p>Loading pull requests...</p>
-          )}
-        </div>
-      </div>
+      <PRListLoadingState getTitle={getTitle} progress={progress} totalPrsFound={totalPrsFound} />
     )
   }
 
   if (error) {
     return (
-      <div className="pr-list-container">
-        <div className="pr-list-header">
-          <h2>{getTitle()}</h2>
-          <div className="pr-header-actions">
-            <button className="refresh-button" onClick={handleManualRefresh} title="Retry">
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        </div>
-        <div className="pr-list-error">
-          <p className="error-message">⚠️ {error}</p>
-          {accounts.length === 0 && (
-            <>
-              <p className="error-hint">
-                You need to configure at least one GitHub account in Settings.
-              </p>
-              <p className="hint">
-                On first launch, environment variables (VITE_GITHUB_USERNAME, VITE_GITHUB_ORG) will
-                be migrated to the config automatically.
-              </p>
-            </>
-          )}
-          {accounts.length > 0 && (
-            <>
-              <p className="error-hint">Make sure you&apos;re authenticated with GitHub CLI:</p>
-              <ul>
-                <li>
-                  <code>gh auth status</code> - Check authentication status
-                </li>
-                <li>
-                  <code>gh auth login</code> - Log in to GitHub
-                </li>
-              </ul>
-            </>
-          )}
-        </div>
-      </div>
+      <PRListErrorState
+        getTitle={getTitle}
+        accounts={accounts}
+        error={error}
+        handleManualRefresh={handleManualRefresh}
+      />
     )
   }
 
   if (prs.length === 0) {
     return (
-      <div className="pr-list-container">
-        <div className="pr-list-header">
-          <h2>{getTitle()}</h2>
-          <div className="pr-header-actions">
-            {updateTimes && (
-              <UpdateTimesDisplay
-                lastUpdated={updateTimes.lastUpdated}
-                nextUpdate={updateTimes.nextUpdate}
-                progress={updateTimes.progress}
-                getProgressColor={getProgressColor}
-              />
-            )}
-            <button
-              className="refresh-button"
-              onClick={handleManualRefresh}
-              title="Refresh"
-              disabled={refreshing}
-            >
-              {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-            </button>
-          </div>
-        </div>
-        <div className="pr-list-empty">
-          <GitPullRequest size={48} />
-          <p>No pull requests found</p>
-          <p className="empty-subtitle">All clear! ✨</p>
-        </div>
-      </div>
+      <PREmptyState
+        getTitle={getTitle}
+        updateTimes={updateTimes}
+        getProgressColor={getProgressColor}
+        refreshing={refreshing}
+        handleManualRefresh={handleManualRefresh}
+      />
     )
   }
 
   return (
     <div className="pr-list-container">
-      <div className="pr-list-header">
-        <h2>{getTitle()}</h2>
-        <div className="pr-header-actions">
-          <span className="pr-count">
-            {prs.length} PR{prs.length !== 1 ? 's' : ''}
-            {refreshing && <span className="refreshing-badge">Refreshing...</span>}
-          </span>
-          {updateTimes && (
-            <UpdateTimesDisplay
-              lastUpdated={updateTimes.lastUpdated}
-              nextUpdate={updateTimes.nextUpdate}
-              progress={updateTimes.progress}
-              getProgressColor={getProgressColor}
-            />
-          )}
-          <ViewModeToggle mode={viewMode} onChange={setViewMode} />
-          <button
-            className="refresh-button"
-            onClick={handleManualRefresh}
-            title="Refresh"
-            disabled={refreshing}
-          >
-            {refreshing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-          </button>
-        </div>
-      </div>
+      <PRListActiveHeader
+        title={getTitle()}
+        prCount={prs.length}
+        refreshing={refreshing}
+        updateTimes={updateTimes}
+        getProgressColor={getProgressColor}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        handleManualRefresh={handleManualRefresh}
+      />
       {viewMode === 'list' ? (
         <PRListTableView prs={prs} onOpenPR={onOpenPR} handleContextMenu={handleContextMenu} />
       ) : (

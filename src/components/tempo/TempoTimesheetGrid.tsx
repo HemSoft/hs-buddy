@@ -98,6 +98,32 @@ function findWorklogsForCell(
   return worklogs.filter(w => w.issueKey === issueKey && w.date === date)
 }
 
+function getCellClassName(col: DayColumn, hours: number, isCapex: boolean): string {
+  return [
+    'tempo-grid-cell',
+    col.isWeekend && 'weekend',
+    col.isHoliday && 'holiday',
+    col.isToday && 'today',
+    hours > 0 && 'has-hours',
+    hours > 0 && isCapex && 'capex',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function buildCellTooltip(
+  issueKey: string,
+  hours: number,
+  col: DayColumn,
+  cellWorklogCount: number
+): string {
+  if (hours === 0) return `Click — log time on ${col.date}`
+  const lines = [`${issueKey} · ${hours}h on ${col.date}`, 'Click — edit worklog']
+  if (cellWorklogCount === 1) lines.push('Right-click — delete')
+  lines.push(`${modLabel}+click — copy to next empty day`)
+  return lines.join('\n')
+}
+
 export function TempoTimesheetGrid({
   issueSummaries,
   worklogs,
@@ -235,7 +261,7 @@ export function TempoTimesheetGrid({
                     return (
                       <td
                         key={col.date}
-                        className={`tempo-grid-cell ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''} ${hours > 0 ? 'has-hours' : ''} ${hours > 0 && isCapex ? 'capex' : ''}`}
+                        className={getCellClassName(col, hours, isCapex)}
                         title={
                           hours > 0
                             ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to next empty day`
@@ -256,13 +282,12 @@ export function TempoTimesheetGrid({
                             onWorklogDelete(cellWorklogs[0])
                           }
                         }}
-                        onMouseEnter={e => {
-                          const text =
-                            hours > 0
-                              ? `${issue.issueKey} · ${hours}h on ${col.date}\nClick — edit worklog${cellWorklogs.length === 1 ? '\nRight-click — delete' : ''}\n${modLabel}+click — copy to next empty day`
-                              : `Click — log time on ${col.date}`
-                          showTooltip(e, text)
-                        }}
+                        onMouseEnter={e =>
+                          showTooltip(
+                            e,
+                            buildCellTooltip(issue.issueKey, hours, col, cellWorklogs.length)
+                          )
+                        }
                         onMouseLeave={hideTooltip}
                       >
                         {hours > 0 ? hours : ''}

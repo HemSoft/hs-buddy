@@ -78,18 +78,18 @@ export const updatePR = mutation({
         updatedAt: now,
       })
       return existing._id
-    } else {
-      // Create new settings document
-      return await ctx.db.insert('settings', {
-        key: SINGLETON_KEY,
-        pr: {
-          ...DEFAULT_SETTINGS.pr,
-          ...definedFields(updates),
-        },
-        createdAt: now,
-        updatedAt: now,
-      })
     }
+
+    // Create new settings document
+    return await ctx.db.insert('settings', {
+      key: SINGLETON_KEY,
+      pr: {
+        ...DEFAULT_SETTINGS.pr,
+        ...definedFields(updates),
+      },
+      createdAt: now,
+      updatedAt: now,
+    })
   },
 })
 
@@ -117,18 +117,18 @@ export const updateCopilot = mutation({
         updatedAt: now,
       })
       return existing._id
-    } else {
-      return await ctx.db.insert('settings', {
-        key: SINGLETON_KEY,
-        pr: DEFAULT_SETTINGS.pr,
-        copilot: {
-          ...DEFAULT_SETTINGS.copilot,
-          ...definedFields(updates),
-        },
-        createdAt: now,
-        updatedAt: now,
-      })
     }
+
+    return await ctx.db.insert('settings', {
+      key: SINGLETON_KEY,
+      pr: DEFAULT_SETTINGS.pr,
+      copilot: {
+        ...DEFAULT_SETTINGS.copilot,
+        ...definedFields(updates),
+      },
+      createdAt: now,
+      updatedAt: now,
+    })
   },
 })
 
@@ -176,15 +176,15 @@ export const updateViewMode = mutation({
       const viewModes = { ...(existing.viewModes ?? {}), [pageKey]: mode }
       await ctx.db.patch(existing._id, { viewModes, updatedAt: now })
       return existing._id
-    } else {
-      return await ctx.db.insert('settings', {
-        key: SINGLETON_KEY,
-        ...DEFAULT_SETTINGS,
-        viewModes: { [pageKey]: mode },
-        createdAt: now,
-        updatedAt: now,
-      })
     }
+
+    return await ctx.db.insert('settings', {
+      key: SINGLETON_KEY,
+      ...DEFAULT_SETTINGS,
+      viewModes: { [pageKey]: mode },
+      createdAt: now,
+      updatedAt: now,
+    })
   },
 })
 
@@ -202,15 +202,15 @@ export const updateTerminalPanelHeight = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, { terminalPanelHeight: height, updatedAt: now })
       return existing._id
-    } else {
-      return await ctx.db.insert('settings', {
-        key: SINGLETON_KEY,
-        ...DEFAULT_SETTINGS,
-        terminalPanelHeight: height,
-        createdAt: now,
-        updatedAt: now,
-      })
     }
+
+    return await ctx.db.insert('settings', {
+      key: SINGLETON_KEY,
+      ...DEFAULT_SETTINGS,
+      terminalPanelHeight: height,
+      createdAt: now,
+      updatedAt: now,
+    })
   },
 })
 
@@ -235,15 +235,15 @@ export const updateTerminalTabs = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, { terminalTabs: tabs, updatedAt: now })
       return existing._id
-    } else {
-      return await ctx.db.insert('settings', {
-        key: SINGLETON_KEY,
-        ...DEFAULT_SETTINGS,
-        terminalTabs: tabs,
-        createdAt: now,
-        updatedAt: now,
-      })
     }
+
+    return await ctx.db.insert('settings', {
+      key: SINGLETON_KEY,
+      ...DEFAULT_SETTINGS,
+      terminalTabs: tabs,
+      createdAt: now,
+      updatedAt: now,
+    })
   },
 })
 

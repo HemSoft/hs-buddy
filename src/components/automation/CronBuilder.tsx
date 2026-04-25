@@ -20,6 +20,158 @@ const DAYS_OF_WEEK = [
 
 const MINUTE_INCREMENTS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
+function describeCronSchedule(
+  frequency: string,
+  minute: number,
+  hour: number,
+  dayOfMonth: number,
+  selectedDays: number[]
+): string {
+  const fmtTime = (h: number, m: number) => {
+    /* v8 ignore start */
+    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+    /* v8 ignore stop */
+    return `${displayHour}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+  }
+
+  /* v8 ignore start */
+  switch (frequency) {
+    /* v8 ignore stop */
+    case 'minute':
+      return 'Runs every minute'
+    case 'hourly':
+      return `Runs every hour at minute ${minute}`
+    case 'daily':
+      return `Runs daily at ${fmtTime(hour, minute)}`
+    case 'weekly': {
+      const dayNames = [...selectedDays].sort().flatMap(d => {
+        const label = DAYS_OF_WEEK.find(day => day.value === d)?.label
+        /* v8 ignore start */
+        return label ? [label] : []
+        /* v8 ignore stop */
+      })
+      return `Runs every ${dayNames.join(', ')} at ${fmtTime(hour, minute)}`
+    }
+    case 'monthly':
+      return `Runs on day ${dayOfMonth} of every month at ${fmtTime(hour, minute)}`
+    case 'custom':
+      return 'Custom cron expression'
+    default:
+      /* v8 ignore start */
+      return ''
+    /* v8 ignore stop */
+  }
+}
+
+function CronOptions({
+  frequency,
+  minute,
+  dayOfMonth,
+  selectedDays,
+  hourSelect,
+  minuteSelect,
+  toggleDay,
+  updateCron,
+}: {
+  frequency: string
+  minute: number
+  dayOfMonth: number
+  selectedDays: number[]
+  hourSelect: React.ReactNode
+  minuteSelect: React.ReactNode
+  toggleDay: (day: number) => void
+  updateCron: (patch: Partial<CronState>) => void
+}) {
+  if (frequency === 'hourly') {
+    return (
+      <div className="cron-option">
+        <span className="option-label">At minute</span>
+        <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
+          {Array.from({ length: 60 }, (_, min) => (
+            <option key={min} value={min}>
+              {min.toString().padStart(2, '0')}
+            </option>
+          ))}
+        </select>
+        <span className="option-suffix">of every hour</span>
+      </div>
+    )
+  }
+
+  if (frequency === 'daily') {
+    return (
+      <div className="cron-option">
+        <span className="option-label">At</span>
+        {hourSelect}
+        <span className="option-separator">:</span>
+        {minuteSelect}
+      </div>
+    )
+  }
+
+  if (frequency === 'weekly') {
+    return (
+      <>
+        <div className="cron-option">
+          <span className="option-label">On</span>
+          <div className="day-selector">
+            {DAYS_OF_WEEK.map(day => (
+              <button
+                key={day.value}
+                type="button"
+                className={`day-btn ${selectedDays.includes(day.value) ? 'active' : ''}`}
+                onClick={() => toggleDay(day.value)}
+                title={day.label}
+              >
+                {day.short}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="cron-option">
+          <span className="option-label">At</span>
+          {hourSelect}
+          <span className="option-separator">:</span>
+          {minuteSelect}
+        </div>
+      </>
+    )
+  }
+
+  if (frequency === 'monthly') {
+    return (
+      <>
+        <div className="cron-option">
+          <span className="option-label">On day</span>
+          <select
+            value={dayOfMonth}
+            onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
+          >
+            {Array.from({ length: 31 }, (_, day) => (
+              <option key={day + 1} value={day + 1}>
+                {day + 1}
+              </option>
+            ))}
+          </select>
+          <span className="option-suffix">of every month</span>
+        </div>
+        <div className="cron-option">
+          <span className="option-label">At</span>
+          {hourSelect}
+          <span className="option-separator">:</span>
+          {minuteSelect}
+        </div>
+      </>
+    )
+  }
+
+  if (frequency === 'custom') {
+    return null // handled separately in CronBuilder
+  }
+
+  return null
+}
+
 export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const cronFreqLabelId = useId()
   const cronState = useMemo(() => parseCronValue(value), [value])
@@ -29,43 +181,10 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   }
   const cronExpression = useMemo(() => buildCronExpression(cronState, value), [cronState, value])
 
-  // Human-readable description
-  const description = useMemo(() => {
-    const fmtTime = (h: number, m: number) => {
-      /* v8 ignore start */
-      const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
-      /* v8 ignore stop */
-      return `${displayHour}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
-    }
-
-    /* v8 ignore start */
-    switch (frequency) {
-      /* v8 ignore stop */
-      case 'minute':
-        return 'Runs every minute'
-      case 'hourly':
-        return `Runs every hour at minute ${minute}`
-      case 'daily':
-        return `Runs daily at ${fmtTime(hour, minute)}`
-      case 'weekly': {
-        const dayNames = [...selectedDays].sort().flatMap(d => {
-          const label = DAYS_OF_WEEK.find(day => day.value === d)?.label
-          /* v8 ignore start */
-          return label ? [label] : []
-          /* v8 ignore stop */
-        })
-        return `Runs every ${dayNames.join(', ')} at ${fmtTime(hour, minute)}`
-      }
-      case 'monthly':
-        return `Runs on day ${dayOfMonth} of every month at ${fmtTime(hour, minute)}`
-      case 'custom':
-        return 'Custom cron expression'
-      default:
-        /* v8 ignore start */
-        return ''
-      /* v8 ignore stop */
-    }
-  }, [frequency, minute, hour, dayOfMonth, selectedDays])
+  const description = useMemo(
+    () => describeCronSchedule(frequency, minute, hour, dayOfMonth, selectedDays),
+    [frequency, minute, hour, dayOfMonth, selectedDays]
+  )
 
   const toggleDay = (day: number) => {
     if (selectedDays.includes(day)) {
@@ -154,84 +273,16 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
       </div>
 
       <div className="cron-options">
-        {/* Hourly: minute selector */}
-        {frequency === 'hourly' && (
-          <div className="cron-option">
-            <span className="option-label">At minute</span>
-            <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
-              {Array.from({ length: 60 }, (_, min) => (
-                <option key={min} value={min}>
-                  {min.toString().padStart(2, '0')}
-                </option>
-              ))}
-            </select>
-            <span className="option-suffix">of every hour</span>
-          </div>
-        )}
-
-        {/* Daily: time picker */}
-        {frequency === 'daily' && (
-          <div className="cron-option">
-            <span className="option-label">At</span>
-            {hourSelect}
-            <span className="option-separator">:</span>
-            {minuteSelect}
-          </div>
-        )}
-
-        {/* Weekly: day selector + time picker */}
-        {frequency === 'weekly' && (
-          <>
-            <div className="cron-option">
-              <span className="option-label">On</span>
-              <div className="day-selector">
-                {DAYS_OF_WEEK.map(day => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    className={`day-btn ${selectedDays.includes(day.value) ? 'active' : ''}`}
-                    onClick={() => toggleDay(day.value)}
-                    title={day.label}
-                  >
-                    {day.short}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="cron-option">
-              <span className="option-label">At</span>
-              {hourSelect}
-              <span className="option-separator">:</span>
-              {minuteSelect}
-            </div>
-          </>
-        )}
-
-        {/* Monthly: day of month + time picker */}
-        {frequency === 'monthly' && (
-          <>
-            <div className="cron-option">
-              <span className="option-label">On day</span>
-              <select
-                value={dayOfMonth}
-                onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
-              >
-                {Array.from({ length: 31 }, (_, day) => (
-                  <option key={day + 1} value={day + 1}>
-                    {day + 1}
-                  </option>
-                ))}
-              </select>
-              <span className="option-suffix">of every month</span>
-            </div>
-            <div className="cron-option">
-              <span className="option-label">At</span>
-              {hourSelect}
-              <span className="option-separator">:</span>
-              {minuteSelect}
-            </div>
-          </>
-        )}
+        <CronOptions
+          frequency={frequency}
+          minute={minute}
+          dayOfMonth={dayOfMonth}
+          selectedDays={selectedDays}
+          hourSelect={hourSelect}
+          minuteSelect={minuteSelect}
+          toggleDay={toggleDay}
+          updateCron={updateCron}
+        />
 
         {/* Custom: raw cron input */}
         {frequency === 'custom' && (

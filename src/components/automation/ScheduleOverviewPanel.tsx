@@ -3,8 +3,7 @@ import { Calendar, Clock, Play, Pause, ChevronRight } from 'lucide-react'
 import { CronExpressionParser } from 'cron-parser'
 import { useSchedules } from '../../hooks/useConvex'
 import { DAY, formatDateKey, formatTime, MONTH_SHORT } from '../../utils/dateUtils'
-import { InlineDropdown } from '../InlineDropdown'
-import type { DropdownOption } from '../InlineDropdown'
+import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
 import './ScheduleOverviewPanel.css'
 
 interface ScheduleOccurrence {
@@ -56,6 +55,87 @@ function normalizeForecastDays(days: number): number {
   return days >= 1 && days <= 30 ? days : 3
 }
 
+function buildOccurrence(
+  schedule: NonNullable<ReturnType<typeof useSchedules>>[number],
+  nextTime: Date
+): ScheduleOccurrence {
+  return {
+    scheduleId: schedule._id,
+    scheduleName: schedule.name,
+    jobName: schedule.job?.name ?? '(unknown job)',
+    workerType: schedule.job?.workerType ?? 'exec',
+    enabled: schedule.enabled,
+    cron: schedule.cron,
+    time: nextTime,
+  }
+}
+
+function buildOccurrencesForSchedule(
+  schedule: NonNullable<ReturnType<typeof useSchedules>>[number],
+  now: Date,
+  endTime: Date
+): ScheduleOccurrence[] {
+  if (!schedule.enabled) return []
+
+  try {
+    const options: { tz?: string; currentDate?: Date; endDate?: Date } = {
+      currentDate: now,
+      endDate: endTime,
+    }
+    if (schedule.timezone) options.tz = schedule.timezone
+
+    const expression = CronExpressionParser.parse(schedule.cron, options)
+    const occurrences: ScheduleOccurrence[] = []
+    const maxOccurrences = 500
+
+    while (occurrences.length < maxOccurrences) {
+      try {
+        const next = expression.next()
+        const nextTime = next.toDate()
+        /* v8 ignore start */
+        if (nextTime > endTime) break
+        /* v8 ignore stop */
+        occurrences.push(buildOccurrence(schedule, nextTime))
+      } catch {
+        break
+      }
+    }
+    return occurrences
+  } catch {
+    return []
+  }
+}
+
+function getDayLabel(occDate: Date, today: Date, tomorrow: Date, originalTime: Date): string {
+  if (occDate.getTime() === today.getTime()) return 'Today'
+  if (occDate.getTime() === tomorrow.getTime()) return 'Tomorrow'
+  return `${DAY_NAMES[originalTime.getDay()]}, ${MONTH_SHORT[originalTime.getMonth()]} ${originalTime.getDate()}`
+}
+
+function groupOccurrencesByDay(allOccurrences: ScheduleOccurrence[]): DayGroup[] {
+  const sorted = [...allOccurrences].sort((a, b) => a.time.getTime() - b.time.getTime())
+
+  const groups: Map<string, DayGroup> = new Map()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  for (const occ of sorted) {
+    const occDate = new Date(occ.time)
+    occDate.setHours(0, 0, 0, 0)
+    const dateKey = formatDateKey(occDate)
+
+    if (!groups.has(dateKey)) {
+      const label = getDayLabel(occDate, today, tomorrow, occ.time)
+      groups.set(dateKey, { label, dateKey, occurrences: [] })
+    }
+    groups.get(dateKey)!.occurrences.push(occ)
+  }
+
+  return Array.from(groups.values())
+}
+
 function computeDayGroups(
   schedules: ReturnType<typeof useSchedules>,
   forecastDays: number
@@ -64,78 +144,81 @@ function computeDayGroups(
 
   const now = new Date()
   const endTime = new Date(now.getTime() + forecastDays * DAY)
-  const allOccurrences: ScheduleOccurrence[] = []
+  const allOccurrences = schedules.flatMap(schedule =>
+    buildOccurrencesForSchedule(schedule, now, endTime)
+  )
 
-  for (const schedule of schedules) {
-    if (!schedule.enabled) continue
+  return groupOccurrencesByDay(allOccurrences)
+}
 
-    try {
-      const options: { tz?: string; currentDate?: Date; endDate?: Date } = {}
-      if (schedule.timezone) options.tz = schedule.timezone
-      options.currentDate = now
-      options.endDate = endTime
-
-      const expression = CronExpressionParser.parse(schedule.cron, options)
-
-      // Enumerate occurrences within the window
-      let count = 0
-      const maxOccurrences = 500 // safety limit per schedule
-      while (count < maxOccurrences) {
-        try {
-          const next = expression.next()
-          const nextTime = next.toDate()
-          /* v8 ignore start */
-          if (nextTime > endTime) break
-          /* v8 ignore stop */
-          allOccurrences.push({
-            scheduleId: schedule._id,
-            scheduleName: schedule.name,
-            jobName: schedule.job?.name ?? '(unknown job)',
-            workerType: schedule.job?.workerType ?? 'exec',
-            enabled: schedule.enabled,
-            cron: schedule.cron,
-            time: nextTime,
-          })
-          count++
-        } catch {
-          break // No more occurrences
-        }
-      }
-    } catch {
-      // Invalid cron — skip
-    }
+function getWorkerBadgeClass(workerType: string): string {
+  switch (workerType) {
+    case 'exec':
+      return 'worker-badge-exec'
+    case 'ai':
+      return 'worker-badge-ai'
+    case 'skill':
+      return 'worker-badge-skill'
+    default:
+      return ''
   }
+}
 
-  // Sort by time
-  allOccurrences.sort((a, b) => a.time.getTime() - b.time.getTime())
+function ScheduleOverviewSummary({
+  enabledCount,
+  disabledCount,
+  totalOccurrences,
+  forecastDays,
+}: {
+  enabledCount: number
+  disabledCount: number
+  totalOccurrences: number
+  forecastDays: number
+}) {
+  return (
+    <div className="schedule-overview-summary">
+      <span className="summary-stat">
+        <span className="summary-number">{enabledCount}</span> active schedule
+        {enabledCount !== 1 ? 's' : ''}
+      </span>
+      {disabledCount > 0 && (
+        <span className="summary-stat summary-muted">
+          <Pause size={12} />
+          {disabledCount} paused
+        </span>
+      )}
+      <span className="summary-stat">
+        <Play size={12} />
+        {totalOccurrences} run{totalOccurrences !== 1 ? 's' : ''} in next {forecastDays} day
+        {forecastDays !== 1 ? 's' : ''}
+      </span>
+    </div>
+  )
+}
 
-  // Group by day
-  const groups: Map<string, DayGroup> = new Map()
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
-  for (const occ of allOccurrences) {
-    const occDate = new Date(occ.time)
-    occDate.setHours(0, 0, 0, 0)
-    const dateKey = formatDateKey(occDate)
-
-    if (!groups.has(dateKey)) {
-      let label: string
-      if (occDate.getTime() === today.getTime()) {
-        label = 'Today'
-      } else if (occDate.getTime() === tomorrow.getTime()) {
-        label = 'Tomorrow'
-      } else {
-        label = `${DAY_NAMES[occ.time.getDay()]}, ${MONTH_SHORT[occ.time.getMonth()]} ${occ.time.getDate()}`
-      }
-      groups.set(dateKey, { label, dateKey, occurrences: [] })
-    }
-    groups.get(dateKey)!.occurrences.push(occ)
-  }
-
-  return Array.from(groups.values())
+function ScheduleEmptyState({
+  forecastDays,
+  totalSchedules,
+  enabledCount,
+}: {
+  forecastDays: number
+  totalSchedules: number
+  enabledCount: number
+}) {
+  return (
+    <div className="schedule-overview-empty">
+      <Calendar size={32} strokeWidth={1.5} />
+      <p>
+        {/* v8 ignore start */}
+        No scheduled runs in the next {forecastDays} day{forecastDays !== 1 ? 's' : ''}.
+        {/* v8 ignore stop */}
+      </p>
+      {totalSchedules === 0 && <p className="empty-hint">Create a schedule to get started.</p>}
+      {totalSchedules > 0 && enabledCount === 0 && (
+        <p className="empty-hint">All schedules are currently paused.</p>
+      )}
+    </div>
+  )
 }
 
 export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelProps) {
@@ -195,19 +278,6 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
     )
   }
 
-  const getWorkerBadgeClass = (workerType: string) => {
-    switch (workerType) {
-      case 'exec':
-        return 'worker-badge-exec'
-      case 'ai':
-        return 'worker-badge-ai'
-      case 'skill':
-        return 'worker-badge-skill'
-      default:
-        return ''
-    }
-  }
-
   return (
     <div className="schedule-overview">
       <div className="schedule-overview-header">
@@ -227,40 +297,20 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
         </div>
       </div>
 
-      <div className="schedule-overview-summary">
-        <span className="summary-stat">
-          <span className="summary-number">{enabledCount}</span> active schedule
-          {enabledCount !== 1 ? 's' : ''}
-        </span>
-        {disabledCount > 0 && (
-          <span className="summary-stat summary-muted">
-            <Pause size={12} />
-            {disabledCount} paused
-          </span>
-        )}
-        <span className="summary-stat">
-          <Play size={12} />
-          {totalOccurrences} run{totalOccurrences !== 1 ? 's' : ''} in next {forecastDays} day
-          {forecastDays !== 1 ? 's' : ''}
-        </span>
-      </div>
+      <ScheduleOverviewSummary
+        enabledCount={enabledCount}
+        disabledCount={disabledCount}
+        totalOccurrences={totalOccurrences}
+        forecastDays={forecastDays}
+      />
 
       <div className="schedule-overview-timeline">
         {dayGroups.length === 0 ? (
-          <div className="schedule-overview-empty">
-            <Calendar size={32} strokeWidth={1.5} />
-            <p>
-              {/* v8 ignore start */}
-              No scheduled runs in the next {forecastDays} day{forecastDays !== 1 ? 's' : ''}.
-              {/* v8 ignore stop */}
-            </p>
-            {schedules.length === 0 && (
-              <p className="empty-hint">Create a schedule to get started.</p>
-            )}
-            {schedules.length > 0 && enabledCount === 0 && (
-              <p className="empty-hint">All schedules are currently paused.</p>
-            )}
-          </div>
+          <ScheduleEmptyState
+            forecastDays={forecastDays}
+            totalSchedules={schedules.length}
+            enabledCount={enabledCount}
+          />
         ) : (
           dayGroups.map(group => (
             <div key={group.dateKey} className="day-group">

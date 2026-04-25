@@ -72,58 +72,83 @@ const DEFAULT_COUNTS: Record<string, number> = {}
 const DEFAULT_BADGE_PROGRESS: Record<string, { progress: number; color: string; tooltip: string }> =
   {}
 
-export function SidebarPanel({
-  section,
-  onItemSelect,
+function SidebarItemRow({
+  item,
   selectedItem,
-  counts = DEFAULT_COUNTS,
-  badgeProgress = DEFAULT_BADGE_PROGRESS,
-}: SidebarPanelProps) {
-  const {
-    has: isSectionExpanded,
-    toggle: toggleSection,
-    add: expandSection,
-  } = useToggleSet([section])
-  const data = sectionData[section]
-  const jobs = useJobs()
-  const schedules = useSchedules()
+  onItemSelect,
+  counts,
+  badgeProgress,
+}: {
+  item: SidebarItem
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  counts: Record<string, number>
+  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+}) {
+  return (
+    <div
+      className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
+      onClick={() => onItemSelect(item.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onKeyboardActivate(() => onItemSelect(item.id))}
+    >
+      <span className="sidebar-item-icon">
+        <FileText size={14} />
+      </span>
+      <span className="sidebar-item-label">{item.label}</span>
+      {counts[item.id] !== undefined &&
+        (badgeProgress[item.id] ? (
+          <span
+            className="sidebar-item-count-ring"
+            style={
+              {
+                '--ring-progress': `${badgeProgress[item.id].progress}%`,
+                '--ring-color': badgeProgress[item.id].color,
+              } as React.CSSProperties
+            }
+            title={badgeProgress[item.id].tooltip}
+          >
+            <span className="sidebar-item-count">{counts[item.id]}</span>
+          </span>
+        ) : (
+          <span className="sidebar-item-count">{counts[item.id]}</span>
+        ))}
+    </div>
+  )
+}
 
-  useEffect(() => {
-    expandSection(section)
-    // Auto-select when a section has exactly one item
-    const items = sectionData[section]?.items
-    if (items?.length === 1) {
-      onItemSelect(items[0].id)
-    }
-  }, [section, onItemSelect, expandSection])
+const SIMPLE_SIDEBARS: Record<
+  string,
+  React.FC<{ onItemSelect: (itemId: string) => void; selectedItem: string | null }>
+> = {
+  crew: CrewSidebar,
+  bookmarks: BookmarksSidebar,
+}
 
-  if (!data) return null
-
-  if (section === 'github') {
-    return (
-      <GitHubSidebar
-        onItemSelect={onItemSelect}
-        selectedItem={selectedItem}
-        counts={counts}
-        badgeProgress={badgeProgress}
-      />
-    )
-  }
-
-  if (section === 'crew') {
-    return <CrewSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
-  }
-
-  if (section === 'bookmarks') {
-    return <BookmarksSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
-  }
-
-  if (section === 'copilot') {
-    return <CopilotSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
-  }
-
-  const isExpanded = isSectionExpanded(section)
-
+function GenericSidebarSection({
+  section,
+  data,
+  isExpanded,
+  toggleSection,
+  jobs,
+  schedules,
+  selectedItem,
+  onItemSelect,
+  counts,
+  badgeProgress,
+}: {
+  section: string
+  data: { title: string; items: { id: string; label: string }[] }
+  isExpanded: boolean
+  toggleSection: (s: string) => void
+  jobs: ReturnType<typeof useJobs>
+  schedules: ReturnType<typeof useSchedules>
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  counts: Record<string, number>
+  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+}) {
   return (
     <div className="sidebar-panel">
       <div className="sidebar-panel-header">
@@ -159,36 +184,14 @@ export function SidebarPanel({
                 />
               ) : (
                 data.items.map(item => (
-                  <div
+                  <SidebarItemRow
                     key={item.id}
-                    className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
-                    onClick={() => onItemSelect(item.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={onKeyboardActivate(() => onItemSelect(item.id))}
-                  >
-                    <span className="sidebar-item-icon">
-                      <FileText size={14} />
-                    </span>
-                    <span className="sidebar-item-label">{item.label}</span>
-                    {counts[item.id] !== undefined &&
-                      (badgeProgress[item.id] ? (
-                        <span
-                          className="sidebar-item-count-ring"
-                          style={
-                            {
-                              '--ring-progress': `${badgeProgress[item.id].progress}%`,
-                              '--ring-color': badgeProgress[item.id].color,
-                            } as React.CSSProperties
-                          }
-                          title={badgeProgress[item.id].tooltip}
-                        >
-                          <span className="sidebar-item-count">{counts[item.id]}</span>
-                        </span>
-                      ) : (
-                        <span className="sidebar-item-count">{counts[item.id]}</span>
-                      ))}
-                  </div>
+                    item={item}
+                    selectedItem={selectedItem}
+                    onItemSelect={onItemSelect}
+                    counts={counts}
+                    badgeProgress={badgeProgress}
+                  />
                 ))
               )}
             </div>
@@ -196,5 +199,66 @@ export function SidebarPanel({
         </div>
       </div>
     </div>
+  )
+}
+
+export function SidebarPanel({
+  section,
+  onItemSelect,
+  selectedItem,
+  counts = DEFAULT_COUNTS,
+  badgeProgress = DEFAULT_BADGE_PROGRESS,
+}: SidebarPanelProps) {
+  const {
+    has: isSectionExpanded,
+    toggle: toggleSection,
+    add: expandSection,
+  } = useToggleSet([section])
+  const data = sectionData[section]
+  const jobs = useJobs()
+  const schedules = useSchedules()
+
+  useEffect(() => {
+    expandSection(section)
+    const items = sectionData[section]?.items
+    if (items?.length === 1) {
+      onItemSelect(items[0].id)
+    }
+  }, [section, onItemSelect, expandSection])
+
+  if (!data) return null
+
+  if (section === 'github') {
+    return (
+      <GitHubSidebar
+        onItemSelect={onItemSelect}
+        selectedItem={selectedItem}
+        counts={counts}
+        badgeProgress={badgeProgress}
+      />
+    )
+  }
+  if (section === 'copilot') {
+    return <CopilotSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
+  }
+
+  const SimpleSidebar = SIMPLE_SIDEBARS[section]
+  if (SimpleSidebar) {
+    return <SimpleSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
+  }
+
+  return (
+    <GenericSidebarSection
+      section={section}
+      data={data}
+      isExpanded={isSectionExpanded(section)}
+      toggleSection={toggleSection}
+      jobs={jobs}
+      schedules={schedules}
+      selectedItem={selectedItem}
+      onItemSelect={onItemSelect}
+      counts={counts}
+      badgeProgress={badgeProgress}
+    />
   )
 }

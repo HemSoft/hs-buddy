@@ -15,92 +15,121 @@ interface JobDetailPanelProps {
   onOpenJobList?: () => void
 }
 
+function ExecConfigDetails({ job }: { job: Doc<'jobs'> }) {
+  return (
+    <div className="job-detail-config">
+      <div className="config-field">
+        <span className="config-label">Command</span>
+        {/* v8 ignore start */}
+        <code className="config-value">{job.config.command || '—'}</code>
+        {/* v8 ignore stop */}
+      </div>
+      {job.config.shell && (
+        <div className="config-field">
+          <span className="config-label">Shell</span>
+          <span className="config-value">{job.config.shell}</span>
+        </div>
+      )}
+      {job.config.cwd && (
+        <div className="config-field">
+          <span className="config-label">Working Dir</span>
+          <span className="config-value">{job.config.cwd}</span>
+        </div>
+      )}
+      {job.config.timeout && (
+        <div className="config-field">
+          <span className="config-label">Timeout</span>
+          <span className="config-value">{(job.config.timeout / 1000).toFixed(0)}s</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AIConfigDetails({ job }: { job: Doc<'jobs'> }) {
+  return (
+    <div className="job-detail-config">
+      <div className="config-field">
+        <span className="config-label">Prompt</span>
+        {/* v8 ignore start */}
+        <pre className="config-value config-pre">{job.config.prompt || '—'}</pre>
+        {/* v8 ignore stop */}
+      </div>
+      {job.config.model && (
+        <div className="config-field">
+          <span className="config-label">Model</span>
+          <span className="config-value">{job.config.model}</span>
+        </div>
+      )}
+      {job.config.repoOwner && job.config.repoName && (
+        <div className="config-field">
+          <span className="config-label">Repo</span>
+          <span className="config-value">
+            {job.config.repoOwner}/{job.config.repoName}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SkillConfigDetails({ job }: { job: Doc<'jobs'> }) {
+  return (
+    <div className="job-detail-config">
+      <div className="config-field">
+        <span className="config-label">Skill</span>
+        {/* v8 ignore start */}
+        <span className="config-value">{job.config.skillName || '—'}</span>
+        {/* v8 ignore stop */}
+      </div>
+      {job.config.action && (
+        <div className="config-field">
+          <span className="config-label">Action</span>
+          <span className="config-value">{job.config.action}</span>
+        </div>
+      )}
+      {job.config.params && (
+        <div className="config-field">
+          <span className="config-label">Params</span>
+          <pre className="config-value config-pre">
+            {JSON.stringify(job.config.params, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ConfigDetails({ job }: { job: Doc<'jobs'> }) {
   /* v8 ignore start */
   switch (job.workerType) {
     /* v8 ignore stop */
     case 'exec':
-      return (
-        <div className="job-detail-config">
-          <div className="config-field">
-            <span className="config-label">Command</span>
-            {/* v8 ignore start */}
-            <code className="config-value">{job.config.command || '—'}</code>
-            {/* v8 ignore stop */}
-          </div>
-          {job.config.shell && (
-            <div className="config-field">
-              <span className="config-label">Shell</span>
-              <span className="config-value">{job.config.shell}</span>
-            </div>
-          )}
-          {job.config.cwd && (
-            <div className="config-field">
-              <span className="config-label">Working Dir</span>
-              <span className="config-value">{job.config.cwd}</span>
-            </div>
-          )}
-          {job.config.timeout && (
-            <div className="config-field">
-              <span className="config-label">Timeout</span>
-              <span className="config-value">{(job.config.timeout / 1000).toFixed(0)}s</span>
-            </div>
-          )}
-        </div>
-      )
+      return <ExecConfigDetails job={job} />
     case 'ai':
-      return (
-        <div className="job-detail-config">
-          <div className="config-field">
-            <span className="config-label">Prompt</span>
-            {/* v8 ignore start */}
-            <pre className="config-value config-pre">{job.config.prompt || '—'}</pre>
-            {/* v8 ignore stop */}
-          </div>
-          {job.config.model && (
-            <div className="config-field">
-              <span className="config-label">Model</span>
-              <span className="config-value">{job.config.model}</span>
-            </div>
-          )}
-          {job.config.repoOwner && job.config.repoName && (
-            <div className="config-field">
-              <span className="config-label">Repo</span>
-              <span className="config-value">
-                {job.config.repoOwner}/{job.config.repoName}
-              </span>
-            </div>
-          )}
-        </div>
-      )
+      return <AIConfigDetails job={job} />
     case 'skill':
-      return (
-        <div className="job-detail-config">
-          <div className="config-field">
-            <span className="config-label">Skill</span>
-            {/* v8 ignore start */}
-            <span className="config-value">{job.config.skillName || '—'}</span>
-            {/* v8 ignore stop */}
-          </div>
-          {job.config.action && (
-            <div className="config-field">
-              <span className="config-label">Action</span>
-              <span className="config-value">{job.config.action}</span>
-            </div>
-          )}
-          {job.config.params && (
-            <div className="config-field">
-              <span className="config-label">Params</span>
-              <pre className="config-value config-pre">
-                {JSON.stringify(job.config.params, null, 2)}
-              </pre>
-            </div>
-          )}
-        </div>
-      )
+      return <SkillConfigDetails job={job} />
     default:
       /* v8 ignore start */
       return null
+    /* v8 ignore stop */
+  }
+}
+
+function getWorkerLabel(workerType: string): string {
+  /* v8 ignore start */
+  switch (workerType) {
+    /* v8 ignore stop */
+    case 'exec':
+      return 'Shell Command'
+    case 'ai':
+      return 'AI Prompt'
+    case 'skill':
+      return 'Claude Skill'
+    default:
+      /* v8 ignore start */
+      return workerType
     /* v8 ignore stop */
   }
 }
@@ -133,23 +162,6 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
         </div>
       </div>
     )
-  }
-
-  const getWorkerLabel = (workerType: string) => {
-    /* v8 ignore start */
-    switch (workerType) {
-      /* v8 ignore stop */
-      case 'exec':
-        return 'Shell Command'
-      case 'ai':
-        return 'AI Prompt'
-      case 'skill':
-        return 'Claude Skill'
-      default:
-        /* v8 ignore start */
-        return workerType
-      /* v8 ignore stop */
-    }
   }
 
   const handleRunNow = async () => {

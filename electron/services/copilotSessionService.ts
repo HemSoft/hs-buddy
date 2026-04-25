@@ -54,7 +54,13 @@ export function resolveWorkspaceName(wsDir: string): string {
 
 // ─── Scan: fs metadata + first-line init parse (fast) ─────
 
-function extractScanInfo(filePath: string): { title: string; firstPrompt: string; agent: string; createdAt: number; requestCount: number } {
+function extractScanInfo(filePath: string): {
+  title: string
+  firstPrompt: string
+  agent: string
+  createdAt: number
+  requestCount: number
+} {
   const fallback = { title: '', firstPrompt: '', agent: '', createdAt: 0, requestCount: 0 }
   try {
     const fd = fs.openSync(filePath, 'r')
@@ -164,38 +170,49 @@ interface SessionInitData {
   model: SessionModelInfo | null
 }
 
-function extractSessionInit(line: string): SessionInitData | null {
-  try {
-    const parsed = JSON.parse(line)
-    const v = parsed.v
-    if (!v) return null
+function parseModelMetadata(sm: Record<string, unknown>): SessionModelInfo {
+  return {
+    id: (sm.id as string) ?? '',
+    name: (sm.name as string) ?? '',
+    family: (sm.family as string) ?? '',
+    vendor: (sm.vendor as string) ?? '',
+    multiplier: (sm.multiplier as string) ?? '1x',
+    multiplierNumeric: (sm.multiplierNumeric as number) ?? 1,
+    maxInputTokens: (sm.maxInputTokens as number) ?? 0,
+    maxOutputTokens: (sm.maxOutputTokens as number) ?? 0,
+  }
+}
 
-    const sessionId = v.sessionId ?? ''
-    const creationDate = v.creationDate ?? 0
+function extractSessionInitFallback(line: string): SessionInitData {
+  const sidMatch = /"sessionId":"([^"]+)"/.exec(line)
+  const cdMatch = /"creationDate":(\d+)/.exec(line)
+  return {
+    sessionId: sidMatch?.[1] ?? '',
+    creationDate: cdMatch ? parseInt(cdMatch[1]) : 0,
+    model: null,
+  }
+}
 
-    let model: SessionModelInfo | null = null
-    const sm = v.inputState?.selectedModel?.metadata
-    if (sm) {
-      model = {
-        id: sm.id ?? '',
-        name: sm.name ?? '',
-        family: sm.family ?? '',
-        vendor: sm.vendor ?? '',
-        multiplier: sm.multiplier ?? '1x',
-        multiplierNumeric: sm.multiplierNumeric ?? 1,
-        maxInputTokens: sm.maxInputTokens ?? 0,
-        maxOutputTokens: sm.maxOutputTokens ?? 0,
-      }
-    }
-    return { sessionId, creationDate, model }
-  } catch {
-    const sidMatch = /"sessionId":"([^"]+)"/.exec(line)
-    const cdMatch = /"creationDate":(\d+)/.exec(line)
-    return {
-      sessionId: sidMatch?.[1] ?? '',
-      creationDate: cdMatch ? parseInt(cdMatch[1]) : 0,
-      model: null,
-    }
+function extractInitFromValue(v: Record<string, unknown>): SessionInitData {
+  const sm = (v.inputState as Record<string, unknown>)?.selectedModel as
+    | Record<string, unknown>
+    | undefined
+  return {
+    sessionId: (v.sessionId as string) ?? '',
+    creationDate: (v.creationDate as number) ?? 0,
+    model: sm?.metadata ? parseModelMetadata(sm.metadata as Record<string, unknown>) : null,
+  }
+}
+
+function collectPrompts(
+  reqs: Array<Record<string, unknown>>,
+  prompts: Map<number, string>
+): void {
+  for (let i = 0; i < reqs.length; i++) {
+    const msg = (reqs[i]?.message as Record<string, unknown> | undefined)?.text as
+      | string
+      | undefined
+    if (msg) prompts.set(i, msg)
   }
 }
 
@@ -204,40 +221,147 @@ function extractTitle(line: string): string | null {
   return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : null
 }
 
+function extractToolCallInfo(metadata: Record<string, unknown>): {
+  toolCallCount: number
+  toolNames: string[]
+} {
+  let toolCallCount = 0
+  const toolNames = new Set<string>()
+  const rounds = (metadata?.toolCallRounds ?? []) as Array<Record<string, unknown>>
+  for (const round of rounds) {
+    const calls = (round.toolCalls ?? []) as Array<Record<string, unknown>>
+    for (const tc of calls) {
+      toolCallCount++
+      if (tc.name) toolNames.add(tc.name as string)
+    }
+  }
+  return { toolCallCount, toolNames: [...toolNames] }
+}
+
+function extractResultDataFallback(line: string): SessionRequestResult | null {
+  const pt = /"promptTokens":(\d+)/.exec(line)
+  const ot = /"outputTokens":(\d+)/.exec(line)
+  if (!pt || !ot) return null
+  return {
+    prompt: '',
+    promptTokens: parseInt(pt[1]),
+    outputTokens: parseInt(ot[1]),
+    firstProgressMs: 0,
+    totalElapsedMs: 0,
+    toolCallCount: 0,
+    toolNames: [],
+  }
+}
+
+function resolveMetricValue(primary: number | undefined, fallback: number | undefined): number {
+  return primary ?? fallback ?? 0
+}
+
+function resolveTokenCounts(
+  metadata: Record<string, number> | undefined,
+  timings: Record<string, number> | undefined
+): { promptTokens: number; outputTokens: number; firstProgressMs: number; totalElapsedMs: number } {
+  return {
+    promptTokens: resolveMetricValue(metadata?.promptTokens, timings?.promptTokens),
+    outputTokens: resolveMetricValue(metadata?.outputTokens, timings?.outputTokens),
+    firstProgressMs: timings?.firstProgress ?? 0,
+    totalElapsedMs: timings?.totalElapsed ?? 0,
+  }
+}
+
 function extractResultData(line: string): SessionRequestResult | null {
   try {
     const parsed = JSON.parse(line)
     const v = parsed.v
     if (!v) return null
 
-    const promptTokens = v.metadata?.promptTokens ?? v.timings?.promptTokens ?? 0
-    const outputTokens = v.metadata?.outputTokens ?? v.timings?.outputTokens ?? 0
-    const firstProgressMs = v.timings?.firstProgress ?? 0
-    const totalElapsedMs = v.timings?.totalElapsed ?? 0
+    const tokens = resolveTokenCounts(v.metadata, v.timings)
+    const { toolCallCount, toolNames } = extractToolCallInfo(v.metadata)
 
-    let toolCallCount = 0
-    const toolNames = new Set<string>()
-    for (const round of v.metadata?.toolCallRounds ?? []) {
-      for (const tc of round.toolCalls ?? []) {
-        toolCallCount++
-        if (tc.name) toolNames.add(tc.name)
+    return { prompt: '', ...tokens, toolCallCount, toolNames }
+  } catch {
+    return extractResultDataFallback(line)
+  }
+}
+
+function parseKeyPath(line: string): string[] {
+  const keyMatch = /"k":\[([^\]]*)\]/.exec(line)
+  return keyMatch
+    ? keyMatch[1]
+        .split(',')
+        .map(s => s.trim().replace(/^"|"$/g, ''))
+        .filter(Boolean)
+    : []
+}
+
+function handleInitLine(
+  line: string,
+  prompts: Map<number, string>
+): { init: SessionInitData | null; title: string } {
+  try {
+    const obj = JSON.parse(line)
+    const v = obj.v
+    if (!v) return { init: null, title: '' }
+    const init = extractInitFromValue(v as Record<string, unknown>)
+    const title = (v.customTitle as string) ?? ''
+    collectPrompts((v.requests ?? []) as Array<Record<string, unknown>>, prompts)
+    return { init, title }
+  } catch {
+    return { init: extractSessionInitFallback(line), title: '' }
+  }
+}
+
+function handleRequestsSnapshot(line: string, prompts: Map<number, string>): void {
+  try {
+    const obj = JSON.parse(line)
+    const reqs = obj.v ?? []
+    if (Array.isArray(reqs)) {
+      for (let i = 0; i < reqs.length; i++) {
+        const msg = reqs[i]?.message?.text
+        if (msg && !prompts.has(i)) prompts.set(i, msg)
       }
     }
-
-    return { prompt: '', promptTokens, outputTokens, firstProgressMs, totalElapsedMs, toolCallCount, toolNames: [...toolNames] }
   } catch {
-    const pt = /"promptTokens":(\d+)/.exec(line)
-    const ot = /"outputTokens":(\d+)/.exec(line)
-    if (!pt || !ot) return null
-    return {
-      prompt: '',
-      promptTokens: parseInt(pt[1]),
-      outputTokens: parseInt(ot[1]),
-      firstProgressMs: 0,
-      totalElapsedMs: 0,
-      toolCallCount: 0,
-      toolNames: [],
-    }
+    /* skip unparseable */
+  }
+}
+
+interface SessionParseState {
+  init: SessionInitData | null
+  title: string
+  resultsByIndex: Map<number, SessionRequestResult>
+  prompts: Map<number, string>
+}
+
+function processInitLine(line: string, state: SessionParseState): void {
+  const result = handleInitLine(line, state.prompts)
+  state.init = result.init
+  if (result.title) state.title = result.title
+}
+
+function processUpdateLine(keyPath: string[], line: string, state: SessionParseState): void {
+  if (keyPath.length === 1 && keyPath[0] === 'customTitle') {
+    const t = extractTitle(line)
+    if (t) state.title = t
+  } else if (keyPath.length === 3 && keyPath[2] === 'result') {
+    const reqIndex = parseInt(keyPath[1])
+    const result = extractResultData(line)
+    if (result && !isNaN(reqIndex)) state.resultsByIndex.set(reqIndex, result)
+  }
+}
+
+function processSessionLine(
+  kind: number,
+  keyPath: string[],
+  line: string,
+  state: SessionParseState
+): void {
+  if (kind === 0) {
+    processInitLine(line, state)
+  } else if (kind === 1) {
+    processUpdateLine(keyPath, line, state)
+  } else if (kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests') {
+    handleRequestsSnapshot(line, state.prompts)
   }
 }
 
@@ -246,100 +370,54 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
 
   const workspaceHash = path.basename(path.dirname(path.dirname(filePath)))
 
-  return new Promise((resolve) => {
-    let init: SessionInitData | null = null
-    let title = ''
-    const resultsByIndex: Map<number, SessionRequestResult> = new Map()
-    const prompts: Map<number, string> = new Map()
+  return new Promise(resolve => {
+    const state: SessionParseState = {
+      init: null,
+      title: '',
+      resultsByIndex: new Map(),
+      prompts: new Map(),
+    }
 
     const stream = fs.createReadStream(filePath, { encoding: 'utf8' })
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
 
-    rl.on('line', (line) => {
+    rl.on('line', line => {
       const kindMatch = /^\{"kind":(\d+)/.exec(line)
       if (!kindMatch) return
-
       const kind = parseInt(kindMatch[1])
-      const keyMatch = /"k":\[([^\]]*)\]/.exec(line)
-      const keyPath = keyMatch
-        ? keyMatch[1].split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
-        : []
-
-      if (kind === 0) {
-        init = extractSessionInit(line)
-        // Extract title from init if present
-        try {
-          const obj = JSON.parse(line)
-          if (obj.v?.customTitle) title = obj.v.customTitle
-          const reqs = obj.v?.requests ?? []
-          for (let i = 0; i < reqs.length; i++) {
-            const msg = reqs[i]?.message?.text
-            if (msg) prompts.set(i, msg)
-          }
-        } catch { /* regex fallback already handled init */ }
-      } else if (kind === 1 && keyPath.length === 1 && keyPath[0] === 'customTitle') {
-        const t = extractTitle(line)
-        if (t) title = t
-      } else if (kind === 1 && keyPath.length === 3 && keyPath[2] === 'result') {
-        const reqIndex = parseInt(keyPath[1])
-        const result = extractResultData(line)
-        if (result && !isNaN(reqIndex)) resultsByIndex.set(reqIndex, result)
-      } else if (kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests') {
-        // kind=2 requests snapshot — extract prompts for newly appended requests
-        try {
-          const obj = JSON.parse(line)
-          const reqs = obj.v ?? []
-          if (Array.isArray(reqs)) {
-            for (let i = 0; i < reqs.length; i++) {
-              const msg = reqs[i]?.message?.text
-              if (msg && !prompts.has(i)) prompts.set(i, msg)
-            }
-          }
-        } catch { /* skip unparseable */ }
-      }
+      const keyPath = parseKeyPath(line)
+      processSessionLine(kind, keyPath, line, state)
     })
 
     rl.on('close', () => {
-      if (!init || !init.sessionId) {
+      if (!state.init || !state.init.sessionId) {
         resolve(null)
         return
       }
 
       // Build results sorted by request index, with prompts assigned
       const results: SessionRequestResult[] = []
-      const sortedIndices = [...resultsByIndex.keys()].sort((a, b) => a - b)
+      const sortedIndices = [...state.resultsByIndex.keys()].sort((a, b) => a - b)
       for (const idx of sortedIndices) {
-        const r = resultsByIndex.get(idx)!
-        r.prompt = prompts.get(idx) ?? ''
+        const r = state.resultsByIndex.get(idx)!
+        r.prompt = state.prompts.get(idx) ?? ''
         results.push(r)
       }
 
-      const allToolNames = new Set<string>()
-      let totalPromptTokens = 0
-      let totalOutputTokens = 0
-      let totalToolCalls = 0
-      let totalDurationMs = 0
-
-      for (const r of results) {
-        totalPromptTokens += r.promptTokens
-        totalOutputTokens += r.outputTokens
-        totalToolCalls += r.toolCallCount
-        totalDurationMs += r.totalElapsedMs
-        for (const name of r.toolNames) allToolNames.add(name)
-      }
+      const agg = aggregateResults(results)
 
       resolve({
-        sessionId: init!.sessionId,
-        title: title || `Session ${init!.sessionId.slice(0, 8)}`,
-        startTime: init!.creationDate,
-        model: init!.model,
+        sessionId: state.init!.sessionId,
+        title: state.title || `Session ${state.init!.sessionId.slice(0, 8)}`,
+        startTime: state.init!.creationDate,
+        model: state.init!.model,
         requestCount: results.length,
         results,
-        totalPromptTokens,
-        totalOutputTokens,
-        totalToolCalls,
-        toolsUsed: [...allToolNames],
-        totalDurationMs,
+        totalPromptTokens: agg.totalPromptTokens,
+        totalOutputTokens: agg.totalOutputTokens,
+        totalToolCalls: agg.totalToolCalls,
+        toolsUsed: agg.allToolNames,
+        totalDurationMs: agg.totalDurationMs,
         workspaceHash,
         filePath,
       })
@@ -354,6 +432,36 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
 }
 
 // ─── Digest: compute efficiency metrics from parsed session ──
+
+function aggregateResults(results: SessionRequestResult[]): {
+  totalPromptTokens: number
+  totalOutputTokens: number
+  totalToolCalls: number
+  totalDurationMs: number
+  allToolNames: string[]
+} {
+  const allToolNames = new Set<string>()
+  let totalPromptTokens = 0
+  let totalOutputTokens = 0
+  let totalToolCalls = 0
+  let totalDurationMs = 0
+
+  for (const r of results) {
+    totalPromptTokens += r.promptTokens
+    totalOutputTokens += r.outputTokens
+    totalToolCalls += r.toolCallCount
+    totalDurationMs += r.totalElapsedMs
+    for (const name of r.toolNames) allToolNames.add(name)
+  }
+
+  return {
+    totalPromptTokens,
+    totalOutputTokens,
+    totalToolCalls,
+    totalDurationMs,
+    allToolNames: [...allToolNames],
+  }
+}
 
 /** Base rate per token for cost estimation (USD per token, approximate) */
 const BASE_TOKEN_RATE = 0.000001
@@ -386,27 +494,57 @@ function computeDominantTools(results: SessionRequestResult[]): string[] {
     .map(([name]) => name)
 }
 
-export function computeSessionDigest(session: CopilotSession, workspaceName: string, agentMode: string): SessionDigest {
+function resolveModelName(model: SessionModelInfo | null): string {
+  return model?.name || model?.id || ''
+}
+
+function resolveFirstPrompt(results: SessionRequestResult[]): string {
+  const prompt = results[0]?.prompt
+  return prompt ? [...prompt].slice(0, 200).join('') : ''
+}
+
+function computeEfficiencyMetrics(
+  totalPromptTokens: number,
+  totalOutputTokens: number,
+  totalToolCalls: number,
+  requestCount: number
+): { tokenEfficiency: number; toolDensity: number } {
+  return {
+    tokenEfficiency: totalPromptTokens > 0 ? totalOutputTokens / totalPromptTokens : 0,
+    toolDensity: requestCount > 0 ? totalToolCalls / requestCount : 0,
+  }
+}
+
+export function computeSessionDigest(
+  session: CopilotSession,
+  workspaceName: string,
+  agentMode: string
+): SessionDigest {
   const { totalPromptTokens, totalOutputTokens, totalToolCalls, requestCount, results } = session
   const multiplier = session.model?.multiplierNumeric ?? 1
   const totalTokens = totalPromptTokens + totalOutputTokens
+  const metrics = computeEfficiencyMetrics(
+    totalPromptTokens,
+    totalOutputTokens,
+    totalToolCalls,
+    requestCount
+  )
 
   return {
     sessionId: session.sessionId,
     workspaceName,
-    model: session.model?.name || session.model?.id || '',
+    model: resolveModelName(session.model),
     agentMode,
     requestCount,
     totalPromptTokens,
     totalOutputTokens,
     totalToolCalls,
     totalDurationMs: session.totalDurationMs,
-    tokenEfficiency: totalPromptTokens > 0 ? totalOutputTokens / totalPromptTokens : 0,
-    toolDensity: requestCount > 0 ? totalToolCalls / requestCount : 0,
+    ...metrics,
     searchChurn: countSearchChurn(results),
     estimatedCost: totalTokens * multiplier * BASE_TOKEN_RATE,
     dominantTools: computeDominantTools(results),
-    firstPrompt: results[0]?.prompt ? [...results[0].prompt].slice(0, 200).join('') : '',
+    firstPrompt: resolveFirstPrompt(results),
     sessionDate: session.startTime || Date.now(),
     digestedAt: Date.now(),
   }

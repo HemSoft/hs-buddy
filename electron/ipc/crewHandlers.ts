@@ -1,5 +1,4 @@
-import type { BrowserWindow } from 'electron'
-import { ipcMain } from 'electron'
+import { ipcMain, type BrowserWindow } from 'electron'
 import {
   addProjectFromPicker,
   listProjects,
@@ -41,12 +40,9 @@ export function registerCrewHandlers(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle(
-    'crew:update-session-status',
-    (_event, projectId: string, status: string) => {
-      return updateSessionStatus(projectId, status as 'idle' | 'active' | 'error')
-    }
-  )
+  ipcMain.handle('crew:update-session-status', (_event, projectId: string, status: string) => {
+    return updateSessionStatus(projectId, status as 'idle' | 'active' | 'error')
+  })
 
   ipcMain.handle(
     'crew:update-changed-files',
@@ -62,10 +58,7 @@ export function registerCrewHandlers(win: BrowserWindow): void {
     return clearSession(projectId)
   })
 
-  ipcMain.handle(
-    'crew:undo-file',
-    (_event, projectId: string, filePath: string) => {
-      return undoFile(projectId, filePath)
-    }
-  )
+  ipcMain.handle('crew:undo-file', (_event, projectId: string, filePath: string) => {
+    return undoFile(projectId, filePath)
+  })
 }

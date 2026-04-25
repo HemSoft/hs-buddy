@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Cover partial-week branch in buildContributionCalendar
 
+### Added
+
+- Add CRAP rating awareness to simplisticate prompts
+
 ## [0.1.738] - 2026-04-24
 
 ### Changed

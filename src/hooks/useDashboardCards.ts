@@ -46,6 +46,15 @@ function clearCache(): void {
   safeRemoveItem(CACHE_KEY)
 }
 
+function isEmptyPlainObject(raw: unknown): boolean {
+  return (
+    typeof raw === 'object' &&
+    raw !== null &&
+    !Array.isArray(raw) &&
+    Object.keys(raw as Record<string, unknown>).length === 0
+  )
+}
+
 export function sanitize(raw: unknown): CardVisibility | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const result: CardVisibility = {}
@@ -102,12 +111,7 @@ export function useDashboardCards() {
         // (meaning "all defaults"). Otherwise treat as load failure to avoid
         // overwriting a valid cache with defaults from malformed data.
         if (sanitized === null) {
-          const isEmptyObject =
-            typeof raw === 'object' &&
-            raw !== null &&
-            !Array.isArray(raw) &&
-            Object.keys(raw as Record<string, unknown>).length === 0
-          if (!isEmptyObject) {
+          if (!isEmptyPlainObject(raw)) {
             console.warn('[useDashboardCards] Malformed IPC data, keeping cached state')
             return
           }
@@ -150,12 +154,7 @@ export function useDashboardCards() {
             if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
             const sanitized = sanitize(raw)
             if (sanitized === null) {
-              const isEmptyObject =
-                typeof raw === 'object' &&
-                raw !== null &&
-                !Array.isArray(raw) &&
-                Object.keys(raw as Record<string, unknown>).length === 0
-              if (!isEmptyObject) {
+              if (!isEmptyPlainObject(raw)) {
                 console.warn(
                   '[useDashboardCards] Malformed IPC data after save failure, reverting local state'
                 )

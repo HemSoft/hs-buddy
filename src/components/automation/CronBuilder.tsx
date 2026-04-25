@@ -172,6 +172,10 @@ function CronOptions({
   return null
 }
 
+function freqBtnClass(current: string, target: string): string {
+  return `freq-btn ${current === target ? 'active' : ''}`
+}
+
 export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const cronFreqLabelId = useId()
   const cronState = useMemo(() => parseCronValue(value), [value])
@@ -229,42 +233,42 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
         <div className="frequency-buttons" role="group" aria-labelledby={cronFreqLabelId}>
           <button
             type="button"
-            className={`freq-btn ${frequency === 'minute' ? 'active' : ''}`}
+            className={freqBtnClass(frequency, 'minute')}
             onClick={() => updateCron({ frequency: 'minute' })}
           >
             Every Minute
           </button>
           <button
             type="button"
-            className={`freq-btn ${frequency === 'hourly' ? 'active' : ''}`}
+            className={freqBtnClass(frequency, 'hourly')}
             onClick={() => updateCron({ frequency: 'hourly' })}
           >
             Hourly
           </button>
           <button
             type="button"
-            className={`freq-btn ${frequency === 'daily' ? 'active' : ''}`}
+            className={freqBtnClass(frequency, 'daily')}
             onClick={() => updateCron({ frequency: 'daily' })}
           >
             Daily
           </button>
           <button
             type="button"
-            className={`freq-btn ${frequency === 'weekly' ? 'active' : ''}`}
+            className={freqBtnClass(frequency, 'weekly')}
             onClick={() => updateCron({ frequency: 'weekly' })}
           >
             Weekly
           </button>
           <button
             type="button"
-            className={`freq-btn ${frequency === 'monthly' ? 'active' : ''}`}
+            className={freqBtnClass(frequency, 'monthly')}
             onClick={() => updateCron({ frequency: 'monthly' })}
           >
             Monthly
           </button>
           <button
             type="button"
-            className={`freq-btn ${frequency === 'custom' ? 'active' : ''}`}
+            className={freqBtnClass(frequency, 'custom')}
             onClick={() => updateCron({ frequency: 'custom' })}
           >
             Custom

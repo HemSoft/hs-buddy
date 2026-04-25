@@ -89,6 +89,10 @@ function categoryLabel(name: string) {
   return name || 'Uncategorized'
 }
 
+function getBookmarkCount(bookmarks: readonly unknown[] | undefined): number {
+  return bookmarks?.length ?? 0
+}
+
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
   const { has: isSectionExpanded, toggle: toggleSection } = useToggleSet()
   const [contextMenu, setContextMenu] = useState<{
@@ -196,7 +200,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     }
   }, [contextMenu])
 
-  const totalCount = bookmarks?.length ?? 0
+  const totalCount = getBookmarkCount(bookmarks)
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {}

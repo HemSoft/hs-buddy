@@ -1,6 +1,7 @@
 // Used by SFL workflows via Convex HTTP API, not by the Electron renderer.
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
+import type { MutationCtx } from './_generated/server'
 
 const intakeSourceValidator = v.union(
   v.literal('jira'),
@@ -245,6 +246,93 @@ function ensureAcceptanceCriteria(raw?: string[]): string[] {
   return criteria
 }
 
+type IntakeSource = 'jira' | 'github-issue' | 'manual' | 'other'
+type RiskLabel = 'risk:trivial' | 'risk:low' | 'risk:medium' | 'risk:high' | 'risk:critical'
+
+async function insertAndResolve(
+  ctx: MutationCtx,
+  normalizedArgs: {
+    source: IntakeSource
+    externalId: string
+    externalUrl?: string
+    requestedBy?: string
+    title: string
+    problem: string
+    requestedOutcome?: string
+    acceptanceCriteria: string[]
+    riskLabel?: RiskLabel
+    metadata?: unknown
+  }
+) {
+  const { source, externalId, title, problem, requestedOutcome, acceptanceCriteria } =
+    normalizedArgs
+
+  const canonicalKey = toCanonicalKey({
+    source,
+    title,
+    problem,
+    requestedOutcome,
+    acceptanceCriteria,
+  })
+
+  const existingByCanonical = await ctx.db
+    .query('featureIntakes')
+    .withIndex('by_canonical_key', q => q.eq('canonicalKey', canonicalKey))
+    .first()
+
+  const riskLabel: RiskLabel = normalizedArgs.riskLabel ?? 'risk:low'
+  const canonicalIssueTitle = buildIssueTitle(title)
+  const canonicalIssueLabels = ['agent:fixable', sourceToLabel(source), riskLabel]
+
+  const canonicalIssueBody = buildIssueBody({
+    source,
+    externalId,
+    externalUrl: normalizedArgs.externalUrl,
+    requestedBy: normalizedArgs.requestedBy,
+    title,
+    problem,
+    requestedOutcome,
+    acceptanceCriteria,
+    canonicalKey,
+    riskLabel,
+  })
+
+  const now = Date.now()
+  const status = existingByCanonical ? 'duplicate' : 'draft'
+
+  const intakeId = await ctx.db.insert('featureIntakes', {
+    source,
+    externalId,
+    externalUrl: normalizedArgs.externalUrl,
+    requestedBy: normalizedArgs.requestedBy,
+    title,
+    problem,
+    requestedOutcome,
+    acceptanceCriteria,
+    riskLabel,
+    canonicalKey,
+    canonicalIssueTitle,
+    canonicalIssueBody,
+    canonicalIssueLabels,
+    status,
+    duplicateOfId: existingByCanonical?._id,
+    canonicalIssueNumber: existingByCanonical?.canonicalIssueNumber,
+    canonicalIssueUrl: existingByCanonical?.canonicalIssueUrl,
+    metadata: normalizedArgs.metadata,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  return buildNormalizeResult(
+    intakeId,
+    existingByCanonical,
+    canonicalKey,
+    canonicalIssueTitle,
+    canonicalIssueBody,
+    canonicalIssueLabels
+  )
+}
+
 export const normalize = mutation({
   args: {
     source: intakeSourceValidator,
@@ -277,75 +365,18 @@ export const normalize = mutation({
     }
 
     const acceptanceCriteria = ensureAcceptanceCriteria(args.acceptanceCriteria)
-
     const requestedOutcome = args.requestedOutcome
       ? normalizeWhitespace(args.requestedOutcome)
       : undefined
 
-    const canonicalKey = toCanonicalKey({
-      source: args.source,
-      title,
-      problem,
-      requestedOutcome,
-      acceptanceCriteria,
-    })
-
-    const existingByCanonical = await ctx.db
-      .query('featureIntakes')
-      .withIndex('by_canonical_key', q => q.eq('canonicalKey', canonicalKey))
-      .first()
-
-    const riskLabel = args.riskLabel ?? 'risk:low'
-    const canonicalIssueTitle = buildIssueTitle(title)
-    const canonicalIssueLabels = ['agent:fixable', sourceToLabel(args.source), riskLabel]
-
-    const canonicalIssueBody = buildIssueBody({
-      source: args.source,
+    return await insertAndResolve(ctx, {
+      ...args,
       externalId,
-      externalUrl: args.externalUrl,
-      requestedBy: args.requestedBy,
       title,
       problem,
       requestedOutcome,
       acceptanceCriteria,
-      canonicalKey,
-      riskLabel,
     })
-
-    const now = Date.now()
-    const status = existingByCanonical ? 'duplicate' : 'draft'
-
-    const intakeId = await ctx.db.insert('featureIntakes', {
-      source: args.source,
-      externalId,
-      externalUrl: args.externalUrl,
-      requestedBy: args.requestedBy,
-      title,
-      problem,
-      requestedOutcome,
-      acceptanceCriteria,
-      riskLabel,
-      canonicalKey,
-      canonicalIssueTitle,
-      canonicalIssueBody,
-      canonicalIssueLabels,
-      status,
-      duplicateOfId: existingByCanonical?._id,
-      canonicalIssueNumber: existingByCanonical?.canonicalIssueNumber,
-      canonicalIssueUrl: existingByCanonical?.canonicalIssueUrl,
-      metadata: args.metadata,
-      createdAt: now,
-      updatedAt: now,
-    })
-
-    return buildNormalizeResult(
-      intakeId,
-      existingByCanonical,
-      canonicalKey,
-      canonicalIssueTitle,
-      canonicalIssueBody,
-      canonicalIssueLabels
-    )
   },
 })
 

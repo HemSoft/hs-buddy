@@ -35,6 +35,23 @@ interface TabState {
 
 export const DASHBOARD_VIEW_ID = 'dashboard'
 
+function resolveActiveTabAfterClose(
+  previousState: TabState,
+  tabId: string,
+  nextTabs: Tab[]
+): string | null {
+  if (previousState.activeTabId === tabId && nextTabs.length > 0) {
+    const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
+    const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
+    /* v8 ignore start */
+    return nextTabs[Math.max(0, nextActiveIndex)]?.id || null
+    /* v8 ignore stop */
+  }
+  /* v8 ignore start */
+  return nextTabs.length === 0 ? null : previousState.activeTabId
+  /* v8 ignore stop */
+}
+
 export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
   const [tabState, setTabState] = useState<TabState>(() => {
     const dashboardTab: Tab = {
@@ -221,23 +238,9 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
       const pendingCloses = closedViewId ? [closedViewId] : []
       /* v8 ignore stop */
 
-      if (previousState.activeTabId === tabId && nextTabs.length > 0) {
-        const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
-        const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
-        return {
-          tabs: nextTabs,
-          /* v8 ignore start */
-          activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
-          /* v8 ignore stop */
-          pendingCloses,
-        }
-      }
-
       return {
         tabs: nextTabs,
-        /* v8 ignore start */
-        activeTabId: nextTabs.length === 0 ? null : previousState.activeTabId,
-        /* v8 ignore stop */
+        activeTabId: resolveActiveTabAfterClose(previousState, tabId, nextTabs),
         pendingCloses,
       }
     })
@@ -336,16 +339,8 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
       const pendingCloses = closedViewId ? [closedViewId] : []
       /* v8 ignore stop */
       const nextTabs = prev.tabs.filter(t => t.id !== prev.activeTabId)
-      if (nextTabs.length === 0) return { tabs: [], activeTabId: null, pendingCloses }
-      const closedIndex = prev.tabs.findIndex(t => t.id === prev.activeTabId)
-      const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
-      return {
-        tabs: nextTabs,
-        /* v8 ignore start */
-        activeTabId: nextTabs[Math.max(0, nextActiveIndex)]?.id || null,
-        /* v8 ignore stop */
-        pendingCloses,
-      }
+      const activeTabId = resolveActiveTabAfterClose(prev, prev.activeTabId, nextTabs)
+      return { tabs: nextTabs, activeTabId, pendingCloses }
     })
   }, [])
 

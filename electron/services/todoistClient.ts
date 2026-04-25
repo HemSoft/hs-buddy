@@ -21,7 +21,9 @@ function getEnv(name: string): string | undefined {
         envCache.set(name, val)
         return val
       }
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
 
   const val = process.env[name]
@@ -63,7 +65,7 @@ async function apiGet<T>(path: string, params?: Record<string, string>): Promise
   try {
     const res = await fetch(url.toString(), { headers: headers(), signal: controller.signal })
     if (!res.ok) throw new Error(`Todoist API error (${res.status})`)
-    return await res.json() as T
+    return (await res.json()) as T
   } finally {
     clearTimeout(timeout)
   }
@@ -107,7 +109,10 @@ async function apiDelete(path: string): Promise<void> {
 // --- Public API ---
 
 export async function fetchTasks(filter: string): Promise<TodoistTask[]> {
-  const data = await apiGet<{ results: TodoistTask[]; next_cursor: string | null }>('/tasks/filter', { query: filter })
+  const data = await apiGet<{ results: TodoistTask[]; next_cursor: string | null }>(
+    '/tasks/filter',
+    { query: filter }
+  )
   return data.results
 }
 
@@ -120,31 +125,47 @@ export async function fetchProjects(): Promise<TodoistProject[]> {
   return cachedProjects
 }
 
-/** Fetch tasks for the next `days` days plus any overdue, grouped by ISO date. */
-export async function fetchUpcoming(days: number = 7): Promise<Map<string, TodoistTask[]>> {
-  const today = new Date()
-  const end = new Date(today)
-  end.setDate(end.getDate() + days)
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
-  const formatFilter = (d: Date) => {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    return `${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`
-  }
+function formatFilterDate(d: Date): string {
+  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`
+}
 
-  const filter = `(overdue | due before: ${formatFilter(end)})`
-  const tasks = await fetchTasks(filter)
-
+function groupTasksByDate(tasks: TodoistTask[]): Map<string, TodoistTask[]> {
   const grouped = new Map<string, TodoistTask[]>()
   for (const task of tasks) {
     const raw = task.due?.date ?? ''
     if (!raw) continue
-    // Normalise datetime strings (e.g. "2026-03-30T08:00:00") to date-only
     const date = raw.length > 10 ? raw.slice(0, 10) : raw
     const bucket = grouped.get(date) ?? []
     bucket.push(task)
     grouped.set(date, bucket)
   }
   return grouped
+}
+
+/** Fetch tasks for the next `days` days plus any overdue, grouped by ISO date. */
+export async function fetchUpcoming(days: number = 7): Promise<Map<string, TodoistTask[]>> {
+  const today = new Date()
+  const end = new Date(today)
+  end.setDate(end.getDate() + days)
+
+  const filter = `(overdue | due before: ${formatFilterDate(end)})`
+  const tasks = await fetchTasks(filter)
+  return groupTasksByDate(tasks)
 }
 
 export async function completeTask(taskId: string): Promise<void> {

@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review comments for runtime safety and type-safety
 - Resolve TypeScript errors and address review feedback
 - Sync ralph-simplisticate-repeat.sh with ai-tools template
+- Address PR #644 review comments
+- Normalize optional props with nullish coalescing instead of spread defaults
+- Use actual CSS class in empty-commits assertion
+- Schedule immediate poll after all claimed run paths
+- Add user-facing error message fallbacks for unhelpful throws
+- Use getUserFacingErrorMessage for user-facing error strings
+- Use getUserFacingErrorMessage for user-visible error strings
+- Guard against corrupted cache data in getValidCachedOrgRepos
 
 ### Changed
 
@@ -27,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make CRAP the primary metric, tighten thresholds
 - Reduce CRAP scores via complexity reduction and test infra fix
 - Reduce CRAP scores by lowering cyclomatic complexity
+- Reduce CRAP scores via helper extraction and spread defaults
+- Reduce CRAP scores — 100% coverage, complexity 22→2
+- Reduce cyclomatic complexity in mapper functions
+- Reduce complexity and fix code smells
 
 ### Added
 

@@ -4,6 +4,19 @@ import { useCopilotSettings } from '../../hooks/useConfig'
 import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
 import { getErrorMessage } from '../../utils/errorUtils'
 
+function applyModelResult(
+  result: unknown,
+  setModelsError: (e: string | null) => void,
+  setSdkModels: (m: SdkModel[]) => void
+) {
+  if (result && 'error' in (result as Record<string, unknown>)) {
+    setModelsError((result as { error: string }).error)
+    setSdkModels([])
+  } else if (Array.isArray(result)) {
+    setSdkModels(result)
+  }
+}
+
 /** Model info returned from the Copilot SDK */
 interface SdkModel {
   id: string
@@ -50,12 +63,7 @@ function useModelFetch() {
     try {
       const result = await window.copilot.listModels(forAccount || undefined)
       if (fetchIdRef.current !== thisId) return
-      if (result && 'error' in result) {
-        setModelsError(result.error as string)
-        setSdkModels([])
-      } else if (Array.isArray(result)) {
-        setSdkModels(result)
-      }
+      applyModelResult(result, setModelsError, setSdkModels)
     } catch (err) {
       if (fetchIdRef.current !== thisId) return
       setModelsError(getErrorMessage(err))
@@ -112,6 +120,34 @@ function ModelPickerNoModels({
         )}
       </div>
     </div>
+  )
+}
+
+function ModelPickerRefreshButton({
+  showRefresh,
+  fetchModels,
+  ghAccount,
+  modelsLoading,
+}: {
+  showRefresh: boolean
+  fetchModels: (forAccount?: string) => Promise<void>
+  ghAccount: string
+  modelsLoading: boolean
+}) {
+  if (!showRefresh) return null
+  return (
+    <button
+      className="settings-btn settings-btn-secondary"
+      onClick={() => fetchModels(ghAccount || undefined)}
+      disabled={modelsLoading}
+      title="Refresh models from Copilot SDK"
+      style={{ padding: '6px 10px' }}
+    >
+      {/* v8 ignore start */}
+      {modelsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+      {/* v8 ignore stop */}
+      Refresh
+    </button>
   )
 }
 
@@ -206,20 +242,12 @@ function ModelPickerSelectVariant({
             )}
           </select>
         </div>
-        {showRefresh && (
-          <button
-            className="settings-btn settings-btn-secondary"
-            onClick={() => fetchModels(ghAccount || undefined)}
-            disabled={modelsLoading}
-            title="Refresh models from Copilot SDK"
-            style={{ padding: '6px 10px' }}
-          >
-            {/* v8 ignore start */}
-            {modelsLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
-            {/* v8 ignore stop */}
-            Refresh
-          </button>
-        )}
+        <ModelPickerRefreshButton
+          showRefresh={showRefresh}
+          fetchModels={fetchModels}
+          ghAccount={ghAccount}
+          modelsLoading={modelsLoading}
+        />
       </div>
     </div>
   )

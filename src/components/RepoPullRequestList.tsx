@@ -236,12 +236,9 @@ function RepoPRListBody({
   return <PRCardView prs={prs} handlePRClick={handlePRClick} />
 }
 
-export function RepoPullRequestList({
-  owner,
-  repo,
-  prState = 'open',
-  onOpenPR,
-}: RepoPullRequestListProps) {
+export function RepoPullRequestList(props: RepoPullRequestListProps) {
+  const { owner, repo, onOpenPR } = props
+  const prState = props.prState ?? 'open'
   const { data, loading, error, refresh } = useGitHubData<RepoPullRequest[]>({
     cacheKey: `repo-prs:${prState}:${owner}/${repo}`,
     taskName: `repo-prs-${prState}-${owner}-${repo}`,
@@ -250,6 +247,7 @@ export function RepoPullRequestList({
     /* v8 ignore stop */
   })
   const prs = data ?? []
+  const isEmpty = prs.length === 0
   const [viewMode, setViewMode] = useViewMode(`repo-prs-${owner}-${repo}`)
 
   const handlePRClick = useCallback(
@@ -263,13 +261,18 @@ export function RepoPullRequestList({
     [onOpenPR, owner]
   )
 
-  if (loading && prs.length === 0) {
-    return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
+  if (isEmpty) {
+    if (loading) {
+      return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
+    }
+    if (error) {
+      return (
+        <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
+      )
+    }
   }
 
-  if (error && prs.length === 0) {
-    return <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
-  }
+  const showRefresh = loading && !isEmpty
 
   return (
     <div className="repo-prs-container">
@@ -284,9 +287,7 @@ export function RepoPullRequestList({
         refresh={refresh}
       />
 
-      {loading && prs.length > 0 && (
-        <InlineRefreshIndicator message="Refreshing pull requests..." />
-      )}
+      {showRefresh && <InlineRefreshIndicator message="Refreshing pull requests..." />}
 
       <RepoPRListBody
         prs={prs}

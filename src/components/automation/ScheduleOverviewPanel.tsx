@@ -221,6 +221,12 @@ function ScheduleEmptyState({
   )
 }
 
+function getScheduleCounts(schedules: ReturnType<typeof useSchedules>) {
+  const enabledCount = schedules?.filter(s => s.enabled).length ?? 0
+  const disabledCount = (schedules?.length ?? 0) - enabledCount
+  return { enabledCount, disabledCount }
+}
+
 export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelProps) {
   const schedules = useSchedules()
   const [configState, setConfigState] = useState<ForecastConfigState>({
@@ -264,8 +270,7 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
   )
 
   const totalOccurrences = dayGroups.reduce((sum, g) => sum + g.occurrences.length, 0)
-  const enabledCount = schedules?.filter(s => s.enabled).length ?? 0
-  const disabledCount = (schedules?.length ?? 0) - enabledCount
+  const { enabledCount, disabledCount } = getScheduleCounts(schedules)
 
   if (schedules === undefined || !loadedConfig) {
     return (

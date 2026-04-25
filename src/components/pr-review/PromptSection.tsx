@@ -12,6 +12,42 @@ interface PromptSectionProps {
   onSaveAsDefault: () => void
 }
 
+function PromptActionButtons({
+  submitting,
+  savingDefault,
+  prompt,
+  onResetPrompt,
+  onSaveAsDefault,
+}: {
+  submitting: boolean
+  savingDefault: boolean
+  prompt: string
+  onResetPrompt: () => void
+  onSaveAsDefault: () => void
+}) {
+  return (
+    <div className="pr-review-prompt-actions">
+      <div className="pr-review-prompt-actions-left">
+        <button
+          className="pr-review-btn-text"
+          onClick={onResetPrompt}
+          disabled={submitting || savingDefault}
+        >
+          Reset to default
+        </button>
+        <button
+          className="pr-review-btn-text"
+          onClick={onSaveAsDefault}
+          disabled={submitting || savingDefault || !prompt.trim()}
+        >
+          {savingDefault ? 'Saving…' : 'Use as default'}
+        </button>
+      </div>
+      <span className="pr-review-char-count">{prompt.length} chars</span>
+    </div>
+  )
+}
+
 export function PromptSection({
   prompt,
   promptExpanded,
@@ -66,25 +102,13 @@ export function PromptSection({
             disabled={submitting}
             rows={6}
           />
-          <div className="pr-review-prompt-actions">
-            <div className="pr-review-prompt-actions-left">
-              <button
-                className="pr-review-btn-text"
-                onClick={onResetPrompt}
-                disabled={submitting || savingDefault}
-              >
-                Reset to default
-              </button>
-              <button
-                className="pr-review-btn-text"
-                onClick={onSaveAsDefault}
-                disabled={submitting || savingDefault || !prompt.trim()}
-              >
-                {savingDefault ? 'Saving…' : 'Use as default'}
-              </button>
-            </div>
-            <span className="pr-review-char-count">{prompt.length} chars</span>
-          </div>
+          <PromptActionButtons
+            submitting={submitting}
+            savingDefault={savingDefault}
+            prompt={prompt}
+            onResetPrompt={onResetPrompt}
+            onSaveAsDefault={onSaveAsDefault}
+          />
         </div>
       ) : (
         <div

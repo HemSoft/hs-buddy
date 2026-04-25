@@ -99,6 +99,47 @@ function handleItemMainClick(
   onItemSelect(itemId)
 }
 
+function ProgressBadge({
+  count,
+  progress,
+}: {
+  count: number
+  progress: { progress: number; color: string; tooltip: string }
+}) {
+  return (
+    <span
+      className="sidebar-item-count-ring"
+      style={
+        {
+          '--ring-progress': `${progress.progress}%`,
+          '--ring-color': progress.color,
+        } as React.CSSProperties
+      }
+      title={progress.tooltip}
+    >
+      <span className="sidebar-item-count">{count}</span>
+    </span>
+  )
+}
+
+function JobScheduleCountBadge({
+  itemId,
+  jobs,
+  schedules,
+}: {
+  itemId: string
+  jobs: Job[] | null | undefined
+  schedules: Schedule[] | null | undefined
+}) {
+  if (itemId === 'automation-jobs' && jobs && jobs.length > 0) {
+    return <span className="sidebar-item-count">{jobs.length}</span>
+  }
+  if (itemId === 'automation-schedules' && schedules && schedules.length > 0) {
+    return <span className="sidebar-item-count">{schedules.length}</span>
+  }
+  return null
+}
+
 function ItemCountBadge({
   itemId,
   counts,
@@ -112,31 +153,17 @@ function ItemCountBadge({
   jobs: Job[] | null | undefined
   schedules: Schedule[] | null | undefined
 }) {
+  const count = counts[itemId]
+  const progress = badgeProgress[itemId]
   return (
     <>
-      {counts[itemId] !== undefined &&
-        (badgeProgress[itemId] ? (
-          <span
-            className="sidebar-item-count-ring"
-            style={
-              {
-                '--ring-progress': `${badgeProgress[itemId].progress}%`,
-                '--ring-color': badgeProgress[itemId].color,
-              } as React.CSSProperties
-            }
-            title={badgeProgress[itemId].tooltip}
-          >
-            <span className="sidebar-item-count">{counts[itemId]}</span>
-          </span>
+      {count !== undefined &&
+        (progress ? (
+          <ProgressBadge count={count} progress={progress} />
         ) : (
-          <span className="sidebar-item-count">{counts[itemId]}</span>
+          <span className="sidebar-item-count">{count}</span>
         ))}
-      {itemId === 'automation-jobs' && jobs && jobs.length > 0 && (
-        <span className="sidebar-item-count">{jobs.length}</span>
-      )}
-      {itemId === 'automation-schedules' && schedules && schedules.length > 0 && (
-        <span className="sidebar-item-count">{schedules.length}</span>
-      )}
+      <JobScheduleCountBadge itemId={itemId} jobs={jobs} schedules={schedules} />
     </>
   )
 }

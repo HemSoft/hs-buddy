@@ -30,17 +30,20 @@ interface AccountPickerProps {
  * - `inline` (default): compact InlineDropdown style (used in prompt boxes, job editors)
  * - `select`: standard <select> element (used in settings pages)
  */
-export function AccountPicker({
-  value,
-  onChange,
-  persist = false,
-  disabled = false,
-  title = 'GitHub account',
-  className = '',
-  variant = 'inline',
-  align = 'left',
-  id,
-}: AccountPickerProps) {
+const ACCOUNT_PICKER_DEFAULTS = {
+  persist: false,
+  disabled: false,
+  title: 'GitHub account',
+  className: '',
+  variant: 'inline' as const,
+  align: 'left' as const,
+}
+
+export function AccountPicker(props: AccountPickerProps) {
+  const { value, onChange, persist, disabled, title, className, variant, align, id } = {
+    ...ACCOUNT_PICKER_DEFAULTS,
+    ...props,
+  }
   const { setGhAccount } = useCopilotSettings()
   const { uniqueUsernames: uniqueAccounts } = useGitHubAccounts()
   const [activeCliAccount, setActiveCliAccount] = useState<string | null>(null)

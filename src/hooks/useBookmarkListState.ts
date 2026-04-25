@@ -2,6 +2,18 @@ import { useReducer, useMemo, useCallback, type DragEvent } from 'react'
 import { useBookmarks, useBookmarkMutations, useBookmarkCategories } from './useConvex'
 import type { Id } from '../../convex/_generated/dataModel'
 
+/** Check if a string is a valid HTTP/HTTPS URL. */
+function isValidHttpUrl(text: string | undefined): text is string {
+  /* v8 ignore start -- text always non-empty when called from extractUrlFromDataTransfer */
+  if (!text) return false
+  /* v8 ignore stop */
+  try {
+    return ['http:', 'https:'].includes(new URL(text).protocol)
+  } catch {
+    return false
+  }
+}
+
 function extractUrlFromDataTransfer(data: DataTransfer): string | null {
   const uri = data.getData('text/uri-list')
   if (uri) {
@@ -17,16 +29,7 @@ function extractUrlFromDataTransfer(data: DataTransfer): string | null {
     /* v8 ignore stop */
   }
   const text = data.getData('text/plain')?.trim()
-  /* v8 ignore start */
-  if (text) {
-    /* v8 ignore stop */
-    try {
-      const parsed = new URL(text)
-      if (['http:', 'https:'].includes(parsed.protocol)) return text
-    } catch {
-      /* not a valid URL */
-    }
-  }
+  if (isValidHttpUrl(text)) return text
   return null
 }
 

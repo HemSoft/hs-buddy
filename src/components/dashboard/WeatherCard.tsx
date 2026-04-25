@@ -19,15 +19,19 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useExpandCollapse } from '../../hooks/useExpandCollapse'
 import './WeatherCard.css'
 
+const WEATHER_THRESHOLDS: ReadonlyArray<{ max: number; Icon: typeof Sun }> = [
+  { max: 0, Icon: Sun },
+  { max: 3, Icon: Cloud },
+  { max: 48, Icon: CloudFog },
+  { max: 65, Icon: CloudRain },
+  { max: 75, Icon: CloudSnow },
+  { max: 82, Icon: CloudRain },
+  { max: 86, Icon: CloudSnow },
+]
+
 function weatherIcon(code: number, size = 18): ReactNode {
-  if (code === 0) return <Sun size={size} />
-  if (code <= 3) return <Cloud size={size} />
-  if (code <= 48) return <CloudFog size={size} />
-  if (code <= 65) return <CloudRain size={size} />
-  if (code <= 75) return <CloudSnow size={size} />
-  if (code <= 82) return <CloudRain size={size} />
-  if (code <= 86) return <CloudSnow size={size} />
-  return <CloudLightning size={size} />
+  const Icon = WEATHER_THRESHOLDS.find(t => code <= t.max)?.Icon ?? CloudLightning
+  return <Icon size={size} />
 }
 
 function ForecastRow({ day }: { day: ForecastDay }) {
@@ -41,6 +45,59 @@ function ForecastRow({ day }: { day: ForecastDay }) {
         <span className="weather-forecast-low">{day.low}°</span>
       </span>
     </div>
+  )
+}
+
+function WeatherCurrentSection({
+  data,
+}: {
+  data: NonNullable<ReturnType<typeof useWeather>['data']>
+}) {
+  return (
+    <>
+      <div className="weather-current">
+        <div className="weather-temp-group">
+          <div className="weather-icon-large">{weatherIcon(data.weatherCode)}</div>
+          <span className="weather-temp-value">{`${data.temperature}${data.temperatureUnit}`}</span>
+        </div>
+        <span className="weather-description">{data.description}</span>
+      </div>
+
+      <div className="weather-stats-grid">
+        <StatCard
+          icon={<Thermometer size={18} />}
+          value={`${data.high}° / ${data.low}°`}
+          label="High / Low"
+          cardClassName="weather-stat-card"
+          iconClassName="welcome-stat-icon-weather"
+        />
+        <StatCard
+          icon={<Droplets size={18} />}
+          value={`${data.humidity}%`}
+          label="Humidity"
+          cardClassName="weather-stat-card"
+          iconClassName="welcome-stat-icon-weather"
+        />
+        <StatCard
+          icon={<Wind size={18} />}
+          value={`${data.windSpeed} mph`}
+          label="Wind"
+          cardClassName="weather-stat-card"
+          iconClassName="welcome-stat-icon-weather"
+        />
+      </div>
+
+      {data.forecast && data.forecast.length > 0 && (
+        <div className="weather-forecast">
+          <span className="weather-forecast-label">3-Day Forecast</span>
+          <div className="weather-forecast-list">
+            {data.forecast.map(day => (
+              <ForecastRow key={day.date} day={day} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -106,54 +163,7 @@ function WeatherExpandedContent({
         </div>
       )}
 
-      {data && (
-        <>
-          <div className="weather-current">
-            <div className="weather-temp-group">
-              <div className="weather-icon-large">{weatherIcon(data.weatherCode)}</div>
-              <span className="weather-temp-value">
-                {`${data.temperature}${data.temperatureUnit}`}
-              </span>
-            </div>
-            <span className="weather-description">{data.description}</span>
-          </div>
-
-          <div className="weather-stats-grid">
-            <StatCard
-              icon={<Thermometer size={18} />}
-              value={`${data.high}° / ${data.low}°`}
-              label="High / Low"
-              cardClassName="weather-stat-card"
-              iconClassName="welcome-stat-icon-weather"
-            />
-            <StatCard
-              icon={<Droplets size={18} />}
-              value={`${data.humidity}%`}
-              label="Humidity"
-              cardClassName="weather-stat-card"
-              iconClassName="welcome-stat-icon-weather"
-            />
-            <StatCard
-              icon={<Wind size={18} />}
-              value={`${data.windSpeed} mph`}
-              label="Wind"
-              cardClassName="weather-stat-card"
-              iconClassName="welcome-stat-icon-weather"
-            />
-          </div>
-
-          {data.forecast && data.forecast.length > 0 && (
-            <div className="weather-forecast">
-              <span className="weather-forecast-label">3-Day Forecast</span>
-              <div className="weather-forecast-list">
-                {data.forecast.map(day => (
-                  <ForecastRow key={day.date} day={day} />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
+      {data && <WeatherCurrentSection data={data} />}
 
       <CardActionBar
         onRefresh={autoRefresh.refresh}

@@ -12,6 +12,10 @@ interface ConfirmDialogProps {
   onCancel: () => void
 }
 
+function confirmBtnClassName(variant: 'default' | 'danger'): string {
+  return `confirm-dialog-btn ${variant === 'danger' ? 'confirm-dialog-btn-danger' : 'confirm-dialog-btn-confirm'}`
+}
+
 export function ConfirmDialog({
   message,
   description,
@@ -71,7 +75,7 @@ export function ConfirmDialog({
           </button>
           <button
             ref={confirmButtonRef}
-            className={`confirm-dialog-btn ${variant === 'danger' ? 'confirm-dialog-btn-danger' : 'confirm-dialog-btn-confirm'}`}
+            className={confirmBtnClassName(variant)}
             onClick={onConfirm}
           >
             {confirmLabel}

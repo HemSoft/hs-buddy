@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { getErrorMessage, isAbortError, throwIfAborted } from './errorUtils'
+import {
+  getErrorMessage,
+  getUserFacingErrorMessage,
+  isAbortError,
+  throwIfAborted,
+} from './errorUtils'
 
 describe('getErrorMessage', () => {
   it('returns the message from an Error instance', () => {
@@ -32,6 +37,32 @@ describe('getErrorMessage', () => {
 
   it('returns string representation of an object', () => {
     expect(getErrorMessage({ key: 'value' })).toBe('[object Object]')
+  })
+})
+
+describe('getUserFacingErrorMessage', () => {
+  it('returns the error message for a real Error', () => {
+    expect(getUserFacingErrorMessage(new Error('boom'), 'fallback')).toBe('boom')
+  })
+
+  it('returns fallback for null', () => {
+    expect(getUserFacingErrorMessage(null, 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for undefined', () => {
+    expect(getUserFacingErrorMessage(undefined, 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for a plain object', () => {
+    expect(getUserFacingErrorMessage({ key: 'val' }, 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for an empty string error', () => {
+    expect(getUserFacingErrorMessage('', 'fallback')).toBe('fallback')
+  })
+
+  it('returns the string for a meaningful string error', () => {
+    expect(getUserFacingErrorMessage('network error', 'fallback')).toBe('network error')
   })
 })
 

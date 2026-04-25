@@ -208,6 +208,58 @@ function filterBtnClass(current: string, target: string): string {
   return `pr-threads-filter ${current === target ? 'active' : ''}`
 }
 
+function ThreadsToolbar({
+  threads,
+  filter,
+  setFilter,
+  resolvedThreads,
+  showResolved,
+  setShowResolved,
+}: {
+  threads: PRReviewThread[]
+  filter: string
+  setFilter: (f: 'all' | 'active' | 'resolved') => void
+  resolvedThreads: PRReviewThread[]
+  showResolved: boolean
+  setShowResolved: (v: boolean) => void
+}) {
+  return (
+    <div className="pr-threads-toolbar">
+      <div className="pr-threads-filters">
+        <button
+          className={filterBtnClass(filter, 'all')}
+          /* v8 ignore start */
+          onClick={() => setFilter('all')}
+          /* v8 ignore stop */
+        >
+          All ({threads.length})
+        </button>
+        <button className={filterBtnClass(filter, 'active')} onClick={() => setFilter('active')}>
+          <Eye size={11} />
+          Active ({threads.length - resolvedThreads.length})
+        </button>
+        <button
+          /* v8 ignore start */
+          className={filterBtnClass(filter, 'resolved')}
+          /* v8 ignore stop */
+          onClick={() => setFilter('resolved')}
+        >
+          <CheckCircle2 size={11} />
+          Resolved ({resolvedThreads.length})
+        </button>
+      </div>
+      {resolvedThreads.length > 0 && filter === 'all' && (
+        <button
+          className="pr-threads-toggle-resolved"
+          onClick={() => setShowResolved(!showResolved)}
+        >
+          {showResolved ? 'Hide' : 'Show'} resolved
+        </button>
+      )}
+    </div>
+  )
+}
+
 function ThreadsTimelineHeader({
   threads,
   filter,
@@ -246,42 +298,14 @@ function ThreadsTimelineHeader({
       </div>
 
       {threads.length > 0 && (
-        <div className="pr-threads-toolbar">
-          <div className="pr-threads-filters">
-            <button
-              className={filterBtnClass(filter, 'all')}
-              /* v8 ignore start */
-              onClick={() => setFilter('all')}
-              /* v8 ignore stop */
-            >
-              All ({threads.length})
-            </button>
-            <button
-              className={filterBtnClass(filter, 'active')}
-              onClick={() => setFilter('active')}
-            >
-              <Eye size={11} />
-              Active ({activeThreads.length})
-            </button>
-            <button
-              /* v8 ignore start */
-              className={filterBtnClass(filter, 'resolved')}
-              /* v8 ignore stop */
-              onClick={() => setFilter('resolved')}
-            >
-              <CheckCircle2 size={11} />
-              Resolved ({resolvedThreads.length})
-            </button>
-          </div>
-          {resolvedThreads.length > 0 && filter === 'all' && (
-            <button
-              className="pr-threads-toggle-resolved"
-              onClick={() => setShowResolved(!showResolved)}
-            >
-              {showResolved ? 'Hide' : 'Show'} resolved
-            </button>
-          )}
-        </div>
+        <ThreadsToolbar
+          threads={threads}
+          filter={filter}
+          setFilter={setFilter}
+          resolvedThreads={resolvedThreads}
+          showResolved={showResolved}
+          setShowResolved={setShowResolved}
+        />
       )}
     </div>
   )

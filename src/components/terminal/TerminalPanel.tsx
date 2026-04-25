@@ -27,6 +27,22 @@ interface TerminalPanelProps {
   onOpenFolderView: (cwd: string) => void
 }
 
+function deriveContextMenu(
+  state: {
+    x: number
+    y: number
+    tab: TerminalTab
+    openedForTabId: string | null
+    activationSeq: number
+  } | null,
+  activeTabId: string | null,
+  activationSeq: number
+) {
+  return state?.openedForTabId === activeTabId && state?.activationSeq === activationSeq
+    ? state
+    : null
+}
+
 export function TerminalPanel({
   tabs,
   activeTabId,
@@ -59,11 +75,7 @@ export function TerminalPanel({
 
   // Derive context menu visibility — menu is only shown when tab ID and activation
   // sequence both match, preventing resurrection after tab round-trips.
-  const contextMenu =
-    contextMenuState?.openedForTabId === activeTabId &&
-    contextMenuState?.activationSeq === activationSeqRef.current
-      ? contextMenuState
-      : null
+  const contextMenu = deriveContextMenu(contextMenuState, activeTabId, activationSeqRef.current)
 
   const handleTabSelect = useCallback(
     (tabId: string) => {

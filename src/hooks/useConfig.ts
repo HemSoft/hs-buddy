@@ -129,6 +129,17 @@ function resolveAccountsFromSources(
   /* v8 ignore stop */
 }
 
+function shouldInitializeAccounts(
+  currentAccounts: GitHubAccount[],
+  electronStoreAccounts: GitHubAccount[],
+  convexAccounts: Array<{ username: string; org: string }> | undefined
+): boolean {
+  return (
+    currentAccounts.length === 0 &&
+    (electronStoreAccounts.length > 0 || (!!convexAccounts && convexAccounts.length > 0))
+  )
+}
+
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
   const { create, update, remove } = useGitHubAccountMutations()
@@ -171,10 +182,7 @@ export function useGitHubAccounts() {
       electronStoreAccounts,
       convexConnected
     )
-  } else if (
-    accountsRef.current.length === 0 &&
-    (electronStoreAccounts.length > 0 || (convexAccounts && convexAccounts.length > 0))
-  ) {
+  } else if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
     // Initialize on first valid data
     accountsRef.current = resolveAccountsFromSources(
       convexAccounts,

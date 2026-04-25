@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { TempoDaySummary, TempoIssueSummary, TempoWorklog } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
-import { TempoDashboard } from './TempoDashboard'
+import { TempoDashboard, tempoDashboardReducer } from './TempoDashboard'
 
 const dashboardMocks = vi.hoisted(() => {
   const editWorklog: TempoWorklog = {
@@ -741,5 +741,22 @@ describe('TempoDashboard', () => {
         })
       )
     })
+  })
+})
+
+describe('tempoDashboardReducer', () => {
+  it('returns state unchanged for unknown action type', () => {
+    const state = {
+      editorOpen: false,
+      editingWorklog: null,
+      prefillWorklog: null,
+      editorDate: null,
+      actionError: null,
+      viewMonth: new Date(),
+      viewMode: 'grid' as const,
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = tempoDashboardReducer(state, { type: 'unknown_action' } as any)
+    expect(result).toBe(state)
   })
 })

@@ -217,6 +217,21 @@ function isAppLoading(
   return !layoutLoaded || !terminalLoaded || (migrationLoading && !migrationComplete)
 }
 
+function computeAppMetrics(
+  schedules: { length: number } | undefined,
+  jobs: { length: number } | undefined,
+  prCounts: Record<string, number>,
+  assistantOpen: boolean,
+  paneSizes: number[]
+) {
+  const scheduleCount = schedules?.length ?? 0
+  const jobCount = jobs?.length ?? 0
+  const totalPRCount = Object.values(prCounts).reduce((a, b) => a + b, 0)
+  const defaultSizes = assistantOpen ? paneSizes : paneSizes.slice(0, 2)
+  const assistantPaneSize = paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE
+  return { scheduleCount, jobCount, totalPRCount, defaultSizes, assistantPaneSize }
+}
+
 function App() {
   const [selectedSection, setSelectedSection] = useState<string>('github')
   const { prCounts, badgeProgress, setPRCount } = usePRSidebarBadges()
@@ -291,11 +306,8 @@ function App() {
     migrationLoading,
     migrationComplete
   )
-  const totalPRCount = Object.values(prCounts).reduce((a, b) => a + b, 0)
-  const scheduleCount = schedules?.length ?? 0
-  const jobCount = jobs?.length ?? 0
-  const defaultSizes = assistantOpen ? paneSizes : paneSizes.slice(0, 2)
-  const assistantPaneSize = paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE
+  const { scheduleCount, jobCount, totalPRCount, defaultSizes, assistantPaneSize } =
+    computeAppMetrics(schedules, jobs, prCounts, assistantOpen, paneSizes)
 
   return (
     <div className="app">

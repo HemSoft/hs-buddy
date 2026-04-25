@@ -167,6 +167,13 @@ function getWorkerLabel(workerType: string): string {
   }
 }
 
+function getEditorProps(duplicating: boolean, jobId: string | undefined, job: Doc<'jobs'>) {
+  return {
+    jobId: duplicating ? undefined : jobId,
+    duplicateFrom: duplicating ? job : undefined,
+  }
+}
+
 export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   const job = useJob(jobId as JobId)
   const runs = useJobRuns(jobId as JobId, 10)
@@ -242,8 +249,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
       <div className="job-detail">
         {editorOpen && (
           <JobEditor
-            jobId={duplicating ? undefined : jobId}
-            duplicateFrom={duplicating ? job : undefined}
+            {...getEditorProps(duplicating, jobId, job)}
             /* v8 ignore start */
             onClose={() => setEditorOpen(false)}
             /* v8 ignore stop */

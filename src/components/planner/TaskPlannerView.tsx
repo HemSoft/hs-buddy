@@ -114,6 +114,48 @@ function AddTaskInline({
   )
 }
 
+function daySectionClassName(isToday: boolean, isOverdue: boolean): string {
+  let cls = 'planner-day-section'
+  if (isToday) cls += ' planner-day-today'
+  if (isOverdue) cls += ' planner-day-overdue'
+  return cls
+}
+
+function DaySectionContent({
+  group,
+  adding,
+  projectMap,
+  onComplete,
+  onCreate,
+  onAddingDone,
+}: {
+  group: DayGroup
+  adding: boolean
+  projectMap: Map<string, TodoistProject>
+  onComplete: (taskId: string) => void
+  onCreate: (content: string, date: string) => void
+  onAddingDone: () => void
+}) {
+  return (
+    <div className="planner-day-tasks">
+      {group.tasks.length === 0 && !adding && <div className="planner-empty-day">No tasks</div>}
+      {group.tasks.map(task => (
+        <TaskRow key={task.id} task={task} projectMap={projectMap} onComplete={onComplete} />
+      ))}
+      {adding && (
+        <AddTaskInline
+          date={group.date}
+          onAdd={(content, date) => {
+            onCreate(content, date)
+            onAddingDone()
+          }}
+          onCancel={onAddingDone}
+        />
+      )}
+    </div>
+  )
+}
+
 function DaySection({
   group,
   projectMap,
@@ -127,14 +169,11 @@ function DaySection({
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [adding, setAdding] = useState(false)
-  const isToday = group.label === 'Today'
-  const isOverdue = group.label === 'Overdue'
   const toggleCollapsed = useCallback(() => setCollapsed(current => !current), [])
+  const stopAdding = useCallback(() => setAdding(false), [])
 
   return (
-    <div
-      className={`planner-day-section ${isToday ? 'planner-day-today' : ''} ${isOverdue ? 'planner-day-overdue' : ''}`}
-    >
+    <div className={daySectionClassName(group.label === 'Today', group.label === 'Overdue')}>
       <div className="planner-day-header">
         <button
           type="button"
@@ -162,22 +201,14 @@ function DaySection({
         </button>
       </div>
       {!collapsed && (
-        <div className="planner-day-tasks">
-          {group.tasks.length === 0 && !adding && <div className="planner-empty-day">No tasks</div>}
-          {group.tasks.map(task => (
-            <TaskRow key={task.id} task={task} projectMap={projectMap} onComplete={onComplete} />
-          ))}
-          {adding && (
-            <AddTaskInline
-              date={group.date}
-              onAdd={(content, date) => {
-                onCreate(content, date)
-                setAdding(false)
-              }}
-              onCancel={() => setAdding(false)}
-            />
-          )}
-        </div>
+        <DaySectionContent
+          group={group}
+          adding={adding}
+          projectMap={projectMap}
+          onComplete={onComplete}
+          onCreate={onCreate}
+          onAddingDone={stopAdding}
+        />
       )}
     </div>
   )
@@ -273,8 +304,12 @@ function TodayTaskList({
   )
 }
 
-export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
-  const days = mode === 'today' ? 1 : 7
+const PLANNER_DEFAULTS = { mode: 'upcoming' as PlannerMode }
+
+export function TaskPlannerView(props: { mode?: PlannerMode }) {
+  const { mode } = { ...PLANNER_DEFAULTS, ...props }
+  const { days, heading } =
+    mode === 'today' ? { days: 1, heading: 'Today' } : { days: 7, heading: 'Upcoming' }
   const { dayGroups, isLoading, error, refresh } = useTodoistUpcoming(days)
   const { projects, load: loadProjects } = useTodoistProjects()
   const { complete, create } = useTaskActions(refresh)
@@ -301,7 +336,6 @@ export function TaskPlannerView({ mode = 'upcoming' }: { mode?: PlannerMode }) {
 
   const totalTasks = dayGroups.reduce((n, g) => n + g.tasks.length, 0)
 
-  const heading = mode === 'today' ? 'Today' : 'Upcoming'
   const errorMessage = error || actionError
   const spinnerClass = isLoading ? 'spinning' : ''
 

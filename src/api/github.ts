@@ -735,6 +735,8 @@ export function eventSummary(evt: any): string {
   return evt.type?.replace(/Event$/, '') ?? 'Activity'
 }
 
+const FAILURE_COMBINED_STATES = new Set(['failure', 'error'])
+
 function determineCheckOverallState(counts: {
   total: number
   failed: number
@@ -743,7 +745,7 @@ function determineCheckOverallState(counts: {
   combinedState: string
 }): PRChecksSummary['overallState'] {
   if (counts.total === 0) return 'none'
-  if (counts.failed > 0 || counts.combinedState === 'failure' || counts.combinedState === 'error') {
+  if (counts.failed > 0 || FAILURE_COMBINED_STATES.has(counts.combinedState)) {
     return 'failing'
   }
   if (counts.pending > 0 || counts.combinedState === 'pending') return 'pending'
@@ -852,6 +854,12 @@ function buildCommentTimelineEvents(
   }))
 }
 
+function resolveCommitAuthor(
+  author: { user: { login: string } | null; name: string | null } | null
+): string {
+  return author?.user?.login || author?.name || 'unknown'
+}
+
 function buildCommitTimelineEvents(
   commitNodes:
     | Array<{
@@ -868,7 +876,7 @@ function buildCommitTimelineEvents(
   return (commitNodes ?? []).map(node => ({
     id: `commit-${node.commit.oid}`,
     type: 'commit' as const,
-    author: node.commit.author?.user?.login || node.commit.author?.name || 'unknown',
+    author: resolveCommitAuthor(node.commit.author),
     occurredAt: node.commit.committedDate,
     summary: node.commit.messageHeadline || 'Commit',
     url: node.commit.url || null,
@@ -918,15 +926,20 @@ function resolveReviewerStatus(state: string | undefined): PRReviewerSummary['st
  * Produces the same ContributionWeek[] structure as the GitHub GraphQL API,
  * with weeks aligned to Sundays.
  */
-export function buildContributionCalendar(commitDates: string[]): {
-  totalContributions: number
-  weeks: ContributionWeek[]
-} {
+function collectDailyCounts(commitDates: string[]): Map<string, number> {
   const dateCounts = new Map<string, number>()
   for (const d of commitDates) {
     const day = d.split('T')[0]
     dateCounts.set(day, (dateCounts.get(day) ?? 0) + 1)
   }
+  return dateCounts
+}
+
+export function buildContributionCalendar(commitDates: string[]): {
+  totalContributions: number
+  weeks: ContributionWeek[]
+} {
+  const dateCounts = collectDailyCounts(commitDates)
 
   const now = new Date()
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -1022,19 +1035,22 @@ type ReviewRequestNode = {
     | null
 }
 
+/** Type guard: is this reviewer a User node with login and avatarUrl? */
+function isUserReviewer(
+  reviewer: unknown
+): reviewer is { login: string; avatarUrl?: string | null; name?: string | null } {
+  if (!reviewer) return false
+  const r = reviewer as Record<string, unknown>
+  return r.__typename === 'User' && 'login' in r && 'avatarUrl' in r
+}
+
 function buildRequestedReviewersMap(
   reviewRequests: ReviewRequestNode[] | undefined
 ): Map<string, { avatarUrl: string | null; name: string | null }> {
   const map = new Map<string, { avatarUrl: string | null; name: string | null }>()
   for (const req of reviewRequests ?? []) {
-    const reviewer = req.requestedReviewer
-    if (
-      reviewer &&
-      reviewer.__typename === 'User' &&
-      'login' in reviewer &&
-      'avatarUrl' in reviewer
-    ) {
-      const r = reviewer as { login: string; avatarUrl?: string | null; name?: string | null }
+    if (isUserReviewer(req.requestedReviewer)) {
+      const r = req.requestedReviewer
       map.set(r.login, { avatarUrl: r.avatarUrl || null, name: r.name || null })
     }
   }
@@ -1147,12 +1163,16 @@ function buildContributionData(
 /** Map a raw Octokit commit to a RepoCommit. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRawCommitToRepoCommit(c: any): RepoCommit {
+  const a = c.author ?? {}
+  /* v8 ignore start -- commit.author always present in API responses */
+  const ca = c.commit.author ?? {}
+  /* v8 ignore stop */
   return {
     sha: c.sha,
     message: c.commit.message.split('\n')[0],
-    author: c.author?.login || c.commit.author?.name || 'unknown',
-    authorAvatarUrl: c.author?.avatar_url || null,
-    date: c.commit.author?.date || '',
+    author: a.login || ca.name || 'unknown',
+    authorAvatarUrl: a.avatar_url || null,
+    date: ca.date || '',
     url: c.html_url,
   }
 }
@@ -1198,6 +1218,45 @@ function extractWorkflowRun(result: PromiseSettledResult<any>): WorkflowRun | nu
 }
 /* v8 ignore stop */
 
+/** Extract languages from a settled API result, defaulting to empty. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractLanguages(result: PromiseSettledResult<any>): Record<string, number> {
+  return result.status === 'fulfilled' ? result.value.data : {}
+}
+
+/** Extract commits from a settled API result, defaulting to empty. */
+/* v8 ignore start -- Optional API result; defensive null path */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractCommits(result: PromiseSettledResult<any>): RepoCommit[] {
+  return result.status === 'fulfilled' ? result.value.data.map(mapRawCommitToRepoCommit) : []
+}
+
+/** Extract contributors from a settled API result, defaulting to empty. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractContributors(result: PromiseSettledResult<any>): RepoContributor[] {
+  if (result.status !== 'fulfilled') return []
+  if (!Array.isArray(result.value.data)) return []
+  return result.value.data.map(mapRawContributor)
+}
+
+/** Derive open PR count from settled PR list result and repo issue count. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractOpenPRCount(result: PromiseSettledResult<any>, issueCount: number): number {
+  if (result.status !== 'fulfilled') return 0
+  if (result.value.data.length === 0) return 0
+  return issueCount
+}
+/* v8 ignore stop */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function withFileStats(file: any): { additions: number; deletions: number; changes: number } {
+  return {
+    additions: file.additions || 0,
+    deletions: file.deletions || 0,
+    changes: file.changes || 0,
+  }
+}
+
 /** Map a raw commit file entry to DiffFile. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapCommitFileToDiffFile(file: any): DiffFile {
@@ -1205,9 +1264,7 @@ function mapCommitFileToDiffFile(file: any): DiffFile {
     filename: file.filename,
     previousFilename: file.previous_filename || null,
     status: file.status || 'modified',
-    additions: file.additions || 0,
-    deletions: file.deletions || 0,
-    changes: file.changes || 0,
+    ...withFileStats(file),
     patch: file.patch || null,
     blobUrl: file.blob_url || null,
   }
@@ -1239,6 +1296,12 @@ function buildPRSearchQueries(
   }
 }
 
+/** Safely resolve assignee count from a nullable array. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveAssigneeCount(item: any): number {
+  return item.assignees?.length || 0
+}
+
 /** Extract nullable author/date/assignee fields for a search-result PR. */
 /* v8 ignore start -- API response null-guards in issue/PR field mapping */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1250,10 +1313,11 @@ function buildSearchPRFields(item: any): {
   updatedAt: string | null
   date: string | null
 } {
+  const user = item.user ?? {}
   return {
-    author: item.user?.login || 'unknown',
-    authorAvatarUrl: item.user?.avatar_url,
-    assigneeCount: item.assignees?.length || 0,
+    author: user.login || 'unknown',
+    authorAvatarUrl: user.avatar_url,
+    assigneeCount: resolveAssigneeCount(item),
     created: item.created_at ? new Date(item.created_at) : null,
     updatedAt: item.updated_at || null,
     date: item.closed_at || null,
@@ -1319,6 +1383,19 @@ function mapRawRepoToOrgRepo(repo: any): OrgRepo {
   }
 }
 
+function resolveVisibility(r: { visibility?: string; private?: boolean }): string {
+  /* v8 ignore start */
+  return r.visibility ?? (r.private ? 'private' : 'public')
+  /* v8 ignore stop */
+}
+
+const REPO_IDENTITY_DEFAULTS = {
+  description: null as string | null,
+  homepage: null as string | null,
+  language: null as string | null,
+  archived: false,
+}
+
 /** Build identity fields (name, url, visibility, etc.) for a RepoDetail. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildRepoIdentityFields(r: any): {
@@ -1333,18 +1410,17 @@ function buildRepoIdentityFields(r: any): {
   isArchived: boolean
   isFork: boolean
 } {
+  const d = { ...REPO_IDENTITY_DEFAULTS, ...r }
   return {
     name: r.name,
     fullName: r.full_name,
-    description: r.description ?? null,
+    description: d.description,
     url: r.html_url,
-    homepage: r.homepage ?? null,
-    language: r.language ?? null,
+    homepage: d.homepage,
+    language: d.language,
     defaultBranch: r.default_branch,
-    /* v8 ignore start */
-    visibility: r.visibility ?? (r.private ? 'private' : 'public'),
-    /* v8 ignore stop */
-    isArchived: r.archived ?? false,
+    visibility: resolveVisibility(r),
+    isArchived: d.archived,
     isFork: r.fork,
   }
 }
@@ -1496,6 +1572,17 @@ function buildLatestReviewByUser(
   return map
 }
 
+/** Resolve reviewer name + avatarUrl from latest review and/or request data. */
+function resolveReviewerIdentity(
+  latest: ReviewEntryForMap | undefined,
+  requested: { avatarUrl: string | null; name: string | null } | undefined
+): { name: string | null; avatarUrl: string | null } {
+  return {
+    name: pickFirst(latest?.name, requested?.name),
+    avatarUrl: pickFirst(latest?.avatarUrl, requested?.avatarUrl),
+  }
+}
+
 /** Build a PRReviewerSummary from GraphQL review + request data. */
 function buildReviewerSummary(
   login: string,
@@ -1504,8 +1591,7 @@ function buildReviewerSummary(
 ): PRReviewerSummary {
   return {
     login,
-    name: pickFirst(latest?.name, requested?.name),
-    avatarUrl: pickFirst(latest?.avatarUrl, requested?.avatarUrl),
+    ...resolveReviewerIdentity(latest, requested),
     status: resolveReviewerStatus(latest?.state),
     updatedAt: latest?.submittedAt || null,
   }
@@ -1515,28 +1601,32 @@ function buildReviewerSummary(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapCommitAuthorFields(commit: any): { author: string; authorAvatarUrl: string | null } {
   return {
-    author: commit.author?.login || commit.commit.author?.name || 'unknown',
+    author: resolveContributorLogin(commit),
     authorAvatarUrl: commit.author?.avatar_url || null,
   }
+}
+
+function resolveDate(dateObj: { date?: string } | null | undefined): string {
+  return dateObj?.date || ''
 }
 
 /** Extract authored/committed dates from a raw commit. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapCommitDates(commit: any): { authoredDate: string; committedDate: string } {
+  const authorDate = resolveDate(commit.commit.author)
   return {
-    authoredDate: commit.commit.author?.date || '',
-    committedDate: commit.commit.committer?.date || commit.commit.author?.date || '',
+    authoredDate: authorDate,
+    committedDate: resolveDate(commit.commit.committer) || authorDate,
   }
 }
+
+const COMMIT_STATS_DEFAULTS = { additions: 0, deletions: 0, total: 0 }
 
 /** Extract stats from a raw commit. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapCommitStats(stats: any): { additions: number; deletions: number; total: number } {
-  return {
-    additions: stats?.additions || 0,
-    deletions: stats?.deletions || 0,
-    total: stats?.total || 0,
-  }
+  const d = { ...COMMIT_STATS_DEFAULTS, ...(stats || {}) }
+  return { additions: d.additions || 0, deletions: d.deletions || 0, total: d.total || 0 }
 }
 
 /** Map parent commits from a raw commit response. */
@@ -1568,6 +1658,10 @@ function mapIssueBodyFields(issue: any): {
 /** Map a raw PR from the pulls.list endpoint to a RepoPullRequest. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRawPRToRepoPR(pr: any): RepoPullRequest {
+  const head = pr.head || {}
+  const base = pr.base || {}
+  const labels = pr.labels || []
+  const assignees = pr.assignees || []
   return {
     number: pr.number,
     title: pr.title,
@@ -1576,11 +1670,11 @@ function mapRawPRToRepoPR(pr: any): RepoPullRequest {
     url: pr.html_url,
     createdAt: pr.created_at,
     updatedAt: pr.updated_at,
-    labels: (pr.labels || []).map(mapPRLabel),
-    draft: pr.draft || false,
-    headBranch: pr.head?.ref || '',
-    baseBranch: pr.base?.ref || '',
-    assigneeCount: pr.assignees?.length || 0,
+    labels: labels.map(mapPRLabel),
+    draft: !!pr.draft,
+    headBranch: head.ref || '',
+    baseBranch: base.ref || '',
+    assigneeCount: assignees.length,
     approvalCount: 0,
     iApproved: false,
   }
@@ -1593,20 +1687,31 @@ function resolveContributorLogin(commit: any): string {
 }
 /* v8 ignore stop */
 
+const EMPTY_CONTRIBUTOR: OrgContributorToday = {
+  login: 'unknown',
+  avatarUrl: null,
+  url: null,
+  commits: 0,
+}
+
 /** Merge a commit into an existing contributor entry (or create a new one). */
+/* v8 ignore start -- API response null-guards in contributor merging */
 function mergeContributorEntry(
   login: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   commit: any,
   existing: OrgContributorToday | undefined
 ): OrgContributorToday {
+  const author = commit.author || {}
+  const prev = existing || EMPTY_CONTRIBUTOR
   return {
     login,
-    avatarUrl: pickFirst(commit.author?.avatar_url, existing?.avatarUrl),
-    url: pickFirst(commit.author?.html_url, existing?.url),
-    commits: (existing?.commits ?? 0) + 1,
+    avatarUrl: pickFirst(author.avatar_url, prev.avatarUrl),
+    url: pickFirst(author.html_url, prev.url),
+    commits: prev.commits + 1,
   }
 }
+/* v8 ignore stop */
 
 /** Extract basic user profile fields from a GraphQL user profile response. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1625,6 +1730,19 @@ function extractUserBasicInfo(user: any): {
   }
 }
 
+/* v8 ignore start -- API response null-guards in user status mapping */
+function resolveStatusFields(status: { message?: string; emoji?: string } | null | undefined): {
+  statusMessage: string | null
+  statusEmoji: string | null
+} {
+  if (!status) return { statusMessage: null, statusEmoji: null }
+  return {
+    statusMessage: status.message ?? null,
+    statusEmoji: status.emoji ?? null,
+  }
+}
+/* v8 ignore stop */
+
 /** Extract status and createdAt from a GraphQL user profile response. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractUserStatusInfo(user: any): {
@@ -1633,10 +1751,8 @@ function extractUserStatusInfo(user: any): {
   createdAt: string | null
 } {
   if (!user) return { statusMessage: null, statusEmoji: null, createdAt: null }
-  const status = user.status
   return {
-    statusMessage: status?.message ?? null,
-    statusEmoji: status?.emoji ?? null,
+    ...resolveStatusFields(user.status),
     createdAt: user.createdAt ?? null,
   }
 }
@@ -1647,6 +1763,119 @@ function mapPRLabel(l: string | { name?: string; color?: string }): {
 } {
   if (typeof l === 'string') return { name: l, color: DEFAULT_LABEL_COLOR }
   return { name: l.name || '', color: l.color || DEFAULT_LABEL_COLOR }
+}
+
+function ensureCallback(cb?: ProgressCallback): ProgressCallback {
+  return cb ?? (() => {})
+}
+
+/** Resolve author login + avatarUrl from a nullable GraphQL author node. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveCommentAuthor(author: any): { author: string; authorAvatarUrl: string | null } {
+  return {
+    author: author?.login || 'unknown',
+    authorAvatarUrl: author?.avatarUrl || null,
+  }
+}
+
+/** Map a raw GraphQL comment node to PRReviewComment fields. */
+function mapReviewCommentFields(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  c: any,
+  mapReactions: (
+    groups:
+      | Array<{ content: string; viewerHasReacted: boolean; users: { totalCount: number } }>
+      | null
+      | undefined
+  ) => PRCommentReaction[]
+): PRReviewComment {
+  return {
+    id: c.id,
+    ...resolveCommentAuthor(c.author),
+    body: c.body || '',
+    bodyHtml: c.bodyHTML || null,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    url: c.url,
+    diffHunk: c.diffHunk || null,
+    reactions: mapReactions(c.reactionGroups),
+  }
+}
+
+/** Map a raw assignee object to the internal assignee shape. */
+function mapAssigneeFields(a: { login: string; avatar_url: string }): {
+  login: string
+  name: string | null
+  avatarUrl: string
+} {
+  return { login: a.login, name: null, avatarUrl: a.avatar_url }
+}
+
+/** Map a raw issue from the issues.listForRepo endpoint to a RepoIssue (without name resolution). */
+/* v8 ignore start -- API response null-guards in issue field mapping */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapApiIssueFields(issue: any) {
+  return {
+    number: issue.number,
+    title: issue.title,
+    state: issue.state,
+    ...mapUserAuthorFields(issue.user),
+    url: issue.html_url,
+    createdAt: issue.created_at,
+    updatedAt: issue.updated_at,
+    labels: parseLabels(issue.labels || []),
+    commentCount: issue.comments,
+    assignees: (issue.assignees || []).map(mapAssigneeFields),
+  }
+}
+/* v8 ignore stop */
+
+/** Resolve the best URL for a check run's details. */
+function resolveCheckDetailsUrl(run: {
+  details_url?: string | null
+  html_url?: string | null
+}): string | null {
+  return run.details_url || run.html_url || null
+}
+
+const CHECK_RUN_TIME_DEFAULTS = { started_at: null, completed_at: null }
+
+/** Map a raw check run to a PRCheckRunSummary. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCheckRunToSummary(run: any): PRCheckRunSummary {
+  const d = { ...CHECK_RUN_TIME_DEFAULTS, ...run }
+  return {
+    id: run.id,
+    name: run.name,
+    status: run.status,
+    conclusion: run.conclusion,
+    detailsUrl: resolveCheckDetailsUrl(run),
+    startedAt: d.started_at,
+    completedAt: d.completed_at,
+    appName: run.app?.name || null,
+  }
+}
+
+const STATUS_CONTEXT_DEFAULTS = {
+  description: null,
+  target_url: null,
+  created_at: null,
+  updated_at: null,
+}
+
+/** Map a raw status context to a PRStatusContextSummary. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapStatusContextToSummary(status: any): PRStatusContextSummary {
+  const d = { ...STATUS_CONTEXT_DEFAULTS, ...status }
+  return {
+    id: status.id,
+    context: status.context,
+    state: status.state,
+    description: d.description,
+    targetUrl: d.target_url,
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+  }
 }
 
 export class GitHubClient {
@@ -1913,17 +2142,11 @@ export class GitHubClient {
     /* v8 ignore stop */
     const r = repoData.value.data
 
-    const languages: Record<string, number> =
-      languagesData.status === 'fulfilled' ? languagesData.value.data : {}
+    const languages = extractLanguages(languagesData)
 
     /* v8 ignore start -- Optional API results; branches for rejected/null paths are defensive */
-    const recentCommits: RepoCommit[] =
-      commitsData.status === 'fulfilled' ? commitsData.value.data.map(mapRawCommitToRepoCommit) : []
-
-    let topContributors: RepoContributor[] =
-      contributorsData.status === 'fulfilled' && Array.isArray(contributorsData.value.data)
-        ? contributorsData.value.data.map(mapRawContributor)
-        : []
+    const recentCommits = extractCommits(commitsData)
+    let topContributors = extractContributors(contributorsData)
 
     if (topContributors.length > 0) {
       const nameMap = await this.fetchUserNames(
@@ -1933,11 +2156,7 @@ export class GitHubClient {
       topContributors = topContributors.map(c => ({ ...c, name: nameMap.get(c.login) ?? null }))
     }
 
-    let openPRCount = 0
-    if (prsData.status === 'fulfilled' && prsData.value.data.length > 0) {
-      openPRCount = r.open_issues_count
-    }
-
+    const openPRCount = extractOpenPRCount(prsData, r.open_issues_count)
     const latestWorkflowRun = extractWorkflowRun(workflowsData)
     /* v8 ignore stop */
 
@@ -2025,31 +2244,20 @@ export class GitHubClient {
       sort: 'updated',
       direction: 'desc',
     })
-    const issues = response.data
-      .filter(issue => !issue.pull_request)
-      .map(issue => ({
-        number: issue.number,
-        title: issue.title,
-        state: issue.state,
-        author: issue.user?.login || 'unknown',
-        authorAvatarUrl: issue.user?.avatar_url || null,
-        url: issue.html_url,
-        createdAt: issue.created_at,
-        updatedAt: issue.updated_at,
-        labels: parseLabels(issue.labels || []),
-        commentCount: issue.comments,
-        assignees: (issue.assignees || []).map(a => ({
-          login: a.login,
-          name: null as string | null,
-          avatarUrl: a.avatar_url,
-        })),
-      }))
+    const issues = response.data.filter(issue => !issue.pull_request).map(mapApiIssueFields)
 
-    const allAssigneeLogins = [...new Set(issues.flatMap(i => i.assignees.map(a => a.login)))]
+    const allAssigneeLogins = [
+      ...new Set(issues.flatMap(i => i.assignees.map((a: { login: string }) => a.login))),
+    ]
     if (allAssigneeLogins.length > 0) {
       const nameMap = await this.fetchUserNames(allAssigneeLogins, owner)
       for (const issue of issues) {
-        issue.assignees = issue.assignees.map(a => ({ ...a, name: nameMap.get(a.login) ?? null }))
+        issue.assignees = issue.assignees.map(
+          (a: { login: string; name: string | null; avatarUrl: string }) => ({
+            ...a,
+            name: nameMap.get(a.login) ?? null,
+          })
+        )
       }
     }
 
@@ -2167,10 +2375,12 @@ export class GitHubClient {
       pull_number: pullNumber,
     })
 
+    const head = response.data.head || {}
+    const base = response.data.base || {}
     return {
-      headBranch: response.data.head?.ref || '',
-      baseBranch: response.data.base?.ref || '',
-      headSha: response.data.head?.sha || '',
+      headBranch: head.ref || '',
+      baseBranch: base.ref || '',
+      headSha: head.sha || '',
     }
   }
 
@@ -2288,28 +2498,13 @@ export class GitHubClient {
       }),
     ])
 
-    const checkRuns: PRCheckRunSummary[] = (checkRunsResponse.data.check_runs || []).map(run => ({
-      id: run.id,
-      name: run.name,
-      status: run.status,
-      conclusion: run.conclusion,
-      detailsUrl: run.details_url || run.html_url || null,
-      startedAt: run.started_at || null,
-      completedAt: run.completed_at || null,
-      appName: run.app?.name || null,
-    }))
+    const checkRuns: PRCheckRunSummary[] = (checkRunsResponse.data.check_runs || []).map(
+      mapCheckRunToSummary
+    )
 
     const statusContexts: PRStatusContextSummary[] = (
       combinedStatusResponse.data.statuses || []
-    ).map(status => ({
-      id: status.id,
-      context: status.context,
-      state: status.state,
-      description: status.description || null,
-      targetUrl: status.target_url || null,
-      createdAt: status.created_at || null,
-      updatedAt: status.updated_at || null,
-    }))
+    ).map(mapStatusContextToSummary)
 
     const {
       total: totalCount,
@@ -2500,24 +2695,14 @@ export class GitHubClient {
       line: t.line,
       startLine: t.startLine,
       diffSide: t.diffSide,
-      comments: (t.comments.nodes || []).map(c => ({
-        id: c.id,
-        author: c.author?.login || 'unknown',
-        authorAvatarUrl: c.author?.avatarUrl || null,
-        body: c.body || '',
-        bodyHtml: c.bodyHTML || null,
-        createdAt: c.createdAt,
-        updatedAt: c.updatedAt,
-        url: c.url,
-        diffHunk: c.diffHunk || null,
-        reactions: this.mapReactionGroups(c.reactionGroups),
-      })),
+      comments: (t.comments.nodes || []).map(c =>
+        mapReviewCommentFields(c, g => this.mapReactionGroups(g))
+      ),
     }))
 
     const issueComments: PRReviewComment[] = (pr.comments.nodes || []).map(c => ({
       id: c.id,
-      author: c.author?.login || 'unknown',
-      authorAvatarUrl: c.author?.avatarUrl || null,
+      ...resolveCommentAuthor(c.author),
       body: c.body || '',
       bodyHtml: c.bodyHTML || null,
       createdAt: c.createdAt,
@@ -2532,8 +2717,7 @@ export class GitHubClient {
       .map(r => ({
         id: r.id,
         state: r.state,
-        author: r.author?.login || 'unknown',
-        authorAvatarUrl: r.author?.avatarUrl || null,
+        ...resolveCommentAuthor(r.author),
         body: r.body || '',
         bodyHtml: r.bodyHTML || null,
         createdAt: r.submittedAt!,
@@ -3156,7 +3340,7 @@ export class GitHubClient {
     const allPrs: PullRequest[] = []
     let authenticationErrors = 0
     const totalAccounts = this.config.accounts.length
-    const report: ProgressCallback = onProgress ?? (() => {})
+    const report: ProgressCallback = ensureCallback(onProgress)
 
     // Process each configured GitHub account with its own token
     for (let i = 0; i < this.config.accounts.length; i++) {
@@ -3277,27 +3461,15 @@ export class GitHubClient {
     }
   }
 
-  private async fetchPRsForAccount(
+  /** Execute PR search queries and collect unique results. */
+  private async executeSearchQueries(
     octokit: Octokit,
-    org: string,
-    username: string,
-    mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge' = 'my-prs'
+    queries: string[],
+    orgAvatarUrl: string | null,
+    org: string
   ): Promise<PullRequest[]> {
     const seenUrls = new Set<string>()
     const allPrs: PullRequest[] = []
-    const orgAvatarUrl = await this.resolveOrgAvatar(octokit, org)
-
-    // Compute mergedAfter date for recently-merged mode
-    let mergedAfter: string | undefined
-    if (mode === 'recently-merged') {
-      const mergedAfterDate = new Date()
-      mergedAfterDate.setDate(mergedAfterDate.getDate() - this.recentlyMergedDays)
-      mergedAfter = mergedAfterDate.toISOString().split('T')[0]
-    }
-
-    const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
-
-    // Execute each search query
     for (const query of queries) {
       try {
         const searchResults = await octokit.search.issuesAndPullRequests({
@@ -3329,6 +3501,27 @@ export class GitHubClient {
         }
       }
     }
+    return allPrs
+  }
+
+  private async fetchPRsForAccount(
+    octokit: Octokit,
+    org: string,
+    username: string,
+    mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge' = 'my-prs'
+  ): Promise<PullRequest[]> {
+    const orgAvatarUrl = await this.resolveOrgAvatar(octokit, org)
+
+    // Compute mergedAfter date for recently-merged mode
+    let mergedAfter: string | undefined
+    if (mode === 'recently-merged') {
+      const mergedAfterDate = new Date()
+      mergedAfterDate.setDate(mergedAfterDate.getDate() - this.recentlyMergedDays)
+      mergedAfter = mergedAfterDate.toISOString().split('T')[0]
+    }
+
+    const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
+    const allPrs = await this.executeSearchQueries(octokit, queries, orgAvatarUrl, org)
 
     // Batch fetch reviews in parallel (with concurrency limit)
     const prsWithMeta = allPrs as (PullRequest & {

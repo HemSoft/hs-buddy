@@ -194,6 +194,6 @@ describe('CrewSidebar', () => {
     await screen.findByText('Alpha')
     fireEvent.click(screen.getByTitle('Add Project'))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to add project.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('string error value')
   })
 })

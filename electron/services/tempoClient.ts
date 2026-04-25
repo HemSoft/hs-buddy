@@ -101,35 +101,45 @@ async function fetchJson<T>(
   return res.json() as Promise<T>
 }
 
+async function fetchAccountIdFromJira(): Promise<string | null> {
+  const jiraHeaders = getJiraHeaders()
+  if (!jiraHeaders) return null
+  try {
+    const user = await fetchJson<{ accountId: string }>(
+      `${JIRA_BASE}/rest/api/3/myself`,
+      jiraHeaders
+    )
+    writeDataCacheEntry('tempo:accountId', { data: user.accountId, fetchedAt: Date.now() })
+    return user.accountId
+  } catch (err) {
+    console.warn(
+      '[Tempo] Jira /myself failed, trying disk cache:',
+      err instanceof Error ? err.message : err
+    )
+    return null
+  }
+}
+
+function readCachedAccountId(): string | null {
+  const diskCache = readDataCache()
+  const cached = diskCache['tempo:accountId']
+  if (cached?.data && typeof cached.data === 'string') return cached.data
+  return null
+}
+
 /** Get current user's Jira accountId — tries Jira, then disk cache */
 async function getAccountId(): Promise<string> {
   if (cachedAccountId) return cachedAccountId
 
-  // Try Jira /myself first
-  const jiraHeaders = getJiraHeaders()
-  if (jiraHeaders) {
-    try {
-      const user = await fetchJson<{ accountId: string }>(
-        `${JIRA_BASE}/rest/api/3/myself`,
-        jiraHeaders
-      )
-      cachedAccountId = user.accountId
-      // Persist to disk so we survive Jira outages
-      writeDataCacheEntry('tempo:accountId', { data: cachedAccountId, fetchedAt: Date.now() })
-      return cachedAccountId
-    } catch (err) {
-      console.warn(
-        '[Tempo] Jira /myself failed, trying disk cache:',
-        err instanceof Error ? err.message : err
-      )
-    }
+  const fromJira = await fetchAccountIdFromJira()
+  if (fromJira) {
+    cachedAccountId = fromJira
+    return cachedAccountId
   }
 
-  // Fallback: read from disk cache (set by a previous successful Jira call)
-  const diskCache = readDataCache()
-  const cached = diskCache['tempo:accountId']
-  if (cached?.data && typeof cached.data === 'string') {
-    cachedAccountId = cached.data
+  const fromDisk = readCachedAccountId()
+  if (fromDisk) {
+    cachedAccountId = fromDisk
     return cachedAccountId
   }
 
@@ -237,13 +247,18 @@ export async function getProjectAccountLinks(
   }
 }
 
+/** Resolve the account key from a raw worklog's attributes. */
+function resolveWorklogAccountKey(raw: TempoApiWorklog): string {
+  const accountAttr = raw.attributes?.values?.find(a => a.key === '_Account_')
+  return accountAttr?.value || ''
+}
+
 function enrichWorklog(
   raw: TempoApiWorklog,
   issueInfo: { key: string; summary: string },
   accountMap: Map<string, string>
 ): TempoWorklog {
-  const accountAttr = raw.attributes?.values?.find(a => a.key === '_Account_')
-  const accountKey = accountAttr?.value || ''
+  const accountKey = resolveWorklogAccountKey(raw)
   return {
     id: raw.tempoWorklogId,
     issueKey: issueInfo.key,
@@ -471,6 +486,27 @@ function cacheCapexResult(issueKey: string, value: boolean): void {
   writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: value, fetchedAt: Date.now() })
 }
 
+/** Fetch Capitalization from Jira for an issue, with parent-epic fallback. */
+async function resolveCapexFromJira(
+  issueKey: string,
+  jiraHeaders: NonNullable<ReturnType<typeof getJiraHeaders>>
+): Promise<boolean> {
+  const issue = await fetchJson<{
+    fields: Record<string, unknown>
+  }>(
+    `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${CAPITALIZATION_FIELD},parent`,
+    jiraHeaders
+  )
+
+  const parsed = parseCapitalizationField(issue.fields)
+  if (parsed !== null) return parsed
+
+  // Fallback to parent epic
+  const parent = issue.fields.parent as { key: string } | undefined
+  if (parent?.key) return resolveCapex(parent.key)
+  return false
+}
+
 /** Resolve Capitalization for a single issue key, with parent-epic fallback */
 async function resolveCapex(issueKey: string): Promise<boolean> {
   const cached = capexCache.get(issueKey)
@@ -489,29 +525,9 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
   }
 
   try {
-    const issue = await fetchJson<{
-      fields: Record<string, unknown>
-    }>(
-      `${JIRA_BASE}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${CAPITALIZATION_FIELD},parent`,
-      jiraHeaders
-    )
-
-    const parsed = parseCapitalizationField(issue.fields)
-    if (parsed !== null) {
-      cacheCapexResult(issueKey, parsed)
-      return parsed
-    }
-
-    // Fallback to parent epic
-    const parent = issue.fields.parent as { key: string } | undefined
-    if (parent?.key) {
-      const result = await resolveCapex(parent.key)
-      cacheCapexResult(issueKey, result)
-      return result
-    }
-
-    cacheCapexResult(issueKey, false)
-    return false
+    const result = await resolveCapexFromJira(issueKey, jiraHeaders)
+    cacheCapexResult(issueKey, result)
+    return result
   } catch (err) {
     console.error(
       `[CapEx] Failed to resolve ${issueKey}:`,

@@ -51,6 +51,21 @@ function folderTreeReducer(state: FolderTreeState, action: FolderTreeAction): Fo
   }
 }
 
+export interface ShouldLoadNode {
+  type: 'file' | 'directory'
+  expanded: boolean
+  loaded: boolean
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- exported for testing
+export function shouldLoadChildren(
+  target: ShouldLoadNode | undefined,
+  alreadyPending: boolean
+): boolean {
+  if (!target || target.type !== 'directory') return false
+  return !target.expanded && !target.loaded && !alreadyPending
+}
+
 export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeProps) {
   const [state, dispatch] = useReducer(folderTreeReducer, {
     nodes: [],
@@ -133,11 +148,7 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
         /* v8 ignore stop */
       }
       const target = findNode(nodesRef.current)
-      const needsLoad =
-        target?.type === 'directory' &&
-        !target.expanded &&
-        !target.loaded &&
-        !pendingLoads.current.has(nodePath)
+      const needsLoad = shouldLoadChildren(target, pendingLoads.current.has(nodePath))
 
       dispatch({
         type: 'update-nodes',

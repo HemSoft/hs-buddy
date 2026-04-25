@@ -11,8 +11,43 @@ import { getProgressColor } from '../../utils/progressColors'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
-import { isAbortError, throwIfAborted } from '../../utils/errorUtils'
+import { isAbortError, throwIfAborted, getUserFacingErrorMessage } from '../../utils/errorUtils'
 import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
+
+function applyCachedPRs(
+  data: PullRequest[],
+  setPrs: (prs: PullRequest[]) => void,
+  setLoading: (v: boolean) => void,
+  setRefreshing: (v: boolean) => void,
+  setError: (v: string | null) => void,
+  onCountChangeRef: { current?: (count: number) => void }
+): void {
+  setPrs(data)
+  setLoading(false)
+  setRefreshing(false)
+  setError(null)
+  onCountChangeRef.current?.(data.length)
+}
+
+function handlePRFetchError(
+  err: unknown,
+  currentFetchId: number,
+  fetchIdRef: { current: number },
+  mode: string,
+  setError: (e: string) => void
+): void {
+  if (isAbortError(err)) {
+    console.log('Fetch cancelled for', mode)
+    return
+  }
+  /* v8 ignore start */
+  if (currentFetchId !== fetchIdRef.current) {
+    return
+    /* v8 ignore stop */
+  }
+  setError(getUserFacingErrorMessage(err, 'Failed to fetch PRs'))
+  console.error('Error fetching PRs:', err)
+}
 
 interface LoadingProgress {
   currentAccount: number
@@ -342,11 +377,7 @@ export function usePRListData(
       const timeSinceLastFetch = Date.now() - cached.fetchedAt
       if (timeSinceLastFetch < intervalMs) {
         console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
-        setPrs(cached.data)
-        setLoading(false)
-        setRefreshing(false)
-        setError(null)
-        onCountChangeRef.current?.(cached.data.length)
+        applyCachedPRs(cached.data, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
         return
       }
     }
@@ -414,19 +445,7 @@ export function usePRListData(
         applyFetchResults(results, setPrs, onCountChangeRef)
         dataCache.set(mode, results)
       } catch (err) {
-        /* v8 ignore start */
-        if (isAbortError(err)) {
-          /* v8 ignore stop */
-          console.log('Fetch cancelled for', mode)
-          return
-        }
-        /* v8 ignore start */
-        if (currentFetchId !== fetchIdRef.current) {
-          return
-          /* v8 ignore stop */
-        }
-        setError(err instanceof Error ? err.message : 'Failed to fetch PRs')
-        console.error('Error fetching PRs:', err)
+        handlePRFetchError(err, currentFetchId, fetchIdRef, mode, setError)
       } finally {
         /* v8 ignore start */
         if (currentFetchId === fetchIdRef.current) {

@@ -200,17 +200,25 @@ export function formatUptime(ms: number): string {
   return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`
 }
 
+const FORMAT_TIME_DEFAULTS = {
+  seconds: false,
+  hour12: undefined as boolean | undefined,
+  numeric: false,
+}
+
 export function formatTime(
   ts: number | Date,
   opts?: { seconds?: boolean; hour12?: boolean; numeric?: boolean }
 ) {
   const d = ts instanceof Date ? ts : new Date(ts)
-  return d.toLocaleTimeString(undefined, {
-    hour: opts?.numeric ? 'numeric' : '2-digit',
+  const { seconds, hour12, numeric } = { ...FORMAT_TIME_DEFAULTS, ...opts }
+  const baseOpts: Intl.DateTimeFormatOptions = {
+    hour: numeric ? 'numeric' : '2-digit',
     minute: '2-digit',
-    ...(opts?.seconds ? { second: '2-digit' } : {}),
-    ...(opts?.hour12 !== undefined ? { hour12: opts.hour12 } : {}),
-  })
+  }
+  if (seconds) baseOpts.second = '2-digit'
+  if (hour12 !== undefined) baseOpts.hour12 = hour12
+  return d.toLocaleTimeString(undefined, baseOpts)
 }
 
 export function formatHour12(h: number): string {

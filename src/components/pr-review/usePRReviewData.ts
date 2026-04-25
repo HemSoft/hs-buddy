@@ -10,6 +10,49 @@ const DEFAULT_PROMPT_TEMPLATE = (url: string) =>
 
 const PR_URL_TOKEN = '{{prUrl}}'
 
+type ReviewSnapshot =
+  | { reviewedHeadSha: string | undefined; reviewedThreadStats: Record<string, number> }
+  | undefined
+
+/** Build the metadata object for a Copilot PR review execution. */
+function buildReviewMetadata(
+  prInfo: PRReviewInfo,
+  account: string,
+  snapshot: ReviewSnapshot,
+  extra?: Record<string, unknown>
+) {
+  return {
+    prUrl: prInfo.prUrl,
+    prTitle: prInfo.prTitle,
+    prNumber: prInfo.prNumber,
+    repo: prInfo.repo,
+    org: prInfo.org,
+    author: prInfo.author,
+    /* v8 ignore start */
+    ghAccount: account || undefined,
+    /* v8 ignore stop */
+    reviewedHeadSha: snapshot?.reviewedHeadSha,
+    reviewedThreadStats: snapshot?.reviewedThreadStats,
+    ...extra,
+  }
+}
+
+/** Handle the result of a Copilot review execution. */
+function handleReviewResult(
+  result: { success: boolean; resultId?: string | null; error?: string },
+  setError: (msg: string) => void,
+  onSubmitted?: (resultId: string) => void
+) {
+  if (result.success && result.resultId) {
+    window.dispatchEvent(
+      new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
+    )
+    onSubmitted?.(result.resultId)
+  } else {
+    setError(result.error ?? 'Failed to start PR review')
+  }
+}
+
 const resolvePromptTemplate = (template: string, prUrl: string) =>
   template.includes(PR_URL_TOKEN) ? template.split(PR_URL_TOKEN).join(prUrl) : template
 
@@ -121,28 +164,9 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
         prompt,
         category: 'pr-review',
         model,
-        metadata: {
-          prUrl: prInfo.prUrl,
-          prTitle: prInfo.prTitle,
-          prNumber: prInfo.prNumber,
-          repo: prInfo.repo,
-          org: prInfo.org,
-          author: prInfo.author,
-          /* v8 ignore start */
-          ghAccount: account || undefined,
-          /* v8 ignore stop */
-          reviewedHeadSha: snapshot?.reviewedHeadSha,
-          reviewedThreadStats: snapshot?.reviewedThreadStats,
-        },
+        metadata: buildReviewMetadata(prInfo, account, snapshot),
       })
-      if (result.success && result.resultId) {
-        window.dispatchEvent(
-          new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
-        )
-        onSubmitted?.(result.resultId)
-      } else {
-        setError(result.error ?? 'Failed to start PR review')
-      }
+      handleReviewResult(result, setError, onSubmitted)
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -166,20 +190,9 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
             prompt,
             category: 'pr-review',
             model,
-            metadata: {
-              prUrl: prInfo.prUrl,
-              prTitle: prInfo.prTitle,
-              prNumber: prInfo.prNumber,
-              repo: prInfo.repo,
-              org: prInfo.org,
-              author: prInfo.author,
-              /* v8 ignore start */
-              ghAccount: account || undefined,
-              /* v8 ignore stop */
+            metadata: buildReviewMetadata(prInfo, account, snapshot, {
               scheduledAt: Date.now(),
-              reviewedHeadSha: snapshot?.reviewedHeadSha,
-              reviewedThreadStats: snapshot?.reviewedThreadStats,
-            },
+            }),
           })
           /* v8 ignore start */
           if (result.success && result.resultId) {

@@ -27,32 +27,37 @@ export function getVSCodeStoragePath(): string {
 
 // ─── Workspace name resolution ────────────────────────────
 
+function resolveFolderOrWorkspaceName(parsed: Record<string, unknown>): string | null {
+  const folder = (parsed.folder as string) ?? ''
+  if (folder) {
+    const decoded = decodeURIComponent(folder.replace(/^file:\/\/\//, ''))
+    return path.basename(decoded) || decoded
+  }
+  const workspace = (parsed.workspace as string) ?? ''
+  if (workspace) {
+    const decoded = decodeURIComponent(workspace.replace(/^file:\/\/\//, ''))
+    return path.basename(decoded, '.code-workspace') || decoded
+  }
+  return null
+}
+
 export function resolveWorkspaceName(wsDir: string): string {
   try {
     const raw = fs.readFileSync(path.join(wsDir, 'workspace.json'), 'utf8')
     const parsed = JSON.parse(raw)
-
-    // Single-folder workspace: { "folder": "file:///d%3A/github/..." }
-    const folder: string = parsed.folder ?? ''
-    if (folder) {
-      const decoded = decodeURIComponent(folder.replace(/^file:\/\/\//, ''))
-      return path.basename(decoded) || decoded
-    }
-
-    // Multi-root workspace: { "workspace": "file:///path/to/name.code-workspace" }
-    const workspace: string = parsed.workspace ?? ''
-    if (workspace) {
-      const decoded = decodeURIComponent(workspace.replace(/^file:\/\/\//, ''))
-      return path.basename(decoded, '.code-workspace') || decoded
-    }
-
-    return path.basename(wsDir)
+    return resolveFolderOrWorkspaceName(parsed) ?? path.basename(wsDir)
   } catch {
     return path.basename(wsDir)
   }
 }
 
 // ─── Scan: fs metadata + first-line init parse (fast) ─────
+
+/** Extract a regex capture group from text, returning fallback if no match. */
+function regexExtract(text: string, pattern: RegExp, fallback: string): string {
+  const m = pattern.exec(text)
+  return m ? m[1] : fallback
+}
 
 function extractScanInfo(filePath: string): {
   title: string
@@ -66,8 +71,6 @@ function extractScanInfo(filePath: string): {
     const fd = fs.openSync(filePath, 'r')
     try {
       // Read the first 32 KB — enough to reach title/agent/first prompt even in large init lines.
-      // The init line can be huge (contains full response data), so JSON.parse may fail on
-      // truncated content. Use regex to extract key fields without requiring a complete parse.
       const buf = Buffer.alloc(32768)
       const bytesRead = fs.readSync(fd, buf, 0, 32768, 0)
       if (bytesRead === 0) return fallback
@@ -77,19 +80,15 @@ function extractScanInfo(filePath: string): {
       if (!chunk.startsWith('{"kind":0')) return fallback
 
       // Extract fields via regex — works on truncated JSON
-      const titleMatch = /"customTitle":"((?:[^"\\]|\\.)*)"/.exec(chunk)
-      const title = titleMatch ? titleMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : ''
-
-      const agentMatch = /"responderUsername":"((?:[^"\\]|\\.)*)"/.exec(chunk)
-      const agent = agentMatch ? agentMatch[1] : ''
-
-      const dateMatch = /"creationDate":(\d+)/.exec(chunk)
-      const createdAt = dateMatch ? parseInt(dateMatch[1]) : 0
+      const titleRaw = regexExtract(chunk, /"customTitle":"((?:[^"\\]|\\.)*)"/, '')
+      const title = titleRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+      const agent = regexExtract(chunk, /"responderUsername":"((?:[^"\\]|\\.)*)"/, '')
+      const createdAt = parseInt(regexExtract(chunk, /"creationDate":(\d+)/, '0'))
 
       // First user prompt: message.text in the requests array
-      const promptMatch = /"message":\{"text":"((?:[^"\\]|\\.)*)"/.exec(chunk)
-      const firstPrompt = promptMatch
-        ? [...promptMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')].slice(0, 200).join('')
+      const promptRaw = regexExtract(chunk, /"message":\{"text":"((?:[^"\\]|\\.)*)"/, '')
+      const firstPrompt = promptRaw
+        ? [...promptRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')].slice(0, 200).join('')
         : ''
 
       // Count requests (approximate — count "requestId" occurrences)
@@ -105,6 +104,44 @@ function extractScanInfo(filePath: string): {
   }
 }
 
+function collectWorkspaceSessions(wsRoot: string, hash: string): SessionSummary[] {
+  const chatDir = path.join(wsRoot, hash, 'chatSessions')
+  let files: string[]
+  try {
+    files = fs.readdirSync(chatDir).filter(f => f.endsWith('.jsonl'))
+  } catch {
+    return []
+  }
+
+  const workspaceName = resolveWorkspaceName(path.join(wsRoot, hash))
+  const results: SessionSummary[] = []
+
+  for (const file of files) {
+    const filePath = path.join(chatDir, file)
+    try {
+      const stat = fs.statSync(filePath)
+      if (stat.size === 0) continue
+      const info = extractScanInfo(filePath)
+      results.push({
+        sessionId: path.basename(file, '.jsonl'),
+        filePath,
+        workspaceHash: hash,
+        workspaceName,
+        modifiedAt: stat.mtimeMs,
+        sizeBytes: stat.size,
+        title: info.title,
+        firstPrompt: info.firstPrompt,
+        agent: info.agent,
+        createdAt: info.createdAt,
+        requestCount: info.requestCount,
+      })
+    } catch {
+      // skip unreadable
+    }
+  }
+  return results
+}
+
 export function scanCopilotSessions(): SessionScanResult {
   const storagePath = getVSCodeStoragePath()
   if (!storagePath) return { sessions: [], totalCount: 0 }
@@ -117,46 +154,7 @@ export function scanCopilotSessions(): SessionScanResult {
     return { sessions: [], totalCount: 0 }
   }
 
-  const sessions: SessionSummary[] = []
-
-  for (const hash of wsDirs) {
-    const chatDir = path.join(wsRoot, hash, 'chatSessions')
-    let files: string[]
-    try {
-      files = fs.readdirSync(chatDir).filter(f => f.endsWith('.jsonl'))
-    } catch {
-      continue
-    }
-
-    // Resolve workspace name from workspace.json
-    const workspaceName = resolveWorkspaceName(path.join(wsRoot, hash))
-
-    for (const file of files) {
-      const filePath = path.join(chatDir, file)
-      try {
-        const stat = fs.statSync(filePath)
-        if (stat.size === 0) continue
-        const info = extractScanInfo(filePath)
-        sessions.push({
-          sessionId: path.basename(file, '.jsonl'),
-          filePath,
-          workspaceHash: hash,
-          workspaceName,
-          modifiedAt: stat.mtimeMs,
-          sizeBytes: stat.size,
-          title: info.title,
-          firstPrompt: info.firstPrompt,
-          agent: info.agent,
-          createdAt: info.createdAt,
-          requestCount: info.requestCount,
-        })
-      } catch {
-        // skip unreadable
-      }
-    }
-  }
-
-  // Sort newest first by modification time
+  const sessions = wsDirs.flatMap(hash => collectWorkspaceSessions(wsRoot, hash))
   sessions.sort((a, b) => b.modifiedAt - a.modifiedAt)
 
   return { sessions, totalCount: sessions.length }
@@ -170,16 +168,26 @@ interface SessionInitData {
   model: SessionModelInfo | null
 }
 
+/** Safely cast an unknown value to string with a fallback. */
+function str(v: unknown, d = ''): string {
+  return typeof v === 'string' ? v : d
+}
+
+/** Safely cast an unknown value to number with a fallback. */
+function num(v: unknown, d = 0): number {
+  return typeof v === 'number' ? v : d
+}
+
 function parseModelMetadata(sm: Record<string, unknown>): SessionModelInfo {
   return {
-    id: (sm.id as string) ?? '',
-    name: (sm.name as string) ?? '',
-    family: (sm.family as string) ?? '',
-    vendor: (sm.vendor as string) ?? '',
-    multiplier: (sm.multiplier as string) ?? '1x',
-    multiplierNumeric: (sm.multiplierNumeric as number) ?? 1,
-    maxInputTokens: (sm.maxInputTokens as number) ?? 0,
-    maxOutputTokens: (sm.maxOutputTokens as number) ?? 0,
+    id: str(sm.id),
+    name: str(sm.name),
+    family: str(sm.family),
+    vendor: str(sm.vendor),
+    multiplier: str(sm.multiplier, '1x'),
+    multiplierNumeric: num(sm.multiplierNumeric, 1),
+    maxInputTokens: num(sm.maxInputTokens),
+    maxOutputTokens: num(sm.maxOutputTokens),
   }
 }
 
@@ -204,10 +212,7 @@ function extractInitFromValue(v: Record<string, unknown>): SessionInitData {
   }
 }
 
-function collectPrompts(
-  reqs: Array<Record<string, unknown>>,
-  prompts: Map<number, string>
-): void {
+function collectPrompts(reqs: Array<Record<string, unknown>>, prompts: Map<number, string>): void {
   for (let i = 0; i < reqs.length; i++) {
     const msg = (reqs[i]?.message as Record<string, unknown> | undefined)?.text as
       | string
@@ -261,11 +266,13 @@ function resolveTokenCounts(
   metadata: Record<string, number> | undefined,
   timings: Record<string, number> | undefined
 ): { promptTokens: number; outputTokens: number; firstProgressMs: number; totalElapsedMs: number } {
+  const m = metadata ?? {}
+  const t = timings ?? {}
   return {
-    promptTokens: resolveMetricValue(metadata?.promptTokens, timings?.promptTokens),
-    outputTokens: resolveMetricValue(metadata?.outputTokens, timings?.outputTokens),
-    firstProgressMs: timings?.firstProgress ?? 0,
-    totalElapsedMs: timings?.totalElapsed ?? 0,
+    promptTokens: resolveMetricValue(m.promptTokens, t.promptTokens),
+    outputTokens: resolveMetricValue(m.outputTokens, t.outputTokens),
+    firstProgressMs: t.firstProgress ?? 0,
+    totalElapsedMs: t.totalElapsed ?? 0,
   }
 }
 
@@ -311,16 +318,20 @@ function handleInitLine(
   }
 }
 
+/** Collect prompt text from a requests array into the prompts map. */
+function collectRequestPrompts(reqs: unknown[], prompts: Map<number, string>): void {
+  for (let i = 0; i < reqs.length; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const msg = (reqs[i] as any)?.message?.text
+    if (msg && !prompts.has(i)) prompts.set(i, msg)
+  }
+}
+
 function handleRequestsSnapshot(line: string, prompts: Map<number, string>): void {
   try {
     const obj = JSON.parse(line)
-    const reqs = obj.v ?? []
-    if (Array.isArray(reqs)) {
-      for (let i = 0; i < reqs.length; i++) {
-        const msg = reqs[i]?.message?.text
-        if (msg && !prompts.has(i)) prompts.set(i, msg)
-      }
-    }
+    const reqs = obj.v
+    if (Array.isArray(reqs)) collectRequestPrompts(reqs, prompts)
   } catch {
     /* skip unparseable */
   }
@@ -339,14 +350,23 @@ function processInitLine(line: string, state: SessionParseState): void {
   if (result.title) state.title = result.title
 }
 
+function tryUpdateTitle(keyPath: string[], line: string, state: SessionParseState): boolean {
+  if (keyPath.length !== 1 || keyPath[0] !== 'customTitle') return false
+  const t = extractTitle(line)
+  if (t) state.title = t
+  return true
+}
+
+function tryUpdateResult(keyPath: string[], line: string, state: SessionParseState): void {
+  if (keyPath.length !== 3 || keyPath[2] !== 'result') return
+  const reqIndex = parseInt(keyPath[1])
+  const result = extractResultData(line)
+  if (result && !isNaN(reqIndex)) state.resultsByIndex.set(reqIndex, result)
+}
+
 function processUpdateLine(keyPath: string[], line: string, state: SessionParseState): void {
-  if (keyPath.length === 1 && keyPath[0] === 'customTitle') {
-    const t = extractTitle(line)
-    if (t) state.title = t
-  } else if (keyPath.length === 3 && keyPath[2] === 'result') {
-    const reqIndex = parseInt(keyPath[1])
-    const result = extractResultData(line)
-    if (result && !isNaN(reqIndex)) state.resultsByIndex.set(reqIndex, result)
+  if (!tryUpdateTitle(keyPath, line, state)) {
+    tryUpdateResult(keyPath, line, state)
   }
 }
 

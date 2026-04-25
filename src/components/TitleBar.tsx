@@ -24,17 +24,8 @@ interface TitleBarProps {
   onToggleTerminal?: () => void
 }
 
-export function TitleBar({
-  assistantOpen,
-  onToggleAssistant,
-  terminalOpen,
-  onToggleTerminal,
-}: TitleBarProps) {
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
-  const [showAbout, setShowAbout] = useState(false)
-  const menuBarRef = useRef<HTMLDivElement>(null)
-
-  const menus: Menu[] = [
+function buildMenus(setShowAbout: (v: boolean) => void): Menu[] {
+  return [
     {
       label: 'File',
       items: [
@@ -83,6 +74,19 @@ export function TitleBar({
       ],
     },
   ]
+}
+
+export function TitleBar({
+  assistantOpen,
+  onToggleAssistant,
+  terminalOpen,
+  onToggleTerminal,
+}: TitleBarProps) {
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [showAbout, setShowAbout] = useState(false)
+  const menuBarRef = useRef<HTMLDivElement>(null)
+
+  const menus = buildMenus(setShowAbout)
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

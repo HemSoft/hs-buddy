@@ -12,6 +12,16 @@ import { getErrorMessage } from '../utils/errorUtils'
 import { modLabel } from '../utils/platform'
 import './CopilotPromptBox.css'
 
+function computeActiveStats(activeCount: { pending?: number; running?: number } | undefined) {
+  const pendingCount = activeCount?.pending ?? 0
+  const runningCount = activeCount?.running ?? 0
+  return { pendingCount, runningCount, totalActive: pendingCount + runningCount }
+}
+
+function buildCopilotMetadata(account: string | null): { ghAccount: string } | undefined {
+  return account ? { ghAccount: account } : undefined
+}
+
 interface CopilotPromptBoxProps {
   /** Called when user opens a result tab */
   onOpenResult?: (resultId: string) => void
@@ -259,7 +269,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         prompt: trimmed,
         category,
         model: localModel,
-        metadata: localAccount ? { ghAccount: localAccount } : undefined,
+        metadata: buildCopilotMetadata(localAccount),
       })
 
       if (result.success && result.resultId) {
@@ -296,9 +306,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     }
   }
 
-  const pendingCount = activeCount?.pending ?? 0
-  const runningCount = activeCount?.running ?? 0
-  const totalActive = pendingCount + runningCount
+  const { totalActive } = computeActiveStats(activeCount)
 
   return (
     <div className="copilot-prompt-box">

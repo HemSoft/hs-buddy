@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, FolderGit2, Plus, Trash2, Circle } from 'lucide-react'
 import { useEffect, useCallback, useReducer } from 'react'
 import type { CrewProject, CrewSession } from '../../types/crew'
+import { getUserFacingErrorMessage } from '../../utils/errorUtils'
 import './Crew.css'
 
 interface CrewSidebarProps {
@@ -92,6 +93,13 @@ function sortProjects(projects: CrewProject[]): CrewProject[] {
   })
 }
 
+function getAddProjectState(isAdding: boolean) {
+  return {
+    style: { opacity: isAdding ? 0.45 : 0.7 },
+    label: isAdding ? 'Opening folder picker…' : 'Add Project…',
+  }
+}
+
 export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
   const [state, dispatch] = useReducer(crewSidebarReducer, undefined, createInitialState)
   const { expandedSections, projects, sessions, addProjectError, isAddingProject } = state
@@ -144,7 +152,7 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
       dispatch({
         type: 'SET_ADD_PROJECT_ERROR',
         /* v8 ignore start */
-        error: error instanceof Error ? error.message : 'Failed to add project.',
+        error: getUserFacingErrorMessage(error, 'Failed to add project.'),
         /* v8 ignore stop */
       })
     } finally {
@@ -256,15 +264,13 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
                 className="sidebar-item sidebar-item-button"
                 onClick={handleAddProject}
                 disabled={isAddingProject}
-                style={{
-                  opacity: isAddingProject ? 0.45 : 0.7,
-                }}
+                style={getAddProjectState(isAddingProject).style}
               >
                 <span className="sidebar-item-icon">
                   <Plus size={14} />
                 </span>
                 <span className="sidebar-item-label">
-                  {isAddingProject ? 'Opening folder picker…' : 'Add Project…'}
+                  {getAddProjectState(isAddingProject).label}
                 </span>
               </button>
             </div>

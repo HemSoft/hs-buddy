@@ -392,6 +392,20 @@ function UserPullRequestSections({
   )
 }
 
+function resolveCommitsToday(
+  activity: UserActivitySummary | null,
+  contributor: { commits: number } | null
+): number {
+  return activity?.commitsToday ?? contributor?.commits ?? 0
+}
+
+function isActivityEmpty(
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error',
+  activity: UserActivitySummary | null
+): boolean {
+  return activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0
+}
+
 function UserActivitySection({
   activity,
   activityPhase,
@@ -399,10 +413,7 @@ function UserActivitySection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (
-    activityPhase !== 'loading' &&
-    (activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0)
-  ) {
+  if (activityPhase !== 'loading' && isActivityEmpty(activityPhase, activity)) {
     return null
   }
 
@@ -562,9 +573,11 @@ function useUserDetailDerivedData(
     /* v8 ignore stop */
   }, [overview, memberLogin])
 
-  const profileUrl = member?.url ?? `https://github.com/${memberLogin}`
-  const avatarUrl = member?.avatarUrl ?? `https://github.com/${memberLogin}.png?size=96`
-  const commitsToday = activity?.commitsToday ?? contributor?.commits ?? 0
+  const fallbackUrl = `https://github.com/${memberLogin}`
+  const m = member ?? ({} as Partial<NonNullable<typeof member>>)
+  const profileUrl = m.url ?? fallbackUrl
+  const avatarUrl = m.avatarUrl ?? `${fallbackUrl}.png?size=96`
+  const commitsToday = resolveCommitsToday(activity, contributor)
 
   return { profileUrl, avatarUrl, commitsToday }
 }

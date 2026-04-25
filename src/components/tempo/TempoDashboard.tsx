@@ -60,55 +60,73 @@ function createInitialDashboardState(): TempoDashboardState {
   }
 }
 
-function tempoDashboardReducer(
+function persistViewMode(mode: ViewMode): void {
+  try {
+    localStorage.setItem(TEMPO_VIEW_KEY, mode)
+  } catch {
+    /* ignore */
+  }
+}
+
+type DashboardHandler = (
+  state: TempoDashboardState,
+  action: TempoDashboardAction
+) => TempoDashboardState
+
+const dashboardHandlers: Record<TempoDashboardAction['type'], DashboardHandler> = {
+  setViewMode: (s, a) => {
+    persistViewMode((a as Extract<TempoDashboardAction, { type: 'setViewMode' }>).viewMode)
+    return {
+      ...s,
+      viewMode: (a as Extract<TempoDashboardAction, { type: 'setViewMode' }>).viewMode,
+    }
+  },
+  openCreate: (s, a) => {
+    const act = a as Extract<TempoDashboardAction, { type: 'openCreate' }>
+    return {
+      ...s,
+      editorOpen: true,
+      editingWorklog: null,
+      prefillWorklog: act.prefillWorklog,
+      editorDate: act.date,
+    }
+  },
+  openEdit: (s, a) => ({
+    ...s,
+    editorOpen: true,
+    editingWorklog: (a as Extract<TempoDashboardAction, { type: 'openEdit' }>).worklog,
+    editorDate: null,
+  }),
+  closeEditor: s => ({
+    ...s,
+    editorOpen: false,
+    editingWorklog: null,
+    prefillWorklog: null,
+    editorDate: null,
+  }),
+  setActionError: (s, a) => ({
+    ...s,
+    actionError: (a as Extract<TempoDashboardAction, { type: 'setActionError' }>).error,
+  }),
+  shiftMonth: (s, a) => ({
+    ...s,
+    viewMonth: new Date(
+      s.viewMonth.getFullYear(),
+      s.viewMonth.getMonth() + (a as Extract<TempoDashboardAction, { type: 'shiftMonth' }>).delta,
+      1
+    ),
+  }),
+  goToCurrentMonth: s => ({ ...s, viewMonth: new Date() }),
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- exported for testing
+export function tempoDashboardReducer(
   state: TempoDashboardState,
   action: TempoDashboardAction
 ): TempoDashboardState {
-  switch (action.type) {
-    case 'setViewMode':
-      try {
-        localStorage.setItem(TEMPO_VIEW_KEY, action.viewMode)
-      } catch {
-        /* ignore */
-      }
-      return { ...state, viewMode: action.viewMode }
-    case 'openCreate':
-      return {
-        ...state,
-        editorOpen: true,
-        editingWorklog: null,
-        prefillWorklog: action.prefillWorklog,
-        editorDate: action.date,
-      }
-    case 'openEdit':
-      return {
-        ...state,
-        editorOpen: true,
-        editingWorklog: action.worklog,
-        editorDate: null,
-      }
-    case 'closeEditor':
-      return {
-        ...state,
-        editorOpen: false,
-        editingWorklog: null,
-        prefillWorklog: null,
-        editorDate: null,
-      }
-    case 'setActionError':
-      return { ...state, actionError: action.error }
-    case 'shiftMonth':
-      return {
-        ...state,
-        viewMonth: new Date(
-          state.viewMonth.getFullYear(),
-          state.viewMonth.getMonth() + action.delta,
-          1
-        ),
-      }
-    case 'goToCurrentMonth':
-      return { ...state, viewMonth: new Date() }
-  }
+  const handler = dashboardHandlers[action.type]
+  if (!handler) return state
+  return handler(state, action)
 }
 
 function formatMonthLabel(date: Date): string {
@@ -157,6 +175,21 @@ function isWorkday(date: Date, holidaySet: Set<string>): boolean {
   return !holidaySet.has(formatDateKey(date))
 }
 
+/** Check whether a day has entries for any of the given issue keys. */
+function dayHasIssue(
+  hoursByIssueDate: Record<string, Set<string>>,
+  dateKey: string,
+  issueKeys: Set<string>
+): boolean {
+  const dayIssues = hoursByIssueDate[dateKey]
+  return !!dayIssues && [...issueKeys].some(issueKey => dayIssues.has(issueKey))
+}
+
+/** Check whether a day's total is below 8h. */
+function isDayUnfinished(dailyTotals: Record<string, number>, dateKey: string): boolean {
+  return (dailyTotals[dateKey] || 0) < 8
+}
+
 function findFirstEmptyDay(
   issueKeys: Set<string>,
   start: Date,
@@ -173,14 +206,16 @@ function findFirstEmptyDay(
 
     const dateKey = formatDateKey(date)
     if (!firstWorkday) firstWorkday = dateKey
-    if (!firstUnfinished && (dailyTotals[dateKey] || 0) < 8) firstUnfinished = dateKey
+    if (!firstUnfinished && isDayUnfinished(dailyTotals, dateKey)) firstUnfinished = dateKey
 
-    const dayIssues = hoursByIssueDate[dateKey]
-    const hasAnyIssue = dayIssues && [...issueKeys].some(issueKey => dayIssues.has(issueKey))
-    if (!hasAnyIssue) return { dateKey, firstWorkday, firstUnfinished }
+    if (!dayHasIssue(hoursByIssueDate, dateKey, issueKeys)) {
+      return { dateKey, firstWorkday, firstUnfinished }
+    }
   }
 
+  /* v8 ignore start -- defensive fallback when no empty day found within 60-day window */
   return { dateKey: null, firstWorkday, firstUnfinished }
+  /* v8 ignore stop */
 }
 
 function selectNextEmptyDay(
@@ -319,13 +354,17 @@ function resolveEditorDefaults(state: TempoDashboardState, todayKey: string) {
   }
 }
 
+function resolveActiveEditorDate(state: TempoDashboardState, todayKey: string): string {
+  return state.editorDate || state.editingWorklog?.date || todayKey
+}
+
 function computeDashboardDerived(
   state: TempoDashboardState,
   month: ReturnType<typeof useTempoMonth>,
   today: ReturnType<typeof useTempoToday>,
   todayKey: string
 ) {
-  const activeEditorDate = state.editorDate || state.editingWorklog?.date || todayKey
+  const activeEditorDate = resolveActiveEditorDate(state, todayKey)
   const isCurrentMonth =
     state.viewMonth.getFullYear() === new Date().getFullYear() &&
     state.viewMonth.getMonth() === new Date().getMonth()

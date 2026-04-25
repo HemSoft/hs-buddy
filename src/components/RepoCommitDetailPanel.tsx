@@ -88,35 +88,21 @@ function ChangeStatsCard({ detail }: { detail: RepoCommitDetail }) {
   )
 }
 
-export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPanelProps) {
-  const {
-    data: detail,
-    loading,
-    error,
-    refresh,
-  } = useGitHubData<RepoCommitDetail>({
-    cacheKey: `repo-commit:${owner}/${repo}/${sha}`,
-    taskName: `repo-commit-${owner}-${repo}-${sha}`,
-    /* v8 ignore start */
-    fetchFn: client => client.fetchRepoCommitDetail(owner, repo, sha),
-    /* v8 ignore stop */
-  })
-
-  if (loading && !detail) {
-    return (
-      <PanelLoadingState
-        message="Loading commit..."
-        subtitle={`${owner}/${repo}@${sha.slice(0, 7)}`}
-      />
-    )
-  }
-
-  if (error && !detail) {
-    return <PanelErrorState title="Failed to load commit" error={error} onRetry={refresh} />
-  }
-
-  if (!detail) return null
-
+function CommitDetailContent({
+  detail,
+  loading,
+  refresh,
+  sha,
+  owner,
+  repo,
+}: {
+  detail: RepoCommitDetail
+  loading: boolean
+  refresh: () => void
+  sha: string
+  owner: string
+  repo: string
+}) {
   return (
     <div className="repo-commit-detail-container">
       <div className="repo-commit-detail-header">
@@ -156,7 +142,7 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
         </div>
       </div>
 
-      {loading && detail && <InlineRefreshIndicator message="Refreshing commit details..." />}
+      {loading && <InlineRefreshIndicator message="Refreshing commit details..." />}
 
       <div className="repo-commit-detail-summary-grid">
         <CommitIdentityCard detail={detail} />
@@ -165,5 +151,46 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
 
       <ExpandableFileList files={detail.files} resetKey={sha} />
     </div>
+  )
+}
+
+export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPanelProps) {
+  const {
+    data: detail,
+    loading,
+    error,
+    refresh,
+  } = useGitHubData<RepoCommitDetail>({
+    cacheKey: `repo-commit:${owner}/${repo}/${sha}`,
+    taskName: `repo-commit-${owner}-${repo}-${sha}`,
+    /* v8 ignore start */
+    fetchFn: client => client.fetchRepoCommitDetail(owner, repo, sha),
+    /* v8 ignore stop */
+  })
+
+  if (loading && !detail) {
+    return (
+      <PanelLoadingState
+        message="Loading commit..."
+        subtitle={`${owner}/${repo}@${sha.slice(0, 7)}`}
+      />
+    )
+  }
+
+  if (error && !detail) {
+    return <PanelErrorState title="Failed to load commit" error={error} onRetry={refresh} />
+  }
+
+  if (!detail) return null
+
+  return (
+    <CommitDetailContent
+      detail={detail}
+      loading={loading}
+      refresh={refresh}
+      sha={sha}
+      owner={owner}
+      repo={repo}
+    />
   )
 }

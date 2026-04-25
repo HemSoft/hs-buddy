@@ -15,6 +15,11 @@ interface SidebarPRContextMenuProps {
   onClose: () => void
 }
 
+function getApproveLabel(iApproved: boolean, isApproving: boolean): string {
+  if (iApproved) return 'Already Approved'
+  return isApproving ? 'Approving…' : 'Approve'
+}
+
 export function SidebarPRContextMenu({
   pr,
   x,
@@ -55,7 +60,7 @@ export function SidebarPRContextMenu({
           disabled={pr.iApproved || isApproving}
         >
           {isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />}
-          {pr.iApproved ? 'Already Approved' : isApproving ? 'Approving…' : 'Approve'}
+          {getApproveLabel(pr.iApproved, isApproving)}
         </button>
         <button onClick={onBookmark}>
           <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />

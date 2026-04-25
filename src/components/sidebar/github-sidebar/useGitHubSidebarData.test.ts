@@ -414,6 +414,17 @@ describe('useGitHubSidebarData', () => {
     })
   })
 
+  it('skips orgRepos when cached data has invalid shape', () => {
+    mockGet.mockImplementation((key: string) => {
+      if (key === 'org-repos:acme') {
+        return { data: { notRepos: true } }
+      }
+      return null
+    })
+    const { result } = renderHook(() => useGitHubSidebarData())
+    expect(result.current.orgRepos).toEqual({})
+  })
+
   it('subscribes to dataCache on mount', () => {
     renderHook(() => useGitHubSidebarData())
     expect(mockSubscribe).toHaveBeenCalled()

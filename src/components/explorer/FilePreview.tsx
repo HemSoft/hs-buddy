@@ -187,7 +187,24 @@ export function FilePreview({ filePath }: FilePreviewProps) {
     )
   }
 
-  if (!data || data.error) {
+  /* v8 ignore start -- unreachable: reducer always sets data on success/error */
+  if (!data) {
+    return (
+      <div className="file-preview">
+        <div className="file-preview-header">
+          <FileText size={14} />
+          <span className="file-preview-filename">{getFileName(filePath)}</span>
+        </div>
+        <div className="file-preview-error">
+          <AlertCircle size={16} />
+          <span>Failed to load file</span>
+        </div>
+      </div>
+    )
+  }
+  /* v8 ignore stop */
+
+  if (data.error) {
     return (
       <div className="file-preview">
         <div className="file-preview-header">
@@ -197,7 +214,7 @@ export function FilePreview({ filePath }: FilePreviewProps) {
         <div className="file-preview-error">
           <AlertCircle size={16} />
           {/* v8 ignore start */}
-          <span>{data?.error || 'Failed to load file'}</span>
+          <span>{data.error}</span>
           {/* v8 ignore stop */}
         </div>
       </div>

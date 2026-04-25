@@ -46,6 +46,58 @@ function handleEnterOrSpace(
   }
 }
 
+interface DropdownKeyContext {
+  e: React.KeyboardEvent
+  disabled: boolean
+  isOpen: boolean
+  focusIndex: number
+  enabledOptions: DropdownOption[]
+  handleSelect: (v: string) => void
+  handleToggle: () => void
+  setFocusIndex: React.Dispatch<React.SetStateAction<number>>
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+function handleEnterOrSpaceKey(ctx: DropdownKeyContext): void {
+  ctx.e.preventDefault()
+  handleEnterOrSpace(
+    ctx.isOpen,
+    ctx.focusIndex,
+    ctx.enabledOptions,
+    ctx.handleSelect,
+    ctx.handleToggle
+  )
+}
+
+function handleArrowDownKey(ctx: DropdownKeyContext): void {
+  ctx.e.preventDefault()
+  if (!ctx.isOpen) {
+    ctx.handleToggle()
+  } else {
+    ctx.setFocusIndex(prev => Math.min(prev + 1, ctx.enabledOptions.length - 1))
+  }
+}
+
+function handleArrowUpKey(ctx: DropdownKeyContext): void {
+  ctx.e.preventDefault()
+  if (ctx.isOpen) {
+    ctx.setFocusIndex(prev => Math.max(prev - 1, 0))
+  }
+}
+
+function handleEscapeKey(ctx: DropdownKeyContext): void {
+  ctx.e.preventDefault()
+  ctx.setIsOpen(false)
+}
+
+const dropdownKeyHandlers: Record<string, (ctx: DropdownKeyContext) => void> = {
+  Enter: handleEnterOrSpaceKey,
+  ' ': handleEnterOrSpaceKey,
+  ArrowDown: handleArrowDownKey,
+  ArrowUp: handleArrowUpKey,
+  Escape: handleEscapeKey,
+}
+
 function handleDropdownKeyDown(
   e: React.KeyboardEvent,
   {
@@ -70,31 +122,19 @@ function handleDropdownKeyDown(
 ): void {
   if (disabled) return
 
-  switch (e.key) {
-    case 'Enter':
-    case ' ':
-      e.preventDefault()
-      handleEnterOrSpace(isOpen, focusIndex, enabledOptions, handleSelect, handleToggle)
-      break
-    case 'ArrowDown':
-      e.preventDefault()
-      if (!isOpen) {
-        handleToggle()
-      } else {
-        setFocusIndex(prev => Math.min(prev + 1, enabledOptions.length - 1))
-      }
-      break
-    case 'ArrowUp':
-      e.preventDefault()
-      if (isOpen) {
-        setFocusIndex(prev => Math.max(prev - 1, 0))
-      }
-      break
-    case 'Escape':
-      e.preventDefault()
-      setIsOpen(false)
-      break
-  }
+  const handler = dropdownKeyHandlers[e.key]
+  if (handler)
+    handler({
+      e,
+      disabled,
+      isOpen,
+      focusIndex,
+      enabledOptions,
+      handleSelect,
+      handleToggle,
+      setFocusIndex,
+      setIsOpen,
+    })
 }
 
 function DropdownMenu({

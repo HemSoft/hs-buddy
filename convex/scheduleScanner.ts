@@ -22,23 +22,36 @@ interface ScheduleRecord {
   nextRunAt?: number
 }
 
+function getTimezone(schedule: ScheduleRecord): string {
+  return schedule.timezone ?? DEFAULT_TIMEZONE
+}
+
+async function advanceSchedule(
+  ctx: { db: GenericDatabaseWriter<DataModel> },
+  schedule: ScheduleRecord,
+  now: number,
+  lastRunAt?: number
+): Promise<void> {
+  const nextRunAt = calculateNextRunAt(schedule.cron, getTimezone(schedule), new Date(now))
+  await ctx.db.patch('schedules', schedule._id, {
+    ...(lastRunAt != null && { lastRunAt }),
+    nextRunAt,
+    updatedAt: now,
+  })
+}
+
 async function processSchedule(
   ctx: { db: GenericDatabaseWriter<DataModel> },
   schedule: ScheduleRecord,
   now: number
 ): Promise<{ runCreated: boolean; scheduleUpdated: boolean }> {
   const isDue = !schedule.nextRunAt || schedule.nextRunAt <= now
-  if (!isDue) {
-    return { runCreated: false, scheduleUpdated: false }
-  }
+  if (!isDue) return { runCreated: false, scheduleUpdated: false }
 
   const job = await ctx.db.get('jobs', schedule.jobId)
   if (!job) {
     console.error(`Job ${schedule.jobId} not found for schedule ${schedule._id}`)
-    await ctx.db.patch('schedules', schedule._id, {
-      enabled: false,
-      updatedAt: now,
-    })
+    await ctx.db.patch('schedules', schedule._id, { enabled: false, updatedAt: now })
     return { runCreated: false, scheduleUpdated: true }
   }
 
@@ -47,18 +60,9 @@ async function processSchedule(
     .withIndex('by_schedule', q => q.eq('scheduleId', schedule._id))
     .order('desc')
     .take(10)
-  const existingRun = recentRuns.find(r => isPendingOrRunning(r.status)) ?? null
 
-  if (existingRun) {
-    const nextRunAt = calculateNextRunAt(
-      schedule.cron,
-      schedule.timezone ?? DEFAULT_TIMEZONE,
-      new Date(now)
-    )
-    await ctx.db.patch('schedules', schedule._id, {
-      nextRunAt,
-      updatedAt: now,
-    })
+  if (recentRuns.find(r => isPendingOrRunning(r.status))) {
+    await advanceSchedule(ctx, schedule, now)
     return { runCreated: false, scheduleUpdated: true }
   }
 
@@ -72,19 +76,7 @@ async function processSchedule(
   })
 
   await incrementStat(ctx.db, 'runsTriggered')
-
-  const nextRunAt = calculateNextRunAt(
-    schedule.cron,
-    schedule.timezone ?? DEFAULT_TIMEZONE,
-    new Date(now)
-  )
-
-  await ctx.db.patch('schedules', schedule._id, {
-    lastRunAt: now,
-    nextRunAt,
-    updatedAt: now,
-  })
-
+  await advanceSchedule(ctx, schedule, now, now)
   return { runCreated: true, scheduleUpdated: true }
 }
 

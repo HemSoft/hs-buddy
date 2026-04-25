@@ -9,6 +9,10 @@ import type { OrgBudgetState } from '../components/copilot-usage/types'
 import { MS_PER_MINUTE } from '../constants'
 import { getErrorMessage } from '../utils/errorUtils'
 
+function getPremiumInteractions(state: AccountQuotaState | undefined) {
+  return state?.data?.quota_snapshots?.premium_interactions ?? null
+}
+
 function computeOverageRequests(premium: { overage_count: number; remaining: number }): number {
   const overageByCount = Math.max(0, premium.overage_count)
   const overageByRemaining = Math.max(0, -premium.remaining)
@@ -137,8 +141,7 @@ export function useCopilotUsage() {
   const orgOverageFromQuotas = useMemo(() => {
     const map = new Map<string, number>()
     for (const account of accounts) {
-      const state = quotas[account.username]
-      const premium = state?.data?.quota_snapshots?.premium_interactions
+      const premium = getPremiumInteractions(quotas[account.username])
       if (!premium || !account.org) {
         continue
       }
@@ -179,7 +182,7 @@ export function useCopilotUsage() {
     let hasAny = false
 
     for (const state of Object.values(quotas)) {
-      const premium = state.data?.quota_snapshots?.premium_interactions
+      const premium = getPremiumInteractions(state)
       if (!premium || !state.data) {
         continue
       }

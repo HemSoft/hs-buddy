@@ -2191,4 +2191,19 @@ describe('RepoNode component', () => {
     fireEvent.keyDown(conversationEl, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith(expect.stringContaining('conversation'))
   })
+
+  it('renders nothing for commit section when commit data is empty', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedCommits = new Set(['org/hs-buddy'])
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRepoCommitGroups={expandedCommits}
+        repoCommitTreeData={{ 'org/hs-buddy': [] }}
+      />
+    )
+    expect(screen.getByText('Commits')).toBeTruthy()
+    expect(document.querySelector('.sidebar-pr-child')).toBeNull()
+  })
 })

@@ -185,7 +185,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   /* v8 ignore stop */
 
   const addTerminalTab = useCallback(async (repoContext: RepoContext | null) => {
-    let cwd: string | undefined
+    let cwd = ''
     let title: string
     let repoSlug: string | undefined
 
@@ -204,7 +204,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       try {
         const result = await window.terminal.resolveRepoPath(repoContext.owner, repoContext.repo)
         /* v8 ignore start */
-        cwd = result.path || undefined
+        cwd = result.path || ''
         /* v8 ignore stop */
       } catch {
         // Fall back to empty cwd if path resolution fails
@@ -217,7 +217,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     const newTab: TerminalTab = {
       id: tabId,
       title,
-      cwd: cwd || '',
+      cwd,
       repoSlug,
     }
 

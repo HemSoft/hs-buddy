@@ -828,7 +828,7 @@ describe('BookmarkDialog', () => {
     fireEvent.submit(document.querySelector('form')!)
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to save bookmark')).toBeInTheDocument()
+      expect(screen.getByText('string error')).toBeInTheDocument()
     })
   })
 

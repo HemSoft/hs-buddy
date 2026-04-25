@@ -6,6 +6,7 @@ import {
   type JobId,
 } from '../../../hooks/useConvex'
 import { useCopilotSettings } from '../../../hooks/useConfig'
+import { getUserFacingErrorMessage } from '../../../utils/errorUtils'
 
 export interface JobConfig {
   // exec-worker
@@ -73,6 +74,12 @@ function loadSourceConfig(config: JobConfig, setters: ConfigSetters): void {
   loadSkillConfig(config, setters)
 }
 
+const WORKER_VALIDATIONS: Record<string, { field: string; message: string }> = {
+  exec: { field: 'command', message: 'Command is required for exec jobs' },
+  ai: { field: 'prompt', message: 'Prompt is required for AI jobs' },
+  skill: { field: 'skillName', message: 'Skill name is required for skill jobs' },
+}
+
 function validateJobForm(
   name: string,
   workerType: 'exec' | 'ai' | 'skill',
@@ -81,17 +88,9 @@ function validateJobForm(
   skillName: string
 ): string | null {
   if (!name.trim()) return 'Job name is required'
-  switch (workerType) {
-    case 'exec':
-      if (!command.trim()) return 'Command is required for exec jobs'
-      break
-    case 'ai':
-      if (!prompt.trim()) return 'Prompt is required for AI jobs'
-      break
-    case 'skill':
-      if (!skillName.trim()) return 'Skill name is required for skill jobs'
-      break
-  }
+  const fields: Record<string, string> = { command, prompt, skillName }
+  const rule = WORKER_VALIDATIONS[workerType]
+  if (rule && !fields[rule.field]?.trim()) return rule.message
   return null
 }
 
@@ -218,6 +217,7 @@ export function useJobEditorForm(
       setError(validationError)
       return
     }
+    const trimmedDesc = description.trim() || undefined
     setError(null)
     setSaving(true)
     try {
@@ -226,14 +226,14 @@ export function useJobEditorForm(
         await update({
           id: jobId as JobId,
           name: name.trim(),
-          description: description.trim() || undefined,
+          description: trimmedDesc,
           workerType,
           config,
         })
       } else {
         await create({
           name: name.trim(),
-          description: description.trim() || undefined,
+          description: trimmedDesc,
           workerType,
           config,
         })
@@ -244,7 +244,7 @@ export function useJobEditorForm(
       onSaved?.()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save job')
+      setError(getUserFacingErrorMessage(err, 'Failed to save job'))
     } finally {
       setSaving(false)
     }

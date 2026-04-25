@@ -97,47 +97,19 @@ class Dispatcher {
     }
   }
 
-  /** Claim a pending run from Convex and dispatch to the right worker */
-  private async claimAndExecute(): Promise<void> {
-    // Atomically claim the oldest pending run
-    const claimed = await this.client.mutation(api.runs.claimPending, {})
-
-    if (!claimed) return // nothing to do
-
-    const { run, job } = claimed
-    console.log(`[Dispatcher] Claimed run ${run._id} for job "${job.name}" (${job.workerType})`)
-
-    // Look up the worker
-    const worker = workers[job.workerType]
-    if (!worker) {
-      console.error(`[Dispatcher] Unknown worker type: ${job.workerType}`)
-      await this.client.mutation(api.runs.fail, {
-        id: run._id,
-        error: `Unknown worker type: ${job.workerType}`,
-      })
-      return
-    }
-
-    // Handle __copilot_snapshot__ sentinel — collect and persist usage snapshots
-    if (job.workerType === 'exec' && (job.config as JobConfig).command === '__copilot_snapshot__') {
-      await this.executeSnapshotCollection(run)
-      return
-    }
-
-    // Execute with abort support
+  private async executeWorkerRun(
+    run: { _id: Id<'runs'> },
+    worker: (typeof workers)[string],
+    config: JobConfig
+  ): Promise<void> {
     this.abortController = new AbortController()
     try {
-      const result = await worker.execute(job.config as JobConfig, this.abortController.signal)
-
+      const result = await worker.execute(config, this.abortController.signal)
       if (result.success) {
         console.log(`[Dispatcher] Run ${run._id} completed in ${result.duration}ms`)
         await this.client.mutation(api.runs.complete, {
           id: run._id,
-          output: {
-            stdout: result.output,
-            exitCode: result.exitCode,
-            duration: result.duration,
-          },
+          output: { stdout: result.output, exitCode: result.exitCode, duration: result.duration },
         })
       } else {
         console.warn(`[Dispatcher] Run ${run._id} failed: ${result.error}`)
@@ -149,17 +121,72 @@ class Dispatcher {
     } catch (err) {
       const errorMessage = getErrorMessage(err)
       console.error(`[Dispatcher] Run ${run._id} threw:`, errorMessage)
-      await this.client.mutation(api.runs.fail, {
-        id: run._id,
-        error: errorMessage,
-      })
+      await this.client.mutation(api.runs.fail, { id: run._id, error: errorMessage })
     } finally {
       this.abortController = null
     }
+  }
 
-    // After finishing one run, immediately check for more
-    // (without waiting for next interval)
-    setImmediate(() => this.poll())
+  /** Claim a pending run from Convex and dispatch to the right worker */
+  private async claimAndExecute(): Promise<void> {
+    const claimed = await this.client.mutation(api.runs.claimPending, {})
+    if (!claimed) return
+
+    const { run, job } = claimed
+    console.log(`[Dispatcher] Claimed run ${run._id} for job "${job.name}" (${job.workerType})`)
+
+    try {
+      const worker = workers[job.workerType]
+      if (!worker) {
+        console.error(`[Dispatcher] Unknown worker type: ${job.workerType}`)
+        await this.client.mutation(api.runs.fail, {
+          id: run._id,
+          error: `Unknown worker type: ${job.workerType}`,
+        })
+        return
+      }
+
+      if (
+        job.workerType === 'exec' &&
+        (job.config as JobConfig).command === '__copilot_snapshot__'
+      ) {
+        await this.executeSnapshotCollection(run)
+        return
+      }
+
+      await this.executeWorkerRun(run, worker, job.config as JobConfig)
+    } finally {
+      setImmediate(() => this.poll())
+    }
+  }
+
+  private async collectAccountSnapshot(username: string, org: string): Promise<boolean> {
+    const result = await fetchCopilotMetrics(org, username)
+    if (!result.success) {
+      console.warn(`[Dispatcher] Snapshot fetch failed for ${username}@${org}: ${result.error}`)
+      return false
+    }
+    try {
+      await this.client.mutation(api.copilotUsageHistory.store, {
+        accountUsername: username,
+        org: result.data.org,
+        billingYear: result.data.billingYear,
+        billingMonth: result.data.billingMonth,
+        premiumRequests: result.data.premiumRequests,
+        grossCost: result.data.grossCost,
+        discount: result.data.discount,
+        netCost: result.data.netCost,
+        businessSeats: result.data.businessSeats,
+        ...(result.data.budgetAmount != null ? { budgetAmount: result.data.budgetAmount } : {}),
+        spent: result.data.spent,
+      })
+      return true
+    } catch (storeErr) {
+      console.error(
+        `[Dispatcher] Snapshot store failed for ${username}@${org}: ${getErrorMessage(storeErr)}`
+      )
+      return false
+    }
   }
 
   /** Collect Copilot usage snapshots and persist to copilotUsageHistory */
@@ -181,32 +208,9 @@ class Dispatcher {
     let failed = 0
 
     for (const { username, org } of accounts) {
-      const result = await fetchCopilotMetrics(org, username)
-      if (result.success) {
-        try {
-          await this.client.mutation(api.copilotUsageHistory.store, {
-            accountUsername: username,
-            org: result.data.org,
-            billingYear: result.data.billingYear,
-            billingMonth: result.data.billingMonth,
-            premiumRequests: result.data.premiumRequests,
-            grossCost: result.data.grossCost,
-            discount: result.data.discount,
-            netCost: result.data.netCost,
-            businessSeats: result.data.businessSeats,
-            ...(result.data.budgetAmount != null ? { budgetAmount: result.data.budgetAmount } : {}),
-            spent: result.data.spent,
-          })
-          succeeded++
-        } catch (storeErr) {
-          const msg = getErrorMessage(storeErr)
-          console.error(`[Dispatcher] Snapshot store failed for ${username}@${org}: ${msg}`)
-          failed++
-        }
-      } else {
-        console.warn(`[Dispatcher] Snapshot fetch failed for ${username}@${org}: ${result.error}`)
-        failed++
-      }
+      const ok = await this.collectAccountSnapshot(username, org)
+      if (ok) succeeded++
+      else failed++
     }
 
     const duration = Date.now() - start

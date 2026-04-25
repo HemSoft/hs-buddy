@@ -304,6 +304,17 @@ function PullRequestTimeline({
   )
 }
 
+function handleHistoryFetchError(
+  err: unknown,
+  requestId: number,
+  latestRef: { current: number },
+  setError: (e: string | null) => void
+): void {
+  if (isAbortError(err)) return
+  if (requestId !== latestRef.current) return
+  setError(getErrorMessage(err))
+}
+
 function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySummary) => void) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -340,9 +351,7 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
       setHistory(result)
       onLoaded?.(result)
     } catch (err) {
-      if (isAbortError(err)) return
-      if (requestId !== latestRequestRef.current) return
-      setError(getErrorMessage(err))
+      handleHistoryFetchError(err, requestId, latestRequestRef, setError)
     } finally {
       if (requestId === latestRequestRef.current) {
         setLoading(false)

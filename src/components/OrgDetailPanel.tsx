@@ -75,15 +75,29 @@ interface RateLimitSnapshot {
   used: number
 }
 
+/** Read a cached value from dataCache, returning null if absent. */
+function tryGetCached<T>(key: string): T | null {
+  return dataCache.get<T>(key)?.data ?? null
+}
+
+/** Handle a fetch error: ignore abort errors, otherwise report. */
+function handleOrgFetchError(
+  error: unknown,
+  setPhase: (phase: LoadPhase) => void,
+  setError: (error: string | null) => void
+) {
+  if (isAbortError(error)) return
+  setPhase('error')
+  setError(getErrorMessage(error))
+}
+
 function buildSeedOverview(org: string): OrgOverviewResult | null {
-  const cachedOverview = normalizeOverview(
-    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
-  )
+  const cachedOverview = normalizeOverview(tryGetCached<OrgOverviewResult>(`org-overview:${org}`))
   if (cachedOverview) {
     return cachedOverview
   }
 
-  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+  const cachedRepos = tryGetCached<OrgRepoResult>(`org-repos:${org}`)
   if (!cachedRepos) {
     return null
   }
@@ -260,24 +274,16 @@ function PersonalCopilotGrid({
   )
 }
 
+const COPILOT_USAGE_DEFAULTS = { premiumRequests: 0, netCost: 0, grossCost: 0, businessSeats: 0 }
+
 function OrgCopilotGrid({ copilotUsage }: { copilotUsage: OrgCopilotUsageData | null }) {
+  const u = { ...COPILOT_USAGE_DEFAULTS, ...copilotUsage }
   return (
     <>
-      <MiniMetric
-        label="Premium Requests"
-        value={(copilotUsage?.premiumRequests ?? 0).toLocaleString()}
-      />
-      <MiniMetric
-        label="Net Cost"
-        value={formatCurrency(copilotUsage?.netCost ?? 0)}
-        accent="warm"
-      />
-      <MiniMetric label="Gross Cost" value={formatCurrency(copilotUsage?.grossCost ?? 0)} />
-      <MiniMetric
-        label="Business Seats"
-        value={(copilotUsage?.businessSeats ?? 0).toLocaleString()}
-        accent="cool"
-      />
+      <MiniMetric label="Premium Requests" value={u.premiumRequests.toLocaleString()} />
+      <MiniMetric label="Net Cost" value={formatCurrency(u.netCost)} accent="warm" />
+      <MiniMetric label="Gross Cost" value={formatCurrency(u.grossCost)} />
+      <MiniMetric label="Business Seats" value={u.businessSeats.toLocaleString()} accent="cool" />
     </>
   )
 }
@@ -382,6 +388,16 @@ function CopilotWarmingMessage({
   )
 }
 
+function getHeaderTimestamps(
+  copilotUsage: OrgCopilotUsageData | null,
+  personalQuotaSummary: PersonalQuotaSummary | null
+) {
+  return {
+    copilotFetchedAt: copilotUsage?.fetchedAt,
+    personalQuotaFetchedAt: personalQuotaSummary?.fetchedAt,
+  }
+}
+
 function OrgCopilotSection({
   overview,
   copilotUsage,
@@ -404,12 +420,17 @@ function OrgCopilotSection({
   const showWarmingMessage =
     liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
 
+  const { copilotFetchedAt, personalQuotaFetchedAt } = getHeaderTimestamps(
+    copilotUsage,
+    personalQuotaSummary
+  )
+
   return (
     <section className="org-detail-section org-detail-copilot-section">
       <CopilotSectionHeader
         isUserNamespace={overview.isUserNamespace}
-        copilotFetchedAt={copilotUsage?.fetchedAt}
-        personalQuotaFetchedAt={personalQuotaSummary?.fetchedAt}
+        copilotFetchedAt={copilotFetchedAt}
+        personalQuotaFetchedAt={personalQuotaFetchedAt}
       />
       <div className="org-detail-copilot-grid">
         {shouldShowPersonalQuotaPulse && personalQuotaSummary ? (
@@ -579,7 +600,7 @@ function useOrgOverviewData({
   overviewTaskName: string
 }) {
   const enqueueRef = useRef(enqueue)
-  const hasCachedFullOverview = Boolean(dataCache.get<OrgOverviewResult>(overviewCacheKey)?.data)
+  const hasCachedFullOverview = Boolean(tryGetCached<OrgOverviewResult>(overviewCacheKey))
   const [overview, setOverview] = useState<OrgOverviewResult | null>(() => initialOverview)
   const [overviewPhase, setOverviewPhase] = useState<LoadPhase>(() =>
     hasCachedFullOverview || initialOverview ? 'ready' : 'loading'
@@ -598,9 +619,7 @@ function useOrgOverviewData({
   const fetchOverview = useCallback(
     async (forceRefresh = false) => {
       const queue = getTaskQueue('github')
-      const cachedOverview = normalizeOverview(
-        dataCache.get<OrgOverviewResult>(overviewCacheKey)?.data ?? null
-      )
+      const cachedOverview = normalizeOverview(tryGetCached<OrgOverviewResult>(overviewCacheKey))
       /* v8 ignore start */
       if (cachedOverview && !forceRefresh) {
         setOverview(cachedOverview)
@@ -634,9 +653,7 @@ function useOrgOverviewData({
         })
         dataCache.set(overviewCacheKey, normalized)
       } catch (fetchError) {
-        if (isAbortError(fetchError)) return
-        setOverviewPhase('error')
-        setOverviewError(getErrorMessage(fetchError))
+        handleOrgFetchError(fetchError, setOverviewPhase, setOverviewError)
       }
     },
     [accounts, org, overviewCacheKey, overviewTaskName]
@@ -665,7 +682,7 @@ function useOrgMembersData({
   membersTaskName: string
 }) {
   const enqueueRef = useRef(enqueue)
-  const cachedMembers = dataCache.get<OrgMemberResult>(membersCacheKey)?.data ?? null
+  const cachedMembers = tryGetCached<OrgMemberResult>(membersCacheKey)
   const [membersResult, setMembersResult] = useState<OrgMemberResult | null>(() => cachedMembers)
   const [membersPhase, setMembersPhase] = useState<LoadPhase>(() =>
     cachedMembers ? 'ready' : 'loading'
@@ -684,7 +701,7 @@ function useOrgMembersData({
   const fetchMembers = useCallback(
     async (forceRefresh = false) => {
       const queue = getTaskQueue('github')
-      const cached = dataCache.get<OrgMemberResult>(membersCacheKey)?.data ?? null
+      const cached = tryGetCached<OrgMemberResult>(membersCacheKey)
       /* v8 ignore start */
       if (cached && !forceRefresh) {
         setMembersResult(cached)
@@ -719,9 +736,7 @@ function useOrgMembersData({
         dataCache.set(membersCacheKey, result)
         /* v8 ignore stop */
       } catch (fetchError) {
-        if (isAbortError(fetchError)) return
-        setMembersPhase('error')
-        setMembersError(getErrorMessage(fetchError))
+        handleOrgFetchError(fetchError, setMembersPhase, setMembersError)
       }
     },
     [accounts, membersCacheKey, membersTaskName, org]
@@ -767,8 +782,32 @@ function handleCopilotSuccess(
 }
 
 function getCachedCopilotData(cacheKey: string): OrgCopilotUsageData | null {
-  return dataCache.get<OrgCopilotUsageData>(cacheKey)?.data ?? null
+  return tryGetCached<OrgCopilotUsageData>(cacheKey)
 }
+
+/** Handle copilot fetch result: dispatch success or error. */
+/* v8 ignore start */
+function handleCopilotFetchResult(
+  result: { success: boolean; data?: Parameters<typeof handleCopilotSuccess>[0] },
+  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>,
+  cacheKey: string
+) {
+  if (result.success && result.data) {
+    handleCopilotSuccess(result.data, dispatch, cacheKey)
+  } else {
+    dispatch({ type: 'error', error: null })
+  }
+}
+
+/** Handle copilot fetch error: ignore aborts, otherwise dispatch error. */
+function handleCopilotCatchError(
+  error: unknown,
+  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
+) {
+  if (isAbortError(error)) return
+  dispatch({ type: 'error', error: getErrorMessage(error) })
+}
+/* v8 ignore stop */
 
 function useOrgCopilotData({
   org,
@@ -842,20 +881,12 @@ function useOrgCopilotData({
           { name: copilotTaskName, priority: -1 }
         )
         /* v8 ignore start */
-        if (result.success && result.data) {
-          handleCopilotSuccess(result.data, dispatchCopilot, copilotCacheKey)
-        } else {
-          dispatchCopilot({ type: 'error', error: null })
-          /* v8 ignore stop */
-        }
+        handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
+        /* v8 ignore stop */
       } catch (fetchError) {
         /* v8 ignore start */
-        if (isAbortError(fetchError)) return
+        handleCopilotCatchError(fetchError, dispatchCopilot)
         /* v8 ignore stop */
-        dispatchCopilot({
-          type: 'error',
-          error: getErrorMessage(fetchError),
-        })
       }
     },
     [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]
@@ -990,6 +1021,28 @@ function getMembersFromResult(result: OrgMemberResult | null): OrgMember[] {
   return result?.members ?? []
 }
 
+function shouldRefreshOrgOnMount(
+  initialOverview: OrgOverviewResult | null,
+  hasCachedMembers: boolean,
+  hasCachedCopilot: boolean
+): boolean {
+  return Boolean(initialOverview || hasCachedMembers || hasCachedCopilot)
+}
+
+function resolveSelectedContributor(
+  memberLogin: string | undefined,
+  contributorMap: Map<string, OrgContributor>
+): OrgContributor | null {
+  return memberLogin ? (contributorMap.get(memberLogin) ?? null) : null
+}
+
+function resolveSelectedQuotaState(
+  account: GitHubAccount | null,
+  quotas: ReturnType<typeof useCopilotUsage>['quotas']
+): CopilotQuotaState | null {
+  return account ? (quotas[account.username] ?? null) : null
+}
+
 function useOrgDetailData(org: string, memberLogin?: string) {
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
@@ -1041,8 +1094,10 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     copilotTaskName,
   })
   const { rateLimit, fetchRateLimit } = useOrgRateLimit(accounts, org)
-  const shouldRefreshOnMount = Boolean(
-    initialOverview || membersData.hasCachedMembers || copilotData.hasCachedCopilot
+  const shouldRefreshOnMount = shouldRefreshOrgOnMount(
+    initialOverview,
+    membersData.hasCachedMembers,
+    copilotData.hasCachedCopilot
   )
 
   const githubQueue = getTaskQueue('github')
@@ -1111,10 +1166,8 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const quotaOverage = orgOverageFromQuotas.get(org) ?? 0
   const isInitialLoading = !overviewData.overview && liveOverviewPhase === 'loading'
   const isUpdating = [liveOverviewPhase, liveMembersPhase, liveCopilotPhase].includes('refreshing')
-  const selectedContributor = memberLogin ? (contributorMap.get(memberLogin) ?? null) : null
-  const selectedMemberQuotaState = selectedConfiguredAccount
-    ? quotas[selectedConfiguredAccount.username]
-    : null
+  const selectedContributor = resolveSelectedContributor(memberLogin, contributorMap)
+  const selectedMemberQuotaState = resolveSelectedQuotaState(selectedConfiguredAccount, quotas)
 
   return {
     budgetState,
@@ -1407,6 +1460,10 @@ function OrgDetailAlerts({
   )
 }
 
+function getHighlightedLogin(member: { login: string } | undefined | null): string | null {
+  return member?.login ?? null
+}
+
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const {
     budgetState,
@@ -1522,7 +1579,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
       <OrgDetailHero
         org={org}
         overview={overview}
-        highlightedMemberLogin={selectedMember?.login ?? null}
+        highlightedMemberLogin={getHighlightedLogin(selectedMember)}
         liveOverviewPhase={liveOverviewPhase}
         liveMembersPhase={liveMembersPhase}
         liveCopilotPhase={liveCopilotPhase}

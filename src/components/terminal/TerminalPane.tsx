@@ -151,6 +151,14 @@ export function TerminalPane({
       }
     }
 
+    /* v8 ignore start -- only called from v8-ignored deactivation guard */
+    function killOrphanedSession(result: { success: boolean; sessionId?: string }) {
+      if (result.success && result.sessionId) {
+        void window.terminal.kill(result.sessionId)
+      }
+    }
+    /* v8 ignore stop */
+
     async function spawnNew() {
       const result = await window.terminal.spawn({
         cwd,
@@ -161,11 +169,7 @@ export function TerminalPane({
       // If deactivated while spawn was in flight, kill the orphaned PTY immediately
       if (!active) {
         /* v8 ignore start */
-        if (result.success && result.sessionId) {
-          /* v8 ignore stop */
-          void window.terminal.kill(result.sessionId)
-        }
-        /* v8 ignore start */
+        killOrphanedSession(result)
         return
         /* v8 ignore stop */
       }
@@ -259,7 +263,8 @@ export function TerminalPane({
     function applyResizeDimensions(fit: FitAddon, sid: string) {
       const d = fit.proposeDimensions()
       /* v8 ignore start */
-      if (!d?.cols || !d?.rows) return
+      if (!d) return
+      if (!d.cols || !d.rows) return
       /* v8 ignore stop */
       const last = lastResizeRef.current
       if (last && last.cols === d.cols && last.rows === d.rows) return

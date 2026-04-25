@@ -338,15 +338,23 @@ async function fetchOrgOrUserBillingUsage(
   }
 }
 
+function computeOverageSpend(quotaData: Record<string, unknown>): number {
+  const premium = (quotaData?.quota_snapshots as Record<string, unknown>)?.premium_interactions as
+    | Record<string, unknown>
+    | undefined
+  if (!premium) return 0
+  const overageByCount = Math.max(0, (premium.overage_count as number) ?? 0)
+  const overageByRemaining = Math.max(0, -((premium.remaining as number) ?? 0))
+  return roundCents(Math.max(overageByCount, overageByRemaining) * OVERAGE_COST_PER_REQUEST)
+}
+
 /** Compute spend for a personal account using the internal quota endpoint. */
 async function fetchPersonalAccountSpend(
   org: string,
   username?: string
 ): Promise<{ spent: number; spentError: string | null }> {
   const quotaToken = await tryGetCliToken(username)
-  if (!quotaToken) {
-    return { spent: 0, spentError: null }
-  }
+  if (!quotaToken) return { spent: 0, spentError: null }
 
   try {
     const quotaResult = await execAsync('gh api /copilot_internal/user', {
@@ -355,14 +363,7 @@ async function fetchPersonalAccountSpend(
       env: { ...process.env, GH_TOKEN: quotaToken },
     })
     const quotaData = JSON.parse(quotaResult.stdout.trim())
-    const premium = quotaData?.quota_snapshots?.premium_interactions
-    if (premium) {
-      const overageByCount = Math.max(0, premium.overage_count ?? 0)
-      const overageByRemaining = Math.max(0, -(premium.remaining ?? 0))
-      const overageRequests = Math.max(overageByCount, overageByRemaining)
-      return { spent: roundCents(overageRequests * OVERAGE_COST_PER_REQUEST), spentError: null }
-    }
-    return { spent: 0, spentError: null }
+    return { spent: computeOverageSpend(quotaData), spentError: null }
   } catch (quotaError) {
     console.warn(`Quota-based spend fallback failed for '${org}':`, getErrorMessage(quotaError))
     return { spent: 0, spentError: getErrorMessage(quotaError) }
@@ -514,14 +515,18 @@ interface RawCopilotSeat {
   pending_cancellation_date?: string | null
 }
 
+function toNullableString(val: string | null | undefined): string | null {
+  return val ?? null
+}
+
 function mapCopilotSeatData(seat: RawCopilotSeat, fallbackLogin: string) {
   return {
     login: seat.assignee?.login ?? fallbackLogin,
-    planType: seat.plan_type ?? null,
-    lastActivityAt: seat.last_activity_at ?? null,
-    lastActivityEditor: seat.last_activity_editor ?? null,
-    createdAt: seat.created_at ?? null,
-    pendingCancellation: seat.pending_cancellation_date ?? null,
+    planType: toNullableString(seat.plan_type),
+    lastActivityAt: toNullableString(seat.last_activity_at),
+    lastActivityEditor: toNullableString(seat.last_activity_editor),
+    createdAt: toNullableString(seat.created_at),
+    pendingCancellation: toNullableString(seat.pending_cancellation_date),
   }
 }
 
@@ -540,10 +545,9 @@ export function registerGitHubHandlers(): void {
       }
 
       const token = stdout.trim()
-      if (!token || token.length === 0) {
-        throw new Error(
-          `GitHub CLI returned empty token${username ? ` for account '${username}'` : ''}`
-        )
+      if (!token) {
+        const suffix = username ? ` for account '${username}'` : ''
+        throw new Error(`GitHub CLI returned empty token${suffix}`)
       }
 
       return token

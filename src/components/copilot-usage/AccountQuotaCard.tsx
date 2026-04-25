@@ -37,16 +37,17 @@ interface QuotaMetrics {
   overageCost: number
 }
 
+const PREMIUM_DEFAULTS = { percent_remaining: 100, entitlement: 0, remaining: 0, overage_count: 0 }
+
 function computeQuotaMetrics(
   premium: NonNullable<AccountQuotaState['data']>['quota_snapshots']['premium_interactions']
 ): QuotaMetrics {
-  /* v8 ignore start - premium guaranteed non-null by caller */
-  const percentUsed = premium ? 100 - premium.percent_remaining : 0
-  const used = premium ? premium.entitlement - premium.remaining : 0
-  const total = premium?.entitlement ?? 0
-  const overageByCount = Math.max(0, premium?.overage_count ?? 0)
-  const overageByRemaining = Math.max(0, -(premium?.remaining ?? 0))
-  /* v8 ignore stop */
+  const p = { ...PREMIUM_DEFAULTS, ...premium }
+  const percentUsed = 100 - p.percent_remaining
+  const used = p.entitlement - p.remaining
+  const total = p.entitlement
+  const overageByCount = Math.max(0, p.overage_count)
+  const overageByRemaining = Math.max(0, -p.remaining)
   const overageRequests = Math.max(overageByCount, overageByRemaining)
   const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
   return { percentUsed, used, total, overageRequests, overageCost }
@@ -218,9 +219,13 @@ function QuotaErrorView({ username, error }: { username: string; error: string }
   )
 }
 
+function isLoadingWithoutData(loading: boolean, data: unknown): boolean {
+  return loading && !data
+}
+
 export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
   const { data, premium, metrics, projection } = prepareQuotaData(state)
-  const showLoading = state.loading && !data
+  const showLoading = isLoadingWithoutData(state.loading, data)
   const showError = !!state.error && !data
 
   return (

@@ -9,6 +9,7 @@ import {
   useBuddyStatsMutations,
 } from '../../hooks/useConvex'
 import { Id } from '../../../convex/_generated/dataModel'
+import { getUserFacingErrorMessage } from '../../utils/errorUtils'
 import './ScheduleEditor.css'
 
 type MissedPolicy = 'skip' | 'catchup' | 'last'
@@ -157,6 +158,14 @@ function JobSelector({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- exported for testing
+export function getMissedPolicyHint(policy: string): string {
+  if (policy === 'skip') return 'If the app was closed, missed runs are ignored.'
+  if (policy === 'catchup') return 'All missed runs execute when the app restarts.'
+  if (policy === 'last') return 'One run executes to cover all missed intervals.'
+  return ''
+}
+
 function ScheduleEditorForm({
   scheduleId,
   isEditing,
@@ -181,6 +190,7 @@ function ScheduleEditorForm({
       return
     }
 
+    const trimmedDesc = description.trim() || undefined
     setError(null)
     setSaving(true)
 
@@ -190,7 +200,7 @@ function ScheduleEditorForm({
           id: scheduleId as Id<'schedules'>,
           name: name.trim(),
           /* v8 ignore start */
-          description: description.trim() || undefined,
+          description: trimmedDesc,
           /* v8 ignore stop */
           cron,
           enabled,
@@ -199,7 +209,7 @@ function ScheduleEditorForm({
       } else {
         await create({
           name: name.trim(),
-          description: description.trim() || undefined,
+          description: trimmedDesc,
           jobId: jobId as JobId,
           cron,
           enabled,
@@ -213,7 +223,7 @@ function ScheduleEditorForm({
       onClose()
     } catch (err) {
       /* v8 ignore start */
-      setError(err instanceof Error ? err.message : 'Failed to save schedule')
+      setError(getUserFacingErrorMessage(err, 'Failed to save schedule'))
       /* v8 ignore stop */
     } finally {
       setSaving(false)
@@ -290,13 +300,7 @@ function ScheduleEditorForm({
             <option value="catchup">Catch up all missed runs</option>
             <option value="last">Run once for all missed</option>
           </select>
-          <div className="form-hint">
-            {missedPolicy === 'skip' && 'If the app was closed, missed runs are ignored.'}
-            {/* v8 ignore start */}
-            {missedPolicy === 'catchup' && 'All missed runs execute when the app restarts.'}
-            {/* v8 ignore stop */}
-            {missedPolicy === 'last' && 'One run executes to cover all missed intervals.'}
-          </div>
+          <div className="form-hint">{getMissedPolicyHint(missedPolicy)}</div>
         </div>
 
         <div className="form-group form-row">

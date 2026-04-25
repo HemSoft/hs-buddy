@@ -12,6 +12,13 @@ const SSRF_BLOCKED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1'
 
 const PRIVATE_IPV4_PREFIXES = ['10.', '192.168.', '169.254.']
 
+/** Check whether an IPv6 address is a private/reserved address. */
+function isPrivateIPv6(lower: string): boolean {
+  return (
+    lower === '::1' || lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')
+  )
+}
+
 function isPrivateIP(ip: string): boolean {
   // Strip IPv4-mapped IPv6 prefix
   const normalized = ip.startsWith('::ffff:') ? ip.slice(7) : ip
@@ -24,36 +31,24 @@ function isPrivateIP(ip: string): boolean {
   }
 
   // IPv6: loopback (::1), link-local (fe80::), ULA (fc00::/7)
-  const lower = normalized.toLowerCase()
-  return (
-    lower === '::1' || lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')
-  )
+  return isPrivateIPv6(normalized.toLowerCase())
 }
 
+const INTERNAL_PREFIXES = ['127.', '169.254.', '10.', '192.168.']
+const INTERNAL_SUFFIXES = ['.local', '.internal']
+const INTERNAL_PATTERN = /^172\.(1[6-9]|2\d|3[01])\./
+
 function isInternalHostname(hostname: string): boolean {
-  return (
-    SSRF_BLOCKED_HOSTNAMES.has(hostname) ||
-    hostname.startsWith('127.') ||
-    hostname.startsWith('169.254.') ||
-    hostname.startsWith('10.') ||
-    hostname.startsWith('192.168.') ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
-    hostname.endsWith('.local') ||
-    hostname.endsWith('.internal')
-  )
+  if (SSRF_BLOCKED_HOSTNAMES.has(hostname)) return true
+  if (INTERNAL_PREFIXES.some(p => hostname.startsWith(p))) return true
+  if (INTERNAL_SUFFIXES.some(s => hostname.endsWith(s))) return true
+  return INTERNAL_PATTERN.test(hostname)
 }
 
 async function validateUrlWithDns(url: string): Promise<URL> {
-  const parsed = new URL(url)
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error('Only http/https URLs supported')
-  }
+  const parsed = validateUrl(url)
   const hostname = parsed.hostname.toLowerCase()
-  if (isInternalHostname(hostname)) {
-    throw new Error('Internal URLs not allowed')
-  }
 
-  // Resolve hostname to IPs and reject if any resolve to private/internal ranges
   try {
     const result = await lookup(hostname, { all: true, verbatim: true })
     for (const { address } of result) {
@@ -63,7 +58,6 @@ async function validateUrlWithDns(url: string): Promise<URL> {
     }
   } catch (err) {
     if (err instanceof Error && err.message === 'Internal URLs not allowed') throw err
-    // DNS resolution failure — reject to be safe
     throw new Error(`DNS resolution failed for ${hostname}`, { cause: err })
   }
 
@@ -84,11 +78,13 @@ function validateUrl(url: string): URL {
 const MAX_REDIRECTS = 5
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 
-async function readResponseBody(response: Response): Promise<string> {
+function assertHtmlContentType(response: Response): void {
   const contentType = response.headers.get('content-type') ?? ''
-  if (!contentType.includes('text/html')) {
-    throw new Error('Not an HTML page')
-  }
+  if (!contentType.includes('text/html')) throw new Error('Not an HTML page')
+}
+
+async function readResponseBody(response: Response): Promise<string> {
+  assertHtmlContentType(response)
   const reader = response.body?.getReader()
   if (!reader) throw new Error('No body')
   const chunks: Uint8Array[] = []
@@ -144,16 +140,23 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&nbsp;/g, ' ')
 }
 
-function extractPageTitle(html: string): string | null {
-  const titleMatch = html.match(/<title[^>]*>([\s\S]+?)<\/title>/i)
-  const rawTitle = titleMatch?.[1]?.trim()?.replace(/\s+/g, ' ')
-  if (rawTitle) return decodeHtmlEntities(rawTitle)
+function extractTitleTag(html: string): string | null {
+  const match = html.match(/<title[^>]*>([\s\S]+?)<\/title>/i)
+  return match?.[1]?.trim()?.replace(/\s+/g, ' ') ?? null
+}
 
-  const ogMatch =
+function extractOgTitle(html: string): string | null {
+  const match =
     html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ??
     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)
-  if (ogMatch?.[1]) return decodeHtmlEntities(ogMatch[1].trim())
+  return match?.[1]?.trim() ?? null
+}
 
+function extractPageTitle(html: string): string | null {
+  const title = extractTitleTag(html)
+  if (title) return decodeHtmlEntities(title)
+  const ogTitle = extractOgTitle(html)
+  if (ogTitle) return decodeHtmlEntities(ogTitle)
   return null
 }
 

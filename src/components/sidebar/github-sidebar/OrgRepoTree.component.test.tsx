@@ -756,4 +756,16 @@ describe('OrgRepoTree', () => {
     render(<OrgRepoTree {...props} />)
     expect(screen.getByText('Loading teams...')).toBeTruthy()
   })
+
+  it('renders nothing for expanded user group with empty members', () => {
+    const props = makeDefaultProps({
+      uniqueOrgs: ['my-org'],
+      expandedOrgs: new Set(['my-org']),
+      expandedOrgUserGroups: new Set(['my-org']),
+      orgMembers: { 'my-org': [] },
+    })
+    render(<OrgRepoTree {...props} />)
+    expect(screen.queryByText('Loading users...')).toBeNull()
+    expect(document.querySelector('.sidebar-org-users-list')).toBeNull()
+  })
 })

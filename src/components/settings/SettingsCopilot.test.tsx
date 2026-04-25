@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { SettingsCopilot } from './SettingsCopilot'
+import { SettingsCopilot, settingsReducer } from './SettingsCopilot'
 
 const mocks = vi.hoisted(() => {
   const mockSetGhAccount = vi.fn().mockResolvedValue(undefined)
@@ -612,5 +612,20 @@ describe('SettingsCopilot', () => {
     expect(screen.getByText('Saved')).toBeInTheDocument()
     const codeEl = document.querySelector('.info-box code')
     expect(codeEl?.textContent).toBe('o1-preview')
+  })
+})
+
+describe('settingsReducer', () => {
+  it('returns state unchanged for unknown action type', () => {
+    const state = {
+      localAccount: 'alice',
+      localModel: 'gpt-4',
+      customModel: '',
+      isCustomModel: false,
+      saveStatus: 'idle' as const,
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = settingsReducer(state, { type: 'unknown_action' } as any)
+    expect(result).toBe(state)
   })
 })

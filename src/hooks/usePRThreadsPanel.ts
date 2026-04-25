@@ -197,18 +197,10 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     [accounts, ownerRepo, pr.repository, pr.id, enqueueRef]
   )
 
-  const activeThreads = useMemo(
-    () => data?.threads.filter(t => !t.isResolved) ?? [],
-    [data?.threads]
-  )
-  const resolvedThreads = useMemo(
-    () => data?.threads.filter(t => t.isResolved) ?? [],
-    [data?.threads]
-  )
-  const outdatedThreads = useMemo(
-    () => data?.threads.filter(t => t.isOutdated) ?? [],
-    [data?.threads]
-  )
+  const threads = data?.threads
+  const activeThreads = useMemo(() => threads?.filter(t => !t.isResolved) ?? [], [threads])
+  const resolvedThreads = useMemo(() => threads?.filter(t => t.isResolved) ?? [], [threads])
+  const outdatedThreads = useMemo(() => threads?.filter(t => t.isOutdated) ?? [], [threads])
 
   const threadSnapshotChanged = useMemo(
     () =>
@@ -228,12 +220,12 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
 
   const filteredThreads = useMemo(
     () =>
-      data?.threads.filter(t => {
+      threads?.filter(t => {
         if (filter === 'active') return !t.isResolved
         if (filter === 'resolved') return t.isResolved
         return true
       }) ?? [],
-    [data?.threads, filter]
+    [threads, filter]
   )
 
   const openLatestReview = useCallback(() => {

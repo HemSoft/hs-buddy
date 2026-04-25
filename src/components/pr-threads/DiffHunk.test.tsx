@@ -174,4 +174,16 @@ describe('DiffHunk', () => {
     const contentLines = container.querySelectorAll('.diff-line:not(.diff-truncated)')
     expect(contentLines.length).toBe(6)
   })
+
+  it('falls back to default counters when @@ header is malformed', () => {
+    const hunk = '@@ invalid header @@\n+added line\n-removed line'
+    const { container } = render(<DiffHunk hunk={hunk} />)
+
+    expect(container.querySelector('.diff-hunk')).toBeTruthy()
+    // @@ line renders as a range line even if parsing fails
+    expect(container.querySelector('.diff-range')).toBeTruthy()
+    // Added/removed lines still render
+    expect(container.querySelector('.diff-add')).toBeTruthy()
+    expect(container.querySelector('.diff-del')).toBeTruthy()
+  })
 })

@@ -184,6 +184,11 @@ interface SendPromptOptions {
   cwd?: string // working directory for the CLI process
 }
 
+/** Throw if the given AbortSignal has been aborted. */
+function assertNotAborted(signal: AbortSignal | undefined, msg: string): void {
+  if (signal?.aborted) throw new Error(msg)
+}
+
 /**
  * Send a prompt via the shared CopilotClient and return the response text.
  *
@@ -214,7 +219,7 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
       client = await ensureClientStarted()
     }
 
-    if (signal?.aborted) throw new Error('Cancelled before session creation')
+    assertNotAborted(signal, 'Cancelled before session creation')
 
     const session = await Promise.race([
       client.createSession({ model, onPermissionRequest: () => ({ kind: 'approved' as const }) }),
@@ -222,7 +227,7 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
     ])
 
     try {
-      if (signal?.aborted) throw new Error('Cancelled after session creation')
+      assertNotAborted(signal, 'Cancelled after session creation')
 
       const response = await session.sendAndWait({ prompt }, timeout)
       return extractContent(response)

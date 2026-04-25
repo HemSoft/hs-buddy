@@ -69,3 +69,8 @@ export function handleItemKeyDown(
   }
   action()
 }
+
+export function sidebarItemClass(baseClass: string, isSelected: boolean): string {
+  if (isSelected) return `${baseClass} selected`
+  return baseClass
+}

@@ -1,5 +1,12 @@
 import type { PullRequest } from '../types/pullRequest'
 
+/** Convert an unknown date-like value to ISO string, or null if invalid/missing. */
+function toIsoOrNull(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  const d = new Date(value as string | number | Date)
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null
+}
+
 export interface PRDetailInfo {
   source: PullRequest['source']
   repository: string
@@ -31,10 +38,6 @@ interface PRDetailRoute {
 }
 
 function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
-  const createdDate = pr.created ? new Date(pr.created as unknown as string | number | Date) : null
-  const createdIso =
-    createdDate && Number.isFinite(createdDate.getTime()) ? createdDate.toISOString() : null
-
   return {
     source: pr.source,
     repository: pr.repository,
@@ -47,7 +50,7 @@ function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
     approvalCount: pr.approvalCount,
     assigneeCount: pr.assigneeCount,
     iApproved: pr.iApproved,
-    created: createdIso,
+    created: toIsoOrNull(pr.created),
     updatedAt: pr.updatedAt || null,
     headBranch: pr.headBranch || '',
     baseBranch: pr.baseBranch || '',

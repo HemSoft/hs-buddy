@@ -23,6 +23,7 @@ import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { RepoNode } from './RepoNode'
+import { sidebarItemClass } from './repoNodeUtils'
 
 function orgRefreshClass(org: string, indicators?: RefreshIndicators): string {
   if (!indicators) return ''
@@ -482,6 +483,85 @@ interface OrgUsersSectionProps {
   onUserContextMenu: (e: React.MouseEvent, org: string, login: string) => void
 }
 
+function UserCountBadge({ isLoading, count }: { isLoading: boolean; count: number }) {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  if (count > 0) return <span className="sidebar-item-count">{count}</span>
+  return null
+}
+
+function UsersSectionContent({
+  isExpanded,
+  isLoading,
+  sortedMembers,
+  org,
+  contributorCounts,
+  favoriteUsers,
+  selectedItem,
+  onItemSelect,
+  onUserContextMenu,
+}: {
+  isExpanded: boolean
+  isLoading: boolean
+  sortedMembers: OrgMember[]
+  org: string
+  contributorCounts: Record<string, number>
+  favoriteUsers: ReadonlySet<string>
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  onUserContextMenu: (e: React.MouseEvent, org: string, login: string) => void
+}) {
+  if (!isExpanded) return null
+  if (isLoading) {
+    return (
+      <div className="sidebar-org-users-list">
+        <div className="sidebar-item sidebar-pr-child">
+          <span className="sidebar-item-icon">
+            <Loader2 size={11} className="spin" />
+          </span>
+          <span className="sidebar-item-label">Loading users...</span>
+        </div>
+      </div>
+    )
+  }
+  if (sortedMembers.length === 0) return null
+  return (
+    <div className="sidebar-org-users-list">
+      {sortedMembers.map(member => {
+        const userViewId = `org-user:${org}/${member.login}`
+        const userCommitCount = contributorCounts[member.login] ?? 0
+        const isFavorite = favoriteUsers.has(`${org}/${member.login}`)
+
+        return (
+          <div
+            key={userViewId}
+            className={sidebarItemClass(
+              'sidebar-item sidebar-org-user-child',
+              selectedItem === userViewId
+            )}
+            role="button"
+            tabIndex={0}
+            onClick={() => onItemSelect(userViewId)}
+            onContextMenu={event => onUserContextMenu(event, org, member.login)}
+            onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(userViewId))}
+          >
+            <span className="sidebar-item-icon">
+              {isFavorite ? (
+                <Star size={11} fill="currentColor" className="sidebar-fav-star" />
+              ) : (
+                <UserRound size={11} />
+              )}
+            </span>
+            <span className="sidebar-item-label" title={member.login}>
+              {member.name ? `${member.name} (${member.login})` : member.login}
+            </span>
+            {userCommitCount > 0 && <span className="sidebar-item-count">{userCommitCount}</span>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function OrgUsersSection({
   org,
   members,
@@ -517,57 +597,19 @@ function OrgUsersSection({
           <Users size={12} />
         </span>
         <span className="sidebar-item-label">Users</span>
-        {isLoading ? (
-          <Loader2 size={10} className="spin" />
-        ) : members.length > 0 ? (
-          <span className="sidebar-item-count">{members.length}</span>
-        ) : null}
+        <UserCountBadge isLoading={isLoading} count={members.length} />
       </div>
-      {isExpanded && isLoading && (
-        <div className="sidebar-org-users-list">
-          <div className="sidebar-item sidebar-pr-child">
-            <span className="sidebar-item-icon">
-              <Loader2 size={11} className="spin" />
-            </span>
-            <span className="sidebar-item-label">Loading users...</span>
-          </div>
-        </div>
-      )}
-      {isExpanded && !isLoading && members.length > 0 && (
-        <div className="sidebar-org-users-list">
-          {sortedMembers.map(member => {
-            const userViewId = `org-user:${org}/${member.login}`
-            const userCommitCount = contributorCounts[member.login] ?? 0
-            const isFavorite = favoriteUsers.has(`${org}/${member.login}`)
-
-            return (
-              <div
-                key={userViewId}
-                className={`sidebar-item sidebar-org-user-child ${selectedItem === userViewId ? 'selected' : ''}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => onItemSelect(userViewId)}
-                onContextMenu={event => onUserContextMenu(event, org, member.login)}
-                onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(userViewId))}
-              >
-                <span className="sidebar-item-icon">
-                  {isFavorite ? (
-                    <Star size={11} fill="currentColor" className="sidebar-fav-star" />
-                  ) : (
-                    <UserRound size={11} />
-                  )}
-                </span>
-                <span className="sidebar-item-label" title={member.login}>
-                  {member.name ? `${member.name} (${member.login})` : member.login}
-                </span>
-                {userCommitCount > 0 && (
-                  <span className="sidebar-item-count">{userCommitCount}</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      <UsersSectionContent
+        isExpanded={isExpanded}
+        isLoading={isLoading}
+        sortedMembers={sortedMembers}
+        org={org}
+        contributorCounts={contributorCounts}
+        favoriteUsers={favoriteUsers}
+        selectedItem={selectedItem}
+        onItemSelect={onItemSelect}
+        onUserContextMenu={onUserContextMenu}
+      />
     </>
   )
 }
@@ -940,6 +982,21 @@ function OrgExpandedBody({
   )
 }
 
+function OrgMetaLabel({
+  meta,
+  isLoading,
+}: {
+  meta?: { authenticatedAs: string; isUserNamespace: boolean }
+  isLoading: boolean
+}) {
+  if (!meta || isLoading) return null
+  return (
+    <div className="sidebar-org-account" title={`Authenticated via @${meta.authenticatedAs}`}>
+      via @{meta.authenticatedAs}
+    </div>
+  )
+}
+
 function OrgTreeNode({
   org,
   orgRepos,
@@ -1028,11 +1085,7 @@ function OrgTreeNode({
         onToggleOrg={onToggleOrg}
         onItemSelect={onItemSelect}
       />
-      {meta && !isLoading && (
-        <div className="sidebar-org-account" title={`Authenticated via @${meta.authenticatedAs}`}>
-          via @{meta.authenticatedAs}
-        </div>
-      )}
+      <OrgMetaLabel meta={meta} isLoading={isLoading} />
       {isOrgExpanded && (
         <OrgExpandedBody
           org={org}

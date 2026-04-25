@@ -64,6 +64,31 @@ function TodayCard({ todayHours }: { todayHours: number }) {
   )
 }
 
+function RemainingCardBody({
+  isMonthComplete,
+  remaining,
+  showMissing,
+}: {
+  isMonthComplete: boolean
+  remaining: number
+  showMissing: boolean
+}) {
+  if (isMonthComplete) {
+    return (
+      <>
+        <span className="tempo-card-value">Complete</span>
+        <span className="tempo-card-label">All hours logged</span>
+      </>
+    )
+  }
+  return (
+    <>
+      <span className="tempo-card-value">{remaining}h</span>
+      <span className="tempo-card-label">{showMissing ? 'Missing' : 'Remaining'}</span>
+    </>
+  )
+}
+
 function RemainingCard({
   isMonthComplete,
   remaining,
@@ -75,29 +100,22 @@ function RemainingCard({
   isPastMonth: boolean
   monthTarget: number
 }) {
+  const showMissing = isPastMonth && monthTarget > 0
+  const cardClass = `tempo-card ${isMonthComplete ? 'tempo-card-complete' : 'tempo-card-remaining'}`
+  const hasMissingBadge = showMissing && !isMonthComplete
   return (
-    <div
-      className={`tempo-card ${isMonthComplete ? 'tempo-card-complete' : 'tempo-card-remaining'}`}
-    >
+    <div className={cardClass}>
       <div className="tempo-card-icon">
         {isMonthComplete ? <CheckCircle2 size={18} /> : <Target size={18} />}
       </div>
       <div className="tempo-card-body">
-        {isMonthComplete ? (
-          <>
-            <span className="tempo-card-value">Complete</span>
-            <span className="tempo-card-label">All hours logged</span>
-          </>
-        ) : (
-          <>
-            <span className="tempo-card-value">{remaining}h</span>
-            <span className="tempo-card-label">
-              {isPastMonth && monthTarget > 0 ? 'Missing' : 'Remaining'}
-            </span>
-          </>
-        )}
+        <RemainingCardBody
+          isMonthComplete={isMonthComplete}
+          remaining={remaining}
+          showMissing={showMissing}
+        />
       </div>
-      {isPastMonth && monthTarget > 0 && !isMonthComplete && (
+      {hasMissingBadge && (
         <div className="tempo-card-badge-missing">
           <XCircle size={14} />
         </div>

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-import { ScheduleEditor } from './ScheduleEditor'
+import { ScheduleEditor, getMissedPolicyHint } from './ScheduleEditor'
 
 const mockCreate = vi.fn()
 const mockUpdate = vi.fn()
@@ -191,5 +191,23 @@ describe('ScheduleEditor', () => {
     const jobSelect = screen.getByLabelText('Job')
     fireEvent.change(jobSelect, { target: { value: 'job-2' } })
     expect(jobSelect).toHaveValue('job-2')
+  })
+})
+
+describe('getMissedPolicyHint', () => {
+  it('returns hint for skip policy', () => {
+    expect(getMissedPolicyHint('skip')).toBe('If the app was closed, missed runs are ignored.')
+  })
+
+  it('returns hint for catchup policy', () => {
+    expect(getMissedPolicyHint('catchup')).toBe('All missed runs execute when the app restarts.')
+  })
+
+  it('returns hint for last policy', () => {
+    expect(getMissedPolicyHint('last')).toBe('One run executes to cover all missed intervals.')
+  })
+
+  it('returns empty string for unknown policy', () => {
+    expect(getMissedPolicyHint('unknown')).toBe('')
   })
 })

@@ -248,4 +248,16 @@ describe('PRTreeSection', () => {
     fireEvent.contextMenu(prGroup)
     expect(onContextMenu).toHaveBeenCalled()
   })
+
+  it('renders item with empty PR list when key is missing from prTreeData', () => {
+    renderSection({
+      expandedPrGroups: new Set([baseItem.id]),
+      prTreeData: {},
+      counts: { [baseItem.id]: 0 },
+    })
+    // Item header renders
+    expect(screen.getByText('My PRs')).toBeTruthy()
+    // But no PR children since prTreeData is empty for this key
+    expect(document.querySelector('.sidebar-pr-group')).toBeNull()
+  })
 })

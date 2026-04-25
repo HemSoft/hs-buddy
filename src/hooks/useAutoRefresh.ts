@@ -21,26 +21,25 @@ export const INTERVAL_OPTIONS = [
 
 const ALLOWED_INTERVALS = new Set(INTERVAL_OPTIONS.map(o => o.value))
 
+function isValidAutoRefreshSettings(
+  parsed: AutoRefreshSettings
+): parsed is AutoRefreshSettings & { enabled: boolean; intervalMinutes: number } {
+  return (
+    typeof parsed.enabled === 'boolean' &&
+    typeof parsed.intervalMinutes === 'number' &&
+    Number.isFinite(parsed.intervalMinutes) &&
+    ALLOWED_INTERVALS.has(parsed.intervalMinutes)
+  )
+}
+
 function readSettings(cardId: string, defaultInterval: number): AutoRefreshSettings {
   const fallback: AutoRefreshSettings = {
     enabled: false,
     intervalMinutes: ALLOWED_INTERVALS.has(defaultInterval) ? defaultInterval : 0,
   }
   const parsed = safeGetJson<AutoRefreshSettings>(`${STORAGE_PREFIX}${cardId}`)
-  if (parsed) {
-    if (
-      typeof parsed.enabled === 'boolean' &&
-      typeof parsed.intervalMinutes === 'number' &&
-      Number.isFinite(parsed.intervalMinutes) &&
-      ALLOWED_INTERVALS.has(parsed.intervalMinutes)
-    ) {
-      // Normalize: enabled requires a positive interval
-      return {
-        ...parsed,
-        enabled: parsed.enabled && parsed.intervalMinutes > 0,
-      }
-    }
-    // Corrupt entry — return fallback (repair write is deferred to useEffect)
+  if (parsed && isValidAutoRefreshSettings(parsed)) {
+    return { ...parsed, enabled: parsed.enabled && parsed.intervalMinutes > 0 }
   }
   return fallback
 }

@@ -108,6 +108,10 @@ function PRItemNode({
   )
 }
 
+function getPRsForItem(prTreeData: Record<string, PullRequest[]>, itemId: string): PullRequest[] {
+  return prTreeData[itemId] || []
+}
+
 interface PRTreeSectionProps {
   prItems: SidebarItem[]
   prTreeData: Record<string, PullRequest[]>
@@ -241,11 +245,11 @@ export function PRTreeSection({
             </button>
           </div>
 
-          {expandedPrGroups.has(item.id) && (prTreeData[item.id] || []).length > 0 && (
+          {expandedPrGroups.has(item.id) && getPRsForItem(prTreeData, item.id).length > 0 && (
             <div className="sidebar-job-tree sidebar-pr-tree">
               <div className="sidebar-job-items">
                 {/* v8 ignore start */}
-                {(prTreeData[item.id] || []).map(pr => (
+                {getPRsForItem(prTreeData, item.id).map(pr => (
                   <PRItemNode
                     key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`}
                     item={item}

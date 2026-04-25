@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { SettingsAccounts } from './SettingsAccounts'
+import { SettingsAccounts, addAccountFormReducer } from './SettingsAccounts'
 
 const mockAddAccount = vi.fn()
 const mockRemoveAccount = vi.fn()
@@ -191,5 +191,20 @@ describe('SettingsAccounts', () => {
 
     expect(await screen.findByText('Failed to add account')).toBeTruthy()
     expect(screen.getByLabelText('Username')).toHaveValue('new-user')
+  })
+})
+
+describe('addAccountFormReducer', () => {
+  it('returns state unchanged for unknown action type', () => {
+    const state = {
+      showAddForm: false,
+      newUsername: '',
+      newOrg: '',
+      addError: null,
+      isAdding: false,
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = addAccountFormReducer(state, { type: 'UNKNOWN_ACTION' } as any)
+    expect(result).toBe(state)
   })
 })

@@ -38,46 +38,47 @@ function humanSize(bytes: number): string {
   return `${(kb / 1024).toFixed(2)} MB`
 }
 
+function collectRendererAssets(distDir: string): BundleEntry[] {
+  const assetsDir = resolve(distDir, 'assets')
+  if (!existsSync(assetsDir)) return []
+  return readdirSync(assetsDir)
+    .filter(f => f.endsWith('.js') || f.endsWith('.css'))
+    .map(f => {
+      const size = statSync(resolve(assetsDir, f)).size
+      return { file: `dist/assets/${f}`, sizeBytes: size, sizeHuman: humanSize(size) }
+    })
+}
+
+function collectLargestMain(distElectronDir: string): BundleEntry | null {
+  if (!existsSync(distElectronDir)) return null
+  const mainFiles = readdirSync(distElectronDir).filter(
+    f => f.startsWith('main') && f.endsWith('.js')
+  )
+  if (mainFiles.length === 0) return null
+  const largest = mainFiles
+    .map(f => ({ name: f, size: statSync(resolve(distElectronDir, f)).size }))
+    .sort((a, b) => b.size - a.size)[0]
+  return {
+    file: `dist-electron/${largest.name}`,
+    sizeBytes: largest.size,
+    sizeHuman: humanSize(largest.size),
+  }
+}
+
 function collectBundles(): BundleEntry[] {
-  const bundles: BundleEntry[] = []
   const distDir = resolve(root, 'dist')
   const distElectronDir = resolve(root, 'dist-electron')
 
-  // Renderer assets (JS + CSS)
-  if (existsSync(resolve(distDir, 'assets'))) {
-    for (const f of readdirSync(resolve(distDir, 'assets'))) {
-      if (f.endsWith('.js') || f.endsWith('.css')) {
-        const full = resolve(distDir, 'assets', f)
-        const size = statSync(full).size
-        bundles.push({ file: `dist/assets/${f}`, sizeBytes: size, sizeHuman: humanSize(size) })
-      }
-    }
-  }
+  const bundles = [...collectRendererAssets(distDir)]
 
-  // Electron preload
   const preload = resolve(distElectronDir, 'preload.mjs')
   if (existsSync(preload)) {
     const size = statSync(preload).size
     bundles.push({ file: 'dist-electron/preload.mjs', sizeBytes: size, sizeHuman: humanSize(size) })
   }
 
-  // Electron main — Vite code-splits into a stub (main.js) + chunk (main-{hash}.js).
-  // Track the largest main*.js as the real payload.
-  if (existsSync(distElectronDir)) {
-    const mainFiles = readdirSync(distElectronDir).filter(
-      f => f.startsWith('main') && f.endsWith('.js')
-    )
-    if (mainFiles.length > 0) {
-      const largest = mainFiles
-        .map(f => ({ name: f, size: statSync(resolve(distElectronDir, f)).size }))
-        .sort((a, b) => b.size - a.size)[0]
-      bundles.push({
-        file: `dist-electron/${largest.name}`,
-        sizeBytes: largest.size,
-        sizeHuman: humanSize(largest.size),
-      })
-    }
-  }
+  const mainEntry = collectLargestMain(distElectronDir)
+  if (mainEntry) bundles.push(mainEntry)
 
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)
 }

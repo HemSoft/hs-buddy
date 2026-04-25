@@ -152,6 +152,14 @@ async function handleLastPolicy(
   }
 }
 
+const DEFAULT_TIMEZONE = 'America/New_York'
+
+function getScheduleDefaults(schedule: Schedule, now: number) {
+  const timezone = schedule.timezone ?? DEFAULT_TIMEZONE
+  const startFrom = schedule.nextRunAt ?? schedule.lastRunAt ?? now
+  return { timezone, startFrom }
+}
+
 /**
  * Process a single schedule's missed runs based on its missedPolicy.
  */
@@ -160,13 +168,11 @@ async function processSchedule(
   schedule: Schedule,
   now: number
 ): Promise<{ runsCreated: number; action: string }> {
-  const timezone = schedule.timezone ?? 'America/New_York'
-  const startFrom = schedule.nextRunAt ?? schedule.lastRunAt ?? now
-
-  // If nextRunAt is in the future, nothing was missed
   if (schedule.nextRunAt && schedule.nextRunAt > now) {
     return { runsCreated: 0, action: 'not-missed' }
   }
+
+  const { timezone, startFrom } = getScheduleDefaults(schedule, now)
 
   switch (schedule.missedPolicy) {
     case 'skip':
@@ -186,6 +192,24 @@ async function processSchedule(
  * Queries enabled schedules where nextRunAt is in the past, applies each
  * schedule's missedPolicy, creates appropriate runs, and advances nextRunAt.
  */
+function isMissedSchedule(schedule: Schedule, now: number): boolean {
+  return !schedule.nextRunAt || schedule.nextRunAt <= now
+}
+
+function processSingleSchedule(
+  result: OfflineSyncResult,
+  runsCreated: number,
+  action: string,
+  scheduleName: string
+): void {
+  result.schedulesProcessed++
+  result.runsCreated += runsCreated
+  if (action === 'skipped' || action === 'not-missed') {
+    result.skipped++
+  }
+  console.log(`[OfflineSync] "${scheduleName}" → ${action}`)
+}
+
 export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncResult> {
   const client = new ConvexHttpClient(convexUrl ?? CONVEX_URL)
   const now = Date.now()
@@ -198,14 +222,8 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
   }
 
   try {
-    // Get all enabled schedules
     const schedules = (await client.query(api.schedules.listEnabled, {})) as Schedule[]
-
-    // Filter to only those with a past nextRunAt (missed while app was closed)
-    const missedSchedules = schedules.filter(s => {
-      if (!s.nextRunAt) return true // Never had nextRunAt, needs init
-      return s.nextRunAt <= now
-    })
+    const missedSchedules = schedules.filter(s => isMissedSchedule(s, now))
 
     if (missedSchedules.length === 0) {
       console.log('[OfflineSync] No missed schedules found')
@@ -217,14 +235,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
     for (const schedule of missedSchedules) {
       try {
         const { runsCreated, action } = await processSchedule(client, schedule, now)
-        result.schedulesProcessed++
-        result.runsCreated += runsCreated
-
-        if (action === 'skipped' || action === 'not-missed') {
-          result.skipped++
-        }
-
-        console.log(`[OfflineSync] "${schedule.name}" → ${action}`)
+        processSingleSchedule(result, runsCreated, action, schedule.name)
       } catch (err) {
         const msg = `Failed to process "${schedule.name}": ${getErrorMessage(err)}`
         result.errors.push(msg)
@@ -232,10 +243,10 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
       }
     }
 
+    const errorSuffix = result.errors.length > 0 ? `, ${result.errors.length} errors` : ''
     console.log(
       `[OfflineSync] Complete: ${result.schedulesProcessed} processed, ` +
-        `${result.runsCreated} runs created, ${result.skipped} skipped` +
-        (result.errors.length > 0 ? `, ${result.errors.length} errors` : '')
+        `${result.runsCreated} runs created, ${result.skipped} skipped${errorSuffix}`
     )
   } catch (err) {
     const msg = `Offline sync failed: ${getErrorMessage(err)}`

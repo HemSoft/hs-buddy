@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { FolderTree } from './FolderTree'
+import { FolderTree, shouldLoadChildren } from './FolderTree'
+import type { ShouldLoadNode } from './FolderTree'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- window.filesystem is injected at runtime
 const win = window as any
@@ -400,5 +401,36 @@ describe('FolderTree', () => {
     fireEvent.keyDown(fileNode!, { key: 'Tab' })
 
     expect(onFileSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('shouldLoadChildren', () => {
+  it('returns false for undefined target', () => {
+    expect(shouldLoadChildren(undefined, false)).toBe(false)
+  })
+
+  it('returns false for file-type target', () => {
+    const fileNode: ShouldLoadNode = { type: 'file', loaded: false, expanded: false }
+    expect(shouldLoadChildren(fileNode, false)).toBe(false)
+  })
+
+  it('returns false if already expanded', () => {
+    const dir: ShouldLoadNode = { type: 'directory', loaded: false, expanded: true }
+    expect(shouldLoadChildren(dir, false)).toBe(false)
+  })
+
+  it('returns false if already loaded', () => {
+    const dir: ShouldLoadNode = { type: 'directory', loaded: true, expanded: false }
+    expect(shouldLoadChildren(dir, false)).toBe(false)
+  })
+
+  it('returns false if pending', () => {
+    const dir: ShouldLoadNode = { type: 'directory', loaded: false, expanded: false }
+    expect(shouldLoadChildren(dir, true)).toBe(false)
+  })
+
+  it('returns true for unexpanded unloaded directory', () => {
+    const dir: ShouldLoadNode = { type: 'directory', loaded: false, expanded: false }
+    expect(shouldLoadChildren(dir, false)).toBe(true)
   })
 })

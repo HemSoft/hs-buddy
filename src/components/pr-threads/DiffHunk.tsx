@@ -86,19 +86,26 @@ function DiffLineRow({ line, info }: { line: string; info: DiffLineInfo }) {
   )
 }
 
+function initializeLineCounters(
+  lines: string[],
+  wasTrimmed: boolean,
+  skippedLines: string[]
+): { oldLine: number; newLine: number } {
+  const headerLine = lines.find(l => l.startsWith('@@'))
+  if (!headerLine) return { oldLine: 1, newLine: 1 }
+  const parsed = parseHunkHeader(headerLine)
+  if (!parsed) return { oldLine: 1, newLine: 1 }
+  let { oldStart: oldLine, newStart: newLine } = parsed
+  if (wasTrimmed) {
+    ;({ oldLine, newLine } = adjustLineCountersForSkipped(skippedLines, oldLine, newLine))
+  }
+  return { oldLine, newLine }
+}
+
 /** Render a diff hunk as styled code lines with line numbers */
 export function DiffHunk({ hunk }: { hunk: string }) {
   const { lines, wasTrimmed, skippedLines } = trimDiffHunk(hunk)
-
-  const headerLine = lines.find(l => l.startsWith('@@'))
-  const parsed = headerLine ? parseHunkHeader(headerLine) : null
-  let oldLine = parsed?.oldStart ?? 1
-  let newLine = parsed?.newStart ?? 1
-
-  if (wasTrimmed && parsed) {
-    ;({ oldLine, newLine } = adjustLineCountersForSkipped(skippedLines, oldLine, newLine))
-  }
-
+  let { oldLine, newLine } = initializeLineCounters(lines, wasTrimmed, skippedLines)
   let charOffset = 0
 
   return (

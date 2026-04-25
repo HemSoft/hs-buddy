@@ -86,6 +86,11 @@ function ReviewRunItem({
   )
 }
 
+function buildReviewCommentBody(resultText: string, model?: string, resultModel?: string): string {
+  const modelName = model || resultModel || 'AI'
+  return `## \u{1F916} AI Review\n\n${resultText}\n\n---\n*Published from HS Buddy \u2014 ${modelName} review*`
+}
+
 function usePublishToPR(pr: PRDetailInfo) {
   const parsed = parseOwnerRepoFromUrl(pr.url)
   const owner = pr.org || parsed?.owner
@@ -107,7 +112,7 @@ function usePublishToPR(pr: PRDetailInfo) {
       })
       if (!result?.result) return
       const client = new GitHubClient({ accounts }, 7)
-      const body = `## \u{1F916} AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy \u2014 ${model || result.model || 'AI'} review*`
+      const body = buildReviewCommentBody(result.result, model, result.model)
       await client.addPRComment(owner, repo, pr.id, body)
       setPublishedRunIds(prev => new Set(prev).add(runId))
     } catch (err) {

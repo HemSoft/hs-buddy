@@ -2,6 +2,15 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { notFoundError } from './lib/domain'
 
+/** Build a patch object from mutation args, excluding the `id` key. */
+function buildUpdateData(args: Record<string, unknown>): Record<string, unknown> {
+  const updateData: Record<string, unknown> = { updatedAt: Date.now() }
+  for (const [key, value] of Object.entries(args)) {
+    if (key !== 'id' && value !== undefined) updateData[key] = value
+  }
+  return updateData
+}
+
 // List all bookmarks
 export const list = query({
   args: {},
@@ -161,12 +170,7 @@ export const update = mutation({
       }
     }
 
-    const updateData: Record<string, unknown> = { updatedAt: Date.now() }
-    for (const [key, value] of Object.entries(args)) {
-      if (key !== 'id' && value !== undefined) updateData[key] = value
-    }
-
-    await ctx.db.patch(args.id, updateData)
+    await ctx.db.patch(args.id, buildUpdateData(args))
     return args.id
   },
 })

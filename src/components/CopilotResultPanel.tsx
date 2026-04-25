@@ -32,9 +32,7 @@ function canPublishToPR(
     result.category === 'pr-review' &&
     result.status === 'completed' &&
     !!result.result &&
-    !!metadata?.org &&
-    !!metadata?.repo &&
-    !!metadata?.prNumber
+    extractPRMetadata(metadata) !== null
   )
 }
 

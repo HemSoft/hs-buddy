@@ -36,6 +36,30 @@ interface RepoPickerProps {
  */
 type RepoBookmarkList = NonNullable<ReturnType<typeof useRepoBookmarks>>
 
+function groupByFolder(sorted: RepoBookmarkList): { folder: string; repos: RepoBookmarkList }[] {
+  const groups: { folder: string; repos: RepoBookmarkList }[] = []
+  let currentFolder = ''
+  let currentGroup: RepoBookmarkList = []
+
+  for (const bm of sorted) {
+    if (bm.folder !== currentFolder) {
+      if (currentGroup.length > 0) {
+        groups.push({ folder: currentFolder, repos: currentGroup })
+      }
+      currentFolder = bm.folder
+      currentGroup = []
+    }
+    currentGroup.push(bm)
+  }
+  /* v8 ignore start */
+  if (currentGroup.length > 0) {
+    /* v8 ignore stop */
+    groups.push({ folder: currentFolder, repos: currentGroup })
+  }
+
+  return groups
+}
+
 function buildRepoOptions(
   bookmarks: ReturnType<typeof useRepoBookmarks>,
   allowNone: boolean,
@@ -55,33 +79,12 @@ function buildRepoOptions(
     opts.push({ value: '', label: placeholder })
   }
 
-  const groups: { folder: string; repos: RepoBookmarkList }[] = []
-  let currentFolder = ''
-  let currentGroup: RepoBookmarkList = []
-
   for (const bm of sorted) {
-    if (bm.folder !== currentFolder) {
-      if (currentGroup.length > 0) {
-        groups.push({ folder: currentFolder, repos: currentGroup })
-      }
-      currentFolder = bm.folder
-      currentGroup = []
-    }
-    currentGroup.push(bm)
     const repoKey = `${bm.owner}/${bm.repo}`
-    opts.push({
-      value: repoKey,
-      label: repoKey,
-      hint: bm.folder,
-    })
-  }
-  /* v8 ignore start */
-  if (currentGroup.length > 0) {
-    /* v8 ignore stop */
-    groups.push({ folder: currentFolder, repos: currentGroup })
+    opts.push({ value: repoKey, label: repoKey, hint: bm.folder })
   }
 
-  return { options: opts, selectGroups: groups }
+  return { options: opts, selectGroups: groupByFolder(sorted) }
 }
 
 function SelectVariant({

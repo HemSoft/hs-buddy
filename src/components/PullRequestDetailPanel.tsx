@@ -391,7 +391,9 @@ function resolveLabelsAndIssue(
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
 }
 
-export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetailPanelProps) {
+export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
+  const { pr } = props
+  const section = props.section ?? null
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const enqueueRef = useRef(enqueue)
@@ -507,28 +509,23 @@ export function PullRequestDetailPanel({ pr, section = null }: PullRequestDetail
         <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />
       )}
 
-      {!isFocusedSection && (
-        <PROverviewSection
-          pr={pr}
-          youApproved={youApproved}
-          effectiveIssue={effectiveIssue}
-          createdRelative={createdRelative}
-          activityRelative={activityRelative}
-          activityAt={activityAt}
-        />
-      )}
-
-      {isFocusedSection && (
+      {isFocusedSection ? (
         <FocusedSectionContent
           section={section!}
           pr={pr}
           refreshKey={refreshKey}
           onHistoryLoaded={handleHistoryLoaded}
         />
-      )}
-
-      {!isFocusedSection && (
+      ) : (
         <>
+          <PROverviewSection
+            pr={pr}
+            youApproved={youApproved}
+            effectiveIssue={effectiveIssue}
+            createdRelative={createdRelative}
+            activityRelative={activityRelative}
+            activityAt={activityAt}
+          />
           <PullRequestHistoryPanel
             key={refreshKey}
             pr={pr}

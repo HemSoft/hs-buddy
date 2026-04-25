@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import type { AssistantMessage, AssistantContext } from '../types/assistant'
 import { serializeContext } from './useAssistantContext'
+import { getErrorMessage } from '../utils/errorUtils'
 
 let messageIdCounter = 0
 function nextId(): string {
@@ -68,7 +69,7 @@ export function useAssistantConversation(context: AssistantContext) {
         )
       } catch (err) {
         if (abortRef.current) return
-        const errorMsg = err instanceof Error ? err.message : String(err)
+        const errorMsg = getErrorMessage(err)
         setMessages(prev =>
           prev.map(m =>
             m.id === assistantMessage.id ? { ...m, content: `⚠️ Error: ${errorMsg}` } : m

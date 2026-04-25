@@ -33,6 +33,52 @@ import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { MS_PER_MINUTE } from '../../../constants'
 import { getUniqueOrgs, mapRepoPRToPullRequest } from './githubSidebarUtils'
 
+function getMaxAgeMs(refreshInterval: number): number | null {
+  return refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
+}
+
+const PR_TREE_CACHE_KEYS: Record<string, string> = {
+  'pr-my-prs': 'my-prs',
+  'pr-needs-review': 'needs-review',
+  'pr-need-a-nudge': 'need-a-nudge',
+  'pr-recently-merged': 'recently-merged',
+}
+
+function initPrTreeData(): Record<string, PullRequest[]> {
+  const result: Record<string, PullRequest[]> = {}
+  for (const [key, cacheKey] of Object.entries(PR_TREE_CACHE_KEYS)) {
+    result[key] = dataCache.get<PullRequest[]>(cacheKey)?.data || []
+  }
+  return result
+}
+
+function getValidCachedOrgRepos(org: string): OrgRepoResult | null {
+  const cached = dataCache.get<OrgRepoResult>(`org-repos:${org}`)
+  if (
+    cached?.data &&
+    typeof cached.data === 'object' &&
+    'repos' in cached.data &&
+    Array.isArray(cached.data.repos)
+  ) {
+    return cached.data
+  }
+  if (cached?.data) {
+    dataCache.delete(`org-repos:${org}`)
+  }
+  return null
+}
+
+/** Resolve owner/repo for a PR using direct fields or URL parsing fallback. */
+/* v8 ignore start */
+function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
+  const parsed = parseOwnerRepoFromUrl(pr.url)
+  const owner = pr.org || parsed?.owner
+  const repo = pr.repository || parsed?.repo
+  if (!owner || !repo) return null
+  return { owner, repo }
+}
+/* v8 ignore stop */
+
 /** Parses `owner/repo` keys and calls refreshFn for stale entries. */
 function refreshStaleOwnerRepoKeys(
   fetchedRef: React.MutableRefObject<Set<string>>,
@@ -202,6 +248,17 @@ export function useGitHubSidebarData() {
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { increment: incrementStat } = useBuddyStatsMutations()
 
+  const applyOrgRepoResult = useCallback((org: string, result: OrgRepoResult) => {
+    setOrgRepos(prev => ({ ...prev, [org]: result.repos }))
+    setOrgMeta(prev => ({
+      ...prev,
+      [org]: {
+        authenticatedAs: result.authenticatedAs,
+        isUserNamespace: result.isUserNamespace,
+      },
+    }))
+  }, [])
+
   const repos = useToggleSet()
   const fetchedOrgMembersRef = useRef<Set<string>>(new Set())
   const fetchedOrgOverviewRef = useRef<Set<string>>(new Set())
@@ -237,12 +294,7 @@ export function useGitHubSidebarData() {
   const [loadingSFLStatus, setLoadingSFLStatus] = useState<Set<string>>(new Set())
   const sflGroups = useToggleSet()
   const fetchedSFLRef = useRef<Set<string>>(new Set())
-  const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(() => ({
-    'pr-my-prs': dataCache.get<PullRequest[]>('my-prs')?.data || [],
-    'pr-needs-review': dataCache.get<PullRequest[]>('needs-review')?.data || [],
-    'pr-need-a-nudge': dataCache.get<PullRequest[]>('need-a-nudge')?.data || [],
-    'pr-recently-merged': dataCache.get<PullRequest[]>('recently-merged')?.data || [],
-  }))
+  const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(initPrTreeData)
 
   const uniqueOrgs = getUniqueOrgs(accounts)
 
@@ -264,16 +316,9 @@ export function useGitHubSidebarData() {
 
   useEffect(() => {
     for (const org of uniqueOrgs) {
-      const cached = dataCache.get<OrgRepoResult>(`org-repos:${org}`)
-      if (cached?.data && 'repos' in cached.data && Array.isArray(cached.data.repos)) {
-        setOrgRepos(prev => ({ ...prev, [org]: cached.data.repos }))
-        setOrgMeta(prev => ({
-          ...prev,
-          [org]: {
-            authenticatedAs: cached.data.authenticatedAs,
-            isUserNamespace: cached.data.isUserNamespace,
-          },
-        }))
+      const cachedResult = getValidCachedOrgRepos(org)
+      if (cachedResult) {
+        applyOrgRepoResult(org, cachedResult)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -330,18 +375,9 @@ export function useGitHubSidebarData() {
 
     const handleOrgReposCacheUpdate = (key: string) => {
       const org = key.replace('org-repos:', '')
-      const updated = dataCache.get<OrgRepoResult>(key)
-      /* v8 ignore start */
-      if (updated?.data && 'repos' in updated.data && Array.isArray(updated.data.repos)) {
-        /* v8 ignore stop */
-        setOrgRepos(prev => ({ ...prev, [org]: updated.data.repos }))
-        setOrgMeta(prev => ({
-          ...prev,
-          [org]: {
-            authenticatedAs: updated.data.authenticatedAs,
-            isUserNamespace: updated.data.isUserNamespace,
-          },
-        }))
+      const validResult = getValidCachedOrgRepos(org)
+      if (validResult) {
+        applyOrgRepoResult(org, validResult)
       }
     }
 
@@ -384,7 +420,7 @@ export function useGitHubSidebarData() {
       }
     })
     return unsubscribe
-  }, [])
+  }, [applyOrgRepoResult])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
@@ -434,24 +470,10 @@ export function useGitHubSidebarData() {
 
   const fetchOrgRepos = useCallback(
     async (org: string) => {
-      const cached = dataCache.get<OrgRepoResult>(`org-repos:${org}`)
-      /* v8 ignore start */
-      if (cached?.data && 'repos' in cached.data && Array.isArray(cached.data.repos)) {
-        /* v8 ignore stop */
-        setOrgRepos(prev => ({ ...prev, [org]: cached.data.repos }))
-        setOrgMeta(prev => ({
-          ...prev,
-          [org]: {
-            authenticatedAs: cached.data.authenticatedAs,
-            isUserNamespace: cached.data.isUserNamespace,
-          },
-        }))
+      const cachedResult = getValidCachedOrgRepos(org)
+      if (cachedResult) {
+        applyOrgRepoResult(org, cachedResult)
         return
-      }
-      /* v8 ignore start */
-      if (cached?.data) {
-        /* v8 ignore stop */
-        dataCache.delete(`org-repos:${org}`)
       }
       addToLoadingSet(setLoadingOrgs, org)
       try {
@@ -464,14 +486,7 @@ export function useGitHubSidebarData() {
           },
           { name: `fetch-org-${org}` }
         )
-        setOrgRepos(prev => ({ ...prev, [org]: result.repos }))
-        setOrgMeta(prev => ({
-          ...prev,
-          [org]: {
-            authenticatedAs: result.authenticatedAs,
-            isUserNamespace: result.isUserNamespace,
-          },
-        }))
+        applyOrgRepoResult(org, result)
         dataCache.set(`org-repos:${org}`, result)
       } catch (error) {
         /* v8 ignore start */
@@ -483,7 +498,7 @@ export function useGitHubSidebarData() {
         removeFromLoadingSet(setLoadingOrgs, org)
       }
     },
-    [accounts]
+    [accounts, applyOrgRepoResult]
   )
 
   const toggleOrg = useCallback(
@@ -800,7 +815,7 @@ export function useGitHubSidebarData() {
     async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
       const key = `${state}:${org}/${repoName}`
       const cacheKey = `repo-prs:${key}`
-      const maxAgeMs = refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
+      const maxAgeMs = getMaxAgeMs(refreshInterval)
       const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
       if (cached?.data && !forceRefresh) {
         setRepoPrTreeData(prev => ({
@@ -849,7 +864,7 @@ export function useGitHubSidebarData() {
     async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
       const key = `${state}:${org}/${repoName}`
       const cacheKey = `repo-issues:${key}`
-      const maxAgeMs = refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
+      const maxAgeMs = getMaxAgeMs(refreshInterval)
       const cached = dataCache.get<RepoIssue[]>(cacheKey)
       if (cached?.data && !forceRefresh) {
         setRepoIssueTreeData(prev => ({ ...prev, [key]: cached.data }))
@@ -891,7 +906,7 @@ export function useGitHubSidebarData() {
     async (org: string, repoName: string, forceRefresh = false) => {
       const key = `${org}/${repoName}`
       const cacheKey = `repo-commits:${key}`
-      const maxAgeMs = refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
+      const maxAgeMs = getMaxAgeMs(refreshInterval)
       const cached = dataCache.get<RepoCommit[]>(cacheKey)
       if (cached?.data && !forceRefresh) {
         setRepoCommitTreeData(prev => ({ ...prev, [key]: cached.data }))
@@ -1104,12 +1119,11 @@ export function useGitHubSidebarData() {
   const handleApprovePR = useCallback(
     async (pr: PullRequest) => {
       if (pr.iApproved) return
-      const parsed = parseOwnerRepoFromUrl(pr.url)
+      const resolved = resolvePROwnerRepo(pr)
       /* v8 ignore start */
-      const owner = pr.org || parsed?.owner
-      const repo = pr.repository || parsed?.repo
-      if (!owner || !repo) return
+      if (!resolved) return
       /* v8 ignore stop */
+      const { owner, repo } = resolved
       const prKey = `${pr.source}-${pr.repository}-${pr.id}`
       setApprovingPrKey(prKey)
       try {

@@ -19,14 +19,20 @@ interface UsePRPanelDataResult<T> {
   cacheKey: string | null
 }
 
+function resolveOwnerRepo(parsed: ReturnType<typeof parseOwnerRepoFromUrl>) {
+  return {
+    owner: parsed?.owner ?? null,
+    repo: parsed?.repo ?? null,
+  }
+}
+
 export function usePRPanelData<T>(
   pr: PRDetailInfo,
   cachePrefix: string,
   fetchFn: (client: GitHubClient, owner: string, repo: string, prNumber: number) => Promise<T>
 ): UsePRPanelDataResult<T> {
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = ownerRepo?.owner ?? null
-  const repo = ownerRepo?.repo ?? null
+  const { owner, repo } = resolveOwnerRepo(ownerRepo)
   const cacheKey = owner && repo ? `${cachePrefix}:${owner}/${repo}/${pr.id}` : null
 
   const result = useGitHubData<T>({

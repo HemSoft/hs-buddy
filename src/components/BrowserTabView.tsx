@@ -103,21 +103,28 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
       }
     }
 
+    type WebviewInput = {
+      type: string
+      key: string
+      control: boolean
+      meta: boolean
+      shift: boolean
+    }
+
+    const WEBVIEW_SHORTCUTS: Record<string, (shift: boolean) => string> = {
+      Tab: shift => (shift ? 'app:tab-prev' : 'app:tab-next'),
+      F4: () => 'app:tab-close',
+    }
+
     const handleBeforeInput = (event: Event) => {
-      const input = (
-        event as Event & {
-          input?: { type: string; key: string; control: boolean; meta: boolean; shift: boolean }
-        }
-      ).input
+      const input = (event as Event & { input?: WebviewInput }).input
       if (!input || input.type !== 'keyDown') return
       const ctrlOrCmd = input.control || input.meta
-      if (ctrlOrCmd && input.key === 'Tab') {
-        event.preventDefault()
-        window.dispatchEvent(new Event(input.shift ? 'app:tab-prev' : 'app:tab-next'))
-      } else if (ctrlOrCmd && input.key === 'F4') {
-        event.preventDefault()
-        window.dispatchEvent(new Event('app:tab-close'))
-      }
+      if (!ctrlOrCmd) return
+      const eventName = WEBVIEW_SHORTCUTS[input.key]
+      if (!eventName) return
+      event.preventDefault()
+      window.dispatchEvent(new Event(eventName(input.shift)))
     }
 
     webview.addEventListener('before-input-event', handleBeforeInput)

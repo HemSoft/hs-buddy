@@ -162,7 +162,7 @@ describe('useTodoistUpcoming', () => {
     await act(async () => {
       await result.current.refresh()
     })
-    expect(result.current.error).toBe('Failed to fetch tasks')
+    expect(result.current.error).toBe('string error')
   })
 
   it('skips state updates when unmounted after fetch', async () => {

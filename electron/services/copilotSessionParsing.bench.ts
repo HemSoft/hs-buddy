@@ -14,75 +14,90 @@ function generateJSONLFixture(requestCount: number): string {
 
   // kind=0: session init (the large line that extractScanInfo reads 32KB from)
   const requests = Array.from({ length: requestCount }, (_, i) => ({
-    message: { text: `Prompt ${i}: Explain the architecture of the system and suggest improvements for ${i}` },
-  }))
-
-  lines.push(JSON.stringify({
-    kind: 0,
-    v: {
-      sessionId: 'bench-session-' + requestCount,
-      creationDate: Date.now() - requestCount * 60000,
-      customTitle: 'Benchmark Session with ' + requestCount + ' requests',
-      requests,
-      inputState: {
-        selectedModel: {
-          metadata: {
-            id: 'claude-opus-4.6',
-            name: 'Claude Opus 4.6',
-            family: 'claude',
-            vendor: 'anthropic',
-            multiplier: '50x',
-            multiplierNumeric: 50,
-            maxInputTokens: 200000,
-            maxOutputTokens: 32000,
-          },
-        },
-      },
+    message: {
+      text: `Prompt ${i}: Explain the architecture of the system and suggest improvements for ${i}`,
     },
   }))
 
-  // kind=1 result lines (the lines extractResultData processes)
-  for (let i = 0; i < requestCount; i++) {
-    lines.push(JSON.stringify({
-      kind: 1,
-      k: ['requests', String(i), 'result'],
+  lines.push(
+    JSON.stringify({
+      kind: 0,
       v: {
-        metadata: {
-          promptTokens: 1000 + (i * 137) % 5000,
-          outputTokens: 200 + (i * 89) % 2000,
-          toolCallRounds: i % 3 === 0 ? [
-            { toolCalls: [{ name: 'read_file' }, { name: 'grep_search' }] },
-            { toolCalls: [{ name: 'replace_string_in_file' }] },
-          ] : [],
-        },
-        timings: {
-          firstProgress: 100 + (i * 41) % 500,
-          totalElapsed: 5000 + (i * 271) % 20000,
-          promptTokens: 1000 + (i * 137) % 5000,
-          outputTokens: 200 + (i * 89) % 2000,
+        sessionId: 'bench-session-' + requestCount,
+        creationDate: Date.now() - requestCount * 60000,
+        customTitle: 'Benchmark Session with ' + requestCount + ' requests',
+        requests,
+        inputState: {
+          selectedModel: {
+            metadata: {
+              id: 'claude-opus-4.6',
+              name: 'Claude Opus 4.6',
+              family: 'claude',
+              vendor: 'anthropic',
+              multiplier: '50x',
+              multiplierNumeric: 50,
+              maxInputTokens: 200000,
+              maxOutputTokens: 32000,
+            },
+          },
         },
       },
-    }))
+    })
+  )
+
+  // kind=1 result lines (the lines extractResultData processes)
+  for (let i = 0; i < requestCount; i++) {
+    lines.push(
+      JSON.stringify({
+        kind: 1,
+        k: ['requests', String(i), 'result'],
+        v: {
+          metadata: {
+            promptTokens: 1000 + ((i * 137) % 5000),
+            outputTokens: 200 + ((i * 89) % 2000),
+            toolCallRounds:
+              i % 3 === 0
+                ? [
+                    { toolCalls: [{ name: 'read_file' }, { name: 'grep_search' }] },
+                    { toolCalls: [{ name: 'replace_string_in_file' }] },
+                  ]
+                : [],
+          },
+          timings: {
+            firstProgress: 100 + ((i * 41) % 500),
+            totalElapsed: 5000 + ((i * 271) % 20000),
+            promptTokens: 1000 + ((i * 137) % 5000),
+            outputTokens: 200 + ((i * 89) % 2000),
+          },
+        },
+      })
+    )
   }
 
   // kind=2 snapshot lines (periodic request array snapshots)
   if (requestCount > 10) {
     const snapshot = Array.from({ length: requestCount }, (_, i) => ({
-      message: { text: `Prompt ${i}: What is the meaning of the refactored module in context ${i}?` },
+      message: {
+        text: `Prompt ${i}: What is the meaning of the refactored module in context ${i}?`,
+      },
     }))
-    lines.push(JSON.stringify({
-      kind: 2,
-      k: ['requests'],
-      v: snapshot,
-    }))
+    lines.push(
+      JSON.stringify({
+        kind: 2,
+        k: ['requests'],
+        v: snapshot,
+      })
+    )
   }
 
   // kind=1 title update
-  lines.push(JSON.stringify({
-    kind: 1,
-    k: ['customTitle'],
-    v: 'Updated: Benchmark Session ' + requestCount,
-  }))
+  lines.push(
+    JSON.stringify({
+      kind: 1,
+      k: ['customTitle'],
+      v: 'Updated: Benchmark Session ' + requestCount,
+    })
+  )
 
   return lines.join('\n')
 }
@@ -146,7 +161,13 @@ describe('regex extraction (hot path)', () => {
         promptTokens: 4500,
         outputTokens: 1200,
         toolCallRounds: [
-          { toolCalls: [{ name: 'read_file' }, { name: 'grep_search' }, { name: 'semantic_search' }] },
+          {
+            toolCalls: [
+              { name: 'read_file' },
+              { name: 'grep_search' },
+              { name: 'semantic_search' },
+            ],
+          },
         ],
       },
       timings: { firstProgress: 250, totalElapsed: 12000 },
@@ -169,15 +190,12 @@ describe('regex extraction (hot path)', () => {
 
   bench('extractResultData JSON.parse', () => {
     const parsed = JSON.parse(resultLine)
-    const v = parsed.v
-    void (v.metadata?.promptTokens ?? 0)
-    void (v.metadata?.outputTokens ?? 0)
+    const meta = parsed.v.metadata ?? {}
+    void (meta.promptTokens ?? 0)
+    void (meta.outputTokens ?? 0)
     let toolCallCount = 0
-    for (const round of v.metadata?.toolCallRounds ?? []) {
-      for (const tc of round.toolCalls ?? []) {
-        void tc
-        toolCallCount++
-      }
+    for (const round of meta.toolCallRounds ?? []) {
+      toolCallCount += (round.toolCalls ?? []).length
     }
     void toolCallCount
   })

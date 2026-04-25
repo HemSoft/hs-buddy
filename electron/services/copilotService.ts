@@ -23,6 +23,49 @@ import { getErrorMessage } from '../../src/utils/errorUtils'
 import { execAsync } from '../utils'
 
 const HARD_TIMEOUT = 30 * 60_000 // 30 minutes — PR reviews can be lengthy
+const LIST_MODELS_TIMEOUT = 30_000
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function listModelsWithTimeout(client: any): Promise<any[]> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error('Timeout: listModels did not respond within 30s'))
+    }, LIST_MODELS_TIMEOUT)
+  })
+
+  try {
+    return await Promise.race([client.listModels(), timeoutPromise])
+  } finally {
+    if (timeoutHandle !== undefined) {
+      clearTimeout(timeoutHandle)
+    }
+  }
+}
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err))
+}
+
+function shouldRetryListModels(error: Error, attempt: number, maxRetries: number): boolean {
+  return error.message.includes('not connected') && attempt < maxRetries
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapModelInfo(m: any): {
+  id: string
+  name: string
+  isDisabled: boolean
+  billingMultiplier: number
+} {
+  return {
+    id: m.id,
+    name: m.name,
+    isDisabled: m.policy?.state === 'disabled',
+    billingMultiplier: m.billing?.multiplier ?? 1,
+  }
+}
 
 interface CopilotPromptRequest {
   prompt: string
@@ -322,9 +365,6 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
   async listModels(
     ghAccount?: string
   ): Promise<Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>> {
-    // Switch gh CLI account BEFORE querying so the client inherits the
-    // correct credentials.  Uses the same switchAccount() method which
-    // also restarts the SDK client.
     if (ghAccount) {
       await this.switchAccount(ghAccount)
     }
@@ -334,32 +374,16 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        // ensureClientStarted() handles concurrent callers and timeouts
         const client = await ensureClientStarted()
-
-        const models = await Promise.race([
-          client.listModels(),
-          new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error('Timeout: listModels did not respond within 30s')),
-              30_000
-            )
-          ),
-        ])
-
-        return models.map(m => ({
-          id: m.id,
-          name: m.name,
-          isDisabled: m.policy?.state === 'disabled',
-          billingMultiplier: m.billing?.multiplier ?? 1,
-        }))
+        const models = await listModelsWithTimeout(client)
+        return models.map(mapModelInfo)
       } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err))
-        const msg = lastError.message
-        console.warn(`[CopilotService] listModels attempt ${attempt + 1} failed: ${msg}`)
+        lastError = toError(err)
+        console.warn(
+          `[CopilotService] listModels attempt ${attempt + 1} failed: ${lastError.message}`
+        )
 
-        // If the connection was lost mid-flight, restart the client and retry
-        if (msg.includes('not connected') && attempt < MAX_RETRIES) {
+        if (shouldRetryListModels(lastError, attempt, MAX_RETRIES)) {
           console.log('[CopilotService] Restarting client for retry…')
           await restartSharedClient()
           continue

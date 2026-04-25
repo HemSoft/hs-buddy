@@ -1027,7 +1027,7 @@ describe('usePRListData', () => {
 
     const { result } = renderHook(() => usePRListData('my-prs'))
 
-    await waitFor(() => expect(result.current.error).toBe('Failed to fetch PRs'))
+    await waitFor(() => expect(result.current.error).toBe('string error'))
     expect(result.current.loading).toBe(false)
     errorSpy.mockRestore()
   })

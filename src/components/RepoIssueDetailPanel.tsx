@@ -211,19 +211,19 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
     /* v8 ignore stop */
   })
 
-  if (loading && !detail) {
-    return (
-      <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
-    )
+  if (!detail) {
+    if (loading) {
+      return (
+        <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
+      )
+    }
+    if (error) {
+      return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
+    }
+    /* v8 ignore start */
+    return null
+    /* v8 ignore stop */
   }
-
-  if (error && !detail) {
-    return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
-  }
-
-  /* v8 ignore start */
-  if (!detail) return null
-  /* v8 ignore stop */
 
   return (
     <div className="repo-issue-detail-panel">

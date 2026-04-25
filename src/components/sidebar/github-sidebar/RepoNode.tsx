@@ -24,6 +24,7 @@ import {
   sflOverallStatusIcon,
   sflWorkflowStateIcon,
   handleItemKeyDown,
+  sidebarItemClass,
 } from './repoNodeUtils'
 
 interface RepoNodeProps {
@@ -72,6 +73,19 @@ interface RepoHeaderProps {
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }
 
+function DisclosureIcons({ expanded }: { expanded: boolean }) {
+  return (
+    <>
+      <span className="sidebar-item-chevron">
+        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+      </span>
+      <span className="sidebar-item-icon">
+        {expanded ? <FolderOpen size={12} /> : <Folder size={12} />}
+      </span>
+    </>
+  )
+}
+
 function RepoHeader({
   org,
   repo,
@@ -89,12 +103,7 @@ function RepoHeader({
       onKeyDown={event => handleItemKeyDown(event, () => onToggleRepo(org, repo.name))}
       title={repo.description || repo.fullName}
     >
-      <span className="sidebar-item-chevron">
-        {isRepoExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-      </span>
-      <span className="sidebar-item-icon">
-        {isRepoExpanded ? <FolderOpen size={12} /> : <Folder size={12} />}
-      </span>
+      <DisclosureIcons expanded={isRepoExpanded} />
       <span className="sidebar-item-label">{repo.name}</span>
       {repo.language && <span className="sidebar-repo-lang">{repo.language}</span>}
       <button
@@ -151,6 +160,68 @@ interface RepoCommitsSectionProps {
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
 }
 
+function CommitsSectionContent({
+  isExpanded,
+  loading,
+  commits,
+  repoKey,
+  selectedItem,
+  onItemSelect,
+}: {
+  isExpanded: boolean
+  loading: boolean
+  commits: RepoCommit[]
+  repoKey: string
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+}) {
+  if (!isExpanded) return null
+  if (loading) {
+    return (
+      <div className="sidebar-job-tree sidebar-repo-pr-tree">
+        <div className="sidebar-job-items">
+          <div className="sidebar-item sidebar-pr-child">
+            <span className="sidebar-item-icon">
+              <Loader2 size={11} className="spin" />
+            </span>
+            <span className="sidebar-item-label">Loading commits...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  if (commits.length === 0) return null
+  return (
+    <div className="sidebar-job-tree sidebar-repo-pr-tree">
+      <div className="sidebar-job-items">
+        {commits.slice(0, 10).map(commit => {
+          const childViewId = `repo-commit:${repoKey}/${commit.sha}`
+          return (
+            <div
+              key={childViewId}
+              className={sidebarItemClass(
+                'sidebar-item sidebar-pr-child',
+                selectedItem === childViewId
+              )}
+              role="button"
+              tabIndex={0}
+              onClick={() => onItemSelect(childViewId)}
+              onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(childViewId))}
+              title={commit.message}
+            >
+              <span className="sidebar-item-icon">
+                <GitCommit size={11} />
+              </span>
+              <span className="sidebar-item-label">{commit.message}</span>
+              <span className="sidebar-pr-meta">{commit.sha.slice(0, 7)}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function RepoCommitsSection({
   org,
   repoName,
@@ -170,7 +241,10 @@ function RepoCommitsSection({
     <>
       <div
         /* v8 ignore start */
-        className={`sidebar-item sidebar-item-disclosure sidebar-repo-child ${selectedItem === commitViewId ? 'selected' : ''}`}
+        className={sidebarItemClass(
+          'sidebar-item sidebar-item-disclosure sidebar-repo-child',
+          selectedItem === commitViewId
+        )}
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
@@ -205,44 +279,14 @@ function RepoCommitsSection({
         <span className="sidebar-item-label">Commits</span>
         <CommitCountBadge loading={loading} count={commits.length} />
       </div>
-      {isExpanded && loading && (
-        <div className="sidebar-job-tree sidebar-repo-pr-tree">
-          <div className="sidebar-job-items">
-            <div className="sidebar-item sidebar-pr-child">
-              <span className="sidebar-item-icon">
-                <Loader2 size={11} className="spin" />
-              </span>
-              <span className="sidebar-item-label">Loading commits...</span>
-            </div>
-          </div>
-        </div>
-      )}
-      {isExpanded && !loading && commits.length > 0 && (
-        <div className="sidebar-job-tree sidebar-repo-pr-tree">
-          <div className="sidebar-job-items">
-            {commits.slice(0, 10).map(commit => {
-              const childViewId = `repo-commit:${repoKey}/${commit.sha}`
-              return (
-                <div
-                  key={childViewId}
-                  className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onItemSelect(childViewId)}
-                  onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(childViewId))}
-                  title={commit.message}
-                >
-                  <span className="sidebar-item-icon">
-                    <GitCommit size={11} />
-                  </span>
-                  <span className="sidebar-item-label">{commit.message}</span>
-                  <span className="sidebar-pr-meta">{commit.sha.slice(0, 7)}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <CommitsSectionContent
+        isExpanded={isExpanded}
+        loading={loading}
+        commits={commits}
+        repoKey={repoKey}
+        selectedItem={selectedItem}
+        onItemSelect={onItemSelect}
+      />
     </>
   )
 }
@@ -463,6 +507,18 @@ function IssueStateGroup({
   )
 }
 
+function IssueCountBadge({
+  isCountLoading,
+  counts,
+}: {
+  isCountLoading: boolean
+  counts?: RepoCounts
+}) {
+  if (isCountLoading) return <Loader2 size={10} className="spin" />
+  if (counts) return <span className="sidebar-item-count">{counts.issues}</span>
+  return null
+}
+
 function RepoIssuesSection({
   org,
   repoName,
@@ -494,7 +550,10 @@ function RepoIssuesSection({
     <>
       <div
         /* v8 ignore start */
-        className={`sidebar-item sidebar-item-disclosure sidebar-repo-child ${isSelected ? 'selected' : ''}`}
+        className={sidebarItemClass(
+          'sidebar-item sidebar-item-disclosure sidebar-repo-child',
+          isSelected
+        )}
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
@@ -527,11 +586,7 @@ function RepoIssuesSection({
           <CircleDot size={12} />
         </span>
         <span className="sidebar-item-label">Issues</span>
-        {isCountLoading ? (
-          <Loader2 size={10} className="spin" />
-        ) : counts ? (
-          <span className="sidebar-item-count">{counts.issues}</span>
-        ) : null}
+        <IssueCountBadge isCountLoading={isCountLoading} counts={counts} />
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-repo-pr-tree">
@@ -618,6 +673,62 @@ function PRStateCountBadge({
   return null
 }
 
+function PRStateGroupContent({
+  isExpanded,
+  isLoading,
+  prs,
+  repoKey,
+  expandedPRNodes,
+  selectedItem,
+  onItemSelect,
+  onTogglePRNode,
+  onContextMenu,
+  isClosed,
+}: {
+  isExpanded: boolean
+  isLoading: boolean
+  prs: PullRequest[]
+  repoKey: string
+  expandedPRNodes: ReadonlySet<string>
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  onTogglePRNode: (prViewId: string) => void
+  onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
+  isClosed: boolean
+}) {
+  if (!isExpanded) return null
+  if (isLoading) {
+    return (
+      <div className="sidebar-pr-children">
+        <div className="sidebar-item sidebar-pr-child">
+          <span className="sidebar-item-icon">
+            <Loader2 size={11} className="spin" />
+          </span>
+          <span className="sidebar-item-label">Loading pull requests...</span>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <>
+      {/* v8 ignore start */}
+      {prs.map(pr =>
+        /* v8 ignore stop */
+        renderPRNode(
+          pr,
+          repoKey,
+          expandedPRNodes,
+          selectedItem,
+          onItemSelect,
+          onTogglePRNode,
+          onContextMenu,
+          isClosed
+        )
+      )}
+    </>
+  )
+}
+
 function PRStateGroup({
   org,
   repoName,
@@ -656,13 +767,12 @@ function PRStateGroup({
   const isOpen = state === 'open'
   const Icon = isOpen ? GitPullRequest : CheckCircle2
   const label = isOpen ? 'Open' : 'Closed'
-  const isClosed = !isOpen
 
   return (
     <>
       <div
         /* v8 ignore start */
-        className={`sidebar-item sidebar-pr-child ${selectedItem === viewId ? 'selected' : ''}`}
+        className={sidebarItemClass('sidebar-item sidebar-pr-child', selectedItem === viewId)}
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
@@ -701,32 +811,18 @@ function PRStateGroup({
           closedCount={prs.length}
         />
       </div>
-      {isExpanded && isLoading && (
-        <div className="sidebar-pr-children">
-          <div className="sidebar-item sidebar-pr-child">
-            <span className="sidebar-item-icon">
-              <Loader2 size={11} className="spin" />
-            </span>
-            <span className="sidebar-item-label">Loading pull requests...</span>
-          </div>
-        </div>
-      )}
-      {isExpanded &&
-        !isLoading &&
-        /* v8 ignore start */
-        prs.map(pr =>
-          /* v8 ignore stop */
-          renderPRNode(
-            pr,
-            repoKey,
-            expandedPRNodes,
-            selectedItem,
-            onItemSelect,
-            onTogglePRNode,
-            onContextMenu,
-            isClosed
-          )
-        )}
+      <PRStateGroupContent
+        isExpanded={isExpanded}
+        isLoading={isLoading}
+        prs={prs}
+        repoKey={repoKey}
+        expandedPRNodes={expandedPRNodes}
+        selectedItem={selectedItem}
+        onItemSelect={onItemSelect}
+        onTogglePRNode={onTogglePRNode}
+        onContextMenu={onContextMenu}
+        isClosed={!isOpen}
+      />
     </>
   )
 }
@@ -741,6 +837,23 @@ function PRSectionCountBadge({
   if (isCountLoading) return <Loader2 size={10} className="spin" />
   if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
   return null
+}
+
+function UpdatedAgeLabel({
+  isCountLoading,
+  label,
+  refreshTick,
+}: {
+  isCountLoading: boolean
+  label: string | null
+  refreshTick: number
+}) {
+  if (isCountLoading || !label) return null
+  return (
+    <span key={refreshTick} className="sidebar-item-updated-age">
+      {label}
+    </span>
+  )
 }
 
 function RepoPullRequestsSection({
@@ -779,7 +892,10 @@ function RepoPullRequestsSection({
     <>
       <div
         /* v8 ignore start */
-        className={`sidebar-item sidebar-item-disclosure sidebar-repo-child sidebar-repo-pr-row ${isSelected ? 'selected' : ''}`}
+        className={sidebarItemClass(
+          'sidebar-item sidebar-item-disclosure sidebar-repo-child sidebar-repo-pr-row',
+          isSelected
+        )}
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
@@ -813,11 +929,11 @@ function RepoPullRequestsSection({
         </span>
         <span className="sidebar-item-label">Pull Requests</span>
         <PRSectionCountBadge isCountLoading={isCountLoading} counts={counts} />
-        {!isCountLoading && repoCountsUpdatedLabel && (
-          <span key={refreshTick} className="sidebar-item-updated-age">
-            {repoCountsUpdatedLabel}
-          </span>
-        )}
+        <UpdatedAgeLabel
+          isCountLoading={isCountLoading}
+          label={repoCountsUpdatedLabel}
+          refreshTick={refreshTick}
+        />
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-repo-pr-tree">

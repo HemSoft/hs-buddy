@@ -233,12 +233,9 @@ function IssueListHeader({
   )
 }
 
-export function RepoIssueList({
-  owner,
-  repo,
-  issueState = 'open',
-  onOpenIssue,
-}: RepoIssueListProps) {
+export function RepoIssueList(props: RepoIssueListProps) {
+  const { owner, repo, onOpenIssue } = props
+  const issueState = props.issueState ?? 'open'
   const { data, loading, error, refresh } = useGitHubData<RepoIssue[]>({
     cacheKey: `repo-issues:${issueState}:${owner}/${repo}`,
     taskName: `repo-issues-${issueState}-${owner}-${repo}`,
@@ -247,19 +244,21 @@ export function RepoIssueList({
     /* v8 ignore stop */
   })
   const issues = data ?? []
+  const isEmpty = issues.length === 0
   const [viewMode, setViewMode] = useViewMode(`repo-issues-${owner}-${repo}`)
 
-  if (loading && issues.length === 0) {
-    return (
-      <PanelLoadingState
-        message="Loading issues..."
-        subtitle={`${owner}/${repo} · ${issueState}`}
-      />
-    )
-  }
-
-  if (error && issues.length === 0) {
-    return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
+  if (isEmpty) {
+    if (loading) {
+      return (
+        <PanelLoadingState
+          message="Loading issues..."
+          subtitle={`${owner}/${repo} · ${issueState}`}
+        />
+      )
+    }
+    if (error) {
+      return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
+    }
   }
 
   return (
@@ -275,7 +274,7 @@ export function RepoIssueList({
         setViewMode={setViewMode}
       />
 
-      {issues.length === 0 ? (
+      {isEmpty ? (
         <PanelEmptyState
           icon={<CircleDot size={48} />}
           message={`No ${issueState} issues`}

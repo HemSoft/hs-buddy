@@ -24,29 +24,40 @@ type SettingsAction =
   | { type: 'saved' }
   | { type: 'reset_save' }
 
-function settingsReducer(state: SettingsState, action: SettingsAction): SettingsState {
-  switch (action.type) {
-    case 'initialize':
-      return {
-        ...state,
-        localAccount: action.account,
-        localModel: action.model,
-      }
-    case 'set_account':
-      return { ...state, localAccount: action.value }
-    case 'set_model':
-      return { ...state, localModel: action.value }
-    case 'set_custom_model':
-      return { ...state, customModel: action.value }
-    case 'toggle_custom_model':
-      return { ...state, isCustomModel: action.enabled }
-    case 'saving':
-      return { ...state, saveStatus: 'saving' }
-    case 'saved':
-      return { ...state, saveStatus: 'saved' }
-    case 'reset_save':
-      return { ...state, saveStatus: 'idle' }
-  }
+type SettingsHandler = (state: SettingsState, action: SettingsAction) => SettingsState
+
+const settingsHandlers: Record<SettingsAction['type'], SettingsHandler> = {
+  initialize: (s, a) => ({
+    ...s,
+    localAccount: (a as Extract<SettingsAction, { type: 'initialize' }>).account,
+    localModel: (a as Extract<SettingsAction, { type: 'initialize' }>).model,
+  }),
+  set_account: (s, a) => ({
+    ...s,
+    localAccount: (a as Extract<SettingsAction, { type: 'set_account' }>).value,
+  }),
+  set_model: (s, a) => ({
+    ...s,
+    localModel: (a as Extract<SettingsAction, { type: 'set_model' }>).value,
+  }),
+  set_custom_model: (s, a) => ({
+    ...s,
+    customModel: (a as Extract<SettingsAction, { type: 'set_custom_model' }>).value,
+  }),
+  toggle_custom_model: (s, a) => ({
+    ...s,
+    isCustomModel: (a as Extract<SettingsAction, { type: 'toggle_custom_model' }>).enabled,
+  }),
+  saving: s => ({ ...s, saveStatus: 'saving' as const }),
+  saved: s => ({ ...s, saveStatus: 'saved' as const }),
+  reset_save: s => ({ ...s, saveStatus: 'idle' as const }),
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- exported for testing
+export function settingsReducer(state: SettingsState, action: SettingsAction): SettingsState {
+  const handler = settingsHandlers[action.type]
+  if (!handler) return state
+  return handler(state, action)
 }
 
 export function SettingsCopilot() {

@@ -47,19 +47,48 @@ function resolveField(worklogValue: string | undefined, fallback?: string): stri
   return worklogValue || fallback || ''
 }
 
+const CREATE_INITIAL_DEFAULTS = {
+  defaultIssueKey: '',
+  defaultAccountKey: '',
+  defaultDescription: '',
+}
+
+function getWorklogRaw(worklog: TempoWorklog | null) {
+  return {
+    issueKey: worklog?.issueKey,
+    hours: worklog?.hours,
+    date: worklog?.date,
+    description: worklog?.description,
+    accountKey: worklog?.accountKey,
+  }
+}
+
+function resolveWorklogFields(
+  worklog: TempoWorklog | null,
+  defaults: { defaultIssueKey: string; defaultAccountKey: string; defaultDescription: string },
+  defaultDate: string
+) {
+  const raw = getWorklogRaw(worklog)
+  return {
+    issueKey: resolveField(raw.issueKey, defaults.defaultIssueKey),
+    hours: String(raw.hours || 1),
+    date: raw.date || defaultDate,
+    description: resolveField(raw.description, defaults.defaultDescription),
+    accountKey: resolveField(raw.accountKey, defaults.defaultAccountKey),
+  }
+}
+
 function createInitialState(
   worklog: TempoWorklog | null,
   defaultDate: string,
-  defaultIssueKey?: string,
-  defaultAccountKey?: string,
-  defaultDescription?: string
+  opts?: { defaultIssueKey?: string; defaultAccountKey?: string; defaultDescription?: string }
 ): TempoWorklogEditorState {
+  const defaults = {
+    ...CREATE_INITIAL_DEFAULTS,
+    ...opts,
+  }
   return {
-    issueKey: resolveField(worklog?.issueKey, defaultIssueKey),
-    hours: String(worklog?.hours || 1),
-    date: worklog?.date || defaultDate,
-    description: resolveField(worklog?.description, defaultDescription),
-    accountKey: resolveField(worklog?.accountKey, defaultAccountKey),
+    ...resolveWorklogFields(worklog, defaults, defaultDate),
     accounts: [],
     projectAccounts: [],
     accountsLoading: false,
@@ -130,13 +159,11 @@ export function TempoWorklogEditor({
     tempoWorklogEditorReducer,
     { worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription },
     ({ worklog, defaultDate, defaultIssueKey, defaultAccountKey, defaultDescription }) =>
-      createInitialState(
-        worklog,
-        defaultDate,
+      createInitialState(worklog, defaultDate, {
         defaultIssueKey,
         defaultAccountKey,
-        defaultDescription
-      )
+        defaultDescription,
+      })
   )
   const issueKeyId = useId()
   const hoursId = useId()

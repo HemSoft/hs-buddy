@@ -376,4 +376,15 @@ describe('RepoIssueDetailPanel', () => {
       expect(screen.queryByText(/\(/)).not.toBeInTheDocument()
     })
   })
+
+  it('renders nothing when enqueue resolves with null', async () => {
+    mockEnqueue.mockResolvedValue(null)
+    const { container } = render(
+      <RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />
+    )
+    await waitFor(() => {
+      expect(screen.queryByText('Loading issue…')).not.toBeInTheDocument()
+    })
+    expect(container.innerHTML).toBe('')
+  })
 })

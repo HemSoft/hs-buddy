@@ -14,6 +14,17 @@ import { GitHubClient } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 
+function handleFetchError(
+  err: unknown,
+  requestId: number,
+  currentRequestId: number,
+  setError: (e: string) => void
+): void {
+  if (isAbortError(err)) return
+  if (requestId !== currentRequestId) return
+  setError(getErrorMessage(err))
+}
+
 interface UseGitHubDataOptions<T> {
   /**
    * Cache key for dataCache. When this changes, data resets and a new fetch starts.
@@ -109,9 +120,7 @@ export function useGitHubData<T>({
         setData(result)
         dataCache.set(cacheKey, result)
       } catch (err) {
-        if (isAbortError(err)) return
-        if (requestId !== requestIdRef.current) return
-        setError(getErrorMessage(err))
+        handleFetchError(err, requestId, requestIdRef.current, setError)
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false)

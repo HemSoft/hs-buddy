@@ -31,23 +31,28 @@ const FAILURE_CONCLUSIONS = new Set([
 
 const NEUTRAL_CONCLUSIONS = new Set(['neutral', 'skipped'])
 
+function resolveConclusion(conclusion: string | null | undefined): string {
+  return conclusion ?? ''
+}
+
 function resolveCompletedCheckTone(conclusion: string | null | undefined): {
   label: string
   tone: CheckTone
   icon: typeof CheckCircle2
 } {
-  if (conclusion === 'success') {
+  const resolved = resolveConclusion(conclusion)
+  if (resolved === 'success') {
     return { label: 'Passed', tone: 'success', icon: CheckCircle2 }
   }
-  if (FAILURE_CONCLUSIONS.has(conclusion ?? '')) {
+  if (FAILURE_CONCLUSIONS.has(resolved)) {
     /* v8 ignore start */
-    return { label: (conclusion ?? '').replace(/_/g, ' '), tone: 'failure', icon: XCircle }
+    return { label: resolved.replace(/_/g, ' '), tone: 'failure', icon: XCircle }
     /* v8 ignore stop */
   }
-  if (NEUTRAL_CONCLUSIONS.has(conclusion ?? '')) {
-    return { label: conclusion!, tone: 'neutral', icon: MinusCircle }
+  if (NEUTRAL_CONCLUSIONS.has(resolved)) {
+    return { label: resolved, tone: 'neutral', icon: MinusCircle }
   }
-  return { label: conclusion || 'Completed', tone: 'neutral', icon: MinusCircle }
+  return { label: resolved || 'Completed', tone: 'neutral', icon: MinusCircle }
 }
 
 function getCheckRunStatus(run: PRChecksSummary['checkRuns'][number]): {

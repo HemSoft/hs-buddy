@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import type { TodoistTask, TodoistProject, DayGroup } from '../types/todoist'
 import { formatDateKey, MONTH_SHORT, WEEKDAY_SHORT } from '../utils/dateUtils'
 import { useIsMounted } from './useIsMounted'
+import { getUserFacingErrorMessage } from '../utils/errorUtils'
 
 function formatDayLabel(dateStr: string): string {
   const today = formatDateKey(new Date())
@@ -51,6 +52,17 @@ function buildDayGroups(
   return groups
 }
 
+function processUpcomingResult(
+  result: { success: boolean; error?: string; data?: Record<string, TodoistTask[]> },
+  days: number
+): { groups: DayGroup[]; error: string | null } {
+  if (!result.success) return { groups: [], error: result.error ?? 'Failed to fetch tasks' }
+  const data = result.data ?? {}
+  const todayStr_ = formatDateKey(new Date())
+  const overdueTasks = collectOverdueTasks(data, todayStr_)
+  return { groups: buildDayGroups(data, overdueTasks, days), error: null }
+}
+
 export function useTodoistUpcoming(days: number = 7) {
   const [dayGroups, setDayGroups] = useState<DayGroup[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -63,19 +75,15 @@ export function useTodoistUpcoming(days: number = 7) {
     try {
       const result = await window.todoist.getUpcoming(days)
       if (!mountedRef.current) return
-      if (!result.success) {
-        setError(result.error ?? 'Failed to fetch tasks')
+      const processed = processUpcomingResult(result, days)
+      if (processed.error) {
+        setError(processed.error)
         return
       }
-      const data = result.data ?? {}
-
-      const todayStr_ = formatDateKey(new Date())
-      const overdueTasks = collectOverdueTasks(data, todayStr_)
-      const groups = buildDayGroups(data, overdueTasks, days)
-      setDayGroups(groups)
+      setDayGroups(processed.groups)
     } catch (err) {
       if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch tasks')
+        setError(getUserFacingErrorMessage(err, 'Failed to fetch tasks'))
       }
     } finally {
       if (mountedRef.current) setIsLoading(false)

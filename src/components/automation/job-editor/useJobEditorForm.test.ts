@@ -303,7 +303,7 @@ describe('useJobEditorForm', () => {
       })
       await act(() => result.current.handleSave())
 
-      expect(result.current.error).toBe('Failed to save job')
+      expect(result.current.error).toBe('something bad')
     })
   })
 

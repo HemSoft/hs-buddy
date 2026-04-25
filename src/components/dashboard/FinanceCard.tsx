@@ -18,15 +18,18 @@ function formatPrice(price: number): string {
 function getQuoteDisplayValues(change: number, changePercent: number, marketOpen: boolean) {
   const positive = change >= 0
   const sign = positive ? '+' : ''
+  const trend = positive ? 'up' : 'down'
+  const marketTrend = marketOpen ? 'open' : 'closed'
+  const arrow = positive ? '▲' : '▼'
   return {
     positive,
-    rowClass: `finance-quote-row ${positive ? 'finance-quote-row--up' : 'finance-quote-row--down'}`,
-    trendClass: `finance-quote-trend ${positive ? 'finance-up' : 'finance-down'}`,
-    changeClass: `finance-quote-change ${positive ? 'finance-up' : 'finance-down'}`,
-    marketClass: `finance-market-pill ${marketOpen ? 'finance-market-open' : 'finance-market-closed'}`,
-    arrow: positive ? '▲' : '▼',
-    srLabel: positive ? 'Up' : 'Down',
-    marketLabel: marketOpen ? 'Open' : 'Closed',
+    rowClass: `finance-quote-row finance-quote-row--${trend}`,
+    trendClass: `finance-quote-trend finance-${trend}`,
+    changeClass: `finance-quote-change finance-${trend}`,
+    marketClass: `finance-market-pill finance-market-${marketTrend}`,
+    arrow,
+    srLabel: `${trend[0].toUpperCase()}${trend.slice(1)}`,
+    marketLabel: `${marketTrend[0].toUpperCase()}${marketTrend.slice(1)}`,
     changeText: `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`,
   }
 }
@@ -66,6 +69,40 @@ function QuoteRow({ quote, onRemove }: { quote: QuoteData; onRemove?: (symbol: s
   )
 }
 
+function FinanceStatusMessage({
+  loading,
+  error,
+  hasQuotes,
+}: {
+  loading: boolean
+  error: string | null
+  hasQuotes: boolean
+}) {
+  if (loading && !hasQuotes) {
+    return (
+      <div className="weather-loading">
+        <RefreshCw size={16} className="spin" />
+        <span>Fetching market data…</span>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="weather-error">
+        <span>{error}</span>
+      </div>
+    )
+  }
+  if (!loading && !hasQuotes) {
+    return (
+      <div className="weather-error">
+        <span>No market data available. Try refreshing.</span>
+      </div>
+    )
+  }
+  return null
+}
+
 function FinanceExpandedContent({
   quotes,
   loading,
@@ -87,24 +124,7 @@ function FinanceExpandedContent({
 }) {
   return (
     <>
-      {loading && quotes.length === 0 && (
-        <div className="weather-loading">
-          <RefreshCw size={16} className="spin" />
-          <span>Fetching market data…</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="weather-error">
-          <span>{error}</span>
-        </div>
-      )}
-
-      {!loading && !error && quotes.length === 0 && (
-        <div className="weather-error">
-          <span>No market data available. Try refreshing.</span>
-        </div>
-      )}
+      <FinanceStatusMessage loading={loading} error={error} hasQuotes={quotes.length > 0} />
 
       {quotes.length > 0 && (
         <div className="finance-quote-list">

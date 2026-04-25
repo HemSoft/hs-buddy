@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { X } from 'lucide-react'
 import { useBookmarkMutations } from '../../hooks/useConvex'
+import { getUserFacingErrorMessage } from '../../utils/errorUtils'
 import type { Id } from '../../../convex/_generated/dataModel'
 import './BookmarkDialog.css'
 
@@ -103,30 +104,24 @@ function createInitialState(
   }
 }
 
+const SIMPLE_FIELD_MAP = {
+  setUrl: 'url',
+  setTitle: 'title',
+  setDescription: 'description',
+  setCategory: 'category',
+  setNewCategory: 'newCategory',
+  setUseNewCategory: 'useNewCategory',
+  setTagsInput: 'tagsInput',
+  setError: 'error',
+} as const satisfies Record<string, keyof BookmarkDialogState>
+
 function handleSimpleField(
   state: BookmarkDialogState,
   action: BookmarkDialogAction & { type: `set${string}` }
 ): BookmarkDialogState | null {
-  switch (action.type) {
-    case 'setUrl':
-      return { ...state, url: action.value }
-    case 'setTitle':
-      return { ...state, title: action.value }
-    case 'setDescription':
-      return { ...state, description: action.value }
-    case 'setCategory':
-      return { ...state, category: action.value }
-    case 'setNewCategory':
-      return { ...state, newCategory: action.value }
-    case 'setUseNewCategory':
-      return { ...state, useNewCategory: action.value }
-    case 'setTagsInput':
-      return { ...state, tagsInput: action.value }
-    case 'setError':
-      return { ...state, error: action.value }
-    default:
-      return null
-  }
+  const field = SIMPLE_FIELD_MAP[action.type as keyof typeof SIMPLE_FIELD_MAP]
+  if (!field || !('value' in action)) return null
+  return { ...state, [field]: action.value }
 }
 
 function handleSetField(
@@ -231,6 +226,96 @@ interface BookmarkFormFieldsProps {
   userEditedTags: MutableRefObject<boolean>
 }
 
+function BookmarkCategoryField({
+  state,
+  isEdit,
+  categories,
+  dispatch,
+}: {
+  state: BookmarkDialogState
+  isEdit: boolean
+  categories: string[]
+  dispatch: Dispatch<BookmarkDialogAction>
+}) {
+  return (
+    <label className="bookmark-dialog-label">
+      <span>
+        Category <span className="bookmark-required">*</span>
+      </span>
+      {isEdit ? (
+        <input
+          type="text"
+          className="bookmark-dialog-input"
+          value={state.category}
+          /* v8 ignore start */
+          onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
+          /* v8 ignore stop */
+          placeholder="Category/Subcategory"
+        />
+      ) : !state.useNewCategory ? (
+        <div className="bookmark-category-row">
+          <select
+            className="bookmark-dialog-select"
+            value={state.category}
+            onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
+          >
+            <option value="">Select category…</option>
+            {categories.map(c => (
+              <option key={c} value={c}>
+                {c.includes('/')
+                  ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
+                  : c}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="bookmark-new-category-btn"
+            onClick={() => dispatch({ type: 'setUseNewCategory', value: true })}
+          >
+            New
+          </button>
+        </div>
+      ) : (
+        <div className="bookmark-category-row">
+          <select
+            className="bookmark-dialog-select"
+            style={{ flex: '0 0 auto', minWidth: 120 }}
+            value=""
+            onChange={e => {
+              if (e.target.value) {
+                dispatch({ type: 'setParentCategory', parent: e.target.value })
+              }
+            }}
+          >
+            <option value="">Parent…</option>
+            {categories.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            className="bookmark-dialog-input"
+            value={state.newCategory}
+            onChange={e => dispatch({ type: 'setNewCategory', value: e.target.value })}
+            placeholder="Category/Subcategory"
+          />
+          <button
+            type="button"
+            className="bookmark-new-category-btn"
+            onClick={() => dispatch({ type: 'setUseNewCategory', value: false })}
+          >
+            Existing
+          </button>
+        </div>
+      )}
+      <span className="bookmark-dialog-hint">Use / for hierarchy (e.g. Development/Frontend)</span>
+    </label>
+  )
+}
+
 function BookmarkFormFields({
   state,
   isEdit,
@@ -295,83 +380,12 @@ function BookmarkFormFields({
         />
       </label>
 
-      <label className="bookmark-dialog-label">
-        <span>
-          Category <span className="bookmark-required">*</span>
-        </span>
-        {isEdit ? (
-          <input
-            type="text"
-            className="bookmark-dialog-input"
-            value={state.category}
-            /* v8 ignore start */
-            onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
-            /* v8 ignore stop */
-            placeholder="Category/Subcategory"
-          />
-        ) : !state.useNewCategory ? (
-          <div className="bookmark-category-row">
-            <select
-              className="bookmark-dialog-select"
-              value={state.category}
-              onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
-            >
-              <option value="">Select category…</option>
-              {categories.map(c => (
-                <option key={c} value={c}>
-                  {c.includes('/')
-                    ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
-                    : c}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="bookmark-new-category-btn"
-              onClick={() => dispatch({ type: 'setUseNewCategory', value: true })}
-            >
-              New
-            </button>
-          </div>
-        ) : (
-          <div className="bookmark-category-row">
-            <select
-              className="bookmark-dialog-select"
-              style={{ flex: '0 0 auto', minWidth: 120 }}
-              value=""
-              onChange={e => {
-                if (e.target.value) {
-                  dispatch({ type: 'setParentCategory', parent: e.target.value })
-                }
-              }}
-            >
-              <option value="">Parent…</option>
-              {categories.map(c => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              className="bookmark-dialog-input"
-              value={state.newCategory}
-              onChange={e => dispatch({ type: 'setNewCategory', value: e.target.value })}
-              placeholder="Category/Subcategory"
-            />
-            <button
-              type="button"
-              className="bookmark-new-category-btn"
-              onClick={() => dispatch({ type: 'setUseNewCategory', value: false })}
-            >
-              Existing
-            </button>
-          </div>
-        )}
-        <span className="bookmark-dialog-hint">
-          Use / for hierarchy (e.g. Development/Frontend)
-        </span>
-      </label>
+      <BookmarkCategoryField
+        state={state}
+        isEdit={isEdit}
+        categories={categories}
+        dispatch={dispatch}
+      />
 
       <label className="bookmark-dialog-label">
         <span>
@@ -448,6 +462,18 @@ function BookmarkDialogShell({ isEdit, onClose, children }: BookmarkDialogShellP
   )
 }
 
+function validateUrlProtocol(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return 'Only http and https URLs are allowed'
+    }
+  } catch {
+    return 'Please enter a valid URL (e.g., https://example.com)'
+  }
+  return null
+}
+
 function validateBookmarkForm(state: BookmarkDialogState): string | null {
   const trimmedUrl = state.url.trim()
   const trimmedTitle = state.title.trim()
@@ -457,14 +483,8 @@ function validateBookmarkForm(state: BookmarkDialogState): string | null {
   if (!trimmedTitle) return 'Title is required'
   if (!resolvedCategory) return 'Category is required'
 
-  try {
-    const parsed = new URL(trimmedUrl)
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return 'Only http and https URLs are allowed'
-    }
-  } catch {
-    return 'Please enter a valid URL (e.g., https://example.com)'
-  }
+  const urlError = validateUrlProtocol(trimmedUrl)
+  if (urlError) return urlError
 
   const tags = state.tagsInput.split(',').filter(t => t.trim())
   if (tags.length > 50) return 'Maximum 50 tags allowed'
@@ -494,6 +514,15 @@ function parseAIResponse(
   } catch {
     return {}
   }
+}
+
+function shouldSkipAiSuggest(
+  isEdit: boolean,
+  initialUrl: string | undefined,
+  initialTitleReady: boolean,
+  url: string
+): boolean {
+  return isEdit || !initialUrl || !initialTitleReady || url !== initialUrl
 }
 
 export function BookmarkDialog({
@@ -567,7 +596,7 @@ export function BookmarkDialog({
 
   // AI-suggest description and tags once we have a URL (and optionally title)
   useEffect(() => {
-    if (isEdit || !initialUrl || !state.initialTitleReady || state.url !== initialUrl) return
+    if (shouldSkipAiSuggest(isEdit, initialUrl, state.initialTitleReady, state.url)) return
     const resolvedTitle = state.title.trim()
     const key = `${initialUrl}|${resolvedTitle}`
     /* v8 ignore start */
@@ -674,7 +703,7 @@ Rules:
     } catch (err) {
       dispatch({
         type: 'setError',
-        value: err instanceof Error ? err.message : 'Failed to save bookmark',
+        value: getUserFacingErrorMessage(err, 'Failed to save bookmark'),
       })
     } finally {
       dispatch({ type: 'submit:finish' })

@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract helpers to reduce per-function cyclomatic complexity
 - Add Parallelize CI Pipeline item
 - Reduce AccountQuotaCard complexity from 8 to 6
+- Extract collectOccurrences to reduce complexity
 
 ### Added
 

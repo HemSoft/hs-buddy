@@ -15,6 +15,27 @@ export function validateCronExpression(cronExpression: string, timezone?: string
   CronExpressionParser.parse(cronExpression, options)
 }
 
+/** Collect up to `maxRuns` timestamps from a parsed cron expression, stopping at `toTimestamp`. */
+function collectOccurrences(
+  expression: ReturnType<typeof CronExpressionParser.parse>,
+  toTimestamp: number,
+  maxRuns: number
+): number[] {
+  const results: number[] = []
+  while (results.length < maxRuns) {
+    try {
+      const next = expression.next()
+      /* v8 ignore start — endDate prevents this; belt-and-suspenders guard */
+      if (next.getTime() > toTimestamp) break
+      /* v8 ignore stop */
+      results.push(next.getTime())
+    } catch {
+      break
+    }
+  }
+  return results
+}
+
 /**
  * Enumerate cron occurrences between two timestamps.
  * Returns timestamps for each occurrence, capped at maxRuns.
@@ -33,8 +54,6 @@ export function enumerateCronOccurrences(
 ): number[] {
   if (fromTimestamp >= toTimestamp) return []
 
-  const missed: number[] = []
-
   try {
     const options: CronExpressionOptions = {
       currentDate: new Date(includeStart ? fromTimestamp - 1 : fromTimestamp),
@@ -43,21 +62,8 @@ export function enumerateCronOccurrences(
     if (timezone) options.tz = timezone
 
     const expression = CronExpressionParser.parse(cronExpression, options)
-
-    while (missed.length < maxRuns) {
-      try {
-        const next = expression.next()
-        /* v8 ignore start — endDate prevents this; belt-and-suspenders guard */
-        if (next.getTime() > toTimestamp) break
-        /* v8 ignore stop */
-        missed.push(next.getTime())
-      } catch {
-        break
-      }
-    }
+    return collectOccurrences(expression, toTimestamp, maxRuns)
   } catch {
-    // Invalid cron expressions or options produce no occurrences.
+    return []
   }
-
-  return missed
 }

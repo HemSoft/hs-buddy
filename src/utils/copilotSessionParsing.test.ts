@@ -11,6 +11,8 @@ import {
   resolveTokenCounts,
   extractResultDataFallback,
   parseKeyPath,
+  regexExtract,
+  parseScanChunk,
 } from './copilotSessionParsing'
 
 describe('str', () => {
@@ -289,5 +291,113 @@ describe('parseKeyPath', () => {
 
   it('returns empty array for lines without k', () => {
     expect(parseKeyPath('{"kind":0}')).toEqual([])
+  })
+})
+
+describe('regexExtract', () => {
+  it('returns captured group on match', () => {
+    expect(regexExtract('hello world 42', /(\d+)/, 'none')).toBe('42')
+  })
+
+  it('returns fallback on no match', () => {
+    expect(regexExtract('no numbers here', /(\d+)/, 'fallback')).toBe('fallback')
+  })
+
+  it('returns first capture group only', () => {
+    expect(regexExtract('a=1,b=2', /(\w+)=(\d+)/, '')).toBe('a')
+  })
+
+  it('handles global-flag regex safely without stateful lastIndex', () => {
+    const gPattern = /(\d+)/g
+    expect(regexExtract('abc 42 def', gPattern, 'none')).toBe('42')
+    // Second call with same regex must still match (no leftover lastIndex)
+    expect(regexExtract('abc 42 def', gPattern, 'none')).toBe('42')
+  })
+})
+
+describe('parseScanChunk', () => {
+  it('returns fallback for non-kind-0 chunks', () => {
+    const result = parseScanChunk('{"kind":1,"k":["customTitle"]}')
+    expect(result).toEqual({
+      title: '',
+      firstPrompt: '',
+      agent: '',
+      createdAt: 0,
+      requestCount: 0,
+    })
+  })
+
+  it('returns fallback for empty string', () => {
+    const result = parseScanChunk('')
+    expect(result).toEqual({
+      title: '',
+      firstPrompt: '',
+      agent: '',
+      createdAt: 0,
+      requestCount: 0,
+    })
+  })
+
+  it('extracts title from kind-0 chunk', () => {
+    const chunk = '{"kind":0,"v":{"customTitle":"My Session","creationDate":1700000000}}'
+    const result = parseScanChunk(chunk)
+    expect(result.title).toBe('My Session')
+  })
+
+  it('extracts agent/responder', () => {
+    const chunk = '{"kind":0,"v":{"responderUsername":"copilot","creationDate":0}}'
+    const result = parseScanChunk(chunk)
+    expect(result.agent).toBe('copilot')
+  })
+
+  it('extracts creationDate', () => {
+    const chunk = '{"kind":0,"v":{"creationDate":1700000000}}'
+    const result = parseScanChunk(chunk)
+    expect(result.createdAt).toBe(1700000000)
+  })
+
+  it('extracts and truncates firstPrompt to 200 chars', () => {
+    const longPrompt = 'x'.repeat(300)
+    const chunk = `{"kind":0,"v":{"message":{"text":"${longPrompt}"},"creationDate":0}}`
+    const result = parseScanChunk(chunk)
+    expect(result.firstPrompt.length).toBe(200)
+  })
+
+  it('counts requestId occurrences', () => {
+    const chunk =
+      '{"kind":0,"v":{"creationDate":0,"requests":[{"requestId":"a"},{"requestId":"b"},{"requestId":"c"}]}}'
+    const result = parseScanChunk(chunk)
+    expect(result.requestCount).toBe(3)
+  })
+
+  it('handles escaped quotes in title', () => {
+    const chunk = '{"kind":0,"v":{"customTitle":"say \\"hello\\"","creationDate":0}}'
+    const result = parseScanChunk(chunk)
+    expect(result.title).toBe('say "hello"')
+  })
+
+  it('handles escaped backslashes in title', () => {
+    const chunk = '{"kind":0,"v":{"customTitle":"path\\\\to\\\\file","creationDate":0}}'
+    const result = parseScanChunk(chunk)
+    expect(result.title).toBe('path\\to\\file')
+  })
+
+  it('returns zero requestCount when none present', () => {
+    const chunk = '{"kind":0,"v":{"creationDate":0}}'
+    const result = parseScanChunk(chunk)
+    expect(result.requestCount).toBe(0)
+  })
+
+  it('returns empty firstPrompt when no message field', () => {
+    const chunk = '{"kind":0,"v":{"creationDate":0}}'
+    const result = parseScanChunk(chunk)
+    expect(result.firstPrompt).toBe('')
+  })
+
+  it('handles truncated JSON (chunk cut mid-field)', () => {
+    const chunk = '{"kind":0,"v":{"customTitle":"partial","creationDa'
+    const result = parseScanChunk(chunk)
+    expect(result.title).toBe('partial')
+    expect(result.createdAt).toBe(0)
   })
 })

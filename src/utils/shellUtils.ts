@@ -66,6 +66,61 @@ export function failureErrorMessage(stderr: string, exitCode: number | null): st
   return stderr || `Process exited with code ${exitCode}`
 }
 
+/** Truncate text to a max size with a trailing note. */
+export function truncateOutput(text: string, maxSize: number): string {
+  if (text.length <= maxSize) return text
+  return text.slice(0, maxSize) + `\n\n--- Output truncated (${text.length} chars total) ---`
+}
+
+// ─── Worker result builder ──────────────────────────────
+
+/** Shape returned by buildWorkerResult — mirrors electron/workers/types.WorkerResult. */
+interface WorkerResultData {
+  success: boolean
+  output?: string
+  error?: string
+  exitCode: number
+  duration: number
+}
+
+/** Inputs for buildWorkerResult — pure data, no AbortSignal. */
+interface WorkerCloseEvent {
+  killed: boolean
+  aborted: boolean
+  exitCode: number | null
+  stdout: string
+  stderr: string
+  elapsedMs: number
+  timeout: number
+  maxOutputSize: number
+}
+
+/** Build a worker result from process close-event data. */
+export function buildWorkerResult(ev: WorkerCloseEvent): WorkerResultData {
+  const output = truncateOutput(ev.stdout.trim(), ev.maxOutputSize) || undefined
+  const trimmedStderr = truncateOutput(ev.stderr.trim(), ev.maxOutputSize)
+  const exitCode = ev.exitCode ?? -1
+
+  if (ev.killed) {
+    return {
+      success: false,
+      error: killedErrorMessage(ev.aborted, ev.timeout),
+      output,
+      exitCode,
+      duration: ev.elapsedMs,
+    }
+  }
+
+  const success = exitCode === 0
+  return {
+    success,
+    output,
+    error: success ? undefined : failureErrorMessage(trimmedStderr, exitCode),
+    exitCode,
+    duration: ev.elapsedMs,
+  }
+}
+
 /** Build a prompt string for a skill invocation. */
 export function buildSkillPrompt(skillName: string, action?: string, params?: unknown): string {
   let prompt = `Use the "${skillName}" skill`

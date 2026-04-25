@@ -16,6 +16,7 @@ import {
   resolveTokenCounts,
   parseKeyPath,
   resolveFolderOrWorkspaceName,
+  parseScanChunk,
 } from '../../src/utils/copilotSessionParsing'
 import { extractToolCallInfo } from '../../src/utils/toolCallParsing'
 import { aggregateResults } from '../../src/utils/sessionDigest'
@@ -49,12 +50,6 @@ export function resolveWorkspaceName(wsDir: string): string {
 
 // ─── Scan: fs metadata + first-line init parse (fast) ─────
 
-/** Extract a regex capture group from text, returning fallback if no match. */
-function regexExtract(text: string, pattern: RegExp, fallback: string): string {
-  const m = pattern.exec(text)
-  return m ? m[1] : fallback
-}
-
 function extractScanInfo(filePath: string): {
   title: string
   firstPrompt: string
@@ -66,32 +61,11 @@ function extractScanInfo(filePath: string): {
   try {
     const fd = fs.openSync(filePath, 'r')
     try {
-      // Read the first 32 KB — enough to reach title/agent/first prompt even in large init lines.
       const buf = Buffer.alloc(32768)
       const bytesRead = fs.readSync(fd, buf, 0, 32768, 0)
       if (bytesRead === 0) return fallback
       const chunk = buf.toString('utf8', 0, bytesRead)
-
-      // Only process kind=0 lines
-      if (!chunk.startsWith('{"kind":0')) return fallback
-
-      // Extract fields via regex — works on truncated JSON
-      const titleRaw = regexExtract(chunk, /"customTitle":"((?:[^"\\]|\\.)*)"/, '')
-      const title = titleRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')
-      const agent = regexExtract(chunk, /"responderUsername":"((?:[^"\\]|\\.)*)"/, '')
-      const createdAt = parseInt(regexExtract(chunk, /"creationDate":(\d+)/, '0'))
-
-      // First user prompt: message.text in the requests array
-      const promptRaw = regexExtract(chunk, /"message":\{"text":"((?:[^"\\]|\\.)*)"/, '')
-      const firstPrompt = promptRaw
-        ? [...promptRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')].slice(0, 200).join('')
-        : ''
-
-      // Count requests (approximate — count "requestId" occurrences)
-      const reqMatches = chunk.match(/"requestId"/g)
-      const requestCount = reqMatches ? reqMatches.length : 0
-
-      return { title, firstPrompt, agent, createdAt, requestCount }
+      return parseScanChunk(chunk)
     } finally {
       fs.closeSync(fd)
     }

@@ -12,10 +12,10 @@
 
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
-import { CronExpressionParser, type CronExpressionOptions } from 'cron-parser'
 import { CONVEX_URL } from '../config'
 import { calculateNextRunAt } from '../../convex/lib/cronUtils'
 import { getErrorMessage } from '../../src/utils/errorUtils'
+import { enumerateCronOccurrences, validateCronExpression } from '../../src/utils/cronUtils'
 
 interface Schedule {
   _id: string
@@ -39,7 +39,7 @@ interface OfflineSyncResult {
 
 /**
  * Enumerate all missed cron occurrences between two timestamps.
- * Returns timestamps for each missed run, capped at MAX_CATCHUP_RUNS.
+ * Thin wrapper around enumerateCronOccurrences for backward compatibility.
  */
 function getMissedOccurrences(
   cronExpression: string,
@@ -48,32 +48,16 @@ function getMissedOccurrences(
   toTimestamp: number,
   maxRuns = 100
 ): number[] {
-  const missed: number[] = []
-
   try {
-    const options: CronExpressionOptions = {
-      currentDate: new Date(fromTimestamp),
-      endDate: new Date(toTimestamp),
-    }
-    if (timezone) options.tz = timezone
-
-    const expression = CronExpressionParser.parse(cronExpression, options)
-
-    while (missed.length < maxRuns) {
-      try {
-        const next = expression.next()
-        if (next.getTime() > toTimestamp) break
-        missed.push(next.getTime())
-      } catch {
-        // No more occurrences in range
-        break
-      }
-    }
+    validateCronExpression(cronExpression, timezone)
   } catch (error) {
-    console.error(`[OfflineSync] Failed to enumerate missed runs:`, error)
+    console.error(
+      `[OfflineSync] Failed to enumerate missed runs for cron "${cronExpression}" in timezone "${timezone}": ${getErrorMessage(error)}`
+    )
+    return []
   }
 
-  return missed
+  return enumerateCronOccurrences(cronExpression, timezone, fromTimestamp, toTimestamp, maxRuns)
 }
 
 /**

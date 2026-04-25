@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address CI failures and PR review feedback
 - Derive isPowerShell from resolved shell command
 - Wrap parseFulfilledStdout JSON.parse in try/catch for safe degradation
+- Address PR review comments for githubUrl and shellUtils
+- Remove unused exports flagged by Knip
+- Address PR review comments for githubUrl scheme and cronUtils logging
+- Address PR review comments for regexExtract and offlineSync
+- Replace dead try/catch in getMissedOccurrences with validateCronExpression
+- Make enumerateCronOccurrences start boundary inclusive
 
 ### Changed
 

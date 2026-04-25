@@ -11,6 +11,7 @@ import type {
   CrewAddProjectResult,
   CrewValidationResult,
 } from '../../src/types/crew'
+import { parseGitRemote, isGitHubHost } from '../../src/utils/githubUrl'
 
 const execFileAsync = promisify(execFile)
 
@@ -66,11 +67,6 @@ async function runGit(cwd: string, args: string[]): Promise<string | null> {
   }
 }
 
-function isGitHubHost(host: string): boolean {
-  const normalizedHost = host.trim().toLowerCase()
-  return normalizedHost === 'github.com' || normalizedHost.endsWith('.github.com')
-}
-
 async function resolveSshHost(host: string): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync('ssh', ['-G', host], { timeout: 5000 })
@@ -85,28 +81,18 @@ async function resolveSshHost(host: string): Promise<string | null> {
 }
 
 async function getGitHubSlug(originUrl: string): Promise<string | null> {
-  const httpsMatch = originUrl.match(
-    /^https?:\/\/(?:[^@/]+@)?([^/]+)\/([^/]+\/[^/.\s]+?)(?:\.git)?$/i
-  )
-  if (httpsMatch) {
-    const [, host, slug] = httpsMatch
-    return isGitHubHost(host) ? slug : null
+  const parsed = parseGitRemote(originUrl)
+  if (!parsed) return null
+
+  if (isGitHubHost(parsed.host)) return parsed.slug
+
+  // SSH aliases: resolve the real hostname via ssh -G
+  if (parsed.scheme === 'ssh') {
+    const resolvedHost = await resolveSshHost(parsed.host)
+    return resolvedHost && isGitHubHost(resolvedHost) ? parsed.slug : null
   }
 
-  const sshMatch = originUrl.match(
-    /^(?:ssh:\/\/)?(?:.+@)?([^:/]+)[:/]([^/]+\/[^/.\s]+?)(?:\.git)?$/i
-  )
-  if (!sshMatch) {
-    return null
-  }
-
-  const [, host, slug] = sshMatch
-  if (isGitHubHost(host)) {
-    return slug
-  }
-
-  const resolvedHost = await resolveSshHost(host)
-  return resolvedHost && isGitHubHost(resolvedHost) ? slug : null
+  return null
 }
 
 async function validateFolder(folderPath: string): Promise<CrewValidationResult> {

@@ -15,6 +15,7 @@ import { CopilotClient, type AssistantMessageEvent } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
 import { app } from 'electron'
+import { truncateOutput as truncateOutputShared } from '../../src/utils/shellUtils'
 
 export const DEFAULT_MODEL = 'claude-sonnet-4.5'
 const SESSION_TIMEOUT = 30_000 // 30s for session creation
@@ -164,8 +165,7 @@ export async function restartSharedClient(): Promise<void> {
 
 /** Truncate text to a max size with a note */
 export function truncateOutput(text: string, maxSize = MAX_OUTPUT_SIZE): string {
-  if (text.length <= maxSize) return text
-  return text.slice(0, maxSize) + `\n\n--- Output truncated (${text.length} chars total) ---`
+  return truncateOutputShared(text, maxSize)
 }
 
 /** Extract the text content from an AssistantMessageEvent */

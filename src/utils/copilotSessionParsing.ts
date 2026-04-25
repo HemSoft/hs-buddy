@@ -142,3 +142,51 @@ export function parseKeyPath(line: string): string[] {
         .filter(Boolean)
     : []
 }
+
+// ─── Scan-chunk parsing ──────────────────────────────────
+
+/** Extract a regex capture group from text, returning fallback if no match. */
+export function regexExtract(text: string, pattern: RegExp, fallback: string): string {
+  const safePattern = new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ''))
+  const m = safePattern.exec(text)
+  return m ? m[1] : fallback
+}
+
+interface ScanChunkResult {
+  title: string
+  firstPrompt: string
+  agent: string
+  createdAt: number
+  requestCount: number
+}
+
+const SCAN_CHUNK_FALLBACK: ScanChunkResult = {
+  title: '',
+  firstPrompt: '',
+  agent: '',
+  createdAt: 0,
+  requestCount: 0,
+}
+
+/**
+ * Parse session metadata from the first chunk of a JSONL session file.
+ * Uses regex extraction to work on truncated JSON (no full parse needed).
+ */
+export function parseScanChunk(chunk: string): ScanChunkResult {
+  if (!chunk.startsWith('{"kind":0')) return { ...SCAN_CHUNK_FALLBACK }
+
+  const titleRaw = regexExtract(chunk, /"customTitle":"((?:[^"\\]|\\.)*)"/, '')
+  const title = titleRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+  const agent = regexExtract(chunk, /"responderUsername":"((?:[^"\\]|\\.)*)"/, '')
+  const createdAt = parseInt(regexExtract(chunk, /"creationDate":(\d+)/, '0'))
+
+  const promptRaw = regexExtract(chunk, /"message":\{"text":"((?:[^"\\]|\\.)*)"/, '')
+  const firstPrompt = promptRaw
+    ? [...promptRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')].slice(0, 200).join('')
+    : ''
+
+  const reqMatches = chunk.match(/"requestId"/g)
+  const requestCount = reqMatches ? reqMatches.length : 0
+
+  return { title, firstPrompt, agent, createdAt, requestCount }
+}

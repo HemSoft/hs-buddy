@@ -23,3 +23,41 @@ export function parseOwnerRepoKey(key: string): { owner: string; repo: string } 
   if (!owner || !repo) return null
   return { owner, repo }
 }
+
+// ─── Git remote URL parsing ──────────────────────────────
+
+/** Parsed result from a git remote URL. */
+interface GitRemoteParsed {
+  host: string
+  slug: string
+  scheme: 'http' | 'https' | 'ssh'
+}
+
+/**
+ * Parse a git remote URL into host + owner/repo slug.
+ * Supports HTTP(S) and SSH formats. Returns null for unparseable URLs.
+ */
+export function parseGitRemote(originUrl: string): GitRemoteParsed | null {
+  const httpsMatch = originUrl.match(
+    /^(https?):\/\/(?:[^@/]+@)?([^/]+)\/([^/]+\/[^/\s]+?)(?:\.git)?$/i
+  )
+  if (httpsMatch) {
+    const scheme = httpsMatch[1].toLowerCase() as 'http' | 'https'
+    return { host: httpsMatch[2], slug: httpsMatch[3], scheme }
+  }
+
+  const sshMatch = originUrl.match(
+    /^(?:ssh:\/\/)?(?:.+@)?([^:/]+)[:/]([^/]+\/[^/\s]+?)(?:\.git)?$/i
+  )
+  if (sshMatch) {
+    return { host: sshMatch[1], slug: sshMatch[2], scheme: 'ssh' }
+  }
+
+  return null
+}
+
+/** Check whether a hostname belongs to GitHub (github.com or *.github.com). */
+export function isGitHubHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase()
+  return normalized === 'github.com' || normalized.endsWith('.github.com')
+}

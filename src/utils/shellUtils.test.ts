@@ -5,6 +5,8 @@ import {
   killedErrorMessage,
   failureErrorMessage,
   buildSkillPrompt,
+  truncateOutput,
+  buildWorkerResult,
 } from './shellUtils'
 
 describe('getShellArgs', () => {
@@ -134,5 +136,106 @@ describe('buildSkillPrompt', () => {
     const result = buildSkillPrompt('test', 'run', { suite: 'unit' })
     expect(result).toContain('to perform the "run" action')
     expect(result).toContain('"suite": "unit"')
+  })
+})
+
+describe('truncateOutput', () => {
+  it('returns text unchanged when under limit', () => {
+    expect(truncateOutput('hello', 100)).toBe('hello')
+  })
+
+  it('returns text unchanged when exactly at limit', () => {
+    const text = 'a'.repeat(50)
+    expect(truncateOutput(text, 50)).toBe(text)
+  })
+
+  it('truncates text over limit with note', () => {
+    const text = 'a'.repeat(200)
+    const result = truncateOutput(text, 100)
+    expect(result).toContain('a'.repeat(100))
+    expect(result).toContain('--- Output truncated (200 chars total) ---')
+  })
+
+  it('handles empty string', () => {
+    expect(truncateOutput('', 100)).toBe('')
+  })
+})
+
+describe('buildWorkerResult', () => {
+  const base = {
+    killed: false,
+    aborted: false,
+    exitCode: 0 as number | null,
+    stdout: 'output text',
+    stderr: '',
+    elapsedMs: 150,
+    timeout: 30000,
+    maxOutputSize: 512_000,
+  }
+
+  it('returns success for exit code 0', () => {
+    const result = buildWorkerResult(base)
+    expect(result.success).toBe(true)
+    expect(result.output).toBe('output text')
+    expect(result.error).toBeUndefined()
+    expect(result.exitCode).toBe(0)
+    expect(result.duration).toBe(150)
+  })
+
+  it('returns failure for non-zero exit code', () => {
+    const result = buildWorkerResult({ ...base, exitCode: 1, stderr: 'error msg' })
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('error msg')
+    expect(result.exitCode).toBe(1)
+  })
+
+  it('uses exit code message when stderr is empty', () => {
+    const result = buildWorkerResult({ ...base, exitCode: 127 })
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('Process exited with code 127')
+  })
+
+  it('returns timeout message when killed without abort', () => {
+    const result = buildWorkerResult({ ...base, killed: true, aborted: false })
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('Killed after 30000ms timeout')
+  })
+
+  it('returns abort message when killed with abort', () => {
+    const result = buildWorkerResult({ ...base, killed: true, aborted: true })
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('Cancelled by user')
+  })
+
+  it('defaults null exit code to -1', () => {
+    const result = buildWorkerResult({ ...base, exitCode: null })
+    expect(result.exitCode).toBe(-1)
+  })
+
+  it('uses normalized exit code in error message when exitCode is null', () => {
+    const result = buildWorkerResult({ ...base, exitCode: null, stderr: '' })
+    expect(result.error).toBe('Process exited with code -1')
+  })
+
+  it('trims stdout and stderr', () => {
+    const result = buildWorkerResult({
+      ...base,
+      stdout: '  trimmed  ',
+      stderr: '  err  ',
+      exitCode: 1,
+    })
+    expect(result.output).toBe('trimmed')
+    expect(result.error).toBe('err')
+  })
+
+  it('sets output to undefined for empty stdout', () => {
+    const result = buildWorkerResult({ ...base, stdout: '' })
+    expect(result.output).toBeUndefined()
+  })
+
+  it('truncates large stdout', () => {
+    const bigOutput = 'x'.repeat(200)
+    const result = buildWorkerResult({ ...base, stdout: bigOutput, maxOutputSize: 50 })
+    expect(result.output).toContain('--- Output truncated')
   })
 })

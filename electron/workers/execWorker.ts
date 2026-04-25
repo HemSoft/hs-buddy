@@ -6,53 +6,11 @@
  */
 
 import { spawn } from 'node:child_process'
-import { truncateOutput } from '../services/copilotClient'
 import type { Worker, WorkerResult, JobConfig } from './types'
-import {
-  getShellArgs,
-  isPowerShell,
-  killedErrorMessage,
-  failureErrorMessage,
-} from '../../src/utils/shellUtils'
+import { getShellArgs, isPowerShell, buildWorkerResult } from '../../src/utils/shellUtils'
 
 const DEFAULT_TIMEOUT = 30_000 // 30 seconds
 const MAX_OUTPUT_SIZE = 512_000 // 512KB per stream
-
-/** Build the WorkerResult from the close event data */
-function buildWorkerResult(opts: {
-  killed: boolean
-  signal?: AbortSignal
-  exitCode: number | null
-  stdout: string
-  stderr: string
-  now: number
-  start: number
-  timeout: number
-}): WorkerResult {
-  const output = truncateOutput(opts.stdout.trim(), MAX_OUTPUT_SIZE) || undefined
-  const trimmedStderr = truncateOutput(opts.stderr.trim(), MAX_OUTPUT_SIZE)
-  const duration = opts.now - opts.start
-  const exitCode = opts.exitCode ?? -1
-
-  if (opts.killed) {
-    return {
-      success: false,
-      error: killedErrorMessage(!!opts.signal?.aborted, opts.timeout),
-      output,
-      exitCode,
-      duration,
-    }
-  }
-
-  const success = exitCode === 0
-  return {
-    success,
-    output,
-    error: success ? undefined : failureErrorMessage(trimmedStderr, opts.exitCode),
-    exitCode,
-    duration,
-  }
-}
 
 export const execWorker: Worker = {
   async execute(config: JobConfig, signal?: AbortSignal): Promise<WorkerResult> {
@@ -138,13 +96,13 @@ export const execWorker: Worker = {
         resolve(
           buildWorkerResult({
             killed,
-            signal,
+            aborted: !!signal?.aborted,
             exitCode,
             stdout,
             stderr,
-            now: Date.now(),
-            start,
+            elapsedMs: Date.now() - start,
             timeout,
+            maxOutputSize: MAX_OUTPUT_SIZE,
           })
         )
       })

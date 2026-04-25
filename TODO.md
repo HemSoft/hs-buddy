@@ -11,6 +11,7 @@
 | 📋     | High     | [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap)              | ESLint plugins (sonarjs, unicorn, strict), Electron security, architecture enforcement, E2E testing       |
 | 📋     | Medium   | [Bookmarks — URL & Link Collection Manager](#bookmarks)                    | New feature: categorized link management with quick-launch and tagging                                    |
 | 📋     | Medium   | [Card/List View Toggle for all list pages](#cardlist-view-toggle)          | Add table/grid view as alternative to card view on list pages                                             |
+| 📋     | Medium   | [Parallelize CI Pipeline](#parallelize-ci-pipeline)                        | CI runs ~8m serial; split into parallel jobs + cache deps + move benchmarks to save ~3-4m wall time       |
 | 📋     | Medium   | [Harden CI Soft-Fail Steps](#harden-ci-soft-fail-steps)                    | e18e and npm-audit both `continue-on-error: true` — make e18e blocking, add audit severity threshold      |
 | 📋     | Medium   | Add Convex typecheck to CI                                                 | Run `npx convex typecheck` in CI to catch schema/function type errors                                     |
 | 📋     | Medium   | [Electron Worker Tests](#electron-worker-tests)                            | dispatcher, execWorker, offlineSync, skillWorker, aiWorker — untested execution infrastructure            |
@@ -213,6 +214,43 @@ The repo already has excellent tooling (ESLint 9, Prettier, TypeScript strict, V
 - Playwright with Electron adapter for full app E2E tests
 - Start with critical user flows: app launch, settings, PR list navigation
 - Consider `@playwright/test` with `electron.launch()` API
+
+### Parallelize CI Pipeline
+
+The CI workflow runs **~8 minutes** as a single serial job. Half that time is tests+coverage (4m) and benchmarks (1.5m). All lint/check steps are independent and could run concurrently.
+
+#### Current CI Step Breakdown (Run #931)
+
+| Step                    | Duration | % of Total |
+| ----------------------- | -------- | ---------- |
+| Run tests with coverage | 4m 08s   | 50%        |
+| Run benchmarks          | 1m 29s   | 18%        |
+| Lint (ESLint)           | 39s      | 8%         |
+| Build (vite + electron) | 37s      | 7%         |
+| Type check (TypeScript) | 21s      | 4%         |
+| Install dependencies    | 18s      | 4%         |
+| Format check (Prettier) | 16s      | 3%         |
+| Dep health analysis     | 13s      | 3%         |
+| Everything else         | ~20s     | 3%         |
+
+#### Recommended Changes
+
+1. **Split into parallel jobs** — Run lint, typecheck, format, and tests as separate jobs. Wall time drops from ~8m to ~5m since the longest job (tests) runs alongside the others.
+2. **Cache bun dependencies** — No dependency caching is configured; `bun install` runs fresh every time (~18s). Use `actions/cache` with `~/.bun/install/cache` as the cache path.
+3. **Move benchmarks to a separate optional workflow** — They already use `continue-on-error: true` and add 1.5m. Make them a separate workflow triggered on `workflow_dispatch` or PR label.
+4. **Evaluate TypeScript 6 native compiler** — Would reduce typecheck from 21s to ~3-4s (minor in CI, but significant for editor DX). The codebase is ~117K LOC / 468 files on TS 5.9.3.
+
+#### Target Architecture
+
+```yaml
+jobs:
+  install: # shared dependency install + cache
+  lint: # ESLint + Prettier + knip (parallel)
+  typecheck: # tsc --noEmit (parallel)
+  test: # vitest + coverage + ratchet (parallel)
+  build: # vite + electron (depends on typecheck)
+  benchmarks: # optional, separate workflow or label-triggered
+```
 
 ### Harden CI Soft-Fail Steps
 

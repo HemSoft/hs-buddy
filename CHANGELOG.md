@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract pure functions from electron/ to src/utils/ for CRAP reduction
 - Extract pure functions to src/utils/ for CRAP score reduction
 - Extract helpers to reduce per-function cyclomatic complexity
+- Add Parallelize CI Pipeline item
 
 ### Added
 

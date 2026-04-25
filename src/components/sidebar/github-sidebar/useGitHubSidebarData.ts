@@ -52,17 +52,22 @@ function initPrTreeData(): Record<string, PullRequest[]> {
   return result
 }
 
+function isValidOrgRepoResult(data: unknown): data is OrgRepoResult {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'repos' in data &&
+    Array.isArray((data as OrgRepoResult).repos)
+  )
+}
+
 function getValidCachedOrgRepos(org: string): OrgRepoResult | null {
   const cached = dataCache.get<OrgRepoResult>(`org-repos:${org}`)
-  if (
-    cached?.data &&
-    typeof cached.data === 'object' &&
-    'repos' in cached.data &&
-    Array.isArray(cached.data.repos)
-  ) {
-    return cached.data
+  const data = cached?.data
+  if (data && isValidOrgRepoResult(data)) {
+    return data
   }
-  if (cached?.data) {
+  if (data) {
     dataCache.delete(`org-repos:${org}`)
   }
   return null

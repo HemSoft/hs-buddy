@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use getUserFacingErrorMessage for user-facing error strings
 - Use getUserFacingErrorMessage for user-visible error strings
 - Guard against corrupted cache data in getValidCachedOrgRepos
+- Narrow IssueListBody prop types per review feedback
 
 ### Changed
 
@@ -39,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce CRAP scores — 100% coverage, complexity 22→2
 - Reduce cyclomatic complexity in mapper functions
 - Reduce complexity and fix code smells
+- Reduce cyclomatic complexity to ≤7 in three functions
 
 ### Added
 

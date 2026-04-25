@@ -230,10 +230,16 @@ function RepoPRListBody({
       />
     )
   }
-  if (viewMode === 'list') {
-    return <PRTableView prs={prs} handlePRClick={handlePRClick} />
-  }
-  return <PRCardView prs={prs} handlePRClick={handlePRClick} />
+  return (
+    <>
+      {loading && <InlineRefreshIndicator message="Refreshing pull requests..." />}
+      {viewMode === 'list' ? (
+        <PRTableView prs={prs} handlePRClick={handlePRClick} />
+      ) : (
+        <PRCardView prs={prs} handlePRClick={handlePRClick} />
+      )}
+    </>
+  )
 }
 
 export function RepoPullRequestList(props: RepoPullRequestListProps) {
@@ -272,8 +278,6 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
     }
   }
 
-  const showRefresh = loading && !isEmpty
-
   return (
     <div className="repo-prs-container">
       <RepoPRListHeader
@@ -286,8 +290,6 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
         setViewMode={setViewMode}
         refresh={refresh}
       />
-
-      {showRefresh && <InlineRefreshIndicator message="Refreshing pull requests..." />}
 
       <RepoPRListBody
         prs={prs}

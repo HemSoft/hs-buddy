@@ -233,6 +233,34 @@ function IssueListHeader({
   )
 }
 
+function IssueListBody({
+  issues,
+  loading,
+  issueState,
+  viewMode,
+  onOpenIssue,
+}: {
+  issues: RepoIssue[]
+  loading: boolean
+  issueState: NonNullable<RepoIssueListProps['issueState']>
+  viewMode: ViewMode
+  onOpenIssue?: (issueNumber: number) => void
+}) {
+  if (!loading && issues.length === 0) {
+    return (
+      <PanelEmptyState
+        icon={<CircleDot size={48} />}
+        message={`No ${issueState} issues`}
+        subtitle={`This repository has no ${issueState} issues right now.`}
+      />
+    )
+  }
+  if (viewMode === 'list') {
+    return <IssueTableView issues={issues} onOpenIssue={onOpenIssue} />
+  }
+  return <IssueCardView issues={issues} onOpenIssue={onOpenIssue} />
+}
+
 export function RepoIssueList(props: RepoIssueListProps) {
   const { owner, repo, onOpenIssue } = props
   const issueState = props.issueState ?? 'open'
@@ -274,17 +302,13 @@ export function RepoIssueList(props: RepoIssueListProps) {
         setViewMode={setViewMode}
       />
 
-      {isEmpty ? (
-        <PanelEmptyState
-          icon={<CircleDot size={48} />}
-          message={`No ${issueState} issues`}
-          subtitle={`This repository has no ${issueState} issues right now.`}
-        />
-      ) : viewMode === 'list' ? (
-        <IssueTableView issues={issues} onOpenIssue={onOpenIssue} />
-      ) : (
-        <IssueCardView issues={issues} onOpenIssue={onOpenIssue} />
-      )}
+      <IssueListBody
+        issues={issues}
+        loading={loading}
+        issueState={issueState}
+        viewMode={viewMode}
+        onOpenIssue={onOpenIssue}
+      />
     </div>
   )
 }

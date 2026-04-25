@@ -4,12 +4,20 @@ import { api } from '../../convex/_generated/api'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { CONVEX_URL } from '../config'
 import { execAsync } from '../utils'
+import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
 import {
-  findCopilotBudget,
-  findBudgetAcrossPages,
-  type BudgetItem,
-} from '../../src/utils/budgetUtils'
-import { OVERAGE_COST_PER_REQUEST } from '../../src/components/copilot-usage/quotaUtils'
+  type BillingUsageItem,
+  type ParsedBillingUsage,
+  isNotFoundError,
+  extractPremiumUsageItems,
+  sumGrossRequests,
+  sumNetCost,
+  parseBillingUsage,
+  extractBudgetFromResult,
+  extractUsageSpend,
+  computeOverageSpend,
+  classifyCliTokenError,
+} from '../../src/utils/billingParsers'
 
 /** Timeout for local CLI commands (auth token, auth status, account switch). */
 const CLI_TIMEOUT_MS = 5000
@@ -29,11 +37,6 @@ const ENTERPRISE_SLUG = 'Bertelsmann'
  *  Billing API calls are skipped entirely for these orgs. */
 const PERSONAL_BUDGETS: Record<string, number> = {
   hemsoft: 50,
-}
-
-function isNotFoundError(error: unknown): boolean {
-  const message = getErrorMessage(error)
-  return message.includes('404') || message.includes('Not Found')
 }
 
 async function tryGetCliToken(username?: string): Promise<string | null> {
@@ -59,79 +62,6 @@ async function getTokenEnv(username?: string): Promise<NodeJS.ProcessEnv> {
   return {
     ...process.env,
     ...(token ? { GH_TOKEN: token } : {}),
-  }
-}
-
-/** Shape returned by /orgs/{org}/settings/billing/usage */
-interface BillingUsageItem {
-  date: string
-  product: string
-  sku: string
-  quantity: number
-  unitType: string
-  pricePerUnit: number
-  grossAmount: number
-  discountAmount: number
-  netAmount: number
-  organizationName: string
-  repositoryName: string
-}
-
-function roundCents(value: number): number {
-  return Math.round(value * 100) / 100
-}
-
-interface ParsedBillingUsage {
-  premiumRequests: number
-  grossCost: number
-  discount: number
-  netCost: number
-  businessSeats: number
-}
-
-function sumBy<T>(items: T[], fn: (item: T) => number): number {
-  return items.reduce((sum, item) => sum + fn(item), 0)
-}
-
-/** Shape returned by enterprise/org premium request usage APIs. */
-interface PremiumUsageItem {
-  grossQuantity: number
-  netQuantity: number
-  netAmount: number
-  model?: string
-}
-
-/** Extract premium usage items from a settled API result, returning [] on failure. */
-function extractPremiumUsageItems(
-  result: PromiseSettledResult<{ stdout: string }>
-): PremiumUsageItem[] {
-  if (result.status !== 'fulfilled') return []
-  const data = JSON.parse(result.value.stdout.trim()) as { usageItems?: PremiumUsageItem[] }
-  return data.usageItems ?? []
-}
-
-function sumGrossRequests(items: PremiumUsageItem[]): number {
-  return Math.round(sumBy(items, i => i.grossQuantity))
-}
-
-function sumNetCost(items: PremiumUsageItem[]): number {
-  return roundCents(sumBy(items, i => i.netAmount))
-}
-
-function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
-  const premiumItems = items.filter(
-    item => item.product === 'copilot' && item.sku === 'Copilot Premium Request'
-  )
-  const seatItems = items.filter(
-    item => item.product === 'copilot' && item.sku === 'Copilot Business'
-  )
-
-  return {
-    premiumRequests: Math.round(sumBy(premiumItems, item => item.quantity)),
-    grossCost: roundCents(sumBy(premiumItems, item => item.grossAmount)),
-    discount: roundCents(sumBy(premiumItems, item => item.discountAmount)),
-    netCost: roundCents(sumBy(premiumItems, item => item.netAmount)),
-    businessSeats: roundCents(sumBy(seatItems, item => item.quantity)),
   }
 }
 
@@ -177,31 +107,6 @@ async function fetchBillingUsage(
 
   const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
   return parseBillingUsage(data.usageItems)
-}
-
-/** Parse a Copilot budget from a settled API result. */
-function extractBudgetFromResult(result: PromiseSettledResult<{ stdout: string }>): {
-  budgetAmount: number | null
-  preventFurtherUsage: boolean
-} {
-  if (result.status !== 'fulfilled') {
-    return { budgetAmount: null, preventFurtherUsage: false }
-  }
-  const data = JSON.parse(result.value.stdout.trim()) as { budgets?: BudgetItem[] }
-  const match = findCopilotBudget(data.budgets ?? [])
-  return {
-    budgetAmount: match?.budget_amount ?? null,
-    preventFurtherUsage: match?.prevent_further_usage ?? false,
-  }
-}
-
-/** Parse premium-request spend from a settled API result. */
-function extractUsageSpend(result: PromiseSettledResult<{ stdout: string }>): number {
-  if (result.status !== 'fulfilled') return 0
-  const data = JSON.parse(result.value.stdout.trim()) as {
-    usageItems?: Array<{ netAmount: number }>
-  }
-  return roundCents(data.usageItems?.reduce((sum, item) => sum + item.netAmount, 0) ?? 0)
 }
 
 /** Fetch budget + premium request spend for a non-personal org. */
@@ -338,16 +243,6 @@ async function fetchOrgOrUserBillingUsage(
   }
 }
 
-function computeOverageSpend(quotaData: Record<string, unknown>): number {
-  const premium = (quotaData?.quota_snapshots as Record<string, unknown>)?.premium_interactions as
-    | Record<string, unknown>
-    | undefined
-  if (!premium) return 0
-  const overageByCount = Math.max(0, (premium.overage_count as number) ?? 0)
-  const overageByRemaining = Math.max(0, -((premium.remaining as number) ?? 0))
-  return roundCents(Math.max(overageByCount, overageByRemaining) * OVERAGE_COST_PER_REQUEST)
-}
-
 /** Compute spend for a personal account using the internal quota endpoint. */
 async function fetchPersonalAccountSpend(
   org: string,
@@ -479,31 +374,6 @@ async function resolveBudgetData(
     spentUnavailable: !!orgResult.spentError,
     useQuotaOverage: false,
   }
-}
-
-function classifyCliTokenError(
-  errorMessage: string,
-  username: string | undefined,
-  cause: unknown
-): Error {
-  if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
-    return new Error('GitHub CLI (gh) is not installed. Install from: https://cli.github.com/', {
-      cause,
-    })
-  }
-  if (errorMessage.includes('not logged in')) {
-    return new Error(
-      `Not logged in to GitHub CLI${username ? ` for account '${username}'` : ''}. Run: gh auth login`,
-      { cause }
-    )
-  }
-  if (errorMessage.includes('no account found')) {
-    return new Error(
-      `GitHub account '${username}' not found in GitHub CLI. Run: gh auth login -h github.com`,
-      { cause }
-    )
-  }
-  return new Error(errorMessage, { cause })
 }
 
 interface RawCopilotSeat {

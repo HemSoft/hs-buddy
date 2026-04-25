@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity in mapper functions
 - Reduce complexity and fix code smells
 - Reduce cyclomatic complexity to ≤7 in three functions
+- Extract pure functions from electron/convex to reduce CRAP scores
+- Extract pure functions from electron/ to src/utils/ for CRAP reduction
 
 ### Added
 

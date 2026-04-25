@@ -1,5 +1,6 @@
 import { execSync } from 'child_process'
 import type { TodoistTask, TodoistProject } from '../../src/types/todoist'
+import { groupTasksByDate } from '../../src/utils/taskGrouping'
 
 const TODOIST_BASE = 'https://api.todoist.com/api/v1'
 
@@ -142,19 +143,6 @@ const SHORT_MONTHS = [
 
 function formatFilterDate(d: Date): string {
   return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`
-}
-
-function groupTasksByDate(tasks: TodoistTask[]): Map<string, TodoistTask[]> {
-  const grouped = new Map<string, TodoistTask[]>()
-  for (const task of tasks) {
-    const raw = task.due?.date ?? ''
-    if (!raw) continue
-    const date = raw.length > 10 ? raw.slice(0, 10) : raw
-    const bucket = grouped.get(date) ?? []
-    bucket.push(task)
-    grouped.set(date, bucket)
-  }
-  return grouped
 }
 
 /** Fetch tasks for the next `days` days plus any overdue, grouped by ISO date. */

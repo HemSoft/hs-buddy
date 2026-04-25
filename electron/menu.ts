@@ -1,5 +1,6 @@
 import { dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import { saveZoomLevel } from './zoom'
+import { matchesShortcut } from '../src/utils/shortcutMatching'
 
 const ZOOM_STEP = 0.1
 const MAX_ZOOM = 3.0
@@ -103,13 +104,6 @@ const SHORTCUTS: ShortcutEntry[] = [
   { key: 'F4', ctrlOrCmd: true, action: win => win.webContents.send('tab-close') },
   { key: 'F11', action: win => win.setFullScreen(!win.isFullScreen()) },
 ]
-
-function matchesShortcut(entry: ShortcutEntry, input: Electron.Input): boolean {
-  const ctrlOrCmd = input.control || input.meta
-  if (entry.ctrlOrCmd && !ctrlOrCmd) return false
-  if (entry.shift && !input.shift) return false
-  return input.key === entry.key
-}
 
 export function registerKeyboardShortcuts(win: BrowserWindow): void {
   win.webContents.on('before-input-event', (event, input) => {

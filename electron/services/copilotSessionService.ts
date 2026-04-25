@@ -9,6 +9,17 @@ import type {
   SessionScanResult,
   SessionSummary,
 } from '../../src/types/copilotSession'
+import {
+  type SessionInitData,
+  extractInitFromValue,
+  extractSessionInitFallback,
+  extractTitle,
+  extractResultDataFallback,
+  resolveTokenCounts,
+  parseKeyPath,
+  resolveFolderOrWorkspaceName,
+} from '../../src/utils/copilotSessionParsing'
+import { extractToolCallInfo } from '../../src/utils/toolCallParsing'
 
 // ─── VS Code Storage Discovery ────────────────────────────
 
@@ -26,20 +37,6 @@ export function getVSCodeStoragePath(): string {
 }
 
 // ─── Workspace name resolution ────────────────────────────
-
-function resolveFolderOrWorkspaceName(parsed: Record<string, unknown>): string | null {
-  const folder = (parsed.folder as string) ?? ''
-  if (folder) {
-    const decoded = decodeURIComponent(folder.replace(/^file:\/\/\//, ''))
-    return path.basename(decoded) || decoded
-  }
-  const workspace = (parsed.workspace as string) ?? ''
-  if (workspace) {
-    const decoded = decodeURIComponent(workspace.replace(/^file:\/\/\//, ''))
-    return path.basename(decoded, '.code-workspace') || decoded
-  }
-  return null
-}
 
 export function resolveWorkspaceName(wsDir: string): string {
   try {
@@ -162,117 +159,12 @@ export function scanCopilotSessions(): SessionScanResult {
 
 // ─── Detail: parse one JSONL file (streaming) ─────────────
 
-interface SessionInitData {
-  sessionId: string
-  creationDate: number
-  model: SessionModelInfo | null
-}
-
-/** Safely cast an unknown value to string with a fallback. */
-function str(v: unknown, d = ''): string {
-  return typeof v === 'string' ? v : d
-}
-
-/** Safely cast an unknown value to number with a fallback. */
-function num(v: unknown, d = 0): number {
-  return typeof v === 'number' ? v : d
-}
-
-function parseModelMetadata(sm: Record<string, unknown>): SessionModelInfo {
-  return {
-    id: str(sm.id),
-    name: str(sm.name),
-    family: str(sm.family),
-    vendor: str(sm.vendor),
-    multiplier: str(sm.multiplier, '1x'),
-    multiplierNumeric: num(sm.multiplierNumeric, 1),
-    maxInputTokens: num(sm.maxInputTokens),
-    maxOutputTokens: num(sm.maxOutputTokens),
-  }
-}
-
-function extractSessionInitFallback(line: string): SessionInitData {
-  const sidMatch = /"sessionId":"([^"]+)"/.exec(line)
-  const cdMatch = /"creationDate":(\d+)/.exec(line)
-  return {
-    sessionId: sidMatch?.[1] ?? '',
-    creationDate: cdMatch ? parseInt(cdMatch[1]) : 0,
-    model: null,
-  }
-}
-
-function extractInitFromValue(v: Record<string, unknown>): SessionInitData {
-  const sm = (v.inputState as Record<string, unknown>)?.selectedModel as
-    | Record<string, unknown>
-    | undefined
-  return {
-    sessionId: (v.sessionId as string) ?? '',
-    creationDate: (v.creationDate as number) ?? 0,
-    model: sm?.metadata ? parseModelMetadata(sm.metadata as Record<string, unknown>) : null,
-  }
-}
-
 function collectPrompts(reqs: Array<Record<string, unknown>>, prompts: Map<number, string>): void {
   for (let i = 0; i < reqs.length; i++) {
     const msg = (reqs[i]?.message as Record<string, unknown> | undefined)?.text as
       | string
       | undefined
     if (msg) prompts.set(i, msg)
-  }
-}
-
-function extractTitle(line: string): string | null {
-  const m = /"v":"((?:[^"\\]|\\.)*)"/.exec(line)
-  return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : null
-}
-
-function extractToolCallInfo(metadata: Record<string, unknown>): {
-  toolCallCount: number
-  toolNames: string[]
-} {
-  let toolCallCount = 0
-  const toolNames = new Set<string>()
-  const rounds = (metadata?.toolCallRounds ?? []) as Array<Record<string, unknown>>
-  for (const round of rounds) {
-    const calls = (round.toolCalls ?? []) as Array<Record<string, unknown>>
-    for (const tc of calls) {
-      toolCallCount++
-      if (tc.name) toolNames.add(tc.name as string)
-    }
-  }
-  return { toolCallCount, toolNames: [...toolNames] }
-}
-
-function extractResultDataFallback(line: string): SessionRequestResult | null {
-  const pt = /"promptTokens":(\d+)/.exec(line)
-  const ot = /"outputTokens":(\d+)/.exec(line)
-  if (!pt || !ot) return null
-  return {
-    prompt: '',
-    promptTokens: parseInt(pt[1]),
-    outputTokens: parseInt(ot[1]),
-    firstProgressMs: 0,
-    totalElapsedMs: 0,
-    toolCallCount: 0,
-    toolNames: [],
-  }
-}
-
-function resolveMetricValue(primary: number | undefined, fallback: number | undefined): number {
-  return primary ?? fallback ?? 0
-}
-
-function resolveTokenCounts(
-  metadata: Record<string, number> | undefined,
-  timings: Record<string, number> | undefined
-): { promptTokens: number; outputTokens: number; firstProgressMs: number; totalElapsedMs: number } {
-  const m = metadata ?? {}
-  const t = timings ?? {}
-  return {
-    promptTokens: resolveMetricValue(m.promptTokens, t.promptTokens),
-    outputTokens: resolveMetricValue(m.outputTokens, t.outputTokens),
-    firstProgressMs: t.firstProgress ?? 0,
-    totalElapsedMs: t.totalElapsed ?? 0,
   }
 }
 
@@ -289,16 +181,6 @@ function extractResultData(line: string): SessionRequestResult | null {
   } catch {
     return extractResultDataFallback(line)
   }
-}
-
-function parseKeyPath(line: string): string[] {
-  const keyMatch = /"k":\[([^\]]*)\]/.exec(line)
-  return keyMatch
-    ? keyMatch[1]
-        .split(',')
-        .map(s => s.trim().replace(/^"|"$/g, ''))
-        .filter(Boolean)
-    : []
 }
 
 function handleInitLine(

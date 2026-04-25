@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import type { Dirent } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { detectLanguage } from '../../src/utils/detectLanguage'
 
 const MAX_FILE_SIZE = 1_048_576 // 1 MB
 
@@ -50,62 +51,6 @@ const BINARY_EXTENSIONS = new Set([
   '.db',
   '.lock',
 ])
-
-/** Map file extension to a language identifier for display */
-function detectLanguage(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase()
-  const map: Record<string, string> = {
-    '.ts': 'typescript',
-    '.tsx': 'tsx',
-    '.js': 'javascript',
-    '.jsx': 'jsx',
-    '.json': 'json',
-    '.md': 'markdown',
-    '.css': 'css',
-    '.scss': 'scss',
-    '.html': 'html',
-    '.xml': 'xml',
-    '.yaml': 'yaml',
-    '.yml': 'yaml',
-    '.py': 'python',
-    '.rb': 'ruby',
-    '.go': 'go',
-    '.rs': 'rust',
-    '.cs': 'csharp',
-    '.java': 'java',
-    '.kt': 'kotlin',
-    '.swift': 'swift',
-    '.c': 'c',
-    '.cpp': 'cpp',
-    '.h': 'c',
-    '.hpp': 'cpp',
-    '.sh': 'shell',
-    '.bash': 'shell',
-    '.ps1': 'powershell',
-    '.psm1': 'powershell',
-    '.sql': 'sql',
-    '.graphql': 'graphql',
-    '.gql': 'graphql',
-    '.toml': 'toml',
-    '.ini': 'ini',
-    '.env': 'shell',
-    '.dockerfile': 'dockerfile',
-    '.tf': 'hcl',
-    '.hcl': 'hcl',
-    '.vue': 'vue',
-    '.svelte': 'svelte',
-    '.astro': 'astro',
-    '.txt': 'plaintext',
-    '.log': 'plaintext',
-    '.csv': 'plaintext',
-  }
-  // Handle Dockerfile (no extension)
-  const basename = path.basename(filePath).toLowerCase()
-  if (basename === 'dockerfile') return 'dockerfile'
-  if (basename === 'makefile') return 'makefile'
-  if (basename === '.gitignore' || basename === '.gitattributes') return 'gitignore'
-  return map[ext] || 'plaintext'
-}
 
 interface DirEntry {
   name: string

@@ -8,46 +8,15 @@
 import { spawn } from 'node:child_process'
 import { truncateOutput } from '../services/copilotClient'
 import type { Worker, WorkerResult, JobConfig } from './types'
+import {
+  getShellArgs,
+  isPowerShell,
+  killedErrorMessage,
+  failureErrorMessage,
+} from '../../src/utils/shellUtils'
 
 const DEFAULT_TIMEOUT = 30_000 // 30 seconds
 const MAX_OUTPUT_SIZE = 512_000 // 512KB per stream
-
-/** Map shell name to spawn args (platform-aware for PowerShell executables) */
-function getShellArgs(shell: string): { command: string; args: string[] } {
-  const isWin = process.platform === 'win32'
-  const PS_ARGS = ['-NoProfile', '-NonInteractive', '-Command']
-
-  const shellMap: Record<string, { command: string; args: string[] }> = {
-    powershell: { command: isWin ? 'pwsh.exe' : 'pwsh', args: PS_ARGS },
-    pwsh: { command: isWin ? 'pwsh.exe' : 'pwsh', args: PS_ARGS },
-    powershell5: { command: isWin ? 'powershell.exe' : 'powershell', args: PS_ARGS },
-    bash: { command: 'bash', args: ['-c'] },
-    sh: { command: 'sh', args: ['-c'] },
-    zsh: { command: 'zsh', args: ['-c'] },
-    cmd: { command: 'cmd.exe', args: ['/c'] },
-  }
-
-  // Platform-aware default: PowerShell on Windows, bash elsewhere
-  return (
-    shellMap[shell] ??
-    (isWin ? { command: 'pwsh.exe', args: PS_ARGS } : { command: 'bash', args: ['-c'] })
-  )
-}
-
-/** Check if a shell type is PowerShell (any shell that isn't bash, sh, zsh, or cmd) */
-function isPowerShell(shell: string): boolean {
-  return !['bash', 'sh', 'zsh', 'cmd'].includes(shell)
-}
-
-/** Resolve the error message for a killed process. */
-function killedErrorMessage(signal: AbortSignal | undefined, timeout: number): string {
-  return signal?.aborted ? 'Cancelled by user' : `Killed after ${timeout}ms timeout`
-}
-
-/** Resolve the error message for a non-zero exit. */
-function failureErrorMessage(stderr: string, exitCode: number | null): string {
-  return stderr || `Process exited with code ${exitCode}`
-}
 
 /** Build the WorkerResult from the close event data */
 function buildWorkerResult(opts: {
@@ -56,18 +25,19 @@ function buildWorkerResult(opts: {
   exitCode: number | null
   stdout: string
   stderr: string
+  now: number
   start: number
   timeout: number
 }): WorkerResult {
   const output = truncateOutput(opts.stdout.trim(), MAX_OUTPUT_SIZE) || undefined
   const trimmedStderr = truncateOutput(opts.stderr.trim(), MAX_OUTPUT_SIZE)
-  const duration = Date.now() - opts.start
+  const duration = opts.now - opts.start
   const exitCode = opts.exitCode ?? -1
 
   if (opts.killed) {
     return {
       success: false,
-      error: killedErrorMessage(opts.signal, opts.timeout),
+      error: killedErrorMessage(!!opts.signal?.aborted, opts.timeout),
       output,
       exitCode,
       duration,
@@ -97,9 +67,10 @@ export const execWorker: Worker = {
     }
 
     const timeout = config.timeout ?? DEFAULT_TIMEOUT
-    const defaultShell = process.platform === 'win32' ? 'powershell' : 'bash'
+    const isWin = process.platform === 'win32'
+    const defaultShell = isWin ? 'powershell' : 'bash'
     const shell = config.shell ?? defaultShell
-    const { command: shellCmd, args: shellArgs } = getShellArgs(shell)
+    const { command: shellCmd, args: shellArgs } = getShellArgs(shell, isWin)
 
     // For PowerShell, ensure console output encoding is UTF-8
     const finalCommand = isPowerShell(shell)
@@ -164,7 +135,18 @@ export const execWorker: Worker = {
       child.on('close', exitCode => {
         clearTimeout(timer)
         signal?.removeEventListener('abort', onAbort)
-        resolve(buildWorkerResult({ killed, signal, exitCode, stdout, stderr, start, timeout }))
+        resolve(
+          buildWorkerResult({
+            killed,
+            signal,
+            exitCode,
+            stdout,
+            stderr,
+            now: Date.now(),
+            start,
+            timeout,
+          })
+        )
       })
     })
   },

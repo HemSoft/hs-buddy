@@ -186,6 +186,10 @@ export function formatSecondsCountdown(secs: number): string {
   return `${minutes}m ${seconds.toString().padStart(2, '0')}s`
 }
 
+function withRemainder(value: number, unit: string, remainder: number, rUnit: string): string {
+  return remainder > 0 ? `${value}${unit} ${remainder}${rUnit}` : `${value}${unit}`
+}
+
 export function formatUptime(ms: number): string {
   if (ms <= 0) return '0s'
   const totalSeconds = Math.floor(ms / 1_000)
@@ -193,11 +197,8 @@ export function formatUptime(ms: number): string {
   const totalMinutes = Math.floor(ms / MINUTE)
   if (totalMinutes < 60) return `${totalMinutes}m`
   const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  if (hours < 24) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
-  const days = Math.floor(hours / 24)
-  const remainingHours = hours % 24
-  return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`
+  if (hours < 24) return withRemainder(hours, 'h', totalMinutes % 60, 'm')
+  return withRemainder(Math.floor(hours / 24), 'd', hours % 24, 'h')
 }
 
 const FORMAT_TIME_DEFAULTS = {

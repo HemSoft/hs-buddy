@@ -73,17 +73,16 @@ export function extractSessionInitFallback(line: string): SessionInitData {
 
 // ─── Workspace name ──────────────────────────────────────
 
+function decodePath(encoded: string, ext?: string): string {
+  const decoded = decodeURIComponent(encoded.replace(/^file:\/\/\//, ''))
+  return baseName(decoded, ext) || decoded
+}
+
 export function resolveFolderOrWorkspaceName(parsed: Record<string, unknown>): string | null {
   const folder = (parsed.folder as string) ?? ''
-  if (folder) {
-    const decoded = decodeURIComponent(folder.replace(/^file:\/\/\//, ''))
-    return baseName(decoded) || decoded
-  }
+  if (folder) return decodePath(folder)
   const workspace = (parsed.workspace as string) ?? ''
-  if (workspace) {
-    const decoded = decodeURIComponent(workspace.replace(/^file:\/\/\//, ''))
-    return baseName(decoded, '.code-workspace') || decoded
-  }
+  if (workspace) return decodePath(workspace, '.code-workspace')
   return null
 }
 

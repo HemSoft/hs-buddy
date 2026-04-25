@@ -3,8 +3,6 @@ import * as path from 'path'
 import * as readline from 'readline'
 import type {
   CopilotSession,
-  SessionDigest,
-  SessionModelInfo,
   SessionRequestResult,
   SessionScanResult,
   SessionSummary,
@@ -20,6 +18,7 @@ import {
   resolveFolderOrWorkspaceName,
 } from '../../src/utils/copilotSessionParsing'
 import { extractToolCallInfo } from '../../src/utils/toolCallParsing'
+import { aggregateResults } from '../../src/utils/sessionDigest'
 
 // ─── VS Code Storage Discovery ────────────────────────────
 
@@ -333,121 +332,6 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
   })
 }
 
-// ─── Digest: compute efficiency metrics from parsed session ──
+// ─── Digest: re-exported from src/utils/sessionDigest.ts ──
 
-function aggregateResults(results: SessionRequestResult[]): {
-  totalPromptTokens: number
-  totalOutputTokens: number
-  totalToolCalls: number
-  totalDurationMs: number
-  allToolNames: string[]
-} {
-  const allToolNames = new Set<string>()
-  let totalPromptTokens = 0
-  let totalOutputTokens = 0
-  let totalToolCalls = 0
-  let totalDurationMs = 0
-
-  for (const r of results) {
-    totalPromptTokens += r.promptTokens
-    totalOutputTokens += r.outputTokens
-    totalToolCalls += r.toolCallCount
-    totalDurationMs += r.totalElapsedMs
-    for (const name of r.toolNames) allToolNames.add(name)
-  }
-
-  return {
-    totalPromptTokens,
-    totalOutputTokens,
-    totalToolCalls,
-    totalDurationMs,
-    allToolNames: [...allToolNames],
-  }
-}
-
-/** Base rate per token for cost estimation (USD per token, approximate) */
-const BASE_TOKEN_RATE = 0.000001
-
-/** Tool name patterns that indicate search/exploration behavior */
-const SEARCH_TOOL_PATTERNS = ['grep_search', 'semantic_search', 'file_search', 'search_subagent']
-
-function countSearchChurn(results: SessionRequestResult[]): number {
-  // Count requests that contain at least one search tool call.
-  // High counts relative to total requests indicate blind exploration.
-  let searchRequests = 0
-  for (const r of results) {
-    if (r.toolNames.some(t => SEARCH_TOOL_PATTERNS.some(p => t.includes(p)))) {
-      searchRequests++
-    }
-  }
-  return searchRequests
-}
-
-function computeDominantTools(results: SessionRequestResult[]): string[] {
-  const freq = new Map<string, number>()
-  for (const r of results) {
-    for (const tool of r.toolNames) {
-      freq.set(tool, (freq.get(tool) ?? 0) + 1)
-    }
-  }
-  return [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([name]) => name)
-}
-
-function resolveModelName(model: SessionModelInfo | null): string {
-  return model?.name || model?.id || ''
-}
-
-function resolveFirstPrompt(results: SessionRequestResult[]): string {
-  const prompt = results[0]?.prompt
-  return prompt ? [...prompt].slice(0, 200).join('') : ''
-}
-
-function computeEfficiencyMetrics(
-  totalPromptTokens: number,
-  totalOutputTokens: number,
-  totalToolCalls: number,
-  requestCount: number
-): { tokenEfficiency: number; toolDensity: number } {
-  return {
-    tokenEfficiency: totalPromptTokens > 0 ? totalOutputTokens / totalPromptTokens : 0,
-    toolDensity: requestCount > 0 ? totalToolCalls / requestCount : 0,
-  }
-}
-
-export function computeSessionDigest(
-  session: CopilotSession,
-  workspaceName: string,
-  agentMode: string
-): SessionDigest {
-  const { totalPromptTokens, totalOutputTokens, totalToolCalls, requestCount, results } = session
-  const multiplier = session.model?.multiplierNumeric ?? 1
-  const totalTokens = totalPromptTokens + totalOutputTokens
-  const metrics = computeEfficiencyMetrics(
-    totalPromptTokens,
-    totalOutputTokens,
-    totalToolCalls,
-    requestCount
-  )
-
-  return {
-    sessionId: session.sessionId,
-    workspaceName,
-    model: resolveModelName(session.model),
-    agentMode,
-    requestCount,
-    totalPromptTokens,
-    totalOutputTokens,
-    totalToolCalls,
-    totalDurationMs: session.totalDurationMs,
-    ...metrics,
-    searchChurn: countSearchChurn(results),
-    estimatedCost: totalTokens * multiplier * BASE_TOKEN_RATE,
-    dominantTools: computeDominantTools(results),
-    firstPrompt: resolveFirstPrompt(results),
-    sessionDate: session.startTime || Date.now(),
-    digestedAt: Date.now(),
-  }
-}
+export { computeSessionDigest } from '../../src/utils/sessionDigest'

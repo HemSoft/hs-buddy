@@ -9,22 +9,12 @@ import os from 'node:os'
 import { sendPrompt, truncateOutput, DEFAULT_MODEL } from '../services/copilotClient'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import type { Worker, WorkerResult, JobConfig } from './types'
+import { buildSkillPrompt } from '../../src/utils/shellUtils'
 
 const DEFAULT_TIMEOUT = 120_000
 
 /** Skills live under ~/.agents/skills — run the Copilot agent from there */
 const SKILLS_DIR = path.join(os.homedir(), '.agents', 'skills')
-
-/** Build the prompt string for a skill invocation */
-function buildSkillPrompt(skillName: string, action?: string, params?: unknown): string {
-  let prompt = `Use the "${skillName}" skill`
-  if (action) prompt += ` to perform the "${action}" action`
-  if (params) {
-    const paramsStr = typeof params === 'string' ? params : JSON.stringify(params, null, 2)
-    prompt += `\n\nParameters:\n${paramsStr}`
-  }
-  return prompt
-}
 
 export const skillWorker: Worker = {
   async execute(config: JobConfig, signal?: AbortSignal): Promise<WorkerResult> {

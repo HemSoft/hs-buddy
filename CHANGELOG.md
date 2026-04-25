@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Guard against corrupted cache data in getValidCachedOrgRepos
 - Narrow IssueListBody prop types per review feedback
 - Handle undefined quota state in AccountQuotaCard (race condition crash)
+- Address CI failures and PR review feedback
+- Derive isPowerShell from resolved shell command
+- Wrap parseFulfilledStdout JSON.parse in try/catch for safe degradation
 
 ### Changed
 
@@ -44,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity to ≤7 in three functions
 - Extract pure functions from electron/convex to reduce CRAP scores
 - Extract pure functions from electron/ to src/utils/ for CRAP reduction
+- Extract pure functions to src/utils/ for CRAP score reduction
+- Extract helpers to reduce per-function cyclomatic complexity
 
 ### Added
 

@@ -2,6 +2,15 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import type { MutationCtx } from './_generated/server'
+import {
+  normalizeWhitespace,
+  toCanonicalKey,
+  sourceToLabel,
+  ensureAcceptanceCriteria,
+  validateIntakeInput,
+  buildIssueTitle,
+  buildIssueBody,
+} from '../src/utils/featureIntakeUtils'
 
 const intakeSourceValidator = v.union(
   v.literal('jira'),
@@ -23,124 +32,6 @@ const intakeStatusValidator = v.union(
   v.literal('linked'),
   v.literal('duplicate')
 )
-
-const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim()
-
-const toCanonicalFragment = (value: string): string =>
-  normalizeWhitespace(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-const toCanonicalKey = (input: {
-  source: 'jira' | 'github-issue' | 'manual' | 'other'
-  title: string
-  problem: string
-  requestedOutcome?: string
-  acceptanceCriteria: string[]
-}): string => {
-  const criteriaFragment = input.acceptanceCriteria
-    .map(criterion => toCanonicalFragment(criterion))
-    .join('-')
-
-  const joined = [
-    input.source,
-    toCanonicalFragment(input.title),
-    toCanonicalFragment(input.problem),
-    toCanonicalFragment(input.requestedOutcome ?? ''),
-    criteriaFragment,
-  ]
-    .filter(Boolean)
-    .join('-')
-
-  return `fi-${joined}`.slice(0, 220)
-}
-
-const sourceToLabel = (source: 'jira' | 'github-issue' | 'manual' | 'other'): string => {
-  return `source:${source}`
-}
-
-const toUniqueCriteria = (criteria: string[]): string[] => {
-  const seen = new Set<string>()
-  const cleaned: string[] = []
-
-  for (const criterion of criteria) {
-    const normalized = normalizeWhitespace(criterion)
-    if (!normalized) {
-      continue
-    }
-
-    const lookupKey = normalized.toLowerCase()
-    if (seen.has(lookupKey)) {
-      continue
-    }
-
-    seen.add(lookupKey)
-    cleaned.push(normalized)
-  }
-
-  return cleaned
-}
-
-const buildIssueBody = (input: {
-  source: 'jira' | 'github-issue' | 'manual' | 'other'
-  externalId: string
-  externalUrl?: string
-  requestedBy?: string
-  title: string
-  problem: string
-  requestedOutcome?: string
-  acceptanceCriteria: string[]
-  canonicalKey: string
-  riskLabel: 'risk:trivial' | 'risk:low' | 'risk:medium' | 'risk:high' | 'risk:critical'
-}): string => {
-  const criteriaChecklist = input.acceptanceCriteria
-    .map(criterion => `- [ ] ${criterion}`)
-    .join('\n')
-
-  const outcome = input.requestedOutcome
-    ? normalizeWhitespace(input.requestedOutcome)
-    : 'Define desired user/business outcome during triage.'
-
-  const sourceUrlLine = input.externalUrl ? `- Source URL: ${input.externalUrl}` : ''
-  const requesterLine = input.requestedBy
-    ? `- Requested by: ${normalizeWhitespace(input.requestedBy)}`
-    : ''
-
-  return [
-    '## Summary',
-    normalizeWhitespace(input.title),
-    '',
-    '## Problem',
-    normalizeWhitespace(input.problem),
-    '',
-    '## Requested Outcome',
-    outcome,
-    '',
-    '## Acceptance Criteria',
-    criteriaChecklist,
-    '',
-    '## Source Metadata',
-    `- Source: ${sourceToLabel(input.source)}`,
-    `- External ID: ${normalizeWhitespace(input.externalId)}`,
-    sourceUrlLine,
-    requesterLine,
-    `- Risk Class: ${input.riskLabel}`,
-    '',
-    '## Agent Metadata',
-    '- Lifecycle: agent:fixable',
-    `- Idempotency key: ${input.canonicalKey}`,
-    '',
-    `<!-- buddy:feature-intake-key:${input.canonicalKey} -->`,
-  ]
-    .filter(line => line !== '')
-    .join('\n')
-}
-
-const buildIssueTitle = (title: string): string => {
-  const normalized = normalizeWhitespace(title)
-  return normalized.startsWith('[feature-intake]') ? normalized : `[feature-intake] ${normalized}`
-}
 
 export const list = query({
   args: {},
@@ -186,18 +77,6 @@ export const getBySourceExternal = query({
   },
 })
 
-function validateNormalizeInput(externalId: string, title: string, problem: string): void {
-  if (!externalId) {
-    throw new Error('externalId is required')
-  }
-  if (!title) {
-    throw new Error('title is required')
-  }
-  if (!problem) {
-    throw new Error('problem is required')
-  }
-}
-
 function buildNormalizeResult(
   intakeId: string,
   existingByCanonical: {
@@ -236,14 +115,6 @@ function buildExternalDuplicateResult(existing: {
     canonicalIssueBody: existing.canonicalIssueBody,
     canonicalIssueLabels: existing.canonicalIssueLabels,
   }
-}
-
-function ensureAcceptanceCriteria(raw?: string[]): string[] {
-  const criteria = toUniqueCriteria(raw ?? [])
-  if (criteria.length === 0) {
-    criteria.push('Acceptance criteria to be refined during triage.')
-  }
-  return criteria
 }
 
 type IntakeSource = 'jira' | 'github-issue' | 'manual' | 'other'
@@ -351,7 +222,7 @@ export const normalize = mutation({
     const title = normalizeWhitespace(args.title)
     const problem = normalizeWhitespace(args.problem)
 
-    validateNormalizeInput(externalId, title, problem)
+    validateIntakeInput(externalId, title, problem)
 
     const existingByExternal = await ctx.db
       .query('featureIntakes')

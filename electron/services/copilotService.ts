@@ -21,6 +21,12 @@ import {
 import { CONVEX_URL } from '../config'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { execAsync } from '../utils'
+import {
+  hasPRReviewMetadata,
+  mapModelInfo,
+  type CopilotPromptRequest,
+  type PRReviewMetadata,
+} from '../../src/utils/copilotPromptUtils'
 
 const HARD_TIMEOUT = 30 * 60_000 // 30 minutes — PR reviews can be lengthy
 const LIST_MODELS_TIMEOUT = 30_000
@@ -50,59 +56,6 @@ function toError(err: unknown): Error {
 
 function shouldRetryListModels(error: Error, attempt: number, maxRetries: number): boolean {
   return error.message.includes('not connected') && attempt < maxRetries
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapModelInfo(m: any): {
-  id: string
-  name: string
-  isDisabled: boolean
-  billingMultiplier: number
-} {
-  return {
-    id: m.id,
-    name: m.name,
-    isDisabled: m.policy?.state === 'disabled',
-    billingMultiplier: m.billing?.multiplier ?? 1,
-  }
-}
-
-interface CopilotPromptRequest {
-  prompt: string
-  category?: string // "pr-review", "general", etc.
-  metadata?: unknown // Arbitrary metadata (e.g., PR info)
-  model?: string // Override default model
-}
-
-interface PRReviewMetadata {
-  prUrl?: string
-  prTitle?: string
-  prNumber?: number
-  repo?: string
-  org?: string
-  author?: string
-  ghAccount?: string
-  reviewedHeadSha?: string
-  reviewedThreadStats?: {
-    total: number
-    unresolved: number
-    outdated: number
-  }
-}
-
-function hasPRReviewMetadata(
-  request: CopilotPromptRequest,
-  metadata: PRReviewMetadata | undefined
-): metadata is PRReviewMetadata &
-  Required<Pick<PRReviewMetadata, 'org' | 'repo' | 'prNumber' | 'prUrl' | 'prTitle'>> {
-  return (
-    request.category === 'pr-review' &&
-    !!metadata?.org &&
-    !!metadata.repo &&
-    typeof metadata.prNumber === 'number' &&
-    !!metadata.prUrl &&
-    !!metadata.prTitle
-  )
 }
 
 interface CopilotPromptResult {

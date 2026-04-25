@@ -3,6 +3,7 @@ import { mutation, query } from './_generated/server'
 import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
 import { notFoundError } from './lib/domain'
 import { projectJob } from './lib/projections'
+import { buildScheduleUpdateFields } from '../src/utils/scheduleUtils'
 
 /**
  * Schedule CRUD operations
@@ -98,75 +99,6 @@ export const create = mutation({
   },
 })
 
-interface ScheduleUpdates {
-  name?: string
-  description?: string
-  cron?: string
-  timezone?: string
-  enabled?: boolean
-  params?: unknown
-  missedPolicy?: 'catchup' | 'skip' | 'last'
-}
-
-interface ExistingSchedule {
-  cron: string
-  timezone?: string
-  enabled: boolean
-}
-
-function copyDefinedFields(updates: ScheduleUpdates, now: number): Record<string, unknown> {
-  const fields = [
-    'name',
-    'description',
-    'cron',
-    'timezone',
-    'enabled',
-    'params',
-    'missedPolicy',
-  ] as const
-  const updateData: Record<string, unknown> = { updatedAt: now }
-  for (const field of fields) {
-    if (updates[field] !== undefined) updateData[field] = updates[field]
-  }
-  return updateData
-}
-
-function hasScheduleTimingChanged(updates: ScheduleUpdates, existing: ExistingSchedule): boolean {
-  const cronChanged = updates.cron !== undefined && updates.cron !== existing.cron
-  const timezoneChanged = updates.timezone !== undefined && updates.timezone !== existing.timezone
-  const enabledChanged = updates.enabled !== undefined && updates.enabled !== existing.enabled
-  return cronChanged || timezoneChanged || enabledChanged
-}
-
-function resolveNextRunAt(
-  updates: ScheduleUpdates,
-  existing: ExistingSchedule
-): number | undefined {
-  const isEnabled = updates.enabled ?? existing.enabled
-  if (!isEnabled) return undefined
-  if (!hasScheduleTimingChanged(updates, existing)) return undefined
-  const newCron = updates.cron ?? existing.cron
-  const newTimezone = updates.timezone ?? existing.timezone ?? DEFAULT_TIMEZONE
-  return calculateNextRunAt(newCron, newTimezone)
-}
-
-function buildScheduleUpdateFields(
-  updates: ScheduleUpdates,
-  existing: ExistingSchedule,
-  now: number
-): Record<string, unknown> {
-  const updateData = copyDefinedFields(updates, now)
-  const isEnabled = updates.enabled ?? existing.enabled
-
-  if (!isEnabled) {
-    updateData.nextRunAt = undefined
-  } else if (hasScheduleTimingChanged(updates, existing)) {
-    updateData.nextRunAt = resolveNextRunAt(updates, existing)
-  }
-
-  return updateData
-}
-
 // Update existing schedule
 export const update = mutation({
   args: {
@@ -188,7 +120,13 @@ export const update = mutation({
     }
 
     const now = Date.now()
-    const updateData = buildScheduleUpdateFields(updates, existing, now)
+    const updateData = buildScheduleUpdateFields(
+      updates,
+      existing,
+      now,
+      DEFAULT_TIMEZONE,
+      calculateNextRunAt
+    )
 
     await ctx.db.patch('schedules', id, updateData)
     return id

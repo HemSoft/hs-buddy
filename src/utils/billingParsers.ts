@@ -46,13 +46,26 @@ export function isNotFoundError(error: unknown): boolean {
   return message.includes('404') || message.includes('Not Found')
 }
 
+/** Parse JSON from a fulfilled settled result, returning null on failure. */
+function parseFulfilledStdout<T>(result: PromiseSettledResult<{ stdout: string }>): T | null {
+  if (result.status !== 'fulfilled') return null
+
+  const stdout = result.value.stdout.trim()
+  if (!stdout) return null
+
+  try {
+    return JSON.parse(stdout) as T
+  } catch {
+    return null
+  }
+}
+
 /** Extract premium usage items from a settled API result, returning [] on failure. */
 export function extractPremiumUsageItems(
   result: PromiseSettledResult<{ stdout: string }>
 ): PremiumUsageItem[] {
-  if (result.status !== 'fulfilled') return []
-  const data = JSON.parse(result.value.stdout.trim()) as { usageItems?: PremiumUsageItem[] }
-  return data.usageItems ?? []
+  const data = parseFulfilledStdout<{ usageItems?: PremiumUsageItem[] }>(result)
+  return data?.usageItems ?? []
 }
 
 export function sumGrossRequests(items: PremiumUsageItem[]): number {
@@ -86,8 +99,8 @@ export function extractBudgetFromResult(result: PromiseSettledResult<{ stdout: s
   preventFurtherUsage: boolean
 } {
   const noBudget = { budgetAmount: null, preventFurtherUsage: false } as const
-  if (result.status !== 'fulfilled') return noBudget
-  const data = JSON.parse(result.value.stdout.trim()) as { budgets?: BudgetItem[] }
+  const data = parseFulfilledStdout<{ budgets?: BudgetItem[] }>(result)
+  if (!data) return noBudget
   const match = findCopilotBudget(data.budgets ?? [])
   if (!match) return noBudget
   return {
@@ -98,11 +111,8 @@ export function extractBudgetFromResult(result: PromiseSettledResult<{ stdout: s
 
 /** Parse premium-request spend from a settled API result. */
 export function extractUsageSpend(result: PromiseSettledResult<{ stdout: string }>): number {
-  if (result.status !== 'fulfilled') return 0
-  const data = JSON.parse(result.value.stdout.trim()) as {
-    usageItems?: Array<{ netAmount: number }>
-  }
-  const items = data.usageItems ?? []
+  const data = parseFulfilledStdout<{ usageItems?: Array<{ netAmount: number }> }>(result)
+  const items = data?.usageItems ?? []
   return roundCents(items.reduce((sum, item) => sum + item.netAmount, 0))
 }
 

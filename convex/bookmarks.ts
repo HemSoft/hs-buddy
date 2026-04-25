@@ -1,15 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { notFoundError } from './lib/domain'
-
-/** Build a patch object from mutation args, excluding the `id` key. */
-function buildUpdateData(args: Record<string, unknown>): Record<string, unknown> {
-  const updateData: Record<string, unknown> = { updatedAt: Date.now() }
-  for (const [key, value] of Object.entries(args)) {
-    if (key !== 'id' && value !== undefined) updateData[key] = value
-  }
-  return updateData
-}
+import { validateBookmarkUpdate, buildUpdateData } from '../src/utils/bookmarkValidation'
 
 // List all bookmarks
 export const list = query({
@@ -61,21 +53,7 @@ export const create = mutation({
     sortOrder: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Validate URL
-    const parsed = new URL(args.url)
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      throw new Error('Only http and https URLs are allowed')
-    }
-
-    // Validate tag count
-    if (args.tags && args.tags.length > 50) {
-      throw new Error('Maximum 50 tags allowed')
-    }
-
-    // Validate category is non-empty
-    if (!args.category.trim()) {
-      throw new Error('Category is required')
-    }
+    validateBookmarkUpdate(args)
 
     // Check for duplicate URL within the same category
     const duplicateInCategory = await ctx.db
@@ -113,29 +91,6 @@ export const create = mutation({
   },
 })
 
-function validateBookmarkUpdate(args: {
-  id: string
-  url?: string
-  title?: string
-  category?: string
-  tags?: string[]
-}) {
-  if (args.url !== undefined) {
-    const parsed = new URL(args.url)
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      throw new Error('Only http and https URLs are allowed')
-    }
-  }
-
-  if (args.category !== undefined && !args.category.trim()) {
-    throw new Error('Category is required')
-  }
-
-  if (args.tags && args.tags.length > 50) {
-    throw new Error('Maximum 50 tags allowed')
-  }
-}
-
 // Update bookmark
 export const update = mutation({
   args: {
@@ -170,7 +125,7 @@ export const update = mutation({
       }
     }
 
-    await ctx.db.patch(args.id, buildUpdateData(args))
+    await ctx.db.patch(args.id, buildUpdateData(args, Date.now()))
     return args.id
   },
 })

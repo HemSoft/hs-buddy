@@ -98,6 +98,16 @@ describe('extractPremiumUsageItems', () => {
     const result = stdoutResult({})
     expect(extractPremiumUsageItems(result)).toEqual([])
   })
+
+  it('returns [] when stdout is invalid JSON', () => {
+    const result = fulfilled({ stdout: 'not json' })
+    expect(extractPremiumUsageItems(result)).toEqual([])
+  })
+
+  it('returns [] when stdout is empty', () => {
+    const result = fulfilled({ stdout: '' })
+    expect(extractPremiumUsageItems(result)).toEqual([])
+  })
 })
 
 // --- sumGrossRequests ---
@@ -242,6 +252,14 @@ describe('extractBudgetFromResult', () => {
       preventFurtherUsage: false,
     })
   })
+
+  it('returns null budget when stdout is invalid JSON', () => {
+    const result = fulfilled({ stdout: '{broken' })
+    expect(extractBudgetFromResult(result)).toEqual({
+      budgetAmount: null,
+      preventFurtherUsage: false,
+    })
+  })
 })
 
 // --- extractUsageSpend ---
@@ -265,6 +283,11 @@ describe('extractUsageSpend', () => {
 
   it('handles empty usageItems', () => {
     const result = stdoutResult({ usageItems: [] })
+    expect(extractUsageSpend(result)).toBe(0)
+  })
+
+  it('returns 0 when stdout is invalid JSON', () => {
+    const result = fulfilled({ stdout: 'oops' })
     expect(extractUsageSpend(result)).toBe(0)
   })
 })

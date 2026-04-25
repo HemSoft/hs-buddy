@@ -18,9 +18,16 @@ import type { GitHubAccount } from '../../types/config'
 import { daysUntilReset, formatCopilotPlan, formatResetDate } from '../../utils/copilotFormatUtils'
 import { formatTime } from '../../utils/dateUtils'
 
+const INITIAL_QUOTA_STATE: AccountQuotaState = {
+  data: null,
+  loading: true,
+  error: null,
+  fetchedAt: null,
+}
+
 interface AccountQuotaCardProps {
   account: GitHubAccount
-  state: AccountQuotaState
+  state: AccountQuotaState | undefined
 }
 
 function PlanIcon({ plan }: { plan: string }) {
@@ -223,7 +230,8 @@ function isLoadingWithoutData(loading: boolean, data: unknown): boolean {
   return loading && !data
 }
 
-export function AccountQuotaCard({ account, state }: AccountQuotaCardProps) {
+export function AccountQuotaCard({ account, state: rawState }: AccountQuotaCardProps) {
+  const state = rawState ?? INITIAL_QUOTA_STATE
   const { data, premium, metrics, projection } = prepareQuotaData(state)
   const showLoading = isLoadingWithoutData(state.loading, data)
   const showError = !!state.error && !data

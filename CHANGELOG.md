@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use getUserFacingErrorMessage for user-visible error strings
 - Guard against corrupted cache data in getValidCachedOrgRepos
 - Narrow IssueListBody prop types per review feedback
+- Handle undefined quota state in AccountQuotaCard (race condition crash)
 
 ### Changed
 

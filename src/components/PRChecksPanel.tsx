@@ -79,14 +79,9 @@ const STATUS_CONTEXT_ENTRIES: Record<string, StatusContextEntry> = {
 }
 
 function getStatusContextState(state: string): StatusContextEntry {
-  return (
-    (Object.prototype.hasOwnProperty.call(STATUS_CONTEXT_ENTRIES, state) &&
-      STATUS_CONTEXT_ENTRIES[state]) || {
-      label: state,
-      tone: 'neutral' as CheckTone,
-      icon: MinusCircle,
-    }
-  )
+  return Object.hasOwn(STATUS_CONTEXT_ENTRIES, state)
+    ? STATUS_CONTEXT_ENTRIES[state]
+    : { label: state, tone: 'neutral' as CheckTone, icon: MinusCircle }
 }
 
 const OVERALL_STATE_LABELS: Record<string, string> = {
@@ -97,9 +92,7 @@ const OVERALL_STATE_LABELS: Record<string, string> = {
 }
 
 function getOverallStateLabel(state: PRChecksSummary['overallState']): string {
-  return Object.prototype.hasOwnProperty.call(OVERALL_STATE_LABELS, state)
-    ? OVERALL_STATE_LABELS[state]
-    : 'No checks'
+  return Object.hasOwn(OVERALL_STATE_LABELS, state) ? OVERALL_STATE_LABELS[state] : 'No checks'
 }
 
 function CheckRunRow({ run }: { run: PRChecksSummary['checkRuns'][number] }) {

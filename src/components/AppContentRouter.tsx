@@ -89,9 +89,11 @@ const SETTINGS_ROUTES: Record<string, () => React.JSX.Element> = {
   'settings-advanced': () => <SettingsAdvanced />,
 }
 
-function renderSettingsRoute(activeViewId: string): React.JSX.Element | null {
-  if (!Object.prototype.hasOwnProperty.call(SETTINGS_ROUTES, activeViewId)) return null
-  return SETTINGS_ROUTES[activeViewId]()
+function resolveRoute(
+  routes: Record<string, () => React.JSX.Element>,
+  viewId: string
+): React.JSX.Element | null {
+  return Object.hasOwn(routes, viewId) ? routes[viewId]() : null
 }
 
 function buildCopilotRoutes(ctx: ExactRouteContext): Record<string, () => React.JSX.Element> {
@@ -115,15 +117,6 @@ function buildCopilotRoutes(ctx: ExactRouteContext): Record<string, () => React.
   }
 }
 
-function renderCopilotRoute(
-  activeViewId: string,
-  ctx: ExactRouteContext
-): React.JSX.Element | null {
-  const routes = buildCopilotRoutes(ctx)
-  if (!Object.prototype.hasOwnProperty.call(routes, activeViewId)) return null
-  return routes[activeViewId]()
-}
-
 function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => React.JSX.Element> {
   return {
     'tasks-today': () => <TaskPlannerView mode="today" />,
@@ -132,15 +125,6 @@ function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => Reac
     'tempo-timesheet': () => <TempoDashboard />,
     'bookmarks-all': () => <BookmarkList key="bookmarks-all" onOpenTab={ctx.onOpenTab} />,
   }
-}
-
-function renderWorkspaceRoute(
-  activeViewId: string,
-  ctx: ExactRouteContext
-): React.JSX.Element | null {
-  const routes = buildWorkspaceRoutes(ctx)
-  if (!Object.prototype.hasOwnProperty.call(routes, activeViewId)) return null
-  return routes[activeViewId]()
 }
 
 function renderExactRoute(
@@ -176,9 +160,9 @@ function renderExactRoute(
     onPRCountChange,
   }
   return (
-    renderSettingsRoute(activeViewId) ??
-    renderCopilotRoute(activeViewId, ctx) ??
-    renderWorkspaceRoute(activeViewId, ctx)
+    resolveRoute(SETTINGS_ROUTES, activeViewId) ??
+    resolveRoute(buildCopilotRoutes(ctx), activeViewId) ??
+    resolveRoute(buildWorkspaceRoutes(ctx), activeViewId)
   )
 }
 

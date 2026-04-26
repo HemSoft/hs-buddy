@@ -88,7 +88,7 @@ const CRON_EXPRESSION_BUILDERS: Record<Frequency, (state: CronState, rawValue: s
 
 export function buildCronExpression(state: CronState, rawValue: string) {
   const { frequency } = state
-  const builder = Object.prototype.hasOwnProperty.call(CRON_EXPRESSION_BUILDERS, frequency)
+  const builder = Object.hasOwn(CRON_EXPRESSION_BUILDERS, frequency)
     ? CRON_EXPRESSION_BUILDERS[frequency]
     : null
   /* v8 ignore start */

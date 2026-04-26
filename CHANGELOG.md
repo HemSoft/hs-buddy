@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity and remove code duplication
 - Reduce complexity and code duplication in GitHubService
 - Fix Prettier formatting in TempoDashboard and TempoSummaryCards
+- Replace verbose hasOwnProperty calls with Object.hasOwn and deduplicate route resolvers
 
 ### Fixed
 
@@ -39,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Guard against undefined ownerRepo in parseStateOwnerRepoKey
 - Add missing default cases to reducers and extract toggle helper
 - Narrow JOB_SCHEDULE_LISTS type to Partial<Record> for type-safety
+- Format PRStateIcon.tsx to pass Prettier check
 
 ## [0.1.739] - 2026-04-26
 

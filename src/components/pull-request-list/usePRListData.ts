@@ -75,9 +75,7 @@ async function fetchPRsByMode(
   mode: PRSearchMode,
   handleProgress: ProgressCallback
 ): Promise<PullRequest[]> {
-  const fetcher = Object.prototype.hasOwnProperty.call(FETCH_BY_MODE, mode)
-    ? FETCH_BY_MODE[mode]
-    : FETCH_BY_MODE['my-prs']
+  const fetcher = Object.hasOwn(FETCH_BY_MODE, mode) ? FETCH_BY_MODE[mode] : FETCH_BY_MODE['my-prs']
   return fetcher(githubClient, handleProgress)
 }
 
@@ -499,9 +497,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   }
 
   const getTitle = () =>
-    Object.prototype.hasOwnProperty.call(PR_MODE_TITLES, mode)
-      ? PR_MODE_TITLES[mode]
-      : 'Pull Requests'
+    Object.hasOwn(PR_MODE_TITLES, mode) ? PR_MODE_TITLES[mode] : 'Pull Requests'
 
   return {
     prs,

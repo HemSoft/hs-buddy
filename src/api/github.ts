@@ -779,9 +779,7 @@ const STATUS_CONTEXT_CATEGORY: Record<string, CheckCategory> = {
 }
 
 function classifyStatusContext(state: string): CheckCategory {
-  return Object.prototype.hasOwnProperty.call(STATUS_CONTEXT_CATEGORY, state)
-    ? STATUS_CONTEXT_CATEGORY[state]
-    : 'neutral'
+  return Object.hasOwn(STATUS_CONTEXT_CATEGORY, state) ? STATUS_CONTEXT_CATEGORY[state] : 'neutral'
 }
 
 function countCheckStatuses(
@@ -1287,9 +1285,7 @@ function buildPRSearchQueries(
   mergedAfter?: string
 ): string[] {
   /* v8 ignore start -- defensive: PRSearchMode union is exhaustive */
-  const resolvedMode: PRSearchMode = Object.prototype.hasOwnProperty.call(PR_SEARCH_BUILDERS, mode)
-    ? mode
-    : 'my-prs'
+  const resolvedMode: PRSearchMode = Object.hasOwn(PR_SEARCH_BUILDERS, mode) ? mode : 'my-prs'
   /* v8 ignore stop */
   return PR_SEARCH_BUILDERS[resolvedMode](username, org, mergedAfter)
 }

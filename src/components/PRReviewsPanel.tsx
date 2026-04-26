@@ -31,12 +31,11 @@ const STATUS_ICONS: Record<string, React.JSX.Element> = {
   running: <Loader2 size={14} className="spin pr-reviews-status running" />,
 }
 
+const PENDING_ICON = <Clock size={14} className="pr-reviews-status pending" />
+
 function getLatestStatusIcon(latest: { status: string } | null) {
   if (!latest) return null
-  if (Object.prototype.hasOwnProperty.call(STATUS_ICONS, latest.status)) {
-    return STATUS_ICONS[latest.status]
-  }
-  return <Clock size={14} className="pr-reviews-status pending" />
+  return Object.hasOwn(STATUS_ICONS, latest.status) ? STATUS_ICONS[latest.status] : PENDING_ICON
 }
 
 function ReviewRunItem({

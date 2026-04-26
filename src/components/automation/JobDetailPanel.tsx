@@ -158,9 +158,7 @@ const WORKER_LABELS: Record<string, string> = {
 
 function getWorkerLabel(workerType: string): string {
   /* v8 ignore start */
-  return Object.prototype.hasOwnProperty.call(WORKER_LABELS, workerType)
-    ? WORKER_LABELS[workerType]
-    : workerType
+  return Object.hasOwn(WORKER_LABELS, workerType) ? WORKER_LABELS[workerType] : workerType
   /* v8 ignore stop */
 }
 

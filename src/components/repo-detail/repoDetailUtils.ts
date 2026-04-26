@@ -72,7 +72,7 @@ const DEFAULT_COMPLETED = {
 export function getWorkflowStatusInfo(status: string, conclusion: string | null) {
   if (status === 'completed') {
     const completedConclusion = conclusion ?? ''
-    if (Object.prototype.hasOwnProperty.call(COMPLETED_STATUS, completedConclusion)) {
+    if (Object.hasOwn(COMPLETED_STATUS, completedConclusion)) {
       return COMPLETED_STATUS[completedConclusion]
     }
     return { ...DEFAULT_COMPLETED, label: conclusion || 'Unknown' }

@@ -486,6 +486,20 @@ describe('processSessionLine', () => {
     expect(state.prompts.get(0)).toBe('new')
   })
 
+  it('kind=0 skips non-string text values in requests', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: {
+        sessionId: 'sid',
+        creationDate: 1,
+        requests: [{ message: { text: 42 } }, { message: { text: 'valid' } }],
+      },
+    })
+    processSessionLine(0, [], line, state)
+    expect(state.prompts.size).toBe(1)
+    expect(state.prompts.get(1)).toBe('valid')
+  })
+
   // ─── kind=1 (update) title changes ──────────────────────────
 
   it('processes kind=1 (update) title changes', () => {

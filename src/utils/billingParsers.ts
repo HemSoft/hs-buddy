@@ -130,29 +130,34 @@ export function computeOverageSpend(quotaData: Record<string, unknown>): number 
   )
 }
 
+const CLI_TOKEN_ERROR_PATTERNS: ReadonlyArray<{
+  patterns: string[]
+  message: (username: string | undefined) => string
+}> = [
+  {
+    patterns: ['not found', 'ENOENT'],
+    message: () => 'GitHub CLI (gh) is not installed. Install from: https://cli.github.com/',
+  },
+  {
+    patterns: ['not logged in'],
+    message: u =>
+      `Not logged in to GitHub CLI${u ? ` for account '${u}'` : ''}. Run: gh auth login`,
+  },
+  {
+    patterns: ['no account found'],
+    message: u => `GitHub account '${u}' not found in GitHub CLI. Run: gh auth login -h github.com`,
+  },
+]
+
 export function classifyCliTokenError(
   errorMessage: string,
   username: string | undefined,
   cause: unknown
 ): Error {
-  if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
-    return new Error('GitHub CLI (gh) is not installed. Install from: https://cli.github.com/', {
-      cause,
-    })
-  }
-  if (errorMessage.includes('not logged in')) {
-    return new Error(
-      `Not logged in to GitHub CLI${username ? ` for account '${username}'` : ''}. Run: gh auth login`,
-      { cause }
-    )
-  }
-  if (errorMessage.includes('no account found')) {
-    return new Error(
-      `GitHub account '${username}' not found in GitHub CLI. Run: gh auth login -h github.com`,
-      { cause }
-    )
-  }
-  return new Error(errorMessage, { cause })
+  const match = CLI_TOKEN_ERROR_PATTERNS.find(({ patterns }) =>
+    patterns.some(p => errorMessage.includes(p))
+  )
+  return new Error(match ? match.message(username) : errorMessage, { cause })
 }
 
 /** Aggregated Copilot usage metrics for a single org. */

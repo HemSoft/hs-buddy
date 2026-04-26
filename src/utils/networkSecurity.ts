@@ -6,11 +6,11 @@ const INTERNAL_PREFIXES = ['127.', '169.254.', '10.', '192.168.']
 const INTERNAL_SUFFIXES = ['.local', '.internal']
 const INTERNAL_PATTERN = /^172\.(1[6-9]|2\d|3[01])\./
 
+const PRIVATE_IPV6_PREFIXES = ['fe80:', 'fc', 'fd']
+
 /** Check whether an IPv6 address is a private/reserved address. */
 export function isPrivateIPv6(lower: string): boolean {
-  return (
-    lower === '::1' || lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')
-  )
+  return lower === '::1' || PRIVATE_IPV6_PREFIXES.some(p => lower.startsWith(p))
 }
 
 export function isPrivateIP(ip: string): boolean {

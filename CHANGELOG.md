@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make buildBookmarkPayload a pure function
 - Reduce complexity via data-driven patterns and helper extraction
 - Reduce complexity and eliminate code repetition
+- Reduce cyclomatic complexity in utility functions
 
 ### Fixed
 

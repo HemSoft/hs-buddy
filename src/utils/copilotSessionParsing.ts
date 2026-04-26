@@ -203,12 +203,17 @@ export interface SessionParseState {
   prompts: Map<number, string>
 }
 
+/** Safely extract a non-empty string prompt from a request entry. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractPromptText(req: any): string | null {
+  const msg = req?.message?.text
+  return typeof msg === 'string' && msg ? msg : null
+}
+
 /** Collect prompt text from requests into the prompts map. */
 function collectPrompts(reqs: Array<Record<string, unknown>>, prompts: Map<number, string>): void {
   for (let i = 0; i < reqs.length; i++) {
-    const msg = (reqs[i]?.message as Record<string, unknown> | undefined)?.text as
-      | string
-      | undefined
+    const msg = extractPromptText(reqs[i])
     if (msg) prompts.set(i, msg)
   }
 }
@@ -216,9 +221,8 @@ function collectPrompts(reqs: Array<Record<string, unknown>>, prompts: Map<numbe
 /** Collect prompt text from an unknown-typed requests array (skips already-set indices). */
 function collectRequestPrompts(reqs: unknown[], prompts: Map<number, string>): void {
   for (let i = 0; i < reqs.length; i++) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const msg = (reqs[i] as any)?.message?.text
-    if (typeof msg === 'string' && msg && !prompts.has(i)) prompts.set(i, msg)
+    const msg = extractPromptText(reqs[i])
+    if (msg && !prompts.has(i)) prompts.set(i, msg)
   }
 }
 

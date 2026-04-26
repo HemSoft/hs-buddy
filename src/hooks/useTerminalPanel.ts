@@ -246,25 +246,24 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       setTerminalOpen(next)
       window.ipcRenderer.invoke('config:set-terminal-open', next).catch(() => {})
 
-      if (next) {
-        const currentTabs = terminalTabsRef.current
-        // Opening — auto-create a tab if none exist
-        if (currentTabs.length === 0) {
-          const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
-          void addTerminalTab(repoContext)
-        } else {
-          // If we have a repo context, focus or create tab for it
-          const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
-          if (repoContext) {
-            const slug = `${repoContext.owner}/${repoContext.repo}`
-            const existing = currentTabs.find(t => t.repoSlug === slug)
-            if (existing) {
-              setActiveTerminalTabId(existing.id)
-            } else {
-              void addTerminalTab(repoContext)
-            }
-          }
-        }
+      if (!next) return
+
+      const currentTabs = terminalTabsRef.current
+      const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
+
+      if (currentTabs.length === 0) {
+        void addTerminalTab(repoContext)
+        return
+      }
+
+      if (!repoContext) return
+
+      const slug = `${repoContext.owner}/${repoContext.repo}`
+      const existing = currentTabs.find(t => t.repoSlug === slug)
+      if (existing) {
+        setActiveTerminalTabId(existing.id)
+      } else {
+        void addTerminalTab(repoContext)
       }
     },
     [addTerminalTab]
@@ -349,59 +348,69 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     setActiveTerminalTabId(tabId)
   }, [])
 
-  const renameTerminalTab = useCallback((tabId: string, title: string) => {
-    const trimmed = title.trim()
-    if (!trimmed) return
-    setTerminalTabs(prev => {
-      const tab = prev.find(t => t.id === tabId)
-      /* v8 ignore start */
-      if (!tab || tab.title === trimmed) return prev
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      const next = prev.map(t => (t.id === tabId ? { ...t, title: trimmed } : t))
-      /* v8 ignore stop */
-      terminalTabsRef.current = next
-      return next
-    })
-  }, [])
+  /** Apply a transform to the tabs array, syncing ref + state in one place. */
+  const applyTabsUpdate = useCallback(
+    (transform: (tabs: TerminalTab[]) => TerminalTab[] | null) => {
+      setTerminalTabs(prev => {
+        const next = transform(prev)
+        if (!next) return prev
+        terminalTabsRef.current = next
+        return next
+      })
+    },
+    []
+  )
 
-  const setTerminalTabColor = useCallback((tabId: string, color: string | undefined) => {
-    setTerminalTabs(prev => {
-      /* v8 ignore start */
-      const next = prev.map(t => (t.id === tabId ? { ...t, color } : t))
-      /* v8 ignore stop */
-      terminalTabsRef.current = next
-      return next
-    })
-  }, [])
+  const renameTerminalTab = useCallback(
+    (tabId: string, title: string) => {
+      const trimmed = title.trim()
+      if (!trimmed) return
+      applyTabsUpdate(prev => {
+        const tab = prev.find(t => t.id === tabId)
+        /* v8 ignore start */
+        if (!tab || tab.title === trimmed) return null
+        /* v8 ignore stop */
+        return prev.map(t => (t.id === tabId ? { ...t, title: trimmed } : t))
+      })
+    },
+    [applyTabsUpdate]
+  )
 
-  const reorderTerminalTabs = useCallback((fromId: string, toId: string) => {
-    if (fromId === toId) return
-    setTerminalTabs(prev => {
-      const fromIdx = prev.findIndex(t => t.id === fromId)
-      const toIdx = prev.findIndex(t => t.id === toId)
-      if (fromIdx === -1 || toIdx === -1) return prev
-      const next = [...prev]
-      const [moved] = next.splice(fromIdx, 1)
-      next.splice(toIdx, 0, moved)
-      terminalTabsRef.current = next
-      return next
-    })
-  }, [])
+  const setTerminalTabColor = useCallback(
+    (tabId: string, color: string | undefined) => {
+      applyTabsUpdate(prev => prev.map(t => (t.id === tabId ? { ...t, color } : t)))
+    },
+    [applyTabsUpdate]
+  )
 
-  const updateTabCwd = useCallback((tabId: string, cwd: string) => {
-    setTerminalTabs(prev => {
-      const tab = prev.find(t => t.id === tabId)
-      /* v8 ignore start */
-      if (!tab || tab.cwd === cwd) return prev
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      const next = prev.map(t => (t.id === tabId ? { ...t, cwd } : t))
-      /* v8 ignore stop */
-      terminalTabsRef.current = next
-      return next
-    })
-  }, [])
+  const reorderTerminalTabs = useCallback(
+    (fromId: string, toId: string) => {
+      if (fromId === toId) return
+      applyTabsUpdate(prev => {
+        const fromIdx = prev.findIndex(t => t.id === fromId)
+        const toIdx = prev.findIndex(t => t.id === toId)
+        if (fromIdx === -1 || toIdx === -1) return null
+        const next = [...prev]
+        const [moved] = next.splice(fromIdx, 1)
+        next.splice(toIdx, 0, moved)
+        return next
+      })
+    },
+    [applyTabsUpdate]
+  )
+
+  const updateTabCwd = useCallback(
+    (tabId: string, cwd: string) => {
+      applyTabsUpdate(prev => {
+        const tab = prev.find(t => t.id === tabId)
+        /* v8 ignore start */
+        if (!tab || tab.cwd === cwd) return null
+        /* v8 ignore stop */
+        return prev.map(t => (t.id === tabId ? { ...t, cwd } : t))
+      })
+    },
+    [applyTabsUpdate]
+  )
 
   return {
     terminalOpen,

@@ -181,6 +181,27 @@ function handleTitleFetchActions(
   }
 }
 
+function handleAIActions(
+  state: BookmarkDialogState,
+  action: BookmarkDialogAction
+): BookmarkDialogState | null {
+  switch (action.type) {
+    case 'ai:start':
+      return { ...state, aiSuggesting: true }
+    case 'ai:finish':
+      return {
+        ...state,
+        aiSuggesting: false,
+        description: action.description ?? state.description,
+        tagsInput: action.tagsInput ?? state.tagsInput,
+      }
+    /* v8 ignore start */
+    default:
+      return null
+    /* v8 ignore stop */
+  }
+}
+
 function handleLifecycleAction(
   state: BookmarkDialogState,
   action: BookmarkDialogAction
@@ -188,17 +209,9 @@ function handleLifecycleAction(
   return (
     handleSubmitActions(state, action) ??
     handleTitleFetchActions(state, action) ??
-    (action.type === 'ai:start'
-      ? { ...state, aiSuggesting: true }
-      : action.type === 'ai:finish'
-        ? {
-            ...state,
-            aiSuggesting: false,
-            description: action.description ?? state.description,
-            tagsInput: action.tagsInput ?? state.tagsInput,
-          }
-        : /* v8 ignore start */
-          state)
+    handleAIActions(state, action) ??
+    /* v8 ignore start */
+    state
   ) /* v8 ignore stop */
 }
 
@@ -474,10 +487,16 @@ function validateUrlProtocol(url: string): string | null {
   return null
 }
 
+const MAX_BOOKMARK_TAGS = 50
+
+function resolveCategory(state: BookmarkDialogState): string {
+  return (state.useNewCategory ? state.newCategory : state.category).trim()
+}
+
 function validateBookmarkForm(state: BookmarkDialogState): string | null {
   const trimmedUrl = state.url.trim()
   const trimmedTitle = state.title.trim()
-  const resolvedCategory = state.useNewCategory ? state.newCategory.trim() : state.category.trim()
+  const resolvedCategory = resolveCategory(state)
 
   if (!trimmedUrl) return 'URL is required'
   if (!trimmedTitle) return 'Title is required'
@@ -487,9 +506,27 @@ function validateBookmarkForm(state: BookmarkDialogState): string | null {
   if (urlError) return urlError
 
   const tags = state.tagsInput.split(',').filter(t => t.trim())
-  if (tags.length > 50) return 'Maximum 50 tags allowed'
+  if (tags.length > MAX_BOOKMARK_TAGS) return 'Maximum 50 tags allowed'
 
   return null
+}
+
+function stripMarkdownCodeBlocks(text: string): string {
+  return text
+    .replace(/```(?:json)?\s*/g, '')
+    .replace(/```/g, '')
+    .trim()
+}
+
+function pickUneditedFields(
+  parsed: { description?: string; tags?: string[] },
+  userEditedDescription: boolean,
+  userEditedTags: boolean
+): { description?: string; tagsInput?: string } {
+  return {
+    ...(parsed.description && !userEditedDescription && { description: parsed.description }),
+    ...(parsed.tags?.length && !userEditedTags && { tagsInput: parsed.tags.join(', ') }),
+  }
 }
 
 function parseAIResponse(
@@ -498,19 +535,9 @@ function parseAIResponse(
   userEditedTags: boolean
 ): { description?: string; tagsInput?: string } {
   try {
-    const cleaned = text
-      .replace(/```(?:json)?\s*/g, '')
-      .replace(/```/g, '')
-      .trim()
+    const cleaned = stripMarkdownCodeBlocks(text)
     const parsed = JSON.parse(cleaned) as { description?: string; tags?: string[] }
-    const result: { description?: string; tagsInput?: string } = {}
-    if (parsed.description && !userEditedDescription) {
-      result.description = parsed.description
-    }
-    if (parsed.tags?.length && !userEditedTags) {
-      result.tagsInput = parsed.tags.join(', ')
-    }
-    return result
+    return pickUneditedFields(parsed, userEditedDescription, userEditedTags)
   } catch {
     return {}
   }
@@ -664,15 +691,28 @@ Rules:
   const prepareSubmitData = (formState: BookmarkDialogState) => {
     const trimmedUrl = formState.url.trim()
     const trimmedTitle = formState.title.trim()
-    const resolvedCategory = formState.useNewCategory
-      ? formState.newCategory.trim()
-      : formState.category.trim()
+    const trimmedDescription = formState.description.trim()
+    const resolvedCategory = resolveCategory(formState)
     const tags = formState.tagsInput.split(',').flatMap(t => {
       const trimmed = t.trim()
       return trimmed ? [trimmed] : []
     })
-    return { trimmedUrl, trimmedTitle, resolvedCategory, tags }
+    return { trimmedUrl, trimmedTitle, trimmedDescription, resolvedCategory, tags }
   }
+
+  const buildBookmarkPayload = (
+    trimmedUrl: string,
+    trimmedTitle: string,
+    trimmedDescription: string,
+    resolvedCategory: string,
+    tags: string[]
+  ) => ({
+    url: trimmedUrl,
+    title: trimmedTitle,
+    description: trimmedDescription || undefined,
+    category: resolvedCategory,
+    tags: tags.length > 0 ? tags : undefined,
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -683,17 +723,18 @@ Rules:
       return
     }
 
-    const { trimmedUrl, trimmedTitle, resolvedCategory, tags } = prepareSubmitData(state)
+    const { trimmedUrl, trimmedTitle, trimmedDescription, resolvedCategory, tags } =
+      prepareSubmitData(state)
 
     dispatch({ type: 'submit:start' })
     try {
-      const payload = {
-        url: trimmedUrl,
-        title: trimmedTitle,
-        description: state.description.trim() || undefined,
-        category: resolvedCategory,
-        tags: tags.length > 0 ? tags : undefined,
-      }
+      const payload = buildBookmarkPayload(
+        trimmedUrl,
+        trimmedTitle,
+        trimmedDescription,
+        resolvedCategory,
+        tags
+      )
       if (isEdit && bookmark) {
         await update({ id: bookmark._id, ...payload })
       } else {

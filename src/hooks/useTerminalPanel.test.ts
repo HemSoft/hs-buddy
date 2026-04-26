@@ -813,6 +813,68 @@ describe('useTerminalPanel', () => {
     expect(result.current.terminalTabs[0].cwd).not.toBe(cwdBefore)
   })
 
+  it('renameTerminalTab only renames the target tab, leaving others unchanged', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tabA: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    let tabB: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tabA = await result.current.addTerminalTab(null)
+    })
+    await act(async () => {
+      tabB = await result.current.addTerminalTab(null)
+    })
+
+    act(() => {
+      result.current.renameTerminalTab(tabA!.id, 'Renamed A')
+    })
+
+    expect(result.current.terminalTabs[0].title).toBe('Renamed A')
+    expect(result.current.terminalTabs[1].title).toBe(tabB!.title)
+  })
+
+  it('setTerminalTabColor only changes the target tab color, leaving others unchanged', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tabA: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tabA = await result.current.addTerminalTab(null)
+    })
+    await act(async () => {
+      await result.current.addTerminalTab(null)
+    })
+
+    act(() => {
+      result.current.setTerminalTabColor(tabA!.id, '#00ff00')
+    })
+
+    expect(result.current.terminalTabs[0].color).toBe('#00ff00')
+    expect(result.current.terminalTabs[1].color).toBeUndefined()
+  })
+
+  it('updateTabCwd only updates the target tab cwd, leaving others unchanged', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tabA: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    let tabB: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tabA = await result.current.addTerminalTab(null)
+    })
+    await act(async () => {
+      tabB = await result.current.addTerminalTab(null)
+    })
+
+    act(() => {
+      result.current.updateTabCwd(tabA!.id, '/updated/path')
+    })
+
+    expect(result.current.terminalTabs[0].cwd).toBe('/updated/path')
+    expect(result.current.terminalTabs[1].cwd).toBe(tabB!.cwd)
+  })
+
   it('Convex sync applies height when local config is null', async () => {
     // Provide settings with a terminalPanelHeight so the Convex sync effect fires
     mockSettingsReturn = { terminalPanelHeight: 450 }

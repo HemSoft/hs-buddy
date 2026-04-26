@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deduplicate error-handling pattern into errorUtils
 - Reduce CRAP scores by extracting pure utilities from electron/
 - Reduce complexity in utility functions and consolidate cleanup
+- Reduce cyclomatic complexity in BookmarkDialog, PRStateIcon, cronUtils
+- Reduce cyclomatic complexity and DRY up tab mutations
+- Make buildBookmarkPayload a pure function
 
 ### Fixed
 

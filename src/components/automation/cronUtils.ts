@@ -75,26 +75,25 @@ export function parseCronValue(value: string): CronState {
   }
 }
 
-export function buildCronExpression(
-  { frequency, minute, hour, dayOfMonth, selectedDays }: CronState,
-  rawValue: string
-) {
-  switch (frequency) {
-    case 'minute':
-      return '* * * * *'
-    case 'hourly':
-      return `${minute} * * * *`
-    case 'daily':
-      return `${minute} ${hour} * * *`
-    case 'weekly':
-      return `${minute} ${hour} * * ${[...selectedDays].sort().join(',')}`
-    case 'monthly':
-      return `${minute} ${hour} ${dayOfMonth} * *`
-    case 'custom':
-      return rawValue
-    default:
-      return '0 * * * *'
+const CRON_EXPRESSION_BUILDERS: Record<Frequency, (state: CronState, rawValue: string) => string> =
+  {
+    minute: () => '* * * * *',
+    hourly: ({ minute }) => `${minute} * * * *`,
+    daily: ({ minute, hour }) => `${minute} ${hour} * * *`,
+    weekly: ({ minute, hour, selectedDays }) =>
+      `${minute} ${hour} * * ${[...selectedDays].sort().join(',')}`,
+    monthly: ({ minute, hour, dayOfMonth }) => `${minute} ${hour} ${dayOfMonth} * *`,
+    custom: (_state, rawValue) => rawValue,
   }
+
+export function buildCronExpression(state: CronState, rawValue: string) {
+  const { frequency } = state
+  const builder = Object.prototype.hasOwnProperty.call(CRON_EXPRESSION_BUILDERS, frequency)
+    ? CRON_EXPRESSION_BUILDERS[frequency]
+    : null
+  /* v8 ignore start */
+  return builder ? builder(state, rawValue) : '0 * * * *'
+  /* v8 ignore stop */
 }
 
 export type { CronState }

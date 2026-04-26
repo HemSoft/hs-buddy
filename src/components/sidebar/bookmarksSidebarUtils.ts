@@ -15,6 +15,10 @@ export interface CategoryNode {
   children: CategoryNode[]
 }
 
+function appendPathSegment(current: string, segment: string): string {
+  return current ? `${current}/${segment}` : segment
+}
+
 function ensurePathExists(
   parts: string[],
   nodeMap: Map<string, CategoryNode>,
@@ -23,7 +27,7 @@ function ensurePathExists(
   let currentPath = ''
   for (let i = 0; i < parts.length; i++) {
     const parentPath = currentPath
-    currentPath = i === 0 ? parts[i] : `${currentPath}/${parts[i]}`
+    currentPath = appendPathSegment(currentPath, parts[i])
 
     if (nodeMap.has(currentPath)) continue
 
@@ -62,7 +66,7 @@ function rollUpCounts(
     const parts = cat.split('/')
     let path = ''
     for (let i = 0; i < parts.length; i++) {
-      path = i === 0 ? parts[i] : `${path}/${parts[i]}`
+      path = appendPathSegment(path, parts[i])
       const ancestor = nodeMap.get(path)
       /* v8 ignore start */
       if (ancestor) {

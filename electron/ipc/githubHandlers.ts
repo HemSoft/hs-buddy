@@ -3,8 +3,13 @@ import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { CONVEX_URL } from '../config'
-import { execAsync } from '../utils'
+import { execAsync, execFileAsync } from '../utils'
 import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
+import {
+  parseActiveGitHubAccount,
+  buildGhAuthTokenArgs,
+  isNonFatalGhStderr,
+} from '../../src/utils/githubAuthUtils'
 import {
   type BillingUsageItem,
   type ParsedBillingUsage,
@@ -404,13 +409,13 @@ export function registerGitHubHandlers(): void {
   // Get a GitHub CLI auth token for a specific account
   ipcMain.handle('github:get-cli-token', async (_event, username?: string) => {
     try {
-      const command = username ? `gh auth token --user ${username}` : 'gh auth token'
-      const { stdout, stderr } = await execAsync(command, {
+      const args = buildGhAuthTokenArgs(username)
+      const { stdout, stderr } = await execFileAsync('gh', args, {
         encoding: 'utf8',
         timeout: CLI_TIMEOUT_MS,
       })
 
-      if (stderr && !stderr.includes('Logging in to')) {
+      if (stderr && !isNonFatalGhStderr(stderr)) {
         console.warn('gh auth token stderr:', stderr)
       }
 
@@ -437,21 +442,7 @@ export function registerGitHubHandlers(): void {
         timeout: CLI_TIMEOUT_MS,
       })
 
-      // Parse lines: look for "Logged in to ... account <name>" followed by "Active account: true"
-      const lines = stderr.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const accountMatch = lines[i].match(/Logged in to .+ account (\S+)/)
-        if (accountMatch) {
-          // Check the next few lines for "Active account: true"
-          for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-            if (lines[j].includes('Active account: true')) {
-              return accountMatch[1]
-            }
-          }
-        }
-      }
-
-      return null
+      return parseActiveGitHubAccount(stderr)
     } catch {
       return null
     }

@@ -3,6 +3,7 @@ import type { Dirent } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { detectLanguage } from '../../src/utils/detectLanguage'
+import { shouldIncludeDirEntry, compareDirEntries } from '../../src/utils/dirEntryUtils'
 
 const MAX_FILE_SIZE = 1_048_576 // 1 MB
 
@@ -59,18 +60,11 @@ interface DirEntry {
   size: number
 }
 
-const SKIPPED_DIRECTORIES = new Set(['node_modules', '__pycache__', '.git'])
-
-function isSkippedDirectory(name: string): boolean {
-  return SKIPPED_DIRECTORIES.has(name)
-}
-
 async function buildDirEntries(resolved: string, items: Dirent[]): Promise<DirEntry[]> {
   const entries: DirEntry[] = []
 
   for (const item of items) {
-    if (item.name.startsWith('.')) continue
-    if (item.isDirectory() && isSkippedDirectory(item.name)) continue
+    if (!shouldIncludeDirEntry(item.name, item.isDirectory())) continue
 
     try {
       const fullPath = path.join(resolved, item.name)
@@ -86,10 +80,7 @@ async function buildDirEntries(resolved: string, items: Dirent[]): Promise<DirEn
     }
   }
 
-  entries.sort((a, b) => {
-    if (a.type !== b.type) return a.type === 'directory' ? -1 : 1
-    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  })
+  entries.sort(compareDirEntries)
 
   return entries
 }

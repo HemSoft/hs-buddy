@@ -16,6 +16,7 @@ import { fetchCopilotMetrics } from '../ipc/githubHandlers'
 import type { Worker, JobConfig } from './types'
 import { CONVEX_URL } from '../config'
 import { getErrorMessage } from '../../src/utils/errorUtils'
+import { isInBackoffWindow, shouldLogDispatcherError } from '../../src/utils/dispatcherBackoff'
 
 const POLL_INTERVAL = 10_000 // 10 seconds
 
@@ -70,14 +71,16 @@ class Dispatcher {
     if (this.processing) return
 
     // Exponential backoff on consecutive errors (time-based guard)
-    if (this.consecutiveErrors > 0) {
-      const backoff = Math.min(
-        POLL_INTERVAL * Math.pow(2, this.consecutiveErrors - 1),
-        this.MAX_BACKOFF
+    if (
+      isInBackoffWindow(
+        this.consecutiveErrors,
+        this.lastErrorTime,
+        POLL_INTERVAL,
+        this.MAX_BACKOFF,
+        Date.now()
       )
-      if (Date.now() < this.lastErrorTime + backoff) {
-        return
-      }
+    ) {
+      return
     }
 
     this.processing = true
@@ -87,8 +90,7 @@ class Dispatcher {
     } catch (err) {
       this.consecutiveErrors++
       this.lastErrorTime = Date.now()
-      // Only log first error and every 6th after (once per minute at 10s interval)
-      if (this.consecutiveErrors === 1 || this.consecutiveErrors % 6 === 0) {
+      if (shouldLogDispatcherError(this.consecutiveErrors)) {
         const msg = getErrorMessage(err)
         console.warn(`[Dispatcher] Convex unreachable (attempt ${this.consecutiveErrors}): ${msg}`)
       }

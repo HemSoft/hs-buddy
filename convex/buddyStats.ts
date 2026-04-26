@@ -1,6 +1,11 @@
 import { v } from 'convex/values'
 import { mutation, query, type DatabaseReader } from './_generated/server'
 import { SINGLETON_KEY } from './lib/domain'
+import {
+  validateStatFields,
+  buildIncrementPatch,
+  buildInitialStatsDoc,
+} from '../src/utils/statsMutationUtils'
 
 /**
  * Buddy Stats — centralized usage statistics (singleton pattern)
@@ -132,36 +137,20 @@ export const batchIncrement = mutation({
   },
   handler: async (ctx, { fields }) => {
     const entries = Object.entries(fields as Record<string, number>)
-    for (const [key] of entries) {
-      if (!COUNTER_FIELDS.has(key)) {
-        throw new Error(`Invalid stat field: ${key}`)
-      }
-    }
+    validateStatFields(fields as Record<string, number>, COUNTER_FIELDS)
 
     const now = Date.now()
 
     const existing = await getDefaultStats(ctx.db)
 
     if (existing) {
-      const patch: Record<string, unknown> = { updatedAt: now }
-      for (const [key, amount] of entries) {
-        const current = ((existing as Record<string, unknown>)[key] as number) ?? 0
-        patch[key] = current + amount
-      }
+      const patch = buildIncrementPatch(entries, existing as Record<string, unknown>)
+      patch.updatedAt = now
       await ctx.db.patch('buddyStats', existing._id, patch)
       return existing._id
     }
 
-    const doc: Record<string, unknown> = {
-      key: SINGLETON_KEY,
-      ...DEFAULT_STATS,
-      firstLaunchDate: now,
-      createdAt: now,
-      updatedAt: now,
-    }
-    for (const [key, amount] of entries) {
-      doc[key] = amount
-    }
+    const doc = buildInitialStatsDoc({ key: SINGLETON_KEY, ...DEFAULT_STATS }, entries, now)
     return await ctx.db.insert('buddyStats', doc as never)
   },
 })

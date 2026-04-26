@@ -1,23 +1,27 @@
 import { execSync } from 'child_process'
 import type { TodoistTask, TodoistProject } from '../../src/types/todoist'
 import { groupTasksByDate } from '../../src/utils/taskGrouping'
+import {
+  shouldCheckWindowsMachineScope,
+  buildPowershellEnvCommand,
+} from '../../src/utils/envLookup'
 
 const TODOIST_BASE = 'https://api.todoist.com/api/v1'
 
-// --- Env resolution (same pattern as tempoClient) ---
+// --- Env resolution (shared with tempoClient via envLookup utils) ---
 
+const ALLOWED_TODOIST_ENV_NAMES = new Set(['TODOIST_API_TOKEN'])
 const envCache = new Map<string, string>()
 
 function getEnv(name: string): string | undefined {
   if (envCache.has(name)) return envCache.get(name)
 
-  if (process.platform === 'win32') {
+  if (shouldCheckWindowsMachineScope(process.platform, name, ALLOWED_TODOIST_ENV_NAMES)) {
     try {
-      const escapedName = name.replace(/'/g, "''")
-      const val = execSync(
-        `powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('${escapedName}','Machine')"`,
-        { encoding: 'utf8', timeout: 5000 }
-      ).trim()
+      const val = execSync(buildPowershellEnvCommand(name), {
+        encoding: 'utf8',
+        timeout: 5000,
+      }).trim()
       if (val) {
         envCache.set(name, val)
         return val

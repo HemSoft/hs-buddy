@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract collectOccurrences to reduce complexity
 - Reduce cyclomatic complexity via lookup maps and helper extraction
 - Replace switch statements with lookup tables for lower complexity
+- Extract pure logic from electron/convex to reduce CRAP scores
 
 ### Added
 

@@ -1,3 +1,21 @@
+/** Valid ticker symbol pattern (1–20 uppercase alphanumeric plus ^.=-). */
+const SYMBOL_RE = /^[A-Z0-9^.=-]{1,20}$/
+
+/** Normalize a user-entered symbol to uppercase trimmed form. */
+export function normalizeSymbol(symbol: string): string {
+  return (symbol ?? '').toUpperCase().trim()
+}
+
+/** Returns true when the symbol matches the allowed ticker pattern. */
+export function isValidSymbol(symbol: string): boolean {
+  return SYMBOL_RE.test(symbol)
+}
+
+/** Build the Yahoo Finance chart URL for the given (already-normalized) symbol. */
+export function buildYahooFinanceUrl(symbol: string): string {
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`
+}
+
 export const SYMBOL_NAMES: Record<string, string> = {
   '^GSPC': 'S&P 500',
   '^IXIC': 'NASDAQ',

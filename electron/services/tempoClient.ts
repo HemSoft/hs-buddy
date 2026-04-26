@@ -2,6 +2,10 @@ import { execSync } from 'child_process'
 import { readDataCache, writeDataCacheEntry } from '../cache'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { DAY } from '../../src/utils/dateUtils'
+import {
+  shouldCheckWindowsMachineScope,
+  buildPowershellEnvCommand,
+} from '../../src/utils/envLookup'
 import type {
   TempoApiWorklog,
   TempoWorklog,
@@ -35,12 +39,12 @@ function getEnv(name: string): string | undefined {
 
   // On Windows, prefer Machine-scope value (user saves tokens there)
   // because the parent terminal may hold a stale process.env copy.
-  if (process.platform === 'win32' && ALLOWED_ENV_NAMES.has(name)) {
+  if (shouldCheckWindowsMachineScope(process.platform, name, ALLOWED_ENV_NAMES)) {
     try {
-      const val = execSync(
-        `powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('${name}','Machine')"`,
-        { encoding: 'utf8', timeout: 5000 }
-      ).trim()
+      const val = execSync(buildPowershellEnvCommand(name), {
+        encoding: 'utf8',
+        timeout: 5000,
+      }).trim()
       if (val) {
         envCache.set(name, val)
         return val

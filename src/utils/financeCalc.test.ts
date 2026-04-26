@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  normalizeSymbol,
+  isValidSymbol,
+  buildYahooFinanceUrl,
   extractPriceData,
   calculateMarketOpen,
   buildQuoteFromMeta,
@@ -8,6 +11,69 @@ import {
   type ChartMeta,
   type ChartResponse,
 } from './financeCalc'
+
+// --- normalizeSymbol ---
+
+describe('normalizeSymbol', () => {
+  it('uppercases and trims the symbol', () => {
+    expect(normalizeSymbol('  aapl  ')).toBe('AAPL')
+  })
+
+  it('handles empty string', () => {
+    expect(normalizeSymbol('')).toBe('')
+  })
+
+  it('handles already-uppercase symbol', () => {
+    expect(normalizeSymbol('MSFT')).toBe('MSFT')
+  })
+
+  it('handles null/undefined input gracefully', () => {
+    expect(normalizeSymbol(null as unknown as string)).toBe('')
+    expect(normalizeSymbol(undefined as unknown as string)).toBe('')
+  })
+})
+
+// --- isValidSymbol ---
+
+describe('isValidSymbol', () => {
+  it('accepts standard ticker symbols', () => {
+    expect(isValidSymbol('AAPL')).toBe(true)
+    expect(isValidSymbol('^GSPC')).toBe(true)
+    expect(isValidSymbol('BTC-USD')).toBe(true)
+    expect(isValidSymbol('GC=F')).toBe(true)
+  })
+
+  it('rejects empty string', () => {
+    expect(isValidSymbol('')).toBe(false)
+  })
+
+  it('rejects symbols with lowercase', () => {
+    expect(isValidSymbol('aapl')).toBe(false)
+  })
+
+  it('rejects symbols longer than 20 characters', () => {
+    expect(isValidSymbol('A'.repeat(21))).toBe(false)
+  })
+
+  it('rejects symbols with spaces', () => {
+    expect(isValidSymbol('AA PL')).toBe(false)
+  })
+})
+
+// --- buildYahooFinanceUrl ---
+
+describe('buildYahooFinanceUrl', () => {
+  it('builds the correct URL for a simple symbol', () => {
+    expect(buildYahooFinanceUrl('AAPL')).toBe(
+      'https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1d&range=1d'
+    )
+  })
+
+  it('encodes special characters in the symbol', () => {
+    const url = buildYahooFinanceUrl('^GSPC')
+    expect(url).toContain('%5EGSPC')
+  })
+})
 
 // --- extractPriceData ---
 

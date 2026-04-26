@@ -4,6 +4,10 @@ import {
   resolveNextRunAt,
   copyDefinedFields,
   buildScheduleUpdateFields,
+  createOfflineSyncResult,
+  isMissedSchedule,
+  accumulateScheduleResult,
+  buildOfflineSyncSummary,
 } from './scheduleUtils'
 
 const existing = { cron: '0 9 * * *', timezone: 'America/New_York', enabled: true }
@@ -132,5 +136,91 @@ describe('buildScheduleUpdateFields', () => {
     )
     expect(result).not.toHaveProperty('nextRunAt')
     expect(result.name).toBe('new name')
+  })
+})
+
+// --- Offline Sync helpers ---
+
+describe('createOfflineSyncResult', () => {
+  it('returns zeroed-out result', () => {
+    const result = createOfflineSyncResult()
+    expect(result).toEqual({ schedulesProcessed: 0, runsCreated: 0, skipped: 0, errors: [] })
+  })
+})
+
+describe('isMissedSchedule', () => {
+  it('returns true when nextRunAt is null', () => {
+    expect(isMissedSchedule({ nextRunAt: null }, 1000)).toBe(true)
+  })
+
+  it('returns true when nextRunAt is undefined', () => {
+    expect(isMissedSchedule({}, 1000)).toBe(true)
+  })
+
+  it('returns true when nextRunAt is in the past', () => {
+    expect(isMissedSchedule({ nextRunAt: 500 }, 1000)).toBe(true)
+  })
+
+  it('returns true when nextRunAt equals now', () => {
+    expect(isMissedSchedule({ nextRunAt: 1000 }, 1000)).toBe(true)
+  })
+
+  it('returns false when nextRunAt is in the future', () => {
+    expect(isMissedSchedule({ nextRunAt: 2000 }, 1000)).toBe(false)
+  })
+})
+
+describe('accumulateScheduleResult', () => {
+  it('increments schedulesProcessed and runsCreated', () => {
+    const result = createOfflineSyncResult()
+    accumulateScheduleResult(result, 3, 'catchup')
+    expect(result.schedulesProcessed).toBe(1)
+    expect(result.runsCreated).toBe(3)
+    expect(result.skipped).toBe(0)
+  })
+
+  it('increments skipped for "skipped" action', () => {
+    const result = createOfflineSyncResult()
+    accumulateScheduleResult(result, 0, 'skipped')
+    expect(result.skipped).toBe(1)
+  })
+
+  it('increments skipped for "not-missed" action', () => {
+    const result = createOfflineSyncResult()
+    accumulateScheduleResult(result, 0, 'not-missed')
+    expect(result.skipped).toBe(1)
+  })
+
+  it('does not increment skipped for other actions', () => {
+    const result = createOfflineSyncResult()
+    accumulateScheduleResult(result, 1, 'last (1 run)')
+    expect(result.skipped).toBe(0)
+  })
+
+  it('accumulates across multiple calls', () => {
+    const result = createOfflineSyncResult()
+    accumulateScheduleResult(result, 2, 'catchup')
+    accumulateScheduleResult(result, 0, 'skipped')
+    accumulateScheduleResult(result, 1, 'last (1 run)')
+    expect(result.schedulesProcessed).toBe(3)
+    expect(result.runsCreated).toBe(3)
+    expect(result.skipped).toBe(1)
+  })
+})
+
+describe('buildOfflineSyncSummary', () => {
+  it('builds summary without errors', () => {
+    const result = { schedulesProcessed: 3, runsCreated: 5, skipped: 1, errors: [] }
+    expect(buildOfflineSyncSummary(result)).toBe('3 processed, 5 runs created, 1 skipped')
+  })
+
+  it('includes error count in summary', () => {
+    const result = { schedulesProcessed: 2, runsCreated: 1, skipped: 0, errors: ['err1', 'err2'] }
+    expect(buildOfflineSyncSummary(result)).toBe('2 processed, 1 runs created, 0 skipped, 2 errors')
+  })
+
+  it('builds summary for empty result', () => {
+    const result = createOfflineSyncResult()
+    expect(buildOfflineSyncSummary(result)).toBe('0 processed, 0 runs created, 0 skipped')
   })
 })

@@ -2,10 +2,7 @@ import { execSync } from 'child_process'
 import { readDataCache, writeDataCacheEntry } from '../cache'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { DAY } from '../../src/utils/dateUtils'
-import {
-  shouldCheckWindowsMachineScope,
-  buildPowershellEnvCommand,
-} from '../../src/utils/envLookup'
+import { createEnvResolver } from '../../src/utils/envLookup'
 import {
   enrichWorklog,
   parseCapitalizationField,
@@ -39,37 +36,12 @@ const projectIdCache = new Map<string, number>()
 /** Env-var names that are safe to read from Machine scope */
 const ALLOWED_ENV_NAMES = new Set(['TEMPO_API_TOKEN', 'ATLASSIAN_API_TOKEN', 'ATLASSIAN_EMAIL'])
 
-const envCache = new Map<string, string>()
-
-function getEnv(name: string): string | undefined {
-  // Fast path: already resolved and cached
-  if (envCache.has(name)) return envCache.get(name)
-
-  // On Windows, prefer Machine-scope value (user saves tokens there)
-  // because the parent terminal may hold a stale process.env copy.
-  if (shouldCheckWindowsMachineScope(process.platform, name, ALLOWED_ENV_NAMES)) {
-    try {
-      const val = execSync(buildPowershellEnvCommand(name), {
-        encoding: 'utf8',
-        timeout: 5000,
-      }).trim()
-      if (val) {
-        envCache.set(name, val)
-        return val
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-
-  // Fall back to process.env
-  const val = process.env[name]
-  if (val) {
-    envCache.set(name, val)
-    return val
-  }
-  return undefined
-}
+const getEnv = createEnvResolver(
+  process.platform,
+  ALLOWED_ENV_NAMES,
+  process.env as Record<string, string | undefined>,
+  cmd => execSync(cmd, { encoding: 'utf8', timeout: 5000 })
+)
 
 function getTempoToken(): string {
   const token = getEnv('TEMPO_API_TOKEN')

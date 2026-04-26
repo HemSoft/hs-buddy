@@ -95,6 +95,12 @@ async function getGitHubSlug(originUrl: string): Promise<string | null> {
   return null
 }
 
+async function resolveDefaultBranch(gitRoot: string): Promise<string> {
+  const symbolic = await runGit(gitRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD', '--short'])
+  if (symbolic) return symbolic.replace('origin/', '')
+  return (await runGit(gitRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])) ?? 'main'
+}
+
 async function validateFolder(folderPath: string): Promise<CrewValidationResult> {
   const gitRoot = await runGit(folderPath, ['rev-parse', '--show-toplevel'])
   if (!gitRoot) {
@@ -111,14 +117,7 @@ async function validateFolder(folderPath: string): Promise<CrewValidationResult>
     return { valid: false, error: 'Origin remote is not a GitHub repository' }
   }
 
-  const defaultBranch =
-    (await runGit(gitRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD', '--short']))?.replace(
-      'origin/',
-      ''
-    ) ??
-    (await runGit(gitRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])) ??
-    'main'
-
+  const defaultBranch = await resolveDefaultBranch(gitRoot)
   return { valid: true, gitRoot, githubSlug: slug, defaultBranch }
 }
 
@@ -167,24 +166,19 @@ export async function addProjectFromPicker(
   }
 
   const validation = await validateFolder(folderPath)
-  if (!validation.valid || !validation.gitRoot || !validation.githubSlug) {
-    return { success: false, error: validation.error ?? 'Validation failed' }
+  if (!validation.valid) {
+    return { success: false, error: validation.error }
   }
 
   const projects = readProjects()
   const existing = projects.find(p => p.gitRoot === validation.gitRoot)
   if (existing) {
-    // Update last opened and return existing
     existing.lastOpenedAt = Date.now()
     writeProjects(projects)
     return { success: true, project: existing }
   }
 
-  const project = buildNewProject({
-    gitRoot: validation.gitRoot,
-    githubSlug: validation.githubSlug,
-    defaultBranch: validation.defaultBranch,
-  })
+  const project = buildNewProject(validation)
   projects.push(project)
   writeProjects(projects)
   return { success: true, project }

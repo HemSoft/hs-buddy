@@ -16,6 +16,13 @@ import { CONVEX_URL } from '../config'
 import { calculateNextRunAt } from '../../convex/lib/cronUtils'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { enumerateCronOccurrences, validateCronExpression } from '../../src/utils/cronUtils'
+import {
+  type OfflineSyncResult,
+  createOfflineSyncResult,
+  isMissedSchedule,
+  accumulateScheduleResult,
+  buildOfflineSyncSummary,
+} from '../../src/utils/scheduleUtils'
 
 interface Schedule {
   _id: string
@@ -28,13 +35,6 @@ interface Schedule {
   params?: unknown
   lastRunAt?: number
   nextRunAt?: number
-}
-
-interface OfflineSyncResult {
-  schedulesProcessed: number
-  runsCreated: number
-  skipped: number
-  errors: string[]
 }
 
 /**
@@ -176,34 +176,10 @@ async function processSchedule(
  * Queries enabled schedules where nextRunAt is in the past, applies each
  * schedule's missedPolicy, creates appropriate runs, and advances nextRunAt.
  */
-function isMissedSchedule(schedule: Schedule, now: number): boolean {
-  return !schedule.nextRunAt || schedule.nextRunAt <= now
-}
-
-function processSingleSchedule(
-  result: OfflineSyncResult,
-  runsCreated: number,
-  action: string,
-  scheduleName: string
-): void {
-  result.schedulesProcessed++
-  result.runsCreated += runsCreated
-  if (action === 'skipped' || action === 'not-missed') {
-    result.skipped++
-  }
-  console.log(`[OfflineSync] "${scheduleName}" → ${action}`)
-}
-
 export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncResult> {
   const client = new ConvexHttpClient(convexUrl ?? CONVEX_URL)
   const now = Date.now()
-
-  const result: OfflineSyncResult = {
-    schedulesProcessed: 0,
-    runsCreated: 0,
-    skipped: 0,
-    errors: [],
-  }
+  const result = createOfflineSyncResult()
 
   try {
     const schedules = (await client.query(api.schedules.listEnabled, {})) as Schedule[]
@@ -219,7 +195,8 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
     for (const schedule of missedSchedules) {
       try {
         const { runsCreated, action } = await processSchedule(client, schedule, now)
-        processSingleSchedule(result, runsCreated, action, schedule.name)
+        accumulateScheduleResult(result, runsCreated, action)
+        console.log(`[OfflineSync] "${schedule.name}" → ${action}`)
       } catch (err) {
         const msg = `Failed to process "${schedule.name}": ${getErrorMessage(err)}`
         result.errors.push(msg)
@@ -227,11 +204,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
       }
     }
 
-    const errorSuffix = result.errors.length > 0 ? `, ${result.errors.length} errors` : ''
-    console.log(
-      `[OfflineSync] Complete: ${result.schedulesProcessed} processed, ` +
-        `${result.runsCreated} runs created, ${result.skipped} skipped${errorSuffix}`
-    )
+    console.log(`[OfflineSync] Complete: ${buildOfflineSyncSummary(result)}`)
   } catch (err) {
     const msg = `Offline sync failed: ${getErrorMessage(err)}`
     result.errors.push(msg)

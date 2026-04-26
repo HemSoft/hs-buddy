@@ -17,6 +17,7 @@ import type { Worker, JobConfig } from './types'
 import { CONVEX_URL } from '../config'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { isInBackoffWindow, shouldLogDispatcherError } from '../../src/utils/dispatcherBackoff'
+import { buildSnapshotCollectionOutput } from '../../src/utils/billingParsers'
 
 const POLL_INTERVAL = 10_000 // 10 seconds
 
@@ -216,17 +217,12 @@ class Dispatcher {
     }
 
     const duration = Date.now() - start
-    console.log(
-      `[Dispatcher] Snapshot collection: ${succeeded} succeeded, ${failed} failed in ${duration}ms`
-    )
+    const output = buildSnapshotCollectionOutput(succeeded, failed)
+    console.log(`[Dispatcher] ${output.stdout} in ${duration}ms`)
 
     await this.client.mutation(api.runs.complete, {
       id: run._id,
-      output: {
-        stdout: `Snapshot collection: ${succeeded} succeeded, ${failed} failed`,
-        exitCode: failed > 0 ? 1 : 0,
-        duration,
-      },
+      output: { ...output, duration },
     })
   }
 }

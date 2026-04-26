@@ -11,6 +11,8 @@ import {
   extractUsageSpend,
   computeOverageSpend,
   classifyCliTokenError,
+  assembleCopilotMetrics,
+  buildSnapshotCollectionOutput,
   type BillingUsageItem,
   type PremiumUsageItem,
 } from './billingParsers'
@@ -401,5 +403,145 @@ describe('classifyCliTokenError', () => {
     const cause = new Error('original')
     const err = classifyCliTokenError('ENOENT', undefined, cause)
     expect(err.cause).toBe(cause)
+  })
+})
+
+// --- assembleCopilotMetrics ---
+
+describe('assembleCopilotMetrics', () => {
+  const baseUsage = {
+    premiumRequests: 100,
+    grossCost: 50,
+    discount: 10,
+    netCost: 40,
+    businessSeats: 5,
+  }
+
+  it('returns success when usage succeeded', () => {
+    const result = assembleCopilotMetrics({
+      org: 'acme',
+      usageOk: true,
+      usage: baseUsage,
+      budgetAmount: 200,
+      spent: 40,
+      month: 4,
+      year: 2026,
+      fetchedAt: 1000,
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.org).toBe('acme')
+      expect(result.data.premiumRequests).toBe(100)
+      expect(result.data.budgetAmount).toBe(200)
+      expect(result.data.spent).toBe(40)
+      expect(result.data.billingMonth).toBe(4)
+      expect(result.data.billingYear).toBe(2026)
+      expect(result.data.fetchedAt).toBe(1000)
+    }
+  })
+
+  it('returns success when only budget succeeded', () => {
+    const result = assembleCopilotMetrics({
+      org: 'acme',
+      usageOk: false,
+      usage: baseUsage,
+      budgetAmount: 200,
+      spent: 0,
+      month: 1,
+      year: 2026,
+      fetchedAt: 2000,
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('returns success when only usage succeeded (budget null)', () => {
+    const result = assembleCopilotMetrics({
+      org: 'acme',
+      usageOk: true,
+      usage: baseUsage,
+      budgetAmount: null,
+      spent: 0,
+      month: 1,
+      year: 2026,
+      fetchedAt: 3000,
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('returns error when both usage and budget failed', () => {
+    const result = assembleCopilotMetrics({
+      org: 'acme',
+      usageOk: false,
+      usage: baseUsage,
+      budgetAmount: null,
+      spent: 0,
+      month: 1,
+      year: 2026,
+      fetchedAt: 4000,
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error).toContain('acme')
+      expect(result.error).toContain('No billing data')
+    }
+  })
+
+  it('includes all metric fields in success result', () => {
+    const result = assembleCopilotMetrics({
+      org: 'corp',
+      usageOk: true,
+      usage: { premiumRequests: 1, grossCost: 2, discount: 3, netCost: 4, businessSeats: 5 },
+      budgetAmount: 100,
+      spent: 50,
+      month: 12,
+      year: 2025,
+      fetchedAt: 9999,
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data).toEqual({
+        org: 'corp',
+        premiumRequests: 1,
+        grossCost: 2,
+        discount: 3,
+        netCost: 4,
+        businessSeats: 5,
+        budgetAmount: 100,
+        spent: 50,
+        billingMonth: 12,
+        billingYear: 2025,
+        fetchedAt: 9999,
+      })
+    }
+  })
+})
+
+// --- buildSnapshotCollectionOutput ---
+
+describe('buildSnapshotCollectionOutput', () => {
+  it('returns exitCode 0 when all succeed', () => {
+    const output = buildSnapshotCollectionOutput(3, 0)
+    expect(output.exitCode).toBe(0)
+    expect(output.stdout).toContain('3 succeeded')
+    expect(output.stdout).toContain('0 failed')
+  })
+
+  it('returns exitCode 1 when any fail', () => {
+    const output = buildSnapshotCollectionOutput(2, 1)
+    expect(output.exitCode).toBe(1)
+    expect(output.stdout).toContain('2 succeeded')
+    expect(output.stdout).toContain('1 failed')
+  })
+
+  it('handles all failures', () => {
+    const output = buildSnapshotCollectionOutput(0, 5)
+    expect(output.exitCode).toBe(1)
+    expect(output.stdout).toContain('0 succeeded')
+    expect(output.stdout).toContain('5 failed')
+  })
+
+  it('handles zero accounts', () => {
+    const output = buildSnapshotCollectionOutput(0, 0)
+    expect(output.exitCode).toBe(0)
   })
 })

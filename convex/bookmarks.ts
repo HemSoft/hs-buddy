@@ -1,7 +1,11 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { notFoundError } from './lib/domain'
-import { validateBookmarkUpdate, buildUpdateData } from '../src/utils/bookmarkValidation'
+import {
+  validateBookmarkUpdate,
+  buildUpdateData,
+  resolveBookmarkUpdateTargets,
+} from '../src/utils/bookmarkValidation'
 
 // List all bookmarks
 export const list = query({
@@ -111,16 +115,16 @@ export const update = mutation({
 
     validateBookmarkUpdate(args)
 
-    // If URL or category changed, check for duplicate in target category
-    const targetCategory = args.category ?? existing.category
-    const targetUrl = args.url ?? existing.url
-    if (args.url !== undefined || args.category !== undefined) {
+    const { targetUrl, targetCategory, needsDuplicateCheck } = resolveBookmarkUpdateTargets(
+      args,
+      existing
+    )
+    if (needsDuplicateCheck) {
       const matchingInCategory = await ctx.db
         .query('bookmarks')
         .withIndex('by_url_category', q => q.eq('url', targetUrl).eq('category', targetCategory))
         .take(2)
-      const hasDuplicate = matchingInCategory.some(b => b._id !== args.id)
-      if (hasDuplicate) {
+      if (matchingInCategory.some(b => b._id !== args.id)) {
         throw new Error(`URL is already bookmarked in this category: ${targetUrl}`)
       }
     }

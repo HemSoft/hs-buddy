@@ -30,3 +30,57 @@ export function buildPowershellEnvCommand(name: string): string {
   const escaped = name.replace(/'/g, "''")
   return `powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('${escaped}','Machine')"`
 }
+
+/** Dependency-injected shell executor for resolveEnvVar. */
+type ExecSyncFn = (command: string) => string
+
+/**
+ * Resolve an environment variable with optional Windows Machine-scope lookup.
+ *
+ * Pure function: all I/O and platform dependencies are injected.
+ * Returns the resolved value (from Machine scope, then env), or undefined.
+ */
+export function resolveEnvVar(
+  name: string,
+  cache: Map<string, string>,
+  platform: string,
+  allowedNames: Set<string>,
+  env: Record<string, string | undefined>,
+  execSyncFn: ExecSyncFn
+): string | undefined {
+  if (cache.has(name)) return cache.get(name)
+
+  if (shouldCheckWindowsMachineScope(platform, name, allowedNames)) {
+    try {
+      const val = execSyncFn(buildPowershellEnvCommand(name)).trim()
+      if (val) {
+        cache.set(name, val)
+        return val
+      }
+    } catch {
+      /* fall through to process.env */
+    }
+  }
+
+  const val = env[name]
+  if (val) {
+    cache.set(name, val)
+    return val
+  }
+  return undefined
+}
+
+/**
+ * Create a pre-configured env resolver bound to specific allowed names and platform.
+ *
+ * Returns a `getEnv(name)` function that caches resolved values.
+ */
+export function createEnvResolver(
+  platform: string,
+  allowedNames: Set<string>,
+  env: Record<string, string | undefined>,
+  execSyncFn: ExecSyncFn
+): (name: string) => string | undefined {
+  const cache = new Map<string, string>()
+  return (name: string) => resolveEnvVar(name, cache, platform, allowedNames, env, execSyncFn)
+}

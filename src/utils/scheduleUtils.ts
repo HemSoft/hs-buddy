@@ -102,3 +102,44 @@ export function buildScheduleUpdateFields(
 
   return updateData
 }
+
+// ── Offline Sync helpers ───────────────────────────────────────────────
+
+export interface OfflineSyncResult {
+  schedulesProcessed: number
+  runsCreated: number
+  skipped: number
+  errors: string[]
+}
+
+/** Create an empty offline sync result accumulator. */
+export function createOfflineSyncResult(): OfflineSyncResult {
+  return { schedulesProcessed: 0, runsCreated: 0, skipped: 0, errors: [] }
+}
+
+/** Returns true when a schedule has a missed run (nextRunAt is null or in the past). */
+export function isMissedSchedule(schedule: { nextRunAt?: number | null }, now: number): boolean {
+  return !schedule.nextRunAt || schedule.nextRunAt <= now
+}
+
+/** Accumulate a single schedule's processing result into the sync summary. */
+export function accumulateScheduleResult(
+  result: OfflineSyncResult,
+  runsCreated: number,
+  action: string
+): void {
+  result.schedulesProcessed++
+  result.runsCreated += runsCreated
+  if (action === 'skipped' || action === 'not-missed') {
+    result.skipped++
+  }
+}
+
+/** Build a human-readable summary line for the offline sync result. */
+export function buildOfflineSyncSummary(result: OfflineSyncResult): string {
+  const errorSuffix = result.errors.length > 0 ? `, ${result.errors.length} errors` : ''
+  return (
+    `${result.schedulesProcessed} processed, ` +
+    `${result.runsCreated} runs created, ${result.skipped} skipped${errorSuffix}`
+  )
+}

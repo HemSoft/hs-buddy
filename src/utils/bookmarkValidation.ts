@@ -2,6 +2,8 @@
  * Bookmark validation — pure helpers extracted from convex/bookmarks.ts.
  */
 
+export { buildUpdateData } from './convexPatchUtils'
+
 /** Validate a URL is http/https only. Throws on invalid URL or disallowed protocol. */
 export function validateBookmarkUrl(url: string): void {
   const parsed = new URL(url)
@@ -38,14 +40,16 @@ export function validateBookmarkUpdate(args: {
   if (args.tags) validateTagCount(args.tags)
 }
 
-/** Build a patch object from mutation args, excluding `id` and setting `updatedAt`. */
-export function buildUpdateData(
-  args: Record<string, unknown>,
-  now: number
-): Record<string, unknown> {
-  const updateData: Record<string, unknown> = { updatedAt: now }
-  for (const [key, value] of Object.entries(args)) {
-    if (key !== 'id' && value !== undefined) updateData[key] = value
-  }
-  return updateData
+/**
+ * Resolve the effective URL and category for a bookmark update,
+ * falling back to the existing values when not provided.
+ */
+export function resolveBookmarkUpdateTargets(
+  args: { url?: string; category?: string },
+  existing: { url: string; category: string }
+): { targetUrl: string; targetCategory: string; needsDuplicateCheck: boolean } {
+  const targetUrl = args.url ?? existing.url
+  const targetCategory = args.category ?? existing.category
+  const needsDuplicateCheck = args.url !== undefined || args.category !== undefined
+  return { targetUrl, targetCategory, needsDuplicateCheck }
 }

@@ -42,10 +42,6 @@ export interface CrewAddProjectResult {
 }
 
 /** Validation result for a folder as a Crew project */
-export interface CrewValidationResult {
-  valid: boolean
-  gitRoot?: string
-  githubSlug?: string
-  defaultBranch?: string
-  error?: string
-}
+export type CrewValidationResult =
+  | { valid: false; error: string }
+  | { valid: true; gitRoot: string; githubSlug: string; defaultBranch: string }

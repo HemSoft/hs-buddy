@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { notFoundError, shellValidator } from './lib/domain'
+import { buildUpdateData } from '../src/utils/convexPatchUtils'
 
 /**
  * Job CRUD operations
@@ -166,12 +167,7 @@ export const update = mutation({
       }
     }
 
-    const updateData: Record<string, unknown> = { updatedAt: Date.now() }
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) updateData[key] = value
-    }
-
-    await ctx.db.patch('jobs', id, updateData)
+    await ctx.db.patch('jobs', id, buildUpdateData(updates, Date.now()))
     return id
   },
 })

@@ -154,3 +154,72 @@ export function classifyCliTokenError(
   }
   return new Error(errorMessage, { cause })
 }
+
+/** Aggregated Copilot usage metrics for a single org. */
+export interface CopilotUsageMetrics {
+  org: string
+  premiumRequests: number
+  grossCost: number
+  discount: number
+  netCost: number
+  businessSeats: number
+  budgetAmount: number | null
+  spent: number
+  billingMonth: number
+  billingYear: number
+  fetchedAt: number
+}
+
+/**
+ * Assemble the final Copilot metrics result from fetched usage and budget data.
+ *
+ * Encapsulates the success/failure decision policy: if both usage and budget
+ * fetch failed, returns an error; otherwise returns whatever data succeeded.
+ */
+export function assembleCopilotMetrics(params: {
+  org: string
+  usageOk: boolean
+  usage: ParsedBillingUsage
+  budgetAmount: number | null
+  spent: number
+  month: number
+  year: number
+  fetchedAt: number
+}): { success: true; data: CopilotUsageMetrics } | { success: false; error: string } {
+  const { org, usageOk, usage, budgetAmount, spent, month, year, fetchedAt } = params
+
+  if (!usageOk && budgetAmount === null) {
+    return { success: false, error: `No billing data available for '${org}'` }
+  }
+
+  return {
+    success: true,
+    data: {
+      org,
+      premiumRequests: usage.premiumRequests,
+      grossCost: usage.grossCost,
+      discount: usage.discount,
+      netCost: usage.netCost,
+      businessSeats: usage.businessSeats,
+      budgetAmount,
+      spent,
+      billingMonth: month,
+      billingYear: year,
+      fetchedAt,
+    },
+  }
+}
+
+/**
+ * Build the output summary for a snapshot collection run.
+ * Returns the stdout message and an exit code (0 = all succeeded, 1 = any failures).
+ */
+export function buildSnapshotCollectionOutput(
+  succeeded: number,
+  failed: number
+): { stdout: string; exitCode: number } {
+  return {
+    stdout: `Snapshot collection: ${succeeded} succeeded, ${failed} failed`,
+    exitCode: failed > 0 ? 1 : 0,
+  }
+}

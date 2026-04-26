@@ -76,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract pure logic from electron/convex to reduce CRAP scores
 - Extract pure logic from electron/ to reduce CRAP scores
 - Un-export test-only helpers to satisfy Knip
+- Reduce CRAP scores by extracting pure logic to src/utils
 
 ### Added
 

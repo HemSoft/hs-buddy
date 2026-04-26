@@ -31,7 +31,6 @@ import { logs, SeverityNumber } from '@opentelemetry/api-logs'
 
 let sdk: { shutdown(): Promise<void> } | null = null
 let loggerProvider: { shutdown(): Promise<void> } | null = null
-let meter: Meter | null = null
 
 // Metrics handles (lazy-initialized)
 let ipcCallCounter: Counter | null = null
@@ -51,22 +50,61 @@ let windowOpenCounter: Counter | null = null
  * Heavy SDK packages are dynamically imported only when telemetry is enabled,
  * keeping the main bundle small for production use.
  */
-export async function initTelemetry(): Promise<void> {
-  if (sdk) return // Already initialized
+interface TelemetryConfig {
+  endpoint: string
+  serviceName: string
+  serviceVersion: string
+  debugDiag: boolean
+}
 
-  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-  if (!endpoint) {
+/** Read telemetry configuration from environment variables. Returns null if disabled. */
+function readTelemetryConfig(
+  env: Record<string, string | undefined>
+): TelemetryConfig | null {
+  const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT
+  if (!endpoint) return null
+  return {
+    endpoint,
+    serviceName: env.OTEL_SERVICE_NAME ?? 'buddy',
+    serviceVersion: env.npm_package_version ?? '0.0.0',
+    debugDiag: env.OTEL_LOG_LEVEL === 'debug',
+  }
+}
+
+/** Create metric instruments on the shared meter. */
+function initMetricHandles(m: Meter): void {
+  ipcCallCounter = m.createCounter('buddy.ipc.calls', {
+    description: 'Number of IPC handler invocations',
+    unit: '{calls}',
+  })
+  ipcDurationHistogram = m.createHistogram('buddy.ipc.duration', {
+    description: 'IPC handler execution time',
+    unit: 'ms',
+  })
+  ipcErrorCounter = m.createCounter('buddy.ipc.errors', {
+    description: 'Number of IPC handler errors',
+    unit: '{errors}',
+  })
+  windowOpenCounter = m.createCounter('buddy.windows.opened', {
+    description: 'Number of browser windows opened',
+    unit: '{windows}',
+  })
+}
+
+export async function initTelemetry(): Promise<void> {
+  if (sdk) return
+
+  const config = readTelemetryConfig(process.env as Record<string, string | undefined>)
+  if (!config) {
     console.log('[Telemetry] OTEL_EXPORTER_OTLP_ENDPOINT not set — telemetry disabled')
     return
   }
 
-  // Optional: diagnostic logging for OTel SDK itself
-  if (process.env.OTEL_LOG_LEVEL === 'debug') {
+  if (config.debugDiag) {
     diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG)
   }
 
   try {
-    // Dynamically import heavy SDK packages (only when telemetry is enabled)
     const [
       { NodeSDK },
       { OTLPTraceExporter },
@@ -89,16 +127,12 @@ export async function initTelemetry(): Promise<void> {
       import('@opentelemetry/resources'),
     ])
 
-    const serviceName = process.env.OTEL_SERVICE_NAME ?? 'buddy'
-    const serviceVersion = process.env.npm_package_version ?? '0.0.0'
-
     const resource = resourceFromAttributes({
-      'service.name': serviceName,
-      'service.version': serviceVersion,
+      'service.name': config.serviceName,
+      'service.version': config.serviceVersion,
     })
 
-    // --- Log exporter (separate provider so we can emit logs programmatically) ---
-    const logExporter = new OTLPLogExporter({ url: `${endpoint}/v1/logs` })
+    const logExporter = new OTLPLogExporter({ url: `${config.endpoint}/v1/logs` })
     const lp = new LoggerProvider({
       resource,
       processors: [new BatchLogRecordProcessor(logExporter)],
@@ -106,12 +140,11 @@ export async function initTelemetry(): Promise<void> {
     logs.setGlobalLoggerProvider(lp)
     loggerProvider = lp
 
-    // --- Trace + Metrics SDK ---
     const nodeSdk = new NodeSDK({
       resource,
-      traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
+      traceExporter: new OTLPTraceExporter({ url: `${config.endpoint}/v1/traces` }),
       metricReader: new PeriodicExportingMetricReader({
-        exporter: new OTLPMetricExporter({ url: `${endpoint}/v1/metrics` }),
+        exporter: new OTLPMetricExporter({ url: `${config.endpoint}/v1/metrics` }),
         exportIntervalMillis: 15_000,
       }),
       instrumentations: [new HttpInstrumentation(), new DnsInstrumentation()],
@@ -120,28 +153,11 @@ export async function initTelemetry(): Promise<void> {
     nodeSdk.start()
     sdk = nodeSdk
 
-    // Create the shared meter
-    meter = metrics.getMeter(serviceName, serviceVersion)
+    initMetricHandles(
+      metrics.getMeter(config.serviceName, config.serviceVersion)
+    )
 
-    // Initialize metric instruments
-    ipcCallCounter = meter.createCounter('buddy.ipc.calls', {
-      description: 'Number of IPC handler invocations',
-      unit: '{calls}',
-    })
-    ipcDurationHistogram = meter.createHistogram('buddy.ipc.duration', {
-      description: 'IPC handler execution time',
-      unit: 'ms',
-    })
-    ipcErrorCounter = meter.createCounter('buddy.ipc.errors', {
-      description: 'Number of IPC handler errors',
-      unit: '{errors}',
-    })
-    windowOpenCounter = meter.createCounter('buddy.windows.opened', {
-      description: 'Number of browser windows opened',
-      unit: '{windows}',
-    })
-
-    console.log(`[Telemetry] Initialized — exporting to ${endpoint} as '${serviceName}'`)
+    console.log(`[Telemetry] Initialized — exporting to ${config.endpoint} as '${config.serviceName}'`)
   } catch (err) {
     console.warn('[Telemetry] Failed to load SDK packages (non-fatal):', err)
   }

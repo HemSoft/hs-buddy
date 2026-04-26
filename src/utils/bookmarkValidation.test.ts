@@ -5,6 +5,7 @@ import {
   validateTagCount,
   validateBookmarkUpdate,
   buildUpdateData,
+  resolveBookmarkUpdateTargets,
 } from './bookmarkValidation'
 
 describe('validateBookmarkUrl', () => {
@@ -108,5 +109,50 @@ describe('buildUpdateData', () => {
   it('returns only updatedAt for empty args', () => {
     const result = buildUpdateData({}, 3000)
     expect(result).toEqual({ updatedAt: 3000 })
+  })
+})
+
+// --- resolveBookmarkUpdateTargets ---
+
+describe('resolveBookmarkUpdateTargets', () => {
+  const existing = { url: 'https://old.com', category: 'tech' }
+
+  it('uses existing values when args are not provided', () => {
+    const result = resolveBookmarkUpdateTargets({}, existing)
+    expect(result.targetUrl).toBe('https://old.com')
+    expect(result.targetCategory).toBe('tech')
+    expect(result.needsDuplicateCheck).toBe(false)
+  })
+
+  it('uses new url when provided', () => {
+    const result = resolveBookmarkUpdateTargets({ url: 'https://new.com' }, existing)
+    expect(result.targetUrl).toBe('https://new.com')
+    expect(result.targetCategory).toBe('tech')
+    expect(result.needsDuplicateCheck).toBe(true)
+  })
+
+  it('uses new category when provided', () => {
+    const result = resolveBookmarkUpdateTargets({ category: 'science' }, existing)
+    expect(result.targetUrl).toBe('https://old.com')
+    expect(result.targetCategory).toBe('science')
+    expect(result.needsDuplicateCheck).toBe(true)
+  })
+
+  it('uses both new url and category when provided', () => {
+    const result = resolveBookmarkUpdateTargets(
+      { url: 'https://new.com', category: 'science' },
+      existing
+    )
+    expect(result.targetUrl).toBe('https://new.com')
+    expect(result.targetCategory).toBe('science')
+    expect(result.needsDuplicateCheck).toBe(true)
+  })
+
+  it('triggers duplicate check even when url/category match existing values', () => {
+    const result = resolveBookmarkUpdateTargets(
+      { url: 'https://old.com', category: 'tech' },
+      existing
+    )
+    expect(result.needsDuplicateCheck).toBe(true)
   })
 })

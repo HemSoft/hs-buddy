@@ -13,6 +13,7 @@ import {
 import {
   type BillingUsageItem,
   type ParsedBillingUsage,
+  type CopilotUsageMetrics,
   isNotFoundError,
   extractPremiumUsageItems,
   sumGrossRequests,
@@ -22,6 +23,7 @@ import {
   extractUsageSpend,
   computeOverageSpend,
   classifyCliTokenError,
+  assembleCopilotMetrics,
 } from '../../src/utils/billingParsers'
 
 /** Timeout for local CLI commands (auth token, auth status, account switch). */
@@ -72,19 +74,7 @@ async function getTokenEnv(username?: string): Promise<NodeJS.ProcessEnv> {
 
 /** Aggregated Copilot usage metrics for a single org, reused by the
  *  live IPC handler and the snapshot collection path. */
-interface CopilotUsageMetrics {
-  org: string
-  premiumRequests: number
-  grossCost: number
-  discount: number
-  netCost: number
-  businessSeats: number
-  budgetAmount: number | null
-  spent: number
-  billingMonth: number
-  billingYear: number
-  fetchedAt: number
-}
+// (CopilotUsageMetrics is now exported from billingParsers.ts)
 
 /** Try the org billing endpoint, then fall back to user.
  *  Returns ParsedBillingUsage. Throws on non-404 errors. */
@@ -144,7 +134,7 @@ async function fetchBudgetAndSpend(
 export async function fetchCopilotMetrics(
   org: string,
   username?: string
-): Promise<{ success: true; data: CopilotUsageMetrics } | { success: false; error: string }> {
+): Promise<ReturnType<typeof assembleCopilotMetrics>> {
   const execEnv = await getTokenEnv(username)
 
   const now = new Date()
@@ -152,25 +142,21 @@ export async function fetchCopilotMetrics(
   const month = now.getUTCMonth() + 1
 
   // --- usage ---
-  let premiumRequests = 0
-  let grossCost = 0
-  let discount = 0
-  let netCost = 0
-  let businessSeats = 0
+  let usage: ParsedBillingUsage = {
+    premiumRequests: 0,
+    grossCost: 0,
+    discount: 0,
+    netCost: 0,
+    businessSeats: 0,
+  }
   let usageOk = false
 
   try {
-    const parsed = await fetchBillingUsage(org, execEnv)
-    premiumRequests = parsed.premiumRequests
-    grossCost = parsed.grossCost
-    discount = parsed.discount
-    netCost = parsed.netCost
-    businessSeats = parsed.businessSeats
+    usage = await fetchBillingUsage(org, execEnv)
     usageOk = true
   } catch (error: unknown) {
-    const msg = getErrorMessage(error)
     if (!isNotFoundError(error)) {
-      return { success: false, error: msg }
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -180,7 +166,6 @@ export async function fetchCopilotMetrics(
 
   const knownPersonalBudget = PERSONAL_BUDGETS[org.toLowerCase()]
   if (knownPersonalBudget !== undefined) {
-    // Personal accounts don't expose org-level billing APIs — skip to avoid 404 noise
     budgetAmount = knownPersonalBudget
   } else {
     try {
@@ -192,26 +177,16 @@ export async function fetchCopilotMetrics(
     }
   }
 
-  if (!usageOk && budgetAmount === null) {
-    return { success: false, error: `No billing data available for '${org}'` }
-  }
-
-  return {
-    success: true,
-    data: {
-      org,
-      premiumRequests,
-      grossCost,
-      discount,
-      netCost,
-      businessSeats,
-      budgetAmount,
-      spent,
-      billingMonth: month,
-      billingYear: year,
-      fetchedAt: Date.now(),
-    },
-  }
+  return assembleCopilotMetrics({
+    org,
+    usageOk,
+    usage,
+    budgetAmount,
+    spent,
+    month,
+    year,
+    fetchedAt: Date.now(),
+  })
 }
 
 /** Try org billing endpoint, fall back to user. Throws descriptive error on double-404. */

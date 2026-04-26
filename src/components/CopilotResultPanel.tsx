@@ -36,11 +36,21 @@ function canPublishToPR(
   )
 }
 
+function isNonEmptyString(val: unknown): val is string {
+  return typeof val === 'string' && val.length > 0
+}
+
 function extractPRMetadata(metadata: Record<string, unknown> | null) {
-  const org = metadata?.org as string | undefined
-  const repo = metadata?.repo as string | undefined
-  const prNumber = metadata?.prNumber as number | undefined
-  if (!org || !repo || !prNumber) return null
+  if (!metadata) return null
+  const { org, repo, prNumber } = metadata
+  if (
+    !isNonEmptyString(org) ||
+    !isNonEmptyString(repo) ||
+    typeof prNumber !== 'number' ||
+    !Number.isInteger(prNumber) ||
+    prNumber <= 0
+  )
+    return null
   return { org, repo, prNumber }
 }
 

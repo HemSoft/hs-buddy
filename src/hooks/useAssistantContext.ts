@@ -73,6 +73,53 @@ const VIEW_DEFINITIONS: ViewDefinition[] = [
   },
 ]
 
+const STATIC_VIEWS: Record<string, Omit<AssistantContext, 'viewId'>> = {
+  dashboard: {
+    viewType: 'welcome',
+    summary: 'The user is on the Dashboard screen.',
+    metadata: {},
+  },
+}
+
+const PR_LIST_SUMMARIES: Record<string, string> = {
+  'pr-my-prs': 'My Pull Requests',
+  'pr-needs-review': 'PRs Needing Review',
+  'pr-recently-merged': 'Recently Merged PRs',
+}
+
+function resolveViewContext(activeViewId: string): AssistantContext {
+  const staticView = STATIC_VIEWS[activeViewId]
+  if (staticView) return { ...staticView, viewId: activeViewId }
+
+  for (const view of VIEW_DEFINITIONS) {
+    if (activeViewId.startsWith(view.prefix)) {
+      const parts = activeViewId.slice(view.prefix.length).split('/')
+      return {
+        viewType: view.viewType,
+        viewId: activeViewId,
+        summary: view.summary(parts),
+        metadata: view.metadata(parts),
+      }
+    }
+  }
+
+  if (activeViewId.startsWith('pr-')) {
+    return {
+      viewType: 'pr-list',
+      viewId: activeViewId,
+      summary: PR_LIST_SUMMARIES[activeViewId] ?? 'Pull Requests',
+      metadata: {},
+    }
+  }
+
+  return {
+    viewType: 'other',
+    viewId: activeViewId,
+    summary: `Viewing: ${activeViewId}`,
+    metadata: {},
+  }
+}
+
 /**
  * Derives the current assistant context from the active view and app state.
  * Serializes context into a system prompt preamble for the Copilot SDK.
@@ -80,55 +127,9 @@ const VIEW_DEFINITIONS: ViewDefinition[] = [
 export function useAssistantContext(activeViewId: string | null): AssistantContext {
   return useMemo(() => {
     if (!activeViewId) {
-      return {
-        viewType: 'welcome',
-        viewId: null,
-        summary: 'No tab is open.',
-        metadata: {},
-      }
+      return { viewType: 'welcome', viewId: null, summary: 'No tab is open.', metadata: {} }
     }
-
-    if (activeViewId === 'dashboard') {
-      return {
-        viewType: 'welcome',
-        viewId: 'dashboard',
-        summary: 'The user is on the Dashboard screen.',
-        metadata: {},
-      }
-    }
-
-    for (const view of VIEW_DEFINITIONS) {
-      if (activeViewId.startsWith(view.prefix)) {
-        const parts = activeViewId.slice(view.prefix.length).split('/')
-        return {
-          viewType: view.viewType,
-          viewId: activeViewId,
-          summary: view.summary(parts),
-          metadata: view.metadata(parts),
-        }
-      }
-    }
-
-    if (activeViewId.startsWith('pr-')) {
-      const viewMap: Record<string, string> = {
-        'pr-my-prs': 'My Pull Requests',
-        'pr-needs-review': 'PRs Needing Review',
-        'pr-recently-merged': 'Recently Merged PRs',
-      }
-      return {
-        viewType: 'pr-list',
-        viewId: activeViewId,
-        summary: viewMap[activeViewId] || 'Pull Requests',
-        metadata: {},
-      }
-    }
-
-    return {
-      viewType: 'other',
-      viewId: activeViewId,
-      summary: `Viewing: ${activeViewId}`,
-      metadata: {},
-    }
+    return resolveViewContext(activeViewId)
   }, [activeViewId])
 }
 

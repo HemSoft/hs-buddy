@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity in networkSecurity, copilotSessionParsing, and useBookmarkListState
 - Convert if-else chains to lookup tables across 9 files
 - Fix Prettier formatting in App.tsx, copilotSessionParsing.ts, prDetailView.test.ts
+- Reduce complexity in useAssistantContext and extractPRMetadata
 
 ### Fixed
 
@@ -45,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add missing default cases to reducers and extract toggle helper
 - Narrow JOB_SCHEDULE_LISTS type to Partial<Record> for type-safety
 - Format PRStateIcon.tsx to pass Prettier check
+- Validate prNumber as finite positive integer in extractPRMetadata
 
 ## [0.1.739] - 2026-04-26
 

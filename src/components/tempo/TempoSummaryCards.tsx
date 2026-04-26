@@ -1,5 +1,6 @@
 import type { TempoWorklog } from '../../types/tempo'
 import { Clock, Target, TrendingUp, Landmark, CheckCircle2, XCircle } from 'lucide-react'
+import { sumBy } from '../../utils/arrayUtils'
 
 interface TempoSummaryCardsProps {
   todayHours: number
@@ -36,7 +37,10 @@ function computeSummaryMetrics(
   const isMonthComplete = monthTarget > 0 && monthHours >= monthTarget
   const now = new Date()
   const isPastMonth = !isCurrentMonth && viewMonth < new Date(now.getFullYear(), now.getMonth(), 1)
-  const capexHours = worklogs.filter(w => capexMap[w.issueKey]).reduce((sum, w) => sum + w.hours, 0)
+  const capexHours = sumBy(
+    worklogs.filter(w => capexMap[w.issueKey]),
+    w => w.hours
+  )
   const nonCapexHours = Math.round((monthHours - capexHours) * 100) / 100
   /* v8 ignore start */
   const capexPct = monthHours > 0 ? Math.round((capexHours / monthHours) * 100) : 0

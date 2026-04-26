@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity via table-driven lookups and helper extraction
 - Extract fetchCachedData helper to consolidate 8 repeated fetch patterns
 - Reduce complexity in useGitHubSidebarData
+- Reduce cyclomatic complexity and eliminate code duplication
+- Deduplicate sumBy, label mapping, and branch ref extraction
+- Reduce cyclomatic complexity and remove code duplication
+- Reduce complexity and code duplication in GitHubService
+- Fix Prettier formatting in TempoDashboard and TempoSummaryCards
 
 ### Fixed
 
@@ -33,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review feedback for ipcClassification and workerUtils
 - Guard against undefined ownerRepo in parseStateOwnerRepoKey
 - Add missing default cases to reducers and extract toggle helper
+- Narrow JOB_SCHEDULE_LISTS type to Partial<Record> for type-safety
 
 ## [0.1.739] - 2026-04-26
 

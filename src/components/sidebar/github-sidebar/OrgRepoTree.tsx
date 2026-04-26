@@ -23,7 +23,7 @@ import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { RepoNode } from './RepoNode'
-import { sidebarItemClass } from './repoNodeUtils'
+import { handleItemKeyDown, sidebarItemClass } from './repoNodeUtils'
 
 function orgRefreshClass(org: string, indicators?: RefreshIndicators): string {
   if (!indicators) return ''
@@ -31,22 +31,6 @@ function orgRefreshClass(org: string, indicators?: RefreshIndicators): string {
   if (state === 'active') return 'refresh-active'
   if (state === 'pending') return 'refresh-pending'
   return ''
-}
-
-function handleItemKeyDown(
-  event: React.KeyboardEvent,
-  action: () => void,
-  stopPropagation = false
-) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  event.preventDefault()
-  if (stopPropagation) {
-    event.stopPropagation()
-  }
-  action()
 }
 
 interface OrgMeta {

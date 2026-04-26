@@ -11,6 +11,7 @@ import {
 import { useCopilotSessions } from '../../hooks/useCopilotSessions'
 import type { SessionSummary } from '../../types/copilotSession'
 import { DAY } from '../../utils/dateUtils'
+import { sumBy } from '../../utils/arrayUtils'
 import './SessionExplorer.css'
 
 function formatSize(bytes: number): string {
@@ -172,7 +173,7 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
     scan()
   }, [scan])
 
-  const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
+  const totalSize = sumBy(sessions, s => s.sizeBytes)
   const workspaceGroups = useMemo(() => groupByWorkspaceThenDate(sessions), [sessions])
   const defaultExpandedHashes = useMemo(
     () => new Set(workspaceGroups.slice(0, 3).map(group => group.hash)),

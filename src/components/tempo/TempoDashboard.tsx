@@ -16,6 +16,7 @@ import {
 } from '../../hooks/useTempo'
 import type { TempoWorklog, CreateWorklogPayload, TempoScheduleDay } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
+import { sumBy } from '../../utils/arrayUtils'
 import './TempoDashboard.css'
 
 type ViewMode = 'grid' | 'timeline'
@@ -249,10 +250,7 @@ function useTempoDashboardData(viewMonth: Date) {
   const today = useTempoToday()
   const { schedule } = useUserSchedule(from, to)
 
-  const monthTarget = useMemo(
-    () => schedule.reduce((sum, d) => sum + d.requiredSeconds, 0) / 3600,
-    [schedule]
-  )
+  const monthTarget = useMemo(() => sumBy(schedule, d => d.requiredSeconds) / 3600, [schedule])
   const holidays = useMemo(() => buildHolidayMap(schedule), [schedule])
   const refreshAll = useCallback(() => {
     month.refresh()

@@ -42,41 +42,24 @@ export function createOrgCopilotState(cachedCopilot: OrgCopilotUsageData | null)
   }
 }
 
+function resolveLoadingPhase(hasUsage: boolean): LoadPhase {
+  return hasUsage ? 'refreshing' : 'loading'
+}
+
 export function orgCopilotReducer(
   state: OrgCopilotState,
   action: OrgCopilotAction
 ): OrgCopilotState {
   switch (action.type) {
     case 'reset-for-user-namespace':
-      return {
-        usage: null,
-        phase: 'loading',
-        error: null,
-      }
+      return { usage: null, phase: 'loading', error: null }
     case 'hydrate-cache':
-      return {
-        usage: action.usage,
-        phase: 'ready',
-        error: null,
-      }
-    case 'start-loading':
-      return {
-        ...state,
-        phase: action.hasUsage ? 'refreshing' : 'loading',
-        error: null,
-      }
     case 'success':
-      return {
-        usage: action.usage,
-        phase: 'ready',
-        error: null,
-      }
+      return { usage: action.usage, phase: 'ready', error: null }
+    case 'start-loading':
+      return { ...state, phase: resolveLoadingPhase(action.hasUsage), error: null }
     case 'error':
-      return {
-        ...state,
-        phase: 'error',
-        error: action.error,
-      }
+      return { ...state, phase: 'error', error: action.error }
     default:
       return state
   }

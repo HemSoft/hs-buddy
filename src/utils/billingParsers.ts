@@ -1,6 +1,7 @@
 import { findCopilotBudget, type BudgetItem } from './budgetUtils'
 import { getErrorMessage } from './errorUtils'
 import { OVERAGE_COST_PER_REQUEST } from '../components/copilot-usage/quotaUtils'
+import { sumBy } from './arrayUtils'
 
 /** Shape returned by /orgs/{org}/settings/billing/usage */
 export interface BillingUsageItem {
@@ -37,9 +38,7 @@ export function roundCents(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-export function sumBy<T>(items: T[], fn: (item: T) => number): number {
-  return items.reduce((sum, item) => sum + fn(item), 0)
-}
+export { sumBy } from './arrayUtils'
 
 export function isNotFoundError(error: unknown): boolean {
   const message = getErrorMessage(error)
@@ -113,7 +112,7 @@ export function extractBudgetFromResult(result: PromiseSettledResult<{ stdout: s
 export function extractUsageSpend(result: PromiseSettledResult<{ stdout: string }>): number {
   const data = parseFulfilledStdout<{ usageItems?: Array<{ netAmount: number }> }>(result)
   const items = data?.usageItems ?? []
-  return roundCents(items.reduce((sum, item) => sum + item.netAmount, 0))
+  return roundCents(sumBy(items, item => item.netAmount))
 }
 
 export function computeOverageSpend(quotaData: Record<string, unknown>): number {

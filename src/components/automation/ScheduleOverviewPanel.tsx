@@ -3,6 +3,7 @@ import { Calendar, Clock, Play, Pause, ChevronRight } from 'lucide-react'
 import { enumerateCronOccurrences } from '../../utils/cronUtils'
 import { useSchedules } from '../../hooks/useConvex'
 import { DAY, formatDateKey, formatTime, MONTH_SHORT } from '../../utils/dateUtils'
+import { sumBy } from '../../utils/arrayUtils'
 import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
 import './ScheduleOverviewPanel.css'
 
@@ -248,7 +249,7 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
     [schedules, forecastDays]
   )
 
-  const totalOccurrences = dayGroups.reduce((sum, g) => sum + g.occurrences.length, 0)
+  const totalOccurrences = sumBy(dayGroups, g => g.occurrences.length)
   const { enabledCount, disabledCount } = getScheduleCounts(schedules)
 
   if (schedules === undefined || !loadedConfig) {

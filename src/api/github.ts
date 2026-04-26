@@ -12,6 +12,7 @@ import {
 } from '../types/sflStatus'
 import { DAY } from '../utils/dateUtils'
 import { getErrorMessage } from '../utils/errorUtils'
+import { sumBy } from '../utils/arrayUtils'
 
 /** Max retries when the primary rate limit is hit. */
 const PRIMARY_RATE_LIMIT_RETRIES = 3
@@ -30,15 +31,7 @@ const DEFAULT_LABEL_COLOR = '808080'
 type LabelWithColor = { name?: string; color?: string | null }
 
 function parseLabels(raw: Array<string | LabelWithColor>): Array<{ name: string; color: string }> {
-  /* v8 ignore start */
-  return (
-    raw
-      /* v8 ignore stop */
-      .filter((label): label is LabelWithColor => typeof label !== 'string')
-      /* v8 ignore start */
-      .map(label => ({ name: label.name || '', color: label.color || DEFAULT_LABEL_COLOR }))
-  )
-  /* v8 ignore stop */
+  return raw.filter((label): label is LabelWithColor => typeof label !== 'string').map(mapPRLabel)
 }
 
 // Repository info type for org repo listing
@@ -1010,7 +1003,7 @@ function buildReviewEntry(review: ReviewNodeForMap): ReviewEntryForMap {
 
 function isNewerReview(
   submittedAt: string | null,
-  existing: ReviewEntryForMap | undefined
+  existing: { submittedAt: string | null } | undefined
 ): boolean {
   return !existing || (submittedAt || '') > (existing.submittedAt || '')
 }
@@ -1522,8 +1515,8 @@ function buildOrgMetrics(
       openIssuesResult.status === 'fulfilled' ? openIssuesResult.value.data.total_count : 0,
     openPullRequestCount:
       openPrsResult.status === 'fulfilled' ? openPrsResult.value.data.total_count : 0,
-    totalStars: repos.reduce((sum, repo) => sum + repo.stargazersCount, 0),
-    totalForks: repos.reduce((sum, repo) => sum + repo.forksCount, 0),
+    totalStars: sumBy(repos, repo => repo.stargazersCount),
+    totalForks: sumBy(repos, repo => repo.forksCount),
     activeReposToday,
     commitsToday,
     lastPushAt:
@@ -1555,6 +1548,14 @@ function mapUserAuthorFields(user: { login?: string; avatar_url?: string } | nul
   }
 }
 
+/** Extract head/base branch refs and head SHA from PR ref objects. */
+function extractBranchRefs(
+  head: { ref?: string; sha?: string },
+  base: { ref?: string }
+): { headBranch: string; baseBranch: string; headSha: string } {
+  return { headBranch: head.ref || '', baseBranch: base.ref || '', headSha: head.sha || '' }
+}
+
 /** Build the latest-review-by-user map from a list of REST reviews. */
 /* v8 ignore start -- API response null-guards in commit/reviewer mapping */
 function buildLatestReviewByUser(
@@ -1569,12 +1570,18 @@ function buildLatestReviewByUser(
     const login = review.user?.login
     if (!login) continue
     const submittedAt = review.submitted_at || ''
-    const existing = map.get(login)
-    if (!existing || submittedAt > existing.submittedAt) {
+    if (isNewerReview(submittedAt, map.get(login))) {
       map.set(login, { state: review.state, submittedAt })
     }
   }
   return map
+}
+
+/** Check if a login list contains the target (case-insensitive). */
+function includesLoginIgnoreCase(logins: string[], target: string | null): boolean {
+  if (!target) return false
+  const lower = target.toLowerCase()
+  return logins.some(login => login.toLowerCase() === lower)
 }
 
 /** Resolve reviewer name + avatarUrl from latest review and/or request data. */
@@ -1667,6 +1674,7 @@ function mapRawPRToRepoPR(pr: any): RepoPullRequest {
   const base = pr.base || {}
   const labels = pr.labels || []
   const assignees = pr.assignees || []
+  const { headBranch, baseBranch } = extractBranchRefs(head, base)
   return {
     number: pr.number,
     title: pr.title,
@@ -1677,8 +1685,8 @@ function mapRawPRToRepoPR(pr: any): RepoPullRequest {
     updatedAt: pr.updated_at,
     labels: labels.map(mapPRLabel),
     draft: !!pr.draft,
-    headBranch: head.ref || '',
-    baseBranch: base.ref || '',
+    headBranch,
+    baseBranch,
     assigneeCount: assignees.length,
     approvalCount: 0,
     iApproved: false,
@@ -1762,7 +1770,7 @@ function extractUserStatusInfo(user: any): {
   }
 }
 
-function mapPRLabel(l: string | { name?: string; color?: string }): {
+function mapPRLabel(l: string | { name?: string; color?: string | null }): {
   name: string
   color: string
 } {
@@ -1919,17 +1927,13 @@ export class GitHubClient {
     viewerLogin: string | null
   ): { approvalCount: number; iApproved: boolean } {
     const latestByUser = buildLatestReviewByUser(reviews)
-    let approvalCount = 0
-    let iApproved = false
-    const viewerLower = viewerLogin?.toLowerCase() ?? null
-    for (const [login, { state }] of latestByUser) {
-      if (state !== 'APPROVED') continue
-      approvalCount++
-      if (viewerLower && login.toLowerCase() === viewerLower) {
-        iApproved = true
-      }
+    const approvedLogins = Array.from(latestByUser.entries())
+      .filter(([, { state }]) => state === 'APPROVED')
+      .map(([login]) => login)
+    return {
+      approvalCount: approvedLogins.length,
+      iApproved: includesLoginIgnoreCase(approvedLogins, viewerLogin),
     }
-    return { approvalCount, iApproved }
   }
   /* v8 ignore stop */
 
@@ -2086,6 +2090,33 @@ export class GitHubClient {
     }
     throw new Error(`No authenticated GitHub account available for ${owner}`)
   }
+
+  /**
+   * Try each account in owner-priority order until one succeeds.
+   * Logs warnings on per-account failures; throws if all accounts fail
+   * (unless `noAccountFallback` is provided).
+   */
+  /* v8 ignore start -- account-iteration orchestration; requires real API */
+  private async withFirstAvailableAccount<T>(
+    owner: string,
+    operation: (octokit: Octokit, username: string) => Promise<T>,
+    label: string,
+    noAccountFallback?: T
+  ): Promise<T> {
+    for (const account of this.getAccountsByOwnerPriority(owner)) {
+      const octokit = await this.getOctokit(account.username)
+      if (!octokit) continue
+      try {
+        return await operation(octokit, account.username)
+      } catch (error) {
+        console.warn(`Failed to ${label} with account ${account.username}:`, error)
+        continue
+      }
+    }
+    if (noAccountFallback !== undefined) return noAccountFallback
+    throw new Error(`Could not ${label} - no authenticated account available`)
+  }
+  /* v8 ignore stop */
 
   /**
    * Fetch all PRs (default mode: all PRs I'm involved with)
@@ -2382,11 +2413,7 @@ export class GitHubClient {
 
     const head = response.data.head || {}
     const base = response.data.base || {}
-    return {
-      headBranch: head.ref || '',
-      baseBranch: base.ref || '',
-      headSha: head.sha || '',
-    }
+    return extractBranchRefs(head, base)
   }
 
   /**
@@ -2409,9 +2436,9 @@ export class GitHubClient {
 
     return {
       files: normalizedFiles,
-      additions: normalizedFiles.reduce((sum, file) => sum + file.additions, 0),
-      deletions: normalizedFiles.reduce((sum, file) => sum + file.deletions, 0),
-      changes: normalizedFiles.reduce((sum, file) => sum + file.changes, 0),
+      additions: sumBy(normalizedFiles, file => file.additions),
+      deletions: sumBy(normalizedFiles, file => file.deletions),
+      changes: sumBy(normalizedFiles, file => file.changes),
     }
   }
 
@@ -2992,45 +3019,31 @@ export class GitHubClient {
    */
   /* v8 ignore start -- Org/team/overview fetch methods; error paths and null-guards */
   async fetchOrgRepos(org: string): Promise<OrgRepoResult> {
-    for (const account of this.getAccountsByOwnerPriority(org)) {
-      const octokit = await this.getOctokit(account.username)
-      if (!octokit) continue
-
-      try {
+    return this.withFirstAvailableAccount(
+      org,
+      async (octokit, username) => {
         const result = await this.fetchAllOrgOrUserRepos(octokit, org)
-        return { ...result, authenticatedAs: account.username }
-      } catch (error) {
-        console.warn(`Failed to fetch repos for ${org} with account ${account.username}:`, error)
-        continue
-      }
-    }
-
-    throw new Error(`Could not fetch repos for '${org}' - no authenticated account available`)
+        return { ...result, authenticatedAs: username }
+      },
+      `fetch repos for '${org}'`
+    )
   }
 
   async fetchOrgMembers(org: string): Promise<OrgMemberResult> {
-    for (const account of this.getAccountsByOwnerPriority(org)) {
-      const octokit = await this.getOctokit(account.username)
-      if (!octokit) continue
-
-      try {
+    return this.withFirstAvailableAccount(
+      org,
+      async (octokit, username) => {
         const result = await this.fetchAllOrgOrUserMembers(octokit, org)
-        return { ...result, authenticatedAs: account.username }
-      } catch (error) {
-        console.warn(`Failed to fetch members for ${org} with account ${account.username}:`, error)
-        continue
-      }
-    }
-
-    throw new Error(`Could not fetch members for '${org}' - no authenticated account available`)
+        return { ...result, authenticatedAs: username }
+      },
+      `fetch members for '${org}'`
+    )
   }
 
   async fetchOrgTeams(org: string): Promise<OrgTeamResult> {
-    for (const account of this.getAccountsByOwnerPriority(org)) {
-      const octokit = await this.getOctokit(account.username)
-      if (!octokit) continue
-
-      try {
+    return this.withFirstAvailableAccount(
+      org,
+      async octokit => {
         const teams = await octokit.paginate(octokit.teams.list, {
           org,
           per_page: 100,
@@ -3046,22 +3059,16 @@ export class GitHubClient {
             url: team.html_url,
           })),
         }
-      } catch (error) {
-        console.warn(`Failed to fetch teams for ${org} with account ${account.username}:`, error)
-        continue
-      }
-    }
-
-    // Teams may not be available for user namespaces — return empty
-    return { teams: [] }
+      },
+      `fetch teams for ${org}`,
+      { teams: [] }
+    )
   }
 
   async fetchTeamMembers(org: string, teamSlug: string): Promise<TeamMembersResult> {
-    for (const account of this.getAccountsByOwnerPriority(org)) {
-      const octokit = await this.getOctokit(account.username)
-      if (!octokit) continue
-
-      try {
+    return this.withFirstAvailableAccount(
+      org,
+      async octokit => {
         const members = await octokit.paginate(octokit.teams.listMembersInOrg, {
           org,
           team_slug: teamSlug,
@@ -3080,24 +3087,16 @@ export class GitHubClient {
             avatarUrl: m.avatar_url ?? null,
           })),
         }
-      } catch (error) {
-        console.warn(
-          `Failed to fetch members for ${org}/${teamSlug} with account ${account.username}:`,
-          error
-        )
-        continue
-      }
-    }
-
-    return { members: [] }
+      },
+      `fetch members for ${org}/${teamSlug}`,
+      { members: [] }
+    )
   }
 
   async fetchOrgOverview(org: string): Promise<OrgOverviewResult> {
-    for (const account of this.getAccountsByOwnerPriority(org)) {
-      const octokit = await this.getOctokit(account.username)
-      if (!octokit) continue
-
-      try {
+    return this.withFirstAvailableAccount(
+      org,
+      async (octokit, username) => {
         const { repos, isUserNamespace } = await this.fetchAllOrgOrUserRepos(octokit, org)
         const startOfDay = new Date()
         startOfDay.setHours(0, 0, 0, 0)
@@ -3129,16 +3128,12 @@ export class GitHubClient {
             commitsToday,
             contributorMap
           ),
-          authenticatedAs: account.username,
+          authenticatedAs: username,
           isUserNamespace,
         }
-      } catch (error) {
-        console.warn(`Failed to fetch overview for ${org} with account ${account.username}:`, error)
-        continue
-      }
-    }
-
-    throw new Error(`Could not fetch overview for '${org}' - no authenticated account available`)
+      },
+      `fetch overview for '${org}'`
+    )
   }
 
   /** Gather today's commit stats across recently-pushed repos. */
@@ -3259,28 +3254,36 @@ export class GitHubClient {
 
     try {
       const token = await this.getTokenForOwner(org)
-      // GraphQL aliases must be valid identifiers — prefix with 'u' and replace non-alnum
-      const sanitize = (login: string) => 'u' + login.replace(/[^a-zA-Z0-9]/g, '_')
-      // Process in chunks of 50 to stay within query size limits
       for (let i = 0; i < logins.length; i += 50) {
         const chunk = logins.slice(i, i + 50)
-        const fragments = chunk
-          .map(login => `${sanitize(login)}: user(login: "${login}") { login name }`)
-          .join('\n')
-        const query = `query { ${fragments} }`
-        const result = await graphql<Record<string, { login: string; name: string | null } | null>>(
-          query,
-          { headers: { authorization: `token ${token}` } }
-        )
-        for (const data of Object.values(result)) {
-          if (data?.name) names.set(data.login, data.name)
-        }
+        await GitHubClient.fetchUserNameChunk(token, chunk, names)
       }
     } catch (error) {
       console.warn('[fetchUserNames] GraphQL batch name lookup failed:', error)
     }
 
     return names
+  }
+
+  /** Fetch names for a single chunk of logins and merge into the result map. */
+  private static async fetchUserNameChunk(
+    token: string,
+    chunk: string[],
+    names: Map<string, string>
+  ): Promise<void> {
+    // GraphQL aliases must be valid identifiers — prefix with 'u' and replace non-alnum
+    const sanitize = (login: string) => 'u' + login.replace(/[^a-zA-Z0-9]/g, '_')
+    const fragments = chunk
+      .map(login => `${sanitize(login)}: user(login: "${login}") { login name }`)
+      .join('\n')
+    const query = `query { ${fragments} }`
+    const result = await graphql<Record<string, { login: string; name: string | null } | null>>(
+      query,
+      { headers: { authorization: `token ${token}` } }
+    )
+    for (const data of Object.values(result)) {
+      if (data?.name) names.set(data.login, data.name)
+    }
   }
 
   /**
@@ -3337,54 +3340,47 @@ export class GitHubClient {
     const totalAccounts = this.config.accounts.length
     const report: ProgressCallback = ensureCallback(onProgress)
 
-    // Process each configured GitHub account with its own token
-    for (let i = 0; i < this.config.accounts.length; i++) {
-      const account = this.config.accounts[i]
-      const { username, org } = account
-      const currentAccount = i + 1
-
-      console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
-
+    type PRProgressStatus = 'authenticating' | 'fetching' | 'done' | 'error'
+    const accountReport = (
+      index: number,
+      status: PRProgressStatus,
+      extra?: { prsFound?: number; error?: string }
+    ) => {
+      const { username, org } = this.config.accounts[index]
       report({
-        currentAccount,
+        currentAccount: index + 1,
         totalAccounts,
         accountName: username,
         org,
-        status: 'authenticating',
+        status,
+        ...extra,
       })
+    }
+
+    // Process each configured GitHub account with its own token
+    for (let i = 0; i < this.config.accounts.length; i++) {
+      const { username, org } = this.config.accounts[i]
+
+      console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
+      accountReport(i, 'authenticating')
 
       // Get Octokit instance for this specific account
       const octokit = await this.getOctokit(username)
       if (!octokit) {
         console.warn(`⚠️  Skipping account '${username}' - no GitHub CLI authentication found`)
-        report({
-          currentAccount,
-          totalAccounts,
-          accountName: username,
-          org,
-          status: 'error',
-          error: 'No GitHub CLI authentication found',
-        })
+        accountReport(i, 'error', { error: 'No GitHub CLI authentication found' })
         authenticationErrors++
         continue
       }
 
-      report({ currentAccount, totalAccounts, accountName: username, org, status: 'fetching' })
+      accountReport(i, 'fetching')
 
       try {
         const prs = await this.fetchPRsForAccount(octokit, org, username, mode)
         allPrs.push(...prs)
 
         console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`)
-
-        report({
-          currentAccount,
-          totalAccounts,
-          accountName: username,
-          org,
-          status: 'done',
-          prsFound: prs.length,
-        })
+        accountReport(i, 'done', { prsFound: prs.length })
       } catch (error) {
         const errorMsg = getErrorMessage(error)
         // Only warn for non-404 errors (404s likely mean no access or org doesn't exist)
@@ -3393,14 +3389,7 @@ export class GitHubClient {
         } else {
           console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
         }
-        report({
-          currentAccount,
-          totalAccounts,
-          accountName: username,
-          org,
-          status: 'error',
-          error: errorMsg,
-        })
+        accountReport(i, 'error', { error: errorMsg })
         continue
       }
     }
@@ -3456,6 +3445,31 @@ export class GitHubClient {
     }
   }
 
+  /** Execute a single PR search query, returning mapped results. */
+  private async executeSingleSearchQuery(
+    octokit: Octokit,
+    query: string,
+    orgAvatarUrl: string | null,
+    org: string
+  ): Promise<PullRequest[]> {
+    const searchResults = await octokit.search.issuesAndPullRequests({
+      q: query,
+      per_page: 100,
+      sort: 'updated',
+      order: 'desc',
+    })
+
+    console.debug(`Search found ${searchResults.data.items.length} results for: ${query}`)
+
+    const prs: PullRequest[] = []
+    for (const item of searchResults.data.items) {
+      const mapped = mapSearchItemToPullRequest(item, orgAvatarUrl, org)
+      if (mapped) prs.push(mapped)
+      else console.debug(`Invalid PR URL format: ${item.html_url}`)
+    }
+    return prs
+  }
+
   /** Execute PR search queries and collect unique results. */
   private async executeSearchQueries(
     octokit: Octokit,
@@ -3467,25 +3481,12 @@ export class GitHubClient {
     const allPrs: PullRequest[] = []
     for (const query of queries) {
       try {
-        const searchResults = await octokit.search.issuesAndPullRequests({
-          q: query,
-          per_page: 100,
-          sort: 'updated',
-          order: 'desc',
-        })
-
-        console.debug(`Search found ${searchResults.data.items.length} results for: ${query}`)
-
-        for (const item of searchResults.data.items) {
-          if (seenUrls.has(item.html_url)) continue
-          seenUrls.add(item.html_url)
-
-          const mapped = mapSearchItemToPullRequest(item, orgAvatarUrl, org)
-          if (!mapped) {
-            console.debug(`Invalid PR URL format: ${item.html_url}`)
-            continue
+        const prs = await this.executeSingleSearchQuery(octokit, query, orgAvatarUrl, org)
+        for (const pr of prs) {
+          if (!seenUrls.has(pr.url)) {
+            seenUrls.add(pr.url)
+            allPrs.push(pr)
           }
-          allPrs.push(mapped)
         }
       } catch (error) {
         const errorMsg = getErrorMessage(error)
@@ -4013,17 +4014,14 @@ export class GitHubClient {
   async getRateLimit(
     org: string
   ): Promise<{ limit: number; remaining: number; reset: number; used: number }> {
-    for (const account of this.getAccountsByOwnerPriority(org)) {
-      const octokit = await this.getOctokit(account.username)
-      if (!octokit) continue
-      try {
+    return this.withFirstAvailableAccount(
+      org,
+      async octokit => {
         const { data } = await octokit.rateLimit.get()
         const core = data.resources.core
         return { limit: core.limit, remaining: core.remaining, reset: core.reset, used: core.used }
-      } catch {
-        continue
-      }
-    }
-    throw new Error(`Could not fetch rate limit for '${org}' - no authenticated account available`)
+      },
+      `fetch rate limit for '${org}'`
+    )
   }
 }

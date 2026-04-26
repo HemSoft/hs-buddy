@@ -34,29 +34,12 @@ export function createInitialActivityState(cacheKey: string): ActivityState {
 export function activityReducer(state: ActivityState, action: ActivityAction): ActivityState {
   switch (action.type) {
     case 'RESET_FROM_CACHE':
-      return {
-        activity: action.payload,
-        phase: 'ready',
-        error: null,
-      }
-    case 'FETCH_START':
-      return {
-        activity: null,
-        phase: 'loading',
-        error: null,
-      }
     case 'FETCH_SUCCESS':
-      return {
-        activity: action.payload,
-        phase: 'ready',
-        error: null,
-      }
+      return { activity: action.payload, phase: 'ready', error: null }
+    case 'FETCH_START':
+      return { activity: null, phase: 'loading', error: null }
     case 'FETCH_ERROR':
-      return {
-        ...state,
-        phase: 'error',
-        error: action.payload,
-      }
+      return { ...state, phase: 'error', error: action.payload }
     default:
       return state
   }

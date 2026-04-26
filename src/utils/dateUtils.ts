@@ -229,6 +229,13 @@ export function formatHour12(h: number): string {
   return `${h - 12} PM`
 }
 
+/** Format hour and minute as 12-hour time string (e.g., "1:05 PM"). */
+export function formatTime12(h: number, m: number): string {
+  const period = h >= 12 ? 'PM' : 'AM'
+  const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`
+}
+
 /**
  * Format a Date as YYYY-MM-DD using local timezone (avoids UTC conversion via toISOString).
  * Use this instead of `date.toISOString().slice(0, 10)` to prevent date shifts in

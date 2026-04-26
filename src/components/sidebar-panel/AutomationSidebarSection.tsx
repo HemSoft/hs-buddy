@@ -122,6 +122,11 @@ function ProgressBadge({
   )
 }
 
+const JOB_SCHEDULE_LISTS: Partial<Record<string, 'jobs' | 'schedules'>> = {
+  'automation-jobs': 'jobs',
+  'automation-schedules': 'schedules',
+}
+
 function JobScheduleCountBadge({
   itemId,
   jobs,
@@ -131,13 +136,10 @@ function JobScheduleCountBadge({
   jobs: Job[] | null | undefined
   schedules: Schedule[] | null | undefined
 }) {
-  if (itemId === 'automation-jobs' && jobs && jobs.length > 0) {
-    return <span className="sidebar-item-count">{jobs.length}</span>
-  }
-  if (itemId === 'automation-schedules' && schedules && schedules.length > 0) {
-    return <span className="sidebar-item-count">{schedules.length}</span>
-  }
-  return null
+  const listKey = JOB_SCHEDULE_LISTS[itemId]
+  const items = listKey === 'jobs' ? jobs : listKey === 'schedules' ? schedules : null
+  if (!items || items.length === 0) return null
+  return <span className="sidebar-item-count">{items.length}</span>
 }
 
 function ItemCountBadge({

@@ -41,6 +41,7 @@ import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OVERAGE_COST_PER_REQUEST, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
+import { sumBy } from '../utils/arrayUtils'
 import { RateLimitGauge } from './RateLimitGauge'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
@@ -113,8 +114,8 @@ function buildSeedOverview(org: string): OrgOverviewResult | null {
       archivedRepoCount: repos.filter(repo => repo.isArchived).length,
       openIssueCount: 0,
       openPullRequestCount: 0,
-      totalStars: repos.reduce((sum, repo) => sum + repo.stargazersCount, 0),
-      totalForks: repos.reduce((sum, repo) => sum + repo.forksCount, 0),
+      totalStars: sumBy(repos, repo => repo.stargazersCount),
+      totalForks: sumBy(repos, repo => repo.forksCount),
       activeReposToday: 0,
       commitsToday: 0,
       lastPushAt:

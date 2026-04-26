@@ -1,5 +1,5 @@
 import { useMemo, useId } from 'react'
-import { formatHour12 } from '../../utils/dateUtils'
+import { formatHour12, formatTime12 } from '../../utils/dateUtils'
 import { parseCronValue, buildCronExpression, type CronState } from './cronUtils'
 import './CronBuilder.css'
 
@@ -20,6 +20,36 @@ const DAYS_OF_WEEK = [
 
 const MINUTE_INCREMENTS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
+function formatDayNames(selectedDays: number[]): string {
+  return [...selectedDays]
+    .sort()
+    .flatMap(d => {
+      const label = DAYS_OF_WEEK.find(day => day.value === d)?.label
+      /* v8 ignore start */
+      return label ? [label] : []
+      /* v8 ignore stop */
+    })
+    .join(', ')
+}
+
+interface CronDescribeContext {
+  minute: number
+  hour: number
+  dayOfMonth: number
+  selectedDays: number[]
+}
+
+const CRON_DESCRIPTIONS: Record<string, (ctx: CronDescribeContext) => string> = {
+  minute: () => 'Runs every minute',
+  hourly: ({ minute }) => `Runs every hour at minute ${minute}`,
+  daily: ({ minute, hour }) => `Runs daily at ${formatTime12(hour, minute)}`,
+  weekly: ({ minute, hour, selectedDays }) =>
+    `Runs every ${formatDayNames(selectedDays)} at ${formatTime12(hour, minute)}`,
+  monthly: ({ minute, hour, dayOfMonth }) =>
+    `Runs on day ${dayOfMonth} of every month at ${formatTime12(hour, minute)}`,
+  custom: () => 'Custom cron expression',
+}
+
 function describeCronSchedule(
   frequency: string,
   minute: number,
@@ -27,40 +57,10 @@ function describeCronSchedule(
   dayOfMonth: number,
   selectedDays: number[]
 ): string {
-  const fmtTime = (h: number, m: number) => {
-    /* v8 ignore start */
-    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
-    /* v8 ignore stop */
-    return `${displayHour}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
-  }
-
-  /* v8 ignore start */
-  switch (frequency) {
-    /* v8 ignore stop */
-    case 'minute':
-      return 'Runs every minute'
-    case 'hourly':
-      return `Runs every hour at minute ${minute}`
-    case 'daily':
-      return `Runs daily at ${fmtTime(hour, minute)}`
-    case 'weekly': {
-      const dayNames = [...selectedDays].sort().flatMap(d => {
-        const label = DAYS_OF_WEEK.find(day => day.value === d)?.label
-        /* v8 ignore start */
-        return label ? [label] : []
-        /* v8 ignore stop */
-      })
-      return `Runs every ${dayNames.join(', ')} at ${fmtTime(hour, minute)}`
-    }
-    case 'monthly':
-      return `Runs on day ${dayOfMonth} of every month at ${fmtTime(hour, minute)}`
-    case 'custom':
-      return 'Custom cron expression'
-    default:
-      /* v8 ignore start */
-      return ''
-    /* v8 ignore stop */
-  }
+  const describer = CRON_DESCRIPTIONS[frequency]
+  /* v8 ignore start -- frequency is always a known value from CronState */
+  return describer ? describer({ minute, hour, dayOfMonth, selectedDays }) : ''
+  /* v8 ignore stop */
 }
 
 function CronOptions({

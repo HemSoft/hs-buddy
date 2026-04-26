@@ -327,6 +327,40 @@ function ResultActions({
   )
 }
 
+function PendingContent() {
+  return (
+    <div className="copilot-result-waiting">
+      <Clock size={48} />
+      <p>Waiting to start...</p>
+      <p className="waiting-subtitle">The Copilot SDK session will begin shortly.</p>
+    </div>
+  )
+}
+
+function RunningContent() {
+  return (
+    <div className="copilot-result-waiting">
+      <Loader2 size={48} className="spin" />
+      <p>Copilot is working...</p>
+      <p className="waiting-subtitle">Analyzing and generating response. This may take a minute.</p>
+    </div>
+  )
+}
+
+function FailedContent({ error, onRetry }: { error?: string | null; onRetry: () => void }) {
+  return (
+    <div className="copilot-result-failed">
+      <XCircle size={48} />
+      <p>Prompt execution failed</p>
+      {error && <pre className="error-detail">{error}</pre>}
+      <button className="retry-btn" onClick={onRetry}>
+        <RotateCcw size={14} />
+        Retry
+      </button>
+    </div>
+  )
+}
+
 function ResultContent({
   contentRef,
   status,
@@ -342,39 +376,12 @@ function ResultContent({
 }) {
   return (
     <div ref={contentRef} className="copilot-result-content">
-      {status === 'pending' && (
-        <div className="copilot-result-waiting">
-          <Clock size={48} />
-          <p>Waiting to start...</p>
-          <p className="waiting-subtitle">The Copilot SDK session will begin shortly.</p>
-        </div>
-      )}
-
-      {status === 'running' && (
-        <div className="copilot-result-waiting">
-          <Loader2 size={48} className="spin" />
-          <p>Copilot is working...</p>
-          <p className="waiting-subtitle">
-            Analyzing and generating response. This may take a minute.
-          </p>
-        </div>
-      )}
-
+      {status === 'pending' && <PendingContent />}
+      {status === 'running' && <RunningContent />}
       {status === 'completed' && resultText && (
         <MarkdownContent source={resultText} className="copilot-result-markdown" />
       )}
-
-      {status === 'failed' && (
-        <div className="copilot-result-failed">
-          <XCircle size={48} />
-          <p>Prompt execution failed</p>
-          {error && <pre className="error-detail">{error}</pre>}
-          <button className="retry-btn" onClick={onRetry}>
-            <RotateCcw size={14} />
-            Retry
-          </button>
-        </div>
-      )}
+      {status === 'failed' && <FailedContent error={error} onRetry={onRetry} />}
     </div>
   )
 }

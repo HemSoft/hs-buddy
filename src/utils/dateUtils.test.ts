@@ -9,6 +9,7 @@ import {
   formatUptime,
   formatTime,
   formatHour12,
+  formatTime12,
 } from './dateUtils'
 
 describe('formatDistanceToNow', () => {
@@ -293,5 +294,26 @@ describe('formatHour12', () => {
     expect(formatHour12(13)).toBe('1 PM')
     expect(formatHour12(18)).toBe('6 PM')
     expect(formatHour12(23)).toBe('11 PM')
+  })
+})
+
+describe('formatTime12', () => {
+  it('formats midnight and morning times', () => {
+    expect(formatTime12(0, 0)).toBe('12:00 AM')
+    expect(formatTime12(0, 5)).toBe('12:05 AM')
+    expect(formatTime12(1, 30)).toBe('1:30 AM')
+    expect(formatTime12(11, 59)).toBe('11:59 AM')
+  })
+
+  it('formats noon and afternoon times', () => {
+    expect(formatTime12(12, 0)).toBe('12:00 PM')
+    expect(formatTime12(13, 15)).toBe('1:15 PM')
+    expect(formatTime12(18, 45)).toBe('6:45 PM')
+    expect(formatTime12(23, 59)).toBe('11:59 PM')
+  })
+
+  it('pads single-digit minutes', () => {
+    expect(formatTime12(9, 5)).toBe('9:05 AM')
+    expect(formatTime12(14, 0)).toBe('2:00 PM')
   })
 })

@@ -12,6 +12,7 @@ import type {
   CreateWorklogPayload,
   UpdateWorklogPayload,
 } from '../types/tempo'
+import { sumBy } from './arrayUtils'
 
 /** Resolve the account key from a raw worklog's attributes. */
 export function resolveWorklogAccountKey(raw: TempoApiWorklog): string {
@@ -123,6 +124,6 @@ export function summarizeWorklogs(worklogs: TempoWorklog[]): {
   }
   return {
     issueSummaries: [...issueMap.values()].sort((a, b) => b.totalHours - a.totalHours),
-    totalHours: worklogs.reduce((sum, w) => sum + w.hours, 0),
+    totalHours: sumBy(worklogs, w => w.hours),
   }
 }

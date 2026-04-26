@@ -103,17 +103,18 @@ const fieldSetters: Record<string, string> = {
   setDate: 'date',
   setDescription: 'description',
   setAccountKey: 'accountKey',
+  setAccountsLoading: 'accountsLoading',
 }
 
 function handleSubmitAction(
   state: TempoWorklogEditorState,
   action: TempoWorklogEditorAction
-): TempoWorklogEditorState | null {
+): TempoWorklogEditorState {
   if (action.type === 'submit:start') return { ...state, saving: true, error: null }
   if (action.type === 'submit:error') return { ...state, saving: false, error: action.value }
   /* v8 ignore start */
   if (action.type === 'submit:finish') return { ...state, saving: false }
-  return null
+  return state
   /* v8 ignore stop */
 }
 
@@ -129,9 +130,8 @@ function tempoWorklogEditorReducer(
   if (action.type === 'setProjectAccounts') {
     return { ...state, projectAccounts: action.projectAccounts }
   }
-  if (action.type === 'setAccountsLoading') return { ...state, accountsLoading: action.value }
   /* v8 ignore start */
-  return handleSubmitAction(state, action) ?? state
+  return handleSubmitAction(state, action)
   /* v8 ignore stop */
 }
 

@@ -93,6 +93,21 @@ function handleOrgFetchError(
   setError(getErrorMessage(error))
 }
 
+/** Resolve cached data, returning null when forceRefresh is requested. */
+function resolveCachedData<T>(
+  cacheKey: string,
+  normalize: (d: T | null) => T | null,
+  forceRefresh: boolean
+): T | null {
+  if (forceRefresh) return null
+  return normalize(tryGetCached<T>(cacheKey))
+}
+
+/** Pick the appropriate loading phase based on whether data already exists. */
+function resolveLoadPhase(hasData: boolean): LoadPhase {
+  return hasData ? 'refreshing' : 'loading'
+}
+
 // ---------------------------------------------------------------------------
 // Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
 // ---------------------------------------------------------------------------
@@ -173,9 +188,9 @@ function useOrgCachedFetch<T>({
     async (forceRefresh = false) => {
       const activeCacheKey = cacheKeyRef.current
       const queue = getTaskQueue('github')
-      const cached = normalizeRef.current(tryGetCached<T>(activeCacheKey))
+      const cached = resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
       /* v8 ignore start */
-      if (cached != null && !forceRefresh) {
+      if (cached != null) {
         setData(cached)
         setError(null)
         setPhase('ready')
@@ -188,7 +203,7 @@ function useOrgCachedFetch<T>({
       }
 
       setError(null)
-      setPhase(hasDataRef.current ? 'refreshing' : 'loading')
+      setPhase(resolveLoadPhase(hasDataRef.current))
 
       try {
         const result = await enqueueRef.current(

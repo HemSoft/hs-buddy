@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract useOrgCachedFetch hook and merge duplicate badges
 - Add coverage for useOrgCachedFetch cacheKey reset
 - Move cacheKey reset from render-phase to useLayoutEffect
+- Reduce doFetch complexity from 9 to 7
+- Fix Prettier trailing comma in resolveCachedData
 
 ### Fixed
 

@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use createRequire for ESM-compatible require.resolve in copilotClient
 - Address PR review feedback for ipcClassification and workerUtils
 - Guard against undefined ownerRepo in parseStateOwnerRepoKey
+- Add missing default cases to reducers and extract toggle helper
 
 ## [0.1.739] - 2026-04-26
 

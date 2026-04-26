@@ -35,7 +35,7 @@ const quotaCache = new Map<string, QuotaCache>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 function premiumUsageReducer(
-  _state: PremiumUsageState,
+  state: PremiumUsageState,
   action: PremiumUsageAction
 ): PremiumUsageState {
   switch (action.type) {
@@ -47,6 +47,10 @@ function premiumUsageReducer(
       return { status: 'done', data: action.data }
     case 'error':
       return { status: 'error', data: null }
+    /* v8 ignore start */
+    default:
+      return state
+    /* v8 ignore stop */
   }
 }
 

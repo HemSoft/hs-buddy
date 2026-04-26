@@ -42,6 +42,10 @@ function quotaReducer(state: QuotaFetchState, action: QuotaAction): QuotaFetchSt
       return { data: action.payload, loading: false, error: null, fetchedAt: action.fetchedAt }
     case 'FETCH_ERROR':
       return { ...state, loading: false, error: action.payload }
+    /* v8 ignore start */
+    default:
+      return state
+    /* v8 ignore stop */
   }
 }
 
@@ -78,6 +82,10 @@ function seatReducer(state: SeatFetchState, action: SeatAction): SeatFetchState 
       return { data: action.payload, loading: false, error: null }
     case 'FETCH_ERROR':
       return { ...state, loading: false, error: action.payload }
+    /* v8 ignore start */
+    default:
+      return state
+    /* v8 ignore stop */
   }
 }
 

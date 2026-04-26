@@ -42,6 +42,13 @@ function createInitialState(): CrewSidebarState {
   }
 }
 
+function toggleInSet<T>(set: Set<T>, item: T): Set<T> {
+  const next = new Set(set)
+  if (next.has(item)) next.delete(item)
+  else next.add(item)
+  return next
+}
+
 function crewSidebarReducer(state: CrewSidebarState, action: CrewSidebarAction): CrewSidebarState {
   switch (action.type) {
     case 'SET_PROJECTS':
@@ -50,15 +57,8 @@ function crewSidebarReducer(state: CrewSidebarState, action: CrewSidebarAction):
         projects: action.payload.projects,
         sessions: action.payload.sessions,
       }
-    case 'TOGGLE_SECTION': {
-      const expandedSections = new Set(state.expandedSections)
-      if (expandedSections.has(action.sectionId)) {
-        expandedSections.delete(action.sectionId)
-      } else {
-        expandedSections.add(action.sectionId)
-      }
-      return { ...state, expandedSections }
-    }
+    case 'TOGGLE_SECTION':
+      return { ...state, expandedSections: toggleInSet(state.expandedSections, action.sectionId) }
     case 'START_ADDING_PROJECT':
       return {
         ...state,
@@ -75,6 +75,10 @@ function crewSidebarReducer(state: CrewSidebarState, action: CrewSidebarAction):
         ...state,
         addProjectError: action.error,
       }
+    /* v8 ignore start */
+    default:
+      return state
+    /* v8 ignore stop */
   }
 }
 

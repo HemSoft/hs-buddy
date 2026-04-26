@@ -63,6 +63,10 @@ function appearanceReducer(state: AppearanceState, action: AppearanceAction): Ap
       return { ...state, ...action.payload }
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value }
+    /* v8 ignore start */
+    default:
+      return state
+    /* v8 ignore stop */
   }
 }
 

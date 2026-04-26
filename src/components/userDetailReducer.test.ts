@@ -135,6 +135,11 @@ describe('activityReducer', () => {
       error: null,
     })
   })
+
+  it('returns same state for unknown action', () => {
+    const result = activityReducer(idleState, { type: 'UNKNOWN' } as never)
+    expect(result).toBe(idleState)
+  })
 })
 
 describe('createInitialActivityState', () => {

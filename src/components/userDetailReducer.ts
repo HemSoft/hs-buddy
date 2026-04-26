@@ -57,5 +57,7 @@ export function activityReducer(state: ActivityState, action: ActivityAction): A
         phase: 'error',
         error: action.payload,
       }
+    default:
+      return state
   }
 }

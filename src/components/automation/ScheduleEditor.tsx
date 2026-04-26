@@ -103,6 +103,8 @@ function scheduleFormReducer(
     case 'RESET':
       /* v8 ignore start */
       return action.payload
+    default:
+      return state
     /* v8 ignore stop */
   }
 }

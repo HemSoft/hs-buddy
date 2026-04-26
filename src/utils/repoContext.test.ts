@@ -82,6 +82,10 @@ describe('getRepoContextFromViewId', () => {
     expect(getRepoContextFromViewId('repo-detail:/widget')).toBeNull()
   })
 
+  it('returns null when slug has trailing slash (empty repo)', () => {
+    expect(getRepoContextFromViewId('repo-detail:owner/')).toBeNull()
+  })
+
   // --- PR detail views ---
 
   it('extracts owner/repo from pr-detail: with org field', () => {

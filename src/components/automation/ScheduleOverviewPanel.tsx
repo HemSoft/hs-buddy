@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Calendar, Clock, Play, Pause, ChevronRight } from 'lucide-react'
-import { CronExpressionParser } from 'cron-parser'
+import { enumerateCronOccurrences } from '../../utils/cronUtils'
 import { useSchedules } from '../../hooks/useConvex'
 import { DAY, formatDateKey, formatTime, MONTH_SHORT } from '../../utils/dateUtils'
 import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
@@ -77,33 +77,15 @@ function buildOccurrencesForSchedule(
 ): ScheduleOccurrence[] {
   if (!schedule.enabled) return []
 
-  try {
-    const options: { tz?: string; currentDate?: Date; endDate?: Date } = {
-      currentDate: now,
-      endDate: endTime,
-    }
-    if (schedule.timezone) options.tz = schedule.timezone
-
-    const expression = CronExpressionParser.parse(schedule.cron, options)
-    const occurrences: ScheduleOccurrence[] = []
-    const maxOccurrences = 500
-
-    while (occurrences.length < maxOccurrences) {
-      try {
-        const next = expression.next()
-        const nextTime = next.toDate()
-        /* v8 ignore start */
-        if (nextTime > endTime) break
-        /* v8 ignore stop */
-        occurrences.push(buildOccurrence(schedule, nextTime))
-      } catch {
-        break
-      }
-    }
-    return occurrences
-  } catch {
-    return []
-  }
+  const timestamps = enumerateCronOccurrences(
+    schedule.cron,
+    schedule.timezone ?? '',
+    now.getTime(),
+    endTime.getTime(),
+    500,
+    false
+  )
+  return timestamps.map(ts => buildOccurrence(schedule, new Date(ts)))
 }
 
 function getDayLabel(occDate: Date, today: Date, tomorrow: Date, originalTime: Date): string {

@@ -40,33 +40,47 @@ export interface SFLRepoStatus {
   workflows: SFLWorkflowInfo[]
 }
 
+/** Priority-ordered rules for SFL status derivation. First match wins. */
+const SFL_STATUS_RULES: ReadonlyArray<{
+  status: SFLOverallStatus
+  match: (ws: SFLWorkflowInfo[]) => boolean
+}> = [
+  {
+    status: 'recent-failure',
+    match: ws =>
+      ws.some(
+        w => w.latestRun?.conclusion === 'failure' || w.latestRun?.conclusion === 'timed_out'
+      ),
+  },
+  {
+    status: 'active-work',
+    match: ws =>
+      ws.some(w => w.latestRun?.status === 'in_progress' || w.latestRun?.status === 'queued'),
+  },
+  {
+    status: 'ready-for-review',
+    match: ws => ws.some(w => w.latestRun?.conclusion === 'action_required'),
+  },
+  {
+    status: 'blocked',
+    match: ws => ws.every(w => w.state !== 'active'),
+  },
+  {
+    status: 'healthy',
+    match: ws =>
+      ws.every(
+        w =>
+          !w.latestRun ||
+          w.latestRun.conclusion === 'success' ||
+          w.latestRun.conclusion === 'skipped'
+      ),
+  },
+]
+
 /**
  * Derive the overall SFL pipeline status from individual workflow states.
  */
 export function deriveSFLOverallStatus(workflows: SFLWorkflowInfo[]): SFLOverallStatus {
   if (workflows.length === 0) return 'unknown'
-
-  const hasFailure = workflows.some(
-    w => w.latestRun?.conclusion === 'failure' || w.latestRun?.conclusion === 'timed_out'
-  )
-  if (hasFailure) return 'recent-failure'
-
-  const hasRunning = workflows.some(
-    w => w.latestRun?.status === 'in_progress' || w.latestRun?.status === 'queued'
-  )
-  if (hasRunning) return 'active-work'
-
-  const hasActionRequired = workflows.some(w => w.latestRun?.conclusion === 'action_required')
-  if (hasActionRequired) return 'ready-for-review'
-
-  const allDisabled = workflows.every(w => w.state !== 'active')
-  if (allDisabled) return 'blocked'
-
-  const allSuccess = workflows.every(
-    w =>
-      !w.latestRun || w.latestRun.conclusion === 'success' || w.latestRun.conclusion === 'skipped'
-  )
-  if (allSuccess) return 'healthy'
-
-  return 'unknown'
+  return SFL_STATUS_RULES.find(rule => rule.match(workflows))?.status ?? 'unknown'
 }

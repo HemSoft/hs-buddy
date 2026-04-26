@@ -2699,17 +2699,9 @@ export class GitHubClient {
       ),
     }))
 
-    const issueComments: PRReviewComment[] = (pr.comments.nodes || []).map(c => ({
-      id: c.id,
-      ...resolveCommentAuthor(c.author),
-      body: c.body || '',
-      bodyHtml: c.bodyHTML || null,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-      url: c.url,
-      diffHunk: null,
-      reactions: this.mapReactionGroups(c.reactionGroups),
-    }))
+    const issueComments: PRReviewComment[] = (pr.comments.nodes || []).map(c =>
+      mapReviewCommentFields(c, g => this.mapReactionGroups(g))
+    )
 
     const reviews: PRReviewSummary[] = (pr.reviews.nodes || [])
       .filter(r => r.submittedAt && r.body)
@@ -2775,8 +2767,7 @@ export class GitHubClient {
     const c = result.addPullRequestReviewThreadReply.comment
     return {
       id: c.id,
-      author: c.author?.login || 'unknown',
-      authorAvatarUrl: c.author?.avatarUrl || null,
+      ...resolveCommentAuthor(c.author),
       body: c.body,
       bodyHtml: null,
       createdAt: c.createdAt,
@@ -2847,8 +2838,7 @@ export class GitHubClient {
     const c = response.data
     return {
       id: c.node_id || String(c.id),
-      author: c.user?.login || 'unknown',
-      authorAvatarUrl: c.user?.avatar_url || null,
+      ...mapUserAuthorFields(c.user),
       body: c.body || '',
       bodyHtml: null,
       createdAt: c.created_at,

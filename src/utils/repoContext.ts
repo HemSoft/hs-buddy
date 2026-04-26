@@ -43,19 +43,21 @@ const SIMPLE_PREFIXES = [
   'repo-prs-closed:',
 ]
 
+/** Parse an owner/repo pair from a slug like "owner/repo" or "owner/repo/extra". */
+function parseOwnerRepoFromSlug(slug: string): RepoContext | null {
+  const slashIdx = slug.indexOf('/')
+  if (slashIdx <= 0) return null
+  const owner = slug.substring(0, slashIdx)
+  const rest = slug.substring(slashIdx + 1)
+  const nextSlash = rest.indexOf('/')
+  const repo = nextSlash > 0 ? rest.substring(0, nextSlash) : rest
+  return owner && repo ? { owner, repo } : null
+}
+
 function parseRepoContextFromSimplePrefix(viewId: string): RepoContext | null {
-  for (const prefix of SIMPLE_PREFIXES) {
-    if (!viewId.startsWith(prefix)) continue
-    const slug = viewId.slice(prefix.length)
-    const slashIdx = slug.indexOf('/')
-    if (slashIdx <= 0) return null
-    const owner = slug.substring(0, slashIdx)
-    const rest = slug.substring(slashIdx + 1)
-    const nextSlash = rest.indexOf('/')
-    const repo = nextSlash > 0 ? rest.substring(0, nextSlash) : rest
-    if (owner && repo) return { owner, repo }
-  }
-  return null
+  const prefix = SIMPLE_PREFIXES.find(p => viewId.startsWith(p))
+  if (!prefix) return null
+  return parseOwnerRepoFromSlug(viewId.slice(prefix.length))
 }
 
 /**

@@ -1268,7 +1268,7 @@ export class EndpointReference {
     async getTlsValue(enabledValue: ReferenceExpression, disabledValue: ReferenceExpression): Promise<ReferenceExpression> {
         const rpcArgs: Record<string, unknown> = { context: this._handle, enabledValue, disabledValue };
         return await this._client.invokeCapability<ReferenceExpression>(
-            'Aspire.Hosting.ApplicationModel/EndpointReference.getTlsValue',
+            'Aspire.Hosting.ApplicationModel/getTlsValue',
             rpcArgs
         );
     }

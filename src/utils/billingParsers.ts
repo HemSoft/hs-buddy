@@ -1,5 +1,4 @@
 import { findCopilotBudget, type BudgetItem } from './budgetUtils'
-import { getErrorMessage } from './errorUtils'
 import { OVERAGE_COST_PER_REQUEST } from '../components/copilot-usage/quotaUtils'
 import { sumBy } from './arrayUtils'
 
@@ -40,10 +39,7 @@ export function roundCents(value: number): number {
 
 export { sumBy } from './arrayUtils'
 
-export function isNotFoundError(error: unknown): boolean {
-  const message = getErrorMessage(error)
-  return message.includes('404') || message.includes('Not Found')
-}
+export { isNotFoundError } from './errorUtils'
 
 /** Parse JSON from a fulfilled settled result, returning null on failure. */
 function parseFulfilledStdout<T>(result: PromiseSettledResult<{ stdout: string }>): T | null {

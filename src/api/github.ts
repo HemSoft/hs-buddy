@@ -11,7 +11,7 @@ import {
   deriveSFLOverallStatus,
 } from '../types/sflStatus'
 import { DAY } from '../utils/dateUtils'
-import { getErrorMessage } from '../utils/errorUtils'
+import { getErrorMessage, isNotFoundError } from '../utils/errorUtils'
 import { sumBy } from '../utils/arrayUtils'
 
 /** Max retries when the primary rate limit is hit. */
@@ -3183,10 +3183,7 @@ export class GitHubClient {
       const repos = await this.paginateRepos(octokit, namespace, 'org')
       return { repos, isUserNamespace: false }
     } catch (error: unknown) {
-      const is404 =
-        error instanceof Error &&
-        (error.message.includes('404') || error.message.includes('Not Found'))
-      if (!is404) throw error
+      if (!isNotFoundError(error)) throw error
 
       // Namespace is likely a user account — retry with user endpoint
       console.info(`Namespace '${namespace}' is not an org, trying user repos...`)
@@ -3221,10 +3218,7 @@ export class GitHubClient {
         isUserNamespace: false,
       }
     } catch (error: unknown) {
-      const is404 =
-        error instanceof Error &&
-        (error.message.includes('404') || error.message.includes('Not Found'))
-      if (!is404) throw error
+      if (!isNotFoundError(error)) throw error
 
       const user = await octokit.users.getByUsername({ username: namespace })
       return {

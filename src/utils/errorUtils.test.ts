@@ -5,6 +5,7 @@ import {
   getErrorStack,
   getUserFacingErrorMessage,
   isAbortError,
+  isNotFoundError,
   throwIfAborted,
 } from './errorUtils'
 
@@ -151,5 +152,27 @@ describe('isAbortError', () => {
   it('returns false for a non-error value', () => {
     expect(isAbortError('AbortError')).toBe(false)
     expect(isAbortError(null)).toBe(false)
+  })
+})
+
+describe('isNotFoundError', () => {
+  it('returns true for an Error containing 404', () => {
+    expect(isNotFoundError(new Error('HTTP 404'))).toBe(true)
+  })
+
+  it('returns true for an Error containing Not Found', () => {
+    expect(isNotFoundError(new Error('Not Found'))).toBe(true)
+  })
+
+  it('returns false for unrelated errors', () => {
+    expect(isNotFoundError(new Error('Internal Server Error'))).toBe(false)
+  })
+
+  it('returns true for a string containing 404', () => {
+    expect(isNotFoundError('404 page')).toBe(true)
+  })
+
+  it('returns false for non-matching non-Error values', () => {
+    expect(isNotFoundError(42)).toBe(false)
   })
 })

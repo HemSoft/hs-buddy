@@ -507,15 +507,9 @@ function IssueStateGroup({
   )
 }
 
-function IssueCountBadge({
-  isCountLoading,
-  counts,
-}: {
-  isCountLoading: boolean
-  counts?: RepoCounts
-}) {
+function SectionCountBadge({ isCountLoading, count }: { isCountLoading: boolean; count?: number }) {
   if (isCountLoading) return <Loader2 size={10} className="spin" />
-  if (counts) return <span className="sidebar-item-count">{counts.issues}</span>
+  if (count != null) return <span className="sidebar-item-count">{count}</span>
   return null
 }
 
@@ -586,7 +580,7 @@ function RepoIssuesSection({
           <CircleDot size={12} />
         </span>
         <span className="sidebar-item-label">Issues</span>
-        <IssueCountBadge isCountLoading={isCountLoading} counts={counts} />
+        <SectionCountBadge isCountLoading={isCountLoading} count={counts?.issues} />
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-repo-pr-tree">
@@ -827,18 +821,6 @@ function PRStateGroup({
   )
 }
 
-function PRSectionCountBadge({
-  isCountLoading,
-  counts,
-}: {
-  isCountLoading: boolean
-  counts?: RepoCounts
-}) {
-  if (isCountLoading) return <Loader2 size={10} className="spin" />
-  if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
-  return null
-}
-
 function UpdatedAgeLabel({
   isCountLoading,
   label,
@@ -928,7 +910,7 @@ function RepoPullRequestsSection({
           <GitPullRequest size={12} />
         </span>
         <span className="sidebar-item-label">Pull Requests</span>
-        <PRSectionCountBadge isCountLoading={isCountLoading} counts={counts} />
+        <SectionCountBadge isCountLoading={isCountLoading} count={counts?.prs} />
         <UpdatedAgeLabel
           isCountLoading={isCountLoading}
           label={repoCountsUpdatedLabel}

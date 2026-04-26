@@ -30,3 +30,8 @@ export function getErrorStack(error: unknown): string {
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === ABORT_ERROR_NAME
 }
+
+export function isNotFoundError(error: unknown): boolean {
+  const message = getErrorMessage(error)
+  return message.includes('404') || message.includes('Not Found')
+}

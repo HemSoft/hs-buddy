@@ -206,7 +206,9 @@ describe('TempoWorklogEditor', () => {
       expect(screen.getByText('Error: Save failed')).toBeInTheDocument()
     })
 
-    fireEvent.keyDown(document, { key: 'Escape' })
+    await act(async () => {
+      fireEvent.keyDown(document, { key: 'Escape' })
+    })
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
 

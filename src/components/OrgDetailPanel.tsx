@@ -3,6 +3,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -90,6 +91,137 @@ function handleOrgFetchError(
   if (isAbortError(error)) return
   setPhase('error')
   setError(getErrorMessage(error))
+}
+
+// ---------------------------------------------------------------------------
+// Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
+// ---------------------------------------------------------------------------
+
+interface UseOrgCachedFetchOptions<T> {
+  accounts: GitHubAccount[]
+  org: string
+  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
+  cacheKey: string
+  taskName: string
+  initialData?: T | null
+  normalize?: (data: T | null) => T | null
+  fetchFn: (client: GitHubClient, org: string) => Promise<T>
+}
+
+interface UseOrgCachedFetchResult<T> {
+  data: T | null
+  phase: LoadPhase
+  error: string | null
+  hasCached: boolean
+  fetch: (forceRefresh?: boolean) => Promise<void>
+}
+
+function useOrgCachedFetch<T>({
+  accounts,
+  org,
+  enqueue,
+  cacheKey,
+  taskName,
+  initialData = null,
+  normalize,
+  fetchFn,
+}: UseOrgCachedFetchOptions<T>): UseOrgCachedFetchResult<T> {
+  const enqueueRef = useRef(enqueue)
+  const fetchFnRef = useRef(fetchFn)
+  const cacheKeyRef = useRef(cacheKey)
+  const identityNormalize = useCallback((d: T | null) => d, [])
+  const normalizeFn = normalize ?? identityNormalize
+  const normalizeRef = useRef(normalizeFn)
+  const cachedSeed = normalizeFn(tryGetCached<T>(cacheKey))
+  const hasCached = cachedSeed != null
+  const seedData = initialData != null ? initialData : cachedSeed
+  const [data, setData] = useState<T | null>(() => seedData)
+  const [phase, setPhase] = useState<LoadPhase>(() => (seedData != null ? 'ready' : 'loading'))
+  const [error, setError] = useState<string | null>(null)
+  const hasDataRef = useRef(seedData != null)
+  const seedDataRef = useRef(seedData)
+  seedDataRef.current = seedData
+
+  // Reset state when cacheKey changes (e.g., navigating between orgs).
+  // useLayoutEffect prevents a flash of stale data before paint.
+  useLayoutEffect(() => {
+    cacheKeyRef.current = cacheKey
+    const seed = seedDataRef.current
+    setData(seed)
+    setPhase(seed != null ? 'ready' : 'loading')
+    setError(null)
+    hasDataRef.current = seed != null
+  }, [cacheKey])
+
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
+
+  useEffect(() => {
+    fetchFnRef.current = fetchFn
+  }, [fetchFn])
+
+  useEffect(() => {
+    normalizeRef.current = normalizeFn
+  }, [normalizeFn])
+
+  useEffect(() => {
+    hasDataRef.current = data != null
+  }, [data])
+
+  const doFetch = useCallback(
+    async (forceRefresh = false) => {
+      const activeCacheKey = cacheKeyRef.current
+      const queue = getTaskQueue('github')
+      const cached = normalizeRef.current(tryGetCached<T>(activeCacheKey))
+      /* v8 ignore start */
+      if (cached != null && !forceRefresh) {
+        setData(cached)
+        setError(null)
+        setPhase('ready')
+        return
+        /* v8 ignore stop */
+      }
+
+      if (queue.hasTaskWithName(taskName)) {
+        return
+      }
+
+      setError(null)
+      setPhase(hasDataRef.current ? 'refreshing' : 'loading')
+
+      try {
+        const result = await enqueueRef.current(
+          async signal => {
+            throwIfAborted(signal)
+            const client = new GitHubClient({ accounts }, 7)
+            return await fetchFnRef.current(client, org)
+          },
+          { name: taskName, priority: -1 }
+        )
+
+        // Discard stale response if cacheKey changed while fetch was in flight
+        /* v8 ignore start */
+        if (cacheKeyRef.current !== activeCacheKey) return
+        /* v8 ignore stop */
+
+        const normalized = normalizeRef.current(result)
+        startTransition(() => {
+          setData(normalized)
+          setPhase('ready')
+        })
+        dataCache.set(activeCacheKey, normalized)
+      } catch (fetchError) {
+        /* v8 ignore start */
+        if (cacheKeyRef.current !== activeCacheKey) return
+        /* v8 ignore stop */
+        handleOrgFetchError(fetchError, setPhase, setError)
+      }
+    },
+    [accounts, taskName, org]
+  )
+
+  return { data, phase, error, hasCached, fetch: doFetch }
 }
 
 function buildSeedOverview(org: string): OrgOverviewResult | null {
@@ -600,72 +732,23 @@ function useOrgOverviewData({
   overviewCacheKey: string
   overviewTaskName: string
 }) {
-  const enqueueRef = useRef(enqueue)
-  const hasCachedFullOverview = Boolean(tryGetCached<OrgOverviewResult>(overviewCacheKey))
-  const [overview, setOverview] = useState<OrgOverviewResult | null>(() => initialOverview)
-  const [overviewPhase, setOverviewPhase] = useState<LoadPhase>(() =>
-    hasCachedFullOverview || initialOverview ? 'ready' : 'loading'
-  )
-  const [overviewError, setOverviewError] = useState<string | null>(null)
-  const hasOverviewRef = useRef(Boolean(initialOverview))
-
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  useEffect(() => {
-    hasOverviewRef.current = Boolean(overview)
-  }, [overview])
-
-  const fetchOverview = useCallback(
-    async (forceRefresh = false) => {
-      const queue = getTaskQueue('github')
-      const cachedOverview = normalizeOverview(tryGetCached<OrgOverviewResult>(overviewCacheKey))
-      /* v8 ignore start */
-      if (cachedOverview && !forceRefresh) {
-        setOverview(cachedOverview)
-        setOverviewError(null)
-        setOverviewPhase('ready')
-        return
-        /* v8 ignore stop */
-      }
-
-      if (queue.hasTaskWithName(overviewTaskName)) {
-        return
-      }
-
-      setOverviewError(null)
-      setOverviewPhase(hasOverviewRef.current ? 'refreshing' : 'loading')
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgOverview(org)
-          },
-          { name: overviewTaskName, priority: -1 }
-        )
-
-        const normalized = normalizeOverview(result)
-        startTransition(() => {
-          setOverview(normalized)
-          setOverviewPhase('ready')
-        })
-        dataCache.set(overviewCacheKey, normalized)
-      } catch (fetchError) {
-        handleOrgFetchError(fetchError, setOverviewPhase, setOverviewError)
-      }
-    },
-    [accounts, org, overviewCacheKey, overviewTaskName]
-  )
+  const result = useOrgCachedFetch<OrgOverviewResult>({
+    accounts,
+    org,
+    enqueue,
+    cacheKey: overviewCacheKey,
+    taskName: overviewTaskName,
+    initialData: initialOverview,
+    normalize: normalizeOverview,
+    fetchFn: (client, o) => client.fetchOrgOverview(o),
+  })
 
   return {
-    fetchOverview,
-    hasFullOverview: hasCachedFullOverview || overviewPhase === 'ready',
-    overview,
-    overviewError,
-    overviewPhase,
+    fetchOverview: result.fetch,
+    hasFullOverview: result.hasCached || result.phase === 'ready',
+    overview: result.data,
+    overviewError: result.error,
+    overviewPhase: result.phase,
   }
 }
 
@@ -682,73 +765,21 @@ function useOrgMembersData({
   membersCacheKey: string
   membersTaskName: string
 }) {
-  const enqueueRef = useRef(enqueue)
-  const cachedMembers = tryGetCached<OrgMemberResult>(membersCacheKey)
-  const [membersResult, setMembersResult] = useState<OrgMemberResult | null>(() => cachedMembers)
-  const [membersPhase, setMembersPhase] = useState<LoadPhase>(() =>
-    cachedMembers ? 'ready' : 'loading'
-  )
-  const [membersError, setMembersError] = useState<string | null>(null)
-  const hasMembersRef = useRef(Boolean(cachedMembers))
-
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  useEffect(() => {
-    hasMembersRef.current = Boolean(membersResult)
-  }, [membersResult])
-
-  const fetchMembers = useCallback(
-    async (forceRefresh = false) => {
-      const queue = getTaskQueue('github')
-      const cached = tryGetCached<OrgMemberResult>(membersCacheKey)
-      /* v8 ignore start */
-      if (cached && !forceRefresh) {
-        setMembersResult(cached)
-        setMembersError(null)
-        setMembersPhase('ready')
-        return
-        /* v8 ignore stop */
-      }
-
-      if (queue.hasTaskWithName(membersTaskName)) {
-        return
-      }
-
-      setMembersError(null)
-      setMembersPhase(hasMembersRef.current ? 'refreshing' : 'loading')
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgMembers(org)
-          },
-          { name: membersTaskName, priority: -1 }
-        )
-
-        /* v8 ignore start */
-        startTransition(() => {
-          setMembersResult(result)
-          setMembersPhase('ready')
-        })
-        dataCache.set(membersCacheKey, result)
-        /* v8 ignore stop */
-      } catch (fetchError) {
-        handleOrgFetchError(fetchError, setMembersPhase, setMembersError)
-      }
-    },
-    [accounts, membersCacheKey, membersTaskName, org]
-  )
+  const result = useOrgCachedFetch<OrgMemberResult>({
+    accounts,
+    org,
+    enqueue,
+    cacheKey: membersCacheKey,
+    taskName: membersTaskName,
+    fetchFn: (client, o) => client.fetchOrgMembers(o),
+  })
 
   return {
-    fetchMembers,
-    hasCachedMembers: Boolean(cachedMembers),
-    membersError,
-    membersPhase,
-    membersResult,
+    fetchMembers: result.fetch,
+    hasCachedMembers: result.hasCached,
+    membersError: result.error,
+    membersPhase: result.phase,
+    membersResult: result.data,
   }
 }
 

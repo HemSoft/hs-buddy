@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Convert if-else chains to lookup tables across 9 files
 - Fix Prettier formatting in App.tsx, copilotSessionParsing.ts, prDetailView.test.ts
 - Reduce complexity in useAssistantContext and extractPRMetadata
+- Consolidate isNotFoundError and fix TempoWorklogEditor test
+- Extract useOrgCachedFetch hook and merge duplicate badges
+- Add coverage for useOrgCachedFetch cacheKey reset
+- Move cacheKey reset from render-phase to useLayoutEffect
 
 ### Fixed
 
@@ -47,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Narrow JOB_SCHEDULE_LISTS type to Partial<Record> for type-safety
 - Format PRStateIcon.tsx to pass Prettier check
 - Validate prNumber as finite positive integer in extractPRMetadata
+- Null-safe useOrgCachedFetch and prettier formatting
+- Reset useOrgCachedFetch state on cacheKey change
 
 ## [0.1.739] - 2026-04-26
 

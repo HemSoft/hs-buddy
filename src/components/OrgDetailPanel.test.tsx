@@ -22,7 +22,7 @@ const orgMocks = vi.hoisted(() => ({
   getTaskQueue: vi.fn(),
   mockClient: {
     fetchOrgOverview: vi.fn(),
-    getOrgMembers: vi.fn(),
+    fetchOrgMembers: vi.fn(),
     fetchOrgCopilot: vi.fn(),
     getRateLimit: vi.fn(),
   },
@@ -44,7 +44,7 @@ vi.mock('../hooks/useCopilotUsage', () => ({
 vi.mock('../api/github', () => ({
   GitHubClient: class MockGitHubClient {
     fetchOrgOverview = orgMocks.mockClient.fetchOrgOverview
-    getOrgMembers = orgMocks.mockClient.getOrgMembers
+    fetchOrgMembers = orgMocks.mockClient.fetchOrgMembers
     fetchOrgCopilot = orgMocks.mockClient.fetchOrgCopilot
     getRateLimit = orgMocks.mockClient.getRateLimit
   },
@@ -160,7 +160,7 @@ beforeEach(() => {
   orgMocks.dataCacheIsFresh.mockReturnValue(true)
 
   orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(overview)
-  orgMocks.mockClient.getOrgMembers.mockResolvedValue(members)
+  orgMocks.mockClient.fetchOrgMembers.mockResolvedValue(members)
   orgMocks.mockClient.fetchOrgCopilot.mockResolvedValue(null)
   orgMocks.mockClient.getRateLimit.mockResolvedValue({
     limit: 5000,
@@ -532,7 +532,7 @@ describe('OrgDetailPanel', () => {
         if (key === 'org-members:test-org') return { data: { members: [] }, fetchedAt: Date.now() }
         return null
       })
-      orgMocks.mockClient.getOrgMembers.mockResolvedValue({ members: [] })
+      orgMocks.mockClient.fetchOrgMembers.mockResolvedValue({ members: [] })
 
       render(<OrgDetailPanel org="test-org" />)
       await waitFor(() => {
@@ -547,7 +547,7 @@ describe('OrgDetailPanel', () => {
         if (key === 'org-overview:test-org') return { data: makeOverview(), fetchedAt: Date.now() }
         return null
       })
-      orgMocks.mockClient.getOrgMembers.mockRejectedValue(new Error('Members API error'))
+      orgMocks.mockClient.fetchOrgMembers.mockRejectedValue(new Error('Members API error'))
 
       render(<OrgDetailPanel org="test-org" />)
       await waitFor(() => {
@@ -1151,7 +1151,7 @@ describe('OrgDetailPanel', () => {
         return null
       })
       orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(tiedOverview)
-      orgMocks.mockClient.getOrgMembers.mockResolvedValue(tiedMembers)
+      orgMocks.mockClient.fetchOrgMembers.mockResolvedValue(tiedMembers)
 
       render(<OrgDetailPanel org="test-org" />)
       await waitFor(() => {
@@ -1255,12 +1255,67 @@ describe('OrgDetailPanel', () => {
     })
   })
 
+  describe('org navigation (cacheKey change)', () => {
+    it('resets state when org prop changes', async () => {
+      // Start with test-org which has cached data
+      const { rerender } = render(<OrgDetailPanel org="test-org" />)
+      await waitFor(() => {
+        expect(screen.getByText('test-org')).toBeInTheDocument()
+      })
+
+      // Switch to other-org which has no cached data → should reset to loading
+      const otherOverview = makeOverview({ org: 'other-org', repoCount: 10 })
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(otherOverview)
+      orgMocks.mockClient.fetchOrgMembers.mockResolvedValue(makeMembers())
+
+      rerender(<OrgDetailPanel org="other-org" />)
+
+      // The panel header should reflect the new org
+      expect(screen.getByText('other-org')).toBeInTheDocument()
+
+      // Should eventually load the new org's data
+      await waitFor(() => {
+        expect(screen.getByText('Repositories')).toBeInTheDocument()
+      })
+    })
+
+    it('resets to ready when switching to an org with cached data', async () => {
+      const otherOverview = makeOverview({ org: 'other-org', repoCount: 10 })
+      const otherMembers = makeMembers()
+
+      // Provide cached data for both orgs
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return { data: makeOverview(), fetchedAt: Date.now() }
+        if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+        if (key === 'org-overview:other-org') return { data: otherOverview, fetchedAt: Date.now() }
+        if (key === 'org-members:other-org') return { data: otherMembers, fetchedAt: Date.now() }
+        return null
+      })
+      orgMocks.dataCacheIsFresh.mockReturnValue(true)
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(otherOverview)
+      orgMocks.mockClient.fetchOrgMembers.mockResolvedValue(otherMembers)
+
+      const { rerender } = render(<OrgDetailPanel org="test-org" />)
+      await waitFor(() => {
+        expect(screen.getByText('test-org')).toBeInTheDocument()
+      })
+
+      rerender(<OrgDetailPanel org="other-org" />)
+      expect(screen.getByText('other-org')).toBeInTheDocument()
+
+      // Should render content immediately (seeded from cache → phase='ready')
+      await waitFor(() => {
+        expect(screen.getByText('Repositories')).toBeInTheDocument()
+      })
+    })
+  })
+
   describe('buildSeedOverview null fallback', () => {
     it('returns null seed when neither overview nor repos cache exists', async () => {
       orgMocks.dataCacheGet.mockReturnValue(null)
       orgMocks.dataCacheIsFresh.mockReturnValue(false)
       orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(makeOverview())
-      orgMocks.mockClient.getOrgMembers.mockResolvedValue(makeMembers())
+      orgMocks.mockClient.fetchOrgMembers.mockResolvedValue(makeMembers())
 
       render(<OrgDetailPanel org="test-org" />)
       // Should start with skeleton (loading) since no seed data

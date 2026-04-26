@@ -127,3 +127,8 @@ export function summarizeWorklogs(worklogs: TempoWorklog[]): {
     totalHours: sumBy(worklogs, w => w.hours),
   }
 }
+
+export function getHoursClasses(hours: number, isCapex: boolean): string[] {
+  if (hours <= 0) return []
+  return isCapex ? ['has-hours', 'capex'] : ['has-hours']
+}

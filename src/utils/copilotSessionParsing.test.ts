@@ -13,6 +13,7 @@ import {
   parseKeyPath,
   regexExtract,
   parseScanChunk,
+  unescapeJsonValue,
   type SessionParseState,
   processSessionLine,
   validateSessionPath,
@@ -402,6 +403,33 @@ describe('parseScanChunk', () => {
     const result = parseScanChunk(chunk)
     expect(result.title).toBe('partial')
     expect(result.createdAt).toBe(0)
+  })
+
+  it('unescapes quotes and backslashes in firstPrompt', () => {
+    const chunk =
+      '{"kind":0,"v":{"creationDate":0,"inputState":{"requests":[{"message":{"text":"say \\"hi\\\\"}}]}}}'
+    const result = parseScanChunk(chunk)
+    expect(result.firstPrompt).toBe('say "hi\\')
+  })
+})
+
+// ─── unescapeJsonValue ──────────────────────────────────
+
+describe('unescapeJsonValue', () => {
+  it('unescapes escaped quotes', () => {
+    expect(unescapeJsonValue('say \\"hello\\"')).toBe('say "hello"')
+  })
+
+  it('unescapes escaped backslashes', () => {
+    expect(unescapeJsonValue('path\\\\to\\\\file')).toBe('path\\to\\file')
+  })
+
+  it('returns plain strings unchanged', () => {
+    expect(unescapeJsonValue('hello world')).toBe('hello world')
+  })
+
+  it('handles mixed escapes', () => {
+    expect(unescapeJsonValue('a \\"b\\\\ c')).toBe('a "b\\ c')
   })
 })
 

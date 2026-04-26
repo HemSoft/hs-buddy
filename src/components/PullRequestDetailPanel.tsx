@@ -18,6 +18,7 @@ import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { useCopilotReviewMonitor, clearPendingReview } from '../hooks/useCopilotReviewMonitor'
 import type { PRDetailInfo, PRDetailSection } from '../utils/prDetailView'
+import { resolveHeadBranch, parseIssueFromBranch } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { throwIfAborted } from '../utils/errorUtils'
@@ -42,24 +43,50 @@ const SECTION_LABELS: Record<PRDetailSection, string> = {
   'ai-reviews': 'AI Reviews',
 }
 
-const COPILOT_REVIEW_TITLES: Record<string, string> = {
-  requesting: 'Requesting Copilot review…',
-  monitoring: 'Waiting for Copilot review…',
-  done: 'Copilot review complete!',
+interface CopilotStateConfig {
+  Icon: typeof Sparkles
+  iconClass: string
+  buttonClass: string
+  title: string
+}
+
+const COPILOT_STATE_DEFAULT: CopilotStateConfig = {
+  Icon: Sparkles,
+  iconClass: '',
+  buttonClass: '',
+  title: 'Request Copilot Review',
+}
+
+const COPILOT_STATE_MAP: Record<string, CopilotStateConfig> = {
+  requesting: {
+    Icon: Loader2,
+    iconClass: 'pr-detail-spin',
+    buttonClass: '',
+    title: 'Requesting Copilot review…',
+  },
+  monitoring: {
+    Icon: Sparkles,
+    iconClass: 'pulse',
+    buttonClass: ' pr-detail-copilot-monitoring',
+    title: 'Waiting for Copilot review…',
+  },
+  done: {
+    Icon: CheckCircle2,
+    iconClass: '',
+    buttonClass: ' pr-detail-copilot-done',
+    title: 'Copilot review complete!',
+  },
 }
 
 // --- Sub-components extracted for react-doctor component-size ---
 
-function CopilotReviewButtonIcon({ state }: { state: string }) {
-  if (state === 'requesting') return <Loader2 size={14} className="pr-detail-spin" />
-  if (state === 'done') return <CheckCircle2 size={14} />
-  return <Sparkles size={14} className={state === 'monitoring' ? 'pulse' : ''} />
+function getCopilotStateConfig(state: string): CopilotStateConfig {
+  return COPILOT_STATE_MAP[state] ?? COPILOT_STATE_DEFAULT
 }
 
-function getCopilotButtonClass(state: string): string {
-  if (state === 'monitoring') return ' pr-detail-copilot-monitoring'
-  if (state === 'done') return ' pr-detail-copilot-done'
-  return ''
+function CopilotReviewButtonIcon({ state }: { state: string }) {
+  const { Icon, iconClass } = getCopilotStateConfig(state)
+  return <Icon size={14} className={iconClass || undefined} />
 }
 
 interface PRDetailHeaderProps {
@@ -112,9 +139,9 @@ function PRDetailHeader({
       </div>
       <div className="pr-detail-header-actions">
         <button
-          className={`pr-detail-refresh-btn${getCopilotButtonClass(copilotReviewState)}`}
+          className={`pr-detail-refresh-btn${getCopilotStateConfig(copilotReviewState).buttonClass}`}
           onClick={handleRequestCopilotReview}
-          title={COPILOT_REVIEW_TITLES[copilotReviewState] ?? 'Request Copilot Review'}
+          title={getCopilotStateConfig(copilotReviewState).title}
           disabled={copilotReviewState !== 'idle'}
         >
           <CopilotReviewButtonIcon state={copilotReviewState} />
@@ -263,14 +290,12 @@ function deriveBranchIssue(
   /* v8 ignore start */
   if (linkedIssues.length > 0 || !ownerRepo) return null
   /* v8 ignore stop */
-  const branch = branches?.headBranch || headBranch
-  const match = branch?.match(/issue-(\d+)/)
-  if (!match) return null
-  const num = Number(match[1])
+  const issueNum = parseIssueFromBranch(resolveHeadBranch(branches, headBranch))
+  if (!issueNum) return null
   return {
-    number: num,
+    number: issueNum,
     title: '',
-    url: `https://github.com/${ownerRepo.owner}/${ownerRepo.repo}/issues/${num}`,
+    url: `https://github.com/${ownerRepo.owner}/${ownerRepo.repo}/issues/${issueNum}`,
   }
 }
 

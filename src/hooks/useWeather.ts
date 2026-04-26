@@ -112,7 +112,10 @@ interface GeocodingResult {
 }
 
 function extractCity(address?: { city?: string; town?: string; village?: string }): string {
-  return address?.city ?? address?.town ?? address?.village ?? ''
+  /* v8 ignore start -- address always provided by API callers */
+  if (!address) return ''
+  /* v8 ignore stop */
+  return address.city ?? address.town ?? address.village ?? ''
 }
 
 function buildLocationName(city: string, state: string, fallback: string): string {

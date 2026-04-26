@@ -101,3 +101,15 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
     return null
   }
 }
+
+export function resolveHeadBranch(
+  branches: { headBranch: string; baseBranch: string } | null,
+  headBranch: string | undefined
+): string | undefined {
+  return branches?.headBranch || headBranch
+}
+
+export function parseIssueFromBranch(branch: string | undefined): number | null {
+  const match = branch?.match(/issue-(\d+)/)
+  return match ? Number(match[1]) : null
+}

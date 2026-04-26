@@ -1695,20 +1695,19 @@ function MiniMetric({
   )
 }
 
-function LivePill({ label, phase }: { label: string; phase: LoadPhase }) {
-  const phaseLabel =
-    phase === 'refreshing'
-      ? 'Updating…'
-      : phase === 'loading'
-        ? 'Loading…'
-        : phase === 'error'
-          ? 'Unavailable'
-          : 'Live'
+const PHASE_LABELS: Record<LoadPhase, string> = {
+  idle: 'Live',
+  refreshing: 'Updating…',
+  loading: 'Loading…',
+  error: 'Unavailable',
+  ready: 'Live',
+}
 
+function LivePill({ label, phase }: { label: string; phase: LoadPhase }) {
   return (
     <span className={`org-detail-live-pill org-detail-live-pill-${phase}`}>
       <span className="org-detail-live-pill-label">{label}</span>
-      <span className="org-detail-live-pill-value">{phaseLabel}</span>
+      <span className="org-detail-live-pill-value">{PHASE_LABELS[phase]}</span>
     </span>
   )
 }

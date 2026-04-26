@@ -23,14 +23,10 @@ import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { RepoNode } from './RepoNode'
-import { handleItemKeyDown, sidebarItemClass } from './repoNodeUtils'
+import { handleItemKeyDown, refreshStateClass, sidebarItemClass } from './repoNodeUtils'
 
 function orgRefreshClass(org: string, indicators?: RefreshIndicators): string {
-  if (!indicators) return ''
-  const state = indicators[`org-repos:${org}`]
-  if (state === 'active') return 'refresh-active'
-  if (state === 'pending') return 'refresh-pending'
-  return ''
+  return indicators ? refreshStateClass(indicators[`org-repos:${org}`]) : ''
 }
 
 interface OrgMeta {

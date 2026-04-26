@@ -30,10 +30,14 @@ interface AccountQuotaCardProps {
   state: AccountQuotaState | undefined
 }
 
+const PLAN_ICONS: Record<string, typeof Building2> = {
+  enterprise: Building2,
+  business: Briefcase,
+}
+
 function PlanIcon({ plan }: { plan: string }) {
-  if (plan === 'enterprise') return <Building2 size={13} />
-  if (plan === 'business') return <Briefcase size={13} />
-  return <Crown size={13} />
+  const Icon = PLAN_ICONS[plan] ?? Crown
+  return <Icon size={13} />
 }
 
 interface QuotaMetrics {

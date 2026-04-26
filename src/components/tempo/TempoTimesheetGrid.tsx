@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { TempoIssueSummary, TempoWorklog } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
 import { isModKey, modLabel } from '../../utils/platform'
+import { getHoursClasses } from '../../utils/tempoUtils'
 import { Check } from 'lucide-react'
 
 interface TooltipState {
@@ -119,8 +120,7 @@ function getCellClassName(col: DayColumn, hours: number, isCapex: boolean): stri
     col.isWeekend && 'weekend',
     col.isHoliday && 'holiday',
     col.isToday && 'today',
-    hours > 0 && 'has-hours',
-    hours > 0 && isCapex && 'capex',
+    ...getHoursClasses(hours, isCapex),
   ]
     .filter(Boolean)
     .join(' ')

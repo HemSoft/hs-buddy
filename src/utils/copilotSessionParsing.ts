@@ -87,11 +87,18 @@ export function resolveFolderOrWorkspaceName(parsed: Record<string, unknown>): s
   return null
 }
 
+// ─── Shared helpers ──────────────────────────────────────
+
+/** Unescape the two JSON string escapes used in session JSONL values. */
+export function unescapeJsonValue(s: string): string {
+  return s.replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+}
+
 // ─── Title extraction ────────────────────────────────────
 
 export function extractTitle(line: string): string | null {
   const m = /"v":"((?:[^"\\]|\\.)*)"/.exec(line)
-  return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : null
+  return m ? unescapeJsonValue(m[1]) : null
 }
 
 // ─── Token / metric helpers ──────────────────────────────
@@ -177,14 +184,12 @@ export function parseScanChunk(chunk: string): ScanChunkResult {
   if (!chunk.startsWith('{"kind":0')) return { ...SCAN_CHUNK_FALLBACK }
 
   const titleRaw = regexExtract(chunk, /"customTitle":"((?:[^"\\]|\\.)*)"/, '')
-  const title = titleRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+  const title = unescapeJsonValue(titleRaw)
   const agent = regexExtract(chunk, /"responderUsername":"((?:[^"\\]|\\.)*)"/, '')
   const createdAt = parseInt(regexExtract(chunk, /"creationDate":(\d+)/, '0'))
 
   const promptRaw = regexExtract(chunk, /"message":\{"text":"((?:[^"\\]|\\.)*)"/, '')
-  const firstPrompt = promptRaw
-    ? [...promptRaw.replace(/\\"/g, '"').replace(/\\\\/g, '\\')].slice(0, 200).join('')
-    : ''
+  const firstPrompt = promptRaw ? [...unescapeJsonValue(promptRaw)].slice(0, 200).join('') : ''
 
   const reqMatches = chunk.match(/"requestId"/g)
   const requestCount = reqMatches ? reqMatches.length : 0

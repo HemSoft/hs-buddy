@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { TempoIssueSummary, TempoWorklog } from '../../types/tempo'
 import { TempoTimesheetGrid } from './TempoTimesheetGrid'
+import { getHoursClasses } from '../../utils/tempoUtils'
 
 const worklog: TempoWorklog = {
   id: 1,
@@ -607,5 +608,21 @@ describe('TempoTimesheetGrid', () => {
     const rows = container.querySelectorAll('.tempo-grid-row')
     expect(rows.length).toBe(1)
     expect(rows[0].classList.contains('capex')).toBe(false)
+  })
+})
+
+describe('getHoursClasses', () => {
+  it('returns empty array when hours <= 0', () => {
+    expect(getHoursClasses(0, false)).toEqual([])
+    expect(getHoursClasses(0, true)).toEqual([])
+    expect(getHoursClasses(-1, true)).toEqual([])
+  })
+
+  it('returns has-hours when hours > 0 and not capex', () => {
+    expect(getHoursClasses(2, false)).toEqual(['has-hours'])
+  })
+
+  it('returns has-hours and capex when hours > 0 and capex', () => {
+    expect(getHoursClasses(2, true)).toEqual(['has-hours', 'capex'])
   })
 })

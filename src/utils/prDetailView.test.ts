@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createPRDetailViewId, parsePRDetailRoute } from './prDetailView'
+import {
+  createPRDetailViewId,
+  parsePRDetailRoute,
+  resolveHeadBranch,
+  parseIssueFromBranch,
+} from './prDetailView'
 import type { PullRequest } from '../types/pullRequest'
 
 const basePR: PullRequest = {
@@ -202,5 +207,39 @@ describe('createPRDetailViewId and parsePRDetailRoute', () => {
     expect(pr.authorAvatarUrl).toBeUndefined()
     expect(pr.orgAvatarUrl).toBeUndefined()
     expect(pr.org).toBeUndefined()
+  })
+})
+
+describe('resolveHeadBranch', () => {
+  it('returns branches.headBranch when available', () => {
+    expect(resolveHeadBranch({ headBranch: 'feat/x', baseBranch: 'main' }, 'fallback')).toBe(
+      'feat/x'
+    )
+  })
+
+  it('returns headBranch fallback when branches is null', () => {
+    expect(resolveHeadBranch(null, 'fallback')).toBe('fallback')
+  })
+
+  it('returns headBranch fallback when branches.headBranch is empty', () => {
+    expect(resolveHeadBranch({ headBranch: '', baseBranch: 'main' }, 'fallback')).toBe('fallback')
+  })
+
+  it('returns undefined when both are absent', () => {
+    expect(resolveHeadBranch(null, undefined)).toBeUndefined()
+  })
+})
+
+describe('parseIssueFromBranch', () => {
+  it('extracts issue number from branch name', () => {
+    expect(parseIssueFromBranch('feature/issue-42-add-thing')).toBe(42)
+  })
+
+  it('returns null for branch without issue pattern', () => {
+    expect(parseIssueFromBranch('feature/add-thing')).toBeNull()
+  })
+
+  it('returns null for undefined branch', () => {
+    expect(parseIssueFromBranch(undefined)).toBeNull()
   })
 })

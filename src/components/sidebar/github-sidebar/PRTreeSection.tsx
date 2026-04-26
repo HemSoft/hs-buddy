@@ -4,6 +4,7 @@ import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { prSubNodes, sectionIcons } from './prConstants'
 import type { SidebarItem } from './useGitHubSidebarData'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
+import { refreshStateClass } from './repoNodeUtils'
 
 interface PRItemNodeProps {
   item: SidebarItem
@@ -131,12 +132,7 @@ interface PRTreeSectionProps {
 
 /** Map sidebar item id (e.g. 'pr-my-prs') to the data-source key used by the task queue ('my-prs'). */
 function refreshClass(itemId: string, indicators?: RefreshIndicators): string {
-  if (!indicators) return ''
-  const key = itemId.replace(/^pr-/, '')
-  const state = indicators[key]
-  if (state === 'active') return 'refresh-active'
-  if (state === 'pending') return 'refresh-pending'
-  return ''
+  return indicators ? refreshStateClass(indicators[itemId.replace(/^pr-/, '')]) : ''
 }
 
 function CountBadge({

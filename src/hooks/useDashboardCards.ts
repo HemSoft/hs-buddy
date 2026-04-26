@@ -46,20 +46,19 @@ function clearCache(): void {
   safeRemoveItem(CACHE_KEY)
 }
 
+function isPlainObject(raw: unknown): raw is Record<string, unknown> {
+  return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+}
+
 function isEmptyPlainObject(raw: unknown): boolean {
-  return (
-    typeof raw === 'object' &&
-    raw !== null &&
-    !Array.isArray(raw) &&
-    Object.keys(raw as Record<string, unknown>).length === 0
-  )
+  return isPlainObject(raw) && Object.keys(raw).length === 0
 }
 
 export function sanitize(raw: unknown): CardVisibility | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  if (!isPlainObject(raw)) return null
   const result: CardVisibility = {}
   for (const card of DASHBOARD_CARDS) {
-    const val = (raw as Record<string, unknown>)[card.id]
+    const val = raw[card.id]
     if (typeof val === 'boolean') result[card.id] = val
   }
   return Object.keys(result).length > 0 ? result : null

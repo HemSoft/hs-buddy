@@ -1153,18 +1153,20 @@ function buildContributionData(
 }
 
 /** Map a raw Octokit commit to a RepoCommit. */
+const COMMIT_AUTHOR_DEFAULTS = { login: '', name: 'unknown', avatar_url: '', date: '' }
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRawCommitToRepoCommit(c: any): RepoCommit {
-  const a = c.author ?? {}
+  const a = { ...COMMIT_AUTHOR_DEFAULTS, ...c.author }
   /* v8 ignore start -- commit.author always present in API responses */
-  const ca = c.commit.author ?? {}
+  const ca = { ...COMMIT_AUTHOR_DEFAULTS, ...c.commit?.author }
   /* v8 ignore stop */
   return {
     sha: c.sha,
     message: c.commit.message.split('\n')[0],
-    author: a.login || ca.name || 'unknown',
+    author: a.login || ca.name,
     authorAvatarUrl: a.avatar_url || null,
-    date: ca.date || '',
+    date: ca.date,
     url: c.html_url,
   }
 }

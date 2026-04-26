@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { PullRequestDetailPanel } from './PullRequestDetailPanel'
 import type { PRDetailInfo, PRDetailSection } from '../utils/prDetailView'
+import { parseIssueFromBranch } from '../utils/prDetailView'
 
 /* ── hoisted mocks ──────────────────────────────────────────────────── */
 
@@ -788,5 +789,21 @@ describe('PullRequestDetailPanel', () => {
         expect(screen.getByText('Yes')).toBeInTheDocument()
       })
     })
+  })
+})
+
+describe('parseIssueFromBranch', () => {
+  it('returns issue number from branch name', () => {
+    expect(parseIssueFromBranch('issue-42')).toBe(42)
+    expect(parseIssueFromBranch('feature/issue-123')).toBe(123)
+  })
+
+  it('returns null for branches without issue pattern', () => {
+    expect(parseIssueFromBranch('main')).toBeNull()
+    expect(parseIssueFromBranch('feature/add-login')).toBeNull()
+  })
+
+  it('returns null for undefined', () => {
+    expect(parseIssueFromBranch(undefined)).toBeNull()
   })
 })

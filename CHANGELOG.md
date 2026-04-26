@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce complexity and code duplication in GitHubService
 - Fix Prettier formatting in TempoDashboard and TempoSummaryCards
 - Replace verbose hasOwnProperty calls with Object.hasOwn and deduplicate route resolvers
+- Reduce CRAP scores by extracting helpers from complexity-7 functions
+- Reduce cyclomatic complexity in networkSecurity, copilotSessionParsing, and useBookmarkListState
+- Convert if-else chains to lookup tables across 9 files
+- Fix Prettier formatting in App.tsx, copilotSessionParsing.ts, prDetailView.test.ts
 
 ### Fixed
 

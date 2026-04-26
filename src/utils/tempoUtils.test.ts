@@ -8,6 +8,7 @@ import {
   buildUpdateWorklogBody,
   summarizeWorklogs,
   isCacheEntryValid,
+  getHoursClasses,
 } from './tempoUtils'
 
 describe('resolveWorklogAccountKey', () => {
@@ -386,5 +387,23 @@ describe('isCacheEntryValid', () => {
   it('uses Date.now() when now is not provided', () => {
     const recent = Date.now() - 1000
     expect(isCacheEntryValid({ data: 'val', fetchedAt: recent }, TTL)).toBe(true)
+  })
+})
+
+describe('getHoursClasses', () => {
+  it('returns empty array for zero hours', () => {
+    expect(getHoursClasses(0, false)).toEqual([])
+  })
+
+  it('returns empty array for negative hours', () => {
+    expect(getHoursClasses(-1, true)).toEqual([])
+  })
+
+  it('returns has-hours for positive non-capex', () => {
+    expect(getHoursClasses(4, false)).toEqual(['has-hours'])
+  })
+
+  it('returns has-hours and capex for positive capex', () => {
+    expect(getHoursClasses(4, true)).toEqual(['has-hours', 'capex'])
   })
 })

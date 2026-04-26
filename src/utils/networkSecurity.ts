@@ -13,19 +13,18 @@ export function isPrivateIPv6(lower: string): boolean {
   return lower === '::1' || PRIVATE_IPV6_PREFIXES.some(p => lower.startsWith(p))
 }
 
+/** Check whether an IPv4 address is in a private/reserved range. */
+function isPrivateIPv4(ip: string): boolean {
+  if (ip.startsWith('127.') || ip === '0.0.0.0') return true
+  if (INTERNAL_PATTERN.test(ip)) return true
+  return PRIVATE_IPV4_PREFIXES.some(p => ip.startsWith(p))
+}
+
 export function isPrivateIP(ip: string): boolean {
-  // Strip IPv4-mapped IPv6 prefix
   const normalized = ip.startsWith('::ffff:') ? ip.slice(7) : ip
-
-  // IPv4 checks
-  if (normalized.includes('.')) {
-    if (normalized.startsWith('127.') || normalized === '0.0.0.0') return true
-    if (/^172\.(1[6-9]|2\d|3[01])\./.test(normalized)) return true
-    return PRIVATE_IPV4_PREFIXES.some(p => normalized.startsWith(p))
-  }
-
-  // IPv6: loopback (::1), link-local (fe80::), ULA (fc00::/7)
-  return isPrivateIPv6(normalized.toLowerCase())
+  return normalized.includes('.')
+    ? isPrivateIPv4(normalized)
+    : isPrivateIPv6(normalized.toLowerCase())
 }
 
 export function isInternalHostname(hostname: string): boolean {

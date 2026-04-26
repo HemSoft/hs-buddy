@@ -16,22 +16,14 @@ function isValidHttpUrl(text: string | undefined): text is string {
 }
 
 function extractUrlFromDataTransfer(data: DataTransfer): string | null {
-  const uri = data.getData('text/uri-list')
-  if (uri) {
-    const found =
-      /* v8 ignore start */
-      uri
-        /* v8 ignore stop */
-        .split('\n')
-        .find(l => !l.startsWith('#'))
-        ?.trim() ?? null
-    /* v8 ignore start */
-    if (found) return found
-    /* v8 ignore stop */
-  }
+  const uriLine = data
+    .getData('text/uri-list')
+    .split('\n')
+    .map(l => l.trim())
+    .find(l => l !== '' && !l.startsWith('#'))
+  if (uriLine) return uriLine
   const text = data.getData('text/plain')?.trim()
-  if (isValidHttpUrl(text)) return text
-  return null
+  return isValidHttpUrl(text) ? text : null
 }
 
 function isUsableLinkText(text: string | undefined, url: string): text is string {

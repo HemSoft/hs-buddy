@@ -160,12 +160,15 @@ function JobSelector({
   )
 }
 
+const MISSED_POLICY_HINTS: Record<string, string> = {
+  skip: 'If the app was closed, missed runs are ignored.',
+  catchup: 'All missed runs execute when the app restarts.',
+  last: 'One run executes to cover all missed intervals.',
+}
+
 // eslint-disable-next-line react-refresh/only-export-components -- exported for testing
 export function getMissedPolicyHint(policy: string): string {
-  if (policy === 'skip') return 'If the app was closed, missed runs are ignored.'
-  if (policy === 'catchup') return 'All missed runs execute when the app restarts.'
-  if (policy === 'last') return 'One run executes to cover all missed intervals.'
-  return ''
+  return MISSED_POLICY_HINTS[policy] ?? ''
 }
 
 function ScheduleEditorForm({

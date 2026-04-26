@@ -22,7 +22,7 @@ import { useAppLayout } from './hooks/useAppLayout'
 import { useAppSessionStats } from './hooks/useAppSessionStats'
 import { useAppTabs, DASHBOARD_VIEW_ID } from './hooks/useAppTabs'
 import { useTerminalPanel } from './hooks/useTerminalPanel'
-import { DEFAULT_ASSISTANT_PANE_SIZE } from './appUtils'
+import { computeAppMetrics, isAppLoading } from './appUtils'
 import { getRepoContextFromViewId, type RepoContext } from './utils/repoContext'
 import './App.css'
 
@@ -206,30 +206,6 @@ function AppMainContent({
       </Allotment>
     </div>
   )
-}
-
-function isAppLoading(
-  layoutLoaded: boolean,
-  terminalLoaded: boolean,
-  migrationLoading: boolean,
-  migrationComplete: boolean
-) {
-  return !layoutLoaded || !terminalLoaded || (migrationLoading && !migrationComplete)
-}
-
-function computeAppMetrics(
-  schedules: { length: number } | undefined,
-  jobs: { length: number } | undefined,
-  prCounts: Record<string, number>,
-  assistantOpen: boolean,
-  paneSizes: number[]
-) {
-  const scheduleCount = schedules?.length ?? 0
-  const jobCount = jobs?.length ?? 0
-  const totalPRCount = Object.values(prCounts).reduce((a, b) => a + b, 0)
-  const defaultSizes = assistantOpen ? paneSizes : paneSizes.slice(0, 2)
-  const assistantPaneSize = paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE
-  return { scheduleCount, jobCount, totalPRCount, defaultSizes, assistantPaneSize }
 }
 
 function App() {

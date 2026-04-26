@@ -27,10 +27,14 @@ interface RepoDetailPanelProps {
   repo: string
 }
 
+const VISIBILITY_ICONS: Record<string, typeof Lock> = {
+  private: Lock,
+  internal: Building2,
+}
+
 function getVisibilityIcon(visibility: string) {
-  if (visibility === 'private') return <Lock size={14} />
-  if (visibility === 'internal') return <Building2 size={14} />
-  return <Globe size={14} />
+  const Icon = VISIBILITY_ICONS[visibility] ?? Globe
+  return <Icon size={14} />
 }
 
 function RepoBadges({ detail }: { detail: RepoDetail }) {

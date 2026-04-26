@@ -16,18 +16,18 @@ const DAY_LABEL_WIDTH = 28
 
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
 
+/** GitHub light-theme → dark-theme color map (empty cell + green levels 1–4) */
+const DARK_COLOR_MAP: Record<string, string> = {
+  '#ebedf0': '#161b22',
+  '#9be9a8': '#0e4429',
+  '#40c463': '#006d32',
+  '#30a14e': '#26a641',
+  '#216e39': '#39d353',
+}
+
 /** Map GitHub's light-theme contribution colors to dark-theme equivalents */
 function toDarkColor(color: string): string {
-  const c = color.toLowerCase()
-  // GitHub light-theme empty/zero cell
-  if (c === '#ebedf0') return '#161b22'
-  // GitHub light-theme greens (level 1–4)
-  if (c === '#9be9a8') return '#0e4429'
-  if (c === '#40c463') return '#006d32'
-  if (c === '#30a14e') return '#26a641'
-  if (c === '#216e39') return '#39d353'
-  // Already dark or custom — pass through
-  return color
+  return DARK_COLOR_MAP[color.toLowerCase()] ?? color
 }
 
 export function ContributionGraph({ weeks, totalContributions, source }: ContributionGraphProps) {

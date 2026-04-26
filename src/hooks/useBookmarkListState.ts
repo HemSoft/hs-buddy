@@ -34,12 +34,15 @@ function extractUrlFromDataTransfer(data: DataTransfer): string | null {
   return null
 }
 
+function isUsableLinkText(text: string | undefined, url: string): text is string {
+  return !!text && text !== url && !text.startsWith('http')
+}
+
 function extractTitleFromHtml(html: string, url: string): string | null {
   if (!html) return null
   const anchorMatch = html.match(/<a[^>]*>([^<]+)<\/a>/i)
   const linkText = anchorMatch?.[1]?.trim()
-  if (linkText && linkText !== url && !linkText.startsWith('http')) return linkText
-  return null
+  return isUsableLinkText(linkText, url) ? linkText : null
 }
 
 export type Bookmark = {

@@ -737,6 +737,14 @@ export function eventSummary(evt: any): string {
 
 const FAILURE_COMBINED_STATES = new Set(['failure', 'error'])
 
+function hasCheckFailures(counts: { failed: number; combinedState: string }): boolean {
+  return counts.failed > 0 || FAILURE_COMBINED_STATES.has(counts.combinedState)
+}
+
+function hasChecksPending(counts: { pending: number; combinedState: string }): boolean {
+  return counts.pending > 0 || counts.combinedState === 'pending'
+}
+
 function determineCheckOverallState(counts: {
   total: number
   failed: number
@@ -745,10 +753,8 @@ function determineCheckOverallState(counts: {
   combinedState: string
 }): PRChecksSummary['overallState'] {
   if (counts.total === 0) return 'none'
-  if (counts.failed > 0 || FAILURE_COMBINED_STATES.has(counts.combinedState)) {
-    return 'failing'
-  }
-  if (counts.pending > 0 || counts.combinedState === 'pending') return 'pending'
+  if (hasCheckFailures(counts)) return 'failing'
+  if (hasChecksPending(counts)) return 'pending'
   if (counts.successful > 0) return 'passing'
   return 'neutral'
 }

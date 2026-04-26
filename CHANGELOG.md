@@ -22,12 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce complexity via data-driven patterns and helper extraction
 - Reduce complexity and eliminate code repetition
 - Reduce cyclomatic complexity in utility functions
+- Reduce cyclomatic complexity via table-driven lookups and helper extraction
+- Extract fetchCachedData helper to consolidate 8 repeated fetch patterns
+- Reduce complexity in useGitHubSidebarData
 
 ### Fixed
 
 - Address 5 PR review comments
 - Use createRequire for ESM-compatible require.resolve in copilotClient
 - Address PR review feedback for ipcClassification and workerUtils
+- Guard against undefined ownerRepo in parseStateOwnerRepoKey
 
 ## [0.1.739] - 2026-04-26
 

@@ -36,6 +36,20 @@ function collectOccurrences(
   return results
 }
 
+function buildCronOptions(
+  fromTimestamp: number,
+  toTimestamp: number,
+  timezone: string,
+  includeStart: boolean
+): CronExpressionOptions {
+  const options: CronExpressionOptions = {
+    currentDate: new Date(includeStart ? fromTimestamp - 1 : fromTimestamp),
+    endDate: new Date(toTimestamp),
+  }
+  if (timezone) options.tz = timezone
+  return options
+}
+
 /**
  * Enumerate cron occurrences between two timestamps.
  * Returns timestamps for each occurrence, capped at maxRuns.
@@ -55,12 +69,7 @@ export function enumerateCronOccurrences(
   if (fromTimestamp >= toTimestamp) return []
 
   try {
-    const options: CronExpressionOptions = {
-      currentDate: new Date(includeStart ? fromTimestamp - 1 : fromTimestamp),
-      endDate: new Date(toTimestamp),
-    }
-    if (timezone) options.tz = timezone
-
+    const options = buildCronOptions(fromTimestamp, toTimestamp, timezone, includeStart)
     const expression = CronExpressionParser.parse(cronExpression, options)
     return collectOccurrences(expression, toTimestamp, maxRuns)
   } catch {

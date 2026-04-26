@@ -48,13 +48,24 @@ function applyColorProperties(root: HTMLElement, config: AppearanceConfig): void
   }
 }
 
+type MiscStringKey = 'statusBarBg' | 'statusBarFg' | 'fontFamily' | 'monoFontFamily'
+
+const MISC_PROPERTY_MAP: ReadonlyArray<{
+  key: MiscStringKey
+  prop: string
+  format: (v: string) => string
+}> = [
+  { key: 'statusBarBg', prop: '--statusbar-bg', format: v => v },
+  { key: 'statusBarFg', prop: '--statusbar-fg', format: v => v },
+  { key: 'fontFamily', prop: '--font-family-ui', format: v => `'${v}', system-ui, sans-serif` },
+  { key: 'monoFontFamily', prop: '--font-family-mono', format: v => `'${v}', Consolas, monospace` },
+]
+
 function applyMiscProperties(root: HTMLElement, config: AppearanceConfig): void {
-  if (config.statusBarBg) root.style.setProperty('--statusbar-bg', config.statusBarBg)
-  if (config.statusBarFg) root.style.setProperty('--statusbar-fg', config.statusBarFg)
-  if (config.fontFamily)
-    root.style.setProperty('--font-family-ui', `'${config.fontFamily}', system-ui, sans-serif`)
-  if (config.monoFontFamily)
-    root.style.setProperty('--font-family-mono', `'${config.monoFontFamily}', Consolas, monospace`)
+  for (const { key, prop, format } of MISC_PROPERTY_MAP) {
+    const val = config[key]
+    if (val) root.style.setProperty(prop, format(val))
+  }
   if (config.zoomLevel && config.zoomLevel !== 100) root.style.fontSize = `${config.zoomLevel}%`
 }
 

@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -18,22 +19,29 @@ export const SFL_STATUS_LABELS: Record<SFLOverallStatus, string> = {
   unknown: 'Unknown',
 }
 
-export function sflOverallStatusIcon(status: SFLOverallStatus) {
-  switch (status) {
-    case 'healthy':
-      return <CheckCircle2 size={12} className="sfl-status-icon sfl-status-success" />
-    case 'active-work':
-      return <Clock size={12} className="sfl-status-icon sfl-status-info" />
-    case 'blocked':
-      return <AlertTriangle size={12} className="sfl-status-icon sfl-status-warning" />
-    case 'ready-for-review':
-      return <CircleDot size={12} className="sfl-status-icon sfl-status-info" />
-    case 'recent-failure':
-      return <XCircle size={12} className="sfl-status-icon sfl-status-error" />
-    default:
-      return <Circle size={12} className="sfl-status-icon sfl-status-muted" />
-  }
+const OVERALL_STATUS_ICONS: Record<SFLOverallStatus, { icon: LucideIcon; className: string }> = {
+  healthy: { icon: CheckCircle2, className: 'sfl-status-success' },
+  'active-work': { icon: Clock, className: 'sfl-status-info' },
+  blocked: { icon: AlertTriangle, className: 'sfl-status-warning' },
+  'ready-for-review': { icon: CircleDot, className: 'sfl-status-info' },
+  'recent-failure': { icon: XCircle, className: 'sfl-status-error' },
+  unknown: { icon: Circle, className: 'sfl-status-muted' },
 }
+
+export function sflOverallStatusIcon(status: SFLOverallStatus) {
+  const entry = OVERALL_STATUS_ICONS[status] ?? OVERALL_STATUS_ICONS.unknown
+  const Icon = entry.icon
+  return <Icon size={12} className={`sfl-status-icon ${entry.className}`} />
+}
+
+const CONCLUSION_ICONS: Record<string, { icon: LucideIcon; className: string }> = {
+  success: { icon: CheckCircle2, className: 'sfl-status-success' },
+  failure: { icon: XCircle, className: 'sfl-status-error' },
+  timed_out: { icon: XCircle, className: 'sfl-status-error' },
+  skipped: { icon: MinusCircle, className: 'sfl-status-muted' },
+}
+
+const DEFAULT_CONCLUSION_ICON = { icon: Clock, className: 'sfl-status-info' }
 
 export function sflWorkflowStateIcon(state: string, conclusion: string | null) {
   if (state !== 'active') {
@@ -41,17 +49,9 @@ export function sflWorkflowStateIcon(state: string, conclusion: string | null) {
   }
   if (!conclusion) return <Circle size={11} className="sfl-status-icon sfl-status-muted" />
 
-  switch (conclusion) {
-    case 'success':
-      return <CheckCircle2 size={11} className="sfl-status-icon sfl-status-success" />
-    case 'failure':
-    case 'timed_out':
-      return <XCircle size={11} className="sfl-status-icon sfl-status-error" />
-    case 'skipped':
-      return <MinusCircle size={11} className="sfl-status-icon sfl-status-muted" />
-    default:
-      return <Clock size={11} className="sfl-status-icon sfl-status-info" />
-  }
+  const entry = CONCLUSION_ICONS[conclusion] ?? DEFAULT_CONCLUSION_ICON
+  const Icon = entry.icon
+  return <Icon size={11} className={`sfl-status-icon ${entry.className}`} />
 }
 
 export function handleItemKeyDown(

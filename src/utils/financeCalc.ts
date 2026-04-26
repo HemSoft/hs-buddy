@@ -72,6 +72,12 @@ export function extractPriceData(meta: {
   return { price: meta.regularMarketPrice, prevClose }
 }
 
+function hasValidTradingPeriod(
+  tp: { start: number; end: number } | undefined
+): tp is { start: number; end: number } {
+  return !!tp && typeof tp.start === 'number' && typeof tp.end === 'number'
+}
+
 /** Determine whether the market is currently open.
  *  Accepts an optional `nowEpochSec` for deterministic testing. */
 export function calculateMarketOpen(
@@ -79,9 +85,7 @@ export function calculateMarketOpen(
   nowEpochSec?: number
 ): boolean {
   const tp = meta.currentTradingPeriod?.regular
-  if (!tp || typeof tp.start !== 'number' || typeof tp.end !== 'number') {
-    return true // default open for assets without trading periods (crypto, futures)
-  }
+  if (!hasValidTradingPeriod(tp)) return true // default open for assets without trading periods
   const nowEpoch = nowEpochSec ?? Math.floor(Date.now() / 1000)
   return nowEpoch >= tp.start && nowEpoch < tp.end
 }

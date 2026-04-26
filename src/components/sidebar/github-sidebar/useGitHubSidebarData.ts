@@ -84,45 +84,38 @@ function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | 
 }
 /* v8 ignore stop */
 
-/** Parses `owner/repo` keys and calls refreshFn for stale entries. */
-function refreshStaleOwnerRepoKeys(
+/** Iterate stale cache entries, parse each key, and invoke a callback for those that are stale. */
+function forEachStaleEntry<T>(
   fetchedRef: React.MutableRefObject<Set<string>>,
   cachePrefix: string,
   intervalMs: number,
-  refreshFn: (org: string, repoName: string) => void
+  parseKey: (key: string) => T | null,
+  onStale: (parsed: T) => void
 ) {
   for (const key of fetchedRef.current) {
-    const cacheKey = `${cachePrefix}:${key}`
     /* v8 ignore start */
-    if (dataCache.isFresh(cacheKey, intervalMs)) continue
+    if (dataCache.isFresh(`${cachePrefix}:${key}`, intervalMs)) continue
     /* v8 ignore stop */
-    const parsed = parseOwnerRepoKey(key)
+    const parsed = parseKey(key)
     /* v8 ignore start */
-    if (!parsed) continue
+    if (parsed) onStale(parsed)
     /* v8 ignore stop */
-    refreshFn(parsed.owner, parsed.repo)
   }
 }
 
-/** Parses `state:owner/repo` keys and calls refreshFn for stale entries. */
-function refreshStaleStateOwnerRepoKeys(
-  fetchedRef: React.MutableRefObject<Set<string>>,
-  cachePrefix: string,
-  intervalMs: number,
-  refreshFn: (org: string, repoName: string, state: 'open' | 'closed') => void
-) {
-  for (const key of fetchedRef.current) {
-    const cacheKey = `${cachePrefix}:${key}`
-    /* v8 ignore start */
-    if (dataCache.isFresh(cacheKey, intervalMs)) continue
-    /* v8 ignore stop */
-    const [state, ownerRepo] = key.split(':', 2)
-    const parsed = parseOwnerRepoKey(ownerRepo)
-    /* v8 ignore start */
-    if (!parsed || (state !== 'open' && state !== 'closed')) continue
-    /* v8 ignore stop */
-    refreshFn(parsed.owner, parsed.repo, state)
-  }
+/** Parse a `state:owner/repo` key into its parts, or null if malformed. */
+function parseStateOwnerRepoKey(
+  key: string
+): { owner: string; repo: string; state: 'open' | 'closed' } | null {
+  const [state, ownerRepo] = key.split(':', 2)
+  /* v8 ignore start */
+  if (state !== 'open' && state !== 'closed') return null
+  if (!ownerRepo) return null
+  /* v8 ignore stop */
+  const parsed = parseOwnerRepoKey(ownerRepo)
+  /* v8 ignore start */
+  return parsed ? { ...parsed, state } : null
+  /* v8 ignore stop */
 }
 
 type LoadingSetSetter = React.Dispatch<React.SetStateAction<Set<string>>>
@@ -176,6 +169,59 @@ async function fetchWithLoading<T>(opts: {
   } finally {
     removeFromLoadingSet(opts.loadingSetter, opts.key)
   }
+}
+
+/**
+ * Determine if a cache hit is fresh enough to skip re-fetching.
+ * - undefined → simple cache, always trust the hit
+ * - null     → stale-while-revalidate with no max age, always re-fetch
+ * - number   → stale-while-revalidate, re-fetch only when stale
+ */
+function isCacheHitFresh(maxAgeMs: number | null | undefined, cacheKey: string): boolean {
+  if (maxAgeMs === undefined) return true
+  return typeof maxAgeMs === 'number' && dataCache.isFresh(cacheKey, maxAgeMs)
+}
+
+/**
+ * Wraps the common cache-check → stale-while-revalidate → fetchWithLoading
+ * pattern used by most sidebar data-fetch callbacks.  When {@link maxAgeMs}
+ * is unset, a cache hit returns immediately; when set, stale entries trigger
+ * a background re-fetch after hydrating state.
+ */
+async function fetchCachedData<TRaw>(opts: {
+  key: string
+  cacheKey: string
+  loadingSetter: LoadingSetSetter
+  enqueue: (
+    fn: (signal?: AbortSignal) => Promise<TRaw>,
+    meta: { name: string; priority: number }
+  ) => Promise<TRaw>
+  taskName: string
+  logLabel: string
+  apiFn: () => Promise<TRaw>
+  onData: (data: TRaw) => void
+  afterFetch?: (result: TRaw) => void
+  forceRefresh?: boolean
+  maxAgeMs?: number | null
+}): Promise<void> {
+  const cached = dataCache.get<TRaw>(opts.cacheKey)
+  if (cached?.data && !opts.forceRefresh) {
+    opts.onData(cached.data)
+    if (isCacheHitFresh(opts.maxAgeMs, opts.cacheKey)) return
+  }
+  await fetchWithLoading({
+    key: opts.key,
+    loadingSetter: opts.loadingSetter,
+    enqueue: opts.enqueue,
+    taskName: opts.taskName,
+    logLabel: opts.logLabel,
+    apiFn: opts.apiFn,
+    onSuccess: result => {
+      opts.onData(result)
+      dataCache.set(opts.cacheKey, result)
+      opts.afterFetch?.(result)
+    },
+  })
 }
 
 /** Closes a context menu on Escape key press. */
@@ -523,26 +569,16 @@ export function useGitHubSidebarData() {
 
   const fetchOrgMembers = useCallback(
     async (org: string, forceRefresh = false) => {
-      const cacheKey = `org-members:${org}`
-      const cached = dataCache.get<OrgMemberResult>(cacheKey)
-      /* v8 ignore start */
-      if (cached?.data && !forceRefresh) {
-        /* v8 ignore stop */
-        setOrgMembers(prev => ({ ...prev, [org]: cached.data.members }))
-        return
-      }
-
-      await fetchWithLoading({
+      await fetchCachedData<OrgMemberResult>({
         key: org,
+        cacheKey: `org-members:${org}`,
         loadingSetter: setLoadingOrgMembers,
         enqueue: enqueueRef.current,
         taskName: `org-members-${org}`,
         logLabel: 'OrgMembers',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchOrgMembers(org),
-        onSuccess: result => {
-          setOrgMembers(prev => ({ ...prev, [org]: result.members }))
-          dataCache.set(cacheKey, result)
-        },
+        onData: result => setOrgMembers(prev => ({ ...prev, [org]: result.members })),
+        forceRefresh,
       })
     },
     [accounts]
@@ -609,26 +645,16 @@ export function useGitHubSidebarData() {
 
   const fetchOrgTeams = useCallback(
     async (org: string, forceRefresh = false) => {
-      const cacheKey = `org-teams:${org}`
-      const cached = dataCache.get<OrgTeamResult>(cacheKey)
-      /* v8 ignore start */
-      if (cached?.data && !forceRefresh) {
-        /* v8 ignore stop */
-        setOrgTeams(prev => ({ ...prev, [org]: cached.data.teams }))
-        return
-      }
-
-      await fetchWithLoading({
+      await fetchCachedData<OrgTeamResult>({
         key: org,
+        cacheKey: `org-teams:${org}`,
         loadingSetter: setLoadingOrgTeams,
         enqueue: enqueueRef.current,
         taskName: `org-teams-${org}`,
         logLabel: 'OrgTeams',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchOrgTeams(org),
-        onSuccess: result => {
-          setOrgTeams(prev => ({ ...prev, [org]: result.teams }))
-          dataCache.set(cacheKey, result)
-        },
+        onData: result => setOrgTeams(prev => ({ ...prev, [org]: result.teams })),
+        forceRefresh,
       })
     },
     [accounts]
@@ -651,26 +677,15 @@ export function useGitHubSidebarData() {
   const fetchTeamMembers = useCallback(
     async (org: string, teamSlug: string) => {
       const key = `${org}/${teamSlug}`
-      const cacheKey = `team-members:${key}`
-      const cached = dataCache.get<TeamMembersResult>(cacheKey)
-      /* v8 ignore start */
-      if (cached?.data) {
-        /* v8 ignore stop */
-        setTeamMembers(prev => ({ ...prev, [key]: cached.data.members }))
-        return
-      }
-
-      await fetchWithLoading({
+      await fetchCachedData<TeamMembersResult>({
         key,
+        cacheKey: `team-members:${key}`,
         loadingSetter: setLoadingTeamMembers,
         enqueue: enqueueRef.current,
         taskName: `team-members-${key}`,
         logLabel: 'TeamMembers',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchTeamMembers(org, teamSlug),
-        onSuccess: result => {
-          setTeamMembers(prev => ({ ...prev, [key]: result.members }))
-          dataCache.set(cacheKey, result)
-        },
+        onData: result => setTeamMembers(prev => ({ ...prev, [key]: result.members })),
       })
     },
     [accounts]
@@ -738,23 +753,16 @@ export function useGitHubSidebarData() {
   const fetchRepoCountsForRepo = useCallback(
     async (org: string, repoName: string, forceRefresh = false) => {
       const key = `${org}/${repoName}`
-      const cacheKey = `repo-counts:${key}`
-      const cached = dataCache.get<RepoCounts>(cacheKey)
-      if (cached?.data && !forceRefresh) {
-        setRepoCounts(prev => ({ ...prev, [key]: cached.data }))
-        return
-      }
-      await fetchWithLoading({
+      await fetchCachedData<RepoCounts>({
         key,
+        cacheKey: `repo-counts:${key}`,
         loadingSetter: setLoadingRepoCounts,
         enqueue: enqueueRef.current,
         taskName: `repo-counts-${key}`,
         logLabel: 'RepoCounts',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoCounts(org, repoName),
-        onSuccess: result => {
-          setRepoCounts(prev => ({ ...prev, [key]: result }))
-          dataCache.set(cacheKey, result)
-        },
+        onData: result => setRepoCounts(prev => ({ ...prev, [key]: result })),
+        forceRefresh,
       })
     },
     [accounts]
@@ -763,25 +771,16 @@ export function useGitHubSidebarData() {
   const fetchSFLStatusForRepo = useCallback(
     async (org: string, repoName: string, isRefresh = false) => {
       const key = `${org}/${repoName}`
-      const cacheKey = `sfl-status:${key}`
-      if (!isRefresh) {
-        const cached = dataCache.get<SFLRepoStatus>(cacheKey)
-        if (cached?.data) {
-          setSflStatusData(prev => ({ ...prev, [key]: cached.data }))
-          return
-        }
-      }
-      await fetchWithLoading({
+      await fetchCachedData<SFLRepoStatus>({
         key,
+        cacheKey: `sfl-status:${key}`,
         loadingSetter: setLoadingSFLStatus,
         enqueue: enqueueRef.current,
         taskName: `sfl-status-${key}`,
         logLabel: 'SFLStatus',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchSFLStatus(org, repoName),
-        onSuccess: result => {
-          setSflStatusData(prev => ({ ...prev, [key]: result }))
-          dataCache.set(cacheKey, result)
-        },
+        onData: result => setSflStatusData(prev => ({ ...prev, [key]: result })),
+        forceRefresh: isRefresh,
       })
     },
     [accounts]
@@ -819,33 +818,22 @@ export function useGitHubSidebarData() {
   const fetchRepoPRsForRepo = useCallback(
     async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
       const key = `${state}:${org}/${repoName}`
-      const cacheKey = `repo-prs:${key}`
-      const maxAgeMs = getMaxAgeMs(refreshInterval)
-      const cached = dataCache.get<RepoPullRequest[]>(cacheKey)
-      if (cached?.data && !forceRefresh) {
-        setRepoPrTreeData(prev => ({
-          ...prev,
-          [key]: cached.data.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
-        }))
-        if (maxAgeMs && dataCache.isFresh(cacheKey, maxAgeMs)) {
-          return
-        }
-      }
-      await fetchWithLoading({
+      await fetchCachedData<RepoPullRequest[]>({
         key,
+        cacheKey: `repo-prs:${key}`,
         loadingSetter: setLoadingRepoPRs,
         enqueue: enqueueRef.current,
         taskName: `repo-pr-tree-${state}-${org}-${repoName}`,
         logLabel: 'RepoPRTree',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoPRs(org, repoName, state),
-        onSuccess: result => {
+        onData: prs =>
           setRepoPrTreeData(prev => ({
             ...prev,
-            [key]: result.map(repoPr => mapRepoPRToPullRequest(repoPr, org)),
-          }))
-          dataCache.set(cacheKey, result)
-          syncOpenPRCounts(state, org, repoName, result.length)
-        },
+            [key]: prs.map(pr => mapRepoPRToPullRequest(pr, org)),
+          })),
+        afterFetch: result => syncOpenPRCounts(state, org, repoName, result.length),
+        forceRefresh,
+        maxAgeMs: getMaxAgeMs(refreshInterval),
       })
     },
     [accounts, refreshInterval]
@@ -868,26 +856,17 @@ export function useGitHubSidebarData() {
   const fetchRepoIssuesForRepo = useCallback(
     async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
       const key = `${state}:${org}/${repoName}`
-      const cacheKey = `repo-issues:${key}`
-      const maxAgeMs = getMaxAgeMs(refreshInterval)
-      const cached = dataCache.get<RepoIssue[]>(cacheKey)
-      if (cached?.data && !forceRefresh) {
-        setRepoIssueTreeData(prev => ({ ...prev, [key]: cached.data }))
-        if (maxAgeMs && dataCache.isFresh(cacheKey, maxAgeMs)) {
-          return
-        }
-      }
-      await fetchWithLoading({
+      await fetchCachedData<RepoIssue[]>({
         key,
+        cacheKey: `repo-issues:${key}`,
         loadingSetter: setLoadingRepoIssues,
         enqueue: enqueueRef.current,
         taskName: `repo-issues-tree-${state}-${org}-${repoName}`,
         logLabel: 'RepoIssueTree',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoIssues(org, repoName, state),
-        onSuccess: result => {
-          setRepoIssueTreeData(prev => ({ ...prev, [key]: result }))
-          dataCache.set(cacheKey, result)
-        },
+        onData: issues => setRepoIssueTreeData(prev => ({ ...prev, [key]: issues })),
+        forceRefresh,
+        maxAgeMs: getMaxAgeMs(refreshInterval),
       })
     },
     [accounts, refreshInterval]
@@ -910,26 +889,17 @@ export function useGitHubSidebarData() {
   const fetchRepoCommitsForRepo = useCallback(
     async (org: string, repoName: string, forceRefresh = false) => {
       const key = `${org}/${repoName}`
-      const cacheKey = `repo-commits:${key}`
-      const maxAgeMs = getMaxAgeMs(refreshInterval)
-      const cached = dataCache.get<RepoCommit[]>(cacheKey)
-      if (cached?.data && !forceRefresh) {
-        setRepoCommitTreeData(prev => ({ ...prev, [key]: cached.data }))
-        if (maxAgeMs && dataCache.isFresh(cacheKey, maxAgeMs)) {
-          return
-        }
-      }
-      await fetchWithLoading({
+      await fetchCachedData<RepoCommit[]>({
         key,
+        cacheKey: `repo-commits:${key}`,
         loadingSetter: setLoadingRepoCommits,
         enqueue: enqueueRef.current,
         taskName: `repo-commit-tree-${org}-${repoName}`,
         logLabel: 'RepoCommitTree',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoCommits(org, repoName),
-        onSuccess: result => {
-          setRepoCommitTreeData(prev => ({ ...prev, [key]: result }))
-          dataCache.set(cacheKey, result)
-        },
+        onData: commits => setRepoCommitTreeData(prev => ({ ...prev, [key]: commits })),
+        forceRefresh,
+        maxAgeMs: getMaxAgeMs(refreshInterval),
       })
     },
     [accounts, refreshInterval]
@@ -965,23 +935,21 @@ export function useGitHubSidebarData() {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
     const intervalId = setInterval(() => {
-      refreshStaleStateOwnerRepoKeys(
-        fetchedRepoPRsRef,
-        'repo-prs',
-        intervalMs,
-        (org, repo, state) => fetchRepoPRsForRepo(org, repo, state, true)
+      forEachStaleEntry(fetchedRepoPRsRef, 'repo-prs', intervalMs, parseStateOwnerRepoKey, p =>
+        fetchRepoPRsForRepo(p.owner, p.repo, p.state, true)
       )
-      refreshStaleOwnerRepoKeys(fetchedRepoCommitsRef, 'repo-commits', intervalMs, (org, repo) =>
-        fetchRepoCommitsForRepo(org, repo, true)
+      forEachStaleEntry(fetchedRepoCommitsRef, 'repo-commits', intervalMs, parseOwnerRepoKey, p =>
+        fetchRepoCommitsForRepo(p.owner, p.repo, true)
       )
-      refreshStaleOwnerRepoKeys(fetchedSFLRef, 'sfl-status', intervalMs, (org, repo) =>
-        fetchSFLStatusForRepo(org, repo, true)
+      forEachStaleEntry(fetchedSFLRef, 'sfl-status', intervalMs, parseOwnerRepoKey, p =>
+        fetchSFLStatusForRepo(p.owner, p.repo, true)
       )
-      refreshStaleStateOwnerRepoKeys(
+      forEachStaleEntry(
         fetchedRepoIssuesRef,
         'repo-issues',
         intervalMs,
-        (org, repo, state) => fetchRepoIssuesForRepo(org, repo, state, true)
+        parseStateOwnerRepoKey,
+        p => fetchRepoIssuesForRepo(p.owner, p.repo, p.state, true)
       )
     }, intervalMs)
     return () => clearInterval(intervalId)

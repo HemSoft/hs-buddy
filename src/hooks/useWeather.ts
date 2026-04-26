@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
+import { getErrorMessageWithFallback } from '../utils/errorUtils'
 
 export interface ForecastDay {
   date: string
@@ -233,7 +234,7 @@ export function useWeather() {
           setState(prev => ({
             data: prev.data, // keep stale data visible
             loading: false,
-            error: err instanceof Error ? err.message : 'Failed to fetch weather',
+            error: getErrorMessageWithFallback(err, 'Failed to fetch weather'),
           }))
         }
         throw err
@@ -303,7 +304,7 @@ export function useWeather() {
         setState(prev => ({
           ...prev,
           loading: false,
-          error: err instanceof Error ? err.message : 'Location search failed',
+          error: getErrorMessageWithFallback(err, 'Location search failed'),
         }))
       }
     },

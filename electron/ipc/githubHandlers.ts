@@ -8,7 +8,7 @@ import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
 import {
   parseActiveGitHubAccount,
   buildGhAuthTokenArgs,
-  isNonFatalGhStderr,
+  validateCliToken,
 } from '../../src/utils/githubAuthUtils'
 import {
   type BillingUsageItem,
@@ -390,17 +390,7 @@ export function registerGitHubHandlers(): void {
         timeout: CLI_TIMEOUT_MS,
       })
 
-      if (stderr && !isNonFatalGhStderr(stderr)) {
-        console.warn('gh auth token stderr:', stderr)
-      }
-
-      const token = stdout.trim()
-      if (!token) {
-        const suffix = username ? ` for account '${username}'` : ''
-        throw new Error(`GitHub CLI returned empty token${suffix}`)
-      }
-
-      return token
+      return validateCliToken(stdout, stderr, username)
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error)
       console.error('Failed to get GitHub CLI token:', errorMessage)

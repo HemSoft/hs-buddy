@@ -14,13 +14,12 @@
 import { CopilotClient } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { app } from 'electron'
-import { truncateOutput as truncateOutputShared } from '../../src/utils/shellUtils'
 import { extractAssistantContent } from '../../src/utils/copilotResponseUtils'
 
 export const DEFAULT_MODEL = 'claude-sonnet-4.5'
 const SESSION_TIMEOUT = 30_000 // 30s for session creation
-const MAX_OUTPUT_SIZE = 1_024_000 // 1MB
 
 // ── CLI path resolution ──────────────────────────────────────────────────
 
@@ -41,6 +40,19 @@ function findExistingPath(paths: string[]): string | null {
   return null
 }
 
+/** Try to resolve CLI path via require.resolve (dev / non-asar builds). */
+const esmRequire = createRequire(import.meta.url)
+function resolveViaRequire(platformPkg: string, binaryName: string): string | null {
+  try {
+    const pkgJson = esmRequire.resolve(`@github/${platformPkg}/package.json`)
+    const nativePath = path.join(path.dirname(pkgJson), binaryName)
+    if (existsSync(nativePath)) return nativePath
+  } catch {
+    // Fall through
+  }
+  return null
+}
+
 /**
  * Resolve the path to the native Copilot CLI binary.
  * Checks local node_modules first, falls back to global PATH.
@@ -50,23 +62,16 @@ function resolveCopilotCliPath(): string {
   const platformPkg = `copilot-${process.platform}-${process.arch}`
   const pkgSubPath = path.join('@github', platformPkg, binaryName)
 
-  // 1. Try require.resolve (works in dev / non-asar builds)
-  try {
-    const pkgJson = require.resolve(`@github/${platformPkg}/package.json`)
-    const nativePath = path.join(path.dirname(pkgJson), binaryName)
-    if (existsSync(nativePath)) {
-      console.log(`[CopilotClient] Using native CLI (require.resolve): ${nativePath}`)
-      return nativePath
-    }
-  } catch {
-    // Fall through
+  const fromRequire = resolveViaRequire(platformPkg, binaryName)
+  if (fromRequire) {
+    console.log(`[CopilotClient] Using native CLI (require.resolve): ${fromRequire}`)
+    return fromRequire
   }
 
-  // 2. Try relative to app root (works in Electron packaged builds)
-  const found = findExistingPath(getCandidatePaths(pkgSubPath))
-  if (found) {
-    console.log(`[CopilotClient] Using native CLI (filesystem): ${found}`)
-    return found
+  const fromFs = findExistingPath(getCandidatePaths(pkgSubPath))
+  if (fromFs) {
+    console.log(`[CopilotClient] Using native CLI (filesystem): ${fromFs}`)
+    return fromFs
   }
 
   const fallback = process.platform === 'win32' ? 'copilot.cmd' : 'copilot'
@@ -163,11 +168,6 @@ export async function restartSharedClient(): Promise<void> {
 }
 
 // ── Prompt helpers ───────────────────────────────────────────────────────
-
-/** Truncate text to a max size with a note */
-export function truncateOutput(text: string, maxSize = MAX_OUTPUT_SIZE): string {
-  return truncateOutputShared(text, maxSize)
-}
 
 interface SendPromptOptions {
   prompt: string

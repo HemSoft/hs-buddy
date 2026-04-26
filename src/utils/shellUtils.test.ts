@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   getShellArgs,
   isPowerShell,
@@ -237,5 +237,56 @@ describe('buildWorkerResult', () => {
     const bigOutput = 'x'.repeat(200)
     const result = buildWorkerResult({ ...base, stdout: bigOutput, maxOutputSize: 50 })
     expect(result.output).toContain('--- Output truncated')
+  })
+})
+
+describe('resolveExecConfig', () => {
+  let resolveExecConfig: typeof import('./shellUtils').resolveExecConfig
+
+  beforeEach(async () => {
+    ;({ resolveExecConfig } = await import('./shellUtils'))
+  })
+
+  it('uses bash on non-Windows when no shell specified', () => {
+    const cfg = resolveExecConfig('echo hi', {}, 30_000, 'darwin')
+    expect(cfg.shellCmd).toBe('bash')
+    expect(cfg.shellArgs).toEqual(['-c'])
+    expect(cfg.finalCommand).toBe('echo hi')
+  })
+
+  it('uses powershell on Windows when no shell specified', () => {
+    const cfg = resolveExecConfig('dir', {}, 30_000, 'win32')
+    expect(cfg.shellCmd).toBe('pwsh.exe')
+    expect(cfg.finalCommand).toContain('[Console]::OutputEncoding')
+    expect(cfg.finalCommand).toContain('dir')
+  })
+
+  it('uses default timeout when not specified', () => {
+    const cfg = resolveExecConfig('ls', {}, 30_000, 'linux')
+    expect(cfg.timeout).toBe(30_000)
+  })
+
+  it('uses custom timeout when specified', () => {
+    const cfg = resolveExecConfig('ls', { timeout: 5000 }, 30_000, 'linux')
+    expect(cfg.timeout).toBe(5000)
+  })
+
+  it('uses custom shell when specified', () => {
+    const cfg = resolveExecConfig('echo hi', { shell: 'zsh' }, 30_000, 'darwin')
+    expect(cfg.shellCmd).toBe('zsh')
+    expect(cfg.shellArgs).toEqual(['-c'])
+    expect(cfg.finalCommand).toBe('echo hi')
+  })
+
+  it('wraps command for PowerShell shell', () => {
+    const cfg = resolveExecConfig('Get-Process', { shell: 'pwsh' }, 30_000, 'linux')
+    expect(cfg.shellCmd).toBe('pwsh')
+    expect(cfg.finalCommand).toContain('[Console]::OutputEncoding')
+    expect(cfg.finalCommand).toContain('Get-Process')
+  })
+
+  it('does not wrap bash commands with PowerShell prefix', () => {
+    const cfg = resolveExecConfig('ls -la', { shell: 'bash' }, 30_000, 'linux')
+    expect(cfg.finalCommand).toBe('ls -la')
   })
 })

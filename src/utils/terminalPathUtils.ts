@@ -95,6 +95,51 @@ export function processOsc7Buffer(
   }
 }
 
+/**
+ * Build PTY spawn options from the given config.
+ * Accepts platform as a parameter for testability.
+ */
+export function buildPtySpawnOptions(
+  opts: { cols?: number; rows?: number },
+  cwd: string,
+  env: Record<string, string | undefined>,
+  platform: string
+): Record<string, unknown> {
+  return {
+    name: 'xterm-256color',
+    cols: opts.cols || 120,
+    rows: opts.rows || 30,
+    cwd,
+    env: { ...env },
+    ...(platform === 'win32' ? { useConpty: true } : {}),
+  }
+}
+
+/**
+ * Probe clone roots and org candidates to find a local repo directory.
+ * Accepts a predicate for filesystem checks to keep this function pure.
+ */
+export function findRepoPath(
+  cloneRoots: string[],
+  orgCandidates: string[],
+  repo: string,
+  isValidDir: (dir: string) => boolean
+): string | null {
+  for (const root of cloneRoots) {
+    if (!isValidDir(root)) continue
+
+    for (const org of orgCandidates) {
+      const candidate = path.join(root, org, repo)
+      if (isValidDir(candidate)) return candidate
+    }
+
+    const directCandidate = path.join(root, repo)
+    if (isValidDir(directCandidate)) return directCandidate
+  }
+
+  return null
+}
+
 /** Build the PowerShell OSC 7 prompt-injection script. */
 function buildPowerShellOsc7Setup(): string {
   return [

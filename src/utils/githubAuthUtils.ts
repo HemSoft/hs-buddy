@@ -38,3 +38,19 @@ export function buildGhAuthTokenArgs(username?: string): string[] {
 export function isNonFatalGhStderr(stderr: string): boolean {
   return stderr.includes('Logging in to')
 }
+
+/**
+ * Validate CLI token output — warn on meaningful stderr, throw on empty token.
+ * Returns the trimmed token string on success.
+ */
+export function validateCliToken(stdout: string, stderr: string, username?: string): string {
+  if (stderr && !isNonFatalGhStderr(stderr)) {
+    console.warn('gh auth token stderr:', stderr)
+  }
+  const token = stdout.trim()
+  if (!token) {
+    const suffix = username ? ` for account '${username}'` : ''
+    throw new Error(`GitHub CLI returned empty token${suffix}`)
+  }
+  return token
+}

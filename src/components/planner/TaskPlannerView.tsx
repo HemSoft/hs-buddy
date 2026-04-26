@@ -9,6 +9,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useTodoistUpcoming, useTodoistProjects, useTaskActions } from '../../hooks/useTodoist'
+import { getErrorMessageWithFallback } from '../../utils/errorUtils'
 import type { TodoistTask, DayGroup, TodoistProject } from '../../types/todoist'
 import './TaskPlannerView.css'
 
@@ -256,7 +257,7 @@ function useTaskPlannerActions(
         if (!result.success) showActionError(result.error ?? 'Failed to complete task')
         /* v8 ignore stop */
       } catch (err) {
-        showActionError(err instanceof Error ? err.message : 'Failed to complete task')
+        showActionError(getErrorMessageWithFallback(err, 'Failed to complete task'))
       }
     },
     [complete, showActionError]
@@ -270,7 +271,7 @@ function useTaskPlannerActions(
         if (!result.success) showActionError(result.error ?? 'Failed to create task')
         /* v8 ignore stop */
       } catch (err) {
-        showActionError(err instanceof Error ? err.message : 'Failed to create task')
+        showActionError(getErrorMessageWithFallback(err, 'Failed to create task'))
       }
     },
     [create, showActionError]

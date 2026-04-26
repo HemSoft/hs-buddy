@@ -7,6 +7,7 @@ import {
   buildCreateWorklogBody,
   buildUpdateWorklogBody,
   summarizeWorklogs,
+  isCacheEntryValid,
 } from './tempoUtils'
 
 describe('resolveWorklogAccountKey', () => {
@@ -326,5 +327,64 @@ describe('summarizeWorklogs', () => {
       },
     ])
     expect(result.totalHours).toBe(4)
+  })
+})
+
+// ─── isCacheEntryValid ──────────────────────────────────
+
+describe('isCacheEntryValid', () => {
+  const TTL = 86_400_000 // 24h
+
+  it('returns true for entry within TTL', () => {
+    const now = 1_000_000
+    expect(isCacheEntryValid({ data: true, fetchedAt: now - 1000 }, TTL, now)).toBe(true)
+  })
+
+  it('returns false for entry past TTL', () => {
+    const now = 1_000_000
+    expect(isCacheEntryValid({ data: true, fetchedAt: now - TTL - 1 }, TTL, now)).toBe(false)
+  })
+
+  it('returns false for undefined entry', () => {
+    expect(isCacheEntryValid(undefined, TTL)).toBe(false)
+  })
+
+  it('returns false when data is undefined', () => {
+    expect(isCacheEntryValid({ data: undefined, fetchedAt: Date.now() }, TTL)).toBe(false)
+  })
+
+  it('returns false when fetchedAt is missing', () => {
+    expect(isCacheEntryValid({ data: 'val' }, TTL)).toBe(false)
+  })
+
+  it('treats fetchedAt=0 as valid (epoch timestamp)', () => {
+    expect(isCacheEntryValid({ data: 'val', fetchedAt: 0 }, TTL, 1000)).toBe(true)
+  })
+
+  it('treats data=false as valid (boolean false is not undefined)', () => {
+    const now = 1_000_000
+    expect(isCacheEntryValid({ data: false, fetchedAt: now - 1000 }, TTL, now)).toBe(true)
+  })
+
+  it('treats data=0 as valid (numeric zero is not undefined)', () => {
+    const now = 1_000_000
+    expect(isCacheEntryValid({ data: 0, fetchedAt: now - 1000 }, TTL, now)).toBe(true)
+  })
+
+  it('returns true at exact TTL boundary', () => {
+    const now = 1_000_000
+    // fetchedAt = now - TTL + 1 → age = TTL - 1 < TTL → valid
+    expect(isCacheEntryValid({ data: 'val', fetchedAt: now - TTL + 1 }, TTL, now)).toBe(true)
+  })
+
+  it('returns false at exact TTL expiry', () => {
+    const now = 1_000_000
+    // fetchedAt = now - TTL → age = TTL, not < TTL → invalid
+    expect(isCacheEntryValid({ data: 'val', fetchedAt: now - TTL }, TTL, now)).toBe(false)
+  })
+
+  it('uses Date.now() when now is not provided', () => {
+    const recent = Date.now() - 1000
+    expect(isCacheEntryValid({ data: 'val', fetchedAt: recent }, TTL)).toBe(true)
   })
 })

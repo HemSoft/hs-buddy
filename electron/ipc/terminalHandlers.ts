@@ -10,7 +10,10 @@ import {
   getOrgCandidates,
   processOsc7Buffer,
   buildTerminalShellArgs,
+  buildPtySpawnOptions,
+  findRepoPath,
 } from '../../src/utils/terminalPathUtils'
+import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 
 // node-pty is a native CJS module — use createRequire for ESM compatibility.
 // IMPORTANT: Load eagerly at module scope so it happens BEFORE OpenTelemetry's
@@ -137,21 +140,7 @@ function getCloneRootsLocal(): string[] {
 function resolveRepoPath(owner: string, repo: string): string | null {
   const cloneRoots = getCloneRootsLocal()
   const orgCandidates = getOrgCandidates(owner)
-
-  for (const root of cloneRoots) {
-    if (!existsSync(root)) continue
-
-    for (const org of orgCandidates) {
-      const candidate = path.join(root, org, repo)
-      if (isValidCwd(candidate)) return candidate
-    }
-
-    // Also check root/repo directly (no org subfolder)
-    const directCandidate = path.join(root, repo)
-    if (isValidCwd(directCandidate)) return directCandidate
-  }
-
-  return null
+  return findRepoPath(cloneRoots, orgCandidates, repo, isValidCwd)
 }
 
 /** Builds shell args. For Windows PowerShell, generates OSC 7 setup via encoded command. */
@@ -241,13 +230,28 @@ function buildSpawnOptions(
   opts: { cols?: number; rows?: number },
   cwd: string
 ): Record<string, unknown> {
-  return {
-    name: 'xterm-256color',
-    cols: opts.cols || 120,
-    rows: opts.rows || 30,
+  return buildPtySpawnOptions(
+    opts,
     cwd,
-    env: { ...process.env },
-    ...(process.platform === 'win32' ? { useConpty: true } : {}),
+    process.env as Record<string, string | undefined>,
+    process.platform
+  )
+}
+
+/** Idempotent cleanup: clear timer → dispose listeners → kill PTY. */
+function cleanupTerminalSession(session: TerminalSession): void {
+  if (session.startupTimer) clearTimeout(session.startupTimer)
+  for (const d of session.disposables) {
+    try {
+      d.dispose()
+    } catch {
+      /* already disposed */
+    }
+  }
+  try {
+    session.pty.kill()
+  } catch {
+    /* already dead */
   }
 }
 
@@ -280,7 +284,7 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to spawn terminal',
+          error: getErrorMessageWithFallback(error, 'Failed to spawn terminal'),
         }
       }
 
@@ -329,19 +333,7 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
   ipcMain.handle('terminal:kill', async (_event, sessionId: string) => {
     const session = sessions.get(sessionId)
     if (!session) return { success: false, error: 'Session not found' }
-    if (session.startupTimer) clearTimeout(session.startupTimer)
-    for (const d of session.disposables) {
-      try {
-        d.dispose()
-      } catch {
-        // Already disposed
-      }
-    }
-    try {
-      session.pty.kill()
-    } catch {
-      // Already dead
-    }
+    cleanupTerminalSession(session)
     sessions.delete(sessionId)
     return { success: true }
   })
@@ -349,19 +341,7 @@ export function registerTerminalHandlers(_win: BrowserWindow): void {
   // Clean up all PTY sessions on app quit
   app.on('before-quit', () => {
     for (const [id, session] of sessions) {
-      if (session.startupTimer) clearTimeout(session.startupTimer)
-      for (const d of session.disposables) {
-        try {
-          d.dispose()
-        } catch {
-          // Already disposed
-        }
-      }
-      try {
-        session.pty.kill()
-      } catch {
-        // PTY may already be dead
-      }
+      cleanupTerminalSession(session)
       sessions.delete(id)
     }
   })

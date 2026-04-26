@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasPRReviewMetadata, mapModelInfo } from './copilotPromptUtils'
+import { hasPRReviewMetadata, mapModelInfo, findAccountForOrgs } from './copilotPromptUtils'
 import type { CopilotPromptRequest, PRReviewMetadata } from './copilotPromptUtils'
 
 describe('hasPRReviewMetadata', () => {
@@ -65,6 +65,41 @@ describe('hasPRReviewMetadata', () => {
       expect(_repo).toBe('myrepo')
       expect(_num).toBe(42)
     }
+  })
+})
+
+describe('findAccountForOrgs', () => {
+  const accounts = [
+    { org: 'MyOrg', username: 'alice' },
+    { org: 'OtherOrg', username: 'bob' },
+  ]
+
+  it('returns matching username for first matching org', () => {
+    expect(findAccountForOrgs(accounts, ['myorg'])).toBe('alice')
+  })
+
+  it('matches case-insensitively', () => {
+    expect(findAccountForOrgs(accounts, ['MYORG'])).toBe('alice')
+  })
+
+  it('returns first match when multiple orgs could match', () => {
+    expect(findAccountForOrgs(accounts, ['otherorg', 'myorg'])).toBe('bob')
+  })
+
+  it('returns undefined when no org matches', () => {
+    expect(findAccountForOrgs(accounts, ['nope'])).toBeUndefined()
+  })
+
+  it('returns undefined for empty orgs array', () => {
+    expect(findAccountForOrgs(accounts, [])).toBeUndefined()
+  })
+
+  it('returns undefined for empty accounts array', () => {
+    expect(findAccountForOrgs([], ['myorg'])).toBeUndefined()
+  })
+
+  it('preserves prompt-org ordering (first org wins)', () => {
+    expect(findAccountForOrgs(accounts, ['myorg', 'otherorg'])).toBe('alice')
   })
 })
 

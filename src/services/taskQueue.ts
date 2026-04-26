@@ -265,24 +265,16 @@ export class TaskQueue {
       const result = await task.execute(task.abortController.signal)
 
       // Check if cancelled during execution (status may have changed via cancel())
-      const currentStatus = task.status as TaskStatus
-      if (currentStatus === 'cancelled') {
-        this.stats.running--
+      if ((task.status as TaskStatus) === 'cancelled') {
         this.stats.cancelled++
-        this.runningTasks.delete(task.id)
         task.reject(new DOMException('Task cancelled', 'AbortError'))
       } else {
         task.status = 'completed'
-        this.stats.running--
         this.stats.completed++
-        this.runningTasks.delete(task.id)
         task.resolve(result)
         this.callbacks.onTaskComplete?.(task.id, task.name)
       }
     } catch (error) {
-      this.runningTasks.delete(task.id)
-      this.stats.running--
-
       /* v8 ignore start */
       if (isAbortError(error)) {
         /* v8 ignore stop */
@@ -295,6 +287,9 @@ export class TaskQueue {
         task.reject(error)
         this.callbacks.onTaskError?.(task.id, error, task.name)
       }
+    } finally {
+      this.runningTasks.delete(task.id)
+      this.stats.running--
     }
 
     // Process next task

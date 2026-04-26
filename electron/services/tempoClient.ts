@@ -10,6 +10,7 @@ import {
   buildUpdateWorklogBody,
   summarizeWorklogs,
   CAPITALIZATION_FIELD,
+  isCacheEntryValid,
 } from '../../src/utils/tempoUtils'
 import type {
   TempoApiWorklog,
@@ -135,20 +136,20 @@ async function getAccountId(): Promise<string> {
 }
 
 async function resolveIssueKey(issueId: number): Promise<{ key: string; summary: string }> {
-  // 1. In-memory cache
   const memCached = issueKeyCache.get(issueId)
   if (memCached) return memCached
 
-  // 2. Disk cache
-  const diskCache = readDataCache()
-  const diskEntry = diskCache[`tempo:issue:${issueId}`]
+  const diskEntry = readDataCache()[`tempo:issue:${issueId}`]
   if (diskEntry?.data) {
     const entry = diskEntry.data as { key: string; summary: string }
     issueKeyCache.set(issueId, entry)
     return entry
   }
 
-  // 3. Live Jira lookup
+  return fetchIssueKeyLive(issueId)
+}
+
+async function fetchIssueKeyLive(issueId: number): Promise<{ key: string; summary: string }> {
   const jiraHeaders = getJiraHeaders()
   if (!jiraHeaders) return { key: `#${issueId}`, summary: '' }
   try {
@@ -378,12 +379,8 @@ const capexCache = new Map<string, boolean>()
 function resolveCapexFromDiskCache(issueKey: string): boolean | null {
   const diskCache = readDataCache()
   const diskEntry = diskCache[`tempo:capex:${issueKey}`]
-  if (
-    diskEntry?.data !== undefined &&
-    diskEntry.fetchedAt &&
-    Date.now() - diskEntry.fetchedAt < DAY
-  ) {
-    return diskEntry.data as boolean
+  if (isCacheEntryValid(diskEntry, DAY)) {
+    return diskEntry!.data as boolean
   }
   return null
 }
@@ -426,21 +423,21 @@ async function resolveCapex(issueKey: string): Promise<boolean> {
     return diskCached
   }
 
+  return resolveCapexLive(issueKey)
+}
+
+async function resolveCapexLive(issueKey: string): Promise<boolean> {
   const jiraHeaders = getJiraHeaders()
   if (!jiraHeaders) {
     capexCache.set(issueKey, false)
     return false
   }
-
   try {
     const result = await resolveCapexFromJira(issueKey, jiraHeaders)
     cacheCapexResult(issueKey, result)
     return result
   } catch (err) {
-    console.error(
-      `[CapEx] Failed to resolve ${issueKey}:`,
-      err instanceof Error ? err.message : err
-    )
+    console.error(`[CapEx] Failed to resolve ${issueKey}:`, getErrorMessage(err))
     capexCache.set(issueKey, false)
     return false
   }

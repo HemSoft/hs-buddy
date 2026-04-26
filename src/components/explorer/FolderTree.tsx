@@ -1,5 +1,6 @@
 import { useReducer, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File } from 'lucide-react'
+import { getErrorMessageWithFallback } from '../../utils/errorUtils'
 import './FolderTree.css'
 
 interface DirEntry {
@@ -122,7 +123,7 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
           /* v8 ignore stop */
           dispatch({
             type: 'root-load-error',
-            error: err instanceof Error ? err.message : 'Failed to load directory',
+            error: getErrorMessageWithFallback(err, 'Failed to load directory'),
           })
       })
     return () => {

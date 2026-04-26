@@ -7,6 +7,7 @@ import {
   buildYahooFinanceUrl,
   parseChartResponse,
 } from '../../src/utils/financeCalc'
+import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 
 export function registerFinanceHandlers(): void {
   ipcMain.handle(
@@ -33,7 +34,7 @@ export function registerFinanceHandlers(): void {
       } catch (err) {
         return {
           success: false,
-          error: err instanceof Error ? err.message : 'Fetch failed',
+          error: getErrorMessageWithFallback(err, 'Fetch failed'),
         }
       }
     }

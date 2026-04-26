@@ -121,6 +121,35 @@ export function buildWorkerResult(ev: WorkerCloseEvent): WorkerResultData {
   }
 }
 
+// ─── Exec config resolver ───────────────────────────────
+
+export interface ExecConfig {
+  timeout: number
+  shellCmd: string
+  shellArgs: string[]
+  finalCommand: string
+}
+
+/**
+ * Resolve the shell, timeout, and command for an exec invocation.
+ * Handles ?? defaults for shell and timeout internally.
+ */
+export function resolveExecConfig(
+  command: string,
+  config: { shell?: string; timeout?: number },
+  defaultTimeout: number,
+  platform: string
+): ExecConfig {
+  const timeout = config.timeout ?? defaultTimeout
+  const isWin = platform === 'win32'
+  const shell = config.shell ?? (isWin ? 'powershell' : 'bash')
+  const { command: shellCmd, args: shellArgs } = getShellArgs(shell, isWin)
+  const finalCommand = isPowerShell(shell, isWin)
+    ? `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${command}`
+    : command
+  return { timeout, shellCmd, shellArgs, finalCommand }
+}
+
 /** Build a prompt string for a skill invocation. */
 export function buildSkillPrompt(skillName: string, action?: string, params?: unknown): string {
   let prompt = `Use the "${skillName}" skill`

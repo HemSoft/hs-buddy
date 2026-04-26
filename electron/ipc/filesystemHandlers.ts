@@ -3,6 +3,7 @@ import type { Dirent } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { detectLanguage } from '../../src/utils/detectLanguage'
+import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 import { shouldIncludeDirEntry, compareDirEntries } from '../../src/utils/dirEntryUtils'
 
 const MAX_FILE_SIZE = 1_048_576 // 1 MB
@@ -97,7 +98,7 @@ export function registerFilesystemHandlers(): void {
       } catch (err) {
         return {
           entries: [],
-          error: err instanceof Error ? err.message : 'Failed to read directory',
+          error: getErrorMessageWithFallback(err, 'Failed to read directory'),
         }
       }
     }
@@ -138,7 +139,7 @@ export function registerFilesystemHandlers(): void {
           content: '',
           language: 'plaintext',
           size: 0,
-          error: err instanceof Error ? err.message : 'Failed to read file',
+          error: getErrorMessageWithFallback(err, 'Failed to read file'),
         }
       }
     }

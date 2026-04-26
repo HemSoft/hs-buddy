@@ -178,16 +178,17 @@ export function registerConfigHandlers(): void {
   ipcMain.handle('config:play-notification-sound', async () => {
     const soundPath = configManager.getNotificationSoundPath()
     if (!isSupportedNotificationSoundPath(soundPath)) return null
+    return readNotificationSoundAsBase64(soundPath)
+  })
 
+  async function readNotificationSoundAsBase64(
+    soundPath: string
+  ): Promise<{ base64: string; mimeType: string } | null> {
     try {
       const soundFile = await stat(soundPath)
-      if (!soundFile.isFile() || soundFile.size > MAX_NOTIFICATION_SOUND_BYTES) {
-        return null
-      }
-
+      if (!soundFile.isFile() || soundFile.size > MAX_NOTIFICATION_SOUND_BYTES) return null
       const buffer = await readFile(soundPath)
       if (buffer.length > MAX_NOTIFICATION_SOUND_BYTES) return null
-
       return {
         base64: buffer.toString('base64'),
         mimeType: getNotificationSoundMimeType(soundPath),
@@ -195,23 +196,20 @@ export function registerConfigHandlers(): void {
     } catch {
       return null
     }
-  })
+  }
 
   // Finance Watchlist
   ipcMain.handle('config:get-finance-watchlist', () => {
     return configManager.getFinanceWatchlist()
   })
 
-  ipcMain.handle(
-    'config:set-finance-watchlist',
-    (_event: IpcMainInvokeEvent, symbols: unknown) => {
-      if (!Array.isArray(symbols) || !symbols.every(s => typeof s === 'string')) {
-        return { success: false }
-      }
-      configManager.setFinanceWatchlist(symbols)
-      return { success: true }
+  ipcMain.handle('config:set-finance-watchlist', (_event: IpcMainInvokeEvent, symbols: unknown) => {
+    if (!Array.isArray(symbols) || !symbols.every(s => typeof s === 'string')) {
+      return { success: false }
     }
-  )
+    configManager.setFinanceWatchlist(symbols)
+    return { success: true }
+  })
 
   // Full Config
   ipcMain.handle('config:get-config', () => {

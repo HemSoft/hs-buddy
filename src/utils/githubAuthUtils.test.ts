@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   parseActiveGitHubAccount,
   buildGhAuthTokenArgs,
   isNonFatalGhStderr,
+  validateCliToken,
 } from './githubAuthUtils'
 
 describe('parseActiveGitHubAccount', () => {
@@ -88,5 +89,42 @@ describe('isNonFatalGhStderr', () => {
 
   it('returns false for empty stderr', () => {
     expect(isNonFatalGhStderr('')).toBe(false)
+  })
+})
+
+describe('validateCliToken', () => {
+  it('returns trimmed token on valid output', () => {
+    expect(validateCliToken('  gho_abc123\n', '', undefined)).toBe('gho_abc123')
+  })
+
+  it('warns on meaningful stderr', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    validateCliToken('gho_abc123', 'some error output', undefined)
+    expect(spy).toHaveBeenCalledWith('gh auth token stderr:', 'some error output')
+    spy.mockRestore()
+  })
+
+  it('does not warn on non-fatal gh stderr', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    validateCliToken('gho_abc123', 'Logging in to github.com', undefined)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('throws when token is empty', () => {
+    expect(() => validateCliToken('', '', undefined)).toThrow('GitHub CLI returned empty token')
+  })
+
+  it('throws with username suffix when token is empty and username provided', () => {
+    expect(() => validateCliToken('  \n', '', 'octocat')).toThrow(
+      "GitHub CLI returned empty token for account 'octocat'"
+    )
+  })
+
+  it('does not warn when stderr is empty', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    validateCliToken('gho_abc123', '', undefined)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
   })
 })

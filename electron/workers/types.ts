@@ -2,14 +2,9 @@
  * Shared types for the worker dispatch system.
  */
 
-/** Result returned by any worker after execution */
-export interface WorkerResult {
-  success: boolean
-  output?: string
-  error?: string
-  exitCode?: number
-  duration: number // milliseconds
-}
+import type { WorkerResult } from '../../src/types/worker'
+
+export type { WorkerResult }
 
 /** Job config shape (mirrors Convex schema) */
 export interface JobConfig {

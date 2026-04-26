@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import type { CopilotSession, SessionScanResult, SessionSummary } from '../types/copilotSession'
+import { getErrorMessageWithFallback } from '../utils/errorUtils'
 import { useIsMounted } from './useIsMounted'
 
 export function useCopilotSessions() {
@@ -20,7 +21,7 @@ export function useCopilotSessions() {
       }
     } catch (err) {
       if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to scan sessions')
+        setError(getErrorMessageWithFallback(err, 'Failed to scan sessions'))
       }
     } finally {
       if (mountedRef.current) setIsLoading(false)
@@ -47,7 +48,7 @@ export function useCopilotSessionDetail() {
       }
     } catch (err) {
       if (requestIdRef.current === thisRequest) {
-        setError(err instanceof Error ? err.message : 'Failed to load session')
+        setError(getErrorMessageWithFallback(err, 'Failed to load session'))
       }
     } finally {
       if (requestIdRef.current === thisRequest) {

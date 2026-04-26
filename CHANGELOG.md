@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.740] - 2026-04-26
+
+### Changed
+
+- Deduplicate error-handling pattern into errorUtils
+- Reduce CRAP scores by extracting pure utilities from electron/
+- Reduce complexity in utility functions and consolidate cleanup
+
+### Fixed
+
+- Address 5 PR review comments
+- Use createRequire for ESM-compatible require.resolve in copilotClient
+- Address PR review feedback for ipcClassification and workerUtils
+
 ## [0.1.739] - 2026-04-26
 
 ### Fixed

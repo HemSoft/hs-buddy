@@ -6,6 +6,8 @@
 
 import { ipcMain } from 'electron'
 import { withSpan, recordIpcCall, emitLog } from '../telemetry'
+import { getErrorMessage, getErrorStack } from '../../src/utils/errorUtils'
+import { classifyIpcResult, applyIpcSpanAttributes } from '../../src/utils/ipcClassification'
 
 const originalHandle = ipcMain.handle.bind(ipcMain)
 
@@ -31,13 +33,7 @@ export function instrumentIpcHandlers(): void {
       try {
         const result = await withSpan(`ipc/${channel}`, { 'ipc.channel': channel }, async span => {
           const res = await listener(event, ...args)
-          // Tag error results (convention: { success: false })
-          if (res && typeof res === 'object' && 'success' in res && !res.success) {
-            span.setAttribute('ipc.result', 'error')
-            if ('error' in res) span.setAttribute('ipc.error_message', String(res.error))
-          } else {
-            span.setAttribute('ipc.result', 'ok')
-          }
+          applyIpcSpanAttributes(span, classifyIpcResult(res))
           return res
         })
         return result
@@ -45,8 +41,8 @@ export function instrumentIpcHandlers(): void {
         error = true
         emitLog('ERROR', `IPC handler failed: ${channel}`, {
           'ipc.channel': channel,
-          'error.message': err instanceof Error ? err.message : String(err),
-          'error.stack': err instanceof Error ? (err.stack ?? '') : '',
+          'error.message': getErrorMessage(err),
+          'error.stack': getErrorStack(err),
         })
         throw err
       } finally {

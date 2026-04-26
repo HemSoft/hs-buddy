@@ -7,7 +7,7 @@
 
 import { spawn } from 'node:child_process'
 import type { Worker, WorkerResult, JobConfig } from './types'
-import { getShellArgs, isPowerShell, buildWorkerResult } from '../../src/utils/shellUtils'
+import { resolveExecConfig, buildWorkerResult } from '../../src/utils/shellUtils'
 
 const DEFAULT_TIMEOUT = 30_000 // 30 seconds
 const MAX_OUTPUT_SIZE = 512_000 // 512KB per stream
@@ -24,16 +24,12 @@ export const execWorker: Worker = {
       }
     }
 
-    const timeout = config.timeout ?? DEFAULT_TIMEOUT
-    const isWin = process.platform === 'win32'
-    const defaultShell = isWin ? 'powershell' : 'bash'
-    const shell = config.shell ?? defaultShell
-    const { command: shellCmd, args: shellArgs } = getShellArgs(shell, isWin)
-
-    // For PowerShell, ensure console output encoding is UTF-8
-    const finalCommand = isPowerShell(shell)
-      ? `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${config.command!}`
-      : config.command!
+    const { timeout, shellCmd, shellArgs, finalCommand } = resolveExecConfig(
+      config.command,
+      { shell: config.shell, timeout: config.timeout },
+      DEFAULT_TIMEOUT,
+      process.platform
+    )
 
     return new Promise<WorkerResult>(resolve => {
       let stdout = ''

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   getErrorMessage,
+  getErrorMessageWithFallback,
+  getErrorStack,
   getUserFacingErrorMessage,
   isAbortError,
   throwIfAborted,
@@ -63,6 +65,53 @@ describe('getUserFacingErrorMessage', () => {
 
   it('returns the string for a meaningful string error', () => {
     expect(getUserFacingErrorMessage('network error', 'fallback')).toBe('network error')
+  })
+})
+
+describe('getErrorMessageWithFallback', () => {
+  it('returns the error message for a real Error', () => {
+    expect(getErrorMessageWithFallback(new Error('boom'), 'fallback')).toBe('boom')
+  })
+
+  it('returns fallback for a string', () => {
+    expect(getErrorMessageWithFallback('string error', 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for a number', () => {
+    expect(getErrorMessageWithFallback(42, 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for null', () => {
+    expect(getErrorMessageWithFallback(null, 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for undefined', () => {
+    expect(getErrorMessageWithFallback(undefined, 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for a plain object', () => {
+    expect(getErrorMessageWithFallback({ key: 'val' }, 'fallback')).toBe('fallback')
+  })
+})
+
+describe('getErrorStack', () => {
+  it('returns the stack from an Error instance', () => {
+    const error = new Error('fail')
+    expect(getErrorStack(error)).toContain('Error: fail')
+  })
+
+  it('returns empty string for an Error without stack', () => {
+    const error = new Error('no-stack')
+    error.stack = undefined
+    expect(getErrorStack(error)).toBe('')
+  })
+
+  it('returns empty string for a non-Error value', () => {
+    expect(getErrorStack('string error')).toBe('')
+    expect(getErrorStack(42)).toBe('')
+    expect(getErrorStack(null)).toBe('')
+    expect(getErrorStack(undefined)).toBe('')
+    expect(getErrorStack({ message: 'not an error' })).toBe('')
   })
 })
 

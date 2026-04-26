@@ -5,6 +5,8 @@ import {
   getCloneRoots,
   processOsc7Buffer,
   buildTerminalShellArgs,
+  buildPtySpawnOptions,
+  findRepoPath,
 } from './terminalPathUtils'
 
 // ─── isValidRepoSlug ────────────────────────────────────
@@ -194,5 +196,105 @@ describe('buildTerminalShellArgs', () => {
   it('returns empty array for non-PowerShell shell on Windows', () => {
     expect(buildTerminalShellArgs('bash', 'win32')).toEqual([])
     expect(buildTerminalShellArgs('cmd.exe', 'win32')).toEqual([])
+  })
+})
+
+// ─── buildPtySpawnOptions ───────────────────────────────
+
+describe('buildPtySpawnOptions', () => {
+  it('uses provided cols and rows', () => {
+    const result = buildPtySpawnOptions(
+      { cols: 80, rows: 24 },
+      '/tmp',
+      { PATH: '/usr/bin' },
+      'darwin'
+    )
+    expect(result.cols).toBe(80)
+    expect(result.rows).toBe(24)
+    expect(result.cwd).toBe('/tmp')
+    expect(result.name).toBe('xterm-256color')
+  })
+
+  it('defaults cols to 120 and rows to 30', () => {
+    const result = buildPtySpawnOptions({}, '/tmp', {}, 'linux')
+    expect(result.cols).toBe(120)
+    expect(result.rows).toBe(30)
+  })
+
+  it('clones env rather than using the original reference', () => {
+    const env = { PATH: '/usr/bin' }
+    const result = buildPtySpawnOptions({}, '/tmp', env, 'darwin')
+    expect(result.env).toEqual(env)
+    expect(result.env).not.toBe(env)
+  })
+
+  it('adds useConpty on win32', () => {
+    const result = buildPtySpawnOptions({}, 'C:\\Users', {}, 'win32')
+    expect(result).toHaveProperty('useConpty', true)
+  })
+
+  it('does not add useConpty on non-win32', () => {
+    const result = buildPtySpawnOptions({}, '/tmp', {}, 'darwin')
+    expect(result).not.toHaveProperty('useConpty')
+  })
+
+  it('uses falsy fallback for cols=0 and rows=0', () => {
+    const result = buildPtySpawnOptions({ cols: 0, rows: 0 }, '/tmp', {}, 'linux')
+    expect(result.cols).toBe(120)
+    expect(result.rows).toBe(30)
+  })
+})
+
+// ─── findRepoPath ───────────────────────────────────────
+
+describe('findRepoPath', () => {
+  it('returns first matching candidate via org subfolder', () => {
+    const validDirs = new Set(['/github', '/github/acme/my-repo'])
+    const result = findRepoPath(['/github'], ['acme', 'Acme'], 'my-repo', dir => validDirs.has(dir))
+    expect(result).toBe('/github/acme/my-repo')
+  })
+
+  it('skips roots that do not exist', () => {
+    const validDirs = new Set(['/repos', '/repos/acme/my-repo'])
+    const result = findRepoPath(['/github', '/repos'], ['acme'], 'my-repo', dir =>
+      validDirs.has(dir)
+    )
+    expect(result).toBe('/repos/acme/my-repo')
+  })
+
+  it('falls back to direct root/repo when org subfolder does not match', () => {
+    const validDirs = new Set(['/github', '/github/my-repo'])
+    const result = findRepoPath(['/github'], ['acme'], 'my-repo', dir => validDirs.has(dir))
+    expect(result).toBe('/github/my-repo')
+  })
+
+  it('returns null when no paths match', () => {
+    const result = findRepoPath(['/github', '/repos'], ['acme'], 'missing-repo', () => false)
+    expect(result).toBeNull()
+  })
+
+  it('earlier root beats later root', () => {
+    const validDirs = new Set(['/first', '/first/org/repo', '/second', '/second/org/repo'])
+    const result = findRepoPath(['/first', '/second'], ['org'], 'repo', dir => validDirs.has(dir))
+    expect(result).toBe('/first/org/repo')
+  })
+
+  it('org subfolder beats direct match', () => {
+    const validDirs = new Set(['/github', '/github/acme/repo', '/github/repo'])
+    const result = findRepoPath(['/github'], ['acme'], 'repo', dir => validDirs.has(dir))
+    expect(result).toBe('/github/acme/repo')
+  })
+
+  it('preserves org candidate order from getOrgCandidates', () => {
+    const validDirs = new Set(['/root', '/root/Acme/repo', '/root/acme/repo'])
+    const result = findRepoPath(['/root'], ['acme', 'Acme'], 'repo', dir => validDirs.has(dir))
+    expect(result).toBe('/root/acme/repo')
+  })
+
+  it('skips root when org and direct candidates both fail', () => {
+    // Root exists but neither org subfolder nor direct match exists
+    const validDirs = new Set(['/root'])
+    const result = findRepoPath(['/root'], ['acme'], 'missing', dir => validDirs.has(dir))
+    expect(result).toBeNull()
   })
 })

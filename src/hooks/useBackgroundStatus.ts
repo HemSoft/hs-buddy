@@ -45,14 +45,17 @@ const TASK_LABELS: Record<string, string> = {
   'need-a-nudge': 'Needs a nudge',
 }
 
+const PREFIX_LABELS: ReadonlyArray<readonly [string, string]> = [
+  ['org-detail-overview-', 'Org Overview'],
+  ['org-detail-members-', 'Org Members'],
+  ['org-detail-copilot-', 'Org Copilot'],
+  ['refresh-org-', 'Organizations'],
+]
+
 export function getFriendlyTaskLabel(taskName: string | null): string | null {
   if (!taskName) return null
   if (TASK_LABELS[taskName]) return TASK_LABELS[taskName]
-  if (taskName.startsWith('org-detail-overview-')) return 'Org Overview'
-  if (taskName.startsWith('org-detail-members-')) return 'Org Members'
-  if (taskName.startsWith('org-detail-copilot-')) return 'Org Copilot'
-  if (taskName.startsWith('refresh-org-')) return 'Organizations'
-  return taskName
+  return PREFIX_LABELS.find(([prefix]) => taskName.startsWith(prefix))?.[1] ?? taskName
 }
 
 /**

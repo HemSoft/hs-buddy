@@ -79,15 +79,22 @@ function collectWorkspaceSessions(wsRoot: string, hash: string): SessionSummary[
   }
 
   const workspaceName = resolveWorkspaceName(path.join(wsRoot, hash))
-  const results: SessionSummary[] = []
+  return files.flatMap(file => parseSessionFile(wsRoot, hash, workspaceName, file))
+}
 
-  for (const file of files) {
-    const filePath = path.join(chatDir, file)
-    try {
-      const stat = fs.statSync(filePath)
-      if (stat.size === 0) continue
-      const info = extractScanInfo(filePath)
-      results.push({
+function parseSessionFile(
+  wsRoot: string,
+  hash: string,
+  workspaceName: string,
+  file: string
+): SessionSummary[] {
+  const filePath = path.join(wsRoot, hash, 'chatSessions', file)
+  try {
+    const stat = fs.statSync(filePath)
+    if (stat.size === 0) return []
+    const info = extractScanInfo(filePath)
+    return [
+      {
         sessionId: path.basename(file, '.jsonl'),
         filePath,
         workspaceHash: hash,
@@ -99,12 +106,11 @@ function collectWorkspaceSessions(wsRoot: string, hash: string): SessionSummary[
         agent: info.agent,
         createdAt: info.createdAt,
         requestCount: info.requestCount,
-      })
-    } catch {
-      // skip unreadable
-    }
+      },
+    ]
+  } catch {
+    return []
   }
-  return results
 }
 
 export function scanCopilotSessions(): SessionScanResult {
@@ -151,45 +157,48 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
       processSessionLine(kind, keyPath, line, state)
     })
 
-    rl.on('close', () => {
-      if (!state.init || !state.init.sessionId) {
-        resolve(null)
-        return
-      }
-
-      // Build results sorted by request index, with prompts assigned
-      const results: SessionRequestResult[] = []
-      const sortedIndices = [...state.resultsByIndex.keys()].sort((a, b) => a - b)
-      for (const idx of sortedIndices) {
-        const r = state.resultsByIndex.get(idx)!
-        r.prompt = state.prompts.get(idx) ?? ''
-        results.push(r)
-      }
-
-      const agg = aggregateResults(results)
-
-      resolve({
-        sessionId: state.init!.sessionId,
-        title: state.title || `Session ${state.init!.sessionId.slice(0, 8)}`,
-        startTime: state.init!.creationDate,
-        model: state.init!.model,
-        requestCount: results.length,
-        results,
-        totalPromptTokens: agg.totalPromptTokens,
-        totalOutputTokens: agg.totalOutputTokens,
-        totalToolCalls: agg.totalToolCalls,
-        toolsUsed: agg.allToolNames,
-        totalDurationMs: agg.totalDurationMs,
-        workspaceHash,
-        filePath,
-      })
-    })
-
+    rl.on('close', () => resolve(buildSessionFromState(state, workspaceHash, filePath)))
     rl.on('error', () => resolve(null))
     stream.on('error', () => {
       rl.close()
       resolve(null)
     })
+  })
+}
+
+function buildSessionFromState(
+  state: SessionParseState,
+  workspaceHash: string,
+  filePath: string
+): CopilotSession | null {
+  if (!state.init?.sessionId) return null
+
+  const results = buildSortedResults(state)
+  const agg = aggregateResults(results)
+
+  return {
+    sessionId: state.init.sessionId,
+    title: state.title || `Session ${state.init.sessionId.slice(0, 8)}`,
+    startTime: state.init.creationDate,
+    model: state.init.model,
+    requestCount: results.length,
+    results,
+    totalPromptTokens: agg.totalPromptTokens,
+    totalOutputTokens: agg.totalOutputTokens,
+    totalToolCalls: agg.totalToolCalls,
+    toolsUsed: agg.allToolNames,
+    totalDurationMs: agg.totalDurationMs,
+    workspaceHash,
+    filePath,
+  }
+}
+
+function buildSortedResults(state: SessionParseState): SessionRequestResult[] {
+  const sortedIndices = [...state.resultsByIndex.keys()].sort((a, b) => a - b)
+  return sortedIndices.map(idx => {
+    const r = state.resultsByIndex.get(idx)!
+    r.prompt = state.prompts.get(idx) ?? ''
+    return r
   })
 }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
+import { getErrorMessage, getErrorMessageWithFallback } from '../utils/errorUtils'
 
 export interface QuoteData {
   symbol: string
@@ -82,7 +83,7 @@ function sanitizeWatchlist(raw: unknown): string[] | null {
 /** Extract the rejection message from a Promise.allSettled rejected entry. */
 function rejectionMessage(reason: unknown): string {
   /* v8 ignore start */
-  return reason instanceof Error ? reason.message : String(reason)
+  return getErrorMessage(reason)
   /* v8 ignore stop */
 }
 
@@ -182,7 +183,7 @@ export function useFinance() {
             quotes: prev.quotes,
             loading: false,
             /* v8 ignore start */
-            error: err instanceof Error ? err.message : 'Failed to fetch quotes',
+            error: getErrorMessageWithFallback(err, 'Failed to fetch quotes'),
             /* v8 ignore stop */
             lastFetchedAt: prev.lastFetchedAt,
           }))

@@ -83,16 +83,13 @@ async function resolveSshHost(host: string): Promise<string | null> {
 async function getGitHubSlug(originUrl: string): Promise<string | null> {
   const parsed = parseGitRemote(originUrl)
   if (!parsed) return null
-
   if (isGitHubHost(parsed.host)) return parsed.slug
+  return parsed.scheme === 'ssh' ? await resolveSlugViaSsh(parsed) : null
+}
 
-  // SSH aliases: resolve the real hostname via ssh -G
-  if (parsed.scheme === 'ssh') {
-    const resolvedHost = await resolveSshHost(parsed.host)
-    return resolvedHost && isGitHubHost(resolvedHost) ? parsed.slug : null
-  }
-
-  return null
+async function resolveSlugViaSsh(parsed: { host: string; slug: string }): Promise<string | null> {
+  const resolvedHost = await resolveSshHost(parsed.host)
+  return resolvedHost && isGitHubHost(resolvedHost) ? parsed.slug : null
 }
 
 async function resolveDefaultBranch(gitRoot: string): Promise<string> {

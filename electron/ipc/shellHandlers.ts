@@ -9,17 +9,20 @@ import { isPrivateIP, extractPageTitle, validateUrl } from '../../src/utils/netw
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+/** Check DNS results for private IP addresses. Throws if any found. */
+function assertNoPrivateIPs(results: Array<{ address: string }>): void {
+  for (const { address } of results) {
+    if (isPrivateIP(address)) throw new Error('Internal URLs not allowed')
+  }
+}
+
 async function validateUrlWithDns(url: string): Promise<URL> {
   const parsed = validateUrl(url)
   const hostname = parsed.hostname.toLowerCase()
 
   try {
     const result = await lookup(hostname, { all: true, verbatim: true })
-    for (const { address } of result) {
-      if (isPrivateIP(address)) {
-        throw new Error('Internal URLs not allowed')
-      }
-    }
+    assertNoPrivateIPs(result)
   } catch (err) {
     if (err instanceof Error && err.message === 'Internal URLs not allowed') throw err
     throw new Error(`DNS resolution failed for ${hostname}`, { cause: err })
@@ -40,16 +43,25 @@ async function readResponseBody(response: Response): Promise<string> {
   assertHtmlContentType(response)
   const reader = response.body?.getReader()
   if (!reader) throw new Error('No body')
+  try {
+    return await readChunksUpToLimit(reader, 64 * 1024)
+  } finally {
+    await reader.cancel()
+  }
+}
+
+async function readChunksUpToLimit(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  maxBytes: number
+): Promise<string> {
   const chunks: Uint8Array[] = []
   let totalBytes = 0
-  const MAX_BYTES = 64 * 1024
-  while (totalBytes < MAX_BYTES) {
+  while (totalBytes < maxBytes) {
     const { done, value } = await reader.read()
     if (done || !value) break
     chunks.push(value)
     totalBytes += value.length
   }
-  reader.cancel()
   return Buffer.concat(chunks).toString('utf-8')
 }
 

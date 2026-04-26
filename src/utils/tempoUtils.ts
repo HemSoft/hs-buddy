@@ -91,6 +91,16 @@ export function buildUpdateWorklogBody(
   return body
 }
 
+/** Check whether a disk cache entry is valid (non-undefined data within TTL). */
+export function isCacheEntryValid(
+  entry: { data?: unknown; fetchedAt?: number } | undefined,
+  ttlMs: number,
+  now?: number
+): boolean {
+  if (!entry || entry.data === undefined || typeof entry.fetchedAt !== 'number') return false
+  return (now ?? Date.now()) - entry.fetchedAt < ttlMs
+}
+
 /** Summarize worklogs into issue-level aggregates, sorted by total hours descending. */
 export function summarizeWorklogs(worklogs: TempoWorklog[]): {
   issueSummaries: TempoIssueSummary[]

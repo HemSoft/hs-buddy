@@ -24,6 +24,7 @@ import { execAsync } from '../utils'
 import {
   hasPRReviewMetadata,
   mapModelInfo,
+  findAccountForOrgs,
   type CopilotPromptRequest,
   type PRReviewMetadata,
 } from '../../src/utils/copilotPromptUtils'
@@ -102,25 +103,21 @@ class CopilotService {
     explicitAccount?: string
   ): Promise<string | undefined> {
     if (explicitAccount) return explicitAccount
-
     const orgs = this.extractGitHubOrgs(prompt)
-    if (orgs.length === 0) return undefined
+    return orgs.length > 0 ? await this.matchOrgToAccount(orgs) : undefined
+  }
 
-    // Query all GitHub accounts from Convex
+  /** Query Convex accounts and match against detected orgs. */
+  private async matchOrgToAccount(orgs: string[]): Promise<string | undefined> {
     try {
       const accounts = await this.convex.query(api.githubAccounts.list, {})
-      for (const org of orgs) {
-        const match = accounts.find(a => a.org.toLowerCase() === org)
-        if (match) {
-          console.log(`[CopilotService] Auto-resolved account "${match.username}" for org "${org}"`)
-          return match.username
-        }
-      }
+      const username = findAccountForOrgs(accounts, orgs)
+      if (username) console.log(`[CopilotService] Auto-resolved account "${username}"`)
+      return username
     } catch (err) {
       console.error('[CopilotService] Failed to query accounts for auto-resolution:', err)
+      return undefined
     }
-
-    return undefined
   }
 
   /**
@@ -318,10 +315,13 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
   async listModels(
     ghAccount?: string
   ): Promise<Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>> {
-    if (ghAccount) {
-      await this.switchAccount(ghAccount)
-    }
+    if (ghAccount) await this.switchAccount(ghAccount)
+    return this.listModelsWithRetry()
+  }
 
+  private async listModelsWithRetry(): Promise<
+    Array<{ id: string; name: string; isDisabled: boolean; billingMultiplier: number }>
+  > {
     const MAX_RETRIES = 2
     let lastError: Error | undefined
 

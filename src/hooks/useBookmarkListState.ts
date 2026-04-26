@@ -1,5 +1,6 @@
 import { useReducer, useMemo, useCallback, type DragEvent } from 'react'
 import { useBookmarks, useBookmarkMutations, useBookmarkCategories } from './useConvex'
+import { getErrorMessageWithFallback } from '../utils/errorUtils'
 import type { Id } from '../../convex/_generated/dataModel'
 
 /** Check if a string is a valid HTTP/HTTPS URL. */
@@ -230,7 +231,7 @@ export function useBookmarkListState(filterCategory?: string) {
     } catch (err) {
       dispatch({
         type: 'set-delete-error',
-        error: err instanceof Error ? err.message : 'Failed to delete bookmark',
+        error: getErrorMessageWithFallback(err, 'Failed to delete bookmark'),
       })
     }
   }, [state.deleteTarget, remove])

@@ -11,6 +11,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react'
+import { getErrorMessage } from '../../utils/errorUtils'
 import type { CrewProject, CrewSession, CrewChatMessage } from '../../types/crew'
 import './Crew.css'
 
@@ -358,7 +359,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
     } catch (err) {
       const errorMsg: CrewChatMessage = {
         role: 'assistant',
-        content: `Error: ${err instanceof Error ? err.message : String(err)}`,
+        content: `Error: ${getErrorMessage(err)}`,
         timestamp: Date.now(),
       }
       await window.crew.addMessage(project.id, errorMsg)

@@ -261,12 +261,11 @@ function deriveBranchIssue(
   ownerRepo: { owner: string; repo: string } | null
 ): { number: number; title: string; url: string } | null {
   /* v8 ignore start */
-  if (linkedIssues.length > 0) return null
+  if (linkedIssues.length > 0 || !ownerRepo) return null
   /* v8 ignore stop */
   const branch = branches?.headBranch || headBranch
-  if (!branch) return null
-  const match = branch.match(/issue-(\d+)/)
-  if (!match || !ownerRepo) return null
+  const match = branch?.match(/issue-(\d+)/)
+  if (!match) return null
   const num = Number(match[1])
   return {
     number: num,

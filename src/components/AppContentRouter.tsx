@@ -80,22 +80,38 @@ type ExactRouteContext = {
   onPRCountChange: (viewId: string, count: number) => void
 }
 
+const SETTINGS_ROUTES: Record<string, () => React.JSX.Element> = {
+  'settings-accounts': () => <SettingsAccounts />,
+  'settings-appearance': () => <SettingsAppearance />,
+  'settings-pullrequests': () => <SettingsPullRequests />,
+  'settings-copilot': () => <SettingsCopilot />,
+  'settings-notifications': () => <SettingsNotifications />,
+  'settings-advanced': () => <SettingsAdvanced />,
+}
+
 function renderSettingsRoute(activeViewId: string): React.JSX.Element | null {
-  switch (activeViewId) {
-    case 'settings-accounts':
-      return <SettingsAccounts />
-    case 'settings-appearance':
-      return <SettingsAppearance />
-    case 'settings-pullrequests':
-      return <SettingsPullRequests />
-    case 'settings-copilot':
-      return <SettingsCopilot />
-    case 'settings-notifications':
-      return <SettingsNotifications />
-    case 'settings-advanced':
-      return <SettingsAdvanced />
-    default:
-      return null
+  if (!Object.prototype.hasOwnProperty.call(SETTINGS_ROUTES, activeViewId)) return null
+  return SETTINGS_ROUTES[activeViewId]()
+}
+
+function buildCopilotRoutes(ctx: ExactRouteContext): Record<string, () => React.JSX.Element> {
+  return {
+    'copilot-prompt': () => (
+      <CopilotPromptBox onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
+    ),
+    'copilot-all-results': () => (
+      <CopilotResultsList onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
+    ),
+    'copilot-usage': () => <CopilotUsagePanel />,
+    'copilot-sessions': () => (
+      <SessionExplorer
+        onSelectSession={fp => ctx.onOpenTab(`copilot-session-detail:${encodeURIComponent(fp)}`)}
+      />
+    ),
+    'automation-schedules': () => (
+      <ScheduleOverviewPanel onOpenSchedule={sId => ctx.onOpenTab(`schedule-detail:${sId}`)} />
+    ),
+    'automation-runs': () => <RunList />,
   }
 }
 
@@ -103,27 +119,18 @@ function renderCopilotRoute(
   activeViewId: string,
   ctx: ExactRouteContext
 ): React.JSX.Element | null {
-  switch (activeViewId) {
-    case 'copilot-prompt':
-      return <CopilotPromptBox onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
-    case 'copilot-all-results':
-      return <CopilotResultsList onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
-    case 'copilot-usage':
-      return <CopilotUsagePanel />
-    case 'copilot-sessions':
-      return (
-        <SessionExplorer
-          onSelectSession={fp => ctx.onOpenTab(`copilot-session-detail:${btoa(fp)}`)}
-        />
-      )
-    case 'automation-schedules':
-      return (
-        <ScheduleOverviewPanel onOpenSchedule={sId => ctx.onOpenTab(`schedule-detail:${sId}`)} />
-      )
-    case 'automation-runs':
-      return <RunList />
-    default:
-      return null
+  const routes = buildCopilotRoutes(ctx)
+  if (!Object.prototype.hasOwnProperty.call(routes, activeViewId)) return null
+  return routes[activeViewId]()
+}
+
+function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => React.JSX.Element> {
+  return {
+    'tasks-today': () => <TaskPlannerView mode="today" />,
+    'tasks-upcoming': () => <TaskPlannerView mode="upcoming" />,
+    'tasks-projects': () => <TaskPlannerView />,
+    'tempo-timesheet': () => <TempoDashboard />,
+    'bookmarks-all': () => <BookmarkList key="bookmarks-all" onOpenTab={ctx.onOpenTab} />,
   }
 }
 
@@ -131,20 +138,9 @@ function renderWorkspaceRoute(
   activeViewId: string,
   ctx: ExactRouteContext
 ): React.JSX.Element | null {
-  switch (activeViewId) {
-    case 'tasks-today':
-      return <TaskPlannerView mode="today" />
-    case 'tasks-upcoming':
-      return <TaskPlannerView mode="upcoming" />
-    case 'tasks-projects':
-      return <TaskPlannerView />
-    case 'tempo-timesheet':
-      return <TempoDashboard />
-    case 'bookmarks-all':
-      return <BookmarkList key="bookmarks-all" onOpenTab={ctx.onOpenTab} />
-    default:
-      return null
-  }
+  const routes = buildWorkspaceRoutes(ctx)
+  if (!Object.prototype.hasOwnProperty.call(routes, activeViewId)) return null
+  return routes[activeViewId]()
 }
 
 function renderExactRoute(
@@ -252,7 +248,10 @@ const prefixRoutes: PrefixRouteEntry[] = [
   {
     prefix: 'copilot-session-detail:',
     render: (slug, ctx) => (
-      <SessionDetail filePath={atob(slug)} onBack={() => ctx.onNavigate('copilot-sessions')} />
+      <SessionDetail
+        filePath={decodeURIComponent(slug)}
+        onBack={() => ctx.onNavigate('copilot-sessions')}
+      />
     ),
   },
   { prefix: 'schedule-detail:', render: slug => <ScheduleDetailPanel scheduleId={slug} /> },

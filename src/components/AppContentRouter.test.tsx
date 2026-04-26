@@ -298,7 +298,7 @@ describe('AppContentRouter', () => {
   })
 
   it('renders copilot-session-detail route', () => {
-    const encoded = btoa('/path/to/session.jsonl')
+    const encoded = encodeURIComponent('/path/to/session.jsonl')
     renderRouter(`copilot-session-detail:${encoded}`)
     expect(screen.getByText('SessionDetail:/path/to/session.jsonl')).toBeInTheDocument()
   })
@@ -493,7 +493,7 @@ describe('AppContentRouter', () => {
     const { onOpenTab } = renderRouter('copilot-sessions')
     capturedCallbacks.onSelectSession('/path/to/session.jsonl')
     expect(onOpenTab).toHaveBeenCalledWith(
-      `copilot-session-detail:${btoa('/path/to/session.jsonl')}`
+      `copilot-session-detail:${encodeURIComponent('/path/to/session.jsonl')}`
     )
   })
 
@@ -552,7 +552,7 @@ describe('AppContentRouter', () => {
   })
 
   it('SessionDetail onBack calls onNavigate with copilot-sessions', () => {
-    const encoded = btoa('/path/to/session.jsonl')
+    const encoded = encodeURIComponent('/path/to/session.jsonl')
     const { onNavigate } = renderRouter(`copilot-session-detail:${encoded}`)
     capturedCallbacks.sessionDetailOnBack()
     expect(onNavigate).toHaveBeenCalledWith('copilot-sessions')

@@ -63,10 +63,21 @@ interface WorkspaceGroup {
   latestModified: number
 }
 
+function groupSessionsByDate(sessions: SessionSummary[], dateOrder: string[]): DateGroup[] {
+  const byDate: Record<string, SessionSummary[] | undefined> = {}
+  for (const s of sessions) {
+    const label = getDateGroup(s.modifiedAt)
+    /* v8 ignore start */
+    if (!byDate[label]) byDate[label] = []
+    /* v8 ignore stop */
+    byDate[label]!.push(s)
+  }
+  return dateOrder.filter(l => byDate[l]?.length).map(label => ({ label, items: byDate[label]! }))
+}
+
 function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] {
   const dateOrder = ['Today', 'Yesterday', 'This Week', 'Older']
 
-  // Group sessions by workspace
   const byWorkspace = new Map<string, SessionSummary[]>()
   for (const s of sessions) {
     const key = s.workspaceHash
@@ -74,29 +85,14 @@ function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] 
     byWorkspace.get(key)!.push(s)
   }
 
-  // Build workspace groups with date sub-groups
   const groups: WorkspaceGroup[] = []
   for (const [hash, wsSessions] of byWorkspace) {
     const name = wsSessions[0].workspaceName || `(unnamed — ${hash.slice(0, 8)})`
     const latestModified = Math.max(...wsSessions.map(s => s.modifiedAt))
-
-    // Sub-group by date
-    const byDate: Record<string, SessionSummary[]> = {}
-    for (const s of wsSessions) {
-      const label = getDateGroup(s.modifiedAt)
-      /* v8 ignore start */
-      if (!byDate[label]) byDate[label] = []
-      /* v8 ignore stop */
-      byDate[label].push(s)
-    }
-    const dateGroups = dateOrder
-      .filter(l => byDate[l]?.length)
-      .map(label => ({ label, items: byDate[label] }))
-
+    const dateGroups = groupSessionsByDate(wsSessions, dateOrder)
     groups.push({ name, hash, dateGroups, sessionCount: wsSessions.length, latestModified })
   }
 
-  // Sort workspaces by most recent activity
   groups.sort((a, b) => b.latestModified - a.latestModified)
   return groups
 }

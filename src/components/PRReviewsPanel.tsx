@@ -25,13 +25,17 @@ interface PRReviewsPanelProps {
   pr: PRDetailInfo
 }
 
+const STATUS_ICONS: Record<string, React.JSX.Element> = {
+  completed: <CheckCircle2 size={14} className="pr-reviews-status completed" />,
+  failed: <XCircle size={14} className="pr-reviews-status failed" />,
+  running: <Loader2 size={14} className="spin pr-reviews-status running" />,
+}
+
 function getLatestStatusIcon(latest: { status: string } | null) {
   if (!latest) return null
-  if (latest.status === 'completed')
-    return <CheckCircle2 size={14} className="pr-reviews-status completed" />
-  if (latest.status === 'failed') return <XCircle size={14} className="pr-reviews-status failed" />
-  if (latest.status === 'running')
-    return <Loader2 size={14} className="spin pr-reviews-status running" />
+  if (Object.prototype.hasOwnProperty.call(STATUS_ICONS, latest.status)) {
+    return STATUS_ICONS[latest.status]
+  }
   return <Clock size={14} className="pr-reviews-status pending" />
 }
 

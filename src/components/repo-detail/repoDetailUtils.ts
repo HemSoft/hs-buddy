@@ -53,19 +53,29 @@ export function getLanguageColor(lang: string): string {
 
 import { CheckCircle2, XCircle, AlertCircle, Clock, Loader2 } from 'lucide-react'
 
+const COMPLETED_STATUS: Record<
+  string,
+  { color: string; icon: typeof CheckCircle2; label: string }
+> = {
+  success: { color: 'var(--accent-success)', icon: CheckCircle2, label: 'Passing' },
+  failure: { color: 'var(--accent-error)', icon: XCircle, label: 'Failing' },
+  cancelled: { color: 'var(--text-secondary)', icon: XCircle, label: 'Cancelled' },
+}
+
+const DEFAULT_COMPLETED = {
+  color: 'var(--accent-warning)',
+  icon: AlertCircle,
+  label: 'Unknown',
+}
+
 /** Get CI/CD status color and icon */
 export function getWorkflowStatusInfo(status: string, conclusion: string | null) {
   if (status === 'completed') {
-    switch (conclusion) {
-      case 'success':
-        return { color: 'var(--accent-success)', icon: CheckCircle2, label: 'Passing' }
-      case 'failure':
-        return { color: 'var(--accent-error)', icon: XCircle, label: 'Failing' }
-      case 'cancelled':
-        return { color: 'var(--text-secondary)', icon: XCircle, label: 'Cancelled' }
-      default:
-        return { color: 'var(--accent-warning)', icon: AlertCircle, label: conclusion || 'Unknown' }
+    const completedConclusion = conclusion ?? ''
+    if (Object.prototype.hasOwnProperty.call(COMPLETED_STATUS, completedConclusion)) {
+      return COMPLETED_STATUS[completedConclusion]
     }
+    return { ...DEFAULT_COMPLETED, label: conclusion || 'Unknown' }
   }
   if (status === 'in_progress') {
     return { color: 'var(--accent-warning)', icon: Loader2, label: 'Running' }

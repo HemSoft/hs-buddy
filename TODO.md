@@ -10,7 +10,11 @@
 | 📋 | High | [Cyclomatic Complexity Gate](#cyclomatic-complexity-gate) | Enable ESLint built-in `complexity` rule (threshold 10) to flag overly complex functions at lint time |
 | 📋 | High | [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap) | ESLint plugins (sonarjs, unicorn, strict), Electron security, architecture enforcement, E2E testing |
 | 📋 | High | [E2E Test Coverage Expansion](#e2e-test-coverage-expansion) | Only 1 spec file (2 tests) for bookmarks — PR views, settings, automation, terminal all untested end-to-end |
-| 📋 | High | [Split github.ts Monolith](#split-githubts-monolith) | 3,455 lines / 105 KB — split by domain (prs, orgs, users, copilot) with barrel re-export |
+| 📋 | High | [Split github.ts Monolith](#split-githubts-monolith) | 3,671 lines / 105 KB — split by domain (prs, orgs, users, copilot) with barrel re-export |
+| 📋 | High | [File Length Gate (max-lines)](#file-length-gate-max-lines) | Add ESLint `max-lines` rule (warn at 500). **12 source files** over threshold today — largest is github.ts at 3,671 |
+| 📋 | High | [Function Length Gate (max-lines-per-function)](#function-length-gate-max-lines-per-function) | Add ESLint `max-lines-per-function` rule (warn at 80). Catches long sequential plumbing that passes complexity checks |
+| 📋 | Medium | [Cognitive Complexity (eslint-plugin-sonarjs)](#cognitive-complexity-sonarjs) | Install `eslint-plugin-sonarjs` — `cognitive-complexity` measures nesting depth + control flow weight, catches code that cyclomatic complexity misses |
+| 📋 | Medium | [Dependency Coupling Analysis](#dependency-coupling-analysis) | Add `dependency-cruiser` or `madge` to detect God-files (high afferent coupling) and circular dependencies |
 | 📋 | Medium | [Enforce Typed Catch Clauses](#enforce-typed-catch-clauses) | 21 untyped `catch (error)` vs 2 typed — add `use-unknown-in-catch-variables` ESLint rule, promote `no-explicit-any` to error |
 | 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | New feature: categorized link management with quick-launch and tagging |
 | 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | Add table/grid view as alternative to card view on list pages |
@@ -94,7 +98,7 @@
 
 ## Progress
 
-**Remaining: 21** | **Completed: 68** (76%)
+**Remaining: 25** | **Completed: 68** (73%)
 
 ---
 
@@ -129,7 +133,7 @@ The app has **1 Playwright spec file with 2 tests** covering only the bookmarks 
 
 ### Split github.ts Monolith
 
-`src/api/github.ts` is **3,455 lines (105 KB)** — the largest file in the codebase by 2.3×. It contains 21 untyped `catch (error)` blocks, 2 of the 4 production `any` types, 12+ `console.warn` calls, and functions spanning at least 5 distinct GitHub API domains.
+`src/api/github.ts` is **3,671 lines (105 KB)** — the largest file in the codebase by 2.3×. It contains 21 untyped `catch (error)` blocks, 2 of the 4 production `any` types, 12+ `console.warn` calls, and functions spanning at least 5 distinct GitHub API domains.
 
 #### Why Split
 
@@ -157,6 +161,68 @@ The app has **1 Playwright spec file with 2 tests** covering only the bookmarks 
 3. Create barrel `index.ts` that re-exports everything — consumers import from `@/api/github` unchanged
 4. Move co-located test file `src/api/github.test.ts` into matching domain test files
 5. Verify 100% coverage maintained after split
+
+### File Length Gate (max-lines)
+
+The codebase has **12 non-test source files over 500 lines** — a maintainability risk that existing per-function metrics (cyclomatic complexity, CRAP) don't catch. CRAP and complexity are per-function; a file can have 86 low-complexity functions and still be a 3,671-line monolith.
+
+#### Current Violations (non-test files >500 lines)
+
+| Lines | File |
+|------:|------|
+| 3,671 | `src/api/github.ts` |
+| 1,596 | `src/components/OrgDetailPanel.tsx` |
+| 1,247 | `src/components/sidebar/github-sidebar/RepoNode.tsx` |
+| 1,188 | `src/components/sidebar/github-sidebar/useGitHubSidebarData.ts` |
+| 1,126 | `src/components/sidebar/github-sidebar/OrgRepoTree.tsx` |
+| 687 | `src/components/bookmarks/BookmarkDialog.tsx` |
+| 634 | `electron/ipc/githubHandlers.ts` |
+| 596 | `src/components/UserPremiumUsageSection.tsx` |
+| 595 | `src/components/UserDetailPanel.tsx` |
+| 529 | `electron/services/tempoClient.ts` |
+| 505 | `src/components/pull-request-list/usePRListData.ts` |
+| 502 | `src/components/PullRequestDetailPanel.tsx` |
+
+#### File Length Gate Steps
+
+1. Add `'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }]` to `eslint.config.js`
+2. Run lint to confirm violations match the table above
+3. The simplisticate loop will naturally target these as it looks for code smells
+4. Graduate from `warn` to `error` once violations are under 5
+
+### Function Length Gate (max-lines-per-function)
+
+Complements `complexity` — a function can have cyclomatic complexity of 2 and still be 200 lines of sequential API plumbing with no branching. Long functions are hard to test, review, and maintain even when they aren't complex.
+
+#### Function Length Gate Steps
+
+1. Add `'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }]` to `eslint.config.js`
+2. Audit violations — prioritize functions in `github.ts` and component files
+3. Extract helper functions or split into domain modules as needed
+
+### Cognitive Complexity (sonarjs)
+
+ESLint's built-in `complexity` counts branches but not nesting depth. A function with 3 nested `if` statements inside a `for` inside a `try` scores the same as 3 flat `if/else` chains — but it's dramatically harder to understand. Cognitive complexity (from `eslint-plugin-sonarjs`) accounts for this.
+
+#### Cognitive Complexity Steps
+
+1. Install: `bun add -d eslint-plugin-sonarjs`
+2. Add to `eslint.config.js`: `sonarjs/cognitive-complexity: ['warn', 15]`
+3. Audit violations alongside `complexity` rule to see which functions are deceptively complex
+4. Also enables other sonarjs rules: `no-duplicate-string`, `no-identical-functions`, `no-collapsible-if`
+
+### Dependency Coupling Analysis
+
+No current tooling detects God-files (high afferent coupling — many modules importing from one file) or circular dependencies. `github.ts` is likely imported by 20+ components, making every change there a blast-radius risk.
+
+#### Dependency Coupling Steps
+
+1. Install: `bun add -d dependency-cruiser`
+2. Generate config: `bunx depcruise --init`
+3. Add `"deps:check": "depcruise src --config"` to package.json scripts
+4. Configure rules: max fan-in per module (e.g., 15), no circular deps
+5. Add to CI as informational step initially, promote to blocking later
+6. Alternative: `madge` for quick circular dependency visualization (`bunx madge --circular src/`)
 
 ### Enforce Typed Catch Clauses
 
@@ -255,9 +321,9 @@ Comprehensive performance monitoring beyond unit benchmarks. The app needs Elect
 
 Enable the ESLint built-in `complexity` rule to flag functions that exceed a cyclomatic complexity threshold. Industry standard threshold is 10 — any function scoring higher is a candidate for refactoring.
 
-#### Implementation
+#### Complexity Gate Steps
 
-1. Add to ESLint config: `"complexity": ["warn", 10]` (built-in, no extra packages)
+1. Add to ESLint config: `"complexity": ["warn", 10]`(built-in, no extra packages)
 2. Run `eslint . --rule 'complexity: [warn, 10]'` to identify current violations
 3. Triage: fix high-value violations first (IPC handlers, service modules), suppress known-complex functions with inline `// eslint-disable-next-line complexity` + TODO comment
 4. Once violations are manageable, escalate from `warn` → `error` to make it a CI gate

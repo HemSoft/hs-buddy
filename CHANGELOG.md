@@ -13,48 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Deduplicate error-handling pattern into errorUtils
-- Reduce CRAP scores by extracting pure utilities from electron/
-- Reduce complexity in utility functions and consolidate cleanup
-- Reduce cyclomatic complexity in BookmarkDialog, PRStateIcon, cronUtils
-- Reduce cyclomatic complexity and DRY up tab mutations
-- Make buildBookmarkPayload a pure function
-- Reduce complexity via data-driven patterns and helper extraction
-- Reduce complexity and eliminate code repetition
-- Reduce cyclomatic complexity in utility functions
-- Reduce cyclomatic complexity via table-driven lookups and helper extraction
-- Extract fetchCachedData helper to consolidate 8 repeated fetch patterns
-- Reduce complexity in useGitHubSidebarData
-- Reduce cyclomatic complexity and eliminate code duplication
-- Deduplicate sumBy, label mapping, and branch ref extraction
-- Reduce cyclomatic complexity and remove code duplication
-- Reduce complexity and code duplication in GitHubService
-- Fix Prettier formatting in TempoDashboard and TempoSummaryCards
-- Replace verbose hasOwnProperty calls with Object.hasOwn and deduplicate route resolvers
-- Reduce CRAP scores by extracting helpers from complexity-7 functions
-- Reduce cyclomatic complexity in networkSecurity, copilotSessionParsing, and useBookmarkListState
-- Convert if-else chains to lookup tables across 9 files
-- Fix Prettier formatting in App.tsx, copilotSessionParsing.ts, prDetailView.test.ts
-- Reduce complexity in useAssistantContext and extractPRMetadata
-- Consolidate isNotFoundError and fix TempoWorklogEditor test
-- Extract useOrgCachedFetch hook and merge duplicate badges
-- Add coverage for useOrgCachedFetch cacheKey reset
-- Move cacheKey reset from render-phase to useLayoutEffect
-- Reduce doFetch complexity from 9 to 7
-- Fix Prettier trailing comma in resolveCachedData
-
-### Fixed
-
-- Address 5 PR review comments
-- Use createRequire for ESM-compatible require.resolve in copilotClient
-- Address PR review feedback for ipcClassification and workerUtils
-- Guard against undefined ownerRepo in parseStateOwnerRepoKey
-- Add missing default cases to reducers and extract toggle helper
-- Narrow JOB_SCHEDULE_LISTS type to Partial<Record> for type-safety
-- Format PRStateIcon.tsx to pass Prettier check
-- Validate prNumber as finite positive integer in extractPRMetadata
-- Null-safe useOrgCachedFetch and prettier formatting
-- Reset useOrgCachedFetch state on cacheKey change
+- Add file-size and complexity metric gates to TODO
 
 ## [0.1.739] - 2026-04-26
 
@@ -88,16 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make enumerateCronOccurrences start boundary inclusive
 - Add prototype-pollution guards to dynamic object lookups
 - Replace btoa/atob with encodeURIComponent/decodeURIComponent for session paths
-- Add defensive fallback for invalid PRSearchMode in fetchPRsByMode
-- Add defensive fallback for buildPRSearchQueries lookup
-- Add v8 ignore for unreachable defensive fallback in buildPRSearchQueries
-- Use own-property guards for all Record lookups
-- Remove unused exports and guard decodeURIComponent in OSC 7 parser
-- Address PR #654 review comments
-- Use null check instead of falsy check in extractAssistantContent
-- Add typeof string guard in collectRequestPrompts
-- Export WindowBounds interface used in public API
-- Remove unused WindowBounds export to fix Knip CI failure
 
 ### Changed
 
@@ -119,11 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce AccountQuotaCard complexity from 8 to 6
 - Extract collectOccurrences to reduce complexity
 - Reduce cyclomatic complexity via lookup maps and helper extraction
-- Replace switch statements with lookup tables for lower complexity
-- Extract pure logic from electron/convex to reduce CRAP scores
-- Extract pure logic from electron/ to reduce CRAP scores
-- Un-export test-only helpers to satisfy Knip
-- Reduce CRAP scores by extracting pure logic to src/utils
+- Add file-size and complexity metric gates to TODO
 
 ### Added
 

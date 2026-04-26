@@ -9,82 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.739] - 2026-04-24
-
-### Fixed
-
-- Address 8 unresolved PR review comments
-- Address PR review comments for offlineSync and scheduleScanner
-- Add v8 ignore to getFreshCachedData for branch coverage
-- Prevent mount-time race condition in ExpandableFileList
-- Address PR review comments for runtime safety and type-safety
-- Resolve TypeScript errors and address review feedback
-- Sync ralph-simplisticate-repeat.sh with ai-tools template
-- Address PR #644 review comments
-- Normalize optional props with nullish coalescing instead of spread defaults
-- Use actual CSS class in empty-commits assertion
-- Schedule immediate poll after all claimed run paths
-- Add user-facing error message fallbacks for unhelpful throws
-- Use getUserFacingErrorMessage for user-facing error strings
-- Use getUserFacingErrorMessage for user-visible error strings
-- Guard against corrupted cache data in getValidCachedOrgRepos
-- Narrow IssueListBody prop types per review feedback
-- Handle undefined quota state in AccountQuotaCard (race condition crash)
-- Address CI failures and PR review feedback
-- Derive isPowerShell from resolved shell command
-- Wrap parseFulfilledStdout JSON.parse in try/catch for safe degradation
-- Address PR review comments for githubUrl and shellUtils
-- Remove unused exports flagged by Knip
-- Address PR review comments for githubUrl scheme and cronUtils logging
-- Address PR review comments for regexExtract and offlineSync
-- Replace dead try/catch in getMissedOccurrences with validateCronExpression
-- Make enumerateCronOccurrences start boundary inclusive
+## [0.1.739] - 2026-04-26
 
 ### Changed
 
-- Cover partial-week branch in buildContributionCalendar
-- Make CRAP the primary metric, tighten thresholds
-- Reduce CRAP scores via complexity reduction and test infra fix
-- Reduce CRAP scores by lowering cyclomatic complexity
-- Reduce CRAP scores via helper extraction and spread defaults
-- Reduce CRAP scores — 100% coverage, complexity 22→2
-- Reduce cyclomatic complexity in mapper functions
-- Reduce complexity and fix code smells
-- Reduce cyclomatic complexity to ≤7 in three functions
-- Extract pure functions from electron/convex to reduce CRAP scores
-- Extract pure functions from electron/ to src/utils/ for CRAP reduction
-- Extract pure functions to src/utils/ for CRAP score reduction
-- Extract helpers to reduce per-function cyclomatic complexity
-- Add Parallelize CI Pipeline item
-- Reduce AccountQuotaCard complexity from 8 to 6
-- Extract collectOccurrences to reduce complexity
-
-### Added
-
-- Add CRAP rating awareness to simplisticate prompts
-
-## [0.1.738] - 2026-04-24
-
-### Changed
-
-- Extract sub-components and helpers to reduce cyclomatic complexity
-- Extract helpers and sub-components to reduce cyclomatic complexity
-- Fix prettier formatting across src/
-- Reduce cyclomatic complexity to ≤10 in all functions
-- Extract sub-components in AccountQuotaCard, OrgBudgetsSection, AutomationSidebarSection
-- Reduce cyclomatic complexity to ≤10 across 15 files
-- Reduce cyclomatic complexity in remaining components
-- Extract helpers to reduce complexity and eliminate duplication
-- Reduce cyclomatic complexity across 7 files
-- Reduce cyclomatic complexity and eliminate fetch boilerplate
-- Reduce cyclomatic complexity across 5 files
-- Merge duplicate imports and remove else-after-return
-
-### Fixed
-
-- Address 4 PR review comments
-- Close coverage gaps for 100% CI thresholds
-- Close coverage gaps and remove unused exports for CI
+- Add 3 quality improvement items to TODO.md
 
 ## [0.1.737] - 2026-04-20
 
@@ -93,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add self-view contribution detection for UserDetailPanel
 - Add month-end spending projection to org budget cards
 - Add Gherkin specs for data-cache, pr-mapper, pr-detail-routing
-- Add macOS cross-platform support
-- Enable cyclomatic complexity gate (warn, threshold 10)
 
 ### Changed
 
@@ -122,11 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidate CSS spin, adopt useToggleSet, dedup refresh & escape handlers
 - Extract shared PR review helpers and eliminate code smells
 - Add -SkipReview pass-through and ralph-simplisticate-repeat helper
-- Add run.sh for launching via Aspire on macOS
-- Reduce code repetition in useGitHubSidebarData
-- Cover Mac-specific accelerator branches in TitleBar
-- Add Cyclomatic Complexity Gate to TODO
-- Add comprehensive coverage for SettingsCopilot race condition handling
+- Add 3 quality improvement items to TODO.md
 
 ### Fixed
 
@@ -167,10 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use MutableRefObject for fetchedRef parameters
 - Make useToggleSet.toggle return previous membership atomically
 - Sync currentRef in all useToggleSet mutators
-- Resolve branch coverage gaps and platform-aware PowerShell spawning
-- Use isModKey helper for platform-correct modifier detection
-- Address PR review comments — deterministic platform tests and save race condition
-- Harden ralph scripts with reset-on-diverge and improved simplisticate prompt
 
 ## [0.1.736] - 2026-04-20
 

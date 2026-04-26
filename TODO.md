@@ -1,101 +1,186 @@
 # Buddy - TODO
 
-| Status | Priority | Task                                                                       | Notes                                                                                                     |
-| ------ | -------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 📋     | High     | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane                                      |
-| 📋     | High     | [Electron Main Process Test Suite](#electron-main-process-test-suite)      | **0 test files across 38 source files** — IPC handlers, services, workers, root modules all untested      |
-| 📋     | High     | [IPC Contract Testing](#ipc-contract-testing)                              | 16 IPC handler files are the renderer↔main bridge with zero contract validation                           |
-| 📋     | High     | [Convex Server Function Tests](#convex-server-function-tests)              | **0 tests across 16 server functions** — bookmarks, jobs, runs, schedules, settings, etc.                 |
-| 📋     | High     | [Performance Testing Suite](#performance-testing-suite)                    | Electron startup time, memory leak detection, IPC throughput, React render profiling, benchmark CI gating |
-| 📋     | High     | [Cyclomatic Complexity Gate](#cyclomatic-complexity-gate)                  | Enable ESLint built-in `complexity` rule (threshold 10) to flag overly complex functions at lint time     |
-| 📋     | High     | [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap)              | ESLint plugins (sonarjs, unicorn, strict), Electron security, architecture enforcement, E2E testing       |
-| 📋     | Medium   | [Bookmarks — URL & Link Collection Manager](#bookmarks)                    | New feature: categorized link management with quick-launch and tagging                                    |
-| 📋     | Medium   | [Card/List View Toggle for all list pages](#cardlist-view-toggle)          | Add table/grid view as alternative to card view on list pages                                             |
-| 📋     | Medium   | [Parallelize CI Pipeline](#parallelize-ci-pipeline)                        | CI runs ~8m serial; split into parallel jobs + cache deps + move benchmarks to save ~3-4m wall time       |
-| 📋     | Medium   | [Harden CI Soft-Fail Steps](#harden-ci-soft-fail-steps)                    | e18e and npm-audit both `continue-on-error: true` — make e18e blocking, add audit severity threshold      |
-| 📋     | Medium   | Add Convex typecheck to CI                                                 | Run `npx convex typecheck` in CI to catch schema/function type errors                                     |
-| 📋     | Medium   | [Electron Worker Tests](#electron-worker-tests)                            | dispatcher, execWorker, offlineSync, skillWorker, aiWorker — untested execution infrastructure            |
-| 📋     | Medium   | Add runtime a11y testing with axe-core                                     | vitest-axe catches runtime ARIA violations that jsx-a11y ESLint misses                                    |
-| 📋     | Medium   | Add CONTRIBUTING.md                                                        | Contributor setup (Bun, Convex, env vars), PR conventions, testing expectations                           |
-| 📋     | Low      | Evaluate Playwright component testing for TSX coverage                     | Many 0% component files are hard to unit-test                                                             |
-| 📋     | Low      | Add CODEOWNERS file                                                        | Define file ownership for electron/, convex/, src/components/, .github/workflows/                         |
-| 📋     | Low      | Evaluate visual regression testing                                         | Playwright screenshots or Percy/Chromatic for catching unintended UI changes                              |
-| ✅     | High     | Add Gherkin BDD specs for remaining critical paths                         | 2026-04: data-cache (10), pr-mapper (4), pr-detail-routing (6) — 90 new tests                             |
-| ✅     | High     | Wire coverage:ratchet into CI                                              | 2026-04-21: Added ratchet + staleness check to ci.yml after test:coverage                                 |
-| ✅     | Medium   | Add format:check to pre-commit hook                                        | 2026-04-21: Added `bun run format:check` to Phase 1 of .husky/pre-commit                                  |
-| ✅     | High     | Raise test coverage from 20% to 50%                                        | 2026-04-20: At 99.98% (4,090 tests, 198 files). Thresholds set to 100%.                                   |
-| ✅     | High     | SFL Queue Monitor workflow                                                 | 2026-04-01: Deployed to 3 repos with agent:queue label                                                    |
-| ✅     | Medium   | Quality gates overhaul                                                     | 2026-03-31: CI gates, commitlint, vitest-cucumber BDD, coverage ratchet (PR #408)                         |
-| ✅     | Medium   | Benchmarking tests for critical paths                                      | 2026-03-30: 3 bench files (dateUtils, jsonSerialization, copilotSessionParsing)                           |
-| ✅     | Medium   | Task Planner (Todoist Integration)                                         | 2026-03-30: 7-day upcoming view, Todoist REST API, IPC handlers                                           |
-| ✅     | Medium   | Copilot Session Explorer                                                   | 2026-03-29: JSONL parsing, workspace grouping, streaming parser                                           |
-| ✅     | Medium   | Session Insights & Feedback Loop                                           | 2026-03-29: Digest computation, Convex persistence, digest UI                                             |
-| ✅     | High     | Add GitHub organization metrics detail view                                | 2026-03-22: Skeleton loader, per-phase error handling, roster controls                                    |
-| ✅     | Medium   | Add branch cleanup to repo-audit                                           | 2026-03-22: Branch Hygiene scope added to repo-audit + sfl-auditor                                        |
-| ✅     | Medium   | Capture Copilot usage history                                              | 2026-03-09: Issue #137 / PR #138; snapshots persist for trends                                            |
-| ✅     | High     | Build project-scoped Copilot workspaces                                    | 2026-03-08: Local project registration and project-scoped sessions                                        |
-| ✅     | High     | SFL Loop monitoring in Organizations tree                                  | 2026-03-08: Organizations tree shows SFL workflow health per repo                                         |
-| ✅     | High     | Unify issue processor and fixer                                            | 2026-03-07: Retired pr-fixer; sfl-issue-processor is single implementer                                   |
-| ✅     | High     | Global Copilot Assistant Panel                                             | 2026-03-04: PR #104 merged via SFL pipeline                                                               |
-| ✅     | High     | Simplisticate E2E Test                                                     | 2026-03-04: End-to-end SFL validation run completed                                                       |
-| ✅     | High     | Simplisticate Workflows                                                    | 2026-03-03: Event-driven triggers, human review handoff                                                   |
-| ✅     | High     | SFL Auto-Merge mode                                                        | 2026-03: Simplified to human-review handoff via A→B→C→label-actions                                       |
-| ✅     | Medium   | Copilot Usage month-end projection                                         | 2026-03: Per-account trend projection with daily rate                                                     |
-| ✅     | High     | SFL Simplification — Replace supersession model                            | 2026-02: pr-fixer rewritten with push-to-pull-request-branch                                              |
-| ✅     | High     | SFL Simplification — Label pruning                                         | 2026-02: 39→27 labels, removed 12 unused                                                                  |
-| ✅     | High     | Build sfl-auditor workflow                                                 | 2026-02: Audits label consistency, repairs orphaned state                                                 |
-| ✅     | High     | SFL Simplification — Reduce PR Fixer prompt                                | 2026-02: 365→164 lines via V2 architecture                                                                |
-| ✅     | High     | SFL Simplification — Adopt new safe-outputs                                | 2026-02: add-comment, add-labels/remove-labels adopted                                                    |
-| ✅     | High     | SFL Complexity gate for future sessions                                    | 2026-02: Session Start Gate added to SKILL.md                                                             |
-| ✅     | High     | Critically reduce and remove AGENTS.md                                     | 2026-02: Covered in workflow prompts and governance docs                                                  |
-| ✅     | High     | Complete migration to relias-engineering                                   | 2026-02: Migrated, PAT set, pipeline verified                                                             |
-| ✅     | High     | Define Set it Free governance policy                                       | 2026-02: Moved to relias-engineering/set-it-free-loop                                                     |
-| ✅     | High     | Build feature-intake normalization workflow                                | 2026-02: Convex mapping + template-driven issue drafts                                                    |
-| ✅     | High     | Issue Processor workflow                                                   | 2026-02: Cron claim → draft PR → agent:in-progress labeling                                               |
-| ✅     | High     | Build PR Analyzer workflow (×3 models)                                     | 2026-02: Three analyzers on staggered crons                                                               |
-| ✅     | High     | Build PR Fixer workflow (authority)                                        | 2026-02: Claude Opus; reads analyzer comments; commits fixes                                              |
-| ✅     | High     | Add pr:cycle-N label system                                                | 2026-02: Labels pr:cycle-1/2/3; analyzers skip cycle-3                                                    |
-| ✅     | High     | Build PR Promoter workflow                                                 | 2026-02: All analyzers pass → un-draft PR + promotion comment                                             |
-| ✅     | High     | Improve Welcome to Buddy window                                            | 2026-02: Convex-backed stats dashboard, session tracking                                                  |
-| ✅     | High     | Expand repo detail view                                                    | 2026-02: Rich card-based repo info panel with caching                                                     |
-| ✅     | High     | Make repos expandable folders                                              | 2026-02: Expandable repos with Issues & PRs children                                                      |
-| ✅     | High     | Build task dispatch system                                                 | 2026-02: Dispatcher + exec worker + Convex claiming                                                       |
-| ✅     | High     | Implement exec-worker                                                      | 2026-02: spawn()-based shell execution, timeout, abort                                                    |
-| ✅     | High     | Restructure electron/main.ts                                               | 2026-02: Split 423→95 lines, 8 new modules                                                                |
-| ✅     | High     | Job management UI                                                          | 2026-02: CRUD, context menus, worker-type forms                                                           |
-| ✅     | High     | Implement Convex cron job                                                  | 2026-02: Runs every minute via crons.ts                                                                   |
-| ✅     | High     | Data prefetch + persistent cache                                           | 2026-02: PR data survives restarts, background refresh                                                    |
-| ✅     | Medium   | Repos of Interest feature                                                  | 2026-02: Folder-organized bookmark system                                                                 |
-| ✅     | Medium   | Add run history view                                                       | 2026-02: Real-time status, filters, expandable output                                                     |
-| ✅     | Medium   | Implement skill-worker                                                     | 2026-02: Copilot CLI spawn, --allow-all mode                                                              |
-| ✅     | Medium   | Implement ai-worker                                                        | 2026-02: Copilot CLI spawn, model selection, abort                                                        |
-| ✅     | Medium   | Elegant status bar queue display                                           | 2026-02: "X of N · TaskName" with batch tracking                                                          |
-| ✅     | Medium   | Copilot enterprise budget reset fix                                        | 2026-02: UTC dates, auto-refresh on month boundary                                                        |
-| ✅     | Low      | Implement offline queue                                                    | 2026-02: Catch-up logic on reconnect                                                                      |
-| ✅     | High     | Tabbed window system for PRs                                               | 2025-01: Tabs above content area, no duplicates                                                           |
-| ✅     | High     | Fix Recently Merged date range                                             | 2025-01: 30-day default, configurable in Settings                                                         |
-| ✅     | High     | App-wide task queue system                                                 | 2025-01: Named queues with concurrency control                                                            |
-| ✅     | High     | Settings UI with form-based editing                                        | 2025-01: SidebarPanel navigation, auto-save                                                               |
-| ✅     | High     | Initialize Convex project                                                  | 2025-02: Generated types ready                                                                            |
-| ✅     | High     | Define Convex schema                                                       | 2025-01: convex/schema.ts with jobs, schedules, runs                                                      |
-| ✅     | High     | Add Convex client to Electron                                              | 2025-01: ConvexClientProvider, useConvex hooks                                                            |
-| ✅     | High     | Implement schedule CRUD functions                                          | 2025-01: convex/schedules.ts, jobs.ts, runs.ts                                                            |
-| ✅     | Medium   | Create schedule editor dialog                                              | 2025-02: Modal with CronBuilder, job selector                                                             |
-| ✅     | Medium   | Add Workflows activity bar icon                                            | 2025-01: RefreshCw icon in ActivityBar                                                                    |
-| ✅     | Medium   | Build Schedules sidebar + list                                             | 2025-01: ScheduleList component with status badges                                                        |
-| ✅     | Medium   | Port CronBuilder component                                                 | 2025-01: From hs-conductor with visual builder                                                            |
-| ✅     | Medium   | Implement schedule toggles                                                 | 2025-02: Toggle mutation in useConvex hooks                                                               |
-| ✅     | Medium   | Fix taskbar app name                                                       | 2025-01: "HS-body" → "Buddy"                                                                              |
-| ✅     | Medium   | Create Help menu with About window                                         | 2025-01: About dialog with branding                                                                       |
-| ✅     | Medium   | Design and create app icon                                                 | 2025-01: Gold/orange gradient Users icon                                                                  |
+| Status | Priority | Task | Notes |
+|--------|----------|------|-------|
+| 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
+| 📋 | High | [Electron Main Process Test Suite](#electron-main-process-test-suite) | **0 test files across 38 source files** — IPC handlers, services, workers, root modules all untested |
+| 📋 | High | [IPC Contract Testing](#ipc-contract-testing) | 16 IPC handler files are the renderer↔main bridge with zero contract validation |
+| 📋 | High | [Convex Server Function Tests](#convex-server-function-tests) | **0 tests across 16 server functions** — bookmarks, jobs, runs, schedules, settings, etc. |
+| 📋 | High | [Performance Testing Suite](#performance-testing-suite) | Electron startup time, memory leak detection, IPC throughput, React render profiling, benchmark CI gating |
+| 📋 | High | [Cyclomatic Complexity Gate](#cyclomatic-complexity-gate) | Enable ESLint built-in `complexity` rule (threshold 10) to flag overly complex functions at lint time |
+| 📋 | High | [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap) | ESLint plugins (sonarjs, unicorn, strict), Electron security, architecture enforcement, E2E testing |
+| 📋 | High | [E2E Test Coverage Expansion](#e2e-test-coverage-expansion) | Only 1 spec file (2 tests) for bookmarks — PR views, settings, automation, terminal all untested end-to-end |
+| 📋 | High | [Split github.ts Monolith](#split-githubts-monolith) | 3,455 lines / 105 KB — split by domain (prs, orgs, users, copilot) with barrel re-export |
+| 📋 | Medium | [Enforce Typed Catch Clauses](#enforce-typed-catch-clauses) | 21 untyped `catch (error)` vs 2 typed — add `use-unknown-in-catch-variables` ESLint rule, promote `no-explicit-any` to error |
+| 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | New feature: categorized link management with quick-launch and tagging |
+| 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | Add table/grid view as alternative to card view on list pages |
+| 📋 | Medium | [Parallelize CI Pipeline](#parallelize-ci-pipeline) | CI runs ~8m serial; split into parallel jobs + cache deps + move benchmarks to save ~3-4m wall time |
+| 📋 | Medium | [Harden CI Soft-Fail Steps](#harden-ci-soft-fail-steps) | e18e and npm-audit both `continue-on-error: true` — make e18e blocking, add audit severity threshold |
+| 📋 | Medium | Add Convex typecheck to CI | Run `npx convex typecheck` in CI to catch schema/function type errors |
+| 📋 | Medium | [Electron Worker Tests](#electron-worker-tests) | dispatcher, execWorker, offlineSync, skillWorker, aiWorker — untested execution infrastructure |
+| 📋 | Medium | Add runtime a11y testing with axe-core | vitest-axe catches runtime ARIA violations that jsx-a11y ESLint misses |
+| 📋 | Medium | Add CONTRIBUTING.md | Contributor setup (Bun, Convex, env vars), PR conventions, testing expectations |
+| 📋 | Low | Evaluate Playwright component testing for TSX coverage | Many 0% component files are hard to unit-test |
+| 📋 | Low | Add CODEOWNERS file | Define file ownership for electron/, convex/, src/components/, .github/workflows/ |
+| 📋 | Low | Evaluate visual regression testing | Playwright screenshots or Percy/Chromatic for catching unintended UI changes |
+| ✅ | High | Add Gherkin BDD specs for remaining critical paths | 2026-04: data-cache (10), pr-mapper (4), pr-detail-routing (6) — 90 new tests |
+| ✅ | High | Wire coverage:ratchet into CI | 2026-04-21: Added ratchet + staleness check to ci.yml after test:coverage |
+| ✅ | Medium | Add format:check to pre-commit hook | 2026-04-21: Added `bun run format:check` to Phase 1 of .husky/pre-commit |
+| ✅ | High | Raise test coverage from 20% to 50% | 2026-04-20: At 99.98% (4,090 tests, 198 files). Thresholds set to 100%. |
+| ✅ | High | SFL Queue Monitor workflow | 2026-04-01: Deployed to 3 repos with agent:queue label |
+| ✅ | Medium | Quality gates overhaul | 2026-03-31: CI gates, commitlint, vitest-cucumber BDD, coverage ratchet (PR #408) |
+| ✅ | Medium | Benchmarking tests for critical paths | 2026-03-30: 3 bench files (dateUtils, jsonSerialization, copilotSessionParsing) |
+| ✅ | Medium | Task Planner (Todoist Integration) | 2026-03-30: 7-day upcoming view, Todoist REST API, IPC handlers |
+| ✅ | Medium | Copilot Session Explorer | 2026-03-29: JSONL parsing, workspace grouping, streaming parser |
+| ✅ | Medium | Session Insights & Feedback Loop | 2026-03-29: Digest computation, Convex persistence, digest UI |
+| ✅ | High | Add GitHub organization metrics detail view | 2026-03-22: Skeleton loader, per-phase error handling, roster controls |
+| ✅ | Medium | Add branch cleanup to repo-audit | 2026-03-22: Branch Hygiene scope added to repo-audit + sfl-auditor |
+| ✅ | Medium | Capture Copilot usage history | 2026-03-09: Issue #137 / PR #138; snapshots persist for trends |
+| ✅ | High | Build project-scoped Copilot workspaces | 2026-03-08: Local project registration and project-scoped sessions |
+| ✅ | High | SFL Loop monitoring in Organizations tree | 2026-03-08: Organizations tree shows SFL workflow health per repo |
+| ✅ | High | Unify issue processor and fixer | 2026-03-07: Retired pr-fixer; sfl-issue-processor is single implementer |
+| ✅ | High | Global Copilot Assistant Panel | 2026-03-04: PR #104 merged via SFL pipeline |
+| ✅ | High | Simplisticate E2E Test | 2026-03-04: End-to-end SFL validation run completed |
+| ✅ | High | Simplisticate Workflows | 2026-03-03: Event-driven triggers, human review handoff |
+| ✅ | High | SFL Auto-Merge mode | 2026-03: Simplified to human-review handoff via A→B→C→label-actions |
+| ✅ | Medium | Copilot Usage month-end projection | 2026-03: Per-account trend projection with daily rate |
+| ✅ | High | SFL Simplification — Replace supersession model | 2026-02: pr-fixer rewritten with push-to-pull-request-branch |
+| ✅ | High | SFL Simplification — Label pruning | 2026-02: 39→27 labels, removed 12 unused |
+| ✅ | High | Build sfl-auditor workflow | 2026-02: Audits label consistency, repairs orphaned state |
+| ✅ | High | SFL Simplification — Reduce PR Fixer prompt | 2026-02: 365→164 lines via V2 architecture |
+| ✅ | High | SFL Simplification — Adopt new safe-outputs | 2026-02: add-comment, add-labels/remove-labels adopted |
+| ✅ | High | SFL Complexity gate for future sessions | 2026-02: Session Start Gate added to SKILL.md |
+| ✅ | High | Critically reduce and remove AGENTS.md | 2026-02: Covered in workflow prompts and governance docs |
+| ✅ | High | Complete migration to relias-engineering | 2026-02: Migrated, PAT set, pipeline verified |
+| ✅ | High | Define Set it Free governance policy | 2026-02: Moved to relias-engineering/set-it-free-loop |
+| ✅ | High | Build feature-intake normalization workflow | 2026-02: Convex mapping + template-driven issue drafts |
+| ✅ | High | Issue Processor workflow | 2026-02: Cron claim → draft PR → agent:in-progress labeling |
+| ✅ | High | Build PR Analyzer workflow (×3 models) | 2026-02: Three analyzers on staggered crons |
+| ✅ | High | Build PR Fixer workflow (authority) | 2026-02: Claude Opus; reads analyzer comments; commits fixes |
+| ✅ | High | Add pr:cycle-N label system | 2026-02: Labels pr:cycle-1/2/3; analyzers skip cycle-3 |
+| ✅ | High | Build PR Promoter workflow | 2026-02: All analyzers pass → un-draft PR + promotion comment |
+| ✅ | High | Improve Welcome to Buddy window | 2026-02: Convex-backed stats dashboard, session tracking |
+| ✅ | High | Expand repo detail view | 2026-02: Rich card-based repo info panel with caching |
+| ✅ | High | Make repos expandable folders | 2026-02: Expandable repos with Issues & PRs children |
+| ✅ | High | Build task dispatch system | 2026-02: Dispatcher + exec worker + Convex claiming |
+| ✅ | High | Implement exec-worker | 2026-02: spawn()-based shell execution, timeout, abort |
+| ✅ | High | Restructure electron/main.ts | 2026-02: Split 423→95 lines, 8 new modules |
+| ✅ | High | Job management UI | 2026-02: CRUD, context menus, worker-type forms |
+| ✅ | High | Implement Convex cron job | 2026-02: Runs every minute via crons.ts |
+| ✅ | High | Data prefetch + persistent cache | 2026-02: PR data survives restarts, background refresh |
+| ✅ | Medium | Repos of Interest feature | 2026-02: Folder-organized bookmark system |
+| ✅ | Medium | Add run history view | 2026-02: Real-time status, filters, expandable output |
+| ✅ | Medium | Implement skill-worker | 2026-02: Copilot CLI spawn, --allow-all mode |
+| ✅ | Medium | Implement ai-worker | 2026-02: Copilot CLI spawn, model selection, abort |
+| ✅ | Medium | Elegant status bar queue display | 2026-02: "X of N · TaskName" with batch tracking |
+| ✅ | Medium | Copilot enterprise budget reset fix | 2026-02: UTC dates, auto-refresh on month boundary |
+| ✅ | Low | Implement offline queue | 2026-02: Catch-up logic on reconnect |
+| ✅ | High | Tabbed window system for PRs | 2025-01: Tabs above content area, no duplicates |
+| ✅ | High | Fix Recently Merged date range | 2025-01: 30-day default, configurable in Settings |
+| ✅ | High | App-wide task queue system | 2025-01: Named queues with concurrency control |
+| ✅ | High | Settings UI with form-based editing | 2025-01: SidebarPanel navigation, auto-save |
+| ✅ | High | Initialize Convex project | 2025-02: Generated types ready |
+| ✅ | High | Define Convex schema | 2025-01: convex/schema.ts with jobs, schedules, runs |
+| ✅ | High | Add Convex client to Electron | 2025-01: ConvexClientProvider, useConvex hooks |
+| ✅ | High | Implement schedule CRUD functions | 2025-01: convex/schedules.ts, jobs.ts, runs.ts |
+| ✅ | Medium | Create schedule editor dialog | 2025-02: Modal with CronBuilder, job selector |
+| ✅ | Medium | Add Workflows activity bar icon | 2025-01: RefreshCw icon in ActivityBar |
+| ✅ | Medium | Build Schedules sidebar + list | 2025-01: ScheduleList component with status badges |
+| ✅ | Medium | Port CronBuilder component | 2025-01: From hs-conductor with visual builder |
+| ✅ | Medium | Implement schedule toggles | 2025-02: Toggle mutation in useConvex hooks |
+| ✅ | Medium | Fix taskbar app name | 2025-01: "HS-body" → "Buddy" |
+| ✅ | Medium | Create Help menu with About window | 2025-01: About dialog with branding |
+| ✅ | Medium | Design and create app icon | 2025-01: Gold/orange gradient Users icon |
 
 ## Progress
 
-**Remaining: 16** | **Completed: 68** (81%)
+**Remaining: 21** | **Completed: 68** (76%)
 
 ---
 
 ## Remaining Items
+
+### E2E Test Coverage Expansion
+
+The app has **1 Playwright spec file with 2 tests** covering only the bookmarks feature. With ~90 components across 15+ feature areas, the E2E coverage gap is the single biggest quality risk — 100% unit test coverage gives false confidence when integration points (IPC, API calls, DB queries) are mocked away.
+
+#### Critical User Journeys Without E2E Coverage
+
+- **PR workflow**: PR list → detail → review → threads → files changed
+- **Settings persistence**: Change setting → restart → verify persisted
+- **Automation**: Create job → create schedule → trigger run → view output
+- **Terminal**: Open terminal → run command → CWD tracking
+- **Navigation**: Sidebar → activity bar → tab switching → back/forward
+
+#### Implementation Plan
+
+1. Add Playwright Electron adapter (`@playwright/test` with `electron.launch()`)
+2. Create `e2e/pr-workflow.spec.ts` — highest-value user journey
+3. Create `e2e/settings.spec.ts` — settings persistence verification
+4. Create `e2e/navigation.spec.ts` — sidebar, tabs, routing
+5. Add `test:e2e` script to package.json and CI pipeline
+6. Target: 5 spec files covering the 5 critical journeys above
+
+#### Risk Assessment
+
+- 🟡 E2E tests require running app + Convex dev server — CI setup complexity
+- 🟢 Playwright infrastructure already exists (`playwright.config.ts`, `e2e/` directory)
+- 🟢 Electron Playwright adapter is well-documented
+
+### Split github.ts Monolith
+
+`src/api/github.ts` is **3,455 lines (105 KB)** — the largest file in the codebase by 2.3×. It contains 21 untyped `catch (error)` blocks, 2 of the 4 production `any` types, 12+ `console.warn` calls, and functions spanning at least 5 distinct GitHub API domains.
+
+#### Why Split
+
+- **Merge conflict magnet**: Every new GitHub API feature touches the same file
+- **Cognitive burden**: 3.4K lines is beyond what anyone can hold in working memory
+- **Testing bottleneck**: Changes to one domain require re-running all github.ts tests
+- **Tech debt concentration**: The untyped catches and `any` types cluster here because the file grew organically
+
+#### Proposed Domain Split
+
+| New File | Functions | Estimated Lines |
+|----------|-----------|----------------|
+| `src/api/github/prs.ts` | PR list, detail, reviews, threads, files | ~800 |
+| `src/api/github/orgs.ts` | Org tree, repos, members, teams | ~700 |
+| `src/api/github/users.ts` | User detail, contributions, premium usage | ~600 |
+| `src/api/github/copilot.ts` | Copilot usage, sessions, metrics | ~500 |
+| `src/api/github/commits.ts` | Commit history, commit detail | ~300 |
+| `src/api/github/index.ts` | Barrel re-export of all modules | ~50 |
+| `src/api/github/shared.ts` | Shared types, helpers, Octokit init | ~200 |
+
+#### Domain Split Implementation
+
+1. Create `src/api/github/` directory
+2. Move functions by domain into new files (pure refactor, no behavior change)
+3. Create barrel `index.ts` that re-exports everything — consumers import from `@/api/github` unchanged
+4. Move co-located test file `src/api/github.test.ts` into matching domain test files
+5. Verify 100% coverage maintained after split
+
+### Enforce Typed Catch Clauses
+
+The codebase has **21 untyped `catch (error)` blocks** vs only **2 typed `catch (error: unknown)` blocks**. A dedicated `errorUtils.ts` module with `getErrorMessage(error: unknown)` exists but is underutilized — most catch blocks log `error` directly or use string interpolation, producing `[object Object]` instead of useful messages in production.
+
+#### Current State
+
+- `catch (error)` (untyped): 21 occurrences across `github.ts`, `taskQueue.ts`, `useConfig.ts`, `useCopilotUsage.ts`, `JobDetailPanel.tsx`, `RunList.tsx`
+- `catch (error: unknown)` (typed): 2 occurrences in `github.ts`
+- `no-explicit-any` ESLint rule: set to `warn`, not `error`
+- `getErrorMessage()`: exists in `errorUtils.ts` but rarely called
+
+#### Error Handling Implementation
+
+1. Add `@typescript-eslint/use-unknown-in-catch-variables` as an **error** rule in `eslint.config.js` — auto-enforces `catch (error: unknown)` across the codebase
+2. Promote `no-explicit-any` from `warn` to `error` in `eslint.config.js`
+3. Migrate all 21 untyped catch blocks to `catch (error: unknown)` and adopt `getErrorMessage()` consistently
+4. Fix the 2 remaining production `any` types in `github.ts` (`eventSummary`, `mapPR`)
+
+#### Impact
+
+- **Debuggability**: Production errors will produce meaningful messages instead of `[object Object]`
+- **Type safety**: Catches the same class of issues that `strict: true` prevents elsewhere
+- **Consistency**: Aligns error handling with the existing `errorUtils.ts` pattern
 
 ### Electron Main Process Test Suite
 
@@ -215,52 +300,15 @@ The repo already has excellent tooling (ESLint 9, Prettier, TypeScript strict, V
 - Start with critical user flows: app launch, settings, PR list navigation
 - Consider `@playwright/test` with `electron.launch()` API
 
-### Parallelize CI Pipeline
-
-The CI workflow runs **~8 minutes** as a single serial job. Half that time is tests+coverage (4m) and benchmarks (1.5m). All lint/check steps are independent and could run concurrently.
-
-#### Current CI Step Breakdown (Run #931)
-
-| Step                    | Duration | % of Total |
-| ----------------------- | -------- | ---------- |
-| Run tests with coverage | 4m 08s   | 50%        |
-| Run benchmarks          | 1m 29s   | 18%        |
-| Lint (ESLint)           | 39s      | 8%         |
-| Build (vite + electron) | 37s      | 7%         |
-| Type check (TypeScript) | 21s      | 4%         |
-| Install dependencies    | 18s      | 4%         |
-| Format check (Prettier) | 16s      | 3%         |
-| Dep health analysis     | 13s      | 3%         |
-| Everything else         | ~20s     | 3%         |
-
-#### Recommended Changes
-
-1. **Split into parallel jobs** — Run lint, typecheck, format, and tests as separate jobs. Wall time drops from ~8m to ~5m since the longest job (tests) runs alongside the others.
-2. **Cache bun dependencies** — No dependency caching is configured; `bun install` runs fresh every time (~18s). Use `actions/cache` with `~/.bun/install/cache` as the cache path.
-3. **Move benchmarks to a separate optional workflow** — They already use `continue-on-error: true` and add 1.5m. Make them a separate workflow triggered on `workflow_dispatch` or PR label.
-4. **Evaluate TypeScript 6 native compiler** — Would reduce typecheck from 21s to ~3-4s (minor in CI, but significant for editor DX). The codebase is ~117K LOC / 468 files on TS 5.9.3.
-
-#### Target Architecture
-
-```yaml
-jobs:
-  install: # shared dependency install + cache
-  lint: # ESLint + Prettier + knip (parallel)
-  typecheck: # tsc --noEmit (parallel)
-  test: # vitest + coverage + ratchet (parallel)
-  build: # vite + electron (depends on typecheck)
-  benchmarks: # optional, separate workflow or label-triggered
-```
-
 ### Harden CI Soft-Fail Steps
 
 Three CI steps currently run with `continue-on-error: true`, meaning failures are invisible:
 
-| Step        | Current Behavior | Recommended Change                                            |
-| ----------- | ---------------- | ------------------------------------------------------------- |
-| `e18e`      | Soft-fail        | **Make blocking** — dependency health is a quality gate       |
-| `npm-audit` | Soft-fail        | Add `--audit-level=high` to fail only on high/critical vulns  |
-| `bench`     | Soft-fail        | Gate via bench-compare script (see Performance Testing Suite) |
+| Step | Current Behavior | Recommended Change |
+|------|-----------------|-------------------|
+| `e18e` | Soft-fail | **Make blocking** — dependency health is a quality gate |
+| `npm-audit` | Soft-fail | Add `--audit-level=high` to fail only on high/critical vulns |
+| `bench` | Soft-fail | Gate via bench-compare script (see Performance Testing Suite) |
 
 #### CI Hardening Steps
 
@@ -369,13 +417,13 @@ A built-in file explorer that shows the directory/file structure of the active t
 
 #### New Files
 
-| File                                     | Purpose                                 |
-| ---------------------------------------- | --------------------------------------- |
-| `src/components/terminal/FolderView.tsx` | Tree UI component                       |
-| `src/components/terminal/FolderView.css` | Styles                                  |
-| `src/components/FilePreview.tsx`         | Syntax-highlighted file viewer          |
-| `src/components/FilePreview.css`         | Styles                                  |
-| `electron/ipc/filesystemHandlers.ts`     | `read-dir` and `read-file` IPC handlers |
+| File | Purpose |
+|------|---------|
+| `src/components/terminal/FolderView.tsx` | Tree UI component |
+| `src/components/terminal/FolderView.css` | Styles |
+| `src/components/FilePreview.tsx` | Syntax-highlighted file viewer |
+| `src/components/FilePreview.css` | Styles |
+| `electron/ipc/filesystemHandlers.ts` | `read-dir` and `read-file` IPC handlers |
 
 #### Dependencies to Evaluate
 
@@ -425,3 +473,40 @@ Add a switchable Card ↔ List (table) view mode to all pages that render collec
 - Smooth transition between views (no jarring flash)
 - Table rows should have hover highlight and click-to-open like cards
 - Keep existing search/filter controls — they apply to both views
+
+### Parallelize CI Pipeline
+
+The CI workflow runs **~8 minutes** as a single serial job. Half that time is tests+coverage (4m) and benchmarks (1.5m). All lint/check steps are independent and could run concurrently.
+
+#### Current CI Step Breakdown (Run #931)
+
+| Step | Duration | % of Total |
+|------|----------|------------|
+| Run tests with coverage | 4m 08s | 50% |
+| Run benchmarks | 1m 29s | 18% |
+| Lint (ESLint) | 39s | 8% |
+| Build (vite + electron) | 37s | 7% |
+| Type check (TypeScript) | 21s | 4% |
+| Install dependencies | 18s | 4% |
+| Format check (Prettier) | 16s | 3% |
+| Dep health analysis | 13s | 3% |
+| Everything else | ~20s | 3% |
+
+#### Recommended Changes
+
+1. **Split into parallel jobs** — Run lint, typecheck, format, and tests as separate jobs. Wall time drops from ~8m to ~5m since the longest job (tests) runs alongside the others.
+2. **Cache bun dependencies** — No dependency caching is configured; `bun install` runs fresh every time (~18s). Use `actions/cache` with `~/.bun/install/cache` as the cache path.
+3. **Move benchmarks to a separate optional workflow** — They already use `continue-on-error: true` and add 1.5m. Make them a separate workflow triggered on `workflow_dispatch` or PR label.
+4. **Evaluate TypeScript 6 native compiler** — Would reduce typecheck from 21s to ~3-4s (minor in CI, but significant for editor DX). The codebase is ~117K LOC / 468 files on TS 5.9.3.
+
+#### Target Architecture
+
+```yaml
+jobs:
+  install: # shared dependency install + cache
+  lint: # ESLint + Prettier + knip (parallel)
+  typecheck: # tsc --noEmit (parallel)
+  test: # vitest + coverage + ratchet (parallel)
+  build: # vite + electron (depends on typecheck)
+  benchmarks: # optional, separate workflow or label-triggered
+```

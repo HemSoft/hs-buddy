@@ -4,6 +4,13 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import {
+  isValidRepoSlug,
+  getCloneRoots,
+  getOrgCandidates,
+  processOsc7Buffer,
+  buildTerminalShellArgs,
+} from '../../src/utils/terminalPathUtils'
 
 // node-pty is a native CJS module — use createRequire for ESM compatibility.
 // IMPORTANT: Load eagerly at module scope so it happens BEFORE OpenTelemetry's
@@ -118,42 +125,9 @@ function safeSend(sender: WebContents, channel: string, ...args: unknown[]): voi
 }
 
 /** Returns the list of clone root directories to probe (handles Windows drive letters vs Unix). */
-function getCloneRoots(): string[] {
+function getCloneRootsLocal(): string[] {
   const home = process.env.USERPROFILE || process.env.HOME || app.getPath('home')
-  const driveRoot = path.parse(home).root // e.g. D:\ on Windows, / on Unix
-  const roots: string[] = []
-
-  // On Windows, probe common fixed drives for a top-level github folder
-  if (process.platform === 'win32') {
-    for (const letter of ['C', 'D', 'E', 'F']) {
-      roots.push(path.join(`${letter}:\\`, 'github'))
-    }
-  } else {
-    roots.push(path.join(driveRoot, 'github'))
-  }
-
-  roots.push(
-    path.join(home, 'github'), // e.g. C:\Users\User\github or ~/github
-    path.join(home, 'repos'),
-    path.join(home, 'projects'),
-    path.join(home, 'source', 'repos') // Visual Studio default
-  )
-
-  return roots
-}
-
-/** Generates organization folder name candidates from the owner string. */
-function getOrgCandidates(owner: string): string[] {
-  const candidates = new Set<string>()
-  candidates.add(owner) // exact: relias-engineering
-  const dashIdx = owner.indexOf('-')
-  if (dashIdx > 0) {
-    const short = owner.substring(0, dashIdx)
-    candidates.add(short) // short: relias
-    candidates.add(short.charAt(0).toUpperCase() + short.slice(1)) // capitalized: Relias
-  }
-  candidates.add(owner.charAt(0).toUpperCase() + owner.slice(1)) // capitalized full: Relias-engineering
-  return [...candidates]
+  return getCloneRoots(process.platform, home)
 }
 
 /**
@@ -161,7 +135,7 @@ function getOrgCandidates(owner: string): string[] {
  * Probes common directory patterns under well-known clone roots.
  */
 function resolveRepoPath(owner: string, repo: string): string | null {
-  const cloneRoots = getCloneRoots()
+  const cloneRoots = getCloneRootsLocal()
   const orgCandidates = getOrgCandidates(owner)
 
   for (const root of cloneRoots) {
@@ -180,52 +154,18 @@ function resolveRepoPath(owner: string, repo: string): string | null {
   return null
 }
 
-function isValidRepoSlug(value: unknown): value is string {
-  // Require alphanumeric first char (matches GitHub naming rules) which
-  // naturally rejects ".", "..", and names starting with "-" or "_".
-  return typeof value === 'string' && value.length > 0 && /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value)
-}
-
 /** Builds shell args. For Windows PowerShell, generates OSC 7 setup via encoded command. */
 function buildShellArgs(shell: string): string[] {
-  if (process.platform === 'win32' && (shell === 'pwsh.exe' || shell === 'powershell.exe')) {
-    // Wrap the default prompt to emit OSC 7 (invisible escape sequence).
-    // Uses -EncodedCommand to avoid quoting issues.
-    // Loads the user profile first so custom prompts are preserved.
-    const osc7Setup = [
-      '& { . $PROFILE } 2>$null',
-      '$__hsb_op=$function:prompt',
-      'function global:prompt{',
-      '$e=[char]0x1b',
-      "[Console]::Write(\"$e]7;file:///$($PWD.Path.Replace('\\','/'))$e\\\")",
-      '& $__hsb_op',
-      '}',
-    ].join(';')
-    const encoded = Buffer.from(osc7Setup, 'utf16le').toString('base64')
-    return ['-NoLogo', '-NoExit', '-EncodedCommand', encoded]
-  }
-  return []
+  return buildTerminalShellArgs(shell, process.platform)
 }
 
 /** Detects OSC 7 CWD sequences in PTY output and updates session.cwd. */
 function processOsc7(session: TerminalSession, data: string): void {
-  session.oscBuffer += data
-  // Only keep last 512 chars to avoid unbounded growth
-  if (session.oscBuffer.length > 512) {
-    session.oscBuffer = session.oscBuffer.slice(-512)
-  }
-  // eslint-disable-next-line no-control-regex -- intentional terminal escape sequences (OSC 7)
-  const osc7Regex = /\x1b\]7;file:\/\/[^/]*\/(.*?)(?:\x07|\x1b\\)/g
-  let lastOsc7: RegExpExecArray | null = null
-  let osc7Match: RegExpExecArray | null
-  while ((osc7Match = osc7Regex.exec(session.oscBuffer)) !== null) {
-    lastOsc7 = osc7Match
-  }
-  if (lastOsc7) {
-    // Clear buffer up to end of last match to prevent re-processing
-    session.oscBuffer = session.oscBuffer.slice(lastOsc7.index + lastOsc7[0].length)
-    const decoded = decodeURIComponent(lastOsc7[1])
-    const newCwd = path.resolve(decoded)
+  const { cwd, remainingBuffer } = processOsc7Buffer(session.oscBuffer, data)
+  session.oscBuffer = remainingBuffer
+
+  if (cwd) {
+    const newCwd = path.resolve(cwd)
     if (newCwd !== session.cwd) {
       session.cwd = newCwd
       safeSend(session.sender, 'terminal:cwd-changed', session.id, newCwd)

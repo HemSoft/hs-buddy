@@ -6,10 +6,11 @@
  */
 
 import type { SessionModelInfo, SessionRequestResult } from '../types/copilotSession'
+import { extractToolCallInfo } from './toolCallParsing'
 
 // ─── Types ────────────────────────────────────────────────
 
-export interface SessionInitData {
+interface SessionInitData {
   sessionId: string
   creationDate: number
   model: SessionModelInfo | null
@@ -189,4 +190,136 @@ export function parseScanChunk(chunk: string): ScanChunkResult {
   const requestCount = reqMatches ? reqMatches.length : 0
 
   return { title, firstPrompt, agent, createdAt, requestCount }
+}
+
+// ─── Session JSONL line processing ───────────────────────
+// Pure state-machine functions for streaming JSONL session parsing.
+// Extracted from electron/services/copilotSessionService.ts.
+
+export interface SessionParseState {
+  init: SessionInitData | null
+  title: string
+  resultsByIndex: Map<number, SessionRequestResult>
+  prompts: Map<number, string>
+}
+
+/** Collect prompt text from requests into the prompts map. */
+function collectPrompts(reqs: Array<Record<string, unknown>>, prompts: Map<number, string>): void {
+  for (let i = 0; i < reqs.length; i++) {
+    const msg = (reqs[i]?.message as Record<string, unknown> | undefined)?.text as
+      | string
+      | undefined
+    if (msg) prompts.set(i, msg)
+  }
+}
+
+/** Collect prompt text from an unknown-typed requests array (skips already-set indices). */
+function collectRequestPrompts(reqs: unknown[], prompts: Map<number, string>): void {
+  for (let i = 0; i < reqs.length; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const msg = (reqs[i] as any)?.message?.text
+    if (typeof msg === 'string' && msg && !prompts.has(i)) prompts.set(i, msg)
+  }
+}
+
+/** Extract result data (token counts, tool calls) from a JSONL value line. */
+function extractResultData(line: string): SessionRequestResult | null {
+  try {
+    const parsed = JSON.parse(line)
+    const v = parsed.v
+    if (!v) return null
+
+    const tokens = resolveTokenCounts(v.metadata, v.timings)
+    const { toolCallCount, toolNames } = extractToolCallInfo(v.metadata)
+
+    return { prompt: '', ...tokens, toolCallCount, toolNames }
+  } catch {
+    return extractResultDataFallback(line)
+  }
+}
+
+/** Parse an init (kind=0) line, extracting session init data and prompts. */
+function handleInitLine(
+  line: string,
+  prompts: Map<number, string>
+): { init: SessionInitData | null; title: string } {
+  try {
+    const obj = JSON.parse(line)
+    const v = obj.v
+    if (!v) return { init: null, title: '' }
+    const init = extractInitFromValue(v as Record<string, unknown>)
+    const title = (v.customTitle as string) ?? ''
+    collectPrompts((v.requests ?? []) as Array<Record<string, unknown>>, prompts)
+    return { init, title }
+  } catch {
+    return { init: extractSessionInitFallback(line), title: '' }
+  }
+}
+
+/** Parse a requests snapshot (kind=2, key=requests). */
+function handleRequestsSnapshot(line: string, prompts: Map<number, string>): void {
+  try {
+    const obj = JSON.parse(line)
+    const reqs = obj.v
+    if (Array.isArray(reqs)) collectRequestPrompts(reqs, prompts)
+  } catch {
+    /* skip unparseable */
+  }
+}
+
+function processInitLine(line: string, state: SessionParseState): void {
+  const result = handleInitLine(line, state.prompts)
+  state.init = result.init
+  if (result.title) state.title = result.title
+}
+
+function tryUpdateTitle(keyPath: string[], line: string, state: SessionParseState): boolean {
+  if (keyPath.length !== 1 || keyPath[0] !== 'customTitle') return false
+  const t = extractTitle(line)
+  if (t) state.title = t
+  return true
+}
+
+function tryUpdateResult(keyPath: string[], line: string, state: SessionParseState): void {
+  if (keyPath.length !== 3 || keyPath[2] !== 'result') return
+  const reqIndex = parseInt(keyPath[1])
+  const result = extractResultData(line)
+  if (result && !isNaN(reqIndex)) state.resultsByIndex.set(reqIndex, result)
+}
+
+function processUpdateLine(keyPath: string[], line: string, state: SessionParseState): void {
+  if (!tryUpdateTitle(keyPath, line, state)) {
+    tryUpdateResult(keyPath, line, state)
+  }
+}
+
+/** Process a single JSONL line for session parsing. Pure state-machine dispatcher. */
+export function processSessionLine(
+  kind: number,
+  keyPath: string[],
+  line: string,
+  state: SessionParseState
+): void {
+  if (kind === 0) {
+    processInitLine(line, state)
+  } else if (kind === 1) {
+    processUpdateLine(keyPath, line, state)
+  } else if (kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests') {
+    handleRequestsSnapshot(line, state.prompts)
+  }
+}
+
+/** Validate a session file path is inside storage root and is .jsonl. */
+export function validateSessionPath(
+  filePath: string,
+  storagePath: string,
+  resolvePath: (p: string) => string,
+  sep: string
+): string | null {
+  if (!storagePath) return null
+  const normalized = resolvePath(filePath)
+  const resolvedStorage = resolvePath(storagePath)
+  if (!(normalized === resolvedStorage || normalized.startsWith(resolvedStorage + sep))) return null
+  if (!normalized.endsWith('.jsonl')) return null
+  return normalized
 }

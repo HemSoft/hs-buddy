@@ -5,11 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { recordWindowOpen } from '../telemetry'
 import { execAsync } from '../utils'
-import {
-  isPrivateIP,
-  isInternalHostname,
-  extractPageTitle,
-} from '../../src/utils/networkSecurity'
+import { isPrivateIP, extractPageTitle, validateUrl } from '../../src/utils/networkSecurity'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -29,17 +25,6 @@ async function validateUrlWithDns(url: string): Promise<URL> {
     throw new Error(`DNS resolution failed for ${hostname}`, { cause: err })
   }
 
-  return parsed
-}
-
-function validateUrl(url: string): URL {
-  const parsed = new URL(url)
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error('Only http/https URLs supported')
-  }
-  if (isInternalHostname(parsed.hostname.toLowerCase())) {
-    throw new Error('Internal URLs not allowed')
-  }
   return parsed
 }
 

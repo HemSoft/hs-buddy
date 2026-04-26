@@ -11,11 +11,12 @@
  * or `copilot-darwin-arm64/copilot`) and pass it as `cliPath` to bypass this.
  */
 
-import { CopilotClient, type AssistantMessageEvent } from '@github/copilot-sdk'
+import { CopilotClient } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
 import { app } from 'electron'
 import { truncateOutput as truncateOutputShared } from '../../src/utils/shellUtils'
+import { extractAssistantContent } from '../../src/utils/copilotResponseUtils'
 
 export const DEFAULT_MODEL = 'claude-sonnet-4.5'
 const SESSION_TIMEOUT = 30_000 // 30s for session creation
@@ -168,14 +169,6 @@ export function truncateOutput(text: string, maxSize = MAX_OUTPUT_SIZE): string 
   return truncateOutputShared(text, maxSize)
 }
 
-/** Extract the text content from an AssistantMessageEvent */
-function extractContent(response: AssistantMessageEvent | undefined): string {
-  if (!response?.data?.content) return ''
-  return typeof response.data.content === 'string'
-    ? response.data.content
-    : JSON.stringify(response.data.content)
-}
-
 interface SendPromptOptions {
   prompt: string
   model?: string
@@ -230,7 +223,7 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
       assertNotAborted(signal, 'Cancelled after session creation')
 
       const response = await session.sendAndWait({ prompt }, timeout)
-      return extractContent(response)
+      return extractAssistantContent(response)
     } finally {
       await session.destroy().catch(() => {})
     }

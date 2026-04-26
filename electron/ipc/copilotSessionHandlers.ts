@@ -7,19 +7,12 @@ import {
   computeSessionDigest,
   resolveWorkspaceName,
 } from '../services/copilotSessionService'
+import { validateSessionPath as validateSessionPathPure } from '../../src/utils/copilotSessionParsing'
 import type { SessionDigest } from '../../src/types/copilotSession'
 
 /** Validates filePath is inside VS Code storage and is a .jsonl file. Returns normalized path or null. */
 function validateSessionPath(filePath: string): string | null {
-  const storagePath = getVSCodeStoragePath()
-  if (!storagePath) return null
-  const normalized = path.resolve(filePath)
-  const resolvedStorage = path.resolve(storagePath)
-  // Boundary-safe: require path separator after storage root to prevent prefix attacks
-  if (!(normalized === resolvedStorage || normalized.startsWith(resolvedStorage + path.sep)))
-    return null
-  if (!normalized.endsWith('.jsonl')) return null
-  return normalized
+  return validateSessionPathPure(filePath, getVSCodeStoragePath(), path.resolve, path.sep)
 }
 
 export function registerCopilotSessionHandlers(): void {

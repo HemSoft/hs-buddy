@@ -9,6 +9,10 @@ import { buildMenu, registerKeyboardShortcuts } from './menu'
 import { registerAllHandlers } from './ipc'
 import { getDispatcher, runOfflineSync } from './workers'
 import { stopSharedClient } from './services/copilotClient'
+import {
+  resolveWindowBounds as resolveWindowBoundsPure,
+  type DisplayInfo,
+} from '../src/utils/windowGeometry'
 
 // Initialize OpenTelemetry before anything else touches HTTP/DNS
 await initTelemetry()
@@ -42,58 +46,6 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null
 
-function clampToWorkArea(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  workArea: Electron.Rectangle
-): { x: number; y: number; width: number; height: number } {
-  const clampedWidth = Math.min(width, workArea.width)
-  const clampedHeight = Math.min(height, workArea.height)
-
-  return {
-    x: Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - clampedWidth)),
-    y: Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - clampedHeight)),
-    width: clampedWidth,
-    height: clampedHeight,
-  }
-}
-
-function centerOnDisplay(
-  width: number,
-  height: number,
-  workArea: Electron.Rectangle
-): { x: number; y: number; width: number; height: number } {
-  const clampedWidth = Math.min(width, workArea.width)
-  const clampedHeight = Math.min(height, workArea.height)
-  return {
-    x: workArea.x + Math.round((workArea.width - clampedWidth) / 2),
-    y: workArea.y + Math.round((workArea.height - clampedHeight) / 2),
-    width: clampedWidth,
-    height: clampedHeight,
-  }
-}
-
-function relocateToSavedDisplay(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  savedDisplay: Electron.Display,
-  targetDisplay: Electron.Display,
-  savedDisplayBounds: Electron.Rectangle
-): { x: number; y: number; width: number; height: number } {
-  const oldBounds = savedDisplayBounds.width > 0 ? savedDisplayBounds : targetDisplay.bounds
-  return clampToWorkArea(
-    savedDisplay.workArea.x + (x - oldBounds.x),
-    savedDisplay.workArea.y + (y - oldBounds.y),
-    width,
-    height,
-    savedDisplay.workArea
-  )
-}
-
 function resolveWindowBounds(state: { x?: number; y?: number; width: number; height: number }): {
   x?: number
   y?: number
@@ -102,41 +54,23 @@ function resolveWindowBounds(state: { x?: number; y?: number; width: number; hei
 } {
   const savedDisplayId = configManager.getUiValue('displayId')
   const savedDisplayBounds = configManager.getUiValue('displayBounds')
-  const allDisplays = screen.getAllDisplays()
+  const allDisplays: DisplayInfo[] = screen.getAllDisplays().map(d => ({
+    id: d.id,
+    bounds: d.bounds,
+    workArea: d.workArea,
+  }))
   const primaryDisplay = screen.getPrimaryDisplay()
 
-  const { x, y, width, height } = state
-
-  if (x === undefined || y === undefined) return { x, y, width, height }
-
-  const targetDisplay = screen.getDisplayMatching({ x, y, width, height })
-  const savedDisplay = allDisplays.find(d => d.id === savedDisplayId)
-
-  if (savedDisplayId === 0) return { x, y, width, height }
-
-  if (!savedDisplay) {
-    console.log(
-      `[Window] Saved display ${savedDisplayId} no longer exists. Centering on primary display.`
-    )
-    return centerOnDisplay(width, height, primaryDisplay.workArea)
-  }
-
-  if (targetDisplay.id !== savedDisplayId) {
-    console.log(
-      `[Window] Display mismatch: would open on display ${targetDisplay.id}, but was saved on display ${savedDisplayId}. Correcting.`
-    )
-    return relocateToSavedDisplay(
-      x,
-      y,
-      width,
-      height,
-      savedDisplay,
-      targetDisplay,
-      savedDisplayBounds
-    )
-  }
-
-  return clampToWorkArea(x, y, width, height, savedDisplay.workArea)
+  return resolveWindowBoundsPure(state, {
+    savedDisplayId,
+    savedDisplayBounds,
+    allDisplays,
+    primaryWorkArea: primaryDisplay.workArea,
+    getMatchingDisplay: bounds => {
+      const d = screen.getDisplayMatching(bounds)
+      return { id: d.id, bounds: d.bounds, workArea: d.workArea }
+    },
+  })
 }
 
 function createWindow() {

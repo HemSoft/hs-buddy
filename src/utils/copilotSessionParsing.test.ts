@@ -13,6 +13,9 @@ import {
   parseKeyPath,
   regexExtract,
   parseScanChunk,
+  type SessionParseState,
+  processSessionLine,
+  validateSessionPath,
 } from './copilotSessionParsing'
 
 describe('str', () => {
@@ -399,5 +402,286 @@ describe('parseScanChunk', () => {
     const result = parseScanChunk(chunk)
     expect(result.title).toBe('partial')
     expect(result.createdAt).toBe(0)
+  })
+})
+
+// ─── Session line processing tests ──────────────────────
+
+function makeState(): SessionParseState {
+  return { init: null, title: '', resultsByIndex: new Map(), prompts: new Map() }
+}
+
+describe('processSessionLine', () => {
+  // ─── kind=0 (init) via handleInitLine / collectPrompts ──────
+
+  it('processes kind=0 (init) lines', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: { sessionId: 'sess1', creationDate: 1000, customTitle: 'Title1' },
+    })
+    processSessionLine(0, [], line, state)
+    expect(state.init?.sessionId).toBe('sess1')
+    expect(state.title).toBe('Title1')
+  })
+
+  it('processes kind=0 without title (title stays empty)', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: { sessionId: 'sess-no-title', creationDate: 500 },
+    })
+    processSessionLine(0, [], line, state)
+    expect(state.init?.sessionId).toBe('sess-no-title')
+    expect(state.title).toBe('')
+  })
+
+  it('kind=0 sets init to null when v is missing', () => {
+    const state = makeState()
+    processSessionLine(0, [], JSON.stringify({}), state)
+    expect(state.init).toBeNull()
+    expect(state.title).toBe('')
+  })
+
+  it('kind=0 falls back on invalid JSON', () => {
+    const state = makeState()
+    processSessionLine(0, [], 'invalid{"sessionId":"fallback-id","creationDate":99999}', state)
+    expect(state.init?.sessionId).toBe('fallback-id')
+    expect(state.init?.creationDate).toBe(99999)
+  })
+
+  it('kind=0 collects prompts from requests array', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: {
+        sessionId: 'sid',
+        creationDate: 1,
+        requests: [{ message: { text: 'Hello' } }, { message: { text: 'World' } }],
+      },
+    })
+    processSessionLine(0, [], line, state)
+    expect(state.prompts.get(0)).toBe('Hello')
+    expect(state.prompts.get(1)).toBe('World')
+  })
+
+  it('kind=0 skips request entries without message.text', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: {
+        sessionId: 'sid',
+        creationDate: 1,
+        requests: [{}, { message: {} }, { message: { text: 'only' } }],
+      },
+    })
+    processSessionLine(0, [], line, state)
+    expect(state.prompts.size).toBe(1)
+    expect(state.prompts.get(2)).toBe('only')
+  })
+
+  it('kind=0 overwrites existing prompt indices', () => {
+    const state = makeState()
+    state.prompts.set(0, 'old')
+    const line = JSON.stringify({
+      v: { sessionId: 'sid', creationDate: 1, requests: [{ message: { text: 'new' } }] },
+    })
+    processSessionLine(0, [], line, state)
+    expect(state.prompts.get(0)).toBe('new')
+  })
+
+  // ─── kind=1 (update) title changes ──────────────────────────
+
+  it('processes kind=1 (update) title changes', () => {
+    const state = makeState()
+    const line = JSON.stringify({ v: 'New Title' })
+    processSessionLine(1, ['customTitle'], line, state)
+    expect(state.title).toBe('New Title')
+  })
+
+  it('processes kind=1 title update that fails extraction (title unchanged)', () => {
+    const state = makeState()
+    state.title = 'Original'
+    const line = JSON.stringify({ v: 42 })
+    processSessionLine(1, ['customTitle'], line, state)
+    expect(state.title).toBe('Original')
+  })
+
+  it('ignores kind=1 updates with wrong keyPath length for title', () => {
+    const state = makeState()
+    state.title = 'keep'
+    processSessionLine(1, ['a', 'customTitle'], JSON.stringify({ v: 'ignored' }), state)
+    expect(state.title).toBe('keep')
+  })
+
+  // ─── kind=1 (update) result data via extractResultData ──────
+
+  it('processes kind=1 (update) result data', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: {
+        metadata: { promptTokens: 10, outputTokens: 5, toolCallRounds: [] },
+        timings: {},
+      },
+    })
+    processSessionLine(1, ['requests', '0', 'result'], line, state)
+    expect(state.resultsByIndex.size).toBe(1)
+    expect(state.resultsByIndex.get(0)?.promptTokens).toBe(10)
+  })
+
+  it('kind=1 result extracts full token and timing data', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: {
+        metadata: { promptTokens: 100, outputTokens: 50, toolCallRounds: [] },
+        timings: { firstProgress: 200, totalElapsed: 1000 },
+      },
+    })
+    processSessionLine(1, ['requests', '0', 'result'], line, state)
+    const result = state.resultsByIndex.get(0)
+    expect(result).toEqual({
+      prompt: '',
+      promptTokens: 100,
+      outputTokens: 50,
+      firstProgressMs: 200,
+      totalElapsedMs: 1000,
+      toolCallCount: 0,
+      toolNames: [],
+    })
+  })
+
+  it('kind=1 result falls back to regex on invalid JSON', () => {
+    const state = makeState()
+    const line = '{"broken: true, "promptTokens":42,"outputTokens":10}'
+    processSessionLine(1, ['requests', '0', 'result'], line, state)
+    const result = state.resultsByIndex.get(0)
+    expect(result).toEqual({
+      prompt: '',
+      promptTokens: 42,
+      outputTokens: 10,
+      firstProgressMs: 0,
+      totalElapsedMs: 0,
+      toolCallCount: 0,
+      toolNames: [],
+    })
+  })
+
+  it('ignores kind=1 result update with non-numeric index', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: {
+        metadata: { promptTokens: 1, outputTokens: 1, toolCallRounds: [] },
+        timings: {},
+      },
+    })
+    processSessionLine(1, ['requests', 'abc', 'result'], line, state)
+    expect(state.resultsByIndex.size).toBe(0)
+  })
+
+  it('ignores kind=1 result update with null extractResultData', () => {
+    const state = makeState()
+    processSessionLine(1, ['requests', '0', 'result'], 'garbage', state)
+    expect(state.resultsByIndex.size).toBe(0)
+  })
+
+  it('kind=1 result returns null when v is missing', () => {
+    const state = makeState()
+    processSessionLine(1, ['requests', '0', 'result'], JSON.stringify({}), state)
+    expect(state.resultsByIndex.size).toBe(0)
+  })
+
+  // ─── kind=2 (snapshot) via handleRequestsSnapshot / collectRequestPrompts ──
+
+  it('processes kind=2 (snapshot) for requests', () => {
+    const state = makeState()
+    const line = JSON.stringify({ v: [{ message: { text: 'snap' } }] })
+    processSessionLine(2, ['requests'], line, state)
+    expect(state.prompts.get(0)).toBe('snap')
+  })
+
+  it('kind=2 does not overwrite already-set prompt indices', () => {
+    const state = makeState()
+    state.prompts.set(0, 'keep')
+    const line = JSON.stringify({ v: [{ message: { text: 'replace' } }] })
+    processSessionLine(2, ['requests'], line, state)
+    expect(state.prompts.get(0)).toBe('keep')
+  })
+
+  it('kind=2 skips null/undefined entries in requests array', () => {
+    const state = makeState()
+    const line = JSON.stringify({ v: [null, null, { message: { text: 'ok' } }] })
+    processSessionLine(2, ['requests'], line, state)
+    expect(state.prompts.size).toBe(1)
+    expect(state.prompts.get(2)).toBe('ok')
+  })
+
+  it('kind=2 skips non-string text values in requests', () => {
+    const state = makeState()
+    const line = JSON.stringify({
+      v: [{ message: { text: {} } }, { message: { text: 42 } }, { message: { text: 'valid' } }],
+    })
+    processSessionLine(2, ['requests'], line, state)
+    expect(state.prompts.size).toBe(1)
+    expect(state.prompts.get(2)).toBe('valid')
+  })
+
+  it('kind=2 ignores non-array v', () => {
+    const state = makeState()
+    processSessionLine(2, ['requests'], JSON.stringify({ v: 'not-array' }), state)
+    expect(state.prompts.size).toBe(0)
+  })
+
+  it('kind=2 ignores unparseable lines', () => {
+    const state = makeState()
+    processSessionLine(2, ['requests'], 'broken{json', state)
+    expect(state.prompts.size).toBe(0)
+  })
+
+  it('ignores kind=2 when keyPath is not requests', () => {
+    const state = makeState()
+    processSessionLine(2, ['other'], '{}', state)
+    expect(state.prompts.size).toBe(0)
+  })
+
+  // ─── Other kinds ────────────────────────────────────────────
+
+  it('ignores unknown kind values', () => {
+    const state = makeState()
+    processSessionLine(99, [], '{}', state)
+    expect(state.init).toBeNull()
+  })
+})
+
+describe('validateSessionPath', () => {
+  const identity = (p: string) => p
+
+  it('returns normalized path for valid .jsonl inside storage', () => {
+    expect(validateSessionPath('/storage/ws/file.jsonl', '/storage', identity, '/')).toBe(
+      '/storage/ws/file.jsonl'
+    )
+  })
+
+  it('rejects paths outside storage root', () => {
+    expect(validateSessionPath('/other/file.jsonl', '/storage', identity, '/')).toBeNull()
+  })
+
+  it('rejects non-.jsonl files', () => {
+    expect(validateSessionPath('/storage/file.txt', '/storage', identity, '/')).toBeNull()
+  })
+
+  it('rejects empty storage path', () => {
+    expect(validateSessionPath('/any/file.jsonl', '', identity, '/')).toBeNull()
+  })
+
+  it('prevents prefix attacks (e.g., /storage-evil)', () => {
+    expect(validateSessionPath('/storage-evil/file.jsonl', '/storage', identity, '/')).toBeNull()
+  })
+
+  it('accepts exact storage path that is also a .jsonl', () => {
+    expect(validateSessionPath('/storage.jsonl', '/storage.jsonl', identity, '/')).toBe(
+      '/storage.jsonl'
+    )
+  })
+
+  it('works with Windows-style separators', () => {
+    expect(validateSessionPath('C:\\storage\\ws\\f.jsonl', 'C:\\storage', identity, '\\')).toBe(
+      'C:\\storage\\ws\\f.jsonl'
+    )
   })
 })

@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add defensive fallback for buildPRSearchQueries lookup
 - Add v8 ignore for unreachable defensive fallback in buildPRSearchQueries
 - Use own-property guards for all Record lookups
+- Remove unused exports and guard decodeURIComponent in OSC 7 parser
+- Address PR #654 review comments
+- Use null check instead of falsy check in extractAssistantContent
+- Add typeof string guard in collectRequestPrompts
+- Export WindowBounds interface used in public API
+- Remove unused WindowBounds export to fix Knip CI failure
 
 ### Changed
 
@@ -68,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity via lookup maps and helper extraction
 - Replace switch statements with lookup tables for lower complexity
 - Extract pure logic from electron/convex to reduce CRAP scores
+- Extract pure logic from electron/ to reduce CRAP scores
+- Un-export test-only helpers to satisfy Knip
 
 ### Added
 

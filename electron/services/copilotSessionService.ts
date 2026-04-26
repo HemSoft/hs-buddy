@@ -8,17 +8,12 @@ import type {
   SessionSummary,
 } from '../../src/types/copilotSession'
 import {
-  type SessionInitData,
-  extractInitFromValue,
-  extractSessionInitFallback,
-  extractTitle,
-  extractResultDataFallback,
-  resolveTokenCounts,
+  type SessionParseState,
   parseKeyPath,
   resolveFolderOrWorkspaceName,
   parseScanChunk,
+  processSessionLine,
 } from '../../src/utils/copilotSessionParsing'
-import { extractToolCallInfo } from '../../src/utils/toolCallParsing'
 import { aggregateResults } from '../../src/utils/sessionDigest'
 
 // ─── VS Code Storage Discovery ────────────────────────────
@@ -131,114 +126,6 @@ export function scanCopilotSessions(): SessionScanResult {
 }
 
 // ─── Detail: parse one JSONL file (streaming) ─────────────
-
-function collectPrompts(reqs: Array<Record<string, unknown>>, prompts: Map<number, string>): void {
-  for (let i = 0; i < reqs.length; i++) {
-    const msg = (reqs[i]?.message as Record<string, unknown> | undefined)?.text as
-      | string
-      | undefined
-    if (msg) prompts.set(i, msg)
-  }
-}
-
-function extractResultData(line: string): SessionRequestResult | null {
-  try {
-    const parsed = JSON.parse(line)
-    const v = parsed.v
-    if (!v) return null
-
-    const tokens = resolveTokenCounts(v.metadata, v.timings)
-    const { toolCallCount, toolNames } = extractToolCallInfo(v.metadata)
-
-    return { prompt: '', ...tokens, toolCallCount, toolNames }
-  } catch {
-    return extractResultDataFallback(line)
-  }
-}
-
-function handleInitLine(
-  line: string,
-  prompts: Map<number, string>
-): { init: SessionInitData | null; title: string } {
-  try {
-    const obj = JSON.parse(line)
-    const v = obj.v
-    if (!v) return { init: null, title: '' }
-    const init = extractInitFromValue(v as Record<string, unknown>)
-    const title = (v.customTitle as string) ?? ''
-    collectPrompts((v.requests ?? []) as Array<Record<string, unknown>>, prompts)
-    return { init, title }
-  } catch {
-    return { init: extractSessionInitFallback(line), title: '' }
-  }
-}
-
-/** Collect prompt text from a requests array into the prompts map. */
-function collectRequestPrompts(reqs: unknown[], prompts: Map<number, string>): void {
-  for (let i = 0; i < reqs.length; i++) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const msg = (reqs[i] as any)?.message?.text
-    if (msg && !prompts.has(i)) prompts.set(i, msg)
-  }
-}
-
-function handleRequestsSnapshot(line: string, prompts: Map<number, string>): void {
-  try {
-    const obj = JSON.parse(line)
-    const reqs = obj.v
-    if (Array.isArray(reqs)) collectRequestPrompts(reqs, prompts)
-  } catch {
-    /* skip unparseable */
-  }
-}
-
-interface SessionParseState {
-  init: SessionInitData | null
-  title: string
-  resultsByIndex: Map<number, SessionRequestResult>
-  prompts: Map<number, string>
-}
-
-function processInitLine(line: string, state: SessionParseState): void {
-  const result = handleInitLine(line, state.prompts)
-  state.init = result.init
-  if (result.title) state.title = result.title
-}
-
-function tryUpdateTitle(keyPath: string[], line: string, state: SessionParseState): boolean {
-  if (keyPath.length !== 1 || keyPath[0] !== 'customTitle') return false
-  const t = extractTitle(line)
-  if (t) state.title = t
-  return true
-}
-
-function tryUpdateResult(keyPath: string[], line: string, state: SessionParseState): void {
-  if (keyPath.length !== 3 || keyPath[2] !== 'result') return
-  const reqIndex = parseInt(keyPath[1])
-  const result = extractResultData(line)
-  if (result && !isNaN(reqIndex)) state.resultsByIndex.set(reqIndex, result)
-}
-
-function processUpdateLine(keyPath: string[], line: string, state: SessionParseState): void {
-  if (!tryUpdateTitle(keyPath, line, state)) {
-    tryUpdateResult(keyPath, line, state)
-  }
-}
-
-function processSessionLine(
-  kind: number,
-  keyPath: string[],
-  line: string,
-  state: SessionParseState
-): void {
-  if (kind === 0) {
-    processInitLine(line, state)
-  } else if (kind === 1) {
-    processUpdateLine(keyPath, line, state)
-  } else if (kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests') {
-    handleRequestsSnapshot(line, state.prompts)
-  }
-}
 
 export async function getSessionDetail(filePath: string): Promise<CopilotSession | null> {
   if (!fs.existsSync(filePath)) return null

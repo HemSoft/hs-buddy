@@ -7,6 +7,7 @@ import {
   extractTitleTag,
   extractOgTitle,
   extractPageTitle,
+  validateUrl,
 } from './networkSecurity'
 
 // --- isPrivateIPv6 ---
@@ -252,5 +253,44 @@ describe('extractPageTitle', () => {
   it('decodes HTML entities in og:title', () => {
     const html = '<meta property="og:title" content="A &amp; B">'
     expect(extractPageTitle(html)).toBe('A & B')
+  })
+})
+
+// --- validateUrl ---
+
+describe('validateUrl', () => {
+  it('returns URL for valid https URL', () => {
+    const result = validateUrl('https://github.com/org/repo')
+    expect(result.hostname).toBe('github.com')
+    expect(result.protocol).toBe('https:')
+  })
+
+  it('returns URL for valid http URL', () => {
+    const result = validateUrl('http://example.com')
+    expect(result.hostname).toBe('example.com')
+  })
+
+  it('throws for ftp protocol', () => {
+    expect(() => validateUrl('ftp://example.com')).toThrow('Only http/https URLs supported')
+  })
+
+  it('throws for file protocol', () => {
+    expect(() => validateUrl('file:///etc/passwd')).toThrow('Only http/https URLs supported')
+  })
+
+  it('throws for internal hostname localhost', () => {
+    expect(() => validateUrl('https://localhost:3000')).toThrow('Internal URLs not allowed')
+  })
+
+  it('throws for internal hostname 127.0.0.1', () => {
+    expect(() => validateUrl('http://127.0.0.1')).toThrow('Internal URLs not allowed')
+  })
+
+  it('throws for .local hostname', () => {
+    expect(() => validateUrl('https://mypc.local')).toThrow('Internal URLs not allowed')
+  })
+
+  it('throws for invalid URL', () => {
+    expect(() => validateUrl('not-a-url')).toThrow()
   })
 })

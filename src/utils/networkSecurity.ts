@@ -66,3 +66,15 @@ export function extractPageTitle(html: string): string | null {
   if (ogTitle) return decodeHtmlEntities(ogTitle)
   return null
 }
+
+/** Validate a URL string: must be http/https and not an internal hostname. */
+export function validateUrl(url: string): URL {
+  const parsed = new URL(url)
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Only http/https URLs supported')
+  }
+  if (isInternalHostname(parsed.hostname.toLowerCase())) {
+    throw new Error('Internal URLs not allowed')
+  }
+  return parsed
+}

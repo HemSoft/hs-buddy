@@ -6,6 +6,14 @@ import {
   shouldCheckWindowsMachineScope,
   buildPowershellEnvCommand,
 } from '../../src/utils/envLookup'
+import {
+  enrichWorklog,
+  parseCapitalizationField,
+  buildCreateWorklogBody,
+  buildUpdateWorklogBody,
+  summarizeWorklogs,
+  CAPITALIZATION_FIELD,
+} from '../../src/utils/tempoUtils'
 import type {
   TempoApiWorklog,
   TempoWorklog,
@@ -198,12 +206,6 @@ async function resolveIssueId(issueKey: string): Promise<number> {
   return id
 }
 
-function inferAccount(issueKey: string): string {
-  const prefix = issueKey.split('-')[0]
-  if (prefix === 'INT') return 'INT'
-  return 'GEN-DEV'
-}
-
 async function resolveProjectId(projectKey: string): Promise<number> {
   const cached = projectIdCache.get(projectKey)
   if (cached) return cached
@@ -248,31 +250,6 @@ export async function getProjectAccountLinks(
     return { success: true, data: links }
   } catch (err) {
     return { success: false, error: getErrorMessage(err) }
-  }
-}
-
-/** Resolve the account key from a raw worklog's attributes. */
-function resolveWorklogAccountKey(raw: TempoApiWorklog): string {
-  const accountAttr = raw.attributes?.values?.find(a => a.key === '_Account_')
-  return accountAttr?.value || ''
-}
-
-function enrichWorklog(
-  raw: TempoApiWorklog,
-  issueInfo: { key: string; summary: string },
-  accountMap: Map<string, string>
-): TempoWorklog {
-  const accountKey = resolveWorklogAccountKey(raw)
-  return {
-    id: raw.tempoWorklogId,
-    issueKey: issueInfo.key,
-    issueSummary: issueInfo.summary,
-    hours: Math.round((raw.timeSpentSeconds / 3600) * 100) / 100,
-    date: raw.startDate,
-    startTime: raw.startTime?.substring(0, 5) || '08:00',
-    description: raw.description || '',
-    accountKey,
-    accountName: accountMap.get(accountKey) || accountKey,
   }
 }
 
@@ -355,31 +332,11 @@ export async function getWeekSummary(
   const result = await getWorklogsForRange(weekStart, weekEnd)
   if (!result.success) return { success: false, error: result.error }
   const worklogs = result.data || []
-
-  // Group by issue
-  const issueMap = new Map<string, TempoIssueSummary>()
-  for (const w of worklogs) {
-    let summary = issueMap.get(w.issueKey)
-    if (!summary) {
-      summary = {
-        issueKey: w.issueKey,
-        issueSummary: w.issueSummary,
-        totalHours: 0,
-        hoursByDate: {},
-      }
-      issueMap.set(w.issueKey, summary)
-    }
-    summary.totalHours += w.hours
-    summary.hoursByDate[w.date] = (summary.hoursByDate[w.date] || 0) + w.hours
-  }
+  const { issueSummaries, totalHours } = summarizeWorklogs(worklogs)
 
   return {
     success: true,
-    data: {
-      worklogs,
-      issueSummaries: [...issueMap.values()].sort((a, b) => b.totalHours - a.totalHours),
-      totalHours: worklogs.reduce((sum, w) => sum + w.hours, 0),
-    },
+    data: { worklogs, issueSummaries, totalHours },
   }
 }
 
@@ -389,18 +346,7 @@ export async function createWorklog(
   try {
     const accountId = await getAccountId()
     const issueId = await resolveIssueId(payload.issueKey)
-    const accountKey = payload.accountKey || inferAccount(payload.issueKey)
-    const startTime = payload.startTime ? `${payload.startTime}:00` : '08:00:00'
-
-    const body = {
-      issueId,
-      timeSpentSeconds: Math.round(payload.hours * 3600),
-      startDate: payload.date,
-      startTime,
-      authorAccountId: accountId,
-      description: payload.description || `Working on issue ${payload.issueKey}`,
-      attributes: [{ key: '_Account_', value: accountKey }],
-    }
+    const body = buildCreateWorklogBody(accountId, issueId, payload)
 
     const resp = await fetchJson<TempoApiWorklog>(`${TEMPO_BASE}/worklogs`, getTempoHeaders(), {
       method: 'POST',
@@ -422,12 +368,7 @@ export async function updateWorklog(
 ): Promise<TempoResult<void>> {
   try {
     const accountId = await getAccountId()
-    const body: Record<string, unknown> = { authorAccountId: accountId }
-    if (payload.hours !== undefined) body.timeSpentSeconds = Math.round(payload.hours * 3600)
-    if (payload.date) body.startDate = payload.date
-    if (payload.startTime) body.startTime = `${payload.startTime}:00`
-    if (payload.description !== undefined) body.description = payload.description
-    if (payload.accountKey) body.attributes = [{ key: '_Account_', value: payload.accountKey }]
+    const body = buildUpdateWorklogBody(accountId, payload)
 
     await fetchJson<unknown>(`${TEMPO_BASE}/worklogs/${worklogId}`, getTempoHeaders(), {
       method: 'PUT',
@@ -459,7 +400,6 @@ export async function deleteWorklog(worklogId: number): Promise<TempoResult<void
 
 // --- Capex map (Capitalization field from Jira) ---
 
-const CAPITALIZATION_FIELD = 'customfield_11702'
 const capexCache = new Map<string, boolean>()
 
 /** Check disk cache for a valid (within 24h TTL) capex entry */
@@ -473,14 +413,6 @@ function resolveCapexFromDiskCache(issueKey: string): boolean | null {
   ) {
     return diskEntry.data as boolean
   }
-  return null
-}
-
-/** Extract the capitalization value from Jira fields (array or object shape) */
-function parseCapitalizationField(fields: Record<string, unknown>): boolean | null {
-  const rawCapVal = fields[CAPITALIZATION_FIELD]
-  const capVal = Array.isArray(rawCapVal) ? rawCapVal[0] : rawCapVal
-  if (capVal?.value) return capVal.value === 'Yes'
   return null
 }
 

@@ -772,18 +772,17 @@ function classifyCheckRun(run: { status: string; conclusion: string | null }): C
   return 'neutral'
 }
 
+const STATUS_CONTEXT_CATEGORY: Record<string, CheckCategory> = {
+  success: 'successful',
+  pending: 'pending',
+  failure: 'failed',
+  error: 'failed',
+}
+
 function classifyStatusContext(state: string): CheckCategory {
-  switch (state) {
-    case 'success':
-      return 'successful'
-    case 'pending':
-      return 'pending'
-    case 'failure':
-    case 'error':
-      return 'failed'
-    default:
-      return 'neutral'
-  }
+  return Object.prototype.hasOwnProperty.call(STATUS_CONTEXT_CATEGORY, state)
+    ? STATUS_CONTEXT_CATEGORY[state]
+    : 'neutral'
 }
 
 function countCheckStatuses(
@@ -820,17 +819,16 @@ export function computeQuartiles(counts: number[]): number[] {
   return [q(0.25), q(0.5), q(0.75)]
 }
 
+const REVIEW_STATE_DESCRIPTIONS: Record<string, string> = {
+  APPROVED: 'Approved review',
+  CHANGES_REQUESTED: 'Requested changes',
+  COMMENTED: 'Left review comments',
+}
+
 function describeReviewState(state: string): string {
-  switch (state) {
-    case 'APPROVED':
-      return 'Approved review'
-    case 'CHANGES_REQUESTED':
-      return 'Requested changes'
-    case 'COMMENTED':
-      return 'Left review comments'
-    default:
-      return 'Submitted review'
-  }
+  return Object.hasOwn(REVIEW_STATE_DESCRIPTIONS, state)
+    ? REVIEW_STATE_DESCRIPTIONS[state]
+    : 'Submitted review'
 }
 
 function buildCommentTimelineEvents(
@@ -906,18 +904,15 @@ function buildReviewTimelineEvents(
     }))
 }
 
+const REVIEWER_STATUS_MAP: Record<string, PRReviewerSummary['status']> = {
+  APPROVED: 'approved',
+  CHANGES_REQUESTED: 'changes-requested',
+  COMMENTED: 'commented',
+}
+
 function resolveReviewerStatus(state: string | undefined): PRReviewerSummary['status'] {
   if (!state) return 'pending'
-  switch (state) {
-    case 'APPROVED':
-      return 'approved'
-    case 'CHANGES_REQUESTED':
-      return 'changes-requested'
-    case 'COMMENTED':
-      return 'commented'
-    default:
-      return 'reviewed'
-  }
+  return Object.hasOwn(REVIEWER_STATUS_MAP, state) ? REVIEWER_STATUS_MAP[state] : 'reviewed'
 }
 /* v8 ignore stop */
 
@@ -1270,30 +1265,34 @@ function mapCommitFileToDiffFile(file: any): DiffFile {
   }
 }
 
+export type PRSearchMode = 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
+
+const PR_SEARCH_BUILDERS: Record<PRSearchMode, (u: string, o: string, m?: string) => string[]> = {
+  'needs-review': (u, o) => [
+    `is:pr review-requested:${u} is:open org:${o}`,
+    `is:pr assignee:${u} is:open org:${o} -author:${u}`,
+  ],
+  'need-a-nudge': (u, o) => [`is:pr is:open reviewed-by:${u} org:${o}`],
+  'recently-merged': (u, o, m) => [
+    `is:pr author:${u} is:merged merged:>=${m} org:${o}`,
+    `is:pr reviewed-by:${u} is:merged merged:>=${m} org:${o}`,
+  ],
+  'my-prs': (u, o) => [`is:pr author:${u} is:open org:${o}`],
+}
+
 /** Build search queries for fetchPRsForAccount based on mode. */
 function buildPRSearchQueries(
   username: string,
   org: string,
-  mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge',
+  mode: PRSearchMode,
   mergedAfter?: string
 ): string[] {
-  switch (mode) {
-    case 'needs-review':
-      return [
-        `is:pr review-requested:${username} is:open org:${org}`,
-        `is:pr assignee:${username} is:open org:${org} -author:${username}`,
-      ]
-    case 'need-a-nudge':
-      return [`is:pr is:open reviewed-by:${username} org:${org}`]
-    case 'recently-merged':
-      return [
-        `is:pr author:${username} is:merged merged:>=${mergedAfter} org:${org}`,
-        `is:pr reviewed-by:${username} is:merged merged:>=${mergedAfter} org:${org}`,
-      ]
-    case 'my-prs':
-    default:
-      return [`is:pr author:${username} is:open org:${org}`]
-  }
+  /* v8 ignore start -- defensive: PRSearchMode union is exhaustive */
+  const resolvedMode: PRSearchMode = Object.prototype.hasOwnProperty.call(PR_SEARCH_BUILDERS, mode)
+    ? mode
+    : 'my-prs'
+  /* v8 ignore stop */
+  return PR_SEARCH_BUILDERS[resolvedMode](username, org, mergedAfter)
 }
 
 /** Safely resolve assignee count from a nullable array. */
@@ -3334,7 +3333,7 @@ export class GitHubClient {
    * Core fetch method with mode support
    */
   private async fetchPRs(
-    mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge',
+    mode: PRSearchMode,
     onProgress?: ProgressCallback
   ): Promise<PullRequest[]> {
     const allPrs: PullRequest[] = []
@@ -3508,7 +3507,7 @@ export class GitHubClient {
     octokit: Octokit,
     org: string,
     username: string,
-    mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge' = 'my-prs'
+    mode: PRSearchMode = 'my-prs'
   ): Promise<PullRequest[]> {
     const orgAvatarUrl = await this.resolveOrgAvatar(octokit, org)
 

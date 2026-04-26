@@ -150,21 +150,18 @@ function ConfigDetails({ job }: { job: Doc<'jobs'> }) {
   }
 }
 
+const WORKER_LABELS: Record<string, string> = {
+  exec: 'Shell Command',
+  ai: 'AI Prompt',
+  skill: 'Claude Skill',
+}
+
 function getWorkerLabel(workerType: string): string {
   /* v8 ignore start */
-  switch (workerType) {
-    /* v8 ignore stop */
-    case 'exec':
-      return 'Shell Command'
-    case 'ai':
-      return 'AI Prompt'
-    case 'skill':
-      return 'Claude Skill'
-    default:
-      /* v8 ignore start */
-      return workerType
-    /* v8 ignore stop */
-  }
+  return Object.prototype.hasOwnProperty.call(WORKER_LABELS, workerType)
+    ? WORKER_LABELS[workerType]
+    : workerType
+  /* v8 ignore stop */
 }
 
 function getEditorProps(duplicating: boolean, jobId: string | undefined, job: Doc<'jobs'>) {

@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make enumerateCronOccurrences start boundary inclusive
 - Add prototype-pollution guards to dynamic object lookups
 - Replace btoa/atob with encodeURIComponent/decodeURIComponent for session paths
+- Add defensive fallback for invalid PRSearchMode in fetchPRsByMode
+- Add defensive fallback for buildPRSearchQueries lookup
+- Add v8 ignore for unreachable defensive fallback in buildPRSearchQueries
+- Use own-property guards for all Record lookups
 
 ### Changed
 
@@ -62,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce AccountQuotaCard complexity from 8 to 6
 - Extract collectOccurrences to reduce complexity
 - Reduce cyclomatic complexity via lookup maps and helper extraction
+- Replace switch statements with lookup tables for lower complexity
 
 ### Added
 

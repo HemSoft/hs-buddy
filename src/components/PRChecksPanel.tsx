@@ -70,37 +70,36 @@ function getCheckRunStatus(run: PRChecksSummary['checkRuns'][number]): {
   return resolveCompletedCheckTone(run.conclusion)
 }
 
-function getStatusContextState(state: string): {
-  label: string
-  tone: CheckTone
-  icon: typeof CheckCircle2
-} {
-  switch (state) {
-    case 'success':
-      return { label: 'Passed', tone: 'success', icon: CheckCircle2 }
-    case 'failure':
-    case 'error':
-      return { label: state === 'error' ? 'Error' : 'Failed', tone: 'failure', icon: XCircle }
-    case 'pending':
-      return { label: 'Pending', tone: 'pending', icon: Clock3 }
-    default:
-      return { label: state, tone: 'neutral', icon: MinusCircle }
-  }
+type StatusContextEntry = { label: string; tone: CheckTone; icon: typeof CheckCircle2 }
+const STATUS_CONTEXT_ENTRIES: Record<string, StatusContextEntry> = {
+  success: { label: 'Passed', tone: 'success', icon: CheckCircle2 },
+  failure: { label: 'Failed', tone: 'failure', icon: XCircle },
+  error: { label: 'Error', tone: 'failure', icon: XCircle },
+  pending: { label: 'Pending', tone: 'pending', icon: Clock3 },
+}
+
+function getStatusContextState(state: string): StatusContextEntry {
+  return (
+    (Object.prototype.hasOwnProperty.call(STATUS_CONTEXT_ENTRIES, state) &&
+      STATUS_CONTEXT_ENTRIES[state]) || {
+      label: state,
+      tone: 'neutral' as CheckTone,
+      icon: MinusCircle,
+    }
+  )
+}
+
+const OVERALL_STATE_LABELS: Record<string, string> = {
+  passing: 'Passing',
+  failing: 'Failing',
+  pending: 'Pending',
+  neutral: 'Neutral',
 }
 
 function getOverallStateLabel(state: PRChecksSummary['overallState']): string {
-  switch (state) {
-    case 'passing':
-      return 'Passing'
-    case 'failing':
-      return 'Failing'
-    case 'pending':
-      return 'Pending'
-    case 'neutral':
-      return 'Neutral'
-    default:
-      return 'No checks'
-  }
+  return Object.prototype.hasOwnProperty.call(OVERALL_STATE_LABELS, state)
+    ? OVERALL_STATE_LABELS[state]
+    : 'No checks'
 }
 
 function CheckRunRow({ run }: { run: PRChecksSummary['checkRuns'][number] }) {

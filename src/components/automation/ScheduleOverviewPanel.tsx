@@ -151,17 +151,14 @@ function computeDayGroups(
   return groupOccurrencesByDay(allOccurrences)
 }
 
+const WORKER_BADGE_CLASSES: Record<string, string> = {
+  exec: 'worker-badge-exec',
+  ai: 'worker-badge-ai',
+  skill: 'worker-badge-skill',
+}
+
 function getWorkerBadgeClass(workerType: string): string {
-  switch (workerType) {
-    case 'exec':
-      return 'worker-badge-exec'
-    case 'ai':
-      return 'worker-badge-ai'
-    case 'skill':
-      return 'worker-badge-skill'
-    default:
-      return ''
-  }
+  return Object.hasOwn(WORKER_BADGE_CLASSES, workerType) ? WORKER_BADGE_CLASSES[workerType] : ''
 }
 
 function ScheduleOverviewSummary({

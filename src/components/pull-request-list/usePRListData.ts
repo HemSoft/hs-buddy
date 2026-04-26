@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import type { PullRequest } from '../../types/pullRequest'
-import { GitHubClient, type ProgressCallback } from '../../api/github'
+import { GitHubClient, type ProgressCallback, type PRSearchMode } from '../../api/github'
 import { useGitHubAccounts, usePRSettings, useCopilotSettings } from '../../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConvex'
 import { useLatest } from '../../hooks/useLatest'
@@ -60,22 +60,25 @@ interface LoadingProgress {
   error?: string
 }
 
+const FETCH_BY_MODE: Record<
+  PRSearchMode,
+  (client: GitHubClient, cb: ProgressCallback) => Promise<PullRequest[]>
+> = {
+  'needs-review': (c, cb) => c.fetchNeedsReview(cb),
+  'recently-merged': (c, cb) => c.fetchRecentlyMerged(cb),
+  'need-a-nudge': (c, cb) => c.fetchNeedANudge(cb),
+  'my-prs': (c, cb) => c.fetchMyPRs(cb),
+}
+
 async function fetchPRsByMode(
   githubClient: GitHubClient,
-  mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge',
+  mode: PRSearchMode,
   handleProgress: ProgressCallback
 ): Promise<PullRequest[]> {
-  switch (mode) {
-    case 'needs-review':
-      return await githubClient.fetchNeedsReview(handleProgress)
-    case 'recently-merged':
-      return await githubClient.fetchRecentlyMerged(handleProgress)
-    case 'need-a-nudge':
-      return await githubClient.fetchNeedANudge(handleProgress)
-    case 'my-prs':
-    default:
-      return await githubClient.fetchMyPRs(handleProgress)
-  }
+  const fetcher = Object.prototype.hasOwnProperty.call(FETCH_BY_MODE, mode)
+    ? FETCH_BY_MODE[mode]
+    : FETCH_BY_MODE['my-prs']
+  return fetcher(githubClient, handleProgress)
 }
 
 function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {
@@ -123,10 +126,7 @@ function sortPRResults(results: PullRequest[], mode: string): PullRequest[] {
   })
 }
 
-export function usePRListData(
-  mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge',
-  onCountChange?: (count: number) => void
-) {
+export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number) => void) {
   const cachedEntry = dataCache.get<PullRequest[]>(mode)
   const [prs, setPrs] = useState<PullRequest[]>(cachedEntry?.data || [])
   const [loading, setLoading] = useState(!cachedEntry?.data)
@@ -491,20 +491,17 @@ export function usePRListData(
     }
   }, [mode, refreshInterval])
 
-  const getTitle = () => {
-    switch (mode) {
-      case 'my-prs':
-        return 'My Pull Requests'
-      case 'needs-review':
-        return 'PRs Needing Review'
-      case 'recently-merged':
-        return 'Recently Merged PRs'
-      case 'need-a-nudge':
-        return 'Needs a nudge'
-      default:
-        return 'Pull Requests'
-    }
+  const PR_MODE_TITLES: Record<PRSearchMode, string> = {
+    'my-prs': 'My Pull Requests',
+    'needs-review': 'PRs Needing Review',
+    'recently-merged': 'Recently Merged PRs',
+    'need-a-nudge': 'Needs a nudge',
   }
+
+  const getTitle = () =>
+    Object.prototype.hasOwnProperty.call(PR_MODE_TITLES, mode)
+      ? PR_MODE_TITLES[mode]
+      : 'Pull Requests'
 
   return {
     prs,

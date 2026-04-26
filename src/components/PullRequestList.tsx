@@ -17,6 +17,7 @@ import { useViewMode, type ViewMode } from '../hooks/useViewMode'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { createPRDetailViewId } from '../utils/prDetailView'
 import type { PullRequest } from '../types/pullRequest'
+import type { PRSearchMode } from '../api/github'
 
 interface UpdateTimesDisplayProps {
   lastUpdated: string
@@ -126,7 +127,7 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
 }
 
 interface PullRequestListProps {
-  mode: 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
+  mode: PRSearchMode
   onCountChange?: (count: number) => void
   onOpenPR?: (viewId: string) => void
 }

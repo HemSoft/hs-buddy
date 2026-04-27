@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Add file-size and complexity metric gates to TODO
+- Add ralph quality/CRAP loops and update existing scripts
 
 ### Added
 

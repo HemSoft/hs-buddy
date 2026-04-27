@@ -1292,6 +1292,109 @@ function buildPRSearchQueries(
   return PR_SEARCH_BUILDERS[resolvedMode](username, org, mergedAfter)
 }
 
+/**
+ * GraphQL query to fetch the viewer's pull requests directly (bypasses search index).
+ * Used as a fallback when the GitHub Search API is degraded or unavailable.
+ */
+const VIEWER_PRS_QUERY = `
+  query ViewerPRs($states: [PullRequestState!]!, $first: Int!, $after: String) {
+    viewer {
+      pullRequests(first: $first, states: $states, orderBy: {field: UPDATED_AT, direction: DESC}, after: $after) {
+        totalCount
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          number
+          title
+          url
+          state
+          createdAt
+          updatedAt
+          closedAt
+          mergedAt
+          author { login avatarUrl }
+          assignees(first: 10) { totalCount }
+          repository { nameWithOwner owner { login } }
+          headRefName
+          baseRefName
+        }
+      }
+    }
+  }
+`
+
+interface ViewerPRNode {
+  number: number
+  title: string
+  url: string
+  state: string
+  createdAt: string
+  updatedAt: string
+  closedAt: string | null
+  mergedAt: string | null
+  author: { login: string; avatarUrl: string } | null
+  assignees: { totalCount: number }
+  repository: { nameWithOwner: string; owner: { login: string } }
+  headRefName: string
+  baseRefName: string
+}
+
+interface ViewerPRsResponse {
+  viewer: {
+    pullRequests: {
+      totalCount: number
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      nodes: ViewerPRNode[]
+    }
+  }
+}
+
+/** Extract author fields from a GraphQL PR node. */
+function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
+  login: string
+  avatarUrl?: string
+} {
+  return { login: author?.login || 'unknown', avatarUrl: author?.avatarUrl }
+}
+
+/** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
+/* v8 ignore start -- GraphQL fallback mapping for search API outages */
+function mapGraphQLNodeToPullRequest(
+  node: ViewerPRNode,
+  orgAvatarUrl: string | null,
+  org: string
+): PullRequest & { _owner: string; _repo: string; _prNumber: number } {
+  const [owner, repo] = node.repository.nameWithOwner.split('/')
+  const { login: author, avatarUrl: authorAvatarUrl } = resolveGraphQLAuthor(node.author)
+
+  return {
+    source: 'GitHub' as const,
+    repository: repo,
+    id: node.number,
+    title: node.title,
+    author,
+    authorAvatarUrl,
+    assigneeCount: node.assignees.totalCount,
+    created: node.createdAt ? new Date(node.createdAt) : null,
+    updatedAt: node.updatedAt || null,
+    date: node.closedAt || node.mergedAt || null,
+    url: node.url,
+    state: node.state.toLowerCase(),
+    approvalCount: 0,
+    iApproved: false,
+    headBranch: node.headRefName || '',
+    baseBranch: node.baseRefName || '',
+    threadsTotal: null,
+    threadsAddressed: null,
+    threadsUnaddressed: null,
+    orgAvatarUrl: orgAvatarUrl ?? undefined,
+    org,
+    _owner: owner,
+    _repo: repo,
+    _prNumber: node.number,
+  }
+}
+/* v8 ignore stop */
+
 /** Safely resolve assignee count from a nullable array. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function resolveAssigneeCount(item: any): number {
@@ -3492,6 +3595,49 @@ export class GitHubClient {
     return allPrs
   }
 
+  /**
+   * Fallback: fetch the viewer's open PRs via GraphQL `viewer.pullRequests`
+   * when the GitHub Search API is degraded. This bypasses the search index
+   * entirely, using a direct database lookup instead.
+   *
+   * Only supports `my-prs` mode (authored PRs). Other modes require search
+   * semantics (review-requested, reviewed-by) that have no direct equivalent.
+   */
+  private async fetchPRsViaGraphQLFallback(
+    username: string,
+    org: string,
+    orgAvatarUrl: string | null
+  ): Promise<Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }>> {
+    const token = await this.getGitHubCLIToken(username)
+    if (!token) return []
+
+    const orgLower = org.toLowerCase()
+    const result: Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }> = []
+    let cursor: string | null = null
+    let hasNextPage = true
+
+    while (hasNextPage) {
+      const response: ViewerPRsResponse = await graphql<ViewerPRsResponse>(VIEWER_PRS_QUERY, {
+        states: ['OPEN'],
+        first: 100,
+        after: cursor,
+        headers: { authorization: `token ${token}` },
+      })
+
+      const page = response.viewer.pullRequests
+      for (const node of page.nodes) {
+        if (node.repository.owner.login.toLowerCase() === orgLower) {
+          result.push(mapGraphQLNodeToPullRequest(node, orgAvatarUrl, org))
+        }
+      }
+
+      hasNextPage = page.pageInfo.hasNextPage
+      cursor = hasNextPage ? page.pageInfo.endCursor : null
+    }
+
+    return result
+  }
+
   private async fetchPRsForAccount(
     octokit: Octokit,
     org: string,
@@ -3510,6 +3656,25 @@ export class GitHubClient {
 
     const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
     const allPrs = await this.executeSearchQueries(octokit, queries, orgAvatarUrl, org)
+
+    // Fallback: when search returns 0 results for my-prs, try GraphQL viewer.pullRequests
+    // which bypasses the search index (resilient to GitHub Search API outages)
+    if (allPrs.length === 0 && mode === 'my-prs') {
+      console.debug(
+        `[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`
+      )
+      try {
+        const fallbackPrs = await this.fetchPRsViaGraphQLFallback(username, org, orgAvatarUrl)
+        if (fallbackPrs.length > 0) {
+          console.info(
+            `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
+          )
+          allPrs.push(...fallbackPrs)
+        }
+      } catch (error) {
+        console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
+      }
+    }
 
     // Batch fetch reviews in parallel (with concurrency limit)
     const prsWithMeta = allPrs as (PullRequest & {

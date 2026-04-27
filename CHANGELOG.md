@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Implement 4 quality gate tools
+- Add GraphQL fallback for my-prs when search API is degraded
 
 ### Fixed
 

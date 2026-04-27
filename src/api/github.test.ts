@@ -2518,6 +2518,121 @@ describe('GitHubClient', () => {
 
       warnSpy.mockRestore()
     })
+
+    describe('GraphQL fallback (search API degraded)', () => {
+      it('falls back to viewer.pullRequests when search returns 0 for my-prs', async () => {
+        mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: 'https://av/myorg' } })
+        mockOctokit.search.issuesAndPullRequests.mockResolvedValue({ data: { items: [] } })
+        mockOctokit.pulls.listReviews.mockResolvedValue({
+          data: [
+            {
+              user: { login: 'reviewer1' },
+              state: 'APPROVED',
+              submitted_at: '2025-01-01T00:00:00Z',
+            },
+          ],
+        })
+        mockOctokit.pulls.get.mockResolvedValue({
+          data: { head: { ref: 'my-branch' }, base: { ref: 'main' } },
+        })
+
+        // Mock graphql: first call is the fallback, subsequent calls are thread stats
+        mockGraphql
+          .mockResolvedValueOnce({
+            viewer: {
+              pullRequests: {
+                totalCount: 2,
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [
+                  {
+                    number: 42,
+                    title: 'Fallback PR',
+                    url: 'https://github.com/myorg/myrepo/pull/42',
+                    state: 'OPEN',
+                    createdAt: '2025-01-01T00:00:00Z',
+                    updatedAt: '2025-01-02T00:00:00Z',
+                    closedAt: null,
+                    mergedAt: null,
+                    author: { login: 'user1', avatarUrl: 'https://av/user1' },
+                    assignees: { totalCount: 1 },
+                    repository: { nameWithOwner: 'myorg/myrepo', owner: { login: 'myorg' } },
+                    headRefName: 'feature-branch',
+                    baseRefName: 'main',
+                  },
+                  {
+                    number: 99,
+                    title: 'Other org PR',
+                    url: 'https://github.com/other/repo/pull/99',
+                    state: 'OPEN',
+                    createdAt: '2025-01-01T00:00:00Z',
+                    updatedAt: '2025-01-02T00:00:00Z',
+                    closedAt: null,
+                    mergedAt: null,
+                    author: { login: 'user1', avatarUrl: 'https://av/user1' },
+                    assignees: { totalCount: 0 },
+                    repository: { nameWithOwner: 'other/repo', owner: { login: 'other' } },
+                    headRefName: 'fix',
+                    baseRefName: 'main',
+                  },
+                ],
+              },
+            },
+          })
+          // Thread stats for the one matching PR
+          .mockResolvedValueOnce({
+            pr0: {
+              pullRequest: { reviewThreads: { totalCount: 1, nodes: [{ isResolved: true }] } },
+            },
+          })
+          // Second account fallback (also returns same viewer data — but otherorg filter)
+          .mockResolvedValueOnce({
+            viewer: {
+              pullRequests: {
+                totalCount: 0,
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [],
+              },
+            },
+          })
+
+        const prs = await client.fetchMyPRs()
+
+        // Should only include the PR from 'myorg', not 'other'
+        expect(prs.length).toBe(1)
+        expect(prs[0].title).toBe('Fallback PR')
+        expect(prs[0].repository).toBe('myrepo')
+        expect(prs[0].state).toBe('open') // normalized to lowercase
+        expect(prs[0].headBranch).toBe('my-branch') // enriched by pulls.get
+        expect(prs[0].org).toBe('myorg')
+      })
+
+      it('does not trigger fallback for needs-review mode', async () => {
+        mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+        mockOctokit.search.issuesAndPullRequests.mockResolvedValue({ data: { items: [] } })
+        mockGraphql.mockResolvedValue({})
+
+        const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+        await client.fetchNeedsReview()
+
+        // Should NOT see fallback log for needs-review
+        const fallbackCalls = debugSpy.mock.calls.filter(
+          call => typeof call[0] === 'string' && call[0].includes('[PR Fallback]')
+        )
+        expect(fallbackCalls.length).toBe(0)
+        debugSpy.mockRestore()
+      })
+
+      it('handles GraphQL fallback failure gracefully', async () => {
+        mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+        mockOctokit.search.issuesAndPullRequests.mockResolvedValue({ data: { items: [] } })
+
+        // Fallback throws, thread stats won't be reached
+        mockGraphql.mockRejectedValue(new Error('GraphQL unavailable'))
+
+        const result = await client.fetchMyPRs()
+        expect(result).toEqual([])
+      })
+    })
   })
 
   describe('fetchNeedsReview', () => {

@@ -9,8 +9,6 @@ interface OrgBudgetsSectionProps {
   orgOverageFromQuotas: Map<string, number>
 }
 
-const PERSONAL_BUDGETS: Record<string, number> = { hemsoft: 50 }
-
 interface BudgetCardMetrics {
   effectiveBudget: number | null
   displaySpent: number
@@ -20,11 +18,8 @@ interface BudgetCardMetrics {
   barColor: string
 }
 
-function resolveEffectiveBudget(
-  d: NonNullable<OrgBudgetState['data']>,
-  org: string
-): number | null {
-  return d.budgetAmount ?? PERSONAL_BUDGETS[org.toLowerCase()] ?? null
+function resolveEffectiveBudget(d: NonNullable<OrgBudgetState['data']>): number | null {
+  return d.budgetAmount ?? null
 }
 
 function clampPct(value: number, budget: number): number {
@@ -33,10 +28,9 @@ function clampPct(value: number, budget: number): number {
 
 function computeBudgetCardMetrics(
   d: NonNullable<OrgBudgetState['data']>,
-  org: string,
   quotaOverage: number
 ): BudgetCardMetrics {
-  const effectiveBudget = resolveEffectiveBudget(d, org)
+  const effectiveBudget = resolveEffectiveBudget(d)
   /* v8 ignore start */
   const displaySpent = d.useQuotaOverage ? quotaOverage : (d.spent ?? 0)
   /* v8 ignore stop */
@@ -219,7 +213,7 @@ function BudgetCard({
   quotaOverage: number
 }) {
   const { data: d, loading, error } = { ...BUDGET_CARD_DEFAULTS, ...state }
-  const metrics = d ? computeBudgetCardMetrics(d, org, quotaOverage) : null
+  const metrics = d ? computeBudgetCardMetrics(d, quotaOverage) : null
 
   return (
     <div className="usage-budget-card">

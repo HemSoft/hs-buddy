@@ -104,7 +104,7 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText('Stop at limit')).toBeInTheDocument()
   })
 
-  it('shows "no budget set" when budget amount is null and org is not in PERSONAL_BUDGETS', () => {
+  it('shows "no budget set" when budget amount is null', () => {
     const orgs = new Map([['unknown-org', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
       'unknown-org': {
@@ -137,7 +137,7 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText(/overage/)).toBeInTheDocument()
   })
 
-  it('uses PERSONAL_BUDGETS fallback for hemsoft org', () => {
+  it('shows "no budget set" for hemsoft org when budget amount is null', () => {
     const orgs = new Map([['Hemsoft', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
       Hemsoft: {
@@ -150,8 +150,7 @@ describe('OrgBudgetsSection', () => {
     render(
       <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
     )
-    // Should not show "no budget set" since hemsoft has a personal budget of $50
-    expect(screen.queryByText('no budget set')).not.toBeInTheDocument()
+    expect(screen.getByText('no budget set')).toBeInTheDocument()
   })
 
   it('renders billing period', () => {

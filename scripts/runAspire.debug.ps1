@@ -1,4 +1,4 @@
-﻿# Start hs-buddy with Aspire orchestration in DEBUG mode
+# Start hs-buddy with Aspire orchestration in DEBUG mode
 # Launches Convex dev server + Vite/Electron with CDP remote debugging
 #
 # Usage:
@@ -22,7 +22,7 @@ $Red = "${esc}[31m"
 $Yellow = "${esc}[33m"
 $Reset = "${esc}[0m"
 
-# ── Preflight: Aspire CLI ──
+# -- Preflight: Aspire CLI --
 if (-not (Get-Command aspire -ErrorAction SilentlyContinue)) {
     Write-Information ""
     Write-Information "${Red}ERROR: Aspire CLI not found.${Reset}"
@@ -31,7 +31,7 @@ if (-not (Get-Command aspire -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# ── Preflight: Aspire SDK ──
+# -- Preflight: Aspire SDK --
 if (-not (Test-Path ".modules/aspire.ts")) {
     Write-Information "${Cyan}Aspire SDK not found. Restoring...${Reset}"
     aspire restore --non-interactive
@@ -41,7 +41,7 @@ if (-not (Test-Path ".modules/aspire.ts")) {
     }
 }
 
-# ── Kill orphaned Convex processes ──
+# -- Kill orphaned Convex processes --
 $orphan = Get-Process -Name "convex-local-backend" -ErrorAction SilentlyContinue
 if ($orphan) {
     Write-Information "${Yellow}Killing orphaned convex-local-backend (PID $($orphan.Id))...${Reset}"
@@ -53,12 +53,12 @@ $portHolder = Get-NetTCPConnection -LocalPort 3210 -ErrorAction SilentlyContinue
     Select-Object -ExpandProperty OwningProcess -Unique |
     Where-Object { $_ -ne 0 }
 if ($portHolder) {
-    Write-Information "${Yellow}Port 3210 held by PID $portHolder — killing...${Reset}"
+    Write-Information "${Yellow}Port 3210 held by PID $portHolder -- killing...${Reset}"
     Stop-Process -Id $portHolder -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
 }
 
-# ── Check if debug port is already in use ──
+# -- Check if debug port is already in use --
 $portInUse = Test-NetConnection -ComputerName 127.0.0.1 -Port $Port -WarningAction SilentlyContinue -InformationLevel Quiet
 if ($portInUse) {
     Write-Information ""
@@ -68,7 +68,7 @@ if ($portInUse) {
     exit 1
 }
 
-# ── Set debug environment and launch via Aspire ──
+# -- Set debug environment and launch via Aspire --
 $env:BUDDY_DEBUG_PORT = $Port
 
 Write-Information ""

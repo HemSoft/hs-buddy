@@ -1,4 +1,4 @@
-﻿# Start hs-buddy Electron app in DEBUG mode (CDP remote debugging on port 9222)
+# Start hs-buddy Electron app in DEBUG mode (CDP remote debugging on port 9222)
 # Requires Convex dev server running.
 #
 # Usage:
@@ -21,7 +21,7 @@ $Red = "${esc}[31m"
 $Yellow = "${esc}[33m"
 $Reset = "${esc}[0m"
 
-# ── Convex check (same as runApp.ps1) ──
+# -- Convex check (same as runApp.ps1) --
 $apiPort = 3210
 $dashPort = 6790
 
@@ -32,7 +32,7 @@ if (-not $apiUp) {
     Write-Information ""
     Write-Information "${Red}ERROR: Convex dev server is not running on port $apiPort${Reset}"
     if ($dashUp) {
-        Write-Information "${Yellow}(Dashboard on $dashPort is up but the dev watcher is not — orphaned backend?)${Reset}"
+        Write-Information "${Yellow}(Dashboard on $dashPort is up but the dev watcher is not -- orphaned backend?)${Reset}"
     }
     Write-Information ""
     Write-Information "Start the server first with: ${Yellow}./runServer.ps1${Reset}"
@@ -42,7 +42,7 @@ if (-not $apiUp) {
 
 Write-Information "${Green}Convex dev server detected on port $apiPort${Reset}"
 
-# ── Check if debug port is already in use ──
+# -- Check if debug port is already in use --
 $portInUse = Test-NetConnection -ComputerName 127.0.0.1 -Port $Port -WarningAction SilentlyContinue -InformationLevel Quiet
 if ($portInUse) {
     Write-Information ""
@@ -52,7 +52,7 @@ if ($portInUse) {
     exit 1
 }
 
-# ── Launch with CDP debugging ──
+# -- Launch with CDP debugging --
 Write-Information ""
 Write-Information "${Cyan}Starting Buddy in DEBUG mode (CDP port $Port)${Reset}"
 Write-Information "${DGray}Connect with:  npx -y chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:$Port${Reset}"

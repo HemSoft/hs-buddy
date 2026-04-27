@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use proper PS output streams for error/warning/info messages
 - Address PR review — revert convex generated file reformatting, restore callback contravariance
 - Use Write-Information for banners/progress in ralph scripts
+- Resolve PSScriptAnalyzer warnings in all PowerShell scripts
+- Remove unused eslint-disable directives from convex generated files
+- Address PR review feedback for PSScriptAnalyzer changes
+- Replace Unicode em dash with ASCII in PS1 comments
+- Move convex override after base configs for resilience
 
 ## [0.1.739] - 2026-04-26
 

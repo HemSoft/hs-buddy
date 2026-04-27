@@ -1,4 +1,4 @@
-﻿# Start Convex dev server
+# Start Convex dev server
 # Dashboard available at http://127.0.0.1:6790/
 # Local backend state: ~/.convex/anonymous-convex-backend-state/anonymous-hs-buddy/
 
@@ -18,7 +18,7 @@ $portHolder = Get-NetTCPConnection -LocalPort 3210 -ErrorAction SilentlyContinue
     Select-Object -ExpandProperty OwningProcess -Unique |
     Where-Object { $_ -ne 0 }
 if ($portHolder) {
-    Write-Information "${esc}[93mPort 3210 held by PID $portHolder — killing...${esc}[0m"
+    Write-Information "${esc}[93mPort 3210 held by PID $portHolder -- killing...${esc}[0m"
     Stop-Process -Id $portHolder -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
 }

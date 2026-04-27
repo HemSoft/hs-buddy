@@ -1,4 +1,4 @@
-# ralph-improve-crap-score.ps1 — CRAP score improver.
+# ralph-improve-crap-score.ps1 -- CRAP score improver.
 # Version: 1.2.0
 param(
     [switch]$Autopilot,
@@ -14,33 +14,33 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ($Help) {
-    Write-Host ""
-    Write-Host "ralph-improve-crap-score.ps1 - CRAP Score Improver" -ForegroundColor Cyan
-    Write-Host "Runs ralph to reduce CRAP (Change Risk Anti-Patterns) scores on a dedicated feature branch."
-    Write-Host "Targets methods with high cyclomatic complexity and low test coverage."
-    Write-Host ""
-    Write-Host "PARAMETERS" -ForegroundColor Yellow
-    Write-Host "  -Model <name>          Model to use (validated by ralph.ps1)"
-    Write-Host "  -Provider <name>       CLI provider: copilot, opencode (validated by ralph.ps1)"
-    Write-Host "  -Agents <specs>        Agent specs: role or role@model (validated by ralph.ps1)"
-    Write-Host "                         Dev agents control the work loop; review agents run PR reviews"
-    Write-Host "  -WorkUntil <HH:mm>     Stop after this local time"
-    Write-Host "  -Autopilot             Enable autopilot mode (auto-merge PRs)"
-    Write-Host "  -NoAudio               Suppress audio feedback"
-    Write-Host "  -SkipReview            Skip Copilot PR review requests"
-    Write-Host "  -Once                  Run only one work iteration"
-    Write-Host "  -Help                  Show this help message"
-    Write-Host ""
-    Write-Host "EXAMPLES" -ForegroundColor Yellow
-    Write-Host "  ralph-improve-crap-score -Autopilot"
-    Write-Host "  ralph-improve-crap-score -Model sonnet -WorkUntil 08:00"
-    Write-Host "  ralph-improve-crap-score -Agents pr-review-crap-score,auditor-crap-score"
-    Write-Host "  ralph-improve-crap-score -Agents pr-review-crap-score@opus47  # multi-model review"
-    Write-Host ""
+    Write-Output ""
+    Write-Output "ralph-improve-crap-score.ps1 - CRAP Score Improver"
+    Write-Output "Runs ralph to reduce CRAP (Change Risk Anti-Patterns) scores on a dedicated feature branch."
+    Write-Output "Targets methods with high cyclomatic complexity and low test coverage."
+    Write-Output ""
+    Write-Output "PARAMETERS"
+    Write-Output "  -Model <name>          Model to use (validated by ralph.ps1)"
+    Write-Output "  -Provider <name>       CLI provider: copilot, opencode (validated by ralph.ps1)"
+    Write-Output "  -Agents <specs>        Agent specs: role or role@model (validated by ralph.ps1)"
+    Write-Output "                         Dev agents control the work loop; review agents run PR reviews"
+    Write-Output "  -WorkUntil <HH:mm>     Stop after this local time"
+    Write-Output "  -Autopilot             Enable autopilot mode (auto-merge PRs)"
+    Write-Output "  -NoAudio               Suppress audio feedback"
+    Write-Output "  -SkipReview            Skip Copilot PR review requests"
+    Write-Output "  -Once                  Run only one work iteration"
+    Write-Output "  -Help                  Show this help message"
+    Write-Output ""
+    Write-Output "EXAMPLES"
+    Write-Output "  ralph-improve-crap-score -Autopilot"
+    Write-Output "  ralph-improve-crap-score -Model sonnet -WorkUntil 08:00"
+    Write-Output "  ralph-improve-crap-score -Agents pr-review-crap-score,auditor-crap-score"
+    Write-Output "  ralph-improve-crap-score -Agents pr-review-crap-score@opus47  # multi-model review"
+    Write-Output ""
     exit 0
 }
 
-# Resolve ralph.ps1 — direct call needed; splatting doesn't survive the alias's @args forwarding
+# Resolve ralph.ps1 -- direct call needed; splatting doesn't survive the alias's @args forwarding
 $_ralphCmd = Get-Command ralph -ErrorAction SilentlyContinue
 $_ralph = if ($_ralphCmd.CommandType -eq 'Function' -and $_ralphCmd.ScriptBlock -match "'([^']+\.ps1)'") {
     $matches[1]

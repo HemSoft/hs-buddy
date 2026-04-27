@@ -1,6 +1,6 @@
-﻿# Start hs-buddy Electron app (requires Convex dev server running)
+# Start hs-buddy Electron app (requires Convex dev server running)
 
-# Check port 3210 (Convex API) — this is the port the app actually connects to.
+# Check port 3210 (Convex API) -- this is the port the app actually connects to.
 # Port 6790 (dashboard) can stay alive from an orphaned backend, giving a false positive.
 $InformationPreference = 'Continue'
 $esc = [char]27
@@ -19,7 +19,7 @@ if (-not $apiUp) {
     Write-Information ""
     Write-Information "${Red}ERROR: Convex dev server is not running on port $apiPort${Reset}"
     if ($dashUp) {
-        Write-Information "${Yellow}(Dashboard on $dashPort is up but the dev watcher is not — orphaned backend?)${Reset}"
+        Write-Information "${Yellow}(Dashboard on $dashPort is up but the dev watcher is not -- orphaned backend?)${Reset}"
     }
     Write-Information ""
     Write-Information "Start the server first with: ${Yellow}./runServer.ps1${Reset}"

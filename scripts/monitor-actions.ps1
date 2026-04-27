@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Waits, then checks GitHub Actions for failures and attempts remediation.
 .DESCRIPTION
@@ -74,7 +74,7 @@ foreach ($wf in $workflows) {
     Write-Report ""
 
     if ($status -eq "in_progress" -or $status -eq "queued") {
-        Write-Report "- Still running — will check conclusion later."
+        Write-Report "- Still running -- will check conclusion later."
         Write-Report ""
         continue
     }
@@ -87,7 +87,7 @@ foreach ($wf in $workflows) {
     }
 
     # --- Failure path ---
-    Write-Report "- **Result**: FAILED — pulling logs for diagnosis..."
+    Write-Report "- **Result**: FAILED -- pulling logs for diagnosis..."
     Write-Report ""
 
     # Pull last 100 lines of logs looking for errors
@@ -111,21 +111,21 @@ foreach ($wf in $workflows) {
     $diagnosis = "Unknown failure"
 
     if ($logText -match "CAPIError.*400") {
-        $diagnosis = "API returned 400 Bad Request — model may not be supported by the Copilot API backend"
+        $diagnosis = "API returned 400 Bad Request -- model may not be supported by the Copilot API backend"
     }
     elseif ($logText -match "argument .+ is invalid.*Allowed choices") {
-        $diagnosis = "Invalid model name — CLI does not recognize the configured model"
+        $diagnosis = "Invalid model name -- CLI does not recognize the configured model"
     }
     elseif ($logText -match "rate.limit|429|too many requests") {
-        $diagnosis = "Rate limited — transient failure"
+        $diagnosis = "Rate limited -- transient failure"
         $isTransient = $true
     }
     elseif ($logText -match "timeout|timed.out|ETIMEDOUT") {
-        $diagnosis = "Timeout — transient failure"
+        $diagnosis = "Timeout -- transient failure"
         $isTransient = $true
     }
     elseif ($logText -match "network|ECONNRESET|ECONNREFUSED|socket hang up") {
-        $diagnosis = "Network error — transient failure"
+        $diagnosis = "Network error -- transient failure"
         $isTransient = $true
     }
 

@@ -33,6 +33,11 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  // Convex regenerates these files with eslint-disable; suppress unused-directive warnings
+  {
+    files: ['convex/_generated/*.js', 'convex/_generated/*.d.ts'],
+    linterOptions: { reportUnusedDisableDirectives: 'off' },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     ...react.configs.flat.recommended,

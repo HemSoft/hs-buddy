@@ -1,4 +1,4 @@
-# ralph-improve-scorecard-score-repeat.ps1 — Repeated scorecard score improver.
+# ralph-improve-scorecard-score-repeat.ps1 -- Repeated scorecard score improver.
 # Version: 1.2.0
 # Between each run, pulls latest main so the next run branches from fresh code.
 # NOTE: PowerShell uses single-dash params: -Help, -Times 5 (not --help)
@@ -15,46 +15,47 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
 
 if ($Help) {
-    Write-Host ""
-    Write-Host "ralph-improve-scorecard-score-repeat.ps1 - Repeated Scorecard Improver" -ForegroundColor Cyan
-    Write-Host "Runs ralph-improve-scorecard-score.ps1 N times in autopilot mode."
-    Write-Host "Between each run, pulls latest main so the next run branches from fresh code."
-    Write-Host ""
-    Write-Host "PARAMETERS" -ForegroundColor Yellow
-    Write-Host "  -Times <int>           Number of times to run (default: 3)"
-    Write-Host "  -Model <name>          Model to pass through (validated by ralph.ps1)"
-    Write-Host "  -Provider <name>       CLI provider: copilot, opencode (validated by ralph.ps1)"
-    Write-Host "  -Agents <specs>        Agent specs: role or role@model (validated by ralph.ps1)"
-    Write-Host "                         Dev agents control the work loop; review agents run PR reviews"
-    Write-Host "  -WorkUntil <HH:mm>     Stop after this local time (passed to each run)"
-    Write-Host "  -NoAudio               Suppress audio feedback"
-    Write-Host "  -SkipReview            Skip Copilot PR review requests"
-    Write-Host "  -Once                  Run only one work iteration (passed to each run)"
-    Write-Host "  -Help                  Show this help message"
-    Write-Host ""
-    Write-Host "EXAMPLES" -ForegroundColor Yellow
-    Write-Host "  ralph-improve-scorecard-score-repeat"
-    Write-Host "  ralph-improve-scorecard-score-repeat -Times 5"
-    Write-Host "  ralph-improve-scorecard-score-repeat -Times 10 -Model sonnet -WorkUntil 08:00"
-    Write-Host "  ralph-improve-scorecard-score-repeat -Times 3 -Agents auditor-scorecard"
-    Write-Host ""
+    Write-Output ""
+    Write-Output "ralph-improve-scorecard-score-repeat.ps1 - Repeated Scorecard Improver"
+    Write-Output "Runs ralph-improve-scorecard-score.ps1 N times in autopilot mode."
+    Write-Output "Between each run, pulls latest main so the next run branches from fresh code."
+    Write-Output ""
+    Write-Output "PARAMETERS"
+    Write-Output "  -Times <int>           Number of times to run (default: 3)"
+    Write-Output "  -Model <name>          Model to pass through (validated by ralph.ps1)"
+    Write-Output "  -Provider <name>       CLI provider: copilot, opencode (validated by ralph.ps1)"
+    Write-Output "  -Agents <specs>        Agent specs: role or role@model (validated by ralph.ps1)"
+    Write-Output "                         Dev agents control the work loop; review agents run PR reviews"
+    Write-Output "  -WorkUntil <HH:mm>     Stop after this local time (passed to each run)"
+    Write-Output "  -NoAudio               Suppress audio feedback"
+    Write-Output "  -SkipReview            Skip Copilot PR review requests"
+    Write-Output "  -Once                  Run only one work iteration (passed to each run)"
+    Write-Output "  -Help                  Show this help message"
+    Write-Output ""
+    Write-Output "EXAMPLES"
+    Write-Output "  ralph-improve-scorecard-score-repeat"
+    Write-Output "  ralph-improve-scorecard-score-repeat -Times 5"
+    Write-Output "  ralph-improve-scorecard-score-repeat -Times 10 -Model sonnet -WorkUntil 08:00"
+    Write-Output "  ralph-improve-scorecard-score-repeat -Times 3 -Agents auditor-scorecard"
+    Write-Output ""
     exit 0
 }
 
 $scriptDir = $PSScriptRoot
 $targetScript = Join-Path $scriptDir "ralph-improve-scorecard-score.ps1"
 if (-not (Test-Path $targetScript)) {
-    Write-Host "ERROR: ralph-improve-scorecard-score.ps1 not found at: $targetScript" -ForegroundColor Red
+    Write-Error "ralph-improve-scorecard-score.ps1 not found at: $targetScript" -ErrorAction Continue
     exit 1
 }
 
 for ($i = 1; $i -le $Times; $i++) {
-    Write-Host ""
-    Write-Host "====================================" -ForegroundColor Cyan
-    Write-Host "== Scorecard improvement run $i of $Times" -ForegroundColor Cyan
-    Write-Host "====================================" -ForegroundColor Cyan
+    Write-Information ""
+    Write-Information "===================================="
+    Write-Information "== Scorecard improvement run $i of $Times"
+    Write-Information "===================================="
 
     $passThru = @{ Autopilot = $true }
     if ($NoAudio) { $passThru['NoAudio'] = $true }
@@ -68,18 +69,18 @@ for ($i = 1; $i -le $Times; $i++) {
     & $targetScript @passThru
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Run $i failed (exit code $LASTEXITCODE). Stopping." -ForegroundColor Red
+        Write-Warning "Run $i failed (exit code $LASTEXITCODE). Stopping."
         exit $LASTEXITCODE
     }
 
     if ($i -lt $Times) {
-        Write-Host "Pulling latest main before next run..." -ForegroundColor DarkGray
+        Write-Information "Pulling latest main before next run..."
         git checkout main 2>&1 | Out-Null
         git pull --ff-only 2>&1 | Out-Null
     }
 }
 
-Write-Host ""
-Write-Host "====================================" -ForegroundColor Green
-Write-Host "== All $Times scorecard improvement runs complete!" -ForegroundColor Green
-Write-Host "====================================" -ForegroundColor Green
+Write-Information ""
+Write-Information "===================================="
+Write-Information "== All $Times scorecard improvement runs complete!"
+Write-Information "===================================="

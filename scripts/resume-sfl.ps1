@@ -1,8 +1,9 @@
-﻿# Re-enables all SFL scheduled workflows.
+# Re-enables all SFL scheduled workflows.
 
 
 $InformationPreference = 'Continue'
 $esc = [char]27
+$emdash = [char]0x2014  # em dash - matches actual GitHub workflow names
 $repo = "relias-engineering/hs-buddy"
 
 $workflows = @(
@@ -10,9 +11,9 @@ $workflows = @(
     "Copilot Setup Steps"
     "SFL Auditor"
     "Issue Processor"
-    "SFL Analyzer A — Full-Spectrum Review"
-    "SFL Analyzer B — Full-Spectrum Review"
-    "SFL Analyzer C — Full-Spectrum Review"
+    "SFL Analyzer A $emdash Full-Spectrum Review"
+    "SFL Analyzer B $emdash Full-Spectrum Review"
+    "SFL Analyzer C $emdash Full-Spectrum Review"
     "Simplisticate Audit"
     "Daily Repo Status"
     "Daily Repo Audit"

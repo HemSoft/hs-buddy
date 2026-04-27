@@ -115,7 +115,7 @@
     "vscode-jsonrpc": "^8.2.0"
   },
   "optionalDependencies": {
-    "@github/copilot-darwin-arm64": "^0.0.406",
+    "@github/copilot-darwin-arm64": "^1.0.36",
     "@github/copilot-darwin-x64": "^0.0.406",
     "@github/copilot-win32-x64": "^0.0.406"
   },

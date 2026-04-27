@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Implement 4 quality gate tools
 
+### Fixed
+
+- Resolve all ESLint errors/warnings and PSScriptAnalyzer warnings for scorecard
+- Replace non-ASCII chars in PS scripts to eliminate PSScriptAnalyzer BOM warnings
+- Upgrade happy-dom 20.8.4 to 20.9.0 to resolve Dependabot alerts
+- Use Write-Error/Write-Warning for proper PS stream routing
+- Use proper PS output streams for error/warning/info messages
+- Address PR review — revert convex generated file reformatting, restore callback contravariance
+- Use Write-Information for banners/progress in ralph scripts
+
 ## [0.1.739] - 2026-04-26
 
 ### Fixed

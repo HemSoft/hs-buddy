@@ -1,3 +1,4 @@
+/* global process */
 import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import react from 'eslint-plugin-react'
@@ -10,16 +11,26 @@ import globals from 'globals'
 // Quality gate rules activate via: ESLINT_QUALITY=1 eslint .
 // They produce warnings that would break --max-warnings 0, so they only
 // run in the lint:quality script. Graduate to always-on once violations hit 0.
-const qualityRules = process.env.ESLINT_QUALITY === '1'
-  ? {
-      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
-      'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
-      'sonarjs/cognitive-complexity': ['warn', 15],
-    }
-  : {}
+const qualityRules =
+  process.env.ESLINT_QUALITY === '1'
+    ? {
+        'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
+        'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
+        'sonarjs/cognitive-complexity': ['warn', 15],
+      }
+    : {}
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'dist-electron/**', 'convex/_generated/**', '.modules/**', '.dependency-cruiser.cjs', 'eslint.config.js'] },
+  {
+    ignores: [
+      'dist/**',
+      'dist-electron/**',
+      'convex/_generated/**',
+      '.modules/**',
+      '.dependency-cruiser.cjs',
+      'eslint.config.js',
+    ],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {

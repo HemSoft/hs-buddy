@@ -20,7 +20,7 @@ vi.mock('../utils/dateUtils', () => ({
 }))
 
 vi.mock('./shared/statusDisplay', () => ({
-  getStatusIcon: (_s: string, _size: number, _cls: string) => <span data-testid="status-icon" />,
+  getStatusIcon: () => <span data-testid="status-icon" />,
 }))
 
 const mockResults = [

@@ -19,7 +19,6 @@ import {
 import {
     ResourceBuilderBase,
     ReferenceExpression,
-    refExpr,
     AspireDict,
     AspireList
 } from './base.js';
@@ -115,9 +114,6 @@ type ParameterResourceHandle = Handle<'Aspire.Hosting/Aspire.Hosting.Application
 /** Handle to ProjectResource */
 type ProjectResourceHandle = Handle<'Aspire.Hosting/Aspire.Hosting.ApplicationModel.ProjectResource'>;
 
-/** Handle to ReferenceExpression */
-type ReferenceExpressionHandle = Handle<'Aspire.Hosting/Aspire.Hosting.ApplicationModel.ReferenceExpression'>;
-
 /** Handle to ReferenceExpressionBuilder */
 type ReferenceExpressionBuilderHandle = Handle<'Aspire.Hosting/Aspire.Hosting.ApplicationModel.ReferenceExpressionBuilder'>;
 
@@ -196,12 +192,6 @@ type PipelineSummaryHandle = Handle<'Aspire.Hosting/Aspire.Hosting.Pipelines.Pip
 /** Handle to ProjectResourceOptions */
 type ProjectResourceOptionsHandle = Handle<'Aspire.Hosting/Aspire.Hosting.ProjectResourceOptions'>;
 
-/** Handle to Dict<string,any> */
-type DictstringanyHandle = Handle<'Aspire.Hosting/Dict<string,any>'>;
-
-/** Handle to List<any> */
-type ListanyHandle = Handle<'Aspire.Hosting/List<any>'>;
-
 /** Handle to IConfiguration */
 type IConfigurationHandle = Handle<'Microsoft.Extensions.Configuration.Abstractions/Microsoft.Extensions.Configuration.IConfiguration'>;
 
@@ -216,9 +206,6 @@ type ILoggerHandle = Handle<'Microsoft.Extensions.Logging.Abstractions/Microsoft
 
 /** Handle to ILoggerFactory */
 type ILoggerFactoryHandle = Handle<'Microsoft.Extensions.Logging.Abstractions/Microsoft.Extensions.Logging.ILoggerFactory'>;
-
-/** Handle to string[] */
-type stringArrayHandle = Handle<'string[]'>;
 
 /** Handle to IServiceProvider */
 type IServiceProviderHandle = Handle<'System.ComponentModel/System.IServiceProvider'>;
@@ -341,12 +328,12 @@ export interface AddContainerOptions {
 /** DTO interface for CommandOptions */
 export interface CommandOptions {
     description?: string;
-    parameter?: any;
+    parameter?: unknown;
     confirmationMessage?: string;
     iconName?: string;
     iconVariant?: IconVariant;
     isHighlighted?: boolean;
-    updateState?: any;
+    updateState?: unknown;
 }
 
 /** DTO interface for CreateBuilderOptions */
@@ -809,10 +796,10 @@ export class CommandLineArgsCallbackContext {
     toJSON(): MarshalledHandle { return this._handle.toJSON(); }
 
     /** Gets the Args property */
-    private _args?: AspireList<any>;
-    get args(): AspireList<any> {
+    private _args?: AspireList<unknown>;
+    get args(): AspireList<unknown> {
         if (!this._args) {
-            this._args = new AspireList<any>(
+            this._args = new AspireList<unknown>(
                 this._handle,
                 this._client,
                 'Aspire.Hosting.ApplicationModel/CommandLineArgsCallbackContext.args',
@@ -2202,7 +2189,7 @@ export class ReferenceExpressionBuilder {
 
     /** Appends a value provider to the reference expression */
     /** @internal */
-    async _appendValueProviderInternal(valueProvider: any, format?: string): Promise<ReferenceExpressionBuilder> {
+    async _appendValueProviderInternal(valueProvider: unknown, format?: string): Promise<ReferenceExpressionBuilder> {
         const rpcArgs: Record<string, unknown> = { context: this._handle, valueProvider };
         if (format !== undefined) rpcArgs.format = format;
         await this._client.invokeCapability<void>(
@@ -2212,7 +2199,7 @@ export class ReferenceExpressionBuilder {
         return this;
     }
 
-    appendValueProvider(valueProvider: any, options?: AppendValueProviderOptions): ReferenceExpressionBuilderPromise {
+    appendValueProvider(valueProvider: unknown, options?: AppendValueProviderOptions): ReferenceExpressionBuilderPromise {
         const format = options?.format;
         return new ReferenceExpressionBuilderPromise(this._appendValueProviderInternal(valueProvider, format));
     }
@@ -2252,7 +2239,7 @@ export class ReferenceExpressionBuilderPromise implements PromiseLike<ReferenceE
     }
 
     /** Appends a value provider to the reference expression */
-    appendValueProvider(valueProvider: any, options?: AppendValueProviderOptions): ReferenceExpressionBuilderPromise {
+    appendValueProvider(valueProvider: unknown, options?: AppendValueProviderOptions): ReferenceExpressionBuilderPromise {
         return new ReferenceExpressionBuilderPromise(this._promise.then(obj => obj.appendValueProvider(valueProvider, options)));
     }
 

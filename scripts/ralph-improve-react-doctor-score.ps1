@@ -9,7 +9,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-# Resolve ralph.ps1 — direct call needed; splatting doesn't survive the alias's @args forwarding
+# Resolve ralph.ps1 -- direct call needed; splatting doesn't survive the alias's @args forwarding
 $_ralphCmd = Get-Command ralph -ErrorAction SilentlyContinue
 $_ralph = if ($_ralphCmd.CommandType -eq 'Function' -and $_ralphCmd.ScriptBlock -match "'([^']+)'") {
     $matches[1]

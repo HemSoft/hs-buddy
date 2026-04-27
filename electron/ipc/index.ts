@@ -30,6 +30,6 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerCopilotSessionHandlers()
   registerTodoistHandlers()
   registerFinanceHandlers()
-  registerTerminalHandlers(win)
+  registerTerminalHandlers()
   registerFilesystemHandlers()
 }

@@ -1,4 +1,3 @@
-/* eslint-disable react/jsx-no-comment-textnodes */
 import {
   startTransition,
   useCallback,
@@ -507,7 +506,7 @@ function CopilotSectionHeader({
         <Sparkles size={15} />
         {isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
       </h3>
-      /* v8 ignore start */
+      {/* v8 ignore start */}
       {!isUserNamespace && copilotFetchedAt && (
         /* v8 ignore stop */
         <span className="org-detail-fetched-at">{formatTime(copilotFetchedAt)}</span>

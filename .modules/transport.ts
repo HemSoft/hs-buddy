@@ -451,6 +451,7 @@ let callbackIdCounter = 0;
  * // Callback receives: "hello", 42
  */
 export function registerCallback<TResult = void>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any[] required for contravariance: callers pass typed callbacks
     callback: (...args: any[]) => TResult | Promise<TResult>
 ): string {
     const callbackId = `callback_${++callbackIdCounter}_${Date.now()}`;
@@ -636,6 +637,18 @@ export function registerCancellation(
     return cancellationId;
 }
 
+function marshalCancellationToken(
+    value: CancellationToken,
+    client: AspireClient,
+    cancellationIds: string[]
+): string | undefined {
+    const cancellationId = value.register(client);
+    if (cancellationId !== undefined) {
+        cancellationIds.push(cancellationId);
+    }
+    return cancellationId;
+}
+
 async function marshalTransportValue(
     value: unknown,
     client: AspireClient,
@@ -644,17 +657,12 @@ async function marshalTransportValue(
     path: string = 'args',
     ancestors: Set<object> = new Set<object>()
 ): Promise<unknown> {
-    if (value === null || value === undefined || typeof value !== 'object') {
+    if (value == null || typeof value !== 'object') {
         return value;
     }
 
     if (value instanceof CancellationToken) {
-        const cancellationId = value.register(client);
-        if (cancellationId !== undefined) {
-            cancellationIds.push(cancellationId);
-        }
-
-        return cancellationId;
+        return marshalCancellationToken(value, client, cancellationIds);
     }
 
     if (ancestors.has(value)) {
@@ -846,7 +854,7 @@ export class AspireClient {
                     this.connection.onClose(() => {
                         this.connection = null;
                     });
-                    this.connection.onError((err: any) => console.error('JsonRpc connection error:', err));
+                    this.connection.onError((err: unknown) => console.error('JsonRpc connection error:', err));
 
                     // Handle callback invocations from the .NET side
                     this.connection.onRequest('invokeCallback', async (callbackId: string, args: unknown) => {
@@ -860,7 +868,7 @@ export class AspireClient {
                             return await Promise.resolve(callback(args, this));
                         } catch (error) {
                             const message = error instanceof Error ? error.message : String(error);
-                            throw new Error(`Callback execution failed: ${message}`);
+                            throw new Error(`Callback execution failed: ${message}`, { cause: error });
                         }
                     });
 

@@ -12,33 +12,34 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
 
 if ($Help) {
-    Write-Host ""
-    Write-Host "ralph-run-all.ps1 - Sequential Autopilot Orchestrator" -ForegroundColor Cyan
-    Write-Host "Runs all ralph-*.ps1 scripts in the scripts/ directory sequentially."
-    Write-Host "Each script runs in full autopilot mode — PRs are auto-merged."
-    Write-Host ""
-    Write-Host "PARAMETERS" -ForegroundColor Yellow
-    Write-Host "  -Pick                  Choose which scripts to run (default: run all)"
-    Write-Host "  -Model <alias>         Model to pass through: sonnet, opus46, opus47, gpt"
-    Write-Host "  -WorkUntil <HH:mm>     Stop after this local time (passed to each script)"
-    Write-Host "  -NoAudio               Suppress audio feedback"
-    Write-Host "  -Help                  Show this help message"
-    Write-Host ""
-    Write-Host "EXAMPLES" -ForegroundColor Yellow
-    Write-Host "  ralph-run-all"
-    Write-Host "  ralph-run-all -Pick"
-    Write-Host "  ralph-run-all -Model sonnet -WorkUntil 08:00"
-    Write-Host "  ralph-run-all -NoAudio"
-    Write-Host ""
+    Write-Output ""
+    Write-Output "ralph-run-all.ps1 - Sequential Autopilot Orchestrator"
+    Write-Output "Runs all ralph-*.ps1 scripts in the scripts/ directory sequentially."
+    Write-Output "Each script runs in full autopilot mode -- PRs are auto-merged."
+    Write-Output ""
+    Write-Output "PARAMETERS"
+    Write-Output "  -Pick                  Choose which scripts to run (default: run all)"
+    Write-Output "  -Model <alias>         Model to pass through: sonnet, opus46, opus47, gpt"
+    Write-Output "  -WorkUntil <HH:mm>     Stop after this local time (passed to each script)"
+    Write-Output "  -NoAudio               Suppress audio feedback"
+    Write-Output "  -Help                  Show this help message"
+    Write-Output ""
+    Write-Output "EXAMPLES"
+    Write-Output "  ralph-run-all"
+    Write-Output "  ralph-run-all -Pick"
+    Write-Output "  ralph-run-all -Model sonnet -WorkUntil 08:00"
+    Write-Output "  ralph-run-all -NoAudio"
+    Write-Output ""
     exit 0
 }
 
 # --- Verify git state ---
 $repoRoot = ([string](git rev-parse --show-toplevel 2>&1)).Trim() -replace '/', '\'
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Not inside a git repository." -ForegroundColor Red
+    Write-Error "Not inside a git repository." -ErrorAction Continue
     exit 1
 }
 $currentBranch = (git rev-parse --abbrev-ref HEAD 2>&1).Trim()
@@ -52,7 +53,7 @@ $allScripts = Get-ChildItem -Path $scriptsDir -Filter "ralph-*.ps1" -ErrorAction
     Sort-Object Name
 
 if ($allScripts.Count -eq 0) {
-    Write-Host "No ralph-*.ps1 scripts found in $scriptsDir" -ForegroundColor Red
+    Write-Error "No ralph-*.ps1 scripts found in $scriptsDir" -ErrorAction Continue
     exit 1
 }
 
@@ -60,12 +61,12 @@ $scripts = $allScripts
 
 # --- Pick mode ---
 if ($Pick) {
-    Write-Host ""
-    Write-Host "Available scripts:" -ForegroundColor Yellow
+    Write-Information ""
+    Write-Information "Available scripts:"
     for ($i = 0; $i -lt $allScripts.Count; $i++) {
-        Write-Host "  [$($i + 1)] $($allScripts[$i].Name)"
+        Write-Information "  [$($i + 1)] $($allScripts[$i].Name)"
     }
-    Write-Host ""
+    Write-Information ""
     $selection = Read-Host "Enter numbers to run (comma-separated, e.g. 1,3) or 'all'"
     if ($selection -eq 'all') {
         # keep all
@@ -74,31 +75,31 @@ if ($Pick) {
         $indices = $selection -split ',' | ForEach-Object { [int]$_.Trim() - 1 }
         $indices = $indices | Where-Object { $_ -ge 0 -and $_ -lt $allScripts.Count }
         if ($indices.Count -eq 0) {
-            Write-Host "No valid selections." -ForegroundColor Yellow
+            Write-Error "No valid selections." -ErrorAction Continue
             exit 1
         }
         $scripts = $indices | ForEach-Object { $allScripts[$_] }
     }
-    Write-Host ""
+    Write-Information ""
 }
 
 # --- Banner ---
 $runStart = Get-Date
-Write-Host ""
-Write-Host "====================================" -ForegroundColor Cyan
-Write-Host "  RALPH RUN-ALL" -ForegroundColor Cyan
-Write-Host "====================================" -ForegroundColor Cyan
-Write-Host "  Started:   $($runStart.ToString('yyyy-MM-dd HH:mm:ss'))"
-Write-Host "  Scripts:   $($scripts.Count)"
+Write-Information ""
+Write-Information "===================================="
+Write-Information "  RALPH RUN-ALL"
+Write-Information "===================================="
+Write-Information "  Started:   $($runStart.ToString('yyyy-MM-dd HH:mm:ss'))"
+Write-Information "  Scripts:   $($scripts.Count)"
 for ($i = 0; $i -lt $scripts.Count; $i++) {
-    Write-Host "    $($i + 1). $($scripts[$i].Name)" -ForegroundColor White
+    Write-Information "    $($i + 1). $($scripts[$i].Name)"
 }
-Write-Host "  Branch:    $currentBranch"
-Write-Host "  Repo:      $repoRoot"
-if ($Model) { Write-Host "  Model:     $Model" }
-if ($WorkUntil) { Write-Host "  WorkUntil: $WorkUntil" }
-Write-Host "====================================" -ForegroundColor Cyan
-Write-Host ""
+Write-Information "  Branch:    $currentBranch"
+Write-Information "  Repo:      $repoRoot"
+if ($Model) { Write-Information "  Model:     $Model" }
+if ($WorkUntil) { Write-Information "  WorkUntil: $WorkUntil" }
+Write-Information "===================================="
+Write-Information ""
 
 # --- Run scripts sequentially ---
 $results = @()
@@ -115,20 +116,20 @@ for ($i = 0; $i -lt $scripts.Count; $i++) {
             $deadline = Get-Date -Hour $parsed.Hour -Minute $parsed.Minute -Second 0
             if ($deadline -le $runStart) { $deadline = $deadline.AddDays(1) }
             if ((Get-Date) -ge $deadline) {
-                Write-Host "Deadline reached ($WorkUntil). Stopping before $($script.Name)." -ForegroundColor Yellow
+                Write-Warning "Deadline reached ($WorkUntil). Stopping before $($script.Name)."
                 break
             }
         }
-        catch { }
+        catch { Write-Verbose "Deadline parse failed: $_" }
     }
 
-    Write-Host ""
-    Write-Host "====================================" -ForegroundColor Magenta
-    Write-Host "== [$($i + 1)/$($scripts.Count)] $($script.Name)"
-    Write-Host "====================================" -ForegroundColor Magenta
-    Write-Host ""
+    Write-Information ""
+    Write-Information "===================================="
+    Write-Information "== [$($i + 1)/$($scripts.Count)] $($script.Name)"
+    Write-Information "===================================="
+    Write-Information ""
 
-    # Build args — always pass -Autopilot
+    # Build args -- always pass -Autopilot
     $scriptArgs = @{ Autopilot = $true }
     if ($NoAudio) { $scriptArgs['NoAudio'] = $true }
     if ($SkipReview) { $scriptArgs['SkipReview'] = $true }
@@ -152,27 +153,27 @@ for ($i = 0; $i -lt $scripts.Count; $i++) {
     }
 
     if ($exitCode -ne 0) {
-        Write-Host ""
-        Write-Host "$($script.Name) failed with exit code $exitCode. Stopping." -ForegroundColor Red
+        Write-Information ""
+        Write-Error "$($script.Name) failed with exit code $exitCode. Stopping." -ErrorAction Continue
         $failed = $true
         break
     }
 
-    Write-Host ""
-    Write-Host "$($script.Name) completed successfully ($stepDurStr)." -ForegroundColor Green
+    Write-Information ""
+    Write-Information "$($script.Name) completed successfully ($stepDurStr)."
 
     # Pull latest main before next script
     if ($i -lt $scripts.Count - 1) {
-        Write-Host ""
-        Write-Host "Pulling latest main before next script..." -ForegroundColor Cyan
+        Write-Information ""
+        Write-Information "Pulling latest main before next script..."
         git fetch origin main 2>&1 | Out-Null
         git checkout main 2>&1 | Out-Null
         git pull --ff-only 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Warning: git pull on main failed. Continuing anyway." -ForegroundColor Yellow
+            Write-Warning "git pull on main failed. Continuing anyway."
         }
         else {
-            Write-Host "Main is up to date." -ForegroundColor Green
+            Write-Information "Main is up to date." -InformationAction Continue
         }
     }
 }
@@ -183,19 +184,18 @@ $totalDuration = $runEnd - $runStart
 $totalDurStr = "{0:hh\:mm\:ss}" -f $totalDuration
 $successCount = ($results | Where-Object { $_.ExitCode -eq 0 }).Count
 
-Write-Host ""
-Write-Host "====================================" -ForegroundColor Cyan
-Write-Host "  RALPH RUN-ALL SUMMARY" -ForegroundColor Cyan
-Write-Host "====================================" -ForegroundColor Cyan
-Write-Host "  Finished:  $($runEnd.ToString('yyyy-MM-dd HH:mm:ss'))"
-Write-Host "  Duration:  $totalDurStr"
-Write-Host "  Results:   $successCount/$($results.Count) succeeded"
-Write-Host ""
+Write-Information ""
+Write-Information "===================================="
+Write-Information "  RALPH RUN-ALL SUMMARY"
+Write-Information "===================================="
+Write-Information "  Finished:  $($runEnd.ToString('yyyy-MM-dd HH:mm:ss'))"
+Write-Information "  Duration:  $totalDurStr"
+Write-Information "  Results:   $successCount/$($results.Count) succeeded"
+Write-Information ""
 foreach ($r in $results) {
-    $color = if ($r.ExitCode -eq 0) { "Green" } else { "Red" }
-    Write-Host "    $($r.Status.PadRight(20)) $($r.Duration)  $($r.Script)" -ForegroundColor $color
+    Write-Information "    $($r.Status.PadRight(20)) $($r.Duration)  $($r.Script)"
 }
-Write-Host ""
-Write-Host "====================================" -ForegroundColor Cyan
+Write-Information ""
+Write-Information "===================================="
 
 if ($failed) { exit 1 }

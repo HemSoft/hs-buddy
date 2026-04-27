@@ -924,7 +924,7 @@ describe('GitHubClient', () => {
     it('throws error when getOctokitForOwner fails (auth catch block)', async () => {
       // Mock the getOctokit method to return null for all accounts, triggering getOctokitForOwner to throw
       // We need to use a fresh config where none of the accounts can authenticate
-      mockInvoke.mockImplementation((_channel: string, _username: string) => {
+      mockInvoke.mockImplementation((_channel: string) => {
         // Return no token for any account (simulates failed auth)
         if (_channel === 'github:get-cli-token') return Promise.resolve(null)
         return Promise.resolve(null)

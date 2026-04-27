@@ -1,4 +1,4 @@
-import { type BrowserWindow, ipcMain, app, type WebContents } from 'electron'
+import { ipcMain, app, type WebContents } from 'electron'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
@@ -255,7 +255,7 @@ function cleanupTerminalSession(session: TerminalSession): void {
   }
 }
 
-export function registerTerminalHandlers(_win: BrowserWindow): void {
+export function registerTerminalHandlers(): void {
   // Resolve owner/repo to a local directory path
   ipcMain.handle('terminal:resolve-repo-path', async (_event, opts: unknown) => {
     if (!opts || typeof opts !== 'object') return { path: null }

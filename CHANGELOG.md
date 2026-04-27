@@ -15,13 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add file-size and complexity metric gates to TODO
 - Add ralph quality/CRAP loops and update existing scripts
-- Regenerate Aspire modules and Convex types
-- Improve ralph automation scripts
 
 ### Added
 
 - Implement 4 quality gate tools
-- Add GraphQL fallback for my-prs when search API is degraded
 
 ### Fixed
 
@@ -32,12 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use proper PS output streams for error/warning/info messages
 - Address PR review — revert convex generated file reformatting, restore callback contravariance
 - Use Write-Information for banners/progress in ralph scripts
-- Resolve PSScriptAnalyzer warnings in all PowerShell scripts
-- Remove unused eslint-disable directives from convex generated files
-- Address PR review feedback for PSScriptAnalyzer changes
-- Replace Unicode em dash with ASCII in PS1 comments
-- Move convex override after base configs for resilience
-- Add v8 ignore to resolveGraphQLAuthor (GraphQL fallback helper)
+- Use SDK approveAll helper for copilot-sdk 0.3.0 compatibility
 
 ## [0.1.739] - 2026-04-26
 

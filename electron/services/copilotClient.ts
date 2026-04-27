@@ -11,7 +11,7 @@
  * or `copilot-darwin-arm64/copilot`) and pass it as `cliPath` to bypass this.
  */
 
-import { CopilotClient } from '@github/copilot-sdk'
+import { CopilotClient, approveAll } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -215,7 +215,7 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
     assertNotAborted(signal, 'Cancelled before session creation')
 
     const session = await Promise.race([
-      client.createSession({ model, onPermissionRequest: () => ({ kind: 'approved' as const }) }),
+      client.createSession({ model, onPermissionRequest: approveAll }),
       rejectAfter(SESSION_TIMEOUT, 'Timeout creating Copilot session'),
     ])
 

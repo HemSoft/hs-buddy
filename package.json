@@ -44,7 +44,7 @@
   "author": "HemSoft Developments",
   "license": "MIT",
   "dependencies": {
-    "@github/copilot-sdk": "^0.2.2",
+    "@github/copilot-sdk": "^0.3.0",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.0.3",
     "@octokit/plugin-throttling": "^11.0.3",

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add file-size and complexity metric gates to TODO
 
+### Added
+
+- Implement 4 quality gate tools
+
 ## [0.1.739] - 2026-04-26
 
 ### Fixed

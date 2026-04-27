@@ -4,10 +4,22 @@ import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
+import sonarjs from 'eslint-plugin-sonarjs'
 import globals from 'globals'
 
+// Quality gate rules activate via: ESLINT_QUALITY=1 eslint .
+// They produce warnings that would break --max-warnings 0, so they only
+// run in the lint:quality script. Graduate to always-on once violations hit 0.
+const qualityRules = process.env.ESLINT_QUALITY === '1'
+  ? {
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
+      'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
+      'sonarjs/cognitive-complexity': ['warn', 15],
+    }
+  : {}
+
 export default tseslint.config(
-  { ignores: ['dist/**', 'dist-electron/**', 'convex/_generated/**', '.modules/**'] },
+  { ignores: ['dist/**', 'dist-electron/**', 'convex/_generated/**', '.modules/**', '.dependency-cruiser.cjs', 'eslint.config.js'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -20,6 +32,7 @@ export default tseslint.config(
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
       'jsx-a11y': jsxA11y,
+      sonarjs: sonarjs,
     },
     languageOptions: {
       globals: { ...globals.browser },
@@ -41,6 +54,7 @@ export default tseslint.config(
       complexity: ['warn', 10],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      ...qualityRules,
     },
   }
 )

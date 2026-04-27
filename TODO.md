@@ -2,6 +2,7 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
+| 📋 | **🔴 High** | [Ralph Loops Control Center](#ralph-loops-control-center) | Full integration of the ralph-loops ecosystem — orchestrate, launch, monitor, and configure autonomous AI work loops from Buddy |
 | 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
 | 📋 | High | [Electron Main Process Test Suite](#electron-main-process-test-suite) | **0 test files across 38 source files** — IPC handlers, services, workers, root modules all untested |
 | 📋 | High | [IPC Contract Testing](#ipc-contract-testing) | 16 IPC handler files are the renderer↔main bridge with zero contract validation |
@@ -98,11 +99,416 @@
 
 ## Progress
 
-**Remaining: 25** | **Completed: 68** (73%)
+**Remaining: 26** | **Completed: 68** (72%)
 
 ---
 
 ## Remaining Items
+
+### Ralph Loops Control Center
+
+Integrate the entire **ralph-loops** ecosystem from [`ai-tools`](https://github.com/Relias-Engineering/ai-tools) into Buddy as a first-class activity bar section. Ralph Loops are autonomous PowerShell scripts that run GitHub Copilot CLI (or OpenCode) in iterative loops to accomplish development work — improving test coverage, reducing CRAP scores, fixing code quality, resolving PR comments — all without human intervention.
+
+Today, these loops are launched from the terminal with complex parameter combinations:
+
+```powershell
+ralph -Prompt "..." -Branch feature/x -Model opus46 -Agents anvil,pr-review-quality@opus47 -WorkUntil 08:00 -Autopilot
+```
+
+The goal is to bring all of this into Buddy with a visual dashboard for launching, monitoring, and configuring loops across multiple repositories simultaneously.
+
+#### Source Ecosystem (ai-tools/ralph-loops)
+
+| Component | Purpose |
+|-----------|---------|
+| `ralph.ps1` | Iterative autopilot — runs Copilot CLI in a loop with git worktrees for branch isolation |
+| `ralph-pr.ps1` | PR comment resolver — monitors PRs for CI failures and review comments, fixes them automatically |
+| `ralph-run-all.ps1` | Sequential orchestrator — chains multiple template scripts with autopilot mode |
+| `config/models.json` | Model catalog with aliases, tiers (fast/medium/best), cost multipliers, reasoning effort |
+| `config/agents.json` | Agent roles (dev + review categories) with provider-specific mappings and tier defaults |
+| `config/providers.json` | CLI provider configuration (Copilot, OpenCode) with flag mappings and model templates |
+| `lib/config.ps1` | Shared config resolution library — model/agent/provider parsing, validation, command building |
+| Template scripts | Pre-built loops: improve-test-coverage, improve-quality, improve-scorecard, improve-crap-score, improve-react-doctor, simplisticate |
+
+#### Infrastructure Reuse
+
+hs-buddy already has the foundational infrastructure needed — this feature is about composing existing patterns:
+
+| Ralph Loops Need | Existing hs-buddy Infrastructure |
+|---|---|
+| Spawn & manage PowerShell processes | `terminalHandlers.ts` — `node-pty` PTY sessions with real-time stdout streaming, CWD tracking, attach/detach |
+| Execute shell commands async | `execWorker.ts` — `spawn()` with timeout, abort signal, stdout/stderr capture (512KB buffer) |
+| Job scheduling & dispatch | `dispatcher.ts` — polls Convex for pending jobs, claims them, routes to typed workers |
+| Cron-based scheduling | Automation section — CronBuilder UI, schedules table, run history, offline catch-up |
+| Persist run history & state | Convex backend with `jobs` + `runs` + `schedules` tables and real-time subscriptions |
+| GitHub PR/CI status | `githubHandlers.ts` — Octokit REST + GraphQL, multi-account auth via `gh` CLI |
+| Real-time UI updates | Convex real-time subscriptions + IPC `webContents.send()` event streaming |
+| Cross-platform builds | `electron-builder.json5` — NSIS (Windows), DMG (macOS arm64+x64), AppImage (Linux) |
+| Observability | OpenTelemetry SDK — OTLP traces, metrics, structured logs |
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Renderer (React)                                       │
+│  src/components/ralph-loops/                            │
+│    RalphDashboard.tsx      — Active/recent loop overview│
+│    RalphLaunchForm.tsx     — Visual parameter builder   │
+│    RalphLoopCard.tsx       — Per-loop status card       │
+│    RalphLogViewer.tsx      — Real-time structured log   │
+│    RalphConfigEditor.tsx   — Visual JSON config editor  │
+│    RalphMetrics.tsx        — Coverage/CRAP/scorecard    │
+│    RalphRepoSelector.tsx   — Multi-repo picker          │
+├─────────────────────────────────────────────────────────┤
+│  IPC Bridge (preload.ts)                                │
+│    window.ralph.launch()   — Start a new loop           │
+│    window.ralph.stop()     — Abort a running loop       │
+│    window.ralph.list()     — Get active/recent loops    │
+│    window.ralph.getConfig()— Read ralph config JSONs    │
+│    window.ralph.getLog()   — Retrieve log content       │
+├─────────────────────────────────────────────────────────┤
+│  Electron Main Process                                  │
+│  electron/ipc/ralphHandlers.ts   — IPC handler module   │
+│  electron/services/ralphService.ts                      │
+│    ├── Reads models/agents/providers JSON configs        │
+│    ├── Spawns ralph.ps1 / ralph-pr.ps1 via node-pty     │
+│    ├── Parses structured output (iterations, phases)     │
+│    ├── Pushes state updates to renderer via IPC events   │
+│    └── Stores run history in Convex                      │
+│  electron/workers/ralphWorker.ts — Dispatcher-compatible │
+├─────────────────────────────────────────────────────────┤
+│  Convex Backend                                         │
+│    ralphRuns table    — Run history with status/metrics  │
+│    ralphConfigs table — Cached config snapshots          │
+│    ralphMetrics table — Coverage/CRAP trends over time   │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Activity Bar Entry
+
+New section in the activity bar (icon: `RefreshCcw` or `Zap` from lucide-react):
+
+| Sidebar Node | Content |
+|---|---|
+| **Active Loops** | Live status cards for all running loops across repos |
+| **Launch** | Visual form to configure and start a new loop |
+| **History** | Past runs with duration, iterations, outcome, branch, PR link |
+| **Configuration** | Visual editors for models.json, agents.json, providers.json |
+| **Metrics** | Coverage/CRAP/scorecard trend charts per repo over time |
+
+#### Launch Form — Replacing CLI Complexity
+
+The launch form replaces the 20+ parameter CLI surface with an intuitive UI:
+
+| Form Section | Controls | Data Source |
+|---|---|---|
+| **Repository** | Dropdown of registered repos (with local clone path detection) | `electron-store` config + `terminal:resolve-repo-path` |
+| **Prompt** | Textarea or file picker (supports `.md` files) | Free text or filesystem |
+| **Branch** | Text input with auto-generation preview | Git branch naming |
+| **Script** | Dropdown: Custom, Improve Coverage, Improve Quality, Improve Scorecard, Improve CRAP Score, Improve React Doctor, Simplisticate, Run All | Template scripts from `ralph-loops/scripts/` |
+| **Model** | Dropdown with labels + cost multipliers: `Sonnet 4.6 (1×)`, `Opus 4.6 (3×)`, `Opus 4.7 (7.5×)`, `GPT-5.4 (1×)` | `models.json` — aliases, tiers, cost info |
+| **Provider** | Radio: Copilot / OpenCode | `providers.json` |
+| **Dev Agent** | Dropdown: anvil, developer-principal, developer-senior, simplisticate, csharp-quality-expert | `agents.json` (category: dev) with descriptions |
+| **Review Agents** | Multi-select checkboxes with optional per-agent model override | `agents.json` (category: review) — pr-review-general, pr-review-security, pr-review-quality, pr-review-crap-score, pr-review-scorecard-score, auditor-* |
+| **Max Iterations** | Number input (default 10) | — |
+| **Work Until** | Time picker (HH:mm) | — |
+| **Flags** | Toggle switches: Autopilot, No PR, Skip Review, Cleanup Worktree, No Audio | — |
+
+All dropdowns are populated dynamically by reading the config JSONs from the ai-tools repo path (configurable in Settings).
+
+#### Dashboard — Real-Time Monitoring
+
+The dashboard shows all active and recent loops in a card layout:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔄 Ralph Loops                                    ⚙️  ▶️  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────────────────────────┐ ┌────────────────────────┐ │
+│  │ 🟢 my-service               │ │ 🟡 auth-service        │ │
+│  │ feature/increase-coverage   │ │ feature/simplisticate  │ │
+│  │ ████████░░ 8/10 iterations  │ │ ██████░░░░ 6/10        │ │
+│  │ Opus 4.6 · anvil            │ │ Sonnet 4.6 · simplist. │ │
+│  │ ✅ CI passing · ⏱ 2h 14m    │ │ ⏳ CI running · ⏱ 1h03 │ │
+│  │ Phase: PR Resolution        │ │ Phase: Work Loop       │ │
+│  │ [Log] [PR #147] [Stop]      │ │ [Log] [Stop]           │ │
+│  └─────────────────────────────┘ └────────────────────────┘ │
+│                                                             │
+│  ┌─────────────────────────────┐ ┌────────────────────────┐ │
+│  │ ✅ portal-app (completed)    │ │ ⏸ api-gateway (idle)   │ │
+│  │ feature/improve-scorecard   │ │ Waiting for next run   │ │
+│  │ ██████████ 10/10            │ │                        │ │
+│  │ PR #89 merged · 4h 32m      │ │ [Launch]               │ │
+│  └─────────────────────────────┘ └────────────────────────┘ │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  📋 Log Stream  │ 📊 Metrics  │ ⚙️ Config                  │
+│  [14:32:01] ✅ Iteration 8 complete — 3 files changed       │
+│  [14:32:05] 📤 Pushing to origin...                         │
+│  [14:32:12] 🔀 Creating PR #147...                          │
+│  [14:32:30] 🔍 Requesting review: pr-review-quality         │
+│  [14:33:15] 💬 2 review comments received                   │
+│  [14:33:20] 🔧 Copilot CLI fixing review comments...        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Each card shows:
+- **Repo name** with status indicator (🟢 running, 🟡 CI pending, ✅ complete, 🔴 failed)
+- **Branch name** and script type
+- **Progress bar** — iteration X of Y
+- **Model + Agent** labels with cost tier
+- **Phase** — Work Loop, PR Creation, PR Resolution, CI Wait, Review Wait, Complete
+- **Elapsed time** — running clock
+- **Quick actions** — View log, Open PR (links to GitHub), Stop loop
+
+#### Log Viewer
+
+Two rendering modes:
+
+1. **Structured View** (default) — Parses ralph.ps1 output into structured entries with icons, timestamps, iteration markers, and phase badges. Collapsible iteration groups.
+2. **Raw Terminal** — Full PTY output via xterm.js (reuses existing terminal infrastructure). Useful for debugging.
+
+Log parsing targets these ralph.ps1 output patterns:
+- `=== ITERATION N ===` — iteration boundaries
+- `✅` / `❌` — success/failure markers
+- `Pushing to origin` — phase transitions
+- `Creating PR` / `PR #NNN` — PR lifecycle events
+- `CI check` / `CI passed` / `CI failed` — CI status
+- `Copilot review` / `review comments` — review lifecycle
+
+#### Configuration Editor
+
+Visual editor for the three config files, with validation:
+
+- **Models**: Card per model showing label, cost multiplier, provider, reasoning effort. Add/edit/remove aliases. Tier assignment.
+- **Agents**: Card per agent showing role name, category (dev/review), description, tier, provider mappings. Skills list.
+- **Providers**: Card per provider showing command, flags, model template, capabilities.
+
+Changes are written back to the JSON files in the ai-tools repo path. Validation runs the same checks as `lib/config.ps1` (alias targets exist, tier models exist, no namespace collisions, agent provider mappings complete).
+
+#### Convex Schema Extensions
+
+```typescript
+// convex/schema.ts additions
+
+ralphRuns: defineTable({
+  repoPath: v.string(),           // Local clone path
+  repoName: v.string(),           // e.g., "my-service"
+  repoSlug: v.optional(v.string()), // e.g., "Relias/my-service"
+  scriptType: v.string(),         // "custom" | "improve-coverage" | "improve-quality" | etc.
+  branch: v.string(),             // Target branch name
+  prompt: v.optional(v.string()), // Prompt text or file path
+  model: v.string(),              // Model alias used (e.g., "opus46")
+  modelId: v.string(),            // Resolved model ID (e.g., "claude-opus-4.6")
+  provider: v.string(),           // "copilot" | "opencode"
+  devAgent: v.string(),           // Dev agent role (e.g., "anvil")
+  reviewAgents: v.array(v.string()), // Review agent specs
+  maxIterations: v.number(),
+  workUntil: v.optional(v.string()),
+  flags: v.object({               // Boolean flags
+    autopilot: v.boolean(),
+    noPR: v.boolean(),
+    skipReview: v.boolean(),
+    cleanupWorktree: v.boolean(),
+    noAudio: v.boolean(),
+  }),
+  status: v.string(),             // "running" | "completed" | "failed" | "stopped" | "pr-resolution"
+  phase: v.string(),              // "work-loop" | "pr-creation" | "pr-resolution" | "ci-wait" | "review-wait" | "complete"
+  currentIteration: v.number(),
+  prNumber: v.optional(v.number()),
+  prUrl: v.optional(v.string()),
+  startedAt: v.number(),          // Epoch ms
+  completedAt: v.optional(v.number()),
+  duration: v.optional(v.number()), // Total ms
+  exitCode: v.optional(v.number()),
+  error: v.optional(v.string()),
+  costMultiplier: v.number(),     // From model config
+  logPath: v.optional(v.string()), // Path to ralph.log / ralph-pr.log
+})
+  .index("by_status", ["status"])
+  .index("by_repo", ["repoName", "startedAt"]),
+
+ralphConfigs: defineTable({
+  configType: v.string(),         // "models" | "agents" | "providers"
+  content: v.string(),            // JSON string
+  sourcePath: v.string(),         // Filesystem path
+  version: v.string(),            // SemVer from the JSON
+  cachedAt: v.number(),
+})
+  .index("by_type", ["configType"]),
+
+ralphMetrics: defineTable({
+  repoName: v.string(),
+  branch: v.string(),
+  runId: v.id("ralphRuns"),
+  metricType: v.string(),         // "coverage" | "crap-score" | "scorecard" | "react-doctor"
+  before: v.optional(v.number()), // Score before the run
+  after: v.optional(v.number()),  // Score after the run
+  delta: v.optional(v.number()),
+  recordedAt: v.number(),
+})
+  .index("by_repo_metric", ["repoName", "metricType", "recordedAt"]),
+```
+
+#### Preload Bridge API
+
+```typescript
+// electron/preload.ts additions
+
+contextBridge.exposeInMainWorld('ralph', {
+  // Loop lifecycle
+  launch: (config: RalphLaunchConfig) => ipcRenderer.invoke('ralph:launch', config),
+  stop: (runId: string) => ipcRenderer.invoke('ralph:stop', runId),
+  list: () => ipcRenderer.invoke('ralph:list'),
+  getStatus: (runId: string) => ipcRenderer.invoke('ralph:get-status', runId),
+
+  // Configuration
+  getConfig: (configType: 'models' | 'agents' | 'providers') =>
+    ipcRenderer.invoke('ralph:get-config', configType),
+  saveConfig: (configType: string, content: string) =>
+    ipcRenderer.invoke('ralph:save-config', configType, content),
+  validateConfig: () => ipcRenderer.invoke('ralph:validate-config'),
+  getAiToolsPath: () => ipcRenderer.invoke('ralph:get-ai-tools-path'),
+  setAiToolsPath: (path: string) => ipcRenderer.invoke('ralph:set-ai-tools-path', path),
+
+  // Logs
+  getLog: (runId: string) => ipcRenderer.invoke('ralph:get-log', runId),
+  attachLog: (runId: string) => ipcRenderer.invoke('ralph:attach-log', runId),
+
+  // Repo discovery
+  listRepos: () => ipcRenderer.invoke('ralph:list-repos'),
+  getInstalledScripts: (repoPath: string) =>
+    ipcRenderer.invoke('ralph:get-installed-scripts', repoPath),
+  installScripts: (repoPath: string, scripts: string[]) =>
+    ipcRenderer.invoke('ralph:install-scripts', repoPath, scripts),
+
+  // Real-time events (renderer listens)
+  // 'ralph:iteration-complete' — { runId, iteration, total }
+  // 'ralph:phase-change'       — { runId, phase, details }
+  // 'ralph:log-data'           — { runId, data, seq }
+  // 'ralph:run-complete'       — { runId, status, exitCode }
+})
+```
+
+#### Settings Integration
+
+New settings section under Settings → Ralph Loops:
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `ralph.aiToolsPath` | Directory picker | Auto-detect | Path to the `ai-tools` repo (contains ralph-loops/) |
+| `ralph.defaultModel` | Dropdown | `opus46` | Default model for new loops |
+| `ralph.defaultProvider` | Radio | `copilot` | Default CLI provider |
+| `ralph.defaultDevAgent` | Dropdown | `anvil` | Default dev agent |
+| `ralph.maxConcurrentLoops` | Number | `3` | Maximum simultaneously running loops |
+| `ralph.logRetentionDays` | Number | `30` | Days to keep log files |
+| `ralph.autoInstallScripts` | Toggle | `false` | Auto-install template scripts when registering a repo |
+
+#### Implementation Phases
+
+##### Phase 1: Foundation (Backend)
+
+1. Create `electron/services/ralphService.ts` — config reading, process spawning, state tracking
+2. Create `electron/ipc/ralphHandlers.ts` — IPC handler module following existing pattern
+3. Create `electron/workers/ralphWorker.ts` — dispatcher-compatible worker for scheduled loops
+4. Add `ralph` to the preload bridge in `electron/preload.ts`
+5. Register handlers in `electron/ipc/index.ts`
+6. Add Convex schema extensions (`ralphRuns`, `ralphConfigs`, `ralphMetrics`)
+7. Add Convex mutations/queries for run lifecycle
+
+##### Phase 2: Dashboard & Launch UI
+
+1. Create `src/components/ralph-loops/` component directory
+2. Build `RalphDashboard.tsx` — card grid of active/recent loops
+3. Build `RalphLaunchForm.tsx` — visual parameter builder with config-driven dropdowns
+4. Build `RalphLoopCard.tsx` — status card with progress bar, phase badge, quick actions
+5. Add activity bar entry (icon + sidebar tree nodes)
+6. Wire up real-time status updates via IPC events
+
+##### Phase 3: Log Viewer
+
+1. Build `RalphLogViewer.tsx` with dual mode (structured + raw terminal)
+2. Implement log parser for ralph.ps1 output patterns (iterations, phases, CI status)
+3. Wire xterm.js for raw PTY output (reuse terminal infrastructure)
+4. Add log filtering/search and auto-scroll with "pin to bottom" toggle
+
+##### Phase 4: Config Editor
+
+1. Build `RalphConfigEditor.tsx` — tabbed editor for models/agents/providers
+2. Implement validation matching `lib/config.ps1` logic (alias targets, tier models, namespace collisions, provider mappings)
+3. Add save-back to filesystem with SemVer bump
+4. Add "Reset to defaults" option
+
+##### Phase 5: Metrics & History
+
+1. Build `RalphMetrics.tsx` — trend charts for coverage/CRAP/scorecard per repo
+2. Build `RalphHistory.tsx` — filterable table of past runs with duration, outcome, PR links
+3. Parse `TEST-METRICS.md` files from repos to extract before/after data
+4. Store metrics in `ralphMetrics` Convex table for historical trending
+
+##### Phase 6: Repo Management & Script Installation
+
+1. Build `RalphRepoSelector.tsx` — register repos, detect local clones
+2. Implement `ralph:install-scripts` IPC — mirrors `ralph -Install` functionality
+3. Show which template scripts are installed per repo
+4. Add "Install All" / "Pick" modes matching the CLI behavior
+
+##### Phase 7: Automation Integration
+
+1. Add `ralph` as a new worker type in the existing dispatcher
+2. Allow scheduling ralph loops via the existing Automation → Schedules UI
+3. Support "Run All" orchestration as a scheduled job (nightly autonomous runs)
+4. Add notification support (system tray notifications for loop completion)
+
+#### New Files
+
+| File | Purpose |
+|------|---------|
+| `electron/services/ralphService.ts` | Process manager: spawn, track, stream, persist |
+| `electron/ipc/ralphHandlers.ts` | IPC handler module (follows configHandlers pattern) |
+| `electron/workers/ralphWorker.ts` | Dispatcher-compatible worker for scheduled loops |
+| `src/components/ralph-loops/RalphDashboard.tsx` | Main dashboard — card grid of loops |
+| `src/components/ralph-loops/RalphDashboard.css` | Dashboard styles |
+| `src/components/ralph-loops/RalphLaunchForm.tsx` | Visual launch configuration form |
+| `src/components/ralph-loops/RalphLaunchForm.css` | Launch form styles |
+| `src/components/ralph-loops/RalphLoopCard.tsx` | Per-loop status card |
+| `src/components/ralph-loops/RalphLoopCard.css` | Card styles |
+| `src/components/ralph-loops/RalphLogViewer.tsx` | Dual-mode log viewer (structured + raw) |
+| `src/components/ralph-loops/RalphLogViewer.css` | Log viewer styles |
+| `src/components/ralph-loops/RalphConfigEditor.tsx` | Visual config JSON editor |
+| `src/components/ralph-loops/RalphConfigEditor.css` | Config editor styles |
+| `src/components/ralph-loops/RalphMetrics.tsx` | Coverage/CRAP/scorecard trend charts |
+| `src/components/ralph-loops/RalphMetrics.css` | Metrics styles |
+| `src/components/ralph-loops/RalphRepoSelector.tsx` | Repo picker + script installer |
+| `src/components/ralph-loops/RalphHistory.tsx` | Past run table with filters |
+| `src/components/ralph-loops/index.ts` | Barrel export |
+| `src/components/sidebar/ralph-sidebar/` | Sidebar tree nodes for Ralph Loops section |
+| `src/hooks/useRalphLoops.ts` | React hook for loop state management |
+| `src/hooks/useRalphConfig.ts` | React hook for config reading/writing |
+| `src/types/ralph.ts` | TypeScript types for Ralph Loops domain |
+| `src/utils/ralphLogParser.ts` | Parse ralph.ps1 structured output |
+| `src/utils/ralphLogParser.test.ts` | Log parser tests |
+| `convex/ralphRuns.ts` | Convex CRUD for run history |
+| `convex/ralphConfigs.ts` | Convex CRUD for config snapshots |
+| `convex/ralphMetrics.ts` | Convex CRUD for metrics trends |
+
+#### Risk Assessment
+
+- 🟡 **Long-running processes** — Ralph loops can run for hours. Need robust process lifecycle management (survive app restarts? reconnect to existing PTY sessions?)
+- 🟡 **Log volume** — Hours of Copilot CLI output can be large. Cap in-memory buffers (reuse `MAX_SCROLLBACK_BUFFER` pattern from terminalHandlers), persist to disk.
+- 🟡 **Config sync** — If someone edits config JSONs from the CLI while Buddy is running, need file-watcher or refresh-on-focus to stay in sync.
+- 🟢 **Process spawning** — `node-pty` + PowerShell already battle-tested in the terminal feature.
+- 🟢 **Infrastructure reuse** — Dispatcher, workers, Convex schema, IPC patterns all proven at scale.
+- 🟢 **Cross-platform** — PowerShell Core (`pwsh`) runs on macOS/Linux. All ralph-loops dependencies (git, gh, copilot CLI) are cross-platform.
+
+#### Dependencies
+
+- No new npm packages required — all infrastructure exists (`node-pty`, `xterm`, `convex`, `lucide-react`, `allotment`)
+- Optional: charting library for metrics trends (e.g., `recharts` or lightweight `<canvas>` SVG approach)
+- ai-tools repo must be cloned locally (path configured in Settings)
+
+---
 
 ### E2E Test Coverage Expansion
 

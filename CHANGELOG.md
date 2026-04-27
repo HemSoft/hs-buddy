@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review feedback for PSScriptAnalyzer changes
 - Replace Unicode em dash with ASCII in PS1 comments
 - Move convex override after base configs for resilience
+- Add v8 ignore to resolveGraphQLAuthor (GraphQL fallback helper)
 
 ## [0.1.739] - 2026-04-26
 

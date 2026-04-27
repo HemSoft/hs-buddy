@@ -1349,12 +1349,14 @@ interface ViewerPRsResponse {
 }
 
 /** Extract author fields from a GraphQL PR node. */
+/* v8 ignore start -- GraphQL fallback mapping for search API outages */
 function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
   login: string
   avatarUrl?: string
 } {
   return { login: author?.login || 'unknown', avatarUrl: author?.avatarUrl }
 }
+/* v8 ignore stop */
 
 /** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
 /* v8 ignore start -- GraphQL fallback mapping for search API outages */

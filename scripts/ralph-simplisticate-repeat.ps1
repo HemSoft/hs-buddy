@@ -1,74 +1,85 @@
-# Runs ralph-simplisticate.ps1 repeatedly N times in autopilot mode.
+# ralph-simplisticate-repeat.ps1 — Repeated simplisticate runner.
+# Version: 1.2.0
 # Between each run, pulls latest main so the next run branches from fresh code.
+# NOTE: PowerShell uses single-dash params: -Help, -Times 5 (not --help)
 param(
     [int]$Times = 3,
     [switch]$NoAudio,
     [switch]$SkipReview,
-    [ValidateSet('sonnet', 'opus46', 'opus47', 'gpt')]
     [string]$Model,
+    [string]$Provider,
+    [string[]]$Agents,
     [string]$WorkUntil,
+    [switch]$Once,
     [switch]$Help
 )
 
 $ErrorActionPreference = 'Stop'
-$InformationPreference = 'Continue'
 
 if ($Help) {
-    Write-Output ""
-    Write-Output "ralph-simplisticate-repeat.ps1 - Repeated Simplisticate Runner"
-    Write-Output "Runs ralph-simplisticate.ps1 N times in autopilot mode."
-    Write-Output "Between each run, pulls latest main so the next run branches from fresh code."
-    Write-Output ""
-    Write-Output "PARAMETERS"
-    Write-Output "  -Times <int>           Number of times to run (default: 3)"
-    Write-Output "  -Model <alias>         Model to pass through: sonnet, opus46, opus47, gpt"
-    Write-Output "  -WorkUntil <HH:mm>     Stop after this local time (passed to each run)"
-    Write-Output "  -NoAudio               Suppress audio feedback"
-    Write-Output "  -SkipReview            Skip Copilot PR review requests"
-    Write-Output "  -Help                  Show this help message"
-    Write-Output ""
-    Write-Output "EXAMPLES"
-    Write-Output "  ralph-simplisticate-repeat"
-    Write-Output "  ralph-simplisticate-repeat -Times 5"
-    Write-Output "  ralph-simplisticate-repeat -Times 10 -Model sonnet -WorkUntil 08:00"
-    Write-Output ""
+    Write-Host ""
+    Write-Host "ralph-simplisticate-repeat.ps1 - Repeated Simplisticate Runner" -ForegroundColor Cyan
+    Write-Host "Runs ralph-simplisticate.ps1 N times in autopilot mode."
+    Write-Host "Between each run, pulls latest main so the next run branches from fresh code."
+    Write-Host ""
+    Write-Host "PARAMETERS" -ForegroundColor Yellow
+    Write-Host "  -Times <int>           Number of times to run (default: 3)"
+    Write-Host "  -Model <name>          Model to pass through (validated by ralph.ps1)"
+    Write-Host "  -Provider <name>       CLI provider: copilot, opencode (validated by ralph.ps1)"
+    Write-Host "  -Agents <specs>        Agent specs: role or role@model (validated by ralph.ps1)"
+    Write-Host "                         Dev agents control the work loop; review agents run PR reviews"
+    Write-Host "  -WorkUntil <HH:mm>     Stop after this local time (passed to each run)"
+    Write-Host "  -NoAudio               Suppress audio feedback"
+    Write-Host "  -SkipReview            Skip Copilot PR review requests"
+    Write-Host "  -Once                  Run only one work iteration (passed to each run)"
+    Write-Host "  -Help                  Show this help message"
+    Write-Host ""
+    Write-Host "EXAMPLES" -ForegroundColor Yellow
+    Write-Host "  ralph-simplisticate-repeat"
+    Write-Host "  ralph-simplisticate-repeat -Times 5"
+    Write-Host "  ralph-simplisticate-repeat -Times 10 -Model sonnet -WorkUntil 08:00"
+    Write-Host "  ralph-simplisticate-repeat -Times 3 -Agents auditor-crap-score"
+    Write-Host ""
     exit 0
 }
 
 $scriptDir = $PSScriptRoot
 $simplisticate = Join-Path $scriptDir "ralph-simplisticate.ps1"
 if (-not (Test-Path $simplisticate)) {
-    Write-Error "ralph-simplisticate.ps1 not found at: $simplisticate" -ErrorAction Continue
+    Write-Host "ERROR: ralph-simplisticate.ps1 not found at: $simplisticate" -ForegroundColor Red
     exit 1
 }
 
 for ($i = 1; $i -le $Times; $i++) {
-    Write-Information ""
-    Write-Information "===================================="
-    Write-Information "== Simplisticate run $i of $Times"
-    Write-Information "===================================="
+    Write-Host ""
+    Write-Host "====================================" -ForegroundColor Cyan
+    Write-Host "== Simplisticate run $i of $Times" -ForegroundColor Cyan
+    Write-Host "====================================" -ForegroundColor Cyan
 
     $passThru = @{ Autopilot = $true }
     if ($NoAudio) { $passThru['NoAudio'] = $true }
     if ($SkipReview) { $passThru['SkipReview'] = $true }
     if ($Model) { $passThru['Model'] = $Model }
+    if ($Provider) { $passThru['Provider'] = $Provider }
+    if ($Agents) { $passThru['Agents'] = $Agents }
     if ($WorkUntil) { $passThru['WorkUntil'] = $WorkUntil }
+    if ($Once) { $passThru['Once'] = $true }
 
     & $simplisticate @passThru
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Run $i failed (exit code $LASTEXITCODE). Stopping."
+        Write-Host "Run $i failed (exit code $LASTEXITCODE). Stopping." -ForegroundColor Red
         exit $LASTEXITCODE
     }
 
     if ($i -lt $Times) {
-        Write-Information "Pulling latest main before next run..."
+        Write-Host "Pulling latest main before next run..." -ForegroundColor DarkGray
         git checkout main 2>&1 | Out-Null
         git pull --ff-only 2>&1 | Out-Null
     }
 }
 
-Write-Information ""
-Write-Information "===================================="
-Write-Information "== All $Times simplisticate runs complete!"
-Write-Information "===================================="
+Write-Host ""
+Write-Host "====================================" -ForegroundColor Green
+Write-Host "== All $Times simplisticate runs complete!" -ForegroundColor Green
+Write-Host "====================================" -ForegroundColor Green

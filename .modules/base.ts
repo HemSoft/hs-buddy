@@ -201,45 +201,36 @@ registerHandleWrapper('Aspire.Hosting/Aspire.Hosting.ApplicationModel.ReferenceE
  * Supports handles (objects) and string literals.
  * @internal
  */
-function isMarshalledPayload(value: object): boolean {
-    return '$handle' in value || '$expr' in value;
-}
-
-function extractFromToJSON(value: object): unknown | undefined {
-    if (!('toJSON' in value) || typeof (value as { toJSON: unknown }).toJSON !== 'function') {
-        return undefined;
-    }
-    const json = (value as { toJSON: () => unknown }).toJSON();
-    if (json && typeof json === 'object' && isMarshalledPayload(json as object)) {
-        return json;
-    }
-    return undefined;
-}
-
 function extractHandleForExpr(value: unknown): unknown {
-    if (value == null) {
+    if (value === null || value === undefined) {
         throw new Error('Cannot use null or undefined in reference expression');
     }
 
+    // String literals - include directly in the expression
     if (typeof value === 'string') {
         return value;
     }
 
+    // Number literals - convert to string
     if (typeof value === 'number') {
         return String(value);
     }
 
+    // Handle objects - get their JSON representation
     if (value instanceof Handle) {
         return value.toJSON();
     }
 
-    if (typeof value === 'object') {
-        if (isMarshalledPayload(value)) {
-            return value;
-        }
-        const fromJson = extractFromToJSON(value);
-        if (fromJson !== undefined) {
-            return fromJson;
+    // Objects with marshalled expression/handle payloads
+    if (typeof value === 'object' && value !== null && ('$handle' in value || '$expr' in value)) {
+        return value;
+    }
+
+    // Objects with toJSON that returns a marshalled expression or handle
+    if (typeof value === 'object' && value !== null && 'toJSON' in value && typeof value.toJSON === 'function') {
+        const json = value.toJSON();
+        if (json && typeof json === 'object' && ('$handle' in json || '$expr' in json)) {
+            return json;
         }
     }
 

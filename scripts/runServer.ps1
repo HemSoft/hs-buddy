@@ -2,6 +2,8 @@
 # Dashboard available at http://127.0.0.1:6790/
 # Local backend state: ~/.convex/anonymous-convex-backend-state/anonymous-hs-buddy/
 
+. "$PSScriptRoot/lib/PortUtils.ps1"
+
 # Kill any orphaned convex-local-backend process
 
 $InformationPreference = 'Continue'
@@ -14,14 +16,7 @@ if ($orphan) {
 }
 
 # Also check if port 3210 is held by a different process
-$portHolder = Get-NetTCPConnection -LocalPort 3210 -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty OwningProcess -Unique |
-    Where-Object { $_ -ne 0 }
-if ($portHolder) {
-    Write-Information "${esc}[93mPort 3210 held by PID $portHolder -- killing...${esc}[0m"
-    Stop-Process -Id $portHolder -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
-}
+Stop-PortOwner -Port 3210 -Label "Convex port 3210"
 
 # Validate .env.local exists
 if (-not (Test-Path ".env.local")) {

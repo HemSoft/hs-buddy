@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review — revert convex generated file reformatting, restore callback contravariance
 - Use Write-Information for banners/progress in ralph scripts
 - Use SDK approveAll helper for copilot-sdk 0.3.0 compatibility
+- Make launcher scripts cross-platform (macOS + Windows)
 
 ## [0.1.739] - 2026-04-26
 

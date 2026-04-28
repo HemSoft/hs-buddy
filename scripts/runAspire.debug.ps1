@@ -14,6 +14,8 @@ param(
     [int]$Port = 9222
 )
 
+. "$PSScriptRoot/lib/PortUtils.ps1"
+
 $InformationPreference = 'Continue'
 $esc = [char]27
 $Cyan = "${esc}[36m"
@@ -23,10 +25,12 @@ $Yellow = "${esc}[33m"
 $Reset = "${esc}[0m"
 
 # -- Preflight: Aspire CLI --
-if (-not (Get-Command aspire -ErrorAction SilentlyContinue)) {
+Initialize-DotnetRoot
+$aspireCmd = Resolve-Aspire
+if (-not $aspireCmd) {
     Write-Information ""
     Write-Information "${Red}ERROR: Aspire CLI not found.${Reset}"
-    Write-Information "Install with: ${Yellow}irm https://aspire.dev/install.ps1 | iex${Reset}"
+    Write-Information "Install with: ${Yellow}curl -fsSL https://aspire.dev/install.sh | bash${Reset}"
     Write-Information ""
     exit 1
 }
@@ -34,7 +38,7 @@ if (-not (Get-Command aspire -ErrorAction SilentlyContinue)) {
 # -- Preflight: Aspire SDK --
 if (-not (Test-Path ".modules/aspire.ts")) {
     Write-Information "${Cyan}Aspire SDK not found. Restoring...${Reset}"
-    aspire restore --non-interactive
+    & $aspireCmd restore --non-interactive
     if ($LASTEXITCODE -ne 0) {
         Write-Information "${Red}ERROR: aspire restore failed.${Reset}"
         exit 1
@@ -49,17 +53,10 @@ if ($orphan) {
     Start-Sleep -Seconds 2
 }
 
-$portHolder = Get-NetTCPConnection -LocalPort 3210 -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty OwningProcess -Unique |
-    Where-Object { $_ -ne 0 }
-if ($portHolder) {
-    Write-Information "${Yellow}Port 3210 held by PID $portHolder -- killing...${Reset}"
-    Stop-Process -Id $portHolder -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
-}
+Stop-PortOwner -Port 3210 -Label "Convex port 3210"
 
 # -- Check if debug port is already in use --
-$portInUse = Test-NetConnection -ComputerName 127.0.0.1 -Port $Port -WarningAction SilentlyContinue -InformationLevel Quiet
+$portInUse = Test-PortOpen -Port $Port
 if ($portInUse) {
     Write-Information ""
     Write-Information "${Yellow}WARNING: Port $Port is already in use.${Reset}"
@@ -77,4 +74,4 @@ Write-Information "${DGray}  CDP port:   http://127.0.0.1:$Port${Reset}"
 Write-Information "${DGray}  Connect:    npx -y chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:$Port${Reset}"
 Write-Information ""
 
-aspire run
+& $aspireCmd run

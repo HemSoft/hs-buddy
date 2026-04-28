@@ -12,6 +12,8 @@ param(
     [int]$Port = 9222
 )
 
+. "$PSScriptRoot/lib/PortUtils.ps1"
+
 $InformationPreference = 'Continue'
 $esc = [char]27
 $Cyan = "${esc}[36m"
@@ -25,8 +27,8 @@ $Reset = "${esc}[0m"
 $apiPort = 3210
 $dashPort = 6790
 
-$apiUp = Test-NetConnection -ComputerName 127.0.0.1 -Port $apiPort -WarningAction SilentlyContinue -InformationLevel Quiet
-$dashUp = Test-NetConnection -ComputerName 127.0.0.1 -Port $dashPort -WarningAction SilentlyContinue -InformationLevel Quiet
+$apiUp = Test-PortOpen -Port $apiPort
+$dashUp = Test-PortOpen -Port $dashPort
 
 if (-not $apiUp) {
     Write-Information ""
@@ -43,7 +45,7 @@ if (-not $apiUp) {
 Write-Information "${Green}Convex dev server detected on port $apiPort${Reset}"
 
 # -- Check if debug port is already in use --
-$portInUse = Test-NetConnection -ComputerName 127.0.0.1 -Port $Port -WarningAction SilentlyContinue -InformationLevel Quiet
+$portInUse = Test-PortOpen -Port $Port
 if ($portInUse) {
     Write-Information ""
     Write-Information "${Yellow}WARNING: Port $Port is already in use.${Reset}"

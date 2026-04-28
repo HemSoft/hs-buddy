@@ -1,5 +1,7 @@
 # Start hs-buddy Electron app (requires Convex dev server running)
 
+. "$PSScriptRoot/lib/PortUtils.ps1"
+
 # Check port 3210 (Convex API) -- this is the port the app actually connects to.
 # Port 6790 (dashboard) can stay alive from an orphaned backend, giving a false positive.
 $InformationPreference = 'Continue'
@@ -12,8 +14,8 @@ $Reset = "${esc}[0m"
 $apiPort = 3210
 $dashPort = 6790
 
-$apiUp = Test-NetConnection -ComputerName 127.0.0.1 -Port $apiPort -WarningAction SilentlyContinue -InformationLevel Quiet
-$dashUp = Test-NetConnection -ComputerName 127.0.0.1 -Port $dashPort -WarningAction SilentlyContinue -InformationLevel Quiet
+$apiUp = Test-PortOpen -Port $apiPort
+$dashUp = Test-PortOpen -Port $dashPort
 
 if (-not $apiUp) {
     Write-Information ""

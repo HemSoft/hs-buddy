@@ -47,7 +47,7 @@ function createInitialDashboardState(): TempoDashboardState {
   try {
     const stored = localStorage.getItem(TEMPO_VIEW_KEY)
     if (stored === 'grid' || stored === 'timeline') savedMode = stored
-  } catch {
+  } catch (_: unknown) {
     /* ignore */
   }
   return {
@@ -64,7 +64,7 @@ function createInitialDashboardState(): TempoDashboardState {
 function persistViewMode(mode: ViewMode): void {
   try {
     localStorage.setItem(TEMPO_VIEW_KEY, mode)
-  } catch {
+  } catch (_: unknown) {
     /* ignore */
   }
 }

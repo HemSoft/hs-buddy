@@ -118,7 +118,7 @@ function usePublishToPR(pr: PRDetailInfo) {
       const body = buildReviewCommentBody(result.result, model, result.model)
       await client.addPRComment(owner, repo, pr.id, body)
       setPublishedRunIds(prev => new Set(prev).add(runId))
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to publish review to PR:', err)
     } finally {
       setPublishingRunId(null)

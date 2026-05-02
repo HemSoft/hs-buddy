@@ -99,7 +99,7 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
       let label = 'View'
       try {
         label = (await resolveCrewProjectLabel(viewId)) ?? getViewLabel(viewId)
-      } catch {
+      } catch (_: unknown) {
         label = 'PR Detail'
       }
 

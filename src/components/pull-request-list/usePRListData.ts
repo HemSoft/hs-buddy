@@ -273,7 +273,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
         },
         { name: `copilot-review-${pr.repository}-${pr.id}` }
       )
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to request Copilot review:', err)
     }
     setContextMenu(null)
@@ -301,7 +301,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(contextMenu.pr.url)
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to copy PR link:', error)
     }
     setContextMenu(null)
@@ -328,7 +328,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
         if (cached?.data) {
           dataCache.set(mode, markApproved(cached.data, pr))
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to approve PR:', error)
       } finally {
         setApproving(null)
@@ -442,7 +442,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
         sortPRResults(results, mode)
         applyFetchResults(results, setPrs, onCountChangeRef)
         dataCache.set(mode, results)
-      } catch (err) {
+      } catch (err: unknown) {
         handlePRFetchError(err, currentFetchId, fetchIdRef, mode, setError)
       } finally {
         /* v8 ignore start */

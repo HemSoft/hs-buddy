@@ -91,7 +91,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
 
       setData(result)
       /* v8 ignore start */
-    } catch (err) {
+    } catch (err: unknown) {
       /* v8 ignore stop */
       /* v8 ignore start */
       if (isAbortError(err)) return
@@ -163,7 +163,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         /* v8 ignore stop */
       )
       setCommentText('')
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to add comment:', err)
     } finally {
       setSendingComment(false)
@@ -187,7 +187,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         )
 
         setData(prev => (prev ? applyReactionToResult(prev, commentId, content) : prev))
-      } catch (err) {
+      } catch (err: unknown) {
         /* v8 ignore start */
         if (isAbortError(err)) return
         /* v8 ignore stop */

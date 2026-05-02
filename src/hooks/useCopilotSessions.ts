@@ -19,7 +19,7 @@ export function useCopilotSessions() {
         setSessions(result.sessions)
         setTotalCount(result.totalCount)
       }
-    } catch (err) {
+    } catch (err: unknown) {
       if (mountedRef.current) {
         setError(getErrorMessageWithFallback(err, 'Failed to scan sessions'))
       }
@@ -46,7 +46,7 @@ export function useCopilotSessionDetail() {
       if (requestIdRef.current === thisRequest) {
         setSession(result)
       }
-    } catch (err) {
+    } catch (err: unknown) {
       if (requestIdRef.current === thisRequest) {
         setError(getErrorMessageWithFallback(err, 'Failed to load session'))
       }

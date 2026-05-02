@@ -152,7 +152,7 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
         /* v8 ignore stop */
         dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: result.error })
       }
-    } catch (error) {
+    } catch (error: unknown) {
       dispatch({
         type: 'SET_ADD_PROJECT_ERROR',
         /* v8 ignore start */

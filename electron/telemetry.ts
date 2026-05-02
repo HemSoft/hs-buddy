@@ -58,9 +58,7 @@ interface TelemetryConfig {
 }
 
 /** Read telemetry configuration from environment variables. Returns null if disabled. */
-function readTelemetryConfig(
-  env: Record<string, string | undefined>
-): TelemetryConfig | null {
+function readTelemetryConfig(env: Record<string, string | undefined>): TelemetryConfig | null {
   const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT
   if (!endpoint) return null
   return {
@@ -153,12 +151,12 @@ export async function initTelemetry(): Promise<void> {
     nodeSdk.start()
     sdk = nodeSdk
 
-    initMetricHandles(
-      metrics.getMeter(config.serviceName, config.serviceVersion)
-    )
+    initMetricHandles(metrics.getMeter(config.serviceName, config.serviceVersion))
 
-    console.log(`[Telemetry] Initialized — exporting to ${config.endpoint} as '${config.serviceName}'`)
-  } catch (err) {
+    console.log(
+      `[Telemetry] Initialized — exporting to ${config.endpoint} as '${config.serviceName}'`
+    )
+  } catch (err: unknown) {
     console.warn('[Telemetry] Failed to load SDK packages (non-fatal):', err)
   }
 }
@@ -171,7 +169,7 @@ export async function shutdownTelemetry(): Promise<void> {
   try {
     await loggerProvider?.shutdown()
     await sdk?.shutdown()
-  } catch (err) {
+  } catch (err: unknown) {
     console.warn('[Telemetry] Shutdown error:', err)
   }
 }
@@ -196,7 +194,7 @@ export async function withSpan<T>(
       const result = await fn(span)
       span.setStatus({ code: SpanStatusCode.OK })
       return result
-    } catch (err) {
+    } catch (err: unknown) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) })
       span.recordException(err instanceof Error ? err : new Error(String(err)))
       throw err

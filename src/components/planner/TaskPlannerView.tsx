@@ -256,7 +256,7 @@ function useTaskPlannerActions(
         /* v8 ignore start */
         if (!result.success) showActionError(result.error ?? 'Failed to complete task')
         /* v8 ignore stop */
-      } catch (err) {
+      } catch (err: unknown) {
         showActionError(getErrorMessageWithFallback(err, 'Failed to complete task'))
       }
     },
@@ -270,7 +270,7 @@ function useTaskPlannerActions(
         /* v8 ignore start */
         if (!result.success) showActionError(result.error ?? 'Failed to create task')
         /* v8 ignore stop */
-      } catch (err) {
+      } catch (err: unknown) {
         showActionError(getErrorMessageWithFallback(err, 'Failed to create task'))
       }
     },

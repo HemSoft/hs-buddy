@@ -116,7 +116,7 @@ export function SettingsCopilot() {
         dispatch({ type: 'saved' })
         scheduleSaveStatusReset()
       }
-    } catch {
+    } catch (_: unknown) {
       if (requestId === accountRequestRef.current) {
         dispatch({ type: 'set_account', value: ghAccountRef.current })
         dispatch({ type: 'reset_save' })
@@ -140,7 +140,7 @@ export function SettingsCopilot() {
         dispatch({ type: 'saved' })
         scheduleSaveStatusReset()
       }
-    } catch {
+    } catch (_: unknown) {
       if (requestId === modelRequestRef.current) {
         dispatch({ type: 'set_model', value: modelRef.current })
         dispatch({ type: 'reset_save' })
@@ -163,7 +163,7 @@ export function SettingsCopilot() {
         dispatch({ type: 'saved' })
         scheduleSaveStatusReset()
       }
-    } catch {
+    } catch (_: unknown) {
       if (requestId === modelRequestRef.current) {
         dispatch({ type: 'set_model', value: modelRef.current })
         dispatch({ type: 'reset_save' })

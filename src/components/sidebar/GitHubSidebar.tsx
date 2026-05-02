@@ -47,7 +47,7 @@ function SidebarPRContextMenuWrapper(
       onCopyLink={async () => {
         try {
           await copyToClipboard(prContextMenu.pr.url)
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Failed to copy PR link:', error)
         }
         setPrContextMenu(null)

@@ -8,7 +8,7 @@ type DataCache = Record<string, { data: unknown; fetchedAt: number }>
 export function readDataCache(): DataCache {
   try {
     return readJsonFile(getDataCachePath(), {})
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[DataCache] Failed to read cache:', err)
   }
   return {}
@@ -23,7 +23,7 @@ export function writeDataCacheEntry(
       ...cache,
       [key]: entry,
     }))
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[DataCache] Failed to write cache:', err)
   }
 }
@@ -35,7 +35,7 @@ export function deleteDataCacheEntry(key: string): void {
       delete next[key]
       return next
     })
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[DataCache] Failed to delete cache entry:', err)
   }
 }
@@ -43,7 +43,7 @@ export function deleteDataCacheEntry(key: string): void {
 export function clearDataCache(): void {
   try {
     writeJsonFile(getDataCachePath(), {})
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[DataCache] Failed to clear cache:', err)
   }
 }

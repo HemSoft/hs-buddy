@@ -193,7 +193,7 @@ export function registerConfigHandlers(): void {
         base64: buffer.toString('base64'),
         mimeType: getNotificationSoundMimeType(soundPath),
       }
-    } catch {
+    } catch (_: unknown) {
       return null
     }
   }

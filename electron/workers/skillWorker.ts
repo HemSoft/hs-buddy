@@ -28,7 +28,7 @@ export const skillWorker: Worker = {
       const prompt = buildSkillPrompt(config.skillName, config.action, config.params)
       const output = await sendPrompt({ prompt, model, timeout, signal, cwd: SKILLS_DIR })
       return workerSuccess(output, start, MAX_OUTPUT_SIZE)
-    } catch (err) {
+    } catch (err: unknown) {
       return workerFailure(err, start)
     }
   },

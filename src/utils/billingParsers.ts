@@ -50,7 +50,7 @@ function parseFulfilledStdout<T>(result: PromiseSettledResult<{ stdout: string }
 
   try {
     return JSON.parse(stdout) as T
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }

@@ -2093,7 +2093,7 @@ export class GitHubClient {
     try {
       const output: string = await window.ipcRenderer.invoke('github:get-active-account')
       return output?.trim() || null
-    } catch {
+    } catch (_: unknown) {
       return null
     }
   }
@@ -2119,7 +2119,7 @@ export class GitHubClient {
       }
       console.warn(`⚠️  GitHub CLI token is empty or invalid for account '${username}'`)
       return null
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Failed to get GitHub CLI token for '${username}':`, error)
       return null
     }
@@ -2211,7 +2211,7 @@ export class GitHubClient {
       if (!octokit) continue
       try {
         return await operation(octokit, account.username)
-      } catch (error) {
+      } catch (error: unknown) {
         console.warn(`Failed to ${label} with account ${account.username}:`, error)
         continue
       }
@@ -2258,8 +2258,10 @@ export class GitHubClient {
     let octokit: Octokit
     try {
       octokit = await this.getOctokitForOwner(owner)
-    } catch {
-      throw new Error(`No authenticated GitHub account available to fetch ${owner}/${repo}`)
+    } catch (_: unknown) {
+      throw new Error(`No authenticated GitHub account available to fetch ${owner}/${repo}`, {
+        cause: _,
+      })
     }
 
     // Fetch all data in parallel
@@ -2491,7 +2493,7 @@ export class GitHubClient {
         const { approvalCount, iApproved } = this.countApprovals(reviewsData.data, viewerLogin)
         pr.approvalCount = approvalCount
         pr.iApproved = iApproved
-      } catch (error) {
+      } catch (error: unknown) {
         console.debug(`Failed to fetch review state for ${owner}/${repo}#${pr.number}:`, error)
       }
     })
@@ -3355,7 +3357,7 @@ export class GitHubClient {
         const chunk = logins.slice(i, i + 50)
         await GitHubClient.fetchUserNameChunk(token, chunk, names)
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.warn('[fetchUserNames] GraphQL batch name lookup failed:', error)
     }
 
@@ -3478,7 +3480,7 @@ export class GitHubClient {
 
         console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`)
         accountReport(i, 'done', { prsFound: prs.length })
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMsg = getErrorMessage(error)
         // Only warn for non-404 errors (404s likely mean no access or org doesn't exist)
         if (!errorMsg.includes('404')) {
@@ -3529,12 +3531,12 @@ export class GitHubClient {
       const orgData = await octokit.orgs.get({ org })
       orgAvatarCache.set(org, orgData.data.avatar_url)
       return orgData.data.avatar_url
-    } catch {
+    } catch (_: unknown) {
       try {
         const userData = await octokit.users.getByUsername({ username: org })
         orgAvatarCache.set(org, userData.data.avatar_url)
         return userData.data.avatar_url
-      } catch {
+      } catch (_: unknown) {
         console.debug(`Could not fetch avatar for ${org}`)
         orgAvatarCache.set(org, null)
         return null
@@ -3585,7 +3587,7 @@ export class GitHubClient {
             allPrs.push(pr)
           }
         }
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMsg = getErrorMessage(error)
         if (!errorMsg.includes('404')) {
           console.warn(`Search query failed: ${query}`, error)
@@ -3673,7 +3675,7 @@ export class GitHubClient {
           )
           allPrs.push(...fallbackPrs)
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
       }
     }
@@ -3707,7 +3709,7 @@ export class GitHubClient {
         pr.iApproved = iApproved
         pr.headBranch = prData.data.head?.ref || ''
         pr.baseBranch = prData.data.base?.ref || ''
-      } catch (error) {
+      } catch (error: unknown) {
         console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
       }
     })
@@ -3754,7 +3756,7 @@ export class GitHubClient {
       try {
         const token = await this.getTokenForOwner(owner)
         await this.fetchThreadStatsChunked(ownerPrs, owner, token)
-      } catch (error) {
+      } catch (error: unknown) {
         console.warn(`[fetchBatchThreadStats] Failed for owner ${owner}:`, error)
       }
     }
@@ -3854,7 +3856,7 @@ export class GitHubClient {
                 }
               : null,
           }
-        } catch {
+        } catch (_: unknown) {
           return { id: w.id, name: w.name, state: w.state, latestRun: null }
         }
       })
@@ -3986,7 +3988,7 @@ export class GitHubClient {
               headers: { authorization: `token ${token}` },
             }
           )
-        } catch {
+        } catch (_: unknown) {
           return null
         }
       })(),
@@ -3999,7 +4001,7 @@ export class GitHubClient {
             try {
               await octokit.teams.getMembershipForUserInOrg({ org, team_slug: team.slug, username })
               memberTeams.push(team.name)
-            } catch {
+            } catch (_: unknown) {
               /* not a member of this team */
             }
           }
@@ -4092,7 +4094,7 @@ export class GitHubClient {
           per_page: 100,
         })
         total += commits.filter(commit => commit.author?.login === username).length
-      } catch {
+      } catch (_: unknown) {
         // Ignore per-repo failures and fall back to the events feed if needed.
       }
     }

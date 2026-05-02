@@ -90,7 +90,7 @@ export function processOsc7Buffer(
     const normalizedPath = /^\/[A-Za-z]:/.test(rawPath) ? rawPath.slice(1) : rawPath
     const cwd = decodeURIComponent(normalizedPath)
     return { cwd, remainingBuffer }
-  } catch {
+  } catch (_: unknown) {
     return { cwd: null, remainingBuffer }
   }
 }

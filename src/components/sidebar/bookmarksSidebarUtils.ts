@@ -1,8 +1,11 @@
+import { isInternalHostname } from '../../utils/networkSecurity'
+
 export function isSafeImageUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+    return !isInternalHostname(parsed.hostname.toLowerCase())
+  } catch (_: unknown) {
     return false
   }
 }

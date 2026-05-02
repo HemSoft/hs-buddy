@@ -119,7 +119,7 @@ export function useGitHubData<T>({
 
         setData(result)
         dataCache.set(cacheKey, result)
-      } catch (err) {
+      } catch (err: unknown) {
         handleFetchError(err, requestId, requestIdRef.current, setError)
       } finally {
         if (requestId === requestIdRef.current) {

@@ -39,7 +39,7 @@ export function RunList() {
     e.stopPropagation()
     try {
       await cancel({ id: runId as Id<'runs'> })
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to cancel run:', error)
     }
   }
@@ -56,7 +56,7 @@ export function RunList() {
       try {
         const result = await cleanup({ olderThanDays: 7 })
         console.log(`Cleaned up ${result.deleted} old runs`)
-      } catch (error) {
+      } catch (error: unknown) {
         /* v8 ignore start */
         console.error('Failed to cleanup runs:', error)
         /* v8 ignore stop */

@@ -64,7 +64,7 @@ function useModelFetch() {
       const result = await window.copilot.listModels(forAccount || undefined)
       if (fetchIdRef.current !== thisId) return
       applyModelResult(result, setModelsError, setSdkModels)
-    } catch (err) {
+    } catch (err: unknown) {
       if (fetchIdRef.current !== thisId) return
       setModelsError(getErrorMessage(err))
       setSdkModels([])

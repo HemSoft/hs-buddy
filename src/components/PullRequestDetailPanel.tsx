@@ -477,7 +477,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
       /* v8 ignore start */
       setBranches(result)
       /* v8 ignore stop */
-    } catch {
+    } catch (_: unknown) {
       setBranches(null)
     }
   }, [accounts, ownerRepo, pr.id, pr.repository, pr.headBranch, pr.baseBranch])

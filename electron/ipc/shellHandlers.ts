@@ -23,7 +23,7 @@ async function validateUrlWithDns(url: string): Promise<URL> {
   try {
     const result = await lookup(hostname, { all: true, verbatim: true })
     assertNoPrivateIPs(result)
-  } catch (err) {
+  } catch (err: unknown) {
     if (err instanceof Error && err.message === 'Internal URLs not allowed') throw err
     throw new Error(`DNS resolution failed for ${hostname}`, { cause: err })
   }
@@ -150,7 +150,7 @@ export function registerShellHandlers(): void {
           if (['http:', 'https:'].includes(linkParsed.protocol)) {
             browserWin.loadURL(linkUrl)
           }
-        } catch {
+        } catch (_: unknown) {
           // Invalid URL — ignore
         }
         return { action: 'deny' }
@@ -209,7 +209,7 @@ export function registerShellHandlers(): void {
         .filter(f => f.length > 0)
         .sort()
       return fonts
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to get system fonts:', error)
       // Return a reasonable fallback list of common cross-platform fonts
       return [

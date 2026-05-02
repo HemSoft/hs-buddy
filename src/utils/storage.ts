@@ -12,7 +12,7 @@ export function safeGetItem(key: string): string | null {
   try {
     return localStorage.getItem(key)
     /* v8 ignore start */
-  } catch {
+  } catch (_: unknown) {
     return null
   }
   /* v8 ignore stop */
@@ -21,7 +21,7 @@ export function safeGetItem(key: string): string | null {
 export function safeSetItem(key: string, value: string): void {
   try {
     localStorage.setItem(key, value)
-  } catch {
+  } catch (_: unknown) {
     // localStorage unavailable or full
   }
 }
@@ -29,7 +29,7 @@ export function safeSetItem(key: string, value: string): void {
 export function safeRemoveItem(key: string): void {
   try {
     localStorage.removeItem(key)
-  } catch {
+  } catch (_: unknown) {
     // localStorage unavailable
   }
 }
@@ -39,7 +39,7 @@ export function safeGetJson<T>(key: string): T | null {
     const raw = localStorage.getItem(key)
     if (raw === null) return null
     return JSON.parse(raw) as T
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }
@@ -47,7 +47,7 @@ export function safeGetJson<T>(key: string): T | null {
 export function safeSetJson(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
-  } catch {
+  } catch (_: unknown) {
     // localStorage unavailable or full
   }
 }

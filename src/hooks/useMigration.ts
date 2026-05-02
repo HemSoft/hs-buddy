@@ -82,7 +82,7 @@ export function useMigrateToConvex() {
 
         await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
         await migrateSettings(config.pr, existingSettings, initSettings)
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('[Migration] Failed to migrate from electron-store:', error)
       } finally {
         setIsComplete(true)

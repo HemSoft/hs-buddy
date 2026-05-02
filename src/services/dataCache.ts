@@ -44,7 +44,7 @@ export const dataCache = {
         'cached entries:',
         Object.keys(memoryCache).join(', ')
       )
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('[DataCache] Failed to initialize:', err)
       initialized = true // Mark as init'd to avoid blocking app startup
     }
@@ -69,7 +69,7 @@ export const dataCache = {
     for (const listener of listeners) {
       try {
         listener(key)
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('[DataCache] Listener error:', err)
       }
     }
@@ -124,7 +124,7 @@ export const dataCache = {
     }
     try {
       await window.ipcRenderer.invoke('cache:clear')
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('[DataCache] Failed to clear disk cache:', err)
     }
   },

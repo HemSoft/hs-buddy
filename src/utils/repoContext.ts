@@ -15,7 +15,7 @@ function extractOwnerFromUrl(url: string): string | null {
   try {
     const [, urlOwner] = new URL(url).pathname.split('/')
     return urlOwner || null
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }

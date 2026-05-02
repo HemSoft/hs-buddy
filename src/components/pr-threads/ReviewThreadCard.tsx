@@ -258,7 +258,7 @@ export function ReviewThreadCard({
       )
       onReplyAdded(thread.id, newComment)
       dispatch({ type: 'finish_sending' })
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to reply:', err)
       dispatch({ type: 'send_failed' })
     }
@@ -284,7 +284,7 @@ export function ReviewThreadCard({
         { name: `resolve-thread-${thread.id}` }
       )
       onResolveToggled(thread.id, !thread.isResolved)
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to toggle resolve:', err)
     } finally {
       dispatch({ type: 'done_resolving' })

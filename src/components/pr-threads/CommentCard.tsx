@@ -107,7 +107,7 @@ export function CommentCard({
       setReacting(content)
       try {
         await onReact(comment.id, content)
-      } catch (err) {
+      } catch (err: unknown) {
         /* v8 ignore start */
         console.error('Failed to add reaction:', err)
         /* v8 ignore stop */

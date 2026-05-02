@@ -21,7 +21,7 @@ export const aiWorker: Worker = {
     try {
       const output = await sendPrompt({ prompt: config.prompt, model, timeout, signal })
       return workerSuccess(output, start, MAX_OUTPUT_SIZE)
-    } catch (err) {
+    } catch (err: unknown) {
       return workerFailure(err, start)
     }
   },

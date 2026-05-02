@@ -44,7 +44,7 @@ function parseRepoViewId(viewId: string, prefix: string): { repoName: string; su
 function getBrowserLabel(viewId: string): string {
   try {
     return new URL(decodeURIComponent(viewId.slice('browser:'.length))).hostname
-  } catch {
+  } catch (_: unknown) {
     return 'Browser'
   }
 }

@@ -17,7 +17,7 @@ export function ipcHandler<A extends unknown[], T>(
   ): Promise<T | { success: false; error: string }> => {
     try {
       return await fn(event, ...args)
-    } catch (error) {
+    } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }
     }
   }

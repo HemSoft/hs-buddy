@@ -33,7 +33,7 @@ function readJsonFile<T>(filePath: string): T[] {
   if (!existsSync(filePath)) return []
   try {
     return JSON.parse(readFileSync(filePath, 'utf-8')) as T[]
-  } catch {
+  } catch (_: unknown) {
     return []
   }
 }
@@ -62,7 +62,7 @@ async function runGit(cwd: string, args: string[]): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync('git', args, { cwd, timeout: 5000 })
     return stdout.trim()
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }
@@ -75,7 +75,7 @@ async function resolveSshHost(host: string): Promise<string | null> {
       .find(line => line.toLowerCase().startsWith('hostname '))
 
     return hostnameLine?.slice('hostname '.length).trim() ?? null
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }

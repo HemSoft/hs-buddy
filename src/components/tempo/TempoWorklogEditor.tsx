@@ -258,7 +258,7 @@ export function TempoWorklogEditor({
         description: state.description,
         accountKey: state.accountKey || undefined,
       })
-    } catch (err) {
+    } catch (err: unknown) {
       dispatch({ type: 'submit:error', value: String(err) })
       return
     }

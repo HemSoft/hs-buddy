@@ -58,7 +58,7 @@ async function tryGetCliToken(username?: string): Promise<string | null> {
     })
     const token = stdout.trim()
     return token.length > 0 ? token : null
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }
@@ -172,7 +172,7 @@ export async function fetchCopilotMetrics(
       const result = await fetchBudgetAndSpend(org, year, month, execEnv)
       budgetAmount = result.budgetAmount
       spent = result.spent
-    } catch {
+    } catch (_: unknown) {
       // budget/spend fetch is best-effort; usage metrics still valid
     }
   }
@@ -239,7 +239,7 @@ async function fetchPersonalAccountSpend(
     })
     const quotaData = JSON.parse(quotaResult.stdout.trim())
     return { spent: computeOverageSpend(quotaData), spentError: null }
-  } catch (quotaError) {
+  } catch (quotaError: unknown) {
     console.warn(`Quota-based spend fallback failed for '${org}':`, getErrorMessage(quotaError))
     return { spent: 0, spentError: getErrorMessage(quotaError) }
   }
@@ -291,7 +291,7 @@ async function fetchOrgBudgetAndSpend(
         budgetAmount = match.budget_amount
         preventFurtherUsage = match.prevent_further_usage
       }
-    } catch (entError) {
+    } catch (entError: unknown) {
       console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
     }
   }
@@ -408,7 +408,7 @@ export function registerGitHubHandlers(): void {
       })
 
       return parseActiveGitHubAccount(stderr)
-    } catch {
+    } catch (_: unknown) {
       return null
     }
   })
@@ -644,7 +644,7 @@ export function registerGitHubHandlers(): void {
                 : {}),
               spent: result.data.spent,
             })
-          } catch (storeErr) {
+          } catch (storeErr: unknown) {
             console.error(`[Snapshot] Failed to persist for ${username}@${org}:`, storeErr)
           }
           results.push(result)

@@ -180,7 +180,7 @@ try {
   }
 
   console.log('\nBundle sizes within threshold.')
-} catch (err) {
+} catch (err: unknown) {
   const message = err instanceof Error ? err.message : String(err)
   console.error('Bundle size check failed:', message)
   process.exit(1)

@@ -163,7 +163,7 @@ async function fetchWithLoading<T>(opts: {
       { name: opts.taskName, priority: -1 }
     )
     opts.onSuccess(result)
-  } catch (error) {
+  } catch (error: unknown) {
     if (isAbortError(error)) return
     console.warn(`[${opts.logLabel}] ${opts.key} failed:`, error)
   } finally {
@@ -539,7 +539,7 @@ export function useGitHubSidebarData() {
         )
         applyOrgRepoResult(org, result)
         dataCache.set(`org-repos:${org}`, result)
-      } catch (error) {
+      } catch (error: unknown) {
         /* v8 ignore start */
         if (isAbortError(error)) return
         /* v8 ignore stop */
@@ -614,7 +614,7 @@ export function useGitHubSidebarData() {
           [org]: toContributorMap(result),
         }))
         dataCache.set(cacheKey, result)
-      } catch (error) {
+      } catch (error: unknown) {
         /* v8 ignore start */
         if (isAbortError(error)) return
         /* v8 ignore stop */
@@ -745,7 +745,7 @@ export function useGitHubSidebarData() {
     e.stopPropagation()
     try {
       await toggleBookmarkRepoByValues(org, repoName, repoUrl)
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`[Bookmark] toggle failed for ${org}/${repoName}:`, err)
     }
   }
@@ -1109,7 +1109,7 @@ export function useGitHubSidebarData() {
           { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
         )
         applyApproveToTree(pr)
-      } catch (error) {
+      } catch (error: unknown) {
         /* v8 ignore start */
         if (isAbortError(error)) return
         /* v8 ignore stop */

@@ -127,7 +127,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
               try {
                 const result = await window.terminal.resolveRepoPath(owner, repo)
                 if (result.path) cwd = result.path
-              } catch {
+              } catch (_: unknown) {
                 /* keep saved cwd */
               }
             }
@@ -206,7 +206,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         /* v8 ignore start */
         cwd = result.path || ''
         /* v8 ignore stop */
-      } catch {
+      } catch (_: unknown) {
         // Fall back to empty cwd if path resolution fails
       }
     } else {

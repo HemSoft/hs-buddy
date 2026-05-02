@@ -29,7 +29,7 @@ function collectOccurrences(
       if (next.getTime() > toTimestamp) break
       /* v8 ignore stop */
       results.push(next.getTime())
-    } catch {
+    } catch (_: unknown) {
       break
     }
   }
@@ -72,7 +72,7 @@ export function enumerateCronOccurrences(
     const options = buildCronOptions(fromTimestamp, toTimestamp, timezone, includeStart)
     const expression = CronExpressionParser.parse(cronExpression, options)
     return collectOccurrences(expression, toTimestamp, maxRuns)
-  } catch {
+  } catch (_: unknown) {
     return []
   }
 }

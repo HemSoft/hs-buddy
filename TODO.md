@@ -8,15 +8,10 @@
 | 📋 | High | [IPC Contract Testing](#ipc-contract-testing) | 16 IPC handler files are the renderer↔main bridge with zero contract validation |
 | 📋 | High | [Convex Server Function Tests](#convex-server-function-tests) | **0 tests across 16 server functions** — bookmarks, jobs, runs, schedules, settings, etc. |
 | 📋 | High | [Performance Testing Suite](#performance-testing-suite) | Electron startup time, memory leak detection, IPC throughput, React render profiling, benchmark CI gating |
-| 📋 | High | [Cyclomatic Complexity Gate](#cyclomatic-complexity-gate) | Enable ESLint built-in `complexity` rule (threshold 10) to flag overly complex functions at lint time |
 | 📋 | High | [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap) | ESLint plugins (sonarjs, unicorn, strict), Electron security, architecture enforcement, E2E testing |
 | 📋 | High | [E2E Test Coverage Expansion](#e2e-test-coverage-expansion) | Only 1 spec file (2 tests) for bookmarks — PR views, settings, automation, terminal all untested end-to-end |
 | 📋 | High | [Split github.ts Monolith](#split-githubts-monolith) | 3,671 lines / 105 KB — split by domain (prs, orgs, users, copilot) with barrel re-export |
-| 📋 | High | [File Length Gate (max-lines)](#file-length-gate-max-lines) | Add ESLint `max-lines` rule (warn at 500). **12 source files** over threshold today — largest is github.ts at 3,671 |
-| 📋 | High | [Function Length Gate (max-lines-per-function)](#function-length-gate-max-lines-per-function) | Add ESLint `max-lines-per-function` rule (warn at 80). Catches long sequential plumbing that passes complexity checks |
-| 📋 | Medium | [Cognitive Complexity (eslint-plugin-sonarjs)](#cognitive-complexity-sonarjs) | Install `eslint-plugin-sonarjs` — `cognitive-complexity` measures nesting depth + control flow weight, catches code that cyclomatic complexity misses |
 | 📋 | Medium | [Dependency Coupling Analysis](#dependency-coupling-analysis) | Add `dependency-cruiser` or `madge` to detect God-files (high afferent coupling) and circular dependencies |
-| 📋 | Medium | [Enforce Typed Catch Clauses](#enforce-typed-catch-clauses) | 21 untyped `catch (error)` vs 2 typed — add `use-unknown-in-catch-variables` ESLint rule, promote `no-explicit-any` to error |
 | 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | New feature: categorized link management with quick-launch and tagging |
 | 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | Add table/grid view as alternative to card view on list pages |
 | 📋 | Medium | [Parallelize CI Pipeline](#parallelize-ci-pipeline) | CI runs ~8m serial; split into parallel jobs + cache deps + move benchmarks to save ~3-4m wall time |
@@ -28,6 +23,11 @@
 | 📋 | Low | Evaluate Playwright component testing for TSX coverage | Many 0% component files are hard to unit-test |
 | 📋 | Low | Add CODEOWNERS file | Define file ownership for electron/, convex/, src/components/, .github/workflows/ |
 | 📋 | Low | Evaluate visual regression testing | Playwright screenshots or Percy/Chromatic for catching unintended UI changes |
+| ✅ | High | Cyclomatic Complexity Rule | 2026-05-02: `complexity: ['warn', 10]` active in eslint.config.js (informational — warns, does not block CI) |
+| ✅ | High | File Length Rule (max-lines) | 2026-05-02: `max-lines: ['warn', 500]` active via ESLINT_QUALITY (informational — not in CI gate) |
+| ✅ | High | Function Length Rule (max-lines-per-function) | 2026-05-02: `max-lines-per-function: ['warn', 80]` active via ESLINT_QUALITY (informational — not in CI gate) |
+| ✅ | Medium | Cognitive Complexity (eslint-plugin-sonarjs) | 2026-05-02: sonarjs installed, `cognitive-complexity: ['warn', 15]` active via ESLINT_QUALITY (informational — not in CI gate) |
+| ✅ | Medium | Enforce Typed Catch Clauses | 2026-05-02: All 110+ `try-catch` blocks typed `: unknown`, ESLint `no-restricted-syntax` rule enforces annotation going forward, `no-explicit-any` promoted to error. Promise `.catch()` callbacks are out of scope (arrow fn params, not catch clauses). |
 | ✅ | High | Add Gherkin BDD specs for remaining critical paths | 2026-04: data-cache (10), pr-mapper (4), pr-detail-routing (6) — 90 new tests |
 | ✅ | High | Wire coverage:ratchet into CI | 2026-04-21: Added ratchet + staleness check to ci.yml after test:coverage |
 | ✅ | Medium | Add format:check to pre-commit hook | 2026-04-21: Added `bun run format:check` to Phase 1 of .husky/pre-commit |
@@ -99,7 +99,7 @@
 
 ## Progress
 
-**Remaining: 26** | **Completed: 68** (72%)
+**Remaining: 21** | **Completed: 73** (78%)
 
 ---
 
@@ -148,9 +148,7 @@ hs-buddy already has the foundational infrastructure needed — this feature is 
 
 #### Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Renderer (React)                                       │
+```text
 │  src/components/ralph-loops/                            │
 │    RalphDashboard.tsx      — Active/recent loop overview│
 │    RalphLaunchForm.tsx     — Visual parameter builder   │
@@ -220,7 +218,7 @@ All dropdowns are populated dynamically by reading the config JSONs from the ai-
 
 The dashboard shows all active and recent loops in a card layout:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  🔄 Ralph Loops                                    ⚙️  ▶️  │
 ├─────────────────────────────────────────────────────────────┤
@@ -254,6 +252,7 @@ The dashboard shows all active and recent loops in a card layout:
 ```
 
 Each card shows:
+
 - **Repo name** with status indicator (🟢 running, 🟡 CI pending, ✅ complete, 🔴 failed)
 - **Branch name** and script type
 - **Progress bar** — iteration X of Y
@@ -270,6 +269,7 @@ Two rendering modes:
 2. **Raw Terminal** — Full PTY output via xterm.js (reuses existing terminal infrastructure). Useful for debugging.
 
 Log parsing targets these ralph.ps1 output patterns:
+
 - `=== ITERATION N ===` — iteration boundaries
 - `✅` / `❌` — success/failure markers
 - `Pushing to origin` — phase transitions
@@ -405,7 +405,7 @@ New settings section under Settings → Ralph Loops:
 | `ralph.logRetentionDays` | Number | `30` | Days to keep log files |
 | `ralph.autoInstallScripts` | Toggle | `false` | Auto-install template scripts when registering a repo |
 
-#### Implementation Phases
+#### Ralph Implementation Phases
 
 ##### Phase 1: Foundation (Backend)
 
@@ -461,7 +461,7 @@ New settings section under Settings → Ralph Loops:
 3. Support "Run All" orchestration as a scheduled job (nightly autonomous runs)
 4. Add notification support (system tray notifications for loop completion)
 
-#### New Files
+#### Ralph New Files
 
 | File | Purpose |
 |------|---------|
@@ -493,7 +493,7 @@ New settings section under Settings → Ralph Loops:
 | `convex/ralphConfigs.ts` | Convex CRUD for config snapshots |
 | `convex/ralphMetrics.ts` | Convex CRUD for metrics trends |
 
-#### Risk Assessment
+#### Ralph Risk Assessment
 
 - 🟡 **Long-running processes** — Ralph loops can run for hours. Need robust process lifecycle management (survive app restarts? reconnect to existing PTY sessions?)
 - 🟡 **Log volume** — Hours of Copilot CLI output can be large. Cap in-memory buffers (reuse `MAX_SCROLLBACK_BUFFER` pattern from terminalHandlers), persist to disk.
@@ -531,7 +531,7 @@ The app has **1 Playwright spec file with 2 tests** covering only the bookmarks 
 5. Add `test:e2e` script to package.json and CI pipeline
 6. Target: 5 spec files covering the 5 critical journeys above
 
-#### Risk Assessment
+#### E2E Risk Assessment
 
 - 🟡 E2E tests require running app + Convex dev server — CI setup complexity
 - 🟢 Playwright infrastructure already exists (`playwright.config.ts`, `e2e/` directory)
@@ -568,55 +568,6 @@ The app has **1 Playwright spec file with 2 tests** covering only the bookmarks 
 4. Move co-located test file `src/api/github.test.ts` into matching domain test files
 5. Verify 100% coverage maintained after split
 
-### File Length Gate (max-lines)
-
-The codebase has **12 non-test source files over 500 lines** — a maintainability risk that existing per-function metrics (cyclomatic complexity, CRAP) don't catch. CRAP and complexity are per-function; a file can have 86 low-complexity functions and still be a 3,671-line monolith.
-
-#### Current Violations (non-test files >500 lines)
-
-| Lines | File |
-|------:|------|
-| 3,671 | `src/api/github.ts` |
-| 1,596 | `src/components/OrgDetailPanel.tsx` |
-| 1,247 | `src/components/sidebar/github-sidebar/RepoNode.tsx` |
-| 1,188 | `src/components/sidebar/github-sidebar/useGitHubSidebarData.ts` |
-| 1,126 | `src/components/sidebar/github-sidebar/OrgRepoTree.tsx` |
-| 687 | `src/components/bookmarks/BookmarkDialog.tsx` |
-| 634 | `electron/ipc/githubHandlers.ts` |
-| 596 | `src/components/UserPremiumUsageSection.tsx` |
-| 595 | `src/components/UserDetailPanel.tsx` |
-| 529 | `electron/services/tempoClient.ts` |
-| 505 | `src/components/pull-request-list/usePRListData.ts` |
-| 502 | `src/components/PullRequestDetailPanel.tsx` |
-
-#### File Length Gate Steps
-
-1. Add `'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }]` to `eslint.config.js`
-2. Run lint to confirm violations match the table above
-3. The simplisticate loop will naturally target these as it looks for code smells
-4. Graduate from `warn` to `error` once violations are under 5
-
-### Function Length Gate (max-lines-per-function)
-
-Complements `complexity` — a function can have cyclomatic complexity of 2 and still be 200 lines of sequential API plumbing with no branching. Long functions are hard to test, review, and maintain even when they aren't complex.
-
-#### Function Length Gate Steps
-
-1. Add `'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }]` to `eslint.config.js`
-2. Audit violations — prioritize functions in `github.ts` and component files
-3. Extract helper functions or split into domain modules as needed
-
-### Cognitive Complexity (sonarjs)
-
-ESLint's built-in `complexity` counts branches but not nesting depth. A function with 3 nested `if` statements inside a `for` inside a `try` scores the same as 3 flat `if/else` chains — but it's dramatically harder to understand. Cognitive complexity (from `eslint-plugin-sonarjs`) accounts for this.
-
-#### Cognitive Complexity Steps
-
-1. Install: `bun add -d eslint-plugin-sonarjs`
-2. Add to `eslint.config.js`: `sonarjs/cognitive-complexity: ['warn', 15]`
-3. Audit violations alongside `complexity` rule to see which functions are deceptively complex
-4. Also enables other sonarjs rules: `no-duplicate-string`, `no-identical-functions`, `no-collapsible-if`
-
 ### Dependency Coupling Analysis
 
 No current tooling detects God-files (high afferent coupling — many modules importing from one file) or circular dependencies. `github.ts` is likely imported by 20+ components, making every change there a blast-radius risk.
@@ -629,30 +580,6 @@ No current tooling detects God-files (high afferent coupling — many modules im
 4. Configure rules: max fan-in per module (e.g., 15), no circular deps
 5. Add to CI as informational step initially, promote to blocking later
 6. Alternative: `madge` for quick circular dependency visualization (`bunx madge --circular src/`)
-
-### Enforce Typed Catch Clauses
-
-The codebase has **21 untyped `catch (error)` blocks** vs only **2 typed `catch (error: unknown)` blocks**. A dedicated `errorUtils.ts` module with `getErrorMessage(error: unknown)` exists but is underutilized — most catch blocks log `error` directly or use string interpolation, producing `[object Object]` instead of useful messages in production.
-
-#### Current State
-
-- `catch (error)` (untyped): 21 occurrences across `github.ts`, `taskQueue.ts`, `useConfig.ts`, `useCopilotUsage.ts`, `JobDetailPanel.tsx`, `RunList.tsx`
-- `catch (error: unknown)` (typed): 2 occurrences in `github.ts`
-- `no-explicit-any` ESLint rule: set to `warn`, not `error`
-- `getErrorMessage()`: exists in `errorUtils.ts` but rarely called
-
-#### Error Handling Implementation
-
-1. Add `@typescript-eslint/use-unknown-in-catch-variables` as an **error** rule in `eslint.config.js` — auto-enforces `catch (error: unknown)` across the codebase
-2. Promote `no-explicit-any` from `warn` to `error` in `eslint.config.js`
-3. Migrate all 21 untyped catch blocks to `catch (error: unknown)` and adopt `getErrorMessage()` consistently
-4. Fix the 2 remaining production `any` types in `github.ts` (`eventSummary`, `mapPR`)
-
-#### Impact
-
-- **Debuggability**: Production errors will produce meaningful messages instead of `[object Object]`
-- **Type safety**: Catches the same class of issues that `strict: true` prevents elsewhere
-- **Consistency**: Aligns error handling with the existing `errorUtils.ts` pattern
 
 ### Electron Main Process Test Suite
 
@@ -722,28 +649,6 @@ Comprehensive performance monitoring beyond unit benchmarks. The app needs Elect
 3. Integrate startup time tracking into CI (fail if >5s)
 4. Add `why-did-you-render` as devDependency with development-only setup
 5. Add bench-compare script for CI gating of vitest bench results
-
-### Cyclomatic Complexity Gate
-
-Enable the ESLint built-in `complexity` rule to flag functions that exceed a cyclomatic complexity threshold. Industry standard threshold is 10 — any function scoring higher is a candidate for refactoring.
-
-#### Complexity Gate Steps
-
-1. Add to ESLint config: `"complexity": ["warn", 10]`(built-in, no extra packages)
-2. Run `eslint . --rule 'complexity: [warn, 10]'` to identify current violations
-3. Triage: fix high-value violations first (IPC handlers, service modules), suppress known-complex functions with inline `// eslint-disable-next-line complexity` + TODO comment
-4. Once violations are manageable, escalate from `warn` → `error` to make it a CI gate
-
-#### Complementary Tools
-
-- `eslint-plugin-sonarjs` — adds **cognitive complexity** (weighs nesting depth, not just branch count) — see [Code Quality Tooling Roadmap](#code-quality-tooling-roadmap)
-- SonarCloud — already in CI; tracks complexity metrics on dashboard if connected
-
-#### High-Risk Files (likely violations)
-
-- `electron/ipc/githubHandlers.ts` (27KB, most complex handler file)
-- `electron/ipc/terminalHandlers.ts` (14KB)
-- `electron/ipc/configHandlers.ts` (7KB)
 
 ### Code Quality Tooling Roadmap
 
@@ -847,9 +752,9 @@ A built-in file explorer that shows the directory/file structure of the active t
 - **File preview**: Clicking a file in the folder view opens a read-only code preview in the main content area (above the terminal, replacing `AppContentRouter`'s current view or in a new "file preview" tab).
 - **Syntax highlighting**: Use a lightweight approach — Monaco Editor (already bundled for most Electron apps), Shiki, or a simpler `<pre>` with highlight.js for common languages (C#, TypeScript, JSON, Markdown, YAML, Python, etc.).
 
-#### Implementation Phases
+#### Terminal Folder Implementation Phases
 
-#### Phase 1: Folder View Sidebar (foundation)
+##### Phase 1: Folder View Sidebar (foundation)
 
 1. **Context menu entry**: Add "Folder View" toggle to `TerminalTabContextMenu.tsx` (icon: `FolderOpen` from lucide-react).
 2. **New component**: `FolderView.tsx` — tree-based file explorer using `window.terminal` IPC to read directory contents from the main process.
@@ -887,7 +792,7 @@ A built-in file explorer that shows the directory/file structure of the active t
 - File preview reuses the existing `TabBar` / `AppContentRouter` infrastructure — it's just a new view type.
 - IPC boundary: all filesystem access goes through Electron main process (never `fs` from renderer). This preserves the security model.
 
-#### New Files
+#### Terminal Folder New Files
 
 | File | Purpose |
 |------|---------|

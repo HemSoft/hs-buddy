@@ -194,7 +194,7 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
               return update(prev)
             },
           })
-        } catch {
+        } catch (_: unknown) {
           // Silently fail on subdirectory load errors
         } finally {
           pendingLoads.current.delete(nodePath)

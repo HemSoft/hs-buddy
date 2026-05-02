@@ -103,7 +103,7 @@ export function TerminalPane({
     requestAnimationFrame(() => {
       try {
         fitAddon.fit()
-      } catch {
+      } catch (_: unknown) {
         // Ignore initial fit errors
       }
     })
@@ -144,7 +144,7 @@ export function TerminalPane({
           /* v8 ignore stop */
           await spawnNew()
         }
-      } catch (error) {
+      } catch (error: unknown) {
         if (!active) return
         term.writeln('\r\n\x1b[31m[Failed to initialize terminal session]\x1b[0m')
         console.error('Failed to initialize terminal session', error)
@@ -256,7 +256,7 @@ export function TerminalPane({
       try {
         fit.fit()
         applyResizeDimensions(fit, sid)
-      } catch {
+      } catch (_: unknown) {
         // Ignore
       }
     }

@@ -136,7 +136,7 @@ export function useAutoRefresh(
       } else {
         stampRefresh()
       }
-    } catch {
+    } catch (_: unknown) {
       // sync throw — don't stamp
     }
   }, [stampRefresh])

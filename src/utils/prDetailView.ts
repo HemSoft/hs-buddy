@@ -97,7 +97,7 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
       : null
 
     return { pr, section }
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }

@@ -47,7 +47,7 @@ function resolveViaRequire(platformPkg: string, binaryName: string): string | nu
     const pkgJson = esmRequire.resolve(`@github/${platformPkg}/package.json`)
     const nativePath = path.join(path.dirname(pkgJson), binaryName)
     if (existsSync(nativePath)) return nativePath
-  } catch {
+  } catch (_: unknown) {
     // Fall through
   }
   return null
@@ -144,7 +144,7 @@ export async function stopSharedClient(): Promise<void> {
   if (sharedClient) {
     try {
       await sharedClient.stop()
-    } catch {
+    } catch (_: unknown) {
       // best effort
     }
     sharedClient = null

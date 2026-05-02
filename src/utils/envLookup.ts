@@ -57,7 +57,7 @@ export function resolveEnvVar(
         cache.set(name, val)
         return val
       }
-    } catch {
+    } catch (_: unknown) {
       /* fall through to process.env */
     }
   }

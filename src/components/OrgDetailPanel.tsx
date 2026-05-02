@@ -225,7 +225,7 @@ function useOrgCachedFetch<T>({
           setPhase('ready')
         })
         dataCache.set(activeCacheKey, normalized)
-      } catch (fetchError) {
+      } catch (fetchError: unknown) {
         /* v8 ignore start */
         if (cacheKeyRef.current !== activeCacheKey) return
         /* v8 ignore stop */
@@ -929,7 +929,7 @@ function useOrgCopilotData({
         /* v8 ignore start */
         handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
         /* v8 ignore stop */
-      } catch (fetchError) {
+      } catch (fetchError: unknown) {
         /* v8 ignore start */
         handleCopilotCatchError(fetchError, dispatchCopilot)
         /* v8 ignore stop */
@@ -955,7 +955,7 @@ function useOrgRateLimit(accounts: GitHubAccount[], org: string) {
       const client = new GitHubClient({ accounts }, 7)
       const result = await client.getRateLimit(org)
       setRateLimit(result)
-    } catch {
+    } catch (_: unknown) {
       // silently ignore — gauge just won't render
     }
   }, [accounts, org])

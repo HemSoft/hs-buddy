@@ -130,7 +130,7 @@ describe('useFinance', () => {
     await act(async () => {
       try {
         await result.current.refresh()
-      } catch {
+      } catch (_: unknown) {
         /* expected */
       }
     })

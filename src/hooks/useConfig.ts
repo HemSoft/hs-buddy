@@ -203,7 +203,7 @@ export function useGitHubAccounts() {
     try {
       await create({ username: account.username, org: account.org })
       return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }
     }
   }
@@ -216,7 +216,7 @@ export function useGitHubAccounts() {
       }
       await remove({ id: account._id })
       return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }
     }
   }
@@ -229,7 +229,7 @@ export function useGitHubAccounts() {
       }
       await update({ id: account._id, ...updates })
       return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }
     }
   }
@@ -367,7 +367,7 @@ export function useNotificationSettings() {
 
       setEnabledState(value)
       return true
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to update notification sound setting:', err)
       return false
     }
@@ -384,7 +384,7 @@ export function useNotificationSettings() {
 
       setSoundPathState(path)
       return true
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to update notification sound path:', err)
       return false
     }

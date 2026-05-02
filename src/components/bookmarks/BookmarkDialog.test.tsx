@@ -170,6 +170,24 @@ describe('BookmarkDialog', () => {
     })
   })
 
+  it('shows validation error for internal/private network URLs', async () => {
+    render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
+
+    const urlInput = screen.getByPlaceholderText('https://example.com')
+    fireEvent.change(urlInput, { target: { value: 'http://localhost:3000/admin' } })
+    const titleInput = screen.getByPlaceholderText('My Bookmark')
+    fireEvent.change(titleInput, { target: { value: 'Local Admin' } })
+    const categorySelect = screen.getByDisplayValue('Select category…')
+    fireEvent.change(categorySelect, { target: { value: 'Documentation' } })
+    fireEvent.submit(document.querySelector('form')!)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Internal or private network URLs are not allowed')
+      ).toBeInTheDocument()
+    })
+  })
+
   it('shows validation error when too many tags', async () => {
     render(<BookmarkDialog bookmark={null} categories={['Documentation']} onClose={vi.fn()} />)
 

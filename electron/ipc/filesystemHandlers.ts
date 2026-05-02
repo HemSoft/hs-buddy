@@ -76,7 +76,7 @@ async function buildDirEntries(resolved: string, items: Dirent[]): Promise<DirEn
         type: item.isDirectory() ? 'directory' : 'file',
         size: st.size,
       })
-    } catch {
+    } catch (_: unknown) {
       // Skip entries we can't stat (permission errors, etc.)
     }
   }
@@ -95,7 +95,7 @@ export function registerFilesystemHandlers(): void {
         const items = await readdir(resolved, { withFileTypes: true })
         const entries = await buildDirEntries(resolved, items)
         return { entries }
-      } catch (err) {
+      } catch (err: unknown) {
         return {
           entries: [],
           error: getErrorMessageWithFallback(err, 'Failed to read directory'),
@@ -134,7 +134,7 @@ export function registerFilesystemHandlers(): void {
           language: detectLanguage(resolved),
           size: st.size,
         }
-      } catch (err) {
+      } catch (err: unknown) {
         return {
           content: '',
           language: 'plaintext',

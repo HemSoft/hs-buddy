@@ -67,7 +67,7 @@ export function useAssistantConversation(context: AssistantContext) {
               : m
           )
         )
-      } catch (err) {
+      } catch (err: unknown) {
         if (abortRef.current) return
         const errorMsg = getErrorMessage(err)
         setMessages(prev =>

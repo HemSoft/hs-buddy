@@ -8,7 +8,7 @@ export function loadZoomLevel(): number {
   try {
     const data = readJsonFile<{ zoomFactor?: number }>(getZoomConfigPath(), {})
     return data.zoomFactor || 1.0
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[zoom] Failed to load zoom level:', err)
   }
   return 1.0
@@ -17,7 +17,7 @@ export function loadZoomLevel(): number {
 export function saveZoomLevel(zoomFactor: number): void {
   try {
     writeJsonFile(getZoomConfigPath(), { zoomFactor })
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[zoom] Failed to save zoom level:', err)
   }
 }

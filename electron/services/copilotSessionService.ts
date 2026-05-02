@@ -38,7 +38,7 @@ export function resolveWorkspaceName(wsDir: string): string {
     const raw = fs.readFileSync(path.join(wsDir, 'workspace.json'), 'utf8')
     const parsed = JSON.parse(raw)
     return resolveFolderOrWorkspaceName(parsed) ?? path.basename(wsDir)
-  } catch {
+  } catch (_: unknown) {
     return path.basename(wsDir)
   }
 }
@@ -64,7 +64,7 @@ function extractScanInfo(filePath: string): {
     } finally {
       fs.closeSync(fd)
     }
-  } catch {
+  } catch (_: unknown) {
     return fallback
   }
 }
@@ -74,7 +74,7 @@ function collectWorkspaceSessions(wsRoot: string, hash: string): SessionSummary[
   let files: string[]
   try {
     files = fs.readdirSync(chatDir).filter(f => f.endsWith('.jsonl'))
-  } catch {
+  } catch (_: unknown) {
     return []
   }
 
@@ -108,7 +108,7 @@ function parseSessionFile(
         requestCount: info.requestCount,
       },
     ]
-  } catch {
+  } catch (_: unknown) {
     return []
   }
 }
@@ -121,7 +121,7 @@ export function scanCopilotSessions(): SessionScanResult {
   let wsDirs: string[]
   try {
     wsDirs = fs.readdirSync(wsRoot)
-  } catch {
+  } catch (_: unknown) {
     return { sessions: [], totalCount: 0 }
   }
 

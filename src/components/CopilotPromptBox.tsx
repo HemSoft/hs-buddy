@@ -286,7 +286,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
           error: result.error ?? 'Unknown error',
         }))
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setState(previousState => ({
         ...previousState,
         error: getErrorMessage(err),

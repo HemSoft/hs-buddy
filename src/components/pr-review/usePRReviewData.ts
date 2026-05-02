@@ -146,7 +146,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
           outdated: history.threadsOutdated,
         },
       }
-    } catch {
+    } catch (_: unknown) {
       return undefined
     }
   }, [githubAccounts, prInfo.org, prInfo.repo, prInfo.prNumber])
@@ -167,7 +167,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
         metadata: buildReviewMetadata(prInfo, account, snapshot),
       })
       handleReviewResult(result, setError, onSubmitted)
-    } catch (err) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err))
     } finally {
       setSubmitting(false)
@@ -201,12 +201,12 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
               new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
             )
           }
-        } catch (err) {
+        } catch (err: unknown) {
           console.error('Scheduled PR review failed:', err)
         }
       }, delayMs)
       setScheduled(true)
-    } catch (err) {
+    } catch (err: unknown) {
       /* v8 ignore start */
       setError(getErrorMessage(err))
       /* v8 ignore stop */
@@ -237,7 +237,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
       const template = trimmed.split(prInfo.prUrl).join(PR_URL_TOKEN)
       await window.ipcRenderer.invoke('config:set-copilot-pr-review-prompt-template', template)
       setSavedDefaultTemplate(template)
-    } catch (err) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err))
     } finally {
       setSavingDefault(false)

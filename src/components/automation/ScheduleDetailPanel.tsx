@@ -266,7 +266,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   const handleToggle = async () => {
     try {
       await toggle({ id: schedule._id })
-    } catch (error) {
+    } catch (error: unknown) {
       /* v8 ignore start */
       console.error('Failed to toggle schedule:', error)
       /* v8 ignore stop */
@@ -284,7 +284,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
       /* v8 ignore stop */
       try {
         await remove({ id: schedule._id })
-      } catch (error) {
+      } catch (error: unknown) {
         /* v8 ignore start */
         console.error('Failed to delete schedule:', error)
         /* v8 ignore stop */

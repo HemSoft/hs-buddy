@@ -88,7 +88,7 @@ class Dispatcher {
     try {
       await this.claimAndExecute()
       this.consecutiveErrors = 0 // reset on success
-    } catch (err) {
+    } catch (err: unknown) {
       this.consecutiveErrors++
       this.lastErrorTime = Date.now()
       if (shouldLogDispatcherError(this.consecutiveErrors)) {
@@ -121,7 +121,7 @@ class Dispatcher {
           error: result.error ?? 'Unknown error',
         })
       }
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = getErrorMessage(err)
       console.error(`[Dispatcher] Run ${run._id} threw:`, errorMessage)
       await this.client.mutation(api.runs.fail, { id: run._id, error: errorMessage })
@@ -184,7 +184,7 @@ class Dispatcher {
         spent: result.data.spent,
       })
       return true
-    } catch (storeErr) {
+    } catch (storeErr: unknown) {
       console.error(
         `[Dispatcher] Snapshot store failed for ${username}@${org}: ${getErrorMessage(storeErr)}`
       )

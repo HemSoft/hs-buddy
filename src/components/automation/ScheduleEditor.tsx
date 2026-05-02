@@ -226,7 +226,7 @@ function ScheduleEditorForm({
       }
       onSaved?.()
       onClose()
-    } catch (err) {
+    } catch (err: unknown) {
       /* v8 ignore start */
       setError(getUserFacingErrorMessage(err, 'Failed to save schedule'))
       /* v8 ignore stop */

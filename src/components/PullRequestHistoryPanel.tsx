@@ -350,7 +350,7 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
 
       setHistory(result)
       onLoaded?.(result)
-    } catch (err) {
+    } catch (err: unknown) {
       handleHistoryFetchError(err, requestId, latestRequestRef, setError)
     } finally {
       if (requestId === latestRequestRef.current) {

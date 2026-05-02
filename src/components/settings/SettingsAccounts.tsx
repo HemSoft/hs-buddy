@@ -103,7 +103,7 @@ export function SettingsAccounts() {
       } else {
         dispatch({ type: 'FINISH_ADD', error: result.error || 'Failed to add account' })
       }
-    } catch (error) {
+    } catch (error: unknown) {
       dispatch({
         type: 'FINISH_ADD',
         /* v8 ignore start */

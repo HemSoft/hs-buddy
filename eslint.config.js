@@ -68,8 +68,31 @@ export default tseslint.config(
       'react-hooks/preserve-manual-memoization': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       complexity: ['warn', 10],
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+      // Enforce explicit `: unknown` annotation on catch variables to prevent regression.
+      // TypeScript's useUnknownInCatchVariables (via strict) makes them implicitly unknown,
+      // but this rule ensures the annotation is always present in source.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CatchClause[param][param.typeAnnotation=undefined]',
+          message: 'Catch variable must have an explicit `: unknown` type annotation.',
+        },
+        {
+          selector: 'CatchClause[param.typeAnnotation.typeAnnotation.type!="TSUnknownKeyword"]',
+          message:
+            'Catch variable type must be `: unknown`. Other types (e.g., Error) are not allowed.',
+        },
+        {
+          selector: 'CatchClause:not([param])',
+          message:
+            'Parameterless catch is not allowed. Use `catch (_: unknown)` to make the type explicit.',
+        },
+      ],
       ...qualityRules,
     },
   }

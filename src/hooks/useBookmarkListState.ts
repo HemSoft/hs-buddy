@@ -10,7 +10,7 @@ function isValidHttpUrl(text: string | undefined): text is string {
   /* v8 ignore stop */
   try {
     return ['http:', 'https:'].includes(new URL(text).protocol)
-  } catch {
+  } catch (_: unknown) {
     return false
   }
 }
@@ -223,7 +223,7 @@ export function useBookmarkListState(filterCategory?: string) {
     try {
       await remove({ id: state.deleteTarget._id })
       dispatch({ type: 'clear-delete' })
-    } catch (err) {
+    } catch (err: unknown) {
       dispatch({
         type: 'set-delete-error',
         error: getErrorMessageWithFallback(err, 'Failed to delete bookmark'),

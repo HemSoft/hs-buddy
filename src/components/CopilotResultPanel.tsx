@@ -117,7 +117,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
         category: result.category ?? undefined,
         metadata: result.metadata ?? undefined,
       })
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to retry prompt:', err)
     }
   }
@@ -135,7 +135,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       /* v8 ignore stop */
       await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
       setPublished(true)
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to publish review to PR:', err)
     } finally {
       setPublishing(false)

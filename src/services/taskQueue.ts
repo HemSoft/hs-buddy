@@ -274,7 +274,7 @@ export class TaskQueue {
         task.resolve(result)
         this.callbacks.onTaskComplete?.(task.id, task.name)
       }
-    } catch (error) {
+    } catch (error: unknown) {
       /* v8 ignore start */
       if (isAbortError(error)) {
         /* v8 ignore stop */

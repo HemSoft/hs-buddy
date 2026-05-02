@@ -29,6 +29,22 @@ describe('isSafeImageUrl', () => {
   it('returns false for empty string', () => {
     expect(isSafeImageUrl('')).toBe(false)
   })
+
+  it('returns false for localhost URLs', () => {
+    expect(isSafeImageUrl('http://localhost/img.png')).toBe(false)
+  })
+
+  it('returns false for 127.0.0.1 URLs', () => {
+    expect(isSafeImageUrl('https://127.0.0.1/img.png')).toBe(false)
+  })
+
+  it('returns false for private network URLs', () => {
+    expect(isSafeImageUrl('http://192.168.1.1/img.png')).toBe(false)
+  })
+
+  it('returns false for .local domain URLs', () => {
+    expect(isSafeImageUrl('http://router.local/img.png')).toBe(false)
+  })
 })
 
 describe('buildCategoryTree', () => {

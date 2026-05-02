@@ -201,7 +201,7 @@ app.on('before-quit', event => {
   try {
     getDispatcher().stop()
     stopSharedClient()
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[Main] Sync shutdown error:', err)
   }
 

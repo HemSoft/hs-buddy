@@ -42,7 +42,7 @@ try {
     // Try the original first — it works fine outside of OTEL interference.
     try {
       return origLoadNative(name)
-    } catch {
+    } catch (_: unknown) {
       // Fallback: use process.dlopen() to load the native addon directly,
       // bypassing Module.prototype.require entirely. This is immune to
       // OTEL's require-in-the-middle hook interference.
@@ -59,7 +59,7 @@ try {
   }
 
   _pty = _require('node-pty')
-} catch (err) {
+} catch (err: unknown) {
   _ptyLoadError = err
 }
 
@@ -76,7 +76,7 @@ function resolveWindowsShell(): string {
   try {
     execFileSync('where.exe', ['pwsh.exe'], { stdio: 'ignore' })
     return 'pwsh.exe'
-  } catch {
+  } catch (_: unknown) {
     return 'powershell.exe'
   }
 }
@@ -111,7 +111,7 @@ function isValidCwd(dir: string): boolean {
   try {
     const resolved = path.resolve(dir)
     return existsSync(resolved) && statSync(resolved).isDirectory()
-  } catch {
+  } catch (_: unknown) {
     return false
   }
 }
@@ -122,7 +122,7 @@ function safeSend(sender: WebContents, channel: string, ...args: unknown[]): voi
     if (!sender.isDestroyed()) {
       sender.send(channel, ...args)
     }
-  } catch {
+  } catch (_: unknown) {
     // WebContents was torn down between check — ignore
   }
 }
@@ -209,7 +209,7 @@ function scheduleStartupCommand(sessionId: string, startupCommand: string): void
     if (!s?.alive) return
     try {
       s.pty.write(startupCommand + '\r')
-    } catch {
+    } catch (_: unknown) {
       // PTY died between alive check and write — ignore
     }
   }, 500)
@@ -244,13 +244,13 @@ function cleanupTerminalSession(session: TerminalSession): void {
   for (const d of session.disposables) {
     try {
       d.dispose()
-    } catch {
+    } catch (_: unknown) {
       /* already disposed */
     }
   }
   try {
     session.pty.kill()
-  } catch {
+  } catch (_: unknown) {
     /* already dead */
   }
 }
@@ -281,7 +281,7 @@ export function registerTerminalHandlers(): void {
       let ptyProcess
       try {
         ptyProcess = getPty().spawn(shell, shellArgs, spawnOptions)
-      } catch (error) {
+      } catch (error: unknown) {
         return {
           success: false,
           error: getErrorMessageWithFallback(error, 'Failed to spawn terminal'),
@@ -325,7 +325,7 @@ export function registerTerminalHandlers(): void {
     if (!session?.alive) return
     try {
       session.pty.resize(cols, rows)
-    } catch {
+    } catch (_: unknown) {
       // PTY may be dead
     }
   })

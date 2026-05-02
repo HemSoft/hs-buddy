@@ -219,7 +219,7 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         /* v8 ignore stop */
         setDigest(result)
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to compute digest:', err)
     } finally {
       setDigestLoading(false)

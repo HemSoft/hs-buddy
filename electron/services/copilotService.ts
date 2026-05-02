@@ -114,7 +114,7 @@ class CopilotService {
       const username = findAccountForOrgs(accounts, orgs)
       if (username) console.log(`[CopilotService] Auto-resolved account "${username}"`)
       return username
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('[CopilotService] Failed to query accounts for auto-resolution:', err)
       return undefined
     }
@@ -147,7 +147,7 @@ class CopilotService {
       await restartSharedClient()
       this.currentGhAccount = ghAccount
       console.log(`[CopilotService] ✓ SDK client restarted for account: ${ghAccount}`)
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = getErrorMessage(err)
       console.error(`[CopilotService] ✗ Failed to switch account to ${ghAccount}:`, errorMessage)
       // Continue anyway — the active account will be used
@@ -265,7 +265,7 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
       })
 
       console.log(`[CopilotService] ✓ Completed prompt (${resultText.length} chars)`)
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = getErrorMessage(err)
       console.error(`[CopilotService] ✗ Failed:`, errorMessage)
 
@@ -330,7 +330,7 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
         const client = await ensureClientStarted()
         const models = await listModelsWithTimeout(client)
         return models.map(mapModelInfo)
-      } catch (err) {
+      } catch (err: unknown) {
         lastError = toError(err)
         console.warn(
           `[CopilotService] listModels attempt ${attempt + 1} failed: ${lastError.message}`

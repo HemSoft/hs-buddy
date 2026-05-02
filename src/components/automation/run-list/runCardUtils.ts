@@ -3,7 +3,7 @@ export function formatOutput(output: unknown): string {
   if (typeof output === 'string') return output
   try {
     return JSON.stringify(output, null, 2)
-  } catch {
+  } catch (_: unknown) {
     return String(output)
   }
 }

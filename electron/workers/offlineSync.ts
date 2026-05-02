@@ -50,7 +50,7 @@ function getMissedOccurrences(
 ): number[] {
   try {
     validateCronExpression(cronExpression, timezone)
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       `[OfflineSync] Failed to enumerate missed runs for cron "${cronExpression}" in timezone "${timezone}": ${getErrorMessage(error)}`
     )
@@ -197,7 +197,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
         const { runsCreated, action } = await processSchedule(client, schedule, now)
         accumulateScheduleResult(result, runsCreated, action)
         console.log(`[OfflineSync] "${schedule.name}" → ${action}`)
-      } catch (err) {
+      } catch (err: unknown) {
         const msg = `Failed to process "${schedule.name}": ${getErrorMessage(err)}`
         result.errors.push(msg)
         console.error(`[OfflineSync] ${msg}`)
@@ -205,7 +205,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
     }
 
     console.log(`[OfflineSync] Complete: ${buildOfflineSyncSummary(result)}`)
-  } catch (err) {
+  } catch (err: unknown) {
     const msg = `Offline sync failed: ${getErrorMessage(err)}`
     result.errors.push(msg)
     console.error(`[OfflineSync] ${msg}`)

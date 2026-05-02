@@ -81,7 +81,7 @@ export function useTodoistUpcoming(days: number = 7) {
         return
       }
       setDayGroups(processed.groups)
-    } catch (err) {
+    } catch (err: unknown) {
       if (mountedRef.current) {
         setError(getUserFacingErrorMessage(err, 'Failed to fetch tasks'))
       }
@@ -103,7 +103,7 @@ export function useTodoistProjects() {
       if (mountedRef.current && result.success && result.data) {
         setProjects(result.data)
       }
-    } catch {
+    } catch (_: unknown) {
       /* ignore */
     }
   }, [mountedRef])

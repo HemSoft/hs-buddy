@@ -59,7 +59,7 @@ export function useCopilotUsage() {
                 fetchedAt: null,
               },
       }))
-    } catch (error) {
+    } catch (error: unknown) {
       setQuotas(prev => ({
         ...prev,
         [username]: { data: null, loading: false, error: getErrorMessage(error), fetchedAt: null },
@@ -82,7 +82,7 @@ export function useCopilotUsage() {
             ? { data: result.data, loading: false, error: null }
             : { data: null, loading: false, error: result.error || 'Unknown error' },
       }))
-    } catch (error) {
+    } catch (error: unknown) {
       setOrgBudgets(prev => ({
         ...prev,
         [org]: { data: null, loading: false, error: getErrorMessage(error) },

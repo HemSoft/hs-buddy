@@ -25,7 +25,7 @@ export function registerCopilotHandlers(): void {
           model: args.model,
         })
         return result
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
         console.error('[CopilotHandlers] Execute failed:', errorMessage)
         return { resultId: null, success: false, error: errorMessage }
@@ -39,7 +39,7 @@ export function registerCopilotHandlers(): void {
       const service = getCopilotService()
       const cancelled = service.cancelPrompt(resultId)
       return { success: cancelled }
-    } catch (error) {
+    } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }
     }
   })
@@ -56,7 +56,7 @@ export function registerCopilotHandlers(): void {
     try {
       const service = getCopilotService()
       return await service.listModels(ghAccount)
-    } catch (error) {
+    } catch (error: unknown) {
       const errorMessage = getErrorMessage(error)
       console.error('[CopilotHandlers] listModels failed:', errorMessage)
       return { error: errorMessage }
@@ -78,7 +78,7 @@ export function registerCopilotHandlers(): void {
     ) => {
       try {
         return await sendChatMessage(args)
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
         console.error('[CopilotHandlers] chat-send failed:', errorMessage)
         throw new Error(errorMessage, { cause: error })
@@ -98,7 +98,7 @@ export function registerCopilotHandlers(): void {
     async (_event, args: { prompt: string; model?: string }) => {
       try {
         return await sendPrompt({ prompt: args.prompt, model: args.model, timeout: 30_000 })
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
         console.error('[CopilotHandlers] quick-prompt failed:', errorMessage)
         throw new Error(errorMessage, { cause: error })

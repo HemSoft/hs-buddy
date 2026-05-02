@@ -31,7 +31,7 @@ export function registerFinanceHandlers(): void {
 
         const json = (await response.json()) as ChartResponse
         return parseChartResponse(json, upper)
-      } catch (err) {
+      } catch (err: unknown) {
         return {
           success: false,
           error: getErrorMessageWithFallback(err, 'Fetch failed'),

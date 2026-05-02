@@ -92,7 +92,7 @@ export function useDashboardCards() {
         console.warn('[useDashboardCards] Cleared invalid cached visibility on mount')
         clearCache()
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('[useDashboardCards] Failed to parse cached visibility:', err)
       clearCache()
     }

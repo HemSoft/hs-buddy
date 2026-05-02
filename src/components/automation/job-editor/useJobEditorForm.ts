@@ -189,8 +189,8 @@ export function useJobEditorForm(
     if (skillParams.trim()) {
       try {
         params = JSON.parse(skillParams)
-      } catch {
-        throw new Error('Invalid JSON in parameters')
+      } catch (_: unknown) {
+        throw new Error('Invalid JSON in parameters', { cause: _ })
       }
     }
     return {
@@ -243,7 +243,7 @@ export function useJobEditorForm(
       }
       onSaved?.()
       onClose()
-    } catch (err) {
+    } catch (err: unknown) {
       setError(getUserFacingErrorMessage(err, 'Failed to save job'))
     } finally {
       setSaving(false)

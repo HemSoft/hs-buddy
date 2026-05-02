@@ -25,7 +25,7 @@ function savePendingReview(prUrl: string, baselineReviewId: number) {
     >
     all[prUrl] = { prUrl, baselineReviewId }
     sessionStorage.setItem(PENDING_REVIEW_KEY, JSON.stringify(all))
-  } catch {
+  } catch (_: unknown) {
     // sessionStorage may be unavailable — polling still works
   }
 }
@@ -37,7 +37,7 @@ function loadPendingReview(prUrl: string): PendingCopilotReview | null {
       PendingCopilotReview
     >
     return all[prUrl] ?? null
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }
@@ -52,7 +52,7 @@ export function clearPendingReview(prUrl: string) {
     >
     delete all[prUrl]
     sessionStorage.setItem(PENDING_REVIEW_KEY, JSON.stringify(all))
-  } catch {
+  } catch (_: unknown) {
     // sessionStorage may be unavailable
   }
 }
@@ -227,7 +227,7 @@ export function useCopilotReviewMonitor({
             finishCopilotReviewMonitor(sessionId, monitorPrUrl)
             return
           }
-        } catch (pollErr) {
+        } catch (pollErr: unknown) {
           /* v8 ignore start */
           if (isAbortError(pollErr)) return
           /* v8 ignore stop */
@@ -245,7 +245,7 @@ export function useCopilotReviewMonitor({
               return
             }
             /* v8 ignore start */
-          } catch (pollErr) {
+          } catch (pollErr: unknown) {
             /* v8 ignore stop */
             /* v8 ignore start */
             if (isAbortError(pollErr)) return
@@ -318,7 +318,7 @@ export function useCopilotReviewMonitor({
         },
         { name: `copilot-review-request-${prId}` }
       )
-    } catch (err) {
+    } catch (err: unknown) {
       /* v8 ignore start */
       if (isAbortError(err)) return
       /* v8 ignore stop */

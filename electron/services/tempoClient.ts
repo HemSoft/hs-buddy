@@ -96,7 +96,7 @@ async function fetchAccountIdFromJira(): Promise<string | null> {
     )
     writeDataCacheEntry('tempo:accountId', { data: user.accountId, fetchedAt: Date.now() })
     return user.accountId
-  } catch (err) {
+  } catch (err: unknown) {
     console.warn(
       '[Tempo] Jira /myself failed, trying disk cache:',
       err instanceof Error ? err.message : err
@@ -161,7 +161,7 @@ async function fetchIssueKeyLive(issueId: number): Promise<{ key: string; summar
     issueKeyCache.set(issueId, result)
     writeDataCacheEntry(`tempo:issue:${issueId}`, { data: result, fetchedAt: Date.now() })
     return result
-  } catch {
+  } catch (_: unknown) {
     return { key: `#${issueId}`, summary: '' }
   }
 }
@@ -221,7 +221,7 @@ export async function getProjectAccountLinks(
       })
       .filter(link => link.key !== '')
     return { success: true, data: links }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }
@@ -244,7 +244,7 @@ export async function getAccounts(): Promise<TempoResult<TempoAccount[]>> {
     accountIdToKey = new Map(resp.results.map(a => [a.id, a.key]))
     accountsCachedAt = Date.now()
     return { success: true, data: cachedAccounts }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }
@@ -277,7 +277,7 @@ export async function getWorklogsForRange(
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
 
     return { success: true, data: worklogs }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }
@@ -330,7 +330,7 @@ export async function createWorklog(
     const accountMap = await getAccountMap()
 
     return { success: true, data: enrichWorklog(resp, issueInfo, accountMap) }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }
@@ -349,7 +349,7 @@ export async function updateWorklog(
     })
 
     return { success: true }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }
@@ -366,7 +366,7 @@ export async function deleteWorklog(worklogId: number): Promise<TempoResult<void
     }
 
     return { success: true }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }
@@ -436,7 +436,7 @@ async function resolveCapexLive(issueKey: string): Promise<boolean> {
     const result = await resolveCapexFromJira(issueKey, jiraHeaders)
     cacheCapexResult(issueKey, result)
     return result
-  } catch (err) {
+  } catch (err: unknown) {
     console.error(`[CapEx] Failed to resolve ${issueKey}:`, getErrorMessage(err))
     capexCache.set(issueKey, false)
     return false
@@ -475,7 +475,7 @@ export async function getUserSchedule(
       ...(d.holiday ? { holidayName: d.holiday.name } : {}),
     }))
     return { success: true, data: days }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }
@@ -490,7 +490,7 @@ export async function getCapexMap(
       unique.map(async key => [key, await resolveCapex(key)] as const)
     )
     return { success: true, data: Object.fromEntries(entries) }
-  } catch (err) {
+  } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
   }
 }

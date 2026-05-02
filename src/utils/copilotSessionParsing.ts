@@ -242,7 +242,7 @@ function extractResultData(line: string): SessionRequestResult | null {
     const { toolCallCount, toolNames } = extractToolCallInfo(v.metadata)
 
     return { prompt: '', ...tokens, toolCallCount, toolNames }
-  } catch {
+  } catch (_: unknown) {
     return extractResultDataFallback(line)
   }
 }
@@ -260,7 +260,7 @@ function handleInitLine(
     const title = (v.customTitle as string) ?? ''
     collectPrompts((v.requests ?? []) as Array<Record<string, unknown>>, prompts)
     return { init, title }
-  } catch {
+  } catch (_: unknown) {
     return { init: extractSessionInitFallback(line), title: '' }
   }
 }
@@ -271,7 +271,7 @@ function handleRequestsSnapshot(line: string, prompts: Map<number, string>): voi
     const obj = JSON.parse(line)
     const reqs = obj.v
     if (Array.isArray(reqs)) collectRequestPrompts(reqs, prompts)
-  } catch {
+  } catch (_: unknown) {
     /* skip unparseable */
   }
 }

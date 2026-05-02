@@ -202,7 +202,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   const handleRunNow = async () => {
     try {
       await createRun({ jobId: job._id, triggeredBy: 'manual' })
-    } catch (error) {
+    } catch (error: unknown) {
       /* v8 ignore start */
       console.error('Failed to create run:', error)
       /* v8 ignore stop */
@@ -231,7 +231,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
       /* v8 ignore stop */
       try {
         await remove({ id: job._id })
-      } catch (error) {
+      } catch (error: unknown) {
         /* v8 ignore start */
         console.error('Failed to delete job:', error)
         /* v8 ignore stop */

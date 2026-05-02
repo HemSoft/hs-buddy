@@ -10,6 +10,7 @@ import {
 import { X } from 'lucide-react'
 import { useBookmarkMutations } from '../../hooks/useConvex'
 import { getUserFacingErrorMessage } from '../../utils/errorUtils'
+import { isInternalHostname } from '../../utils/networkSecurity'
 import type { Id } from '../../../convex/_generated/dataModel'
 import './BookmarkDialog.css'
 
@@ -481,7 +482,10 @@ function validateUrlProtocol(url: string): string | null {
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return 'Only http and https URLs are allowed'
     }
-  } catch {
+    if (isInternalHostname(parsed.hostname.toLowerCase())) {
+      return 'Internal or private network URLs are not allowed'
+    }
+  } catch (_: unknown) {
     return 'Please enter a valid URL (e.g., https://example.com)'
   }
   return null
@@ -538,7 +542,7 @@ function parseAIResponse(
     const cleaned = stripMarkdownCodeBlocks(text)
     const parsed = JSON.parse(cleaned) as { description?: string; tags?: string[] }
     return pickUneditedFields(parsed, userEditedDescription, userEditedTags)
-  } catch {
+  } catch (_: unknown) {
     return {}
   }
 }
@@ -741,7 +745,7 @@ Rules:
         await create(payload)
       }
       onClose()
-    } catch (err) {
+    } catch (err: unknown) {
       dispatch({
         type: 'setError',
         value: getUserFacingErrorMessage(err, 'Failed to save bookmark'),

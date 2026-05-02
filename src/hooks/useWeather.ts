@@ -141,7 +141,7 @@ async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
       if (city) loc.name = buildLocationName(city, st, loc.name)
       /* v8 ignore stop */
     }
-  } catch {
+  } catch (_: unknown) {
     // Use coordinate-based name as fallback
   }
 }
@@ -303,7 +303,7 @@ export function useWeather() {
           /* v8 ignore stop */
           /* error already handled in state */
         })
-      } catch (err) {
+      } catch (err: unknown) {
         setState(prev => ({
           ...prev,
           loading: false,

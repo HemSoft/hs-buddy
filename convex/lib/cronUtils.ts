@@ -1,6 +1,6 @@
-import { CronExpressionParser, type CronExpressionOptions } from "cron-parser";
+import { CronExpressionParser, type CronExpressionOptions } from 'cron-parser'
 
-export const DEFAULT_TIMEZONE = "America/New_York";
+export const DEFAULT_TIMEZONE = 'America/New_York'
 
 /**
  * Calculate the next run time for a cron expression.
@@ -16,14 +16,14 @@ export function calculateNextRunAt(
   fromDate?: Date
 ): number {
   try {
-    const options: CronExpressionOptions = {};
-    if (timezone) options.tz = timezone;
-    if (fromDate) options.currentDate = fromDate;
+    const options: CronExpressionOptions = {}
+    if (timezone) options.tz = timezone
+    if (fromDate) options.currentDate = fromDate
 
-    const expression = CronExpressionParser.parse(cronExpression, options);
-    return expression.next().getTime();
-  } catch (error) {
-    console.error(`Failed to parse cron "${cronExpression}":`, error);
-    return Date.now() + 60 * 60 * 1000; // Fallback: 1 hour from now
+    const expression = CronExpressionParser.parse(cronExpression, options)
+    return expression.next().getTime()
+  } catch (error: unknown) {
+    console.error(`Failed to parse cron "${cronExpression}":`, error)
+    return Date.now() + 60 * 60 * 1000 // Fallback: 1 hour from now
   }
 }

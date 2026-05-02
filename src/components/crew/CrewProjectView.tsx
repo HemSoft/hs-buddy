@@ -356,7 +356,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
       await window.crew.addMessage(project.id, assistantMsg)
       await window.crew.updateSessionStatus(project.id, 'idle')
       appendFn(assistantMsg, 'idle')
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMsg: CrewChatMessage = {
         role: 'assistant',
         content: `Error: ${getErrorMessage(err)}`,

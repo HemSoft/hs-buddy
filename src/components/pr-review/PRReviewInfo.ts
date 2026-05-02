@@ -22,7 +22,7 @@ export function parsePRReviewInfo(viewId: string): PRReviewInfo | null {
     }
 
     return JSON.parse(decodeURIComponent(encoded)) as PRReviewInfo
-  } catch {
+  } catch (_: unknown) {
     return null
   }
 }

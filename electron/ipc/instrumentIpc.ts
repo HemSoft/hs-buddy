@@ -37,7 +37,7 @@ export function instrumentIpcHandlers(): void {
           return res
         })
         return result
-      } catch (err) {
+      } catch (err: unknown) {
         error = true
         emitLog('ERROR', `IPC handler failed: ${channel}`, {
           'ipc.channel': channel,

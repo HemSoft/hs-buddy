@@ -46,9 +46,16 @@ function parseThresholds(config: string): Record<MetricKey, number> {
     const m = block.match(new RegExp(`${key}\\s*:\\s*(\\d+)`))
     return m ? parseInt(m[1], 10) : 0
   }
-  const result = { statements: get('statements'), branches: get('branches'), functions: get('functions'), lines: get('lines') }
+  const result = {
+    statements: get('statements'),
+    branches: get('branches'),
+    functions: get('functions'),
+    lines: get('lines'),
+  }
   if (Object.values(result).every(v => v === 0)) {
-    throw new Error('Could not parse any thresholds from vitest.config.ts — format may have changed')
+    throw new Error(
+      'Could not parse any thresholds from vitest.config.ts — format may have changed'
+    )
   }
   return result
 }
@@ -67,7 +74,9 @@ try {
   const changed = METRICS.some(k => next[k] !== existing[k])
   if (!changed) {
     console.log('Coverage ratchet: no threshold increase needed.')
-    console.log(`  Current: S=${existing.statements}% B=${existing.branches}% F=${existing.functions}% L=${existing.lines}%`)
+    console.log(
+      `  Current: S=${existing.statements}% B=${existing.branches}% F=${existing.functions}% L=${existing.lines}%`
+    )
     process.exit(0)
   }
 
@@ -76,13 +85,18 @@ try {
     /thresholds:\s*\{[^}]+\}/,
     `thresholds: {\n        statements: ${next.statements},\n        branches: ${next.branches},\n        functions: ${next.functions},\n        lines: ${next.lines},\n      }`
   )
-  if (updated === config) throw new Error('Threshold replacement failed—vitest.config.ts format may have changed')
+  if (updated === config)
+    throw new Error('Threshold replacement failed—vitest.config.ts format may have changed')
   writeFileSync(configPath, updated)
 
   console.log('Coverage ratchet: thresholds updated!')
-  console.log(`  Before: S=${existing.statements}% B=${existing.branches}% F=${existing.functions}% L=${existing.lines}%`)
-  console.log(`  After:  S=${next.statements}% B=${next.branches}% F=${next.functions}% L=${next.lines}%`)
-} catch (err) {
+  console.log(
+    `  Before: S=${existing.statements}% B=${existing.branches}% F=${existing.functions}% L=${existing.lines}%`
+  )
+  console.log(
+    `  After:  S=${next.statements}% B=${next.branches}% F=${next.functions}% L=${next.lines}%`
+  )
+} catch (err: unknown) {
   console.error('Coverage ratchet failed:', (err as Error).message)
   console.error('Make sure to run `bun run test:coverage` first to generate coverage-summary.json')
   process.exit(1)

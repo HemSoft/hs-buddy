@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add file-size and complexity metric gates to TODO
 - Add ralph quality/CRAP loops and update existing scripts
+- Enforce typed catch clauses and promote no-explicit-any to error
+- Add coverage for internal URL validation in bookmarks
 
 ### Added
 
@@ -31,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use Write-Information for banners/progress in ralph scripts
 - Use SDK approveAll helper for copilot-sdk 0.3.0 compatibility
 - Make launcher scripts cross-platform (macOS + Windows)
+- Revert vite 8.0.10 to 6.4.2 for Electron compatibility
+- Add explicit : unknown type annotations to all remaining catch clauses
+- Address PR review feedback for typed catch clauses
+- Address all PR review feedback for typed catch enforcement
+- Enforce : unknown type and block internal URLs in bookmarks
 
 ## [0.1.739] - 2026-04-26
 

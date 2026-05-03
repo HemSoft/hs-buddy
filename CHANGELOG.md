@@ -93,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove 13 individual *-repeat scripts
 - Log perfection audit results for 2026-04-28
+- Add Code Index as primary code discovery tool
 
 ## [0.1.740] - 2026-04-26
 

@@ -6,27 +6,37 @@ import {
   isSupportedNotificationSoundPath,
   MAX_NOTIFICATION_SOUND_BYTES,
 } from '../../src/utils/notificationSound'
+import { CONFIG_UI_KEYS } from '../../src/ipc/contracts'
 import { configManager } from '../config'
 
 type UiConfigKey = keyof AppConfig['ui']
+type ConfigUiChannelKey = (typeof CONFIG_UI_KEYS)[number]
 
-const UI_VALUE_CHANNELS: Array<readonly [string, UiConfigKey]> = [
-  ['theme', 'theme'],
-  ['accent-color', 'accentColor'],
-  ['bg-primary', 'bgPrimary'],
-  ['bg-secondary', 'bgSecondary'],
-  ['statusbar-bg', 'statusBarBg'],
-  ['statusbar-fg', 'statusBarFg'],
-  ['font-color', 'fontColor'],
-  ['font-family', 'fontFamily'],
-  ['mono-font-family', 'monoFontFamily'],
-  ['zoom-level', 'zoomLevel'],
-  ['sidebar-width', 'sidebarWidth'],
-  ['pane-sizes', 'paneSizes'],
-  ['show-bookmarked-only', 'showBookmarkedOnly'],
-  ['favorite-users', 'favoriteUsers'],
-  ['dashboard-cards', 'dashboardCards'],
-]
+// Maps each contract channel key to its AppConfig['ui'] property name.
+// Record<ConfigUiChannelKey, …> ensures every key from CONFIG_UI_KEYS has an
+// entry — adding/removing a key in contracts.ts will produce a compile error here.
+const CHANNEL_TO_CONFIG_KEY: Record<ConfigUiChannelKey, UiConfigKey> = {
+  theme: 'theme',
+  'accent-color': 'accentColor',
+  'bg-primary': 'bgPrimary',
+  'bg-secondary': 'bgSecondary',
+  'statusbar-bg': 'statusBarBg',
+  'statusbar-fg': 'statusBarFg',
+  'font-color': 'fontColor',
+  'font-family': 'fontFamily',
+  'mono-font-family': 'monoFontFamily',
+  'zoom-level': 'zoomLevel',
+  'sidebar-width': 'sidebarWidth',
+  'pane-sizes': 'paneSizes',
+  'show-bookmarked-only': 'showBookmarkedOnly',
+  'favorite-users': 'favoriteUsers',
+  'dashboard-cards': 'dashboardCards',
+}
+
+// Derived from CONFIG_UI_KEYS — guaranteed to stay in sync with contracts.ts
+const UI_VALUE_CHANNELS: Array<readonly [ConfigUiChannelKey, UiConfigKey]> = CONFIG_UI_KEYS.map(
+  key => [key, CHANNEL_TO_CONFIG_KEY[key]] as const
+)
 
 function registerUiValueHandler<K extends UiConfigKey>(channel: string, key: K): void {
   ipcMain.handle(`config:get-${channel}`, () => {

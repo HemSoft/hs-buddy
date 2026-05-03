@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add right-click context menu to issue list items
 - Add GPT-5.5 to models config
 - Add changes-requested count and unresolved thread indicators
+- Add type-safe IPC channel contract registry
 
 ### Fixed
 
@@ -106,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review comments and restore 100% branch coverage
 - Add runtime type guard for repository_url in fetchUserActivity
 - Address PR review feedback - add pagination and resolve N+1
+- Address PR review - eliminate CONFIG_UI_KEYS drift and add registration contract test
 
 ### Changed
 

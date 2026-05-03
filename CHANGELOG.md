@@ -88,12 +88,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Achieve 100% coverage — add missing branch and keyboard tests
 - Apply Prettier formatting to 13 files flagged by CI
 - Paginate review threads >100 and update bundle-size baseline
+- Remove broken npx convex typecheck step
+- Stabilize Bun cache key and add benchmarks concurrency group
+- Stabilize flaky TempoWorklogEditor Escape key test
+- Commit bun.lock and tighten benchmarks label condition
+- Use hashFiles(bun.lock) for cache keys and fix Escape race
+- Address PR review comments for coverage ratchet and Escape race test
+- Guard all dismissal paths against save-in-flight race
+- Address PR review comments for coverage ratchet and race test
+- Address PR review — revert out-of-scope Tempo changes, update docs for parallel CI
 
 ### Changed
 
 - Remove 13 individual *-repeat scripts
 - Log perfection audit results for 2026-04-28
 - Add Code Index as primary code discovery tool
+- Cover non-Escape keydown branch in TempoWorklogEditor
 
 ## [0.1.740] - 2026-04-26
 

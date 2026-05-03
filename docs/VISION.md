@@ -197,9 +197,9 @@ The operating model, workflow library, and governance live at:
 
 ### CI Pipeline (`.github/workflows/ci.yml`)
 
-Steps: knip (dead code) → ESLint → tsc --noEmit → Prettier → e18e
-(dependency health) → Vitest + coverage → Build → Bundle size →
-Benchmarks
+Parallelized into four jobs: **lint** (ESLint, Knip, Prettier, e18e) ‖
+**typecheck** (tsc --noEmit) ‖ **test** (Vitest + coverage). **build**
+(Vite + bundle size) runs after typecheck passes.
 
 ### Testing
 

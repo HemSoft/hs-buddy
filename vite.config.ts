@@ -19,6 +19,14 @@ const otelExternals = [
   '@opentelemetry/resources',
 ]
 
+// Vite 8 uses Rolldown which outputs ESM by default for "type":"module" projects.
+// CJS dependencies bundled into the ESM main process lose access to `require`.
+// Inject a Node.js-native require via createRequire so Rolldown's __require shim works.
+const requireShim = [
+  "import { createRequire as __createRequire } from 'node:module';",
+  'const require = __createRequire(import.meta.url);',
+].join('\n')
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -33,6 +41,9 @@ export default defineConfig({
               // node-pty is a native module — must not be bundled.
               // OTel SDK packages are dev-only (Aspire) — lazy-loaded at runtime.
               external: ['node-pty', ...otelExternals],
+              output: {
+                banner: requireShim,
+              },
             },
           },
         },

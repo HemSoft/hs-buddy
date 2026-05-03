@@ -29,6 +29,7 @@ describe('ActivityBar', () => {
       'Tasks',
       'Insights',
       'Automation',
+      'Ralph Loops',
       'The Crew',
       'Tempo',
       'Bookmarks',

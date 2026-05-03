@@ -37,13 +37,15 @@ export function CopilotUsagePanel() {
             <p className="usage-empty-hint">Add accounts in Settings → Accounts</p>
           </div>
         ) : (
-          accounts.map((account: { username: string; org?: string }) => (
-            <AccountQuotaCard
-              key={account.username}
-              account={{ username: account.username, org: account.org ?? '' }}
-              state={quotas[account.username]}
-            />
-          ))
+          accounts
+            .filter((a: { org?: string }) => a.org !== 'hemsoft')
+            .map((account: { username: string; org?: string }) => (
+              <AccountQuotaCard
+                key={account.username}
+                account={{ username: account.username, org: account.org ?? '' }}
+                state={quotas[account.username]}
+              />
+            ))
         )}
       </div>
 

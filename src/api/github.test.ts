@@ -415,6 +415,7 @@ describe('GitHubClient', () => {
             },
             reviewThreads: {
               totalCount: 3,
+              pageInfo: { hasNextPage: false, endCursor: null },
               nodes: [
                 { isResolved: true, isOutdated: false, comments: { totalCount: 2 } },
                 { isResolved: false, isOutdated: true, comments: { totalCount: 1 } },
@@ -499,7 +500,11 @@ describe('GitHubClient', () => {
               ],
             },
             reviews: { nodes: [] },
-            reviewThreads: { totalCount: 0, nodes: [] },
+            reviewThreads: {
+              totalCount: 0,
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [],
+            },
           },
         },
       })
@@ -2423,6 +2428,7 @@ describe('GitHubClient', () => {
           pullRequest: {
             reviewThreads: {
               totalCount: 2,
+              pageInfo: { hasNextPage: false, endCursor: null },
               nodes: [{ isResolved: true }, { isResolved: false }],
             },
           },
@@ -2581,7 +2587,13 @@ describe('GitHubClient', () => {
           // Thread stats for the one matching PR
           .mockResolvedValueOnce({
             pr0: {
-              pullRequest: { reviewThreads: { totalCount: 1, nodes: [{ isResolved: true }] } },
+              pullRequest: {
+                reviewThreads: {
+                  totalCount: 1,
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                  nodes: [{ isResolved: true }],
+                },
+              },
             },
           })
           // Second account fallback (also returns same viewer data — but otherorg filter)

@@ -2,7 +2,7 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 📋 | **🔴 High** | [Ralph Loops Control Center](#ralph-loops-control-center) | Full integration of the ralph-loops ecosystem — orchestrate, launch, monitor, and configure autonomous AI work loops from Buddy |
+| 🚧 | **🔴 High** | [Ralph Loops Control Center](#ralph-loops-control-center) | Full integration of the ralph-loops ecosystem — orchestrate, launch, monitor, and configure autonomous AI work loops from Buddy |
 | 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
 | 📋 | High | [Electron Main Process Test Suite](#electron-main-process-test-suite) | **0 test files across 38 source files** — IPC handlers, services, workers, root modules all untested |
 | 📋 | High | [IPC Contract Testing](#ipc-contract-testing) | 16 IPC handler files are the renderer↔main bridge with zero contract validation |

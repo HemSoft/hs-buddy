@@ -4,6 +4,7 @@ import { BookmarksSidebar } from './sidebar/BookmarksSidebar'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
 import { CrewSidebar } from './crew/CrewSidebar'
+import { RalphSidebar } from './ralph-loops/RalphSidebar'
 import { useJobs, useSchedules } from '../hooks/useConvex'
 import { useToggleSet } from '../hooks/useToggleSet'
 import { onKeyboardActivate } from '../utils/keyboard'
@@ -60,6 +61,7 @@ const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
     ],
   },
   crew: { title: 'The Crew', items: [] },
+  ralph: { title: 'Ralph Loops', items: [] },
   bookmarks: { title: 'Bookmarks', items: [] },
   tempo: {
     title: 'Tempo',
@@ -123,6 +125,7 @@ const SIMPLE_SIDEBARS: Record<
   React.FC<{ onItemSelect: (itemId: string) => void; selectedItem: string | null }>
 > = {
   crew: CrewSidebar,
+  ralph: RalphSidebar,
   bookmarks: BookmarksSidebar,
 }
 

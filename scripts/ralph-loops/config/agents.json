@@ -1,0 +1,109 @@
+{
+  "$comment": "Agent role configuration for ralph-loops. Maps semantic roles to provider-specific agent names. Category 'dev' = used during work loop, 'review' = used for PR reviews.",
+  "version": "1.4.0",
+
+  "defaults": {
+    "devAgent": "anvil"
+  },
+
+  "roles": {
+    "anvil": {
+      "category": "dev",
+      "description": "Evidence-first coding agent with adversarial review",
+      "agent": { "copilot": "anvil", "copilot-go": "anvil", "opencode": "anvil", "openrouter": "anvil" },
+      "tier": "best",
+      "skills": []
+    },
+    "csharp-quality-expert": {
+      "category": "dev",
+      "description": "Quality-enforced .NET build with analyzers and code style enforcement",
+      "agent": { "copilot": "repo.csharp-quality-expert", "copilot-go": "repo.csharp-quality-expert", "opencode": "repo.csharp-quality-expert", "openrouter": "repo.csharp-quality-expert" },
+      "tier": "medium",
+      "skills": []
+    },
+    "developer-principal": {
+      "category": "dev",
+      "description": "Principal-level developer — system design, cross-cutting concerns, technical strategy",
+      "agent": { "copilot": "developer-principal", "copilot-go": "developer-principal", "opencode": "developer-principal", "openrouter": "developer-principal" },
+      "tier": "best",
+      "skills": []
+    },
+    "developer-senior": {
+      "category": "dev",
+      "description": "Senior developer — clean implementation, testing, patterns, pragmatic engineering",
+      "agent": { "copilot": "developer-senior", "copilot-go": "developer-senior", "opencode": "developer-senior", "openrouter": "developer-senior" },
+      "tier": "medium",
+      "skills": []
+    },
+    "simplisticate": {
+      "category": "dev",
+      "description": "Code simplification ��� reduce CRAP scores, cyclomatic complexity, and code smells",
+      "agent": { "copilot": "simplisticate", "copilot-go": "simplisticate", "opencode": "simplisticate", "openrouter": "simplisticate" },
+      "tier": "medium",
+      "skills": ["simplisticate"]
+    },
+    "pr-review-general": {
+      "category": "review",
+      "description": "General PR review — correctness, maintainability, security, performance",
+      "agent": { "copilot": "engineering-code-reviewer", "copilot-go": "engineering-code-reviewer", "opencode": "engineering-code-reviewer", "openrouter": "engineering-code-reviewer" },
+      "tier": "fast",
+      "skills": []
+    },
+    "pr-review-security": {
+      "category": "review",
+      "description": "Security-focused PR review — vulnerabilities, auth, data exposure, injection",
+      "agent": { "copilot": "pr-review-security", "copilot-go": "pr-review-security", "opencode": "pr-review-security", "openrouter": "pr-review-security" },
+      "tier": "medium",
+      "skills": []
+    },
+    "pr-review-quality": {
+      "category": "review",
+      "description": "Code quality PR review — SOLID, DRY, complexity, testability, naming",
+      "agent": { "copilot": "pr-review-quality", "copilot-go": "pr-review-quality", "opencode": "pr-review-quality", "openrouter": "pr-review-quality" },
+      "tier": "fast",
+      "skills": []
+    },
+    "pr-review-crap-score": {
+      "category": "review",
+      "description": "CRAP score impact review — cyclomatic complexity × test coverage risk",
+      "agent": { "copilot": "pr-review-crap-score", "copilot-go": "pr-review-crap-score", "opencode": "pr-review-crap-score", "openrouter": "pr-review-crap-score" },
+      "tier": "fast",
+      "skills": ["crap"]
+    },
+    "pr-review-scorecard-score": {
+      "category": "review",
+      "description": "Org scorecard impact review — how the PR affects repo health metrics",
+      "agent": { "copilot": "pr-review-scorecard-score", "copilot-go": "pr-review-scorecard-score", "opencode": "pr-review-scorecard-score", "openrouter": "pr-review-scorecard-score" },
+      "tier": "fast",
+      "skills": ["org-metrics"]
+    },
+    "auditor-security": {
+      "category": "review",
+      "description": "Security audit — OWASP Top 10, CWE Top 25, threat modeling, vulnerability assessment",
+      "agent": { "copilot": "engineering-security-engineer", "copilot-go": "engineering-security-engineer", "opencode": "engineering-security-engineer", "openrouter": "engineering-security-engineer" },
+      "tier": "medium",
+      "skills": []
+    },
+    "auditor-code-quality": {
+      "category": "review",
+      "description": "Code quality audit — complexity, duplication, coupling, testability, maintainability",
+      "agent": { "copilot": "auditor-code-quality", "copilot-go": "auditor-code-quality", "opencode": "auditor-code-quality", "openrouter": "auditor-code-quality" },
+      "tier": "medium",
+      "skills": []
+    },
+    "auditor-crap-score": {
+      "category": "review",
+      "description": "CRAP score audit — identify high-risk methods, guide complexity and coverage improvements",
+      "agent": { "copilot": "auditor-crap-score", "copilot-go": "auditor-crap-score", "opencode": "auditor-crap-score", "openrouter": "auditor-crap-score" },
+      "tier": "medium",
+      "skills": ["crap"]
+    },
+    "auditor-scorecard-score": {
+      "category": "review",
+      "description": "Scorecard audit — assess repo health against org engineering standards",
+      "agent": { "copilot": "auditor-scorecard-score", "copilot-go": "auditor-scorecard-score", "opencode": "auditor-scorecard-score", "openrouter": "auditor-scorecard-score" },
+      "tier": "medium",
+      "skills": ["org-metrics"]
+    }
+  }
+}

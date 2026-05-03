@@ -5,17 +5,22 @@ import {
   CircleDot,
   Clock,
   ExternalLink,
+  FileText,
   GitBranch,
   GitPullRequest,
   Loader2,
+  MessageSquare,
+  MoreVertical,
   RefreshCw,
   Sparkles,
+  ThumbsUp,
   User,
   X,
 } from 'lucide-react'
 import { GitHubClient, type PRHistorySummary, type PRLinkedIssue } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { usePRPanelData } from '../hooks/usePRPanelData'
 import { useCopilotReviewMonitor, clearPendingReview } from '../hooks/useCopilotReviewMonitor'
 import type { PRDetailInfo, PRDetailSection } from '../utils/prDetailView'
 import { resolveHeadBranch, parseIssueFromBranch } from '../utils/prDetailView'
@@ -23,11 +28,13 @@ import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { throwIfAborted } from '../utils/errorUtils'
 import { onKeyboardActivate } from '../utils/keyboard'
+import { MarkdownContent } from './shared/MarkdownContent'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRChecksPanel } from './PRChecksPanel'
 import { PRFilesChangedPanel } from './PRFilesChangedPanel'
 import { PRThreadsPanel } from './PRThreadsPanel'
 import { PRReviewsPanel } from './PRReviewsPanel'
+import { PRDetailContextMenu } from './PRDetailContextMenu'
 import './PullRequestDetailPanel.css'
 
 interface PullRequestDetailPanelProps {
@@ -89,6 +96,58 @@ function CopilotReviewButtonIcon({ state }: { state: string }) {
   return <Icon size={14} className={iconClass || undefined} />
 }
 
+function ApproveButton({
+  youApproved,
+  isApproving,
+  onApprove,
+}: {
+  youApproved: boolean
+  isApproving: boolean
+  onApprove: () => void
+}) {
+  return (
+    <button
+      className={`pr-detail-refresh-btn${youApproved ? ' pr-detail-approved' : ''}`}
+      onClick={onApprove}
+      title={youApproved ? 'You approved this PR' : 'Approve PR'}
+      disabled={youApproved || isApproving}
+    >
+      {isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />}
+    </button>
+  )
+}
+
+function NudgeButton({
+  nudgeState,
+  nudgeError,
+  onNudge,
+}: {
+  nudgeState: 'idle' | 'sending' | 'sent' | 'error'
+  nudgeError: string | null
+  onNudge: () => void
+}) {
+  return (
+    <button
+      className={`pr-detail-refresh-btn${nudgeState === 'sent' ? ' pr-detail-nudge-sent' : ''}${nudgeState === 'error' ? ' pr-detail-nudge-error' : ''}`}
+      onClick={onNudge}
+      title={
+        nudgeState === 'sent'
+          ? 'Nudge sent!'
+          : nudgeState === 'error'
+            ? `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
+            : 'Nudge author via Slack'
+      }
+      disabled={nudgeState === 'sending' || nudgeState === 'sent'}
+    >
+      {nudgeState === 'sending' ? (
+        <Loader2 size={14} className="spin" />
+      ) : (
+        <MessageSquare size={14} />
+      )}
+    </button>
+  )
+}
+
 interface PRDetailHeaderProps {
   pr: PRDetailInfo
   stateLabel: string
@@ -96,6 +155,13 @@ interface PRDetailHeaderProps {
   copilotReviewState: string
   handleRequestCopilotReview: () => void
   onRefresh: () => void
+  youApproved: boolean
+  isApproving: boolean
+  onApprove: () => void
+  nudgeState: 'idle' | 'sending' | 'sent' | 'error'
+  nudgeError: string | null
+  onNudge: () => void
+  onStartRalphReview: () => void
 }
 
 function PRDetailHeader({
@@ -105,7 +171,21 @@ function PRDetailHeader({
   copilotReviewState,
   handleRequestCopilotReview,
   onRefresh,
+  youApproved,
+  isApproving,
+  onApprove,
+  nudgeState,
+  nudgeError,
+  onNudge,
+  onStartRalphReview,
 }: PRDetailHeaderProps) {
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+
+  const handleMoreClick = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setContextMenu({ x: rect.right - 180, y: rect.bottom + 4 })
+  }
+
   return (
     <div className="pr-detail-header">
       <div className="pr-detail-title-wrap">
@@ -149,11 +229,54 @@ function PRDetailHeader({
         <button className="pr-detail-refresh-btn" onClick={onRefresh} title="Refresh PR data">
           <RefreshCw size={14} />
         </button>
+        <ApproveButton youApproved={youApproved} isApproving={isApproving} onApprove={onApprove} />
+        <NudgeButton nudgeState={nudgeState} nudgeError={nudgeError} onNudge={onNudge} />
+        <button className="pr-detail-refresh-btn" onClick={handleMoreClick} title="More actions">
+          <MoreVertical size={14} />
+        </button>
         <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(pr.url)}>
           <ExternalLink size={14} />
           Open on GitHub
         </button>
       </div>
+      {contextMenu && (
+        <PRDetailContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          youApproved={youApproved}
+          copilotReviewState={copilotReviewState}
+          nudgeState={nudgeState}
+          onRequestCopilotReview={() => {
+            handleRequestCopilotReview()
+            setContextMenu(null)
+          }}
+          onApprove={() => {
+            onApprove()
+            setContextMenu(null)
+          }}
+          onNudge={() => {
+            onNudge()
+            setContextMenu(null)
+          }}
+          onRefresh={() => {
+            onRefresh()
+            setContextMenu(null)
+          }}
+          onCopyLink={() => {
+            navigator.clipboard.writeText(pr.url)
+            setContextMenu(null)
+          }}
+          onOpenExternal={() => {
+            window.shell.openExternal(pr.url)
+            setContextMenu(null)
+          }}
+          onStartRalphReview={() => {
+            onStartRalphReview()
+            setContextMenu(null)
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }
@@ -171,6 +294,40 @@ function CopilotReviewBanner({ completedAt, onDismiss }: CopilotReviewBannerProp
         <div className="pr-detail-review-banner-text">
           <strong>Copilot review complete</strong>
           <span>Finished {formatDistanceToNow(completedAt)} — page refreshed with latest data</span>
+        </div>
+      </div>
+      <button className="pr-detail-review-banner-dismiss" onClick={onDismiss} title="Dismiss">
+        <X size={14} />
+      </button>
+    </div>
+  )
+}
+
+interface NudgeBannerProps {
+  state: 'sent' | 'error'
+  error: string | null
+  author: string
+  onDismiss: () => void
+}
+
+function NudgeBanner({ state, error, author, onDismiss }: NudgeBannerProps) {
+  const isError = state === 'error'
+  return (
+    <div className={`pr-detail-nudge-banner${isError ? ' pr-detail-nudge-banner-error' : ''}`}>
+      <div className="pr-detail-nudge-banner-content">
+        {isError ? <X size={16} /> : <CheckCircle2 size={16} />}
+        <div className="pr-detail-nudge-banner-text">
+          {isError ? (
+            <>
+              <strong>Couldn&apos;t nudge {author}</strong>
+              <span>{/* v8 ignore start */ error || 'Unknown error' /* v8 ignore stop */}</span>
+            </>
+          ) : (
+            <>
+              <strong>Nudge sent!</strong>
+              <span>Slack message delivered to {author}</span>
+            </>
+          )}
         </div>
       </div>
       <button className="pr-detail-review-banner-dismiss" onClick={onDismiss} title="Dismiss">
@@ -318,6 +475,23 @@ function resolveUserApproval(
   )
 }
 
+interface PRSummarySectionProps {
+  body: string | null
+}
+
+function PRSummarySection({ body }: PRSummarySectionProps) {
+  if (!body?.trim()) return null
+  return (
+    <div className="pr-detail-summary">
+      <div className="pr-detail-summary-title">
+        <FileText size={14} />
+        Summary
+      </div>
+      <MarkdownContent source={body} className="pr-detail-summary-body" />
+    </div>
+  )
+}
+
 interface SectionNoteBarProps {
   section: PRDetailSection
   sectionLabel: string
@@ -423,6 +597,10 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const enqueueRef = useRef(enqueue)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url) ?? null, [pr.url])
 
+  const { data: prBody } = usePRPanelData<string>(pr, 'pr-body', (client, owner, repo, prNumber) =>
+    client.fetchPRBody(owner, repo, prNumber)
+  )
+
   const {
     copilotReviewState,
     copilotReviewBanner,
@@ -437,8 +615,10 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
+  const [isApproving, setIsApproving] = useState(false)
   const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
-
+  const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [nudgeError, setNudgeError] = useState<string | null>(null)
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
@@ -450,6 +630,8 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   useEffect(() => {
     setHistoryUpdatedAt(null)
     setLinkedIssues([])
+    setNudgeState('idle')
+    setNudgeError(null)
   }, [pr.id, pr.repository, pr.url])
 
   const fetchBranches = useCallback(async () => {
@@ -508,6 +690,52 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     [accounts, ownerRepo, pr.org]
   )
 
+  const handleApprovePR = useCallback(async () => {
+    if (!ownerRepo || youApproved || isApproving) return
+    setIsApproving(true)
+    try {
+      await enqueueRef.current(
+        async signal => {
+          throwIfAborted(signal)
+          const client = new GitHubClient({ accounts }, 7)
+          await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
+        },
+        { name: `pr-approve-${pr.repository}-${pr.id}` }
+      )
+      setYouApproved(true)
+    } finally {
+      setIsApproving(false)
+    }
+  }, [accounts, ownerRepo, pr.id, pr.repository, youApproved, isApproving])
+
+  const handleNudgeAuthor = useCallback(async () => {
+    /* v8 ignore start -- button is disabled in sending/sent states */
+    if (nudgeState === 'sending' || nudgeState === 'sent') return
+    /* v8 ignore stop */
+    setNudgeState('sending')
+    setNudgeError(null)
+    try {
+      const result = await window.slack.nudgeAuthor({
+        githubLogin: pr.author,
+        prTitle: pr.title,
+        prUrl: pr.url,
+      })
+      if (result.success) {
+        setNudgeState('sent')
+      } else {
+        console.warn('[Nudge] Failed:', result.error)
+        setNudgeError(result.error || 'Unknown error')
+        setNudgeState('error')
+        setTimeout(() => setNudgeState('idle'), 5000)
+      }
+    } catch (err: unknown) {
+      console.error('[Nudge] Error:', err)
+      setNudgeError(String(err))
+      setNudgeState('error')
+      setTimeout(() => setNudgeState('idle'), 5000)
+    }
+  }, [nudgeState, pr.author, pr.title, pr.url])
+
   return (
     <div className="pr-detail-container">
       <PRDetailHeader
@@ -517,48 +745,84 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         copilotReviewState={copilotReviewState}
         handleRequestCopilotReview={handleRequestCopilotReview}
         onRefresh={() => setRefreshKey(k => k + 1)}
+        youApproved={youApproved}
+        isApproving={isApproving}
+        onApprove={handleApprovePR}
+        nudgeState={nudgeState}
+        nudgeError={nudgeError}
+        onNudge={handleNudgeAuthor}
+        onStartRalphReview={() => {
+          const org = pr.org || ownerRepo?.owner || ''
+          const repoRoot = accounts.find(a => a.org === org)?.repoRoot
+          const repoPath = repoRoot ? `${repoRoot}\\${pr.repository}` : ''
+          window.dispatchEvent(
+            new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } })
+          )
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent('ralph:launch-pr-review', {
+                detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
+              })
+            )
+          }, 100)
+        }}
       />
 
-      {copilotReviewBanner && (
-        <CopilotReviewBanner
-          completedAt={copilotReviewBanner.completedAt}
-          onDismiss={() => {
-            setCopilotReviewBanner(null)
-            clearPendingReview(pr.url)
-          }}
-        />
-      )}
-
-      {sectionLabel && (
-        <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />
-      )}
-
-      {isFocusedSection ? (
-        <FocusedSectionContent
-          section={section!}
-          pr={pr}
-          refreshKey={refreshKey}
-          onHistoryLoaded={handleHistoryLoaded}
-        />
-      ) : (
-        <>
-          <PROverviewSection
-            pr={pr}
-            youApproved={youApproved}
-            effectiveIssue={effectiveIssue}
-            createdRelative={createdRelative}
-            activityRelative={activityRelative}
-            activityAt={activityAt}
+      <div className="pr-detail-body">
+        {copilotReviewBanner && (
+          <CopilotReviewBanner
+            completedAt={copilotReviewBanner.completedAt}
+            onDismiss={() => {
+              setCopilotReviewBanner(null)
+              clearPendingReview(pr.url)
+            }}
           />
-          <PullRequestHistoryPanel
-            key={refreshKey}
-            pr={pr}
-            embedded
-            onLoaded={handleHistoryLoaded}
+        )}
+
+        {(nudgeState === 'sent' || nudgeState === 'error') && (
+          <NudgeBanner
+            state={nudgeState}
+            error={nudgeError}
+            author={pr.author}
+            onDismiss={() => {
+              setNudgeState('idle')
+              setNudgeError(null)
+            }}
           />
-          <PRThreadsPanel key={`threads-${refreshKey}`} pr={pr} />
-        </>
-      )}
+        )}
+
+        {sectionLabel && (
+          <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />
+        )}
+
+        {isFocusedSection ? (
+          <FocusedSectionContent
+            section={section!}
+            pr={pr}
+            refreshKey={refreshKey}
+            onHistoryLoaded={handleHistoryLoaded}
+          />
+        ) : (
+          <>
+            <PROverviewSection
+              pr={pr}
+              youApproved={youApproved}
+              effectiveIssue={effectiveIssue}
+              createdRelative={createdRelative}
+              activityRelative={activityRelative}
+              activityAt={activityAt}
+            />
+            <PRSummarySection body={prBody} />
+            <PullRequestHistoryPanel
+              key={refreshKey}
+              pr={pr}
+              embedded
+              onLoaded={handleHistoryLoaded}
+            />
+            <PRThreadsPanel key={`threads-${refreshKey}`} pr={pr} />
+          </>
+        )}
+      </div>
     </div>
   )
 }

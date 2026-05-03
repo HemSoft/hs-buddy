@@ -7,11 +7,13 @@ import {
   Clock,
   ExternalLink,
   MessageSquare,
+  Play,
   RefreshCw,
   Tag,
   UserRound,
 } from 'lucide-react'
 import { useGitHubData } from '../hooks/useGitHubData'
+import { useGitHubAccounts } from '../hooks/useConfig'
 import type { RepoIssueDetail } from '../api/github'
 import { formatDateFull, formatDistanceToNow } from '../utils/dateUtils'
 import { getLabelStyle } from '../utils/labelStyle'
@@ -40,12 +42,14 @@ function IssueHero({
   repo,
   loading,
   refresh,
+  onStartRalphLoop,
 }: {
   detail: RepoIssueDetail
   owner: string
   repo: string
   loading: boolean
   refresh: () => void
+  onStartRalphLoop: () => void
 }) {
   return (
     <div className="repo-issue-detail-hero">
@@ -77,6 +81,14 @@ function IssueHero({
         </div>
       </div>
       <div className="repo-issue-detail-hero-actions">
+        <button
+          className="repo-issue-detail-btn ghost"
+          onClick={onStartRalphLoop}
+          title="Launch a Ralph loop to work on this issue"
+        >
+          <Play size={14} />
+          Start Ralph Loop
+        </button>
         <button className="repo-issue-detail-btn ghost" onClick={refresh} disabled={loading}>
           <RefreshCw size={14} className={loading ? 'spin' : ''} />
           Refresh
@@ -198,6 +210,7 @@ function IssueCommentItem({ comment }: { comment: RepoIssueDetail['comments'][nu
 }
 
 export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDetailPanelProps) {
+  const { accounts } = useGitHubAccounts()
   const {
     data: detail,
     loading,
@@ -210,6 +223,31 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
     fetchFn: client => client.fetchRepoIssueDetail(owner, repo, issueNumber),
     /* v8 ignore stop */
   })
+
+  const handleStartRalphLoop = () => {
+    /* v8 ignore start -- detail loads asynchronously */
+    if (!detail) return
+    /* v8 ignore stop */
+    const repoRoot = accounts.find(a => a.org === owner)?.repoRoot
+    const repoPath = repoRoot
+      ? [repoRoot, repo].join(window.navigator.platform.startsWith('Win') ? '\\' : '/')
+      : ''
+    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent('ralph:launch-from-issue', {
+          detail: {
+            issueNumber: detail.number,
+            issueTitle: detail.title,
+            issueBody: detail.body,
+            repository: repo,
+            org: owner,
+            repoPath,
+          },
+        })
+      )
+    }, 100)
+  }
 
   if (!detail) {
     if (loading) {
@@ -227,7 +265,14 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
 
   return (
     <div className="repo-issue-detail-panel">
-      <IssueHero detail={detail} owner={owner} repo={repo} loading={loading} refresh={refresh} />
+      <IssueHero
+        detail={detail}
+        owner={owner}
+        repo={repo}
+        loading={loading}
+        refresh={refresh}
+        onStartRalphLoop={handleStartRalphLoop}
+      />
 
       <div className="repo-issue-detail-layout">
         <section className="repo-issue-detail-main-card">

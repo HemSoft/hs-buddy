@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { CircleDot, ExternalLink, RefreshCw, MessageSquare, Clock } from 'lucide-react'
 import { useGitHubData } from '../hooks/useGitHubData'
+import { useGitHubAccounts } from '../hooks/useConfig'
 import type { RepoIssue } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { getLabelStyle } from '../utils/labelStyle'
 import { ViewModeToggle } from './shared/ViewModeToggle'
 import { PanelLoadingState, PanelErrorState, PanelEmptyState } from './shared/PanelStates'
 import { useViewMode, type ViewMode } from '../hooks/useViewMode'
+import { IssueContextMenu } from './IssueContextMenu'
 import './RepoIssueList.css'
 import './shared/ListView.css'
 
@@ -19,20 +22,22 @@ interface RepoIssueListProps {
 function IssueTableView({
   issues,
   onOpenIssue,
+  onContextMenu,
 }: {
   issues: RepoIssue[]
   onOpenIssue?: (issueNumber: number) => void
+  onContextMenu: (e: React.MouseEvent, issue: RepoIssue) => void
 }) {
   return (
-    <div className="repo-issues-list" style={{ padding: 0 }}>
+    <div className="repo-issues-list repo-issues-list--table">
       <table className="list-view-table">
         <thead>
           <tr>
             <th className="col-status"></th>
             <th className="col-title">Title</th>
-            <th>Author</th>
-            <th>Labels</th>
-            <th>Updated</th>
+            <th className="col-author">Author</th>
+            <th className="col-labels">Labels</th>
+            <th className="col-date">Updated</th>
           </tr>
         </thead>
         <tbody>
@@ -46,6 +51,7 @@ function IssueTableView({
                 }
                 window.shell?.openExternal(issue.url)
               }}
+              onContextMenu={e => onContextMenu(e, issue)}
             >
               <td className="col-status">
                 <CircleDot size={14} className={`list-view-status-${issue.state}`} />
@@ -63,7 +69,7 @@ function IssueTableView({
                 )}
                 {issue.author}
               </td>
-              <td>
+              <td className="col-labels">
                 {issue.labels.map(label => (
                   <span
                     key={label.name}
@@ -86,14 +92,20 @@ function IssueTableView({
 function IssueCardView({
   issues,
   onOpenIssue,
+  onContextMenu,
 }: {
   issues: RepoIssue[]
   onOpenIssue?: (issueNumber: number) => void
+  onContextMenu: (e: React.MouseEvent, issue: RepoIssue) => void
 }) {
   return (
     <div className="repo-issues-list">
       {issues.map(issue => (
-        <div key={issue.number} className="repo-issue-item">
+        <div
+          key={issue.number}
+          className="repo-issue-item"
+          onContextMenu={e => onContextMenu(e, issue)}
+        >
           <button
             type="button"
             className="repo-issue-main"
@@ -239,12 +251,14 @@ function IssueListBody({
   issueState,
   viewMode,
   onOpenIssue,
+  onContextMenu,
 }: {
   issues: RepoIssue[]
   loading: boolean
   issueState: NonNullable<RepoIssueListProps['issueState']>
   viewMode: ViewMode
   onOpenIssue?: (issueNumber: number) => void
+  onContextMenu: (e: React.MouseEvent, issue: RepoIssue) => void
 }) {
   if (!loading && issues.length === 0) {
     return (
@@ -256,14 +270,17 @@ function IssueListBody({
     )
   }
   if (viewMode === 'list') {
-    return <IssueTableView issues={issues} onOpenIssue={onOpenIssue} />
+    return (
+      <IssueTableView issues={issues} onOpenIssue={onOpenIssue} onContextMenu={onContextMenu} />
+    )
   }
-  return <IssueCardView issues={issues} onOpenIssue={onOpenIssue} />
+  return <IssueCardView issues={issues} onOpenIssue={onOpenIssue} onContextMenu={onContextMenu} />
 }
 
 export function RepoIssueList(props: RepoIssueListProps) {
   const { owner, repo, onOpenIssue } = props
   const issueState = props.issueState ?? 'open'
+  const { accounts } = useGitHubAccounts()
   const { data, loading, error, refresh } = useGitHubData<RepoIssue[]>({
     cacheKey: `repo-issues:${issueState}:${owner}/${repo}`,
     taskName: `repo-issues-${issueState}-${owner}-${repo}`,
@@ -274,6 +291,72 @@ export function RepoIssueList(props: RepoIssueListProps) {
   const issues = data ?? []
   const isEmpty = issues.length === 0
   const [viewMode, setViewMode] = useViewMode(`repo-issues-${owner}-${repo}`)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; issue: RepoIssue } | null>(
+    null
+  )
+
+  const handleContextMenu = (e: React.MouseEvent, issue: RepoIssue) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, issue })
+  }
+
+  const handleStartRalphLoop = () => {
+    /* v8 ignore start -- defensive guard: handler only callable from context menu */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    const { issue } = contextMenu
+    const repoRoot = accounts.find(a => a.org === owner)?.repoRoot
+    const repoPath = repoRoot
+      ? /* v8 ignore start -- happy-dom navigator.platform doesn't match real Windows */
+        [repoRoot, repo].join(window.navigator.platform.startsWith('Win') ? '\\' : '/')
+      : /* v8 ignore stop */
+        ''
+    setContextMenu(null)
+    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent('ralph:launch-from-issue', {
+          detail: {
+            issueNumber: issue.number,
+            issueTitle: issue.title,
+            issueBody: `Read the full issue details from GitHub (${owner}/${repo}#${issue.number}) and implement the fix.`,
+            repository: repo,
+            org: owner,
+            repoPath,
+          },
+        })
+      )
+    }, 100)
+  }
+
+  const handleViewDetails = () => {
+    /* v8 ignore start -- defensive guard: handler only callable from context menu */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    const { issue } = contextMenu
+    setContextMenu(null)
+    if (onOpenIssue) {
+      onOpenIssue(issue.number)
+    } else {
+      window.shell?.openExternal(issue.url)
+    }
+  }
+
+  const handleCopyLink = () => {
+    /* v8 ignore start -- defensive guard: handler only callable from context menu */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    navigator.clipboard.writeText(contextMenu.issue.url)
+    setContextMenu(null)
+  }
+
+  const handleOpenOnGitHub = () => {
+    /* v8 ignore start -- defensive guard: handler only callable from context menu */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    window.shell?.openExternal(contextMenu.issue.url)
+    setContextMenu(null)
+  }
 
   if (isEmpty) {
     if (loading) {
@@ -308,7 +391,23 @@ export function RepoIssueList(props: RepoIssueListProps) {
         issueState={issueState}
         viewMode={viewMode}
         onOpenIssue={onOpenIssue}
+        onContextMenu={handleContextMenu}
       />
+
+      {contextMenu && (
+        <IssueContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          issue={contextMenu.issue}
+          owner={owner}
+          repo={repo}
+          onStartRalphLoop={handleStartRalphLoop}
+          onViewDetails={handleViewDetails}
+          onCopyLink={handleCopyLink}
+          onOpenOnGitHub={handleOpenOnGitHub}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }

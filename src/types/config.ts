@@ -8,6 +8,7 @@ import { DEFAULT_RECENTLY_MERGED_DAYS } from '../constants'
 export interface GitHubAccount {
   username: string
   org: string
+  repoRoot?: string
 }
 
 /** Rectangle describing display bounds or work area */

@@ -6,6 +6,7 @@ import { PRTreeSection } from './github-sidebar/PRTreeSection'
 import { OrgRepoTree } from './github-sidebar/OrgRepoTree'
 import { useGitHubSidebarData } from './github-sidebar/useGitHubSidebarData'
 import { useRefreshIndicators } from '../../hooks/useRefreshIndicators'
+import { useRalphLoops } from '../../hooks/useRalphLoops'
 
 type SidebarData = ReturnType<typeof useGitHubSidebarData>
 
@@ -135,6 +136,7 @@ export function GitHubSidebar({
 }: GitHubSidebarProps) {
   const refreshIndicators = useRefreshIndicators()
   const sidebarData = useGitHubSidebarData()
+  const { runs: ralphRuns } = useRalphLoops()
   const {
     bookmarkedRepoKeys,
     expandedSections,
@@ -174,6 +176,7 @@ export function GitHubSidebar({
     sflStatusData,
     loadingSFLStatus,
     expandedSFLGroups,
+    expandedRalphGroups,
     showBookmarkedOnly,
     setShowBookmarkedOnly,
     refreshTick,
@@ -189,6 +192,7 @@ export function GitHubSidebar({
     toggleRepoPRStateGroup,
     toggleRepoCommitGroup,
     toggleSFLGroup,
+    toggleRalphGroup,
     togglePRGroup,
     togglePRNode,
     newPRCounts,
@@ -339,6 +343,8 @@ export function GitHubSidebar({
               sflStatusData={sflStatusData}
               loadingSFLStatus={loadingSFLStatus}
               expandedSFLGroups={expandedSFLGroups}
+              ralphRuns={ralphRuns}
+              expandedRalphGroups={expandedRalphGroups}
               bookmarkedRepoKeys={bookmarkedRepoKeys}
               showBookmarkedOnly={showBookmarkedOnly}
               selectedItem={selectedItem}
@@ -354,6 +360,7 @@ export function GitHubSidebar({
               onToggleRepoPRStateGroup={toggleRepoPRStateGroup}
               onToggleRepoCommitGroup={toggleRepoCommitGroup}
               onToggleSFLGroup={toggleSFLGroup}
+              onToggleRalphGroup={toggleRalphGroup}
               onTogglePRNode={togglePRNode}
               onItemSelect={onItemSelect}
               onContextMenu={openTreePRContextMenu}

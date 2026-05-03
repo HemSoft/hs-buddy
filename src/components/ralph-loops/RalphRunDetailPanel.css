@@ -1,0 +1,315 @@
+/* ── Ralph Run Detail Panel ────────────────────────────────────── */
+
+.ralph-run-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #ccc);
+}
+
+.ralph-run-detail-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 200px;
+  color: var(--text-secondary, #888);
+}
+
+.ralph-run-detail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 200px;
+  color: var(--text-secondary, #888);
+}
+
+.ralph-run-detail-empty svg {
+  opacity: 0.5;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+
+.ralph-run-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.ralph-run-detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ralph-run-detail-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ralph-run-detail-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ralph-run-detail-status.ralph-status-pending {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+
+.ralph-run-detail-status.ralph-status-running {
+  background: rgba(33, 150, 243, 0.15);
+  color: #42a5f5;
+}
+
+.ralph-run-detail-status.ralph-status-completed {
+  background: rgba(76, 175, 80, 0.15);
+  color: #66bb6a;
+}
+
+.ralph-run-detail-status.ralph-status-failed {
+  background: rgba(244, 67, 54, 0.15);
+  color: #ef5350;
+}
+
+.ralph-run-detail-status.ralph-status-cancelled {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ffa726;
+}
+
+.ralph-run-detail-status.ralph-status-orphaned {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ffa726;
+}
+
+.ralph-run-detail-runid {
+  font-size: 11px;
+  color: var(--text-tertiary, #666);
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Card (Progress) ─────────────────────────────────────────── */
+
+.ralph-run-detail-card {
+  background: var(--bg-secondary, #252526);
+  border: 1px solid var(--border-primary, #3a3a3a);
+  border-radius: 6px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+  white-space: normal;
+}
+
+.ralph-run-detail-card h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #888);
+}
+
+/* ── Progress Meta (model + branch row) ──────────────────────── */
+
+.ralph-run-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: 13px;
+  color: var(--text-secondary, #aaa);
+  margin-bottom: 8px;
+  white-space: normal;
+}
+
+.ralph-run-progress-meta strong {
+  color: var(--text-primary, #ccc);
+  font-weight: 500;
+}
+
+.ralph-run-progress-footer {
+  margin-top: 8px;
+  margin-bottom: 0;
+  font-size: 12px;
+  color: var(--text-tertiary, #777);
+}
+
+/* ── Progress Bars ───────────────────────────────────────────── */
+
+.ralph-run-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.ralph-run-progress-label {
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+  min-width: 60px;
+}
+
+.ralph-run-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-tertiary, #333);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ralph-run-progress-fill {
+  height: 100%;
+  background: var(--accent-primary, #0e639c);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.ralph-run-progress-value {
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+  min-width: 30px;
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Stats Grid ──────────────────────────────────────────────── */
+
+.ralph-run-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 8px 0;
+  white-space: normal;
+}
+
+.ralph-run-stat {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  background: var(--bg-tertiary, #252525);
+  border-radius: 4px;
+  border: 1px solid var(--border-primary, #333);
+}
+
+.ralph-run-stat-wide {
+  grid-column: span 2;
+}
+
+.ralph-run-stat-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary, #eee);
+  font-family: var(--font-mono, monospace);
+  line-height: 1.2;
+}
+
+.ralph-run-stat-label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-tertiary, #777);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+/* ── Log Viewer (dominant section) ───────────────────────────── */
+
+.ralph-run-detail-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ralph-run-detail-log h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
+.ralph-run-detail-log-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-tertiary, #1a1a1a);
+  border: 1px solid var(--border-primary, #333);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: var(--font-mono, 'Cascadia Code', 'Fira Code', monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-secondary, #aaa);
+}
+
+.ralph-run-detail-log-empty {
+  color: var(--text-tertiary, #666);
+  font-style: italic;
+}
+
+/* ── Log line coloring ────────────────────────────────────────── */
+
+.ralph-run-detail-log-content .log-header {
+  color: #5cb3ff;
+  font-weight: 600;
+}
+
+.ralph-run-detail-log-content .log-separator {
+  color: #555;
+  opacity: 0.6;
+}
+
+.ralph-run-detail-log-content .log-section {
+  color: #c792ea;
+  font-weight: 600;
+}
+
+.ralph-run-detail-log-content .log-timestamp {
+  color: #82aaff;
+}
+
+.ralph-run-detail-log-content .log-stat {
+  color: #89ddff;
+}
+
+.ralph-run-detail-log-content .log-command {
+  color: #a9b7c6;
+  border-left: 2px solid #444;
+  padding-left: 6px;
+  margin-left: 2px;
+}
+
+.ralph-run-detail-log-content .log-info {
+  color: #c3e88d;
+}
+
+/* ── Error ────────────────────────────────────────────────────── */
+
+.ralph-run-detail-error {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #ef5350;
+  font-size: 13px;
+  flex-shrink: 0;
+}

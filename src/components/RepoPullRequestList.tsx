@@ -1,5 +1,14 @@
 import { useCallback } from 'react'
-import { GitPullRequest, ExternalLink, RefreshCw, Clock, GitBranch, ThumbsUp } from 'lucide-react'
+import {
+  GitPullRequest,
+  ExternalLink,
+  RefreshCw,
+  Clock,
+  GitBranch,
+  ThumbsUp,
+  CircleCheck,
+  MessageSquare,
+} from 'lucide-react'
 import { useGitHubData } from '../hooks/useGitHubData'
 import type { RepoPullRequest } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
@@ -37,7 +46,7 @@ function PRTableView({
   handlePRClick: (pr: RepoPullRequest) => void
 }) {
   return (
-    <div className="repo-prs-list" style={{ padding: 0 }}>
+    <div className="repo-prs-list" style={{ display: 'block', padding: 0 }}>
       <table className="list-view-table">
         <thead>
           <tr>
@@ -45,6 +54,7 @@ function PRTableView({
             <th className="col-title">Title</th>
             <th>Author</th>
             <th>Updated</th>
+            <th>Status</th>
             <th>Reviews</th>
           </tr>
         </thead>
@@ -68,14 +78,34 @@ function PRTableView({
               </td>
               <td className="col-author">
                 {pr.authorAvatarUrl && (
-                  <img src={pr.authorAvatarUrl} alt={pr.author} className="list-view-avatar" />
+                  <img
+                    src={pr.authorAvatarUrl}
+                    alt={pr.author}
+                    className="list-view-avatar"
+                    width={18}
+                    height={18}
+                  />
                 )}
                 {pr.author}
               </td>
               <td className="col-date">{formatDistanceToNow(pr.updatedAt)}</td>
               <td>
+                {pr.threadsUnaddressed != null ? (
+                  pr.threadsUnaddressed > 0 ? (
+                    <span className="list-view-comments-unresolved">
+                      <MessageSquare size={12} />
+                      {pr.threadsUnaddressed}
+                    </span>
+                  ) : (
+                    <CircleCheck size={14} className="list-view-comments-clear" />
+                  )
+                ) : null}
+              </td>
+              <td>
                 {(pr.approvalCount ?? 0) > 0 && (
-                  <span className="list-view-approvals">
+                  <span
+                    className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
+                  >
                     <ThumbsUp size={12} />
                     {pr.approvalCount}
                   </span>
@@ -146,7 +176,9 @@ function PRCardView({
             </span>
             <span className="repo-pr-updated">updated {formatDistanceToNow(pr.updatedAt)}</span>
             {(pr.approvalCount ?? 0) > 0 && (
-              <span className="repo-pr-approvals">
+              <span
+                className={`repo-pr-approvals${pr.iApproved ? ' repo-pr-approvals--mine' : ''}`}
+              >
                 <ThumbsUp size={12} />
                 {pr.approvalCount}
               </span>

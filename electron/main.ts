@@ -9,6 +9,7 @@ import { buildMenu, registerKeyboardShortcuts } from './menu'
 import { registerAllHandlers } from './ipc'
 import { getDispatcher, runOfflineSync } from './workers'
 import { stopSharedClient } from './services/copilotClient'
+import { initRalphService, shutdownRalphService } from './services/ralphService'
 import {
   resolveWindowBounds as resolveWindowBoundsPure,
   type DisplayInfo,
@@ -171,6 +172,9 @@ app.whenReady().then(() => {
   // Register all IPC handlers
   registerAllHandlers(win!)
 
+  // Recover orphaned ralph loops from a previous session
+  initRalphService()
+
   emitLog('INFO', 'Application started', { 'app.version': app.getVersion() })
 
   // Process missed schedules from when the app was closed, then start polling
@@ -201,6 +205,7 @@ app.on('before-quit', event => {
   try {
     getDispatcher().stop()
     stopSharedClient()
+    shutdownRalphService()
   } catch (err: unknown) {
     console.error('[Main] Sync shutdown error:', err)
   }

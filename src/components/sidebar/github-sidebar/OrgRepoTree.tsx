@@ -21,6 +21,7 @@ import type {
 } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
+import type { RalphRunInfo } from '../../../types/ralph'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { RepoNode } from './RepoNode'
 import { handleItemKeyDown, refreshStateClass, sidebarItemClass } from './repoNodeUtils'
@@ -68,6 +69,8 @@ interface OrgRepoTreeProps {
   sflStatusData: Record<string, SFLRepoStatus>
   loadingSFLStatus: ReadonlySet<string>
   expandedSFLGroups: ReadonlySet<string>
+  ralphRuns: RalphRunInfo[]
+  expandedRalphGroups: ReadonlySet<string>
   bookmarkedRepoKeys: ReadonlySet<string>
   showBookmarkedOnly: boolean
   selectedItem: string | null
@@ -83,6 +86,7 @@ interface OrgRepoTreeProps {
   onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
   onToggleSFLGroup: (org: string, repoName: string) => void
+  onToggleRalphGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
@@ -618,6 +622,8 @@ interface OrgReposSectionProps {
   sflStatusData: Record<string, SFLRepoStatus>
   loadingSFLStatus: ReadonlySet<string>
   expandedSFLGroups: ReadonlySet<string>
+  ralphRuns: RalphRunInfo[]
+  expandedRalphGroups: ReadonlySet<string>
   selectedItem: string | null
   refreshTick: number
   onToggleOrgRepoGroup: (org: string) => void
@@ -628,6 +634,7 @@ interface OrgReposSectionProps {
   onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
   onToggleSFLGroup: (org: string, repoName: string) => void
+  onToggleRalphGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
@@ -662,6 +669,8 @@ function OrgReposSection({
   sflStatusData,
   loadingSFLStatus,
   expandedSFLGroups,
+  ralphRuns,
+  expandedRalphGroups,
   selectedItem,
   refreshTick,
   onToggleOrgRepoGroup,
@@ -672,6 +681,7 @@ function OrgReposSection({
   onToggleRepoPRStateGroup,
   onToggleRepoCommitGroup,
   onToggleSFLGroup,
+  onToggleRalphGroup,
   onTogglePRNode,
   onItemSelect,
   onContextMenu,
@@ -741,6 +751,8 @@ function OrgReposSection({
                 sflStatusData={sflStatusData}
                 loadingSFLStatus={loadingSFLStatus}
                 expandedSFLGroups={expandedSFLGroups}
+                ralphRuns={ralphRuns}
+                expandedRalphGroups={expandedRalphGroups}
                 selectedItem={selectedItem}
                 refreshTick={refreshTick}
                 onToggleRepo={onToggleRepo}
@@ -750,6 +762,7 @@ function OrgReposSection({
                 onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
                 onToggleRepoCommitGroup={onToggleRepoCommitGroup}
                 onToggleSFLGroup={onToggleSFLGroup}
+                onToggleRalphGroup={onToggleRalphGroup}
                 onTogglePRNode={onTogglePRNode}
                 onItemSelect={onItemSelect}
                 onContextMenu={onContextMenu}
@@ -803,6 +816,8 @@ function OrgExpandedBody({
   sflStatusData,
   loadingSFLStatus,
   expandedSFLGroups,
+  ralphRuns,
+  expandedRalphGroups,
   selectedItem,
   refreshTick,
   onToggleOrgTeamGroup,
@@ -815,6 +830,7 @@ function OrgExpandedBody({
   onToggleRepoPRStateGroup,
   onToggleRepoCommitGroup,
   onToggleSFLGroup,
+  onToggleRalphGroup,
   onTogglePRNode,
   onItemSelect,
   onContextMenu,
@@ -855,6 +871,8 @@ function OrgExpandedBody({
   sflStatusData: Record<string, SFLRepoStatus>
   loadingSFLStatus: ReadonlySet<string>
   expandedSFLGroups: ReadonlySet<string>
+  ralphRuns: RalphRunInfo[]
+  expandedRalphGroups: ReadonlySet<string>
   selectedItem: string | null
   refreshTick: number
   onToggleOrgTeamGroup: (org: string) => void
@@ -867,6 +885,7 @@ function OrgExpandedBody({
   onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
   onToggleSFLGroup: (org: string, repoName: string) => void
+  onToggleRalphGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
@@ -942,6 +961,8 @@ function OrgExpandedBody({
             sflStatusData={sflStatusData}
             loadingSFLStatus={loadingSFLStatus}
             expandedSFLGroups={expandedSFLGroups}
+            ralphRuns={ralphRuns}
+            expandedRalphGroups={expandedRalphGroups}
             selectedItem={selectedItem}
             refreshTick={refreshTick}
             onToggleRepo={onToggleRepo}
@@ -951,6 +972,7 @@ function OrgExpandedBody({
             onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
             onToggleRepoCommitGroup={onToggleRepoCommitGroup}
             onToggleSFLGroup={onToggleSFLGroup}
+            onToggleRalphGroup={onToggleRalphGroup}
             onTogglePRNode={onTogglePRNode}
             onItemSelect={onItemSelect}
             onContextMenu={onContextMenu}
@@ -1011,6 +1033,8 @@ function OrgTreeNode({
   sflStatusData,
   loadingSFLStatus,
   expandedSFLGroups,
+  ralphRuns,
+  expandedRalphGroups,
   bookmarkedRepoKeys,
   showBookmarkedOnly,
   selectedItem,
@@ -1026,6 +1050,7 @@ function OrgTreeNode({
   onToggleRepoPRStateGroup,
   onToggleRepoCommitGroup,
   onToggleSFLGroup,
+  onToggleRalphGroup,
   onTogglePRNode,
   onItemSelect,
   onContextMenu,
@@ -1102,6 +1127,8 @@ function OrgTreeNode({
           sflStatusData={sflStatusData}
           loadingSFLStatus={loadingSFLStatus}
           expandedSFLGroups={expandedSFLGroups}
+          ralphRuns={ralphRuns}
+          expandedRalphGroups={expandedRalphGroups}
           selectedItem={selectedItem}
           refreshTick={refreshTick}
           onToggleOrgTeamGroup={onToggleOrgTeamGroup}
@@ -1114,6 +1141,7 @@ function OrgTreeNode({
           onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
           onToggleRepoCommitGroup={onToggleRepoCommitGroup}
           onToggleSFLGroup={onToggleSFLGroup}
+          onToggleRalphGroup={onToggleRalphGroup}
           onTogglePRNode={onTogglePRNode}
           onItemSelect={onItemSelect}
           onContextMenu={onContextMenu}

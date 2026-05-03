@@ -22,6 +22,7 @@ import type * as lib_domain from "../lib/domain.js";
 import type * as lib_projections from "../lib/projections.js";
 import type * as lib_stats from "../lib/stats.js";
 import type * as prReviewRuns from "../prReviewRuns.js";
+import type * as ralphRuns from "../ralphRuns.js";
 import type * as repoBookmarks from "../repoBookmarks.js";
 import type * as runs from "../runs.js";
 import type * as scheduleScanner from "../scheduleScanner.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   "lib/projections": typeof lib_projections;
   "lib/stats": typeof lib_stats;
   prReviewRuns: typeof prReviewRuns;
+  ralphRuns: typeof ralphRuns;
   repoBookmarks: typeof repoBookmarks;
   runs: typeof runs;
   scheduleScanner: typeof scheduleScanner;

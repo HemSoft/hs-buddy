@@ -367,6 +367,10 @@
   font-weight: 500;
 }
 
+.repo-pr-approvals--mine {
+  color: var(--accent-gold, #e2b340);
+}
+
 @keyframes repo-prs-spin {
   from {
     transform: rotate(0deg);

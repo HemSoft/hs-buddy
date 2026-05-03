@@ -46,6 +46,8 @@ function useAppCallbacks(
       setSelectedSection(sectionId)
       if (sectionId === 'bookmarks') {
         openTab('bookmarks-all')
+      } else if (sectionId === 'ralph') {
+        openTab('ralph-dashboard')
       }
     },
     [openTab, setSelectedSection]

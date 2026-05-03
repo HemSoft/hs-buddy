@@ -26,6 +26,8 @@ import { OrgDetailPanel } from './OrgDetailPanel'
 import { UserDetailPanel } from './UserDetailPanel'
 import { CrewProjectView } from './crew/CrewProjectView'
 import { TempoDashboard } from './tempo/TempoDashboard'
+import { RalphDashboard } from './ralph-loops/RalphDashboard'
+import { RalphRunDetailPanel } from './ralph-loops/RalphRunDetailPanel'
 import { SessionExplorer } from './sessions/SessionExplorer'
 import { SessionDetail } from './sessions/SessionDetail'
 import { TaskPlannerView } from './planner/TaskPlannerView'
@@ -123,6 +125,7 @@ function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => Reac
     'tasks-upcoming': () => <TaskPlannerView mode="upcoming" />,
     'tasks-projects': () => <TaskPlannerView />,
     'tempo-timesheet': () => <TempoDashboard />,
+    'ralph-dashboard': () => <RalphDashboard onOpenTab={ctx.onOpenTab} />,
     'bookmarks-all': () => <BookmarkList key="bookmarks-all" onOpenTab={ctx.onOpenTab} />,
   }
 }
@@ -343,6 +346,7 @@ const prefixRoutes: PrefixRouteEntry[] = [
       ) : null
     },
   },
+  { prefix: 'ralph-run:', render: slug => <RalphRunDetailPanel runId={slug} /> },
   { prefix: 'copilot-result:', render: slug => <CopilotResultPanel resultId={slug} /> },
   { prefix: 'pr-review:', render: (slug, ctx) => renderPRReviewRoute(slug, ctx) },
   { prefix: 'pr-detail:', render: slug => renderPRDetailRoute(slug) },

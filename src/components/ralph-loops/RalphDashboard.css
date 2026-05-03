@@ -1,0 +1,713 @@
+/* ── Ralph Loops Dashboard ────────────────────────────────────── */
+
+.ralph-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #ccc);
+}
+
+.ralph-dashboard-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ralph-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 200px;
+  color: var(--text-secondary, #888);
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+
+.ralph-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-primary, #333);
+  flex-shrink: 0;
+  background: var(--bg-primary, #1e1e1e);
+}
+
+.ralph-dashboard-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ralph-dashboard-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ralph-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-primary, #444);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary, #ccc);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ralph-action-btn:hover {
+  background: var(--bg-hover, #2a2d2e);
+}
+
+.ralph-action-btn.ralph-primary {
+  background: var(--accent-primary, #0e639c);
+  border-color: var(--accent-primary, #0e639c);
+  color: #fff;
+}
+
+.ralph-action-btn.ralph-primary:hover {
+  background: var(--accent-hover, #1177bb);
+}
+
+.ralph-action-btn.ralph-primary.active {
+  background: var(--accent-hover, #1177bb);
+}
+
+/* ── Error Banner ────────────────────────────────────────────── */
+
+.ralph-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 4px;
+  color: #f44336;
+  font-size: 12px;
+}
+
+.ralph-error-banner button {
+  background: none;
+  border: none;
+  color: #f44336;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* ── Sections ────────────────────────────────────────────────── */
+
+.ralph-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ralph-section-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ralph-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary, #888);
+  font-size: 13px;
+}
+
+/* ── Card Grid ───────────────────────────────────────────────── */
+
+.ralph-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+/* ── Script Card ─────────────────────────────────────────────── */
+
+.ralph-script-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border-primary, #333);
+  border-radius: 6px;
+  background: var(--bg-secondary, #252526);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.ralph-script-card:hover {
+  border-color: var(--accent-primary, #0e639c);
+  background: var(--bg-hover, #2a2d2e);
+}
+
+.ralph-script-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ralph-script-icon {
+  color: var(--accent-primary, #0e639c);
+  flex-shrink: 0;
+}
+
+.ralph-script-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ralph-script-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+  line-height: 1.4;
+}
+
+.ralph-script-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-tertiary, #666);
+}
+
+.ralph-script-filename {
+  font-family: var(--font-mono, 'Cascadia Code', monospace);
+  font-size: 10px;
+}
+
+/* ── Loop Card ───────────────────────────────────────────────── */
+
+.ralph-loop-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-primary, #333);
+  border-radius: 6px;
+  background: var(--bg-secondary, #252526);
+  transition: border-color 0.15s;
+}
+
+.ralph-loop-card:hover {
+  border-color: var(--border-hover, #555);
+}
+
+.ralph-loop-card.ralph-status-running {
+  border-left: 3px solid #4fc3f7;
+}
+
+.ralph-loop-card.ralph-status-completed {
+  border-left: 3px solid #66bb6a;
+}
+
+.ralph-loop-card.ralph-status-failed {
+  border-left: 3px solid #f44336;
+}
+
+.ralph-loop-card.ralph-status-cancelled {
+  border-left: 3px solid #ff9800;
+}
+
+.ralph-loop-card.ralph-status-orphaned {
+  border-left: 3px solid #9e9e9e;
+}
+
+.ralph-loop-card.ralph-status-pending {
+  border-left: 3px solid #78909c;
+}
+
+/* Card Header */
+
+.ralph-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ralph-card-repo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.ralph-card-repo-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ralph-card-branch {
+  padding: 1px 6px;
+  font-size: 11px;
+  border-radius: 3px;
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #aaa);
+  white-space: nowrap;
+}
+
+.ralph-card-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ralph-status-running .ralph-card-status {
+  color: #4fc3f7;
+}
+
+.ralph-status-completed .ralph-card-status {
+  color: #66bb6a;
+}
+
+.ralph-status-failed .ralph-card-status {
+  color: #f44336;
+}
+
+/* Card Body */
+
+.ralph-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ralph-card-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ralph-card-script,
+.ralph-card-model,
+.ralph-card-phase {
+  padding: 1px 6px;
+  font-size: 11px;
+  border-radius: 3px;
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #aaa);
+}
+
+.ralph-card-phase {
+  color: var(--accent-text, #569cd6);
+}
+
+/* Progress Bar */
+
+.ralph-progress-bar {
+  position: relative;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--bg-tertiary, #333);
+  overflow: hidden;
+}
+
+.ralph-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0e639c, #4fc3f7);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.ralph-progress-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Card Footer */
+
+.ralph-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+.ralph-stop-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  border-radius: 3px;
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.ralph-stop-btn:hover {
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.ralph-card-error {
+  color: #f44336;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ralph-card-duration {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Launch Form ─────────────────────────────────────────────── */
+
+.ralph-launch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-primary, #333);
+  border-radius: 6px;
+  background: var(--bg-secondary, #252526);
+}
+
+.ralph-form-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ralph-form-error {
+  padding: 6px 10px;
+  border-radius: 3px;
+  background: rgba(244, 67, 54, 0.12);
+  color: #f44336;
+  font-size: 12px;
+}
+
+.ralph-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ralph-form-field.ralph-form-checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+
+.ralph-form-field.ralph-form-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  font-size: 12px;
+  color: var(--text-primary, #ccc);
+  cursor: pointer;
+}
+
+.ralph-form-field label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary, #aaa);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ralph-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ralph-input-row {
+  display: flex;
+  gap: 4px;
+}
+
+.ralph-input-row input {
+  flex: 1;
+}
+
+.ralph-launch-form input,
+.ralph-launch-form select {
+  padding: 6px 8px;
+  border: 1px solid var(--border-primary, #444);
+  border-radius: 4px;
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #ccc);
+  font-size: 12px;
+}
+
+.ralph-launch-form input:focus,
+.ralph-launch-form select:focus {
+  outline: none;
+  border-color: var(--accent-primary, #0e639c);
+}
+
+.ralph-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+}
+
+.ralph-toggle-label input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-primary, #0e639c);
+  cursor: pointer;
+}
+
+.ralph-toggle-text {
+  user-select: none;
+}
+
+.ralph-launch-form input:disabled,
+.ralph-launch-form select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ralph-browse-btn {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--border-primary, #444);
+  border-radius: 4px;
+  background: var(--bg-tertiary, #333);
+  color: var(--text-primary, #ccc);
+  cursor: pointer;
+}
+
+.ralph-browse-btn:hover {
+  background: var(--bg-hover, #3c3c3c);
+}
+
+/* Prompt textarea */
+
+.ralph-launch-form textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-primary, #444);
+  border-radius: 4px;
+  background: var(--bg-input, #1e1e1e);
+  color: var(--text-primary, #ccc);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.ralph-launch-form textarea:focus {
+  outline: 1px solid var(--accent-primary, #0e639c);
+  border-color: var(--accent-primary, #0e639c);
+}
+
+.ralph-form-hint {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+  margin-left: 6px;
+}
+
+/* PR Review Agent chips */
+
+.ralph-agent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ralph-agent-chip {
+  padding: 3px 8px;
+  border: 1px solid var(--border-primary, #444);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-secondary, #aaa);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.ralph-agent-chip:hover {
+  border-color: var(--accent-primary, #0e639c);
+  color: var(--text-primary, #ccc);
+}
+
+.ralph-agent-chip.selected {
+  background: var(--accent-primary, #0e639c);
+  border-color: var(--accent-primary, #0e639c);
+  color: #fff;
+}
+
+.ralph-agent-chip-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.ralph-agent-model-select {
+  font-size: 10px;
+  padding: 1px 4px;
+  border: 1px solid var(--accent-primary, #0e639c);
+  border-radius: 4px;
+  background: var(--bg-secondary, #2d2d2d);
+  color: var(--text-secondary, #aaa);
+  max-width: 140px;
+}
+
+/* Launch button */
+
+.ralph-launch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent-primary, #0e639c);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.ralph-launch-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #1177bb);
+}
+
+.ralph-launch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Spinner ─────────────────────────────────────────────────── */
+
+@keyframes ralph-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ralph-spin {
+  animation: ralph-spin 1s linear infinite;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+
+.ralph-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 24px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary, #ccc);
+  border-radius: 3px;
+}
+
+.ralph-sidebar-item:hover {
+  background: var(--bg-hover, #2a2d2e);
+}
+
+.ralph-sidebar-item.selected {
+  background: var(--bg-selected, #094771);
+  color: #fff;
+}
+
+.ralph-sidebar-script {
+  padding-left: 36px;
+  font-size: 12px;
+}
+
+.ralph-sidebar-script svg {
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
+.ralph-sidebar-empty {
+  padding: 4px 12px 4px 36px;
+  font-size: 11px;
+  color: var(--text-tertiary, #666);
+  font-style: italic;
+}
+
+.ralph-sidebar-badge {
+  margin-left: auto;
+  padding: 0 6px;
+  font-size: 10px;
+  border-radius: 8px;
+  background: var(--accent-primary, #0e639c);
+  color: #fff;
+  line-height: 16px;
+}
+
+.ralph-sidebar-subheader {
+  padding: 6px 12px 2px 28px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary, #888);
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  margin-top: 4px;
+}
+
+.ralph-sidebar-run {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ralph-sidebar-run-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.ralph-sidebar-run-detail {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-tertiary, #888);
+  white-space: nowrap;
+}

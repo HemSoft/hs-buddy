@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { describe, it, expect } from 'vitest'
 import {
   isValidRepoSlug,
@@ -8,6 +9,9 @@ import {
   buildPtySpawnOptions,
   findRepoPath,
 } from './terminalPathUtils'
+
+/** Build a platform-native path from posix-style segments. */
+const p = (...segments: string[]) => path.join(...segments)
 
 // ─── isValidRepoSlug ────────────────────────────────────
 
@@ -78,21 +82,19 @@ describe('getOrgCandidates', () => {
 describe('getCloneRoots', () => {
   it('includes common directories for unix', () => {
     const roots = getCloneRoots('darwin', '/Users/test')
-    expect(roots).toContain('/Users/test/github')
-    expect(roots).toContain('/Users/test/repos')
-    expect(roots).toContain('/Users/test/projects')
-    expect(roots).toContain('/Users/test/source/repos')
-    // Unix also gets drive-root github
-    expect(roots).toContain('/github')
+    expect(roots).toContain(path.join('/Users/test', 'github'))
+    expect(roots).toContain(path.join('/Users/test', 'repos'))
+    expect(roots).toContain(path.join('/Users/test', 'projects'))
+    expect(roots).toContain(path.join('/Users/test', 'source', 'repos'))
+    // Also gets drive-root github
+    expect(roots).toContain(path.join('/', 'github'))
   })
 
   it('includes Windows drive letters for win32', () => {
-    // Note: path.join on non-Windows normalizes backslashes to forward slashes
-    // We test the structure, not exact separators
     const roots = getCloneRoots('win32', '/Users/test')
     expect(roots.some(r => r.includes('C:'))).toBe(true)
     expect(roots.some(r => r.includes('D:'))).toBe(true)
-    expect(roots).toContain('/Users/test/github')
+    expect(roots).toContain(path.join('/Users/test', 'github'))
   })
 
   it('does not include drive letters for linux', () => {
@@ -249,23 +251,23 @@ describe('buildPtySpawnOptions', () => {
 
 describe('findRepoPath', () => {
   it('returns first matching candidate via org subfolder', () => {
-    const validDirs = new Set(['/github', '/github/acme/my-repo'])
+    const validDirs = new Set(['/github', p('/github', 'acme', 'my-repo')])
     const result = findRepoPath(['/github'], ['acme', 'Acme'], 'my-repo', dir => validDirs.has(dir))
-    expect(result).toBe('/github/acme/my-repo')
+    expect(result).toBe(p('/github', 'acme', 'my-repo'))
   })
 
   it('skips roots that do not exist', () => {
-    const validDirs = new Set(['/repos', '/repos/acme/my-repo'])
+    const validDirs = new Set(['/repos', p('/repos', 'acme', 'my-repo')])
     const result = findRepoPath(['/github', '/repos'], ['acme'], 'my-repo', dir =>
       validDirs.has(dir)
     )
-    expect(result).toBe('/repos/acme/my-repo')
+    expect(result).toBe(p('/repos', 'acme', 'my-repo'))
   })
 
   it('falls back to direct root/repo when org subfolder does not match', () => {
-    const validDirs = new Set(['/github', '/github/my-repo'])
+    const validDirs = new Set(['/github', p('/github', 'my-repo')])
     const result = findRepoPath(['/github'], ['acme'], 'my-repo', dir => validDirs.has(dir))
-    expect(result).toBe('/github/my-repo')
+    expect(result).toBe(p('/github', 'my-repo'))
   })
 
   it('returns null when no paths match', () => {
@@ -274,21 +276,26 @@ describe('findRepoPath', () => {
   })
 
   it('earlier root beats later root', () => {
-    const validDirs = new Set(['/first', '/first/org/repo', '/second', '/second/org/repo'])
+    const validDirs = new Set([
+      '/first',
+      p('/first', 'org', 'repo'),
+      '/second',
+      p('/second', 'org', 'repo'),
+    ])
     const result = findRepoPath(['/first', '/second'], ['org'], 'repo', dir => validDirs.has(dir))
-    expect(result).toBe('/first/org/repo')
+    expect(result).toBe(p('/first', 'org', 'repo'))
   })
 
   it('org subfolder beats direct match', () => {
-    const validDirs = new Set(['/github', '/github/acme/repo', '/github/repo'])
+    const validDirs = new Set(['/github', p('/github', 'acme', 'repo'), p('/github', 'repo')])
     const result = findRepoPath(['/github'], ['acme'], 'repo', dir => validDirs.has(dir))
-    expect(result).toBe('/github/acme/repo')
+    expect(result).toBe(p('/github', 'acme', 'repo'))
   })
 
   it('preserves org candidate order from getOrgCandidates', () => {
-    const validDirs = new Set(['/root', '/root/Acme/repo', '/root/acme/repo'])
+    const validDirs = new Set(['/root', p('/root', 'Acme', 'repo'), p('/root', 'acme', 'repo')])
     const result = findRepoPath(['/root'], ['acme', 'Acme'], 'repo', dir => validDirs.has(dir))
-    expect(result).toBe('/root/acme/repo')
+    expect(result).toBe(p('/root', 'acme', 'repo'))
   })
 
   it('skips root when org and direct candidates both fail', () => {

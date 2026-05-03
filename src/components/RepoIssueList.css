@@ -9,10 +9,17 @@
 
 .repo-issues-header {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
   border-bottom: 1px solid var(--border-secondary);
+}
+
+.repo-issues-header-left {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .repo-issues-header-left h2 {
@@ -47,11 +54,14 @@
   font-size: 14px;
   color: var(--text-secondary);
   font-weight: 400;
-  margin-left: 4px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-primary, #3c3c3c);
 }
 
 .repo-issues-header-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 12px;
 }
@@ -181,6 +191,32 @@
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 12px;
   align-content: start;
+}
+
+/* Table view — override grid with block so the table can stretch full width */
+.repo-issues-list--table {
+  display: block;
+  padding: 0;
+}
+
+.repo-issues-list--table .list-view-table {
+  table-layout: fixed;
+}
+
+.repo-issues-list--table .col-status {
+  width: 32px;
+}
+
+.repo-issues-list--table .col-author {
+  width: 140px;
+}
+
+.repo-issues-list--table .col-labels {
+  width: 180px;
+}
+
+.repo-issues-list--table .col-date {
+  width: 140px;
 }
 
 /* ── Issue Card ─────────────────────────────────────────────────────────── */

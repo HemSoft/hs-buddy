@@ -92,7 +92,13 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
               </td>
               <td className="col-author">
                 {pr.authorAvatarUrl && (
-                  <img src={pr.authorAvatarUrl} alt={pr.author} className="list-view-avatar" />
+                  <img
+                    src={pr.authorAvatarUrl}
+                    alt={pr.author}
+                    className="list-view-avatar"
+                    width={18}
+                    height={18}
+                  />
                 )}
                 {pr.author}
               </td>
@@ -112,7 +118,9 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
               </td>
               <td>
                 {pr.approvalCount > 0 && (
-                  <span className="list-view-approvals">
+                  <span
+                    className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
+                  >
                     <ThumbsUp size={12} />
                     {pr.approvalCount}
                   </span>

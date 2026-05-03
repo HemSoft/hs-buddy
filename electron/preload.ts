@@ -132,6 +132,11 @@ contextBridge.exposeInMainWorld('finance', {
   fetchQuote: (symbol: string) => ipcRenderer.invoke('finance:fetch-quote', symbol),
 })
 
+contextBridge.exposeInMainWorld('slack', {
+  nudgeAuthor: (params: { githubLogin: string; prTitle: string; prUrl: string }) =>
+    ipcRenderer.invoke('slack:nudge-author', params),
+})
+
 contextBridge.exposeInMainWorld('filesystem', {
   readDir: (dirPath: string) => ipcRenderer.invoke('fs:read-dir', dirPath),
   readFile: (filePath: string) => ipcRenderer.invoke('fs:read-file', filePath),
@@ -147,6 +152,45 @@ contextBridge.exposeInMainWorld('terminal', {
   kill: (sessionId: string) => ipcRenderer.invoke('terminal:kill', sessionId),
   resolveRepoPath: (owner: string, repo: string) =>
     ipcRenderer.invoke('terminal:resolve-repo-path', { owner, repo }),
+})
+
+contextBridge.exposeInMainWorld('ralph', {
+  launch: (config: {
+    repoPath: string
+    scriptType: string
+    templateScript?: string
+    model?: string
+    provider?: string
+    agents?: string[]
+    iterations?: number
+    workUntil?: string
+    branch?: string
+    prompt?: string
+    noAudio?: boolean
+    skipReview?: boolean
+    noPR?: boolean
+  }) => ipcRenderer.invoke('ralph:launch', config),
+  stop: (runId: string) => ipcRenderer.invoke('ralph:stop', runId),
+  list: () => ipcRenderer.invoke('ralph:list'),
+  getStatus: (runId: string) => ipcRenderer.invoke('ralph:get-status', runId),
+  getConfig: (configType: string) => ipcRenderer.invoke('ralph:get-config', configType),
+  getScriptsPath: () => ipcRenderer.invoke('ralph:get-scripts-path'),
+  listTemplates: () => ipcRenderer.invoke('ralph:list-templates'),
+  selectDirectory: (defaultPath?: string) => ipcRenderer.invoke('ralph:select-directory', defaultPath),
+  onStatusChange: (callback: (...args: unknown[]) => void) => {
+    const wrapper = (_event: Electron.IpcRendererEvent, ...rest: unknown[]) => callback(...rest)
+    if (!ipcListenerWrappers.has('ralph:status-update'))
+      ipcListenerWrappers.set('ralph:status-update', new Map())
+    ipcListenerWrappers.get('ralph:status-update')!.set(callback, wrapper)
+    ipcRenderer.on('ralph:status-update', wrapper)
+  },
+  offStatusChange: (callback: (...args: unknown[]) => void) => {
+    const wrapper = ipcListenerWrappers.get('ralph:status-update')?.get(callback)
+    if (wrapper) {
+      ipcListenerWrappers.get('ralph:status-update')!.delete(callback)
+      ipcRenderer.off('ralph:status-update', wrapper)
+    }
+  },
 })
 
 contextBridge.exposeInMainWorld('copilot', {

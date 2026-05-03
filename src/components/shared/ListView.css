@@ -73,9 +73,12 @@
 .list-view-avatar {
   width: 18px;
   height: 18px;
+  max-width: 18px;
+  max-height: 18px;
   border-radius: 50%;
   vertical-align: middle;
   margin-right: 6px;
+  object-fit: cover;
 }
 
 /* Labels inline */
@@ -111,6 +114,10 @@
   gap: 3px;
   color: var(--accent-success, #4ec9b0);
   font-size: 12px;
+}
+
+.list-view-approvals--mine {
+  color: var(--accent-gold, #e2b340);
 }
 
 /* Unresolved comments column */

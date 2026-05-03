@@ -14,7 +14,7 @@
         "type": "command",
         "powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File ./.github/hooks/play-done.ps1",
         "bash": "bash ./.github/hooks/play-done.sh",
-        "timeoutSec": 10
+        "timeoutSec": 5
       }
     ],
     "sessionEnd": [

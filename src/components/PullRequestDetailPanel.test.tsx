@@ -9,6 +9,7 @@ import { parseIssueFromBranch } from '../utils/prDetailView'
 const prDetailMocks = vi.hoisted(() => ({
   useGitHubAccounts: vi.fn(),
   useTaskQueue: vi.fn(),
+  usePRPanelData: vi.fn(),
   formatDistanceToNow: vi.fn(),
   formatDateFull: vi.fn(),
   parseOwnerRepoFromUrl: vi.fn(),
@@ -18,6 +19,7 @@ const prDetailMocks = vi.hoisted(() => ({
     fetchPRBranches: vi.fn(),
     listPRReviews: vi.fn(),
     requestCopilotReview: vi.fn(),
+    approvePullRequest: vi.fn(),
   },
   capturedOnLoaded: { current: null as ((history: unknown) => void) | null },
 }))
@@ -28,6 +30,10 @@ vi.mock('../hooks/useConfig', () => ({
 
 vi.mock('../hooks/useTaskQueue', () => ({
   useTaskQueue: prDetailMocks.useTaskQueue,
+}))
+
+vi.mock('../hooks/usePRPanelData', () => ({
+  usePRPanelData: prDetailMocks.usePRPanelData,
 }))
 
 vi.mock('../utils/dateUtils', () => ({
@@ -53,6 +59,7 @@ vi.mock('../api/github', () => ({
     fetchPRBranches = prDetailMocks.mockClient.fetchPRBranches
     listPRReviews = prDetailMocks.mockClient.listPRReviews
     requestCopilotReview = prDetailMocks.mockClient.requestCopilotReview
+    approvePullRequest = prDetailMocks.mockClient.approvePullRequest
   },
 }))
 
@@ -76,23 +83,36 @@ vi.mock('./PRThreadsPanel', () => ({
 vi.mock('./PRReviewsPanel', () => ({
   PRReviewsPanel: () => <div data-testid="reviews-panel" />,
 }))
+vi.mock('./shared/MarkdownContent', () => ({
+  MarkdownContent: ({ source, className }: { source: string; className?: string }) => (
+    <div data-testid="markdown-content" className={className}>
+      {source}
+    </div>
+  ),
+}))
 
 vi.mock('lucide-react', () => ({
   Check: () => <span data-testid="icon-check" />,
   CheckCircle2: () => <span data-testid="icon-check-circle" />,
   CircleDot: () => <span data-testid="icon-circle-dot" />,
   Clock: () => <span data-testid="icon-clock" />,
+  Copy: () => <span data-testid="icon-copy" />,
   ExternalLink: () => <span data-testid="icon-external" />,
+  FileText: () => <span data-testid="icon-file-text" />,
   GitBranch: () => <span data-testid="icon-git-branch" />,
   GitPullRequest: () => <span data-testid="icon-git-pr" />,
   Loader2: ({ className }: { className?: string }) => (
     <span data-testid="icon-loader" className={className} />
   ),
+  MessageSquare: () => <span data-testid="icon-message-square" />,
+  MoreVertical: () => <span data-testid="icon-more-vertical" />,
   RefreshCw: () => <span data-testid="icon-refresh" />,
+  RotateCw: () => <span data-testid="icon-rotate-cw" />,
   Sparkles: ({ className }: { className?: string }) => (
     <span data-testid="icon-sparkles" className={className} />
   ),
   User: () => <span data-testid="icon-user" />,
+  ThumbsUp: () => <span data-testid="icon-thumbs-up" />,
   X: () => <span data-testid="icon-x" />,
 }))
 
@@ -138,6 +158,15 @@ beforeEach(() => {
   prDetailMocks.formatDateFull.mockReturnValue('April 10, 2026')
   prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue({ owner: 'octo-org', repo: 'test-repo' })
   prDetailMocks.throwIfAborted.mockImplementation(() => {})
+  prDetailMocks.usePRPanelData.mockReturnValue({
+    data: null,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+    owner: 'octo-org',
+    repo: 'test-repo',
+    cacheKey: 'pr-body:octo-org/test-repo/42',
+  })
 
   // GitHubClient method defaults
   prDetailMocks.mockClient.fetchPRBranches.mockResolvedValue({
@@ -157,6 +186,9 @@ beforeEach(() => {
   window.shell = {
     openExternal: vi.fn(),
   } as unknown as typeof window.shell
+  window.slack = {
+    nudgeAuthor: vi.fn().mockResolvedValue({ success: true }),
+  } as unknown as typeof window.slack
 })
 
 afterEach(() => {
@@ -266,6 +298,53 @@ describe('PullRequestDetailPanel', () => {
     })
   })
 
+  describe('PR summary section', () => {
+    it('renders summary when body is available', () => {
+      prDetailMocks.usePRPanelData.mockReturnValue({
+        data: '## Summary\nThis PR does something great.',
+        loading: false,
+        error: null,
+        refresh: vi.fn(),
+        owner: 'octo-org',
+        repo: 'test-repo',
+        cacheKey: 'pr-body:octo-org/test-repo/42',
+      })
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      expect(screen.getByText('Summary')).toBeInTheDocument()
+      expect(screen.getByTestId('markdown-content')).toHaveTextContent(
+        '## Summary This PR does something great.'
+      )
+    })
+
+    it('hides summary when body is null', () => {
+      prDetailMocks.usePRPanelData.mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refresh: vi.fn(),
+        owner: 'octo-org',
+        repo: 'test-repo',
+        cacheKey: 'pr-body:octo-org/test-repo/42',
+      })
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      expect(screen.queryByTestId('markdown-content')).not.toBeInTheDocument()
+    })
+
+    it('hides summary when body is empty string', () => {
+      prDetailMocks.usePRPanelData.mockReturnValue({
+        data: '   ',
+        loading: false,
+        error: null,
+        refresh: vi.fn(),
+        owner: 'octo-org',
+        repo: 'test-repo',
+        cacheKey: 'pr-body:octo-org/test-repo/42',
+      })
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      expect(screen.queryByTestId('markdown-content')).not.toBeInTheDocument()
+    })
+  })
+
   describe('section-focused rendering', () => {
     it('renders conversation section', () => {
       render(<PullRequestDetailPanel pr={makePR()} section="conversation" />)
@@ -305,6 +384,20 @@ describe('PullRequestDetailPanel', () => {
       expect(screen.queryByText('Approvals')).not.toBeInTheDocument()
     })
 
+    it('hides summary in focused section views', () => {
+      prDetailMocks.usePRPanelData.mockReturnValue({
+        data: '## Summary\nThis PR fixes a bug.',
+        loading: false,
+        error: null,
+        refresh: vi.fn(),
+        owner: 'octo-org',
+        repo: 'test-repo',
+        cacheKey: 'pr-body:octo-org/test-repo/42',
+      })
+      render(<PullRequestDetailPanel pr={makePR()} section="checks" />)
+      expect(screen.queryByText('Summary')).not.toBeInTheDocument()
+    })
+
     it('shows overview cards when no section', () => {
       render(<PullRequestDetailPanel pr={makePR()} />)
       expect(screen.getByText('Status')).toBeInTheDocument()
@@ -337,6 +430,198 @@ describe('PullRequestDetailPanel', () => {
       expect(window.shell.openExternal).toHaveBeenCalledWith(
         'https://github.com/octo-org/test-repo/pull/42/files'
       )
+    })
+  })
+
+  describe('nudge author button', () => {
+    it('renders nudge button with Slack tooltip', () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      const btn = screen.getByTitle('Nudge author via Slack')
+      expect(btn).toBeInTheDocument()
+      expect(btn).not.toBeDisabled()
+    })
+
+    it('calls slack.nudgeAuthor on click with PR details', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      expect(window.slack.nudgeAuthor).toHaveBeenCalledWith({
+        githubLogin: 'octocat',
+        prTitle: 'Fix critical bug',
+        prUrl: 'https://github.com/octo-org/test-repo/pull/42',
+      })
+    })
+
+    it('shows sent state after successful nudge', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      await waitFor(() => {
+        expect(screen.getByTitle('Nudge sent!')).toBeInTheDocument()
+      })
+    })
+
+    it('shows error state on failure', async () => {
+      ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: false,
+        error: 'User not found',
+      })
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      await waitFor(() => {
+        expect(screen.getByTitle('Nudge failed: User not found')).toBeInTheDocument()
+      })
+    })
+
+    it('shows success banner with author name after nudge', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      await waitFor(() => {
+        expect(screen.getByText('Nudge sent!')).toBeInTheDocument()
+        expect(screen.getByText('Slack message delivered to octocat')).toBeInTheDocument()
+      })
+    })
+
+    it('shows error banner with message on failure', async () => {
+      ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: false,
+        error: 'Could not find Slack user for that email',
+      })
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      await waitFor(() => {
+        expect(screen.getByText("Couldn't nudge octocat")).toBeInTheDocument()
+        expect(screen.getByText('Could not find Slack user for that email')).toBeInTheDocument()
+      })
+    })
+
+    it('dismisses nudge banner on X click', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      await waitFor(() => {
+        expect(screen.getByText('Nudge sent!')).toBeInTheDocument()
+      })
+      // Find the dismiss button within the nudge banner
+      const banner = screen.getByText('Nudge sent!').closest('.pr-detail-nudge-banner')!
+      const dismissBtn = banner.querySelector('.pr-detail-review-banner-dismiss')!
+      await act(async () => {
+        fireEvent.click(dismissBtn)
+      })
+      expect(screen.queryByText('Nudge sent!')).not.toBeInTheDocument()
+    })
+
+    it('disables button while nudge is sending', async () => {
+      let resolveNudge: (v: { success: boolean }) => void = () => {}
+      ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockImplementation(
+        () =>
+          new Promise(resolve => {
+            resolveNudge = resolve
+          })
+      )
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      // Button should be disabled in sending state
+      const btns = document.querySelectorAll('.pr-detail-refresh-btn')
+      const nudgeBtn = Array.from(btns).find(b => b.querySelector('[data-testid="icon-loader"]'))
+      expect(nudgeBtn).toBeTruthy()
+      // Resolve to cleanup
+      await act(async () => {
+        resolveNudge({ success: true })
+      })
+    })
+
+    it('ignores second click while nudge is sending', async () => {
+      let resolveNudge: (v: { success: boolean }) => void = () => {}
+      ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockImplementation(
+        () =>
+          new Promise(resolve => {
+            resolveNudge = resolve
+          })
+      )
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      // First click starts sending
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      expect(window.slack.nudgeAuthor).toHaveBeenCalledTimes(1)
+      // Button should now be disabled; a second click should be a no-op
+      const btn = document.querySelector('.pr-detail-refresh-btn[disabled]')
+      if (btn) fireEvent.click(btn)
+      expect(window.slack.nudgeAuthor).toHaveBeenCalledTimes(1)
+      await act(async () => {
+        resolveNudge({ success: true })
+      })
+    })
+
+    it('shows error banner with fallback when nudge error is empty string', async () => {
+      ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: false,
+        error: '',
+      })
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+      })
+      await waitFor(() => {
+        expect(screen.getByText('Unknown error')).toBeInTheDocument()
+        expect(screen.getByTitle('Nudge failed: Unknown error')).toBeInTheDocument()
+      })
+    })
+
+    it('resets to idle after nudge failure timeout', async () => {
+      vi.useFakeTimers()
+      try {
+        ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockResolvedValue({
+          success: false,
+          error: 'Slack down',
+        })
+        render(<PullRequestDetailPanel pr={makePR()} />)
+        await act(async () => {
+          fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+        })
+        // After act, state is already updated (no waitFor needed with fake timers)
+        expect(screen.getByTitle('Nudge failed: Slack down')).toBeInTheDocument()
+        // Advance past the 5-second reset timer
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(5_000)
+        })
+        expect(screen.getByTitle('Nudge author via Slack')).toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('handles thrown error from nudgeAuthor and resets after timeout', async () => {
+      vi.useFakeTimers()
+      try {
+        ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockRejectedValue(
+          new Error('Network error')
+        )
+        render(<PullRequestDetailPanel pr={makePR()} />)
+        await act(async () => {
+          fireEvent.click(screen.getByTitle('Nudge author via Slack'))
+        })
+        expect(screen.getByTitle('Nudge failed: Error: Network error')).toBeInTheDocument()
+        // Advance past the 5-second reset timer
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(5_000)
+        })
+        expect(screen.getByTitle('Nudge author via Slack')).toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 
@@ -805,5 +1090,679 @@ describe('parseIssueFromBranch', () => {
 
   it('returns null for undefined', () => {
     expect(parseIssueFromBranch(undefined)).toBeNull()
+  })
+})
+
+describe('context menu interactions (lines 133-134, 225-232)', () => {
+  describe('handleMoreClick and context menu opening', () => {
+    it('opens context menu when More actions button is clicked', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      const moreBtn = screen.getByTitle('More actions')
+
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      // Context menu should be visible after clicking
+      expect(screen.getByText('Request Copilot Review')).toBeInTheDocument()
+      expect(screen.getByText('Start Ralph PR Review')).toBeInTheDocument()
+      expect(screen.getByText('Approve')).toBeInTheDocument()
+      expect(screen.getByText('Nudge Author via Slack')).toBeInTheDocument()
+      expect(screen.getByText('Copy Link')).toBeInTheDocument()
+    })
+
+    it('computes context menu position based on button bounding rect (line 133-134)', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      const moreBtn = screen.getByTitle('More actions')
+
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const contextMenuDiv = document.querySelector('.context-menu') as HTMLElement
+      expect(contextMenuDiv).toBeTruthy()
+      // Menu should have positioned styles from getBoundingClientRect
+      expect(contextMenuDiv.style.top).toBeTruthy()
+      expect(contextMenuDiv.style.left).toBeTruthy()
+    })
+
+    it('closes context menu on overlay click', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+      const moreBtn = screen.getByTitle('More actions')
+
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      expect(screen.getByText('Request Copilot Review')).toBeInTheDocument()
+
+      const overlay = document.querySelector('.context-menu-overlay')
+      await act(async () => {
+        fireEvent.click(overlay!)
+      })
+
+      expect(screen.queryByText('Request Copilot Review')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('context menu callbacks - onRequestCopilotReview (line 225)', () => {
+    it('calls handleRequestCopilotReview and closes menu when Request Copilot Review clicked', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const requestBtn = screen.getByText('Request Copilot Review')
+      await act(async () => {
+        fireEvent.click(requestBtn)
+      })
+
+      // Should transition to monitoring state
+      await waitFor(() => {
+        expect(screen.getByTitle('Waiting for Copilot review…')).toBeInTheDocument()
+      })
+
+      // Context menu should close
+      expect(screen.queryByText('Start Ralph PR Review')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('context menu callbacks - onApprove (line 226)', () => {
+    it('approves PR and closes menu when Approve clicked', async () => {
+      prDetailMocks.mockClient.approvePullRequest.mockResolvedValue(undefined)
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const approveBtn = screen.getByText('Approve')
+      await act(async () => {
+        fireEvent.click(approveBtn)
+      })
+
+      // Should show approval was successful
+      await waitFor(() => {
+        expect(screen.getByTitle('You approved this PR')).toBeInTheDocument()
+      })
+
+      // Context menu should close
+      expect(screen.queryByText('Start Ralph PR Review')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('context menu callbacks - onNudge (line 227)', () => {
+    it('nudges author and closes menu when Nudge clicked', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const nudgeBtn = screen.getByText('Nudge Author via Slack')
+      await act(async () => {
+        fireEvent.click(nudgeBtn)
+      })
+
+      // Should call slack.nudgeAuthor
+      expect(window.slack.nudgeAuthor).toHaveBeenCalledWith({
+        githubLogin: 'octocat',
+        prTitle: 'Fix critical bug',
+        prUrl: 'https://github.com/octo-org/test-repo/pull/42',
+      })
+
+      // Context menu should close
+      expect(screen.queryByText('Start Ralph PR Review')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('context menu callbacks - onRefresh (line 228)', () => {
+    it('refreshes PR data and closes menu when Refresh clicked', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const contextMenuButtons = document.querySelectorAll('.context-menu button')
+      const refreshBtn = Array.from(contextMenuButtons).find(
+        btn => btn.textContent?.includes('Refresh') && !btn.textContent?.includes('Copilot')
+      ) as HTMLElement
+
+      await act(async () => {
+        fireEvent.click(refreshBtn)
+      })
+
+      // Context menu should close (history panel should still be there)
+      expect(screen.queryByText('Start Ralph PR Review')).not.toBeInTheDocument()
+      expect(screen.getByTestId('history-panel')).toBeInTheDocument()
+    })
+  })
+
+  describe('context menu callbacks - onCopyLink (line 229)', () => {
+    it('copies PR URL to clipboard and closes menu', async () => {
+      const clipboardWriteMock = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: clipboardWriteMock },
+        writable: true,
+        configurable: true,
+      })
+
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const copyBtn = screen.getByText('Copy Link')
+      await act(async () => {
+        fireEvent.click(copyBtn)
+      })
+
+      expect(clipboardWriteMock).toHaveBeenCalledWith(
+        'https://github.com/octo-org/test-repo/pull/42'
+      )
+
+      // Context menu should close
+      expect(screen.queryByText('Start Ralph PR Review')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('context menu callbacks - onOpenExternal (line 230)', () => {
+    it('opens PR on GitHub and closes menu', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const contextMenuButtons = document.querySelectorAll('.context-menu button')
+      const openBtn = Array.from(contextMenuButtons).find(btn =>
+        btn.textContent?.includes('Open on GitHub')
+      ) as HTMLElement
+
+      await act(async () => {
+        fireEvent.click(openBtn)
+      })
+
+      expect(window.shell.openExternal).toHaveBeenCalledWith(
+        'https://github.com/octo-org/test-repo/pull/42'
+      )
+
+      // Context menu should close
+      expect(screen.queryByText('Start Ralph PR Review')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('context menu callbacks - onStartRalphReview (line 231)', () => {
+    it('dispatches ralph review events and closes menu', async () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(
+        <PullRequestDetailPanel
+          pr={makePR({
+            org: 'octo-org',
+            repository: 'test-repo',
+            id: 42,
+          })}
+        />
+      )
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const ralphBtn = screen.getByText('Start Ralph PR Review')
+      await act(async () => {
+        fireEvent.click(ralphBtn)
+      })
+
+      // Should dispatch navigation and ralph review events
+      await waitFor(() => {
+        const events = dispatchEventSpy.mock.calls.map(c => (c[0] as CustomEvent).type)
+        expect(events).toContain('app:navigate')
+        expect(events).toContain('ralph:launch-pr-review')
+      })
+
+      // Context menu should close
+      expect(screen.queryByText('Start Ralph PR Review')).not.toBeInTheDocument()
+    })
+
+    it('uses org and repoRoot from accounts for ralph review (lines 707-710)', async () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      prDetailMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [
+          {
+            username: 'octocat',
+            org: 'octo-org',
+            token: 'ghp_test',
+            repoRoot: 'C:\\repos',
+          },
+        ],
+      })
+
+      render(
+        <PullRequestDetailPanel
+          pr={makePR({
+            org: 'octo-org',
+            repository: 'test-repo',
+            id: 42,
+          })}
+        />
+      )
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const ralphBtn = screen.getByText('Start Ralph PR Review')
+      await act(async () => {
+        fireEvent.click(ralphBtn)
+      })
+
+      // Should dispatch with correct repo path
+      await waitFor(() => {
+        const calls = dispatchEventSpy.mock.calls
+        const ralphCall = calls.find(c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review')
+        if (ralphCall) {
+          const event = ralphCall[0] as CustomEvent
+          expect(event.detail).toEqual({
+            prNumber: 42,
+            repository: 'test-repo',
+            org: 'octo-org',
+            repoPath: 'C:\\repos\\test-repo',
+          })
+        }
+      })
+    })
+
+    it('handles missing repoRoot gracefully (lines 709-710)', async () => {
+      // Allow any pending setTimeout from previous test to flush
+      await new Promise(r => setTimeout(r, 150))
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      prDetailMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [
+          {
+            username: 'octocat',
+            org: 'octo-org',
+            token: 'ghp_test',
+            // No repoRoot
+          },
+        ],
+      })
+
+      render(
+        <PullRequestDetailPanel
+          pr={makePR({
+            org: 'octo-org',
+            repository: 'test-repo',
+            id: 42,
+          })}
+        />
+      )
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      const ralphBtn = screen.getByText('Start Ralph PR Review')
+      await act(async () => {
+        fireEvent.click(ralphBtn)
+      })
+
+      // Should dispatch with empty repoPath when repoRoot is missing
+      await waitFor(() => {
+        const calls = dispatchEventSpy.mock.calls
+        const ralphCall = calls.find(c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review')
+        if (ralphCall) {
+          const event = ralphCall[0] as CustomEvent
+          expect(event.detail.repoPath).toBe('')
+        }
+      })
+    })
+  })
+
+  describe('context menu callbacks - onClose (line 232)', () => {
+    it('closes context menu when close callback is invoked', async () => {
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      const moreBtn = screen.getByTitle('More actions')
+      await act(async () => {
+        fireEvent.click(moreBtn)
+      })
+
+      expect(screen.getByText('Request Copilot Review')).toBeInTheDocument()
+
+      const overlay = document.querySelector('.context-menu-overlay')
+      await act(async () => {
+        fireEvent.click(overlay!)
+      })
+
+      expect(screen.queryByText('Request Copilot Review')).not.toBeInTheDocument()
+    })
+  })
+})
+
+describe('approve PR functionality (lines 649-664)', () => {
+  it('approves PR when Approve button clicked', async () => {
+    prDetailMocks.mockClient.approvePullRequest.mockResolvedValue(undefined)
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    const approveBtn = screen.getByTitle('Approve PR')
+    await act(async () => {
+      fireEvent.click(approveBtn)
+    })
+
+    expect(prDetailMocks.mockClient.approvePullRequest).toHaveBeenCalledWith(
+      'octo-org',
+      'test-repo',
+      42
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTitle('You approved this PR')).toBeInTheDocument()
+    })
+  })
+
+  it('does not approve if youApproved is true', async () => {
+    render(<PullRequestDetailPanel pr={makePR({ iApproved: true })} />)
+
+    const approveBtn = screen.getByTitle('You approved this PR')
+    expect(approveBtn).toBeDisabled()
+
+    await act(async () => {
+      fireEvent.click(approveBtn)
+    })
+
+    expect(prDetailMocks.mockClient.approvePullRequest).not.toHaveBeenCalled()
+  })
+
+  it('does not approve if isApproving is true', async () => {
+    let resolveApprove: (value?: unknown) => void = () => {}
+    prDetailMocks.useTaskQueue.mockReturnValue({
+      enqueue: vi.fn(
+        () =>
+          new Promise(resolve => {
+            resolveApprove = resolve
+          })
+      ),
+    })
+
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    const approveBtn = screen.getByTitle('Approve PR')
+    await act(async () => {
+      fireEvent.click(approveBtn)
+    })
+
+    // Should be in approving state
+    await waitFor(() => {
+      const loader = document.querySelector('.pr-detail-refresh-btn .spin')
+      expect(loader).toBeTruthy()
+    })
+
+    // Resolve to cleanup
+    await act(async () => {
+      resolveApprove()
+    })
+  })
+
+  it('returns early if ownerRepo is null during approve (line 649)', async () => {
+    prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue(null)
+    render(<PullRequestDetailPanel pr={makePR({ headBranch: undefined, baseBranch: undefined })} />)
+
+    const approveBtn = screen.getByTitle('Approve PR')
+    await act(async () => {
+      fireEvent.click(approveBtn)
+    })
+
+    expect(prDetailMocks.mockClient.approvePullRequest).not.toHaveBeenCalled()
+  })
+})
+
+describe('nudge author error handling (lines 666-690)', () => {
+  it('displays error state on nudge failure', async () => {
+    ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: false,
+      error: 'Slack connection failed',
+    })
+
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    const nudgeBtn = screen.getByTitle('Nudge author via Slack')
+    await act(async () => {
+      fireEvent.click(nudgeBtn)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Nudge failed: Slack connection failed')).toBeInTheDocument()
+    })
+  })
+
+  it('displays Unknown error when nudge fails without error message', async () => {
+    ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: false,
+    })
+
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    const nudgeBtn = screen.getByTitle('Nudge author via Slack')
+    await act(async () => {
+      fireEvent.click(nudgeBtn)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Nudge failed: Unknown error')).toBeInTheDocument()
+    })
+
+    // NudgeBanner should show the fallback text
+    expect(screen.getByText('Unknown error')).toBeInTheDocument()
+  })
+
+  it('handles nudge author exception', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('Network timeout')
+    )
+
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    const nudgeBtn = screen.getByTitle('Nudge author via Slack')
+    await act(async () => {
+      fireEvent.click(nudgeBtn)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Nudge failed: Error: Network timeout')).toBeInTheDocument()
+    })
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[Nudge] Error:', expect.any(Error))
+
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('prevents duplicate nudge when state is sending', async () => {
+    let resolveNudge: (v: { success: boolean }) => void = () => {}
+    ;(window.slack.nudgeAuthor as ReturnType<typeof vi.fn>).mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveNudge = resolve
+        })
+    )
+
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    const nudgeBtn = screen.getByTitle('Nudge author via Slack')
+    await act(async () => {
+      fireEvent.click(nudgeBtn)
+    })
+
+    // Click again while sending
+    await act(async () => {
+      fireEvent.click(nudgeBtn)
+    })
+
+    // Should only call once
+    expect(window.slack.nudgeAuthor).toHaveBeenCalledTimes(1)
+
+    // Resolve to cleanup
+    await act(async () => {
+      resolveNudge({ success: true })
+    })
+  })
+
+  it('prevents nudge when state is already sent', async () => {
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    const nudgeBtn = screen.getByTitle('Nudge author via Slack')
+    await act(async () => {
+      fireEvent.click(nudgeBtn)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Nudge sent!')).toBeInTheDocument()
+    })
+
+    // Click again after sent
+    const sentBtn = screen.getByTitle('Nudge sent!')
+    expect(sentBtn).toBeDisabled()
+
+    await act(async () => {
+      fireEvent.click(sentBtn)
+    })
+
+    // Should still only call once
+    expect(window.slack.nudgeAuthor).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('PR body data loading (line 556)', () => {
+  it('fetches PR body data on mount', () => {
+    prDetailMocks.usePRPanelData.mockReturnValue({
+      data: '## Summary\nTest PR body',
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      owner: 'octo-org',
+      repo: 'test-repo',
+      cacheKey: 'pr-body:octo-org/test-repo/42',
+    })
+
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    // usePRPanelData should be called with the right parameters
+    expect(prDetailMocks.usePRPanelData).toHaveBeenCalled()
+    expect(screen.getByText('## Summary Test PR body')).toBeInTheDocument()
+  })
+
+  it('displays summary when PR body is available', () => {
+    prDetailMocks.usePRPanelData.mockReturnValue({
+      data: 'PR body content here',
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      owner: 'octo-org',
+      repo: 'test-repo',
+      cacheKey: 'pr-body:octo-org/test-repo/42',
+    })
+
+    render(<PullRequestDetailPanel pr={makePR()} />)
+
+    expect(screen.getByText('Summary')).toBeInTheDocument()
+    expect(screen.getByTestId('markdown-content')).toHaveTextContent('PR body content here')
+  })
+
+  it('invokes the fetcher callback passed to usePRPanelData', () => {
+    const fetchPRBody = vi.fn().mockReturnValue('fetched body')
+    prDetailMocks.usePRPanelData.mockImplementation(
+      (_pr: unknown, _key: string, fetcher: (...args: unknown[]) => unknown) => {
+        fetcher({ fetchPRBody }, 'octo-org', 'test-repo', 42)
+        return {
+          data: null,
+          loading: false,
+          error: null,
+          refresh: vi.fn(),
+          owner: 'octo-org',
+          repo: 'test-repo',
+          cacheKey: 'pr-body:octo-org/test-repo/42',
+        }
+      }
+    )
+    render(<PullRequestDetailPanel pr={makePR()} />)
+    expect(fetchPRBody).toHaveBeenCalledWith('octo-org', 'test-repo', 42)
+  })
+})
+
+describe('ownerRepo fallback when pr.org is empty (line 708)', () => {
+  it('falls back to ownerRepo.owner when pr.org is empty', async () => {
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+    prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue({ owner: 'parsed-org', repo: 'test-repo' })
+    prDetailMocks.useGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'octocat', org: 'parsed-org', token: 'ghp_test' }],
+    })
+
+    render(<PullRequestDetailPanel pr={makePR({ org: '' })} />)
+
+    const moreBtn = screen.getByTitle('More actions')
+    await act(async () => {
+      fireEvent.click(moreBtn)
+    })
+
+    const ralphBtn = screen.getByText('Start Ralph PR Review')
+    await act(async () => {
+      fireEvent.click(ralphBtn)
+    })
+
+    await waitFor(() => {
+      const ralphCall = dispatchEventSpy.mock.calls.find(
+        c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review'
+      )
+      expect(ralphCall).toBeTruthy()
+      const event = ralphCall![0] as CustomEvent
+      expect(event.detail.org).toBe('parsed-org')
+    })
+
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('falls back to empty string when both pr.org and ownerRepo are empty', async () => {
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+    prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue(null)
+
+    render(<PullRequestDetailPanel pr={makePR({ org: '' })} />)
+
+    const moreBtn = screen.getByTitle('More actions')
+    await act(async () => {
+      fireEvent.click(moreBtn)
+    })
+
+    const ralphBtn = screen.getByText('Start Ralph PR Review')
+    await act(async () => {
+      fireEvent.click(ralphBtn)
+    })
+
+    await waitFor(() => {
+      const ralphCall = dispatchEventSpy.mock.calls.find(
+        c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review'
+      )
+      expect(ralphCall).toBeTruthy()
+      const event = ralphCall![0] as CustomEvent
+      expect(event.detail.org).toBe('')
+    })
+
+    dispatchEventSpy.mockRestore()
   })
 })

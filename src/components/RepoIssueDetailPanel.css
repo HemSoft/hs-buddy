@@ -76,11 +76,9 @@
 
 .repo-issue-detail-hero h1 {
   margin: 0;
-  font-size: clamp(28px, 4vw, 42px);
-  line-height: 1.05;
+  font-size: clamp(20px, 2.5vw, 28px);
+  line-height: 1.15;
   color: var(--text-heading);
-  max-width: 22ch;
-  text-wrap: balance;
 }
 
 .repo-issue-detail-meta-strip {
@@ -385,10 +383,6 @@
   .repo-issue-detail-hero {
     padding: 18px;
     flex-direction: column;
-  }
-
-  .repo-issue-detail-hero h1 {
-    max-width: none;
   }
 
   .repo-issue-detail-layout {

@@ -9,6 +9,17 @@ vi.mock('../../hooks/useRefreshIndicators', () => ({
   useRefreshIndicators: () => mockRefreshIndicators,
 }))
 
+vi.mock('../../hooks/useRalphLoops', () => ({
+  useRalphLoops: () => ({
+    runs: [],
+    loading: false,
+    error: null,
+    launch: vi.fn(),
+    stop: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}))
+
 vi.mock('./github-sidebar/useGitHubSidebarData', () => ({
   useGitHubSidebarData: () => mockSidebarData,
 }))
@@ -138,6 +149,7 @@ function createMockSidebarData() {
     sflStatusData: {},
     loadingSFLStatus: new Set<string>(),
     expandedSFLGroups: new Set<string>(),
+    expandedRalphGroups: new Set<string>(),
     showBookmarkedOnly: false,
     setShowBookmarkedOnly: vi.fn((updater: boolean | ((prev: boolean) => boolean)) => {
       data.showBookmarkedOnly =
@@ -156,6 +168,7 @@ function createMockSidebarData() {
     toggleRepoPRStateGroup: vi.fn(),
     toggleRepoCommitGroup: vi.fn(),
     toggleSFLGroup: vi.fn(),
+    toggleRalphGroup: vi.fn(),
     togglePRGroup: vi.fn(),
     togglePRNode: vi.fn(),
     newPRCounts: {},

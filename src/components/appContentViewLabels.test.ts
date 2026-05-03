@@ -219,4 +219,18 @@ describe('getViewLabel', () => {
       expect(getViewLabel('folder-view:')).toBe('📂 Explorer')
     })
   })
+
+  describe('ralph-run: prefix', () => {
+    it('formats as Ralph Run · first 8 characters of ID', () => {
+      expect(getViewLabel('ralph-run:abc12345wxyzdef')).toBe('Ralph Run · abc12345')
+    })
+
+    it('handles short IDs', () => {
+      expect(getViewLabel('ralph-run:abc1234')).toBe('Ralph Run · abc1234')
+    })
+
+    it('handles exactly 8 character IDs', () => {
+      expect(getViewLabel('ralph-run:abcdefgh')).toBe('Ralph Run · abcdefgh')
+    })
+  })
 })

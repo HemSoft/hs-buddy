@@ -344,6 +344,7 @@ export function useGitHubSidebarData() {
   const [sflStatusData, setSflStatusData] = useState<Record<string, SFLRepoStatus>>({})
   const [loadingSFLStatus, setLoadingSFLStatus] = useState<Set<string>>(new Set())
   const sflGroups = useToggleSet()
+  const ralphGroups = useToggleSet()
   const fetchedSFLRef = useRef<Set<string>>(new Set())
   const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(initPrTreeData)
 
@@ -931,6 +932,13 @@ export function useGitHubSidebarData() {
     [sflGroups, fetchSFLStatusForRepo]
   )
 
+  const toggleRalphGroup = useCallback(
+    (org: string, repoName: string) => {
+      ralphGroups.toggle(`${org}/${repoName}`)
+    },
+    [ralphGroups]
+  )
+
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
@@ -1201,6 +1209,7 @@ export function useGitHubSidebarData() {
     sflStatusData,
     loadingSFLStatus,
     expandedSFLGroups: sflGroups.set,
+    expandedRalphGroups: ralphGroups.set,
     showBookmarkedOnly,
     setShowBookmarkedOnly,
     refreshTick,
@@ -1216,6 +1225,7 @@ export function useGitHubSidebarData() {
     toggleRepoPRStateGroup,
     toggleRepoCommitGroup,
     toggleSFLGroup,
+    toggleRalphGroup,
     togglePRGroup: prGroups.toggle,
     togglePRNode: prNodes.toggle,
     newPRCounts,

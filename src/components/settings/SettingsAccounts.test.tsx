@@ -4,8 +4,9 @@ import { SettingsAccounts, addAccountFormReducer } from './SettingsAccounts'
 
 const mockAddAccount = vi.fn()
 const mockRemoveAccount = vi.fn()
+const mockUpdateAccount = vi.fn()
 
-let mockAccounts: Array<{ username: string; org: string }> = []
+let mockAccounts: Array<{ username: string; org: string; repoRoot?: string }> = []
 let mockLoading = false
 
 vi.mock('../../hooks/useConfig', () => ({
@@ -14,6 +15,7 @@ vi.mock('../../hooks/useConfig', () => ({
     loading: mockLoading,
     addAccount: mockAddAccount,
     removeAccount: mockRemoveAccount,
+    updateAccount: mockUpdateAccount,
   }),
 }))
 
@@ -206,5 +208,395 @@ describe('addAccountFormReducer', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = addAccountFormReducer(state, { type: 'UNKNOWN_ACTION' } as any)
     expect(result).toBe(state)
+  })
+})
+
+describe('SettingsAccounts account editing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAccounts = [
+      {
+        username: 'test-user',
+        org: 'test-org',
+        repoRoot: 'D:\\github\\test-org',
+      },
+    ]
+    mockLoading = false
+  })
+
+  it('expands account item when clicked', () => {
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    // Should show the repo root editing panel
+    expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+  })
+
+  it('shows repoRoot input field when account is expanded', () => {
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    expect(screen.getByLabelText('Repository Root Path')).toBeInTheDocument()
+  })
+
+  it('collapses account item when X is clicked', async () => {
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    // Verify it's expanded
+    expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+
+    // Click X button to collapse
+    const cancelBtn = screen.getByTitle('Cancel editing')
+    fireEvent.click(cancelBtn)
+
+    // The edit panel should be hidden
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('D:\\github\\test-org')).not.toBeInTheDocument()
+    })
+  })
+
+  it('updates repoRoot when Save button is clicked', async () => {
+    mockUpdateAccount.mockResolvedValue({ success: true })
+    ;(window.ralph as unknown as Record<string, unknown>) = { selectDirectory: vi.fn() }
+
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    // Change the repo root value
+    const input = screen.getByDisplayValue('D:\\github\\test-org')
+    fireEvent.change(input, { target: { value: 'D:\\new\\path' } })
+
+    // Click Save
+    const saveBtn = screen.getByTitle('Save')
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
+        repoRoot: 'D:\\new\\path',
+      })
+    })
+  })
+
+  it('opens folder browser when Browse button is clicked', async () => {
+    const mockSelectDirectory = vi.fn().mockResolvedValue('D:\\selected\\path')
+    Object.defineProperty(window, 'ralph', {
+      value: { selectDirectory: mockSelectDirectory },
+      writable: true,
+      configurable: true,
+    })
+    mockUpdateAccount.mockResolvedValue({ success: true })
+
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    // Click Browse button
+    const browseBtn = screen.getByTitle('Browse for folder')
+    fireEvent.click(browseBtn)
+
+    await waitFor(() => {
+      expect(mockSelectDirectory).toHaveBeenCalledWith('D:\\github\\test-org')
+    })
+
+    // Input should be updated with selected path
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('D:\\selected\\path')).toBeInTheDocument()
+    })
+  })
+
+  it('shows repoRoot in secondary text when not editing', () => {
+    render(<SettingsAccounts />)
+
+    expect(screen.getByText('D:\\github\\test-org')).toBeInTheDocument()
+  })
+
+  it('does not expand item when already editing', () => {
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    // Click again while editing should not collapse
+    fireEvent.click(accountItem!)
+
+    // Panel should still be visible
+    expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+  })
+
+  it('removes account when Trash button is clicked', async () => {
+    mockRemoveAccount.mockResolvedValue(undefined)
+    render(<SettingsAccounts />)
+
+    const removeButton = screen.getByTitle('Remove account')
+    fireEvent.click(removeButton)
+
+    // Confirm dialog should appear
+    const confirmButton = await waitFor(() => {
+      const btn = document.querySelector('.confirm-dialog-btn-danger') as HTMLButtonElement
+      expect(btn).toBeTruthy()
+      return btn
+    })
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(mockRemoveAccount).toHaveBeenCalledWith('test-user', 'test-org')
+    })
+  })
+
+  it('opens editing with empty repoRoot when account has no repoRoot', async () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org' }]
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    await waitFor(() => {
+      const input = screen.getByLabelText('Repository Root Path')
+      expect(input).toBeInTheDocument()
+      expect(input).toHaveValue('')
+    })
+  })
+
+  it('opens editing with existing repoRoot when account has repoRoot', async () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org', repoRoot: 'D:\\github\\test-org' }]
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+    })
+  })
+
+  it('browse button calls selectDirectory and updates repoRoot', async () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org', repoRoot: 'D:\\github\\test-org' }]
+    Object.defineProperty(window, 'ralph', {
+      value: {
+        selectDirectory: vi.fn().mockResolvedValue('D:\\new\\path'),
+        listTemplates: vi.fn().mockResolvedValue([]),
+        list: vi.fn(),
+        launch: vi.fn(),
+        stop: vi.fn(),
+        onStatusChange: vi.fn(),
+        offStatusChange: vi.fn(),
+        getConfig: vi.fn(),
+        getStatus: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+    })
+
+    const browseBtn = screen.getByTitle('Browse for folder')
+    fireEvent.click(browseBtn)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('D:\\new\\path')).toBeInTheDocument()
+    })
+  })
+
+  it('browse button passes undefined when account has no repoRoot', async () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org' }]
+    const mockSelectDirectory = vi.fn().mockResolvedValue('D:\\picked\\path')
+    Object.defineProperty(window, 'ralph', {
+      value: {
+        selectDirectory: mockSelectDirectory,
+        listTemplates: vi.fn().mockResolvedValue([]),
+        list: vi.fn(),
+        launch: vi.fn(),
+        stop: vi.fn(),
+        onStatusChange: vi.fn(),
+        offStatusChange: vi.fn(),
+        getConfig: vi.fn(),
+        getStatus: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Repository Root Path')).toHaveValue('')
+    })
+
+    const browseBtn = screen.getByTitle('Browse for folder')
+    fireEvent.click(browseBtn)
+
+    await waitFor(() => {
+      expect(mockSelectDirectory).toHaveBeenCalledWith(undefined)
+      expect(screen.getByDisplayValue('D:\\picked\\path')).toBeInTheDocument()
+    })
+  })
+
+  it('browse button does not update when selectDirectory returns null', async () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org', repoRoot: 'D:\\github\\test-org' }]
+    Object.defineProperty(window, 'ralph', {
+      value: {
+        selectDirectory: vi.fn().mockResolvedValue(null),
+        listTemplates: vi.fn().mockResolvedValue([]),
+        list: vi.fn(),
+        launch: vi.fn(),
+        stop: vi.fn(),
+        onStatusChange: vi.fn(),
+        offStatusChange: vi.fn(),
+        getConfig: vi.fn(),
+        getStatus: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+    })
+
+    const browseBtn = screen.getByTitle('Browse for folder')
+    fireEvent.click(browseBtn)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+    })
+  })
+
+  it('save button calls updateAccount with repoRoot and closes editing', async () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org', repoRoot: 'D:\\github\\test-org' }]
+    mockUpdateAccount.mockResolvedValue(undefined)
+    Object.defineProperty(window, 'ralph', {
+      value: {
+        selectDirectory: vi.fn(),
+        listTemplates: vi.fn().mockResolvedValue([]),
+        list: vi.fn(),
+        launch: vi.fn(),
+        stop: vi.fn(),
+        onStatusChange: vi.fn(),
+        offStatusChange: vi.fn(),
+        getConfig: vi.fn(),
+        getStatus: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+    })
+
+    const saveBtn = screen.getByTitle('Save')
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
+        repoRoot: 'D:\\github\\test-org',
+      })
+    })
+  })
+
+  it('expands account item via Enter key', () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org' }]
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    fireEvent.keyDown(accountItem, { key: 'Enter' })
+
+    expect(screen.getByLabelText('Repository Root Path')).toHaveValue('')
+  })
+
+  it('expands account item via Space key', () => {
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    fireEvent.keyDown(accountItem, { key: ' ' })
+
+    expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+  })
+
+  it('does not expand via keyboard when already editing', () => {
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    fireEvent.click(accountItem!)
+
+    // Already editing — Enter should not collapse
+    fireEvent.keyDown(accountItem, { key: 'Enter' })
+    expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+  })
+
+  it('edit panel stops keyDown propagation', () => {
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    fireEvent.click(accountItem!)
+
+    const editPanel = document.querySelector('.list-item-edit-panel')!
+    fireEvent.keyDown(editPanel, { key: 'a' })
+
+    // The edit panel is still visible (event didn't bubble up and collapse)
+    expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
+  })
+
+  it('save button passes undefined repoRoot when editRepoRoot is empty', async () => {
+    mockAccounts = [{ username: 'test-user', org: 'test-org' }]
+    mockUpdateAccount.mockResolvedValue(undefined)
+    Object.defineProperty(window, 'ralph', {
+      value: {
+        selectDirectory: vi.fn(),
+        listTemplates: vi.fn().mockResolvedValue([]),
+        list: vi.fn(),
+        launch: vi.fn(),
+        stop: vi.fn(),
+        onStatusChange: vi.fn(),
+        offStatusChange: vi.fn(),
+        getConfig: vi.fn(),
+        getStatus: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+    render(<SettingsAccounts />)
+
+    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    fireEvent.click(accountItem!)
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Save')).toBeInTheDocument()
+    })
+
+    const saveBtn = screen.getByTitle('Save')
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
+        repoRoot: undefined,
+      })
+    })
   })
 })

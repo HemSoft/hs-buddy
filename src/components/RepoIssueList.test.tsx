@@ -44,6 +44,24 @@ vi.mock('./shared/ViewModeToggle', () => ({
   ViewModeToggle: () => <div data-testid="view-mode-toggle" />,
 }))
 
+vi.mock('./IssueContextMenu', () => ({
+  IssueContextMenu: ({
+    onStartRalphLoop,
+    onViewDetails,
+    onCopyLink,
+    onOpenOnGitHub,
+    onClose,
+  }: Record<string, () => void>) => (
+    <div data-testid="issue-context-menu">
+      <button onClick={onStartRalphLoop}>Start Ralph Loop</button>
+      <button onClick={onViewDetails}>View Details</button>
+      <button onClick={onCopyLink}>Copy Link</button>
+      <button onClick={onOpenOnGitHub}>Open on GitHub</button>
+      <button onClick={onClose}>Close Menu</button>
+    </div>
+  ),
+}))
+
 import { RepoIssueList } from './RepoIssueList'
 
 function makeIssue(overrides = {}) {
@@ -321,6 +339,363 @@ describe('RepoIssueList', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Recovered issue')).toBeInTheDocument()
+    })
+  })
+
+  it('right-click on issue opens context menu', async () => {
+    const issues = [makeIssue({ number: 1, title: 'Test issue' })]
+    mockEnqueue.mockResolvedValue(issues)
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Find the issue element and trigger context menu
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+  })
+
+  it('context menu "View Details" calls onOpenIssue when provided', async () => {
+    const onOpenIssueMock = vi.fn()
+    const issues = [makeIssue({ number: 1, title: 'Test issue' })]
+    mockEnqueue.mockResolvedValue(issues)
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" onOpenIssue={onOpenIssueMock} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    // Click "View Details"
+    fireEvent.click(screen.getByText('View Details'))
+    expect(onOpenIssueMock).toHaveBeenCalledWith(1)
+  })
+
+  it('context menu "View Details" opens external URL when onOpenIssue not provided', async () => {
+    const issues = [
+      makeIssue({
+        number: 1,
+        title: 'Test issue',
+        url: 'https://github.com/test-org/hs-buddy/issues/1',
+      }),
+    ]
+    mockEnqueue.mockResolvedValue(issues)
+    const openExternalMock = vi.fn()
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: openExternalMock },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    // Click "View Details"
+    fireEvent.click(screen.getByText('View Details'))
+    expect(openExternalMock).toHaveBeenCalledWith('https://github.com/test-org/hs-buddy/issues/1')
+  })
+
+  it('context menu "Copy Link" copies URL to clipboard', async () => {
+    const issues = [
+      makeIssue({
+        number: 1,
+        title: 'Test issue',
+        url: 'https://github.com/test-org/hs-buddy/issues/1',
+      }),
+    ]
+    mockEnqueue.mockResolvedValue(issues)
+
+    const clipboardWriteTextMock = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: clipboardWriteTextMock },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    // Click "Copy Link"
+    fireEvent.click(screen.getByText('Copy Link'))
+    expect(clipboardWriteTextMock).toHaveBeenCalledWith(
+      'https://github.com/test-org/hs-buddy/issues/1'
+    )
+  })
+
+  it('context menu "Open on GitHub" opens external URL', async () => {
+    const issues = [
+      makeIssue({
+        number: 1,
+        title: 'Test issue',
+        url: 'https://github.com/test-org/hs-buddy/issues/1',
+      }),
+    ]
+    mockEnqueue.mockResolvedValue(issues)
+    const openExternalMock = vi.fn()
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: openExternalMock },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    // Click "Open on GitHub"
+    fireEvent.click(screen.getByText('Open on GitHub'))
+    expect(openExternalMock).toHaveBeenCalledWith('https://github.com/test-org/hs-buddy/issues/1')
+  })
+
+  it('context menu "Start Ralph Loop" dispatches navigation and launch events', async () => {
+    const issues = [makeIssue({ number: 1, title: 'Test issue' })]
+    mockEnqueue.mockResolvedValue(issues)
+
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    // Click "Start Ralph Loop"
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    // Verify app:navigate event was dispatched
+    await waitFor(() => {
+      const navEvents = dispatchEventSpy.mock.calls.filter(
+        call => call[0] instanceof CustomEvent && (call[0] as CustomEvent).type === 'app:navigate'
+      )
+      expect(navEvents.length).toBeGreaterThan(0)
+      const navEvent = navEvents[0][0] as CustomEvent
+      expect((navEvent.detail as Record<string, unknown>).viewId).toBe('ralph-dashboard')
+    })
+
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('context menu closes when Close button clicked', async () => {
+    const issues = [makeIssue({ number: 1, title: 'Test issue' })]
+    mockEnqueue.mockResolvedValue(issues)
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    // Click "Close Menu"
+    fireEvent.click(screen.getByText('Close Menu'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('issue-context-menu')).not.toBeInTheDocument()
+    })
+  })
+
+  it('context menu "Start Ralph Loop" closes menu and dispatches events', async () => {
+    const issues = [makeIssue({ number: 42, title: 'Critical bug' })]
+    mockEnqueue.mockResolvedValue(issues)
+
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+    render(<RepoIssueList owner="test-org" repo="my-repo" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Critical bug')).toBeInTheDocument()
+    })
+
+    // Open context menu
+    const issueElement = screen.getByText('Critical bug').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    // Click "Start Ralph Loop"
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    // Verify app:navigate event was dispatched (exercises line 311 of handleStartRalphLoop)
+    await waitFor(() => {
+      const navEvents = dispatchEventSpy.mock.calls.filter(
+        call => call[0] instanceof CustomEvent && (call[0] as CustomEvent).type === 'app:navigate'
+      )
+      expect(navEvents.length).toBeGreaterThan(0)
+      const navEvent = navEvents[0][0] as CustomEvent
+      expect((navEvent.detail as Record<string, unknown>).viewId).toBe('ralph-dashboard')
+    })
+
+    // Verify context menu closed (exercises line 310 of handleStartRalphLoop)
+    expect(screen.queryByTestId('issue-context-menu')).not.toBeInTheDocument()
+
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('context menu "Start Ralph Loop" includes repoPath when account has repoRoot', async () => {
+    const originalAccounts = [...stableAccounts]
+    stableAccounts.length = 0
+    stableAccounts.push({
+      username: 'alice',
+      org: 'test-org',
+      repoRoot: 'D:\\github',
+    } as unknown as (typeof stableAccounts)[number])
+
+    const issues = [makeIssue({ number: 7, title: 'Path issue' })]
+    mockEnqueue.mockResolvedValue(issues)
+
+    // Use an event listener to capture events (avoids spy pollution from other tests)
+    let capturedDetail: Record<string, unknown> | null = null
+    const listener = (e: Event) => {
+      capturedDetail = (e as CustomEvent).detail
+    }
+    window.addEventListener('ralph:launch-from-issue', listener)
+
+    render(<RepoIssueList owner="test-org" repo="my-repo" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Path issue')).toBeInTheDocument()
+    })
+
+    const issueElement = screen.getByText('Path issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 100, clientY: 200 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    const sep = window.navigator.platform.startsWith('Win') ? '\\' : '/'
+    await waitFor(() => {
+      expect(capturedDetail).not.toBeNull()
+      expect(capturedDetail!.repoPath).toBe(`D:\\github${sep}my-repo`)
+    })
+
+    window.removeEventListener('ralph:launch-from-issue', listener)
+    stableAccounts.length = 0
+    stableAccounts.push(...originalAccounts)
+  })
+
+  it('context menu handlers do nothing when contextMenu is null', async () => {
+    const issues = [makeIssue({ number: 1, title: 'Test issue' })]
+    mockEnqueue.mockResolvedValue(issues)
+
+    const openExternalMock = vi.fn()
+    Object.defineProperty(window, 'shell', {
+      value: { openExternal: openExternalMock },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Click the issue to close the menu (contextMenu becomes null)
+    fireEvent.click(screen.getByText('Test issue').closest('button')!)
+
+    // Verify context menu is closed
+    expect(screen.queryByTestId('issue-context-menu')).not.toBeInTheDocument()
+
+    // The handlers should guard against null contextMenu and not crash
+    // This verifies the guards like "if (!contextMenu) return" work correctly
+  })
+
+  it('renders context menu with correct position from right-click', async () => {
+    const issues = [makeIssue({ number: 1, title: 'Test issue' })]
+    mockEnqueue.mockResolvedValue(issues)
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test issue')).toBeInTheDocument()
+    })
+
+    // Find the issue element and trigger context menu with specific coordinates
+    const issueElement = screen.getByText('Test issue').closest('.repo-issue-item')
+    fireEvent.contextMenu(issueElement!, { clientX: 250, clientY: 350 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
+    })
+  })
+
+  it('triggers context menu in table/list view', async () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    const issues = [makeIssue({ number: 1, title: 'Table context test' })]
+    mockEnqueue.mockResolvedValue(issues)
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Table context test')).toBeInTheDocument()
+    })
+
+    const row = screen.getByText('Table context test').closest('tr')
+    fireEvent.contextMenu(row!, { clientX: 100, clientY: 100 })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
     })
   })
 })

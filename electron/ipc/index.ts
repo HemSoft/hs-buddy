@@ -13,6 +13,8 @@ import { registerTodoistHandlers } from './todoistHandlers'
 import { registerFinanceHandlers } from './financeHandlers'
 import { registerTerminalHandlers } from './terminalHandlers'
 import { registerFilesystemHandlers } from './filesystemHandlers'
+import { registerRalphHandlers } from './ralphHandlers'
+import { registerSlackHandlers } from './slackHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
   // Patch ipcMain.handle before any handlers register — gives every
@@ -32,4 +34,6 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerFinanceHandlers()
   registerTerminalHandlers()
   registerFilesystemHandlers()
+  registerRalphHandlers(win)
+  registerSlackHandlers()
 }

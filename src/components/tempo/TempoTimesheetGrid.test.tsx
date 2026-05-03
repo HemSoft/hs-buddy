@@ -609,6 +609,76 @@ describe('TempoTimesheetGrid', () => {
     expect(rows.length).toBe(1)
     expect(rows[0].classList.contains('capex')).toBe(false)
   })
+
+  it('renders copy from previous month button in empty state', () => {
+    const onCopyFromPreviousMonth = vi.fn()
+    render(
+      <TempoTimesheetGrid
+        issueSummaries={[]}
+        worklogs={[]}
+        totalHours={0}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={vi.fn()}
+        onCopyFromPreviousMonth={onCopyFromPreviousMonth}
+      />
+    )
+
+    const btn = screen.getByRole('button', { name: /copy entries from last month/i })
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+    expect(onCopyFromPreviousMonth).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows loading state on copy from previous month button', () => {
+    render(
+      <TempoTimesheetGrid
+        issueSummaries={[]}
+        worklogs={[]}
+        totalHours={0}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        loadingTemplates={true}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={vi.fn()}
+        onCopyFromPreviousMonth={vi.fn()}
+      />
+    )
+
+    const btn = screen.getByRole('button', { name: /loading/i })
+    expect(btn).toBeDisabled()
+  })
+
+  it('does not render copy button when onCopyFromPreviousMonth is not provided', () => {
+    render(
+      <TempoTimesheetGrid
+        issueSummaries={[]}
+        worklogs={[]}
+        totalHours={0}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole('button', { name: /copy entries from last month/i })
+    ).not.toBeInTheDocument()
+  })
 })
 
 describe('getHoursClasses', () => {

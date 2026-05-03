@@ -315,4 +315,51 @@ describe('RepoPullRequestList', () => {
     fireEvent.click(screen.getByText('Add feature').closest('button')!)
     expect(onOpenPR).toHaveBeenCalled()
   })
+
+  it('shows unresolved threads badge in table view', () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    setupHook({ data: [makePR({ threadsUnaddressed: 3 })], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(document.querySelector('.list-view-comments-unresolved')).toBeTruthy()
+  })
+
+  it('shows clear check when zero unresolved threads in table view', () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    setupHook({ data: [makePR({ threadsUnaddressed: 0 })], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+    expect(document.querySelector('.list-view-comments-clear')).toBeTruthy()
+  })
+
+  it('shows approvals with mine class when iApproved in table view', () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    setupHook({ data: [makePR({ approvalCount: 2, iApproved: true })], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+    expect(document.querySelector('.list-view-approvals--mine')).toBeTruthy()
+  })
+
+  it('shows approvals without mine class when not iApproved in table view', () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    setupHook({ data: [makePR({ approvalCount: 1, iApproved: false })], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+    const el = document.querySelector('.list-view-approvals')
+    expect(el).toBeTruthy()
+    expect(el?.className).not.toContain('mine')
+  })
+
+  it('shows approvals with mine class in card view', () => {
+    mockViewMode.mockReturnValue(['card', vi.fn()])
+    setupHook({ data: [makePR({ approvalCount: 2, iApproved: true })], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+    expect(document.querySelector('.repo-pr-approvals--mine')).toBeTruthy()
+  })
+
+  it('shows approvals without mine class in card view', () => {
+    mockViewMode.mockReturnValue(['card', vi.fn()])
+    setupHook({ data: [makePR({ approvalCount: 1, iApproved: false })], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
+    const el = document.querySelector('.repo-pr-approvals')
+    expect(el).toBeTruthy()
+    expect(el?.className).not.toContain('mine')
+  })
 })

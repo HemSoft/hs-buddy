@@ -337,6 +337,8 @@ export interface RepoPullRequest {
   baseBranch: string
   assigneeCount: number
   approvalCount: number
+  changesRequestedCount: number
+  threadsUnaddressed: number | null
   iApproved: boolean
 }
 
@@ -365,6 +367,7 @@ export interface PRHistorySummary {
   createdAt: string
   updatedAt: string
   mergedAt: string | null
+  body: string
   commitCount: number
   issueCommentCount: number
   reviewCommentCount: number
@@ -491,6 +494,7 @@ const PR_HISTORY_QUERY = `
   query PRHistory($owner: String!, $repo: String!, $number: Int!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $number) {
+        body
         createdAt
         updatedAt
         mergedAt
@@ -555,6 +559,7 @@ const PR_HISTORY_QUERY = `
         }
         reviewThreads(first: 100) {
           totalCount
+          pageInfo { hasNextPage endCursor }
           nodes {
             isResolved
             isOutdated
@@ -578,6 +583,7 @@ const PR_HISTORY_QUERY = `
 type PRHistoryGraphQLResponse = {
   repository: {
     pullRequest: {
+      body: string
       createdAt: string
       updatedAt: string
       mergedAt: string | null
@@ -630,6 +636,7 @@ type PRHistoryGraphQLResponse = {
       }
       reviewThreads: {
         totalCount: number
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
         nodes: Array<{
           isResolved: boolean
           isOutdated: boolean
@@ -1792,6 +1799,8 @@ function mapRawPRToRepoPR(pr: any): RepoPullRequest {
     baseBranch,
     assigneeCount: assignees.length,
     approvalCount: 0,
+    changesRequestedCount: 0,
+    threadsUnaddressed: null,
     iApproved: false,
   }
 }
@@ -2461,6 +2470,161 @@ export class GitHubClient {
   /**
    * Fetch open pull requests for a specific repository.
    */
+  /**
+   * Count unresolved review threads for a batch of PRs via GraphQL.
+   * Paginates through all threads to ensure accurate counts for PRs with >100 threads.
+   */
+  private async fetchUnresolvedThreadCounts(
+    owner: string,
+    repo: string,
+    prs: RepoPullRequest[]
+  ): Promise<void> {
+    const token = await this.getTokenForOwner(owner)
+    for (let i = 0; i < prs.length; i += 20) {
+      const chunk = prs.slice(i, i + 20)
+      const fragments = chunk
+        .map((pr, idx) => {
+          const alias = `pr${idx}`
+          return `${alias}: repository(owner: "${owner}", name: "${repo}") {
+            pullRequest(number: ${pr.number}) {
+              reviewThreads(first: 100) {
+                totalCount
+                pageInfo { hasNextPage endCursor }
+                nodes { isResolved }
+              }
+            }
+          }`
+        })
+        .join('\n')
+
+      const query = `query { ${fragments} }`
+      const result = await graphql<
+        Record<
+          string,
+          {
+            pullRequest: {
+              reviewThreads: {
+                totalCount: number
+                pageInfo: { hasNextPage: boolean; endCursor: string | null }
+                nodes: Array<{ isResolved: boolean }>
+              }
+            } | null
+          } | null
+        >
+      >(query, { headers: { authorization: `token ${token}` } })
+
+      for (let idx = 0; idx < chunk.length; idx++) {
+        const data = result[`pr${idx}`]?.pullRequest
+        if (!data) continue
+        const allNodes = await this.paginateReviewThreads(
+          owner,
+          repo,
+          chunk[idx].number,
+          data.reviewThreads,
+          token
+        )
+        const resolved = allNodes.filter(t => t.isResolved).length
+        chunk[idx].threadsUnaddressed = Math.max(0, data.reviewThreads.totalCount - resolved)
+      }
+    }
+  }
+
+  /** Paginate through remaining review thread pages when the first page didn't fetch all nodes. */
+  private async paginateReviewThreads(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    firstPage: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      nodes: Array<{ isResolved: boolean }>
+    },
+    token: string
+  ): Promise<Array<{ isResolved: boolean }>> {
+    const allNodes = [...(firstPage.nodes || [])]
+    let { hasNextPage, endCursor } = firstPage.pageInfo
+
+    while (hasNextPage && endCursor) {
+      const pageQuery = `query {
+        repository(owner: "${owner}", name: "${repo}") {
+          pullRequest(number: ${prNumber}) {
+            reviewThreads(first: 100, after: "${endCursor}") {
+              pageInfo { hasNextPage endCursor }
+              nodes { isResolved }
+            }
+          }
+        }
+      }`
+      const pageResult = await graphql<{
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              pageInfo: { hasNextPage: boolean; endCursor: string | null }
+              nodes: Array<{ isResolved: boolean }>
+            }
+          } | null
+        } | null
+      }>(pageQuery, { headers: { authorization: `token ${token}` } })
+      const pageThreads = pageResult.repository?.pullRequest?.reviewThreads
+      if (!pageThreads) break
+      allNodes.push(...(pageThreads.nodes || []))
+      hasNextPage = pageThreads.pageInfo.hasNextPage
+      endCursor = pageThreads.pageInfo.endCursor
+    }
+
+    return allNodes
+  }
+
+  /** Paginate review threads with extended fields (isOutdated + comment count) for PR history. */
+  private async paginateDetailedReviewThreads(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    firstPage: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      nodes: Array<{ isResolved: boolean; isOutdated: boolean; comments: { totalCount: number } }>
+    },
+    token: string
+  ): Promise<
+    Array<{ isResolved: boolean; isOutdated: boolean; comments: { totalCount: number } }>
+  > {
+    const allNodes = [...(firstPage.nodes || [])]
+    let { hasNextPage, endCursor } = firstPage.pageInfo
+
+    while (hasNextPage && endCursor) {
+      const pageQuery = `query {
+        repository(owner: "${owner}", name: "${repo}") {
+          pullRequest(number: ${prNumber}) {
+            reviewThreads(first: 100, after: "${endCursor}") {
+              pageInfo { hasNextPage endCursor }
+              nodes { isResolved isOutdated comments { totalCount } }
+            }
+          }
+        }
+      }`
+      const pageResult = await graphql<{
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              pageInfo: { hasNextPage: boolean; endCursor: string | null }
+              nodes: Array<{
+                isResolved: boolean
+                isOutdated: boolean
+                comments: { totalCount: number }
+              }>
+            }
+          } | null
+        } | null
+      }>(pageQuery, { headers: { authorization: `token ${token}` } })
+      const pageThreads = pageResult.repository?.pullRequest?.reviewThreads
+      if (!pageThreads) break
+      allNodes.push(...(pageThreads.nodes || []))
+      hasNextPage = pageThreads.pageInfo.hasNextPage
+      endCursor = pageThreads.pageInfo.endCursor
+    }
+
+    return allNodes
+  }
+
   async fetchRepoPRs(
     owner: string,
     repo: string,
@@ -2493,10 +2657,21 @@ export class GitHubClient {
         const { approvalCount, iApproved } = this.countApprovals(reviewsData.data, viewerLogin)
         pr.approvalCount = approvalCount
         pr.iApproved = iApproved
+        const latestByUser = buildLatestReviewByUser(reviewsData.data)
+        pr.changesRequestedCount = Array.from(latestByUser.values()).filter(
+          ({ state }) => state === 'CHANGES_REQUESTED'
+        ).length
       } catch (error: unknown) {
         console.debug(`Failed to fetch review state for ${owner}/${repo}#${pr.number}:`, error)
       }
     })
+
+    // Batch-fetch unresolved thread counts via GraphQL (single query for same repo)
+    try {
+      await this.fetchUnresolvedThreadCounts(owner, repo, prs)
+    } catch (error: unknown) {
+      console.debug(`Failed to fetch thread stats for ${owner}/${repo}:`, error)
+    }
 
     return prs
   }
@@ -2567,7 +2742,15 @@ export class GitHubClient {
       throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
     }
 
-    const threads = pr.reviewThreads.nodes || []
+    // Paginate review threads when >100 exist
+    const threads = await this.paginateDetailedReviewThreads(
+      owner,
+      repo,
+      pullNumber,
+      pr.reviewThreads,
+      token
+    )
+
     const threadsOutdated = threads.filter(thread => thread.isOutdated).length
     const threadsAddressed = threads.filter(thread => thread.isResolved).length
     const threadsUnaddressed = Math.max(0, pr.reviewThreads.totalCount - threadsAddressed)
@@ -2589,6 +2772,7 @@ export class GitHubClient {
       createdAt: pr.createdAt,
       updatedAt: pr.updatedAt,
       mergedAt: pr.mergedAt,
+      body: pr.body || '',
       commitCount: pr.commits.totalCount,
       issueCommentCount,
       reviewCommentCount,
@@ -2601,6 +2785,15 @@ export class GitHubClient {
       reviewers,
       timeline,
     }
+  }
+
+  /**
+   * Fetch the body (markdown) of a pull request.
+   */
+  async fetchPRBody(owner: string, repo: string, pullNumber: number): Promise<string> {
+    const octokit = await this.getOctokitForOwner(owner)
+    const { data } = await octokit.pulls.get({ owner, repo, pull_number: pullNumber })
+    return data.body || ''
   }
 
   /**
@@ -3772,7 +3965,11 @@ export class GitHubClient {
       string,
       {
         pullRequest: {
-          reviewThreads: { totalCount: number; nodes: Array<{ isResolved: boolean }> }
+          reviewThreads: {
+            totalCount: number
+            pageInfo: { hasNextPage: boolean; endCursor: string | null }
+            nodes: Array<{ isResolved: boolean }>
+          }
         } | null
       } | null
     >
@@ -3786,6 +3983,7 @@ export class GitHubClient {
               pullRequest(number: ${pr._prNumber}) {
                 reviewThreads(first: 100) {
                   totalCount
+                  pageInfo { hasNextPage endCursor }
                   nodes { isResolved }
                 }
               }
@@ -3801,8 +3999,14 @@ export class GitHubClient {
       for (let idx = 0; idx < chunk.length; idx++) {
         const data = result[`pr${i + idx}`]?.pullRequest
         if (!data) continue
-        const threads = data.reviewThreads.nodes || []
-        const addressed = threads.filter(t => t.isResolved).length
+        const allNodes = await this.paginateReviewThreads(
+          owner,
+          chunk[idx]._repo,
+          chunk[idx]._prNumber,
+          data.reviewThreads,
+          token
+        )
+        const addressed = allNodes.filter(t => t.isResolved).length
         chunk[idx].threadsTotal = data.reviewThreads.totalCount
         chunk[idx].threadsAddressed = addressed
         chunk[idx].threadsUnaddressed = Math.max(0, data.reviewThreads.totalCount - addressed)

@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "V1.0 - Commands: diagnose, e2e, connect. Debug hs-buddy Electron app using Playwright, CDP, and Vite dev server. Use when the app has runtime bugs, UI won't load, features are broken, or E2E tests need writing."
+description: "V1.1 - Commands: diagnose, e2e, connect. Debug hs-buddy Electron app using Playwright MCP over CDP for full Electron context. Use when the app has runtime bugs, UI won't load, features are broken, or E2E tests need writing."
 hooks:
   PostToolUse:
     - matcher: "Read|Write|Edit"
@@ -45,15 +45,103 @@ Debug the hs-buddy Electron desktop app (React 19 + TypeScript + Vite + Convex).
 ```text
 Electron Main Process
   └─ BrowserWindow (frame: false)
-       └─ Vite Dev Server (localhost:5173)
+       └─ Vite Dev Server (localhost:5173 in dev, dynamic port in built mode)
             └─ React 19 App
                  └─ Convex Client → ws://127.0.0.1:3210/api/sync
 ```
 
-- **Electron**: Hosts the app, provides IPC via `window.electronAPI`
-- **Vite**: Dev server on `http://localhost:5173` (accessible directly in browser)
+- **Electron**: Hosts the app, provides IPC via `window.electronAPI`, `window.ralph`, `window.shell`
+- **Vite**: Dev server on `http://localhost:5173` (dev) or dynamic port (built mode)
 - **Convex**: Serverless backend, local dev server on port 3210 via WebSocket
-- **CDP**: Chrome DevTools Protocol on port 9222 when app runs with `--remote-debugging-port=9222`
+- **CDP**: Chrome DevTools Protocol on port 9222 when launched with debug script
+
+## Launching for Debug
+
+**Always use the Aspire debug script:**
+
+```powershell
+.\scripts\runAspire.debug.ps1              # default CDP port 9222
+.\scripts\runAspire.debug.ps1 -Port 9333   # custom CDP port
+```
+
+This sets `BUDDY_DEBUG_PORT=9222` and launches via Aspire orchestration
+(Convex + Vite/Electron). The app's `electron/main.ts` reads this env var
+and calls `app.commandLine.appendSwitch('remote-debugging-port', port)`.
+
+## Connecting via Playwright MCP (Preferred — Full Electron Context)
+
+### Configuration
+
+The Playwright MCP server must be configured with `--cdp-endpoint` to connect
+to the running Electron app instead of launching its own browser:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:9222"]
+    }
+  }
+}
+```
+
+**Config location**: `~/.copilot/mcp-config.json`
+
+**Important**: After changing this config, the CLI session must be restarted
+for the Playwright MCP server to pick up the new endpoint.
+
+### Why CDP mode is preferred
+
+| Mode | Preload context | IPC calls | Full app state |
+|------|----------------|-----------|----------------|
+| **CDP (--cdp-endpoint)** | ✅ `window.ralph`, `window.electronAPI`, `window.shell` | ✅ Work | ✅ Real app |
+| Vite URL (localhost:5173) | ❌ undefined | ❌ Crash | ❌ Partial |
+| Built URL (localhost:NNNNN) | ❌ undefined | ❌ Crash | ❌ Partial |
+
+Without CDP mode, navigating to the app URL in a plain browser tab renders
+a broken page because `window.electronAPI.invoke` is undefined. Error
+boundaries catch this and show "Something went wrong".
+
+### Discovering the app URL
+
+When the app runs in built mode (via Aspire), Vite serves on a dynamic port.
+To find it:
+
+```powershell
+# Query CDP for available targets
+Invoke-RestMethod -Uri http://localhost:9222/json | Select-Object title, url, type
+```
+
+This returns the actual BrowserWindow URL (e.g., `http://localhost:53953/`).
+
+### Debug workflow
+
+1. `browser_snapshot` — see the full accessibility tree of the Electron app
+2. `browser_console_messages` — check for runtime errors
+3. `browser_evaluate` — run JS with access to `window.ralph`, `window.electronAPI`
+4. `browser_click` / `browser_type` — interact with the actual app
+5. `browser_take_screenshot` — visual verification
+6. `browser_network_requests` — inspect IPC and API calls
+
+### Switching between CDP and standalone mode
+
+To debug without an Electron app running, remove the `--cdp-endpoint` flag:
+
+```json
+"args": ["@playwright/mcp@latest"]
+```
+
+This launches a standalone Chromium browser (useful for general web debugging).
+
+### Additional Playwright MCP flags
+
+| Flag | Purpose |
+|------|---------|
+| `--cdp-timeout <ms>` | Connection timeout (default 30000) |
+| `--caps vision` | Enable screenshot-based interactions |
+| `--caps devtools` | Enable DevTools features |
+| `--viewport-size 1280x720` | Set viewport size |
 
 ## Commands
 
@@ -63,22 +151,27 @@ Diagnose runtime issues in the running app.
 
 **Steps:**
 
-1. Connect to `http://localhost:5173` via Playwright MCP browser tools
-2. Check console errors — common patterns:
+1. Verify CDP is available: `Invoke-RestMethod http://localhost:9222/json`
+2. Use `browser_snapshot` to see current page state (via CDP connection)
+3. Check `browser_console_messages` for errors — common patterns:
    - `WebSocket connection to 'ws://127.0.0.1:3210/...' failed` → Convex dev server is offline
-   - `Cannot read properties of undefined (reading 'invoke')` → Electron IPC unavailable (running in plain browser)
+   - `Cannot read properties of undefined (reading 'invoke')` → IPC bridge not loaded (wrong connection mode)
    - `[DataCache] Failed to initialize` → Same IPC issue
-3. Check for infinite loading states — components that return `undefined` from Convex hooks
-4. Look for React error boundaries that swallowed errors silently
+   - `X.map is not a function` → IPC handler returned error object instead of array
+4. Use `browser_evaluate` to test IPC: `() => typeof window.ralph !== 'undefined'`
+5. Check for infinite loading states — components stuck on `loading: true`
+6. Look for React error boundaries showing "Something went wrong"
 
 **Common root causes:**
 
 | Symptom | Root Cause | Fix |
 |---------|-----------|-----|
-| Infinite "Loading..." spinner | Convex dev server not running | `npx convex dev` |
-| `window.electronAPI` undefined | Accessing from browser, not Electron | Expected in browser-only testing |
+| Infinite "Loading..." spinner | Convex dev server not running | Check Aspire dashboard |
+| `window.electronAPI` undefined | Playwright not using CDP mode | Add `--cdp-endpoint` to config |
 | Blank white screen | Unhandled exception in render | Check console for React errors |
-| WebSocket refused on 3210 | Convex offline or wrong port | Verify `npx convex dev` is running |
+| WebSocket refused on 3210 | Convex offline or wrong port | Restart via Aspire |
+| "Something went wrong" | Error boundary caught crash | Check console for stack trace |
+| `X.map is not a function` | IPC returned `{success:false}` instead of array | Guard with `Array.isArray()` |
 
 ### e2e
 
@@ -128,22 +221,44 @@ if (await button.count() > 0) {
 
 Connect to the running app for interactive debugging.
 
-**Option A — Vite dev server (preferred):**
-Navigate Playwright MCP to `http://localhost:5173/`. This gives access to the full React app minus Electron-specific IPC features.
+**Option A — CDP via Playwright MCP (preferred, full Electron context):**
 
-**Option B — CDP (full Electron context):**
-If the app was launched with `--remote-debugging-port=9222`:
+Requires `--cdp-endpoint http://127.0.0.1:9222` in Playwright MCP config.
+Once configured, all `browser_*` tools operate directly on the Electron
+BrowserWindow with full preload context (`window.ralph`, `window.electronAPI`,
+`window.shell`).
 
-```typescript
-// In playwright config or test
-connectOverCDP: 'http://127.0.0.1:9222'
+```
+# All Playwright MCP tools work automatically — no navigation needed.
+# The browser is already connected to the Electron window.
+browser_snapshot          → see the full accessibility tree
+browser_console_messages  → runtime errors
+browser_evaluate          → run JS with full preload context
+browser_click             → interact with real app elements
+browser_take_screenshot   → visual verification
 ```
 
-**Playwright MCP browser tools workflow:**
+**Option B — Vite dev server (limited, no IPC):**
 
-1. `browser_navigate` to `http://localhost:5173/`
-2. `browser_snapshot` to see current page state
-3. `browser_console_messages` to check for errors
+Navigate Playwright MCP to `http://localhost:5173/`. Shows the React UI
+but `window.electronAPI` and `window.ralph` are undefined. IPC calls crash.
+Only useful for pure UI/layout debugging that doesn't touch Electron features.
+
+**Option C — CDP JSON endpoint (manual discovery):**
+
+```powershell
+# Discover targets
+Invoke-RestMethod http://localhost:9222/json | ConvertTo-Json
+
+# Open Chrome DevTools in a browser
+# Copy the devtoolsFrontendUrl from the JSON response
+```
+
+**Playwright MCP browser tools workflow (CDP mode):**
+
+1. `browser_snapshot` to see current page state
+2. `browser_console_messages` to check for errors
+3. `browser_evaluate` to test specific APIs
 4. `browser_click` / `browser_type` to interact
 5. `browser_take_screenshot` for visual verification
 

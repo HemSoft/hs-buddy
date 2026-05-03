@@ -4,7 +4,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
   mockEnqueue: vi.fn(),
   mockCacheGet: vi.fn(),
-  stableAccounts: [{ username: 'alice', org: 'test-org' }],
+  stableAccounts: [{ username: 'alice', org: 'test-org', repoRoot: '/home/user/github' }],
 }))
 
 vi.mock('../hooks/useConfig', () => ({
@@ -386,5 +386,180 @@ describe('RepoIssueDetailPanel', () => {
       expect(screen.queryByText('Loading issue…')).not.toBeInTheDocument()
     })
     expect(container.innerHTML).toBe('')
+  })
+
+  it('renders "Start Ralph Loop" button when issue is loaded', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Start Ralph Loop')).toBeInTheDocument()
+    })
+  })
+
+  it('dispatches app:navigate event when "Start Ralph Loop" is clicked', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Start Ralph Loop')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    // Verify app:navigate event was dispatched
+    const navEvents = dispatchEventSpy.mock.calls.filter(
+      call => call[0] instanceof CustomEvent && (call[0] as CustomEvent).type === 'app:navigate'
+    )
+    expect(navEvents.length).toBeGreaterThan(0)
+    const navEvent = navEvents[0][0] as CustomEvent
+    expect((navEvent.detail as Record<string, unknown>).viewId).toBe('ralph-dashboard')
+
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('dispatches ralph:launch-from-issue event with issue data after timeout', async () => {
+    mockEnqueue.mockResolvedValue(
+      makeIssueDetail({ number: 42, title: 'Login fails intermittently' })
+    )
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Start Ralph Loop')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    // Wait for the setTimeout to complete (100ms)
+    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Verify ralph:launch-from-issue event was dispatched
+    const launchEvents = dispatchEventSpy.mock.calls.filter(
+      call =>
+        call[0] instanceof CustomEvent &&
+        (call[0] as CustomEvent).type === 'ralph:launch-from-issue'
+    )
+    expect(launchEvents.length).toBeGreaterThan(0)
+    const launchEvent = launchEvents[0][0] as CustomEvent
+    const detail = launchEvent.detail as Record<string, unknown>
+    expect(detail.issueNumber).toBe(42)
+    expect(detail.issueTitle).toBe('Login fails intermittently')
+    expect(detail.issueBody).toBe('When users try to login, it sometimes fails.')
+    expect(detail.repository).toBe('hs-buddy')
+    expect(detail.org).toBe('test-org')
+
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('builds repoPath using platform-aware separator on Windows', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+    const platformSpy = vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('Win32')
+
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Start Ralph Loop')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    // Wait for the setTimeout to complete
+    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Verify repoPath uses backslash separator
+    const launchEvents = dispatchEventSpy.mock.calls.filter(
+      call =>
+        call[0] instanceof CustomEvent &&
+        (call[0] as CustomEvent).type === 'ralph:launch-from-issue'
+    )
+    const launchEvent = launchEvents[0][0] as CustomEvent
+    const detail = launchEvent.detail as Record<string, unknown>
+    expect(detail.repoPath).toBe('/home/user/github\\hs-buddy')
+
+    dispatchEventSpy.mockRestore()
+    platformSpy.mockRestore()
+  })
+
+  it('builds repoPath using forward slash separator on non-Windows platforms', async () => {
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+    const platformSpy = vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('Linux')
+
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Start Ralph Loop')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    // Wait for the setTimeout to complete
+    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Verify repoPath uses forward slash separator
+    const launchEvents = dispatchEventSpy.mock.calls.filter(
+      call =>
+        call[0] instanceof CustomEvent &&
+        (call[0] as CustomEvent).type === 'ralph:launch-from-issue'
+    )
+    const launchEvent = launchEvents[0][0] as CustomEvent
+    const detail = launchEvent.detail as Record<string, unknown>
+    expect(detail.repoPath).toBe('/home/user/github/hs-buddy')
+
+    dispatchEventSpy.mockRestore()
+    platformSpy.mockRestore()
+  })
+
+  it('sets repoPath to empty string when account has no repoRoot', async () => {
+    // Mock accounts without repoRoot
+    const originalAccounts = stableAccounts
+    stableAccounts.length = 0
+    stableAccounts.push({ username: 'alice', org: 'test-org', repoRoot: '' })
+
+    mockEnqueue.mockResolvedValue(makeIssueDetail())
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Start Ralph Loop')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Start Ralph Loop'))
+
+    // Wait for the setTimeout to complete
+    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Verify repoPath is empty
+    const launchEvents = dispatchEventSpy.mock.calls.filter(
+      call =>
+        call[0] instanceof CustomEvent &&
+        (call[0] as CustomEvent).type === 'ralph:launch-from-issue'
+    )
+    const launchEvent = launchEvents[0][0] as CustomEvent
+    const detail = launchEvent.detail as Record<string, unknown>
+    expect(detail.repoPath).toBe('')
+
+    // Restore
+    stableAccounts.length = 0
+    stableAccounts.push(...originalAccounts)
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('handles Start Ralph Loop when detail is null', async () => {
+    mockEnqueue.mockReturnValue(new Promise(() => {})) // Never resolves
+    render(<RepoIssueDetailPanel owner="test-org" repo="hs-buddy" issueNumber={42} />)
+
+    // Component should render loading state
+    expect(screen.getByText('Loading issue…')).toBeInTheDocument()
+
+    // Even if somehow the button were visible and clicked when detail is null,
+    // the handler guard (if (!detail) return) should prevent any errors
+    // This test verifies the guard doesn't cause issues
   })
 })

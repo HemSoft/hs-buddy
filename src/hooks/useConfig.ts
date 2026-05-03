@@ -115,14 +115,18 @@ export function useConfig() {
  */
 
 function resolveAccountsFromSources(
-  convexAccounts: Array<{ username: string; org: string }> | undefined,
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
   electronStoreAccounts: GitHubAccount[],
   convexConnected: boolean
 ): GitHubAccount[] {
   /* v8 ignore start */
   if (convexConnected && convexAccounts) {
     /* v8 ignore stop */
-    return convexAccounts.map(a => ({ username: a.username, org: a.org }))
+    return convexAccounts.map(a => ({
+      username: a.username,
+      org: a.org,
+      ...(a.repoRoot && { repoRoot: a.repoRoot }),
+    }))
   }
   /* v8 ignore start */
   return electronStoreAccounts
@@ -132,7 +136,7 @@ function resolveAccountsFromSources(
 function shouldInitializeAccounts(
   currentAccounts: GitHubAccount[],
   electronStoreAccounts: GitHubAccount[],
-  convexAccounts: Array<{ username: string; org: string }> | undefined
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined
 ): boolean {
   return (
     currentAccounts.length === 0 &&
@@ -164,11 +168,11 @@ export function useGitHubAccounts() {
   // Use Convex if connected, otherwise electron-store
   const convexConnected = convexAccounts !== undefined
 
-  // Build content key for comparison
+  // Build content key for comparison (include repoRoot so edits trigger refresh)
   const contentKey =
     convexConnected && convexAccounts
-      ? JSON.stringify(convexAccounts.map(a => [a.username, a.org]))
-      : JSON.stringify(electronStoreAccounts.map(a => [a.username, a.org]))
+      ? JSON.stringify(convexAccounts.map(a => [a.username, a.org, a.repoRoot]))
+      : JSON.stringify(electronStoreAccounts.map(a => [a.username, a.org, a.repoRoot]))
 
   // Use ref to track previous key and accounts
   const prevKeyRef = useRef(contentKey)

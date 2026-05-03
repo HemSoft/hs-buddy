@@ -1,0 +1,38 @@
+{
+  "$comment": "Model configuration for ralph-loops. Tiers and aliases reference the models catalog by key.",
+  "version": "1.1.1",
+
+  "models": {
+    "claude-sonnet-4.6":  { "label": "Sonnet 4.6",        "costMultiplier": 1.0, "provider": "anthropic",  "reasoningEffort": "high" },
+    "claude-opus-4.6":    { "label": "Opus 4.6",          "costMultiplier": 3.0, "provider": "anthropic",  "reasoningEffort": "high" },
+    "claude-opus-4.7":    { "label": "Opus 4.7",          "costMultiplier": 7.5, "provider": "anthropic",  "reasoningEffort": "high" },
+    "gpt-5.5":            { "label": "GPT-5.5",           "costMultiplier": 3.0, "provider": "openai",     "reasoningEffort": "high" },
+    "gpt-5.4":            { "label": "GPT-5.4",           "costMultiplier": 1.0, "provider": "openai",     "reasoningEffort": "high" },
+    "gpt-5.4-mini":       { "label": "GPT-5.4 Mini",      "costMultiplier": 0.3, "provider": "openai",     "reasoningEffort": "medium" },
+    "deepseek-v4-pro":    { "label": "DeepSeek V4 Pro",   "costMultiplier": 0.3, "provider": "deepseek",   "reasoningEffort": "high" },
+    "deepseek-v4-flash":  { "label": "DeepSeek V4 Flash", "costMultiplier": 0.1, "provider": "deepseek",   "reasoningEffort": "medium" },
+    "glm-5.1":            { "label": "GLM 5.1",           "costMultiplier": 0.2, "provider": "zhipu",      "reasoningEffort": "high" },
+    "kimi-k2.6":          { "label": "Kimi K2.6",         "costMultiplier": 0.3, "provider": "moonshotai", "reasoningEffort": "high" }
+  },
+
+  "aliases": {
+    "sonnet":      "claude-sonnet-4.6",
+    "opus46":      "claude-opus-4.6",
+    "opus47":      "claude-opus-4.7",
+    "gpt55":       "gpt-5.5",
+    "gpt":         "gpt-5.4",
+    "gpt-mini":    "gpt-5.4-mini",
+    "ds-v4-pro":   "deepseek-v4-pro",
+    "ds-v4-flash": "deepseek-v4-flash",
+    "glm":         "glm-5.1",
+    "kimi":        "kimi-k2.6"
+  },
+
+  "tiers": {
+    "fast":   { "model": "claude-sonnet-4.6", "description": "Quick and cheap — simple fixes, formatting, routine tasks" },
+    "medium": { "model": "claude-opus-4.6",   "description": "Balanced quality and cost — most development work" },
+    "best":   { "model": "claude-opus-4.7",   "description": "Highest quality reasoning — complex architecture, security, critical code" }
+  },
+
+  "default": "medium"
+}

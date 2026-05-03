@@ -9,6 +9,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.741] - 2026-04-28
+
+### Added
+
+- Add Phase 2 dashboard and launch UI
+- Sync vendored scripts from upstream ai-tools
+- Wire lifecycle hooks and template script support
+- Add available scripts section to dashboard
+- Add treeview sidebar with Core Scripts and Templates sections
+- Agent dropdown, prompt textbox with script-aware auto-fill
+- Split agent selection into Work Agent dropdown + PR Review Agent chips
+- Add generic repeat wrapper + Work Iterations/Repeat Cycles UX
+- Add perfection skill — total quality gate audit
+- Add run history sidebar tree + detail panel
+- Filter model dropdown by selected provider
+- Stack-agnostic prompts, runtime extraction, per-reviewer models
+- Show 'Provider: Model' labels in all model dropdowns
+- Per-reviewer provider routing (role@provider:model)
+- Support standalone PR loop via UI
+- Persist last-selected repository folder
+- Display PR summary/body on PR detail page
+- Color-code log output by line type
+- Add running stats counters to Progress section
+- Group completed runs under 'Completed' header with unique names
+- Add ralph-issues script support
+- Add 'Copy entries from last month' to empty timesheet
+- Add Nudge Author via Slack button to PR detail
+- Add visible nudge banner for success/error feedback
+- Add context menu, Ralph review integration, and account editing
+- Add folder picker button for repo root path
+- Default model to Opus 4.6 and agent to anvil
+- Add auto-approve toggle to launch form
+- Add 'Start Ralph Loop' from Issue detail panel
+- Add right-click context menu to issue list items
+- Add GPT-5.5 to models config
+- Add changes-requested count and unresolved thread indicators
+
+### Fixed
+
+- Add esbuild as explicit devDependency for Vite 8 compat
+- Inject createRequire shim for Vite 8 Rolldown CJS compat
+- Add error handling to useRalphLoops hook
+- Auto-open dashboard when Ralph section is selected
+- Fix scripts path resolution and template array guard
+- Define __dirname for ESM in ralphService + update debug skill to V1.1
+- Wire sidebar script clicks to open launch form with pre-selected script
+- Update branch placeholder text
+- Template script launch failure + redesign run detail panel
+- Join agents with commas instead of spreading as separate args
+- Strip ANSI codes from logs and guard Console::KeyAvailable
+- Auto-navigate to run detail panel after launching a loop
+- Move audio hook from postToolUse to Stop event
+- Prevent infinite loop when Copilot review unavailable
+- Pass DevAgent separately for ralph-pr script
+- Align SFL Loop loading state with sibling disclosure items
+- Indent SFL tree children to match repo-child nesting
+- Use temp file for background timer spawn
+- Bail early on merged/closed PRs and surface fetch failures
+- Harden progress stats grid CSS layout
+- Track stats cumulatively on backend, increase log buffer to 5k
+- Match GRAND TOTAL line for final cost in stats
+- Use correct token env var and improve error reporting
+- Replace em-dash with ASCII dash in nudge message
+- Make account cards clickable to enter edit mode
+- Include repoRoot in resolved account data
+- Gate auto-merge on AutoApprove flag
+- Suppress false warning when user is org member
+- Issue list table view now shows title column properly
+- Issue list header layout — prevent stacking and add separator
+- Write issue prompts to temp file to avoid cmd-line corruption
+- Revert vite 8.0.10 to 6.4.2 for Electron compatibility
+- Address PR review feedback and fix ActivityBar test
+- Use separate worktree in autopilot to prevent app restart
+- Address PR review comments + achieve 100% test coverage
+- Remove unnecessary `as any` casts from RepoNode test config objects
+- Resolve all CI failures — typecheck, lint, knip
+- Achieve 100% coverage — add missing branch and keyboard tests
+- Apply Prettier formatting to 13 files flagged by CI
+- Paginate review threads >100 and update bundle-size baseline
+
+### Changed
+
+- Remove 13 individual *-repeat scripts
+- Log perfection audit results for 2026-04-28
+
 ## [0.1.740] - 2026-04-26
 
 ### Changed
@@ -21,6 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Implement 4 quality gate tools
+- Vendor ralph-loops core infrastructure
+- Add Phase 1 foundation backend
 
 ### Fixed
 

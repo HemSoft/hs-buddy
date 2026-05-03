@@ -192,6 +192,17 @@ vi.mock('../utils/prDetailView', () => ({
   },
 }))
 
+vi.mock('./ralph-loops/RalphDashboard', () => ({
+  RalphDashboard: (props: { onOpenTab?: (viewId: string) => void }) => {
+    if (props.onOpenTab) capturedCallbacks.ralphDashboardOnOpenTab = props.onOpenTab
+    return <div>RalphDashboard</div>
+  },
+}))
+
+vi.mock('./ralph-loops/RalphRunDetailPanel', () => ({
+  RalphRunDetailPanel: ({ runId }: { runId: string }) => <div>RalphRunDetail:{runId}</div>,
+}))
+
 vi.mock('./appContentViewLabels', () => ({
   viewLabels: { 'some-known-view': 'Known View' },
 }))
@@ -556,5 +567,21 @@ describe('AppContentRouter', () => {
     const { onNavigate } = renderRouter(`copilot-session-detail:${encoded}`)
     capturedCallbacks.sessionDetailOnBack()
     expect(onNavigate).toHaveBeenCalledWith('copilot-sessions')
+  })
+
+  it('renders RalphDashboard for ralph-dashboard viewId', () => {
+    renderRouter('ralph-dashboard')
+    expect(screen.getByText('RalphDashboard')).toBeInTheDocument()
+  })
+
+  it('renders RalphRunDetailPanel for ralph-run: prefix viewId', () => {
+    renderRouter('ralph-run:run-abc-123')
+    expect(screen.getByText('RalphRunDetail:run-abc-123')).toBeInTheDocument()
+  })
+
+  it('RalphDashboard onOpenTab calls onOpenTab prop', () => {
+    const { onOpenTab } = renderRouter('ralph-dashboard')
+    capturedCallbacks.ralphDashboardOnOpenTab('ralph-run:run-xyz')
+    expect(onOpenTab).toHaveBeenCalledWith('ralph-run:run-xyz')
   })
 })

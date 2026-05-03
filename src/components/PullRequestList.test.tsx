@@ -2,18 +2,21 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PullRequestList } from './PullRequestList'
 
-const { mockHandleManualRefresh, mockUsePRListData, mockSetViewMode } = vi.hoisted(() => ({
-  mockHandleManualRefresh: vi.fn(),
-  mockUsePRListData: vi.fn(),
-  mockSetViewMode: vi.fn(),
-}))
+const { mockHandleManualRefresh, mockUsePRListData, mockSetViewMode, mockUseViewMode } = vi.hoisted(
+  () => ({
+    mockHandleManualRefresh: vi.fn(),
+    mockUsePRListData: vi.fn(),
+    mockSetViewMode: vi.fn(),
+    mockUseViewMode: vi.fn(),
+  })
+)
 
 vi.mock('./pull-request-list/usePRListData', () => ({
   usePRListData: mockUsePRListData,
 }))
 
 vi.mock('../hooks/useViewMode', () => ({
-  useViewMode: () => ['card' as const, mockSetViewMode],
+  useViewMode: (...args: unknown[]) => mockUseViewMode(...args),
 }))
 
 vi.mock('./pull-request-list/PRItem', () => ({
@@ -65,6 +68,7 @@ const defaultData = {
 describe('PullRequestList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockUseViewMode.mockReturnValue(['card' as const, mockSetViewMode])
     mockUsePRListData.mockReturnValue(defaultData)
     Object.defineProperty(window, 'shell', {
       value: { openExternal: vi.fn() },
@@ -320,5 +324,58 @@ describe('PullRequestList', () => {
     render(<PullRequestList mode="my-prs" />)
     fireEvent.click(screen.getByTestId('pr-item'))
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://github.com/test/repo/pull/1')
+  })
+
+  it('shows approvals with mine class when iApproved in list mode', () => {
+    mockUseViewMode.mockReturnValue(['list' as const, mockSetViewMode])
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [
+        {
+          source: 'gh',
+          id: 1,
+          repository: 'test/repo',
+          title: 'Approved PR',
+          state: 'open',
+          author: 'octocat',
+          authorAvatarUrl: null,
+          updatedAt: '2025-01-01T00:00:00Z',
+          url: 'https://github.com/test/repo/pull/1',
+          approvalCount: 2,
+          iApproved: true,
+          threadsUnaddressed: null,
+        },
+      ],
+    })
+    render(<PullRequestList mode="my-prs" />)
+    const approvalSpan = document.querySelector('.list-view-approvals--mine')
+    expect(approvalSpan).toBeTruthy()
+  })
+
+  it('shows approvals without mine class when not iApproved in list mode', () => {
+    mockUseViewMode.mockReturnValue(['list' as const, mockSetViewMode])
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [
+        {
+          source: 'gh',
+          id: 2,
+          repository: 'test/repo',
+          title: 'Other PR',
+          state: 'open',
+          author: 'octocat',
+          authorAvatarUrl: null,
+          updatedAt: '2025-01-01T00:00:00Z',
+          url: 'https://github.com/test/repo/pull/2',
+          approvalCount: 1,
+          iApproved: false,
+          threadsUnaddressed: null,
+        },
+      ],
+    })
+    render(<PullRequestList mode="my-prs" />)
+    const approvalSpan = document.querySelector('.list-view-approvals')
+    expect(approvalSpan).toBeTruthy()
+    expect(approvalSpan?.className).not.toContain('mine')
   })
 })

@@ -240,14 +240,16 @@ export function OrgBudgetsSection({
         Org Budgets
       </h3>
       <div className="usage-budgets-grid">
-        {Array.from(uniqueOrgs.keys()).map(org => (
-          <BudgetCard
-            key={org}
-            org={org}
-            state={orgBudgets[org] ?? BUDGET_CARD_DEFAULTS}
-            quotaOverage={orgOverageFromQuotas.get(org) ?? 0}
-          />
-        ))}
+        {Array.from(uniqueOrgs.keys())
+          .filter(org => org !== 'hemsoft')
+          .map(org => (
+            <BudgetCard
+              key={org}
+              org={org}
+              state={orgBudgets[org] ?? BUDGET_CARD_DEFAULTS}
+              quotaOverage={orgOverageFromQuotas.get(org) ?? 0}
+            />
+          ))}
       </div>
     </div>
   )

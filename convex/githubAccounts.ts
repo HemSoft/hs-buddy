@@ -82,8 +82,9 @@ export const update = mutation({
     id: v.id("githubAccounts"),
     username: v.optional(v.string()),
     org: v.optional(v.string()),
+    repoRoot: v.optional(v.string()),
   },
-  handler: async (ctx, { id, username, org }) => {
+  handler: async (ctx, { id, username, org, repoRoot }) => {
     const existing = await ctx.db.get("githubAccounts", id);
     if (!existing) {
       throw new Error("GitHub account not found");
@@ -92,6 +93,7 @@ export const update = mutation({
     await ctx.db.patch("githubAccounts", id, {
       ...(username !== undefined && { username }),
       ...(org !== undefined && { org }),
+      ...(repoRoot !== undefined && { repoRoot }),
       updatedAt: Date.now(),
     });
   },

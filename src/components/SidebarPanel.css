@@ -228,6 +228,12 @@
   background: transparent;
 }
 
+.context-menu-separator {
+  height: 1px;
+  background: var(--border-primary);
+  margin: 4px 0;
+}
+
 /* ── GitHub sidebar: Organizations ────────────────────────────────────── */
 
 .sidebar-filter-btn {
@@ -490,6 +496,14 @@ button.sidebar-item {
   font-size: 12px !important;
 }
 
+.sidebar-sfl-tree .sidebar-job-item {
+  padding-left: 74px !important;
+}
+
+.sidebar-ralph-tree .sidebar-job-item {
+  padding-left: 74px !important;
+}
+
 .sidebar-job-item .sidebar-item-icon svg {
   width: 12px;
   height: 12px;
@@ -656,6 +670,10 @@ button.sidebar-item {
 .sidebar-pr-child .sidebar-item-icon svg {
   width: 12px;
   height: 12px;
+}
+
+.sidebar-issue-leaf {
+  padding-left: 80px !important;
 }
 
 .sidebar-item-updated-age {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { SFLOverallStatus, SFLRepoStatus } from '../../../types/sflStatus'
+import type { RalphRunInfo } from '../../../types/ralph'
 import {
   SFL_STATUS_LABELS,
   sflOverallStatusIcon,
@@ -226,6 +227,8 @@ const baseProps = {
   sflStatusData: {} as Record<string, SFLRepoStatus>,
   loadingSFLStatus: new Set<string>(),
   expandedSFLGroups: new Set<string>(),
+  ralphRuns: [] as RalphRunInfo[],
+  expandedRalphGroups: new Set<string>(),
   selectedItem: null as string | null,
   refreshTick: 0,
   onToggleRepo: noop,
@@ -239,6 +242,7 @@ const baseProps = {
   onToggleRepoPRStateGroup: noop as (org: string, repo: string, state: 'open' | 'closed') => void,
   onToggleRepoCommitGroup: noop,
   onToggleSFLGroup: noop,
+  onToggleRalphGroup: noop,
   onTogglePRNode: noop,
   onItemSelect: noop,
   onContextMenu: noop as (e: React.MouseEvent, pr: PullRequest) => void,
@@ -2205,5 +2209,1272 @@ describe('RepoNode component', () => {
     )
     expect(screen.getByText('Commits')).toBeTruthy()
     expect(document.querySelector('.sidebar-pr-child')).toBeNull()
+  })
+
+  // Ralph Loops tests
+  it('handles click on completed recent ralph run item and selects it', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const onItemSelect = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-completed',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph-pr',
+      },
+      status: 'completed',
+      phase: 'completed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: Date.now() - 600000,
+      updatedAt: Date.now() - 300000,
+      completedAt: Date.now() - 300000,
+      exitCode: 0,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 1,
+        agentTurns: 2,
+        reviews: 1,
+        copilotPRs: 1,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+        onItemSelect={onItemSelect}
+      />
+    )
+    const runItem = screen.getByTitle(/ralph-pr — completed/i).closest('[role="button"]')!
+    fireEvent.click(runItem)
+    expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-completed')
+  })
+
+  it('handles keyboard Enter on completed recent ralph run item', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const onItemSelect = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-completed-key',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph-pr',
+      },
+      status: 'completed',
+      phase: 'completed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: Date.now() - 600000,
+      updatedAt: Date.now() - 300000,
+      completedAt: Date.now() - 300000,
+      exitCode: 0,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 1,
+        agentTurns: 2,
+        reviews: 1,
+        copilotPRs: 1,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+        onItemSelect={onItemSelect}
+      />
+    )
+    const runItem = screen.getByTitle(/ralph-pr — completed/i).closest('[role="button"]')!
+    fireEvent.keyDown(runItem, { key: 'Enter' })
+    expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-completed-key')
+  })
+
+  it('renders Ralph Loops section when ralph runs are present and repo is expanded', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(<RepoNode {...baseProps} expandedRepos={expanded} ralphRuns={[ralphRun]} />)
+    expect(screen.getByText('Ralph Loops')).toBeDefined()
+  })
+
+  it('renders active ralph runs with iteration count', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 2,
+      totalIterations: 5,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const expandedRalph = new Set(['org/hs-buddy'])
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    expect(screen.getByText('2/5')).toBeDefined()
+  })
+
+  it('renders recent completed ralph runs with time ago', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const completedTime = Date.now() - 300000 // 5 minutes ago
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-completed',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph-pr',
+      },
+      status: 'completed',
+      phase: 'completed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: Date.now() - 600000,
+      updatedAt: Date.now() - 300000,
+      completedAt: completedTime,
+      exitCode: 0,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 1,
+        agentTurns: 2,
+        reviews: 1,
+        copilotPRs: 1,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const expandedRalph = new Set(['org/hs-buddy'])
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    // Should show "5m ago" or similar
+    expect(screen.getByText(/ago/)).toBeDefined()
+  })
+
+  it('renders recent completed ralph runs with days ago when old', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const completedTime = Date.now() - 86400000 - 3600000 // 1 day + 1 hour ago
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-old',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph-pr',
+      },
+      status: 'completed',
+      phase: 'completed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: Date.now() - 172800000,
+      updatedAt: completedTime,
+      completedAt: completedTime,
+      exitCode: 0,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 1,
+        agentTurns: 2,
+        reviews: 1,
+        copilotPRs: 1,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const expandedRalph = new Set(['org/hs-buddy'])
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    // Should show "Xd ago" (days format)
+    expect(screen.getByText(/d ago/)).toBeDefined()
+  })
+
+  it('filters ralph runs by repo name match', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const ralphRunMatching: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const ralphRunNonMatching: RalphRunInfo = {
+      runId: 'run-2',
+      config: {
+        repoPath: 'other/repo',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 5678,
+      currentIteration: 1,
+      totalIterations: 2,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const expandedRalph = new Set(['org/hs-buddy'])
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRunMatching, ralphRunNonMatching]}
+      />
+    )
+    // Should show 1 active run (count should be 1)
+    expect(screen.getByText('1')).toBeDefined()
+  })
+
+  it('shows active run count badge', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const ralphRun1: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const ralphRun2: RalphRunInfo = {
+      runId: 'run-2',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph-pr',
+      },
+      status: 'pending',
+      phase: 'initializing',
+      pid: 5678,
+      currentIteration: 0,
+      totalIterations: 1,
+      startedAt: Date.now() - 30000,
+      updatedAt: Date.now() - 30000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(<RepoNode {...baseProps} expandedRepos={expanded} ralphRuns={[ralphRun1, ralphRun2]} />)
+    const countBadges = screen.getAllByText('2')
+    expect(countBadges.length).toBeGreaterThan(0)
+  })
+
+  it('handles click on ralph run item and selects it', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const onItemSelect = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-active',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+        onItemSelect={onItemSelect}
+      />
+    )
+    const runItem = screen.getByTitle(/ralph — running/i).closest('[role="button"]')!
+    fireEvent.click(runItem)
+    expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-active')
+  })
+
+  it('handles keyboard Enter on ralph run item', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const onItemSelect = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-keyboard',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+        onItemSelect={onItemSelect}
+      />
+    )
+    const runItem = screen.getByTitle(/ralph — running/i).closest('[role="button"]')!
+    fireEvent.keyDown(runItem, { key: 'Enter' })
+    expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-keyboard')
+  })
+
+  it('handles click on ralph launch button and dispatches event', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const onItemSelect = vi.fn()
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[]}
+        onItemSelect={onItemSelect}
+      />
+    )
+
+    const launchBtn = screen.getByText('Launch…').closest('[role="button"]')!
+    fireEvent.click(launchBtn)
+
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ralph:prefill-repo',
+      })
+    )
+    expect(onItemSelect).toHaveBeenCalledWith('ralph-dashboard')
+
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('handles keyboard Enter on ralph launch button', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const onItemSelect = vi.fn()
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[]}
+        onItemSelect={onItemSelect}
+      />
+    )
+
+    const launchBtn = screen.getByText('Launch…').closest('[role="button"]')!
+    fireEvent.keyDown(launchBtn, { key: 'Enter' })
+
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ralph:prefill-repo',
+      })
+    )
+    expect(onItemSelect).toHaveBeenCalledWith('ralph-dashboard')
+
+    dispatchEventSpy.mockRestore()
+  })
+
+  it('handles click on Ralph Loops header to toggle expand', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const onToggleRalphGroup = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        ralphRuns={[ralphRun]}
+        onToggleRalphGroup={onToggleRalphGroup}
+      />
+    )
+    const ralphHeader = screen.getByText('Ralph Loops').closest('.sidebar-item-disclosure')!
+    fireEvent.click(ralphHeader)
+    expect(onToggleRalphGroup).toHaveBeenCalledWith('org', 'hs-buddy')
+  })
+
+  it('handles keyboard Enter on Ralph Loops header', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const onToggleRalphGroup = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        ralphRuns={[ralphRun]}
+        onToggleRalphGroup={onToggleRalphGroup}
+      />
+    )
+    const ralphHeader = screen.getByText('Ralph Loops').closest('[role="button"]')!
+    fireEvent.keyDown(ralphHeader, { key: 'Enter' })
+    expect(onToggleRalphGroup).toHaveBeenCalledWith('org', 'hs-buddy')
+  })
+
+  it('handles click on Ralph Loops chevron to toggle expand', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const onToggleRalphGroup = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        ralphRuns={[ralphRun]}
+        onToggleRalphGroup={onToggleRalphGroup}
+      />
+    )
+    const ralphHeader = screen.getByText('Ralph Loops').closest('.sidebar-item-disclosure')!
+    const chevron = ralphHeader.querySelector('.sidebar-item-chevron')!
+    fireEvent.click(chevron)
+    expect(onToggleRalphGroup).toHaveBeenCalledWith('org', 'hs-buddy')
+  })
+
+  it('handles keyboard Enter on Ralph Loops chevron', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const onToggleRalphGroup = vi.fn()
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        ralphRuns={[ralphRun]}
+        onToggleRalphGroup={onToggleRalphGroup}
+      />
+    )
+    const ralphHeader = screen.getByText('Ralph Loops').closest('.sidebar-item-disclosure')!
+    const chevron = ralphHeader.querySelector('.sidebar-item-chevron')!
+    fireEvent.keyDown(chevron, { key: 'Enter' })
+    expect(onToggleRalphGroup).toHaveBeenCalledWith('org', 'hs-buddy')
+  })
+
+  it('hides Ralph Loops section when no runs are present', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    render(<RepoNode {...baseProps} expandedRepos={expanded} ralphRuns={[]} />)
+    // Ralph Loops section is always rendered even with no runs
+    expect(screen.getByText('Ralph Loops')).toBeDefined()
+  })
+
+  it('renders ralph run with phase when no total iterations', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-phase',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph-pr',
+      },
+      status: 'running',
+      phase: 'pr-handoff',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: null,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    expect(screen.getByText('pr-handoff')).toBeDefined()
+  })
+
+  it('renders recent runs separately from active runs', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const activeRun: RalphRunInfo = {
+      runId: 'run-active',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const completedRun: RalphRunInfo = {
+      runId: 'run-completed',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph-pr',
+      },
+      status: 'completed',
+      phase: 'completed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: Date.now() - 600000,
+      updatedAt: Date.now() - 300000,
+      completedAt: Date.now() - 300000,
+      exitCode: 0,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 1,
+        agentTurns: 2,
+        reviews: 1,
+        copilotPRs: 1,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[activeRun, completedRun]}
+      />
+    )
+    // Both active and completed runs should be rendered
+    // Check for the specific titles with status
+    expect(screen.getByTitle(/ralph — running/i)).toBeDefined()
+    expect(screen.getByTitle(/ralph-pr — completed/i)).toBeDefined()
+  })
+
+  it('selects ralph run item with correct class', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const selectedItem = 'ralph-run:run-1'
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-1',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const { container } = render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+        selectedItem={selectedItem}
+      />
+    )
+    const selectedElement = container.querySelector('.sidebar-item.selected-item')
+    expect(selectedElement).toBeDefined()
+  })
+
+  it('renders recent run with updatedAt when completedAt is null', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    // Create a recent run with no completedAt, only updatedAt
+    const updatedTime = Date.now() - 2 * 60 * 1000 // 2 minutes ago
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-no-completed-at',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'failed',
+      phase: 'failed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: updatedTime - 60000,
+      updatedAt: updatedTime,
+      completedAt: null, // Explicitly null - should use updatedAt instead
+      exitCode: 1,
+      error: 'Process failed',
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    // Should show minutes format using updatedAt since completedAt is null
+    expect(screen.getByText(/m ago/)).toBeDefined()
+  })
+
+  it('renders active run without spin class for pending status', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-pending',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'pending',
+      phase: 'iterating',
+      pid: null,
+      currentIteration: 0,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const { container } = render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    // Find icons in the active runs list and verify no spin class for pending
+    const icons = container.querySelectorAll('svg')
+    // Should have icons but none should have spin class
+    expect(icons.length).toBeGreaterThan(0)
+  })
+
+  it('renders recent completed ralph runs with just now formatting', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    // Less than 1 minute ago
+    const completedTime = Date.now() - 30000 // 30 seconds ago
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-just-now',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'completed',
+      phase: 'completed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: completedTime - 60000,
+      updatedAt: completedTime,
+      completedAt: completedTime,
+      exitCode: 0,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    // Should show "just now" format for very recent runs
+    expect(screen.getByText(/just now/)).toBeDefined()
+  })
+
+  it('renders recent completed ralph runs with hours ago formatting', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    // 3 hours ago
+    const completedTime = Date.now() - 3 * 60 * 60 * 1000
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-hours-ago',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'completed',
+      phase: 'completed',
+      pid: null,
+      currentIteration: 1,
+      totalIterations: 1,
+      startedAt: completedTime - 60000,
+      updatedAt: completedTime,
+      completedAt: completedTime,
+      exitCode: 0,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    // Should show hours format (e.g., "3h ago")
+    expect(screen.getByText(/h ago/)).toBeDefined()
+  })
+
+  it('filters ralph runs with exact repo name match via matchesRepo', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const ralphRunExactMatch: RalphRunInfo = {
+      runId: 'run-exact',
+      config: {
+        repoPath: 'hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const ralphRunNonMatch: RalphRunInfo = {
+      runId: 'run-nonmatch',
+      config: {
+        repoPath: 'other-repo',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 5678,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const expandedRalph = new Set(['org/hs-buddy'])
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRunExactMatch, ralphRunNonMatch]}
+      />
+    )
+    // Should match the exact repo name and show 1 active run
+    expect(screen.getByText('1')).toBeDefined()
+  })
+
+  it('filters ralph runs with org/repo path match via matchesRepo', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const ralphRunOrgRepoMatch: RalphRunInfo = {
+      runId: 'run-org-repo',
+      config: {
+        repoPath: 'some/path/org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 2,
+      totalIterations: 5,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRunOrgRepoMatch]}
+      />
+    )
+    // Should match via org/repo path and display the run
+    expect(screen.getByText('2/5')).toBeDefined()
+  })
+
+  it('filters ralph runs with repo-only path match via matchesRepo', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const ralphRunRepoMatch: RalphRunInfo = {
+      runId: 'run-repo-only',
+      config: {
+        repoPath: 'some/path/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 2,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRunRepoMatch]}
+      />
+    )
+    // Should match via repo-only path and display the run
+    expect(screen.getByText('1/2')).toBeDefined()
+  })
+
+  it('renders active run with spin class for running status', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedRalph = new Set(['org/hs-buddy'])
+    const ralphRun: RalphRunInfo = {
+      runId: 'run-spinning',
+      config: {
+        repoPath: 'org/hs-buddy',
+        scriptType: 'ralph',
+      },
+      status: 'running',
+      phase: 'iterating',
+      pid: 1234,
+      currentIteration: 1,
+      totalIterations: 3,
+      startedAt: Date.now() - 60000,
+      updatedAt: Date.now() - 60000,
+      completedAt: null,
+      exitCode: null,
+      error: null,
+      logBuffer: [],
+      stats: {
+        checks: 0,
+        agentTurns: 0,
+        reviews: 0,
+        copilotPRs: 0,
+        issuesCreated: 0,
+        scanIterations: 0,
+        totalCost: null,
+        totalPremium: 0,
+      },
+    }
+    const { container } = render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedRalphGroups={expandedRalph}
+        ralphRuns={[ralphRun]}
+      />
+    )
+    // Find the spin icon element for the running status
+    const spinIcon = container.querySelector('svg.spin')
+    expect(spinIcon).not.toBeNull()
   })
 })

@@ -9,13 +9,21 @@ const feature = await loadFeature('src/features/pr-mapper.feature')
 /** A PR-like object that allows nullable fields for edge-case testing. */
 type PartialRepoPR = Omit<
   RepoPullRequest,
-  'createdAt' | 'updatedAt' | 'approvalCount' | 'assigneeCount' | 'iApproved'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'approvalCount'
+  | 'assigneeCount'
+  | 'iApproved'
+  | 'changesRequestedCount'
+  | 'threadsUnaddressed'
 > & {
   createdAt: string | null
   updatedAt: string | null
   approvalCount: number | undefined
   assigneeCount: number | undefined
   iApproved: boolean | undefined
+  changesRequestedCount: number | undefined
+  threadsUnaddressed: number | null | undefined
 }
 
 function basePR(overrides: Partial<RepoPullRequest> = {}): RepoPullRequest {
@@ -32,6 +40,8 @@ function basePR(overrides: Partial<RepoPullRequest> = {}): RepoPullRequest {
     baseBranch: 'main',
     approvalCount: 0,
     assigneeCount: 0,
+    changesRequestedCount: 0,
+    threadsUnaddressed: null,
     iApproved: false,
     draft: false,
     labels: [],

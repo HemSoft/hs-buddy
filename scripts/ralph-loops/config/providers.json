@@ -1,0 +1,99 @@
+{
+  "$comment": "Provider configuration for ralph-loops. Maps abstract flags to CLI-specific syntax.",
+  "version": "1.6.0",
+
+  "providers": {
+    "copilot": {
+      "command": "copilot",
+      "description": "GitHub Copilot CLI (default)",
+      "promptStyle": "flag",
+      "flags": {
+        "yolo": "--yolo",
+        "model": "--model",
+        "agent": "--agent",
+        "autopilot": "--autopilot",
+        "prompt": "-p",
+        "continue": "--continue"
+      },
+      "modelTemplate": "{modelId}",
+      "supportedModelProviders": ["anthropic", "openai"],
+      "supportsNativePrReview": true,
+      "nativePrReviewerLogin": "copilot-pull-request-reviewer"
+    },
+    "opencode": {
+      "command": "copilot",
+      "description": "Copilot CLI via OpenCode Go (BYOK)",
+      "promptStyle": "flag",
+      "defaultModel": "kimi-k2.6",
+      "$modelNote": "DeepSeek models incompatible with BYOK — require reasoning_content passback that Copilot CLI does not support",
+      "flags": {
+        "yolo": "--yolo",
+        "model": "--model",
+        "agent": "--agent",
+        "autopilot": "--autopilot",
+        "prompt": "-p",
+        "continue": "--continue"
+      },
+      "modelTemplate": "{modelId}",
+      "supportedModelProviders": ["anthropic", "openai", "zhipu", "moonshotai"],
+      "supportsNativePrReview": true,
+      "nativePrReviewerLogin": "copilot-pull-request-reviewer",
+      "byok": {
+        "baseUrl": "https://opencode.ai/zen/go/v1",
+        "providerType": "openai",
+        "authFile": "~/.local/share/opencode/auth.json",
+        "authKey": "opencode-go"
+      }
+    },
+    "copilot-go": {
+      "command": "copilot",
+      "description": "Copilot CLI via OpenCode Go (BYOK)",
+      "promptStyle": "flag",
+      "defaultModel": "kimi-k2.6",
+      "$modelNote": "DeepSeek models incompatible with BYOK — require reasoning_content passback that Copilot CLI does not support",
+      "flags": {
+        "yolo": "--yolo",
+        "model": "--model",
+        "agent": "--agent",
+        "autopilot": "--autopilot",
+        "prompt": "-p",
+        "continue": "--continue"
+      },
+      "modelTemplate": "{modelId}",
+      "supportedModelProviders": ["anthropic", "openai", "zhipu", "moonshotai"],
+      "supportsNativePrReview": true,
+      "nativePrReviewerLogin": "copilot-pull-request-reviewer",
+      "byok": {
+        "baseUrl": "https://opencode.ai/zen/go/v1",
+        "providerType": "openai",
+        "authFile": "~/.local/share/opencode/auth.json",
+        "authKey": "opencode-go"
+      }
+    },
+    "openrouter": {
+      "command": "copilot",
+      "description": "Copilot CLI via OpenRouter (BYOK)",
+      "promptStyle": "flag",
+      "defaultModel": "kimi-k2.6",
+      "flags": {
+        "yolo": "--yolo",
+        "model": "--model",
+        "agent": "--agent",
+        "autopilot": "--autopilot",
+        "prompt": "-p",
+        "continue": "--continue"
+      },
+      "modelTemplate": "{provider}/{modelId}",
+      "supportedModelProviders": ["anthropic", "openai", "deepseek", "zhipu", "moonshotai"],
+      "supportsNativePrReview": true,
+      "nativePrReviewerLogin": "copilot-pull-request-reviewer",
+      "byok": {
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "providerType": "openai",
+        "authEnvVar": "OPENROUTER_API_KEY"
+      }
+    }
+  },
+
+  "default": "copilot"
+}

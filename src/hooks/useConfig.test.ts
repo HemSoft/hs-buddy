@@ -15,7 +15,9 @@ const mockRemove = vi.fn()
 const mockUpdatePR = vi.fn()
 const mockUpdateCopilot = vi.fn()
 
-let mockConvexAccounts: Array<{ _id: string; username: string; org: string }> | undefined
+let mockConvexAccounts:
+  | Array<{ _id: string; username: string; org: string; repoRoot?: string }>
+  | undefined
 let mockSettings: Record<string, unknown> | undefined
 
 vi.mock('./useConvex', () => ({
@@ -230,6 +232,23 @@ describe('useConfig', () => {
       rerender()
       expect(result.current.accounts).toHaveLength(2)
       expect(result.current.accounts[1].username).toBe('user2')
+    })
+
+    it('includes repoRoot from Convex account when present', () => {
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'user1', org: 'myorg', repoRoot: '/custom/path' },
+      ]
+      const { result } = renderHook(() => useGitHubAccounts())
+      const account = result.current.accounts.find(a => a.username === 'user1')
+      expect(account?.repoRoot).toBe('/custom/path')
+    })
+
+    it('omits repoRoot from Convex account when not present', () => {
+      mockConvexAccounts = [{ _id: 'id2', username: 'user2', org: 'org2' }]
+      const { result } = renderHook(() => useGitHubAccounts())
+      const account = result.current.accounts.find(a => a.username === 'user2')
+      expect(account).toBeDefined()
+      expect(account?.repoRoot).toBeUndefined()
     })
 
     it('falls back to electron-store accounts when contentKey changes and Convex unavailable', async () => {

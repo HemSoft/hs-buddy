@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from 'react'
+import { useCallback, useMemo, useReducer, useRef } from 'react'
 import { TempoDashboardErrorBanner } from './TempoDashboardErrorBanner'
 import { TempoDashboardHeader } from './TempoDashboardHeader'
 import { TempoSummaryCards } from './TempoSummaryCards'
@@ -14,7 +14,12 @@ import {
   useUserSchedule,
   getMonthRange,
 } from '../../hooks/useTempo'
-import type { TempoWorklog, CreateWorklogPayload, TempoScheduleDay } from '../../types/tempo'
+import type {
+  TempoWorklog,
+  TempoIssueSummary,
+  CreateWorklogPayload,
+  TempoScheduleDay,
+} from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
 import { sumBy } from '../../utils/arrayUtils'
 import './TempoDashboard.css'
@@ -29,6 +34,9 @@ interface TempoDashboardState {
   prefillWorklog: TempoWorklog | null
   editorDate: string | null
   actionError: string | null
+  templateIssues: TempoIssueSummary[]
+  templatePrefills: Record<string, TempoWorklog>
+  loadingTemplates: boolean
 }
 
 type TempoDashboardAction =
@@ -39,6 +47,12 @@ type TempoDashboardAction =
   | { type: 'setActionError'; error: string | null }
   | { type: 'shiftMonth'; delta: number }
   | { type: 'goToCurrentMonth' }
+  | {
+      type: 'setTemplateIssues'
+      issues: TempoIssueSummary[]
+      prefills: Record<string, TempoWorklog>
+    }
+  | { type: 'setLoadingTemplates'; loading: boolean }
 
 const TEMPO_VIEW_KEY = 'viewMode:tempo'
 
@@ -58,6 +72,9 @@ function createInitialDashboardState(): TempoDashboardState {
     prefillWorklog: null,
     editorDate: null,
     actionError: null,
+    templateIssues: [],
+    templatePrefills: {},
+    loadingTemplates: false,
   }
 }
 
@@ -116,8 +133,30 @@ const dashboardHandlers: Record<TempoDashboardAction['type'], DashboardHandler> 
       s.viewMonth.getMonth() + (a as Extract<TempoDashboardAction, { type: 'shiftMonth' }>).delta,
       1
     ),
+    templateIssues: [],
+    templatePrefills: {},
+    loadingTemplates: false,
   }),
-  goToCurrentMonth: s => ({ ...s, viewMonth: new Date() }),
+  goToCurrentMonth: s => ({
+    ...s,
+    viewMonth: new Date(),
+    templateIssues: [],
+    templatePrefills: {},
+    loadingTemplates: false,
+  }),
+  setTemplateIssues: (s, a) => {
+    const act = a as Extract<TempoDashboardAction, { type: 'setTemplateIssues' }>
+    return {
+      ...s,
+      templateIssues: act.issues,
+      templatePrefills: act.prefills,
+      loadingTemplates: false,
+    }
+  },
+  setLoadingTemplates: (s, a) => ({
+    ...s,
+    loadingTemplates: (a as Extract<TempoDashboardAction, { type: 'setLoadingTemplates' }>).loading,
+  }),
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- exported for testing
@@ -287,7 +326,9 @@ function useTempoDashboardHandlers(
   }
 
   const handleAddForDate = (date: string, issueKey?: string) => {
-    const prefill = issueKey ? findPrefillWorklog(month.worklogs, issueKey) : null
+    const prefill = issueKey
+      ? (findPrefillWorklog(month.worklogs, issueKey) ?? state.templatePrefills[issueKey] ?? null)
+      : null
     dispatch({ type: 'openCreate', date, prefillWorklog: prefill })
   }
 
@@ -343,6 +384,32 @@ function useTempoDashboardHandlers(
   return { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- exported for testing
+export function buildTemplateFromWorklogs(worklogs: TempoWorklog[]): {
+  issues: TempoIssueSummary[]
+  prefills: Record<string, TempoWorklog>
+} {
+  const seen = new Map<string, { summary: string; latestWorklog: TempoWorklog }>()
+  for (const w of worklogs) {
+    const existing = seen.get(w.issueKey)
+    if (
+      !existing ||
+      w.date > existing.latestWorklog.date ||
+      (w.date === existing.latestWorklog.date && w.startTime > existing.latestWorklog.startTime)
+    ) {
+      seen.set(w.issueKey, { summary: w.issueSummary, latestWorklog: w })
+    }
+  }
+
+  const issues: TempoIssueSummary[] = []
+  const prefills: Record<string, TempoWorklog> = {}
+  for (const [issueKey, { summary, latestWorklog }] of seen) {
+    issues.push({ issueKey, issueSummary: summary, totalHours: 0, hoursByDate: {} })
+    prefills[issueKey] = latestWorklog
+  }
+  return { issues, prefills }
+}
+
 function resolveEditorDefaults(state: TempoDashboardState, todayKey: string) {
   return {
     defaultDate: state.editorDate || todayKey,
@@ -380,6 +447,7 @@ export function TempoDashboard() {
   )
   const todayKey = formatDateKey(new Date())
   const monthLabel = formatMonthLabel(state.viewMonth)
+  const copyMonthRef = useRef('')
 
   const { month, today, monthTarget, holidays, refreshAll, actions, capexMap } =
     useTempoDashboardData(state.viewMonth)
@@ -393,6 +461,45 @@ export function TempoDashboard() {
 
   const { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults } =
     computeDashboardDerived(state, month, today, todayKey)
+
+  const handleCopyFromPreviousMonth = useCallback(async () => {
+    const y = state.viewMonth.getFullYear()
+    const m = state.viewMonth.getMonth()
+    const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`
+    copyMonthRef.current = monthKey
+
+    dispatch({ type: 'setLoadingTemplates', loading: true })
+    const prevDate = new Date(y, m - 1, 1)
+    const { from, to } = getMonthRange(prevDate)
+    const result = await window.tempo.getWeek(from, to)
+
+    if (copyMonthRef.current !== monthKey) return
+
+    if (result.success && result.data && result.data.worklogs.length > 0) {
+      const { issues, prefills } = buildTemplateFromWorklogs(result.data.worklogs)
+      dispatch({ type: 'setTemplateIssues', issues, prefills })
+    } else if (result.success) {
+      dispatch({ type: 'setLoadingTemplates', loading: false })
+      dispatch({
+        type: 'setActionError',
+        error: 'No entries found in the previous month.',
+      })
+    } else {
+      dispatch({ type: 'setLoadingTemplates', loading: false })
+      dispatch({
+        type: 'setActionError',
+        error: result.error || 'Failed to load previous month data.',
+      })
+    }
+  }, [state.viewMonth])
+
+  // Merge real issue summaries with templates (templates hidden if real data exists for that key)
+  const mergedIssueSummaries = useMemo(() => {
+    if (state.templateIssues.length === 0) return month.issueSummaries
+    const realKeys = new Set(month.issueSummaries.map(s => s.issueKey))
+    const templates = state.templateIssues.filter(t => !realKeys.has(t.issueKey))
+    return [...month.issueSummaries, ...templates]
+  }, [month.issueSummaries, state.templateIssues])
 
   return (
     <div className="tempo-dashboard">
@@ -430,17 +537,19 @@ export function TempoDashboard() {
 
       {state.viewMode === 'grid' ? (
         <TempoTimesheetGrid
-          issueSummaries={month.issueSummaries}
+          issueSummaries={mergedIssueSummaries}
           worklogs={month.worklogs}
           totalHours={month.totalHours}
           monthDate={state.viewMonth}
           holidays={holidays}
           loading={month.loading}
+          loadingTemplates={state.loadingTemplates}
           capexMap={capexMap}
           onCellClick={handleAddForDate}
           onWorklogEdit={handleEdit}
           onWorklogDelete={handleDelete}
           onCopyToToday={handleCopyToDay}
+          onCopyFromPreviousMonth={handleCopyFromPreviousMonth}
         />
       ) : (
         <TempoTimelineView

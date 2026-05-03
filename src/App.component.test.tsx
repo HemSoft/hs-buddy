@@ -281,6 +281,15 @@ describe('App callbacks', () => {
     expect(mockOpenTab).toHaveBeenCalledWith('bookmarks-all')
   })
 
+  it('handleSectionSelect opens ralph dashboard when ralph section selected', () => {
+    render(<App />)
+    const props = getLastCallProps(MockActivityBar)
+    act(() => {
+      ;(props.onSectionSelect as (id: string) => void)('ralph')
+    })
+    expect(mockOpenTab).toHaveBeenCalledWith('ralph-dashboard')
+  })
+
   it('handleItemSelect opens tab for selected view', () => {
     render(<App />)
     const props = getLastCallProps(MockSidebarPanel)

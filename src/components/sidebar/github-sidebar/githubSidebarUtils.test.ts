@@ -55,6 +55,8 @@ describe('mapRepoPRToPullRequest', () => {
     baseBranch: 'main',
     labels: [],
     draft: false,
+    changesRequestedCount: 0,
+    threadsUnaddressed: null,
   }
 
   it('maps all fields correctly', () => {

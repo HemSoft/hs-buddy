@@ -30,6 +30,7 @@ export const viewLabels: Record<string, string> = {
   'copilot-sessions': 'Session Explorer',
   'bookmarks-all': 'All Bookmarks',
   'tempo-timesheet': 'Timesheet',
+  'ralph-dashboard': 'Ralph Loops',
 }
 
 function parseRepoViewId(viewId: string, prefix: string): { repoName: string; suffix: string } {
@@ -125,6 +126,10 @@ const prefixLabelRegistry: PrefixLabelEntry[] = [
   { prefix: 'copilot-result:', label: () => 'Copilot Result' },
   { prefix: 'job-detail:', label: () => 'Job Detail' },
   { prefix: 'schedule-detail:', label: () => 'Schedule Detail' },
+  {
+    prefix: 'ralph-run:',
+    label: id => `Ralph Run · ${id.slice('ralph-run:'.length, 'ralph-run:'.length + 8)}`,
+  },
   { prefix: 'pr-review:', label: getPRReviewLabel },
   { prefix: 'pr-detail:', label: getPRDetailLabel },
 ]

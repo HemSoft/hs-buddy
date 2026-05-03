@@ -10,12 +10,18 @@ import {
   GitCommit,
   GitPullRequest,
   Loader2,
+  Play,
+  RefreshCw,
   Star,
+  XCircle,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react'
 import type { OrgRepo, RepoCommit, RepoCounts, RepoIssue } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
+import type { RalphRunInfo, RalphRunStatus } from '../../../types/ralph'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { formatUpdatedAge } from './orgRepoTreeUtils'
 import { prSubNodes, sectionIcons } from './prConstants'
@@ -49,6 +55,8 @@ interface RepoNodeProps {
   sflStatusData: Record<string, SFLRepoStatus>
   loadingSFLStatus: ReadonlySet<string>
   expandedSFLGroups: ReadonlySet<string>
+  ralphRuns: RalphRunInfo[]
+  expandedRalphGroups: ReadonlySet<string>
   selectedItem: string | null
   refreshTick: number
   onToggleRepo: (org: string, repoName: string) => void
@@ -58,18 +66,10 @@ interface RepoNodeProps {
   onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
   onToggleSFLGroup: (org: string, repoName: string) => void
+  onToggleRalphGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
-  onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
-}
-
-interface RepoHeaderProps {
-  org: string
-  repo: OrgRepo
-  isBookmarked: boolean
-  isRepoExpanded: boolean
-  onToggleRepo: (org: string, repoName: string) => void
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }
 
@@ -93,7 +93,14 @@ function RepoHeader({
   isRepoExpanded,
   onToggleRepo,
   onBookmarkToggle,
-}: RepoHeaderProps) {
+}: {
+  org: string
+  repo: OrgRepo
+  isBookmarked: boolean
+  isRepoExpanded: boolean
+  onToggleRepo: (org: string, repoName: string) => void
+  onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
+}) {
   return (
     <div
       className="sidebar-item sidebar-item-disclosure sidebar-repo-item"
@@ -330,7 +337,7 @@ function IssueListItems({
         return (
           <div
             key={`${keyPrefix}-${issue.number}`}
-            className={`sidebar-item sidebar-pr-child ${selectedItem === issueViewId ? 'selected' : ''}`}
+            className={`sidebar-item sidebar-pr-child sidebar-issue-leaf ${selectedItem === issueViewId ? 'selected' : ''}`}
             role="button"
             tabIndex={0}
             onClick={() => onItemSelect(issueViewId)}
@@ -983,11 +990,13 @@ function RepoSFLSection({
   if (!sflStatus?.isSFLEnabled) {
     return isLoading ? (
       <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
+        <span className="sidebar-item-chevron">
+          <Loader2 size={12} className="spin" />
+        </span>
         <span className="sidebar-item-icon">
           <Activity size={12} />
         </span>
         <span className="sidebar-item-label">SFL Loop</span>
-        <Loader2 size={10} className="spin" />
       </div>
     ) : null
   }
@@ -1053,6 +1062,170 @@ function RepoSFLSection({
                 {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+const RALPH_STATUS_ICON: Record<RalphRunStatus, typeof Clock> = {
+  pending: Clock,
+  running: Loader2,
+  completed: CheckCircle2,
+  failed: XCircle,
+  cancelled: AlertTriangle,
+  orphaned: AlertTriangle,
+}
+
+function ralphTimeAgo(epoch: number): string {
+  const ms = Date.now() - epoch
+  const mins = Math.floor(ms / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+/** Check whether a ralph run's repoPath matches a given org/repo pair. */
+function matchesRepo(run: RalphRunInfo, org: string, repoName: string): boolean {
+  const rp = run.config.repoPath.replace(/\\/g, '/')
+  if (rp.endsWith(`/${org}/${repoName}`)) return true
+  if (rp.endsWith(`/${repoName}`)) return true
+  if (rp === repoName) return true
+  return false
+}
+
+interface RepoRalphSectionProps {
+  org: string
+  repoName: string
+  runs: RalphRunInfo[]
+  isExpanded: boolean
+  selectedItem: string | null
+  onToggleRalphGroup: (org: string, repoName: string) => void
+  onItemSelect: (itemId: string) => void
+}
+
+function RepoRalphSection({
+  org,
+  repoName,
+  runs,
+  isExpanded,
+  selectedItem,
+  onToggleRalphGroup,
+  onItemSelect,
+}: RepoRalphSectionProps) {
+  const activeRuns = runs.filter(r => r.status === 'running' || r.status === 'pending')
+  const recentRuns = runs.filter(r => r.status !== 'running' && r.status !== 'pending').slice(0, 5)
+
+  return (
+    <>
+      <div
+        className="sidebar-item sidebar-item-disclosure sidebar-repo-child"
+        role="button"
+        tabIndex={0}
+        onClick={() => onToggleRalphGroup(org, repoName)}
+        onKeyDown={event => handleItemKeyDown(event, () => onToggleRalphGroup(org, repoName))}
+      >
+        <span
+          className="sidebar-item-chevron"
+          role="button"
+          tabIndex={0}
+          onClick={event => {
+            event.stopPropagation()
+            onToggleRalphGroup(org, repoName)
+          }}
+          onKeyDown={event =>
+            handleItemKeyDown(event, () => onToggleRalphGroup(org, repoName), true)
+          }
+        >
+          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </span>
+        <span className="sidebar-item-icon">
+          <RefreshCw size={12} />
+        </span>
+        <span className="sidebar-item-label">Ralph Loops</span>
+        {activeRuns.length > 0 && <span className="sidebar-item-count">{activeRuns.length}</span>}
+      </div>
+      {isExpanded && (
+        <div className="sidebar-job-tree sidebar-ralph-tree">
+          <div className="sidebar-job-items">
+            {activeRuns.map(run => {
+              const Icon = RALPH_STATUS_ICON[run.status]
+              const viewId = `ralph-run:${run.runId}`
+              const detail = run.totalIterations
+                ? `${run.currentIteration}/${run.totalIterations}`
+                : run.phase
+              return (
+                <div
+                  key={run.runId}
+                  className={sidebarItemClass(
+                    'sidebar-item sidebar-job-item',
+                    selectedItem === viewId
+                  )}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onItemSelect(viewId)}
+                  onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(viewId))}
+                  title={`${run.config.scriptType} — ${run.status}`}
+                >
+                  <Icon size={11} className={run.status === 'running' ? 'spin' : ''} />
+                  <span className="sidebar-item-label">{run.config.scriptType}</span>
+                  <span className="sidebar-pr-meta">{detail}</span>
+                </div>
+              )
+            })}
+            {recentRuns.map(run => {
+              const Icon = RALPH_STATUS_ICON[run.status]
+              const viewId = `ralph-run:${run.runId}`
+              return (
+                <div
+                  key={run.runId}
+                  className={sidebarItemClass(
+                    'sidebar-item sidebar-job-item',
+                    selectedItem === viewId
+                  )}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onItemSelect(viewId)}
+                  onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(viewId))}
+                  title={`${run.config.scriptType} — ${run.status}`}
+                >
+                  <Icon size={11} />
+                  <span className="sidebar-item-label">{run.config.scriptType}</span>
+                  <span className="sidebar-pr-meta">
+                    {ralphTimeAgo(run.completedAt ?? run.updatedAt)}
+                  </span>
+                </div>
+              )
+            })}
+            <div
+              className="sidebar-item sidebar-job-item"
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent('ralph:prefill-repo', {
+                    detail: { org, repoName },
+                  })
+                )
+                onItemSelect('ralph-dashboard')
+              }}
+              onKeyDown={event =>
+                handleItemKeyDown(event, () => {
+                  window.dispatchEvent(
+                    new CustomEvent('ralph:prefill-repo', {
+                      detail: { org, repoName },
+                    })
+                  )
+                  onItemSelect('ralph-dashboard')
+                })
+              }
+            >
+              <Play size={11} />
+              <span className="sidebar-item-label">Launch…</span>
+            </div>
           </div>
         </div>
       )}
@@ -1159,6 +1332,8 @@ export function RepoNode({
   sflStatusData,
   loadingSFLStatus,
   expandedSFLGroups,
+  ralphRuns,
+  expandedRalphGroups,
   selectedItem,
   refreshTick,
   onToggleRepo,
@@ -1168,6 +1343,7 @@ export function RepoNode({
   onToggleRepoPRStateGroup,
   onToggleRepoCommitGroup,
   onToggleSFLGroup,
+  onToggleRalphGroup,
   onTogglePRNode,
   onItemSelect,
   onContextMenu,
@@ -1186,6 +1362,7 @@ export function RepoNode({
   const openPrsKey = `open:${repoKey}`
   const closedPrsKey = `closed:${repoKey}`
   const sflStatus = sflStatusData[repoKey]
+  const repoRalphRuns = ralphRuns.filter(r => matchesRepo(r, org, repo.name))
 
   return (
     <div className="sidebar-repo-group">
@@ -1259,6 +1436,15 @@ export function RepoNode({
             isLoading={loadingSFLStatus.has(repoKey)}
             isExpanded={expandedSFLGroups.has(repoKey)}
             onToggleSFLGroup={onToggleSFLGroup}
+          />
+          <RepoRalphSection
+            org={org}
+            repoName={repo.name}
+            runs={repoRalphRuns}
+            isExpanded={expandedRalphGroups.has(repoKey)}
+            selectedItem={selectedItem}
+            onToggleRalphGroup={onToggleRalphGroup}
+            onItemSelect={onItemSelect}
           />
         </div>
       )}

@@ -18,6 +18,8 @@ const mockPR: RepoPullRequest = {
   iApproved: true,
   draft: false,
   labels: [],
+  changesRequestedCount: 0,
+  threadsUnaddressed: null,
 }
 
 describe('mapRepoPRToPullRequest', () => {

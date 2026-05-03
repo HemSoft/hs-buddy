@@ -42,9 +42,7 @@ const ENTERPRISE_SLUG = 'Bertelsmann'
 /** Personal GitHub accounts that lack org-level billing API access.
  *  Maps org name (lowercase) to a known monthly budget limit.
  *  Billing API calls are skipped entirely for these orgs. */
-const PERSONAL_BUDGETS: Record<string, number> = {
-  hemsoft: 50,
-}
+const PERSONAL_BUDGETS: Record<string, number> = {}
 
 async function tryGetCliToken(username?: string): Promise<string | null> {
   if (!username) {

@@ -181,6 +181,12 @@ interface Window {
       error?: string
     }>
   }
+  slack: {
+    nudgeAuthor: (params: { githubLogin: string; prTitle: string; prUrl: string }) => Promise<{
+      success: boolean
+      error?: string
+    }>
+  }
   filesystem: {
     readDir: (dirPath: string) => Promise<{
       entries: Array<{ name: string; path: string; type: 'file' | 'directory'; size: number }>
@@ -335,4 +341,5 @@ interface Window {
       data?: import('../src/types/todoist').TodoistProject[]
     }>
   }
+  ralph: import('../src/types/ralph').RalphPreloadAPI
 }

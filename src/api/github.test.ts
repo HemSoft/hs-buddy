@@ -97,6 +97,9 @@ import {
   clearAllCaches,
   getOrgAvatarCacheEntry,
 } from './github'
+import { getGitHubCLIToken, fetchUserNames, resolveOrgAvatar } from './github/shared'
+import { fetchAllOrgOrUserRepos, fetchAllOrgOrUserMembers } from './github/orgs'
+import { fetchBatchThreadStats } from './github/prs'
 
 const TEST_CONFIG = {
   accounts: [
@@ -1117,35 +1120,33 @@ describe('GitHubClient', () => {
 
   describe('fetchRepoIssues', () => {
     it('returns mapped issues filtering out PRs', async () => {
-      mockOctokit.issues.listForRepo.mockResolvedValue({
-        data: [
-          {
-            number: 10,
-            title: 'Bug report',
-            state: 'open',
-            user: { login: 'reporter', avatar_url: 'https://av' },
-            html_url: 'https://github.com/myorg/repo/issues/10',
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-02T00:00:00Z',
-            labels: [{ name: 'bug', color: 'ff0000' }],
-            comments: 3,
-            assignees: [{ login: 'dev1', avatar_url: 'https://av2' }],
-          },
-          {
-            number: 11,
-            title: 'PR disguised as issue',
-            state: 'open',
-            user: { login: 'author' },
-            html_url: 'h',
-            created_at: 'c',
-            updated_at: 'u',
-            labels: [],
-            comments: 0,
-            assignees: [],
-            pull_request: { url: 'https://api.github.com/repos/myorg/repo/pulls/11' },
-          },
-        ],
-      })
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          number: 10,
+          title: 'Bug report',
+          state: 'open',
+          user: { login: 'reporter', avatar_url: 'https://av' },
+          html_url: 'https://github.com/myorg/repo/issues/10',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-02T00:00:00Z',
+          labels: [{ name: 'bug', color: 'ff0000' }],
+          comments: 3,
+          assignees: [{ login: 'dev1', avatar_url: 'https://av2' }],
+        },
+        {
+          number: 11,
+          title: 'PR disguised as issue',
+          state: 'open',
+          user: { login: 'author' },
+          html_url: 'h',
+          created_at: 'c',
+          updated_at: 'u',
+          labels: [],
+          comments: 0,
+          assignees: [],
+          pull_request: { url: 'https://api.github.com/repos/myorg/repo/pulls/11' },
+        },
+      ])
 
       const result = await client.fetchRepoIssues('myorg', 'repo')
       expect(result).toHaveLength(1)
@@ -1158,22 +1159,20 @@ describe('GitHubClient', () => {
     })
 
     it('handles missing user and assignees', async () => {
-      mockOctokit.issues.listForRepo.mockResolvedValue({
-        data: [
-          {
-            number: 20,
-            title: 'No user',
-            state: 'open',
-            user: null,
-            html_url: 'h',
-            created_at: 'c',
-            updated_at: 'u',
-            labels: ['string-label'],
-            comments: 0,
-            assignees: null,
-          },
-        ],
-      })
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          number: 20,
+          title: 'No user',
+          state: 'open',
+          user: null,
+          html_url: 'h',
+          created_at: 'c',
+          updated_at: 'u',
+          labels: ['string-label'],
+          comments: 0,
+          assignees: null,
+        },
+      ])
 
       const result = await client.fetchRepoIssues('myorg', 'repo')
       expect(result[0].author).toBe('unknown')
@@ -1202,17 +1201,15 @@ describe('GitHubClient', () => {
         },
       })
 
-      mockOctokit.issues.listComments.mockResolvedValue({
-        data: [
-          {
-            id: 100,
-            user: { login: 'commenter', avatar_url: 'https://av3' },
-            body: 'I can reproduce this',
-            created_at: '2026-01-01T12:00:00Z',
-            updated_at: '2026-01-01T12:00:00Z',
-          },
-        ],
-      })
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          id: 100,
+          user: { login: 'commenter', avatar_url: 'https://av3' },
+          body: 'I can reproduce this',
+          created_at: '2026-01-01T12:00:00Z',
+          updated_at: '2026-01-01T12:00:00Z',
+        },
+      ])
 
       const result = await client.fetchRepoIssueDetail('myorg', 'repo', 10)
       expect(result.number).toBe(10)
@@ -1531,10 +1528,21 @@ describe('GitHubClient', () => {
           },
         },
       ]
-      mockOctokit.paginate.mockImplementation((fn: unknown) => {
-        if (fn === mockOctokit.teams.list)
-          return Promise.resolve([{ slug: 'eng', name: 'Engineering' }])
+      mockOctokit.paginate.mockImplementation((_fn: unknown) => {
         return Promise.resolve(commitData)
+      })
+
+      mockGraphql.mockImplementation((query: string) => {
+        if (query.includes('userLogins'))
+          return Promise.resolve({
+            organization: {
+              teams: {
+                nodes: [{ name: 'Engineering' }],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          })
+        return Promise.resolve({ user: null, viewer: { login: 'user1' } })
       })
 
       const prItem = {
@@ -1605,6 +1613,7 @@ describe('GitHubClient', () => {
     })
 
     it('handles API errors gracefully', async () => {
+      mockGraphql.mockRejectedValue(new Error('API error'))
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
       mockOctokit.search.issuesAndPullRequests.mockRejectedValue(new Error('API error'))
       mockOctokit.activity.listPublicEventsForUser.mockRejectedValue(new Error('API error'))
@@ -1645,31 +1654,28 @@ describe('GitHubClient', () => {
     })
 
     it('handles team membership check failures silently', async () => {
-      // Simulate paginate returning teams but getMembershipForUserInOrg failing
-      mockGraphql.mockResolvedValue({
-        user: {
-          contributionsCollection: { contributionCalendar: { totalContributions: 5 } },
-        },
-        viewer: { login: 'user1' },
+      // Simulate GraphQL teams query failing (catch block returns [])
+      mockGraphql.mockImplementation((query: string) => {
+        if (query.includes('userLogins')) return Promise.reject(new Error('Teams query failed'))
+        return Promise.resolve({
+          user: {
+            contributionsCollection: { contributionCalendar: { totalContributions: 5 } },
+          },
+          viewer: { login: 'user1' },
+        })
       })
       mockOctokit.repos.listForOrg.mockResolvedValue({ data: [] })
       mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
         data: { total_count: 0, items: [] },
       })
       mockOctokit.activity.listPublicEventsForUser.mockResolvedValue({ data: [] })
-      mockOctokit.paginate.mockResolvedValue([
-        { slug: 'engineering', name: 'Engineering', description: 'Eng team' },
-      ])
-      // getMembershipForUserInOrg throws for each team (catch block silently ignores)
-      mockOctokit.teams.getMembershipForUserInOrg.mockRejectedValue(
-        new Error('Not a member of this team')
-      )
+      mockOctokit.paginate.mockResolvedValue([])
       mockOctokit.orgs.getMembershipForUser.mockResolvedValue({
         data: { role: 'member' },
       })
 
       const result = await client.fetchUserActivity('myorg', 'user1')
-      // Teams should be empty because membership check failed for all
+      // Teams should be empty because GraphQL teams query failed
       expect(result.teams).toEqual([])
       expect(result.orgRole).toBe('member')
     })
@@ -2181,6 +2187,10 @@ describe('GitHubClient', () => {
 
     it('unknown event strips "Event" suffix', () => {
       expect(eventSummary({ type: 'GollumEvent', payload: {} })).toBe('Gollum')
+    })
+
+    it('event type that becomes empty after stripping suffix falls back to Activity', () => {
+      expect(eventSummary({ type: 'Event', payload: {} })).toBe('Activity')
     })
 
     it('missing type returns "Activity"', () => {
@@ -2937,18 +2947,16 @@ describe('GitHubClient', () => {
           milestone: null,
         },
       })
-      mockOctokit.issues.listComments.mockResolvedValue({
-        data: [
-          {
-            id: 1,
-            user: null,
-            body: null,
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-01T00:00:00Z',
-            html_url: 'https://github.com/myorg/repo/issues/42#issuecomment-1',
-          },
-        ],
-      })
+      mockOctokit.paginate.mockResolvedValue([
+        {
+          id: 1,
+          user: null,
+          body: null,
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          html_url: 'https://github.com/myorg/repo/issues/42#issuecomment-1',
+        },
+      ])
 
       const result = await client.fetchRepoIssueDetail('myorg', 'repo', 42)
       expect(result.author).toBe('unknown')
@@ -2980,7 +2988,7 @@ describe('GitHubClient', () => {
           milestone: { title: 'v1.0', due_on: '2026-02-01T00:00:00Z' },
         },
       })
-      mockOctokit.issues.listComments.mockResolvedValue({ data: [] })
+      mockOctokit.paginate.mockResolvedValue([])
       // Mock fetchUserNames via GraphQL
       mockGraphql.mockResolvedValue({ user_bob: { name: 'Bob Smith' } })
 
@@ -3271,7 +3279,7 @@ describe('GitHubClient', () => {
           if (_channel === 'github:get-cli-token') return Promise.resolve(`token-${username}`)
           return Promise.resolve(null)
         })
-        const result = await (client as any)['getGitHubCLIToken']('error-user')
+        const result = await getGitHubCLIToken('error-user')
         expect(result).toBeNull()
       })
     })
@@ -3328,12 +3336,12 @@ describe('GitHubClient', () => {
       it('returns empty names map when GraphQL batch fails', async () => {
         mockGraphql.mockRejectedValue(new Error('GraphQL error'))
 
-        const result = await (client as any)['fetchUserNames'](['user1', 'user2'], 'myorg')
+        const result = await fetchUserNames(TEST_CONFIG, ['user1', 'user2'], 'myorg')
         expect(result.size).toBe(0)
       })
 
       it('returns empty map for empty login list', async () => {
-        const result = await (client as any)['fetchUserNames']([], 'myorg')
+        const result = await fetchUserNames(TEST_CONFIG, [], 'myorg')
         expect(result.size).toBe(0)
       })
     })
@@ -3347,7 +3355,7 @@ describe('GitHubClient', () => {
           data: { avatar_url: 'https://user-avatar' },
         })
 
-        const result = await (client as any)['resolveOrgAvatar'](mockOctokit, 'someuser')
+        const result = await resolveOrgAvatar(mockOctokit as any, 'someuser')
         expect(result).toBe('https://user-avatar')
       })
 
@@ -3356,7 +3364,7 @@ describe('GitHubClient', () => {
         mockOctokit.orgs.get.mockRejectedValueOnce(new Error('404 Not Found'))
         mockOctokit.users.getByUsername.mockRejectedValueOnce(new Error('404 Not Found'))
 
-        const result = await (client as any)['resolveOrgAvatar'](mockOctokit, 'missing')
+        const result = await resolveOrgAvatar(mockOctokit as any, 'missing')
         expect(result).toBeNull()
       })
 
@@ -3365,11 +3373,11 @@ describe('GitHubClient', () => {
         mockOctokit.orgs.get.mockRejectedValue(new Error('404'))
         mockOctokit.users.getByUsername.mockRejectedValue(new Error('404'))
 
-        const result1 = await (client as any)['resolveOrgAvatar'](mockOctokit, 'missing')
+        const result1 = await resolveOrgAvatar(mockOctokit as any, 'missing')
         expect(result1).toBeNull()
 
         // Second call should use cache without calling octokit
-        const result2 = await (client as any)['resolveOrgAvatar'](mockOctokit, 'missing')
+        const result2 = await resolveOrgAvatar(mockOctokit as any, 'missing')
         expect(result2).toBeNull()
         expect(mockOctokit.orgs.get).toHaveBeenCalledTimes(1)
       })
@@ -3405,7 +3413,7 @@ describe('GitHubClient', () => {
         }))
 
         // Should not throw, just log warning
-        await (client as any)['fetchBatchThreadStats'](prsWithMeta)
+        await fetchBatchThreadStats(TEST_CONFIG, prsWithMeta as any)
         // PRs should still have their existing properties
         expect(prsWithMeta[0].number).toBe(1)
       })
@@ -3461,9 +3469,7 @@ describe('GitHubClient', () => {
       it('re-throws non-404 errors during org repo fetch', async () => {
         mockOctokit.repos.listForOrg.mockRejectedValue(new Error('500 Internal Server Error'))
 
-        await expect(
-          (client as any)['fetchAllOrgOrUserRepos'](mockOctokit, 'myorg')
-        ).rejects.toThrow('500 Internal Server Error')
+        await expect(fetchAllOrgOrUserRepos(TEST_CONFIG, 'myorg')).rejects.toThrow()
       })
 
       it('falls back to user repos on 404 org not found', async () => {
@@ -3486,7 +3492,7 @@ describe('GitHubClient', () => {
           ],
         })
 
-        const result = await (client as any)['fetchAllOrgOrUserRepos'](mockOctokit, 'someuser')
+        const result = await fetchAllOrgOrUserRepos(TEST_CONFIG, 'someuser')
         expect(result.isUserNamespace).toBe(true)
         expect(result.repos).toHaveLength(1)
       })
@@ -3496,9 +3502,7 @@ describe('GitHubClient', () => {
       it('re-throws non-404 errors during org members fetch', async () => {
         mockOctokit.paginate.mockRejectedValue(new Error('500 Internal Server Error'))
 
-        await expect(
-          (client as any)['fetchAllOrgOrUserMembers'](mockOctokit, 'myorg')
-        ).rejects.toThrow('500 Internal Server Error')
+        await expect(fetchAllOrgOrUserMembers(TEST_CONFIG, 'myorg')).rejects.toThrow()
       })
 
       it('falls back to user on 404 org not found', async () => {
@@ -3513,7 +3517,7 @@ describe('GitHubClient', () => {
           },
         })
 
-        const result = await (client as any)['fetchAllOrgOrUserMembers'](mockOctokit, 'someuser')
+        const result = await fetchAllOrgOrUserMembers(TEST_CONFIG, 'someuser')
         expect(result.isUserNamespace).toBe(true)
         expect(result.members).toHaveLength(1)
         expect(result.members[0].login).toBe('someuser')

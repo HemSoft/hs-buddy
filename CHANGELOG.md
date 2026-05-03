@@ -97,6 +97,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Guard all dismissal paths against save-in-flight race
 - Address PR review comments for coverage ratchet and race test
 - Address PR review — revert out-of-scope Tempo changes, update docs for parallel CI
+- Remove unused exports to fix Knip CI failure
+- Restore v8 ignore directives lost in module split
+- Address 3 review findings from PR #705
+- Address PR review comments for code quality issues
+- Address PR review feedback for domain module split
+- Remove unused export from paginateReviewThreads
+- Address PR review comments and restore 100% branch coverage
+- Add runtime type guard for repository_url in fetchUserActivity
+- Address PR review feedback - add pagination and resolve N+1
 
 ### Changed
 
@@ -104,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Log perfection audit results for 2026-04-28
 - Add Code Index as primary code discovery tool
 - Cover non-Escape keydown branch in TempoWorklogEditor
+- Split monolithic github.ts into domain modules (#695)
 
 ## [0.1.740] - 2026-04-26
 

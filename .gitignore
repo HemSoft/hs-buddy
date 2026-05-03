@@ -12,6 +12,7 @@ dist-electron/
 
 # Test coverage
 coverage/
+coverage-electron/
 release/
 *.local
 

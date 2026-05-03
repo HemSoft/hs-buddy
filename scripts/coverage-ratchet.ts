@@ -2,20 +2,32 @@
  * Coverage Ratchet
  *
  * Reads the current coverage from vitest's json-summary output and updates
- * vitest.config.ts thresholds to match the current floor. Thresholds can
+ * vitest config thresholds to match the current floor. Thresholds can
  * only go UP, never DOWN.
  *
  * Uses json-summary (coverage-summary.json) instead of LCOV to get the exact
  * same percentages vitest uses for threshold checking — avoids mismatches
  * between LCOV line counts and V8 statement coverage.
  *
- * Run: bun scripts/coverage-ratchet.ts
+ * Supports both the main (src/) and electron test suites via CLI args:
+ *   bun scripts/coverage-ratchet.ts
+ *   bun scripts/coverage-ratchet.ts --config vitest.electron.config.ts --summary coverage-electron/coverage-summary.json
  */
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
+import { parseArgs } from 'util'
 
-const configPath = resolve(import.meta.dirname, '..', 'vitest.config.ts')
-const summaryPath = resolve(import.meta.dirname, '..', 'coverage', 'coverage-summary.json')
+const { values } = parseArgs({
+  options: {
+    config: { type: 'string', default: 'vitest.config.ts' },
+    summary: { type: 'string', default: 'coverage/coverage-summary.json' },
+  },
+  strict: false,
+})
+
+const root = resolve(import.meta.dirname, '..')
+const configPath = resolve(root, values.config as string)
+const summaryPath = resolve(root, values.summary as string)
 
 type MetricKey = 'statements' | 'branches' | 'functions' | 'lines'
 const METRICS: MetricKey[] = ['statements', 'branches', 'functions', 'lines']
@@ -37,10 +49,10 @@ function parseSummary(path: string): Record<MetricKey, number> {
   return result
 }
 
-// Extract current thresholds from vitest.config.ts
+// Extract current thresholds from vitest config
 function parseThresholds(config: string): Record<MetricKey, number> {
   const match = config.match(/thresholds:\s*\{([^}]+)\}/)
-  if (!match) throw new Error('Could not find thresholds in vitest.config.ts')
+  if (!match) throw new Error(`Could not find thresholds in ${values.config}`)
   const block = match[1]
   const get = (key: string) => {
     const m = block.match(new RegExp(`${key}\\s*:\\s*(\\d+)`))
@@ -54,7 +66,7 @@ function parseThresholds(config: string): Record<MetricKey, number> {
   }
   if (Object.values(result).every(v => v === 0)) {
     throw new Error(
-      'Could not parse any thresholds from vitest.config.ts — format may have changed'
+      `Could not parse any thresholds from ${values.config} — format may have changed`
     )
   }
   return result
@@ -86,7 +98,7 @@ try {
     `thresholds: {\n        statements: ${next.statements},\n        branches: ${next.branches},\n        functions: ${next.functions},\n        lines: ${next.lines},\n      }`
   )
   if (updated === config)
-    throw new Error('Threshold replacement failed—vitest.config.ts format may have changed')
+    throw new Error(`Threshold replacement failed—${values.config} format may have changed`)
   writeFileSync(configPath, updated)
 
   console.log('Coverage ratchet: thresholds updated!')
@@ -98,6 +110,8 @@ try {
   )
 } catch (err: unknown) {
   console.error('Coverage ratchet failed:', (err as Error).message)
-  console.error('Make sure to run `bun run test:coverage` first to generate coverage-summary.json')
+  console.error(
+    `Make sure to run the appropriate test:coverage command first to generate ${values.summary}`
+  )
   process.exit(1)
 }

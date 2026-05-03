@@ -10,6 +10,7 @@
     "src/features/*.steps.ts",
     "convex/**/*.bench.ts",
     "electron/**/*.bench.ts",
+    "electron/**/*.test.ts",
     "apphost.ts"
   ],
   "ignore": ["playwright.config.ts"],

@@ -46,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add GPT-5.5 to models config
 - Add changes-requested count and unresolved thread indicators
 - Add type-safe IPC channel contract registry
+- Add comprehensive unit tests for electron/ directory (#692)
+- Replace export smoke tests with behavioral coverage
 
 ### Fixed
 
@@ -108,6 +110,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add runtime type guard for repository_url in fetchUserActivity
 - Address PR review feedback - add pagination and resolve N+1
 - Address PR review - eliminate CONFIG_UI_KEYS drift and add registration contract test
+- Resolve typecheck and test failures in electron test suite
+- Set electron test coverage thresholds to match actual baseline
+- Resolve TS2556 spread argument error in copilotClient test
+- Resolve TS2554 type error in copilotClient test mock
+- Address PR review comments — improve test depth and coverage thresholds
+- Deepen electron test coverage and align thresholds with actual values
+- Resolve TS2556 spread argument errors in electron test mocks
+- Strengthen electron tests per PR review feedback
+- Integrate electron coverage ratchet into CI pipeline
+- Resolve typecheck and electron coverage CI failures
+- Address PR review feedback for electron tests
+- Update electron coverage ratchet threshold (statements 54→55)
 
 ### Changed
 

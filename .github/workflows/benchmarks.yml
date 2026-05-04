@@ -35,7 +35,7 @@ jobs:
         run: npm install -g bun@1.2.0
 
       - name: Cache Bun dependencies
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -45,7 +45,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Restore baseline from main branch cache
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: bench-baseline.json
           key: bench-baseline-main-${{ github.event.pull_request.base.sha || github.sha }}
@@ -64,7 +64,7 @@ jobs:
 
       - name: Save baseline to cache (main branch only)
         if: github.ref == 'refs/heads/main' && success()
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: bench-baseline.json
           key: bench-baseline-main-${{ github.sha }}

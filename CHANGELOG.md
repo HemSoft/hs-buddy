@@ -73,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add issue numbers to TODO.md, add codeindex rebuild to post-commit
 - Resolve merge conflict with main
 - Regenerate bun.lock for dependency update
+- Bump @github/copilot-darwin-x64 from 0.0.406 to 1.0.40
 
 ## [0.1.741] - 2026-04-28
 

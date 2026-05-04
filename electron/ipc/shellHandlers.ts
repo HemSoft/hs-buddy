@@ -97,6 +97,15 @@ export function registerShellHandlers(): void {
   // Open external links in default browser
   ipcMain.handle('shell:open-external', async (_event, url: string) => {
     try {
+      const parsed = new URL(url)
+      const allowedProtocols = ['http:', 'https:', 'mailto:']
+      if (!allowedProtocols.includes(parsed.protocol)) {
+        return { success: false, error: 'Only http, https, and mailto URLs are allowed' }
+      }
+      // For http/https, apply full URL validation (SSRF protection)
+      if (parsed.protocol !== 'mailto:') {
+        validateUrl(url)
+      }
       await shell.openExternal(url)
       return { success: true }
     } catch (error: unknown) {
@@ -107,11 +116,8 @@ export function registerShellHandlers(): void {
   // Open URL in a built-in app browser window
   ipcMain.handle('shell:open-in-app-browser', async (_event, url: string, title?: string) => {
     try {
-      // Validate URL
-      const parsed = new URL(url)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        return { success: false, error: 'Only http/https URLs supported' }
-      }
+      // Validate URL with DNS check — SSRF protection
+      const parsed = await validateUrlWithDns(url)
 
       const browserWin = new BrowserWindow({
         width: 1200,
@@ -143,20 +149,66 @@ export function registerShellHandlers(): void {
         browserWin.setTitle(pageTitle)
       })
 
+      // Navigation sequencing: each new navigation cancels any pending async
+      // validation from a previous navigation to prevent race conditions where
+      // a stale DNS lookup completes after a newer one and overwrites the URL.
+      let navigationVersion = 0
+
+      function guardedNavigate(targetUrl: string): void {
+        const thisVersion = ++navigationVersion
+        validateUrlWithDns(targetUrl)
+          .then(() => {
+            // Only load if no newer navigation has started and window still exists
+            if (thisVersion === navigationVersion && !browserWin.isDestroyed()) {
+              return browserWin.loadURL(targetUrl)
+            }
+          })
+          .catch(() => {
+            // Validation failed, window destroyed, or loadURL rejected — block silently
+          })
+      }
+
+      // Prevent SSRF via HTTP redirect chains: intercept every server-side
+      // redirect and validate the target with a DNS check before allowing it.
+      // Note: canceling redirects and replaying with loadURL() converts the
+      // request to GET, which breaks 307/308 method preservation. This is an
+      // accepted trade-off for SSRF protection in a read-only bookmark browser.
+      browserWin.webContents.on('will-redirect', (event, redirectUrl) => {
+        event.preventDefault()
+        guardedNavigate(redirectUrl)
+      })
+
+      // Prevent SSRF via same-window navigations (link clicks, window.location):
+      // these fire will-navigate instead of will-redirect.
+      // All navigations are validated with DNS resolution to prevent DNS rebinding
+      // attacks where a hostname initially resolves to a public IP but later
+      // repoints to a private address.
+      // Note: like will-redirect above, replaying navigations via loadURL()
+      // converts them to GET requests, which breaks POST-based form submissions.
+      // This is an accepted trade-off: this is a read-only bookmark browser
+      // where form submissions are not expected, and SSRF protection takes priority.
+      browserWin.webContents.on('will-navigate', (event, navUrl) => {
+        event.preventDefault()
+        guardedNavigate(navUrl)
+      })
+
       // Open external links (target=_blank) in the same window after validating the URL
       browserWin.webContents.setWindowOpenHandler(({ url: linkUrl }) => {
-        try {
-          const linkParsed = new URL(linkUrl)
-          if (['http:', 'https:'].includes(linkParsed.protocol)) {
-            browserWin.loadURL(linkUrl)
-          }
-        } catch (_: unknown) {
-          // Invalid URL — ignore
-        }
+        guardedNavigate(linkUrl)
         return { action: 'deny' }
       })
 
-      await browserWin.loadURL(url)
+      try {
+        await browserWin.loadURL(url)
+      } catch (loadError: unknown) {
+        // When will-redirect intercepts a redirect, it calls preventDefault()
+        // which aborts the original loadURL() promise with ERR_ABORTED.
+        // This is expected — guardedNavigate() is handling the redirect target.
+        const msg = getErrorMessage(loadError)
+        if (!msg.includes('ERR_ABORTED')) {
+          throw loadError
+        }
+      }
       recordWindowOpen(parsed.hostname)
       return { success: true }
     } catch (error: unknown) {

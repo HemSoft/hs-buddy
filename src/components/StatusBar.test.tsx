@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StatusBar } from './StatusBar'
 import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
+import { axe } from '../test/axe-helper'
 
 describe('StatusBar', () => {
   it('renders with default props', () => {
@@ -213,5 +214,11 @@ describe('StatusBar', () => {
     expect(container.querySelector('.status-bar-right')).toBeTruthy()
 
     vi.useRealTimers()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(<StatusBar />)
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

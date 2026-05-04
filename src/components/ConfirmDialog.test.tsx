@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { ConfirmDialog } from './ConfirmDialog'
+import { axe } from '../test/axe-helper'
 
 function renderDialog(props: Partial<ComponentProps<typeof ConfirmDialog>> = {}) {
   const onConfirm = props.onConfirm ?? vi.fn()
@@ -120,5 +121,11 @@ describe('ConfirmDialog', () => {
     fireEvent.keyDown(window, { key: 'Tab' })
 
     expect(onCancel).not.toHaveBeenCalled()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = renderDialog()
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

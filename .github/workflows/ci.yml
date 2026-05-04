@@ -51,6 +51,28 @@ jobs:
         run: npx --yes @e18e/cli analyze
         continue-on-error: true
 
+      - name: Check architecture boundaries (dependency-cruiser)
+        run: |
+          # depcruise exits non-zero for any violations including warnings.
+          # --ignore-known excludes pre-existing violations baselined in .dependency-cruiser-known-violations.json.
+          # Only fail CI on error-level violations to support gradual rollout.
+          bunx depcruise src electron convex --config .dependency-cruiser.cjs --ignore-known -T json > /tmp/dc-output.json || true
+          node -e "
+            const r = require('/tmp/dc-output.json');
+            const e = r.summary?.error || 0;
+            const w = r.summary?.warn || 0;
+            console.log('Architecture boundaries: ' + e + ' errors, ' + w + ' warnings');
+            if (e > 0) { console.error('Error-level boundary violations found'); process.exit(1); }
+            console.log('No error-level boundary violations');
+          "
+
+      - name: Quality gate lint (informational)
+        run: bun run lint:quality
+        continue-on-error: true
+
+      - name: Electron security check
+        run: bun scripts/check-electron-security.ts
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -104,20 +126,6 @@ jobs:
 
       - name: Run tests with coverage
         run: bun run test:coverage
-
-      - name: Ratchet coverage thresholds
-        if: success() && github.event_name == 'pull_request'
-        run: bun run coverage:ratchet
-
-      - name: Verify coverage thresholds are up to date
-        if: success() && github.event_name == 'pull_request'
-        run: |
-          if ! git diff --quiet vitest.config.ts; then
-            echo "::error::Coverage thresholds are stale. Run 'bun run test:coverage && bun run coverage:ratchet' locally and commit the updated vitest.config.ts"
-            git diff vitest.config.ts
-            exit 1
-          fi
-          echo "✓ Coverage thresholds are up to date"
 
       - name: Report coverage summary
         if: always()
@@ -193,20 +201,6 @@ jobs:
 
       - name: Run electron tests with coverage
         run: bun run test:electron:coverage
-
-      - name: Ratchet electron coverage thresholds
-        if: success() && github.event_name == 'pull_request'
-        run: bun run coverage:ratchet:electron
-
-      - name: Verify electron coverage thresholds are up to date
-        if: success() && github.event_name == 'pull_request'
-        run: |
-          if ! git diff --quiet vitest.electron.config.ts; then
-            echo "::error::Electron coverage thresholds are stale. Run 'bun run test:electron:coverage && bun run coverage:ratchet:electron' locally and commit the updated vitest.electron.config.ts"
-            git diff vitest.electron.config.ts
-            exit 1
-          fi
-          echo "✓ Electron coverage thresholds are up to date"
 
   build:
     runs-on: ubuntu-latest

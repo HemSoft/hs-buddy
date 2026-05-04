@@ -5,11 +5,14 @@
  * sonarjs/cognitive-complexity). These rules are behind the ESLINT_QUALITY env var
  * so they don't break the strict `bun run lint` (--max-warnings 0) pipeline.
  *
+ * Uses --max-warnings 0 so that any quality-rule violations (configured as warnings)
+ * produce a non-zero exit code, surfacing regressions in CI.
+ *
  * Run: bun scripts/lint-quality.ts
  */
-import { spawnSync } from 'child_process'
+import { spawnSync } from 'node:child_process'
 
-const result = spawnSync('bunx', ['eslint', '.'], {
+const result = spawnSync('bunx', ['eslint', '--max-warnings', '0', '.'], {
   stdio: 'inherit',
   env: { ...process.env, ESLINT_QUALITY: '1' },
   cwd: process.cwd(),
@@ -20,6 +23,6 @@ if (result.error || result.status === null) {
   process.exit(1)
 }
 
-// Exit 0 even if warnings exist — this is informational, not blocking.
-// Exit non-zero only if eslint itself crashed (exit code 2).
-process.exit(result.status === 2 ? 2 : 0)
+// Pass through ESLint's exit code so CI step status reflects actual findings.
+// The CI job uses continue-on-error: true to keep it non-blocking.
+process.exit(result.status)

@@ -1,0 +1,72 @@
+[
+  {
+    "type": "cycle",
+    "from": "src/api/github/pr-threads.ts",
+    "to": "src/api/github/prs.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/api/github/prs.ts",
+        "dependencyTypes": ["local", "type-only", "import"]
+      },
+      {
+        "name": "src/api/github/pr-threads.ts",
+        "dependencyTypes": ["local", "import"]
+      }
+    ],
+    "comment": "Known circular dependency — tracked for future resolution."
+  },
+  {
+    "type": "dependency",
+    "from": "convex/bookmarks.ts",
+    "to": "src/utils/bookmarkValidation.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-convex-to-renderer"
+    },
+    "comment": "Known violation — bookmarkValidation needs to be moved to a shared location."
+  },
+  {
+    "type": "dependency",
+    "from": "convex/buddyStats.ts",
+    "to": "src/utils/statsMutationUtils.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-convex-to-renderer"
+    },
+    "comment": "Known violation — statsMutationUtils needs to be moved to a shared location."
+  },
+  {
+    "type": "dependency",
+    "from": "convex/featureIntakes.ts",
+    "to": "src/utils/featureIntakeUtils.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-convex-to-renderer"
+    },
+    "comment": "Known violation — featureIntakeUtils needs to be moved to a shared location."
+  },
+  {
+    "type": "dependency",
+    "from": "convex/jobs.ts",
+    "to": "src/utils/convexPatchUtils.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-convex-to-renderer"
+    },
+    "comment": "Known violation — convexPatchUtils needs to be moved to a shared location."
+  },
+  {
+    "type": "dependency",
+    "from": "convex/schedules.ts",
+    "to": "src/utils/scheduleUtils.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-convex-to-renderer"
+    },
+    "comment": "Known violation — scheduleUtils needs to be moved to a shared location."
+  }
+]

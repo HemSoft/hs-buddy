@@ -10,8 +10,8 @@
  *
  * The baseline is stored in bundle-size-baseline.json (committed to repo).
  */
-import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'fs'
-import { resolve } from 'path'
+import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const baselinePath = resolve(root, 'bundle-size-baseline.json')

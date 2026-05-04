@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.742] - 2026-05-03
+
+### Added
+
+- Add code quality tooling (dependency-cruiser, unicorn, axe, security)
+
+### Fixed
+
+- Address PR review findings for quality and security tooling
+- Address PR review comments for security, accessibility, and CI visibility
+- Address PR review feedback for CI and ESLint quality gate
+- Replace invalid --fail-on flag with JSON-based error check for depcruise
+- Enforce convex→renderer boundary with known-violations baseline
+- Apply SSRF validation to shell:open-in-app-browser and security checker
+- Prevent SSRF via HTTP redirect chains in BrowserWindow
+- Close SSRF via will-navigate and harden security checks
+- Address PR review comments on test timing, eslint config, and security check
+- Address PR review findings for navigation security
+- Correct electron coverage statement threshold to match actual coverage
+- Address PR review comments for SSRF and quality gate
+- Address review findings and fix branch coverage threshold
+- Ratchet electron coverage branches threshold 43->44%
+- Address PR review feedback on security checks and tests
+- Address PR review findings for security checks and redirect handling
+- Improve electron branch coverage and fix unhandled promise in guardedNavigate
+
+### Changed
+
+- Ratchet electron coverage thresholds (functions 52->53%, lines 56->57%)
+- Ratchet electron coverage thresholds (statements 55->56%, branches 43->44%)
+- Remove coverage ratchet gate from CI
+
 ## [0.1.741] - 2026-04-28
 
 ### Added

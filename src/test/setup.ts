@@ -1,4 +1,9 @@
 import '@testing-library/jest-dom/vitest'
+import * as axeMatchers from 'vitest-axe/matchers'
+import { expect } from 'vitest'
+
+// Register vitest-axe matchers globally for runtime a11y testing
+expect.extend(axeMatchers)
 
 // Node.js 25+ ships native localStorage / sessionStorage stubs that are plain
 // objects without Storage methods.  Even when happy-dom provides a proper

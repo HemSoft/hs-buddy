@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ActivityBar } from './ActivityBar'
+import { axe } from '../test/axe-helper'
 
 function renderActivityBar(selectedSection = 'github', isDashboardActive = false) {
   const onSectionSelect = vi.fn()
@@ -155,5 +156,11 @@ describe('ActivityBar', () => {
     renderActivityBar('github', true)
 
     expect(screen.getByRole('button', { name: 'Dashboard' })).toHaveClass('active')
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = renderActivityBar()
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

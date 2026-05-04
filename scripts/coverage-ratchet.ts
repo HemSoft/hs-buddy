@@ -13,9 +13,9 @@
  *   bun scripts/coverage-ratchet.ts
  *   bun scripts/coverage-ratchet.ts --config vitest.electron.config.ts --summary coverage-electron/coverage-summary.json
  */
-import { readFileSync, writeFileSync } from 'fs'
-import { resolve } from 'path'
-import { parseArgs } from 'util'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { parseArgs } from 'node:util'
 
 const { values } = parseArgs({
   options: {
@@ -56,7 +56,7 @@ function parseThresholds(config: string): Record<MetricKey, number> {
   const block = match[1]
   const get = (key: string) => {
     const m = block.match(new RegExp(`${key}\\s*:\\s*(\\d+)`))
-    return m ? parseInt(m[1], 10) : 0
+    return m ? Number.parseInt(m[1], 10) : 0
   }
   const result = {
     statements: get('statements'),

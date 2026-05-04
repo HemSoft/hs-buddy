@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { AboutModal } from './AboutModal'
+import { axe } from '../test/axe-helper'
 
 beforeEach(() => {
   Object.defineProperty(window, 'shell', {
@@ -63,5 +64,11 @@ describe('AboutModal', () => {
   it('renders Made with heart footer', () => {
     render(<AboutModal onClose={vi.fn()} />)
     expect(screen.getByText('by HemSoft Developments')).toBeTruthy()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(<AboutModal onClose={vi.fn()} />)
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

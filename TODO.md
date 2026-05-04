@@ -2,19 +2,19 @@
 
 | Status | Priority | Task | Notes |
 |--------|----------|------|-------|
-| 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | Built-in file explorer synced to terminal CWD with code preview pane |
-| 📋 | High | [Electron Main Process Test Suite](#electron-main-process-test-suite) | **0 test files across 38 source files** — IPC handlers, services, workers, root modules all untested |
-| 📋 | High | [IPC Contract Testing](#ipc-contract-testing) | 16 IPC handler files are the renderer↔main bridge with zero contract validation |
-| 📋 | High | [Convex Server Function Tests](#convex-server-function-tests) | **0 tests across 16 server functions** — bookmarks, jobs, runs, schedules, settings, etc. |
-| 📋 | High | [Performance Testing Suite](#performance-testing-suite) | Electron startup time, memory leak detection, IPC throughput, React render profiling, benchmark CI gating |
-| 📋 | High | [E2E Test Coverage Expansion](#e2e-test-coverage-expansion) | Only 1 spec file (2 tests) — PR views, settings, automation, terminal all untested; includes Playwright component testing evaluation and visual regression testing |
-| 📋 | High | [Split github.ts Monolith](#split-githubts-monolith) | 3,671 lines / 105 KB — split by domain (prs, orgs, users, copilot) with barrel re-export |
-| 📋 | Medium | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | `dependency-cruiser` for import boundaries + circular deps, `electronegativity` for Electron security, ESLint `strict` preset, `unicorn` plugin, runtime a11y via axe-core |
-| 📋 | Medium | [CI Pipeline Improvements](#ci-pipeline-improvements) | Parallelize jobs (~8m→~5m), harden soft-fail steps (e18e, npm-audit), add Convex typecheck, cache bun deps |
-| 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | New feature: categorized link management with quick-launch and tagging |
-| 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | Add table/grid view as alternative to card view on list pages |
-| 📋 | Medium | Add CONTRIBUTING.md | Contributor setup (Bun, Convex, env vars), PR conventions, testing expectations |
-| 📋 | Low | Add CODEOWNERS file | Define file ownership for electron/, convex/, src/components/, .github/workflows/ |
+| 📋 | High | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview) | #699 — Built-in file explorer synced to terminal CWD with code preview pane |
+| 📋 | High | [Electron Main Process Test Suite](#electron-main-process-test-suite) | #695 — **0 test files across 38 source files** — IPC handlers, services, workers, root modules all untested |
+| 📋 | High | [IPC Contract Testing](#ipc-contract-testing) | #694 — 16 IPC handler files are the renderer↔main bridge with zero contract validation |
+| 📋 | High | [Convex Server Function Tests](#convex-server-function-tests) | #696 — **0 tests across 16 server functions** — bookmarks, jobs, runs, schedules, settings, etc. |
+| 📋 | High | [Performance Testing Suite](#performance-testing-suite) | #697 — Electron startup time, memory leak detection, IPC throughput, React render profiling, benchmark CI gating |
+| 📋 | High | [E2E Test Coverage Expansion](#e2e-test-coverage-expansion) | #698 — Only 1 spec file (2 tests) — PR views, settings, automation, terminal all untested; includes Playwright component testing evaluation and visual regression testing |
+| 📋 | High | [Split github.ts Monolith](#split-githubts-monolith) | #693 — 3,671 lines / 105 KB — split by domain (prs, orgs, users, copilot) with barrel re-export |
+| 📋 | Medium | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | #692 — `dependency-cruiser` for import boundaries + circular deps, `electronegativity` for Electron security, ESLint `strict` preset, `unicorn` plugin, runtime a11y via axe-core |
+| 📋 | Medium | [CI Pipeline Improvements](#ci-pipeline-improvements) | #691 — Parallelize jobs (~8m→~5m), harden soft-fail steps (e18e, npm-audit), add Convex typecheck, cache bun deps |
+| 📋 | Medium | [Bookmarks — URL & Link Collection Manager](#bookmarks) | #701 — New feature: categorized link management with quick-launch and tagging |
+| 📋 | Medium | [Card/List View Toggle for all list pages](#cardlist-view-toggle) | #700 — Add table/grid view as alternative to card view on list pages |
+| 📋 | Medium | Add CONTRIBUTING.md | #702 — Contributor setup (Bun, Convex, env vars), PR conventions, testing expectations |
+| 📋 | Low | Add CODEOWNERS file | #703 — Define file ownership for electron/, convex/, src/components/, .github/workflows/ |
 | ✅ | High | Ralph Loops Control Center | 2026-05-03: PR #677 merged — dashboard, launch/monitor/configure loops, PR detail integration, autopilot worktree isolation |
 | ✅ | High | Cyclomatic Complexity Rule| 2026-05-02: `complexity: ['warn', 10]` active in eslint.config.js (informational — warns, does not block CI) |
 | ✅ | High | File Length Rule (max-lines) | 2026-05-02: `max-lines: ['warn', 500]` active via ESLINT_QUALITY (informational — not in CI gate) |

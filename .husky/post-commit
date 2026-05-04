@@ -35,3 +35,8 @@ if ! git diff HEAD --quiet -- CHANGELOG.md 2>/dev/null; then
 		rm -f "$AMEND_FLAG"
 	fi
 fi
+
+# Rebuild codeindex (non-blocking, non-fatal)
+if command -v codeindex >/dev/null 2>&1; then
+	codeindex index --quiet &
+fi

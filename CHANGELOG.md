@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add code quality tooling (dependency-cruiser, unicorn, axe, security)
 - Add comprehensive E2E testing suite with Playwright
+- Add Convex server function tests with convex-test
 
 ### Fixed
 
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review feedback on mocks and config
 - Replace nondeterministic sleeps and swallowed errors
 - Use soft wait for PR content in detail navigation test
+- Improve orphaned schedule/run tests using t.run for direct DB access
 
 ### Changed
 

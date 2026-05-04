@@ -9,6 +9,7 @@
     "src/**/*.bench.ts",
     "src/features/*.steps.ts",
     "convex/**/*.bench.ts",
+    "convex/__tests__/**/*.test.ts",
     "electron/**/*.bench.ts",
     "electron/**/*.test.ts",
     "apphost.ts",

@@ -7,7 +7,18 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}', 'src/features/*.steps.ts'],
+    include: [
+      'src/**/*.test.{ts,tsx}',
+      'src/features/*.steps.ts',
+      'scripts/**/*.test.ts',
+      'perf/**/*.test.ts',
+    ],
+    environmentMatchGlobs: [
+      ['scripts/**/*.test.ts', 'node'],
+      ['perf/**/*.test.ts', 'node'],
+      ['perf/**/*.bench.ts', 'node'],
+      ['src/**/*.bench.ts', 'node'],
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'lcov', 'json-summary', 'cobertura'],
@@ -20,6 +31,7 @@ export default defineConfig({
         'src/**/*.bench.ts',
         'src/features/**',
         'src/types/**',
+        'src/dev/**',
         'src/components/automation/index.ts',
         'src/components/settings/index.ts',
         'src/components/copilot-usage/types.ts',

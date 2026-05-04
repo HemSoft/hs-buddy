@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add code quality tooling (dependency-cruiser, unicorn, axe, security)
 - Add comprehensive E2E testing suite with Playwright
+- Add performance monitoring infrastructure (#698)
+- Complete performance monitoring infrastructure (#698)
 - Add Convex server function tests with convex-test
 
 ### Fixed
@@ -45,6 +47,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review feedback on mocks and config
 - Replace nondeterministic sleeps and swallowed errors
 - Use soft wait for PR content in detail navigation test
+- Address PR review comments for perf and bench scripts
+- Gate CLI entrypoints and validate args in perf/scripts
+- Validate rme field in benchmark validation and add defensive formatting
+- Reduce formatResults complexity to pass lint
+- Address PR review comments for bench-compare and memory-monitor
+- Address PR review feedback for benchmark determinism and filepath normalization
+- Persist benchmark baseline via cache for PR regression gating
+- Address PR review feedback for memory-monitor and bench-compare
+- Surface GC unavailability warning and reduce test allocation size
+- Scope perf/scripts tests to node environment
+- Regenerate lockfile for @playwright/test dependency
+- Resolve CI coverage failure and PR review feedback
+- Address PR review feedback on bench-compare and startup-timing
+- Pass PERF_STARTUP_TARGET_MS to spawned Electron process
+- Address PR review feedback on bench environment and baseline
+- Validate missing values for --timeout and --target flags
 - Improve orphaned schedule/run tests using t.run for direct DB access
 
 ### Changed
@@ -53,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ratchet electron coverage thresholds (statements 55->56%, branches 43->44%)
 - Remove coverage ratchet gate from CI
 - Add issue numbers to TODO.md, add codeindex rebuild to post-commit
+- Resolve merge conflict with main
 
 ## [0.1.741] - 2026-04-28
 

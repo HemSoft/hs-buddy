@@ -5,6 +5,14 @@ import { ConvexClientProvider } from './providers/ConvexClientProvider'
 import { dataCache } from './services/dataCache'
 import './index.css'
 
+// Development-only: react-scan for render performance visibility
+// Activate with: VITE_REACT_SCAN=1 bun run dev
+if (import.meta.env.DEV && import.meta.env.VITE_REACT_SCAN === '1') {
+  import('./dev/react-scan-init')
+    .then(({ initReactScan }) => initReactScan())
+    .catch((err: unknown) => console.warn('[react-scan] Failed to initialize:', err))
+}
+
 // Initialize the data cache from disk before rendering, so components
 // can read cached PR data immediately on mount (no loading flash).
 dataCache.initialize().then(() => {

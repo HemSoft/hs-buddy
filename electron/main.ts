@@ -14,6 +14,7 @@ import {
   resolveWindowBounds as resolveWindowBoundsPure,
   type DisplayInfo,
 } from '../src/utils/windowGeometry'
+import { startupTimer } from '../perf/startup-timing'
 
 // Initialize OpenTelemetry before anything else touches HTTP/DNS
 await initTelemetry()
@@ -134,6 +135,8 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', new Date().toLocaleString())
+    startupTimer.mark('content-loaded')
+    startupTimer.report()
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -160,10 +163,13 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
+  startupTimer.mark('app-ready')
+
   // Initialize config manager and attempt migration from env vars
   configManager.migrateFromEnv()
 
   createWindow()
+  startupTimer.mark('window-created')
 
   // Set up application menu and keyboard shortcuts
   Menu.setApplicationMenu(buildMenu(win!))

@@ -59,6 +59,10 @@ out/
 _cdp.cjs
 .playwright-mcp/
 bench-output.txt
+bench-results.json
+
+# Code Index generated artifacts (local-only indexed search data)
+.codeindex/
 
 # Ralph loop logs (root only — scripts/ralph* should be tracked)
 /ralph*.log

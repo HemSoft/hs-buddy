@@ -4,6 +4,7 @@
     "electron/main.ts",
     "electron/preload.ts",
     "scripts/*.ts",
+    "perf/*.ts",
     "generate-icons.ts",
     "convex/*.ts",
     "src/**/*.bench.ts",
@@ -12,8 +13,18 @@
     "convex/__tests__/**/*.test.ts",
     "electron/**/*.bench.ts",
     "electron/**/*.test.ts",
+    "perf/**/*.bench.ts",
+    "perf/**/*.test.ts",
     "apphost.ts",
     "e2e/*.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}", "electron/**/*.ts", "convex/**/*.ts", "scripts/**/*.ts", "*.ts"]
+  "ignore": ["playwright.config.ts"],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "electron/**/*.ts",
+    "convex/**/*.ts",
+    "scripts/**/*.ts",
+    "perf/**/*.ts",
+    "*.ts"
+  ]
 }

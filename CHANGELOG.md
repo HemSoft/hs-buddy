@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove coverage ratchet gate from CI
 - Add issue numbers to TODO.md, add codeindex rebuild to post-commit
 - Resolve merge conflict with main
+- Regenerate bun.lock for dependency update
 
 ## [0.1.741] - 2026-04-28
 

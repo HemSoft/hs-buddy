@@ -16,6 +16,10 @@ coverage-electron/
 release/
 *.local
 
+# Playwright
+playwright-report/
+test-results/
+
 # Environment
 .env
 .env.local
@@ -28,6 +32,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# TypeScript incremental build artifacts
+*.tsbuildinfo
 
 # Editor
 .vscode/

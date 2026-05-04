@@ -11,8 +11,8 @@
     "convex/**/*.bench.ts",
     "electron/**/*.bench.ts",
     "electron/**/*.test.ts",
-    "apphost.ts"
+    "apphost.ts",
+    "e2e/*.ts"
   ],
-  "ignore": ["playwright.config.ts"],
   "project": ["src/**/*.{ts,tsx}", "electron/**/*.ts", "convex/**/*.ts", "scripts/**/*.ts", "*.ts"]
 }

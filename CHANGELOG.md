@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add code quality tooling (dependency-cruiser, unicorn, axe, security)
+- Add comprehensive E2E testing suite with Playwright
 
 ### Fixed
 
@@ -34,6 +35,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review feedback on security checks and tests
 - Address PR review findings for security checks and redirect handling
 - Improve electron branch coverage and fix unhandled promise in guardedNavigate
+- Address PR review feedback on test reliability
+- Use precise locators in terminal tests to fix CI failures
+- Align IPC config mock with AppConfig and gate mocks for electron-cdp
+- Address PR review comments for vite config and tsbuildinfo
+- Replace waitForTimeout with deterministic waits
+- Remove .or() locator causing strict mode violation
+- Address PR review feedback on mocks and config
+- Replace nondeterministic sleeps and swallowed errors
+- Use soft wait for PR content in detail navigation test
 
 ### Changed
 

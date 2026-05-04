@@ -28,30 +28,51 @@ const requireShim = [
 ].join('\n')
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    electron({
-      main: {
-        entry: 'electron/main.ts',
-        vite: {
-          build: {
-            target: 'esnext',
-            rollupOptions: {
-              // node-pty is a native module — must not be bundled.
-              // OTel SDK packages are dev-only (Aspire) — lazy-loaded at runtime.
-              external: ['node-pty', ...otelExternals],
-              output: {
-                banner: requireShim,
-              },
+export default defineConfig(({ mode }) => {
+  // In E2E mode (--mode e2e OR VITE_E2E=1), skip the Electron plugin entirely
+  // so Vite serves only the renderer bundle. The E2E tests inject IPC mocks via addInitScript.
+  const isE2E = mode === 'e2e' || process.env.VITE_E2E === '1'
+
+  return {
+    // In E2E mode, alias convex/react to a mock module that provides no-op hooks.
+    // This prevents the real Convex client from trying WebSocket connections.
+    ...(isE2E
+      ? {
+          resolve: {
+            alias: {
+              'convex/react': path.resolve(__dirname, 'testing/convex-react-mock.ts'),
             },
           },
-        },
-      },
-      preload: {
-        input: path.join(__dirname, 'electron/preload.ts'),
-      },
-      renderer: process.env.NODE_ENV === 'test' ? undefined : {},
-    }),
-  ],
+        }
+      : {}),
+    plugins: [
+      react(),
+      ...(!isE2E
+        ? [
+            electron({
+              main: {
+                entry: 'electron/main.ts',
+                vite: {
+                  build: {
+                    target: 'esnext',
+                    rollupOptions: {
+                      // node-pty is a native module — must not be bundled.
+                      // OTel SDK packages are dev-only (Aspire) — lazy-loaded at runtime.
+                      external: ['node-pty', ...otelExternals],
+                      output: {
+                        banner: requireShim,
+                      },
+                    },
+                  },
+                },
+              },
+              preload: {
+                input: path.join(__dirname, 'electron/preload.ts'),
+              },
+              renderer: process.env.NODE_ENV === 'test' ? undefined : {},
+            }),
+          ]
+        : []),
+    ],
+  }
 })

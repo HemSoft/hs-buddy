@@ -107,6 +107,7 @@
     "dependency-cruiser": "^17.3.10",
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
     "eslint": "^9",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",

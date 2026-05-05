@@ -1,4 +1,5 @@
-import { X, Github, Heart, Users } from 'lucide-react'
+import { X, Heart, Users } from 'lucide-react'
+import { GithubIcon } from './icons/GithubIcon'
 import './AboutModal.css'
 
 interface AboutModalProps {
@@ -65,7 +66,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
 
           {/* GitHub Link */}
           <button className="about-github-link" onClick={openGitHub}>
-            <Github size={16} />
+            <GithubIcon size={16} />
             <span>View on GitHub</span>
           </button>
 

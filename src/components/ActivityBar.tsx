@@ -1,5 +1,4 @@
 import {
-  Github,
   Zap,
   CheckSquare,
   BarChart3,
@@ -12,6 +11,7 @@ import {
   Home,
   RefreshCw,
 } from 'lucide-react'
+import { GithubIcon } from './icons/GithubIcon'
 import { useState } from 'react'
 import './ActivityBar.css'
 
@@ -23,7 +23,7 @@ interface ActivityBarProps {
 }
 
 const sections = [
-  { id: 'github', label: 'GitHub', icon: Github },
+  { id: 'github', label: 'GitHub', icon: GithubIcon },
   { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'insights', label: 'Insights', icon: BarChart3 },

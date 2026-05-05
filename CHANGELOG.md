@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use branch name condition instead of actor for lockfile fix
 - Disable Husky in lockfile fix workflow
 - Add esbuild devDependency for vite-plugin-electron-renderer
+- Replace removed lucide-react Github icon with local SVG
 
 ### Changed
 

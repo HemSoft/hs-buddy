@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regenerate bun.lock for dependency update
 - Bump @github/copilot-darwin-x64 from 0.0.406 to 1.0.40
 - Add CodeRabbit configuration for automated PR reviews
+- Add workflow to auto-fix bun.lock for Dependabot PRs
 
 ## [0.1.741] - 2026-04-28
 

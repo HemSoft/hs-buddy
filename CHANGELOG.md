@@ -15,11 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Sync bun.lock with package.json
 
+### Changed
+
+- Clarify TypeScript upgrade changelog entries
+
 ## [0.1.743] - 2026-05-05
+
+### Changed
+
+- Upgrade TypeScript from 5.x to 6.0.3
+- Add TypeScript 7 native preview (`@typescript/native-preview` / tsgo) for fast typechecking
 
 ### Fixed
 
-- Remove unused @typescript/native-preview devDependency to resolve knip error
+- Remove unused `@typescript/native-preview` devDependency after knip flagged it as unused; tsgo remains available as a separately-installed CLI tool
 
 ## [0.1.742] - 2026-05-03
 
@@ -92,8 +101,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump @github/copilot-darwin-x64 from 0.0.406 to 1.0.40
 - Add CodeRabbit configuration for automated PR reviews
 - Add workflow to auto-fix bun.lock for Dependabot PRs
-- Upgrade TypeScript from 5.x to 6.0.3
-- Add TypeScript 7 native preview (tsgo) for fast typechecking
 
 ## [0.1.741] - 2026-04-28
 

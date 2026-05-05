@@ -9,26 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.744] - 2026-05-05
-
-### Fixed
-
-- Sync bun.lock with package.json
+## [0.1.745] - 2026-05-05
 
 ### Changed
 
-- Clarify TypeScript upgrade changelog entries
+- Consolidate changelog entries under 0.1.744 and clarify tsgo narrative
 
-## [0.1.743] - 2026-05-05
+## [0.1.744] - 2026-05-05
 
 ### Changed
 
 - Upgrade TypeScript from 5.x to 6.0.3
-- Add TypeScript 7 native preview (`@typescript/native-preview` / tsgo) for fast typechecking
 
 ### Fixed
 
-- Remove unused `@typescript/native-preview` devDependency after knip flagged it as unused; tsgo remains available as a separately-installed CLI tool
+- Sync bun.lock with package.json after removing unused `@typescript/native-preview` devDependency (trialed tsgo for fast typechecking during upgrade but removed after knip flagged it as unused; tsgo remains available as separately-installed CLI tool)
 
 ## [0.1.742] - 2026-05-03
 

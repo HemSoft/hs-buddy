@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.746] - 2026-05-05
+
+### Changed
+
+- Update TODO.md — mark 7 completed items, remove stale descriptions
+
 ## [0.1.745] - 2026-05-05
 
 ### Changed

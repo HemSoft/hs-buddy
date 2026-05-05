@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validate missing values for --timeout and --target flags
 - Improve orphaned schedule/run tests using t.run for direct DB access
 - Use branch name condition instead of actor for lockfile fix
+- Disable Husky in lockfile fix workflow
 
 ### Changed
 

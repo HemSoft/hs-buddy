@@ -1,0 +1,47 @@
+name: Dependabot Lockfile Fix
+
+# Auto-updates bun.lock when Dependabot opens or updates a PR.
+# Dependabot doesn't natively support Bun lockfiles, so this workflow
+# runs `bun install` and commits the updated lockfile back to the PR branch.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  fix-lockfile:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+
+      - name: Install Bun
+        run: npm install -g bun@1.2.0
+
+      - name: Update lockfile
+        run: bun install --no-frozen-lockfile
+
+      - name: Commit updated lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock
+          if git diff --cached --quiet; then
+            echo "Lockfile already up to date"
+          else
+            git commit -m "chore: update bun.lock for dependabot PR"
+            git push
+          fi

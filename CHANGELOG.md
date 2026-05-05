@@ -80,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump @github/copilot-darwin-x64 from 0.0.406 to 1.0.40
 - Add CodeRabbit configuration for automated PR reviews
 - Add workflow to auto-fix bun.lock for Dependabot PRs
+- Upgrade TypeScript from 5.x to 6.0.3
 
 ## [0.1.741] - 2026-04-28
 

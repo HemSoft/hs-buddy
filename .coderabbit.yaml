@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+
+tone_instructions: >
+  Be direct and concise. Focus on bugs, security, and correctness.
+  Do not comment on style preferences already enforced by ESLint.
+  Label every comment with severity: [Critical] or [Medium].
+  Only block approval for Critical findings (security, data loss, crashes,
+  breaking API changes, race conditions).
+
+early_access: true
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  commit_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  poem: false
+  in_progress_fortune: false
+  changed_files_summary: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: false
+  suggested_reviewers: false
+  auto_apply_labels: false
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+    labels: []
+    base_branches: []
+
+  path_filters:
+    - "!dist/**"
+    - "!dist-electron/**"
+    - "!coverage/**"
+    - "!node_modules/**"
+    - "!bun.lock"
+    - "!package-lock.json"
+    - "!**/*.lock.yml"
+
+  path_instructions:
+    - path: "src/**/*.{ts,tsx}"
+      instructions: >
+        React 19 + TypeScript + Vite app. Uses Vitest with happy-dom and
+        React Testing Library. Focus on correctness, type safety, and
+        potential runtime errors. Flag missing error boundaries in components
+        that fetch data.
+    - path: "electron/**"
+      instructions: >
+        Electron main/preload process code. Watch for IPC security issues,
+        unvalidated input from renderer, and missing contextIsolation patterns.
+    - path: "convex/**"
+      instructions: >
+        Convex serverless functions. Check for missing input validation,
+        potential data races with optimistic updates, and proper error handling.
+    - path: "src/**/*.test.{ts,tsx}"
+      instructions: >
+        Test files using Vitest + React Testing Library. Verify tests assert
+        meaningful behavior (not implementation details). Flag tests that only
+        check snapshots without behavioral assertions.
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: true
+
+  tools:
+    github-checks:
+      enabled: true
+      timeout_ms: 120000
+    markdownlint:
+      enabled: true
+    shellcheck:
+      enabled: false
+    ruff:
+      enabled: false
+    biome:
+      enabled: false
+    eslint:
+      enabled: true
+      enabled_plugins:
+        - "@typescript-eslint"
+        - "react-hooks"
+        - "react-refresh"
+
+chat:
+  auto_reply: true

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { lightenColor } from '../components/settings/appearanceUtils'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 interface AppearanceConfig {
   theme: string | null
@@ -15,16 +16,16 @@ interface AppearanceConfig {
 }
 
 const APPEARANCE_IPC_CHANNELS: ReadonlyArray<{ key: keyof AppearanceConfig; channel: string }> = [
-  { key: 'theme', channel: 'config:get-theme' },
-  { key: 'accentColor', channel: 'config:get-accent-color' },
-  { key: 'bgPrimary', channel: 'config:get-bg-primary' },
-  { key: 'bgSecondary', channel: 'config:get-bg-secondary' },
-  { key: 'fontColor', channel: 'config:get-font-color' },
-  { key: 'statusBarBg', channel: 'config:get-statusbar-bg' },
-  { key: 'statusBarFg', channel: 'config:get-statusbar-fg' },
-  { key: 'fontFamily', channel: 'config:get-font-family' },
-  { key: 'monoFontFamily', channel: 'config:get-mono-font-family' },
-  { key: 'zoomLevel', channel: 'config:get-zoom-level' },
+  { key: 'theme', channel: IPC_INVOKE.CONFIG_GET_THEME },
+  { key: 'accentColor', channel: IPC_INVOKE.CONFIG_GET_ACCENT_COLOR },
+  { key: 'bgPrimary', channel: IPC_INVOKE.CONFIG_GET_BG_PRIMARY },
+  { key: 'bgSecondary', channel: IPC_INVOKE.CONFIG_GET_BG_SECONDARY },
+  { key: 'fontColor', channel: IPC_INVOKE.CONFIG_GET_FONT_COLOR },
+  { key: 'statusBarBg', channel: IPC_INVOKE.CONFIG_GET_STATUSBAR_BG },
+  { key: 'statusBarFg', channel: IPC_INVOKE.CONFIG_GET_STATUSBAR_FG },
+  { key: 'fontFamily', channel: IPC_INVOKE.CONFIG_GET_FONT_FAMILY },
+  { key: 'monoFontFamily', channel: IPC_INVOKE.CONFIG_GET_MONO_FONT_FAMILY },
+  { key: 'zoomLevel', channel: IPC_INVOKE.CONFIG_GET_ZOOM_LEVEL },
 ]
 
 function applyColorProperties(root: HTMLElement, config: AppearanceConfig): void {

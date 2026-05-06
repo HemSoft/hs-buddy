@@ -13,6 +13,7 @@
  */
 
 import { MS_PER_MINUTE } from '../constants'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 interface CacheEntry<T = unknown> {
   data: T
@@ -33,7 +34,7 @@ export const dataCache = {
   async initialize(): Promise<void> {
     if (initialized) return
     try {
-      const cached = await window.ipcRenderer.invoke('cache:read-all')
+      const cached = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ_ALL)
       if (cached && typeof cached === 'object') {
         Object.assign(memoryCache, cached)
       }
@@ -75,7 +76,7 @@ export const dataCache = {
     }
 
     // Persist to disk asynchronously (fire and forget)
-    window.ipcRenderer.invoke('cache:write', key, { data, fetchedAt }).catch(err => {
+    window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, { data, fetchedAt }).catch(err => {
       console.error('[DataCache] Failed to persist to disk:', err)
     })
   },
@@ -110,7 +111,7 @@ export const dataCache = {
    */
   delete(key: string): void {
     delete memoryCache[key]
-    window.ipcRenderer.invoke('cache:delete', key).catch(err => {
+    window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key).catch(err => {
       console.error('[DataCache] Failed to delete from disk:', err)
     })
   },
@@ -123,7 +124,7 @@ export const dataCache = {
       delete memoryCache[key]
     }
     try {
-      await window.ipcRenderer.invoke('cache:clear')
+      await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
     } catch (err: unknown) {
       console.error('[DataCache] Failed to clear disk cache:', err)
     }

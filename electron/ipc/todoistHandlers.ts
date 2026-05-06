@@ -10,10 +10,11 @@ import {
   deleteTask,
 } from '../services/todoistClient'
 import { ipcHandler } from './ipcHandler'
+import { IPC_INVOKE } from '../../src/ipc/contracts'
 
 export function registerTodoistHandlers(): void {
   ipcMain.handle(
-    'todoist:get-upcoming',
+    IPC_INVOKE.TODOIST_GET_UPCOMING,
     ipcHandler(async (_event, days?: number) => {
       const safeDays = Math.max(1, Math.min(days ?? 7, 30))
       const grouped = await fetchUpcoming(safeDays)
@@ -25,7 +26,7 @@ export function registerTodoistHandlers(): void {
   )
 
   ipcMain.handle(
-    'todoist:get-today',
+    IPC_INVOKE.TODOIST_GET_TODAY,
     ipcHandler(async () => {
       const tasks = await fetchTasks('today')
       return { success: true, data: tasks }
@@ -33,7 +34,7 @@ export function registerTodoistHandlers(): void {
   )
 
   ipcMain.handle(
-    'todoist:complete-task',
+    IPC_INVOKE.TODOIST_COMPLETE_TASK,
     ipcHandler(async (_event, taskId: string) => {
       await completeTask(taskId)
       return { success: true }
@@ -41,7 +42,7 @@ export function registerTodoistHandlers(): void {
   )
 
   ipcMain.handle(
-    'todoist:reopen-task',
+    IPC_INVOKE.TODOIST_REOPEN_TASK,
     ipcHandler(async (_event, taskId: string) => {
       await reopenTask(taskId)
       return { success: true }
@@ -49,7 +50,7 @@ export function registerTodoistHandlers(): void {
   )
 
   ipcMain.handle(
-    'todoist:create-task',
+    IPC_INVOKE.TODOIST_CREATE_TASK,
     ipcHandler(
       async (
         _event,
@@ -71,7 +72,7 @@ export function registerTodoistHandlers(): void {
   )
 
   ipcMain.handle(
-    'todoist:update-task',
+    IPC_INVOKE.TODOIST_UPDATE_TASK,
     ipcHandler(
       async (
         _event,
@@ -87,7 +88,7 @@ export function registerTodoistHandlers(): void {
   )
 
   ipcMain.handle(
-    'todoist:delete-task',
+    IPC_INVOKE.TODOIST_DELETE_TASK,
     ipcHandler(async (_event, taskId: string) => {
       await deleteTask(taskId)
       return { success: true }
@@ -95,7 +96,7 @@ export function registerTodoistHandlers(): void {
   )
 
   ipcMain.handle(
-    'todoist:get-projects',
+    IPC_INVOKE.TODOIST_GET_PROJECTS,
     ipcHandler(async () => {
       const projects = await fetchProjects()
       return { success: true, data: projects }

@@ -69,12 +69,11 @@ describe('IPC Contract Registry', () => {
     })
 
     it('has no channel name collisions across transport types', () => {
-      const all = [
-        ...ALL_INVOKE_CHANNELS,
-        ...ALL_SEND_CHANNELS,
-        ...ALL_PUSH_CHANNELS,
-        ...CONFIG_UI_CHANNELS,
-      ]
+      // CONFIG_UI_CHANNELS are a subset of ALL_INVOKE_CHANNELS, so we only
+      // check that the three transport categories (invoke, send, push) are
+      // disjoint. Config UI channels inherit invoke transport and don't add
+      // new names.
+      const all = [...ALL_INVOKE_CHANNELS, ...ALL_SEND_CHANNELS, ...ALL_PUSH_CHANNELS]
       const unique = new Set(all)
       expect(unique.size).toBe(all.length)
     })
@@ -126,7 +125,7 @@ describe('IPC Contract Registry', () => {
     it('has the expected number of invoke channels', () => {
       // If this fails, a channel was added or removed without updating contracts.
       // Update the contract AND this count when adding new IPC handlers.
-      expect(ALL_INVOKE_CHANNELS.length).toBe(93)
+      expect(ALL_INVOKE_CHANNELS.length).toBe(123)
     })
 
     it('has the expected number of send channels', () => {
@@ -137,13 +136,21 @@ describe('IPC Contract Registry', () => {
       expect(ALL_PUSH_CHANNELS.length).toBe(9)
     })
 
-    it('total channel count is sum of all categories plus config UI channels', () => {
+    it('total unique channel count accounts for config UI overlap with invoke', () => {
+      // CONFIG_UI_CHANNELS overlap with ALL_INVOKE_CHANNELS (7 channels appear in both),
+      // so ALL_CHANNELS must not double-count them.
+      const configUIOverlap = CONFIG_UI_CHANNELS.filter(ch =>
+        ALL_INVOKE_CHANNELS.includes(ch as never)
+      )
       expect(ALL_CHANNELS.length).toBe(
         ALL_INVOKE_CHANNELS.length +
           ALL_SEND_CHANNELS.length +
           ALL_PUSH_CHANNELS.length +
-          CONFIG_UI_CHANNELS.length
+          CONFIG_UI_CHANNELS.length -
+          configUIOverlap.length
       )
+      // Verify no duplicates at all
+      expect(new Set(ALL_CHANNELS).size).toBe(ALL_CHANNELS.length)
     })
   })
 
@@ -228,6 +235,15 @@ describe('IPC Contract Registry', () => {
       expect(configChannels).toContain('config:reset')
       expect(configChannels).toContain('config:pick-audio-file')
       expect(configChannels).toContain('config:play-notification-sound')
+    })
+
+    it('config domain has all expected UI invoke channels', () => {
+      const configChannels = ALL_INVOKE_CHANNELS.filter(ch => ch.startsWith('config:'))
+      // All CONFIG_UI_KEYS should have matching get+set pairs in IPC_INVOKE
+      for (const key of CONFIG_UI_KEYS) {
+        expect(configChannels).toContain(`config:get-${key}`)
+        expect(configChannels).toContain(`config:set-${key}`)
+      }
     })
 
     it('tempo domain has all expected channels', () => {

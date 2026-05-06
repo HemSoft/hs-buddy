@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ConvexClientProvider } from './providers/ConvexClientProvider'
 import { dataCache } from './services/dataCache'
+import { IPC_PUSH } from './ipc/contracts'
 import './index.css'
 
 // Development-only: react-scan for render performance visibility
@@ -29,13 +30,13 @@ dataCache.initialize().then(() => {
 })
 
 // Use contextBridge
-window.ipcRenderer.on('main-process-message', (_event, message) => {
+window.ipcRenderer.on(IPC_PUSH.MAIN_PROCESS_MESSAGE, (_event, message) => {
   console.log('Message from main process:', message)
 })
 
 // Bridge Electron IPC tab events to DOM CustomEvents so React hooks can use
 // standard addEventListener/removeEventListener (which works reliably with
 // React StrictMode cleanup, unlike ipcRenderer.off through contextBridge).
-window.ipcRenderer.on('tab-next', () => window.dispatchEvent(new Event('app:tab-next')))
-window.ipcRenderer.on('tab-prev', () => window.dispatchEvent(new Event('app:tab-prev')))
-window.ipcRenderer.on('tab-close', () => window.dispatchEvent(new Event('app:tab-close')))
+window.ipcRenderer.on(IPC_PUSH.TAB_NEXT, () => window.dispatchEvent(new Event('app:tab-next')))
+window.ipcRenderer.on(IPC_PUSH.TAB_PREV, () => window.dispatchEvent(new Event('app:tab-prev')))
+window.ipcRenderer.on(IPC_PUSH.TAB_CLOSE, () => window.dispatchEvent(new Event('app:tab-close')))

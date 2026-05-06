@@ -1,6 +1,7 @@
 import { dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import { saveZoomLevel } from './zoom'
 import { matchesShortcut } from '../src/utils/shortcutMatching'
+import { IPC_PUSH } from '../src/ipc/contracts'
 
 const ZOOM_STEP = 0.1
 const MAX_ZOOM = 3.0
@@ -97,11 +98,16 @@ const SHORTCUTS: ShortcutEntry[] = [
     key: 'A',
     ctrlOrCmd: true,
     shift: true,
-    action: win => win.webContents.send('toggle-assistant'),
+    action: win => win.webContents.send(IPC_PUSH.TOGGLE_ASSISTANT),
   },
-  { key: 'Tab', ctrlOrCmd: true, shift: true, action: win => win.webContents.send('tab-prev') },
-  { key: 'Tab', ctrlOrCmd: true, action: win => win.webContents.send('tab-next') },
-  { key: 'F4', ctrlOrCmd: true, action: win => win.webContents.send('tab-close') },
+  {
+    key: 'Tab',
+    ctrlOrCmd: true,
+    shift: true,
+    action: win => win.webContents.send(IPC_PUSH.TAB_PREV),
+  },
+  { key: 'Tab', ctrlOrCmd: true, action: win => win.webContents.send(IPC_PUSH.TAB_NEXT) },
+  { key: 'F4', ctrlOrCmd: true, action: win => win.webContents.send(IPC_PUSH.TAB_CLOSE) },
   { key: 'F11', action: win => win.setFullScreen(!win.isFullScreen()) },
 ]
 

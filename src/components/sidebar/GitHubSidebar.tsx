@@ -7,6 +7,7 @@ import { OrgRepoTree } from './github-sidebar/OrgRepoTree'
 import { useGitHubSidebarData } from './github-sidebar/useGitHubSidebarData'
 import { useRefreshIndicators } from '../../hooks/useRefreshIndicators'
 import { useRalphLoops } from '../../hooks/useRalphLoops'
+import { IPC_INVOKE } from '../../ipc/contracts'
 
 type SidebarData = ReturnType<typeof useGitHubSidebarData>
 
@@ -299,7 +300,9 @@ export function GitHubSidebar({
                 e.stopPropagation()
                 setShowBookmarkedOnly(prev => {
                   const next = !prev
-                  window.ipcRenderer.invoke('config:set-show-bookmarked-only', next).catch(() => {})
+                  window.ipcRenderer
+                    .invoke(IPC_INVOKE.CONFIG_SET_SHOW_BOOKMARKED_ONLY, next)
+                    .catch(() => {})
                   return next
                 })
               }}

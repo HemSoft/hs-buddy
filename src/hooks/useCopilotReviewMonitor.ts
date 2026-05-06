@@ -7,6 +7,7 @@ import {
   createNotificationSoundBlob,
   type NotificationSoundAsset,
 } from '../utils/notificationSound'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 const PENDING_REVIEW_KEY = 'hs-buddy:pending-copilot-reviews'
 const COPILOT_REVIEW_POLL_MS = 15_000
@@ -66,12 +67,14 @@ function isFreshCopilotReview(
 
 /** Play the configured notification sound if enabled. Fire-and-forget. */
 function playReviewCompleteSound() {
-  void (window.ipcRenderer.invoke('config:get-notification-sound-enabled') as Promise<boolean>)
+  void (
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_NOTIFICATION_SOUND_ENABLED) as Promise<boolean>
+  )
     .then(enabled => {
       if (!enabled) return
       return (
         window.ipcRenderer.invoke(
-          'config:play-notification-sound'
+          IPC_INVOKE.CONFIG_PLAY_NOTIFICATION_SOUND
         ) as Promise<NotificationSoundAsset | null>
       ).then(sound => {
         if (!sound) return

@@ -8,6 +8,7 @@ import {
   useSettingsMutations,
 } from './useConvex'
 import { getErrorMessage } from '../utils/errorUtils'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 function useElectronStoreFallback<T>(
   convexValue: T | undefined,
@@ -19,7 +20,7 @@ function useElectronStoreFallback<T>(
 
   useEffect(() => {
     window.ipcRenderer
-      .invoke('config:get-config')
+      .invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
       .then((config: AppConfig) => {
         setElectronStoreValue(extractor(config))
         setFallbackLoaded(true)
@@ -51,7 +52,7 @@ function ipcConfigSetter(channel: string) {
 
 const configAPI = {
   setTheme: (theme: 'dark' | 'light') =>
-    window.ipcRenderer.invoke('config:set-theme', theme) as Promise<{ success: boolean }>,
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_THEME, theme) as Promise<{ success: boolean }>,
   setAccentColor: ipcConfigSetter('set-accent-color'),
   setBgPrimary: ipcConfigSetter('set-bg-primary'),
   setBgSecondary: ipcConfigSetter('set-bg-secondary'),
@@ -60,11 +61,12 @@ const configAPI = {
   setMonoFontFamily: ipcConfigSetter('set-mono-font-family'),
   setStatusBarBg: ipcConfigSetter('set-statusbar-bg'),
   setStatusBarFg: ipcConfigSetter('set-statusbar-fg'),
-  getSystemFonts: () => window.ipcRenderer.invoke('system:get-fonts') as Promise<string[]>,
-  getStorePath: () => window.ipcRenderer.invoke('config:get-store-path') as Promise<string>,
+  getSystemFonts: () => window.ipcRenderer.invoke(IPC_INVOKE.SYSTEM_GET_FONTS) as Promise<string[]>,
+  getStorePath: () =>
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_STORE_PATH) as Promise<string>,
   openInEditor: () =>
-    window.ipcRenderer.invoke('config:open-in-editor') as Promise<{ success: boolean }>,
-  reset: () => window.ipcRenderer.invoke('config:reset') as Promise<{ success: boolean }>,
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_OPEN_IN_EDITOR) as Promise<{ success: boolean }>,
+  reset: () => window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_RESET) as Promise<{ success: boolean }>,
 }
 
 /**
@@ -84,7 +86,9 @@ export function useConfig() {
   const loadConfig = async () => {
     try {
       setLoading(true)
-      const fullConfig = (await window.ipcRenderer.invoke('config:get-config')) as AppConfig
+      const fullConfig = (await window.ipcRenderer.invoke(
+        IPC_INVOKE.CONFIG_GET_CONFIG
+      )) as AppConfig
       setConfig(fullConfig)
       setError(null)
     } catch (err: unknown) {
@@ -153,7 +157,7 @@ export function useGitHubAccounts() {
   // Load electron-store accounts as fallback
   useEffect(() => {
     window.ipcRenderer
-      .invoke('config:get-config')
+      .invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
       .then((config: AppConfig) => {
         /* v8 ignore start */
         setElectronStoreAccounts(config.github?.accounts ?? [])
@@ -347,8 +351,10 @@ export function useNotificationSettings() {
 
   useEffect(() => {
     Promise.all([
-      window.ipcRenderer.invoke('config:get-notification-sound-enabled') as Promise<boolean>,
-      window.ipcRenderer.invoke('config:get-notification-sound-path') as Promise<string>,
+      window.ipcRenderer.invoke(
+        IPC_INVOKE.CONFIG_GET_NOTIFICATION_SOUND_ENABLED
+      ) as Promise<boolean>,
+      window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_NOTIFICATION_SOUND_PATH) as Promise<string>,
     ])
       .then(([e, p]) => {
         setEnabledState(e)
@@ -363,7 +369,7 @@ export function useNotificationSettings() {
   const setEnabled = async (value: boolean) => {
     try {
       const result = (await window.ipcRenderer.invoke(
-        'config:set-notification-sound-enabled',
+        IPC_INVOKE.CONFIG_SET_NOTIFICATION_SOUND_ENABLED,
         value
       )) as { success?: boolean }
 
@@ -380,7 +386,7 @@ export function useNotificationSettings() {
   const setSoundPath = async (path: string) => {
     try {
       const result = (await window.ipcRenderer.invoke(
-        'config:set-notification-sound-path',
+        IPC_INVOKE.CONFIG_SET_NOTIFICATION_SOUND_PATH,
         path
       )) as { success?: boolean }
 
@@ -395,7 +401,7 @@ export function useNotificationSettings() {
   }
 
   const pickSoundFile = async () => {
-    const result = (await window.ipcRenderer.invoke('config:pick-audio-file')) as {
+    const result = (await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_PICK_AUDIO_FILE)) as {
       success: boolean
       canceled?: boolean
       filePath?: string

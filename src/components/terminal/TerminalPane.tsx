@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { getSessionId, setSessionId, removeSession } from './terminalSessions'
+import { IPC_PUSH } from '../../ipc/contracts'
 import '@xterm/xterm/css/xterm.css'
 import './TerminalPane.css'
 
@@ -240,9 +241,9 @@ export function TerminalPane({
     void (async () => {
       await initSession()
       if (!active) return
-      window.ipcRenderer.on('terminal:data', onData)
-      window.ipcRenderer.on('terminal:exit', onSessionExit)
-      window.ipcRenderer.on('terminal:cwd-changed', onCwdChanged)
+      window.ipcRenderer.on(IPC_PUSH.TERMINAL_DATA, onData)
+      window.ipcRenderer.on(IPC_PUSH.TERMINAL_EXIT, onSessionExit)
+      window.ipcRenderer.on(IPC_PUSH.TERMINAL_CWD_CHANGED, onCwdChanged)
     })()
 
     // Debounced resize
@@ -282,9 +283,9 @@ export function TerminalPane({
       resizeObserver.disconnect()
       if (resizeTimer) clearTimeout(resizeTimer)
       inputDisposable.dispose()
-      window.ipcRenderer.off('terminal:data', onData)
-      window.ipcRenderer.off('terminal:exit', onSessionExit)
-      window.ipcRenderer.off('terminal:cwd-changed', onCwdChanged)
+      window.ipcRenderer.off(IPC_PUSH.TERMINAL_DATA, onData)
+      window.ipcRenderer.off(IPC_PUSH.TERMINAL_EXIT, onSessionExit)
+      window.ipcRenderer.off(IPC_PUSH.TERMINAL_CWD_CHANGED, onCwdChanged)
 
       // Do NOT kill PTY here — session survives tab switches.
       // PTY is killed only via killTerminalSession() on explicit tab close.

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { User } from 'lucide-react'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
+import { IPC_INVOKE } from '../../ipc/contracts'
 
 interface AccountPickerProps {
   /** Currently selected account (empty = use active CLI account) */
@@ -51,7 +52,7 @@ export function AccountPicker(props: AccountPickerProps) {
   // Detect currently active gh CLI account
   useEffect(() => {
     window.ipcRenderer
-      .invoke('github:get-active-account')
+      .invoke(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT)
       .then((account: string | null) => setActiveCliAccount(account))
       /* v8 ignore start */
       .catch(() => {})
@@ -67,7 +68,7 @@ export function AccountPicker(props: AccountPickerProps) {
       // Re-detect active CLI account when cleared
       if (!newValue) {
         window.ipcRenderer
-          .invoke('github:get-active-account')
+          .invoke(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT)
           .then((account: string | null) => setActiveCliAccount(account))
           /* v8 ignore start */
           .catch(() => {})

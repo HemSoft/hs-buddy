@@ -10,6 +10,7 @@ import { registerAllHandlers } from './ipc'
 import { getDispatcher, runOfflineSync } from './workers'
 import { stopSharedClient } from './services/copilotClient'
 import { initRalphService, shutdownRalphService } from './services/ralphService'
+import { IPC_PUSH } from '../src/ipc/contracts'
 import {
   resolveWindowBounds as resolveWindowBoundsPure,
   type DisplayInfo,
@@ -139,7 +140,7 @@ function createWindow() {
   win.on('resize', saveCurrentDisplay)
 
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', new Date().toLocaleString())
+    win?.webContents.send(IPC_PUSH.MAIN_PROCESS_MESSAGE, new Date().toLocaleString())
     startupTimer.mark('content-loaded')
     startupTimer.report()
   })

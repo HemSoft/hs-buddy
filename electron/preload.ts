@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { IPC_INVOKE, IPC_SEND, IPC_PUSH } from '../src/ipc/contracts'
 
 // Map renderer-side listener references to the wrapper registered with ipcRenderer
 // so that off() can remove the correct function.
@@ -38,49 +39,54 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 })
 
 contextBridge.exposeInMainWorld('shell', {
-  openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  openExternal: (url: string) => ipcRenderer.invoke(IPC_INVOKE.SHELL_OPEN_EXTERNAL, url),
   openInAppBrowser: (url: string, title?: string) =>
-    ipcRenderer.invoke('shell:open-in-app-browser', url, title),
-  fetchPageTitle: (url: string) => ipcRenderer.invoke('shell:fetch-page-title', url),
+    ipcRenderer.invoke(IPC_INVOKE.SHELL_OPEN_IN_APP_BROWSER, url, title),
+  fetchPageTitle: (url: string) => ipcRenderer.invoke(IPC_INVOKE.SHELL_FETCH_PAGE_TITLE, url),
 })
 
 contextBridge.exposeInMainWorld('github', {
-  getCliToken: (username?: string) => ipcRenderer.invoke('github:get-cli-token', username),
-  getActiveAccount: () => ipcRenderer.invoke('github:get-active-account'),
-  switchAccount: (username: string) => ipcRenderer.invoke('github:switch-account', username),
+  getCliToken: (username?: string) => ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, username),
+  getActiveAccount: () => ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT),
+  switchAccount: (username: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, username),
   getCopilotUsage: (org: string, username?: string) =>
-    ipcRenderer.invoke('github:get-copilot-usage', org, username),
-  getCopilotQuota: (username: string) => ipcRenderer.invoke('github:get-copilot-quota', username),
+    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_USAGE, org, username),
+  getCopilotQuota: (username: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_QUOTA, username),
   getCopilotBudget: (org: string, username?: string) =>
-    ipcRenderer.invoke('github:get-copilot-budget', org, username),
+    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_BUDGET, org, username),
   getCopilotMemberUsage: (org: string, memberLogin: string, username?: string) =>
-    ipcRenderer.invoke('github:get-copilot-member-usage', org, memberLogin, username),
+    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_MEMBER_USAGE, org, memberLogin, username),
   getUserPremiumRequests: (org: string, memberLogin: string, username?: string) =>
-    ipcRenderer.invoke('github:get-user-premium-requests', org, memberLogin, username),
+    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS, org, memberLogin, username),
 })
 
 contextBridge.exposeInMainWorld('crew', {
-  addProject: () => ipcRenderer.invoke('crew:add-project'),
-  listProjects: () => ipcRenderer.invoke('crew:list-projects'),
-  removeProject: (projectId: string) => ipcRenderer.invoke('crew:remove-project', projectId),
-  getSession: (projectId: string) => ipcRenderer.invoke('crew:get-session', projectId),
-  createSession: (projectId: string) => ipcRenderer.invoke('crew:create-session', projectId),
+  addProject: () => ipcRenderer.invoke(IPC_INVOKE.CREW_ADD_PROJECT),
+  listProjects: () => ipcRenderer.invoke(IPC_INVOKE.CREW_LIST_PROJECTS),
+  removeProject: (projectId: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.CREW_REMOVE_PROJECT, projectId),
+  getSession: (projectId: string) => ipcRenderer.invoke(IPC_INVOKE.CREW_GET_SESSION, projectId),
+  createSession: (projectId: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.CREW_CREATE_SESSION, projectId),
   addMessage: (projectId: string, message: { role: string; content: string; timestamp: number }) =>
-    ipcRenderer.invoke('crew:add-message', projectId, message),
+    ipcRenderer.invoke(IPC_INVOKE.CREW_ADD_MESSAGE, projectId, message),
   updateSessionStatus: (projectId: string, status: string) =>
-    ipcRenderer.invoke('crew:update-session-status', projectId, status),
+    ipcRenderer.invoke(IPC_INVOKE.CREW_UPDATE_SESSION_STATUS, projectId, status),
   updateChangedFiles: (projectId: string, files: unknown[]) =>
-    ipcRenderer.invoke('crew:update-changed-files', projectId, files),
-  clearSession: (projectId: string) => ipcRenderer.invoke('crew:clear-session', projectId),
+    ipcRenderer.invoke(IPC_INVOKE.CREW_UPDATE_CHANGED_FILES, projectId, files),
+  clearSession: (projectId: string) => ipcRenderer.invoke(IPC_INVOKE.CREW_CLEAR_SESSION, projectId),
   undoFile: (projectId: string, filePath: string) =>
-    ipcRenderer.invoke('crew:undo-file', projectId, filePath),
+    ipcRenderer.invoke(IPC_INVOKE.CREW_UNDO_FILE, projectId, filePath),
 })
 
 contextBridge.exposeInMainWorld('tempo', {
-  getToday: (date?: string) => ipcRenderer.invoke('tempo:get-today', date),
-  getRange: (from: string, to: string) => ipcRenderer.invoke('tempo:get-range', { from, to }),
+  getToday: (date?: string) => ipcRenderer.invoke(IPC_INVOKE.TEMPO_GET_TODAY, date),
+  getRange: (from: string, to: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.TEMPO_GET_RANGE, { from, to }),
   getWeek: (weekStart: string, weekEnd: string) =>
-    ipcRenderer.invoke('tempo:get-week', { weekStart, weekEnd }),
+    ipcRenderer.invoke(IPC_INVOKE.TEMPO_GET_WEEK, { weekStart, weekEnd }),
   createWorklog: (payload: {
     issueKey: string
     hours: number
@@ -88,70 +94,75 @@ contextBridge.exposeInMainWorld('tempo', {
     startTime?: string
     description?: string
     accountKey?: string
-  }) => ipcRenderer.invoke('tempo:create-worklog', payload),
+  }) => ipcRenderer.invoke(IPC_INVOKE.TEMPO_CREATE_WORKLOG, payload),
   updateWorklog: (
     worklogId: number,
     payload: { hours?: number; startTime?: string; description?: string; accountKey?: string }
-  ) => ipcRenderer.invoke('tempo:update-worklog', { worklogId, payload }),
-  deleteWorklog: (worklogId: number) => ipcRenderer.invoke('tempo:delete-worklog', worklogId),
-  getAccounts: () => ipcRenderer.invoke('tempo:get-accounts'),
+  ) => ipcRenderer.invoke(IPC_INVOKE.TEMPO_UPDATE_WORKLOG, { worklogId, payload }),
+  deleteWorklog: (worklogId: number) =>
+    ipcRenderer.invoke(IPC_INVOKE.TEMPO_DELETE_WORKLOG, worklogId),
+  getAccounts: () => ipcRenderer.invoke(IPC_INVOKE.TEMPO_GET_ACCOUNTS),
   getProjectAccounts: (projectKey: string) =>
-    ipcRenderer.invoke('tempo:get-project-accounts', projectKey),
-  getCapexMap: (issueKeys: string[]) => ipcRenderer.invoke('tempo:get-capex-map', issueKeys),
-  getSchedule: (from: string, to: string) => ipcRenderer.invoke('tempo:get-schedule', { from, to }),
+    ipcRenderer.invoke(IPC_INVOKE.TEMPO_GET_PROJECT_ACCOUNTS, projectKey),
+  getCapexMap: (issueKeys: string[]) =>
+    ipcRenderer.invoke(IPC_INVOKE.TEMPO_GET_CAPEX_MAP, issueKeys),
+  getSchedule: (from: string, to: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.TEMPO_GET_SCHEDULE, { from, to }),
 })
 
 contextBridge.exposeInMainWorld('copilotSessions', {
-  scan: () => ipcRenderer.invoke('copilot-sessions:scan'),
-  getSession: (filePath: string) => ipcRenderer.invoke('copilot-sessions:get-session', filePath),
+  scan: () => ipcRenderer.invoke(IPC_INVOKE.COPILOT_SESSIONS_SCAN),
+  getSession: (filePath: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.COPILOT_SESSIONS_GET_SESSION, filePath),
   computeDigest: (filePath: string) =>
-    ipcRenderer.invoke('copilot-sessions:compute-digest', filePath),
+    ipcRenderer.invoke(IPC_INVOKE.COPILOT_SESSIONS_COMPUTE_DIGEST, filePath),
 })
 
 contextBridge.exposeInMainWorld('todoist', {
-  getUpcoming: (days?: number) => ipcRenderer.invoke('todoist:get-upcoming', days),
-  getToday: () => ipcRenderer.invoke('todoist:get-today'),
-  completeTask: (taskId: string) => ipcRenderer.invoke('todoist:complete-task', taskId),
-  reopenTask: (taskId: string) => ipcRenderer.invoke('todoist:reopen-task', taskId),
+  getUpcoming: (days?: number) => ipcRenderer.invoke(IPC_INVOKE.TODOIST_GET_UPCOMING, days),
+  getToday: () => ipcRenderer.invoke(IPC_INVOKE.TODOIST_GET_TODAY),
+  completeTask: (taskId: string) => ipcRenderer.invoke(IPC_INVOKE.TODOIST_COMPLETE_TASK, taskId),
+  reopenTask: (taskId: string) => ipcRenderer.invoke(IPC_INVOKE.TODOIST_REOPEN_TASK, taskId),
   createTask: (params: {
     content: string
     due_date?: string
     priority?: number
     project_id?: string
     description?: string
-  }) => ipcRenderer.invoke('todoist:create-task', params),
+  }) => ipcRenderer.invoke(IPC_INVOKE.TODOIST_CREATE_TASK, params),
   updateTask: (
     taskId: string,
     params: { content?: string; due_date?: string; priority?: number; description?: string }
-  ) => ipcRenderer.invoke('todoist:update-task', { taskId, params }),
-  deleteTask: (taskId: string) => ipcRenderer.invoke('todoist:delete-task', taskId),
-  getProjects: () => ipcRenderer.invoke('todoist:get-projects'),
+  ) => ipcRenderer.invoke(IPC_INVOKE.TODOIST_UPDATE_TASK, { taskId, params }),
+  deleteTask: (taskId: string) => ipcRenderer.invoke(IPC_INVOKE.TODOIST_DELETE_TASK, taskId),
+  getProjects: () => ipcRenderer.invoke(IPC_INVOKE.TODOIST_GET_PROJECTS),
 })
 
 contextBridge.exposeInMainWorld('finance', {
-  fetchQuote: (symbol: string) => ipcRenderer.invoke('finance:fetch-quote', symbol),
+  fetchQuote: (symbol: string) => ipcRenderer.invoke(IPC_INVOKE.FINANCE_FETCH_QUOTE, symbol),
 })
 
 contextBridge.exposeInMainWorld('slack', {
   nudgeAuthor: (params: { githubLogin: string; prTitle: string; prUrl: string }) =>
-    ipcRenderer.invoke('slack:nudge-author', params),
+    ipcRenderer.invoke(IPC_INVOKE.SLACK_NUDGE_AUTHOR, params),
 })
 
 contextBridge.exposeInMainWorld('filesystem', {
-  readDir: (dirPath: string) => ipcRenderer.invoke('fs:read-dir', dirPath),
-  readFile: (filePath: string) => ipcRenderer.invoke('fs:read-file', filePath),
+  readDir: (dirPath: string) => ipcRenderer.invoke(IPC_INVOKE.FILESYSTEM_READ_DIR, dirPath),
+  readFile: (filePath: string) => ipcRenderer.invoke(IPC_INVOKE.FILESYSTEM_READ_FILE, filePath),
 })
 
 contextBridge.exposeInMainWorld('terminal', {
   spawn: (opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }) =>
-    ipcRenderer.invoke('terminal:spawn', opts),
-  attach: (sessionId: string) => ipcRenderer.invoke('terminal:attach', sessionId),
-  write: (sessionId: string, data: string) => ipcRenderer.send('terminal:write', sessionId, data),
+    ipcRenderer.invoke(IPC_INVOKE.TERMINAL_SPAWN, opts),
+  attach: (sessionId: string) => ipcRenderer.invoke(IPC_INVOKE.TERMINAL_ATTACH, sessionId),
+  write: (sessionId: string, data: string) =>
+    ipcRenderer.send(IPC_SEND.TERMINAL_WRITE, sessionId, data),
   resize: (sessionId: string, cols: number, rows: number) =>
-    ipcRenderer.send('terminal:resize', sessionId, cols, rows),
-  kill: (sessionId: string) => ipcRenderer.invoke('terminal:kill', sessionId),
+    ipcRenderer.send(IPC_SEND.TERMINAL_RESIZE, sessionId, cols, rows),
+  kill: (sessionId: string) => ipcRenderer.invoke(IPC_INVOKE.TERMINAL_KILL, sessionId),
   resolveRepoPath: (owner: string, repo: string) =>
-    ipcRenderer.invoke('terminal:resolve-repo-path', { owner, repo }),
+    ipcRenderer.invoke(IPC_INVOKE.TERMINAL_RESOLVE_REPO_PATH, { owner, repo }),
 })
 
 contextBridge.exposeInMainWorld('ralph', {
@@ -169,44 +180,45 @@ contextBridge.exposeInMainWorld('ralph', {
     noAudio?: boolean
     skipReview?: boolean
     noPR?: boolean
-  }) => ipcRenderer.invoke('ralph:launch', config),
-  stop: (runId: string) => ipcRenderer.invoke('ralph:stop', runId),
-  list: () => ipcRenderer.invoke('ralph:list'),
-  getStatus: (runId: string) => ipcRenderer.invoke('ralph:get-status', runId),
-  getConfig: (configType: string) => ipcRenderer.invoke('ralph:get-config', configType),
-  getScriptsPath: () => ipcRenderer.invoke('ralph:get-scripts-path'),
-  listTemplates: () => ipcRenderer.invoke('ralph:list-templates'),
-  selectDirectory: (defaultPath?: string) => ipcRenderer.invoke('ralph:select-directory', defaultPath),
+  }) => ipcRenderer.invoke(IPC_INVOKE.RALPH_LAUNCH, config),
+  stop: (runId: string) => ipcRenderer.invoke(IPC_INVOKE.RALPH_STOP, runId),
+  list: () => ipcRenderer.invoke(IPC_INVOKE.RALPH_LIST),
+  getStatus: (runId: string) => ipcRenderer.invoke(IPC_INVOKE.RALPH_GET_STATUS, runId),
+  getConfig: (configType: string) => ipcRenderer.invoke(IPC_INVOKE.RALPH_GET_CONFIG, configType),
+  getScriptsPath: () => ipcRenderer.invoke(IPC_INVOKE.RALPH_GET_SCRIPTS_PATH),
+  listTemplates: () => ipcRenderer.invoke(IPC_INVOKE.RALPH_LIST_TEMPLATES),
+  selectDirectory: (defaultPath?: string) =>
+    ipcRenderer.invoke(IPC_INVOKE.RALPH_SELECT_DIRECTORY, defaultPath),
   onStatusChange: (callback: (...args: unknown[]) => void) => {
     const wrapper = (_event: Electron.IpcRendererEvent, ...rest: unknown[]) => callback(...rest)
-    if (!ipcListenerWrappers.has('ralph:status-update'))
-      ipcListenerWrappers.set('ralph:status-update', new Map())
-    ipcListenerWrappers.get('ralph:status-update')!.set(callback, wrapper)
-    ipcRenderer.on('ralph:status-update', wrapper)
+    if (!ipcListenerWrappers.has(IPC_PUSH.RALPH_STATUS_UPDATE))
+      ipcListenerWrappers.set(IPC_PUSH.RALPH_STATUS_UPDATE, new Map())
+    ipcListenerWrappers.get(IPC_PUSH.RALPH_STATUS_UPDATE)!.set(callback, wrapper)
+    ipcRenderer.on(IPC_PUSH.RALPH_STATUS_UPDATE, wrapper)
   },
   offStatusChange: (callback: (...args: unknown[]) => void) => {
-    const wrapper = ipcListenerWrappers.get('ralph:status-update')?.get(callback)
+    const wrapper = ipcListenerWrappers.get(IPC_PUSH.RALPH_STATUS_UPDATE)?.get(callback)
     if (wrapper) {
-      ipcListenerWrappers.get('ralph:status-update')!.delete(callback)
-      ipcRenderer.off('ralph:status-update', wrapper)
+      ipcListenerWrappers.get(IPC_PUSH.RALPH_STATUS_UPDATE)!.delete(callback)
+      ipcRenderer.off(IPC_PUSH.RALPH_STATUS_UPDATE, wrapper)
     }
   },
 })
 
 contextBridge.exposeInMainWorld('copilot', {
   execute: (args: { prompt: string; category?: string; metadata?: unknown; model?: string }) =>
-    ipcRenderer.invoke('copilot:execute', args),
-  cancel: (resultId: string) => ipcRenderer.invoke('copilot:cancel', resultId),
-  getActiveCount: () => ipcRenderer.invoke('copilot:active-count'),
-  listModels: (ghAccount?: string) => ipcRenderer.invoke('copilot:list-models', ghAccount),
+    ipcRenderer.invoke(IPC_INVOKE.COPILOT_EXECUTE, args),
+  cancel: (resultId: string) => ipcRenderer.invoke(IPC_INVOKE.COPILOT_CANCEL, resultId),
+  getActiveCount: () => ipcRenderer.invoke(IPC_INVOKE.COPILOT_ACTIVE_COUNT),
+  listModels: (ghAccount?: string) => ipcRenderer.invoke(IPC_INVOKE.COPILOT_LIST_MODELS, ghAccount),
   chatSend: (args: {
     message: string
     context: string
     conversationHistory: Array<{ role: string; content: string }>
     model?: string
     ghAccount?: string
-  }) => ipcRenderer.invoke('copilot:chat-send', args),
-  chatAbort: () => ipcRenderer.invoke('copilot:chat-abort'),
+  }) => ipcRenderer.invoke(IPC_INVOKE.COPILOT_CHAT_SEND, args),
+  chatAbort: () => ipcRenderer.invoke(IPC_INVOKE.COPILOT_CHAT_ABORT),
   quickPrompt: (args: { prompt: string; model?: string }) =>
-    ipcRenderer.invoke('copilot:quick-prompt', args) as Promise<string>,
+    ipcRenderer.invoke(IPC_INVOKE.COPILOT_QUICK_PROMPT, args) as Promise<string>,
 })

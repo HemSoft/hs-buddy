@@ -8,6 +8,7 @@ import {
 import { useTaskQueue } from '../../../hooks/useTaskQueue'
 import { useNewPRIndicator } from '../../../hooks/useNewPRIndicator'
 import { useToggleSet } from '../../../hooks/useToggleSet'
+import { IPC_INVOKE } from '../../../ipc/contracts'
 import {
   GitHubClient,
   type OrgRepo,
@@ -251,7 +252,7 @@ export function useGitHubSidebarData() {
 
   useEffect(() => {
     window.ipcRenderer
-      .invoke('config:get-show-bookmarked-only')
+      .invoke(IPC_INVOKE.CONFIG_GET_SHOW_BOOKMARKED_ONLY)
       .then((value: boolean) => {
         setShowBookmarkedOnly(value)
       })
@@ -261,7 +262,7 @@ export function useGitHubSidebarData() {
         /* use default */
       })
     window.ipcRenderer
-      .invoke('config:get-favorite-users')
+      .invoke(IPC_INVOKE.CONFIG_GET_FAVORITE_USERS)
       .then((users: string[]) => {
         setFavoriteUsers(new Set(users))
       })
@@ -1151,7 +1152,9 @@ export function useGitHubSidebarData() {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
-      window.ipcRenderer.invoke('config:set-favorite-users', Array.from(next)).catch(() => {})
+      window.ipcRenderer
+        .invoke(IPC_INVOKE.CONFIG_SET_FAVORITE_USERS, Array.from(next))
+        .catch(() => {})
       return next
     })
   }, [])

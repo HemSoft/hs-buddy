@@ -5,6 +5,7 @@ import { useSchedules } from '../../hooks/useConvex'
 import { DAY, formatDateKey, formatTime, MONTH_SHORT } from '../../utils/dateUtils'
 import { sumBy } from '../../utils/arrayUtils'
 import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
+import { IPC_INVOKE } from '../../ipc/contracts'
 import './ScheduleOverviewPanel.css'
 
 interface ScheduleOccurrence {
@@ -218,7 +219,7 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
   // Load config from electron-store
   useEffect(() => {
     window.ipcRenderer
-      .invoke('config:get-schedule-forecast-days')
+      .invoke(IPC_INVOKE.CONFIG_GET_SCHEDULE_FORECAST_DAYS)
       .then((days: number) =>
         setConfigState({
           forecastDays: normalizeForecastDays(days),
@@ -240,7 +241,7 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
       ...currentState,
       forecastDays: days,
     }))
-    window.ipcRenderer.invoke('config:set-schedule-forecast-days', days).catch(() => {})
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_SCHEDULE_FORECAST_DAYS, days).catch(() => {})
   }
 
   // Compute upcoming occurrences

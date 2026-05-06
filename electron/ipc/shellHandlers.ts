@@ -6,6 +6,7 @@ import { getErrorMessage } from '../../src/utils/errorUtils'
 import { recordWindowOpen } from '../telemetry'
 import { execAsync } from '../utils'
 import { isPrivateIP, extractPageTitle, validateUrl } from '../../src/utils/networkSecurity'
+import { IPC_INVOKE } from '../../src/ipc/contracts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -95,7 +96,7 @@ async function fetchPageContent(url: string): Promise<string> {
 
 export function registerShellHandlers(): void {
   // Open external links in default browser
-  ipcMain.handle('shell:open-external', async (_event, url: string) => {
+  ipcMain.handle(IPC_INVOKE.SHELL_OPEN_EXTERNAL, async (_event, url: string) => {
     try {
       const parsed = new URL(url)
       const allowedProtocols = ['http:', 'https:', 'mailto:']
@@ -114,110 +115,113 @@ export function registerShellHandlers(): void {
   })
 
   // Open URL in a built-in app browser window
-  ipcMain.handle('shell:open-in-app-browser', async (_event, url: string, title?: string) => {
-    try {
-      // Validate URL with DNS check — SSRF protection
-      const parsed = await validateUrlWithDns(url)
-
-      const browserWin = new BrowserWindow({
-        width: 1200,
-        height: 800,
-        minWidth: 600,
-        minHeight: 400,
-        title: title ?? parsed.hostname,
-        icon: path.join(
-          __dirname,
-          '..',
-          '..',
-          'public',
-          process.platform === 'win32' ? 'icon.ico' : 'icon.png'
-        ),
-        webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: true,
-          partition: 'persist:browser',
-        },
-        backgroundColor: '#1e1e1e',
-      })
-
-      // Remove the application menu from the browser window
-      browserWin.setMenuBarVisibility(false)
-
-      // Update title when page finishes loading
-      browserWin.webContents.on('page-title-updated', (_e, pageTitle) => {
-        browserWin.setTitle(pageTitle)
-      })
-
-      // Navigation sequencing: each new navigation cancels any pending async
-      // validation from a previous navigation to prevent race conditions where
-      // a stale DNS lookup completes after a newer one and overwrites the URL.
-      let navigationVersion = 0
-
-      function guardedNavigate(targetUrl: string): void {
-        const thisVersion = ++navigationVersion
-        validateUrlWithDns(targetUrl)
-          .then(() => {
-            // Only load if no newer navigation has started and window still exists
-            if (thisVersion === navigationVersion && !browserWin.isDestroyed()) {
-              return browserWin.loadURL(targetUrl)
-            }
-          })
-          .catch(() => {
-            // Validation failed, window destroyed, or loadURL rejected — block silently
-          })
-      }
-
-      // Prevent SSRF via HTTP redirect chains: intercept every server-side
-      // redirect and validate the target with a DNS check before allowing it.
-      // Note: canceling redirects and replaying with loadURL() converts the
-      // request to GET, which breaks 307/308 method preservation. This is an
-      // accepted trade-off for SSRF protection in a read-only bookmark browser.
-      browserWin.webContents.on('will-redirect', (event, redirectUrl) => {
-        event.preventDefault()
-        guardedNavigate(redirectUrl)
-      })
-
-      // Prevent SSRF via same-window navigations (link clicks, window.location):
-      // these fire will-navigate instead of will-redirect.
-      // All navigations are validated with DNS resolution to prevent DNS rebinding
-      // attacks where a hostname initially resolves to a public IP but later
-      // repoints to a private address.
-      // Note: like will-redirect above, replaying navigations via loadURL()
-      // converts them to GET requests, which breaks POST-based form submissions.
-      // This is an accepted trade-off: this is a read-only bookmark browser
-      // where form submissions are not expected, and SSRF protection takes priority.
-      browserWin.webContents.on('will-navigate', (event, navUrl) => {
-        event.preventDefault()
-        guardedNavigate(navUrl)
-      })
-
-      // Open external links (target=_blank) in the same window after validating the URL
-      browserWin.webContents.setWindowOpenHandler(({ url: linkUrl }) => {
-        guardedNavigate(linkUrl)
-        return { action: 'deny' }
-      })
-
+  ipcMain.handle(
+    IPC_INVOKE.SHELL_OPEN_IN_APP_BROWSER,
+    async (_event, url: string, title?: string) => {
       try {
-        await browserWin.loadURL(url)
-      } catch (loadError: unknown) {
-        // When will-redirect intercepts a redirect, it calls preventDefault()
-        // which aborts the original loadURL() promise with ERR_ABORTED.
-        // This is expected — guardedNavigate() is handling the redirect target.
-        const msg = getErrorMessage(loadError)
-        if (!msg.includes('ERR_ABORTED')) {
-          throw loadError
+        // Validate URL with DNS check — SSRF protection
+        const parsed = await validateUrlWithDns(url)
+
+        const browserWin = new BrowserWindow({
+          width: 1200,
+          height: 800,
+          minWidth: 600,
+          minHeight: 400,
+          title: title ?? parsed.hostname,
+          icon: path.join(
+            __dirname,
+            '..',
+            '..',
+            'public',
+            process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+          ),
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+            partition: 'persist:browser',
+          },
+          backgroundColor: '#1e1e1e',
+        })
+
+        // Remove the application menu from the browser window
+        browserWin.setMenuBarVisibility(false)
+
+        // Update title when page finishes loading
+        browserWin.webContents.on('page-title-updated', (_e, pageTitle) => {
+          browserWin.setTitle(pageTitle)
+        })
+
+        // Navigation sequencing: each new navigation cancels any pending async
+        // validation from a previous navigation to prevent race conditions where
+        // a stale DNS lookup completes after a newer one and overwrites the URL.
+        let navigationVersion = 0
+
+        function guardedNavigate(targetUrl: string): void {
+          const thisVersion = ++navigationVersion
+          validateUrlWithDns(targetUrl)
+            .then(() => {
+              // Only load if no newer navigation has started and window still exists
+              if (thisVersion === navigationVersion && !browserWin.isDestroyed()) {
+                return browserWin.loadURL(targetUrl)
+              }
+            })
+            .catch(() => {
+              // Validation failed, window destroyed, or loadURL rejected — block silently
+            })
         }
+
+        // Prevent SSRF via HTTP redirect chains: intercept every server-side
+        // redirect and validate the target with a DNS check before allowing it.
+        // Note: canceling redirects and replaying with loadURL() converts the
+        // request to GET, which breaks 307/308 method preservation. This is an
+        // accepted trade-off for SSRF protection in a read-only bookmark browser.
+        browserWin.webContents.on('will-redirect', (event, redirectUrl) => {
+          event.preventDefault()
+          guardedNavigate(redirectUrl)
+        })
+
+        // Prevent SSRF via same-window navigations (link clicks, window.location):
+        // these fire will-navigate instead of will-redirect.
+        // All navigations are validated with DNS resolution to prevent DNS rebinding
+        // attacks where a hostname initially resolves to a public IP but later
+        // repoints to a private address.
+        // Note: like will-redirect above, replaying navigations via loadURL()
+        // converts them to GET requests, which breaks POST-based form submissions.
+        // This is an accepted trade-off: this is a read-only bookmark browser
+        // where form submissions are not expected, and SSRF protection takes priority.
+        browserWin.webContents.on('will-navigate', (event, navUrl) => {
+          event.preventDefault()
+          guardedNavigate(navUrl)
+        })
+
+        // Open external links (target=_blank) in the same window after validating the URL
+        browserWin.webContents.setWindowOpenHandler(({ url: linkUrl }) => {
+          guardedNavigate(linkUrl)
+          return { action: 'deny' }
+        })
+
+        try {
+          await browserWin.loadURL(url)
+        } catch (loadError: unknown) {
+          // When will-redirect intercepts a redirect, it calls preventDefault()
+          // which aborts the original loadURL() promise with ERR_ABORTED.
+          // This is expected — guardedNavigate() is handling the redirect target.
+          const msg = getErrorMessage(loadError)
+          if (!msg.includes('ERR_ABORTED')) {
+            throw loadError
+          }
+        }
+        recordWindowOpen(parsed.hostname)
+        return { success: true }
+      } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error) }
       }
-      recordWindowOpen(parsed.hostname)
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
     }
-  })
+  )
 
   // Fetch page title from a URL
-  ipcMain.handle('shell:fetch-page-title', async (_event, url: string) => {
+  ipcMain.handle(IPC_INVOKE.SHELL_FETCH_PAGE_TITLE, async (_event, url: string) => {
     try {
       validateUrl(url)
       const html = await fetchPageContent(url)
@@ -230,7 +234,7 @@ export function registerShellHandlers(): void {
   })
 
   // System Fonts
-  ipcMain.handle('system:get-fonts', async () => {
+  ipcMain.handle(IPC_INVOKE.SYSTEM_GET_FONTS, async () => {
     try {
       let stdout: string
       if (process.platform === 'win32') {

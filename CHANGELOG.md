@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add AI review provider architecture with CodeRabbit support
+- Contract testing — validate renderer↔main channel contracts
 
 ### Fixed
 

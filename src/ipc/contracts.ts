@@ -73,6 +73,41 @@ export const IPC_INVOKE = {
   CONFIG_OPEN_IN_EDITOR: 'config:open-in-editor',
   CONFIG_RESET: 'config:reset',
 
+  // ── Config UI (derived from CONFIG_UI_KEYS) ──────────────────────────────
+  // All get/set channel pairs for UI config keys. These are registered by the
+  // registerUiValueHandler loop in configHandlers.ts, so they must stay in
+  // sync with CONFIG_UI_KEYS.
+  CONFIG_GET_THEME: 'config:get-theme',
+  CONFIG_SET_THEME: 'config:set-theme',
+  CONFIG_GET_ACCENT_COLOR: 'config:get-accent-color',
+  CONFIG_SET_ACCENT_COLOR: 'config:set-accent-color',
+  CONFIG_GET_BG_PRIMARY: 'config:get-bg-primary',
+  CONFIG_SET_BG_PRIMARY: 'config:set-bg-primary',
+  CONFIG_GET_BG_SECONDARY: 'config:get-bg-secondary',
+  CONFIG_SET_BG_SECONDARY: 'config:set-bg-secondary',
+  CONFIG_GET_STATUSBAR_BG: 'config:get-statusbar-bg',
+  CONFIG_SET_STATUSBAR_BG: 'config:set-statusbar-bg',
+  CONFIG_GET_STATUSBAR_FG: 'config:get-statusbar-fg',
+  CONFIG_SET_STATUSBAR_FG: 'config:set-statusbar-fg',
+  CONFIG_GET_FONT_COLOR: 'config:get-font-color',
+  CONFIG_SET_FONT_COLOR: 'config:set-font-color',
+  CONFIG_GET_FONT_FAMILY: 'config:get-font-family',
+  CONFIG_SET_FONT_FAMILY: 'config:set-font-family',
+  CONFIG_GET_MONO_FONT_FAMILY: 'config:get-mono-font-family',
+  CONFIG_SET_MONO_FONT_FAMILY: 'config:set-mono-font-family',
+  CONFIG_GET_ZOOM_LEVEL: 'config:get-zoom-level',
+  CONFIG_SET_ZOOM_LEVEL: 'config:set-zoom-level',
+  CONFIG_GET_SIDEBAR_WIDTH: 'config:get-sidebar-width',
+  CONFIG_SET_SIDEBAR_WIDTH: 'config:set-sidebar-width',
+  CONFIG_GET_PANE_SIZES: 'config:get-pane-sizes',
+  CONFIG_SET_PANE_SIZES: 'config:set-pane-sizes',
+  CONFIG_GET_SHOW_BOOKMARKED_ONLY: 'config:get-show-bookmarked-only',
+  CONFIG_SET_SHOW_BOOKMARKED_ONLY: 'config:set-show-bookmarked-only',
+  CONFIG_GET_FAVORITE_USERS: 'config:get-favorite-users',
+  CONFIG_SET_FAVORITE_USERS: 'config:set-favorite-users',
+  CONFIG_GET_DASHBOARD_CARDS: 'config:get-dashboard-cards',
+  CONFIG_SET_DASHBOARD_CARDS: 'config:set-dashboard-cards',
+
   // ── Cache ──────────────────────────────────────────────────────────────
   CACHE_READ_ALL: 'cache:read-all',
   CACHE_WRITE: 'cache:write',
@@ -217,10 +252,12 @@ export const CONFIG_UI_CHANNELS: readonly string[] = CONFIG_UI_KEYS.flatMap(key 
   `config:set-${key}`,
 ])
 
-/** Complete list of every channel registered in the system */
+/** Complete list of every unique channel registered in the system */
 export const ALL_CHANNELS: readonly string[] = [
-  ...ALL_INVOKE_CHANNELS,
-  ...ALL_SEND_CHANNELS,
-  ...ALL_PUSH_CHANNELS,
-  ...CONFIG_UI_CHANNELS,
+  ...new Set([
+    ...ALL_INVOKE_CHANNELS,
+    ...ALL_SEND_CHANNELS,
+    ...ALL_PUSH_CHANNELS,
+    ...CONFIG_UI_CHANNELS,
+  ]),
 ]

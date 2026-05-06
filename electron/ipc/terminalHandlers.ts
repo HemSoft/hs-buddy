@@ -14,6 +14,7 @@ import {
   findRepoPath,
 } from '../../src/utils/terminalPathUtils'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
+import { IPC_INVOKE, IPC_SEND, IPC_PUSH } from '../../src/ipc/contracts'
 
 // node-pty is a native CJS module — use createRequire for ESM compatibility.
 // IMPORTANT: Load eagerly at module scope so it happens BEFORE OpenTelemetry's
@@ -157,7 +158,7 @@ function processOsc7(session: TerminalSession, data: string): void {
     const newCwd = path.resolve(cwd)
     if (newCwd !== session.cwd) {
       session.cwd = newCwd
-      safeSend(session.sender, 'terminal:cwd-changed', session.id, newCwd)
+      safeSend(session.sender, IPC_PUSH.TERMINAL_CWD_CHANGED, session.id, newCwd)
     }
   }
 }
@@ -187,14 +188,14 @@ function createTerminalSession(
       session.outputBuffer = session.outputBuffer.slice(-MAX_SCROLLBACK_BUFFER)
     }
     session.outputSeq++
-    safeSend(session.sender, 'terminal:data', sessionId, data, session.outputSeq)
+    safeSend(session.sender, IPC_PUSH.TERMINAL_DATA, sessionId, data, session.outputSeq)
     processOsc7(session, data)
   })
 
   const exitDisposable = ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
     const s = sessions.get(sessionId)
     if (s) s.alive = false
-    safeSend(session.sender, 'terminal:exit', sessionId, exitCode)
+    safeSend(session.sender, IPC_PUSH.TERMINAL_EXIT, sessionId, exitCode)
   })
 
   session.disposables.push(dataDisposable, exitDisposable)
@@ -257,7 +258,7 @@ function cleanupTerminalSession(session: TerminalSession): void {
 
 export function registerTerminalHandlers(): void {
   // Resolve owner/repo to a local directory path
-  ipcMain.handle('terminal:resolve-repo-path', async (_event, opts: unknown) => {
+  ipcMain.handle(IPC_INVOKE.TERMINAL_RESOLVE_REPO_PATH, async (_event, opts: unknown) => {
     if (!opts || typeof opts !== 'object') return { path: null }
     const { owner, repo } = opts as { owner?: unknown; repo?: unknown }
     if (!isValidRepoSlug(owner) || !isValidRepoSlug(repo)) return { path: null }
@@ -266,7 +267,7 @@ export function registerTerminalHandlers(): void {
   })
 
   ipcMain.handle(
-    'terminal:spawn',
+    IPC_INVOKE.TERMINAL_SPAWN,
     async (
       event,
       opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }
@@ -299,7 +300,7 @@ export function registerTerminalHandlers(): void {
   )
 
   // Reconnect to an existing session (e.g. after tab switch re-mount)
-  ipcMain.handle('terminal:attach', async (event, sessionId: string) => {
+  ipcMain.handle(IPC_INVOKE.TERMINAL_ATTACH, async (event, sessionId: string) => {
     const session = sessions.get(sessionId)
     if (!session) return { success: false, error: 'Session not found' }
     // Update sender so live PTY output routes to the current renderer
@@ -314,13 +315,13 @@ export function registerTerminalHandlers(): void {
   })
 
   // Fire-and-forget: high-frequency keystroke forwarding (no OTel span noise)
-  ipcMain.on('terminal:write', (_event, sessionId: string, data: string) => {
+  ipcMain.on(IPC_SEND.TERMINAL_WRITE, (_event, sessionId: string, data: string) => {
     const session = sessions.get(sessionId)
     if (session?.alive) session.pty.write(data)
   })
 
   // Fire-and-forget: resize
-  ipcMain.on('terminal:resize', (_event, sessionId: string, cols: number, rows: number) => {
+  ipcMain.on(IPC_SEND.TERMINAL_RESIZE, (_event, sessionId: string, cols: number, rows: number) => {
     const session = sessions.get(sessionId)
     if (!session?.alive) return
     try {
@@ -330,7 +331,7 @@ export function registerTerminalHandlers(): void {
     }
   })
 
-  ipcMain.handle('terminal:kill', async (_event, sessionId: string) => {
+  ipcMain.handle(IPC_INVOKE.TERMINAL_KILL, async (_event, sessionId: string) => {
     const session = sessions.get(sessionId)
     if (!session) return { success: false, error: 'Session not found' }
     cleanupTerminalSession(session)

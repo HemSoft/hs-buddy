@@ -5,6 +5,7 @@ import path from 'node:path'
 import { detectLanguage } from '../../src/utils/detectLanguage'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 import { shouldIncludeDirEntry, compareDirEntries } from '../../src/utils/dirEntryUtils'
+import { IPC_INVOKE } from '../../src/ipc/contracts'
 
 const MAX_FILE_SIZE = 1_048_576 // 1 MB
 
@@ -88,7 +89,7 @@ async function buildDirEntries(resolved: string, items: Dirent[]): Promise<DirEn
 
 export function registerFilesystemHandlers(): void {
   ipcMain.handle(
-    'fs:read-dir',
+    IPC_INVOKE.FILESYSTEM_READ_DIR,
     async (_event, dirPath: string): Promise<{ entries: DirEntry[]; error?: string }> => {
       try {
         const resolved = path.resolve(dirPath)
@@ -105,7 +106,7 @@ export function registerFilesystemHandlers(): void {
   )
 
   ipcMain.handle(
-    'fs:read-file',
+    IPC_INVOKE.FILESYSTEM_READ_FILE,
     async (
       _event,
       filePath: string

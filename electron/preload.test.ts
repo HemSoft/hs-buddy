@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { IPC_INVOKE, IPC_SEND, IPC_PUSH } from '../src/ipc/contracts'
 
 const { mockOn, mockOff, mockSend, mockInvoke, exposedApis } = vi.hoisted(() => ({
   mockOn: vi.fn(),
@@ -94,13 +95,13 @@ describe('preload', () => {
 
     it('openExternal invokes shell:open-external', () => {
       exposedApis.shell.openExternal('https://example.com')
-      expect(mockInvoke).toHaveBeenCalledWith('shell:open-external', 'https://example.com')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.SHELL_OPEN_EXTERNAL, 'https://example.com')
     })
 
     it('openInAppBrowser invokes shell:open-in-app-browser', () => {
       exposedApis.shell.openInAppBrowser('https://test.com', 'Title')
       expect(mockInvoke).toHaveBeenCalledWith(
-        'shell:open-in-app-browser',
+        IPC_INVOKE.SHELL_OPEN_IN_APP_BROWSER,
         'https://test.com',
         'Title'
       )
@@ -116,12 +117,12 @@ describe('preload', () => {
 
     it('getCliToken invokes github:get-cli-token', () => {
       exposedApis.github.getCliToken('testuser')
-      expect(mockInvoke).toHaveBeenCalledWith('github:get-cli-token', 'testuser')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, 'testuser')
     })
 
     it('getActiveAccount invokes github:get-active-account', () => {
       exposedApis.github.getActiveAccount()
-      expect(mockInvoke).toHaveBeenCalledWith('github:get-active-account')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT)
     })
   })
 
@@ -134,12 +135,12 @@ describe('preload', () => {
 
     it('addProject invokes crew:add-project', () => {
       exposedApis.crew.addProject()
-      expect(mockInvoke).toHaveBeenCalledWith('crew:add-project')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_ADD_PROJECT)
     })
 
     it('removeProject invokes crew:remove-project with projectId', () => {
       exposedApis.crew.removeProject('proj-123')
-      expect(mockInvoke).toHaveBeenCalledWith('crew:remove-project', 'proj-123')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_REMOVE_PROJECT, 'proj-123')
     })
   })
 
@@ -152,7 +153,7 @@ describe('preload', () => {
 
     it('getToday invokes tempo:get-today', () => {
       exposedApis.tempo.getToday('2026-01-01')
-      expect(mockInvoke).toHaveBeenCalledWith('tempo:get-today', '2026-01-01')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_GET_TODAY, '2026-01-01')
     })
   })
 
@@ -168,18 +169,18 @@ describe('preload', () => {
 
     it('getToday invokes todoist:get-today', () => {
       exposedApis.todoist.getToday()
-      expect(mockInvoke).toHaveBeenCalledWith('todoist:get-today')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_GET_TODAY)
     })
 
     it('completeTask invokes todoist:complete-task with taskId', () => {
       exposedApis.todoist.completeTask('task-1')
-      expect(mockInvoke).toHaveBeenCalledWith('todoist:complete-task', 'task-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_COMPLETE_TASK, 'task-1')
     })
 
     it('createTask invokes todoist:create-task with params', () => {
       const params = { content: 'Buy milk', due_date: '2026-01-01' }
       exposedApis.todoist.createTask(params)
-      expect(mockInvoke).toHaveBeenCalledWith('todoist:create-task', params)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_CREATE_TASK, params)
     })
   })
 
@@ -191,7 +192,7 @@ describe('preload', () => {
 
     it('fetchQuote invokes finance:fetch-quote', () => {
       exposedApis.finance.fetchQuote('AAPL')
-      expect(mockInvoke).toHaveBeenCalledWith('finance:fetch-quote', 'AAPL')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.FINANCE_FETCH_QUOTE, 'AAPL')
     })
   })
 
@@ -204,7 +205,7 @@ describe('preload', () => {
     it('nudgeAuthor invokes slack:nudge-author with params', () => {
       const params = { githubLogin: 'user1', prTitle: 'Fix bug', prUrl: 'https://github.com/pr/1' }
       exposedApis.slack.nudgeAuthor(params)
-      expect(mockInvoke).toHaveBeenCalledWith('slack:nudge-author', params)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.SLACK_NUDGE_AUTHOR, params)
     })
   })
 
@@ -217,12 +218,12 @@ describe('preload', () => {
 
     it('readDir invokes fs:read-dir', () => {
       exposedApis.filesystem.readDir('/tmp')
-      expect(mockInvoke).toHaveBeenCalledWith('fs:read-dir', '/tmp')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.FILESYSTEM_READ_DIR, '/tmp')
     })
 
     it('readFile invokes fs:read-file', () => {
       exposedApis.filesystem.readFile('/tmp/file.txt')
-      expect(mockInvoke).toHaveBeenCalledWith('fs:read-file', '/tmp/file.txt')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.FILESYSTEM_READ_FILE, '/tmp/file.txt')
     })
   })
 
@@ -238,22 +239,22 @@ describe('preload', () => {
 
     it('spawn invokes terminal:spawn', () => {
       exposedApis.terminal.spawn({ cwd: '/home' })
-      expect(mockInvoke).toHaveBeenCalledWith('terminal:spawn', { cwd: '/home' })
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TERMINAL_SPAWN, { cwd: '/home' })
     })
 
     it('write sends terminal:write', () => {
       exposedApis.terminal.write('session-1', 'ls\n')
-      expect(mockSend).toHaveBeenCalledWith('terminal:write', 'session-1', 'ls\n')
+      expect(mockSend).toHaveBeenCalledWith(IPC_SEND.TERMINAL_WRITE, 'session-1', 'ls\n')
     })
 
     it('resize sends terminal:resize', () => {
       exposedApis.terminal.resize('session-1', 80, 24)
-      expect(mockSend).toHaveBeenCalledWith('terminal:resize', 'session-1', 80, 24)
+      expect(mockSend).toHaveBeenCalledWith(IPC_SEND.TERMINAL_RESIZE, 'session-1', 80, 24)
     })
 
     it('kill invokes terminal:kill', () => {
       exposedApis.terminal.kill('session-1')
-      expect(mockInvoke).toHaveBeenCalledWith('terminal:kill', 'session-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TERMINAL_KILL, 'session-1')
     })
   })
 
@@ -271,30 +272,30 @@ describe('preload', () => {
     it('launch invokes ralph:launch with config', () => {
       const config = { repoPath: '/repo', scriptType: 'fix' }
       exposedApis.ralph.launch(config)
-      expect(mockInvoke).toHaveBeenCalledWith('ralph:launch', config)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_LAUNCH, config)
     })
 
     it('stop invokes ralph:stop', () => {
       exposedApis.ralph.stop('run-1')
-      expect(mockInvoke).toHaveBeenCalledWith('ralph:stop', 'run-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_STOP, 'run-1')
     })
 
     it('list invokes ralph:list', () => {
       exposedApis.ralph.list()
-      expect(mockInvoke).toHaveBeenCalledWith('ralph:list')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_LIST)
     })
 
     it('onStatusChange registers a listener and offStatusChange removes it', () => {
       const cb = vi.fn()
       exposedApis.ralph.onStatusChange(cb)
-      expect(mockOn).toHaveBeenCalledWith('ralph:status-update', expect.any(Function))
+      expect(mockOn).toHaveBeenCalledWith(IPC_PUSH.RALPH_STATUS_UPDATE, expect.any(Function))
 
       exposedApis.ralph.offStatusChange(cb)
       // The wrapper registered by on should be passed to off
       const registeredWrapper = mockOn.mock.calls.find(
-        (c: unknown[]) => c[0] === 'ralph:status-update'
+        (c: unknown[]) => c[0] === IPC_PUSH.RALPH_STATUS_UPDATE
       )?.[1]
-      expect(mockOff).toHaveBeenCalledWith('ralph:status-update', registeredWrapper)
+      expect(mockOff).toHaveBeenCalledWith(IPC_PUSH.RALPH_STATUS_UPDATE, registeredWrapper)
     })
   })
 
@@ -312,22 +313,22 @@ describe('preload', () => {
     it('execute invokes copilot:execute with args', () => {
       const args = { prompt: 'hello', category: 'general' }
       exposedApis.copilot.execute(args)
-      expect(mockInvoke).toHaveBeenCalledWith('copilot:execute', args)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_EXECUTE, args)
     })
 
     it('cancel invokes copilot:cancel', () => {
       exposedApis.copilot.cancel('result-1')
-      expect(mockInvoke).toHaveBeenCalledWith('copilot:cancel', 'result-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_CANCEL, 'result-1')
     })
 
     it('listModels invokes copilot:list-models', () => {
       exposedApis.copilot.listModels('user1')
-      expect(mockInvoke).toHaveBeenCalledWith('copilot:list-models', 'user1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_LIST_MODELS, 'user1')
     })
 
     it('chatAbort invokes copilot:chat-abort', () => {
       exposedApis.copilot.chatAbort()
-      expect(mockInvoke).toHaveBeenCalledWith('copilot:chat-abort')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_CHAT_ABORT)
     })
   })
 
@@ -341,12 +342,15 @@ describe('preload', () => {
 
     it('scan invokes copilot-sessions:scan', () => {
       exposedApis.copilotSessions.scan()
-      expect(mockInvoke).toHaveBeenCalledWith('copilot-sessions:scan')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_SESSIONS_SCAN)
     })
 
     it('getSession invokes copilot-sessions:get-session', () => {
       exposedApis.copilotSessions.getSession('/path/to/session')
-      expect(mockInvoke).toHaveBeenCalledWith('copilot-sessions:get-session', '/path/to/session')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.COPILOT_SESSIONS_GET_SESSION,
+        '/path/to/session'
+      )
     })
   })
 })

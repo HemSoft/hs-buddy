@@ -3,6 +3,7 @@ import { getRepoContextFromViewId, type RepoContext } from '../utils/repoContext
 import { killTerminalSession, getSessionId } from '../components/terminal/terminalSessions'
 import { isModKey } from '../utils/platform'
 import { useSettings, useSettingsMutations } from './useConvex'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 const PANEL_HEIGHT_SAVE_DEBOUNCE_MS = 300
 const TABS_SAVE_DEBOUNCE_MS = 500
@@ -69,8 +70,8 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   useEffect(() => {
     let cancelled = false
     Promise.allSettled([
-      window.ipcRenderer.invoke('config:get-terminal-open') as Promise<boolean>,
-      window.ipcRenderer.invoke('config:get-terminal-panel-height') as Promise<number>,
+      window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_TERMINAL_OPEN) as Promise<boolean>,
+      window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_TERMINAL_PANEL_HEIGHT) as Promise<number>,
     ]).then(([openResult, heightResult]) => {
       /* v8 ignore start */
       if (cancelled) return
@@ -96,7 +97,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     if (settings?.terminalPanelHeight != null && loaded) {
       // Only apply Convex value if local didn't have one (first launch on new device)
       window.ipcRenderer
-        .invoke('config:get-terminal-panel-height')
+        .invoke(IPC_INVOKE.CONFIG_GET_TERMINAL_PANEL_HEIGHT)
         .then((local: unknown) => {
           if (local == null) {
             setPanelHeight(clampPanelHeight(settings.terminalPanelHeight!))
@@ -244,7 +245,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       const next = !terminalOpenRef.current
       terminalOpenRef.current = next
       setTerminalOpen(next)
-      window.ipcRenderer.invoke('config:set-terminal-open', next).catch(() => {})
+      window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_TERMINAL_OPEN, next).catch(() => {})
 
       if (!next) return
 
@@ -288,7 +289,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         if (next.length === 0) {
           setActiveTerminalTabId(null)
           setTerminalOpen(false)
-          window.ipcRenderer.invoke('config:set-terminal-open', false).catch(() => {})
+          window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_TERMINAL_OPEN, false).catch(() => {})
         } else {
           const newIdx = Math.min(idx, next.length - 1)
           setActiveTerminalTabId(next[newIdx].id)
@@ -309,7 +310,9 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         if (heightSaveTimeoutRef.current) clearTimeout(heightSaveTimeoutRef.current)
         /* v8 ignore stop */
         heightSaveTimeoutRef.current = setTimeout(() => {
-          window.ipcRenderer.invoke('config:set-terminal-panel-height', clamped).catch(() => {})
+          window.ipcRenderer
+            .invoke(IPC_INVOKE.CONFIG_SET_TERMINAL_PANEL_HEIGHT, clamped)
+            .catch(() => {})
           /* v8 ignore start */
           updateTerminalPanelHeight({ height: clamped }).catch(() => {})
           /* v8 ignore stop */

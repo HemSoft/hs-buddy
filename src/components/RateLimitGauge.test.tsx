@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { RateLimitGauge } from './RateLimitGauge'
+import { axe } from '../test/axe-helper'
 
 describe('RateLimitGauge', () => {
   it('renders the remaining count and limit', () => {
@@ -122,5 +123,13 @@ describe('RateLimitGauge', () => {
     expect(rafSpy).toHaveBeenCalled()
 
     vi.restoreAllMocks()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(
+      <RateLimitGauge remaining={4500} limit={5000} reset={Math.floor(Date.now() / 1000) + 600} />
+    )
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

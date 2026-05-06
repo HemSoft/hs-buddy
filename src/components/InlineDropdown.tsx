@@ -24,6 +24,8 @@ interface InlineDropdownProps {
   disabled?: boolean
   /** Tooltip on hover */
   title?: string
+  /** Accessible label for the combobox */
+  'aria-label'?: string
   /** Additional CSS class */
   className?: string
   /** Menu alignment */
@@ -263,6 +265,7 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
     className,
     align,
     openUpward,
+    'aria-label': ariaLabel,
   } = resolveProps(rawProps)
   const [isOpen, setIsOpen] = useState(false)
   const [focusIndex, setFocusIndex] = useState(-1)
@@ -342,6 +345,7 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
       title={title}
       tabIndex={attrs.tabIndex}
       role="combobox"
+      aria-label={ariaLabel ?? title}
       aria-expanded={isOpen}
       aria-controls={attrs.ariaControls}
       onKeyDown={handleKeyDown}

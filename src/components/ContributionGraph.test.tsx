@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ContributionGraph } from './ContributionGraph'
+import { axe } from '../test/axe-helper'
 import type { ContributionWeek } from '../api/github'
 
 const WEEKS: ContributionWeek[] = [
@@ -116,5 +117,13 @@ describe('ContributionGraph', () => {
   it('shows "contributions" label when source is omitted', () => {
     render(<ContributionGraph weeks={WEEKS} totalContributions={42} />)
     expect(screen.getByText('42 contributions in the last year')).toBeTruthy()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(
+      <ContributionGraph weeks={WEEKS} totalContributions={42} source="graphql" />
+    )
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

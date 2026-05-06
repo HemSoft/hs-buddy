@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PullRequestList } from './PullRequestList'
+import { axe } from '../test/axe-helper'
 
 const { mockHandleManualRefresh, mockUsePRListData, mockSetViewMode, mockUseViewMode } = vi.hoisted(
   () => ({
@@ -377,5 +378,11 @@ describe('PullRequestList', () => {
     const approvalSpan = document.querySelector('.list-view-approvals')
     expect(approvalSpan).toBeTruthy()
     expect(approvalSpan?.className).not.toContain('mine')
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(<PullRequestList mode="my-prs" />)
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

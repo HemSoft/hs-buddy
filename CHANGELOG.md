@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add AI review provider architecture with CodeRabbit support
 - Contract testing — validate renderer↔main channel contracts
+- Expand axe-core a11y testing coverage and add test:a11y script
 
 ### Fixed
 

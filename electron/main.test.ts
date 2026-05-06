@@ -34,6 +34,7 @@ vi.mock('electron', () => ({
     })),
     quit: vi.fn(),
     getVersion: vi.fn(() => '1.0.0-test'),
+    setAppUserModelId: vi.fn(),
     commandLine: { appendSwitch: vi.fn() },
   },
   BrowserWindow: Object.assign(

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.747] - 2026-05-06
+
+### Fixed
+
+- Set AppUserModelId on Windows to prevent taskbar icon fallback
+
 ## [0.1.746] - 2026-05-05
 
 ### Changed

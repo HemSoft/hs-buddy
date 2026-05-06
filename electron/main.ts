@@ -28,6 +28,11 @@ if (debugPort) {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// Ensure Windows taskbar always shows our icon (prevents fallback to generic Electron icon)
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.hemsoft.buddy')
+}
+
 // The built directory structure
 //
 // ├─┬─┬ dist

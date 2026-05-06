@@ -18,7 +18,7 @@
     "apphost.ts",
     "e2e/*.ts"
   ],
-  "ignore": ["playwright.config.ts"],
+  "ignore": [],
   "project": [
     "src/**/*.{ts,tsx}",
     "electron/**/*.ts",

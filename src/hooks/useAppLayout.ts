@@ -81,7 +81,9 @@ export function useAppLayout() {
 
     paneSaveTimeoutRef.current = setTimeout(() => {
       setLayoutState(currentState => {
-        window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_PANE_SIZES, currentState.paneSizes)
+        window.ipcRenderer
+          .invoke(IPC_INVOKE.CONFIG_SET_PANE_SIZES, currentState.paneSizes)
+          .catch(() => {})
         return currentState
       })
     }, PANE_SAVE_DEBOUNCE_MS)

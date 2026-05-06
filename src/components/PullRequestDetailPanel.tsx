@@ -22,6 +22,12 @@ import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { usePRPanelData } from '../hooks/usePRPanelData'
 import { useCopilotReviewMonitor, clearPendingReview } from '../hooks/useCopilotReviewMonitor'
+import {
+  useAIReviewMonitor,
+  clearPendingAIReview,
+  type AIReviewState,
+} from '../hooks/useAIReviewMonitor'
+import { codeRabbitProvider } from '../reviewProviders'
 import type { PRDetailInfo, PRDetailSection } from '../utils/prDetailView'
 import { resolveHeadBranch, parseIssueFromBranch } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
@@ -148,6 +154,13 @@ function NudgeButton({
   )
 }
 
+interface AIReviewProviderEntry {
+  id: string
+  name: string
+  state: AIReviewState
+  onRequest: () => void
+}
+
 interface PRDetailHeaderProps {
   pr: PRDetailInfo
   stateLabel: string
@@ -162,6 +175,7 @@ interface PRDetailHeaderProps {
   nudgeError: string | null
   onNudge: () => void
   onStartRalphReview: () => void
+  aiReviewProviders: AIReviewProviderEntry[]
 }
 
 function PRDetailHeader({
@@ -178,6 +192,7 @@ function PRDetailHeader({
   nudgeError,
   onNudge,
   onStartRalphReview,
+  aiReviewProviders,
 }: PRDetailHeaderProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
@@ -246,6 +261,13 @@ function PRDetailHeader({
           youApproved={youApproved}
           copilotReviewState={copilotReviewState}
           nudgeState={nudgeState}
+          aiReviewProviders={aiReviewProviders.map(p => ({
+            ...p,
+            onRequest: () => {
+              p.onRequest()
+              setContextMenu(null)
+            },
+          }))}
           onRequestCopilotReview={() => {
             handleRequestCopilotReview()
             setContextMenu(null)
@@ -293,6 +315,29 @@ function CopilotReviewBanner({ completedAt, onDismiss }: CopilotReviewBannerProp
         <CheckCircle2 size={16} />
         <div className="pr-detail-review-banner-text">
           <strong>Copilot review complete</strong>
+          <span>Finished {formatDistanceToNow(completedAt)} — page refreshed with latest data</span>
+        </div>
+      </div>
+      <button className="pr-detail-review-banner-dismiss" onClick={onDismiss} title="Dismiss">
+        <X size={14} />
+      </button>
+    </div>
+  )
+}
+
+interface AIReviewBannerProps {
+  providerName: string
+  completedAt: number
+  onDismiss: () => void
+}
+
+function AIReviewBanner({ providerName, completedAt, onDismiss }: AIReviewBannerProps) {
+  return (
+    <div className="pr-detail-review-banner">
+      <div className="pr-detail-review-banner-content">
+        <CheckCircle2 size={16} />
+        <div className="pr-detail-review-banner-text">
+          <strong>{providerName} review complete</strong>
           <span>Finished {formatDistanceToNow(completedAt)} — page refreshed with latest data</span>
         </div>
       </div>
@@ -610,6 +655,30 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     handleRequestCopilotReview,
   } = useCopilotReviewMonitor({ prId: pr.id, prUrl: pr.url, ownerRepo })
 
+  const {
+    reviewState: codeRabbitReviewState,
+    reviewBanner: codeRabbitReviewBanner,
+    setReviewBanner: setCodeRabbitReviewBanner,
+    handleRequestReview: handleRequestCodeRabbitReview,
+  } = useAIReviewMonitor({
+    provider: codeRabbitProvider,
+    prId: pr.id,
+    prUrl: pr.url,
+    ownerRepo,
+  })
+
+  const aiReviewProviders = useMemo(
+    () => [
+      {
+        id: codeRabbitProvider.id,
+        name: codeRabbitProvider.name,
+        state: codeRabbitReviewState,
+        onRequest: handleRequestCodeRabbitReview,
+      },
+    ],
+    [codeRabbitReviewState, handleRequestCodeRabbitReview]
+  )
+
   const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(
     pr.headBranch && pr.baseBranch ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch } : null
   )
@@ -751,6 +820,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         nudgeState={nudgeState}
         nudgeError={nudgeError}
         onNudge={handleNudgeAuthor}
+        aiReviewProviders={aiReviewProviders}
         onStartRalphReview={() => {
           const org = pr.org || ownerRepo?.owner || ''
           const repoRoot = accounts.find(a => a.org === org)?.repoRoot
@@ -775,6 +845,17 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
             onDismiss={() => {
               setCopilotReviewBanner(null)
               clearPendingReview(pr.url)
+            }}
+          />
+        )}
+
+        {codeRabbitReviewBanner && (
+          <AIReviewBanner
+            providerName={codeRabbitProvider.name}
+            completedAt={codeRabbitReviewBanner.completedAt}
+            onDismiss={() => {
+              setCodeRabbitReviewBanner(null)
+              clearPendingAIReview(codeRabbitProvider.id, pr.url)
             }}
           />
         )}

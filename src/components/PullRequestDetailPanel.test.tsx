@@ -91,6 +91,28 @@ vi.mock('./shared/MarkdownContent', () => ({
   ),
 }))
 
+vi.mock('../hooks/useAIReviewMonitor', () => ({
+  useAIReviewMonitor: () => ({
+    reviewState: 'idle',
+    reviewBanner: null,
+    setReviewBanner: vi.fn(),
+    refreshKey: 0,
+    setRefreshKey: vi.fn(),
+    handleRequestReview: vi.fn(),
+  }),
+  clearPendingAIReview: vi.fn(),
+}))
+
+vi.mock('../reviewProviders', () => ({
+  codeRabbitProvider: {
+    id: 'coderabbit',
+    name: 'CodeRabbit',
+    botLogin: 'coderabbitai[bot]',
+    iconName: 'Rabbit',
+    capabilities: { canTrigger: true, canMonitor: true },
+  },
+}))
+
 vi.mock('lucide-react', () => ({
   Check: () => <span data-testid="icon-check" />,
   CheckCircle2: () => <span data-testid="icon-check-circle" />,
@@ -106,6 +128,7 @@ vi.mock('lucide-react', () => ({
   ),
   MessageSquare: () => <span data-testid="icon-message-square" />,
   MoreVertical: () => <span data-testid="icon-more-vertical" />,
+  Rabbit: () => <span data-testid="icon-rabbit" />,
   RefreshCw: () => <span data-testid="icon-refresh" />,
   RotateCw: () => <span data-testid="icon-rotate-cw" />,
   Sparkles: ({ className }: { className?: string }) => (

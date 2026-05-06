@@ -111,3 +111,45 @@ export async function listPRReviews(
   }))
 }
 /* v8 ignore stop */
+
+/* v8 ignore start -- API wrapper with null-guards, tested through provider mocks */
+/** List issue comments on a PR (used for bot comment detection). */
+export async function listPRIssueComments(
+  config: PRConfig['github'],
+  owner: string,
+  repo: string,
+  pullNumber: number
+): Promise<{ id: number; user: { login: string } | null; body: string; created_at: string }[]> {
+  const octokit = await getOctokitForOwner(config, owner)
+  const data = await octokit.paginate(octokit.issues.listComments, {
+    owner,
+    repo,
+    issue_number: pullNumber,
+    per_page: 100,
+  })
+  return data.map(c => ({
+    id: c.id,
+    user: c.user ? { login: c.user.login } : null,
+    body: c.body || '',
+    created_at: c.created_at,
+  }))
+}
+
+/** Check whether a file exists in a repo (404 = false, 200 = true). */
+export async function checkFileExists(
+  config: PRConfig['github'],
+  owner: string,
+  repo: string,
+  path: string
+): Promise<boolean> {
+  const octokit = await getOctokitForOwner(config, owner)
+  try {
+    await octokit.repos.getContent({ owner, repo, path })
+    return true
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status
+    if (status === 404) return false
+    throw err
+  }
+}
+/* v8 ignore stop */

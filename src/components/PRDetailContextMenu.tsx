@@ -2,11 +2,20 @@ import {
   Copy,
   ExternalLink,
   MessageSquare,
+  Rabbit,
   RefreshCw,
   RotateCw,
   Sparkles,
   ThumbsUp,
 } from 'lucide-react'
+import type { AIReviewState } from '../hooks/useAIReviewMonitor'
+
+interface AIReviewProviderEntry {
+  id: string
+  name: string
+  state: AIReviewState
+  onRequest: () => void
+}
 
 interface PRDetailContextMenuProps {
   x: number
@@ -14,6 +23,7 @@ interface PRDetailContextMenuProps {
   youApproved: boolean
   copilotReviewState: string
   nudgeState: 'idle' | 'sending' | 'sent' | 'error'
+  aiReviewProviders?: AIReviewProviderEntry[]
   onRequestCopilotReview: () => void
   onApprove: () => void
   onNudge: () => void
@@ -30,6 +40,7 @@ export function PRDetailContextMenu({
   youApproved,
   copilotReviewState,
   nudgeState,
+  aiReviewProviders = [],
   onRequestCopilotReview,
   onApprove,
   onNudge,
@@ -39,6 +50,11 @@ export function PRDetailContextMenu({
   onStartRalphReview,
   onClose,
 }: PRDetailContextMenuProps) {
+  const providerIcon = (id: string) => {
+    if (id === 'coderabbit') return <Rabbit size={14} />
+    return <Sparkles size={14} />
+  }
+
   return (
     <>
       <div className="context-menu-overlay" onClick={onClose} aria-hidden="true" />
@@ -47,6 +63,18 @@ export function PRDetailContextMenu({
           <Sparkles size={14} />
           Request Copilot Review
         </button>
+        {aiReviewProviders
+          .filter(p => p.id !== 'copilot')
+          .map(p => (
+            <button key={p.id} onClick={p.onRequest} disabled={p.state !== 'idle'}>
+              {providerIcon(p.id)}
+              {p.state === 'monitoring'
+                ? `Waiting for ${p.name}…`
+                : p.state === 'done'
+                  ? `${p.name} review complete!`
+                  : `Request ${p.name} Review`}
+            </button>
+          ))}
         <button onClick={onStartRalphReview}>
           <RotateCw size={14} />
           Start Ralph PR Review

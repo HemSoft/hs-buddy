@@ -31,6 +31,8 @@ import {
   approvePullRequest as _approvePullRequest,
   requestCopilotReview as _requestCopilotReview,
   listPRReviews as _listPRReviews,
+  listPRIssueComments as _listPRIssueComments,
+  checkFileExists as _checkFileExists,
 } from './pr-mutations'
 
 import type {
@@ -203,6 +205,20 @@ export class GitHubClient {
   > {
     return _listPRReviews(this.config, owner, repo, pullNumber)
   }
+
+  /* v8 ignore start -- delegates to API functions tested via provider mocks */
+  async listPRIssueComments(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<{ id: number; user: { login: string } | null; body: string; created_at: string }[]> {
+    return _listPRIssueComments(this.config, owner, repo, pullNumber)
+  }
+
+  async checkFileExists(owner: string, repo: string, path: string): Promise<boolean> {
+    return _checkFileExists(this.config, owner, repo, path)
+  }
+  /* v8 ignore stop */
 
   // ── Repository ────────────────────────────────────────────────────────
 

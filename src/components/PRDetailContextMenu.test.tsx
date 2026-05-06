@@ -93,4 +93,65 @@ describe('PRDetailContextMenu', () => {
     fireEvent.click(overlay)
     expect(props.onClose).toHaveBeenCalled()
   })
+
+  it('renders AI review provider buttons with correct icons', () => {
+    const providers = [
+      {
+        id: 'coderabbit',
+        name: 'CodeRabbit',
+        state: 'idle' as const,
+        onRequest: vi.fn(),
+      },
+      {
+        id: 'other-provider',
+        name: 'Other AI',
+        state: 'idle' as const,
+        onRequest: vi.fn(),
+      },
+    ]
+    renderMenu({ aiReviewProviders: providers })
+    expect(screen.getByText('Request CodeRabbit Review')).toBeInTheDocument()
+    expect(screen.getByText('Request Other AI Review')).toBeInTheDocument()
+  })
+
+  it('calls aiReviewProvider onRequest handler when clicked', () => {
+    const onRequest = vi.fn()
+    const providers = [
+      {
+        id: 'coderabbit',
+        name: 'CodeRabbit',
+        state: 'idle' as const,
+        onRequest,
+      },
+    ]
+    renderMenu({ aiReviewProviders: providers })
+    fireEvent.click(screen.getByText('Request CodeRabbit Review'))
+    expect(onRequest).toHaveBeenCalled()
+  })
+
+  it('disables AI review provider button when state is not idle', () => {
+    const providers = [
+      {
+        id: 'coderabbit',
+        name: 'CodeRabbit',
+        state: 'monitoring' as const,
+        onRequest: vi.fn(),
+      },
+    ]
+    renderMenu({ aiReviewProviders: providers })
+    expect(screen.getByText('Waiting for CodeRabbit\u2026').closest('button')).toBeDisabled()
+  })
+
+  it('shows completion text when AI review provider state is done', () => {
+    const providers = [
+      {
+        id: 'coderabbit',
+        name: 'CodeRabbit',
+        state: 'done' as const,
+        onRequest: vi.fn(),
+      },
+    ]
+    renderMenu({ aiReviewProviders: providers })
+    expect(screen.getByText('CodeRabbit review complete!')).toBeInTheDocument()
+  })
 })

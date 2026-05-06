@@ -148,13 +148,21 @@ describe('codeRabbitProvider', () => {
           user: { login: 'coderabbitai[bot]' },
           body: 'some comment',
           created_at: '2024-01-01',
+          updated_at: '2024-01-01',
         },
-        { id: 50, user: { login: 'human' }, body: 'hello', created_at: '2024-01-01' },
+        {
+          id: 50,
+          user: { login: 'human' },
+          body: 'hello',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
         {
           id: 200,
           user: { login: 'coderabbitai[bot]' },
           body: 'another',
           created_at: '2024-01-02',
+          updated_at: '2024-01-02',
         },
       ]),
     })
@@ -172,6 +180,7 @@ describe('codeRabbitProvider', () => {
           user: { login: 'coderabbitai[bot]' },
           body: '## Walkthrough\nChanges to file X',
           created_at: '2024-01-03',
+          updated_at: '2024-01-03',
         },
       ]),
     })
@@ -190,6 +199,7 @@ describe('codeRabbitProvider', () => {
           user: { login: 'coderabbitai[bot]' },
           body: '## Summary by CodeRabbit\n...',
           created_at: '2024-01-03',
+          updated_at: '2024-01-03',
         },
       ]),
     })
@@ -208,6 +218,7 @@ describe('codeRabbitProvider', () => {
           user: { login: 'coderabbitai[bot]' },
           body: 'Processing...',
           created_at: '2024-01-03',
+          updated_at: '2024-01-03',
         },
       ]),
     })
@@ -226,6 +237,46 @@ describe('codeRabbitProvider', () => {
           user: { login: 'coderabbitai[bot]' },
           body: '## Walkthrough\nold',
           created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
+      ]),
+    })
+    const result = await codeRabbitProvider.poll(client, 'org', 'repo', 42, {
+      maxCommentId: 200,
+      triggeredAt: '2024-01-02T00:00:00Z',
+    })
+    expect(result.status).toBe('pending')
+  })
+
+  it('poll detects completion from edited existing comment', async () => {
+    // Simulates CodeRabbit editing its existing summary comment after re-review
+    const client = mockClient({
+      listPRIssueComments: vi.fn().mockResolvedValue([
+        {
+          id: 150,
+          user: { login: 'coderabbitai[bot]' },
+          body: '## Walkthrough\nUpdated review content',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-03T12:00:00Z', // edited AFTER trigger
+        },
+      ]),
+    })
+    const result = await codeRabbitProvider.poll(client, 'org', 'repo', 42, {
+      maxCommentId: 200,
+      triggeredAt: '2024-01-02T00:00:00Z',
+    })
+    expect(result.status).toBe('completed')
+  })
+
+  it('poll ignores edited comment without walkthrough marker', async () => {
+    const client = mockClient({
+      listPRIssueComments: vi.fn().mockResolvedValue([
+        {
+          id: 150,
+          user: { login: 'coderabbitai[bot]' },
+          body: 'Processing your review...',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-03T12:00:00Z',
         },
       ]),
     })

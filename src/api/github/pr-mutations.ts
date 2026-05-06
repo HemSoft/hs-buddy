@@ -119,7 +119,9 @@ export async function listPRIssueComments(
   owner: string,
   repo: string,
   pullNumber: number
-): Promise<{ id: number; user: { login: string } | null; body: string; created_at: string }[]> {
+): Promise<
+  { id: number; user: { login: string } | null; body: string; created_at: string; updated_at: string }[]
+> {
   const octokit = await getOctokitForOwner(config, owner)
   const data = await octokit.paginate(octokit.issues.listComments, {
     owner,
@@ -132,6 +134,7 @@ export async function listPRIssueComments(
     user: c.user ? { login: c.user.login } : null,
     body: c.body || '',
     created_at: c.created_at,
+    updated_at: c.updated_at,
   }))
 }
 

@@ -211,7 +211,9 @@ export class GitHubClient {
     owner: string,
     repo: string,
     pullNumber: number
-  ): Promise<{ id: number; user: { login: string } | null; body: string; created_at: string }[]> {
+  ): Promise<
+    { id: number; user: { login: string } | null; body: string; created_at: string; updated_at: string }[]
+  > {
     return _listPRIssueComments(this.config, owner, repo, pullNumber)
   }
 

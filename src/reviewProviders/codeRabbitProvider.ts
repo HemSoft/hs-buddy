@@ -70,15 +70,25 @@ export const codeRabbitProvider: AIReviewProvider = {
     prNumber: number,
     checkpoint: ReviewCheckpoint
   ): Promise<PollResult> {
-    const { maxCommentId } = checkpoint as CodeRabbitCheckpoint
+    const { maxCommentId, triggeredAt } = checkpoint as CodeRabbitCheckpoint
     const comments = await client.listPRIssueComments(owner, repo, prNumber)
-    const newBotComments = comments.filter(
-      c => c.user?.login === 'coderabbitai[bot]' && c.id > maxCommentId
-    )
+    const botComments = comments.filter(c => c.user?.login === 'coderabbitai[bot]')
 
-    // Look for a completed review comment (contains the walkthrough/summary)
-    const completed = newBotComments.some(c => isCompletedReviewComment(c.body))
-    return { status: completed ? 'completed' : 'pending' }
+    // Check new comments (posted after trigger)
+    const newBotComments = botComments.filter(c => c.id > maxCommentId)
+    if (newBotComments.some(c => isCompletedReviewComment(c.body))) {
+      return { status: 'completed' }
+    }
+
+    // Check edited comments (existing comments updated after trigger)
+    const editedComments = botComments.filter(
+      c => c.id <= maxCommentId && c.updated_at > triggeredAt
+    )
+    if (editedComments.some(c => isCompletedReviewComment(c.body))) {
+      return { status: 'completed' }
+    }
+
+    return { status: 'pending' }
   },
 }
 

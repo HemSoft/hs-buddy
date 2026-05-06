@@ -3,6 +3,7 @@ import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { useBuddyStatsMutations } from '../../hooks/useConvex'
 import { GitHubClient } from '../../api/github'
 import { getErrorMessage } from '../../utils/errorUtils'
+import { IPC_INVOKE } from '../../ipc/contracts'
 import type { PRReviewInfo } from './PRReviewInfo'
 
 const DEFAULT_PROMPT_TEMPLATE = (url: string) =>
@@ -107,7 +108,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
     loadedDefaultRef.current = true
     const fallbackPrompt = DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
     window.ipcRenderer
-      .invoke('config:get-copilot-pr-review-prompt-template')
+      .invoke(IPC_INVOKE.CONFIG_GET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE)
       .then((template: string) => {
         const normalized = (template || '').trim()
         if (!normalized) return
@@ -235,7 +236,10 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
     setError(null)
     try {
       const template = trimmed.split(prInfo.prUrl).join(PR_URL_TOKEN)
-      await window.ipcRenderer.invoke('config:set-copilot-pr-review-prompt-template', template)
+      await window.ipcRenderer.invoke(
+        IPC_INVOKE.CONFIG_SET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE,
+        template
+      )
       setSavedDefaultTemplate(template)
     } catch (err: unknown) {
       setError(getErrorMessage(err))

@@ -8,6 +8,7 @@ import {
   type NotificationSoundAsset,
 } from '../utils/notificationSound'
 import type { AIReviewProvider, PollResult, ReviewCheckpoint } from '../reviewProviders/types'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 const STORAGE_KEY = 'hs-buddy:pending-ai-reviews'
 const DEFAULT_POLL_MS = 15_000
@@ -67,12 +68,14 @@ export function clearPendingAIReview(providerId: string, prUrl: string) {
 /** Play the configured notification sound if enabled. Fire-and-forget. */
 /* v8 ignore start — audio playback requires native IPC not available in unit tests */
 function playReviewCompleteSound() {
-  void (window.ipcRenderer.invoke('config:get-notification-sound-enabled') as Promise<boolean>)
+  void (
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_NOTIFICATION_SOUND_ENABLED) as Promise<boolean>
+  )
     .then(enabled => {
       if (!enabled) return
       return (
         window.ipcRenderer.invoke(
-          'config:play-notification-sound'
+          IPC_INVOKE.CONFIG_PLAY_NOTIFICATION_SOUND
         ) as Promise<NotificationSoundAsset | null>
       ).then(sound => {
         if (!sound) return

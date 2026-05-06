@@ -5,6 +5,7 @@ import { getErrorMessage } from '../../src/utils/errorUtils'
 import { CONVEX_URL } from '../config'
 import { execAsync, execFileAsync } from '../utils'
 import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
+import { IPC_INVOKE } from '../../src/ipc/contracts'
 import {
   parseActiveGitHubAccount,
   buildGhAuthTokenArgs,
@@ -380,7 +381,7 @@ function mapCopilotSeatData(seat: RawCopilotSeat, fallbackLogin: string) {
 
 export function registerGitHubHandlers(): void {
   // Get a GitHub CLI auth token for a specific account
-  ipcMain.handle('github:get-cli-token', async (_event, username?: string) => {
+  ipcMain.handle(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, async (_event, username?: string) => {
     try {
       const args = buildGhAuthTokenArgs(username)
       const { stdout, stderr } = await execFileAsync('gh', args, {
@@ -397,7 +398,7 @@ export function registerGitHubHandlers(): void {
   })
 
   // Get the currently-active GitHub CLI account (used for Copilot CLI, git ops, etc.)
-  ipcMain.handle('github:get-active-account', async () => {
+  ipcMain.handle(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT, async () => {
     try {
       // `gh auth status` outputs account info to stderr; parse for "Active account: true"
       const { stderr } = await execAsync('gh auth status', {
@@ -412,33 +413,36 @@ export function registerGitHubHandlers(): void {
   })
 
   // Get Copilot premium request usage for an org via gh api
-  ipcMain.handle('github:get-copilot-usage', async (_event, org: string, username?: string) => {
-    try {
-      const execEnv = await getTokenEnv(username)
-      const stdout = await fetchOrgOrUserBillingUsage(org, execEnv)
+  ipcMain.handle(
+    IPC_INVOKE.GITHUB_GET_COPILOT_USAGE,
+    async (_event, org: string, username?: string) => {
+      try {
+        const execEnv = await getTokenEnv(username)
+        const stdout = await fetchOrgOrUserBillingUsage(org, execEnv)
 
-      const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-      const parsed = parseBillingUsage(data.usageItems)
+        const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
+        const parsed = parseBillingUsage(data.usageItems)
 
-      return {
-        success: true,
-        data: {
-          org,
-          ...parsed,
-          // Include raw items for detailed view
-          allItems: data.usageItems.filter(item => item.product === 'copilot'),
-          fetchedAt: Date.now(),
-        },
+        return {
+          success: true,
+          data: {
+            org,
+            ...parsed,
+            // Include raw items for detailed view
+            allItems: data.usageItems.filter(item => item.product === 'copilot'),
+            fetchedAt: Date.now(),
+          },
+        }
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error)
+        console.error(`Failed to get Copilot usage for org '${org}':`, errorMessage)
+        return { success: false, error: errorMessage }
       }
-    } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error)
-      console.error(`Failed to get Copilot usage for org '${org}':`, errorMessage)
-      return { success: false, error: errorMessage }
     }
-  })
+  )
 
   // Get per-account Copilot quota via the internal endpoint
-  ipcMain.handle('github:get-copilot-quota', async (_event, username: string) => {
+  ipcMain.handle(IPC_INVOKE.GITHUB_GET_COPILOT_QUOTA, async (_event, username: string) => {
     try {
       // Get a per-account token
       const token = await tryGetCliToken(username)
@@ -462,36 +466,39 @@ export function registerGitHubHandlers(): void {
   })
 
   // Get Copilot budget and current-month spend for an org
-  ipcMain.handle('github:get-copilot-budget', async (_event, org: string, username?: string) => {
-    try {
-      const execEnv = await getTokenEnv(username)
+  ipcMain.handle(
+    IPC_INVOKE.GITHUB_GET_COPILOT_BUDGET,
+    async (_event, org: string, username?: string) => {
+      try {
+        const execEnv = await getTokenEnv(username)
 
-      const now = new Date()
-      const year = now.getUTCFullYear()
-      const month = now.getUTCMonth() + 1
+        const now = new Date()
+        const year = now.getUTCFullYear()
+        const month = now.getUTCMonth() + 1
 
-      const result = await resolveBudgetData(org, year, month, execEnv, username)
+        const result = await resolveBudgetData(org, year, month, execEnv, username)
 
-      return {
-        success: true,
-        data: {
-          org,
-          ...result,
-          billingMonth: month,
-          billingYear: year,
-          fetchedAt: Date.now(),
-        },
+        return {
+          success: true,
+          data: {
+            org,
+            ...result,
+            billingMonth: month,
+            billingYear: year,
+            fetchedAt: Date.now(),
+          },
+        }
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error)
+        console.error(`Failed to get Copilot budget for org '${org}':`, errorMessage)
+        return { success: false, error: errorMessage }
       }
-    } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error)
-      console.error(`Failed to get Copilot budget for org '${org}':`, errorMessage)
-      return { success: false, error: errorMessage }
     }
-  })
+  )
 
   // Get Copilot seat/usage data for a specific org member
   ipcMain.handle(
-    'github:get-copilot-member-usage',
+    IPC_INVOKE.GITHUB_GET_COPILOT_MEMBER_USAGE,
     async (_event, org: string, memberLogin: string, username?: string) => {
       try {
         const execEnv = await getTokenEnv(username)
@@ -523,7 +530,7 @@ export function registerGitHubHandlers(): void {
   // Get per-user premium request usage from enterprise billing API (this month + today)
   // Also returns org-level totals for context.
   ipcMain.handle(
-    'github:get-user-premium-requests',
+    IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS,
     async (_event, org: string, memberLogin: string, username?: string) => {
       try {
         const execEnv = await getTokenEnv(username)
@@ -588,7 +595,7 @@ export function registerGitHubHandlers(): void {
   )
 
   // Switch the active GitHub CLI account
-  ipcMain.handle('github:switch-account', async (_event, username: string) => {
+  ipcMain.handle(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, async (_event, username: string) => {
     try {
       await execAsync(`gh auth switch --user ${username}`, {
         encoding: 'utf8',
@@ -606,7 +613,7 @@ export function registerGitHubHandlers(): void {
   // Returns an array of per-account results; failures are reported per-account
   // without corrupting previously stored history.
   ipcMain.handle(
-    'github:collect-copilot-snapshots',
+    IPC_INVOKE.GITHUB_COLLECT_COPILOT_SNAPSHOTS,
     async (
       _event,
       accounts: Array<{ username: string; org: string }>

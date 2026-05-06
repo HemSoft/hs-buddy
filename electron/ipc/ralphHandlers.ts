@@ -16,65 +16,66 @@ import {
   setStatusChangeCallback,
 } from '../services/ralphService'
 import type { RalphLaunchConfig, RalphConfigType } from '../../src/types/ralph'
+import { IPC_INVOKE, IPC_PUSH } from '../../src/ipc/contracts'
 
 export function registerRalphHandlers(win: BrowserWindow): void {
   // Wire real-time status push to renderer
   setStatusChangeCallback(run => {
     if (!win.isDestroyed()) {
-      win.webContents.send('ralph:status-update', run)
+      win.webContents.send(IPC_PUSH.RALPH_STATUS_UPDATE, run)
     }
   })
   ipcMain.handle(
-    'ralph:launch',
+    IPC_INVOKE.RALPH_LAUNCH,
     ipcHandler(async (_event, config: RalphLaunchConfig) => {
       return launchLoop(config)
     })
   )
 
   ipcMain.handle(
-    'ralph:stop',
+    IPC_INVOKE.RALPH_STOP,
     ipcHandler(async (_event, runId: string) => {
       return stopLoop(runId)
     })
   )
 
   ipcMain.handle(
-    'ralph:list',
+    IPC_INVOKE.RALPH_LIST,
     ipcHandler(async () => {
       return listLoops()
     })
   )
 
   ipcMain.handle(
-    'ralph:get-status',
+    IPC_INVOKE.RALPH_GET_STATUS,
     ipcHandler(async (_event, runId: string) => {
       return getLoopStatus(runId)
     })
   )
 
   ipcMain.handle(
-    'ralph:get-config',
+    IPC_INVOKE.RALPH_GET_CONFIG,
     ipcHandler(async (_event, configType: RalphConfigType) => {
       return getConfig(configType)
     })
   )
 
   ipcMain.handle(
-    'ralph:get-scripts-path',
+    IPC_INVOKE.RALPH_GET_SCRIPTS_PATH,
     ipcHandler(async () => {
       return getScriptsPath()
     })
   )
 
   ipcMain.handle(
-    'ralph:list-templates',
+    IPC_INVOKE.RALPH_LIST_TEMPLATES,
     ipcHandler(async () => {
       return listTemplateScripts()
     })
   )
 
   ipcMain.handle(
-    'ralph:select-directory',
+    IPC_INVOKE.RALPH_SELECT_DIRECTORY,
     ipcHandler(async (_event: Electron.IpcMainInvokeEvent, defaultPath?: string) => {
       const result = await dialog.showOpenDialog(win, {
         properties: ['openDirectory'],

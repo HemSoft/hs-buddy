@@ -9,6 +9,7 @@ import {
 } from '../services/copilotSessionService'
 import { validateSessionPath as validateSessionPathPure } from '../../src/utils/copilotSessionParsing'
 import type { SessionDigest } from '../../src/types/copilotSession'
+import { IPC_INVOKE } from '../../src/ipc/contracts'
 
 /** Validates filePath is inside VS Code storage and is a .jsonl file. Returns normalized path or null. */
 function validateSessionPath(filePath: string): string | null {
@@ -16,18 +17,18 @@ function validateSessionPath(filePath: string): string | null {
 }
 
 export function registerCopilotSessionHandlers(): void {
-  ipcMain.handle('copilot-sessions:scan', () => {
+  ipcMain.handle(IPC_INVOKE.COPILOT_SESSIONS_SCAN, () => {
     return scanCopilotSessions()
   })
 
-  ipcMain.handle('copilot-sessions:get-session', (_event, filePath: string) => {
+  ipcMain.handle(IPC_INVOKE.COPILOT_SESSIONS_GET_SESSION, (_event, filePath: string) => {
     const normalized = validateSessionPath(filePath)
     if (!normalized) return null
     return getSessionDetail(normalized)
   })
 
   ipcMain.handle(
-    'copilot-sessions:compute-digest',
+    IPC_INVOKE.COPILOT_SESSIONS_COMPUTE_DIGEST,
     async (_event, filePath: string): Promise<SessionDigest | null> => {
       const normalized = validateSessionPath(filePath)
       if (!normalized) return null

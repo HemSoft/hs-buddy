@@ -45,6 +45,7 @@
     "convex:codegen": "convex codegen",
     "test:e2e": "npx playwright test --project=browser-e2e",
     "test:e2e:install": "npx playwright install chromium",
+    "test:ipc-contracts": "vitest run src/ipc/contracts.test.ts src/ipc/contracts.registration.test.ts",
     "prepare": "husky"
   },
   "keywords": [

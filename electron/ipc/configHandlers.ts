@@ -6,7 +6,7 @@ import {
   isSupportedNotificationSoundPath,
   MAX_NOTIFICATION_SOUND_BYTES,
 } from '../../src/utils/notificationSound'
-import { CONFIG_UI_KEYS } from '../../src/ipc/contracts'
+import { CONFIG_UI_KEYS, IPC_INVOKE } from '../../src/ipc/contracts'
 import { configManager } from '../config'
 
 type UiConfigKey = keyof AppConfig['ui']
@@ -60,33 +60,39 @@ export function registerConfigHandlers(): void {
   }
 
   // Assistant Open
-  ipcMain.handle('config:get-assistant-open', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_ASSISTANT_OPEN, () => {
     return configManager.getUiValue('assistantOpen')
   })
 
-  ipcMain.handle('config:set-assistant-open', (_event: IpcMainInvokeEvent, value: boolean) => {
-    if (typeof value !== 'boolean') return { success: false }
-    configManager.setUiValue('assistantOpen', value)
-    return { success: true }
-  })
+  ipcMain.handle(
+    IPC_INVOKE.CONFIG_SET_ASSISTANT_OPEN,
+    (_event: IpcMainInvokeEvent, value: boolean) => {
+      if (typeof value !== 'boolean') return { success: false }
+      configManager.setUiValue('assistantOpen', value)
+      return { success: true }
+    }
+  )
 
   // Terminal Panel
-  ipcMain.handle('config:get-terminal-open', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_TERMINAL_OPEN, () => {
     return configManager.getUiValue('terminalOpen')
   })
 
-  ipcMain.handle('config:set-terminal-open', (_event: IpcMainInvokeEvent, value: boolean) => {
-    if (typeof value !== 'boolean') return { success: false }
-    configManager.setUiValue('terminalOpen', value)
-    return { success: true }
-  })
+  ipcMain.handle(
+    IPC_INVOKE.CONFIG_SET_TERMINAL_OPEN,
+    (_event: IpcMainInvokeEvent, value: boolean) => {
+      if (typeof value !== 'boolean') return { success: false }
+      configManager.setUiValue('terminalOpen', value)
+      return { success: true }
+    }
+  )
 
-  ipcMain.handle('config:get-terminal-panel-height', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_TERMINAL_PANEL_HEIGHT, () => {
     return configManager.getUiValue('terminalPanelHeight')
   })
 
   ipcMain.handle(
-    'config:set-terminal-panel-height',
+    IPC_INVOKE.CONFIG_SET_TERMINAL_PANEL_HEIGHT,
     (_event: IpcMainInvokeEvent, value: number) => {
       if (!Number.isFinite(value) || value < 100 || value > 1200) return { success: false }
       configManager.setUiValue('terminalPanelHeight', value)
@@ -95,12 +101,12 @@ export function registerConfigHandlers(): void {
   )
 
   // Schedule Forecast Days
-  ipcMain.handle('config:get-schedule-forecast-days', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_SCHEDULE_FORECAST_DAYS, () => {
     return configManager.getScheduleForecastDays()
   })
 
   ipcMain.handle(
-    'config:set-schedule-forecast-days',
+    IPC_INVOKE.CONFIG_SET_SCHEDULE_FORECAST_DAYS,
     (_event: IpcMainInvokeEvent, days: number) => {
       configManager.setScheduleForecastDays(days)
       return { success: true }
@@ -108,12 +114,12 @@ export function registerConfigHandlers(): void {
   )
 
   // Copilot PR Review Prompt Template
-  ipcMain.handle('config:get-copilot-pr-review-prompt-template', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE, () => {
     return configManager.getCopilotPRReviewPromptTemplate()
   })
 
   ipcMain.handle(
-    'config:set-copilot-pr-review-prompt-template',
+    IPC_INVOKE.CONFIG_SET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE,
     (_event: IpcMainInvokeEvent, template: string) => {
       configManager.setCopilotPRReviewPromptTemplate(template)
       return { success: true }
@@ -121,12 +127,12 @@ export function registerConfigHandlers(): void {
   )
 
   // Notification Settings
-  ipcMain.handle('config:get-notification-sound-enabled', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_NOTIFICATION_SOUND_ENABLED, () => {
     return configManager.getNotificationSoundEnabled()
   })
 
   ipcMain.handle(
-    'config:set-notification-sound-enabled',
+    IPC_INVOKE.CONFIG_SET_NOTIFICATION_SOUND_ENABLED,
     (_event: IpcMainInvokeEvent, enabled: boolean) => {
       if (typeof enabled !== 'boolean') return { success: false }
       configManager.setNotificationSoundEnabled(enabled)
@@ -134,12 +140,12 @@ export function registerConfigHandlers(): void {
     }
   )
 
-  ipcMain.handle('config:get-notification-sound-path', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_NOTIFICATION_SOUND_PATH, () => {
     return configManager.getNotificationSoundPath()
   })
 
   ipcMain.handle(
-    'config:set-notification-sound-path',
+    IPC_INVOKE.CONFIG_SET_NOTIFICATION_SOUND_PATH,
     (_event: IpcMainInvokeEvent, filePath: string) => {
       if (typeof filePath !== 'string') return { success: false }
 
@@ -164,7 +170,7 @@ export function registerConfigHandlers(): void {
     }
   )
 
-  ipcMain.handle('config:pick-audio-file', async () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_PICK_AUDIO_FILE, async () => {
     const result = await dialog.showOpenDialog({
       title: 'Select notification sound',
       filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'] }],
@@ -185,7 +191,7 @@ export function registerConfigHandlers(): void {
     return { success: true, filePath }
   })
 
-  ipcMain.handle('config:play-notification-sound', async () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_PLAY_NOTIFICATION_SOUND, async () => {
     const soundPath = configManager.getNotificationSoundPath()
     if (!isSupportedNotificationSoundPath(soundPath)) return null
     return readNotificationSoundAsBase64(soundPath)
@@ -209,33 +215,36 @@ export function registerConfigHandlers(): void {
   }
 
   // Finance Watchlist
-  ipcMain.handle('config:get-finance-watchlist', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_FINANCE_WATCHLIST, () => {
     return configManager.getFinanceWatchlist()
   })
 
-  ipcMain.handle('config:set-finance-watchlist', (_event: IpcMainInvokeEvent, symbols: unknown) => {
-    if (!Array.isArray(symbols) || !symbols.every(s => typeof s === 'string')) {
-      return { success: false }
+  ipcMain.handle(
+    IPC_INVOKE.CONFIG_SET_FINANCE_WATCHLIST,
+    (_event: IpcMainInvokeEvent, symbols: unknown) => {
+      if (!Array.isArray(symbols) || !symbols.every(s => typeof s === 'string')) {
+        return { success: false }
+      }
+      configManager.setFinanceWatchlist(symbols)
+      return { success: true }
     }
-    configManager.setFinanceWatchlist(symbols)
-    return { success: true }
-  })
+  )
 
   // Full Config
-  ipcMain.handle('config:get-config', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_CONFIG, () => {
     return configManager.getConfig()
   })
 
-  ipcMain.handle('config:get-store-path', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_GET_STORE_PATH, () => {
     return configManager.getStorePath()
   })
 
-  ipcMain.handle('config:open-in-editor', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_OPEN_IN_EDITOR, () => {
     shell.openPath(configManager.getStorePath())
     return { success: true }
   })
 
-  ipcMain.handle('config:reset', () => {
+  ipcMain.handle(IPC_INVOKE.CONFIG_RESET, () => {
     configManager.reset()
     return { success: true }
   })

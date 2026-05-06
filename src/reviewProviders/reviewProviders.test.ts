@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { copilotProvider } from './copilotProvider'
-import { codeRabbitProvider, clearCodeRabbitDetectionCache } from './codeRabbitProvider'
 import {
+  copilotProvider,
+  codeRabbitProvider,
+  clearCodeRabbitDetectionCache,
   allProviders,
   detectAvailableProviders,
   getProviderById,
   clearAvailabilityCache,
-} from './registry'
+} from './index'
 import type { GitHubClient } from '../api/github'
 
 function mockClient(overrides: Partial<GitHubClient> = {}): GitHubClient {

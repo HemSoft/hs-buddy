@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import type { AssistantMessage, AssistantContext } from '../types/assistant'
 import { serializeContext } from './useAssistantContext'
 import { getErrorMessage } from '../utils/errorUtils'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 let messageIdCounter = 0
 function nextId(): string {
@@ -50,7 +51,7 @@ export function useAssistantConversation(context: AssistantContext) {
           content: m.content,
         }))
 
-        const response = await window.ipcRenderer.invoke('copilot:chat-send', {
+        const response = await window.ipcRenderer.invoke(IPC_INVOKE.COPILOT_CHAT_SEND, {
           message: trimmed,
           context: systemPrompt,
           conversationHistory: history,
@@ -96,7 +97,7 @@ export function useAssistantConversation(context: AssistantContext) {
         m.role === 'assistant' && !m.content ? { ...m, content: '*(response aborted)*' } : m
       )
     )
-    window.ipcRenderer.invoke('copilot:chat-abort').catch(() => {})
+    window.ipcRenderer.invoke(IPC_INVOKE.COPILOT_CHAT_ABORT).catch(() => {})
   }, [])
 
   return {

@@ -3,6 +3,7 @@ import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
 import { graphql } from '@octokit/graphql'
 import type { PRConfig } from '../../types/pullRequest'
+import { IPC_INVOKE } from '../../ipc/contracts'
 
 // ── Re-exports for domain modules ──────────────────────────────────────────
 export { graphql }
@@ -231,7 +232,7 @@ export function getOrgAvatarCacheEntry(org: string): string | null | undefined {
  */
 export async function getActiveCliAccount(): Promise<string | null> {
   try {
-    const output: string = await window.ipcRenderer.invoke('github:get-active-account')
+    const output: string = await window.ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT)
     return output?.trim() || null
   } catch (_: unknown) {
     return null
@@ -251,7 +252,7 @@ export async function getGitHubCLIToken(username: string): Promise<string | null
 
   try {
     // Use window.ipcRenderer to invoke a main process handler that runs 'gh auth token --user <username>'
-    const token = await window.ipcRenderer.invoke('github:get-cli-token', username)
+    const token = await window.ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, username)
     if (token && typeof token === 'string' && token.trim().length > 0) {
       const trimmedToken = token.trim()
       tokenCache.set(username, trimmedToken)

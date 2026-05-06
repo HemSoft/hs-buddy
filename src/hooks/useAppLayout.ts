@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { DEFAULT_ASSISTANT_PANE_SIZE, DEFAULT_PANE_SIZES, normalizePaneSizes } from '../appUtils'
 import { isModKey } from '../utils/platform'
+import { IPC_INVOKE, IPC_PUSH } from '../ipc/contracts'
 
 const PANE_SAVE_DEBOUNCE_MS = 300
 
@@ -22,8 +23,8 @@ export function useAppLayout() {
     let isCancelled = false
 
     Promise.allSettled([
-      window.ipcRenderer.invoke('config:get-pane-sizes') as Promise<number[]>,
-      window.ipcRenderer.invoke('config:get-assistant-open') as Promise<boolean>,
+      window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_PANE_SIZES) as Promise<number[]>,
+      window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_ASSISTANT_OPEN) as Promise<boolean>,
     ]).then(([paneSizesResult, assistantOpenResult]) => {
       if (isCancelled) {
         return
@@ -80,7 +81,9 @@ export function useAppLayout() {
 
     paneSaveTimeoutRef.current = setTimeout(() => {
       setLayoutState(currentState => {
-        window.ipcRenderer.invoke('config:set-pane-sizes', currentState.paneSizes)
+        window.ipcRenderer
+          .invoke(IPC_INVOKE.CONFIG_SET_PANE_SIZES, currentState.paneSizes)
+          .catch(() => {})
         return currentState
       })
     }, PANE_SAVE_DEBOUNCE_MS)
@@ -89,7 +92,9 @@ export function useAppLayout() {
   const toggleAssistant = useCallback(() => {
     setLayoutState(currentState => {
       const nextAssistantOpen = !currentState.assistantOpen
-      window.ipcRenderer.invoke('config:set-assistant-open', nextAssistantOpen).catch(() => {})
+      window.ipcRenderer
+        .invoke(IPC_INVOKE.CONFIG_SET_ASSISTANT_OPEN, nextAssistantOpen)
+        .catch(() => {})
       return {
         ...currentState,
         assistantOpen: nextAssistantOpen,
@@ -98,9 +103,9 @@ export function useAppLayout() {
   }, [])
 
   useEffect(() => {
-    window.ipcRenderer.on('toggle-assistant', toggleAssistant)
+    window.ipcRenderer.on(IPC_PUSH.TOGGLE_ASSISTANT, toggleAssistant)
     return () => {
-      window.ipcRenderer.off('toggle-assistant', toggleAssistant)
+      window.ipcRenderer.off(IPC_PUSH.TOGGLE_ASSISTANT, toggleAssistant)
     }
   }, [toggleAssistant])
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 import { getErrorMessage, getErrorMessageWithFallback } from '../utils/errorUtils'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 export interface QuoteData {
   symbol: string
@@ -130,9 +131,11 @@ function persistWatchlist(symbols: string[]): void {
   /* v8 ignore start */
   if (!window.ipcRenderer?.invoke) return
   /* v8 ignore stop */
-  window.ipcRenderer.invoke('config:set-finance-watchlist', symbols).catch((err: unknown) => {
-    console.warn('[useFinance] Failed to persist watchlist via IPC:', err)
-  })
+  window.ipcRenderer
+    .invoke(IPC_INVOKE.CONFIG_SET_FINANCE_WATCHLIST, symbols)
+    .catch((err: unknown) => {
+      console.warn('[useFinance] Failed to persist watchlist via IPC:', err)
+    })
 }
 
 export function useFinance() {
@@ -239,7 +242,7 @@ export function useFinance() {
     if (!window.ipcRenderer?.invoke) return
     /* v8 ignore stop */
     window.ipcRenderer
-      .invoke('config:get-finance-watchlist')
+      .invoke(IPC_INVOKE.CONFIG_GET_FINANCE_WATCHLIST)
       .then((raw: unknown) => {
         if (cancelled || mutatedRef.current) return
         const sanitized = sanitizeWatchlist(raw)

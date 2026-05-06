@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useIsMounted } from './useIsMounted'
 import { safeGetItem, safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 export interface DashboardCardDef {
   id: string
@@ -102,7 +103,7 @@ export function useDashboardCards() {
   useEffect(() => {
     let cancelled = false
     window.ipcRenderer
-      .invoke('config:get-dashboard-cards')
+      .invoke(IPC_INVOKE.CONFIG_GET_DASHBOARD_CARDS)
       .then((raw: unknown) => {
         if (cancelled || mutatedRef.current) return
         const sanitized = sanitize(raw)
@@ -142,46 +143,48 @@ export function useDashboardCards() {
       setVisibility(next)
       writeCache(next)
 
-      window.ipcRenderer.invoke('config:set-dashboard-cards', next).catch((err: unknown) => {
-        console.warn('[useDashboardCards] Failed to save to config store:', err)
-        // Only resync if no newer toggle has occurred since this one and component is still mounted
-        if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
-        // Re-read the authoritative store so the UI converges back
-        window.ipcRenderer
-          .invoke('config:get-dashboard-cards')
-          .then((raw: unknown) => {
-            if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
-            const sanitized = sanitize(raw)
-            if (sanitized === null) {
-              if (!isEmptyPlainObject(raw)) {
-                console.warn(
-                  '[useDashboardCards] Malformed IPC data after save failure, reverting local state'
-                )
-                mutatedRef.current = false
-                writeCache(prev)
-                visibilityRef.current = prev
-                setVisibility(prev)
-                return
+      window.ipcRenderer
+        .invoke(IPC_INVOKE.CONFIG_SET_DASHBOARD_CARDS, next)
+        .catch((err: unknown) => {
+          console.warn('[useDashboardCards] Failed to save to config store:', err)
+          // Only resync if no newer toggle has occurred since this one and component is still mounted
+          if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+          // Re-read the authoritative store so the UI converges back
+          window.ipcRenderer
+            .invoke(IPC_INVOKE.CONFIG_GET_DASHBOARD_CARDS)
+            .then((raw: unknown) => {
+              if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+              const sanitized = sanitize(raw)
+              if (sanitized === null) {
+                if (!isEmptyPlainObject(raw)) {
+                  console.warn(
+                    '[useDashboardCards] Malformed IPC data after save failure, reverting local state'
+                  )
+                  mutatedRef.current = false
+                  writeCache(prev)
+                  visibilityRef.current = prev
+                  setVisibility(prev)
+                  return
+                }
               }
-            }
-            const merged = mergeWithDefaults(sanitized)
-            mutatedRef.current = false
-            writeCache(merged)
-            visibilityRef.current = merged
-            setVisibility(merged)
-          })
-          .catch((reloadErr: unknown) => {
-            if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
-            console.warn(
-              '[useDashboardCards] Failed to reload config store after save failure:',
-              reloadErr
-            )
-            mutatedRef.current = false
-            writeCache(prev)
-            visibilityRef.current = prev
-            setVisibility(prev)
-          })
-      })
+              const merged = mergeWithDefaults(sanitized)
+              mutatedRef.current = false
+              writeCache(merged)
+              visibilityRef.current = merged
+              setVisibility(merged)
+            })
+            .catch((reloadErr: unknown) => {
+              if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+              console.warn(
+                '[useDashboardCards] Failed to reload config store after save failure:',
+                reloadErr
+              )
+              mutatedRef.current = false
+              writeCache(prev)
+              visibilityRef.current = prev
+              setVisibility(prev)
+            })
+        })
     },
     [mountedRef]
   )

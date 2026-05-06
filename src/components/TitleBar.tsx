@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Users, Sparkles, TerminalSquare } from 'lucide-react'
 import { AboutModal } from './AboutModal'
 import { modLabel, isMac } from '../utils/platform'
+import { IPC_SEND } from '../ipc/contracts'
 import './TitleBar.css'
 
 interface MenuItem {
@@ -56,7 +57,7 @@ function buildMenus(setShowAbout: (v: boolean) => void): Menu[] {
         {
           label: 'Toggle DevTools',
           accelerator: isMac ? '⌥⌘I' : 'Ctrl+Shift+I',
-          action: () => window.ipcRenderer.send('toggle-devtools'),
+          action: () => window.ipcRenderer.send(IPC_SEND.TOGGLE_DEVTOOLS),
         },
         { type: 'separator' },
         { label: 'Full Screen', accelerator: isMac ? '⌃⌘F' : 'F11' },
@@ -113,11 +114,11 @@ export function TitleBar({
   }
 
   const handleMinimize = () => {
-    window.ipcRenderer.send('window-minimize')
+    window.ipcRenderer.send(IPC_SEND.WINDOW_MINIMIZE)
   }
 
   const handleMaximize = () => {
-    window.ipcRenderer.send('window-maximize')
+    window.ipcRenderer.send(IPC_SEND.WINDOW_MAXIMIZE)
   }
 
   const handleClose = () => {

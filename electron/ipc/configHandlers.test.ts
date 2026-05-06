@@ -43,9 +43,13 @@ vi.mock('../../src/utils/notificationSound', () => ({
   MAX_NOTIFICATION_SOUND_BYTES: 10_000_000,
 }))
 
-vi.mock('../../src/ipc/contracts', () => ({
-  CONFIG_UI_KEYS: ['theme', 'accent-color', 'zoom-level'] as const,
-}))
+vi.mock('../../src/ipc/contracts', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../src/ipc/contracts')>()
+  return {
+    ...actual,
+    CONFIG_UI_KEYS: ['theme', 'accent-color', 'zoom-level'] as const,
+  }
+})
 
 import { ipcMain, dialog, shell } from 'electron'
 import { registerConfigHandlers } from './configHandlers'

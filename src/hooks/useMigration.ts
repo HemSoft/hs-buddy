@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 async function migrateAccounts<T>(
   configAccounts: T[] | undefined,
@@ -78,7 +79,7 @@ export function useMigrateToConvex() {
     const migrate = async () => {
       try {
         // Get data from electron-store
-        const config = await window.ipcRenderer.invoke('config:get-config')
+        const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
 
         await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
         await migrateSettings(config.pr, existingSettings, initSettings)

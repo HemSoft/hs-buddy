@@ -8,10 +8,11 @@ import {
   parseChartResponse,
 } from '../../src/utils/financeCalc'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
+import { IPC_INVOKE } from '../../src/ipc/contracts'
 
 export function registerFinanceHandlers(): void {
   ipcMain.handle(
-    'finance:fetch-quote',
+    IPC_INVOKE.FINANCE_FETCH_QUOTE,
     async (_event, symbol: string): Promise<FinanceQuoteResult> => {
       const upper = normalizeSymbol(symbol)
       if (!upper || !isValidSymbol(upper)) {

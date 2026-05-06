@@ -120,7 +120,13 @@ export async function listPRIssueComments(
   repo: string,
   pullNumber: number
 ): Promise<
-  { id: number; user: { login: string } | null; body: string; created_at: string; updated_at: string }[]
+  {
+    id: number
+    user: { login: string } | null
+    body: string
+    created_at: string
+    updated_at: string
+  }[]
 > {
   const octokit = await getOctokitForOwner(config, owner)
   const data = await octokit.paginate(octokit.issues.listComments, {

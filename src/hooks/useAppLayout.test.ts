@@ -113,6 +113,7 @@ describe('useAppLayout', () => {
 
   it('debounces and coalesces rapid pane size changes', async () => {
     vi.useFakeTimers()
+    vi.mocked(window.ipcRenderer.invoke).mockRejectedValue(new Error('IPC down'))
 
     const { result } = renderHook(() => useAppLayout())
 

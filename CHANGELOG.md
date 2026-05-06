@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Detect edited comments via updated_at timestamp
 - Resolve CI failures and PR review comments on IPC contract testing
+- Resolve CI lint and test failures
 
 ### Changed
 

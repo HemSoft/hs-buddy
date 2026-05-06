@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Detect edited comments via updated_at timestamp
 
+### Changed
+
+- Add CONTRIBUTING.md with setup and PR conventions
+
 ## [0.1.747] - 2026-05-06
 
 ### Fixed

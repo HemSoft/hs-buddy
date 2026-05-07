@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detect edited comments via updated_at timestamp
 - Resolve CI failures and PR review comments on IPC contract testing
 - Resolve CI lint and test failures
+- Use double quotes for test:a11y Vitest filter for Windows compatibility
 
 ### Changed
 

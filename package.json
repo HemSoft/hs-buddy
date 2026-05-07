@@ -18,7 +18,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,json,css}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:a11y": "vitest run --reporter=verbose -t 'no accessibility violations'",
+    "test:a11y": "vitest run --reporter=verbose -t \"no accessibility violations\"",
     "test:coverage": "vitest run --coverage",
     "test:electron": "vitest run --config vitest.electron.config.ts",
     "test:electron:coverage": "vitest run --config vitest.electron.config.ts --coverage",

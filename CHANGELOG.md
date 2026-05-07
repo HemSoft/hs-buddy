@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parameterize pr-review-all.ps1 for positional PR number
 - Update TODO.md — mark coverage 100% done, update progress counts
 - Lower RalphDashboard complexity
+- Refresh CRAP score snapshot
 
 ## [0.1.747] - 2026-05-06
 

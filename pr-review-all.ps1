@@ -1,0 +1,1 @@
+pr-reviewer -PRNumber 14 -Provider opencode -Model kimi-k2.6 -Mode All

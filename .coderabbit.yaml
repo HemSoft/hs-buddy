@@ -2,11 +2,9 @@
 language: "en-US"
 
 tone_instructions: >
-  Be direct and concise. Focus on bugs, security, and correctness.
-  Do not comment on style preferences already enforced by ESLint.
-  Label every comment with severity: [Critical] or [Medium].
-  Only block approval for Critical findings (security, data loss, crashes,
-  breaking API changes, race conditions).
+  Be direct and concise. Focus on bugs, security, correctness.
+  Skip style already enforced by ESLint. Label severity: [Critical] or [Medium].
+  Only block for Critical (security, data loss, crashes, breaking changes).
 
 early_access: true
 

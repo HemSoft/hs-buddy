@@ -110,7 +110,14 @@ export function buildPtySpawnOptions(
     cols: opts.cols || 120,
     rows: opts.rows || 30,
     cwd,
-    env: { ...env },
+    env: {
+      ...env,
+      COLORTERM: 'truecolor',
+      TERM_PROGRAM: 'hs-buddy',
+      COLORFGBG: '15;0',
+      WT_SESSION: env.WT_SESSION || 'b916bc1b-75a7-4c9a-8a38-6e8d06032505',
+      WT_PROFILE_ID: env.WT_PROFILE_ID || '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}',
+    },
     ...(platform === 'win32' ? { useConpty: true } : {}),
   }
 }

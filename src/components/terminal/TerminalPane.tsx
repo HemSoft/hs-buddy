@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
 import {
   getSessionId,
   setSessionId,
@@ -66,7 +67,7 @@ export function TerminalPane({
       fontSize: 14,
       fontFamily: FULL_FONT_FAMILY,
       theme: {
-        background: '#1e1e1e',
+        background: '#0c0c0c',
         foreground: '#cccccc',
         cursor: '#ffffff',
         selectionBackground: '#264f78',
@@ -92,7 +93,29 @@ export function TerminalPane({
 
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
+
+    const unicode11Addon = new Unicode11Addon()
+    term.loadAddon(unicode11Addon)
+
     term.open(container)
+
+    // Activate Unicode 11 width tables so character widths match ConPTY's
+    // expectations — fixes TUI rendering in apps like Microsoft Edit.
+    term.unicode.activeVersion = '11'
+
+    // Cursor-line highlight: apply a subtle background to the row containing
+    // the cursor, replicating the visual cue seen in Windows Terminal.
+    const applyCursorRowHighlight = () => {
+      const rowContainer = container.querySelector('.xterm-rows')
+      if (!rowContainer) return
+      const prev = rowContainer.querySelector('.xterm-cursor-row')
+      if (prev) prev.classList.remove('xterm-cursor-row')
+      const cursorY = term.buffer.active.cursorY
+      const row = rowContainer.children[cursorY]
+      if (row) row.classList.add('xterm-cursor-row')
+    }
+    const cursorMoveDisposable = term.onCursorMove(applyCursorRowHighlight)
+    const renderDisposable = term.onRender(applyCursorRowHighlight)
 
     // Force xterm.js to re-measure glyphs once the Nerd Font is available.
     // Canvas-based renderers measure at open() time; if the font hasn't loaded
@@ -289,6 +312,8 @@ export function TerminalPane({
       active = false
       resizeObserver.disconnect()
       if (resizeTimer) clearTimeout(resizeTimer)
+      cursorMoveDisposable.dispose()
+      renderDisposable.dispose()
       inputDisposable.dispose()
       window.ipcRenderer.off(IPC_PUSH.TERMINAL_DATA, onData)
       window.ipcRenderer.off(IPC_PUSH.TERMINAL_EXIT, onSessionExit)

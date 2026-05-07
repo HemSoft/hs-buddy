@@ -223,11 +223,24 @@ describe('buildPtySpawnOptions', () => {
     expect(result.rows).toBe(30)
   })
 
-  it('clones env rather than using the original reference', () => {
+  it('clones env and adds terminal capability signals', () => {
     const env = { PATH: '/usr/bin' }
     const result = buildPtySpawnOptions({}, '/tmp', env, 'darwin')
-    expect(result.env).toEqual(env)
+    expect(result.env).toMatchObject({
+      ...env,
+      COLORTERM: 'truecolor',
+      TERM_PROGRAM: 'hs-buddy',
+      COLORFGBG: '15;0',
+      WT_SESSION: expect.any(String),
+      WT_PROFILE_ID: expect.any(String),
+    })
     expect(result.env).not.toBe(env)
+  })
+
+  it('preserves existing WT_SESSION from host env', () => {
+    const env = { PATH: '/usr/bin', WT_SESSION: 'real-session-id' }
+    const result = buildPtySpawnOptions({}, '/tmp', env, 'darwin')
+    expect((result.env as Record<string, string>).WT_SESSION).toBe('real-session-id')
   })
 
   it('adds useConpty on win32', () => {

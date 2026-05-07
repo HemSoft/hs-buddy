@@ -4,8 +4,15 @@
 | ------ | -------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ✅     | High     | Terminal Folder View & File Preview                                                | 2026-05-05: FolderExplorerView, FolderTree, FilePreview in src/components/explorer/. FilesystemHandlers IPC. Shiki syntax highlighting. (#8 closed)                                                                                                  |
 | ✅     | High     | IPC Contract Testing                                                                | 2026-05-05: src/ipc/contracts.ts (single source of truth), contracts.test.ts + contracts.registration.test.ts, all handlers import from shared constant (#7 closed)                                                                                         |
-| 📋     | Medium   | [Performance Testing Suite](#performance-testing-suite)                            | #10 — Remaining: Lighthouse CI. Done: bench-compare.ts + benchmarks.yml CI workflow, react-scan (replaces WDYR for React 19), startup/memory/IPC bench infra                                                                                           |
-| 📋     | Medium   | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | #9 — Remaining: `electronegativity` for Electron security, expand axe-core to more component tests. Done: `dependency-cruiser` ✅, `unicorn` ✅, `strict` ✅, `vitest-axe` + axe-helper (4 tests) ✅                                                     |
+| 📋     | High     | [Close test coverage gap to 100%](#close-test-coverage-gap-to-100)                | Perfection audit: stmts 99.56%, branches 99.45%, fns 99.74%, lines 99.59% — ~48 stmts, 38 branches, 9 fns, 40 lines uncovered |
+| 📋     | High     | [Update bundle-size baseline](#update-bundle-size-baseline)                        | Perfection audit: main.js +372%, index.js +40%, preload.mjs +39% over baseline — investigate if baseline is stale or bundle needs tree-shaking |
+| 📋     | Medium   | [Reduce CRAP scores](#reduce-crap-scores)                                         | Perfection audit: 331 functions with cyclomatic complexity > 5. Target: all functions CRAP < 6 via refactoring + coverage |
+| 📋     | Medium   | [Improve React Doctor score](#improve-react-doctor-score)                          | Perfection audit: 82/100 — 138 warnings across 47 files (Date.now in JSX, filter().map() chains, sequential setState, etc.) |
+| 📋     | Medium   | [Performance Testing Suite](#performance-testing-suite)                            | #10 — Remaining: Lighthouse CI. Done: bench-compare.ts + benchmarks.yml CI workflow, react-scan (replaces WDYR for React 19), startup/memory/IPC bench infra |
+| 📋     | Medium   | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | #9 — Remaining: `electronegativity` for Electron security, expand axe-core to more component tests. Done: `dependency-cruiser` ✅, `unicorn` ✅, `strict` ✅, `vitest-axe` + axe-helper (4 tests) ✅ |
+| 📋     | Low      | [Fix Prettier formatting violations](#fix-prettier-formatting-violations)          | Perfection audit: 33 files unformatted — auto-fix with `bun run format` |
+| 📋     | Low      | [Fix Markdown lint errors](#fix-markdown-lint-errors)                              | Perfection audit: 7 errors (MD040, MD032, MD047) — mostly auto-fixable with `bun run lint:md:fix` |
+| 📋     | Low      | Fix e18e pkg.main packaging config                                                | Perfection audit: pkg.main references dist-electron/main.js but file not in pkg.files — update package.json |
 | ✅     | Medium   | Card/List View Toggle for all list pages                                           | 2026-05-05: ViewModeToggle + useViewMode shared; PR, Issue, RepoPR, RunList all toggling ✅                                                                                                                                                              |
 | ✅     | Medium   | Add CONTRIBUTING.md                                                                | 2026-05-05: Setup guide, PR conventions, testing expectations, code quality rules (#702)                                                                                                                                                                  |
 | ✅     | High     | Upgrade TypeScript 5.x → 6.0.3                                                     | 2026-05-05: PR #6 merged — TypeScript 6.0.3 + TS7 native preview (tsgo)                                                                                                                                                                                   |
@@ -93,7 +100,7 @@
 
 ## Progress
 
-**Remaining: 2** | **Completed: 86** (98%)
+**Remaining: 9** | **Completed: 86** (91%)
 
 ---
 
@@ -104,6 +111,7 @@
 Remaining work: `electronegativity` + expand axe-core coverage. Other items are complete.
 
 **Already done:**
+
 - ✅ `dependency-cruiser` — installed, configured, `deps:check` script
 - ✅ `eslint-plugin-unicorn` — installed and active
 - ✅ TypeScript `strict` preset rules — key rules promoted as warnings
@@ -126,6 +134,7 @@ Remaining work: `electronegativity` + expand axe-core coverage. Other items are 
 Remaining work: Lighthouse CI only. Other items are complete.
 
 **Already done:**
+
 - ✅ Benchmark CI gating — `benchmarks.yml` workflow with `bench-compare.ts` comparator
 - ✅ React render profiling — `react-scan` (React 19 compatible replacement for WDYR) in dev mode
 - ✅ Startup timing, memory monitoring, IPC throughput benchmarks in `perf/`
@@ -137,6 +146,70 @@ Remaining work: Lighthouse CI only. Other items are complete.
 2. Create `lighthouse.config.ts` for Electron renderer URL
 3. Add LH CI step to CI workflow (informational initially)
 
-### CONTRIBUTING.md
+### Close test coverage gap to 100%
 
-Document contributor setup (Bun, Convex, environment variables), PR conventions, and testing expectations for external contributors.
+**Current state** (2026-05-07 perfection audit):
+
+- Statements: 99.56% (48 uncovered)
+- Branches: 99.45% (38 uncovered)
+- Functions: 99.74% (9 uncovered)
+- Lines: 99.59% (40 uncovered)
+
+**Approach**: Run `bun run test:coverage` and examine the uncovered lines report. Write targeted tests for the ~48 uncovered statements. CI enforces 100% threshold.
+
+---
+
+### Update bundle-size baseline
+
+**Current state** (2026-05-07 perfection audit):
+
+- `dist-electron/main.js`: 3.67 MB vs 795 kB baseline (+372%)
+- `dist/assets/index.js`: 2.28 MB vs 1.64 MB baseline (+40%)
+- `dist-electron/preload.mjs`: 16.80 kB vs 12.08 kB baseline (+39%)
+
+**Approach**: Determine if baseline is stale (legitimate growth from features) or if tree-shaking/code-splitting can reduce size. If growth is intentional, update `bundle-size-baseline.json`. If not, analyze imports with `bun run bundle-size --analyze`.
+
+---
+
+### Reduce CRAP scores
+
+**Current state** (2026-05-07 perfection audit):
+
+- 331 functions with cyclomatic complexity > 5
+- Notable: `appendOptionalArgs` (10), `validateTimingConfig` (9), `comparePrompts` (8), `resolveScriptPath` (8), `launchLoop` (8)
+
+**Approach**: Prioritize functions with both high complexity AND low coverage (highest CRAP). Refactor by extracting helper functions, using early returns, and simplifying conditionals. Add tests to increase coverage for complex paths.
+
+---
+
+### Improve React Doctor score
+
+**Current state** (2026-05-07 perfection audit):
+
+- Score: 82/100 (138 warnings, 47 files)
+- Top findings: Date.now() in JSX (64), .filter().map() chains (13), useState never read (7), multiple setState in useEffect (5), sequential awaits (4)
+
+**Approach**: Fix by category — largest impact first:
+
+1. Date.now() in JSX → wrap in useEffect+useState
+2. .filter().map() → single .reduce() or for...of
+3. Unused useState → convert to useRef
+4. Multiple setState → useReducer
+
+---
+
+### Fix Prettier formatting violations
+
+33 files failing `prettier --check`. Auto-fix: `bun run format`. Verify no unintended changes before committing.
+
+---
+
+### Fix Markdown lint errors
+
+7 errors across 5 files:
+
+- MD040 (fenced code blocks need language): debug/SKILL.md, CONTRIBUTING.md ×2
+- MD032 (blank lines around lists): perfection/SKILL.md, TODO.md
+- MD047 (trailing newline): todo/History/2026-05-05.md
+
+Auto-fix: `bun run lint:md:fix`, then manually add language specifiers to fenced code blocks.

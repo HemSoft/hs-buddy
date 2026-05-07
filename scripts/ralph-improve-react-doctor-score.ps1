@@ -1,11 +1,13 @@
 # ralph-improve-react-doctor-score.ps1 — React Doctor score improver.
-# Version: 1.2.0
+# Version: 1.3.1
 param(
     [switch]$Autopilot,
     [switch]$NoAudio,
     [switch]$SkipReview,
     [string]$Model,
     [string]$Provider,
+    [string]$ReviewProduct,
+    [string]$ReviewMode,
     [string[]]$Agents,
     [string]$WorkUntil,
     [switch]$Once,
@@ -20,13 +22,15 @@ if ($Help) {
     Write-Host ""
     Write-Host "PARAMETERS" -ForegroundColor Yellow
     Write-Host "  -Model <name>          Model to use (validated by ralph.ps1)"
-    Write-Host "  -Provider <name>       CLI provider: copilot, opencode (validated by ralph.ps1)"
+    Write-Host "  -Provider <name>       CLI provider to pass through (validated downstream against config)"
+    Write-Host "  -ReviewProduct <name>  Automated PR review product for ralph-pr handoff"
+    Write-Host "  -ReviewMode <name>     Review request mode when the product supports multiple modes"
     Write-Host "  -Agents <specs>        Agent specs: role or role@model (validated by ralph.ps1)"
     Write-Host "                         Dev agents control the work loop; review agents run PR reviews"
     Write-Host "  -WorkUntil <HH:mm>     Stop after this local time"
     Write-Host "  -Autopilot             Enable autopilot mode (auto-merge PRs)"
     Write-Host "  -NoAudio               Suppress audio feedback"
-    Write-Host "  -SkipReview            Skip Copilot PR review requests"
+    Write-Host "  -SkipReview            Skip automated PR review requests"
     Write-Host "  -Once                  Run only one work iteration"
     Write-Host "  -Help                  Show this help message"
     Write-Host ""
@@ -52,6 +56,8 @@ if ($NoAudio) { $passThru['NoAudio'] = $true }
 if ($SkipReview) { $passThru['SkipReview'] = $true }
 if ($Model) { $passThru['Model'] = $Model }
 if ($Provider) { $passThru['Provider'] = $Provider }
+if ($ReviewProduct) { $passThru['ReviewProduct'] = $ReviewProduct }
+if ($ReviewMode) { $passThru['ReviewMode'] = $ReviewMode }
 if ($Agents) { $passThru['Agents'] = $Agents }
 if ($WorkUntil) { $passThru['WorkUntil'] = $WorkUntil }
 if ($Once) { $passThru['Once'] = $true }

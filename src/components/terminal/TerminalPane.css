@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #1e1e1e;
+  background: #0c0c0c;
 }
 
 .terminal-pane-header {
@@ -33,4 +33,9 @@
 
 .terminal-pane-body .xterm-viewport {
   overflow-y: auto !important;
+}
+
+/* Subtle highlight on the cursor's current row — mimics Windows Terminal behavior */
+.terminal-pane-body .xterm-rows > div.xterm-cursor-row {
+  background-color: rgba(255, 255, 255, 0.08);
 }

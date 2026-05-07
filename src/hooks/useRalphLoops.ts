@@ -97,5 +97,9 @@ export function useRalphLoops() {
     [refresh]
   )
 
-  return { runs, loading, error, launch, stop, refresh }
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
+
+  return { runs, loading, error, clearError, launch, stop, refresh }
 }

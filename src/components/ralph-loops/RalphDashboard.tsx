@@ -1,5 +1,6 @@
 import { useReducer, useCallback, useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
+import { AppErrorBoundary } from '../AppErrorBoundary'
 import { useRalphLoops } from '../../hooks/useRalphLoops'
 import { RalphLaunchForm } from './RalphLaunchForm'
 import type { RalphRunInfo, RalphTemplateInfo } from '../../types/ralph'
@@ -83,7 +84,7 @@ interface RalphDashboardProps {
 }
 
 export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
-  const { runs, loading, error: hookError, launch, stop, refresh } = useRalphLoops()
+  const { runs, loading, error: hookError, clearError, launch, stop, refresh } = useRalphLoops()
   const [state, dispatch] = useReducer(reducer, {
     viewMode: 'grid',
     error: null,
@@ -92,6 +93,7 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
     issueLaunchData: null,
   })
   const [templates, setTemplates] = useState<RalphTemplateInfo[]>([])
+  const [renderErrorResetKey, setRenderErrorResetKey] = useState(0)
 
   useEffect(() => {
     window.ralph
@@ -152,7 +154,9 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
 
   const handleClearError = useCallback(() => {
     dispatch({ type: 'setError', error: null })
-  }, [])
+    clearError()
+    setRenderErrorResetKey(current => current + 1)
+  }, [clearError])
 
   const handleLaunch = useCallback(
     async (config: Parameters<typeof launch>[0]) => {
@@ -179,6 +183,15 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
   const { active, recent } = partitionRuns(runs)
   const displayError = state.error ?? hookError
   const isLaunchView = state.viewMode === 'launch'
+  const dashboardBodyResetKey = [
+    renderErrorResetKey,
+    state.viewMode,
+    state.selectedScript ?? '',
+    state.prLaunchData?.prNumber ?? '',
+    state.issueLaunchData?.issueNumber ?? '',
+    templates.map(template => template.filename).join(','),
+    runs.map(run => `${run.runId}:${run.status}:${run.updatedAt}`).join(','),
+  ].join('|')
 
   if (loading) {
     return (
@@ -200,18 +213,36 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
       <div className="ralph-dashboard-body">
         <RalphDashboardErrorBanner error={displayError} onDismiss={handleClearError} />
 
-        {isLaunchView && (
-          <RalphLaunchForm
-            initialScript={state.selectedScript}
-            initialPR={state.prLaunchData}
-            initialIssue={state.issueLaunchData}
-            onLaunch={handleLaunch}
-          />
-        )}
+        <AppErrorBoundary
+          fallback={({ message, reset }) => (
+            <RalphDashboardErrorBanner
+              error={message}
+              onDismiss={() => {
+                reset()
+                handleClearError()
+              }}
+            />
+          )}
+          resetKey={dashboardBodyResetKey}
+        >
+          <>
+            {isLaunchView && (
+              <RalphLaunchForm
+                initialScript={state.selectedScript}
+                initialPR={state.prLaunchData}
+                initialIssue={state.issueLaunchData}
+                onLaunch={handleLaunch}
+              />
+            )}
 
-        <RalphDashboardAvailableScripts templates={templates} onLaunchScript={handleSelectScript} />
-        <RalphDashboardRunSection title="Active" runs={active} onStop={handleStop} />
-        <RalphDashboardRunSection title="Recent" runs={recent} onStop={handleStop} />
+            <RalphDashboardAvailableScripts
+              templates={templates}
+              onLaunchScript={handleSelectScript}
+            />
+            <RalphDashboardRunSection title="Active" runs={active} onStop={handleStop} />
+            <RalphDashboardRunSection title="Recent" runs={recent} onStop={handleStop} />
+          </>
+        </AppErrorBoundary>
       </div>
     </div>
   )

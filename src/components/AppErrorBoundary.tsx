@@ -1,23 +1,33 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
+interface AppErrorBoundaryFallbackProps {
+  error: Error | null
+  message: string
+  reset: () => void
+}
+
 interface AppErrorBoundaryProps {
   children: ReactNode
-  resetKey?: string | null
+  fallback?: (props: AppErrorBoundaryFallbackProps) => ReactNode
+  resetKey?: string | number | null
 }
 
 interface AppErrorBoundaryState {
+  error: Error | null
   hasError: boolean
   message: string
 }
 
 export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
   state: AppErrorBoundaryState = {
+    error: null,
     hasError: false,
     message: '',
   }
 
   static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
     return {
+      error,
       hasError: true,
       message: error.message || 'Unknown render error',
     }
@@ -29,13 +39,25 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
 
   componentDidUpdate(prevProps: AppErrorBoundaryProps): void {
     if (this.props.resetKey !== prevProps.resetKey && this.state.hasError) {
-      this.setState({ hasError: false, message: '' })
+      this.resetError()
     }
+  }
+
+  private resetError = () => {
+    this.setState({ error: null, hasError: false, message: '' })
   }
 
   render(): ReactNode {
     if (!this.state.hasError) {
       return this.props.children
+    }
+
+    if (this.props.fallback) {
+      return this.props.fallback({
+        error: this.state.error,
+        message: this.state.message,
+        reset: this.resetError,
+      })
     }
 
     return (

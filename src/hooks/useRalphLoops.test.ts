@@ -82,6 +82,21 @@ describe('useRalphLoops', () => {
     expect(result.current.error).toBe('IPC failed')
   })
 
+  it('clears hook errors on demand', async () => {
+    mockList.mockRejectedValue(new Error('IPC failed'))
+
+    const { result } = renderHook(() => useRalphLoops())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.error).toBe('IPC failed')
+
+    act(() => {
+      result.current.clearError()
+    })
+
+    expect(result.current.error).toBeNull()
+  })
+
   it('does not set runs when list returns non-array', async () => {
     mockList.mockResolvedValue(null)
 

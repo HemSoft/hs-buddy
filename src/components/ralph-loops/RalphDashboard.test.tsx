@@ -7,18 +7,25 @@ const mockLaunch = vi.fn()
 const mockStop = vi.fn()
 const mockRefresh = vi.fn()
 const mockListTemplates = vi.fn()
+let mockLoopCardShouldThrow = false
 
 vi.mock('../../hooks/useRalphLoops', () => ({
   useRalphLoops: vi.fn(),
 }))
 
 vi.mock('./RalphLoopCard', () => ({
-  RalphLoopCard: ({ run, onStop }: { run: RalphRunInfo; onStop: (id: string) => void }) => (
-    <div data-testid={`loop-card-${run.runId}`}>
-      <span>{run.runId}</span>
-      <button onClick={() => onStop(run.runId)}>Stop</button>
-    </div>
-  ),
+  RalphLoopCard: ({ run, onStop }: { run: RalphRunInfo; onStop: (id: string) => void }) => {
+    if (mockLoopCardShouldThrow) {
+      throw new Error('Loop card render failed')
+    }
+
+    return (
+      <div data-testid={`loop-card-${run.runId}`}>
+        <span>{run.runId}</span>
+        <button onClick={() => onStop(run.runId)}>Stop</button>
+      </div>
+    )
+  },
 }))
 
 vi.mock('./RalphLaunchForm', () => ({
@@ -37,22 +44,35 @@ import { useRalphLoops } from '../../hooks/useRalphLoops'
 import { RalphDashboard } from './RalphDashboard'
 
 const mockedUseRalphLoops = vi.mocked(useRalphLoops)
+let currentHookState: ReturnType<typeof useRalphLoops>
 
 function setupHook(overrides: Partial<ReturnType<typeof useRalphLoops>> = {}) {
-  mockedUseRalphLoops.mockReturnValue({
+  const clearError =
+    overrides.clearError ??
+    vi.fn(() => {
+      currentHookState = { ...currentHookState, error: null }
+    })
+
+  currentHookState = {
     runs: [],
     loading: false,
     error: null,
+    clearError,
     launch: mockLaunch,
     stop: mockStop,
     refresh: mockRefresh,
     ...overrides,
-  })
+  }
+
+  mockedUseRalphLoops.mockImplementation(() => currentHookState)
+
+  return { clearError }
 }
 
 describe('RalphDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLoopCardShouldThrow = false
     mockListTemplates.mockResolvedValue([])
     Object.defineProperty(window, 'ralph', {
       value: {
@@ -129,13 +149,16 @@ describe('RalphDashboard', () => {
     expect(screen.getByText('IPC failed')).toBeInTheDocument()
   })
 
-  it('dismisses error banner', () => {
-    setupHook({ error: 'IPC failed' })
-    render(<RalphDashboard />)
+  it('dismisses hook error banner', () => {
+    const { clearError } = setupHook({ error: 'IPC failed' })
+    const { rerender } = render(<RalphDashboard />)
+
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
-    // The hook error re-appears since it's from the hook, but state error is cleared
-    // The displayError is state.error ?? hookError, so clearing state.error still shows hookError
-    expect(screen.getByText('IPC failed')).toBeInTheDocument()
+
+    expect(clearError).toHaveBeenCalled()
+
+    rerender(<RalphDashboard />)
+    expect(screen.queryByText('IPC failed')).not.toBeInTheDocument()
   })
 
   it('handles stop failure by showing error', async () => {
@@ -320,7 +343,7 @@ describe('RalphDashboard', () => {
   it('error state clears when the dismiss button is clicked', async () => {
     mockStop.mockResolvedValue({ success: false, error: 'Stop failed' })
     setupHook({ error: 'Hook error', runs: [makeRun({ runId: 'r1', status: 'running' })] })
-    render(<RalphDashboard />)
+    const { rerender } = render(<RalphDashboard />)
 
     fireEvent.click(screen.getByText('Stop'))
 
@@ -331,8 +354,39 @@ describe('RalphDashboard', () => {
     const closeButton = screen.getByRole('button', { name: 'Dismiss' })
     fireEvent.click(closeButton)
 
-    // After dismissing state error, hook error still shows (state.error ?? hookError)
-    expect(screen.getByText('Hook error')).toBeInTheDocument()
+    rerender(<RalphDashboard />)
+    expect(screen.queryByText('Stop failed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hook error')).not.toBeInTheDocument()
+  })
+
+  it('shows a dashboard error banner when a run section throws during render', () => {
+    mockLoopCardShouldThrow = true
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    setupHook({ runs: [makeRun({ runId: 'active-1', status: 'running' })] })
+
+    render(<RalphDashboard />)
+
+    expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
+    expect(screen.getByText('Ralph Loops')).toBeInTheDocument()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('dismisses dashboard render errors after the child recovers', async () => {
+    mockLoopCardShouldThrow = true
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    setupHook({ runs: [makeRun({ runId: 'active-1', status: 'running' })] })
+
+    render(<RalphDashboard />)
+
+    expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
+
+    mockLoopCardShouldThrow = false
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loop-card-active-1')).toBeInTheDocument()
+    })
+    consoleErrorSpy.mockRestore()
   })
 
   it('partitions runs correctly: running as active, completed as recent', () => {

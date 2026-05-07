@@ -2,11 +2,11 @@
 
 | Status | Priority | Task                                                                               | Notes                                                                                                                                                                                                                                                     |
 | ------ | -------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | High     | [Terminal Folder View & File Preview](#terminal-folder-view--file-preview)         | #699 — Built-in file explorer synced to terminal CWD with code preview pane                                                                                                                                                                               |
-| 📋     | High     | [IPC Contract Testing](#ipc-contract-testing)                                      | #694 — 16 IPC handler files are the renderer↔main bridge with zero contract validation                                                                                                                                                                    |
-| 📋     | Medium   | [Performance Testing Suite](#performance-testing-suite)                            | #697 — CI benchmark gating and React render profiling remain; startup, memory, and IPC bench infra already in `perf/`                                                                                                                                     |
-| 📋     | Medium   | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | #692 — `dependency-cruiser` for import boundaries + circular deps, `electronegativity` for Electron security, ESLint `strict` preset, `unicorn` plugin, runtime a11y via axe-core                                                                         |
-| 📋     | Medium   | [Card/List View Toggle for all list pages](#cardlist-view-toggle)                  | #700 — Add table/grid view as alternative to card view on list pages                                                                                                                                                                                      |
+| ✅     | High     | Terminal Folder View & File Preview                                                | 2026-05-05: FolderExplorerView, FolderTree, FilePreview in src/components/explorer/. FilesystemHandlers IPC. Shiki syntax highlighting. (#8 closed)                                                                                                  |
+| ✅     | High     | IPC Contract Testing                                                                | 2026-05-05: src/ipc/contracts.ts (single source of truth), contracts.test.ts + contracts.registration.test.ts, all handlers import from shared constant (#7 closed)                                                                                         |
+| 📋     | Medium   | [Performance Testing Suite](#performance-testing-suite)                            | #10 — Remaining: Lighthouse CI. Done: bench-compare.ts + benchmarks.yml CI workflow, react-scan (replaces WDYR for React 19), startup/memory/IPC bench infra                                                                                           |
+| 📋     | Medium   | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | #9 — Remaining: `electronegativity` for Electron security, expand axe-core to more component tests. Done: `dependency-cruiser` ✅, `unicorn` ✅, `strict` ✅, `vitest-axe` + axe-helper (4 tests) ✅                                                     |
+| ✅     | Medium   | Card/List View Toggle for all list pages                                           | 2026-05-05: ViewModeToggle + useViewMode shared; PR, Issue, RepoPR, RunList all toggling ✅                                                                                                                                                              |
 | ✅     | Medium   | Add CONTRIBUTING.md                                                                | 2026-05-05: Setup guide, PR conventions, testing expectations, code quality rules (#702)                                                                                                                                                                  |
 | ✅     | High     | Upgrade TypeScript 5.x → 6.0.3                                                     | 2026-05-05: PR #6 merged — TypeScript 6.0.3 + TS7 native preview (tsgo)                                                                                                                                                                                   |
 | ✅     | High     | Split github.ts Monolith                                                           | 2026-05: `src/api/github.ts` (3,671 lines) split into 11 domain modules under `src/api/github/` (prs, orgs, users, repos, sfl, pr-detail, pr-threads, pr-mutations, shared, client, index)                                                                |
@@ -93,7 +93,7 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 82** (93%)
+**Remaining: 2** | **Completed: 86** (98%)
 
 ---
 
@@ -101,161 +101,41 @@
 
 ### Code Quality & Architecture Enforcement
 
-Consolidates code quality tooling, dependency analysis, and architecture enforcement into a single initiative.
+Remaining work: `electronegativity` + expand axe-core coverage. Other items are complete.
 
-#### Architecture Enforcement (dependency-cruiser)
+**Already done:**
+- ✅ `dependency-cruiser` — installed, configured, `deps:check` script
+- ✅ `eslint-plugin-unicorn` — installed and active
+- ✅ TypeScript `strict` preset rules — key rules promoted as warnings
+- ✅ `vitest-axe` + `axe-helper.ts` — 4 component tests have a11y checks (AboutModal, ActivityBar, ConfirmDialog, StatusBar)
 
-1. Install: `bun add -d dependency-cruiser`
-2. Generate config: `bunx depcruise --init`
-3. Configure rules: max fan-in per module (e.g., 15), no circular deps, enforce import boundaries (components can't import from electron/, convex/ can't import from src/)
-4. Add `"deps:check": "depcruise src --config"` to package.json scripts
-5. Add to CI as informational step initially, promote to blocking later
-6. Alternative: `madge` for quick circular dependency visualization (`bunx madge --circular src/`)
+#### Remaining: Electronegativity
 
-#### ESLint Plugin Expansion
+1. `bun add -d electronegativity`
+2. Run initial audit: `npx electronegativity -i electron/ -r`
+3. Triage findings, add as informational CI step
 
-- `eslint-plugin-unicorn` — modern JS best practices, performance patterns
-- Upgrade `typescript-eslint` from `recommended` → `strict` preset (adds no-unnecessary-condition, no-confusing-void-expression, etc.)
+#### Remaining: Expand axe-core Coverage
 
-#### Electron Security
-
-- `electronegativity` — static analysis for Electron security misconfigurations (nodeIntegration, contextIsolation, webSecurity)
-- Add as CI step: `npx electronegativity -i electron/ -r`
-
-#### Runtime Accessibility
-
-- `vitest-axe` — catches runtime ARIA violations that jsx-a11y ESLint misses
-- Add axe-core checks to component test suite
-
-### IPC Contract Testing
-
-The 16 IPC handler files in `electron/ipc/` register channels that the renderer process relies on. There is zero validation that these contracts are maintained — a renamed channel silently breaks features at runtime.
-
-#### Contract Testing Approach
-
-1. Extract a shared `IPC_CHANNELS` constant (or generate from TypeScript types)
-2. Write contract tests that verify each handler registers expected channels
-3. Test request/response shapes match what the renderer sends/expects
-4. Biggest risks: `githubHandlers.ts` (27KB, most complex), `terminalHandlers.ts` (14KB), `configHandlers.ts` (7KB)
+1. Add `axe()` + `toHaveNoViolations()` to more component test suites
+2. Prioritize heavy UI components: PullRequestList, RepoIssueList, SettingsPanel, TerminalPane
+3. Add `test:a11y` script to package.json
 
 ### Performance Testing Suite
 
-Remaining work: CI benchmark gating and React render profiling. The `perf/` directory already has startup timing, memory monitoring, and IPC throughput benchmarks.
+Remaining work: Lighthouse CI only. Other items are complete.
 
-#### Remaining Performance Areas
+**Already done:**
+- ✅ Benchmark CI gating — `benchmarks.yml` workflow with `bench-compare.ts` comparator
+- ✅ React render profiling — `react-scan` (React 19 compatible replacement for WDYR) in dev mode
+- ✅ Startup timing, memory monitoring, IPC throughput benchmarks in `perf/`
+- ✅ `vitest-axe` installed with `axe-helper.ts` util and 4 component test suites covering a11y
 
-1. **Benchmark CI Gating** — Store bench results as JSON artifact, compare PR against main baseline, fail if any benchmark regresses >15%. Use `vitest bench --outputJson` + a `scripts/bench-compare.ts` comparator
-2. **React Render Performance** — Add `why-did-you-render` in development mode to flag unnecessary re-renders. Track render counts for heavy components (PR list, org tree, schedule editor)
-3. **Lighthouse CI** — Run Lighthouse on the renderer process to score performance, a11y, and best practices
+#### Remaining: Lighthouse CI
 
-### Terminal Folder View & File Preview
-
-A built-in file explorer that shows the directory/file structure of the active terminal session's working directory, paired with a code preview pane above the terminal — similar to VS Code's explorer + editor layout.
-
-#### Core Behaviour
-
-- **Synced to terminal CWD**: The folder view shows the directory tree for whichever terminal tab is active. When the user switches terminal tabs, the folder view updates to reflect that tab's current working directory (leveraging the OSC 7 CWD tracking already implemented).
-- **File preview**: Clicking a file in the folder view opens a read-only code preview in the main content area (above the terminal, replacing `AppContentRouter`'s current view or in a new "file preview" tab).
-- **Syntax highlighting**: Use a lightweight approach — Monaco Editor (already bundled for most Electron apps), Shiki, or a simpler `<pre>` with highlight.js for common languages (C#, TypeScript, JSON, Markdown, YAML, Python, etc.).
-
-#### Terminal Folder Implementation Phases
-
-##### Phase 1: Folder View Sidebar (foundation)
-
-1. **Context menu entry**: Add "Folder View" toggle to `TerminalTabContextMenu.tsx` (icon: `FolderOpen` from lucide-react).
-2. **New component**: `FolderView.tsx` — tree-based file explorer using `window.terminal` IPC to read directory contents from the main process.
-3. **New IPC handler**: `terminal:read-dir` in `electron/ipc/terminalHandlers.ts` — given a path, return `{ name, type: 'file'|'dir', size }[]`. Security: constrain to the CWD subtree only.
-4. **Placement**: Add a new `Allotment.Pane` to the left of the terminal pane area (or as a collapsible side panel within the terminal region). The folder view sits beside the terminal output, not replacing it.
-5. **State**: `folderViewOpen: boolean` in `useTerminalPanel` hook, persisted to Convex settings alongside other terminal state.
-6. **Tree expansion**: Lazy-load subdirectories on expand (don't scan the full tree upfront). Remember expanded state per tab.
-
-#### Phase 2: File Preview Pane
-
-1. **File read IPC**: `terminal:read-file` handler — reads file contents (capped at 1MB, returns error for binary). Returns `{ content: string, language: string }`.
-2. **Preview component**: `FilePreview.tsx` — syntax-highlighted read-only code view. Use Shiki or highlight.js (lighter than Monaco for read-only). Show filename, line count, and file size in a header bar.
-3. **Integration with app layout**: File previews open as "ephemeral" tabs in `TabBar` (italic title, like VS Code's preview mode). Clicking another file replaces the ephemeral tab; double-clicking pins it.
-4. **Tab viewId convention**: `file-preview://<absolute-path>` so the router can render `FilePreview` for these IDs.
-
-#### Phase 3: Folder ↔ Terminal Sync
-
-1. **Auto-navigate on CWD change**: When the terminal's CWD changes (via existing `onCwdChange` callback), the folder view root updates automatically.
-2. **Navigate terminal from folder view**: Right-click a folder → "Open Terminal Here" changes the active terminal's CWD by writing `cd "<path>"\r` to the PTY.
-3. **Breadcrumb bar**: Show the current path as a clickable breadcrumb above the folder tree for quick navigation up the hierarchy.
-
-#### Phase 4: Polish & UX
-
-1. **File icons**: Use file-type icons (e.g., `vscode-icons` set or a custom SVG sprite) based on file extension.
-2. **Search/filter**: Quick filter input at the top of the folder view to narrow visible files.
-3. **Keyboard navigation**: Arrow keys to navigate tree, Enter to preview, Ctrl+Shift+E to toggle folder view.
-4. **Drag-and-drop to terminal**: Drag a file from the folder view to the terminal pane → inserts its path as text.
-5. **Binary file handling**: Show a "Binary file — cannot preview" placeholder with file size and type info.
-6. **Large file handling**: Files >1MB show a warning and truncate preview. Option to "Open Externally" via system default app.
-
-#### Architecture Notes
-
-- The folder view state (open/closed, root path) is per-terminal-tab and persists in Convex alongside `title`, `cwd`, `color`.
-- The `Allotment` layout in `App.tsx` already handles vertical splits (main content | terminal). The folder view adds a horizontal split within the terminal region: `[FolderView | TerminalPane]`.
-- File preview reuses the existing `TabBar` / `AppContentRouter` infrastructure — it's just a new view type.
-- IPC boundary: all filesystem access goes through Electron main process (never `fs` from renderer). This preserves the security model.
-
-#### Terminal Folder New Files
-
-| File                                     | Purpose                                 |
-| ---------------------------------------- | --------------------------------------- |
-| `src/components/terminal/FolderView.tsx` | Tree UI component                       |
-| `src/components/terminal/FolderView.css` | Styles                                  |
-| `src/components/FilePreview.tsx`         | Syntax-highlighted file viewer          |
-| `src/components/FilePreview.css`         | Styles                                  |
-| `electron/ipc/filesystemHandlers.ts`     | `read-dir` and `read-file` IPC handlers |
-
-#### Dependencies to Evaluate
-
-- **Shiki** (syntax highlighting, ~2MB, WASM-based, accurate) vs **highlight.js** (~1MB, regex-based, fast)
-- No new native modules needed — `fs.readdir` / `fs.readFile` are sufficient
-
-#### Terminal Feature Risks
-
-- 🟡 Large directories (node_modules) — must implement lazy loading + exclusion patterns (`.gitignore`-aware)
-- 🟡 Security — main process must validate paths are within the tab's CWD subtree to prevent directory traversal
-- 🟢 Performance — lazy tree + file size caps make this manageable
-
-### Card/List View Toggle
-
-Add a switchable Card ↔ List (table) view mode to all pages that render collections as cards. When a list has many items, a compact table/grid is easier to scan.
-
-#### Affected Pages
-
-- `PullRequestList.tsx` — PR cards (CSS grid, 400px min)
-- `RepoIssueList.tsx` — issue cards
-- `RepoPullRequestList.tsx` — repo-scoped PR cards
-- `RunList.tsx` / `RunCard.tsx` — workflow run cards
-
-#### Existing Pattern
-
-- `TempoDashboard.tsx` already has a Grid ↔ Timeline toggle (Grid3x3 / List icons). Extract and generalize this pattern.
-
-#### View Toggle Implementation Plan
-
-1. Create a shared `ViewModeToggle` component (Card icon / List icon toggle button group)
-2. Create a shared `useViewMode(key)` hook that persists preference per page to localStorage
-3. For each affected page:
-   - Add `ViewModeToggle` next to existing header/filter controls
-   - Card view = current rendering (no changes)
-   - List view = compact table with sortable columns (title, status, author, date, etc.)
-4. Refactor `TempoDashboard` to use the shared `ViewModeToggle` + `useViewMode` instead of its local state
-
-#### List View Columns
-
-- PRs: Title, Status (icon), Author, Repo, Updated, Reviews
-- Issues: Title, Status (icon), Author, Labels, Updated
-- Runs: Name, Status (icon), Duration, Triggered, Result
-
-#### UX Details
-
-- Toggle persists across sessions (localStorage keyed by page)
-- Smooth transition between views (no jarring flash)
-- Table rows should have hover highlight and click-to-open like cards
-- Keep existing search/filter controls — they apply to both views
+1. Add `@lhci/cli` as dev dependency
+2. Create `lighthouse.config.ts` for Electron renderer URL
+3. Add LH CI step to CI workflow (informational initially)
 
 ### CONTRIBUTING.md
 

@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add @xterm/addon-unicode11 dependency
 - Achieve 100% test coverage with cursor-highlight tests, barrel re-export tests, and v8-ignore fixes (no exclusions)
 - Achieve 100% coverage with proper tests (no exclusions)
+- Parameterize pr-review-all.ps1 for positional PR number
 
 ## [0.1.747] - 2026-05-06
 

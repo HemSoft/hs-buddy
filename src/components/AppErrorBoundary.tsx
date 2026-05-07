@@ -25,11 +25,18 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
     message: '',
   }
 
-  static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
+  static getDerivedStateFromError(error: unknown): AppErrorBoundaryState {
+    const normalizedError = error instanceof Error ? error : null
+    const message =
+      error instanceof Error
+        ? error.message || 'Unknown render error'
+        : typeof error === 'string' && error.length > 0
+          ? error
+          : 'Unknown render error'
     return {
-      error,
+      error: normalizedError,
       hasError: true,
-      message: error.message || 'Unknown render error',
+      message,
     }
   }
 

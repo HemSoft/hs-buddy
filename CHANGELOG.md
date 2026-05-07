@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expand axe-core a11y testing coverage and add test:a11y script
 - Add Lighthouse CI for renderer performance auditing
 - Add terminal prompt library
+- Improve terminal path utils and add paste/connectivity tests
 
 ### Fixed
 

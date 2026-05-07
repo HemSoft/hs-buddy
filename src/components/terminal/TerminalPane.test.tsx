@@ -17,6 +17,8 @@ const mockOpen = vi.fn()
 const mockDispose = vi.fn()
 const mockLoadAddon = vi.fn()
 const mockOnData = vi.fn(() => ({ dispose: vi.fn() }))
+const mockOnCursorMove = vi.fn(() => ({ dispose: vi.fn() }))
+const mockOnRender = vi.fn(() => ({ dispose: vi.fn() }))
 
 vi.mock('@xterm/xterm', () => {
   const TerminalClass = vi.fn(function (this: Record<string, unknown>) {
@@ -26,7 +28,11 @@ vi.mock('@xterm/xterm', () => {
     this.dispose = mockDispose
     this.loadAddon = mockLoadAddon
     this.onData = mockOnData
+    this.onCursorMove = mockOnCursorMove
+    this.onRender = mockOnRender
     this.options = {}
+    this.unicode = { activeVersion: '6' }
+    this.buffer = { active: { cursorY: 0 } }
   })
   return { Terminal: TerminalClass }
 })
@@ -40,6 +46,11 @@ vi.mock('@xterm/addon-fit', () => {
     this.proposeDimensions = mockProposeDimensions
   })
   return { FitAddon: FitAddonClass }
+})
+
+vi.mock('@xterm/addon-unicode11', () => {
+  const Unicode11AddonClass = vi.fn()
+  return { Unicode11Addon: Unicode11AddonClass }
 })
 
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))

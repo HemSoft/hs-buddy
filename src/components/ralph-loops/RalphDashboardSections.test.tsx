@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { RalphRunInfo } from '../../types/ralph'
+import { makeRun } from '../../test/fixtures/ralph'
 import {
   RalphDashboardAvailableScripts,
   RalphDashboardErrorBanner,
@@ -15,35 +16,6 @@ vi.mock('./RalphLoopCard', () => ({
     </div>
   ),
 }))
-
-function makeRun(overrides: Partial<RalphRunInfo> = {}): RalphRunInfo {
-  return {
-    runId: 'run-1',
-    config: { repoPath: '/test', scriptType: 'ralph' },
-    status: 'running',
-    phase: 'iterating',
-    pid: 100,
-    currentIteration: 1,
-    totalIterations: 3,
-    startedAt: Date.now() - 60_000,
-    updatedAt: Date.now(),
-    completedAt: null,
-    exitCode: null,
-    error: null,
-    logBuffer: [],
-    stats: {
-      checks: 0,
-      agentTurns: 0,
-      reviews: 0,
-      copilotPRs: 0,
-      issuesCreated: 0,
-      scanIterations: 0,
-      totalCost: null,
-      totalPremium: 0,
-    },
-    ...overrides,
-  } as RalphRunInfo
-}
 
 describe('RalphDashboardSections', () => {
   it('renders nothing when the error banner has no error', () => {
@@ -138,19 +110,42 @@ describe('RalphDashboardSections', () => {
     expect(onStop).toHaveBeenCalledWith('active-1')
   })
 
-  it('toggles the header active state', () => {
-    const onToggleLaunchView = vi.fn()
+  it('applies the active class to the New Loop button when launch view is selected', () => {
     render(
       <RalphDashboardHeader
         isLaunchView={true}
+        onRefresh={() => undefined}
+        onToggleLaunchView={() => undefined}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'New Loop' })).toHaveClass('active')
+  })
+
+  it('does not apply the active class to the New Loop button when launch view is not selected', () => {
+    render(
+      <RalphDashboardHeader
+        isLaunchView={false}
+        onRefresh={() => undefined}
+        onToggleLaunchView={() => undefined}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'New Loop' })).not.toHaveClass('active')
+  })
+
+  it('calls onToggleLaunchView when the New Loop button is clicked', () => {
+    const onToggleLaunchView = vi.fn()
+    render(
+      <RalphDashboardHeader
+        isLaunchView={false}
         onRefresh={() => undefined}
         onToggleLaunchView={onToggleLaunchView}
       />
     )
 
-    fireEvent.click(screen.getByText('New Loop'))
+    fireEvent.click(screen.getByRole('button', { name: 'New Loop' }))
 
-    expect(screen.getByText('New Loop').closest('button')).toHaveClass('active')
     expect(onToggleLaunchView).toHaveBeenCalledTimes(1)
   })
 })

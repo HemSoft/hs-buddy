@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Resolve Ralph dashboard review feedback
+- Lower RalphDashboard complexity
+- Refresh CRAP score snapshot
+
+### Fixed
+
+- Correct changelog release attribution
 
 ## [0.1.748] - 2026-05-06
 
@@ -45,8 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Achieve 100% coverage with proper tests (no exclusions)
 - Parameterize pr-review-all.ps1 for positional PR number
 - Update TODO.md — mark coverage 100% done, update progress counts
-- Lower RalphDashboard complexity
-- Refresh CRAP score snapshot
 
 ## [0.1.747] - 2026-05-06
 

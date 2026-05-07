@@ -1,11 +1,36 @@
+/* v8 ignore start -- imports pull in API modules that aren't available in test */
 import type { PullRequest, PRConfig } from '../../types/pullRequest'
 import { graphql, getTokenForOwner } from './shared'
 import type { RepoPullRequest } from './prs'
+/* v8 ignore stop */
 
-// ── Thread stats helpers ─────────────────────────────────────────────
+// ── Pure helpers (testable) ─────────────────────────────────────────
+
+/** Count resolved/unresolved threads from a list of thread nodes. */
+export function countThreadStats(
+  nodes: ReadonlyArray<{ isResolved: boolean }>,
+  totalCount: number
+): { resolved: number; unresolved: number } {
+  const resolved = nodes.filter(t => t.isResolved).length
+  return { resolved, unresolved: Math.max(0, totalCount - resolved) }
+}
+
+/** Group PRs by owner for batched token selection. */
+export function groupPrsByOwner<T extends { _owner: string }>(prs: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>()
+  for (const pr of prs) {
+    const list = map.get(pr._owner) || []
+    list.push(pr)
+    map.set(pr._owner, list)
+  }
+  return map
+}
+
+// ── GraphQL functions (require real API) ────────────────────────────
+
+/* v8 ignore start -- GraphQL thread counting; requires real API */
 
 /** Paginate through remaining review thread pages when the first page didn't fetch all nodes. */
-/* v8 ignore start -- GraphQL thread counting; requires real API */
 async function paginateReviewThreads(
   owner: string,
   repo: string,
@@ -101,8 +126,8 @@ export async function fetchUnresolvedThreadCounts(
         data.reviewThreads,
         token
       )
-      const resolved = allNodes.filter(t => t.isResolved).length
-      chunk[idx].threadsUnaddressed = Math.max(0, data.reviewThreads.totalCount - resolved)
+      const { unresolved } = countThreadStats(allNodes, data.reviewThreads.totalCount)
+      chunk[idx].threadsUnaddressed = unresolved
     }
   }
 }
@@ -116,13 +141,7 @@ export async function fetchBatchThreadStats(
 ): Promise<void> {
   if (prs.length === 0) return
 
-  // Group PRs by owner for token selection
-  const prsByOwner = new Map<string, typeof prs>()
-  for (const pr of prs) {
-    const list = prsByOwner.get(pr._owner) || []
-    list.push(pr)
-    prsByOwner.set(pr._owner, list)
-  }
+  const prsByOwner = groupPrsByOwner(prs)
 
   for (const [owner, ownerPrs] of prsByOwner) {
     try {
@@ -185,10 +204,10 @@ async function fetchThreadStatsChunked(
         data.reviewThreads,
         token
       )
-      const addressed = allNodes.filter(t => t.isResolved).length
+      const { resolved, unresolved } = countThreadStats(allNodes, data.reviewThreads.totalCount)
       chunk[idx].threadsTotal = data.reviewThreads.totalCount
-      chunk[idx].threadsAddressed = addressed
-      chunk[idx].threadsUnaddressed = Math.max(0, data.reviewThreads.totalCount - addressed)
+      chunk[idx].threadsAddressed = resolved
+      chunk[idx].threadsUnaddressed = unresolved
     }
   }
 }

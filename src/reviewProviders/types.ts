@@ -1,4 +1,4 @@
-/* v8 ignore start — pure type definitions, no runtime code */
+/* v8 ignore start -- pure type definitions, no runtime code */
 import type { GitHubClient } from '../api/github'
 
 /** Opaque checkpoint that a provider uses to detect new reviews since trigger. */
@@ -61,3 +61,4 @@ export interface AIReviewProvider {
     checkpoint: ReviewCheckpoint
   ): Promise<PollResult>
 }
+/* v8 ignore stop */

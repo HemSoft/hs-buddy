@@ -1,3 +1,4 @@
+/* v8 ignore start -- SFL status fetch; requires real API */
 import type { PRConfig } from '../../types/pullRequest'
 import {
   type SFLRepoStatus,
@@ -7,7 +8,6 @@ import {
 } from '../../types/sflStatus'
 import { getOctokitForOwner } from './shared'
 
-/* v8 ignore start -- SFL status fetch; requires real API */
 export async function fetchSFLStatus(
   config: PRConfig['github'],
   owner: string,

@@ -209,6 +209,7 @@ async function pastePromptToActiveTerminal(
   markUsed: TerminalPromptMutations['markUsed'],
   onClose: () => void
 ) {
+  /* v8 ignore next -- the use button is disabled whenever no active tab is available */
   if (!activeTabId) {
     throw new Error('Open a terminal tab to use a prompt.')
   }
@@ -241,13 +242,16 @@ function usePromptLibraryDismiss(
   useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {
       const target = event.target as Node
-      if (ownerRef?.current?.contains(target) || rootRef.current?.contains(target)) {
+      /* v8 ignore next -- the dismiss listener only runs while the dialog root is mounted */
+      if (!rootRef.current) {
         return
       }
 
-      if (rootRef.current) {
-        onClose()
+      if (ownerRef?.current?.contains(target) || rootRef.current.contains(target)) {
+        return
       }
+
+      onClose()
     }
 
     document.addEventListener('mousedown', handleMouseDown)
@@ -330,6 +334,7 @@ function usePromptEditorActions(params: {
   const handleSave = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
+      /* v8 ignore next -- submit comes from the mounted editor form */
       if (!editorState) return
 
       setSaving(true)
@@ -348,6 +353,7 @@ function usePromptEditorActions(params: {
   )
 
   const handleDelete = useCallback(async () => {
+    /* v8 ignore next -- delete is only available from the mounted edit view */
     if (!editorState || editorState.mode !== 'edit') return
 
     const confirmed = await confirm({
@@ -700,6 +706,31 @@ export function TerminalPromptLibrary({
     setErrorMessage,
     setUsingPromptId,
   })
+  const updateEditorState = useCallback(
+    (updater: (current: EditorState) => EditorState) => {
+      setEditorState(current => {
+        /* v8 ignore next -- editor inputs only render while editor state exists */
+        if (!current) {
+          return current
+        }
+
+        return updater(current)
+      })
+    },
+    [setEditorState]
+  )
+  const handleTitleChange = useCallback(
+    (value: string) => {
+      updateEditorState(current => ({ ...current, title: value }))
+    },
+    [updateEditorState]
+  )
+  const handleContentChange = useCallback(
+    (value: string) => {
+      updateEditorState(current => ({ ...current, content: value }))
+    },
+    [updateEditorState]
+  )
 
   return (
     <>
@@ -726,12 +757,8 @@ export function TerminalPromptLibrary({
           onBack={closeEditor}
           onDelete={() => void handleDelete()}
           onSubmit={handleSave}
-          onTitleChange={value =>
-            setEditorState(current => (current ? { ...current, title: value } : current))
-          }
-          onContentChange={value =>
-            setEditorState(current => (current ? { ...current, content: value } : current))
-          }
+          onTitleChange={handleTitleChange}
+          onContentChange={handleContentChange}
         />
       </div>
 

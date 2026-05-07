@@ -1,3 +1,4 @@
+import type { RefObject } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -83,6 +84,61 @@ describe('TerminalPromptLibrary', () => {
     expect(screen.getByText('The active terminal is still connecting.')).toBeInTheDocument()
   })
 
+  it('shows loading feedback while prompts are loading', () => {
+    mockUseTerminalPrompts.mockReturnValue(undefined)
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    expect(screen.getByText('Loading prompts…')).toBeInTheDocument()
+  })
+
+  it('shows loading feedback alongside the no-terminal status', () => {
+    mockUseTerminalPrompts.mockReturnValue(undefined)
+    render(<TerminalPromptLibrary activeTabId={null} onClose={vi.fn()} />)
+
+    expect(screen.getByText('Loading prompts…')).toBeInTheDocument()
+    expect(screen.getByText('Open a terminal tab to insert prompts.')).toBeInTheDocument()
+  })
+
+  it('shows the no-terminal message when there is no active tab', () => {
+    render(<TerminalPromptLibrary activeTabId={null} onClose={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Code review' })).toBeDisabled()
+    expect(screen.getByText('Open a terminal tab to insert prompts.')).toBeInTheDocument()
+  })
+
+  it('ignores clicks inside the owner element but closes on outside clicks', () => {
+    const onClose = vi.fn()
+    const owner = document.createElement('div')
+    document.body.append(owner)
+    const ownerRef: RefObject<HTMLDivElement | null> = { current: owner }
+
+    render(<TerminalPromptLibrary activeTabId="term-1" ownerRef={ownerRef} onClose={onClose} />)
+
+    fireEvent.mouseDown(owner)
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.mouseDown(document.body)
+    expect(onClose).toHaveBeenCalledOnce()
+
+    owner.remove()
+  })
+
+  it('closes when Escape is pressed', () => {
+    const onClose = vi.fn()
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={onClose} />)
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('ignores non-Escape key presses for dismissal', () => {
+    const onClose = vi.fn()
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={onClose} />)
+
+    fireEvent.keyDown(window, { key: 'Enter' })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('creates a new prompt from the editor form', async () => {
     mockUseTerminalPrompts.mockReturnValue([])
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
@@ -100,6 +156,47 @@ describe('TerminalPromptLibrary', () => {
         content: 'Summarize the bug and propose a fix',
       })
     })
+  })
+
+  it('shows a validation error when saving without a title', async () => {
+    mockUseTerminalPrompts.mockReturnValue([])
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New prompt' }))
+    fireEvent.change(screen.getByLabelText('Prompt'), {
+      target: { value: 'Summarize the bug and propose a fix' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save prompt' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Title is required')
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('shows a validation error when saving without prompt content', async () => {
+    mockUseTerminalPrompts.mockReturnValue([])
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New prompt' }))
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Triage issue' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save prompt' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Prompt content is required')
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the default save message for non-Error rejections', async () => {
+    mockUseTerminalPrompts.mockReturnValue([])
+    mockCreate.mockRejectedValueOnce('nope')
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New prompt' }))
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Triage issue' } })
+    fireEvent.change(screen.getByLabelText('Prompt'), {
+      target: { value: 'Summarize the bug and propose a fix' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save prompt' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to save prompt')
   })
 
   it('updates an existing prompt from edit mode', async () => {
@@ -121,6 +218,29 @@ describe('TerminalPromptLibrary', () => {
     })
   })
 
+  it('returns from the editor to the prompt list when backing out', async () => {
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Code review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Code review' })).toBeInTheDocument()
+    })
+    expect(screen.queryByLabelText('Label')).not.toBeInTheDocument()
+  })
+
+  it('falls back to "Edit prompt" when an edited prompt title is blank', async () => {
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Code review' }))
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: '   ' } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Edit prompt' })).toBeInTheDocument()
+    })
+  })
+
   it('deletes a prompt after confirmation', async () => {
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
 
@@ -133,6 +253,34 @@ describe('TerminalPromptLibrary', () => {
     await waitFor(() => {
       expect(mockRemove).toHaveBeenCalledWith({ id: 'prompt-1' })
     })
+  })
+
+  it('does not delete a prompt when confirmation is canceled', async () => {
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Code review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    const confirmDialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Keep' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+    expect(mockRemove).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the default delete message for non-Error rejections', async () => {
+    mockRemove.mockRejectedValueOnce('boom')
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Code review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    const confirmDialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to delete prompt')
   })
 
   it('surfaces clipboard failures after pasting into the terminal', async () => {
@@ -152,6 +300,56 @@ describe('TerminalPromptLibrary', () => {
 
     expect(onClose).not.toHaveBeenCalled()
     consoleSpy.mockRestore()
+  })
+
+  it('uses the execCommand fallback when the clipboard API is unavailable', async () => {
+    const onClose = vi.fn()
+    const execCommand = vi.fn()
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    })
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    })
+
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={onClose} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Code review' }))
+
+    await waitFor(() => {
+      expect(execCommand).toHaveBeenCalledWith('copy')
+      expect(onClose).toHaveBeenCalledOnce()
+    })
+  })
+
+  it('shows the reconnecting message when the terminal paste handler disappears before use', async () => {
+    const onClose = vi.fn()
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={onClose} />)
+
+    mockGetSessionId.mockReturnValue(undefined)
+    fireEvent.click(screen.getByRole('button', { name: 'Code review' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The active terminal is still connecting. Try again in a moment.'
+    )
+    expect(mockMarkUsed).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('shows the reconnecting message when pasting into the terminal fails', async () => {
+    const onClose = vi.fn()
+    mockPasteIntoTerminal.mockReturnValue(false)
+
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={onClose} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Code review' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The active terminal is still connecting. Try again in a moment.'
+    )
+    expect(mockMarkUsed).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('keeps the menu compact and only shows full prompt details in edit mode', () => {

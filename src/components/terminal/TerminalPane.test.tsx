@@ -13,17 +13,19 @@ vi.mock('./terminalSessions', () => ({
 // Mock xterm.js
 const mockWrite = vi.fn()
 const mockWriteln = vi.fn()
+const mockPaste = vi.fn()
 const mockOpen = vi.fn()
 const mockDispose = vi.fn()
 const mockLoadAddon = vi.fn()
-const mockOnData = vi.fn(() => ({ dispose: vi.fn() }))
-const mockOnCursorMove = vi.fn(() => ({ dispose: vi.fn() }))
-const mockOnRender = vi.fn(() => ({ dispose: vi.fn() }))
+const mockOnData = vi.fn((_cb: (data: string) => void) => ({ dispose: vi.fn() }))
+const mockOnCursorMove = vi.fn((_cb: () => void) => ({ dispose: vi.fn() }))
+const mockOnRender = vi.fn((_cb: () => void) => ({ dispose: vi.fn() }))
 
 vi.mock('@xterm/xterm', () => {
   const TerminalClass = vi.fn(function (this: Record<string, unknown>) {
     this.write = mockWrite
     this.writeln = mockWriteln
+    this.paste = mockPaste
     this.open = mockOpen
     this.dispose = mockDispose
     this.loadAddon = mockLoadAddon
@@ -143,6 +145,16 @@ describe('TerminalPane', () => {
 
     unmount()
     expect(removeTerminalPasteHandler).toHaveBeenCalledWith('test-key')
+  })
+
+  it('routes the registered paste handler through xterm paste', () => {
+    render(<TerminalPane viewKey="test-key" />)
+
+    const pasteHandler = vi.mocked(setTerminalPasteHandler).mock.calls[0]?.[1]
+    expect(pasteHandler).toBeDefined()
+
+    pasteHandler?.('echo hi')
+    expect(mockPaste).toHaveBeenCalledWith('echo hi')
   })
 
   it('spawns a new PTY session when no existing session', async () => {
@@ -441,5 +453,129 @@ describe('TerminalPane', () => {
     // Events with seq > 5 should pass through
     dataHandler(null, 'existing-sess', 'new data', 6)
     expect(mockWrite).toHaveBeenCalledWith('new data')
+  })
+
+  it('applies cursor-row highlight on cursor move', async () => {
+    // Make mockOpen create .xterm-rows DOM structure inside container
+    mockOpen.mockImplementation((el: HTMLElement) => {
+      const rowContainer = document.createElement('div')
+      rowContainer.className = 'xterm-rows'
+      for (let i = 0; i < 5; i++) {
+        rowContainer.appendChild(document.createElement('div'))
+      }
+      el.appendChild(rowContainer)
+    })
+
+    render(<TerminalPane viewKey="test-key" />)
+
+    await vi.waitFor(() => {
+      expect(mockOnCursorMove).toHaveBeenCalled()
+    })
+
+    // Capture the cursor-move callback
+    const cursorMoveCallback = mockOnCursorMove.mock.calls[0]![0]
+
+    // Trigger cursor move — cursorY defaults to 0
+    cursorMoveCallback()
+
+    const terminalPane = document.querySelector('.terminal-pane')!
+    const rowContainer = terminalPane.querySelector('.xterm-rows')!
+    expect(rowContainer.children[0].classList.contains('xterm-cursor-row')).toBe(true)
+  })
+
+  it('moves cursor-row highlight when cursor position changes', async () => {
+    mockOpen.mockImplementation((el: HTMLElement) => {
+      const rowContainer = document.createElement('div')
+      rowContainer.className = 'xterm-rows'
+      for (let i = 0; i < 5; i++) {
+        rowContainer.appendChild(document.createElement('div'))
+      }
+      el.appendChild(rowContainer)
+    })
+
+    render(<TerminalPane viewKey="test-key" />)
+
+    await vi.waitFor(() => {
+      expect(mockOnCursorMove).toHaveBeenCalled()
+    })
+
+    const cursorMoveCallback = mockOnCursorMove.mock.calls[0]![0]
+
+    // First call — highlight row 0
+    cursorMoveCallback()
+
+    const terminalPane = document.querySelector('.terminal-pane')!
+    const rowContainer = terminalPane.querySelector('.xterm-rows')!
+    expect(rowContainer.children[0].classList.contains('xterm-cursor-row')).toBe(true)
+
+    // Simulate cursor moving to row 2 by updating the buffer mock
+    // Access the Terminal instance's buffer through the constructor mock
+    const TerminalMock = (await import('@xterm/xterm')).Terminal as unknown as ReturnType<
+      typeof vi.fn
+    >
+    const termInstance = TerminalMock.mock.instances[0] as {
+      buffer: { active: { cursorY: number } }
+    }
+    termInstance.buffer.active.cursorY = 2
+
+    // Trigger cursor move again
+    cursorMoveCallback()
+
+    // Previous highlight removed, new one applied
+    expect(rowContainer.children[0].classList.contains('xterm-cursor-row')).toBe(false)
+    expect(rowContainer.children[2].classList.contains('xterm-cursor-row')).toBe(true)
+  })
+
+  it('handles missing row container gracefully in cursor highlight', async () => {
+    // Explicitly ensure mockOpen does NOT create .xterm-rows
+    mockOpen.mockImplementation(() => {})
+
+    render(<TerminalPane viewKey="test-key" />)
+
+    await vi.waitFor(() => {
+      expect(mockOnCursorMove).toHaveBeenCalled()
+    })
+
+    const cursorMoveCallback = mockOnCursorMove.mock.calls[0]![0]
+
+    // Should not throw when .xterm-rows doesn't exist
+    expect(() => cursorMoveCallback()).not.toThrow()
+  })
+
+  it('handles cursor position beyond row count gracefully', async () => {
+    mockOpen.mockImplementation((el: HTMLElement) => {
+      const rowContainer = document.createElement('div')
+      rowContainer.className = 'xterm-rows'
+      // Only 2 rows, but cursorY will be 10
+      for (let i = 0; i < 2; i++) {
+        rowContainer.appendChild(document.createElement('div'))
+      }
+      el.appendChild(rowContainer)
+    })
+
+    render(<TerminalPane viewKey="test-key" />)
+
+    await vi.waitFor(() => {
+      expect(mockOnCursorMove).toHaveBeenCalled()
+    })
+
+    // Set cursorY beyond available rows
+    const TerminalMock = (await import('@xterm/xterm')).Terminal as unknown as ReturnType<
+      typeof vi.fn
+    >
+    const termInstance = TerminalMock.mock.instances[0] as {
+      buffer: { active: { cursorY: number } }
+    }
+    termInstance.buffer.active.cursorY = 10
+
+    const cursorMoveCallback = mockOnCursorMove.mock.calls[0]![0]
+
+    // Should not throw — row will be undefined, if(row) skips
+    expect(() => cursorMoveCallback()).not.toThrow()
+
+    const terminalPane = document.querySelector('.terminal-pane')!
+    const rowContainer = terminalPane.querySelector('.xterm-rows')!
+    // No row should have the highlight class
+    expect(rowContainer.querySelector('.xterm-cursor-row')).toBeNull()
   })
 })

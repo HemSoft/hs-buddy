@@ -2673,12 +2673,13 @@ describe('GitHubClient', () => {
         closed_at: null,
       }
 
-      // needs-review runs 2 queries per account: review-requested + assignee
+      // needs-review runs 3 queries per account: review-requested + assignee + reviewed-by
       // Account 1 (user1/myorg): return the PR from first query only
       // Account 2 (user2/otherorg): return empty so it doesn't re-introduce the PR
       mockOctokit.search.issuesAndPullRequests
         .mockResolvedValueOnce({ data: { items: [prItem] } }) // user1 query 1
         .mockResolvedValueOnce({ data: { items: [] } }) // user1 query 2
+        .mockResolvedValueOnce({ data: { items: [] } }) // user1 query 3
         .mockResolvedValue({ data: { items: [] } }) // user2 queries
 
       // I (user1) already approved this PR
@@ -2695,6 +2696,47 @@ describe('GitHubClient', () => {
       const prs = await client.fetchNeedsReview()
       // Should be filtered out because I already approved
       expect(prs.length).toBe(0)
+    })
+
+    it('keeps commented reviewer PRs visible after review requests clear', async () => {
+      mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+
+      const prItem = {
+        number: 21,
+        title: 'PR I still need to follow',
+        html_url: 'https://github.com/myorg/repo/pull/21',
+        user: { login: 'other', avatar_url: '' },
+        state: 'open',
+        assignees: [],
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-03T00:00:00Z',
+        closed_at: null,
+      }
+
+      mockOctokit.search.issuesAndPullRequests
+        .mockResolvedValueOnce({ data: { items: [] } }) // user1 review-requested
+        .mockResolvedValueOnce({ data: { items: [] } }) // user1 assignee
+        .mockResolvedValueOnce({ data: { items: [prItem] } }) // user1 reviewed-by
+        .mockResolvedValue({ data: { items: [] } }) // user2 queries
+
+      mockOctokit.pulls.listReviews.mockResolvedValue({
+        data: [
+          { user: { login: 'user1' }, state: 'COMMENTED', submitted_at: '2025-01-02T00:00:00Z' },
+        ],
+      })
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { head: { ref: 'feat' }, base: { ref: 'main' } },
+      })
+      mockGraphql.mockResolvedValue({})
+
+      const prs = await client.fetchNeedsReview()
+
+      expect(prs).toHaveLength(1)
+      expect(prs[0].id).toBe(21)
+      expect(prs[0].iApproved).toBe(false)
+      expect(mockOctokit.search.issuesAndPullRequests).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'is:pr reviewed-by:user1 is:open org:myorg' })
+      )
     })
   })
 

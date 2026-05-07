@@ -121,6 +121,8 @@ const PR_SEARCH_BUILDERS: Record<PRSearchMode, (u: string, o: string, m?: string
   'needs-review': (u, o) => [
     `is:pr review-requested:${u} is:open org:${o}`,
     `is:pr assignee:${u} is:open org:${o} -author:${u}`,
+    // Keep PRs visible after comment-only or changes-requested reviews clear the active request.
+    `is:pr reviewed-by:${u} is:open org:${o}`,
   ],
   'need-a-nudge': (u, o) => [`is:pr is:open reviewed-by:${u} org:${o}`],
   'recently-merged': (u, o, m) => [

@@ -86,6 +86,28 @@ describe('RalphDashboardSections', () => {
     expect(onLaunchScript).toHaveBeenCalledWith('ralph')
   })
 
+  it('ignores repeated keydown events when activating a script card', () => {
+    const onLaunchScript = vi.fn()
+    render(<RalphDashboardAvailableScripts templates={[]} onLaunchScript={onLaunchScript} />)
+
+    const card = screen.getByText('Ralph PR').closest('[role="button"]')
+
+    expect(card).not.toBeNull()
+
+    const repeatedSpaceEvent = new KeyboardEvent('keydown', {
+      key: ' ',
+      bubbles: true,
+      cancelable: true,
+      repeat: true,
+    })
+
+    card!.dispatchEvent(repeatedSpaceEvent)
+    fireEvent.keyDown(card!, { key: 'Enter', repeat: true })
+
+    expect(repeatedSpaceEvent.defaultPrevented).toBe(true)
+    expect(onLaunchScript).not.toHaveBeenCalled()
+  })
+
   it('skips empty run sections', () => {
     const { container } = render(
       <RalphDashboardRunSection title="Active" runs={[]} onStop={() => undefined} />

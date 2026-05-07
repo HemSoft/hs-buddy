@@ -170,10 +170,13 @@ function ScriptCard({
       tabIndex={0}
       onClick={onLaunch}
       onKeyDown={event => {
+        if (event.key === ' ') {
+          event.preventDefault()
+        }
+        if (event.repeat) {
+          return
+        }
         if (event.key === 'Enter' || event.key === ' ') {
-          if (event.key === ' ') {
-            event.preventDefault()
-          }
           onLaunch()
         }
       }}

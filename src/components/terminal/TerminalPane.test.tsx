@@ -13,6 +13,7 @@ vi.mock('./terminalSessions', () => ({
 // Mock xterm.js
 const mockWrite = vi.fn()
 const mockWriteln = vi.fn()
+const mockPaste = vi.fn()
 const mockOpen = vi.fn()
 const mockDispose = vi.fn()
 const mockLoadAddon = vi.fn()
@@ -22,6 +23,7 @@ vi.mock('@xterm/xterm', () => {
   const TerminalClass = vi.fn(function (this: Record<string, unknown>) {
     this.write = mockWrite
     this.writeln = mockWriteln
+    this.paste = mockPaste
     this.open = mockOpen
     this.dispose = mockDispose
     this.loadAddon = mockLoadAddon
@@ -132,6 +134,16 @@ describe('TerminalPane', () => {
 
     unmount()
     expect(removeTerminalPasteHandler).toHaveBeenCalledWith('test-key')
+  })
+
+  it('routes the registered paste handler through xterm paste', () => {
+    render(<TerminalPane viewKey="test-key" />)
+
+    const pasteHandler = vi.mocked(setTerminalPasteHandler).mock.calls[0]?.[1]
+    expect(pasteHandler).toBeDefined()
+
+    pasteHandler?.('echo hi')
+    expect(mockPaste).toHaveBeenCalledWith('echo hi')
   })
 
   it('spawns a new PTY session when no existing session', async () => {

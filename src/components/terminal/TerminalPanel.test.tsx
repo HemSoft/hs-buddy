@@ -1,6 +1,16 @@
 import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+const mockTerminalPromptLibrary = vi.fn(
+  ({ activeTabId, onClose }: { activeTabId: string | null; onClose: () => void }) => (
+    <div data-testid="terminal-prompt-library" data-active-tab-id={activeTabId ?? 'none'}>
+      <button type="button" onClick={onClose}>
+        close prompt library
+      </button>
+    </div>
+  )
+)
+
 vi.mock('./TerminalPane', () => ({
   TerminalPane: ({
     viewKey,
@@ -18,6 +28,10 @@ vi.mock('./TerminalPane', () => ({
       mock terminal
     </div>
   ),
+}))
+vi.mock('./TerminalPromptLibrary', () => ({
+  TerminalPromptLibrary: (props: { activeTabId: string | null; onClose: () => void }) =>
+    mockTerminalPromptLibrary(props),
 }))
 vi.mock('./TerminalPanel.css', () => ({}))
 vi.mock('./TerminalTabContextMenu.css', () => ({}))
@@ -74,6 +88,28 @@ describe('TerminalPanel', () => {
     )
 
     expect(screen.getByTitle('Prompt Library')).toBeInTheDocument()
+  })
+
+  it('opens the prompt library and closes it via the child onClose callback', () => {
+    render(
+      <TerminalPanel
+        tabs={makeTabs(1)}
+        activeTabId="tab-0"
+        onTabSelect={vi.fn()}
+        onTabClose={vi.fn()}
+        onAddTab={vi.fn()}
+        {...defaultHandlers}
+      />
+    )
+
+    fireEvent.click(screen.getByTitle('Prompt Library'))
+    expect(screen.getByTestId('terminal-prompt-library')).toHaveAttribute(
+      'data-active-tab-id',
+      'tab-0'
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'close prompt library' }))
+    expect(screen.queryByTestId('terminal-prompt-library')).not.toBeInTheDocument()
   })
 
   it('marks active tab with "active" class', () => {

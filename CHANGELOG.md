@@ -15,12 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add AI review provider architecture with CodeRabbit support
 - Contract testing — validate renderer↔main channel contracts
+- Expand axe-core a11y testing coverage and add test:a11y script
 
 ### Fixed
 
 - Detect edited comments via updated_at timestamp
 - Resolve CI failures and PR review comments on IPC contract testing
 - Resolve CI lint and test failures
+- Use double quotes for test:a11y Vitest filter for Windows compatibility
 
 ### Changed
 

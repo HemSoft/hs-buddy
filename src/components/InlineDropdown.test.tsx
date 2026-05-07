@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InlineDropdown, type DropdownOption } from './InlineDropdown'
+import { axe } from '../test/axe-helper'
 
 const DEFAULT_OPTIONS: DropdownOption[] = [
   { value: 'a', label: 'Alpha' },
@@ -371,5 +372,11 @@ describe('InlineDropdown', () => {
     // Space keydown on disabled option — handler returns early
     fireEvent.keyDown(disabledOption, { key: ' ' })
     expect(onChange).not.toHaveBeenCalledWith('b')
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = renderDropdown({ 'aria-label': 'Choose option' })
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

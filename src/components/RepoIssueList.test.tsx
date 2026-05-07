@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { axe } from '../test/axe-helper'
 
 const { mockEnqueue, mockCacheGet, stableAccounts, mockUseViewMode } = vi.hoisted(() => ({
   mockEnqueue: vi.fn(),
@@ -697,5 +698,16 @@ describe('RepoIssueList', () => {
     await waitFor(() => {
       expect(screen.getByTestId('issue-context-menu')).toBeInTheDocument()
     })
+  })
+
+  it('has no accessibility violations', async () => {
+    const issues = [makeIssue(), makeIssue({ number: 2, title: 'Feature request' })]
+    mockEnqueue.mockResolvedValue(issues)
+    const { container } = render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeInTheDocument()
+    })
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 })

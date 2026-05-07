@@ -48,7 +48,12 @@ export function RalphDashboardHeader({
     <div className="ralph-dashboard-header">
       <h2>Ralph Loops</h2>
       <div className="ralph-dashboard-actions">
-        <button className="ralph-action-btn" onClick={onRefresh} title="Refresh">
+        <button
+          aria-label="Refresh"
+          className="ralph-action-btn"
+          onClick={onRefresh}
+          title="Refresh"
+        >
           <RefreshCw size={14} />
         </button>
         <button
@@ -77,7 +82,9 @@ export function RalphDashboardErrorBanner({
   return (
     <div className="ralph-error-banner">
       {error}
-      <button onClick={onDismiss}>×</button>
+      <button aria-label="Dismiss" onClick={onDismiss}>
+        ×
+      </button>
     </div>
   )
 }
@@ -91,7 +98,9 @@ export function RalphDashboardAvailableScripts({
 }) {
   return (
     <section className="ralph-section">
-      <h3 className="ralph-section-title">Available Scripts ({BUILTIN_SCRIPTS.length + templates.length})</h3>
+      <h3 className="ralph-section-title">
+        Available Scripts ({BUILTIN_SCRIPTS.length + templates.length})
+      </h3>
       <div className="ralph-card-grid">
         {BUILTIN_SCRIPTS.map(script => (
           <ScriptCard
@@ -161,7 +170,12 @@ function ScriptCard({
       tabIndex={0}
       onClick={onLaunch}
       onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') onLaunch()
+        if (event.key === 'Enter' || event.key === ' ') {
+          if (event.key === ' ') {
+            event.preventDefault()
+          }
+          onLaunch()
+        }
       }}
     >
       <div className="ralph-script-card-header">

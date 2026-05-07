@@ -58,9 +58,21 @@ describe('RalphDashboardSections', () => {
     const onDismiss = vi.fn()
     render(<RalphDashboardErrorBanner error="Stop failed" onDismiss={onDismiss} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /×/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
 
     expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
+
+  it('labels the refresh button for assistive technology', () => {
+    render(
+      <RalphDashboardHeader
+        isLaunchView={false}
+        onRefresh={() => undefined}
+        onToggleLaunchView={() => undefined}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument()
   })
 
   it('always renders the built-in script cards and launches custom templates', () => {
@@ -80,6 +92,26 @@ describe('RalphDashboardSections', () => {
     fireEvent.click(screen.getByText('Custom').closest('[role="button"]')!)
 
     expect(onLaunchScript).toHaveBeenCalledWith('custom-script.ps1')
+  })
+
+  it('prevents page scroll when activating a script card with the space key', () => {
+    const onLaunchScript = vi.fn()
+    render(<RalphDashboardAvailableScripts templates={[]} onLaunchScript={onLaunchScript} />)
+
+    const card = screen.getByText('Ralph Loop').closest('[role="button"]')
+
+    expect(card).not.toBeNull()
+
+    const event = new KeyboardEvent('keydown', {
+      key: ' ',
+      bubbles: true,
+      cancelable: true,
+    })
+
+    card!.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(onLaunchScript).toHaveBeenCalledWith('ralph')
   })
 
   it('skips empty run sections', () => {

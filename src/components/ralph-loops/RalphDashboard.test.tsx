@@ -160,7 +160,7 @@ describe('RalphDashboard', () => {
   it('dismisses error banner', () => {
     setupHook({ error: 'IPC failed' })
     render(<RalphDashboard />)
-    fireEvent.click(screen.getByText('×'))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     // The hook error re-appears since it's from the hook, but state error is cleared
     // The displayError is state.error ?? hookError, so clearing state.error still shows hookError
     expect(screen.getByText('IPC failed')).toBeInTheDocument()
@@ -192,7 +192,7 @@ describe('RalphDashboard', () => {
 
   it('refresh button calls refresh', () => {
     render(<RalphDashboard />)
-    fireEvent.click(screen.getByTitle('Refresh'))
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(mockRefresh).toHaveBeenCalled()
   })
 
@@ -345,7 +345,7 @@ describe('RalphDashboard', () => {
     })
   })
 
-  it('error state clears when error banner X clicked', async () => {
+  it('error state clears when the dismiss button is clicked', async () => {
     mockStop.mockResolvedValue({ success: false, error: 'Stop failed' })
     setupHook({ error: 'Hook error', runs: [makeRun({ runId: 'r1', status: 'running' })] })
     render(<RalphDashboard />)
@@ -356,8 +356,7 @@ describe('RalphDashboard', () => {
       expect(screen.getByText('Stop failed')).toBeInTheDocument()
     })
 
-    // Find and click the close button
-    const closeButton = screen.getByRole('button', { name: /×/ })
+    const closeButton = screen.getByRole('button', { name: 'Dismiss' })
     fireEvent.click(closeButton)
 
     // After dismissing state error, hook error still shows (state.error ?? hookError)

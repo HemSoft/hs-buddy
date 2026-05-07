@@ -2,9 +2,24 @@
   position: absolute;
   top: calc(100% + 10px);
   left: 0;
+  overflow: auto;
+  z-index: 80;
+  color: var(--text-primary, #d6dbe0);
+}
+
+.terminal-prompt-library--menu {
+  width: min(320px, calc(100vw - 48px));
+  max-height: min(420px, calc(100vh - 140px));
+  padding: 6px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: rgba(27, 31, 35, 0.98);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.42);
+}
+
+.terminal-prompt-library--editor {
   width: min(460px, calc(100vw - 48px));
   max-height: min(620px, calc(100vh - 140px));
-  overflow: auto;
   padding: 16px;
   border: 1px solid rgba(126, 232, 154, 0.18);
   border-radius: 16px;
@@ -15,8 +30,6 @@
     0 24px 60px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(18px);
-  z-index: 80;
-  color: var(--text-primary, #d6dbe0);
 }
 
 .terminal-prompt-library::-webkit-scrollbar {
@@ -101,47 +114,137 @@
   line-height: 1.4;
 }
 
-.terminal-prompt-list-toolbar {
+.terminal-prompt-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.terminal-prompt-menu-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 8px;
+  padding: 4px 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.terminal-prompt-status {
+.terminal-prompt-menu-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(214, 219, 224, 0.72);
+}
+
+.terminal-prompt-menu-create,
+.terminal-prompt-menu-item,
+.terminal-prompt-menu-edit {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
   font-size: 12px;
-  color: rgba(214, 219, 224, 0.84);
-  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
-.terminal-prompt-status.ready {
-  border-color: rgba(126, 232, 154, 0.22);
-  background: rgba(34, 74, 46, 0.42);
+.terminal-prompt-menu-create {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.terminal-prompt-status.waiting {
-  border-color: rgba(255, 196, 76, 0.18);
+.terminal-prompt-menu-status {
+  margin: 0 6px 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
   background: rgba(77, 59, 19, 0.38);
+  color: rgba(255, 216, 135, 0.96);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
-.terminal-prompt-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
+.terminal-prompt-menu-feedback,
+.terminal-prompt-menu-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  color: rgba(214, 219, 224, 0.74);
+  font-size: 12px;
+}
+
+.terminal-prompt-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.terminal-prompt-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+}
+
+.terminal-prompt-menu-item {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  justify-content: flex-start;
+  padding: 0 10px;
+  text-align: left;
+}
+
+.terminal-prompt-menu-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-prompt-menu-edit {
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+}
+
+.terminal-prompt-menu-create:hover:not(:disabled),
+.terminal-prompt-menu-item:hover:not(:disabled),
+.terminal-prompt-menu-edit:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f8fb;
+}
+
+.terminal-prompt-menu-create:hover:not(:disabled) {
+  border-color: rgba(126, 232, 154, 0.24);
+}
+
+.terminal-prompt-menu-create:focus-visible,
+.terminal-prompt-menu-item:focus-visible,
+.terminal-prompt-menu-edit:focus-visible {
+  outline: 2px solid rgba(126, 232, 154, 0.42);
+  outline-offset: -1px;
+}
+
+.terminal-prompt-menu-create:disabled,
+.terminal-prompt-menu-item:disabled,
+.terminal-prompt-menu-edit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .terminal-prompt-btn-primary,
 .terminal-prompt-btn-secondary,
-.terminal-prompt-card-action,
 .terminal-prompt-editor-back,
 .terminal-prompt-editor-delete {
   display: inline-flex;
@@ -172,7 +275,6 @@
 }
 
 .terminal-prompt-btn-primary:hover:not(:disabled),
-.terminal-prompt-card-action:hover:not(:disabled),
 .terminal-prompt-editor-back:hover:not(:disabled),
 .terminal-prompt-editor-delete:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -184,7 +286,6 @@
 
 .terminal-prompt-btn-secondary,
 .terminal-prompt-editor-back,
-.terminal-prompt-card-action.subtle,
 .terminal-prompt-editor-delete {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
@@ -192,7 +293,7 @@
 }
 
 .terminal-prompt-btn-secondary:hover:not(:disabled),
-.terminal-prompt-card-action.subtle:hover:not(:disabled) {
+.terminal-prompt-editor-back:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -202,113 +303,11 @@
 
 .terminal-prompt-btn-primary:disabled,
 .terminal-prompt-btn-secondary:disabled,
-.terminal-prompt-card-action:disabled,
 .terminal-prompt-editor-back:disabled,
 .terminal-prompt-editor-delete:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
-}
-
-.terminal-prompt-library-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 10px;
-  padding: 28px 20px;
-  border: 1px dashed rgba(146, 244, 176, 0.18);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.terminal-prompt-library-empty-badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(146, 244, 176, 0.12);
-  color: rgba(146, 244, 176, 0.94);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.terminal-prompt-library-empty h4 {
-  margin: 0;
-  font-size: 18px;
-  color: #f4f8fb;
-}
-
-.terminal-prompt-library-empty p {
-  margin: 0;
-  max-width: 32ch;
-  font-size: 13px;
-  line-height: 1.55;
-  color: rgba(214, 219, 224, 0.78);
-}
-
-.terminal-prompt-library-loading {
-  flex-direction: row;
-  justify-content: center;
-}
-
-.terminal-prompt-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.terminal-prompt-card {
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(8, 11, 14, 0.6);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.terminal-prompt-card-topline {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.terminal-prompt-card-topline h4 {
-  margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #f4f8fb;
-}
-
-.terminal-prompt-card-topline p {
-  margin: 0;
-  font-size: 11px;
-  color: rgba(214, 219, 224, 0.64);
-}
-
-.terminal-prompt-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.terminal-prompt-card-action {
-  min-height: 32px;
-  padding: 0 12px;
-}
-
-.terminal-prompt-card-preview {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: 'CaskaydiaCove NFM', 'CaskaydiaCove NF', 'Cascadia Code', Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.55;
-  color: rgba(214, 219, 224, 0.9);
 }
 
 .terminal-prompt-editor {

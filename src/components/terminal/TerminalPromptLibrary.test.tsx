@@ -65,7 +65,7 @@ describe('TerminalPromptLibrary', () => {
     const onClose = vi.fn()
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={onClose} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Code review' }))
 
     await waitFor(() => {
       expect(mockPasteIntoTerminal).toHaveBeenCalledWith('term-1', 'Review this diff carefully')
@@ -79,15 +79,15 @@ describe('TerminalPromptLibrary', () => {
     mockGetSessionId.mockReturnValue(undefined)
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: 'Use' })).toBeDisabled()
-    expect(screen.getAllByText('The active terminal is still connecting.')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Code review' })).toBeDisabled()
+    expect(screen.getByText('The active terminal is still connecting.')).toBeInTheDocument()
   })
 
   it('creates a new prompt from the editor form', async () => {
     mockUseTerminalPrompts.mockReturnValue([])
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create prompt' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New prompt' }))
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Triage issue' } })
     fireEvent.change(screen.getByLabelText('Prompt'), {
       target: { value: 'Summarize the bug and propose a fix' },
@@ -105,7 +105,7 @@ describe('TerminalPromptLibrary', () => {
   it('updates an existing prompt from edit mode', async () => {
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Code review' }))
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Code review deluxe' } })
     fireEvent.change(screen.getByLabelText('Prompt'), {
       target: { value: 'Review this diff carefully and call out risks' },
@@ -124,7 +124,7 @@ describe('TerminalPromptLibrary', () => {
   it('deletes a prompt after confirmation', async () => {
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Code review' }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     const confirmDialog = await screen.findByRole('alertdialog')
@@ -141,7 +141,7 @@ describe('TerminalPromptLibrary', () => {
     const onClose = vi.fn()
 
     render(<TerminalPromptLibrary activeTabId="term-1" onClose={onClose} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Use' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Code review' }))
 
     await waitFor(() => {
       expect(mockPasteIntoTerminal).toHaveBeenCalledWith('term-1', 'Review this diff carefully')
@@ -152,5 +152,16 @@ describe('TerminalPromptLibrary', () => {
 
     expect(onClose).not.toHaveBeenCalled()
     consoleSpy.mockRestore()
+  })
+
+  it('keeps the menu compact and only shows full prompt details in edit mode', () => {
+    render(<TerminalPromptLibrary activeTabId="term-1" onClose={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Code review' })).toBeInTheDocument()
+    expect(screen.queryByText('Review this diff carefully')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Code review' }))
+
+    expect(screen.getByLabelText('Prompt')).toHaveValue('Review this diff carefully')
   })
 })

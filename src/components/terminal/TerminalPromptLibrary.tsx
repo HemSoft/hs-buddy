@@ -7,21 +7,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import {
-  AlertCircle,
-  ArrowLeft,
-  Copy,
-  Loader2,
-  Pencil,
-  Plus,
-  Sparkles,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { AlertCircle, ArrowLeft, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { useTerminalPrompts, useTerminalPromptMutations } from '../../hooks/useConvex'
 import { useConfirm } from '../../hooks/useConfirm'
-import { formatDistanceToNow } from '../../utils/dateUtils'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { getSessionId, hasTerminalPasteHandler, pasteIntoTerminal } from './terminalSessions'
 import './TerminalPromptLibrary.css'
@@ -74,8 +63,36 @@ interface TerminalPromptListViewProps {
   onUse: (prompt: TerminalPrompt) => void
 }
 
-function buildPromptPreview(content: string): string {
-  return content.replace(/\s+/g, ' ').trim()
+interface TerminalPromptHeaderCopy {
+  heading: string
+  description: string
+}
+
+interface TerminalPromptLibraryHeaderProps {
+  editorState: EditorState | null
+  onClose: () => void
+}
+
+interface TerminalPromptLibraryErrorProps {
+  errorMessage: string | null
+}
+
+interface TerminalPromptLibraryContentProps {
+  editorState: EditorState | null
+  saving: boolean
+  titleInputRef: RefObject<HTMLInputElement | null>
+  prompts: TerminalPrompt[] | undefined
+  canUsePrompt: boolean
+  terminalStatus: string
+  usingPromptId: Id<'terminalPrompts'> | null
+  onCreate: () => void
+  onEdit: (prompt: TerminalPrompt) => void
+  onUse: (prompt: TerminalPrompt) => void
+  onBack: () => void
+  onDelete: () => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onTitleChange: (value: string) => void
+  onContentChange: (value: string) => void
 }
 
 function resolveErrorMessage(error: unknown, fallback: string): string {
@@ -101,10 +118,6 @@ async function copyTextToClipboard(text: string) {
   textarea.select()
   document.execCommand('copy')
   textarea.remove()
-}
-
-function describeLastUsed(prompt: TerminalPrompt): string {
-  return prompt.lastUsedAt ? `Used ${formatDistanceToNow(prompt.lastUsedAt)}` : 'Not used yet'
 }
 
 function getTerminalStatus(
@@ -146,6 +159,33 @@ function validateEditorState(editorState: EditorState) {
   }
 
   return { title, content }
+}
+
+function getEditorHeaderCopy(editorState: EditorState | null): TerminalPromptHeaderCopy | null {
+  if (!editorState) {
+    return null
+  }
+
+  if (editorState.mode === 'create') {
+    return {
+      heading: 'New prompt',
+      description: 'Save the prompt once. The menu stays compact and only shows names.',
+    }
+  }
+
+  return {
+    heading: editorState.title.trim() || 'Edit prompt',
+    description: 'Keep the menu name-first. Edit the full prompt here when you need to change it.',
+  }
+}
+
+function getLibraryClassName(editorState: EditorState | null) {
+  return `terminal-prompt-library ${editorState ? 'terminal-prompt-library--editor' : 'terminal-prompt-library--menu'}`
+}
+
+function getLibraryAriaLabel(editorState: EditorState | null) {
+  const editorCopy = getEditorHeaderCopy(editorState)
+  return editorCopy?.heading ?? 'Prompt library'
 }
 
 async function persistPrompt(
@@ -463,21 +503,22 @@ function TerminalPromptListView({
   onEdit,
   onUse,
 }: TerminalPromptListViewProps) {
+  const showTerminalStatus = !canUsePrompt
+
   if (prompts === undefined) {
     return (
-      <div className="terminal-prompt-list-view">
-        <div className="terminal-prompt-list-toolbar">
-          <div className={`terminal-prompt-status ${canUsePrompt ? 'ready' : 'waiting'}`}>
-            <span className="terminal-prompt-status-dot" />
-            {terminalStatus}
-          </div>
-          <button type="button" className="terminal-prompt-btn-primary" onClick={onCreate}>
+      <div className="terminal-prompt-menu">
+        <div className="terminal-prompt-menu-toolbar">
+          <span className="terminal-prompt-menu-label">Prompt library</span>
+          <button type="button" className="terminal-prompt-menu-create" onClick={onCreate}>
             <Plus size={14} />
             New prompt
           </button>
         </div>
 
-        <div className="terminal-prompt-library-empty terminal-prompt-library-loading">
+        {showTerminalStatus && <div className="terminal-prompt-menu-status">{terminalStatus}</div>}
+
+        <div className="terminal-prompt-menu-feedback">
           <Loader2 size={16} className="spin" />
           <span>Loading prompts…</span>
         </div>
@@ -486,81 +527,134 @@ function TerminalPromptListView({
   }
 
   return (
-    <div className="terminal-prompt-list-view">
-      <div className="terminal-prompt-list-toolbar">
-        <div className={`terminal-prompt-status ${canUsePrompt ? 'ready' : 'waiting'}`}>
-          <span className="terminal-prompt-status-dot" />
-          {terminalStatus}
-        </div>
-        <button type="button" className="terminal-prompt-btn-primary" onClick={onCreate}>
+    <div className="terminal-prompt-menu">
+      <div className="terminal-prompt-menu-toolbar">
+        <span className="terminal-prompt-menu-label">Prompt library</span>
+        <button type="button" className="terminal-prompt-menu-create" onClick={onCreate}>
           <Plus size={14} />
           New prompt
         </button>
       </div>
 
+      {showTerminalStatus && <div className="terminal-prompt-menu-status">{terminalStatus}</div>}
+
       {prompts.length === 0 ? (
-        <div className="terminal-prompt-library-empty">
-          <div className="terminal-prompt-library-empty-badge">0 prompts saved</div>
-          <h4>Build your first reusable prompt</h4>
-          <p>
-            Save the prompts you use most in Copilot CLI, then paste them into the active terminal
-            in one click.
-          </p>
-          <button
-            type="button"
-            className="terminal-prompt-btn-primary terminal-prompt-btn-primary-wide"
-            onClick={onCreate}
-          >
-            <Plus size={14} />
-            Create prompt
-          </button>
-        </div>
+        <div className="terminal-prompt-menu-empty">No saved prompts yet.</div>
       ) : (
-        <div className="terminal-prompt-cards">
+        <div className="terminal-prompt-menu-list">
           {prompts.map(prompt => (
-            <article className="terminal-prompt-card" key={prompt._id}>
-              <div className="terminal-prompt-card-topline">
-                <div>
-                  <h4>{prompt.title}</h4>
-                  <p>{describeLastUsed(prompt)}</p>
-                </div>
-                <div className="terminal-prompt-card-actions">
-                  <button
-                    type="button"
-                    className="terminal-prompt-card-action"
-                    onClick={() => void onUse(prompt)}
-                    disabled={!canUsePrompt || usingPromptId === prompt._id}
-                  >
-                    {usingPromptId === prompt._id ? (
-                      <>
-                        <Loader2 size={14} className="spin" />
-                        Using
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        Use
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="terminal-prompt-card-action subtle"
-                    onClick={() => onEdit(prompt)}
-                  >
-                    <Pencil size={14} />
-                    Edit
-                  </button>
-                </div>
-              </div>
-              <pre className="terminal-prompt-card-preview">
-                {buildPromptPreview(prompt.content)}
-              </pre>
-            </article>
+            <div className="terminal-prompt-menu-row" key={prompt._id}>
+              <button
+                type="button"
+                className="terminal-prompt-menu-item"
+                onClick={() => void onUse(prompt)}
+                disabled={!canUsePrompt || usingPromptId === prompt._id}
+                title={
+                  canUsePrompt ? `Paste ${prompt.title} into the active terminal` : terminalStatus
+                }
+              >
+                {usingPromptId === prompt._id && <Loader2 size={14} className="spin" />}
+                <span className="terminal-prompt-menu-item-label">{prompt.title}</span>
+              </button>
+              <button
+                type="button"
+                className="terminal-prompt-menu-edit"
+                onClick={() => onEdit(prompt)}
+                aria-label={`Edit ${prompt.title}`}
+                title={`Edit ${prompt.title}`}
+                disabled={usingPromptId === prompt._id}
+              >
+                <Pencil size={14} />
+              </button>
+            </div>
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+function TerminalPromptLibraryHeader({ editorState, onClose }: TerminalPromptLibraryHeaderProps) {
+  const editorCopy = getEditorHeaderCopy(editorState)
+
+  if (!editorCopy) {
+    return null
+  }
+
+  return (
+    <div className="terminal-prompt-library-header">
+      <div>
+        <div className="terminal-prompt-library-kicker">Prompt editor</div>
+        <h3>{editorCopy.heading}</h3>
+        <p>{editorCopy.description}</p>
+      </div>
+      <button
+        type="button"
+        className="terminal-prompt-library-close"
+        onClick={onClose}
+        aria-label="Close prompt library"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  )
+}
+
+function TerminalPromptLibraryError({ errorMessage }: TerminalPromptLibraryErrorProps) {
+  if (!errorMessage) {
+    return null
+  }
+
+  return (
+    <div className="terminal-prompt-library-error" role="alert">
+      <AlertCircle size={14} />
+      <span>{errorMessage}</span>
+    </div>
+  )
+}
+
+function TerminalPromptLibraryContent({
+  editorState,
+  saving,
+  titleInputRef,
+  prompts,
+  canUsePrompt,
+  terminalStatus,
+  usingPromptId,
+  onCreate,
+  onEdit,
+  onUse,
+  onBack,
+  onDelete,
+  onSubmit,
+  onTitleChange,
+  onContentChange,
+}: TerminalPromptLibraryContentProps) {
+  if (editorState) {
+    return (
+      <TerminalPromptEditorView
+        editorState={editorState}
+        saving={saving}
+        titleInputRef={titleInputRef}
+        onBack={onBack}
+        onDelete={onDelete}
+        onSubmit={onSubmit}
+        onTitleChange={onTitleChange}
+        onContentChange={onContentChange}
+      />
+    )
+  }
+
+  return (
+    <TerminalPromptListView
+      prompts={prompts}
+      canUsePrompt={canUsePrompt}
+      terminalStatus={terminalStatus}
+      usingPromptId={usingPromptId}
+      onCreate={onCreate}
+      onEdit={onEdit}
+      onUse={onUse}
+    />
   )
 }
 
@@ -610,64 +704,35 @@ export function TerminalPromptLibrary({
   return (
     <>
       <div
-        className="terminal-prompt-library"
+        className={getLibraryClassName(editorState)}
         ref={rootRef}
         role="dialog"
         aria-modal="false"
-        aria-labelledby="terminal-prompt-library-title"
+        aria-label={getLibraryAriaLabel(editorState)}
       >
-        <div className="terminal-prompt-library-header">
-          <div>
-            <div className="terminal-prompt-library-kicker">
-              <Sparkles size={12} />
-              Prompt library
-            </div>
-            <h3 id="terminal-prompt-library-title">Reusable Copilot CLI prompts</h3>
-            <p>{editorState ? 'Tweak the wording once, reuse it everywhere.' : terminalStatus}</p>
-          </div>
-          <button
-            type="button"
-            className="terminal-prompt-library-close"
-            onClick={onClose}
-            aria-label="Close prompt library"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        {errorMessage && (
-          <div className="terminal-prompt-library-error" role="alert">
-            <AlertCircle size={14} />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {editorState ? (
-          <TerminalPromptEditorView
-            editorState={editorState}
-            saving={saving}
-            titleInputRef={titleInputRef}
-            onBack={closeEditor}
-            onDelete={() => void handleDelete()}
-            onSubmit={handleSave}
-            onTitleChange={value =>
-              setEditorState(current => (current ? { ...current, title: value } : current))
-            }
-            onContentChange={value =>
-              setEditorState(current => (current ? { ...current, content: value } : current))
-            }
-          />
-        ) : (
-          <TerminalPromptListView
-            prompts={prompts}
-            canUsePrompt={canUsePrompt}
-            terminalStatus={terminalStatus}
-            usingPromptId={usingPromptId}
-            onCreate={openCreateEditor}
-            onEdit={openEditEditor}
-            onUse={handleUsePrompt}
-          />
-        )}
+        <TerminalPromptLibraryHeader editorState={editorState} onClose={onClose} />
+        <TerminalPromptLibraryError errorMessage={errorMessage} />
+        <TerminalPromptLibraryContent
+          editorState={editorState}
+          saving={saving}
+          titleInputRef={titleInputRef}
+          prompts={prompts}
+          canUsePrompt={canUsePrompt}
+          terminalStatus={terminalStatus}
+          usingPromptId={usingPromptId}
+          onCreate={openCreateEditor}
+          onEdit={openEditEditor}
+          onUse={handleUsePrompt}
+          onBack={closeEditor}
+          onDelete={() => void handleDelete()}
+          onSubmit={handleSave}
+          onTitleChange={value =>
+            setEditorState(current => (current ? { ...current, title: value } : current))
+          }
+          onContentChange={value =>
+            setEditorState(current => (current ? { ...current, content: value } : current))
+          }
+        />
       </div>
 
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}

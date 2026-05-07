@@ -2,17 +2,17 @@
 
 | Status | Priority | Task                                                                               | Notes                                                                                                                                                                                                                                                     |
 | ------ | -------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅     | High     | Terminal Folder View & File Preview                                                | 2026-05-05: FolderExplorerView, FolderTree, FilePreview in src/components/explorer/. FilesystemHandlers IPC. Shiki syntax highlighting. (#8 closed)                                                                                                  |
-| ✅     | High     | IPC Contract Testing                                                                | 2026-05-05: src/ipc/contracts.ts (single source of truth), contracts.test.ts + contracts.registration.test.ts, all handlers import from shared constant (#7 closed)                                                                                         |
-| 📋     | High     | [Close test coverage gap to 100%](#close-test-coverage-gap-to-100)                | Perfection audit: stmts 99.56%, branches 99.45%, fns 99.74%, lines 99.59% — ~48 stmts, 38 branches, 9 fns, 40 lines uncovered |
 | 📋     | High     | [Update bundle-size baseline](#update-bundle-size-baseline)                        | Perfection audit: main.js +372%, index.js +40%, preload.mjs +39% over baseline — investigate if baseline is stale or bundle needs tree-shaking |
 | 📋     | Medium   | [Reduce CRAP scores](#reduce-crap-scores)                                         | Perfection audit: 331 functions with cyclomatic complexity > 5. Target: all functions CRAP < 6 via refactoring + coverage |
 | 📋     | Medium   | [Improve React Doctor score](#improve-react-doctor-score)                          | Perfection audit: 82/100 — 138 warnings across 47 files (Date.now in JSX, filter().map() chains, sequential setState, etc.) |
 | 📋     | Medium   | [Performance Testing Suite](#performance-testing-suite)                            | #10 — Remaining: Lighthouse CI. Done: bench-compare.ts + benchmarks.yml CI workflow, react-scan (replaces WDYR for React 19), startup/memory/IPC bench infra |
 | 📋     | Medium   | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | #9 — Remaining: `electronegativity` for Electron security, expand axe-core to more component tests. Done: `dependency-cruiser` ✅, `unicorn` ✅, `strict` ✅, `vitest-axe` + axe-helper (4 tests) ✅ |
-| 📋     | Low      | [Fix Prettier formatting violations](#fix-prettier-formatting-violations)          | Perfection audit: 33 files unformatted — auto-fix with `bun run format` |
-| 📋     | Low      | [Fix Markdown lint errors](#fix-markdown-lint-errors)                              | Perfection audit: 7 errors (MD040, MD032, MD047) — mostly auto-fixable with `bun run lint:md:fix` |
+| 📋     | Low      | [Fix Prettier formatting violations](#fix-prettier-formatting-violations)          | Down from 33 to 10 files — auto-fix with `bun run format` |
+| 📋     | Low      | [Fix Markdown lint errors](#fix-markdown-lint-errors)                              | Down from 7 to 5 errors (MD040 ×3, MD032 ×1, MD047 ×1) — mostly auto-fixable |
 | 📋     | Low      | Fix e18e pkg.main packaging config                                                | Perfection audit: pkg.main references dist-electron/main.js but file not in pkg.files — update package.json |
+| ✅     | High     | Close test coverage gap to 100%                                                   | 2026-05-07: PR #14 merged — 100% statements, branches, functions, lines (10981/6990/3498/9940) |
+| ✅     | High     | Terminal Folder View & File Preview                                                | 2026-05-05: FolderExplorerView, FolderTree, FilePreview in src/components/explorer/. FilesystemHandlers IPC. Shiki syntax highlighting. (#8 closed)                                                                                                  |
+| ✅     | High     | IPC Contract Testing                                                                | 2026-05-05: src/ipc/contracts.ts (single source of truth), contracts.test.ts + contracts.registration.test.ts, all handlers import from shared constant (#7 closed)                                                                                         |
 | ✅     | Medium   | Card/List View Toggle for all list pages                                           | 2026-05-05: ViewModeToggle + useViewMode shared; PR, Issue, RepoPR, RunList all toggling ✅                                                                                                                                                              |
 | ✅     | Medium   | Add CONTRIBUTING.md                                                                | 2026-05-05: Setup guide, PR conventions, testing expectations, code quality rules (#702)                                                                                                                                                                  |
 | ✅     | High     | Upgrade TypeScript 5.x → 6.0.3                                                     | 2026-05-05: PR #6 merged — TypeScript 6.0.3 + TS7 native preview (tsgo)                                                                                                                                                                                   |
@@ -100,7 +100,7 @@
 
 ## Progress
 
-**Remaining: 9** | **Completed: 86** (91%)
+**Remaining: 8** | **Completed: 87** (92%)
 
 ---
 
@@ -146,19 +146,6 @@ Remaining work: Lighthouse CI only. Other items are complete.
 2. Create `lighthouse.config.ts` for Electron renderer URL
 3. Add LH CI step to CI workflow (informational initially)
 
-### Close test coverage gap to 100%
-
-**Current state** (2026-05-07 perfection audit):
-
-- Statements: 99.56% (48 uncovered)
-- Branches: 99.45% (38 uncovered)
-- Functions: 99.74% (9 uncovered)
-- Lines: 99.59% (40 uncovered)
-
-**Approach**: Run `bun run test:coverage` and examine the uncovered lines report. Write targeted tests for the ~48 uncovered statements. CI enforces 100% threshold.
-
----
-
 ### Update bundle-size baseline
 
 **Current state** (2026-05-07 perfection audit):
@@ -200,16 +187,16 @@ Remaining work: Lighthouse CI only. Other items are complete.
 
 ### Fix Prettier formatting violations
 
-33 files failing `prettier --check`. Auto-fix: `bun run format`. Verify no unintended changes before committing.
+10 files failing `prettier --check` (mostly new test files from PR #14). Auto-fix: `bun run format`. Verify no unintended changes before committing.
 
 ---
 
 ### Fix Markdown lint errors
 
-7 errors across 5 files:
+5 errors across 4 files:
 
 - MD040 (fenced code blocks need language): debug/SKILL.md, CONTRIBUTING.md ×2
-- MD032 (blank lines around lists): perfection/SKILL.md, TODO.md
+- MD032 (blank lines around lists): perfection/SKILL.md
 - MD047 (trailing newline): todo/History/2026-05-05.md
 
 Auto-fix: `bun run lint:md:fix`, then manually add language specifiers to fenced code blocks.

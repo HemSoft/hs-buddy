@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Users, Sparkles, TerminalSquare } from 'lucide-react'
+import { APP_VERSION } from '../constants/appVersion'
 import { AboutModal } from './AboutModal'
 import { modLabel, isMac } from '../utils/platform'
 import { IPC_SEND } from '../ipc/contracts'
@@ -175,7 +176,7 @@ export function TitleBar({
           <Users size={14} />
         </span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.751</span>
+        <span className="title-version">V{APP_VERSION}</span>
       </div>
       <div className="window-controls">
         <button

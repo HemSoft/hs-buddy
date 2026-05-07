@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { APP_VERSION } from '../constants/appVersion'
 import { AboutModal } from './AboutModal'
 import { axe } from '../test/axe-helper'
 
@@ -15,7 +16,7 @@ describe('AboutModal', () => {
   it('renders app name and version', () => {
     render(<AboutModal onClose={vi.fn()} />)
     expect(screen.getByText('Buddy')).toBeTruthy()
-    expect(screen.getByText(/Version/)).toBeTruthy()
+    expect(screen.getByText(`Version ${APP_VERSION}`)).toBeTruthy()
   })
 
   it('renders tagline and description', () => {

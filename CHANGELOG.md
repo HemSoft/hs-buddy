@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Resolve PR #15 review feedback
+- Resolve remaining PR #15 review threads
 
 ## [0.1.750] - 2026-05-07
 

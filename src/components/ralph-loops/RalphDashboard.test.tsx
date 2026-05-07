@@ -362,31 +362,37 @@ describe('RalphDashboard', () => {
   it('shows a dashboard error banner when a run section throws during render', () => {
     mockLoopCardShouldThrow = true
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    setupHook({ runs: [makeRun({ runId: 'active-1', status: 'running' })] })
+    try {
+      setupHook({ runs: [makeRun({ runId: 'active-1', status: 'running' })] })
 
-    render(<RalphDashboard />)
+      render(<RalphDashboard />)
 
-    expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
-    expect(screen.getByText('Ralph Loops')).toBeInTheDocument()
-    consoleErrorSpy.mockRestore()
+      expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
+      expect(screen.getByText('Ralph Loops')).toBeInTheDocument()
+    } finally {
+      consoleErrorSpy.mockRestore()
+    }
   })
 
   it('dismisses dashboard render errors after the child recovers', async () => {
     mockLoopCardShouldThrow = true
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    setupHook({ runs: [makeRun({ runId: 'active-1', status: 'running' })] })
+    try {
+      setupHook({ runs: [makeRun({ runId: 'active-1', status: 'running' })] })
 
-    render(<RalphDashboard />)
+      render(<RalphDashboard />)
 
-    expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
+      expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
 
-    mockLoopCardShouldThrow = false
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+      mockLoopCardShouldThrow = false
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
 
-    await waitFor(() => {
-      expect(screen.getByTestId('loop-card-active-1')).toBeInTheDocument()
-    })
-    consoleErrorSpy.mockRestore()
+      await waitFor(() => {
+        expect(screen.getByTestId('loop-card-active-1')).toBeInTheDocument()
+      })
+    } finally {
+      consoleErrorSpy.mockRestore()
+    }
   })
 
   it('partitions runs correctly: running as active, completed as recent', () => {

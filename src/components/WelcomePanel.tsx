@@ -4,6 +4,7 @@ import { useBuddyStats, useRepoBookmarks } from '../hooks/useConvex'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import { useDashboardCards } from '../hooks/useDashboardCards'
 import { formatUptime } from '../utils/dateUtils'
+import { APP_VERSION } from '../constants/appVersion'
 import { CommandCenterCard } from './dashboard/CommandCenterCard'
 import { WorkspacePulseCard } from './dashboard/WorkspacePulseCard'
 import { WeatherCard } from './dashboard/WeatherCard'
@@ -45,7 +46,7 @@ function WelcomeHeader({
         </div>
         <div className="welcome-header-meta">
           <div className="welcome-header-meta-top">
-            <div className="welcome-version-badge">Version 0.1.751</div>
+            <div className="welcome-version-badge">Version {APP_VERSION}</div>
             <DashboardConfigDropdown cards={cards} isVisible={isVisible} toggleCard={toggleCard} />
           </div>
           {liveUptime > 0 && (

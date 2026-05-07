@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { APP_VERSION } from '../constants/appVersion'
 import { WelcomePanel } from './WelcomePanel'
 import * as dashboardCardsModule from '../hooks/useDashboardCards'
 
@@ -155,6 +156,7 @@ describe('WelcomePanel', () => {
   it('renders app name', () => {
     render(<WelcomePanel prCounts={{}} onNavigate={onNavigate} onSectionChange={onSectionChange} />)
     expect(screen.getByText('Buddy')).toBeTruthy()
+    expect(screen.getByText(`Version ${APP_VERSION}`)).toBeTruthy()
   })
 
   it('renders tagline', () => {

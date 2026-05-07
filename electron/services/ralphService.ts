@@ -107,9 +107,9 @@ function readScriptContent(filePath: string): string | null {
 }
 
 function extractPromptFromContent(content: string): string | undefined {
-  // Pattern 1: PowerShell here-string — $varName = @' ... '@
-  const hereStringMatch = content.match(/\$\w+Prompt\s*=\s*@'\s*\r?\n([\s\S]*?)\r?\n'@/)
-  if (hereStringMatch) return hereStringMatch[1].trim()
+  // Pattern 1: PowerShell here-string — $varName = @' ... '@ or @" ... "@
+  const hereStringMatch = content.match(/\$\w+Prompt\s*=\s*@(['"])\s*\r?\n([\s\S]*?)\r?\n\1@/)
+  if (hereStringMatch) return hereStringMatch[2].trim()
   // Pattern 2: Inline -Prompt "..." or -Prompt '...' on the ralph invocation line
   const inlineMatch = content.match(/-Prompt\s+["']([^"']+)["']/)
   if (inlineMatch) return inlineMatch[1].trim()

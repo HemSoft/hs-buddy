@@ -20,6 +20,9 @@ release/
 playwright-report/
 test-results/
 
+# Lighthouse CI
+.lighthouseci/
+
 # Environment
 .env
 .env.local

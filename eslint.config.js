@@ -49,6 +49,7 @@ export default tseslint.config(
       'convex/_generated/**',
       '.modules/**',
       '.dependency-cruiser.cjs',
+      'lighthouserc.cjs',
       'eslint.config.js',
     ],
   },

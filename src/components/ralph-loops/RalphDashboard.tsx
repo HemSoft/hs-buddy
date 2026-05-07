@@ -1,9 +1,14 @@
 import { useReducer, useCallback, useState, useEffect } from 'react'
-import { RefreshCw, Plus, Play, FileCode2 } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { useRalphLoops } from '../../hooks/useRalphLoops'
-import { RalphLoopCard } from './RalphLoopCard'
 import { RalphLaunchForm } from './RalphLaunchForm'
 import type { RalphRunInfo, RalphTemplateInfo } from '../../types/ralph'
+import {
+  RalphDashboardAvailableScripts,
+  RalphDashboardErrorBanner,
+  RalphDashboardHeader,
+  RalphDashboardRunSection,
+} from './RalphDashboardSections'
 import './RalphDashboard.css'
 
 type ViewMode = 'grid' | 'launch'
@@ -145,8 +150,35 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
     [onOpenTab]
   )
 
+  const handleClearError = useCallback(() => {
+    dispatch({ type: 'setError', error: null })
+  }, [])
+
+  const handleLaunch = useCallback(
+    async (config: Parameters<typeof launch>[0]) => {
+      const result = await launch(config)
+      if (result.success) {
+        handleLaunched(result.runId)
+      }
+      return result
+    },
+    [handleLaunched, launch]
+  )
+
+  const handleSelectScript = useCallback((script: string) => {
+    dispatch({ type: 'setView', mode: 'launch', script })
+  }, [])
+
+  const handleToggleLaunchView = useCallback(() => {
+    dispatch({
+      type: 'setView',
+      mode: state.viewMode === 'launch' ? 'grid' : 'launch',
+    })
+  }, [state.viewMode])
+
   const { active, recent } = partitionRuns(runs)
   const displayError = state.error ?? hookError
+  const isLaunchView = state.viewMode === 'launch'
 
   if (loading) {
     return (
@@ -159,158 +191,27 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
 
   return (
     <div className="ralph-dashboard">
-      <div className="ralph-dashboard-header">
-        <h2>Ralph Loops</h2>
-        <div className="ralph-dashboard-actions">
-          <button className="ralph-action-btn" onClick={refresh} title="Refresh">
-            <RefreshCw size={14} />
-          </button>
-          <button
-            className={`ralph-action-btn ralph-primary ${state.viewMode === 'launch' ? 'active' : ''}`}
-            onClick={() =>
-              dispatch({
-                type: 'setView',
-                mode: state.viewMode === 'launch' ? 'grid' : 'launch',
-              })
-            }
-          >
-            <Plus size={14} />
-            New Loop
-          </button>
-        </div>
-      </div>
+      <RalphDashboardHeader
+        isLaunchView={isLaunchView}
+        onRefresh={refresh}
+        onToggleLaunchView={handleToggleLaunchView}
+      />
 
       <div className="ralph-dashboard-body">
-        {displayError && (
-          <div className="ralph-error-banner">
-            {displayError}
-            <button onClick={() => dispatch({ type: 'setError', error: null })}>×</button>
-          </div>
-        )}
+        <RalphDashboardErrorBanner error={displayError} onDismiss={handleClearError} />
 
-        {state.viewMode === 'launch' && (
+        {isLaunchView && (
           <RalphLaunchForm
             initialScript={state.selectedScript}
             initialPR={state.prLaunchData}
             initialIssue={state.issueLaunchData}
-            onLaunch={async config => {
-              const result = await launch(config)
-              if (result.success) handleLaunched(result.runId)
-              return result
-            }}
+            onLaunch={handleLaunch}
           />
         )}
 
-        {/* Available Scripts */}
-        {(templates.length > 0 || !loading) && (
-          <section className="ralph-section">
-            <h3 className="ralph-section-title">Available Scripts ({3 + templates.length})</h3>
-            <div className="ralph-card-grid">
-              <ScriptCard
-                name="Ralph Loop"
-                description="Full autonomous loop — issue triage, coding, PR creation, and review resolution"
-                filename="ralph"
-                onLaunch={() => dispatch({ type: 'setView', mode: 'launch', script: 'ralph' })}
-              />
-              <ScriptCard
-                name="Ralph PR"
-                description="PR-only loop — create and shepherd a PR through review for a given prompt"
-                filename="ralph-pr"
-                onLaunch={() => dispatch({ type: 'setView', mode: 'launch', script: 'ralph-pr' })}
-              />
-              <ScriptCard
-                name="Ralph Issues"
-                description="Scan codebase and create GitHub Issues for findings"
-                filename="ralph-issues"
-                onLaunch={() =>
-                  dispatch({ type: 'setView', mode: 'launch', script: 'ralph-issues' })
-                }
-              />
-              {templates.map(t => (
-                <ScriptCard
-                  key={t.filename}
-                  name={t.name}
-                  description={describeTemplate(t.filename)}
-                  filename={t.filename}
-                  onLaunch={() => dispatch({ type: 'setView', mode: 'launch', script: t.filename })}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {active.length > 0 && (
-          <section className="ralph-section">
-            <h3 className="ralph-section-title">Active ({active.length})</h3>
-            <div className="ralph-card-grid">
-              {active.map(run => (
-                <RalphLoopCard key={run.runId} run={run} onStop={handleStop} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {recent.length > 0 && (
-          <section className="ralph-section">
-            <h3 className="ralph-section-title">Recent ({recent.length})</h3>
-            <div className="ralph-card-grid">
-              {recent.map(run => (
-                <RalphLoopCard key={run.runId} run={run} onStop={handleStop} />
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Script Card ──────────────────────────────────────────────────
-
-const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
-  'ralph-improve-crap-score.ps1':
-    'Reduce CRAP scores by improving test coverage and reducing complexity',
-  'ralph-improve-quality.ps1': 'Improve overall code quality — linting, best practices, clean code',
-  'ralph-improve-react-doctor-score.ps1': 'Fix React anti-patterns flagged by react-doctor',
-  'ralph-improve-scorecard-score.ps1': 'Improve org-metrics engineering scorecard score',
-  'ralph-improve-test-coverage.ps1': 'Add missing unit tests to increase code coverage',
-  'ralph-simplisticate.ps1': 'Simplify complex code — reduce cyclomatic complexity and nesting',
-  'ralph-run-all.ps1': 'Run all improvement scripts in sequence across a repo',
-}
-
-function describeTemplate(filename: string): string {
-  return TEMPLATE_DESCRIPTIONS[filename] ?? 'Template improvement loop'
-}
-
-function ScriptCard({
-  name,
-  description,
-  filename,
-  onLaunch,
-}: {
-  name: string
-  description: string
-  filename: string
-  onLaunch: () => void
-}) {
-  return (
-    <div
-      className="ralph-script-card"
-      role="button"
-      tabIndex={0}
-      onClick={onLaunch}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') onLaunch()
-      }}
-    >
-      <div className="ralph-script-card-header">
-        <FileCode2 size={16} className="ralph-script-icon" />
-        <span className="ralph-script-name">{name}</span>
-      </div>
-      <p className="ralph-script-desc">{description}</p>
-      <div className="ralph-script-card-footer">
-        <span className="ralph-script-filename">{filename}</span>
-        <Play size={12} />
+        <RalphDashboardAvailableScripts templates={templates} onLaunchScript={handleSelectScript} />
+        <RalphDashboardRunSection title="Active" runs={active} onStop={handleStop} />
+        <RalphDashboardRunSection title="Recent" runs={recent} onStop={handleStop} />
       </div>
     </div>
   )

@@ -61,6 +61,21 @@ describe('TerminalPanel', () => {
     expect(screen.getByText('Tab 2')).toBeInTheDocument()
   })
 
+  it('renders the prompt library trigger in the header', () => {
+    render(
+      <TerminalPanel
+        tabs={makeTabs(1)}
+        activeTabId="tab-0"
+        onTabSelect={vi.fn()}
+        onTabClose={vi.fn()}
+        onAddTab={vi.fn()}
+        {...defaultHandlers}
+      />
+    )
+
+    expect(screen.getByTitle('Prompt Library')).toBeInTheDocument()
+  })
+
   it('marks active tab with "active" class', () => {
     const tabs = makeTabs(2)
     render(

@@ -5,6 +5,10 @@ let getSessionId: typeof import('./terminalSessions').getSessionId
 let setSessionId: typeof import('./terminalSessions').setSessionId
 let removeSession: typeof import('./terminalSessions').removeSession
 let killTerminalSession: typeof import('./terminalSessions').killTerminalSession
+let setTerminalPasteHandler: typeof import('./terminalSessions').setTerminalPasteHandler
+let removeTerminalPasteHandler: typeof import('./terminalSessions').removeTerminalPasteHandler
+let hasTerminalPasteHandler: typeof import('./terminalSessions').hasTerminalPasteHandler
+let pasteIntoTerminal: typeof import('./terminalSessions').pasteIntoTerminal
 
 const mockInvoke = vi.fn()
 const mockKill = vi.fn()
@@ -29,6 +33,10 @@ describe('terminalSessions', () => {
     setSessionId = mod.setSessionId
     removeSession = mod.removeSession
     killTerminalSession = mod.killTerminalSession
+    setTerminalPasteHandler = mod.setTerminalPasteHandler
+    removeTerminalPasteHandler = mod.removeTerminalPasteHandler
+    hasTerminalPasteHandler = mod.hasTerminalPasteHandler
+    pasteIntoTerminal = mod.pasteIntoTerminal
   })
 
   afterEach(() => {
@@ -117,5 +125,22 @@ describe('terminalSessions', () => {
     expect(getSessionId('view-a')).toBe('sess-1')
     expect(getSessionId('view-b')).toBeUndefined()
     expect(getSessionId('view-c')).toBe('sess-3')
+  })
+
+  it('stores and removes terminal paste handlers independently of session IDs', () => {
+    const pasteHandler = vi.fn()
+
+    expect(hasTerminalPasteHandler('view-1')).toBe(false)
+
+    setTerminalPasteHandler('view-1', pasteHandler)
+    expect(hasTerminalPasteHandler('view-1')).toBe(true)
+
+    const pasted = pasteIntoTerminal('view-1', 'prompt body')
+    expect(pasted).toBe(true)
+    expect(pasteHandler).toHaveBeenCalledWith('prompt body')
+
+    removeTerminalPasteHandler('view-1')
+    expect(hasTerminalPasteHandler('view-1')).toBe(false)
+    expect(pasteIntoTerminal('view-1', 'again')).toBe(false)
   })
 })

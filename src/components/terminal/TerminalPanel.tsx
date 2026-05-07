@@ -7,9 +7,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import { X, Plus, TerminalSquare, GripHorizontal } from 'lucide-react'
+import { X, Plus, TerminalSquare, GripHorizontal, ChevronDown } from 'lucide-react'
 import type { TerminalTab } from '../../hooks/useTerminalPanel'
 import { TerminalTabContextMenu } from './TerminalTabContextMenu'
+import { TerminalPromptLibrary } from './TerminalPromptLibrary'
 import './TerminalPanel.css'
 
 const TerminalPane = lazy(() => import('./TerminalPane').then(m => ({ default: m.TerminalPane })))
@@ -63,7 +64,9 @@ export function TerminalPanel({
     activationSeq: number
   } | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [promptLibraryOpen, setPromptLibraryOpen] = useState(false)
   const dragTabIdRef = useRef<string | null>(null)
+  const promptShellRef = useRef<HTMLDivElement>(null)
 
   // Monotonic sequence incremented on every committed activeTabId change.
   // A ref avoids forcing a second render on each tab switch while still
@@ -80,6 +83,7 @@ export function TerminalPanel({
   const handleTabSelect = useCallback(
     (tabId: string) => {
       setContextMenuState(null)
+      setPromptLibraryOpen(false)
       onTabSelect(tabId)
     },
     [onTabSelect]
@@ -88,6 +92,7 @@ export function TerminalPanel({
   const handleTabClose = useCallback(
     (e: SyntheticEvent, tabId: string) => {
       e.stopPropagation()
+      setPromptLibraryOpen(false)
       onTabClose(tabId)
     },
     [onTabClose]
@@ -142,9 +147,26 @@ export function TerminalPanel({
         <GripHorizontal size={14} />
       </div>
       <div className="terminal-panel-header">
-        <div className="terminal-panel-label">
-          <TerminalSquare size={12} />
-          <span>Terminal</span>
+        <div className="terminal-panel-prompt-shell" ref={promptShellRef}>
+          <button
+            type="button"
+            className={`terminal-panel-prompt-trigger ${promptLibraryOpen ? 'active' : ''}`}
+            onClick={() => setPromptLibraryOpen(open => !open)}
+            title="Prompt Library"
+            aria-haspopup="dialog"
+            aria-expanded={promptLibraryOpen}
+          >
+            <TerminalSquare size={12} />
+            <span>Terminal</span>
+            <ChevronDown size={12} />
+          </button>
+          {promptLibraryOpen && (
+            <TerminalPromptLibrary
+              activeTabId={activeTabId}
+              ownerRef={promptShellRef}
+              onClose={() => setPromptLibraryOpen(false)}
+            />
+          )}
         </div>
         <div className="terminal-panel-tabs">
           {tabs.map(tab => (

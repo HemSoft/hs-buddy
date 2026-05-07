@@ -1,7 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { getSessionId, setSessionId, removeSession } from './terminalSessions'
+import {
+  getSessionId,
+  setSessionId,
+  removeSession,
+  setTerminalPasteHandler,
+  removeTerminalPasteHandler,
+} from './terminalSessions'
 import { IPC_PUSH } from '../../ipc/contracts'
 import '@xterm/xterm/css/xterm.css'
 import './TerminalPane.css'
@@ -99,6 +105,7 @@ export function TerminalPane({
 
     termRef.current = term
     fitRef.current = fitAddon
+    setTerminalPasteHandler(viewKey, data => term.paste(data))
 
     // Initial fit
     requestAnimationFrame(() => {
@@ -289,6 +296,7 @@ export function TerminalPane({
 
       // Do NOT kill PTY here — session survives tab switches.
       // PTY is killed only via killTerminalSession() on explicit tab close.
+      removeTerminalPasteHandler(viewKey)
       term.dispose()
       termRef.current = null
       fitRef.current = null

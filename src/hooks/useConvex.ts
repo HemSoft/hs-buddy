@@ -57,6 +57,28 @@ export function useSettingsMutations() {
 }
 
 /**
+ * React hooks for terminal prompts
+ */
+
+export function useTerminalPrompts() {
+  return useQuery(api.terminalPrompts.list)
+}
+
+export function useTerminalPromptMutations() {
+  const create = useMutation(api.terminalPrompts.create)
+  const update = useMutation(api.terminalPrompts.update)
+  const remove = useMutation(api.terminalPrompts.remove)
+  const markUsed = useMutation(api.terminalPrompts.markUsed)
+
+  return {
+    create,
+    update,
+    remove,
+    markUsed,
+  }
+}
+
+/**
  * React hooks for Convex schedules
  */
 

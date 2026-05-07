@@ -6,6 +6,8 @@ vi.mock('./terminalSessions', () => ({
   getSessionId: vi.fn(),
   setSessionId: vi.fn(),
   removeSession: vi.fn(),
+  setTerminalPasteHandler: vi.fn(),
+  removeTerminalPasteHandler: vi.fn(),
 }))
 
 // Mock xterm.js
@@ -74,7 +76,13 @@ if (!document.fonts) {
   })
 }
 
-import { getSessionId, setSessionId, removeSession } from './terminalSessions'
+import {
+  getSessionId,
+  setSessionId,
+  removeSession,
+  setTerminalPasteHandler,
+  removeTerminalPasteHandler,
+} from './terminalSessions'
 import { TerminalPane } from './TerminalPane'
 
 describe('TerminalPane', () => {
@@ -115,6 +123,15 @@ describe('TerminalPane', () => {
   it('renders the terminal pane container', () => {
     const { container } = render(<TerminalPane viewKey="test-key" />)
     expect(container.querySelector('.terminal-pane')).toBeInTheDocument()
+  })
+
+  it('registers and unregisters terminal paste handler for the view', () => {
+    const { unmount } = render(<TerminalPane viewKey="test-key" />)
+
+    expect(setTerminalPasteHandler).toHaveBeenCalledWith('test-key', expect.any(Function))
+
+    unmount()
+    expect(removeTerminalPasteHandler).toHaveBeenCalledWith('test-key')
   })
 
   it('spawns a new PTY session when no existing session', async () => {

@@ -62,6 +62,21 @@ export default defineSchema({
   }).index('by_key', ['key']),
 
   /**
+   * Reusable terminal prompt snippets for Copilot CLI sessions.
+   * Shared across machines via Convex instead of local terminal settings.
+   */
+  terminalPrompts: defineTable({
+    title: v.string(),
+    content: v.string(),
+    sortOrder: v.optional(v.number()),
+    lastUsedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_created', ['createdAt'])
+    .index('by_last_used', ['lastUsedAt']),
+
+  /**
    * Job definitions - the tasks that can be scheduled or run manually
    */
   jobs: defineTable({

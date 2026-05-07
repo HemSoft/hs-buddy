@@ -23,8 +23,17 @@ vi.mock('../../convex/_generated/api', () => ({
       updatePR: 's.updatePR',
       updateCopilot: 's.updateCopilot',
       updateViewMode: 's.uvm',
+      updateTerminalPanelHeight: 's.utph',
+      updateTerminalTabs: 's.utt',
       reset: 's.reset',
       initFromMigration: 's.init',
+    },
+    terminalPrompts: {
+      list: 'tp.list',
+      create: 'tp.create',
+      update: 'tp.update',
+      remove: 'tp.remove',
+      markUsed: 'tp.used',
     },
     schedules: {
       list: 'sch.list',
@@ -95,6 +104,8 @@ import {
   useGitHubAccountMutations,
   useSettings,
   useSettingsMutations,
+  useTerminalPrompts,
+  useTerminalPromptMutations,
   useSchedules,
   useSchedule,
   useScheduleMutations,
@@ -141,6 +152,13 @@ describe('useConvex hooks', () => {
           useSettings()
         },
         's.get',
+      ],
+      [
+        'useTerminalPrompts',
+        () => {
+          useTerminalPrompts()
+        },
+        'tp.list',
       ],
       [
         'useSchedules',
@@ -300,7 +318,20 @@ describe('useConvex hooks', () => {
       [
         'useSettingsMutations',
         () => useSettingsMutations(),
-        ['updatePR', 'updateCopilot', 'updateViewMode', 'reset', 'initFromMigration'],
+        [
+          'updatePR',
+          'updateCopilot',
+          'updateViewMode',
+          'updateTerminalPanelHeight',
+          'updateTerminalTabs',
+          'reset',
+          'initFromMigration',
+        ],
+      ],
+      [
+        'useTerminalPromptMutations',
+        () => useTerminalPromptMutations(),
+        ['create', 'update', 'remove', 'markUsed'],
       ],
       [
         'useScheduleMutations',

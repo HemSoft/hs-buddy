@@ -66,6 +66,24 @@ describe('RalphDashboardSections', () => {
     expect(onLaunchScript).toHaveBeenCalledWith('custom-script.ps1')
   })
 
+  it('prefers server-provided descriptions for custom templates', () => {
+    render(
+      <RalphDashboardAvailableScripts
+        templates={[
+          {
+            name: 'Custom',
+            filename: 'custom-script.ps1',
+            description: 'Server supplied description',
+          },
+        ]}
+        onLaunchScript={() => undefined}
+      />
+    )
+
+    expect(screen.getByText('Server supplied description')).toBeInTheDocument()
+    expect(screen.queryByText('Template improvement loop')).not.toBeInTheDocument()
+  })
+
   it('prevents page scroll when activating a script card with the space key', () => {
     const onLaunchScript = vi.fn()
     render(<RalphDashboardAvailableScripts templates={[]} onLaunchScript={onLaunchScript} />)

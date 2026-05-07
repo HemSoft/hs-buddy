@@ -115,7 +115,7 @@ export function RalphDashboardAvailableScripts({
           <ScriptCard
             key={template.filename}
             name={template.name}
-            description={describeTemplate(template.filename)}
+            description={template.description?.trim() || describeTemplate(template.filename)}
             filename={template.filename}
             onLaunch={() => onLaunchScript(template.filename)}
           />

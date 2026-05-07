@@ -165,6 +165,7 @@ export interface RalphStopResult {
 export interface RalphTemplateInfo {
   name: string
   filename: string
+  description?: string
   defaultPrompt?: string
 }
 

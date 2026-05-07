@@ -98,24 +98,72 @@ export function getScriptsPath(): string {
 
 /** List available template scripts from the vendored scripts/ directory. */
 /** Extract the default prompt embedded in a ralph template .ps1 script. */
-function extractPromptFromScript(filePath: string): string | undefined {
+function readScriptContent(filePath: string): string | null {
   try {
-    const content = readFileSync(filePath, 'utf-8')
-    // Pattern 1: PowerShell here-string — $varName = @' ... '@
-    const hereStringMatch = content.match(/\$\w+Prompt\s*=\s*@'\s*\r?\n([\s\S]*?)\r?\n'@/)
-    if (hereStringMatch) return hereStringMatch[1].trim()
-    // Pattern 2: Inline -Prompt "..." or -Prompt '...' on the ralph invocation line
-    const inlineMatch = content.match(/-Prompt\s+["']([^"']+)["']/)
-    if (inlineMatch) return inlineMatch[1].trim()
+    return readFileSync(filePath, 'utf-8')
   } catch (_: unknown) {
-    // Script unreadable — return no prompt
+    return null
   }
+}
+
+function extractPromptFromContent(content: string): string | undefined {
+  // Pattern 1: PowerShell here-string — $varName = @' ... '@
+  const hereStringMatch = content.match(/\$\w+Prompt\s*=\s*@'\s*\r?\n([\s\S]*?)\r?\n'@/)
+  if (hereStringMatch) return hereStringMatch[1].trim()
+  // Pattern 2: Inline -Prompt "..." or -Prompt '...' on the ralph invocation line
+  const inlineMatch = content.match(/-Prompt\s+["']([^"']+)["']/)
+  if (inlineMatch) return inlineMatch[1].trim()
   return undefined
+}
+
+function extractPromptFromScript(filePath: string): string | undefined {
+  const content = readScriptContent(filePath)
+  return content ? extractPromptFromContent(content) : undefined
+}
+
+function getLeadingCommentLines(content: string): string[] {
+  const leadingComments: string[] = []
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line) {
+      if (leadingComments.length > 0) {
+        break
+      }
+      continue
+    }
+    if (!line.startsWith('#')) {
+      break
+    }
+    leadingComments.push(line.replace(/^#\s?/, '').trim())
+  }
+  return leadingComments
+}
+
+function extractDescriptionFromScript(filePath: string): string | undefined {
+  const content = readScriptContent(filePath)
+  if (!content) {
+    return undefined
+  }
+
+  const leadingComments = getLeadingCommentLines(content)
+
+  const titleLine = leadingComments[0]
+  const titleMatch = titleLine?.match(/^.+?\s+[-—]\s*(.*)$/)
+  const titleDescription = titleMatch?.[1]?.trim()
+  if (titleDescription) {
+    return titleDescription
+  }
+
+  const fallbackComments = titleMatch ? leadingComments.slice(1) : leadingComments
+  return fallbackComments.find(
+    line => line.length > 0 && !line.toLowerCase().startsWith('version:')
+  )
 }
 
 export function listTemplateScripts(): {
   name: string
   filename: string
+  description?: string
   defaultPrompt?: string
 }[] {
   const scriptsSubdir = join(getScriptsDir(), 'scripts')
@@ -129,6 +177,7 @@ export function listTemplateScripts(): {
         .replace(/\.ps1$/, '')
         .replace(/-/g, ' ')
         .replace(/\b\w/g, c => c.toUpperCase()),
+      description: extractDescriptionFromScript(join(scriptsSubdir, f)),
       defaultPrompt: extractPromptFromScript(join(scriptsSubdir, f)),
     }))
 }

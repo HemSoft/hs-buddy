@@ -210,12 +210,30 @@ describe('ralphService', () => {
     it('returns parsed scripts when directory exists with .ps1 files', () => {
       mockExistsSync.mockReturnValue(true)
       mockReaddirSync.mockReturnValue(['ralph-issues.ps1', 'ralph-review.ps1'])
-      mockReadFileSync.mockReturnValue('# no prompt')
+      mockReadFileSync.mockReturnValue(
+        "# ralph-issues.ps1 — Finds repository issues.\n# Version: 1.2.0\n& $_ralph -Prompt 'Analyze the repository for issues'"
+      )
 
       const scripts = listTemplateScripts()
       expect(scripts).toHaveLength(2)
-      expect(scripts[0].filename).toBe('ralph-issues.ps1')
-      expect(scripts[0].name).toBe('Issues')
+      expect(scripts[0]).toMatchObject({
+        filename: 'ralph-issues.ps1',
+        name: 'Issues',
+        description: 'Finds repository issues.',
+        defaultPrompt: 'Analyze the repository for issues',
+      })
+    })
+
+    it('falls back to the next leading comment when the title description is blank', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-issues.ps1'])
+      mockReadFileSync.mockReturnValue(
+        "# ralph-issues.ps1 —   \n# Finds repository issues.\n# Version: 1.2.0\n& $_ralph -Prompt 'Analyze the repository for issues'"
+      )
+
+      const scripts = listTemplateScripts()
+
+      expect(scripts[0].description).toBe('Finds repository issues.')
     })
   })
 })

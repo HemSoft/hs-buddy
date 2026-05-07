@@ -189,8 +189,6 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
     state.selectedScript ?? '',
     state.prLaunchData?.prNumber ?? '',
     state.issueLaunchData?.issueNumber ?? '',
-    templates.map(template => template.filename).join(','),
-    runs.map(run => `${run.runId}:${run.status}:${run.updatedAt}`).join(','),
   ].join('|')
 
   if (loading) {

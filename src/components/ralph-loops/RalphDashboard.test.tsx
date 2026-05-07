@@ -45,6 +45,7 @@ import { RalphDashboard } from './RalphDashboard'
 
 const mockedUseRalphLoops = vi.mocked(useRalphLoops)
 let currentHookState: ReturnType<typeof useRalphLoops>
+const FIXED_COMPLETED_AT = 1_120_000
 
 function setupHook(overrides: Partial<ReturnType<typeof useRalphLoops>> = {}) {
   const clearError =
@@ -119,7 +120,7 @@ describe('RalphDashboard', () => {
 
   it('renders recent runs in Recent section', () => {
     setupHook({
-      runs: [makeRun({ runId: 'done-1', status: 'completed', completedAt: Date.now() })],
+      runs: [makeRun({ runId: 'done-1', status: 'completed', completedAt: FIXED_COMPLETED_AT })],
     })
     render(<RalphDashboard />)
     expect(screen.getByText('Recent (1)')).toBeInTheDocument()
@@ -127,7 +128,9 @@ describe('RalphDashboard', () => {
   })
 
   it('partitions failed runs as recent', () => {
-    setupHook({ runs: [makeRun({ runId: 'fail-1', status: 'failed', completedAt: Date.now() })] })
+    setupHook({
+      runs: [makeRun({ runId: 'fail-1', status: 'failed', completedAt: FIXED_COMPLETED_AT })],
+    })
     render(<RalphDashboard />)
     expect(screen.getByText('Recent (1)')).toBeInTheDocument()
   })
@@ -395,11 +398,33 @@ describe('RalphDashboard', () => {
     }
   })
 
+  it('does not reset render errors when run updates arrive while the child still throws', () => {
+    mockLoopCardShouldThrow = true
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      setupHook({ runs: [makeRun({ runId: 'active-1', status: 'running' })] })
+      const { rerender } = render(<RalphDashboard />)
+
+      expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
+
+      currentHookState = {
+        ...currentHookState,
+        runs: [makeRun({ runId: 'active-1', status: 'running', updatedAt: 1_070_000 })],
+      }
+      rerender(<RalphDashboard />)
+
+      expect(screen.getByText('Loop card render failed')).toBeInTheDocument()
+      expect(screen.queryByTestId('loop-card-active-1')).not.toBeInTheDocument()
+    } finally {
+      consoleErrorSpy.mockRestore()
+    }
+  })
+
   it('partitions runs correctly: running as active, completed as recent', () => {
     setupHook({
       runs: [
         makeRun({ runId: 'active-1', status: 'running' }),
-        makeRun({ runId: 'completed-1', status: 'completed', completedAt: Date.now() }),
+        makeRun({ runId: 'completed-1', status: 'completed', completedAt: FIXED_COMPLETED_AT }),
       ],
     })
     render(<RalphDashboard />)

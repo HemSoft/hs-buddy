@@ -1,7 +1,10 @@
 import type { RalphRunInfo } from '../../types/ralph'
 
+const FIXED_RUN_STARTED_AT = 1_000_000
+const FIXED_RUN_UPDATED_AT = 1_060_000
+
 export function makeRun(overrides: Partial<RalphRunInfo> = {}): RalphRunInfo {
-  return {
+  const baseRun = {
     runId: 'run-1',
     config: { repoPath: '/test', scriptType: 'ralph' },
     status: 'running',
@@ -9,8 +12,8 @@ export function makeRun(overrides: Partial<RalphRunInfo> = {}): RalphRunInfo {
     pid: 100,
     currentIteration: 1,
     totalIterations: 3,
-    startedAt: Date.now() - 60_000,
-    updatedAt: Date.now(),
+    startedAt: FIXED_RUN_STARTED_AT,
+    updatedAt: FIXED_RUN_UPDATED_AT,
     completedAt: null,
     exitCode: null,
     error: null,
@@ -25,6 +28,7 @@ export function makeRun(overrides: Partial<RalphRunInfo> = {}): RalphRunInfo {
       totalCost: null,
       totalPremium: 0,
     },
-    ...overrides,
-  } as RalphRunInfo
+  } satisfies RalphRunInfo
+
+  return Object.assign({}, baseRun, overrides)
 }

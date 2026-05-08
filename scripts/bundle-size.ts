@@ -71,7 +71,12 @@ function collectBundles(): BundleEntry[] {
   }
 
   const mainEntry = collectElectronMain(distElectronDir)
-  if (mainEntry) bundles.push(mainEntry)
+  if (!mainEntry) {
+    throw new Error(
+      'Missing dist-electron/main.js. Run a clean Electron build before bundle-size check.'
+    )
+  }
+  bundles.push(mainEntry)
 
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)
 }
@@ -86,9 +91,7 @@ const isUpdate = process.argv.includes('--update')
 function warnStaleArtifacts(): void {
   const distElectronDir = resolve(root, 'dist-electron')
   if (!existsSync(distElectronDir)) return
-  const stale = readdirSync(distElectronDir).filter(
-    f => f.startsWith('main-') && f.endsWith('.js')
-  )
+  const stale = readdirSync(distElectronDir).filter(f => f.startsWith('main-') && f.endsWith('.js'))
   if (stale.length > 0) {
     console.warn(
       `⚠  ${stale.length} stale main-*.js artifact(s) in dist-electron/. ` +

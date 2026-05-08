@@ -130,6 +130,34 @@ describe('AppErrorBoundary', () => {
     expect(boundaryLog).toBeDefined()
   })
 
+  it('handles a thrown non-empty string', () => {
+    function ThrowsString() {
+      throw 'custom string error'
+    }
+
+    render(
+      <AppErrorBoundary>
+        <ThrowsString />
+      </AppErrorBoundary>
+    )
+
+    expect(screen.getByText('custom string error')).toBeInTheDocument()
+  })
+
+  it('handles a thrown non-string, non-Error value', () => {
+    function ThrowsNumber() {
+      throw 42
+    }
+
+    render(
+      <AppErrorBoundary>
+        <ThrowsNumber />
+      </AppErrorBoundary>
+    )
+
+    expect(screen.getByText('Unknown render error')).toBeInTheDocument()
+  })
+
   it('renders a custom fallback and lets it reset the boundary', () => {
     let shouldThrow = true
     function FlakyChild() {

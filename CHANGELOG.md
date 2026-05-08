@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Use named import for package.json version
+- Cover non-Error throw paths in AppErrorBoundary
 
 ## [0.1.750] - 2026-05-07
 

@@ -131,7 +131,7 @@ describe('AppErrorBoundary', () => {
   })
 
   it('handles a thrown non-empty string', () => {
-    function ThrowsString() {
+    function ThrowsString(): React.ReactNode {
       throw 'custom string error'
     }
 
@@ -145,7 +145,7 @@ describe('AppErrorBoundary', () => {
   })
 
   it('handles a thrown non-string, non-Error value', () => {
-    function ThrowsNumber() {
+    function ThrowsNumber(): React.ReactNode {
       throw 42
     }
 

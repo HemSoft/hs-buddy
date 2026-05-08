@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { AppErrorBoundary } from './AppErrorBoundary'
 
 interface ThrowingChildProps {
@@ -128,5 +128,62 @@ describe('AppErrorBoundary', () => {
     })
 
     expect(boundaryLog).toBeDefined()
+  })
+
+  it('handles a thrown non-empty string', () => {
+    function ThrowsString(): React.ReactNode {
+      throw 'custom string error'
+    }
+
+    render(
+      <AppErrorBoundary>
+        <ThrowsString />
+      </AppErrorBoundary>
+    )
+
+    expect(screen.getByText('custom string error')).toBeInTheDocument()
+  })
+
+  it('handles a thrown non-string, non-Error value', () => {
+    function ThrowsNumber(): React.ReactNode {
+      throw 42
+    }
+
+    render(
+      <AppErrorBoundary>
+        <ThrowsNumber />
+      </AppErrorBoundary>
+    )
+
+    expect(screen.getByText('Unknown render error')).toBeInTheDocument()
+  })
+
+  it('renders a custom fallback and lets it reset the boundary', () => {
+    let shouldThrow = true
+    function FlakyChild() {
+      if (shouldThrow) {
+        throw new Error('Test error')
+      }
+
+      return <div>Safe content</div>
+    }
+
+    render(
+      <AppErrorBoundary
+        fallback={({ message, reset }) => (
+          <button aria-label="Retry boundary" onClick={reset}>
+            Retry {message}
+          </button>
+        )}
+      >
+        <FlakyChild />
+      </AppErrorBoundary>
+    )
+
+    expect(screen.getByText('Retry Test error')).toBeInTheDocument()
+
+    shouldThrow = false
+    fireEvent.click(screen.getByRole('button', { name: 'Retry boundary' }))
+    expect(screen.getByText('Safe content')).toBeInTheDocument()
   })
 })

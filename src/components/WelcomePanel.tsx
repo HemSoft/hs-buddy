@@ -4,6 +4,7 @@ import { useBuddyStats, useRepoBookmarks } from '../hooks/useConvex'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import { useDashboardCards } from '../hooks/useDashboardCards'
 import { formatUptime } from '../utils/dateUtils'
+import { APP_VERSION } from '../constants/appVersion'
 import { CommandCenterCard } from './dashboard/CommandCenterCard'
 import { WorkspacePulseCard } from './dashboard/WorkspacePulseCard'
 import { WeatherCard } from './dashboard/WeatherCard'
@@ -45,7 +46,7 @@ function WelcomeHeader({
         </div>
         <div className="welcome-header-meta">
           <div className="welcome-header-meta-top">
-            <div className="welcome-version-badge">Version 0.1.748</div>
+            <div className="welcome-version-badge">Version {APP_VERSION}</div>
             <DashboardConfigDropdown cards={cards} isVisible={isVisible} toggleCard={toggleCard} />
           </div>
           {liveUptime > 0 && (
@@ -63,26 +64,42 @@ function WelcomeHeader({
 function QuickActionsBar({ onQuickAction }: { onQuickAction: (action: QuickAction) => void }) {
   return (
     <div className="welcome-quick-actions">
-      <button type="button" className="welcome-action-btn" onClick={() => onQuickAction('my-prs')}>
+      <button
+        type="button"
+        className="welcome-action-btn"
+        onClick={() => {
+          onQuickAction('my-prs')
+        }}
+      >
         <GitPullRequest size={16} />
         <span>My PRs</span>
       </button>
       <button
         type="button"
         className="welcome-action-btn"
-        onClick={() => onQuickAction('organizations')}
+        onClick={() => {
+          onQuickAction('organizations')
+        }}
       >
         <Building2 size={16} />
         <span>Organizations</span>
       </button>
-      <button type="button" className="welcome-action-btn" onClick={() => onQuickAction('jobs')}>
+      <button
+        type="button"
+        className="welcome-action-btn"
+        onClick={() => {
+          onQuickAction('jobs')
+        }}
+      >
         <Zap size={16} />
         <span>Jobs</span>
       </button>
       <button
         type="button"
         className="welcome-action-btn"
-        onClick={() => onQuickAction('settings')}
+        onClick={() => {
+          onQuickAction('settings')
+        }}
       >
         <Settings size={16} />
         <span>Settings</span>
@@ -229,13 +246,15 @@ function useLiveUptime(storedUptime: number, lastSessionStart: number | undefine
       const sessionElapsed = Math.max(0, Date.now() - sessionStart)
       setLiveUptime(prev => {
         const newVal = storedUptime + sessionElapsed
-        return newVal !== prev ? newVal : prev
+        return newVal === prev ? prev : newVal
       })
     }
 
     compute()
     const timer = setInterval(compute, 1_000)
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+    }
   }, [storedUptime, lastSessionStart, clientSessionStart])
 
   return liveUptime

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Users, Sparkles, TerminalSquare } from 'lucide-react'
+import { APP_VERSION } from '../constants/appVersion'
 import { AboutModal } from './AboutModal'
 import { modLabel, isMac } from '../utils/platform'
 import { IPC_SEND } from '../ipc/contracts'
@@ -30,7 +31,13 @@ function buildMenus(setShowAbout: (v: boolean) => void): Menu[] {
     {
       label: 'File',
       items: [
-        { label: 'Exit', accelerator: isMac ? '⌘Q' : 'Alt+F4', action: () => window.close() },
+        {
+          label: 'Exit',
+          accelerator: isMac ? '⌘Q' : 'Alt+F4',
+          action: () => {
+            window.close()
+          },
+        },
       ],
     },
     {
@@ -53,11 +60,19 @@ function buildMenus(setShowAbout: (v: boolean) => void): Menu[] {
         { label: 'Zoom Out', accelerator: `${modLabel}+Num-` },
         { label: 'Reset Zoom', accelerator: `${modLabel}+Num0` },
         { type: 'separator' },
-        { label: 'Reload', accelerator: `${modLabel}+R`, action: () => window.location.reload() },
+        {
+          label: 'Reload',
+          accelerator: `${modLabel}+R`,
+          action: () => {
+            window.location.reload()
+          },
+        },
         {
           label: 'Toggle DevTools',
           accelerator: isMac ? '⌥⌘I' : 'Ctrl+Shift+I',
-          action: () => window.ipcRenderer.send(IPC_SEND.TOGGLE_DEVTOOLS),
+          action: () => {
+            window.ipcRenderer.send(IPC_SEND.TOGGLE_DEVTOOLS)
+          },
         },
         { type: 'separator' },
         { label: 'Full Screen', accelerator: isMac ? '⌃⌘F' : 'F11' },
@@ -97,7 +112,9 @@ export function TitleBar({
     }
 
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
   }, [])
 
   const handleMenuClick = (label: string) => {
@@ -133,8 +150,12 @@ export function TitleBar({
           <div key={menu.label} className="menu-container">
             <button
               className={`menu-button ${openMenu === menu.label ? 'active' : ''}`}
-              onClick={() => handleMenuClick(menu.label)}
-              onMouseEnter={() => openMenu && setOpenMenu(menu.label)}
+              onClick={() => {
+                handleMenuClick(menu.label)
+              }}
+              onMouseEnter={() => {
+                if (openMenu) setOpenMenu(menu.label)
+              }}
             >
               {menu.label}
             </button>
@@ -154,7 +175,9 @@ export function TitleBar({
                     <button
                       key={item.label}
                       className={itemClass}
-                      onClick={() => handleItemClick(item)}
+                      onClick={() => {
+                        handleItemClick(item)
+                      }}
                       disabled={item.disabled}
                     >
                       <span className="menu-item-label">{item.label}</span>
@@ -175,7 +198,7 @@ export function TitleBar({
           <Users size={14} />
         </span>
         <span className="title-product">Buddy</span>
-        <span className="title-version">V0.1.748</span>
+        <span className="title-version">V{APP_VERSION}</span>
       </div>
       <div className="window-controls">
         <button
@@ -219,7 +242,13 @@ export function TitleBar({
         </button>
       </div>
 
-      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showAbout && (
+        <AboutModal
+          onClose={() => {
+            setShowAbout(false)
+          }}
+        />
+      )}
     </div>
   )
 }

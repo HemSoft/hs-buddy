@@ -34,10 +34,9 @@ bun run typecheck
 # Ratchet coverage thresholds up (never down)
 bun run coverage:ratchet
 
-# Auto-bump revision: package.json + version strings in components
+# Auto-bump revision: package.json only (renderer reads from appVersion.ts)
 bun scripts/bump-revision.ts
 
 # Stage all auto-generated files so they're included in this commit
 # (git add in pre-commit IS included in the commit — verified)
-git add vitest.config.ts package.json src/components/AboutModal.tsx src/components/WelcomePanel.tsx src/components/TitleBar.tsx
-
+git add vitest.config.ts package.json

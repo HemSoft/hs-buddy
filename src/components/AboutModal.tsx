@@ -1,4 +1,5 @@
 import { X, Heart, Users } from 'lucide-react'
+import { APP_VERSION } from '../constants/appVersion'
 import { GithubIcon } from './icons/GithubIcon'
 import './AboutModal.css'
 
@@ -34,7 +35,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
           <h1 className="about-app-name">Buddy</h1>
 
           {/* Version Badge */}
-          <div className="about-version-badge">Version 0.1.748</div>
+          <div className="about-version-badge">Version {APP_VERSION}</div>
 
           {/* Tagline */}
           <div className="about-tagline">

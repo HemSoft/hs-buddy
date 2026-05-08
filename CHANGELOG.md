@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.751] - 2026-05-07
+
+### Fixed
+
+- Resolve PR #15 review feedback
+- Resolve remaining PR #15 review threads
+- Use unknown type in getDerivedStateFromError for safe narrowing
+- Annotate return types on always-throwing test components
+- Resolve lint:quality warnings in PR-touched files
+- Guard process.resourcesPath in getScriptsDir for non-Electron envs
+
+### Changed
+
+- Use named import for package.json version
+- Cover non-Error throw paths in AppErrorBoundary
+
+## [0.1.750] - 2026-05-07
+
+### Fixed
+
+- Resolve Ralph dashboard review feedback
+- Guard Ralph script key repeats
+
+## [0.1.749] - 2026-05-07
+
+### Changed
+
+- Resolve Ralph dashboard review feedback
+- Lower RalphDashboard complexity
+- Refresh CRAP score snapshot
+
+### Fixed
+
+- Correct changelog release attribution
+
 ## [0.1.748] - 2026-05-06
 
 ### Added
@@ -27,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve CI lint and test failures
 - Use double quotes for test:a11y Vitest filter for Windows compatibility
 - Keep commented PRs in needs review
+- Resolve Ralph dashboard CI and review findings
 
 ### Changed
 

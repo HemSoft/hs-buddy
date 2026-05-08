@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { APP_VERSION } from '../constants/appVersion'
 import { TitleBar } from './TitleBar'
 
 let mockIsMac = false
@@ -38,7 +39,7 @@ describe('TitleBar', () => {
     render(<TitleBar />)
     expect(screen.getByText('HemSoft Developments')).toBeTruthy()
     expect(screen.getByText('Buddy')).toBeTruthy()
-    expect(screen.getByText(/V0\.1/)).toBeTruthy()
+    expect(screen.getByText(`V${APP_VERSION}`)).toBeTruthy()
   })
 
   it('renders File, Edit, View, and Help menus', () => {

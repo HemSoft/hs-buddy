@@ -68,7 +68,9 @@ export function useRalphLoops() {
     if (!hasActive) return
 
     const timer = setInterval(refresh, POLL_INTERVAL_MS)
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+    }
   }, [runs, refresh])
 
   const launch = useCallback(
@@ -97,5 +99,9 @@ export function useRalphLoops() {
     [refresh]
   )
 
-  return { runs, loading, error, launch, stop, refresh }
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
+
+  return { runs, loading, error, clearError, launch, stop, refresh }
 }

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use unknown type in getDerivedStateFromError for safe narrowing
 - Annotate return types on always-throwing test components
 - Resolve lint:quality warnings in PR-touched files
+- Guard process.resourcesPath in getScriptsDir for non-Electron envs
 
 ### Changed
 

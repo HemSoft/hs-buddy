@@ -57,10 +57,15 @@ function getScriptsDir(): string {
   const devPath = resolve(__dirname, '..', VENDORED_SCRIPTS_DIR)
   if (existsSync(devPath)) return devPath
 
-  const prodPath = join(process.resourcesPath, VENDORED_SCRIPTS_DIR)
-  if (existsSync(prodPath)) return prodPath
+  // process.resourcesPath is Electron-only; guard for non-Electron environments
+  const resourcesPath = process.resourcesPath
+  if (resourcesPath) {
+    const prodPath = join(resourcesPath, VENDORED_SCRIPTS_DIR)
+    if (existsSync(prodPath)) return prodPath
+    throw new Error(`Ralph scripts not found at ${devPath} or ${prodPath}`)
+  }
 
-  throw new Error(`Ralph scripts not found at ${devPath} or ${prodPath}`)
+  throw new Error(`Ralph scripts not found at ${devPath}`)
 }
 
 function readJsonConfig<T>(filename: string): T {

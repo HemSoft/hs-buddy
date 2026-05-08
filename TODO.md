@@ -2,7 +2,6 @@
 
 | Status | Priority | Task                                                                               | Notes                                                                                                                                                                                                                                                     |
 | ------ | -------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | High     | [Update bundle-size baseline](#update-bundle-size-baseline)                        | Perfection audit: main.js +372%, index.js +40%, preload.mjs +39% over baseline — investigate if baseline is stale or bundle needs tree-shaking |
 | 📋     | Medium   | [Reduce CRAP scores](#reduce-crap-scores)                                         | Perfection audit: 331 functions with cyclomatic complexity > 5. Target: all functions CRAP < 6 via refactoring + coverage |
 | 📋     | Medium   | [Improve React Doctor score](#improve-react-doctor-score)                          | Perfection audit: 82/100 — 138 warnings across 47 files (Date.now in JSX, filter().map() chains, sequential setState, etc.) |
 | 📋     | Medium   | [Performance Testing Suite](#performance-testing-suite)                            | #10 — Remaining: Lighthouse CI. Done: bench-compare.ts + benchmarks.yml CI workflow, react-scan (replaces WDYR for React 19), startup/memory/IPC bench infra |
@@ -10,6 +9,7 @@
 | 📋     | Low      | [Fix Prettier formatting violations](#fix-prettier-formatting-violations)          | Down from 33 to 10 files — auto-fix with `bun run format` |
 | 📋     | Low      | [Fix Markdown lint errors](#fix-markdown-lint-errors)                              | Down from 7 to 5 errors (MD040 ×3, MD032 ×1, MD047 ×1) — mostly auto-fixable |
 | 📋     | Low      | Fix e18e pkg.main packaging config                                                | Perfection audit: pkg.main references dist-electron/main.js but file not in pkg.files — update package.json |
+| ✅     | High     | Update bundle-size baseline                                                       | 2026-05-07: Fixed stale-artifact bug in collectLargestMain, updated baseline, cleaned 32 stale artifacts |
 | ✅     | High     | Close test coverage gap to 100%                                                   | 2026-05-07: PR #14 merged — 100% statements, branches, functions, lines (10981/6990/3498/9940) |
 | ✅     | High     | Terminal Folder View & File Preview                                                | 2026-05-05: FolderExplorerView, FolderTree, FilePreview in src/components/explorer/. FilesystemHandlers IPC. Shiki syntax highlighting. (#8 closed)                                                                                                  |
 | ✅     | High     | IPC Contract Testing                                                                | 2026-05-05: src/ipc/contracts.ts (single source of truth), contracts.test.ts + contracts.registration.test.ts, all handlers import from shared constant (#7 closed)                                                                                         |
@@ -100,7 +100,7 @@
 
 ## Progress
 
-**Remaining: 8** | **Completed: 87** (92%)
+**Remaining: 7** | **Completed: 88** (93%)
 
 ---
 
@@ -145,16 +145,6 @@ Remaining work: Lighthouse CI only. Other items are complete.
 1. Add `@lhci/cli` as dev dependency
 2. Create `lighthouse.config.ts` for Electron renderer URL
 3. Add LH CI step to CI workflow (informational initially)
-
-### Update bundle-size baseline
-
-**Current state** (2026-05-07 perfection audit):
-
-- `dist-electron/main.js`: 3.67 MB vs 795 kB baseline (+372%)
-- `dist/assets/index.js`: 2.28 MB vs 1.64 MB baseline (+40%)
-- `dist-electron/preload.mjs`: 16.80 kB vs 12.08 kB baseline (+39%)
-
-**Approach**: Determine if baseline is stale (legitimate growth from features) or if tree-shaking/code-splitting can reduce size. If growth is intentional, update `bundle-size-baseline.json`. If not, analyze imports with `bun run bundle-size --analyze`.
 
 ---
 

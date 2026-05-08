@@ -108,7 +108,9 @@ export function RalphDashboardAvailableScripts({
             name={script.name}
             description={script.description}
             filename={script.filename}
-            onLaunch={() => onLaunchScript(script.filename)}
+            onLaunch={() => {
+              onLaunchScript(script.filename)
+            }}
           />
         ))}
         {templates.map(template => (
@@ -117,7 +119,9 @@ export function RalphDashboardAvailableScripts({
             name={template.name}
             description={template.description?.trim() || describeTemplate(template.filename)}
             filename={template.filename}
-            onLaunch={() => onLaunchScript(template.filename)}
+            onLaunch={() => {
+              onLaunchScript(template.filename)
+            }}
           />
         ))}
       </div>

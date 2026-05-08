@@ -111,7 +111,9 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
       dispatch({ type: 'setView', mode: 'launch', script })
     }
     window.addEventListener('ralph:select-script', handler)
-    return () => window.removeEventListener('ralph:select-script', handler)
+    return () => {
+      window.removeEventListener('ralph:select-script', handler)
+    }
   }, [])
 
   // Listen for PR detail "Start Ralph Review" action
@@ -121,7 +123,9 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
       dispatch({ type: 'setView', mode: 'launch', script: 'ralph-pr', prLaunchData: data })
     }
     window.addEventListener('ralph:launch-pr-review', handler)
-    return () => window.removeEventListener('ralph:launch-pr-review', handler)
+    return () => {
+      window.removeEventListener('ralph:launch-pr-review', handler)
+    }
   }, [])
 
   // Listen for Issue detail "Start Ralph Loop" action
@@ -131,7 +135,9 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
       dispatch({ type: 'setView', mode: 'launch', script: 'ralph', issueLaunchData: data })
     }
     window.addEventListener('ralph:launch-from-issue', handler)
-    return () => window.removeEventListener('ralph:launch-from-issue', handler)
+    return () => {
+      window.removeEventListener('ralph:launch-from-issue', handler)
+    }
   }, [])
 
   const handleStop = useCallback(

@@ -19,9 +19,7 @@ vi.mock('./RalphLoopCard', () => ({
 
 describe('RalphDashboardSections', () => {
   it('renders nothing when the error banner has no error', () => {
-    const { container } = render(
-      <RalphDashboardErrorBanner error={null} onDismiss={() => undefined} />
-    )
+    const { container } = render(<RalphDashboardErrorBanner error={null} onDismiss={() => {}} />)
 
     expect(container).toBeEmptyDOMElement()
   })
@@ -39,8 +37,8 @@ describe('RalphDashboardSections', () => {
     render(
       <RalphDashboardHeader
         isLaunchView={false}
-        onRefresh={() => undefined}
-        onToggleLaunchView={() => undefined}
+        onRefresh={() => {}}
+        onToggleLaunchView={() => {}}
       />
     )
 
@@ -76,7 +74,7 @@ describe('RalphDashboardSections', () => {
             description: 'Server supplied description',
           },
         ]}
-        onLaunchScript={() => undefined}
+        onLaunchScript={() => {}}
       />
     )
 
@@ -128,7 +126,7 @@ describe('RalphDashboardSections', () => {
 
   it('skips empty run sections', () => {
     const { container } = render(
-      <RalphDashboardRunSection title="Active" runs={[]} onStop={() => undefined} />
+      <RalphDashboardRunSection title="Active" runs={[]} onStop={() => {}} />
     )
 
     expect(container).toBeEmptyDOMElement()
@@ -154,8 +152,8 @@ describe('RalphDashboardSections', () => {
     render(
       <RalphDashboardHeader
         isLaunchView={true}
-        onRefresh={() => undefined}
-        onToggleLaunchView={() => undefined}
+        onRefresh={() => {}}
+        onToggleLaunchView={() => {}}
       />
     )
 
@@ -166,8 +164,8 @@ describe('RalphDashboardSections', () => {
     render(
       <RalphDashboardHeader
         isLaunchView={false}
-        onRefresh={() => undefined}
-        onToggleLaunchView={() => undefined}
+        onRefresh={() => {}}
+        onToggleLaunchView={() => {}}
       />
     )
 
@@ -179,7 +177,7 @@ describe('RalphDashboardSections', () => {
     render(
       <RalphDashboardHeader
         isLaunchView={false}
-        onRefresh={() => undefined}
+        onRefresh={() => {}}
         onToggleLaunchView={onToggleLaunchView}
       />
     )

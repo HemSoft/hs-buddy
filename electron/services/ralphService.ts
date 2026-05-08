@@ -5,12 +5,12 @@
  * Follows module-based singleton pattern (see crewService.ts).
  */
 
-import { spawn, execSync, type ChildProcess } from 'child_process'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs'
-import { join, resolve, isAbsolute, dirname } from 'path'
-import { fileURLToPath } from 'url'
-import { randomUUID } from 'crypto'
-import { tmpdir } from 'os'
+import { spawn, execSync, type ChildProcess } from 'node:child_process'
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { join, resolve, isAbsolute, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
 import type {
   RalphLaunchConfig,
   RalphRunInfo,
@@ -57,7 +57,7 @@ function getScriptsDir(): string {
   const devPath = resolve(__dirname, '..', VENDORED_SCRIPTS_DIR)
   if (existsSync(devPath)) return devPath
 
-  const prodPath = join(process.resourcesPath ?? '', VENDORED_SCRIPTS_DIR)
+  const prodPath = join(process.resourcesPath, VENDORED_SCRIPTS_DIR)
   if (existsSync(prodPath)) return prodPath
 
   throw new Error(`Ralph scripts not found at ${devPath} or ${prodPath}`)
@@ -148,7 +148,8 @@ function extractDescriptionFromScript(filePath: string): string | undefined {
   const leadingComments = getLeadingCommentLines(content)
 
   const titleLine = leadingComments[0]
-  const titleMatch = titleLine?.match(/^.+?\s+[-—]\s*(.*)$/)
+  if (!titleLine) return undefined
+  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
   const titleDescription = titleMatch?.[1]?.trim()
   if (titleDescription) {
     return titleDescription
@@ -255,7 +256,7 @@ function resolveScriptPath(config: RalphLaunchConfig): string {
   if (config.scriptType === 'ralph-pr') return join(scriptsDir, 'ralph-pr.ps1')
   if (config.scriptType === 'ralph-issues') return join(scriptsDir, 'ralph-issues.ps1')
   // Template scripts: check vendored scripts/ dir first, then repo's scripts/ dir
-  if (config.scriptType === 'template' && config.templateScript) {
+  if (config.templateScript) {
     const vendoredPath = join(scriptsDir, 'scripts', config.templateScript)
     if (existsSync(vendoredPath)) return vendoredPath
     const repoPath = join(config.repoPath, 'scripts', config.templateScript)
@@ -390,7 +391,7 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
   activeProcesses.set(runId, proc)
 
   // Stream stdout
-  proc.stdout?.on('data', (data: Buffer) => {
+  proc.stdout.on('data', (data: Buffer) => {
     const lines = data.toString().split('\n').filter(Boolean)
     for (const line of lines) {
       appendLogLine(runId, line)
@@ -399,26 +400,26 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
   })
 
   // Stream stderr
-  proc.stderr?.on('data', (data: Buffer) => {
+  proc.stderr.on('data', (data: Buffer) => {
     const lines = data.toString().split('\n').filter(Boolean)
     for (const line of lines) {
       appendLogLine(runId, `[stderr] ${line}`)
     }
   })
 
-  // Handle exit
+  // Handle exit — respects manually-set terminal status (e.g. 'cancelled' from stopLoop)
   proc.on('close', code => {
     const r = activeRuns.get(runId)
-    if (r) {
-      // Respect manually-set terminal status (e.g. 'cancelled' from stopLoop)
-      if (r.status !== 'cancelled') {
-        r.exitCode = code
-        r.completedAt = Date.now()
-        r.updatedAt = Date.now()
-        r.status = code === 0 ? 'completed' : 'failed'
-        r.phase = code === 0 ? 'completed' : 'failed'
-        emitStatusChange(r)
-      }
+    if (r && r.status !== 'cancelled') {
+      const terminal = code === 0 ? 'completed' : ('failed' as const)
+      Object.assign(r, {
+        exitCode: code,
+        completedAt: Date.now(),
+        updatedAt: Date.now(),
+        status: terminal,
+        phase: terminal,
+      })
+      emitStatusChange(r)
     }
     activeProcesses.delete(runId)
   })
@@ -426,11 +427,13 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
   proc.on('error', err => {
     const r = activeRuns.get(runId)
     if (r) {
-      r.status = 'failed'
-      r.phase = 'failed'
-      r.error = err.message
-      r.updatedAt = Date.now()
-      r.completedAt = Date.now()
+      Object.assign(r, {
+        status: 'failed',
+        phase: 'failed',
+        error: err.message,
+        updatedAt: Date.now(),
+        completedAt: Date.now(),
+      })
       emitStatusChange(r)
     }
     activeProcesses.delete(runId)
@@ -457,7 +460,7 @@ function appendLogLine(runId: string, line: string): void {
 function detectPhase(run: RalphRunInfo, clean: string): void {
   const iterMatch = clean.match(/=== ITERATION (\d+)/)
   if (iterMatch) {
-    run.currentIteration = parseInt(iterMatch[1], 10)
+    run.currentIteration = Number.parseInt(iterMatch[1], 10)
     run.phase = 'iterating'
     run.updatedAt = Date.now()
     emitStatusChange(run)
@@ -519,20 +522,20 @@ const STAT_MATCHERS: StatMatcher[] = [
     pattern: /^\s+Cost\s+\$([0-9.]+)\s+\((\d+)\s+premium/i,
     update: (r, m) => {
       r.stats.totalCost = `$${m[1]}`
-      r.stats.totalPremium = parseInt(m[2], 10)
+      r.stats.totalPremium = Number.parseInt(m[2], 10)
     },
   },
   {
     pattern: /GRAND TOTAL:\s+\$([0-9.]+)\s+\((\d+)\s+premium/i,
     update: (r, m) => {
       r.stats.totalCost = `$${m[1]}`
-      r.stats.totalPremium = parseInt(m[2], 10)
+      r.stats.totalPremium = Number.parseInt(m[2], 10)
     },
   },
   {
     pattern: /Issues created this iteration:\s+(\d+)/i,
     update: (r, m) => {
-      r.stats.issuesCreated += parseInt(m[1], 10)
+      r.stats.issuesCreated += Number.parseInt(m[1], 10)
     },
   },
 ]

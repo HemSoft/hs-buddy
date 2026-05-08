@@ -1,15 +1,15 @@
 {
-  "updatedAt": "2026-05-06T11:37:50.841Z",
+  "updatedAt": "2026-05-08T02:33:18.302Z",
   "bundles": [
     {
       "file": "dist/assets/index.js",
-      "sizeBytes": 1716206,
-      "sizeHuman": "1.64 MB"
+      "sizeBytes": 2427741,
+      "sizeHuman": "2.32 MB"
     },
     {
       "file": "dist-electron/main.js",
-      "sizeBytes": 814481,
-      "sizeHuman": "795.39 kB"
+      "sizeBytes": 813039,
+      "sizeHuman": "793.98 kB"
     },
     {
       "file": "dist/assets/emacs-lisp.js",
@@ -28,13 +28,13 @@
     },
     {
       "file": "dist/assets/TerminalPane.js",
-      "sizeBytes": 345163,
-      "sizeHuman": "337.07 kB"
+      "sizeBytes": 375206,
+      "sizeHuman": "366.41 kB"
     },
     {
       "file": "dist/assets/index.css",
-      "sizeBytes": 319675,
-      "sizeHuman": "312.18 kB"
+      "sizeBytes": 327074,
+      "sizeHuman": "319.41 kB"
     },
     {
       "file": "dist/assets/wolfram.js",
@@ -1247,6 +1247,11 @@
       "sizeHuman": "4.55 kB"
     },
     {
+      "file": "dist/assets/TerminalPane.css",
+      "sizeBytes": 4552,
+      "sizeHuman": "4.45 kB"
+    },
+    {
       "file": "dist/assets/rosmsg.js",
       "sizeBytes": 4516,
       "sizeHuman": "4.41 kB"
@@ -1255,11 +1260,6 @@
       "file": "dist/assets/nextflow.js",
       "sizeBytes": 4507,
       "sizeHuman": "4.40 kB"
-    },
-    {
-      "file": "dist/assets/TerminalPane.css",
-      "sizeBytes": 4472,
-      "sizeHuman": "4.37 kB"
     },
     {
       "file": "dist/assets/tcl.js",

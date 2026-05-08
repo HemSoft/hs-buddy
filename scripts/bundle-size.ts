@@ -49,20 +49,13 @@ function collectRendererAssets(distDir: string): BundleEntry[] {
     })
 }
 
-function collectLargestMain(distElectronDir: string): BundleEntry | null {
+function collectElectronMain(distElectronDir: string): BundleEntry | null {
   if (!existsSync(distElectronDir)) return null
-  const mainFiles = readdirSync(distElectronDir).filter(
-    f => f.startsWith('main') && f.endsWith('.js')
-  )
-  if (mainFiles.length === 0) return null
-  const largest = mainFiles
-    .map(f => ({ name: f, size: statSync(resolve(distElectronDir, f)).size }))
-    .sort((a, b) => b.size - a.size)[0]
-  return {
-    file: `dist-electron/${largest.name}`,
-    sizeBytes: largest.size,
-    sizeHuman: humanSize(largest.size),
-  }
+  // Use the exact unhashed main.js — hashed variants (main-*.js) are stale build artifacts
+  const mainPath = resolve(distElectronDir, 'main.js')
+  if (!existsSync(mainPath)) return null
+  const size = statSync(mainPath).size
+  return { file: 'dist-electron/main.js', sizeBytes: size, sizeHuman: humanSize(size) }
 }
 
 function collectBundles(): BundleEntry[] {
@@ -77,7 +70,7 @@ function collectBundles(): BundleEntry[] {
     bundles.push({ file: 'dist-electron/preload.mjs', sizeBytes: size, sizeHuman: humanSize(size) })
   }
 
-  const mainEntry = collectLargestMain(distElectronDir)
+  const mainEntry = collectElectronMain(distElectronDir)
   if (mainEntry) bundles.push(mainEntry)
 
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)
@@ -90,7 +83,22 @@ function normalizeFile(file: string): string {
 
 const isUpdate = process.argv.includes('--update')
 
+function warnStaleArtifacts(): void {
+  const distElectronDir = resolve(root, 'dist-electron')
+  if (!existsSync(distElectronDir)) return
+  const stale = readdirSync(distElectronDir).filter(
+    f => f.startsWith('main-') && f.endsWith('.js')
+  )
+  if (stale.length > 0) {
+    console.warn(
+      `⚠  ${stale.length} stale main-*.js artifact(s) in dist-electron/. ` +
+        'Run a clean build to remove them: rm dist-electron/main-*.js'
+    )
+  }
+}
+
 try {
+  warnStaleArtifacts()
   const bundles = collectBundles()
 
   if (bundles.length === 0) {

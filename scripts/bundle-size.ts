@@ -95,7 +95,7 @@ function warnStaleArtifacts(): void {
   if (stale.length > 0) {
     console.warn(
       `⚠  ${stale.length} stale main-*.js artifact(s) in dist-electron/. ` +
-        'Run a clean build to remove them: rm dist-electron/main-*.js'
+        'Run a clean build to remove them (Unix: rm dist-electron/main-*.js, PowerShell: Remove-Item dist-electron\\main-*.js)'
     )
   }
 }

@@ -29,6 +29,7 @@ vi.mock('electron-store', () => ({
 
     clear(): void {
       this.data = {}
+      this.store = this.data
     }
   },
 }))

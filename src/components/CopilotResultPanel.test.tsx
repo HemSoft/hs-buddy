@@ -285,57 +285,63 @@ describe('CopilotResultPanel', () => {
 
   it('shows copied state and resets after timeout', async () => {
     vi.useFakeTimers()
-    render(<CopilotResultPanel resultId="r1" />)
-    const copyBtn = screen.getByTitle('Copy markdown')
+    try {
+      render(<CopilotResultPanel resultId="r1" />)
+      const copyBtn = screen.getByTitle('Copy markdown')
 
-    await act(async () => {
-      fireEvent.click(copyBtn)
-      await Promise.resolve()
-    })
+      await act(async () => {
+        fireEvent.click(copyBtn)
+        await Promise.resolve()
+      })
 
-    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+      expect(screen.getByTitle('Copied!')).toBeInTheDocument()
 
-    act(() => {
-      vi.advanceTimersByTime(2000)
-    })
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
 
-    expect(screen.getByTitle('Copy markdown')).toBeInTheDocument()
-    vi.useRealTimers()
+      expect(screen.getByTitle('Copy markdown')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('clears previous copy timer on rapid double-click', async () => {
     vi.useFakeTimers()
-    render(<CopilotResultPanel resultId="r1" />)
-    const copyBtn = screen.getByTitle('Copy markdown')
+    try {
+      render(<CopilotResultPanel resultId="r1" />)
+      const copyBtn = screen.getByTitle('Copy markdown')
 
-    await act(async () => {
-      fireEvent.click(copyBtn)
-      await Promise.resolve()
-    })
-    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+      await act(async () => {
+        fireEvent.click(copyBtn)
+        await Promise.resolve()
+      })
+      expect(screen.getByTitle('Copied!')).toBeInTheDocument()
 
-    // Advance 1s, then click again so old/new timer deadlines differ.
-    act(() => {
-      vi.advanceTimersByTime(1000)
-    })
-    await act(async () => {
-      fireEvent.click(copyBtn)
-      await Promise.resolve()
-    })
-    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+      // Advance 1s, then click again so old/new timer deadlines differ.
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      await act(async () => {
+        fireEvent.click(copyBtn)
+        await Promise.resolve()
+      })
+      expect(screen.getByTitle('Copied!')).toBeInTheDocument()
 
-    // At t=2000 from first click, old timer would fire; UI should still be Copied!
-    act(() => {
-      vi.advanceTimersByTime(1000)
-    })
-    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+      // At t=2000 from first click, old timer would fire; UI should still be Copied!
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(screen.getByTitle('Copied!')).toBeInTheDocument()
 
-    // 2s after second click, it should reset.
-    act(() => {
-      vi.advanceTimersByTime(1000)
-    })
-    expect(screen.getByTitle('Copy markdown')).toBeInTheDocument()
-    vi.useRealTimers()
+      // 2s after second click, it should reset.
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(screen.getByTitle('Copy markdown')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('handlePublishToPR returns early when metadata is null', async () => {

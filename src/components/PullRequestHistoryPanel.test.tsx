@@ -504,6 +504,24 @@ describe('PullRequestHistoryPanel', () => {
     expect(screen.queryByText('Address Unresolved Comments')).not.toBeInTheDocument()
   })
 
+  it('ignores non-Escape keys when context menu is open', async () => {
+    mockEnqueue.mockResolvedValue(makeHistory())
+    render(<PullRequestHistoryPanel pr={defaultPr} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Review Thread Status')).toBeInTheDocument()
+    })
+
+    const unaddressedCard = document.querySelector('.thread-card-interactive') as HTMLElement
+    fireEvent.contextMenu(unaddressedCard, { clientX: 100, clientY: 200 })
+    expect(screen.getByText('Address Unresolved Comments')).toBeInTheDocument()
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))
+    })
+    expect(screen.getByText('Address Unresolved Comments')).toBeInTheDocument()
+  })
+
   it('shows error when parseOwnerRepoFromUrl returns null', async () => {
     mockParseOwnerRepo.mockReturnValue(null)
     mockEnqueue.mockResolvedValue(makeHistory())

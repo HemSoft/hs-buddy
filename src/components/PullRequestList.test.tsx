@@ -229,6 +229,23 @@ describe('PullRequestList', () => {
     expect(screen.getByText('7 PRs found so far')).toBeTruthy()
   })
 
+  it('shows singular PR count when 1 PR found during loading', () => {
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      loading: true,
+      totalPrsFound: 1,
+      progress: {
+        currentAccount: 1,
+        totalAccounts: 2,
+        status: 'fetching',
+        accountName: 'alice',
+        org: 'myorg',
+      },
+    })
+    render(<PullRequestList mode="my-prs" />)
+    expect(screen.getByText('1 PR found so far')).toBeTruthy()
+  })
+
   it('shows error with no accounts hint', () => {
     mockUsePRListData.mockReturnValue({
       ...defaultData,

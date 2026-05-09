@@ -103,9 +103,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       /* v8 ignore stop */
       await navigator.clipboard.writeText(result.result)
       setCopied(true)
-      /* v8 ignore start */
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
-      /* v8 ignore stop */
       copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     }
   }

@@ -278,6 +278,31 @@ describe('CopilotResultPanel', () => {
     vi.useRealTimers()
   })
 
+  it('clears previous copy timer on rapid double-click', async () => {
+    vi.useFakeTimers()
+    render(<CopilotResultPanel resultId="r1" />)
+    const copyBtn = screen.getByTitle('Copy markdown')
+
+    await act(async () => {
+      fireEvent.click(copyBtn)
+      await Promise.resolve()
+    })
+    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+
+    // Second click before timer expires — triggers clearTimeout branch
+    await act(async () => {
+      fireEvent.click(copyBtn)
+      await Promise.resolve()
+    })
+    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+    expect(screen.getByTitle('Copy markdown')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
   it('handlePublishToPR returns early when metadata is null', async () => {
     mocks.useGitHubAccounts.mockReturnValue({
       accounts: [{ username: 'alice', org: 'acme' }],

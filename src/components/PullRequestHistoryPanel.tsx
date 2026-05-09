@@ -77,9 +77,7 @@ function PullRequestHistoryOverview({
     if (!menu) return
     const close = () => setMenu(null)
     const onKey = (e: KeyboardEvent) => {
-      /* v8 ignore start */
       if (e.key === 'Escape') close()
-      /* v8 ignore stop */
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('scroll', close, true)
@@ -262,7 +260,7 @@ function PullRequestTimeline({
 }) {
   return (
     <div className="pr-history-timeline">
-      {/* v8 ignore start */}
+      {/* v8 ignore start — PullRequestTimeline is only used in CommitsFocusView (focus='commits') */}
       <h3>{focus === 'commits' ? 'Commit Timeline' : 'Activity Timeline'}</h3>
       {/* v8 ignore stop */}
       {timeline.length === 0 ? (

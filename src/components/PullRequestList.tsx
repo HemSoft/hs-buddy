@@ -198,9 +198,7 @@ function PRListLoadingState({
             </p>
             {totalPrsFound > 0 && (
               <p className="progress-total">
-                {/* v8 ignore start */}
                 {totalPrsFound} PR{totalPrsFound !== 1 ? 's' : ''} found so far
-                {/* v8 ignore stop */}
               </p>
             )}
           </div>

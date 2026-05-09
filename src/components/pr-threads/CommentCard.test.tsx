@@ -154,4 +154,16 @@ describe('CommentCard', () => {
       expect(heartBtn).not.toBeDisabled()
     })
   })
+
+  it('logs error when onReact throws', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onReact = vi.fn().mockRejectedValue(new Error('reaction failed'))
+    render(<CommentCard comment={makeComment()} onReact={onReact} />)
+
+    fireEvent.click(screen.getByTitle('Thumbs up'))
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to add reaction:', expect.any(Error))
+    })
+    consoleSpy.mockRestore()
+  })
 })

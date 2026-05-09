@@ -84,4 +84,20 @@ describe('TempoSummaryCards', () => {
     expect(screen.getByText('All hours logged')).toBeInTheDocument()
     expect(screen.getByText('40h non-capex')).toBeInTheDocument()
   })
+
+  it('handles zero month target gracefully', () => {
+    render(
+      <TempoSummaryCards
+        todayHours={0}
+        monthHours={0}
+        monthTarget={0}
+        isCurrentMonth
+        viewMonth={new Date('2026-03-01T00:00:00Z')}
+        worklogs={[]}
+        capexMap={{}}
+      />
+    )
+
+    expect(screen.getByText('Month (0%)')).toBeInTheDocument()
+  })
 })

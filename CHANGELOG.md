@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 3 v8 ignore blocks and add 3 tests
 - Remove 4 v8 ignore blocks, add 3 tests
 - Remove 3 v8 ignore blocks, add 3 tests
+- Remove 3 v8 ignore blocks, add 2 tests
 
 ## [0.1.751] - 2026-05-07
 

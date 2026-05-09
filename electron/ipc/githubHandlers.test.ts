@@ -242,7 +242,7 @@ describe('githubHandlers', () => {
       expect(result.data.org).toBe('test-org')
     })
 
-    it('returns error when budget API calls fail', async () => {
+    it('returns degraded data when budget API calls fail', async () => {
       // tryGetCliToken succeeds
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
       // Both budget calls fail (allSettled) + findBudgetAcrossPages also called
@@ -251,9 +251,11 @@ describe('githubHandlers', () => {
 
       const handler = handlers.get('github:get-copilot-budget')!
       const result = await handler({}, 'test-org', 'testuser')
-      // Handler catches and returns error object
-      expect(result).toBeDefined()
-      expect(typeof result.success).toBe('boolean')
+      // allSettled absorbs errors; handler returns success with degraded data
+      expect(result.success).toBe(true)
+      expect(result.data.org).toBe('test-org')
+      expect(result.data.budgetAmount).toBeNull()
+      expect(result.data.spentUnavailable).toBe(true)
     })
   })
 

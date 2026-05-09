@@ -118,17 +118,14 @@ describe('config', () => {
 
     it('setUiValue and getUiValue roundtrip', () => {
       configManager.setUiValue('theme', 'light')
-      // Store mock uses flat keys, so direct roundtrip depends on mock.
-      // We verify the method doesn't throw.
-      expect(() => configManager.setUiValue('theme', 'dark')).not.toThrow()
+      expect(configManager.getUiValue('theme')).toBe('light')
     })
   })
 
   describe('Copilot PR Review Prompt Template', () => {
     it('gets and sets template', () => {
       configManager.setCopilotPRReviewPromptTemplate('my template')
-      // Verify setter doesn't throw
-      expect(() => configManager.getCopilotPRReviewPromptTemplate()).not.toThrow()
+      expect(configManager.getCopilotPRReviewPromptTemplate()).toBe('my template')
     })
   })
 
@@ -140,25 +137,24 @@ describe('config', () => {
 
     it('setScheduleForecastDays clamps to min 1', () => {
       configManager.setScheduleForecastDays(0)
-      // The clamped value is stored via mock
-      expect(() => configManager.getScheduleForecastDays()).not.toThrow()
+      expect(configManager.getScheduleForecastDays()).toBe(1)
     })
 
     it('setScheduleForecastDays clamps to max 30', () => {
       configManager.setScheduleForecastDays(100)
-      expect(() => configManager.getScheduleForecastDays()).not.toThrow()
+      expect(configManager.getScheduleForecastDays()).toBe(30)
     })
   })
 
   describe('Notification Settings', () => {
     it('gets and sets notification sound enabled', () => {
       configManager.setNotificationSoundEnabled(true)
-      expect(() => configManager.getNotificationSoundEnabled()).not.toThrow()
+      expect(configManager.getNotificationSoundEnabled()).toBe(true)
     })
 
     it('gets and sets notification sound path', () => {
       configManager.setNotificationSoundPath('/path/to/sound.mp3')
-      expect(() => configManager.getNotificationSoundPath()).not.toThrow()
+      expect(configManager.getNotificationSoundPath()).toBe('/path/to/sound.mp3')
     })
   })
 
@@ -170,19 +166,18 @@ describe('config', () => {
 
     it('setFinanceWatchlist deduplicates and uppercases', () => {
       configManager.setFinanceWatchlist(['aapl', 'AAPL', 'goog'])
-      // The method processes without throwing
-      expect(() => configManager.getFinanceWatchlist()).not.toThrow()
+      expect(configManager.getFinanceWatchlist()).toEqual(['AAPL', 'GOOG'])
     })
 
     it('setFinanceWatchlist handles non-array gracefully', () => {
       // @ts-expect-error testing defensive behavior
       configManager.setFinanceWatchlist(null)
-      expect(() => configManager.getFinanceWatchlist()).not.toThrow()
+      expect(configManager.getFinanceWatchlist()).toEqual([])
     })
 
     it('setFinanceWatchlist filters empty strings', () => {
       configManager.setFinanceWatchlist(['AAPL', '', '  ', 'GOOG'])
-      expect(() => configManager.getFinanceWatchlist()).not.toThrow()
+      expect(configManager.getFinanceWatchlist()).toEqual(['AAPL', 'GOOG'])
     })
   })
 

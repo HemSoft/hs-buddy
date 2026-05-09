@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix stale-artifact false positive in bundle-size check
 - Fail fast when electron main.js is missing
 - Add cross-platform cleanup guidance for stale artifacts
+- Address PR review feedback — strengthen test assertions and fix TS2556
 
 ### Changed
 

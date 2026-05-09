@@ -9,7 +9,7 @@ vi.mock('./zoom', () => ({
   saveZoomLevel: vi.fn(),
 }))
 
-const mockMatchesShortcut = vi.fn(() => false)
+const mockMatchesShortcut = vi.fn((..._args: unknown[]) => false)
 
 vi.mock('../src/utils/shortcutMatching', () => ({
   matchesShortcut: (...args: unknown[]) => mockMatchesShortcut(...args),

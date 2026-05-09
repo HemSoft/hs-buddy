@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 10 v8 ignore blocks, simplify dead branches, add 2 tests
 - Remove 3 more v8 ignore blocks from 3 files
 - Remove 5 v8 ignore blocks and add 4 tests
+- Remove 3 v8 ignore blocks from BrowserTabView and WeatherCard
 
 ## [0.1.751] - 2026-05-07
 

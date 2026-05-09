@@ -132,9 +132,7 @@ function WeatherExpandedContent({
             value={searchQuery}
             onChange={e => onSearchQueryChange(e.target.value)}
             onKeyDown={e => {
-              /* v8 ignore start */
               if (e.key === 'Enter') onSearch()
-              /* v8 ignore stop */
             }}
             aria-label="Search location"
           />
@@ -196,9 +194,7 @@ export function WeatherCard() {
   const { expanded, toggle } = useExpandCollapse('weather:expanded')
 
   const handleSearch = () => {
-    /* v8 ignore start */
     if (searchQuery.trim()) {
-      /* v8 ignore stop */
       setLocationBySearch(searchQuery.trim())
       setSearchQuery('')
     }

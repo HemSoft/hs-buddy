@@ -226,6 +226,31 @@ describe('CopilotResultPanel', () => {
     })
   })
 
+  it('publishes review with fallback model label when model is empty', async () => {
+    mocks.addPRComment.mockResolvedValue(undefined)
+    mocks.useGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'alice', org: 'acme' }],
+    })
+    mockResult.category = 'pr-review'
+    mockResult.status = 'completed'
+    mockResult.result = 'LGTM'
+    mockResult.model = ''
+    mockResult.metadata = { org: 'acme', repo: 'web', prNumber: 99, prTitle: 'Update' }
+
+    render(<CopilotResultPanel resultId="r1" />)
+
+    fireEvent.click(screen.getByTitle('Publish review as PR comment'))
+
+    await waitFor(() => {
+      expect(mocks.addPRComment).toHaveBeenCalledWith(
+        'acme',
+        'web',
+        99,
+        expect.stringContaining('AI review')
+      )
+    })
+  })
+
   it('logs error when publish to PR fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mocks.addPRComment.mockRejectedValueOnce(new Error('API error'))

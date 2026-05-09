@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail fast when electron main.js is missing
 - Add cross-platform cleanup guidance for stale artifacts
 - Remove unnecessary soundPath dependency from useCallback
+- Format PRFilesChangedPanel and PullRequestList with Prettier
 
 ### Changed
 

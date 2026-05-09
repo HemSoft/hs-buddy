@@ -19,10 +19,8 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
     error,
     refresh,
     cacheKey,
-  } = usePRPanelData<PRFilesChangedSummary>(
-    pr,
-    'pr-files',
-    (client, owner, repo, prNumber) => client.fetchPRFilesChanged(owner, repo, prNumber)
+  } = usePRPanelData<PRFilesChangedSummary>(pr, 'pr-files', (client, owner, repo, prNumber) =>
+    client.fetchPRFilesChanged(owner, repo, prNumber)
   )
 
   if (!detail) {

@@ -439,9 +439,8 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
               approving={approving}
               onApprove={handleApprove}
               onContextMenu={handleContextMenu}
-              onOpen={
-                pr =>
-                  onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
+              onOpen={pr =>
+                onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
               }
             />
           ))}

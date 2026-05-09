@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 8 v8 ignore blocks and add formatDateKey tests
 - Remove 7 v8 ignore blocks and add 3 tests for full coverage
 - Remove 10 v8 ignore blocks, simplify dead branches, add 2 tests
+- Remove 3 more v8 ignore blocks from 3 files
 
 ## [0.1.751] - 2026-05-07
 

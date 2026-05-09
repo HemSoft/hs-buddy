@@ -68,10 +68,7 @@ function groupSessionsByDate(sessions: SessionSummary[], dateOrder: string[]): D
   const byDate: Record<string, SessionSummary[] | undefined> = {}
   for (const s of sessions) {
     const label = getDateGroup(s.modifiedAt)
-    /* v8 ignore start */
-    if (!byDate[label]) byDate[label] = []
-    /* v8 ignore stop */
-    byDate[label]!.push(s)
+    ;(byDate[label] ??= []).push(s)
   }
   return dateOrder.filter(l => byDate[l]?.length).map(label => ({ label, items: byDate[label]! }))
 }

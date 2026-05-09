@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail fast when electron main.js is missing
 - Add cross-platform cleanup guidance for stale artifacts
 
+### Changed
+
+- Add 44 new tests and remove v8 ignore from sfl.ts
+
 ## [0.1.751] - 2026-05-07
 
 ### Fixed

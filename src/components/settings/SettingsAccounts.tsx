@@ -118,9 +118,7 @@ export function SettingsAccounts() {
     } catch (error: unknown) {
       dispatch({
         type: 'FINISH_ADD',
-        /* v8 ignore start */
         error: getUserFacingErrorMessage(error, 'Failed to add account'),
-        /* v8 ignore stop */
       })
     }
   }

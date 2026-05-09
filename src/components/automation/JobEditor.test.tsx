@@ -190,6 +190,17 @@ describe('JobEditor', () => {
     expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
   })
 
+  it('shows Update Job button when editing and not saving', () => {
+    mockForm = createMockForm({
+      isEditing: true,
+      saving: false,
+    })
+
+    renderEditor({ jobId: 'job-1' })
+
+    expect(screen.getByRole('button', { name: 'Update Job' })).toBeEnabled()
+  })
+
   it('renders duplicate mode heading', () => {
     mockForm = createMockForm()
     renderEditor({

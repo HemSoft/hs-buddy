@@ -91,9 +91,7 @@ export function buildCronExpression(state: CronState, rawValue: string) {
   const builder = Object.hasOwn(CRON_EXPRESSION_BUILDERS, frequency)
     ? CRON_EXPRESSION_BUILDERS[frequency]
     : null
-  /* v8 ignore start */
   return builder ? builder(state, rawValue) : '0 * * * *'
-  /* v8 ignore stop */
 }
 
 export type { CronState }

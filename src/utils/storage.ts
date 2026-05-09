@@ -11,11 +11,9 @@
 export function safeGetItem(key: string): string | null {
   try {
     return localStorage.getItem(key)
-    /* v8 ignore start */
   } catch (_: unknown) {
     return null
   }
-  /* v8 ignore stop */
 }
 
 export function safeSetItem(key: string, value: string): void {

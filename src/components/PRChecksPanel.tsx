@@ -45,9 +45,7 @@ function resolveCompletedCheckTone(conclusion: string | null | undefined): {
     return { label: 'Passed', tone: 'success', icon: CheckCircle2 }
   }
   if (FAILURE_CONCLUSIONS.has(resolved)) {
-    /* v8 ignore start */
     return { label: resolved.replace(/_/g, ' '), tone: 'failure', icon: XCircle }
-    /* v8 ignore stop */
   }
   if (NEUTRAL_CONCLUSIONS.has(resolved)) {
     return { label: resolved, tone: 'neutral', icon: MinusCircle }

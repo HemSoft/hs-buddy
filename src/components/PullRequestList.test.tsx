@@ -344,6 +344,25 @@ describe('PullRequestList', () => {
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://github.com/test/repo/pull/1')
   })
 
+  it('calls onOpenPR callback when provided', () => {
+    const onOpenPR = vi.fn()
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [
+        {
+          source: 'gh',
+          id: 1,
+          repository: 'test/repo',
+          title: 'Click me',
+          url: 'https://github.com/test/repo/pull/1',
+        },
+      ],
+    })
+    render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
+    fireEvent.click(screen.getByTestId('pr-item'))
+    expect(onOpenPR).toHaveBeenCalled()
+  })
+
   it('shows approvals with mine class when iApproved in list mode', () => {
     mockUseViewMode.mockReturnValue(['list' as const, mockSetViewMode])
     mockUsePRListData.mockReturnValue({

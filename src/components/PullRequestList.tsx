@@ -441,9 +441,7 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
               onContextMenu={handleContextMenu}
               onOpen={
                 pr =>
-                  /* v8 ignore start */
                   onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
-                /* v8 ignore stop */
               }
             />
           ))}

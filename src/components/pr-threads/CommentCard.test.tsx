@@ -60,6 +60,12 @@ describe('CommentCard', () => {
     expect(screen.getByText('Suggested change')).toBeInTheDocument()
   })
 
+  it('renders suggestion without trailing empty line', () => {
+    const body = '```suggestion\nconst y = 2;```'
+    render(<CommentCard comment={makeComment({ body, bodyHtml: null })} />)
+    expect(screen.getByText('Suggested change')).toBeInTheDocument()
+  })
+
   it('applies first-comment class when isFirst is true', () => {
     const { container } = render(<CommentCard comment={makeComment()} isFirst />)
     expect(container.querySelector('.thread-comment-first')).toBeInTheDocument()

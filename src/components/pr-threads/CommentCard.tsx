@@ -20,9 +20,7 @@ const REACTION_OPTIONS: Array<{ content: PRCommentReactionContent; emoji: string
 
 function SuggestionBlock({ content }: { content: string }) {
   const lines = content.split('\n')
-  /* v8 ignore start */
   if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-    /* v8 ignore stop */
     lines.pop()
   }
 

@@ -100,7 +100,7 @@ export function SettingsNotifications() {
       .catch(() => {
         setPreviewError('Could not play this file.')
       })
-  }, [revokePreviewUrl, soundPath, stopPreview])
+  }, [revokePreviewUrl, stopPreview])
 
   if (loading) {
     return (

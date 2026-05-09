@@ -183,7 +183,10 @@ describe('ReviewThreadCard', () => {
 
   it('ignores non-Enter/Space keys on header', () => {
     renderCard(makeThread({ isResolved: true }))
-    fireEvent.keyDown(screen.getByRole('button', { name: /src\/app.ts/i }), { key: 'Tab' })
+    const header = screen.getByRole('button', { name: /src\/app.ts/i })
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    header.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
     expect(screen.queryByText('Reply')).not.toBeInTheDocument()
   })
 

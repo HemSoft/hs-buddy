@@ -235,14 +235,17 @@ describe('RunList', () => {
 
   it('logs error when cleanup fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    mockConfirmFn.mockResolvedValue(true)
-    mockCleanup.mockRejectedValue(new Error('cleanup failed'))
-    render(<RunList />)
-    fireEvent.click(screen.getByTitle('Cleanup old runs (7+ days)'))
-    await vi.waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to cleanup runs:', expect.any(Error))
-    })
-    consoleSpy.mockRestore()
+    try {
+      mockConfirmFn.mockResolvedValue(true)
+      mockCleanup.mockRejectedValue(new Error('cleanup failed'))
+      render(<RunList />)
+      fireEvent.click(screen.getByTitle('Cleanup old runs (7+ days)'))
+      await vi.waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to cleanup runs:', expect.any(Error))
+      })
+    } finally {
+      consoleSpy.mockRestore()
+    }
   })
 
   it('renders list view mode with table when viewMode is list', () => {

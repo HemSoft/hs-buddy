@@ -151,7 +151,10 @@ describe('OrgBudgetsSection', () => {
     render(
       <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={overages} />
     )
-    expect(screen.getByText(/budget/i)).toBeInTheDocument()
+    expect(screen.getByText('acme')).toBeInTheDocument()
+    expect(screen.getByText(/spent/i)).toBeInTheDocument()
+    expect(screen.queryByText(/NaN/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/overage/i)).not.toBeInTheDocument()
   })
 
   it('shows "no budget set" for hemsoft org when budget amount is null', () => {

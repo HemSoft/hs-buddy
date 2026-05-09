@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 4 v8 ignore blocks, add 3 tests
 - Remove 3 v8 ignore blocks, add 3 tests
 - Remove 3 v8 ignore blocks, add 2 tests
+- Address 8 PR review comments for test quality
 
 ## [0.1.751] - 2026-05-07
 

@@ -198,7 +198,11 @@ describe('JobEditor', () => {
 
     renderEditor({ jobId: 'job-1' })
 
-    expect(screen.getByRole('button', { name: 'Update Job' })).toBeEnabled()
+    const updateButton = screen.getByRole('button', { name: 'Update Job' })
+    expect(updateButton).toBeEnabled()
+
+    fireEvent.click(updateButton)
+    expect(mockForm.handleSave).toHaveBeenCalled()
   })
 
   it('renders duplicate mode heading', () => {

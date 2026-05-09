@@ -360,7 +360,9 @@ describe('PullRequestList', () => {
     })
     render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
     fireEvent.click(screen.getByTestId('pr-item'))
-    expect(onOpenPR).toHaveBeenCalled()
+    expect(onOpenPR).toHaveBeenCalledTimes(1)
+    expect(onOpenPR).toHaveBeenCalledWith(expect.stringContaining('pr-detail:'))
+    expect(window.shell.openExternal).not.toHaveBeenCalled()
   })
 
   it('shows approvals with mine class when iApproved in list mode', () => {

@@ -314,15 +314,25 @@ describe('CopilotResultPanel', () => {
     })
     expect(screen.getByTitle('Copied!')).toBeInTheDocument()
 
-    // Second click before timer expires — triggers clearTimeout branch
+    // Advance 1s, then click again so old/new timer deadlines differ.
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
     await act(async () => {
       fireEvent.click(copyBtn)
       await Promise.resolve()
     })
     expect(screen.getByTitle('Copied!')).toBeInTheDocument()
 
+    // At t=2000 from first click, old timer would fire; UI should still be Copied!
     act(() => {
-      vi.advanceTimersByTime(2000)
+      vi.advanceTimersByTime(1000)
+    })
+    expect(screen.getByTitle('Copied!')).toBeInTheDocument()
+
+    // 2s after second click, it should reset.
+    act(() => {
+      vi.advanceTimersByTime(1000)
     })
     expect(screen.getByTitle('Copy markdown')).toBeInTheDocument()
     vi.useRealTimers()

@@ -498,6 +498,18 @@ describe('useBookmarkListState', () => {
       expect(result.current.state.dialogOpen).toBe(false)
     })
 
+    it('handleDrop does not open dialog when all data types are empty', () => {
+      const { result } = renderHook(() => useBookmarkListState())
+      const e = {
+        preventDefault: vi.fn(),
+        dataTransfer: {
+          getData: () => '',
+        },
+      }
+      act(() => result.current.handleDrop(e as unknown as React.DragEvent))
+      expect(result.current.state.dialogOpen).toBe(false)
+    })
+
     it('handleDrop ignores non-http protocols', () => {
       const { result } = renderHook(() => useBookmarkListState())
       const e = {

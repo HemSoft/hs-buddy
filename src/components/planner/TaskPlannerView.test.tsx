@@ -140,6 +140,17 @@ describe('TaskPlannerView', () => {
     expect(container.querySelector('.spinning')).toBeInTheDocument()
   })
 
+  it('completes a task successfully without showing an error banner', async () => {
+    render(<TaskPlannerView />)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Complete task: Plan sprint' }))
+    })
+
+    expect(mocks.complete).toHaveBeenCalledWith('task-1')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('completes a task, hides it immediately, and shows returned action errors', async () => {
     mocks.complete.mockResolvedValueOnce({ success: false, error: 'Could not complete task' })
 
@@ -206,6 +217,8 @@ describe('TaskPlannerView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
     const input = screen.getByPlaceholderText('Task name')
+    fireEvent.keyDown(input, { key: 'a' })
+    expect(screen.getByPlaceholderText('Task name')).toBeInTheDocument()
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(screen.queryByPlaceholderText('Task name')).not.toBeInTheDocument()
   })
@@ -308,6 +321,21 @@ describe('TaskPlannerView', () => {
     })
 
     expect(screen.getByText('Failed to complete task')).toBeInTheDocument()
+  })
+
+  it('creates a task successfully without showing an error banner', async () => {
+    render(<TaskPlannerView />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    fireEvent.change(screen.getByPlaceholderText('Task name'), {
+      target: { value: 'New task' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    })
+
+    expect(mocks.create).toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('shows error when create throws an Error', async () => {

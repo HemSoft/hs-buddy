@@ -89,6 +89,18 @@ describe('ScheduleOverviewPanel', () => {
     expect(screen.getByText('Create a schedule to get started.')).toBeInTheDocument()
   })
 
+  it('renders singular "day" in empty state when forecastDays is 1', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-schedule-forecast-days') return Promise.resolve(1)
+      return Promise.resolve(undefined)
+    })
+    mockSchedules = []
+    render(<ScheduleOverviewPanel />)
+    await act(async () => {})
+
+    expect(screen.getByText('No scheduled runs in the next 1 day.')).toBeInTheDocument()
+  })
+
   it('renders a paused-state empty hint when all schedules are disabled', async () => {
     mockSchedules = [
       {

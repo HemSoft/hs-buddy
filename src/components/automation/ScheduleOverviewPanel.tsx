@@ -190,9 +190,7 @@ function ScheduleEmptyState({
     <div className="schedule-overview-empty">
       <Calendar size={32} strokeWidth={1.5} />
       <p>
-        {/* v8 ignore start */}
         No scheduled runs in the next {forecastDays} day{forecastDays !== 1 ? 's' : ''}.
-        {/* v8 ignore stop */}
       </p>
       {totalSchedules === 0 && <p className="empty-hint">Create a schedule to get started.</p>}
       {totalSchedules > 0 && enabledCount === 0 && (

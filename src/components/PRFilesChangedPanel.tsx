@@ -22,9 +22,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   } = usePRPanelData<PRFilesChangedSummary>(
     pr,
     'pr-files',
-    /* v8 ignore start */
     (client, owner, repo, prNumber) => client.fetchPRFilesChanged(owner, repo, prNumber)
-    /* v8 ignore stop */
   )
 
   if (!detail) {

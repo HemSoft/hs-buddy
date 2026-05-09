@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add 44 new tests and remove v8 ignore from sfl.ts
 - Remove 8 v8 ignore blocks and add formatDateKey tests
+- Remove 7 v8 ignore blocks and add 3 tests for full coverage
 
 ## [0.1.751] - 2026-05-07
 

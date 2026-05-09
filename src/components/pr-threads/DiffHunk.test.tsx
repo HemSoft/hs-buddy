@@ -119,13 +119,13 @@ describe('DiffHunk', () => {
   })
 
   it('adjusts line numbers correctly when trimmed lines include additions and deletions', () => {
+    // Deletion (-removed1) is in skipped region (first 3 lines are skipped when 9 content > 6 max)
     const hunk = [
-      '@@ -1,8 +1,10 @@',
+      '@@ -1,10 +1,10 @@',
       ' context1',
-      '+added1',
-      '+added2',
-      ' context2',
       '-removed1',
+      '+added1',
+      ' context2',
       ' context3',
       ' context4',
       ' context5',
@@ -137,9 +137,10 @@ describe('DiffHunk', () => {
     const contentLines = container.querySelectorAll(
       '.diff-line:not(.diff-range):not(.diff-truncated)'
     )
+    // After skipping [context1, -removed1, +added1]: oldLine=1+1+1=3, newLine=1+1+1=3
     const firstNums = contentLines[0].querySelectorAll('.diff-line-num')
     expect(firstNums[0].textContent).toBe('3')
-    expect(firstNums[1].textContent).toBe('')
+    expect(firstNums[1].textContent).toBe('3')
   })
 
   it('handles hunks without an @@ header', () => {

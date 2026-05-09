@@ -83,11 +83,7 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
   // Update stats periodically while there are tracked tasks
   useEffect(() => {
     const updateStats = () => {
-      /* v8 ignore start */
-      if (mountedRef.current) {
-        /* v8 ignore stop */
-        setStats(queue.getStats())
-      }
+      setStats(queue.getStats())
     }
 
     // Update stats on an interval when there are pending/running tasks
@@ -98,7 +94,6 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
     }, 100)
 
     return () => {
-      mountedRef.current = false
       clearInterval(interval)
     }
   }, [queue])
@@ -108,6 +103,7 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
     // Capture ref value at effect start per React rules
     const trackedTasks = trackedTaskIds.current
     return () => {
+      mountedRef.current = false
       for (const taskId of trackedTasks) {
         queue.cancel(taskId)
       }

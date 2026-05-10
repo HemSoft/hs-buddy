@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve TypeScript errors in electron test files
+- Resolve TypeScript errors and test hygiene in electron tests
+- Seed APPDATA in copilotSessionService tests for CI
+
 ### Changed
 
 - Add coverage for 5 untested source files
+- Improve coverage from 67% to 78%
 
 ## [0.1.752] - 2026-05-08
 
@@ -28,9 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move changelog entry to Unreleased section
 - Address PR review feedback — strengthen test assertions and fix TS2556
 - Sync MockStore.store after clear() to prevent stale state
-- Resolve TypeScript errors in electron test files
-- Resolve TypeScript errors and test hygiene in electron tests
-- Seed APPDATA in copilotSessionService tests for CI
 
 ### Changed
 
@@ -51,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main
-- Improve coverage from 67% to 78%
+- Move unshipped changelog entries to Unreleased section
 
 ## [0.1.751] - 2026-05-07
 

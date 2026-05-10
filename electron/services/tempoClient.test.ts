@@ -330,11 +330,6 @@ describe('tempoClient', () => {
         ok: true,
         json: () => Promise.resolve({ accountId: 'user-fail' }),
       })
-      // accounts
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: [] }),
-      })
       // resolveIssueId fails
       mockFetch.mockResolvedValueOnce({
         ok: false,

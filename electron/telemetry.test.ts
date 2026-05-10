@@ -174,18 +174,16 @@ describe('telemetry', () => {
     })
   })
 
-  describe('recordIpcCall with initialized counters', () => {
-    it('records call count, duration, and error when counters are set up', async () => {
-      // Dynamically import to get fresh module — mock getMeter sets up counters
+  describe('recordIpcCall no-op metric path', () => {
+    it('does not touch metric instruments before initialization', async () => {
       const { metrics } = await import('@opentelemetry/api')
       metrics.getMeter('test')
-      // Manually initialize metric handles by calling the internal setup
-      // We simulate this by testing that recordIpcCall works when counters exist
-      // The counters are null until initMetricHandles runs, which needs real SDK.
-      // We can verify the no-op path doesn't crash with all flag combinations:
+
       recordIpcCall('test:chan', 50, false)
       recordIpcCall('test:chan', 100, true)
-      // No assertion on calls since counters are null — verifying no crash
+
+      expect(mockCounter.add).not.toHaveBeenCalled()
+      expect(mockHistogram.record).not.toHaveBeenCalled()
     })
   })
 

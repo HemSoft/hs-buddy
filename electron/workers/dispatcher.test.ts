@@ -117,7 +117,6 @@ describe('dispatcher', () => {
   })
 
   it('dispatches exec worker when workerType is exec', async () => {
-    vi.useRealTimers()
     mockClient.mutation.mockResolvedValueOnce({
       run: { _id: 'run1' },
       job: { name: 'test-job', workerType: 'exec', config: { command: 'echo hi' } },
@@ -125,16 +124,14 @@ describe('dispatcher', () => {
     mockClient.mutation.mockResolvedValue(undefined) // complete
 
     const dispatcher = getDispatcher()
-    // Trigger a single poll cycle by starting and stopping immediately
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     expect(execWorker.execute).toHaveBeenCalledWith({ command: 'echo hi' }, expect.any(AbortSignal))
   })
 
   it('reports failure for unknown worker type', async () => {
-    vi.useRealTimers()
     mockClient.mutation.mockResolvedValueOnce({
       run: { _id: 'run2' },
       job: { name: 'bad-job', workerType: 'unknown', config: {} },
@@ -143,7 +140,7 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
@@ -153,7 +150,6 @@ describe('dispatcher', () => {
   })
 
   it('handles ai worker dispatch', async () => {
-    vi.useRealTimers()
     mockClient.mutation.mockResolvedValueOnce({
       run: { _id: 'run3' },
       job: { name: 'ai-job', workerType: 'ai', config: { prompt: 'hello' } },
@@ -162,7 +158,7 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     expect(aiWorker.execute).toHaveBeenCalledWith({ prompt: 'hello' }, expect.any(AbortSignal))
@@ -204,7 +200,6 @@ describe('dispatcher', () => {
   })
 
   it('backs off on consecutive errors and stops polling', async () => {
-    vi.useRealTimers()
     const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
 
     // First call succeeds (backoff check), then claim throws
@@ -213,8 +208,7 @@ describe('dispatcher', () => {
     const dispatcher = getDispatcher()
     dispatcher.start()
 
-    // Let a few poll cycles run and fail
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     // After errors, the backoff utility should have been consulted
@@ -222,7 +216,6 @@ describe('dispatcher', () => {
   })
 
   it('resets consecutiveErrors on successful poll', async () => {
-    vi.useRealTimers()
     const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
 
     // First poll fails, second succeeds
@@ -231,8 +224,8 @@ describe('dispatcher', () => {
     const dispatcher = getDispatcher()
     dispatcher.start()
 
-    // Let both polls execute
-    await new Promise(r => setTimeout(r, 80))
+    // Advance past one interval so both polls execute
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     // isInBackoffWindow was called - on the second poll it should check,
@@ -241,7 +234,6 @@ describe('dispatcher', () => {
   })
 
   it('dispatches skill worker when workerType is skill', async () => {
-    vi.useRealTimers()
     let claimed = false
     mockClient.mutation.mockImplementation(async (name: string) => {
       if (name === 'runs:claimPending') {
@@ -262,7 +254,7 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     expect(skillWorker.execute).toHaveBeenCalledWith(
@@ -276,7 +268,6 @@ describe('dispatcher', () => {
   })
 
   it('reports worker execution rejection via runs.fail', async () => {
-    vi.useRealTimers()
     vi.mocked(execWorker.execute).mockRejectedValueOnce(new Error('worker exploded'))
 
     let claimed = false
@@ -295,7 +286,7 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
@@ -305,7 +296,6 @@ describe('dispatcher', () => {
   })
 
   it('runs snapshot collection for __copilot_snapshot__ commands', async () => {
-    vi.useRealTimers()
     vi.mocked(fetchCopilotMetrics)
       .mockResolvedValueOnce({
         success: true,
@@ -368,7 +358,7 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     expect(execWorker.execute).not.toHaveBeenCalled()
@@ -410,7 +400,6 @@ describe('dispatcher', () => {
   })
 
   it('fails snapshot collection when no accounts are provided', async () => {
-    vi.useRealTimers()
     let claimed = false
     mockClient.mutation.mockImplementation(async (name: string) => {
       if (name === 'runs:claimPending') {
@@ -431,7 +420,7 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     expect(fetchCopilotMetrics).not.toHaveBeenCalled()
@@ -442,7 +431,6 @@ describe('dispatcher', () => {
   })
 
   it('continues snapshot collection when storing an account fails', async () => {
-    vi.useRealTimers()
     vi.mocked(fetchCopilotMetrics)
       .mockResolvedValueOnce({
         success: true,
@@ -511,7 +499,7 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.advanceTimersByTimeAsync(10_000)
     dispatcher.stop()
 
     const storeCalls = mockClient.mutation.mock.calls.filter(

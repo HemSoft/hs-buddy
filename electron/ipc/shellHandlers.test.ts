@@ -448,6 +448,76 @@ describe('shellHandlers', () => {
       expect(result).toEqual({ success: false, error: 'Invalid URL' })
     })
 
+    it('returns title when page has one', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+
+      const htmlContent = '<html><head><title>Example Page</title></head><body></body></html>'
+      const encoder = new TextEncoder()
+      const encoded = encoder.encode(htmlContent)
+      let readCalled = false
+
+      vi.mocked(net.fetch).mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+        body: {
+          getReader: () => ({
+            read: () => {
+              if (!readCalled) {
+                readCalled = true
+                return Promise.resolve({ done: false, value: encoded })
+              }
+              return Promise.resolve({ done: true, value: undefined })
+            },
+            cancel: () => Promise.resolve(),
+          }),
+        },
+      } as unknown as Response)
+
+      const result = await invoke('https://example.com')
+      expect(result).toEqual({ success: true, title: 'Example Page' })
+    })
+
+    it('returns error when page has no title', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+
+      const htmlContent = '<html><head></head><body>No title here</body></html>'
+      const encoder = new TextEncoder()
+      const encoded = encoder.encode(htmlContent)
+      let readCalled = false
+
+      vi.mocked(net.fetch).mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+        body: {
+          getReader: () => ({
+            read: () => {
+              if (!readCalled) {
+                readCalled = true
+                return Promise.resolve({ done: false, value: encoded })
+              }
+              return Promise.resolve({ done: true, value: undefined })
+            },
+            cancel: () => Promise.resolve(),
+          }),
+        },
+      } as unknown as Response)
+
+      const result = await invoke('https://example.com')
+      expect(result).toEqual({ success: false, error: 'No title found' })
+    })
+
     it('rejects URLs that resolve to private IPs (SSRF protection)', async () => {
       const { validateUrl } = await import('../../src/utils/networkSecurity')
       const { lookup } = await import('node:dns/promises')

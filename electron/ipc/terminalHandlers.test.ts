@@ -224,4 +224,32 @@ describe('terminalHandlers', () => {
     const resizeListener = listeners.get('terminal:resize')!
     expect(() => resizeListener({}, 'nonexistent', 120, 40)).not.toThrow()
   })
+
+  it('terminal:kill kills and cleans up session', async () => {
+    // Spawn a session first
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    // Then kill it
+    const killHandler = handlers.get('terminal:kill')!
+    await expect(killHandler({}, spawnResult.sessionId)).resolves.not.toThrow()
+
+    // Writing to killed session should be silently ignored
+    const writeListener = listeners.get('terminal:write')!
+    expect(() => writeListener({}, spawnResult.sessionId, 'hello')).not.toThrow()
+  })
+
+  it('terminal:kill ignores non-existent sessions', async () => {
+    const killHandler = handlers.get('terminal:kill')!
+    await expect(killHandler({}, 'nonexistent-id')).resolves.not.toThrow()
+  })
+
+  it('registers before-quit handler via app.on', async () => {
+    const { app } = await import('electron')
+    expect(app.on).toHaveBeenCalledWith('before-quit', expect.any(Function))
+  })
 })

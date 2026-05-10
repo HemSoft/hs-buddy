@@ -99,7 +99,9 @@ describe('terminalPrompts', () => {
     })
     await t.mutation(api.terminalPrompts.remove, { id })
 
-    await expect(t.mutation(api.terminalPrompts.update, { id, title: 'Gone' })).rejects.toThrow()
+    await expect(t.mutation(api.terminalPrompts.update, { id, title: 'Gone' })).rejects.toThrow(
+      /not found/i
+    )
   })
 
   test('update returns id when no fields are changed', async () => {

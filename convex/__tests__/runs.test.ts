@@ -254,16 +254,28 @@ describe('runs', () => {
       enabled: false,
       missedPolicy: 'skip',
     })
+    const otherSchedId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'other-sched',
+      cron: '0 * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
     await t.mutation(api.runs.create, {
       jobId,
       scheduleId: schedId,
+      triggeredBy: 'schedule',
+    })
+    await t.mutation(api.runs.create, {
+      jobId,
+      scheduleId: otherSchedId,
       triggeredBy: 'schedule',
     })
     await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
 
     const runs = await t.query(api.runs.listBySchedule, { scheduleId: schedId })
     expect(runs).toHaveLength(1)
-    expect(runs[0].triggeredBy).toBe('schedule')
+    expect(runs[0].scheduleId).toBe(schedId)
   })
 
   test('complete throws when run does not exist', async () => {

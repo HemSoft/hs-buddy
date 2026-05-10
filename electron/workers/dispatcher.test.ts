@@ -384,4 +384,107 @@ describe('dispatcher', () => {
       error: 'Exit code 1',
     })
   })
+
+  it('stop aborts in-flight worker execution', async () => {
+    vi.useRealTimers()
+    // Worker that hangs until aborted, then resolves
+    let abortSignal: AbortSignal | undefined
+    let resolveWorker:
+      | ((value: { success: boolean; output: string; duration: number; exitCode: number }) => void)
+      | undefined
+    vi.mocked(execWorker.execute).mockImplementationOnce(async (_config, signal) => {
+      abortSignal = signal
+      return new Promise(resolve => {
+        resolveWorker = resolve
+      })
+    })
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-abort' },
+      job: { name: 'slow-job', workerType: 'exec', config: { command: 'sleep 999' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+
+    // Worker should have been called and received a signal
+    expect(abortSignal).toBeDefined()
+    expect(abortSignal!.aborted).toBe(false)
+
+    // Stop should abort the in-flight execution
+    dispatcher.stop()
+    expect(abortSignal!.aborted).toBe(true)
+
+    // Resolve the worker so processing flag resets for subsequent tests
+    resolveWorker!({ success: true, output: '', duration: 0, exitCode: 0 })
+    await new Promise(r => setTimeout(r, 10))
+  })
+
+  it('skips poll when in backoff window', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+
+    // Make backoff return true — poll should skip
+    vi.mocked(isInBackoffWindow).mockReturnValue(true)
+
+    mockClient.mutation.mockResolvedValue(null)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    // claimPending should never have been called because backoff skips the poll
+    expect(mockClient.mutation).not.toHaveBeenCalledWith('runs:claimPending', {})
+  })
+
+  it('snapshot collection handles store mutation failure', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+    vi.mocked(isInBackoffWindow).mockReturnValue(false)
+    const { fetchCopilotMetrics } = await import('../ipc/githubHandlers')
+    vi.mocked(fetchCopilotMetrics).mockResolvedValue({
+      success: true,
+      data: {
+        org: 'acme',
+        billingYear: 2025,
+        billingMonth: 6,
+        premiumRequests: 100,
+        grossCost: 50.0,
+        discount: 5.0,
+        netCost: 45.0,
+        businessSeats: 10,
+        spent: 45.0,
+      },
+    } as never)
+    mockClient.mutation
+      .mockResolvedValueOnce({
+        run: {
+          _id: 'run-snap-store-fail',
+          input: { accounts: [{ username: 'user1', org: 'acme' }] },
+        },
+        job: {
+          name: 'snapshot',
+          workerType: 'exec',
+          config: { command: '__copilot_snapshot__' },
+        },
+      })
+      // Store mutation throws
+      .mockRejectedValueOnce(new Error('Convex write failed'))
+      .mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 100))
+    dispatcher.stop()
+
+    // Should still complete (with failure count) despite store error
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({
+        id: 'run-snap-store-fail',
+      })
+    )
+  })
 })

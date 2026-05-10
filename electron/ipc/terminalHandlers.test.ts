@@ -1,4 +1,20 @@
+import path from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+let latestOnData: ((data: string) => void) | null = null
+const mockSpawn = vi.fn(() => {
+  latestOnData = null
+  return {
+    onData: vi.fn((cb: (data: string) => void) => {
+      latestOnData = cb
+      return { dispose: vi.fn() }
+    }),
+    onExit: vi.fn(() => ({ dispose: vi.fn() })),
+    write: vi.fn(),
+    resize: vi.fn(),
+    kill: vi.fn(),
+  }
+})
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn() },
@@ -18,15 +34,7 @@ vi.mock('node:module', () => ({
   createRequire: vi.fn(() => {
     const req = (mod: string) => {
       if (mod === 'node-pty') {
-        return {
-          spawn: vi.fn(() => ({
-            onData: vi.fn(() => ({ dispose: vi.fn() })),
-            onExit: vi.fn(() => ({ dispose: vi.fn() })),
-            write: vi.fn(),
-            resize: vi.fn(),
-            kill: vi.fn(),
-          })),
-        }
+        return { spawn: mockSpawn }
       }
       if (mod.includes('node-pty/lib/utils')) {
         return { loadNativeModule: vi.fn(() => ({ dir: '', module: {} })) }
@@ -52,26 +60,57 @@ vi.mock('../../src/utils/errorUtils', () => ({
   getErrorMessageWithFallback: vi.fn((_err: unknown, fallback: string) => fallback),
 }))
 
-import { ipcMain } from 'electron'
-import { registerTerminalHandlers } from './terminalHandlers'
-
 describe('terminalHandlers', () => {
+  let ipcMainMock: typeof import('electron').ipcMain
+  let appMock: typeof import('electron').app
+  let processOsc7BufferMock: typeof import('../../src/utils/terminalPathUtils').processOsc7Buffer
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let handlers: Map<string, (...args: any[]) => any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let listeners: Map<string, (...args: any[]) => any>
+  let beforeQuitHandler: (() => void) | null
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules()
     vi.clearAllMocks()
     handlers = new Map()
     listeners = new Map()
-    vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
+    beforeQuitHandler = null
+    latestOnData = null
+    mockSpawn.mockReset()
+    mockSpawn.mockImplementation(() => {
+      latestOnData = null
+      return {
+        onData: vi.fn((cb: (data: string) => void) => {
+          latestOnData = cb
+          return { dispose: vi.fn() }
+        }),
+        onExit: vi.fn(() => ({ dispose: vi.fn() })),
+        write: vi.fn(),
+        resize: vi.fn(),
+        kill: vi.fn(),
+      }
+    })
+
+    const { ipcMain, app } = await import('electron')
+    ipcMainMock = ipcMain
+    appMock = app
+    ;({ processOsc7Buffer: processOsc7BufferMock } =
+      await import('../../src/utils/terminalPathUtils'))
+
+    vi.mocked(ipcMainMock.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)
     })
-    vi.mocked(ipcMain.on).mockImplementation((channel, handler) => {
+    vi.mocked(ipcMainMock.on).mockImplementation((channel, handler) => {
       listeners.set(channel, handler)
-      return ipcMain
+      return ipcMainMock
     })
+    vi.mocked(appMock.on).mockImplementation((event, handler) => {
+      if (event === 'before-quit') beforeQuitHandler = handler as () => void
+      return appMock
+    })
+
+    const { registerTerminalHandlers } = await import('./terminalHandlers')
     registerTerminalHandlers()
   })
 
@@ -113,52 +152,58 @@ describe('terminalHandlers', () => {
 
   it('terminal:spawn creates a new terminal session', async () => {
     const handler = handlers.get('terminal:spawn')!
-    const mockSender = {
-      isDestroyed: vi.fn(() => false),
-      send: vi.fn(),
-    }
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+
     const result = await handler({ sender: mockSender }, { cols: 80, rows: 24 })
+
     expect(result.success).toBe(true)
     expect(result.sessionId).toBeDefined()
     expect(result.cwd).toBeDefined()
+    expect(mockSpawn).toHaveBeenCalledOnce()
+  })
+
+  it('terminal:spawn returns a failure when node-pty throws', async () => {
+    const handler = handlers.get('terminal:spawn')!
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    mockSpawn.mockImplementationOnce(() => {
+      throw new Error('spawn exploded')
+    })
+
+    const result = await handler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    expect(result).toEqual({ success: false, error: 'Failed to spawn terminal' })
   })
 
   it('terminal:spawn with valid cwd uses provided cwd', async () => {
     const handler = handlers.get('terminal:spawn')!
-    const mockSender = {
-      isDestroyed: vi.fn(() => false),
-      send: vi.fn(),
-    }
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+
     const result = await handler({ sender: mockSender }, { cwd: '/valid/path', cols: 80, rows: 24 })
+
     expect(result.success).toBe(true)
   })
 
   it('terminal:spawn with startupCommand schedules command', async () => {
     const handler = handlers.get('terminal:spawn')!
-    const mockSender = {
-      isDestroyed: vi.fn(() => false),
-      send: vi.fn(),
-    }
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+
     const result = await handler(
       { sender: mockSender },
       { cols: 80, rows: 24, startupCommand: 'echo hello' }
     )
+
     expect(result.success).toBe(true)
     expect(result.sessionId).toBeDefined()
   })
 
   it('terminal:attach returns session data for existing session', async () => {
-    // First spawn a session
     const spawnHandler = handlers.get('terminal:spawn')!
-    const mockSender = {
-      isDestroyed: vi.fn(() => false),
-      send: vi.fn(),
-    }
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
     const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
 
-    // Then attach to it
     const attachHandler = handlers.get('terminal:attach')!
     const result = await attachHandler({ sender: mockSender }, spawnResult.sessionId)
+
     expect(result.success).toBe(true)
     expect(result.buffer).toBeDefined()
     expect(typeof result.cursor).toBe('number')
@@ -166,20 +211,15 @@ describe('terminalHandlers', () => {
   })
 
   it('terminal:kill cleans up an existing session', async () => {
-    // First spawn a session
     const spawnHandler = handlers.get('terminal:spawn')!
-    const mockSender = {
-      isDestroyed: vi.fn(() => false),
-      send: vi.fn(),
-    }
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
     const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
 
-    // Then kill it
     const killHandler = handlers.get('terminal:kill')!
     const result = await killHandler({}, spawnResult.sessionId)
+
     expect(result).toEqual({ success: true })
 
-    // Verify it's gone
     const attachResult = await handlers.get('terminal:attach')!(
       { sender: mockSender },
       spawnResult.sessionId
@@ -188,15 +228,10 @@ describe('terminalHandlers', () => {
   })
 
   it('terminal:write writes data to existing session', async () => {
-    // First spawn a session
     const spawnHandler = handlers.get('terminal:spawn')!
-    const mockSender = {
-      isDestroyed: vi.fn(() => false),
-      send: vi.fn(),
-    }
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
     const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
 
-    // Then write to it (fire-and-forget, no error expected)
     const writeListener = listeners.get('terminal:write')!
     expect(() => writeListener({}, spawnResult.sessionId, 'hello')).not.toThrow()
   })
@@ -207,15 +242,10 @@ describe('terminalHandlers', () => {
   })
 
   it('terminal:resize resizes an existing session', async () => {
-    // First spawn a session
     const spawnHandler = handlers.get('terminal:spawn')!
-    const mockSender = {
-      isDestroyed: vi.fn(() => false),
-      send: vi.fn(),
-    }
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
     const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
 
-    // Then resize
     const resizeListener = listeners.get('terminal:resize')!
     expect(() => resizeListener({}, spawnResult.sessionId, 120, 40)).not.toThrow()
   })
@@ -223,5 +253,37 @@ describe('terminalHandlers', () => {
   it('terminal:resize ignores non-existent sessions', () => {
     const resizeListener = listeners.get('terminal:resize')!
     expect(() => resizeListener({}, 'nonexistent', 120, 40)).not.toThrow()
+  })
+
+  it('updates the session cwd when OSC 7 output is detected', async () => {
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    vi.mocked(processOsc7BufferMock).mockReturnValueOnce({
+      cwd: '/workspace/new-cwd',
+      remainingBuffer: '',
+    })
+
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+    latestOnData?.('prompt output')
+
+    expect(mockSender.send).toHaveBeenLastCalledWith(
+      'terminal:cwd-changed',
+      spawnResult.sessionId,
+      path.resolve('/workspace/new-cwd')
+    )
+  })
+
+  it('cleans up active sessions before the app quits', async () => {
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    beforeQuitHandler?.()
+
+    const attachResult = await handlers.get('terminal:attach')!(
+      { sender: mockSender },
+      spawnResult.sessionId
+    )
+    expect(attachResult).toEqual({ success: false, error: 'Session not found' })
   })
 })

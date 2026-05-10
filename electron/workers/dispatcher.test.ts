@@ -30,25 +30,19 @@ vi.mock('../../convex/_generated/api', () => ({
 
 vi.mock('./execWorker', () => ({
   execWorker: {
-    execute: vi
-      .fn()
-      .mockResolvedValue({ success: true, output: 'done', duration: 100, exitCode: 0 }),
+    execute: vi.fn(),
   },
 }))
 
 vi.mock('./aiWorker', () => ({
   aiWorker: {
-    execute: vi
-      .fn()
-      .mockResolvedValue({ success: true, output: 'ai done', duration: 50, exitCode: 0 }),
+    execute: vi.fn(),
   },
 }))
 
 vi.mock('./skillWorker', () => ({
   skillWorker: {
-    execute: vi
-      .fn()
-      .mockResolvedValue({ success: true, output: 'skill done', duration: 75, exitCode: 0 }),
+    execute: vi.fn(),
   },
 }))
 
@@ -79,16 +73,68 @@ vi.mock('../../src/utils/billingParsers', () => ({
 import { getDispatcher } from './dispatcher'
 import { execWorker } from './execWorker'
 import { aiWorker } from './aiWorker'
+import { skillWorker } from './skillWorker'
+import { fetchCopilotMetrics } from '../ipc/githubHandlers'
+import { buildSnapshotCollectionOutput } from '../../src/utils/billingParsers'
+
+type PrivateDispatcher = ReturnType<typeof getDispatcher> & {
+  poll: () => Promise<void>
+  claimAndExecute: () => Promise<void>
+}
+
+const getPrivateDispatcher = () => getDispatcher() as PrivateDispatcher
+
+const claimOnce = (
+  claimed: unknown,
+  handler?: (mutation: string, args: unknown) => Promise<unknown> | unknown
+) => {
+  let seenClaim = false
+  mockClient.mutation.mockImplementation(async (mutation, args) => {
+    if (mutation === 'runs:claimPending') {
+      if (seenClaim) return null
+      seenClaim = true
+      return claimed
+    }
+    return handler ? await handler(mutation as string, args) : undefined
+  })
+}
+
+const claimAndExecuteOnce = async () => {
+  const dispatcher = getPrivateDispatcher()
+  vi.spyOn(dispatcher, 'poll').mockResolvedValue(undefined)
+  await dispatcher.claimAndExecute()
+}
 
 describe('dispatcher', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockClient.mutation.mockReset()
+    mockClient.query.mockReset()
+    vi.mocked(execWorker.execute).mockReset().mockResolvedValue({
+      success: true,
+      output: 'done',
+      duration: 100,
+      exitCode: 0,
+    })
+    vi.mocked(aiWorker.execute).mockReset().mockResolvedValue({
+      success: true,
+      output: 'ai done',
+      duration: 50,
+      exitCode: 0,
+    })
+    vi.mocked(skillWorker.execute).mockReset().mockResolvedValue({
+      success: true,
+      output: 'skill done',
+      duration: 75,
+      exitCode: 0,
+    })
+    vi.mocked(fetchCopilotMetrics).mockReset()
     vi.useFakeTimers()
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     vi.useRealTimers()
-    // Stop any running dispatcher
     getDispatcher().stop()
   })
 
@@ -99,50 +145,130 @@ describe('dispatcher', () => {
   })
 
   it('start begins polling and stop clears interval', () => {
-    mockClient.mutation.mockResolvedValue(null) // no pending runs
-    const dispatcher = getDispatcher()
+    const dispatcher = getPrivateDispatcher()
+    const pollSpy = vi.spyOn(dispatcher, 'poll').mockResolvedValue(undefined)
+
     dispatcher.start()
-    // Should not throw and should be running
     dispatcher.stop()
+
+    expect(pollSpy).toHaveBeenCalledTimes(1)
   })
 
   it('start is idempotent — calling twice does not create two timers', () => {
-    mockClient.mutation.mockResolvedValue(null)
-    const dispatcher = getDispatcher()
+    const dispatcher = getPrivateDispatcher()
+    const pollSpy = vi.spyOn(dispatcher, 'poll').mockResolvedValue(undefined)
+
     dispatcher.start()
-    dispatcher.start() // second call should be no-op
+    dispatcher.start()
     dispatcher.stop()
+
+    expect(pollSpy).toHaveBeenCalledTimes(1)
   })
 
   it('dispatches exec worker when workerType is exec', async () => {
-    vi.useRealTimers()
-    mockClient.mutation.mockResolvedValueOnce({
+    claimOnce({
       run: { _id: 'run1' },
       job: { name: 'test-job', workerType: 'exec', config: { command: 'echo hi' } },
     })
-    mockClient.mutation.mockResolvedValue(undefined) // complete
 
-    const dispatcher = getDispatcher()
-    // Trigger a single poll cycle by starting and stopping immediately
-    dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
+    await claimAndExecuteOnce()
 
     expect(execWorker.execute).toHaveBeenCalledWith({ command: 'echo hi' }, expect.any(AbortSignal))
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:complete', {
+      id: 'run1',
+      output: { stdout: 'done', exitCode: 0, duration: 100 },
+    })
+  })
+
+  it('dispatches snapshot collection when exec command requests a Copilot snapshot', async () => {
+    vi.mocked(fetchCopilotMetrics).mockResolvedValueOnce({
+      success: true,
+      data: {
+        org: 'github',
+        billingYear: 2026,
+        billingMonth: 5,
+        premiumRequests: 12,
+        grossCost: 30,
+        discount: 5,
+        netCost: 25,
+        businessSeats: 20,
+        budgetAmount: 100,
+        spent: 25,
+      },
+    })
+
+    claimOnce(
+      {
+        run: {
+          _id: 'run-snapshot',
+          input: { accounts: [{ username: 'alice', org: 'github' }] },
+        },
+        job: {
+          name: 'snapshot-job',
+          workerType: 'exec',
+          config: { command: '__copilot_snapshot__' },
+        },
+      },
+      async () => undefined
+    )
+
+    await claimAndExecuteOnce()
+
+    expect(execWorker.execute).not.toHaveBeenCalled()
+    expect(fetchCopilotMetrics).toHaveBeenCalledWith('github', 'alice')
+    expect(mockClient.mutation).toHaveBeenCalledWith('copilotUsageHistory:store', {
+      accountUsername: 'alice',
+      org: 'github',
+      billingYear: 2026,
+      billingMonth: 5,
+      premiumRequests: 12,
+      grossCost: 30,
+      discount: 5,
+      netCost: 25,
+      businessSeats: 20,
+      budgetAmount: 100,
+      spent: 25,
+    })
+    expect(buildSnapshotCollectionOutput).toHaveBeenCalledWith(1, 0)
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({
+        id: 'run-snapshot',
+        output: expect.objectContaining({
+          stdout: 'Collected 1 snapshots, 0 failed',
+          exitCode: 0,
+          duration: expect.any(Number),
+        }),
+      })
+    )
+  })
+
+  it('reports failure for snapshot collection when no accounts are provided', async () => {
+    claimOnce({
+      run: { _id: 'run-empty', input: { accounts: [] } },
+      job: {
+        name: 'snapshot-job',
+        workerType: 'exec',
+        config: { command: '__copilot_snapshot__' },
+      },
+    })
+
+    await claimAndExecuteOnce()
+
+    expect(fetchCopilotMetrics).not.toHaveBeenCalled()
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-empty',
+      error: 'No accounts provided for snapshot collection',
+    })
   })
 
   it('reports failure for unknown worker type', async () => {
-    vi.useRealTimers()
-    mockClient.mutation.mockResolvedValueOnce({
+    claimOnce({
       run: { _id: 'run2' },
       job: { name: 'bad-job', workerType: 'unknown', config: {} },
     })
-    mockClient.mutation.mockResolvedValue(undefined)
 
-    const dispatcher = getDispatcher()
-    dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
+    await claimAndExecuteOnce()
 
     expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
       id: 'run2',
@@ -151,90 +277,179 @@ describe('dispatcher', () => {
   })
 
   it('handles ai worker dispatch', async () => {
-    vi.useRealTimers()
-    mockClient.mutation.mockResolvedValueOnce({
+    claimOnce({
       run: { _id: 'run3' },
       job: { name: 'ai-job', workerType: 'ai', config: { prompt: 'hello' } },
     })
-    mockClient.mutation.mockResolvedValue(undefined)
 
-    const dispatcher = getDispatcher()
-    dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
+    await claimAndExecuteOnce()
 
     expect(aiWorker.execute).toHaveBeenCalledWith({ prompt: 'hello' }, expect.any(AbortSignal))
   })
 
-  it('processing guard prevents concurrent poll execution', async () => {
-    // Use fake timers to control the polling interval precisely
-    vi.useFakeTimers()
+  it('records a worker execution failure result', async () => {
+    vi.mocked(execWorker.execute).mockResolvedValueOnce({
+      success: false,
+      error: 'worker failed',
+      duration: 12,
+      exitCode: 1,
+      output: '',
+    })
 
-    // Create a slow-resolving claim that keeps processing=true
+    claimOnce({
+      run: { _id: 'run-failed-result' },
+      job: { name: 'exec-job', workerType: 'exec', config: { command: 'echo nope' } },
+    })
+
+    await claimAndExecuteOnce()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-failed-result',
+      error: 'worker failed',
+    })
+  })
+
+  it('records a worker execution thrown error', async () => {
+    vi.mocked(execWorker.execute).mockRejectedValueOnce(new Error('kaboom'))
+
+    claimOnce({
+      run: { _id: 'run-thrown' },
+      job: { name: 'exec-job', workerType: 'exec', config: { command: 'echo nope' } },
+    })
+
+    await claimAndExecuteOnce()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-thrown',
+      error: 'kaboom',
+    })
+  })
+
+  it('marks snapshot collection as failed when metrics fetch fails', async () => {
+    vi.mocked(fetchCopilotMetrics).mockResolvedValueOnce({
+      success: false,
+      error: 'metrics unavailable',
+    })
+
+    claimOnce({
+      run: {
+        _id: 'run-fetch-fail',
+        input: { accounts: [{ username: 'alice', org: 'github' }] },
+      },
+      job: {
+        name: 'snapshot-job',
+        workerType: 'exec',
+        config: { command: '__copilot_snapshot__' },
+      },
+    })
+
+    await claimAndExecuteOnce()
+
+    expect(mockClient.mutation).not.toHaveBeenCalledWith(
+      'copilotUsageHistory:store',
+      expect.anything()
+    )
+    expect(buildSnapshotCollectionOutput).toHaveBeenCalledWith(0, 1)
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({
+        id: 'run-fetch-fail',
+        output: expect.objectContaining({
+          stdout: 'Collected 0 snapshots, 1 failed',
+          exitCode: 1,
+          duration: expect.any(Number),
+        }),
+      })
+    )
+  })
+
+  it('marks snapshot collection as failed when storing metrics throws', async () => {
+    vi.mocked(fetchCopilotMetrics).mockResolvedValueOnce({
+      success: true,
+      data: {
+        org: 'github',
+        billingYear: 2026,
+        billingMonth: 5,
+        premiumRequests: 12,
+        grossCost: 30,
+        discount: 5,
+        netCost: 25,
+        businessSeats: 20,
+        budgetAmount: 100,
+        spent: 25,
+      },
+    })
+
+    claimOnce(
+      {
+        run: {
+          _id: 'run-store-fail',
+          input: { accounts: [{ username: 'alice', org: 'github' }] },
+        },
+        job: {
+          name: 'snapshot-job',
+          workerType: 'exec',
+          config: { command: '__copilot_snapshot__' },
+        },
+      },
+      async mutation => {
+        if (mutation === 'copilotUsageHistory:store') {
+          throw new Error('store failed')
+        }
+        return undefined
+      }
+    )
+
+    await claimAndExecuteOnce()
+
+    expect(buildSnapshotCollectionOutput).toHaveBeenCalledWith(0, 1)
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({
+        id: 'run-store-fail',
+        output: expect.objectContaining({
+          stdout: 'Collected 0 snapshots, 1 failed',
+          exitCode: 1,
+          duration: expect.any(Number),
+        }),
+      })
+    )
+  })
+
+  it('processing guard prevents concurrent poll execution', async () => {
     let resolveClaim: (value: unknown) => void
     const slowClaim = new Promise(resolve => {
       resolveClaim = resolve
     })
     mockClient.mutation.mockReturnValue(slowClaim as never)
 
-    const dispatcher = getDispatcher()
-    dispatcher.start()
+    const dispatcher = getPrivateDispatcher()
+    const firstPoll = dispatcher.poll()
+    await dispatcher.poll()
 
-    // First poll fires immediately in start() — it's now blocked on slowClaim
-    // Advance past one full polling interval (10s) to trigger a second poll
-    await vi.advanceTimersByTimeAsync(10_000)
-
-    // Only 1 claim call should have been made — the second poll was skipped
-    // because processing is still true (first claim hasn't resolved)
     expect(mockClient.mutation).toHaveBeenCalledTimes(1)
 
-    // Now resolve the blocked claim and let it finish
     resolveClaim!(null)
-    await vi.advanceTimersByTimeAsync(1)
-
-    // Advance another interval — now processing is false, so a new poll runs
-    await vi.advanceTimersByTimeAsync(10_000)
-
-    // Second claim call should now have fired
-    expect(mockClient.mutation).toHaveBeenCalledTimes(2)
-
-    dispatcher.stop()
+    await firstPoll
   })
 
   it('backs off on consecutive errors and stops polling', async () => {
-    vi.useRealTimers()
     const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
-
-    // First call succeeds (backoff check), then claim throws
     mockClient.mutation.mockRejectedValue(new Error('Network error'))
 
-    const dispatcher = getDispatcher()
-    dispatcher.start()
+    await getPrivateDispatcher().poll()
 
-    // Let a few poll cycles run and fail
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
-
-    // After errors, the backoff utility should have been consulted
     expect(isInBackoffWindow).toHaveBeenCalled()
   })
 
   it('resets consecutiveErrors on successful poll', async () => {
-    vi.useRealTimers()
     const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+    mockClient.mutation.mockRejectedValueOnce(new Error('Transient error')).mockResolvedValue(null)
+    const dispatcher = getPrivateDispatcher()
 
-    // First poll fails, second succeeds
-    mockClient.mutation.mockRejectedValueOnce(new Error('Transient error')).mockResolvedValue(null) // successful empty poll
+    await dispatcher.poll()
+    await dispatcher.poll()
 
-    const dispatcher = getDispatcher()
-    dispatcher.start()
-
-    // Let both polls execute
-    await new Promise(r => setTimeout(r, 80))
-    dispatcher.stop()
-
-    // isInBackoffWindow was called - on the second poll it should check,
-    // but since the first error just happened, the backoff window is brief
     expect(isInBackoffWindow).toHaveBeenCalled()
   })
 })

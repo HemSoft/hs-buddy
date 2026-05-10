@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Capture event handlers registered on webContents
 type EventCallback = (...args: unknown[]) => void
@@ -83,12 +83,19 @@ vi.mock('../utils', () => ({
 import { ipcMain, shell } from 'electron'
 import { registerShellHandlers } from './shellHandlers'
 
+const originalPlatform = process.platform
+
+function setPlatform(platform: NodeJS.Platform): void {
+  Object.defineProperty(process, 'platform', { value: platform })
+}
+
 describe('shellHandlers', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let handlers: Map<string, (...args: any[]) => any>
 
   beforeEach(() => {
     vi.clearAllMocks()
+    setPlatform(originalPlatform)
     handlers = new Map()
     webContentsListeners = new Map()
     windowOpenHandler = null
@@ -97,6 +104,10 @@ describe('shellHandlers', () => {
       handlers.set(channel, handler)
     })
     registerShellHandlers()
+  })
+
+  afterEach(() => {
+    setPlatform(originalPlatform)
   })
 
   it('registers expected channels', () => {
@@ -403,15 +414,55 @@ describe('shellHandlers', () => {
   describe('system:get-fonts', () => {
     const invoke = () => handlers.get('system:get-fonts')!({})
 
-    it('returns fonts from platform command', async () => {
+    it('uses the Windows PowerShell command on win32', async () => {
       const { execAsync } = await import('../utils')
+      setPlatform('win32')
       vi.mocked(execAsync).mockResolvedValueOnce({
         stdout: 'Arial\nHelvetica\nCourier New\n',
         stderr: '',
       } as never)
 
       const result = await invoke()
+
+      expect(execAsync).toHaveBeenCalledWith(
+        expect.stringContaining('powershell -NoProfile -Command'),
+        expect.objectContaining({ timeout: 10000 })
+      )
       expect(result).toEqual(['Arial', 'Courier New', 'Helvetica'])
+    })
+
+    it('uses system_profiler on darwin', async () => {
+      const { execAsync } = await import('../utils')
+      setPlatform('darwin')
+      vi.mocked(execAsync).mockResolvedValueOnce({
+        stdout: 'Menlo\nHelvetica\n',
+        stderr: '',
+      } as never)
+
+      const result = await invoke()
+
+      expect(execAsync).toHaveBeenCalledWith(
+        expect.stringContaining('system_profiler SPFontsDataType'),
+        expect.objectContaining({ timeout: 15000 })
+      )
+      expect(result).toEqual(['Helvetica', 'Menlo'])
+    })
+
+    it('uses fc-list on linux and filters empty lines', async () => {
+      const { execAsync } = await import('../utils')
+      setPlatform('linux')
+      vi.mocked(execAsync).mockResolvedValueOnce({
+        stdout: 'Zebra Font\n\n  \nAlpha Font\nMiddle Font\n',
+        stderr: '',
+      } as never)
+
+      const result = await invoke()
+
+      expect(execAsync).toHaveBeenCalledWith(
+        'fc-list --format="%{family[0]}\\n" | sort -u',
+        expect.objectContaining({ timeout: 10000 })
+      )
+      expect(result).toEqual(['Alpha Font', 'Middle Font', 'Zebra Font'])
     })
 
     it('returns fallback fonts when platform command fails', async () => {
@@ -423,21 +474,46 @@ describe('shellHandlers', () => {
       expect(result).toContain('Segoe UI')
       expect(result.length).toBeGreaterThan(5)
     })
-
-    it('filters empty lines and sorts results', async () => {
-      const { execAsync } = await import('../utils')
-      vi.mocked(execAsync).mockResolvedValueOnce({
-        stdout: 'Zebra Font\n\n  \nAlpha Font\nMiddle Font\n',
-        stderr: '',
-      } as never)
-
-      const result = await invoke()
-      expect(result).toEqual(['Alpha Font', 'Middle Font', 'Zebra Font'])
-    })
   })
 
   describe('shell:fetch-page-title', () => {
     const invoke = (url: string) => handlers.get('shell:fetch-page-title')!({}, url)
+
+    it('returns the extracted title for an HTML page', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+      vi.mocked(net.fetch).mockResolvedValueOnce(
+        new Response('<html><head><title>Example Title</title></head><body></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }) as never
+      )
+
+      const result = await invoke('https://example.com/page')
+
+      expect(result).toEqual({ success: true, title: 'Example Title' })
+    })
+
+    it('returns an error when no title is present', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+      vi.mocked(net.fetch).mockResolvedValueOnce(
+        new Response('<html><body>Untitled page</body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        }) as never
+      )
+
+      const result = await invoke('https://example.com/untitled')
+
+      expect(result).toEqual({ success: false, error: 'No title found' })
+    })
 
     it('returns error for invalid URL', async () => {
       const { validateUrl } = await import('../../src/utils/networkSecurity')

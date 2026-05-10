@@ -4,10 +4,13 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
 }))
 
+const mockConvexQuery = vi.fn()
+const mockConvexMutation = vi.fn()
+
 vi.mock('convex/browser', () => ({
   ConvexHttpClient: class {
-    query = vi.fn()
-    mutation = vi.fn()
+    query = (...args: unknown[]) => mockConvexQuery(...args)
+    mutation = (...args: unknown[]) => mockConvexMutation(...args)
   },
 }))
 
@@ -71,7 +74,10 @@ describe('githubHandlers', () => {
   let handlers: Map<string, (...args: any[]) => any>
 
   beforeEach(() => {
+    vi.restoreAllMocks()
     vi.clearAllMocks()
+    mockConvexQuery.mockReset()
+    mockConvexMutation.mockReset()
     handlers = new Map()
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)
@@ -261,15 +267,14 @@ describe('githubHandlers', () => {
 
   describe('github:get-copilot-member-usage', () => {
     it('returns member seat data on success', async () => {
-      // tryGetCliToken
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
-      // gh api member copilot
       mockExecAsync.mockResolvedValueOnce({
         stdout: JSON.stringify({
-          assignee: { login: 'testmember' },
           plan_type: 'business',
           last_activity_at: '2024-01-01',
+          last_activity_editor: 'vscode',
           created_at: '2023-01-01',
+          pending_cancellation_date: null,
         }),
         stderr: '',
       })
@@ -277,8 +282,14 @@ describe('githubHandlers', () => {
       const handler = handlers.get('github:get-copilot-member-usage')!
       const result = await handler({}, 'test-org', 'testmember', 'testuser')
       expect(result.success).toBe(true)
-      expect(result.data.login).toBe('testmember')
-      expect(result.data.planType).toBe('business')
+      expect(result.data).toEqual({
+        login: 'testmember',
+        planType: 'business',
+        lastActivityAt: '2024-01-01',
+        lastActivityEditor: 'vscode',
+        createdAt: '2023-01-01',
+        pendingCancellation: null,
+      })
     })
 
     it('returns null data for 404 (no Copilot seat)', async () => {
@@ -313,18 +324,43 @@ describe('githubHandlers', () => {
 
   describe('github:get-user-premium-requests', () => {
     it('returns premium request data on success', async () => {
-      // tryGetCliToken
+      const { extractPremiumUsageItems, sumGrossRequests, sumNetCost } =
+        await import('../../src/utils/billingParsers')
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
-      // 3 parallel calls (Promise.allSettled): user month, user today, org month
       mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
       mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
       mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+      vi.mocked(extractPremiumUsageItems)
+        .mockReturnValueOnce([
+          { grossQuantity: 5.4, model: 'gpt-4o' },
+          { grossQuantity: 12.2, model: 'claude-3.7' },
+          { grossQuantity: 0, model: 'ignored' },
+        ] as never)
+        .mockReturnValueOnce([{ grossQuantity: 3.1, model: 'gpt-4o' }] as never)
+        .mockReturnValueOnce([{ grossQuantity: 20, model: 'claude-3.7' }] as never)
+      vi.mocked(sumGrossRequests)
+        .mockReturnValueOnce(17)
+        .mockReturnValueOnce(3)
+        .mockReturnValueOnce(20)
+      vi.mocked(sumNetCost).mockReturnValueOnce(9.5)
 
       const handler = handlers.get('github:get-user-premium-requests')!
       const result = await handler({}, 'test-org', 'testmember', 'testuser')
-      expect(result.success).toBe(true)
-      expect(result.data.memberLogin).toBe('testmember')
-      expect(result.data.org).toBe('test-org')
+      expect(result).toEqual({
+        success: true,
+        data: expect.objectContaining({
+          memberLogin: 'testmember',
+          org: 'test-org',
+          userMonthlyRequests: 17,
+          userTodayRequests: 3,
+          orgMonthlyRequests: 20,
+          orgMonthlyNetCost: 9.5,
+          userMonthlyModels: [
+            { model: 'claude-3.7', requests: 12 },
+            { model: 'gpt-4o', requests: 5 },
+          ],
+        }),
+      })
     })
 
     it('still succeeds when allSettled calls fail (graceful degradation)', async () => {
@@ -346,22 +382,118 @@ describe('githubHandlers', () => {
   })
 
   describe('github:collect-copilot-snapshots', () => {
-    it('processes multiple accounts and returns per-account results', async () => {
-      // For each account, tryGetCliToken + fetchBillingUsage need mocking
-      // assembleCopilotMetrics is already mocked to return {}
+    it('persists successful snapshots', async () => {
       const { assembleCopilotMetrics } = await import('../../src/utils/billingParsers')
       vi.mocked(assembleCopilotMetrics).mockReturnValue({
         success: true,
-        data: { org: 'test-org', billingYear: 2026, billingMonth: 5 },
+        data: {
+          org: 'org1',
+          billingYear: 2026,
+          billingMonth: 5,
+          premiumRequests: 12,
+          grossCost: 20,
+          discount: 5,
+          netCost: 15,
+          businessSeats: 4,
+          budgetAmount: 100,
+          spent: 40,
+        },
       } as ReturnType<typeof assembleCopilotMetrics>)
-
-      // Mock the exec calls for token + billing
       mockExecAsync.mockResolvedValue({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockConvexMutation.mockResolvedValueOnce(undefined)
 
       const handler = handlers.get('github:collect-copilot-snapshots')!
       const result = await handler({}, [{ username: 'user1', org: 'org1' }])
-      expect(result.results).toBeDefined()
-      expect(Array.isArray(result.results)).toBe(true)
+
+      expect(result).toEqual({
+        results: [
+          {
+            success: true,
+            data: {
+              org: 'org1',
+              billingYear: 2026,
+              billingMonth: 5,
+              premiumRequests: 12,
+              grossCost: 20,
+              discount: 5,
+              netCost: 15,
+              businessSeats: 4,
+              budgetAmount: 100,
+              spent: 40,
+            },
+          },
+        ],
+      })
+      expect(mockConvexMutation).toHaveBeenCalledWith('copilotUsageHistory:store', {
+        accountUsername: 'user1',
+        org: 'org1',
+        billingYear: 2026,
+        billingMonth: 5,
+        premiumRequests: 12,
+        grossCost: 20,
+        discount: 5,
+        netCost: 15,
+        businessSeats: 4,
+        budgetAmount: 100,
+        spent: 40,
+      })
+    })
+
+    it('logs store errors without failing successful fetches', async () => {
+      const { assembleCopilotMetrics } = await import('../../src/utils/billingParsers')
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.mocked(assembleCopilotMetrics).mockReturnValue({
+        success: true,
+        data: {
+          org: 'org1',
+          billingYear: 2026,
+          billingMonth: 5,
+          premiumRequests: 7,
+          grossCost: 10,
+          discount: 1,
+          netCost: 9,
+          businessSeats: 2,
+          spent: 12,
+        },
+      } as ReturnType<typeof assembleCopilotMetrics>)
+      mockExecAsync.mockResolvedValue({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockConvexMutation.mockRejectedValueOnce(new Error('persist failed'))
+
+      const handler = handlers.get('github:collect-copilot-snapshots')!
+      const result = await handler({}, [{ username: 'user1', org: 'org1' }])
+
+      expect(result.results[0]).toEqual({
+        success: true,
+        data: {
+          org: 'org1',
+          billingYear: 2026,
+          billingMonth: 5,
+          premiumRequests: 7,
+          grossCost: 10,
+          discount: 1,
+          netCost: 9,
+          businessSeats: 2,
+          spent: 12,
+        },
+      })
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[Snapshot] Failed to persist for user1@org1:',
+        expect.any(Error)
+      )
+    })
+
+    it('returns per-account failures when metrics cannot be fetched', async () => {
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+        .mockRejectedValueOnce(new Error('billing exploded'))
+
+      const handler = handlers.get('github:collect-copilot-snapshots')!
+      const result = await handler({}, [{ username: 'user1', org: 'org1' }])
+
+      expect(result).toEqual({
+        results: [{ success: false, username: 'user1', org: 'org1', error: 'billing exploded' }],
+      })
+      expect(mockConvexMutation).not.toHaveBeenCalled()
     })
   })
 })

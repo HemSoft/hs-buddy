@@ -110,4 +110,80 @@ describe('tempoHandlers', () => {
       expect(result).toEqual({ total: 40 })
     })
   })
+
+  describe('tempo:create-worklog', () => {
+    it('creates a worklog', async () => {
+      mockCreateWorklog.mockResolvedValue({ id: 10, timeSpent: 7200 })
+      const payload = { issueKey: 'PROJ-1', timeSpentSeconds: 7200, startDate: '2026-01-15' }
+      const result = await handlers.get('tempo:create-worklog')!({}, payload)
+      expect(mockCreateWorklog).toHaveBeenCalledWith(payload)
+      expect(result).toEqual({ id: 10, timeSpent: 7200 })
+    })
+
+    it('returns error on failure', async () => {
+      mockCreateWorklog.mockRejectedValue(new Error('Invalid payload'))
+      const result = await handlers.get('tempo:create-worklog')!({}, {})
+      expect(result).toEqual({ success: false, error: 'Invalid payload' })
+    })
+  })
+
+  describe('tempo:update-worklog', () => {
+    it('updates a worklog', async () => {
+      mockUpdateWorklog.mockResolvedValue({ id: 10, timeSpent: 3600 })
+      const result = await handlers.get('tempo:update-worklog')!(
+        {},
+        { worklogId: 10, payload: { timeSpentSeconds: 3600 } }
+      )
+      expect(mockUpdateWorklog).toHaveBeenCalledWith(10, { timeSpentSeconds: 3600 })
+      expect(result).toEqual({ id: 10, timeSpent: 3600 })
+    })
+  })
+
+  describe('tempo:delete-worklog', () => {
+    it('deletes a worklog', async () => {
+      mockDeleteWorklog.mockResolvedValue(undefined)
+      const result = await handlers.get('tempo:delete-worklog')!({}, 10)
+      expect(mockDeleteWorklog).toHaveBeenCalledWith(10)
+      expect(result).toBeUndefined()
+    })
+  })
+
+  describe('tempo:get-accounts', () => {
+    it('fetches tempo accounts', async () => {
+      mockGetAccounts.mockResolvedValue([{ id: 1, name: 'Dev' }])
+      const result = await handlers.get('tempo:get-accounts')!({})
+      expect(mockGetAccounts).toHaveBeenCalled()
+      expect(result).toEqual([{ id: 1, name: 'Dev' }])
+    })
+  })
+
+  describe('tempo:get-project-accounts', () => {
+    it('fetches project account links', async () => {
+      mockGetProjectAccountLinks.mockResolvedValue([{ accountId: 1, projectKey: 'PROJ' }])
+      const result = await handlers.get('tempo:get-project-accounts')!({}, 'PROJ')
+      expect(mockGetProjectAccountLinks).toHaveBeenCalledWith('PROJ')
+      expect(result).toEqual([{ accountId: 1, projectKey: 'PROJ' }])
+    })
+  })
+
+  describe('tempo:get-capex-map', () => {
+    it('fetches capex map for issue keys', async () => {
+      mockGetCapexMap.mockResolvedValue({ 'PROJ-1': true })
+      const result = await handlers.get('tempo:get-capex-map')!({}, ['PROJ-1'])
+      expect(mockGetCapexMap).toHaveBeenCalledWith(['PROJ-1'])
+      expect(result).toEqual({ 'PROJ-1': true })
+    })
+  })
+
+  describe('tempo:get-schedule', () => {
+    it('fetches user schedule', async () => {
+      mockGetUserSchedule.mockResolvedValue({ days: [] })
+      const result = await handlers.get('tempo:get-schedule')!(
+        {},
+        { from: '2026-01-13', to: '2026-01-17' }
+      )
+      expect(mockGetUserSchedule).toHaveBeenCalledWith('2026-01-13', '2026-01-17')
+      expect(result).toEqual({ days: [] })
+    })
+  })
 })

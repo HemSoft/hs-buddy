@@ -110,4 +110,96 @@ describe('terminalHandlers', () => {
     const result = await handler({}, 'nonexistent-id')
     expect(result).toEqual({ success: false, error: 'Session not found' })
   })
+
+  it('terminal:spawn creates a session and returns success', async () => {
+    const handler = handlers.get('terminal:spawn')!
+    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const result = await handler({ sender }, { cwd: '/valid/path', cols: 80, rows: 24 })
+    expect(result.success).toBe(true)
+    expect(result.sessionId).toBeDefined()
+    expect(typeof result.sessionId).toBe('string')
+  })
+
+  it('terminal:spawn uses default cwd when invalid cwd provided', async () => {
+    const { existsSync } = await import('node:fs')
+    vi.mocked(existsSync).mockReturnValueOnce(false) // invalid cwd
+    const handler = handlers.get('terminal:spawn')!
+    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const result = await handler({ sender }, { cwd: '/nonexistent', cols: 80, rows: 24 })
+    expect(result.success).toBe(true)
+  })
+
+  it('terminal:spawn with startup command schedules the command', async () => {
+    const handler = handlers.get('terminal:spawn')!
+    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const result = await handler(
+      { sender },
+      { cwd: '/valid/path', cols: 80, rows: 24, startupCommand: 'echo hello' }
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('terminal:attach returns session buffer for known session', async () => {
+    // First spawn a session
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const spawnResult = await spawnHandler({ sender }, { cwd: '/valid/path' })
+
+    // Then attach to it
+    const attachHandler = handlers.get('terminal:attach')!
+    const newSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const result = await attachHandler({ sender: newSender }, spawnResult.sessionId)
+    expect(result.success).toBe(true)
+    expect(result.buffer).toBeDefined()
+    expect(result.alive).toBe(true)
+  })
+
+  it('terminal:kill cleans up a spawned session', async () => {
+    // Spawn first
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const spawnResult = await spawnHandler({ sender }, { cwd: '/valid/path' })
+
+    // Kill it
+    const killHandler = handlers.get('terminal:kill')!
+    const result = await killHandler({}, spawnResult.sessionId)
+    expect(result).toEqual({ success: true })
+
+    // Attach should fail now
+    const attachHandler = handlers.get('terminal:attach')!
+    const attachResult = await attachHandler({ sender }, spawnResult.sessionId)
+    expect(attachResult).toEqual({ success: false, error: 'Session not found' })
+  })
+
+  it('terminal:write forwards data to alive session', async () => {
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const spawnResult = await spawnHandler({ sender }, { cwd: '/valid/path' })
+
+    const writeListener = listeners.get('terminal:write')!
+    // Should not throw for a valid session
+    writeListener({}, spawnResult.sessionId, 'ls\r')
+  })
+
+  it('terminal:write ignores unknown sessions', () => {
+    const writeListener = listeners.get('terminal:write')!
+    // Should not throw
+    writeListener({}, 'no-such-session', 'data')
+  })
+
+  it('terminal:resize resizes alive session', async () => {
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+    const spawnResult = await spawnHandler({ sender }, { cwd: '/valid/path' })
+
+    const resizeListener = listeners.get('terminal:resize')!
+    // Should not throw
+    resizeListener({}, spawnResult.sessionId, 120, 40)
+  })
+
+  it('terminal:resize ignores unknown sessions', () => {
+    const resizeListener = listeners.get('terminal:resize')!
+    // Should not throw
+    resizeListener({}, 'no-such-session', 120, 40)
+  })
 })

@@ -248,4 +248,196 @@ describe('configHandlers', () => {
       expect(result).toEqual({ success: true })
     })
   })
+
+  describe('UI value getters and setters', () => {
+    it('config:get-theme returns theme value', () => {
+      mockConfigManager.getUiValue.mockReturnValue('dark')
+      const result = handlers.get('config:get-theme')!()
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledWith('theme')
+      expect(result).toBe('dark')
+    })
+
+    it('config:set-theme sets theme and returns success', () => {
+      const result = handlers.get('config:set-theme')!({}, 'light')
+      expect(mockConfigManager.setUiValue).toHaveBeenCalledWith('theme', 'light')
+      expect(result).toEqual({ success: true })
+    })
+
+    it('config:get-zoom-level returns zoom-level value', () => {
+      mockConfigManager.getUiValue.mockReturnValue(1.5)
+      const result = handlers.get('config:get-zoom-level')!()
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledWith('zoomLevel')
+      expect(result).toBe(1.5)
+    })
+
+    it('config:set-zoom-level sets zoom-level and returns success', () => {
+      const result = handlers.get('config:set-zoom-level')!({}, 1.2)
+      expect(mockConfigManager.setUiValue).toHaveBeenCalledWith('zoomLevel', 1.2)
+      expect(result).toEqual({ success: true })
+    })
+  })
+
+  describe('terminal-open handlers', () => {
+    it('config:get-terminal-open returns terminalOpen value', () => {
+      mockConfigManager.getUiValue.mockReturnValue(false)
+      const result = handlers.get('config:get-terminal-open')!()
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledWith('terminalOpen')
+      expect(result).toBe(false)
+    })
+
+    it('config:set-terminal-open sets value and returns success', () => {
+      const result = handlers.get('config:set-terminal-open')!({}, true)
+      expect(mockConfigManager.setUiValue).toHaveBeenCalledWith('terminalOpen', true)
+      expect(result).toEqual({ success: true })
+    })
+
+    it('config:set-terminal-open rejects non-boolean', () => {
+      const result = handlers.get('config:set-terminal-open')!({}, 'yes')
+      expect(result).toEqual({ success: false })
+    })
+  })
+
+  describe('config:get-terminal-panel-height', () => {
+    it('returns terminal panel height', () => {
+      mockConfigManager.getUiValue.mockReturnValue(250)
+      const result = handlers.get('config:get-terminal-panel-height')!()
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledWith('terminalPanelHeight')
+      expect(result).toBe(250)
+    })
+  })
+
+  describe('schedule forecast days', () => {
+    it('config:get-schedule-forecast-days returns value', () => {
+      const result = handlers.get('config:get-schedule-forecast-days')!()
+      expect(mockConfigManager.getScheduleForecastDays).toHaveBeenCalled()
+      expect(result).toBe(3)
+    })
+
+    it('config:set-schedule-forecast-days sets value', () => {
+      const result = handlers.get('config:set-schedule-forecast-days')!({}, 7)
+      expect(mockConfigManager.setScheduleForecastDays).toHaveBeenCalledWith(7)
+      expect(result).toEqual({ success: true })
+    })
+  })
+
+  describe('copilot PR review prompt template', () => {
+    it('config:get-copilot-pr-review-prompt-template returns template', () => {
+      const result = handlers.get('config:get-copilot-pr-review-prompt-template')!()
+      expect(mockConfigManager.getCopilotPRReviewPromptTemplate).toHaveBeenCalled()
+      expect(result).toBe('')
+    })
+
+    it('config:set-copilot-pr-review-prompt-template sets template', () => {
+      const result = handlers.get('config:set-copilot-pr-review-prompt-template')!({}, 'template')
+      expect(mockConfigManager.setCopilotPRReviewPromptTemplate).toHaveBeenCalledWith('template')
+      expect(result).toEqual({ success: true })
+    })
+  })
+
+  describe('notification sound path validation', () => {
+    it('rejects valid path when lastPickedNotificationSoundPath does not match', () => {
+      // The path is supported but doesn't match lastPickedNotificationSoundPath
+      const result = handlers.get('config:set-notification-sound-path')!({}, '/sound.mp3')
+      expect(result).toEqual({ success: false })
+    })
+
+    it('accepts path when it matches lastPickedNotificationSoundPath', async () => {
+      // First pick the file via dialog
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/sound.mp3'],
+      })
+      await handlers.get('config:pick-audio-file')!()
+
+      // Now set the path - should work because it matches
+      const result = handlers.get('config:set-notification-sound-path')!({}, '/sound.mp3')
+      expect(result).toEqual({ success: true })
+      expect(mockConfigManager.setNotificationSoundPath).toHaveBeenCalledWith('/sound.mp3')
+    })
+
+    it('pick-audio-file rejects unsupported file type', async () => {
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/document.pdf'],
+      })
+      const result = await handlers.get('config:pick-audio-file')!()
+      expect(result).toEqual({ success: false })
+    })
+  })
+
+  describe('config:get-notification-sound-enabled', () => {
+    it('returns enabled value', () => {
+      const result = handlers.get('config:get-notification-sound-enabled')!()
+      expect(mockConfigManager.getNotificationSoundEnabled).toHaveBeenCalled()
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('config:get-notification-sound-path', () => {
+    it('returns sound path', () => {
+      const result = handlers.get('config:get-notification-sound-path')!()
+      expect(mockConfigManager.getNotificationSoundPath).toHaveBeenCalled()
+      expect(result).toBe('')
+    })
+  })
+
+  describe('config:play-notification-sound', () => {
+    it('returns null when path is unsupported', async () => {
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/file.txt')
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('reads and returns base64 audio for supported path', async () => {
+      const { stat, readFile } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sound.mp3')
+      vi.mocked(stat).mockResolvedValue({ isFile: () => true, size: 1000 } as never)
+      vi.mocked(readFile).mockResolvedValue(Buffer.from('audio data'))
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toEqual({
+        base64: Buffer.from('audio data').toString('base64'),
+        mimeType: 'audio/mpeg',
+      })
+    })
+
+    it('returns null when file is too large', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sound.mp3')
+      vi.mocked(stat).mockResolvedValue({ isFile: () => true, size: 20_000_000 } as never)
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('returns null when stat fails', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sound.mp3')
+      vi.mocked(stat).mockRejectedValue(new Error('ENOENT'))
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('returns null when path is not a file', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sound.mp3')
+      vi.mocked(stat).mockResolvedValue({ isFile: () => false, size: 100 } as never)
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('config:get-finance-watchlist', () => {
+    it('returns the watchlist', () => {
+      const result = handlers.get('config:get-finance-watchlist')!()
+      expect(mockConfigManager.getFinanceWatchlist).toHaveBeenCalled()
+      expect(result).toEqual(['AAPL'])
+    })
+  })
+
+  describe('config:get-store-path', () => {
+    it('returns the store path', () => {
+      const result = handlers.get('config:get-store-path')!()
+      expect(mockConfigManager.getStorePath).toHaveBeenCalled()
+      expect(result).toBe('/mock/config.json')
+    })
+  })
 })

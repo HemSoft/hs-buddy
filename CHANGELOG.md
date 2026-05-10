@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail fast when electron main.js is missing
 - Add cross-platform cleanup guidance for stale artifacts
 
+### Changed
+
+- Improve Electron test coverage from ~55% to ~68%
+
 ## [0.1.751] - 2026-05-07
 
 ### Fixed

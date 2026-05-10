@@ -215,4 +215,128 @@ describe('githubHandlers', () => {
       expect(Array.isArray(result.results)).toBe(true)
     })
   })
+
+  describe('github:get-copilot-usage', () => {
+    it('returns parsed billing usage on success', async () => {
+      // Mock token fetch
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token\n', stderr: '' })
+      // Mock billing API call
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({ usageItems: [{ product: 'copilot', grossAmount: 10 }] }),
+        stderr: '',
+      })
+
+      const handler = handlers.get('github:get-copilot-usage')!
+      const result = await handler({}, 'test-org', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.org).toBe('test-org')
+    })
+
+    it('returns error on failure', async () => {
+      mockExecAsync.mockRejectedValue(new Error('API unavailable'))
+
+      const handler = handlers.get('github:get-copilot-usage')!
+      const result = await handler({}, 'test-org', 'testuser')
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('API unavailable')
+    })
+  })
+
+  describe('github:get-copilot-budget', () => {
+    it('returns budget data on success', async () => {
+      const { extractBudgetFromResult, extractUsageSpend } =
+        await import('../../src/utils/billingParsers')
+      vi.mocked(extractBudgetFromResult).mockReturnValue({
+        budgetAmount: 500,
+        preventFurtherUsage: false,
+      })
+      vi.mocked(extractUsageSpend).mockReturnValue(100)
+      // Mock token fetch + budget/spend calls
+      mockExecAsync.mockResolvedValue({ stdout: '{}', stderr: '' })
+
+      const handler = handlers.get('github:get-copilot-budget')!
+      const result = await handler({}, 'test-org', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.org).toBe('test-org')
+    })
+
+    it('returns error on unexpected failure', async () => {
+      // Make getTokenEnv throw by having tryGetCliToken succeed but something else fail
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token\n', stderr: '' })
+      // Make resolveBudgetData throw
+      const { extractBudgetFromResult } = await import('../../src/utils/billingParsers')
+      vi.mocked(extractBudgetFromResult).mockImplementationOnce(() => {
+        throw new Error('Budget API down')
+      })
+
+      const handler = handlers.get('github:get-copilot-budget')!
+      const result = await handler({}, 'test-org', 'testuser')
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Budget API down')
+    })
+  })
+
+  describe('github:get-copilot-member-usage', () => {
+    it('returns seat data for a member', async () => {
+      // Token fetch
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token\n', stderr: '' })
+      // Member seat API
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          assignee: { login: 'member1' },
+          plan_type: 'business',
+          last_activity_at: '2026-01-15',
+        }),
+        stderr: '',
+      })
+
+      const handler = handlers.get('github:get-copilot-member-usage')!
+      const result = await handler({}, 'test-org', 'member1', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.login).toBe('member1')
+      expect(result.data.planType).toBe('business')
+    })
+
+    it('returns null data on 404 (no seat)', async () => {
+      const { isNotFoundError } = await import('../../src/utils/billingParsers')
+      // Token fetch succeeds
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token\n', stderr: '' })
+      // Member seat API fails with 404
+      const error404 = new Error('404')
+      mockExecAsync.mockRejectedValueOnce(error404)
+      vi.mocked(isNotFoundError).mockReturnValueOnce(true)
+
+      const handler = handlers.get('github:get-copilot-member-usage')!
+      const result = await handler({}, 'test-org', 'nobody', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data).toBeNull()
+    })
+
+    it('returns error on non-404 failure', async () => {
+      const { isNotFoundError } = await import('../../src/utils/billingParsers')
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token\n', stderr: '' })
+      mockExecAsync.mockRejectedValueOnce(new Error('Server error'))
+      vi.mocked(isNotFoundError).mockReturnValueOnce(false)
+
+      const handler = handlers.get('github:get-copilot-member-usage')!
+      const result = await handler({}, 'test-org', 'nobody', 'testuser')
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Server error')
+    })
+  })
+
+  describe('github:get-user-premium-requests', () => {
+    it('returns premium request data for a user', async () => {
+      // Token fetch
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token\n', stderr: '' })
+      // 3 parallel calls for user month, user today, org month
+      mockExecAsync.mockResolvedValue({ stdout: '{"usageItems":[]}', stderr: '' })
+
+      const handler = handlers.get('github:get-user-premium-requests')!
+      const result = await handler({}, 'test-org', 'member1', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.memberLogin).toBe('member1')
+      expect(result.data.org).toBe('test-org')
+    })
+  })
 })

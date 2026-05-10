@@ -90,4 +90,49 @@ describe('ralphHandlers', () => {
     const result = await handler({})
     expect(result).toBeNull()
   })
+
+  it('ralph:get-status delegates to getLoopStatus', async () => {
+    const { getLoopStatus } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-status')!
+    const result = await handler({}, 'run-1')
+    expect(getLoopStatus).toHaveBeenCalledWith('run-1')
+    expect(result).toEqual({ runId: 'run-1', status: 'complete' })
+  })
+
+  it('ralph:get-config delegates to getConfig', async () => {
+    const { getConfig } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-config')!
+    const result = await handler({}, 'sfl')
+    expect(getConfig).toHaveBeenCalledWith('sfl')
+    expect(result).toEqual({ scripts: '/path/to/scripts' })
+  })
+
+  it('ralph:get-scripts-path returns scripts path', async () => {
+    const handler = handlers.get('ralph:get-scripts-path')!
+    const result = await handler({})
+    expect(result).toBe('/home/user/.ralph/scripts')
+  })
+
+  it('ralph:list-templates returns template list', async () => {
+    const handler = handlers.get('ralph:list-templates')!
+    const result = await handler({})
+    expect(result).toEqual(['audit.sh', 'deploy.sh'])
+  })
+
+  it('sets up status change callback that pushes to renderer', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    expect(setStatusChangeCallback).toHaveBeenCalled()
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
+    const mockRun = { runId: 'run-1', status: 'complete' }
+    callback(mockRun)
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
+  })
+
+  it('status change callback skips destroyed windows', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
+    callback({ runId: 'run-1', status: 'done' })
+    expect(mockWin.webContents.send).not.toHaveBeenCalled()
+  })
 })

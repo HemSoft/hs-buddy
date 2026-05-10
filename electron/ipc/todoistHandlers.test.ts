@@ -117,4 +117,71 @@ describe('todoistHandlers', () => {
       expect(result).toEqual({ success: false, error: 'Not found' })
     })
   })
+
+  describe('todoist:reopen-task', () => {
+    it('reopens a task and returns success', async () => {
+      mockReopenTask.mockResolvedValue(undefined)
+      const result = await handlers.get('todoist:reopen-task')!({}, 'task-123')
+      expect(mockReopenTask).toHaveBeenCalledWith('task-123')
+      expect(result).toEqual({ success: true })
+    })
+
+    it('returns error when reopen fails', async () => {
+      mockReopenTask.mockRejectedValue(new Error('Task not found'))
+      const result = await handlers.get('todoist:reopen-task')!({}, 'bad-id')
+      expect(result).toEqual({ success: false, error: 'Task not found' })
+    })
+  })
+
+  describe('todoist:create-task', () => {
+    it('creates a task and returns it', async () => {
+      mockCreateTask.mockResolvedValue({ id: 'new-1', content: 'Buy milk' })
+      const result = await handlers.get('todoist:create-task')!(
+        {},
+        { content: 'Buy milk', priority: 2 }
+      )
+      expect(mockCreateTask).toHaveBeenCalledWith({ content: 'Buy milk', priority: 2 })
+      expect(result).toEqual({ success: true, data: { id: 'new-1', content: 'Buy milk' } })
+    })
+
+    it('returns error when content is empty', async () => {
+      const result = await handlers.get('todoist:create-task')!({}, { content: '   ' })
+      expect(result).toEqual({ success: false, error: 'Task content cannot be empty' })
+    })
+
+    it('returns error when content is missing', async () => {
+      const result = await handlers.get('todoist:create-task')!({}, { content: '' })
+      expect(result).toEqual({ success: false, error: 'Task content cannot be empty' })
+    })
+  })
+
+  describe('todoist:update-task', () => {
+    it('updates a task and returns it', async () => {
+      mockUpdateTask.mockResolvedValue({ id: 'task-1', content: 'Updated' })
+      const result = await handlers.get('todoist:update-task')!(
+        {},
+        { taskId: 'task-1', params: { content: 'Updated' } }
+      )
+      expect(mockUpdateTask).toHaveBeenCalledWith('task-1', { content: 'Updated' })
+      expect(result).toEqual({ success: true, data: { id: 'task-1', content: 'Updated' } })
+    })
+  })
+
+  describe('todoist:delete-task', () => {
+    it('deletes a task and returns success', async () => {
+      mockDeleteTask.mockResolvedValue(undefined)
+      const result = await handlers.get('todoist:delete-task')!({}, 'task-1')
+      expect(mockDeleteTask).toHaveBeenCalledWith('task-1')
+      expect(result).toEqual({ success: true })
+    })
+  })
+
+  describe('todoist:get-projects', () => {
+    it('returns project list', async () => {
+      mockFetchProjects.mockResolvedValue([{ id: 'p1', name: 'Work' }])
+      const result = await handlers.get('todoist:get-projects')!({})
+      expect(mockFetchProjects).toHaveBeenCalled()
+      expect(result).toEqual({ success: true, data: [{ id: 'p1', name: 'Work' }] })
+    })
+  })
 })

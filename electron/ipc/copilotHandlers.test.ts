@@ -85,4 +85,74 @@ describe('copilotHandlers', () => {
     expect(abortChat).toHaveBeenCalled()
     expect(result).toEqual({ success: true })
   })
+
+  it('copilot:list-models returns model list', async () => {
+    const handler = handlers.get('copilot:list-models')!
+    const result = await handler({})
+    expect(result).toEqual(['gpt-4', 'gpt-3.5'])
+  })
+
+  it('copilot:list-models passes ghAccount when provided', async () => {
+    const handler = handlers.get('copilot:list-models')!
+    await handler({}, 'my-account')
+    expect(mockService.listModels).toHaveBeenCalledWith('my-account')
+  })
+
+  it('copilot:list-models returns error on failure', async () => {
+    mockService.listModels.mockRejectedValueOnce(new Error('auth failed'))
+    const handler = handlers.get('copilot:list-models')!
+    const result = await handler({})
+    expect(result).toEqual({ error: 'auth failed' })
+  })
+
+  it('copilot:cancel returns error on failure', async () => {
+    mockService.cancelPrompt.mockImplementationOnce(() => {
+      throw new Error('no active prompt')
+    })
+    const handler = handlers.get('copilot:cancel')!
+    const result = await handler({}, 'r1')
+    expect(result).toEqual({ success: false, error: 'no active prompt' })
+  })
+
+  it('copilot:chat-send delegates to sendChatMessage', async () => {
+    const { sendChatMessage } = await import('../services/copilotClient')
+    const handler = handlers.get('copilot:chat-send')!
+    const args = {
+      message: 'hello',
+      context: 'ctx',
+      conversationHistory: [],
+      model: 'gpt-4',
+    }
+    const result = await handler({}, args)
+    expect(sendChatMessage).toHaveBeenCalledWith(args)
+    expect(result).toEqual({ message: 'hello' })
+  })
+
+  it('copilot:chat-send throws on failure', async () => {
+    const { sendChatMessage } = await import('../services/copilotClient')
+    vi.mocked(sendChatMessage).mockRejectedValueOnce(new Error('network down'))
+    const handler = handlers.get('copilot:chat-send')!
+    await expect(
+      handler({}, { message: 'hi', context: '', conversationHistory: [] })
+    ).rejects.toThrow('network down')
+  })
+
+  it('copilot:quick-prompt delegates to sendPrompt', async () => {
+    const { sendPrompt } = await import('../services/copilotClient')
+    const handler = handlers.get('copilot:quick-prompt')!
+    const result = await handler({}, { prompt: 'explain this', model: 'gpt-4' })
+    expect(sendPrompt).toHaveBeenCalledWith({
+      prompt: 'explain this',
+      model: 'gpt-4',
+      timeout: 30_000,
+    })
+    expect(result).toEqual({ text: 'response' })
+  })
+
+  it('copilot:quick-prompt throws on failure', async () => {
+    const { sendPrompt } = await import('../services/copilotClient')
+    vi.mocked(sendPrompt).mockRejectedValueOnce(new Error('timeout'))
+    const handler = handlers.get('copilot:quick-prompt')!
+    await expect(handler({}, { prompt: 'test' })).rejects.toThrow('timeout')
+  })
 })

@@ -90,4 +90,52 @@ describe('ralphHandlers', () => {
     const result = await handler({})
     expect(result).toBeNull()
   })
+
+  it('ralph:get-status delegates to getLoopStatus', async () => {
+    const { getLoopStatus } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-status')!
+    const result = await handler({}, 'run-1')
+    expect(getLoopStatus).toHaveBeenCalledWith('run-1')
+    expect(result).toEqual({ runId: 'run-1', status: 'complete' })
+  })
+
+  it('ralph:get-config delegates to getConfig', async () => {
+    const { getConfig } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-config')!
+    const result = await handler({}, 'scripts')
+    expect(getConfig).toHaveBeenCalledWith('scripts')
+    expect(result).toEqual({ scripts: '/path/to/scripts' })
+  })
+
+  it('ralph:get-scripts-path delegates to getScriptsPath', async () => {
+    const { getScriptsPath } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-scripts-path')!
+    const result = await handler({})
+    expect(getScriptsPath).toHaveBeenCalled()
+    expect(result).toBe('/home/user/.ralph/scripts')
+  })
+
+  it('ralph:list-templates delegates to listTemplateScripts', async () => {
+    const { listTemplateScripts } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:list-templates')!
+    const result = await handler({})
+    expect(listTemplateScripts).toHaveBeenCalled()
+    expect(result).toEqual(['audit.sh', 'deploy.sh'])
+  })
+
+  it('status callback sends event when window is not destroyed', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
+    const status = { runId: 'run-1', status: 'complete' }
+    callback(status as never)
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', status)
+  })
+
+  it('status callback does not send when window is destroyed', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
+    callback({ runId: 'run-1' } as never)
+    expect(mockWin.webContents.send).not.toHaveBeenCalled()
+  })
 })

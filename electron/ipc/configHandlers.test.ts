@@ -340,6 +340,49 @@ describe('configHandlers', () => {
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toBeNull()
     })
+
+    it('returns base64 audio for a valid sound file', async () => {
+      const { stat, readFile } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/ding.mp3')
+      vi.mocked(stat).mockResolvedValue({ isFile: () => true, size: 1000 } as never)
+      vi.mocked(readFile).mockResolvedValue(Buffer.from('audio-data') as never)
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toEqual({
+        base64: Buffer.from('audio-data').toString('base64'),
+        mimeType: 'audio/mpeg',
+      })
+    })
+
+    it('returns null when file is not a regular file', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/ding.mp3')
+      vi.mocked(stat).mockResolvedValue({ isFile: () => false, size: 100 } as never)
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('returns null when stat throws (file not found)', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/missing.mp3')
+      vi.mocked(stat).mockRejectedValue(new Error('ENOENT'))
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('returns null when file exceeds size limit', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/huge.mp3')
+      vi.mocked(stat).mockResolvedValue({
+        isFile: () => true,
+        size: 10_000_001,
+      } as never)
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
   })
 
   describe('config:get-store-path', () => {

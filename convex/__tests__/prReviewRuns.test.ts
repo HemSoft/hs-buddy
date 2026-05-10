@@ -148,6 +148,42 @@ describe('prReviewRuns', () => {
     expect(runs[0].completedAt).toBeGreaterThan(0)
   })
 
+  test('markRunningByResult preserves existing model when no model arg passed', async () => {
+    const t = convexTest(schema, modules)
+    const resultId = await createCopilotResult(t)
+    await t.mutation(api.prReviewRuns.create, {
+      ...prRunArgs,
+      resultId,
+      model: 'original-model',
+    })
+
+    await t.mutation(api.prReviewRuns.markRunningByResult, { resultId })
+
+    const runs = await t.query(api.prReviewRuns.listByPr, {
+      owner: 'acme',
+      repo: 'frontend',
+      prNumber: 42,
+    })
+    expect(runs[0].status).toBe('running')
+    expect(runs[0].model).toBe('original-model')
+  })
+
+  test('completeByResult is a no-op when no linked run exists', async () => {
+    const t = convexTest(schema, modules)
+    const resultId = await createCopilotResult(t)
+
+    // No run linked to this resultId — should not throw
+    await t.mutation(api.prReviewRuns.completeByResult, { resultId })
+  })
+
+  test('failByResult is a no-op when no linked run exists', async () => {
+    const t = convexTest(schema, modules)
+    const resultId = await createCopilotResult(t)
+
+    // No run linked to this resultId — should not throw
+    await t.mutation(api.prReviewRuns.failByResult, { resultId, error: 'orphan' })
+  })
+
   test('failByResult transitions linked run to failed with error', async () => {
     const t = convexTest(schema, modules)
     const resultId = await createCopilotResult(t)
@@ -165,5 +201,23 @@ describe('prReviewRuns', () => {
     })
     expect(runs[0].status).toBe('failed')
     expect(runs[0].error).toBe('Copilot SDK error')
+  })
+
+  test('completeByResult updates model when provided', async () => {
+    const t = convexTest(schema, modules)
+    const resultId = await createCopilotResult(t)
+    await t.mutation(api.prReviewRuns.create, { ...prRunArgs, resultId })
+
+    await t.mutation(api.prReviewRuns.completeByResult, {
+      resultId,
+      model: 'claude-opus',
+    })
+
+    const runs = await t.query(api.prReviewRuns.listByPr, {
+      owner: 'acme',
+      repo: 'frontend',
+      prNumber: 42,
+    })
+    expect(runs[0].model).toBe('claude-opus')
   })
 })

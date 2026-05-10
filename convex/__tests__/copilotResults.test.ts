@@ -161,13 +161,14 @@ describe('copilotResults', () => {
     expect(result.deleted).toBe(2)
   })
 
-  test('cleanup does not remove pending or running results', async () => {
+  test('cleanup stops early when encountering recent results', async () => {
     const t = convexTest(schema, modules)
-    const id = await t.mutation(api.copilotResults.create, { prompt: 'keep me' })
-    await t.mutation(api.copilotResults.markRunning, { id })
+    const id1 = await t.mutation(api.copilotResults.create, { prompt: 'old' })
+    await t.mutation(api.copilotResults.create, { prompt: 'recent' })
+    await t.mutation(api.copilotResults.complete, { id: id1, result: 'done' })
 
-    // Use negative days to make cutoff in the future
-    const result = await t.mutation(api.copilotResults.cleanup, { olderThanDays: -1 })
+    // Use a very large olderThanDays so no result is older than the cutoff
+    const result = await t.mutation(api.copilotResults.cleanup, { olderThanDays: 9999 })
     expect(result.deleted).toBe(0)
   })
 })

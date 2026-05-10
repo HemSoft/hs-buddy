@@ -134,6 +134,23 @@ describe('repoBookmarks', () => {
     ).rejects.toThrow()
   })
 
+  test('update without folder or description only updates updatedAt', async () => {
+    const t = convexTest(schema, modules)
+    const result = await t.mutation(api.repoBookmarks.create, {
+      folder: 'KeepFolder',
+      owner: 'x',
+      repo: 'y',
+      url: 'https://github.com/x/y',
+      description: 'KeepDesc',
+    })
+
+    await t.mutation(api.repoBookmarks.update, { id: result._id })
+
+    const bm = await t.query(api.repoBookmarks.get, { id: result._id })
+    expect(bm?.folder).toBe('KeepFolder')
+    expect(bm?.description).toBe('KeepDesc')
+  })
+
   test('remove deletes a bookmark', async () => {
     const t = convexTest(schema, modules)
     const result = await t.mutation(api.repoBookmarks.create, {

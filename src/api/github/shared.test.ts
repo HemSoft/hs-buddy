@@ -261,21 +261,22 @@ describe('batchProcess', () => {
     expect(processed).toEqual([1, 2, 3, 4, 5])
   })
 
-  it('processes with custom batch size', async () => {
-    const batches: number[][] = []
-    let currentBatch: number[] = []
+  it('limits in-flight work to the custom batch size', async () => {
+    let inFlight = 0
+    let maxInFlight = 0
+
     await batchProcess(
       [1, 2, 3, 4, 5],
-      async item => {
-        currentBatch.push(item)
-        if (currentBatch.length === 2 || item === 5) {
-          batches.push([...currentBatch])
-          currentBatch = []
-        }
+      async () => {
+        inFlight += 1
+        maxInFlight = Math.max(maxInFlight, inFlight)
+        await new Promise(resolve => setTimeout(resolve, 0))
+        inFlight -= 1
       },
       2
     )
-    expect(batches).toHaveLength(3) // [1,2], [3,4], [5]
+
+    expect(maxInFlight).toBeLessThanOrEqual(2)
   })
 
   it('handles empty array', async () => {

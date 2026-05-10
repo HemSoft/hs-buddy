@@ -70,6 +70,10 @@ describe('detectAvailableProviders', () => {
     // Second call — uses cache
     await detectAvailableProviders(mockClient, 'myorg', 'myrepo')
     expect(detectSpy).toHaveBeenCalledTimes(1)
+
+    // Different repo should not reuse the same cache entry
+    await detectAvailableProviders(mockClient, 'myorg', 'another-repo')
+    expect(detectSpy).toHaveBeenCalledTimes(2)
   })
 
   it('treats detection errors as unavailable', async () => {

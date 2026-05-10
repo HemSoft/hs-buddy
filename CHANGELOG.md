@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Add coverage for 5 untested source files
+
 ## [0.1.752] - 2026-05-08
 
 ### Fixed
@@ -18,10 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add cross-platform cleanup guidance for stale artifacts
 - Improve batchProcess and cache detection tests
 - Add --disable-dev-shm-usage to lighthouse chrome flags
+- Move changelog entry to Unreleased section
+- Address PR review feedback — strengthen test assertions and fix TS2556
+- Sync MockStore.store after clear() to prevent stale state
 
 ### Changed
 
 - Add dedicated test files for 4 modules (64 new tests)
+- Improve coverage from 57% to 70%
+- Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
+- Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
+- Resolve CHANGELOG.md merge conflict with main
+- Resolve merge conflicts with main (CHANGELOG, orgRepoTreeUtils, useIsMounted)
 
 ## [0.1.751] - 2026-05-07
 

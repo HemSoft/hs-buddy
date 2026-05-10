@@ -85,4 +85,73 @@ describe('copilotHandlers', () => {
     expect(abortChat).toHaveBeenCalled()
     expect(result).toEqual({ success: true })
   })
+
+  it('copilot:cancel returns error on failure', async () => {
+    mockService.cancelPrompt.mockImplementationOnce(() => {
+      throw new Error('No such result')
+    })
+    const handler = handlers.get('copilot:cancel')!
+    const result = await handler({}, 'bad-id')
+    expect(result).toEqual({ success: false, error: 'No such result' })
+  })
+
+  it('copilot:list-models returns model list', async () => {
+    const handler = handlers.get('copilot:list-models')!
+    const result = await handler({})
+    expect(result).toEqual(['gpt-4', 'gpt-3.5'])
+  })
+
+  it('copilot:list-models passes ghAccount parameter', async () => {
+    const handler = handlers.get('copilot:list-models')!
+    await handler({}, 'my-account')
+    expect(mockService.listModels).toHaveBeenCalledWith('my-account')
+  })
+
+  it('copilot:list-models returns error on failure', async () => {
+    mockService.listModels.mockRejectedValueOnce(new Error('SDK error'))
+    const handler = handlers.get('copilot:list-models')!
+    const result = await handler({})
+    expect(result).toEqual({ error: 'SDK error' })
+  })
+
+  it('copilot:chat-send returns chat response', async () => {
+    const { sendChatMessage } = await import('../services/copilotClient')
+    const handler = handlers.get('copilot:chat-send')!
+    const args = {
+      message: 'Hello',
+      context: 'some context',
+      conversationHistory: [],
+    }
+    const result = await handler({}, args)
+    expect(sendChatMessage).toHaveBeenCalledWith(args)
+    expect(result).toEqual({ message: 'hello' })
+  })
+
+  it('copilot:chat-send throws on failure', async () => {
+    const { sendChatMessage } = await import('../services/copilotClient')
+    vi.mocked(sendChatMessage).mockRejectedValueOnce(new Error('Network error'))
+    const handler = handlers.get('copilot:chat-send')!
+    await expect(
+      handler({}, { message: 'hi', context: '', conversationHistory: [] })
+    ).rejects.toThrow('Network error')
+  })
+
+  it('copilot:quick-prompt returns prompt response', async () => {
+    const { sendPrompt } = await import('../services/copilotClient')
+    const handler = handlers.get('copilot:quick-prompt')!
+    const result = await handler({}, { prompt: 'Summarize this' })
+    expect(sendPrompt).toHaveBeenCalledWith({
+      prompt: 'Summarize this',
+      model: undefined,
+      timeout: 30_000,
+    })
+    expect(result).toEqual({ text: 'response' })
+  })
+
+  it('copilot:quick-prompt throws on failure', async () => {
+    const { sendPrompt } = await import('../services/copilotClient')
+    vi.mocked(sendPrompt).mockRejectedValueOnce(new Error('Timeout'))
+    const handler = handlers.get('copilot:quick-prompt')!
+    await expect(handler({}, { prompt: 'test' })).rejects.toThrow('Timeout')
+  })
 })

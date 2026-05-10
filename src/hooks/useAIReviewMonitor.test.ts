@@ -210,6 +210,11 @@ describe('useAIReviewMonitor', () => {
     expect(stored['test-provider:https://url']).toBeUndefined()
   })
 
+  it('clearPendingAIReview is safe when storage key does not exist', () => {
+    sessionStorage.removeItem('hs-buddy:pending-ai-reviews')
+    expect(() => clearPendingAIReview('test-provider', 'https://url')).not.toThrow()
+  })
+
   it('recovers pending review from sessionStorage on mount', async () => {
     const key = 'hs-buddy:pending-ai-reviews'
     const prUrl = 'https://github.com/org/repo/pull/42'
@@ -371,5 +376,33 @@ describe('useAIReviewMonitor', () => {
     })
 
     expect(result.current.reviewState).toBe('done')
+  })
+
+  it('clearPendingAIReview swallows sessionStorage errors', () => {
+    vi.spyOn(sessionStorage, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    expect(() => clearPendingAIReview('test-provider', 'https://url')).not.toThrow()
+    vi.restoreAllMocks()
+  })
+
+  it('stays idle when sessionStorage contains corrupted JSON for pending review', () => {
+    sessionStorage.setItem('hs-buddy:pending-ai-reviews', '%%%invalid-json%%%')
+    const provider = makeProvider()
+    const { result } = renderHook(() => useAIReviewMonitor({ provider, ...defaultOptions }))
+    expect(result.current.reviewState).toBe('idle')
+  })
+
+  it('stays idle and does not poll when pending JSON is corrupted', async () => {
+    sessionStorage.setItem('hs-buddy:pending-ai-reviews', '%%%invalid-json%%%')
+    const provider = makeProvider()
+    const { result } = renderHook(() => useAIReviewMonitor({ provider, ...defaultOptions }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(result.current.reviewState).toBe('idle')
+    expect(provider.poll).not.toHaveBeenCalled()
   })
 })

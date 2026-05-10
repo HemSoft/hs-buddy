@@ -248,4 +248,169 @@ describe('configHandlers', () => {
       expect(result).toEqual({ success: true })
     })
   })
+
+  describe('config:get-schedule-forecast-days', () => {
+    it('returns forecast days', () => {
+      const result = handlers.get('config:get-schedule-forecast-days')!()
+      expect(mockConfigManager.getScheduleForecastDays).toHaveBeenCalled()
+      expect(result).toBe(3)
+    })
+  })
+
+  describe('config:set-schedule-forecast-days', () => {
+    it('sets the forecast days and returns success', () => {
+      const result = handlers.get('config:set-schedule-forecast-days')!({}, 7)
+      expect(mockConfigManager.setScheduleForecastDays).toHaveBeenCalledWith(7)
+      expect(result).toEqual({ success: true })
+    })
+  })
+
+  describe('config:get-copilot-pr-review-prompt-template', () => {
+    it('returns the template', () => {
+      const result = handlers.get('config:get-copilot-pr-review-prompt-template')!()
+      expect(mockConfigManager.getCopilotPRReviewPromptTemplate).toHaveBeenCalled()
+      expect(result).toBe('')
+    })
+  })
+
+  describe('config:set-copilot-pr-review-prompt-template', () => {
+    it('sets the template and returns success', () => {
+      const result = handlers.get('config:set-copilot-pr-review-prompt-template')!(
+        {},
+        'new template'
+      )
+      expect(mockConfigManager.setCopilotPRReviewPromptTemplate).toHaveBeenCalledWith(
+        'new template'
+      )
+      expect(result).toEqual({ success: true })
+    })
+  })
+
+  describe('config:get-notification-sound-enabled', () => {
+    it('returns the enabled state', () => {
+      const result = handlers.get('config:get-notification-sound-enabled')!()
+      expect(mockConfigManager.getNotificationSoundEnabled).toHaveBeenCalled()
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('config:get-notification-sound-path', () => {
+    it('returns the sound path', () => {
+      const result = handlers.get('config:get-notification-sound-path')!()
+      expect(mockConfigManager.getNotificationSoundPath).toHaveBeenCalled()
+      expect(result).toBe('')
+    })
+  })
+
+  describe('config:set-notification-sound-path (pick flow)', () => {
+    it('accepts path that was previously picked', async () => {
+      // Pick a file first
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/path/to/sound.mp3'],
+      })
+      await handlers.get('config:pick-audio-file')!()
+
+      // Now set the path (should match lastPickedNotificationSoundPath)
+      const result = handlers.get('config:set-notification-sound-path')!({}, '/path/to/sound.mp3')
+      expect(result).toEqual({ success: true })
+      expect(mockConfigManager.setNotificationSoundPath).toHaveBeenCalledWith('/path/to/sound.mp3')
+    })
+
+    it('rejects path that was not previously picked', () => {
+      const result = handlers.get('config:set-notification-sound-path')!({}, '/unpicked/sound.mp3')
+      expect(result).toEqual({ success: false })
+    })
+  })
+
+  describe('config:pick-audio-file (unsupported)', () => {
+    it('rejects unsupported audio file extension', async () => {
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/path/to/video.avi'],
+      })
+      const result = await handlers.get('config:pick-audio-file')!()
+      expect(result).toEqual({ success: false })
+    })
+  })
+
+  describe('config:play-notification-sound', () => {
+    it('returns null when no sound path configured', async () => {
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('')
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('config:get-store-path', () => {
+    it('returns the store path', () => {
+      const result = handlers.get('config:get-store-path')!()
+      expect(result).toBe('/mock/config.json')
+    })
+  })
+
+  describe('config:get-finance-watchlist', () => {
+    it('returns the finance watchlist', () => {
+      const result = handlers.get('config:get-finance-watchlist')!()
+      expect(mockConfigManager.getFinanceWatchlist).toHaveBeenCalled()
+      expect(result).toEqual(['AAPL'])
+    })
+  })
+
+  describe('UI value handlers', () => {
+    it('config:get-theme returns theme value', () => {
+      mockConfigManager.getUiValue.mockReturnValue('dark')
+      const result = handlers.get('config:get-theme')!()
+      expect(result).toBe('dark')
+    })
+
+    it('config:set-theme sets theme value', () => {
+      const result = handlers.get('config:set-theme')!({}, 'light')
+      expect(mockConfigManager.setUiValue).toHaveBeenCalledWith('theme', 'light')
+      expect(result).toEqual({ success: true })
+    })
+
+    it('config:get-zoom-level returns zoom level', () => {
+      mockConfigManager.getUiValue.mockReturnValue(1.2)
+      const result = handlers.get('config:get-zoom-level')!()
+      expect(result).toBe(1.2)
+    })
+
+    it('config:set-zoom-level sets zoom level', () => {
+      const result = handlers.get('config:set-zoom-level')!({}, 1.5)
+      expect(mockConfigManager.setUiValue).toHaveBeenCalledWith('zoomLevel', 1.5)
+      expect(result).toEqual({ success: true })
+    })
+  })
+
+  describe('config:get-terminal-open', () => {
+    it('returns the terminal open state', () => {
+      mockConfigManager.getUiValue.mockReturnValue(false)
+      const result = handlers.get('config:get-terminal-open')!()
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledWith('terminalOpen')
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('config:set-terminal-open', () => {
+    it('rejects non-boolean', () => {
+      const result = handlers.get('config:set-terminal-open')!({}, 'yes')
+      expect(result).toEqual({ success: false })
+    })
+
+    it('sets valid boolean value', () => {
+      const result = handlers.get('config:set-terminal-open')!({}, true)
+      expect(result).toEqual({ success: true })
+      expect(mockConfigManager.setUiValue).toHaveBeenCalledWith('terminalOpen', true)
+    })
+  })
+
+  describe('config:get-terminal-panel-height', () => {
+    it('returns the terminal panel height', () => {
+      mockConfigManager.getUiValue.mockReturnValue(300)
+      const result = handlers.get('config:get-terminal-panel-height')!()
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledWith('terminalPanelHeight')
+      expect(result).toBe(300)
+    })
+  })
 })

@@ -247,7 +247,7 @@ describe('execWorker', () => {
     const promise = execWorker.execute({ command: 'verbose' })
 
     await new Promise(r => setTimeout(r, 10))
-    // First chunk fills stdout beyond MAX_OUTPUT_SIZE (512*1024 = 524288)
+    // First chunk fills stdout beyond MAX_OUTPUT_SIZE (512_000)
     const bigChunk = Buffer.alloc(530_000, 'x')
     proc.stdout.push(bigChunk)
     // Second chunk should be discarded since stdout.length >= MAX_OUTPUT_SIZE

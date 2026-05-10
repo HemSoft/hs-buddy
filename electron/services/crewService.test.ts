@@ -53,6 +53,7 @@ import {
 describe('crewService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockExecFileAsync.mockReset().mockResolvedValue({ stdout: '' })
     mockExistsSync.mockReturnValue(false)
     mockReadFileSync.mockReturnValue('[]')
   })
@@ -655,6 +656,12 @@ describe('crewService', () => {
       const result = await undoFile('proj-1', 'src/file.ts')
       expect(result).toBe(true)
       expect(mockWriteFileSync).toHaveBeenCalled()
+      // Verify changedFiles no longer includes the undone file
+      const writtenSessions = JSON.parse(mockWriteFileSync.mock.calls.at(-1)?.[1] as string)
+      const updatedSession = writtenSessions.find((s: Record<string, unknown>) => s.id === 'sess-1')
+      expect(updatedSession.changedFiles).not.toContainEqual(
+        expect.objectContaining({ path: 'src/file.ts' })
+      )
     })
   })
 })

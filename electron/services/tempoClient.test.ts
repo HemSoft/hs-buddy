@@ -444,6 +444,11 @@ describe('tempoClient', () => {
 
   describe('getCapexMap', () => {
     it('returns capex map for issue keys (no jira credentials)', async () => {
+      const { createEnvResolver } = await import('../../src/utils/envLookup')
+      vi.mocked(createEnvResolver).mockReturnValueOnce((name: string) => {
+        if (name === 'TEMPO_API_TOKEN') return 'test-tempo-token'
+        return undefined
+      })
       const { getCapexMap } = await import('./tempoClient')
 
       const result = await getCapexMap(['PROJ-1', 'PROJ-2', 'PROJ-1'])
@@ -637,7 +642,10 @@ describe('tempoClient', () => {
     it('uses disk-cached issue metadata when the in-memory issue cache misses', async () => {
       const { getWorklogsForRange } = await import('./tempoClient')
       mockReadDataCache.mockReturnValue({
-        'tempo:issue:42': { data: { key: 'CACHED-42', summary: 'Cached summary' }, fetchedAt: Date.now() },
+        'tempo:issue:42': {
+          data: { key: 'CACHED-42', summary: 'Cached summary' },
+          fetchedAt: Date.now(),
+        },
       })
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -720,7 +728,9 @@ describe('tempoClient', () => {
       const result = await getWorklogsForRange('2024-01-01', '2024-01-01')
 
       expect(result.success).toBe(true)
-      expect(mockWriteDataCacheEntry.mock.calls.find(([key]) => key === 'tempo:issue:42')).toBeUndefined()
+      expect(
+        mockWriteDataCacheEntry.mock.calls.find(([key]) => key === 'tempo:issue:42')
+      ).toBeUndefined()
     })
 
     it('falls back to #issueId without a Jira lookup when Jira credentials are unavailable', async () => {
@@ -749,7 +759,9 @@ describe('tempoClient', () => {
 
       expect(result.success).toBe(true)
       expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(mockWriteDataCacheEntry.mock.calls.find(([key]) => key === 'tempo:issue:42')).toBeUndefined()
+      expect(
+        mockWriteDataCacheEntry.mock.calls.find(([key]) => key === 'tempo:issue:42')
+      ).toBeUndefined()
     })
 
     it('resolves issue IDs from Jira and reuses the populated issue cache', async () => {
@@ -810,7 +822,9 @@ describe('tempoClient', () => {
       } as never)
 
       expect(result.success).toBe(false)
-      expect(result.error).toContain('Jira credentials not available — cannot create worklogs by issue key')
+      expect(result.error).toContain(
+        'Jira credentials not available — cannot create worklogs by issue key'
+      )
       expect(mockFetch).not.toHaveBeenCalled()
     })
   })
@@ -882,9 +896,7 @@ describe('tempoClient', () => {
 
     it('falls back to the parent issue when the capitalization field is not present on the child', async () => {
       const { parseCapitalizationField } = await import('../../src/utils/tempoUtils')
-      vi.mocked(parseCapitalizationField)
-        .mockReturnValueOnce(null)
-        .mockReturnValueOnce(true)
+      vi.mocked(parseCapitalizationField).mockReturnValueOnce(null).mockReturnValueOnce(true)
       const { getCapexMap } = await import('./tempoClient')
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -948,7 +960,9 @@ describe('tempoClient', () => {
       expect(second.data).toEqual({ 'PROJ-1': false })
       expect(mockFetch).not.toHaveBeenCalled()
       expect(mockReadDataCache).not.toHaveBeenCalled()
-      expect(mockWriteDataCacheEntry.mock.calls.find(([key]) => key === 'tempo:capex:PROJ-1')).toBeUndefined()
+      expect(
+        mockWriteDataCacheEntry.mock.calls.find(([key]) => key === 'tempo:capex:PROJ-1')
+      ).toBeUndefined()
     })
 
     it('returns an error result when capex resolution throws unexpectedly', async () => {

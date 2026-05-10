@@ -72,6 +72,40 @@ describe('githubHandlers', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let handlers: Map<string, (...args: any[]) => any>
 
+  function stubMetricsResult(
+    overrides: Partial<{
+      org: string
+      premiumRequests: number
+      grossCost: number
+      discount: number
+      netCost: number
+      businessSeats: number
+      budgetAmount: number | null
+      spent: number
+      billingMonth: number
+      billingYear: number
+      fetchedAt: number
+    }> = {}
+  ) {
+    return {
+      success: true as const,
+      data: {
+        org: 'default-org',
+        premiumRequests: 0,
+        grossCost: 0,
+        discount: 0,
+        netCost: 0,
+        businessSeats: 0,
+        budgetAmount: null,
+        spent: 0,
+        billingMonth: 1,
+        billingYear: 2026,
+        fetchedAt: 0,
+        ...overrides,
+      },
+    }
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     handlers = new Map()
@@ -348,7 +382,10 @@ describe('githubHandlers', () => {
         ] as never)
         .mockReturnValueOnce([{ model: 'gpt-4o', grossQuantity: 10, netCost: 1 }] as never)
         .mockReturnValueOnce([{ model: 'gpt-4o', grossQuantity: 200, netCost: 20 }] as never)
-      vi.mocked(sumGrossRequests).mockReturnValueOnce(80).mockReturnValueOnce(10).mockReturnValueOnce(200)
+      vi.mocked(sumGrossRequests)
+        .mockReturnValueOnce(80)
+        .mockReturnValueOnce(10)
+        .mockReturnValueOnce(200)
       vi.mocked(sumNetCost).mockReturnValueOnce(20)
 
       const handler = handlers.get('github:get-user-premium-requests')!
@@ -443,6 +480,10 @@ describe('githubHandlers', () => {
       const result = await handler({}, [{ username: 'user1', org: 'org1' }])
       expect(result.results).toHaveLength(1)
       expect(result.results[0].success).toBe(true)
+      expect(mockConvexMutation).toHaveBeenCalledWith(
+        'copilotUsageHistory:store',
+        expect.objectContaining({ budgetAmount: 200 })
+      )
     })
 
     it('reports per-account failure when fetchCopilotMetrics returns error', async () => {
@@ -592,16 +633,14 @@ describe('githubHandlers', () => {
       })
       vi.mocked(billingParsers.extractUsageSpend).mockReturnValue(0)
       vi.mocked(billingParsers.computeOverageSpend).mockReturnValue(0)
-      vi.mocked(billingParsers.assembleCopilotMetrics).mockReturnValue({
-        success: true,
-        data: { org: 'default-org', billingYear: 2026, billingMonth: 1 },
-      } as any)
+      vi.mocked(billingParsers.assembleCopilotMetrics).mockReturnValue(stubMetricsResult())
       vi.mocked(budgetUtils.findBudgetAcrossPages).mockResolvedValue(null)
     })
 
     it('fetchCopilotMetrics returns failure on non-404 usage errors', async () => {
       const { fetchCopilotMetrics } = await import('./githubHandlers')
-      const { isNotFoundError, assembleCopilotMetrics } = await import('../../src/utils/billingParsers')
+      const { isNotFoundError, assembleCopilotMetrics } =
+        await import('../../src/utils/billingParsers')
 
       mockExecAsync.mockRejectedValueOnce(new Error('usage exploded'))
       vi.mocked(isNotFoundError).mockReturnValueOnce(false)
@@ -628,10 +667,7 @@ describe('githubHandlers', () => {
         netCost: 11,
         businessSeats: 3,
       })
-      vi.mocked(assembleCopilotMetrics).mockReturnValueOnce({
-        success: true,
-        data: { org: 'test-org', billingYear: 2026, billingMonth: 1 },
-      } as any)
+      vi.mocked(assembleCopilotMetrics).mockReturnValueOnce(stubMetricsResult({ org: 'test-org' }))
 
       mockExecAsync
         .mockRejectedValueOnce(new Error('HTTP 404'))
@@ -645,10 +681,12 @@ describe('githubHandlers', () => {
       const result = await fetchCopilotMetrics('test-org')
       const assembleArgs = vi.mocked(assembleCopilotMetrics).mock.calls[0][0]
 
-      expect(result).toEqual({
-        success: true,
-        data: { org: 'test-org', billingYear: 2026, billingMonth: 1 },
-      })
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({ org: 'test-org', billingYear: 2026, billingMonth: 1 }),
+        })
+      )
       expect(parseBillingUsage).toHaveBeenCalledWith([{ product: 'copilot', grossQuantity: 7 }])
       expect(assembleArgs).toEqual(
         expect.objectContaining({
@@ -663,15 +701,13 @@ describe('githubHandlers', () => {
 
     it('fetchCopilotMetrics continues after double 404 billing misses', async () => {
       const { fetchCopilotMetrics } = await import('./githubHandlers')
-      const { isNotFoundError, assembleCopilotMetrics } = await import('../../src/utils/billingParsers')
+      const { isNotFoundError, assembleCopilotMetrics } =
+        await import('../../src/utils/billingParsers')
 
       vi.mocked(isNotFoundError).mockImplementation(
         error => error instanceof Error && error.message.includes('404')
       )
-      vi.mocked(assembleCopilotMetrics).mockReturnValueOnce({
-        success: true,
-        data: { org: 'test-org', billingYear: 2026, billingMonth: 1 },
-      } as any)
+      vi.mocked(assembleCopilotMetrics).mockReturnValueOnce(stubMetricsResult({ org: 'test-org' }))
 
       mockExecAsync
         .mockRejectedValueOnce(new Error('HTTP 404'))
@@ -682,10 +718,12 @@ describe('githubHandlers', () => {
       const result = await fetchCopilotMetrics('test-org')
       const assembleArgs = vi.mocked(assembleCopilotMetrics).mock.calls[0][0]
 
-      expect(result).toEqual({
-        success: true,
-        data: { org: 'test-org', billingYear: 2026, billingMonth: 1 },
-      })
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({ org: 'test-org', billingYear: 2026, billingMonth: 1 }),
+        })
+      )
       expect(assembleArgs).toEqual(
         expect.objectContaining({
           org: 'test-org',
@@ -718,10 +756,7 @@ describe('githubHandlers', () => {
       vi.mocked(extractBudgetFromResult).mockImplementationOnce(() => {
         throw new Error('budget parser exploded')
       })
-      vi.mocked(assembleCopilotMetrics).mockReturnValueOnce({
-        success: true,
-        data: { org: 'test-org', billingYear: 2026, billingMonth: 1 },
-      } as any)
+      vi.mocked(assembleCopilotMetrics).mockReturnValueOnce(stubMetricsResult({ org: 'test-org' }))
 
       mockExecAsync
         .mockResolvedValueOnce({
@@ -734,10 +769,12 @@ describe('githubHandlers', () => {
       const result = await fetchCopilotMetrics('test-org')
       const assembleArgs = vi.mocked(assembleCopilotMetrics).mock.calls[0][0]
 
-      expect(result).toEqual({
-        success: true,
-        data: { org: 'test-org', billingYear: 2026, billingMonth: 1 },
-      })
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({ org: 'test-org', billingYear: 2026, billingMonth: 1 }),
+        })
+      )
       expect(assembleArgs).toEqual(
         expect.objectContaining({
           usageOk: true,
@@ -784,7 +821,8 @@ describe('githubHandlers', () => {
     })
 
     it('github:get-copilot-budget uses enterprise fallback budgets when org budgets are missing', async () => {
-      const { extractBudgetFromResult, extractUsageSpend } = await import('../../src/utils/billingParsers')
+      const { extractBudgetFromResult, extractUsageSpend } =
+        await import('../../src/utils/billingParsers')
       const { findBudgetAcrossPages } = await import('../../src/utils/budgetUtils')
 
       vi.mocked(extractBudgetFromResult).mockReturnValueOnce({
@@ -795,7 +833,7 @@ describe('githubHandlers', () => {
       vi.mocked(findBudgetAcrossPages).mockImplementationOnce(async fetchPage => {
         const page = await fetchPage(1)
         expect(page).toEqual([])
-        return { budget_amount: 500, prevent_further_usage: true } as any
+        return { budget_amount: 500, prevent_further_usage: true }
       })
 
       mockExecAsync

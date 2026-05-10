@@ -5,6 +5,7 @@ type EventCallback = (...args: unknown[]) => void
 
 let webContentsListeners: Map<string, EventCallback>
 let windowOpenHandler: (({ url }: { url: string }) => { action: string }) | null
+let mockSetTitle: ReturnType<typeof vi.fn>
 let mockLoadURL: ReturnType<typeof vi.fn>
 let mockIsDestroyed: ReturnType<typeof vi.fn>
 
@@ -29,7 +30,11 @@ vi.mock('electron', () => ({
       mockLoadURL = fn
       return fn
     })()
-    setTitle = vi.fn()
+    setTitle = (() => {
+      const fn = vi.fn()
+      mockSetTitle = fn
+      return fn
+    })()
     isDestroyed = (() => {
       const fn = vi.fn(() => false)
       mockIsDestroyed = fn
@@ -631,8 +636,7 @@ describe('shellHandlers', () => {
 
       // Simulate the page title changing
       titleHandler!({}, 'New Page Title')
-      // The BrowserWindow.setTitle should have been called — we can verify
-      // that the handler registered and executed without error
+      expect(mockSetTitle).toHaveBeenCalledWith('New Page Title')
     })
   })
 })

@@ -1,24 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
 
-const mockExistsSync = vi.fn(() => false)
-const mockReadFileSync = vi.fn(() => {
+const mockExistsSync = vi.fn((_p: string): boolean => false)
+const mockReadFileSync = vi.fn((_p: string): string => {
   throw new Error('ENOENT')
 })
-const mockOpenSync = vi.fn(() => 3)
-const mockReadSync = vi.fn(() => 0)
-const mockCloseSync = vi.fn()
-const mockReaddirSync = vi.fn(() => [] as string[])
-const mockStatSync = vi.fn(() => ({ size: 100, mtimeMs: Date.now() }))
+const mockOpenSync = vi.fn((_p: string): number => 3)
+const mockReadSync = vi.fn(
+  (_fd: number, _buf: Buffer, _off: number, _len: number, _pos: number | null): number => 0
+)
+const mockCloseSync = vi.fn((_fd: number): void => {})
+const mockReaddirSync = vi.fn((_dir: string): string[] => [])
+const mockStatSync = vi.fn((_p: string) => ({ size: 100, mtimeMs: Date.now() }))
 
 vi.mock('fs', () => ({
-  existsSync: (...args: unknown[]) => mockExistsSync(...args),
-  readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
-  openSync: (...args: unknown[]) => mockOpenSync(...args),
-  readSync: (...args: unknown[]) => mockReadSync(...args),
-  closeSync: (...args: unknown[]) => mockCloseSync(...args),
-  readdirSync: (...args: unknown[]) => mockReaddirSync(...args),
-  statSync: (...args: unknown[]) => mockStatSync(...args),
+  existsSync: (p: string) => mockExistsSync(p),
+  readFileSync: (p: string) => mockReadFileSync(p),
+  openSync: (p: string) => mockOpenSync(p),
+  readSync: (fd: number, buf: Buffer, off: number, len: number, pos: number | null) =>
+    mockReadSync(fd, buf, off, len, pos),
+  closeSync: (fd: number) => mockCloseSync(fd),
+  readdirSync: (dir: string) => mockReaddirSync(dir),
+  statSync: (p: string) => mockStatSync(p),
   createReadStream: vi.fn(() => {
     const emitter = new EventEmitter()
     setTimeout(() => emitter.emit('end'), 0)
@@ -31,22 +34,40 @@ vi.mock('readline', () => ({
   createInterface: (...args: unknown[]) => mockCreateInterface(...args),
 }))
 
-const mockParseScanChunk = vi.fn(() => ({
-  title: 'Test Title',
-  firstPrompt: 'What is X?',
-  agent: 'copilot',
-  createdAt: 1000,
-  requestCount: 2,
-}))
-const mockResolveFolderOrWorkspaceName = vi.fn(() => 'test-workspace')
-const mockParseKeyPath = vi.fn(() => null)
-const mockProcessSessionLine = vi.fn()
+const mockParseScanChunk = vi.fn(
+  (
+    _chunk: Buffer,
+    _size: number
+  ): {
+    title: string
+    firstPrompt: string
+    agent: string
+    createdAt: number
+    requestCount: number
+  } => ({
+    title: 'Test Title',
+    firstPrompt: 'What is X?',
+    agent: 'copilot',
+    createdAt: 1000,
+    requestCount: 2,
+  })
+)
+const mockResolveFolderOrWorkspaceName = vi.fn((_p: string): string | null => 'test-workspace')
+const mockParseKeyPath = vi.fn((_p: string): string[] => [])
+const mockProcessSessionLine = vi.fn(
+  (_kind: number, _keyPath: string[], _line: string, _state: Record<string, unknown>): void => {}
+)
 
 vi.mock('../../src/utils/copilotSessionParsing', () => ({
-  parseKeyPath: (...args: unknown[]) => mockParseKeyPath(...args),
-  resolveFolderOrWorkspaceName: (...args: unknown[]) => mockResolveFolderOrWorkspaceName(...args),
-  parseScanChunk: (...args: unknown[]) => mockParseScanChunk(...args),
-  processSessionLine: (...args: unknown[]) => mockProcessSessionLine(...args),
+  parseKeyPath: (p: string) => mockParseKeyPath(p),
+  resolveFolderOrWorkspaceName: (p: string) => mockResolveFolderOrWorkspaceName(p),
+  parseScanChunk: (chunk: Buffer, size: number) => mockParseScanChunk(chunk, size),
+  processSessionLine: (
+    kind: number,
+    keyPath: string[],
+    line: string,
+    state: Record<string, unknown>
+  ) => mockProcessSessionLine(kind, keyPath, line, state),
 }))
 
 vi.mock('../../src/utils/sessionDigest', () => ({
@@ -69,7 +90,7 @@ import {
 
 describe('copilotSessionService', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     mockExistsSync.mockReturnValue(false)
   })
 

@@ -165,30 +165,34 @@ describe('menu', () => {
   })
 
   describe('keyboard shortcut actions', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let handler: (event: { preventDefault: ReturnType<typeof vi.fn> }, input: any) => void
+    let handler: (
+      event: { preventDefault: ReturnType<typeof vi.fn> },
+      input: {
+        type?: string
+        key: string
+        control?: boolean
+        meta?: boolean
+        shift?: boolean
+      }
+    ) => void
 
     beforeEach(() => {
       // Use real matching logic so the correct SHORTCUT action fires
-      mockMatchesShortcut.mockImplementation(
-        (
-          shortcut: { key: string; ctrlOrCmd?: boolean; shift?: boolean },
-          input: { key: string; control?: boolean; meta?: boolean; shift?: boolean }
-        ) => {
-          const ctrlOrCmd = input.control || input.meta
-          if (shortcut.ctrlOrCmd && !ctrlOrCmd) return false
-          if (!shortcut.ctrlOrCmd && ctrlOrCmd) return false
-          if (shortcut.shift && !input.shift) return false
-          if (!shortcut.shift && input.shift) return false
-          return input.key === shortcut.key
-        }
-      )
+      mockMatchesShortcut.mockImplementation((...args: unknown[]) => {
+        const shortcut = args[0] as { key: string; ctrlOrCmd?: boolean; shift?: boolean }
+        const input = args[1] as { key: string; control?: boolean; meta?: boolean; shift?: boolean }
+        const ctrlOrCmd = input.control || input.meta
+        if (shortcut.ctrlOrCmd && !ctrlOrCmd) return false
+        if (!shortcut.ctrlOrCmd && ctrlOrCmd) return false
+        if (shortcut.shift && !input.shift) return false
+        if (!shortcut.shift && input.shift) return false
+        return input.key === shortcut.key
+      })
 
       registerKeyboardShortcuts(mockWin)
       const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
         string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (...args: any[]) => unknown,
+        (...args: unknown[]) => unknown,
       ][]
       handler = calls.find(c => c[0] === 'before-input-event')![1] as typeof handler
     })

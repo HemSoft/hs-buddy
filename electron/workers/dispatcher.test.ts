@@ -389,6 +389,10 @@ describe('dispatcher', () => {
     // The immediate poll in start() fires before backoff check,
     // but subsequent interval polls should be skipped
     expect(isInBackoffWindow).toHaveBeenCalled()
+    const claimCalls = mockClient.mutation.mock.calls.filter(
+      (args: unknown[]) => args[0] === 'runs:claimPending'
+    )
+    expect(claimCalls).toHaveLength(0)
   })
 
   it('handles storeSnapshot mutation failure gracefully', async () => {
@@ -529,9 +533,8 @@ describe('dispatcher', () => {
 
   it('suppresses log when shouldLogDispatcherError returns false', async () => {
     vi.useRealTimers()
-    const { isInBackoffWindow, shouldLogDispatcherError } = await import(
-      '../../src/utils/dispatcherBackoff'
-    )
+    const { isInBackoffWindow, shouldLogDispatcherError } =
+      await import('../../src/utils/dispatcherBackoff')
     vi.mocked(isInBackoffWindow).mockReturnValue(false)
     vi.mocked(shouldLogDispatcherError).mockReturnValue(false)
 

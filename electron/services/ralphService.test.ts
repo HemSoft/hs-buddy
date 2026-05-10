@@ -15,13 +15,14 @@ function createMockProcess() {
 
 let lastMockProc: ReturnType<typeof createMockProcess>
 
-const mockSpawn = vi.fn(() => {
+const mockSpawn = vi.fn((_cmd: string, _args?: string[], _opts?: Record<string, unknown>) => {
   lastMockProc = createMockProcess()
   return lastMockProc
 })
 
 vi.mock('child_process', () => ({
-  spawn: (...args: unknown[]) => mockSpawn(...args),
+  spawn: (cmd: string, args?: string[], opts?: Record<string, unknown>) =>
+    mockSpawn(cmd, args, opts),
   execSync: vi.fn().mockReturnValue(''),
 }))
 
@@ -273,11 +274,7 @@ describe('ralphService', () => {
 
     it('filters out repeat and run-all scripts', () => {
       mockExistsSync.mockReturnValue(true)
-      mockReaddirSync.mockReturnValue([
-        'ralph-issues.ps1',
-        'ralph-repeat.ps1',
-        'ralph-run-all.ps1',
-      ])
+      mockReaddirSync.mockReturnValue(['ralph-issues.ps1', 'ralph-repeat.ps1', 'ralph-run-all.ps1'])
       mockReadFileSync.mockReturnValue('# simple script')
 
       const scripts = listTemplateScripts()
@@ -510,10 +507,7 @@ describe('ralphService', () => {
       setStatusChangeCallback(cb)
 
       launchValid()
-      lastMockProc.stdout.emit(
-        'data',
-        Buffer.from('  Cost $12.34 (56 premium requests used)\n')
-      )
+      lastMockProc.stdout.emit('data', Buffer.from('  Cost $12.34 (56 premium requests used)\n'))
 
       expect(cb).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -528,10 +522,7 @@ describe('ralphService', () => {
       setStatusChangeCallback(cb)
 
       launchValid()
-      lastMockProc.stdout.emit(
-        'data',
-        Buffer.from('GRAND TOTAL: $99.99 (100 premium requests)\n')
-      )
+      lastMockProc.stdout.emit('data', Buffer.from('GRAND TOTAL: $99.99 (100 premium requests)\n'))
 
       expect(cb).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -548,9 +539,7 @@ describe('ralphService', () => {
       launchValid()
       lastMockProc.stdout.emit('data', Buffer.from('Handing off to ralph-pr\n'))
 
-      expect(cb).toHaveBeenCalledWith(
-        expect.objectContaining({ phase: 'pr-handoff' })
-      )
+      expect(cb).toHaveBeenCalledWith(expect.objectContaining({ phase: 'pr-handoff' }))
       setStatusChangeCallback(null)
     })
 
@@ -561,9 +550,7 @@ describe('ralphService', () => {
       launchValid()
       lastMockProc.stdout.emit('data', Buffer.from('PR review cycle starting\n'))
 
-      expect(cb).toHaveBeenCalledWith(
-        expect.objectContaining({ phase: 'pr-resolving' })
-      )
+      expect(cb).toHaveBeenCalledWith(expect.objectContaining({ phase: 'pr-resolving' }))
       setStatusChangeCallback(null)
     })
 
@@ -929,9 +916,7 @@ describe('ralphService', () => {
 
     it('returns error when run is not running', () => {
       mockExistsSync.mockReturnValue(true)
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify({ models: {}, aliases: {}, tiers: {} })
-      )
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
 
       launchLoop({
         repoPath: '/valid/path',
@@ -949,9 +934,7 @@ describe('ralphService', () => {
     it('returns error when kill throws', async () => {
       const { execSync } = await import('child_process')
       mockExistsSync.mockReturnValue(true)
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify({ models: {}, aliases: {}, tiers: {} })
-      )
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -959,8 +942,11 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(true)
 
-      // Make execSync throw when taskkill is called
+      // Make kill fail on any platform
       vi.mocked(execSync).mockImplementationOnce(() => {
+        throw new Error('Access denied')
+      })
+      lastMockProc.kill.mockImplementationOnce(() => {
         throw new Error('Access denied')
       })
 
@@ -981,9 +967,7 @@ describe('ralphService', () => {
   describe('initRalphService', () => {
     it('marks lingering running entries as orphaned', () => {
       mockExistsSync.mockReturnValue(true)
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify({ models: {}, aliases: {}, tiers: {} })
-      )
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
 
       launchLoop({
         repoPath: '/valid/path',
@@ -1000,9 +984,7 @@ describe('ralphService', () => {
   describe('shutdownRalphService', () => {
     it('stops all active processes and clears state', () => {
       mockExistsSync.mockReturnValue(true)
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify({ models: {}, aliases: {}, tiers: {} })
-      )
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
 
       launchLoop({
         repoPath: '/valid/path',

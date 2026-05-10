@@ -43,8 +43,9 @@ vi.mock('../../src/utils/scheduleUtils', () => ({
     skipped: 0,
     errors: [] as string[],
   })),
-  isMissedSchedule: vi.fn((s: { nextRunAt?: number }, now: number) =>
-    s.nextRunAt ? s.nextRunAt < now : false
+  isMissedSchedule: vi.fn(
+    (s: { nextRunAt?: number; lastRunAt?: number }, now: number) =>
+      (s.nextRunAt ?? s.lastRunAt ?? now) < now
   ),
   accumulateScheduleResult: vi.fn((result, runsCreated, action) => {
     result.schedulesProcessed++
@@ -297,9 +298,6 @@ describe('offlineSync', () => {
   })
 
   it('falls back to lastRunAt when nextRunAt is undefined', async () => {
-    const { isMissedSchedule } = await import('../../src/utils/scheduleUtils')
-    vi.mocked(isMissedSchedule).mockReturnValueOnce(true)
-
     const pastTime = Date.now() - 60_000
     mockClient.query.mockResolvedValue([
       {

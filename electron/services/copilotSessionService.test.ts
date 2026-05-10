@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockExistsSync = vi.fn(() => false)
-const mockReadFileSync = vi.fn(() => {
+const mockExistsSync = vi.fn().mockReturnValue(false)
+const mockReadFileSync = vi.fn().mockImplementation(() => {
   throw new Error('ENOENT')
 })
-const mockReaddirSync = vi.fn(() => [])
-const mockStatSync = vi.fn(() => ({ size: 100, mtimeMs: 1000 }))
-const mockOpenSync = vi.fn(() => 99)
-const mockReadSync = vi.fn(() => 0)
+const mockReaddirSync = vi.fn().mockReturnValue([])
+const mockStatSync = vi.fn().mockReturnValue({ size: 100, mtimeMs: 1000 })
+const mockOpenSync = vi.fn().mockReturnValue(99)
+const mockReadSync = vi.fn().mockReturnValue(0)
 const mockCloseSync = vi.fn()
 const mockCreateReadStream = vi.fn()
 
@@ -28,15 +28,15 @@ vi.mock('readline', () => ({
   createInterface: (...args: unknown[]) => mockCreateInterface(...args),
 }))
 
-const mockParseScanChunk = vi.fn(() => ({
+const mockParseScanChunk = vi.fn().mockReturnValue({
   title: 'Test Session',
   firstPrompt: 'hello',
   agent: 'copilot',
   createdAt: 1000,
   requestCount: 3,
-}))
-const mockResolveFolderOrWorkspaceName = vi.fn(() => 'test-workspace')
-const mockParseKeyPath = vi.fn(() => null)
+})
+const mockResolveFolderOrWorkspaceName = vi.fn().mockReturnValue('test-workspace')
+const mockParseKeyPath = vi.fn().mockReturnValue(null)
 const mockProcessSessionLine = vi.fn()
 
 vi.mock('../../src/utils/copilotSessionParsing', () => ({

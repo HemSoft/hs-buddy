@@ -34,8 +34,8 @@ vi.mock('util', () => ({
   ),
 }))
 
-const mockParseGitRemote = vi.fn(() => null)
-const mockIsGitHubHost = vi.fn(() => false)
+const mockParseGitRemote = vi.fn().mockReturnValue(null)
+const mockIsGitHubHost = vi.fn().mockReturnValue(false)
 
 vi.mock('../../src/utils/githubUrl', () => ({
   parseGitRemote: (...args: unknown[]) => mockParseGitRemote(...args),

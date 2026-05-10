@@ -311,11 +311,11 @@ describe('tempoClient', () => {
 
       const result = await createWorklog({
         issueKey: 'PROJ-42',
+        hours: 0.5,
         date: '2024-01-15',
-        timeSpentSeconds: 1800,
         startTime: '09:00:00',
         description: 'Test work',
-      } as Parameters<typeof createWorklog>[0])
+      })
       expect(result.success).toBe(true)
     })
 
@@ -331,10 +331,10 @@ describe('tempoClient', () => {
 
       const result = await createWorklog({
         issueKey: 'BAD-1',
+        hours: 0,
         date: '2024-01-15',
-        timeSpentSeconds: 0,
         startTime: '09:00:00',
-      } as Parameters<typeof createWorklog>[0])
+      })
       expect(result.success).toBe(false)
     })
   })

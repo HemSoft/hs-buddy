@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve electron coverage to 90% (terminal, copilotService, menu, github handlers)
 - Round 6 electron coverage to 93% (githubHandlers, tempoClient, copilotClient)
 - Round 7 electron coverage improvements (93→94% stmts, 84→85% branches)
+- Round 8 - improve coverage to 94.41%/86.04%/95.24%
 
 ### Changed
 

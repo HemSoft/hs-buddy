@@ -121,6 +121,32 @@ describe('slackClient', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
+  it('nudgePRAuthor succeeds via corporate email pattern when no public email', async () => {
+    // Override execSync to return no email (empty string)
+    const { execSync } = await import('child_process')
+    vi.mocked(execSync).mockReturnValueOnce('\n')
+
+    // First corporate pattern lookup succeeds (relias.com)
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, user: { id: 'UCORP1' } }),
+      })
+      // conversations.open
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, channel: { id: 'DCORP' } }),
+      })
+      // chat.postMessage
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      })
+
+    const result = await nudgePRAuthor('corpuser', 'Fix: corp bug', 'https://github.com/pr/9')
+    expect(result.success).toBe(true)
+  })
+
   it('nudgePRAuthor caches resolved slack IDs', async () => {
     // First call: lookup succeeds
     mockFetch

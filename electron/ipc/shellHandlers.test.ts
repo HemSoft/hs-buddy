@@ -581,6 +581,39 @@ describe('shellHandlers', () => {
       const result = await invoke('https://example.com/start')
       expect(result).toEqual({ success: false, error: 'Too many redirects' })
     })
+
+    it('returns error when DNS resolution fails (non-SSRF)', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      // DNS fails with ENOTFOUND — a generic DNS error, not a private-IP error
+      vi.mocked(lookup).mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND bad.host'))
+
+      const result = await invoke('https://bad.host/page')
+      expect(result).toEqual({
+        success: false,
+        error: expect.stringContaining('DNS resolution failed'),
+      })
+    })
+
+    it('returns error for HTTP non-ok response (e.g. 500)', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+
+      vi.mocked(net.fetch).mockResolvedValueOnce({
+        status: 500,
+        ok: false,
+        headers: new Headers(),
+      } as unknown as Response)
+
+      const result = await invoke('https://example.com/broken')
+      expect(result).toEqual({ success: false, error: 'HTTP 500' })
+    })
   })
 
   describe('shell:open-in-app-browser — page-title-updated', () => {

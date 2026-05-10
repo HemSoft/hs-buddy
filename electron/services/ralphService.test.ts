@@ -909,6 +909,37 @@ describe('ralphService', () => {
       expect(result.success).toBe(false)
       expect(result.error).toContain('is not running')
     })
+
+    it('returns error when kill throws', async () => {
+      const { execSync } = await import('child_process')
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({ models: {}, aliases: {}, tiers: {} })
+      )
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(true)
+
+      // Make execSync throw when taskkill is called
+      vi.mocked(execSync).mockImplementationOnce(() => {
+        throw new Error('Access denied')
+      })
+
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      const stopResult = stopLoop('test-uuid-1234')
+      expect(stopResult.success).toBe(false)
+      expect(stopResult.error).toContain('Failed to stop')
+      expect(stopResult.error).toContain('Access denied')
+
+      const status = getLoopStatus('test-uuid-1234')
+      expect(status?.status).toBe('failed')
+      setStatusChangeCallback(null)
+    })
   })
 
   describe('initRalphService', () => {

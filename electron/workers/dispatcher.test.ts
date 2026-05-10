@@ -79,6 +79,7 @@ vi.mock('../../src/utils/billingParsers', () => ({
 import { getDispatcher } from './dispatcher'
 import { execWorker } from './execWorker'
 import { aiWorker } from './aiWorker'
+import { fetchCopilotMetrics } from '../ipc/githubHandlers'
 
 describe('dispatcher', () => {
   beforeEach(() => {
@@ -131,6 +132,54 @@ describe('dispatcher', () => {
     expect(execWorker.execute).toHaveBeenCalledWith({ command: 'echo hi' }, expect.any(AbortSignal))
   })
 
+  it('reports failure when worker returns success: false', async () => {
+    vi.useRealTimers()
+    vi.mocked(execWorker.execute).mockResolvedValueOnce({
+      success: false,
+      output: '',
+      error: 'Command failed',
+      duration: 100,
+      exitCode: 1,
+    })
+
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-fail' },
+      job: { name: 'fail-job', workerType: 'exec', config: { command: 'fail' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-fail',
+      error: 'Command failed',
+    })
+  })
+
+  it('reports failure when worker throws an exception', async () => {
+    vi.useRealTimers()
+    vi.mocked(execWorker.execute).mockRejectedValueOnce(new Error('Unexpected crash'))
+
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-throw' },
+      job: { name: 'crash-job', workerType: 'exec', config: { command: 'crash' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-throw',
+      error: 'Unexpected crash',
+    })
+  })
+
   it('reports failure for unknown worker type', async () => {
     vi.useRealTimers()
     mockClient.mutation.mockResolvedValueOnce({
@@ -164,6 +213,157 @@ describe('dispatcher', () => {
     dispatcher.stop()
 
     expect(aiWorker.execute).toHaveBeenCalledWith({ prompt: 'hello' }, expect.any(AbortSignal))
+  })
+
+  it('dispatches snapshot collection for __copilot_snapshot__ command', async () => {
+    vi.useRealTimers()
+    vi.mocked(fetchCopilotMetrics).mockResolvedValueOnce({
+      success: true,
+      data: {
+        org: 'test-org',
+        billingYear: 2024,
+        billingMonth: 1,
+        premiumRequests: 100,
+        grossCost: 50,
+        discount: 0,
+        netCost: 50,
+        businessSeats: 5,
+        spent: 25,
+      },
+    })
+
+    mockClient.mutation.mockResolvedValueOnce({
+      run: {
+        _id: 'run-snap',
+        input: { accounts: [{ username: 'user1', org: 'org1' }] },
+      },
+      job: { name: 'snapshot', workerType: 'exec', config: { command: '__copilot_snapshot__' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(execWorker.execute).not.toHaveBeenCalled()
+    expect(fetchCopilotMetrics).toHaveBeenCalledWith('org1', 'user1')
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'copilotUsageHistory:store',
+      expect.objectContaining({ accountUsername: 'user1', org: 'test-org' })
+    )
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({ id: 'run-snap' })
+    )
+  })
+
+  it('fails snapshot collection when no accounts are provided', async () => {
+    vi.useRealTimers()
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-no-accts', input: { accounts: [] } },
+      job: { name: 'snapshot', workerType: 'exec', config: { command: '__copilot_snapshot__' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-no-accts',
+      error: 'No accounts provided for snapshot collection',
+    })
+  })
+
+  it('handles snapshot store failures gracefully', async () => {
+    vi.useRealTimers()
+    vi.mocked(fetchCopilotMetrics).mockResolvedValueOnce({
+      success: true,
+      data: {
+        org: 'org1',
+        billingYear: 2024,
+        billingMonth: 1,
+        premiumRequests: 100,
+        grossCost: 50,
+        discount: 0,
+        netCost: 50,
+        businessSeats: 5,
+        spent: 25,
+      },
+    })
+
+    mockClient.mutation
+      .mockResolvedValueOnce({
+        run: {
+          _id: 'run-store-fail',
+          input: { accounts: [{ username: 'u1', org: 'o1' }] },
+        },
+        job: { name: 'snapshot', workerType: 'exec', config: { command: '__copilot_snapshot__' } },
+      })
+      .mockRejectedValueOnce(new Error('persist failed'))
+      .mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({
+        id: 'run-store-fail',
+        output: expect.objectContaining({ exitCode: 1 }),
+      })
+    )
+  })
+
+  it('handles partial snapshot failures gracefully', async () => {
+    vi.useRealTimers()
+    vi.mocked(fetchCopilotMetrics)
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          org: 'org1',
+          billingYear: 2024,
+          billingMonth: 1,
+          premiumRequests: 100,
+          grossCost: 50,
+          discount: 0,
+          netCost: 50,
+          businessSeats: 5,
+          spent: 25,
+        },
+      })
+      .mockResolvedValueOnce({ success: false, error: 'Network error' })
+
+    mockClient.mutation.mockResolvedValueOnce({
+      run: {
+        _id: 'run-partial',
+        input: {
+          accounts: [
+            { username: 'u1', org: 'o1' },
+            { username: 'u2', org: 'o2' },
+          ],
+        },
+      },
+      job: { name: 'snapshot', workerType: 'exec', config: { command: '__copilot_snapshot__' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({
+        id: 'run-partial',
+        output: expect.objectContaining({ exitCode: 1 }),
+      })
+    )
   })
 
   it('processing guard prevents concurrent poll execution', async () => {

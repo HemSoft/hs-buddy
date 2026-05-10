@@ -90,4 +90,53 @@ describe('ralphHandlers', () => {
     const result = await handler({})
     expect(result).toBeNull()
   })
+
+  it('ralph:get-status delegates to getLoopStatus', async () => {
+    const { getLoopStatus } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-status')!
+    await handler({}, 'run-1')
+    expect(getLoopStatus).toHaveBeenCalledWith('run-1')
+  })
+
+  it('ralph:get-config delegates to getConfig', async () => {
+    const { getConfig } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-config')!
+    await handler({}, 'models')
+    expect(getConfig).toHaveBeenCalledWith('models')
+  })
+
+  it('ralph:get-scripts-path delegates to getScriptsPath', async () => {
+    const { getScriptsPath } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-scripts-path')!
+    await handler({})
+    expect(getScriptsPath).toHaveBeenCalled()
+  })
+
+  it('ralph:list-templates delegates to listTemplateScripts', async () => {
+    const { listTemplateScripts } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:list-templates')!
+    await handler({})
+    expect(listTemplateScripts).toHaveBeenCalled()
+  })
+
+  it('setStatusChangeCallback sends status updates when win is not destroyed', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    const cb = vi.mocked(setStatusChangeCallback).mock.calls[0]?.[0]
+    if (cb) {
+      const mockRun = { runId: 'run-1', status: 'running' }
+      cb(mockRun as Parameters<typeof cb>[0])
+      expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
+    }
+  })
+
+  it('setStatusChangeCallback does not send when win is destroyed', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
+    const cb = vi.mocked(setStatusChangeCallback).mock.calls[0]?.[0]
+    if (cb) {
+      const mockRun = { runId: 'run-1', status: 'running' }
+      cb(mockRun as Parameters<typeof cb>[0])
+      expect(mockWin.webContents.send).not.toHaveBeenCalled()
+    }
+  })
 })

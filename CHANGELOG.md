@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address 8 PR review comments for test quality
 - Add dedicated test files for 4 modules (64 new tests)
 - Improve coverage from 57% to 70%
+- Improve electron test coverage from 67% to 75%
+
+### Changed
+
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main

@@ -158,4 +158,17 @@ describe('telemetry', () => {
       await expect(shutdownTelemetry()).resolves.toBeUndefined()
     })
   })
+
+  describe('initTelemetry', () => {
+    it('logs disabled message when OTEL_EXPORTER_OTLP_ENDPOINT is not set', async () => {
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      const { initTelemetry: initFresh } = await import('./telemetry')
+      await initFresh()
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('telemetry disabled'))
+      consoleSpy.mockRestore()
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint
+    })
+  })
 })

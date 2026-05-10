@@ -237,4 +237,138 @@ describe('dispatcher', () => {
     // but since the first error just happened, the backoff window is brief
     expect(isInBackoffWindow).toHaveBeenCalled()
   })
+
+  it('handles worker execution failure (result.success = false)', async () => {
+    vi.useRealTimers()
+    vi.mocked(execWorker.execute).mockResolvedValueOnce({
+      success: false,
+      error: 'Command failed',
+      output: '',
+      duration: 50,
+      exitCode: 1,
+    })
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-fail' },
+      job: { name: 'fail-job', workerType: 'exec', config: { command: 'bad-cmd' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-fail',
+      error: 'Command failed',
+    })
+  })
+
+  it('handles worker execution throw', async () => {
+    vi.useRealTimers()
+    vi.mocked(execWorker.execute).mockRejectedValueOnce(new Error('Unexpected crash'))
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-crash' },
+      job: { name: 'crash-job', workerType: 'exec', config: { command: 'crash-cmd' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-crash',
+      error: 'Unexpected crash',
+    })
+  })
+
+  it('handles __copilot_snapshot__ command', async () => {
+    vi.useRealTimers()
+    const { fetchCopilotMetrics } = await import('../ipc/githubHandlers')
+    vi.mocked(fetchCopilotMetrics).mockResolvedValue({
+      success: true,
+      data: {
+        org: 'test-org',
+        billingYear: 2026,
+        billingMonth: 5,
+        premiumRequests: 100,
+        grossCost: 10.0,
+        discount: 0,
+        netCost: 10.0,
+        businessSeats: 5,
+        spent: 10.0,
+      },
+    } as never)
+
+    mockClient.mutation.mockResolvedValueOnce({
+      run: {
+        _id: 'run-snap',
+        input: { accounts: [{ username: 'user1', org: 'org1' }] },
+      },
+      job: { name: 'snapshot', workerType: 'exec', config: { command: '__copilot_snapshot__' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 100))
+    dispatcher.stop()
+
+    expect(fetchCopilotMetrics).toHaveBeenCalledWith('org1', 'user1')
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({
+        id: 'run-snap',
+      })
+    )
+  })
+
+  it('fails snapshot when no accounts provided', async () => {
+    vi.useRealTimers()
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-snap-empty', input: {} },
+      job: { name: 'snapshot', workerType: 'exec', config: { command: '__copilot_snapshot__' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-snap-empty',
+      error: 'No accounts provided for snapshot collection',
+    })
+  })
+
+  it('handles snapshot fetch failure for individual accounts', async () => {
+    vi.useRealTimers()
+    const { fetchCopilotMetrics } = await import('../ipc/githubHandlers')
+    vi.mocked(fetchCopilotMetrics).mockResolvedValue({
+      success: false,
+      error: 'API rate limited',
+    } as never)
+
+    mockClient.mutation.mockResolvedValueOnce({
+      run: {
+        _id: 'run-snap-fail',
+        input: { accounts: [{ username: 'user1', org: 'org1' }] },
+      },
+      job: { name: 'snapshot', workerType: 'exec', config: { command: '__copilot_snapshot__' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 100))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({ id: 'run-snap-fail' })
+    )
+  })
 })

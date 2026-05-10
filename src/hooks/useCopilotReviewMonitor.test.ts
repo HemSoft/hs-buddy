@@ -420,6 +420,11 @@ describe('useCopilotReviewMonitor', () => {
       expect(stored['https://github.com/org/repo/pull/1']).toBeUndefined()
       expect(stored['https://github.com/org/repo/pull/2']).toBeDefined()
     })
+
+    it('is safe when storage key does not exist', () => {
+      sessionStorage.removeItem('hs-buddy:pending-copilot-reviews')
+      expect(() => clearPendingReview('https://github.com/org/repo/pull/1')).not.toThrow()
+    })
   })
 
   describe('poll error handling', () => {

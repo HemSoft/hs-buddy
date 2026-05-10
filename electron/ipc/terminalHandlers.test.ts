@@ -110,4 +110,118 @@ describe('terminalHandlers', () => {
     const result = await handler({}, 'nonexistent-id')
     expect(result).toEqual({ success: false, error: 'Session not found' })
   })
+
+  it('terminal:spawn creates a new terminal session', async () => {
+    const handler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const result = await handler({ sender: mockSender }, { cols: 80, rows: 24 })
+    expect(result.success).toBe(true)
+    expect(result.sessionId).toBeDefined()
+    expect(result.cwd).toBeDefined()
+  })
+
+  it('terminal:spawn with valid cwd uses provided cwd', async () => {
+    const handler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const result = await handler({ sender: mockSender }, { cwd: '/valid/path', cols: 80, rows: 24 })
+    expect(result.success).toBe(true)
+  })
+
+  it('terminal:spawn with startupCommand schedules command', async () => {
+    const handler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const result = await handler(
+      { sender: mockSender },
+      { cols: 80, rows: 24, startupCommand: 'echo hello' }
+    )
+    expect(result.success).toBe(true)
+    expect(result.sessionId).toBeDefined()
+  })
+
+  it('terminal:attach returns session data for existing session', async () => {
+    // First spawn a session
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    // Then attach to it
+    const attachHandler = handlers.get('terminal:attach')!
+    const result = await attachHandler({ sender: mockSender }, spawnResult.sessionId)
+    expect(result.success).toBe(true)
+    expect(result.buffer).toBeDefined()
+    expect(typeof result.cursor).toBe('number')
+    expect(result.alive).toBe(true)
+  })
+
+  it('terminal:kill cleans up an existing session', async () => {
+    // First spawn a session
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    // Then kill it
+    const killHandler = handlers.get('terminal:kill')!
+    const result = await killHandler({}, spawnResult.sessionId)
+    expect(result).toEqual({ success: true })
+
+    // Verify it's gone
+    const attachResult = await handlers.get('terminal:attach')!(
+      { sender: mockSender },
+      spawnResult.sessionId
+    )
+    expect(attachResult.success).toBe(false)
+  })
+
+  it('terminal:write writes data to existing session', async () => {
+    // First spawn a session
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    // Then write to it (fire-and-forget, no error expected)
+    const writeListener = listeners.get('terminal:write')!
+    expect(() => writeListener({}, spawnResult.sessionId, 'hello')).not.toThrow()
+  })
+
+  it('terminal:write ignores writes to non-existent sessions', () => {
+    const writeListener = listeners.get('terminal:write')!
+    expect(() => writeListener({}, 'nonexistent', 'hello')).not.toThrow()
+  })
+
+  it('terminal:resize resizes an existing session', async () => {
+    // First spawn a session
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    // Then resize
+    const resizeListener = listeners.get('terminal:resize')!
+    expect(() => resizeListener({}, spawnResult.sessionId, 120, 40)).not.toThrow()
+  })
+
+  it('terminal:resize ignores non-existent sessions', () => {
+    const resizeListener = listeners.get('terminal:resize')!
+    expect(() => resizeListener({}, 'nonexistent', 120, 40)).not.toThrow()
+  })
 })

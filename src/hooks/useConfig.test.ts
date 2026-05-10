@@ -138,6 +138,21 @@ describe('useConfig', () => {
       await waitFor(() => expect(result.current.accounts).toBeDefined())
     })
 
+    it('handles electron-store config load error gracefully', async () => {
+      mockConvexAccounts = undefined
+      mockInvoke.mockRejectedValue(new Error('IPC error'))
+      const { result } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(result.current.accounts).toEqual([])
+    })
+
+    it('returns empty accounts when config has no github section', async () => {
+      mockConvexAccounts = undefined
+      mockInvoke.mockResolvedValue({}) // config with no github section
+      const { result } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(result.current.accounts).toEqual([]))
+    })
+
     it('exposes unique usernames derived from accounts', () => {
       mockConvexAccounts = [
         { _id: '1', username: 'user1', org: 'org-a' },
@@ -277,6 +292,16 @@ describe('useConfig', () => {
       expect(result.current.recentlyMergedDays).toBe(7)
     })
 
+    it('uses defaults when IPC config fails and Convex unavailable', async () => {
+      mockSettings = undefined
+      mockInvoke.mockRejectedValue(new Error('IPC error'))
+      const { result } = renderHook(() => usePRSettings())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      expect(result.current.refreshInterval).toBe(15)
+      expect(result.current.autoRefresh).toBe(true)
+      expect(result.current.recentlyMergedDays).toBe(7)
+    })
+
     it('setRefreshInterval calls Convex updatePR', async () => {
       mockSettings = { pr: { refreshInterval: 10, autoRefresh: true, recentlyMergedDays: 7 } }
       const { result } = renderHook(() => usePRSettings())
@@ -320,6 +345,17 @@ describe('useConfig', () => {
       const { result } = renderHook(() => useCopilotSettings())
       expect(result.current.ghAccount).toBe('')
       expect(result.current.model).toBe('claude-sonnet-4.5')
+    })
+
+    it('uses electron-store fallback defaults when config has no copilot section', async () => {
+      mockSettings = undefined
+      mockInvoke.mockResolvedValue({}) // config with no copilot section
+      const { result } = renderHook(() => useCopilotSettings())
+      await waitFor(() => {
+        expect(result.current.ghAccount).toBe('')
+        expect(result.current.model).toBe('claude-sonnet-4.5')
+        expect(result.current.premiumModel).toBe('claude-opus-4.6')
+      })
     })
 
     it('setGhAccount calls Convex updateCopilot', async () => {

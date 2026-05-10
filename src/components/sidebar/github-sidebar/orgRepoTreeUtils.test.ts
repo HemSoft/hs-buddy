@@ -3,47 +3,55 @@ import { formatUpdatedAge } from './orgRepoTreeUtils'
 
 describe('formatUpdatedAge', () => {
   afterEach(() => {
-    vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
-  it('returns "updated now" when less than one minute has elapsed', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(30_000)
-    expect(formatUpdatedAge(0)).toBe('updated now')
+  it('returns "updated now" for less than a minute ago', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:00:30.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated now')
   })
 
-  it('returns "updated now" when exactly zero ms elapsed', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(1000)
-    expect(formatUpdatedAge(1000)).toBe('updated now')
+  it('returns minutes ago for < 60 minutes', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:05:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 5m ago')
   })
 
-  it('returns minutes when elapsed is between 1 and 59 minutes', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(5 * 60_000)
-    expect(formatUpdatedAge(0)).toBe('updated 5m ago')
+  it('returns hours ago for >= 60 minutes', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T14:00:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 2h ago')
   })
 
-  it('returns "updated 1m ago" at exactly one minute', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(60_000)
-    expect(formatUpdatedAge(0)).toBe('updated 1m ago')
-  })
-
-  it('returns "updated 59m ago" at 59 minutes', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(59 * 60_000)
-    expect(formatUpdatedAge(0)).toBe('updated 59m ago')
-  })
-
-  it('returns hours when elapsed is 60 minutes or more', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(60 * 60_000)
-    expect(formatUpdatedAge(0)).toBe('updated 1h ago')
-  })
-
-  it('returns multiple hours', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(3 * 60 * 60_000)
-    expect(formatUpdatedAge(0)).toBe('updated 3h ago')
+  it('floors partial minutes', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:03:45.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 3m ago')
   })
 
   it('floors partial hours', () => {
-    // 90 minutes = 1.5 hours → floors to 1h
-    vi.spyOn(Date, 'now').mockReturnValue(90 * 60_000)
-    expect(formatUpdatedAge(0)).toBe('updated 1h ago')
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T14:30:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 2h ago')
+  })
+
+  it('handles exactly 1 minute', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:01:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 1m ago')
+  })
+
+  it('handles exactly 1 hour', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T13:00:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 1h ago')
   })
 })

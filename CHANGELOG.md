@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Add coverage for 5 untested source files
+
 ## [0.1.752] - 2026-05-08
 
 ### Fixed
@@ -19,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove unnecessary soundPath dependency from useCallback
 - Format PRFilesChangedPanel and PullRequestList with Prettier
 - Wrap fake timers in try/finally to prevent test leaks
+- Improve batchProcess and cache detection tests
+- Add --disable-dev-shm-usage to lighthouse chrome flags
+- Move changelog entry to Unreleased section
+- Address PR review feedback — strengthen test assertions and fix TS2556
+- Sync MockStore.store after clear() to prevent stale state
 
 ### Changed
 
@@ -34,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 3 v8 ignore blocks, add 3 tests
 - Remove 3 v8 ignore blocks, add 2 tests
 - Address 8 PR review comments for test quality
+- Add dedicated test files for 4 modules (64 new tests)
+- Improve coverage from 57% to 70%
+- Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
+- Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
+- Resolve merge conflicts with main
 
 ## [0.1.751] - 2026-05-07
 

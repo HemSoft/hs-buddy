@@ -14,6 +14,10 @@ vi.mock('node:fs', () => ({
   statSync: vi.fn(() => ({ isDirectory: () => true })),
 }))
 
+const mockPtyWrite = vi.fn()
+const mockPtyResize = vi.fn()
+const mockPtyKill = vi.fn()
+
 vi.mock('node:module', () => ({
   createRequire: vi.fn(() => {
     const req = (mod: string) => {
@@ -22,9 +26,9 @@ vi.mock('node:module', () => ({
           spawn: vi.fn(() => ({
             onData: vi.fn(() => ({ dispose: vi.fn() })),
             onExit: vi.fn(() => ({ dispose: vi.fn() })),
-            write: vi.fn(),
-            resize: vi.fn(),
-            kill: vi.fn(),
+            write: mockPtyWrite,
+            resize: mockPtyResize,
+            kill: mockPtyKill,
           })),
         }
       }
@@ -122,14 +126,18 @@ describe('terminalHandlers', () => {
 
   it('terminal:spawn uses default cwd when invalid cwd provided', async () => {
     const { existsSync } = await import('node:fs')
+    const { buildPtySpawnOptions } = await import('../../src/utils/terminalPathUtils')
     vi.mocked(existsSync).mockReturnValueOnce(false) // invalid cwd
     const handler = handlers.get('terminal:spawn')!
     const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
     const result = await handler({ sender }, { cwd: '/nonexistent', cols: 80, rows: 24 })
     expect(result.success).toBe(true)
+    expect(vi.mocked(existsSync)).toHaveBeenCalledWith(expect.stringContaining('nonexistent'))
+    expect(vi.mocked(buildPtySpawnOptions)).toHaveBeenCalled()
   })
 
   it('terminal:spawn with startup command schedules the command', async () => {
+    const setTimeoutSpy = vi.spyOn(global, 'setTimeout')
     const handler = handlers.get('terminal:spawn')!
     const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
     const result = await handler(
@@ -137,6 +145,8 @@ describe('terminalHandlers', () => {
       { cwd: '/valid/path', cols: 80, rows: 24, startupCommand: 'echo hello' }
     )
     expect(result.success).toBe(true)
+    expect(setTimeoutSpy).toHaveBeenCalled()
+    setTimeoutSpy.mockRestore()
   })
 
   it('terminal:attach returns session buffer for known session', async () => {
@@ -177,14 +187,16 @@ describe('terminalHandlers', () => {
     const spawnResult = await spawnHandler({ sender }, { cwd: '/valid/path' })
 
     const writeListener = listeners.get('terminal:write')!
-    // Should not throw for a valid session
+    mockPtyWrite.mockClear()
     writeListener({}, spawnResult.sessionId, 'ls\r')
+    expect(mockPtyWrite).toHaveBeenCalledWith('ls\r')
   })
 
   it('terminal:write ignores unknown sessions', () => {
     const writeListener = listeners.get('terminal:write')!
-    // Should not throw
+    mockPtyWrite.mockClear()
     writeListener({}, 'no-such-session', 'data')
+    expect(mockPtyWrite).not.toHaveBeenCalled()
   })
 
   it('terminal:resize resizes alive session', async () => {
@@ -193,13 +205,15 @@ describe('terminalHandlers', () => {
     const spawnResult = await spawnHandler({ sender }, { cwd: '/valid/path' })
 
     const resizeListener = listeners.get('terminal:resize')!
-    // Should not throw
+    mockPtyResize.mockClear()
     resizeListener({}, spawnResult.sessionId, 120, 40)
+    expect(mockPtyResize).toHaveBeenCalledWith(120, 40)
   })
 
   it('terminal:resize ignores unknown sessions', () => {
     const resizeListener = listeners.get('terminal:resize')!
-    // Should not throw
+    mockPtyResize.mockClear()
     resizeListener({}, 'no-such-session', 120, 40)
+    expect(mockPtyResize).not.toHaveBeenCalled()
   })
 })

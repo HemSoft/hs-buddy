@@ -150,8 +150,9 @@ describe('todoistHandlers', () => {
     })
 
     it('returns error when content is missing', async () => {
-      const result = await handlers.get('todoist:create-task')!({}, { content: '' })
+      const result = await handlers.get('todoist:create-task')!({}, {})
       expect(result).toEqual({ success: false, error: 'Task content cannot be empty' })
+      expect(mockCreateTask).not.toHaveBeenCalled()
     })
   })
 

@@ -294,6 +294,7 @@ describe('configHandlers', () => {
     it('config:set-terminal-open rejects non-boolean', () => {
       const result = handlers.get('config:set-terminal-open')!({}, 'yes')
       expect(result).toEqual({ success: false })
+      expect(mockConfigManager.setUiValue).not.toHaveBeenCalled()
     })
   })
 

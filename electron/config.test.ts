@@ -4,11 +4,17 @@ vi.mock('electron-store', () => ({
   default: class MockStore {
     private data: Record<string, unknown> = {}
     path = '/mock/config.json'
-    store: Record<string, unknown> = {}
 
     constructor() {
       this.data = {}
-      this.store = {}
+    }
+
+    get store(): Record<string, unknown> {
+      return { ...this.data }
+    }
+
+    set store(value: Record<string, unknown>) {
+      this.data = { ...(value ?? {}) }
     }
 
     get(key: string, defaultValue?: unknown): unknown {

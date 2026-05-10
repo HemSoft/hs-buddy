@@ -24,6 +24,7 @@ vi.mock('../services/ralphService', () => ({
   setStatusChangeCallback: vi.fn(),
 }))
 
+import type { RalphRunInfo } from '../../src/types/ralph'
 import { ipcMain, dialog } from 'electron'
 import { registerRalphHandlers } from './ralphHandlers'
 
@@ -122,17 +123,17 @@ describe('ralphHandlers', () => {
   it('sets up status change callback that pushes to renderer', async () => {
     const { setStatusChangeCallback } = await import('../services/ralphService')
     expect(setStatusChangeCallback).toHaveBeenCalled()
-    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
-    const mockRun = { runId: 'run-1', status: 'complete' }
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]!
+    const mockRun = { runId: 'run-1', status: 'completed' } as RalphRunInfo
     callback(mockRun)
     expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
   })
 
   it('status change callback skips destroyed windows', async () => {
     const { setStatusChangeCallback } = await import('../services/ralphService')
-    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]!
     vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
-    callback({ runId: 'run-1', status: 'done' })
+    callback({ runId: 'run-1', status: 'cancelled' } as RalphRunInfo)
     expect(mockWin.webContents.send).not.toHaveBeenCalled()
   })
 })

@@ -47,21 +47,10 @@ const dynamicOtelModules = [
   '@opentelemetry/resources',
 ]
 
-const originalTelemetryEnv = {
-  OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME,
-  OTEL_LOG_LEVEL: process.env.OTEL_LOG_LEVEL,
-  npm_package_version: process.env.npm_package_version,
-}
-
 function restoreTelemetryTestState(): void {
   vi.restoreAllMocks()
   vi.resetModules()
-
-  for (const [key, value] of Object.entries(originalTelemetryEnv)) {
-    if (value === undefined) delete process.env[key]
-    else process.env[key] = value
-  }
+  vi.unstubAllEnvs()
 
   for (const moduleName of dynamicOtelModules) {
     vi.doUnmock(moduleName)
@@ -257,7 +246,7 @@ describe('telemetry', () => {
 
     it('does nothing when OTEL_EXPORTER_OTLP_ENDPOINT is not set', async () => {
       vi.resetModules()
-      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', undefined)
 
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
       const { initTelemetry } = await import('./telemetry')
@@ -270,10 +259,10 @@ describe('telemetry', () => {
     it('initializes SDK, metric handles, and default config when endpoint is set', async () => {
       vi.resetModules()
       const { mockResourceFromAttributes, mockSdkStart } = mockTelemetrySdk()
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
-      delete process.env.OTEL_SERVICE_NAME
-      delete process.env.OTEL_LOG_LEVEL
-      delete process.env.npm_package_version
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
+      vi.stubEnv('OTEL_SERVICE_NAME', undefined)
+      vi.stubEnv('OTEL_LOG_LEVEL', undefined)
+      vi.stubEnv('npm_package_version', undefined)
 
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
       const { initTelemetry, recordIpcCall, recordWindowOpen } = await import('./telemetry')
@@ -307,8 +296,8 @@ describe('telemetry', () => {
     it('enables debug diagnostics when OTEL_LOG_LEVEL is debug', async () => {
       vi.resetModules()
       mockTelemetrySdk()
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
-      process.env.OTEL_LOG_LEVEL = 'debug'
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
+      vi.stubEnv('OTEL_LOG_LEVEL', 'debug')
 
       vi.spyOn(console, 'log').mockImplementation(() => {})
       const { initTelemetry } = await import('./telemetry')
@@ -323,7 +312,7 @@ describe('telemetry', () => {
     it('is a no-op when called twice', async () => {
       vi.resetModules()
       const { MockNodeSDK, mockSdkStart } = mockTelemetrySdk()
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
 
       vi.spyOn(console, 'log').mockImplementation(() => {})
       const { initTelemetry } = await import('./telemetry')
@@ -338,7 +327,7 @@ describe('telemetry', () => {
     it('handles SDK import failure gracefully', async () => {
       vi.resetModules()
       mockTelemetrySdk({ sdkNodeError: new Error('Module not found') })
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
 
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       const { initTelemetry } = await import('./telemetry')
@@ -364,7 +353,7 @@ describe('telemetry', () => {
     it('shuts down active providers without error', async () => {
       vi.resetModules()
       const { mockLoggerProviderShutdown, mockSdkShutdown } = mockTelemetrySdk()
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
 
       vi.spyOn(console, 'log').mockImplementation(() => {})
       const { initTelemetry, shutdownTelemetry } = await import('./telemetry')
@@ -380,7 +369,7 @@ describe('telemetry', () => {
       vi.resetModules()
       const mockSdkShutdown = vi.fn().mockRejectedValue(new Error('shutdown failed'))
       mockTelemetrySdk({ sdkShutdown: mockSdkShutdown })
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
 
       vi.spyOn(console, 'log').mockImplementation(() => {})
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})

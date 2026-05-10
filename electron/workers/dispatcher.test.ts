@@ -126,10 +126,13 @@ describe('dispatcher', () => {
     const dispatcher = getDispatcher()
     // Trigger a single poll cycle by starting and stopping immediately
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.waitFor(() => {
+      expect(execWorker.execute).toHaveBeenCalledWith(
+        { command: 'echo hi' },
+        expect.any(AbortSignal)
+      )
+    })
     dispatcher.stop()
-
-    expect(execWorker.execute).toHaveBeenCalledWith({ command: 'echo hi' }, expect.any(AbortSignal))
   })
 
   it('reports failure when worker returns success: false', async () => {
@@ -150,13 +153,13 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
-
-    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
-      id: 'run-fail',
-      error: 'Command failed',
+    await vi.waitFor(() => {
+      expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+        id: 'run-fail',
+        error: 'Command failed',
+      })
     })
+    dispatcher.stop()
   })
 
   it('reports failure when worker throws an exception', async () => {
@@ -171,13 +174,13 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
-
-    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
-      id: 'run-throw',
-      error: 'Unexpected crash',
+    await vi.waitFor(() => {
+      expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+        id: 'run-throw',
+        error: 'Unexpected crash',
+      })
     })
+    dispatcher.stop()
   })
 
   it('reports failure for unknown worker type', async () => {
@@ -190,13 +193,13 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
-
-    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
-      id: 'run2',
-      error: 'Unknown worker type: unknown',
+    await vi.waitFor(() => {
+      expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+        id: 'run2',
+        error: 'Unknown worker type: unknown',
+      })
     })
+    dispatcher.stop()
   })
 
   it('handles ai worker dispatch', async () => {
@@ -209,10 +212,10 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.waitFor(() => {
+      expect(aiWorker.execute).toHaveBeenCalledWith({ prompt: 'hello' }, expect.any(AbortSignal))
+    })
     dispatcher.stop()
-
-    expect(aiWorker.execute).toHaveBeenCalledWith({ prompt: 'hello' }, expect.any(AbortSignal))
   })
 
   it('dispatches snapshot collection for __copilot_snapshot__ command', async () => {
@@ -245,7 +248,12 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.waitFor(() => {
+      expect(mockClient.mutation).toHaveBeenCalledWith(
+        'runs:complete',
+        expect.objectContaining({ id: 'run-snap' })
+      )
+    })
     dispatcher.stop()
 
     expect(execWorker.execute).not.toHaveBeenCalled()
@@ -253,10 +261,6 @@ describe('dispatcher', () => {
     expect(mockClient.mutation).toHaveBeenCalledWith(
       'copilotUsageHistory:store',
       expect.objectContaining({ accountUsername: 'user1', org: 'test-org' })
-    )
-    expect(mockClient.mutation).toHaveBeenCalledWith(
-      'runs:complete',
-      expect.objectContaining({ id: 'run-snap' })
     )
   })
 
@@ -270,13 +274,13 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
-    dispatcher.stop()
-
-    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
-      id: 'run-no-accts',
-      error: 'No accounts provided for snapshot collection',
+    await vi.waitFor(() => {
+      expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+        id: 'run-no-accts',
+        error: 'No accounts provided for snapshot collection',
+      })
     })
+    dispatcher.stop()
   })
 
   it('handles snapshot store failures gracefully', async () => {
@@ -311,16 +315,16 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.waitFor(() => {
+      expect(mockClient.mutation).toHaveBeenCalledWith(
+        'runs:complete',
+        expect.objectContaining({
+          id: 'run-store-fail',
+          output: expect.objectContaining({ exitCode: 1 }),
+        })
+      )
+    })
     dispatcher.stop()
-
-    expect(mockClient.mutation).toHaveBeenCalledWith(
-      'runs:complete',
-      expect.objectContaining({
-        id: 'run-store-fail',
-        output: expect.objectContaining({ exitCode: 1 }),
-      })
-    )
   })
 
   it('handles partial snapshot failures gracefully', async () => {
@@ -360,16 +364,16 @@ describe('dispatcher', () => {
 
     const dispatcher = getDispatcher()
     dispatcher.start()
-    await new Promise(r => setTimeout(r, 50))
+    await vi.waitFor(() => {
+      expect(mockClient.mutation).toHaveBeenCalledWith(
+        'runs:complete',
+        expect.objectContaining({
+          id: 'run-partial',
+          output: expect.objectContaining({ exitCode: 1 }),
+        })
+      )
+    })
     dispatcher.stop()
-
-    expect(mockClient.mutation).toHaveBeenCalledWith(
-      'runs:complete',
-      expect.objectContaining({
-        id: 'run-partial',
-        output: expect.objectContaining({ exitCode: 1 }),
-      })
-    )
   })
 
   it('processing guard prevents concurrent poll execution', async () => {
@@ -417,12 +421,10 @@ describe('dispatcher', () => {
     const dispatcher = getDispatcher()
     dispatcher.start()
 
-    // Let a few poll cycles run and fail
-    await new Promise(r => setTimeout(r, 50))
+    await vi.waitFor(() => {
+      expect(isInBackoffWindow).toHaveBeenCalled()
+    })
     dispatcher.stop()
-
-    // After errors, the backoff utility should have been consulted
-    expect(isInBackoffWindow).toHaveBeenCalled()
   })
 
   it('resets consecutiveErrors on successful poll', async () => {
@@ -435,12 +437,9 @@ describe('dispatcher', () => {
     const dispatcher = getDispatcher()
     dispatcher.start()
 
-    // Let both polls execute
-    await new Promise(r => setTimeout(r, 80))
+    await vi.waitFor(() => {
+      expect(isInBackoffWindow).toHaveBeenCalled()
+    })
     dispatcher.stop()
-
-    // isInBackoffWindow was called - on the second poll it should check,
-    // but since the first error just happened, the backoff window is brief
-    expect(isInBackoffWindow).toHaveBeenCalled()
   })
 })

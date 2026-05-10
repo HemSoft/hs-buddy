@@ -197,35 +197,21 @@ describe('config', () => {
     })
 
     it('migrates from env when no accounts exist and env vars are set', () => {
-      const originalUsername = process.env.VITE_GITHUB_USERNAME
-      const originalOrg = process.env.VITE_GITHUB_ORG
-      try {
-        process.env.VITE_GITHUB_USERNAME = 'envuser'
-        process.env.VITE_GITHUB_ORG = 'envorg'
-        configManager.migrateFromEnv()
-        const accounts = configManager.getGitHubAccounts()
-        expect(accounts).toEqual([{ username: 'envuser', org: 'envorg' }])
-      } finally {
-        if (originalUsername !== undefined) process.env.VITE_GITHUB_USERNAME = originalUsername
-        else delete process.env.VITE_GITHUB_USERNAME
-        if (originalOrg !== undefined) process.env.VITE_GITHUB_ORG = originalOrg
-        else delete process.env.VITE_GITHUB_ORG
-      }
+      vi.stubEnv('VITE_GITHUB_USERNAME', 'envuser')
+      vi.stubEnv('VITE_GITHUB_ORG', 'envorg')
+      configManager.migrateFromEnv()
+      const accounts = configManager.getGitHubAccounts()
+      expect(accounts).toEqual([{ username: 'envuser', org: 'envorg' }])
+      vi.unstubAllEnvs()
     })
 
     it('handles missing env vars gracefully', () => {
-      const originalUsername = process.env.VITE_GITHUB_USERNAME
-      const originalOrg = process.env.VITE_GITHUB_ORG
-      try {
-        delete process.env.VITE_GITHUB_USERNAME
-        delete process.env.VITE_GITHUB_ORG
-        configManager.migrateFromEnv()
-        const accounts = configManager.getGitHubAccounts()
-        expect(accounts).toEqual([])
-      } finally {
-        if (originalUsername !== undefined) process.env.VITE_GITHUB_USERNAME = originalUsername
-        if (originalOrg !== undefined) process.env.VITE_GITHUB_ORG = originalOrg
-      }
+      vi.stubEnv('VITE_GITHUB_USERNAME', '')
+      vi.stubEnv('VITE_GITHUB_ORG', '')
+      configManager.migrateFromEnv()
+      const accounts = configManager.getGitHubAccounts()
+      expect(accounts).toEqual([])
+      vi.unstubAllEnvs()
     })
   })
 

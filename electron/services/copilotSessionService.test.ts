@@ -75,7 +75,6 @@ import {
   scanCopilotSessions,
 } from './copilotSessionService'
 
-const originalAppData = process.env.APPDATA
 const defaultScanInfo = {
   title: 'Test',
   firstPrompt: 'Hello',
@@ -135,21 +134,15 @@ beforeEach(() => {
   mockProcessSessionLine.mockImplementation(() => undefined)
   mockAggregateResults.mockReturnValue(defaultAggregate)
 
-  delete process.env.APPDATA
+  vi.stubEnv('APPDATA', '')
 })
 
 afterEach(() => {
-  if (originalAppData === undefined) {
-    delete process.env.APPDATA
-  } else {
-    process.env.APPDATA = originalAppData
-  }
+  vi.unstubAllEnvs()
 })
 
 describe('getVSCodeStoragePath', () => {
   it('returns an empty string when APPDATA is not set', () => {
-    delete process.env.APPDATA
-
     expect(getVSCodeStoragePath()).toBe('')
     expect(mockExistsSync).not.toHaveBeenCalled()
   })
@@ -159,7 +152,7 @@ describe('getVSCodeStoragePath', () => {
     const insiders = path.join(appData, 'Code - Insiders', 'User')
     const stable = path.join(appData, 'Code', 'User')
 
-    process.env.APPDATA = appData
+    vi.stubEnv('APPDATA', appData)
     mockExistsSync.mockImplementation(target => target === insiders)
 
     expect(getVSCodeStoragePath()).toBe(insiders)
@@ -172,7 +165,7 @@ describe('getVSCodeStoragePath', () => {
     const insiders = path.join(appData, 'Code - Insiders', 'User')
     const stable = path.join(appData, 'Code', 'User')
 
-    process.env.APPDATA = appData
+    vi.stubEnv('APPDATA', appData)
     mockExistsSync.mockImplementation(target => target === stable)
 
     expect(getVSCodeStoragePath()).toBe(stable)
@@ -181,7 +174,7 @@ describe('getVSCodeStoragePath', () => {
   })
 
   it('returns an empty string when neither VS Code path exists', () => {
-    process.env.APPDATA = 'C:\\Users\\Test\\AppData\\Roaming'
+    vi.stubEnv('APPDATA', 'C:\\Users\\Test\\AppData\\Roaming')
     mockExistsSync.mockReturnValue(false)
 
     expect(getVSCodeStoragePath()).toBe('')
@@ -217,8 +210,6 @@ describe('resolveWorkspaceName', () => {
 
 describe('scanCopilotSessions', () => {
   it('returns an empty result when the VS Code storage path is empty', () => {
-    delete process.env.APPDATA
-
     expect(scanCopilotSessions()).toEqual({ sessions: [], totalCount: 0 })
   })
 
@@ -227,7 +218,7 @@ describe('scanCopilotSessions', () => {
     const stable = path.join(appData, 'Code', 'User')
     const wsRoot = path.join(stable, 'workspaceStorage')
 
-    process.env.APPDATA = appData
+    vi.stubEnv('APPDATA', appData)
     mockExistsSync.mockImplementation(target => target === stable)
     mockReaddirSync.mockImplementation(target => {
       if (target === wsRoot) throw new Error('ENOENT')
@@ -250,7 +241,7 @@ describe('scanCopilotSessions', () => {
     const olderFile = path.join(olderChatDir, 'older-session.jsonl')
     const newerFile = path.join(newerChatDir, 'newer-session.jsonl')
 
-    process.env.APPDATA = appData
+    vi.stubEnv('APPDATA', appData)
     mockExistsSync.mockImplementation(target => target === stable)
     mockReaddirSync.mockImplementation(target => {
       if (target === wsRoot) return [olderHash, newerHash]

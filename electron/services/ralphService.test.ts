@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockSpawn = vi.fn().mockReturnValue({
+const mockSpawn = vi.fn().mockImplementation(() => ({
   stdout: { on: vi.fn() },
   stderr: { on: vi.fn() },
   on: vi.fn(),
   kill: vi.fn(),
   pid: 12345,
-})
+}))
 
 vi.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),

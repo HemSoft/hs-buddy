@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move changelog entry to Unreleased section
 - Address PR review feedback — strengthen test assertions and fix TS2556
 - Sync MockStore.store after clear() to prevent stale state
+- Remove unused exports and harden extractRepoFromUrl
 
 ### Changed
 

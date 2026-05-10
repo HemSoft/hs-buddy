@@ -31,6 +31,14 @@ describe('extractRepoFromUrl', () => {
     const url = 'https://api.github.com/repos/org/repo'
     expect(extractRepoFromUrl(url)).toBe('org/repo')
   })
+
+  it('handles URLs with trailing slashes', () => {
+    expect(extractRepoFromUrl('https://api.github.com/repos/org/repo/')).toBe('org/repo')
+  })
+
+  it('returns empty string for insufficient path segments', () => {
+    expect(extractRepoFromUrl('')).toBe('')
+  })
 })
 
 // ── mapSearchItemToUserPR ───────────────────────────────────────────

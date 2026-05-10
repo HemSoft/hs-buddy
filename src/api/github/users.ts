@@ -164,12 +164,14 @@ export function computeQuartiles(counts: number[]): number[] {
 
 /** Extract repo name from a GitHub API repository_url. */
 export function extractRepoFromUrl(repoUrl: string): string {
-  const parts = repoUrl.split('/')
-  return parts.slice(-2).join('/')
+  const parts = repoUrl.split('/').filter(Boolean)
+  const owner = parts[parts.length - 2]
+  const repo = parts[parts.length - 1]
+  return owner && repo ? `${owner}/${repo}` : ''
 }
 
 /** Minimal shape for a GitHub search API item used in PR mapping. */
-export interface SearchItemForUserPR {
+interface SearchItemForUserPR {
   number: number
   title: string
   repository_url: string
@@ -423,7 +425,7 @@ export function extractUserStatusInfo(
 // ── Internal helpers for fetchUserActivity ───────────────────────────
 
 /** Minimal repo shape needed for activity queries. */
-export interface OrgRepoSlim {
+interface OrgRepoSlim {
   name: string
   pushedAt: string | null
 }

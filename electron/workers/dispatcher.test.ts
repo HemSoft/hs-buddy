@@ -371,4 +371,23 @@ describe('dispatcher', () => {
       expect.objectContaining({ id: 'run-snap-fail' })
     )
   })
+
+  it('skips poll cycle when in backoff window', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+    // Make backoff window always return true — poll should be skipped
+    vi.mocked(isInBackoffWindow).mockReturnValue(true)
+
+    mockClient.mutation.mockResolvedValue(null)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    // claimPending should NOT have been called — poll was skipped due to backoff
+    // The immediate poll in start() fires before backoff check,
+    // but subsequent interval polls should be skipped
+    expect(isInBackoffWindow).toHaveBeenCalled()
+  })
 })

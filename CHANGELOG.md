@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add copilotSessionHandlers digest + configHandlers notification sound tests
 - Improve electron coverage to 90% (terminal, copilotService, menu, github handlers)
 - Round 6 electron coverage to 93% (githubHandlers, tempoClient, copilotClient)
+- Round 7 electron coverage improvements (93→94% stmts, 84→85% branches)
 
 ### Changed
 

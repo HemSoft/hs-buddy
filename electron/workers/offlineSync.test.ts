@@ -181,4 +181,70 @@ describe('offlineSync', () => {
     expect(result.errors.length).toBe(1)
     expect(result.errors[0]).toContain('Offline sync failed')
   })
+
+  it('returns empty runs when cron validation fails in getMissedOccurrences', async () => {
+    const { validateCronExpression } = await import('../../src/utils/cronUtils')
+    vi.mocked(validateCronExpression).mockImplementationOnce(() => {
+      throw new Error('Invalid cron expression')
+    })
+
+    const pastTime = Date.now() - 60_000
+    mockClient.query.mockResolvedValue([
+      {
+        _id: 's-cron-err',
+        jobId: 'j-cron-err',
+        name: 'bad-cron-job',
+        cron: 'invalid cron',
+        enabled: true,
+        missedPolicy: 'catchup',
+        nextRunAt: pastTime,
+      },
+    ])
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const result = await runOfflineSync('https://test.convex.cloud')
+    // getMissedOccurrences catches the error and returns [], so 0 runs created
+    expect(result.schedulesProcessed).toBe(1)
+    expect(result.runsCreated).toBe(0)
+  })
+
+  it('handles schedule with unknown missedPolicy', async () => {
+    const pastTime = Date.now() - 60_000
+    mockClient.query.mockResolvedValue([
+      {
+        _id: 's-unknown',
+        jobId: 'j-unknown',
+        name: 'unknown-policy-job',
+        cron: '*/5 * * * *',
+        enabled: true,
+        missedPolicy: 'nonexistent' as 'skip',
+        nextRunAt: pastTime,
+      },
+    ])
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const result = await runOfflineSync('https://test.convex.cloud')
+    expect(result.schedulesProcessed).toBe(1)
+    expect(result.runsCreated).toBe(0)
+  })
+
+  it('skips schedule when nextRunAt is in the future', async () => {
+    mockClient.query.mockResolvedValue([
+      {
+        _id: 's-future',
+        jobId: 'j-future',
+        name: 'future-only',
+        cron: '0 * * * *',
+        enabled: true,
+        missedPolicy: 'skip',
+        nextRunAt: Date.now() + 999_999,
+      },
+    ])
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const result = await runOfflineSync('https://test.convex.cloud')
+    // Schedule with future nextRunAt is not "missed" — filtered out before processing
+    expect(result.schedulesProcessed).toBe(0)
+    expect(result.runsCreated).toBe(0)
+  })
 })

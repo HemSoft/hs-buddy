@@ -12,6 +12,7 @@ dist-electron/
 
 # Test coverage
 coverage/
+coverage-convex/
 coverage-electron/
 release/
 *.local

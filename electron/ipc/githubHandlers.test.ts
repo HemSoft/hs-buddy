@@ -4,10 +4,12 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
 }))
 
+const mockConvexMutation = vi.fn()
+
 vi.mock('convex/browser', () => ({
   ConvexHttpClient: class {
     query = vi.fn()
-    mutation = vi.fn()
+    mutation = mockConvexMutation
   },
 }))
 
@@ -327,6 +329,62 @@ describe('githubHandlers', () => {
       expect(result.data.org).toBe('test-org')
     })
 
+    it('returns premium request data with model breakdown when items have grossQuantity > 0', async () => {
+      const { extractPremiumUsageItems, sumGrossRequests, sumNetCost } =
+        await import('../../src/utils/billingParsers')
+      // tryGetCliToken
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // 3 parallel calls succeed
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+
+      // Return items with grossQuantity > 0 for user month to trigger model breakdown
+      vi.mocked(extractPremiumUsageItems)
+        .mockReturnValueOnce([
+          { model: 'gpt-4o', grossQuantity: 50, netCost: 5 },
+          { model: 'claude-sonnet', grossQuantity: 30, netCost: 3 },
+          { model: 'gpt-4o-mini', grossQuantity: 0, netCost: 0 },
+        ] as never)
+        .mockReturnValueOnce([{ model: 'gpt-4o', grossQuantity: 10, netCost: 1 }] as never)
+        .mockReturnValueOnce([{ model: 'gpt-4o', grossQuantity: 200, netCost: 20 }] as never)
+      vi.mocked(sumGrossRequests).mockReturnValueOnce(80).mockReturnValueOnce(10).mockReturnValueOnce(200)
+      vi.mocked(sumNetCost).mockReturnValueOnce(20)
+
+      const handler = handlers.get('github:get-user-premium-requests')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.userMonthlyRequests).toBe(80)
+      expect(result.data.userTodayRequests).toBe(10)
+      expect(result.data.orgMonthlyRequests).toBe(200)
+      expect(result.data.orgMonthlyNetCost).toBe(20)
+      // Model breakdown should be sorted by requests descending, excluding 0-quantity
+      expect(result.data.userMonthlyModels).toEqual([
+        { model: 'gpt-4o', requests: 50 },
+        { model: 'claude-sonnet', requests: 30 },
+      ])
+    })
+
+    it('returns error when extractPremiumUsageItems throws', async () => {
+      const { extractPremiumUsageItems } = await import('../../src/utils/billingParsers')
+      // tryGetCliToken
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // 3 parallel calls succeed
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+
+      // Make extractPremiumUsageItems throw to trigger outer catch
+      vi.mocked(extractPremiumUsageItems).mockImplementationOnce(() => {
+        throw new Error('Failed to parse billing data')
+      })
+
+      const handler = handlers.get('github:get-user-premium-requests')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Failed to parse billing data')
+    })
+
     it('still succeeds when allSettled calls fail (graceful degradation)', async () => {
       // tryGetCliToken succeeds
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
@@ -404,6 +462,7 @@ describe('githubHandlers', () => {
     })
 
     it('still succeeds even when Convex store fails (logged to console)', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const { assembleCopilotMetrics } = await import('../../src/utils/billingParsers')
       vi.mocked(assembleCopilotMetrics).mockReturnValue({
         success: true,
@@ -421,6 +480,40 @@ describe('githubHandlers', () => {
       } as ReturnType<typeof assembleCopilotMetrics>)
 
       mockExecAsync.mockResolvedValue({ stdout: '{"usageItems":[]}', stderr: '' })
+      // Make the ConvexHttpClient mutation throw — this triggers line 653
+      mockConvexMutation.mockRejectedValueOnce(new Error('Convex mutation failed'))
+
+      const handler = handlers.get('github:collect-copilot-snapshots')!
+      const result = await handler({}, [{ username: 'u1', org: 'org1' }])
+      // Should still succeed despite store failure
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0].success).toBe(true)
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to persist'),
+        expect.any(Error)
+      )
+      consoleSpy.mockRestore()
+    })
+
+    it('processes multiple accounts — mixed success and failure', async () => {
+      const { assembleCopilotMetrics } = await import('../../src/utils/billingParsers')
+      vi.mocked(assembleCopilotMetrics).mockReturnValue({
+        success: true,
+        data: {
+          org: 'org1',
+          billingYear: 2026,
+          billingMonth: 5,
+          premiumRequests: 0,
+          grossCost: 0,
+          discount: 0,
+          netCost: 0,
+          businessSeats: 0,
+          spent: 0,
+        },
+      } as ReturnType<typeof assembleCopilotMetrics>)
+
+      mockExecAsync.mockResolvedValue({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockConvexMutation.mockResolvedValue(undefined)
 
       const handler = handlers.get('github:collect-copilot-snapshots')!
       const result = await handler({}, [

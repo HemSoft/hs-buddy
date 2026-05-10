@@ -72,4 +72,50 @@ describe('crewHandlers', () => {
     await handler({}, 'p1')
     expect(clearSession).toHaveBeenCalledWith('p1')
   })
+
+  it('crew:add-project delegates to addProjectFromPicker', async () => {
+    const { addProjectFromPicker } = await import('../services/crewService')
+    const handler = handlers.get('crew:add-project')!
+    const result = await handler({})
+    expect(addProjectFromPicker).toHaveBeenCalledWith(mockWin)
+    expect(result).toEqual({ id: 'p1', path: '/project' })
+  })
+
+  it('crew:create-session creates or gets a session', async () => {
+    const { createOrGetSession } = await import('../services/crewService')
+    const handler = handlers.get('crew:create-session')!
+    const result = await handler({}, 'p1')
+    expect(createOrGetSession).toHaveBeenCalledWith('p1')
+    expect(result).toEqual({ projectId: 'p1', status: 'idle', messages: [] })
+  })
+
+  it('crew:add-message adds a message to session', async () => {
+    const { addMessageToSession } = await import('../services/crewService')
+    const handler = handlers.get('crew:add-message')!
+    const message = { role: 'user', content: 'Hello', timestamp: 12345 }
+    await handler({}, 'p1', message)
+    expect(addMessageToSession).toHaveBeenCalledWith('p1', message)
+  })
+
+  it('crew:update-session-status updates session status', async () => {
+    const { updateSessionStatus } = await import('../services/crewService')
+    const handler = handlers.get('crew:update-session-status')!
+    await handler({}, 'p1', 'active')
+    expect(updateSessionStatus).toHaveBeenCalledWith('p1', 'active')
+  })
+
+  it('crew:update-changed-files updates changed files', async () => {
+    const { updateSessionChangedFiles } = await import('../services/crewService')
+    const handler = handlers.get('crew:update-changed-files')!
+    const files = [{ path: '/src/test.ts', status: 'modified' }]
+    await handler({}, 'p1', files)
+    expect(updateSessionChangedFiles).toHaveBeenCalledWith('p1', files)
+  })
+
+  it('crew:undo-file calls undoFile', async () => {
+    const { undoFile } = await import('../services/crewService')
+    const handler = handlers.get('crew:undo-file')!
+    await handler({}, 'p1', '/src/test.ts')
+    expect(undoFile).toHaveBeenCalledWith('p1', '/src/test.ts')
+  })
 })

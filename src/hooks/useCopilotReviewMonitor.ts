@@ -45,9 +45,7 @@ function loadPendingReview(prUrl: string): PendingCopilotReview | null {
 
 export function clearPendingReview(prUrl: string) {
   try {
-    /* v8 ignore start */
     const all = JSON.parse(sessionStorage.getItem(PENDING_REVIEW_KEY) ?? '{}') as Record<
-      /* v8 ignore stop */
       string,
       PendingCopilotReview
     >

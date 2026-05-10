@@ -56,7 +56,7 @@ vi.mock('../../src/utils/billingParsers', () => ({
   sumGrossRequests: vi.fn(() => 0),
   sumNetCost: vi.fn(() => 0),
   parseBillingUsage: vi.fn(() => ({ items: [] })),
-  extractBudgetFromResult: vi.fn(() => null),
+  extractBudgetFromResult: vi.fn(() => ({ budgetAmount: null, preventFurtherUsage: false })),
   extractUsageSpend: vi.fn(() => 0),
   computeOverageSpend: vi.fn(() => 0),
   classifyCliTokenError: (...args: unknown[]) => mockClassifyCliTokenError(...args),
@@ -193,6 +193,155 @@ describe('githubHandlers', () => {
       const result = await handler({}, 'testuser')
       expect(result.success).toBe(true)
       expect(result.data).toEqual({ chat_enabled: true })
+    })
+  })
+
+  describe('github:get-copilot-usage', () => {
+    it('returns parsed usage data on success', async () => {
+      // tryGetCliToken
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // fetchOrgOrUserBillingUsage
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          usageItems: [{ product: 'copilot', grossAmount: { amount: 10 } }],
+        }),
+        stderr: '',
+      })
+
+      const handler = handlers.get('github:get-copilot-usage')!
+      const result = await handler({}, 'test-org', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.org).toBe('test-org')
+    })
+
+    it('returns error on failure', async () => {
+      // tryGetCliToken succeeds
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // fetchOrgOrUserBillingUsage fails
+      mockExecAsync.mockRejectedValueOnce(new Error('API failed'))
+
+      const handler = handlers.get('github:get-copilot-usage')!
+      const result = await handler({}, 'test-org', 'testuser')
+      expect(result.success).toBe(false)
+      expect(result.error).toBeDefined()
+    })
+  })
+
+  describe('github:get-copilot-budget', () => {
+    it('returns budget data on success', async () => {
+      // tryGetCliToken
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // fetchOrgBudgetAndSpend: budgets call + usage call (Promise.allSettled)
+      mockExecAsync.mockResolvedValueOnce({ stdout: '[]', stderr: '' }) // budgets
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' }) // usage
+
+      const handler = handlers.get('github:get-copilot-budget')!
+      const result = await handler({}, 'test-org', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data).toBeDefined()
+      expect(result.data.org).toBe('test-org')
+    })
+
+    it('returns degraded data when budget API calls fail', async () => {
+      // tryGetCliToken succeeds
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // Both budget calls fail (allSettled) + findBudgetAcrossPages also called
+      mockExecAsync.mockRejectedValueOnce(new Error('Budget API error'))
+      mockExecAsync.mockRejectedValueOnce(new Error('Usage API error'))
+
+      const handler = handlers.get('github:get-copilot-budget')!
+      const result = await handler({}, 'test-org', 'testuser')
+      // allSettled absorbs errors; handler returns success with degraded data
+      expect(result.success).toBe(true)
+      expect(result.data.org).toBe('test-org')
+      expect(result.data.budgetAmount).toBeNull()
+      expect(result.data.spentUnavailable).toBe(true)
+    })
+  })
+
+  describe('github:get-copilot-member-usage', () => {
+    it('returns member seat data on success', async () => {
+      // tryGetCliToken
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // gh api member copilot
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          assignee: { login: 'testmember' },
+          plan_type: 'business',
+          last_activity_at: '2024-01-01',
+          created_at: '2023-01-01',
+        }),
+        stderr: '',
+      })
+
+      const handler = handlers.get('github:get-copilot-member-usage')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.login).toBe('testmember')
+      expect(result.data.planType).toBe('business')
+    })
+
+    it('returns null data for 404 (no Copilot seat)', async () => {
+      const { isNotFoundError } = await import('../../src/utils/billingParsers')
+      // tryGetCliToken
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // gh api member copilot - 404
+      const notFoundError = new Error('HTTP 404')
+      mockExecAsync.mockRejectedValueOnce(notFoundError)
+      vi.mocked(isNotFoundError).mockReturnValueOnce(true)
+
+      const handler = handlers.get('github:get-copilot-member-usage')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data).toBeNull()
+    })
+
+    it('returns error on non-404 failure', async () => {
+      const { isNotFoundError } = await import('../../src/utils/billingParsers')
+      // tryGetCliToken succeeds
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // Actual API call fails
+      mockExecAsync.mockRejectedValueOnce(new Error('Server error'))
+      vi.mocked(isNotFoundError).mockReturnValueOnce(false)
+
+      const handler = handlers.get('github:get-copilot-member-usage')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Server error')
+    })
+  })
+
+  describe('github:get-user-premium-requests', () => {
+    it('returns premium request data on success', async () => {
+      // tryGetCliToken
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // 3 parallel calls (Promise.allSettled): user month, user today, org month
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+      mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+
+      const handler = handlers.get('github:get-user-premium-requests')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+      expect(result.success).toBe(true)
+      expect(result.data.memberLogin).toBe('testmember')
+      expect(result.data.org).toBe('test-org')
+    })
+
+    it('still succeeds when allSettled calls fail (graceful degradation)', async () => {
+      // tryGetCliToken succeeds
+      mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+      // All 3 parallel calls fail (Promise.allSettled still resolves)
+      mockExecAsync.mockRejectedValueOnce(new Error('fail1'))
+      mockExecAsync.mockRejectedValueOnce(new Error('fail2'))
+      mockExecAsync.mockRejectedValueOnce(new Error('fail3'))
+
+      const handler = handlers.get('github:get-user-premium-requests')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+      // allSettled doesn't throw, so handler returns success with zero values
+      expect(result.success).toBe(true)
+      expect(result.data.userMonthlyRequests).toBe(0)
+      expect(result.data.userTodayRequests).toBe(0)
+      expect(result.data.orgMonthlyRequests).toBe(0)
     })
   })
 

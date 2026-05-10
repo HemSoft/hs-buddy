@@ -25,9 +25,7 @@ function useElectronStoreFallback<T>(
         setElectronStoreValue(extractor(config))
         setFallbackLoaded(true)
       })
-      /* v8 ignore start */
       .catch(() => setFallbackLoaded(true))
-    /* v8 ignore stop */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -123,18 +121,14 @@ function resolveAccountsFromSources(
   electronStoreAccounts: GitHubAccount[],
   convexConnected: boolean
 ): GitHubAccount[] {
-  /* v8 ignore start */
   if (convexConnected && convexAccounts) {
-    /* v8 ignore stop */
     return convexAccounts.map(a => ({
       username: a.username,
       org: a.org,
       ...(a.repoRoot && { repoRoot: a.repoRoot }),
     }))
   }
-  /* v8 ignore start */
   return electronStoreAccounts
-  /* v8 ignore stop */
 }
 
 function shouldInitializeAccounts(
@@ -159,14 +153,10 @@ export function useGitHubAccounts() {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
       .then((config: AppConfig) => {
-        /* v8 ignore start */
         setElectronStoreAccounts(config.github?.accounts ?? [])
-        /* v8 ignore stop */
         setFallbackLoaded(true)
       })
-      /* v8 ignore start */
       .catch(() => setFallbackLoaded(true))
-    /* v8 ignore stop */
   }, [])
 
   // Use Convex if connected, otherwise electron-store
@@ -306,12 +296,8 @@ export function useCopilotSettings() {
   const { value: currentSettings, loading } = useElectronStoreFallback(
     settings?.copilot ?? undefined,
     config => ({
-      /* v8 ignore start */
       ghAccount: config.copilot?.ghAccount ?? '',
-      /* v8 ignore stop */
-      /* v8 ignore start */
       model: config.copilot?.model ?? 'claude-sonnet-4.5',
-      /* v8 ignore stop */
       premiumModel: config.copilot?.premiumModel ?? 'claude-opus-4.6',
     }),
     { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }

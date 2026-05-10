@@ -8,7 +8,7 @@ module.exports = {
       url: ['http://localhost:9222/'],
       numberOfRuns: 3,
       settings: {
-        chromeFlags: '--no-sandbox --headless --disable-gpu',
+        chromeFlags: '--no-sandbox --headless --disable-gpu --disable-dev-shm-usage',
         // Electron renderer doesn't need network audits
         onlyCategories: ['performance', 'accessibility', 'best-practices'],
         skipAudits: ['uses-http2', 'redirects-http', 'uses-long-cache-ttl'],

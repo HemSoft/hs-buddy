@@ -7,27 +7,51 @@ describe('formatUpdatedAge', () => {
   })
 
   it('returns "updated now" for less than a minute ago', () => {
-    vi.setSystemTime(new Date('2026-06-01T12:00:30Z'))
-    expect(formatUpdatedAge(new Date('2026-06-01T12:00:00Z').getTime())).toBe('updated now')
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:00:30.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated now')
   })
 
-  it('returns minutes for less than an hour ago', () => {
-    vi.setSystemTime(new Date('2026-06-01T12:05:00Z'))
-    expect(formatUpdatedAge(new Date('2026-06-01T12:00:00Z').getTime())).toBe('updated 5m ago')
+  it('returns minutes ago for < 60 minutes', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:05:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 5m ago')
   })
 
-  it('returns hours for more than an hour ago', () => {
-    vi.setSystemTime(new Date('2026-06-01T14:00:00Z'))
-    expect(formatUpdatedAge(new Date('2026-06-01T12:00:00Z').getTime())).toBe('updated 2h ago')
+  it('returns hours ago for >= 60 minutes', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T14:00:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 2h ago')
   })
 
-  it('returns 59m for just under an hour', () => {
-    vi.setSystemTime(new Date('2026-06-01T12:59:59Z'))
-    expect(formatUpdatedAge(new Date('2026-06-01T12:00:00Z').getTime())).toBe('updated 59m ago')
+  it('floors partial minutes', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:03:45.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 3m ago')
   })
 
-  it('returns 1h for exactly 60 minutes', () => {
-    vi.setSystemTime(new Date('2026-06-01T13:00:00Z'))
-    expect(formatUpdatedAge(new Date('2026-06-01T12:00:00Z').getTime())).toBe('updated 1h ago')
+  it('floors partial hours', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T14:30:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 2h ago')
+  })
+
+  it('handles exactly 1 minute', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T12:01:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 1m ago')
+  })
+
+  it('handles exactly 1 hour', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-06-01T13:00:00.000Z'))
+    const fetchedAt = new Date('2024-06-01T12:00:00.000Z').getTime()
+    expect(formatUpdatedAge(fetchedAt)).toBe('updated 1h ago')
   })
 })

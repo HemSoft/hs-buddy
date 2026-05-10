@@ -94,6 +94,44 @@ describe('useTerminalPanel', () => {
     expect(result.current.panelHeight).toBe(100) // 50 clamped to minimum
   })
 
+  it('uses default height when config returns NaN', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-terminal-open') return Promise.resolve(false)
+      if (channel === 'config:get-terminal-panel-height') return Promise.resolve(NaN)
+      return Promise.resolve()
+    })
+
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+    expect(result.current.panelHeight).toBe(300) // DEFAULT_TERMINAL_PANEL_HEIGHT
+  })
+
+  it('uses default height when config returns Infinity', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-terminal-open') return Promise.resolve(false)
+      if (channel === 'config:get-terminal-panel-height') return Promise.resolve(Infinity)
+      return Promise.resolve()
+    })
+
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+    expect(result.current.panelHeight).toBe(300) // DEFAULT_TERMINAL_PANEL_HEIGHT
+  })
+
+  it('falls back to empty cwd when resolveRepoPath returns empty path', async () => {
+    mockResolveRepoPath.mockResolvedValue({ path: '' })
+
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab({ owner: 'org', repo: 'repo' })
+    })
+
+    expect(tab!.cwd).toBe('')
+  })
+
   it('toggleTerminal opens panel and creates a tab when none exist', async () => {
     const { result } = renderHook(() => useTerminalPanel())
 

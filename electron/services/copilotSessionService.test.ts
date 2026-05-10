@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('fs', () => ({
   existsSync: vi.fn(() => false),
@@ -110,8 +110,11 @@ function createMockReadline(): MockEventTarget {
 }
 
 describe('copilotSessionService', () => {
+  const originalAppData = process.env.APPDATA
+
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(fs.existsSync).mockReturnValue(false)
     delete process.env.APPDATA
 
     vi.mocked(fs.readFileSync).mockImplementation(() => {
@@ -147,6 +150,11 @@ describe('copilotSessionService', () => {
       totalDurationMs: 0,
       allToolNames: [],
     })
+  })
+
+  afterEach(() => {
+    if (originalAppData === undefined) delete process.env.APPDATA
+    else process.env.APPDATA = originalAppData
   })
 
   it('getVSCodeStoragePath returns a string', () => {
@@ -210,7 +218,8 @@ describe('copilotSessionService', () => {
       throw new Error('ENOENT')
     }) as never)
     vi.mocked(fs.statSync).mockImplementation(filePath => {
-      if (filePath === path.join(chatDir, 'alpha.jsonl')) return { size: 100, mtimeMs: 200 } as never
+      if (filePath === path.join(chatDir, 'alpha.jsonl'))
+        return { size: 100, mtimeMs: 200 } as never
       if (filePath === path.join(chatDir, 'beta.jsonl')) return { size: 120, mtimeMs: 300 } as never
       throw new Error('ENOENT')
     })
@@ -311,9 +320,7 @@ describe('copilotSessionService', () => {
   it('parseSessionFile skips empty session files', () => {
     vi.mocked(fs.statSync).mockReturnValue({ size: 0, mtimeMs: 123 } as never)
 
-    expect(parseSessionFile('/storage', 'hash-three', 'Workspace Three', 'empty.jsonl')).toEqual(
-      []
-    )
+    expect(parseSessionFile('/storage', 'hash-three', 'Workspace Three', 'empty.jsonl')).toEqual([])
     expect(parseScanChunk).not.toHaveBeenCalled()
   })
 
@@ -341,8 +348,10 @@ describe('copilotSessionService', () => {
       .mockReturnValueOnce('Workspace One')
       .mockReturnValueOnce('Workspace Two')
     vi.mocked(fs.statSync).mockImplementation(filePath => {
-      if (filePath === path.join(wsOneChat, 'older.jsonl')) return { size: 10, mtimeMs: 100 } as never
-      if (filePath === path.join(wsTwoChat, 'newer.jsonl')) return { size: 20, mtimeMs: 500 } as never
+      if (filePath === path.join(wsOneChat, 'older.jsonl'))
+        return { size: 10, mtimeMs: 100 } as never
+      if (filePath === path.join(wsTwoChat, 'newer.jsonl'))
+        return { size: 20, mtimeMs: 500 } as never
       throw new Error('ENOENT')
     })
     vi.mocked(fs.openSync).mockImplementation(filePath =>
@@ -409,7 +418,13 @@ describe('copilotSessionService', () => {
   })
 
   it('getSessionDetail streams lines and builds a session from parse state', async () => {
-    const filePath = path.join('/storage', 'workspaceStorage', 'hash-123', 'chatSessions', 'session-9.jsonl')
+    const filePath = path.join(
+      '/storage',
+      'workspaceStorage',
+      'hash-123',
+      'chatSessions',
+      'session-9.jsonl'
+    )
     const stream = createMockStream()
     const rl = createMockReadline()
     const resultEntry: SessionRequestResult = {
@@ -498,7 +513,13 @@ describe('copilotSessionService', () => {
   })
 
   it('getSessionDetail returns null when the readline parser emits an error', async () => {
-    const filePath = path.join('/storage', 'workspaceStorage', 'hash-err', 'chatSessions', 'session.jsonl')
+    const filePath = path.join(
+      '/storage',
+      'workspaceStorage',
+      'hash-err',
+      'chatSessions',
+      'session.jsonl'
+    )
     const rl = createMockReadline()
 
     vi.mocked(fs.existsSync).mockReturnValue(true)

@@ -430,7 +430,7 @@ if ($Once) {
     $Max = 1
 }
 elseif ($Max -le 0 -and -not $WorkUntil) {
-    $Max = 10
+    $Max = 1
 }
 elseif ($Max -le 0 -and $WorkUntil) {
     $Max = [int]::MaxValue

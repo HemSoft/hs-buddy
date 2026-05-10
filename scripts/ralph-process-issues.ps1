@@ -22,7 +22,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot '..' 'lib' 'config.ps1')
+. (Join-Path $PSScriptRoot 'ralph-loops' 'lib' 'config.ps1')
 
 if (-not $Provider) { $Provider = Get-RalphDefaultProvider }
 try {
@@ -74,12 +74,12 @@ if ($Help) {
 }
 
 # --- Resolve ralph.ps1 path ---
-$ralphPath = Join-Path $PSScriptRoot ".." "ralph.ps1"
+$ralphPath = Join-Path $PSScriptRoot 'ralph-loops' 'ralph.ps1'
 if (-not (Test-Path $ralphPath)) {
     # Fallback: resolve from ralph command
     $ralphCmd = Get-Command ralph -ErrorAction SilentlyContinue
-    if ($ralphCmd) {
-        $ralphPath = Join-Path (Split-Path $ralphCmd.Source -Parent) ".." "ralph.ps1"
+    if ($ralphCmd -and $ralphCmd.Source) {
+        $ralphPath = Join-Path (Split-Path $ralphCmd.Source -Parent) 'ralph.ps1'
     }
 }
 $ralphPath = (Resolve-Path $ralphPath -ErrorAction SilentlyContinue).Path
@@ -148,14 +148,6 @@ if ($issueQueue.Count -gt 0 -and $maxIssues -gt $issueQueue.Count) {
 $processed = 0
 $runStart = Get-Date
 
-# Accumulated stats from child ralph runs
-$accTokensIn = [double]0
-$accTokensOut = [double]0
-$accTokensCached = [double]0
-$accTokenCost = 0.0
-$accModels = @{}
-$accProviderModels = @{}
-
 Write-Host ""
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "ralph-process-issues — Processing open issues" -ForegroundColor Cyan
@@ -178,50 +170,55 @@ for ($i = 1; $i -le $maxIssues; $i++) {
     Write-Host "== Processing issue $i$(if ($Max -gt 0) { " of $Max" })" -ForegroundColor Cyan
     Write-Host "====================================" -ForegroundColor Cyan
 
-    # Build ralph args — use explicit issue number from queue, or 'oldest'
-    $runStatsPath = Join-Path $env:TEMP "ralph-run-stats-$([guid]::NewGuid().ToString('N').Substring(0,8)).json"
+    # Build ralph args
     $ralphArgs = @{
         Autopilot = $true
-        StatsPath = $runStatsPath
     }
+
+    # Determine issue number
+    $issueNumber = $null
     if ($issueQueue.Count -gt 0) {
-        $ralphArgs['Issue'] = $issueQueue[$i - 1]
+        $issueNumber = $issueQueue[$i - 1]
     }
     else {
-        $ralphArgs['Issue'] = 'oldest'
+        # Find oldest open issue (with optional label filter)
+        $ghListArgs = @('issue', 'list', '--repo', $repoSlug, '--state', 'open', '--limit', '1', '--json', 'number', '-q', '.[0].number')
+        if ($IssueLabel) { $ghListArgs += @('--label', $IssueLabel) }
+        $issueNumber = & gh @ghListArgs 2>$null
+        if (-not $issueNumber) {
+            Write-Host "No more open issues. Done!" -ForegroundColor Green
+            break
+        }
+        $issueNumber = [int]$issueNumber
     }
-    if ($IssueLabel) { $ralphArgs['IssueLabel'] = $IssueLabel }
+
+    # Fetch issue details and build prompt
+    $issueJson = gh issue view $issueNumber --repo $repoSlug --json title,body 2>$null | ConvertFrom-Json
+    if ($issueJson) {
+        $issuePrompt = @"
+Fix GitHub Issue #$issueNumber — $($issueJson.title)
+
+$($issueJson.body)
+
+Make changes, run tests, commit, and push.
+"@
+        $ralphArgs['Prompt'] = $issuePrompt
+    }
+    else {
+        Write-Host "WARNING: Could not fetch issue #$issueNumber details. Using generic prompt." -ForegroundColor Yellow
+        $ralphArgs['Prompt'] = "Fix GitHub Issue #$issueNumber. Make changes, run tests, commit, and push."
+    }
+
+    Write-Host "  Issue:  #$issueNumber$(if ($issueJson) { " — $($issueJson.title)" })" -ForegroundColor White
+
     if ($Model) { $ralphArgs['Model'] = $Model }
     if ($Provider) { $ralphArgs['Provider'] = $Provider }
-    if ($ReviewProduct) { $ralphArgs['ReviewProduct'] = $ReviewProduct }
-    if ($ReviewMode) { $ralphArgs['ReviewMode'] = $ReviewMode }
     if ($Agents) { $ralphArgs['Agents'] = $Agents }
     if ($NoAudio) { $ralphArgs['NoAudio'] = $true }
     if ($SkipReview) { $ralphArgs['SkipReview'] = $true }
 
     & $ralphPath @ralphArgs
     $exitCode = $LASTEXITCODE
-
-    # Collect stats from child run
-    if (Test-Path $runStatsPath) {
-        try {
-            $childStats = Get-Content $runStatsPath -Raw | ConvertFrom-Json
-            $accTokensIn += [double]$childStats.tokensIn
-            $accTokensOut += [double]$childStats.tokensOut
-            $accTokensCached += [double]$childStats.tokensCached
-            $accTokenCost += [double]$childStats.tokenCost
-            $modelKey = [string]$childStats.modelId
-            if ($modelKey) {
-                if (-not $accModels.ContainsKey($modelKey)) { $accModels[$modelKey] = 0 }
-                $accModels[$modelKey]++
-            }
-            $providerKey = if ($childStats.provider) { [string]$childStats.provider } elseif ($Provider) { [string]$Provider } else { '(default)' }
-            $providerModelKey = if ($modelKey) { "$providerKey/$modelKey" } else { "$providerKey/(provider-default)" }
-            if (-not $accProviderModels.ContainsKey($providerModelKey)) { $accProviderModels[$providerModelKey] = 0 }
-            $accProviderModels[$providerModelKey]++
-        } catch {}
-        Remove-Item $runStatsPath -Force -ErrorAction SilentlyContinue
-    }
 
     if ($exitCode -eq 2) {
         Write-Host ""
@@ -248,38 +245,9 @@ for ($i = 1; $i -le $maxIssues; $i++) {
 $totalDuration = (Get-Date) - $runStart
 $totalDurStr = "{0:hh\:mm\:ss}" -f $totalDuration
 
-# Format token counts
-function ConvertTo-TokenDisplayString([double]$val) {
-    if ($val -ge 1000000) { return "{0:F1}M" -f ($val / 1000000) }
-    if ($val -ge 1000)    { return "{0:F1}k" -f ($val / 1000) }
-    return [string][int]$val
-}
-$arrUp = [char]0x2191; $arrDn = [char]0x2193; $dot = [char]0x2022
-$tokInStr = ConvertTo-TokenDisplayString $accTokensIn
-$tokOutStr = ConvertTo-TokenDisplayString $accTokensOut
-$tokCachedStr = ConvertTo-TokenDisplayString $accTokensCached
-$modelList = if ($accModels.Count -gt 0) { ($accModels.Keys | Sort-Object) -join ', ' } else { $Model ?? '(default)' }
-$providerModelList = if ($accProviderModels.Count -gt 0) {
-    ($accProviderModels.Keys | Sort-Object) -join ', '
-}
-elseif ($Provider -and $Model) {
-    "$Provider/$Model"
-}
-elseif ($Provider) {
-    "$Provider/(provider-default)"
-}
-else {
-    '(default)'
-}
-
 Write-Host ""
 Write-Host "====================================" -ForegroundColor Green
 Write-Host "ralph-process-issues — Complete" -ForegroundColor Green
 Write-Host "  Issues processed: $processed"
 Write-Host "  Duration:         $totalDurStr"
-Write-Host ""
-Write-Host "  Provider/model(s): $providerModelList" -ForegroundColor Cyan
-Write-Host "  Model(s):         $modelList" -ForegroundColor Cyan
-Write-Host "  Tokens:           $arrUp $tokInStr $dot $arrDn $tokOutStr $dot $tokCachedStr (cached)"
-Write-Host "  Token cost:       `$$([math]::Round($accTokenCost, 4))  (provider/model-aware per-1M pricing)" -ForegroundColor Yellow
 Write-Host "====================================" -ForegroundColor Green

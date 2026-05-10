@@ -125,17 +125,19 @@ describe('ralphHandlers', () => {
 
   it('status callback sends event when window is not destroyed', async () => {
     const { setStatusChangeCallback } = await import('../services/ralphService')
-    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0]![0]
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0]?.[0]
+    if (!callback) throw new Error('status callback was not registered')
     const status = { runId: 'run-1', status: 'complete' }
-    callback!(status as never)
+    callback(status as never)
     expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', status)
   })
 
   it('status callback does not send when window is destroyed', async () => {
     const { setStatusChangeCallback } = await import('../services/ralphService')
     vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
-    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0]![0]
-    callback!({ runId: 'run-1' } as never)
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0]?.[0]
+    if (!callback) throw new Error('status callback was not registered')
+    callback({ runId: 'run-1' } as never)
     expect(mockWin.webContents.send).not.toHaveBeenCalled()
   })
 })

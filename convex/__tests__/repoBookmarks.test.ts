@@ -144,11 +144,13 @@ describe('repoBookmarks', () => {
       description: 'KeepDesc',
     })
 
+    const before = await t.query(api.repoBookmarks.get, { id: result._id })
     await t.mutation(api.repoBookmarks.update, { id: result._id })
 
     const bm = await t.query(api.repoBookmarks.get, { id: result._id })
     expect(bm?.folder).toBe('KeepFolder')
     expect(bm?.description).toBe('KeepDesc')
+    expect(bm?.updatedAt).toBeGreaterThanOrEqual(before?.updatedAt ?? 0)
   })
 
   test('remove deletes a bookmark', async () => {

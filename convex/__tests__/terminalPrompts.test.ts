@@ -157,15 +157,21 @@ describe('terminalPrompts', () => {
   test('list sorts by sortOrder when lastUsedAt and updatedAt are equal', async () => {
     const t = convexTest(schema, modules)
 
-    await t.mutation(api.terminalPrompts.create, {
+    const bId = await t.mutation(api.terminalPrompts.create, {
       title: 'B-sorted',
       content: 'second by sort',
       sortOrder: 2,
     })
-    await t.mutation(api.terminalPrompts.create, {
+    const aId = await t.mutation(api.terminalPrompts.create, {
       title: 'A-sorted',
       content: 'first by sort',
       sortOrder: 1,
+    })
+
+    await t.run(async ctx => {
+      const now = Date.now()
+      await ctx.db.patch(bId, { updatedAt: now })
+      await ctx.db.patch(aId, { updatedAt: now })
     })
 
     const prompts = await t.query(api.terminalPrompts.list)

@@ -275,7 +275,7 @@ describe('runs', () => {
       await ctx.db.delete(id)
     })
 
-    await expect(t.mutation(api.runs.complete, { id })).rejects.toThrow()
+    await expect(t.mutation(api.runs.complete, { id })).rejects.toThrow(/not found/i)
   })
 
   test('fail throws when run does not exist', async () => {
@@ -286,7 +286,7 @@ describe('runs', () => {
       await ctx.db.delete(id)
     })
 
-    await expect(t.mutation(api.runs.fail, { id, error: 'err' })).rejects.toThrow()
+    await expect(t.mutation(api.runs.fail, { id, error: 'err' })).rejects.toThrow(/not found/i)
   })
 
   test('cancel throws when run does not exist', async () => {
@@ -297,7 +297,7 @@ describe('runs', () => {
       await ctx.db.delete(id)
     })
 
-    await expect(t.mutation(api.runs.cancel, { id })).rejects.toThrow()
+    await expect(t.mutation(api.runs.cancel, { id })).rejects.toThrow(/not found/i)
   })
 
   test('countsByJob aggregates run counts per job', async () => {

@@ -392,4 +392,17 @@ describe('useAIReviewMonitor', () => {
     const { result } = renderHook(() => useAIReviewMonitor({ provider, ...defaultOptions }))
     expect(result.current.reviewState).toBe('idle')
   })
+
+  it('stays idle and does not poll when pending JSON is corrupted', async () => {
+    sessionStorage.setItem('hs-buddy:pending-ai-reviews', '%%%invalid-json%%%')
+    const provider = makeProvider()
+    const { result } = renderHook(() => useAIReviewMonitor({ provider, ...defaultOptions }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(result.current.reviewState).toBe('idle')
+    expect(provider.poll).not.toHaveBeenCalled()
+  })
 })

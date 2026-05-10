@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { RalphRunInfo } from '../../src/types/ralph'
 
 vi.mock('electron', () => ({
   dialog: {
@@ -96,8 +97,8 @@ describe('ralphHandlers', () => {
     const callback = setStatusChangeCallback.mock.calls[0][0]
     expect(callback).toBeTypeOf('function')
 
-    const mockRun = { runId: 'run-1', status: 'running' }
-    callback(mockRun)
+    const mockRun = { runId: 'run-1', status: 'running' } as RalphRunInfo
+    callback!(mockRun)
 
     expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
   })
@@ -107,7 +108,7 @@ describe('ralphHandlers', () => {
     const callback = setStatusChangeCallback.mock.calls[0][0]
 
     vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
-    callback({ runId: 'run-1', status: 'running' })
+    callback!({ runId: 'run-1', status: 'running' } as RalphRunInfo)
 
     expect(mockWin.webContents.send).not.toHaveBeenCalled()
   })

@@ -6,15 +6,21 @@ let rlEvents: Record<string, (...args: any[]) => void>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let streamEvents: Record<string, (...args: any[]) => void>
 
-const mockExistsSync = vi.fn(() => false)
-const mockReadFileSync = vi.fn((): string => {
+const mockExistsSync = vi.fn((_path: string) => false)
+const mockReadFileSync = vi.fn((_path: string, _enc?: string): string => {
   throw new Error('ENOENT')
 })
-const mockOpenSync = vi.fn(() => 42)
-const mockReadSync = vi.fn(() => 0)
-const mockCloseSync = vi.fn()
-const mockReaddirSync = vi.fn((): string[] => [])
-const mockStatSync = vi.fn(() => ({ size: 100, mtimeMs: 2000000, isFile: () => true }))
+const mockOpenSync = vi.fn((_path: string, _flags: string) => 42)
+const mockReadSync = vi.fn(
+  (_fd: number, _buf: Buffer, _offset: number, _length: number, _position: number | null) => 0
+)
+const mockCloseSync = vi.fn((_fd: number): void => {})
+const mockReaddirSync = vi.fn((_path: string): string[] => [])
+const mockStatSync = vi.fn((_path: string) => ({
+  size: 100,
+  mtimeMs: 2000000,
+  isFile: () => true as const,
+}))
 
 vi.mock('fs', () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...(args as [string])),
@@ -47,25 +53,32 @@ vi.mock('readline', () => ({
   }),
 }))
 
-const mockParseScanChunk = vi.fn(() => ({
+const mockParseScanChunk = vi.fn((_chunk: string) => ({
   title: 'Test Session',
   firstPrompt: 'Hello world',
   agent: 'copilot',
   createdAt: 1000000,
   requestCount: 5,
 }))
-const mockResolveFolderOrWorkspaceName = vi.fn(() => 'test-workspace')
-const mockProcessSessionLine = vi.fn()
-const mockParseKeyPath = vi.fn(() => null)
+const mockResolveFolderOrWorkspaceName = vi.fn(
+  (_parsed: Record<string, unknown>): string | null => 'test-workspace'
+)
+const mockProcessSessionLine = vi.fn(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (_kind: number, _kp: unknown, _line: string, _state: any): void => {}
+)
+const mockParseKeyPath = vi.fn((_line: string): string[] | null => null)
 
 vi.mock('../../src/utils/copilotSessionParsing', () => ({
-  parseKeyPath: (...args: unknown[]) => mockParseKeyPath(...args),
-  resolveFolderOrWorkspaceName: (...args: unknown[]) => mockResolveFolderOrWorkspaceName(...args),
-  parseScanChunk: (...args: unknown[]) => mockParseScanChunk(...args),
-  processSessionLine: (...args: unknown[]) => mockProcessSessionLine(...args),
+  parseKeyPath: (...args: unknown[]) => mockParseKeyPath(...(args as [string])),
+  resolveFolderOrWorkspaceName: (...args: unknown[]) =>
+    mockResolveFolderOrWorkspaceName(...(args as [Record<string, unknown>])),
+  parseScanChunk: (...args: unknown[]) => mockParseScanChunk(...(args as [string])),
+  processSessionLine: (...args: unknown[]) =>
+    mockProcessSessionLine(...(args as [number, unknown, string, unknown])),
 }))
 
-const mockAggregateResults = vi.fn(() => ({
+const mockAggregateResults = vi.fn((_results: unknown[]) => ({
   totalPromptTokens: 100,
   totalOutputTokens: 200,
   totalToolCalls: 5,
@@ -74,7 +87,7 @@ const mockAggregateResults = vi.fn(() => ({
 }))
 
 vi.mock('../../src/utils/sessionDigest', () => ({
-  aggregateResults: (...args: unknown[]) => mockAggregateResults(...args),
+  aggregateResults: (...args: unknown[]) => mockAggregateResults(...(args as [unknown[]])),
   computeSessionDigest: vi.fn(() => ({ totalTokens: 300 })),
 }))
 
@@ -189,7 +202,7 @@ describe('copilotSessionService', () => {
       process.env.APPDATA = '/Users/test/AppData'
       mockExistsSync.mockReturnValue(true)
       mockReaddirSync.mockReturnValueOnce(['hash1']).mockReturnValueOnce(['empty.jsonl'])
-      mockStatSync.mockReturnValue({ size: 0, mtimeMs: 1000 })
+      mockStatSync.mockReturnValue({ size: 0, mtimeMs: 1000, isFile: () => true as const })
       mockReadFileSync.mockReturnValue(JSON.stringify({ folder: 'file:///proj' }))
 
       const result = scanCopilotSessions()
@@ -221,7 +234,7 @@ describe('copilotSessionService', () => {
       let callCount = 0
       mockStatSync.mockImplementation(() => {
         callCount++
-        return { size: 500, mtimeMs: callCount * 1000 }
+        return { size: 500, mtimeMs: callCount * 1000, isFile: () => true as const }
       })
 
       mockOpenSync.mockReturnValue(42)
@@ -242,7 +255,7 @@ describe('copilotSessionService', () => {
       process.env.APPDATA = '/Users/test/AppData'
       mockExistsSync.mockReturnValue(true)
       mockReaddirSync.mockReturnValueOnce(['hash1']).mockReturnValueOnce(['sess.jsonl'])
-      mockStatSync.mockReturnValue({ size: 100, mtimeMs: 5000 })
+      mockStatSync.mockReturnValue({ size: 100, mtimeMs: 5000, isFile: () => true as const })
       mockReadFileSync.mockReturnValue(JSON.stringify({ folder: 'file:///proj' }))
       mockOpenSync.mockImplementation(() => {
         throw new Error('EACCES')
@@ -258,7 +271,7 @@ describe('copilotSessionService', () => {
       process.env.APPDATA = '/Users/test/AppData'
       mockExistsSync.mockReturnValue(true)
       mockReaddirSync.mockReturnValueOnce(['hash1']).mockReturnValueOnce(['sess.jsonl'])
-      mockStatSync.mockReturnValue({ size: 100, mtimeMs: 5000 })
+      mockStatSync.mockReturnValue({ size: 100, mtimeMs: 5000, isFile: () => true as const })
       mockReadFileSync.mockReturnValue(JSON.stringify({ folder: 'file:///proj' }))
       mockOpenSync.mockReturnValue(10)
       mockReadSync.mockReturnValue(0)
@@ -321,7 +334,7 @@ describe('copilotSessionService', () => {
           }
         }
       )
-      mockParseKeyPath.mockReturnValue('test.key')
+      mockParseKeyPath.mockReturnValue(['test.key'])
 
       const resultPromise = getSessionDetail('/ws/hash/chatSessions/session.jsonl')
       rlEvents['line']('{"kind":1, "data": "test"}')
@@ -334,7 +347,7 @@ describe('copilotSessionService', () => {
       expect(result!.workspaceHash).toBe('hash')
       expect(mockProcessSessionLine).toHaveBeenCalledWith(
         1,
-        'test.key',
+        ['test.key'],
         expect.any(String),
         expect.any(Object)
       )
@@ -366,7 +379,7 @@ describe('copilotSessionService', () => {
           }
         }
       )
-      mockParseKeyPath.mockReturnValue('key')
+      mockParseKeyPath.mockReturnValue(['key'])
 
       const resultPromise = getSessionDetail('/ws/hash/chatSessions/session.jsonl')
       rlEvents['line']('{"kind":1}')
@@ -390,7 +403,7 @@ describe('copilotSessionService', () => {
           state.title = ''
         }
       )
-      mockParseKeyPath.mockReturnValue('key')
+      mockParseKeyPath.mockReturnValue(['key'])
 
       const resultPromise = getSessionDetail('/ws/hash/chatSessions/session.jsonl')
       rlEvents['line']('{"kind":1}')

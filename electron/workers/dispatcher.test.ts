@@ -77,12 +77,14 @@ import { skillWorker } from './skillWorker'
 import { fetchCopilotMetrics } from '../ipc/githubHandlers'
 import { buildSnapshotCollectionOutput } from '../../src/utils/billingParsers'
 
-type PrivateDispatcher = ReturnType<typeof getDispatcher> & {
+interface PrivateDispatcher {
+  start: () => void
+  stop: () => void
   poll: () => Promise<void>
   claimAndExecute: () => Promise<void>
 }
 
-const getPrivateDispatcher = () => getDispatcher() as PrivateDispatcher
+const getPrivateDispatcher = () => getDispatcher() as unknown as PrivateDispatcher
 
 const claimOnce = (
   claimed: unknown,
@@ -194,6 +196,7 @@ describe('dispatcher', () => {
         businessSeats: 20,
         budgetAmount: 100,
         spent: 25,
+        fetchedAt: 1715000000000,
       },
     })
 
@@ -377,6 +380,7 @@ describe('dispatcher', () => {
         businessSeats: 20,
         budgetAmount: 100,
         spent: 25,
+        fetchedAt: 1715000000000,
       },
     })
 

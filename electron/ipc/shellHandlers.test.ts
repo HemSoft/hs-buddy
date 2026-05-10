@@ -86,7 +86,7 @@ import { registerShellHandlers } from './shellHandlers'
 const originalPlatform = process.platform
 
 function setPlatform(platform: NodeJS.Platform): void {
-  Object.defineProperty(process, 'platform', { value: platform })
+  Object.defineProperty(process, 'platform', { value: platform, configurable: true })
 }
 
 describe('shellHandlers', () => {

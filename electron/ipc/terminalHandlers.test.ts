@@ -106,7 +106,7 @@ describe('terminalHandlers', () => {
       return ipcMainMock
     })
     vi.mocked(appMock.on).mockImplementation((event, handler) => {
-      if (event === 'before-quit') beforeQuitHandler = handler as () => void
+      if ((event as string) === 'before-quit') beforeQuitHandler = handler as () => void
       return appMock
     })
 

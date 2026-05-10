@@ -41,6 +41,7 @@ vi.mock('../../src/utils/sessionDigest', () => ({
 }))
 
 import * as fs from 'fs'
+import * as path from 'path'
 import * as readline from 'readline'
 import type { SessionRequestResult } from '../../src/types/copilotSession'
 import type { SessionParseState } from '../../src/utils/copilotSessionParsing'
@@ -154,7 +155,7 @@ describe('copilotSessionService', () => {
   })
 
   it('resolveWorkspaceName returns basename when workspace.json read fails', () => {
-    const name = resolveWorkspaceName('C:\\workspaces\\abc123')
+    const name = resolveWorkspaceName(path.join('/workspaces', 'abc123'))
     expect(name).toBe('abc123')
   })
 
@@ -169,7 +170,7 @@ describe('copilotSessionService', () => {
     }
 
     vi.mocked(fs.readSync).mockImplementation((_fd, buffer) => {
-      buffer.write(chunk, 0, 'utf8')
+      ;(buffer as Buffer).write(chunk, 0, 'utf8')
       return chunk.length
     })
     vi.mocked(parseScanChunk).mockReturnValue(scanInfo)
@@ -197,28 +198,28 @@ describe('copilotSessionService', () => {
   })
 
   it('collectWorkspaceSessions returns parsed summaries for jsonl files only', () => {
-    const wsRoot = 'C:\\Users\\User\\AppData\\Roaming\\Code\\User\\workspaceStorage'
+    const wsRoot = path.join('/appdata', 'Code', 'User', 'workspaceStorage')
     const hash = 'hash-one'
-    const hashRoot = `${wsRoot}\\${hash}`
-    const chatDir = `${hashRoot}\\chatSessions`
+    const hashRoot = path.join(wsRoot, hash)
+    const chatDir = path.join(hashRoot, 'chatSessions')
 
     vi.mocked(fs.readFileSync).mockReturnValue('{"folder":"file:///workspace"}')
     vi.mocked(resolveFolderOrWorkspaceName).mockReturnValue('workspace-alpha')
-    vi.mocked(fs.readdirSync).mockImplementation(dir => {
+    vi.mocked(fs.readdirSync).mockImplementation(((dir: string) => {
       if (dir === chatDir) return ['beta.jsonl', 'notes.txt', 'alpha.jsonl']
       throw new Error('ENOENT')
-    })
+    }) as never)
     vi.mocked(fs.statSync).mockImplementation(filePath => {
-      if (filePath === `${chatDir}\\alpha.jsonl`) return { size: 100, mtimeMs: 200 } as never
-      if (filePath === `${chatDir}\\beta.jsonl`) return { size: 120, mtimeMs: 300 } as never
+      if (filePath === path.join(chatDir, 'alpha.jsonl')) return { size: 100, mtimeMs: 200 } as never
+      if (filePath === path.join(chatDir, 'beta.jsonl')) return { size: 120, mtimeMs: 300 } as never
       throw new Error('ENOENT')
     })
     vi.mocked(fs.openSync).mockImplementation(filePath =>
-      filePath === `${chatDir}\\alpha.jsonl` ? 1 : 2
+      filePath === path.join(chatDir, 'alpha.jsonl') ? 1 : 2
     )
     vi.mocked(fs.readSync).mockImplementation((fd, buffer) => {
       const chunk = fd === 1 ? 'alpha chunk' : 'beta chunk'
-      buffer.write(chunk, 0, 'utf8')
+      ;(buffer as Buffer).write(chunk, 0, 'utf8')
       return chunk.length
     })
     vi.mocked(parseScanChunk).mockImplementation(chunk =>
@@ -242,7 +243,7 @@ describe('copilotSessionService', () => {
     expect(collectWorkspaceSessions(wsRoot, hash)).toEqual([
       {
         sessionId: 'beta',
-        filePath: `${chatDir}\\beta.jsonl`,
+        filePath: path.join(chatDir, 'beta.jsonl'),
         workspaceHash: hash,
         workspaceName: 'workspace-alpha',
         modifiedAt: 300,
@@ -255,7 +256,7 @@ describe('copilotSessionService', () => {
       },
       {
         sessionId: 'alpha',
-        filePath: `${chatDir}\\alpha.jsonl`,
+        filePath: path.join(chatDir, 'alpha.jsonl'),
         workspaceHash: hash,
         workspaceName: 'workspace-alpha',
         modifiedAt: 200,
@@ -270,16 +271,16 @@ describe('copilotSessionService', () => {
   })
 
   it('collectWorkspaceSessions returns an empty array when chatSessions cannot be read', () => {
-    expect(collectWorkspaceSessions('C:\\storage', 'missing')).toEqual([])
+    expect(collectWorkspaceSessions('/storage', 'missing')).toEqual([])
   })
 
   it('parseSessionFile builds a session summary from stat data and scan info', () => {
-    const wsRoot = 'C:\\storage'
-    const filePath = `${wsRoot}\\hash-two\\chatSessions\\session-1.jsonl`
+    const wsRoot = '/storage'
+    const filePath = path.join(wsRoot, 'hash-two', 'chatSessions', 'session-1.jsonl')
 
     vi.mocked(fs.statSync).mockReturnValue({ size: 456, mtimeMs: 789 } as never)
     vi.mocked(fs.readSync).mockImplementation((_fd, buffer) => {
-      buffer.write('summary chunk', 0, 'utf8')
+      ;(buffer as Buffer).write('summary chunk', 0, 'utf8')
       return 'summary chunk'.length
     })
     vi.mocked(parseScanChunk).mockReturnValue({
@@ -310,29 +311,29 @@ describe('copilotSessionService', () => {
   it('parseSessionFile skips empty session files', () => {
     vi.mocked(fs.statSync).mockReturnValue({ size: 0, mtimeMs: 123 } as never)
 
-    expect(parseSessionFile('C:\\storage', 'hash-three', 'Workspace Three', 'empty.jsonl')).toEqual(
+    expect(parseSessionFile('/storage', 'hash-three', 'Workspace Three', 'empty.jsonl')).toEqual(
       []
     )
     expect(parseScanChunk).not.toHaveBeenCalled()
   })
 
   it('scanCopilotSessions returns sorted results from all workspace hashes', () => {
-    process.env.APPDATA = 'C:\\Users\\User\\AppData\\Roaming'
+    process.env.APPDATA = '/mock-appdata'
 
-    const stableUserPath = 'C:\\Users\\User\\AppData\\Roaming\\Code\\User'
-    const wsRoot = `${stableUserPath}\\workspaceStorage`
-    const wsOneRoot = `${wsRoot}\\hash-one`
-    const wsTwoRoot = `${wsRoot}\\hash-two`
-    const wsOneChat = `${wsOneRoot}\\chatSessions`
-    const wsTwoChat = `${wsTwoRoot}\\chatSessions`
+    const stableUserPath = path.join('/mock-appdata', 'Code', 'User')
+    const wsRoot = path.join(stableUserPath, 'workspaceStorage')
+    const wsOneRoot = path.join(wsRoot, 'hash-one')
+    const wsTwoRoot = path.join(wsRoot, 'hash-two')
+    const wsOneChat = path.join(wsOneRoot, 'chatSessions')
+    const wsTwoChat = path.join(wsTwoRoot, 'chatSessions')
 
-    vi.mocked(fs.existsSync).mockImplementation(path => path === stableUserPath)
-    vi.mocked(fs.readdirSync).mockImplementation(dir => {
+    vi.mocked(fs.existsSync).mockImplementation(p => p === stableUserPath)
+    vi.mocked(fs.readdirSync).mockImplementation(((dir: string) => {
       if (dir === wsRoot) return ['hash-one', 'hash-two']
       if (dir === wsOneChat) return ['older.jsonl']
       if (dir === wsTwoChat) return ['newer.jsonl']
       throw new Error('ENOENT')
-    })
+    }) as never)
     vi.mocked(fs.readFileSync)
       .mockReturnValueOnce('{"folder":"file:///one"}')
       .mockReturnValueOnce('{"folder":"file:///two"}')
@@ -340,16 +341,16 @@ describe('copilotSessionService', () => {
       .mockReturnValueOnce('Workspace One')
       .mockReturnValueOnce('Workspace Two')
     vi.mocked(fs.statSync).mockImplementation(filePath => {
-      if (filePath === `${wsOneChat}\\older.jsonl`) return { size: 10, mtimeMs: 100 } as never
-      if (filePath === `${wsTwoChat}\\newer.jsonl`) return { size: 20, mtimeMs: 500 } as never
+      if (filePath === path.join(wsOneChat, 'older.jsonl')) return { size: 10, mtimeMs: 100 } as never
+      if (filePath === path.join(wsTwoChat, 'newer.jsonl')) return { size: 20, mtimeMs: 500 } as never
       throw new Error('ENOENT')
     })
     vi.mocked(fs.openSync).mockImplementation(filePath =>
-      filePath === `${wsOneChat}\\older.jsonl` ? 1 : 2
+      filePath === path.join(wsOneChat, 'older.jsonl') ? 1 : 2
     )
     vi.mocked(fs.readSync).mockImplementation((fd, buffer) => {
       const chunk = fd === 1 ? 'older chunk' : 'newer chunk'
-      buffer.write(chunk, 0, 'utf8')
+      ;(buffer as Buffer).write(chunk, 0, 'utf8')
       return chunk.length
     })
     vi.mocked(parseScanChunk).mockImplementation(chunk =>
@@ -374,7 +375,7 @@ describe('copilotSessionService', () => {
       sessions: [
         {
           sessionId: 'newer',
-          filePath: `${wsTwoChat}\\newer.jsonl`,
+          filePath: path.join(wsTwoChat, 'newer.jsonl'),
           workspaceHash: 'hash-two',
           workspaceName: 'Workspace Two',
           modifiedAt: 500,
@@ -387,7 +388,7 @@ describe('copilotSessionService', () => {
         },
         {
           sessionId: 'older',
-          filePath: `${wsOneChat}\\older.jsonl`,
+          filePath: path.join(wsOneChat, 'older.jsonl'),
           workspaceHash: 'hash-one',
           workspaceName: 'Workspace One',
           modifiedAt: 100,
@@ -408,7 +409,7 @@ describe('copilotSessionService', () => {
   })
 
   it('getSessionDetail streams lines and builds a session from parse state', async () => {
-    const filePath = 'C:\\storage\\workspaceStorage\\hash-123\\chatSessions\\session-9.jsonl'
+    const filePath = path.join('/storage', 'workspaceStorage', 'hash-123', 'chatSessions', 'session-9.jsonl')
     const stream = createMockStream()
     const rl = createMockReadline()
     const resultEntry: SessionRequestResult = {
@@ -497,7 +498,7 @@ describe('copilotSessionService', () => {
   })
 
   it('getSessionDetail returns null when the readline parser emits an error', async () => {
-    const filePath = 'C:\\storage\\workspaceStorage\\hash-err\\chatSessions\\session.jsonl'
+    const filePath = path.join('/storage', 'workspaceStorage', 'hash-err', 'chatSessions', 'session.jsonl')
     const rl = createMockReadline()
 
     vi.mocked(fs.existsSync).mockReturnValue(true)

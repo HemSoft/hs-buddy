@@ -48,7 +48,7 @@ describe('ralphHandlers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     handlers = new Map()
-    mockWin.isDestroyed.mockReturnValue(false)
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(false)
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)
     })
@@ -77,7 +77,7 @@ describe('ralphHandlers', () => {
 
   it('does not push status updates when the window is destroyed', () => {
     const callback = mockSetStatusChangeCallback.mock.calls[0][0] as (run: unknown) => void
-    mockWin.isDestroyed.mockReturnValue(true)
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
 
     callback({ runId: 'run-1', status: 'running' })
 

@@ -39,8 +39,8 @@ function createMockProcess() {
 }
 
 const spawnedProcesses: MockChildProcess[] = []
-const mockExecSync = vi.fn().mockReturnValue('')
-const mockSpawn = vi.fn(() => {
+const mockExecSync = vi.fn((..._args: unknown[]) => '')
+const mockSpawn = vi.fn((..._args: unknown[]) => {
   const proc = createMockProcess()
   spawnedProcesses.push(proc)
   return proc
@@ -112,7 +112,7 @@ const validModelsConfig = {
 const normalizePath = (value: unknown) => String(value).replaceAll('\\', '/')
 const buildConfig = (overrides: Partial<Parameters<typeof launchLoop>[0]> = {}) =>
   ({
-    repoPath: 'C:\\repo',
+    repoPath: '/repo',
     scriptType: 'ralph',
     ...overrides,
   }) as Parameters<typeof launchLoop>[0]
@@ -248,7 +248,7 @@ describe('ralphService', () => {
     it('returns error when repoPath does not exist', () => {
       mockExistsSync.mockReturnValue(false)
       const result = launchLoop({
-        repoPath: 'C:\\missing',
+        repoPath: '/missing',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
@@ -258,7 +258,7 @@ describe('ralphService', () => {
     it('returns error for forbidden characters in repoPath', () => {
       mockExistsSync.mockReturnValue(true)
       const result = launchLoop({
-        repoPath: 'C:\\path;with-semicolon',
+        repoPath: '/path;with-semicolon',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
@@ -268,7 +268,7 @@ describe('ralphService', () => {
     it('returns error for invalid scriptType', () => {
       mockExistsSync.mockReturnValue(true)
       const result = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'invalid' as 'ralph',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
@@ -290,7 +290,7 @@ describe('ralphService', () => {
     it('returns error when ralph-pr is missing prNumber', () => {
       mockExistsSync.mockReturnValue(true)
       const result = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'ralph-pr',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
@@ -328,7 +328,7 @@ describe('ralphService', () => {
       expect(mockSpawn).toHaveBeenCalledWith(
         'pwsh',
         expect.arrayContaining(['-NoProfile', '-File']),
-        expect.objectContaining({ cwd: 'C:\\repo', shell: false })
+        expect.objectContaining({ cwd: '/repo', shell: false })
       )
     })
 
@@ -452,9 +452,9 @@ describe('ralphService', () => {
     it('resolves template scripts from the repo when vendored copy is missing', () => {
       mockExistsSync.mockImplementation(path => {
         const filePath = normalizePath(path)
-        if (filePath === 'C:/repo') return true
+        if (filePath === '/repo') return true
         if (filePath.endsWith('/scripts/ralph-loops/scripts/repo-template.ps1')) return false
-        if (filePath === 'C:/repo/scripts/repo-template.ps1') return true
+        if (filePath === '/repo/scripts/repo-template.ps1') return true
         return filePath.includes('/scripts/ralph-loops')
       })
 
@@ -466,9 +466,7 @@ describe('ralphService', () => {
       )
 
       const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(normalizePath(args[args.indexOf('-File') + 1])).toBe(
-        'C:/repo/scripts/repo-template.ps1'
-      )
+      expect(normalizePath(args[args.indexOf('-File') + 1])).toBe('/repo/scripts/repo-template.ps1')
     })
   })
 
@@ -580,7 +578,9 @@ describe('ralphService', () => {
     })
 
     it('stops all active processes and clears state on shutdown', () => {
-      vi.mocked(randomUUID).mockReturnValueOnce('run-1').mockReturnValueOnce('run-2')
+      vi.mocked(randomUUID)
+        .mockReturnValueOnce('11111111-1111-1111-1111-111111111111')
+        .mockReturnValueOnce('22222222-2222-2222-2222-222222222222')
       mockExistsSync.mockReturnValue(true)
 
       launchLoop(buildConfig({ branch: 'feature/one' }))

@@ -94,6 +94,14 @@ describe('telemetry', () => {
         expect.objectContaining({ body: 'bare message', attributes: undefined })
       )
     })
+
+    it('falls back to INFO severity for unknown severity levels', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      emitLog('TRACE' as any, 'trace msg')
+      expect(mockEmit).toHaveBeenCalledWith(
+        expect.objectContaining({ severityNumber: 9, severityText: 'TRACE' })
+      )
+    })
   })
 
   describe('withSpan', () => {

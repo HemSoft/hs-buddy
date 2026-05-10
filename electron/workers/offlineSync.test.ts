@@ -326,4 +326,26 @@ describe('offlineSync', () => {
     expect(result.runsCreated).toBe(0)
     expect(result.errors).toEqual([])
   })
+
+  it('falls back to current time when neither nextRunAt nor lastRunAt exist', async () => {
+    const { isMissedSchedule } = await import('../../src/utils/scheduleUtils')
+    vi.mocked(isMissedSchedule).mockReturnValueOnce(true)
+
+    mockClient.query.mockResolvedValue([
+      {
+        _id: 's-notime',
+        jobId: 'j-notime',
+        name: 'no-time-schedule',
+        cron: '*/5 * * * *',
+        enabled: true,
+        missedPolicy: 'skip',
+        // no nextRunAt, no lastRunAt — getScheduleDefaults uses `now`
+      },
+    ])
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const result = await runOfflineSync('https://test.convex.cloud')
+    expect(result.schedulesProcessed).toBe(1)
+    expect(result.skipped).toBe(1)
+  })
 })

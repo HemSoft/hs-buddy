@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Round 9 — coverage to 94.69% stmts, 86.39% branches
 - Round 9 — coverage to 94.77% stmts, 87.44% branches
 - Round 10 — branches 87.44→88.48%, stmts 94.77→94.90%
+- Round 10b — branches 88.48→88.95%, 4 more files at 100%
 
 ### Changed
 

@@ -162,16 +162,14 @@ export function computeQuartiles(counts: number[]): number[] {
   return [q(0.25), q(0.5), q(0.75)]
 }
 
-/* v8 ignore start -- API response null-guards in event/repo mapping helpers */
-
 /** Extract repo name from a GitHub API repository_url. */
-function extractRepoFromUrl(repoUrl: string): string {
+export function extractRepoFromUrl(repoUrl: string): string {
   const parts = repoUrl.split('/')
   return parts.slice(-2).join('/')
 }
 
 /** Minimal shape for a GitHub search API item used in PR mapping. */
-interface SearchItemForUserPR {
+export interface SearchItemForUserPR {
   number: number
   title: string
   repository_url: string
@@ -183,7 +181,7 @@ interface SearchItemForUserPR {
 }
 
 /** Map a GitHub search API item to a UserPRSummary. */
-function mapSearchItemToUserPR(item: SearchItemForUserPR): UserPRSummary {
+export function mapSearchItemToUserPR(item: SearchItemForUserPR): UserPRSummary {
   return {
     number: item.number,
     title: item.title,
@@ -196,11 +194,14 @@ function mapSearchItemToUserPR(item: SearchItemForUserPR): UserPRSummary {
 }
 
 /** Map a raw GitHub event to a UserEvent. */
-function buildEventId(evt: Record<string, unknown>, repoName: string): string {
+export function buildEventId(evt: Record<string, unknown>, repoName: string): string {
   return String(evt.id ?? `${evt.type ?? 'Unknown'}:${repoName}:${evt.created_at ?? ''}`)
 }
 
-function mapRawEventToUserEvent(evt: Record<string, unknown>, orgPrefix: string): UserEvent | null {
+export function mapRawEventToUserEvent(
+  evt: Record<string, unknown>,
+  orgPrefix: string
+): UserEvent | null {
   const repoObj = evt.repo as { name?: string } | undefined
   const repoName = repoObj?.name
   if (!repoName?.startsWith(orgPrefix)) return null
@@ -221,7 +222,7 @@ function mapRawEventToUserEvent(evt: Record<string, unknown>, orgPrefix: string)
 }
 
 /** Count commits from PushEvents that occurred today in the org. */
-function countEventCommitsToday(
+export function countEventCommitsToday(
   events: Array<Record<string, unknown>>,
   orgPrefix: string,
   startOfDayIso: string
@@ -241,8 +242,6 @@ function countEventCommitsToday(
       return sum + (typeof size === 'number' ? size : 1)
     }, 0)
 }
-
-/* v8 ignore stop */
 
 /** Minimal shape for the GraphQL user profile response used for contribution data. */
 interface GraphQLUserProfile {
@@ -271,7 +270,7 @@ function resolveGraphqlCalendar(userProfile: GraphQLUserProfile | null) {
  * Produces the same ContributionWeek[] structure as the GitHub GraphQL API,
  * with weeks aligned to Sundays.
  */
-function collectDailyCounts(commitDates: string[]): Map<string, number> {
+export function collectDailyCounts(commitDates: string[]): Map<string, number> {
   const dateCounts = new Map<string, number>()
   for (const d of commitDates) {
     const day = d.split('T')[0]
@@ -326,7 +325,7 @@ export function buildContributionCalendar(commitDates: string[]): {
 }
 
 /** Build contribution calendar/source data from search dates and GraphQL profile. */
-function buildContributionData(
+export function buildContributionData(
   contributionDates: string[],
   userProfile: GraphQLUserProfile | null
 ): {
@@ -362,7 +361,17 @@ function buildContributionData(
 }
 
 /** Extract basic user profile fields from a GraphQL user profile response. */
-function extractUserBasicInfo(user: GraphQLUserProfile['user']): {
+export function extractUserBasicInfo(
+  user:
+    | {
+        name?: string | null
+        bio?: string | null
+        company?: string | null
+        location?: string | null
+      }
+    | null
+    | undefined
+): {
   name: string | null
   bio: string | null
   company: string | null
@@ -377,8 +386,7 @@ function extractUserBasicInfo(user: GraphQLUserProfile['user']): {
   }
 }
 
-/* v8 ignore start -- API response null-guards in user status mapping */
-function resolveStatusFields(
+export function resolveStatusFields(
   status: { message?: string | null; emoji?: string | null } | null | undefined
 ): {
   statusMessage: string | null
@@ -390,10 +398,17 @@ function resolveStatusFields(
     statusEmoji: status.emoji ?? null,
   }
 }
-/* v8 ignore stop */
 
 /** Extract status and createdAt from a GraphQL user profile response. */
-function extractUserStatusInfo(user: GraphQLUserProfile['user']): {
+export function extractUserStatusInfo(
+  user:
+    | {
+        status?: { message?: string | null; emoji?: string | null } | null
+        createdAt?: string | null
+      }
+    | null
+    | undefined
+): {
   statusMessage: string | null
   statusEmoji: string | null
   createdAt: string | null
@@ -408,12 +423,12 @@ function extractUserStatusInfo(user: GraphQLUserProfile['user']): {
 // ── Internal helpers for fetchUserActivity ───────────────────────────
 
 /** Minimal repo shape needed for activity queries. */
-interface OrgRepoSlim {
+export interface OrgRepoSlim {
   name: string
   pushedAt: string | null
 }
 
-function mapRawRepoSlim(repo: { name: string; pushed_at?: string | null }): OrgRepoSlim {
+export function mapRawRepoSlim(repo: { name: string; pushed_at?: string | null }): OrgRepoSlim {
   return { name: repo.name, pushedAt: repo.pushed_at ?? null }
 }
 

@@ -161,9 +161,16 @@ describe('telemetry', () => {
 
   describe('initTelemetry', () => {
     it('is a no-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set', async () => {
+      const prev = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
       const { initTelemetry } = await import('./telemetry')
-      // process.env has no OTEL_EXPORTER_OTLP_ENDPOINT by default in test
-      await expect(initTelemetry()).resolves.toBeUndefined()
+      try {
+        await expect(initTelemetry()).resolves.toBeUndefined()
+      } finally {
+        if (prev !== undefined) {
+          process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prev
+        }
+      }
     })
   })
 

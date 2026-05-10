@@ -82,6 +82,7 @@ vi.mock('../../src/utils/errorUtils', () => ({
   getErrorMessageWithFallback: vi.fn((_err: unknown, fallback: string) => fallback),
 }))
 
+import { resolve } from 'node:path'
 import { ipcMain } from 'electron'
 import { IPC_PUSH } from '../../src/ipc/contracts'
 import { registerTerminalHandlers } from './terminalHandlers'
@@ -267,7 +268,7 @@ describe('terminalHandlers', () => {
   it('processOsc7 updates cwd and notifies renderer when OSC 7 data is received', async () => {
     const { processOsc7Buffer } = await import('../../src/utils/terminalPathUtils')
     vi.mocked(processOsc7Buffer).mockReturnValueOnce({
-      cwd: 'C:\\workspace\\repo',
+      cwd: '/workspace/repo',
       remainingBuffer: '',
     })
 
@@ -279,12 +280,12 @@ describe('terminalHandlers', () => {
     const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
 
     expect(ptyState.callbacks.data).toBeTypeOf('function')
-    ptyState.callbacks.data!('\u001b]7;file:///C:/workspace/repo\u0007')
+    ptyState.callbacks.data!('\u001b]7;file:///workspace/repo\u0007')
 
     expect(mockSender.send).toHaveBeenCalledWith(
       IPC_PUSH.TERMINAL_CWD_CHANGED,
       spawnResult.sessionId,
-      'C:\\workspace\\repo'
+      resolve('/workspace/repo')
     )
   })
 

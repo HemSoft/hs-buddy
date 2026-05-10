@@ -8,9 +8,9 @@ const createMockChildProcess = () => ({
   pid: 12345,
 })
 
-const mockSpawn = vi.fn(() => createMockChildProcess())
+const mockSpawn = vi.fn().mockImplementation(() => createMockChildProcess())
 const mockExecSync = vi.fn().mockReturnValue('')
-const mockRandomUUID = vi.fn(() => 'test-uuid-1234')
+const mockRandomUUID = vi.fn().mockReturnValue('test-uuid-1234')
 
 vi.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
@@ -41,6 +41,7 @@ vi.mock('os', () => ({
   tmpdir: vi.fn(() => '/tmp'),
 }))
 
+import { join, resolve, dirname } from 'node:path'
 import {
   setStatusChangeCallback,
   listLoops,
@@ -351,11 +352,15 @@ describe('ralphService', () => {
 
   describe('launchLoop - template scripts', () => {
     it('resolves template scripts from the repo scripts directory', () => {
-      const repoPath = 'C:\\repo'
+      const repoPath = '/repo'
+      // getScriptsDir computes: resolve(__dirname, '..', 'scripts/ralph-loops')
+      // where __dirname = dirname(fileURLToPath(import.meta.url)), mocked to '/mock/service'
+      const scriptsDir = resolve(dirname('/mock/service'), '..', 'scripts/ralph-loops')
       mockExistsSync.mockImplementation((filePath: string) => {
-        if (filePath.endsWith('scripts\\ralph-loops')) return true
+        if (filePath === scriptsDir) return true
         if (filePath === repoPath) return true
-        if (filePath === `${repoPath}\\scripts\\ralph-review.ps1`) return true
+        // Only the repo scripts path should exist, NOT the vendored one
+        if (filePath === join(repoPath, 'scripts', 'ralph-review.ps1')) return true
         return false
       })
 
@@ -372,7 +377,7 @@ describe('ralphService', () => {
         expect.arrayContaining([
           '-NoProfile',
           '-File',
-          `${repoPath}\\scripts\\ralph-review.ps1`,
+          join(repoPath, 'scripts', 'ralph-review.ps1'),
           '-Autopilot',
         ])
       )
@@ -380,9 +385,10 @@ describe('ralphService', () => {
     })
 
     it('returns an error when a template script cannot be found', () => {
-      const repoPath = 'C:\\repo'
+      const repoPath = '/repo'
+      const scriptsDir = resolve(dirname('/mock/service'), '..', 'scripts/ralph-loops')
       mockExistsSync.mockImplementation(
-        (filePath: string) => filePath.endsWith('scripts\\ralph-loops') || filePath === repoPath
+        (filePath: string) => filePath === scriptsDir || filePath === repoPath
       )
 
       const result = launchLoop({
@@ -398,7 +404,7 @@ describe('ralphService', () => {
 
   describe('launchLoop - argument building', () => {
     it('wraps repeated runs and forwards optional flags', () => {
-      const repoPath = 'C:\\repo'
+      const repoPath = '/repo'
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(
         JSON.stringify({
@@ -480,7 +486,7 @@ describe('ralphService', () => {
       mockExistsSync.mockReturnValue(true)
 
       const result = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'ralph-issues',
         prompt: 'Line 1\nLine 2',
         labels: 'triage,ai',
@@ -509,7 +515,7 @@ describe('ralphService', () => {
     it('uses taskkill for running Windows processes', () => {
       mockExistsSync.mockReturnValue(true)
       const launched = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
@@ -530,7 +536,7 @@ describe('ralphService', () => {
     it('sends SIGTERM for running non-Windows processes', () => {
       mockExistsSync.mockReturnValue(true)
       const launched = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
       const spawnedProc = mockSpawn.mock.results[0]?.value as ReturnType<
@@ -557,7 +563,7 @@ describe('ralphService', () => {
     it('marks running entries as orphaned', () => {
       mockExistsSync.mockReturnValue(true)
       const launched = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
@@ -575,11 +581,11 @@ describe('ralphService', () => {
       mockExistsSync.mockReturnValue(true)
       mockRandomUUID.mockReturnValueOnce('run-1').mockReturnValueOnce('run-2')
       const first = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
       const second = launchLoop({
-        repoPath: 'C:\\repo',
+        repoPath: '/repo',
         scriptType: 'ralph-issues',
       } as Parameters<typeof launchLoop>[0])
 

@@ -320,6 +320,7 @@ describe('dispatcher', () => {
           businessSeats: 4,
           budgetAmount: 100,
           spent: 19,
+          fetchedAt: Date.now(),
         },
       })
       .mockResolvedValueOnce({
@@ -333,7 +334,9 @@ describe('dispatcher', () => {
           discount: 4,
           netCost: 20,
           businessSeats: 5,
+          budgetAmount: null,
           spent: 20,
+          fetchedAt: Date.now(),
         },
       })
 
@@ -452,7 +455,9 @@ describe('dispatcher', () => {
           discount: 5,
           netCost: 21,
           businessSeats: 6,
+          budgetAmount: null,
           spent: 21,
+          fetchedAt: Date.now(),
         },
       })
       .mockResolvedValueOnce({
@@ -466,7 +471,9 @@ describe('dispatcher', () => {
           discount: 6,
           netCost: 22,
           businessSeats: 7,
+          budgetAmount: null,
           spent: 22,
+          fetchedAt: Date.now(),
         },
       })
 

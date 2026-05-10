@@ -4,8 +4,8 @@ const { mockShowOpenDialog, mockExecFileAsync, mockParseGitRemote, mockIsGitHubH
   () => ({
     mockShowOpenDialog: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
     mockExecFileAsync: vi.fn().mockResolvedValue({ stdout: '' }),
-    mockParseGitRemote: vi.fn(() => null),
-    mockIsGitHubHost: vi.fn(() => false),
+    mockParseGitRemote: vi.fn().mockReturnValue(null),
+    mockIsGitHubHost: vi.fn().mockReturnValue(false),
   })
 )
 

@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve typecheck and coverage CI failures
 - Address PR review feedback for test reliability
 - Strengthen no-op assertion in scanCopilotSessions test
+- Correct RalphRunStatus literal and null-safe callback in test
 
 ### Changed
 

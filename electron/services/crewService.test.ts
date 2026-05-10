@@ -51,11 +51,17 @@ import {
 } from './crewService'
 
 describe('crewService', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockExecFileAsync.mockReset().mockResolvedValue({ stdout: '' })
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    mockExecFileAsync.mockResolvedValue({ stdout: '' })
     mockExistsSync.mockReturnValue(false)
     mockReadFileSync.mockReturnValue('[]')
+    // Re-apply defaults for module-level mocks cleared by resetAllMocks
+    const { dialog } = await import('electron')
+    vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: true, filePaths: [] })
+    const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+    vi.mocked(parseGitRemote).mockReturnValue(null)
+    vi.mocked(isGitHubHost).mockReturnValue(false)
   })
 
   describe('listProjects', () => {

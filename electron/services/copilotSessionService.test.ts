@@ -97,10 +97,14 @@ describe('copilotSessionService', () => {
   describe('getVSCodeStoragePath', () => {
     it('returns empty string when APPDATA is not set', () => {
       const original = process.env.APPDATA
-      delete process.env.APPDATA
-      const result = getVSCodeStoragePath()
-      expect(result).toBe('')
-      process.env.APPDATA = original
+      try {
+        delete process.env.APPDATA
+        const result = getVSCodeStoragePath()
+        expect(result).toBe('')
+      } finally {
+        if (original === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = original
+      }
     })
 
     it('returns Insiders path when it exists', () => {
@@ -121,12 +125,15 @@ describe('copilotSessionService', () => {
     it('returns empty string when no VS Code path exists', () => {
       mockExistsSync.mockReturnValue(false)
       const result = getVSCodeStoragePath()
-      expect(typeof result).toBe('string')
+      expect(result).toBe('')
     })
   })
 
   describe('resolveWorkspaceName', () => {
     it('returns basename when workspace.json read fails', () => {
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error('ENOENT')
+      })
       const name = resolveWorkspaceName('/workspaces/abc123')
       expect(name).toBe('abc123')
     })
@@ -149,10 +156,14 @@ describe('copilotSessionService', () => {
   describe('scanCopilotSessions', () => {
     it('returns empty when storage path is empty', () => {
       const original = process.env.APPDATA
-      delete process.env.APPDATA
-      const result = scanCopilotSessions()
-      expect(result).toEqual({ sessions: [], totalCount: 0 })
-      process.env.APPDATA = original
+      try {
+        delete process.env.APPDATA
+        const result = scanCopilotSessions()
+        expect(result).toEqual({ sessions: [], totalCount: 0 })
+      } finally {
+        if (original === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = original
+      }
     })
 
     it('returns empty when workspaceStorage dir cannot be read', () => {

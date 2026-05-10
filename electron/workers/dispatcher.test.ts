@@ -497,4 +497,115 @@ describe('dispatcher', () => {
 
     expect(abortSignalReceived).toBe(true)
   })
+
+  it('reports failure with fallback error when result.error is undefined', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+    vi.mocked(isInBackoffWindow).mockReturnValue(false)
+
+    vi.mocked(execWorker.execute).mockResolvedValueOnce({
+      success: false,
+      error: undefined,
+      output: '',
+      duration: 50,
+      exitCode: 1,
+    })
+    mockClient.mutation.mockResolvedValueOnce({
+      run: { _id: 'run-no-err' },
+      job: { name: 'no-err-job', workerType: 'exec', config: { command: 'fail-quietly' } },
+    })
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-no-err',
+      error: 'Unknown error',
+    })
+  })
+
+  it('suppresses log when shouldLogDispatcherError returns false', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow, shouldLogDispatcherError } = await import(
+      '../../src/utils/dispatcherBackoff'
+    )
+    vi.mocked(isInBackoffWindow).mockReturnValue(false)
+    vi.mocked(shouldLogDispatcherError).mockReturnValue(false)
+
+    // Force claimPending to throw (Convex unreachable)
+    mockClient.mutation.mockRejectedValue(new Error('Network failure'))
+
+    const warnSpy = vi.spyOn(console, 'warn')
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    // shouldLogDispatcherError returned false — warn should NOT contain the dispatcher message
+    const dispatcherWarns = warnSpy.mock.calls.filter(
+      c => typeof c[0] === 'string' && c[0].includes('[Dispatcher] Convex unreachable')
+    )
+    expect(dispatcherWarns).toHaveLength(0)
+    warnSpy.mockRestore()
+  })
+
+  it('includes budgetAmount in snapshot when present', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+    vi.mocked(isInBackoffWindow).mockReturnValue(false)
+
+    const { fetchCopilotMetrics } = await import('../ipc/githubHandlers')
+    vi.mocked(fetchCopilotMetrics).mockResolvedValue({
+      success: true,
+      data: {
+        org: 'test-org',
+        billingYear: 2026,
+        billingMonth: 5,
+        premiumRequests: 100,
+        grossCost: 10.0,
+        discount: 0,
+        netCost: 10.0,
+        businessSeats: 5,
+        budgetAmount: 500,
+        spent: 10.0,
+      },
+    } as never)
+
+    let claimCount = 0
+    mockClient.mutation.mockImplementation((apiName: string) => {
+      if (apiName === 'runs:claimPending') {
+        claimCount++
+        if (claimCount === 1) {
+          return Promise.resolve({
+            run: {
+              _id: 'run-budget',
+              input: { accounts: [{ username: 'user1', org: 'org1' }] },
+            },
+            job: {
+              name: 'snapshot',
+              workerType: 'exec',
+              config: { command: '__copilot_snapshot__' },
+            },
+          })
+        }
+        return Promise.resolve(null)
+      }
+      return Promise.resolve(undefined)
+    })
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 200))
+    dispatcher.stop()
+
+    // Verify budgetAmount was included in the store mutation
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'copilotUsageHistory:store',
+      expect.objectContaining({ budgetAmount: 500 })
+    )
+  })
 })

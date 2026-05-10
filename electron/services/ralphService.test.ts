@@ -306,6 +306,30 @@ describe('ralphService', () => {
       expect(scripts[0].defaultPrompt).toBeUndefined()
       expect(scripts[0].description).toBeUndefined()
     })
+
+    it('skips leading blank lines before comments', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-blanks.ps1'])
+      // Leading blank lines then a comment block followed by blank line
+      mockReadFileSync.mockReturnValue(
+        '\n\n# ralph-blanks — Blank line test\n# Description text here\n\nparam($x)'
+      )
+
+      const scripts = listTemplateScripts()
+      expect(scripts[0].description).toBe('Blank line test')
+    })
+
+    it('stops reading comments at first blank line after comments', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-stop.ps1'])
+      // Comments → blank line → more comments (should be ignored)
+      mockReadFileSync.mockReturnValue(
+        '# ralph-stop — Stop test\n# First desc\n\n# Second block (should not appear)'
+      )
+
+      const scripts = listTemplateScripts()
+      expect(scripts[0].description).toBe('Stop test')
+    })
   })
 
   describe('getConfig', () => {

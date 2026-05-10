@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review feedback — strengthen test assertions and fix TS2556
 - Sync MockStore.store after clear() to prevent stale state
 - Address PR review feedback and fix electron coverage threshold
+- Address PR review feedback on dispatcher tests
 
 ### Changed
 

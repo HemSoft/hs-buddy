@@ -426,7 +426,7 @@ describe('dispatcher', () => {
     const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
 
     // Make backoff return true — poll should skip
-    vi.mocked(isInBackoffWindow).mockReturnValue(true)
+    vi.mocked(isInBackoffWindow).mockReturnValueOnce(true)
 
     mockClient.mutation.mockResolvedValue(null)
 
@@ -436,7 +436,7 @@ describe('dispatcher', () => {
     dispatcher.stop()
 
     // claimPending should never have been called because backoff skips the poll
-    expect(mockClient.mutation).not.toHaveBeenCalledWith('runs:claimPending', {})
+    expect(mockClient.mutation).not.toHaveBeenCalledWith('runs:claimPending', expect.anything())
   })
 
   it('snapshot collection handles store mutation failure', async () => {

@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve CI lint, typecheck, and test failures across electron tests
 - Address PR review feedback on test quality
 - Ensure copilotSessionService tests work on Linux CI
+- Remove duplicate ### Changed heading in CHANGELOG.md
 
 ### Changed
 
@@ -61,9 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Round 10 — branches 87.44→88.48%, stmts 94.77→94.90%
 - Round 10b — branches 88.48→88.95%, 4 more files at 100%
 - Round 11 — cover buffer size guard, prompt fallback, and template scriptType
-
-### Changed
-
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main

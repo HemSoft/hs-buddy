@@ -559,6 +559,52 @@ describe('crewService', () => {
       expect(result.success).toBe(true)
       expect(result.project!.defaultBranch).toBe('main')
     })
+    it('rejects SSH remote when ssh -G has no hostname line', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'git@custom:owner/repo.git' })
+        .mockResolvedValueOnce({ stdout: 'user git\nport 22\n' }) // ssh -G returns no hostname line
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'custom',
+        slug: 'owner/repo',
+        scheme: 'ssh',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(false)
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not a GitHub repository')
+    })
+
+    it('rejects non-ssh non-github remote', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'https://gitlab.com/owner/repo.git' })
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'gitlab.com',
+        slug: 'owner/repo',
+        scheme: 'https',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(false)
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not a GitHub repository')
+    })
   })
 
   describe('undoFile', () => {

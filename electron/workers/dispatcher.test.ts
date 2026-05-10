@@ -390,4 +390,111 @@ describe('dispatcher', () => {
     // but subsequent interval polls should be skipped
     expect(isInBackoffWindow).toHaveBeenCalled()
   })
+
+  it('handles storeSnapshot mutation failure gracefully', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+    vi.mocked(isInBackoffWindow).mockReturnValue(false)
+
+    const { fetchCopilotMetrics } = await import('../ipc/githubHandlers')
+    vi.mocked(fetchCopilotMetrics).mockResolvedValue({
+      success: true,
+      data: {
+        org: 'test-org',
+        billingYear: 2026,
+        billingMonth: 5,
+        premiumRequests: 50,
+        grossCost: 5.0,
+        discount: 0,
+        netCost: 5.0,
+        businessSeats: 2,
+        spent: 5.0,
+      },
+    } as never)
+
+    let claimCount = 0
+    // Route mutation calls by API name
+    mockClient.mutation.mockImplementation((apiName: string) => {
+      if (apiName === 'runs:claimPending') {
+        claimCount++
+        if (claimCount === 1) {
+          return Promise.resolve({
+            run: {
+              _id: 'run-store-fail',
+              input: { accounts: [{ username: 'user1', org: 'org1' }] },
+            },
+            job: {
+              name: 'snapshot',
+              workerType: 'exec',
+              config: { command: '__copilot_snapshot__' },
+            },
+          })
+        }
+        return Promise.resolve(null)
+      }
+      if (apiName === 'copilotUsageHistory:store') {
+        return Promise.reject(new Error('Convex mutation failed'))
+      }
+      return Promise.resolve(undefined)
+    })
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 300))
+    dispatcher.stop()
+
+    // Should have completed (with 0/1 success) rather than crashing
+    expect(mockClient.mutation).toHaveBeenCalledWith(
+      'runs:complete',
+      expect.objectContaining({ id: 'run-store-fail' })
+    )
+  })
+
+  it('stop aborts in-flight worker execution', async () => {
+    vi.useRealTimers()
+    const { isInBackoffWindow } = await import('../../src/utils/dispatcherBackoff')
+    vi.mocked(isInBackoffWindow).mockReturnValue(false)
+
+    // Make execWorker.execute hang until abort
+    let abortSignalReceived = false
+    vi.mocked(execWorker.execute).mockImplementation(
+      (_config, signal) =>
+        new Promise(resolve => {
+          const onAbort = () => {
+            abortSignalReceived = true
+            resolve({ success: false, output: '', duration: 0, exitCode: 1, error: 'aborted' })
+          }
+          if (signal?.aborted) {
+            onAbort()
+          } else {
+            signal?.addEventListener('abort', onAbort, { once: true })
+          }
+        })
+    )
+
+    let claimCount = 0
+    mockClient.mutation.mockImplementation((apiName: string) => {
+      if (apiName === 'runs:claimPending') {
+        claimCount++
+        if (claimCount === 1) {
+          return Promise.resolve({
+            run: { _id: 'run-abort' },
+            job: { name: 'slow-job', workerType: 'exec', config: { command: 'sleep 999' } },
+          })
+        }
+        return Promise.resolve(null)
+      }
+      return Promise.resolve(undefined)
+    })
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    // Let the poll start and claim the job
+    await new Promise(r => setTimeout(r, 100))
+    // stop() should abort the in-flight execution
+    dispatcher.stop()
+    await new Promise(r => setTimeout(r, 50))
+
+    expect(abortSignalReceived).toBe(true)
+  })
 })

@@ -197,6 +197,39 @@ describe('copilotService', () => {
     })
   })
 
+  describe('switchAccount skip', () => {
+    it('skips switch when already on the correct account', async () => {
+      const { execAsync } = await import('../utils')
+      const service = getCopilotService()
+
+      // First call: switches to 'testacct' — execAsync is called for gh auth switch
+      await service.executePrompt({
+        prompt: 'Review PR',
+        category: 'general',
+        metadata: { ghAccount: 'testacct' },
+      })
+
+      // Wait for async runPrompt to settle
+      await new Promise(r => setTimeout(r, 20))
+      vi.mocked(execAsync).mockClear()
+
+      // Second call: same account — should skip switch (lines 133-135)
+      await service.executePrompt({
+        prompt: 'Another PR',
+        category: 'general',
+        metadata: { ghAccount: 'testacct' },
+      })
+
+      await new Promise(r => setTimeout(r, 20))
+
+      // execAsync should NOT have been called for 'gh auth switch' again
+      const switchCalls = vi.mocked(execAsync).mock.calls.filter(
+        ([cmd]) => typeof cmd === 'string' && cmd.includes('gh auth switch')
+      )
+      expect(switchCalls).toHaveLength(0)
+    })
+  })
+
   describe('listModels', () => {
     it('calls ensureClientStarted and returns mapped models', async () => {
       const service = getCopilotService()

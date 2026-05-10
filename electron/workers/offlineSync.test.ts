@@ -247,4 +247,83 @@ describe('offlineSync', () => {
     expect(result.schedulesProcessed).toBe(0)
     expect(result.runsCreated).toBe(0)
   })
+
+  it('processSchedule guard returns not-missed when nextRunAt > now', async () => {
+    const { isMissedSchedule } = await import('../../src/utils/scheduleUtils')
+    // Force isMissedSchedule to return true so the schedule passes the filter,
+    // but processSchedule's own guard (nextRunAt > now) catches it
+    vi.mocked(isMissedSchedule).mockReturnValueOnce(true)
+
+    const futureTime = Date.now() + 500_000
+    mockClient.query.mockResolvedValue([
+      {
+        _id: 's-guard',
+        jobId: 'j-guard',
+        name: 'guarded-schedule',
+        cron: '0 * * * *',
+        enabled: true,
+        missedPolicy: 'skip',
+        nextRunAt: futureTime,
+      },
+    ])
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const result = await runOfflineSync('https://test.convex.cloud')
+    // processSchedule returns early with 'not-missed'
+    expect(result.schedulesProcessed).toBe(1)
+    expect(result.runsCreated).toBe(0)
+    expect(result.skipped).toBe(1)
+  })
+
+  it('handles last policy with no missed occurrences', async () => {
+    const pastTime = Date.now() - 60_000
+    mockClient.query.mockResolvedValue([
+      {
+        _id: 's-last-no-miss',
+        jobId: 'j-last-no-miss',
+        name: 'last-no-miss',
+        cron: '*/5 * * * *',
+        enabled: true,
+        missedPolicy: 'last',
+        nextRunAt: pastTime,
+      },
+    ])
+    vi.mocked(enumerateCronOccurrences).mockReturnValueOnce([])
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const result = await runOfflineSync('https://test.convex.cloud')
+    expect(result.schedulesProcessed).toBe(1)
+    expect(result.runsCreated).toBe(0)
+  })
+
+  it('falls back to lastRunAt when nextRunAt is undefined', async () => {
+    const { isMissedSchedule } = await import('../../src/utils/scheduleUtils')
+    vi.mocked(isMissedSchedule).mockReturnValueOnce(true)
+
+    const pastTime = Date.now() - 60_000
+    mockClient.query.mockResolvedValue([
+      {
+        _id: 's-lastrun',
+        jobId: 'j-lastrun',
+        name: 'lastrun-fallback',
+        cron: '*/5 * * * *',
+        enabled: true,
+        missedPolicy: 'skip',
+        lastRunAt: pastTime,
+        // no nextRunAt — falls back to lastRunAt in getScheduleDefaults
+      },
+    ])
+    mockClient.mutation.mockResolvedValue(undefined)
+
+    const result = await runOfflineSync('https://test.convex.cloud')
+    expect(result.schedulesProcessed).toBe(1)
+    expect(result.skipped).toBe(1)
+  })
+
+  it('uses default CONVEX_URL when no URL argument provided', async () => {
+    mockClient.query.mockResolvedValue([])
+    const result = await runOfflineSync()
+    expect(result.runsCreated).toBe(0)
+    expect(result.errors).toEqual([])
+  })
 })

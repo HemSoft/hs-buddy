@@ -182,13 +182,17 @@ describe('copilotClient', () => {
       const result = await sendChatMessage({
         message: 'How are you?',
         context: 'You are a helpful assistant.',
-        conversationHistory: [{ role: 'user', content: 'Hi' }],
+        conversationHistory: [
+          { role: 'user', content: 'Hi' },
+          { role: 'assistant', content: 'Hello!' },
+        ],
       })
 
       expect(result).toBe('Chat response')
       const sentPrompt = mockSendAndWait.mock.calls[0][0].prompt
       expect(sentPrompt).toContain('You are a helpful assistant.')
       expect(sentPrompt).toContain('User: Hi')
+      expect(sentPrompt).toContain('Assistant: Hello!')
       expect(sentPrompt).toContain('User: How are you?')
     })
   })
@@ -197,6 +201,34 @@ describe('copilotClient', () => {
     it('aborts in-flight chat without error', async () => {
       const { abortChat } = await import('./copilotClient')
       // Should not throw even when nothing is in-flight
+      expect(() => abortChat()).not.toThrow()
+    })
+
+    it('aborts the active chat controller when one exists', async () => {
+      mockGetState.mockReturnValue('connected')
+      mockStart.mockResolvedValue(undefined)
+      mockExistSync.mockImplementation(() => false)
+      await mockRequireResolution()
+
+      const mockDestroy = vi.fn().mockResolvedValue(undefined)
+      const mockSendAndWait = vi.fn().mockResolvedValue('response')
+      mockCreateSession.mockResolvedValue({
+        sendAndWait: mockSendAndWait,
+        destroy: mockDestroy,
+      })
+
+      const { sendChatMessage, abortChat } = await import('./copilotClient')
+
+      // Start a chat to set chatAbortController
+      await sendChatMessage({
+        message: 'Hello',
+        context: 'Ctx',
+        conversationHistory: [],
+      })
+
+      // Now abort — should enter the if-branch (lines 285-286)
+      expect(() => abortChat()).not.toThrow()
+      // Calling again when controller is already null — no-op
       expect(() => abortChat()).not.toThrow()
     })
   })

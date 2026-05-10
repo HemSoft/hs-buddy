@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main
 - Improve coverage from 68% to 80%
+- Add missing ralphHandlers tests to meet 80% threshold
 
 ## [0.1.751] - 2026-05-07
 

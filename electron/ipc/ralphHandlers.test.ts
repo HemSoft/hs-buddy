@@ -84,6 +84,54 @@ describe('ralphHandlers', () => {
     expect(result).toBe('/repos/my-project')
   })
 
+  it('ralph:get-status delegates to getLoopStatus', async () => {
+    const { getLoopStatus } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-status')!
+    const result = await handler({}, 'run-1')
+    expect(getLoopStatus).toHaveBeenCalledWith('run-1')
+    expect(result).toEqual({ runId: 'run-1', status: 'complete' })
+  })
+
+  it('ralph:get-config delegates to getConfig', async () => {
+    const { getConfig } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-config')!
+    const result = await handler({}, 'global')
+    expect(getConfig).toHaveBeenCalledWith('global')
+    expect(result).toEqual({ scripts: '/path/to/scripts' })
+  })
+
+  it('ralph:get-scripts-path delegates to getScriptsPath', async () => {
+    const { getScriptsPath } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-scripts-path')!
+    const result = await handler({})
+    expect(getScriptsPath).toHaveBeenCalled()
+    expect(result).toBe('/home/user/.ralph/scripts')
+  })
+
+  it('ralph:list-templates delegates to listTemplateScripts', async () => {
+    const { listTemplateScripts } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:list-templates')!
+    const result = await handler({})
+    expect(listTemplateScripts).toHaveBeenCalled()
+    expect(result).toEqual(['audit.sh', 'deploy.sh'])
+  })
+
+  it('status change callback sends update to renderer', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
+    const run = { runId: 'run-1', status: 'complete' }
+    callback(run)
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', run)
+  })
+
+  it('status change callback skips destroyed window', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls[0][0]
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
+    callback({ runId: 'run-1', status: 'complete' })
+    expect(mockWin.webContents.send).not.toHaveBeenCalled()
+  })
+
   it('ralph:select-directory returns null when dialog is canceled', async () => {
     vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: true, filePaths: [] })
     const handler = handlers.get('ralph:select-directory')!

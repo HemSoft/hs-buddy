@@ -66,8 +66,17 @@ import {
 
 describe('copilotSessionService', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     mockExistsSync.mockReturnValue(false)
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('ENOENT')
+    })
+    mockReaddirSync.mockReturnValue([])
+    mockStatSync.mockReturnValue({ size: 100, mtimeMs: 1000 })
+    mockOpenSync.mockReturnValue(99)
+    mockReadSync.mockReturnValue(0)
+    mockResolveFolderOrWorkspaceName.mockReturnValue('test-workspace')
+    mockParseKeyPath.mockReturnValue(null)
   })
 
   it('getVSCodeStoragePath returns a string', () => {
@@ -97,11 +106,15 @@ describe('copilotSessionService', () => {
   describe('scanCopilotSessions', () => {
     it('returns empty when APPDATA is not set', () => {
       const saved = process.env.APPDATA
-      delete process.env.APPDATA
-      const result = scanCopilotSessions()
-      expect(result.sessions).toEqual([])
-      expect(result.totalCount).toBe(0)
-      if (saved) process.env.APPDATA = saved
+      try {
+        delete process.env.APPDATA
+        const result = scanCopilotSessions()
+        expect(result.sessions).toEqual([])
+        expect(result.totalCount).toBe(0)
+      } finally {
+        if (saved === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = saved
+      }
     })
 
     it('returns empty when storage paths do not exist', () => {
@@ -113,50 +126,55 @@ describe('copilotSessionService', () => {
 
     it('scans workspace directories and collects sessions', () => {
       const saved = process.env.APPDATA
-      process.env.APPDATA = '/tmp/appdata'
-      // First call: Insiders doesn't exist, second: stable exists
-      mockExistsSync.mockImplementation((p: unknown) => {
-        const path = p as string
-        if (path.includes('Code - Insiders')) return false
-        if (path.includes('Code')) return true
-        if (path.includes('chatSessions')) return true
-        return true
-      })
-      // readdirSync for workspaceStorage
-      mockReaddirSync.mockImplementation((p: unknown) => {
-        const path = p as string
-        if (path.includes('workspaceStorage') && !path.includes('hash1')) return ['hash1']
-        if (path.includes('chatSessions')) return ['session1.jsonl']
-        return []
-      })
-      mockStatSync.mockReturnValue({ size: 500, mtimeMs: 2000 })
-      mockOpenSync.mockReturnValue(42)
-      mockReadSync.mockImplementation((_fd: unknown, buf: Buffer) => {
-        const chunk = '{"kind":1,"data":"test"}'
-        buf.write(chunk)
-        return chunk.length
-      })
-      mockReadFileSync.mockReturnValue('{"folder":"file:///test/project"}')
+      try {
+        process.env.APPDATA = '/tmp/appdata'
+        // First call: Insiders doesn't exist, second: stable exists
+        mockExistsSync.mockImplementation((p: unknown) => {
+          const path = p as string
+          if (path.includes('Code - Insiders')) return false
+          if (path.includes('Code')) return true
+          if (path.includes('chatSessions')) return true
+          return true
+        })
+        // readdirSync for workspaceStorage
+        mockReaddirSync.mockImplementation((p: unknown) => {
+          const path = p as string
+          if (path.includes('workspaceStorage') && !path.includes('hash1')) return ['hash1']
+          if (path.includes('chatSessions')) return ['session1.jsonl']
+          return []
+        })
+        mockStatSync.mockReturnValue({ size: 500, mtimeMs: 2000 })
+        mockOpenSync.mockReturnValue(42)
+        mockReadSync.mockImplementation((_fd: unknown, buf: Buffer) => {
+          const chunk = '{"kind":1,"data":"test"}'
+          buf.write(chunk)
+          return chunk.length
+        })
+        mockReadFileSync.mockReturnValue('{"folder":"file:///test/project"}')
 
-      const result = scanCopilotSessions()
-      expect(result.sessions.length).toBeGreaterThanOrEqual(0)
-      if (saved) process.env.APPDATA = saved
-      else delete process.env.APPDATA
+        const result = scanCopilotSessions()
+        expect(result.sessions.length).toBeGreaterThanOrEqual(0)
+      } finally {
+        if (saved === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = saved
+      }
     })
 
     it('handles readdirSync failure on workspaceStorage', () => {
       const saved = process.env.APPDATA
-      process.env.APPDATA = '/tmp/appdata'
-      mockExistsSync.mockReturnValue(true)
-      mockReaddirSync.mockImplementation(() => {
-        throw new Error('EACCES')
-      })
+      try {
+        process.env.APPDATA = '/tmp/appdata'
+        mockExistsSync.mockReturnValue(true)
+        mockReaddirSync.mockImplementation(() => {
+          throw new Error('EACCES')
+        })
 
-      const result = scanCopilotSessions()
-      expect(result.sessions).toEqual([])
-
-      if (saved) process.env.APPDATA = saved
-      else delete process.env.APPDATA
+        const result = scanCopilotSessions()
+        expect(result.sessions).toEqual([])
+      } finally {
+        if (saved === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = saved
+      }
     })
   })
 

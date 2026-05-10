@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add round 3 electron coverage tests (telemetry, shell, todoist, slack, terminal)
 - Add copilotSessionHandlers digest + configHandlers notification sound tests
 - Improve electron coverage to 90% (terminal, copilotService, menu, github handlers)
+- Round 6 electron coverage to 93% (githubHandlers, tempoClient, copilotClient)
 
 ### Changed
 

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail fast when electron main.js is missing
 - Add cross-platform cleanup guidance for stale artifacts
 - Address typecheck errors and review feedback in test files
+- Fix flaky lighthouse NO_FCP in headless Chrome
 
 ### Changed
 

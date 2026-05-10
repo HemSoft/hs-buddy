@@ -110,4 +110,105 @@ describe('tempoHandlers', () => {
       expect(result).toEqual({ total: 40 })
     })
   })
+
+  describe('tempo:create-worklog', () => {
+    it('creates a worklog and returns result', async () => {
+      const payload = { issueKey: 'TEST-1', timeSpentSeconds: 3600, startDate: '2026-01-15' }
+      mockCreateWorklog.mockResolvedValue({ id: 10, timeSpent: 3600 })
+      const result = await handlers.get('tempo:create-worklog')!({}, payload)
+      expect(mockCreateWorklog).toHaveBeenCalledWith(payload)
+      expect(result).toEqual({ id: 10, timeSpent: 3600 })
+    })
+
+    it('returns error when create fails', async () => {
+      mockCreateWorklog.mockRejectedValue(new Error('Invalid issue'))
+      const result = await handlers.get('tempo:create-worklog')!({}, {})
+      expect(result).toEqual({ success: false, error: 'Invalid issue' })
+    })
+  })
+
+  describe('tempo:update-worklog', () => {
+    it('updates a worklog', async () => {
+      const payload = { timeSpentSeconds: 7200 }
+      mockUpdateWorklog.mockResolvedValue({ id: 10, timeSpent: 7200 })
+      const result = await handlers.get('tempo:update-worklog')!({}, { worklogId: 10, payload })
+      expect(mockUpdateWorklog).toHaveBeenCalledWith(10, payload)
+      expect(result).toEqual({ id: 10, timeSpent: 7200 })
+    })
+
+    it('returns error when update fails', async () => {
+      mockUpdateWorklog.mockRejectedValue(new Error('Not found'))
+      const result = await handlers.get('tempo:update-worklog')!({}, { worklogId: 99, payload: {} })
+      expect(result).toEqual({ success: false, error: 'Not found' })
+    })
+  })
+
+  describe('tempo:delete-worklog', () => {
+    it('deletes a worklog', async () => {
+      mockDeleteWorklog.mockResolvedValue(undefined)
+      const result = await handlers.get('tempo:delete-worklog')!({}, 10)
+      expect(mockDeleteWorklog).toHaveBeenCalledWith(10)
+      expect(result).toBeUndefined()
+    })
+
+    it('returns error when delete fails', async () => {
+      mockDeleteWorklog.mockRejectedValue(new Error('Forbidden'))
+      const result = await handlers.get('tempo:delete-worklog')!({}, 10)
+      expect(result).toEqual({ success: false, error: 'Forbidden' })
+    })
+  })
+
+  describe('tempo:get-accounts', () => {
+    it('returns accounts list', async () => {
+      mockGetAccounts.mockResolvedValue([{ id: 1, name: 'Account A' }])
+      const result = await handlers.get('tempo:get-accounts')!({})
+      expect(mockGetAccounts).toHaveBeenCalled()
+      expect(result).toEqual([{ id: 1, name: 'Account A' }])
+    })
+
+    it('returns error when service throws', async () => {
+      mockGetAccounts.mockRejectedValue(new Error('Auth failed'))
+      const result = await handlers.get('tempo:get-accounts')!({})
+      expect(result).toEqual({ success: false, error: 'Auth failed' })
+    })
+  })
+
+  describe('tempo:get-project-accounts', () => {
+    it('returns project account links', async () => {
+      mockGetProjectAccountLinks.mockResolvedValue([{ id: 1, projectKey: 'PROJ' }])
+      const result = await handlers.get('tempo:get-project-accounts')!({}, 'PROJ')
+      expect(mockGetProjectAccountLinks).toHaveBeenCalledWith('PROJ')
+      expect(result).toEqual([{ id: 1, projectKey: 'PROJ' }])
+    })
+  })
+
+  describe('tempo:get-capex-map', () => {
+    it('returns capex map for issue keys', async () => {
+      mockGetCapexMap.mockResolvedValue({ 'TEST-1': true, 'TEST-2': false })
+      const result = await handlers.get('tempo:get-capex-map')!({}, ['TEST-1', 'TEST-2'])
+      expect(mockGetCapexMap).toHaveBeenCalledWith(['TEST-1', 'TEST-2'])
+      expect(result).toEqual({ 'TEST-1': true, 'TEST-2': false })
+    })
+  })
+
+  describe('tempo:get-schedule', () => {
+    it('returns user schedule for date range', async () => {
+      mockGetUserSchedule.mockResolvedValue({ days: [] })
+      const result = await handlers.get('tempo:get-schedule')!(
+        {},
+        { from: '2026-01-13', to: '2026-01-17' }
+      )
+      expect(mockGetUserSchedule).toHaveBeenCalledWith('2026-01-13', '2026-01-17')
+      expect(result).toEqual({ days: [] })
+    })
+
+    it('returns error when schedule fetch fails', async () => {
+      mockGetUserSchedule.mockRejectedValue(new Error('Timeout'))
+      const result = await handlers.get('tempo:get-schedule')!(
+        {},
+        { from: '2026-01-13', to: '2026-01-17' }
+      )
+      expect(result).toEqual({ success: false, error: 'Timeout' })
+    })
+  })
 })

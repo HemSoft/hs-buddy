@@ -117,4 +117,96 @@ describe('todoistHandlers', () => {
       expect(result).toEqual({ success: false, error: 'Not found' })
     })
   })
+
+  describe('todoist:reopen-task', () => {
+    it('reopens a task and returns success', async () => {
+      mockReopenTask.mockResolvedValue(undefined)
+      const result = await handlers.get('todoist:reopen-task')!({}, 'task-456')
+      expect(mockReopenTask).toHaveBeenCalledWith('task-456')
+      expect(result).toEqual({ success: true })
+    })
+
+    it('returns error when reopen fails', async () => {
+      mockReopenTask.mockRejectedValue(new Error('Server error'))
+      const result = await handlers.get('todoist:reopen-task')!({}, 'task-456')
+      expect(result).toEqual({ success: false, error: 'Server error' })
+    })
+  })
+
+  describe('todoist:create-task', () => {
+    const invoke = (...args: unknown[]) => handlers.get('todoist:create-task')!({}, ...args)
+
+    it('creates a task with valid content', async () => {
+      mockCreateTask.mockResolvedValue({ id: 'new-task', content: 'Buy groceries' })
+      const result = await invoke({ content: 'Buy groceries', priority: 1 })
+      expect(mockCreateTask).toHaveBeenCalledWith({ content: 'Buy groceries', priority: 1 })
+      expect(result).toEqual({ success: true, data: { id: 'new-task', content: 'Buy groceries' } })
+    })
+
+    it('rejects empty content', async () => {
+      const result = await invoke({ content: '   ' })
+      expect(result).toEqual({ success: false, error: 'Task content cannot be empty' })
+      expect(mockCreateTask).not.toHaveBeenCalled()
+    })
+
+    it('trims content before creating', async () => {
+      mockCreateTask.mockResolvedValue({ id: 't1', content: 'Trimmed' })
+      await invoke({ content: '  Trimmed  ' })
+      expect(mockCreateTask).toHaveBeenCalledWith({ content: 'Trimmed' })
+    })
+
+    it('returns error when creation fails', async () => {
+      mockCreateTask.mockRejectedValue(new Error('Rate limited'))
+      const result = await invoke({ content: 'Valid task' })
+      expect(result).toEqual({ success: false, error: 'Rate limited' })
+    })
+  })
+
+  describe('todoist:update-task', () => {
+    it('updates a task and returns success', async () => {
+      mockUpdateTask.mockResolvedValue({ id: 't1', content: 'Updated' })
+      const result = await handlers.get('todoist:update-task')!(
+        {},
+        { taskId: 't1', params: { content: 'Updated' } }
+      )
+      expect(mockUpdateTask).toHaveBeenCalledWith('t1', { content: 'Updated' })
+      expect(result).toEqual({ success: true, data: { id: 't1', content: 'Updated' } })
+    })
+
+    it('returns error when update fails', async () => {
+      mockUpdateTask.mockRejectedValue(new Error('Not found'))
+      const result = await handlers.get('todoist:update-task')!({}, { taskId: 't1', params: {} })
+      expect(result).toEqual({ success: false, error: 'Not found' })
+    })
+  })
+
+  describe('todoist:delete-task', () => {
+    it('deletes a task and returns success', async () => {
+      mockDeleteTask.mockResolvedValue(undefined)
+      const result = await handlers.get('todoist:delete-task')!({}, 'task-to-delete')
+      expect(mockDeleteTask).toHaveBeenCalledWith('task-to-delete')
+      expect(result).toEqual({ success: true })
+    })
+
+    it('returns error when deletion fails', async () => {
+      mockDeleteTask.mockRejectedValue(new Error('Forbidden'))
+      const result = await handlers.get('todoist:delete-task')!({}, 'task-to-delete')
+      expect(result).toEqual({ success: false, error: 'Forbidden' })
+    })
+  })
+
+  describe('todoist:get-projects', () => {
+    it('returns project list', async () => {
+      mockFetchProjects.mockResolvedValue([{ id: 'p1', name: 'Inbox' }])
+      const result = await handlers.get('todoist:get-projects')!({})
+      expect(mockFetchProjects).toHaveBeenCalled()
+      expect(result).toEqual({ success: true, data: [{ id: 'p1', name: 'Inbox' }] })
+    })
+
+    it('returns error when fetch fails', async () => {
+      mockFetchProjects.mockRejectedValue(new Error('Auth failed'))
+      const result = await handlers.get('todoist:get-projects')!({})
+      expect(result).toEqual({ success: false, error: 'Auth failed' })
+    })
+  })
 })

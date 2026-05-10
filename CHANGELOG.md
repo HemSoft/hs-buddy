@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main
 - Remove 14 v8 ignore pragmas and add 10 genuine tests
+- Improve assertions per review feedback
 
 ## [0.1.751] - 2026-05-07
 

@@ -444,17 +444,16 @@ describe('useFinance', () => {
   })
 
   it('uses fallback when per-symbol error property is undefined', async () => {
-    mockFetchQuote.mockImplementation(async (sym: string) => {
-      if (sym === '^GSPC') return { success: true, quote: { ...QUOTE_AAPL, symbol: '^GSPC' } }
-      return { success: false }
-    })
+    localStorage.setItem('finance:watchlist', JSON.stringify(['TSLA']))
+    mockFetchQuote.mockResolvedValue({ success: false })
     const { result } = renderHook(() => useFinance())
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(result.current.quotes.length).toBeGreaterThanOrEqual(1)
-    expect(result.current.error).toBeNull()
+    expect(result.current.quotes).toEqual([])
+    expect(result.current.error).toBe('No data for TSLA')
   })
 
   it('does not update state when unmounted during successful fetch', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     localStorage.setItem('finance:watchlist', JSON.stringify(['AAPL']))
     let resolveQuote: ((v: unknown) => void) | null = null
     mockFetchQuote.mockImplementation(
@@ -471,9 +470,13 @@ describe('useFinance', () => {
     await act(async () => {
       resolveQuote!({ success: true, quote: QUOTE_AAPL })
     })
+
+    expect(localStorage.getItem('finance:cache')).toBeNull()
+    expect(errorSpy).not.toHaveBeenCalled()
   })
 
   it('does not update state when unmounted during failed fetch', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     localStorage.setItem('finance:watchlist', JSON.stringify(['AAPL']))
     let rejectQuote: ((err: Error) => void) | null = null
     mockFetchQuote.mockImplementation(
@@ -490,6 +493,8 @@ describe('useFinance', () => {
     await act(async () => {
       rejectQuote!(new Error('Network failure'))
     })
+
+    expect(errorSpy).not.toHaveBeenCalled()
   })
 
   it('addSymbol swallows refresh failure without throwing', async () => {

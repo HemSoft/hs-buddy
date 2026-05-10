@@ -661,7 +661,9 @@ describe('useAppTabs', () => {
       result.current.closeTabsToRight(lastTab.id)
     })
 
-    expect(result.current.tabs).toBe(tabsBefore)
+    expect(result.current.tabs).toHaveLength(tabsBefore.length)
+    expect(result.current.tabs.map(t => t.id)).toEqual(tabsBefore.map(t => t.id))
+    expect(result.current.activeTabId).toBe(lastTab.id)
   })
 
   it('closeTabsToRight preserves active tab when it is to the left', async () => {
@@ -689,6 +691,8 @@ describe('useAppTabs', () => {
     // pr-my-prs should still be active since it's to the left
     expect(result.current.activeTabId).toBe(prMyPrsTab.id)
     expect(result.current.tabs).toHaveLength(3) // dashboard + pr-my-prs + pr-needs-review
+    expect(findTab(result.current.tabs, 'copilot-usage')).toBeUndefined()
+    expect(findTab(result.current.tabs, 'pr-needs-review')).toBeDefined()
   })
 
   it('syncCrewTabLabels returns same state when no labels change', async () => {

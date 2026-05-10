@@ -90,4 +90,53 @@ describe('ralphHandlers', () => {
     const result = await handler({})
     expect(result).toBeNull()
   })
+
+  it('status callback sends update to renderer when window is not destroyed', async () => {
+    const { setStatusChangeCallback } = vi.mocked(await import('../services/ralphService'))
+    const callback = setStatusChangeCallback.mock.calls[0][0]
+    expect(callback).toBeTypeOf('function')
+
+    const mockRun = { runId: 'run-1', status: 'running' }
+    callback(mockRun)
+
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
+  })
+
+  it('status callback skips send when window is destroyed', async () => {
+    const { setStatusChangeCallback } = vi.mocked(await import('../services/ralphService'))
+    const callback = setStatusChangeCallback.mock.calls[0][0]
+
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
+    callback({ runId: 'run-1', status: 'running' })
+
+    expect(mockWin.webContents.send).not.toHaveBeenCalled()
+  })
+
+  it('ralph:get-status delegates to getLoopStatus', async () => {
+    const { getLoopStatus } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-status')!
+    await handler({}, 'run-1')
+    expect(getLoopStatus).toHaveBeenCalledWith('run-1')
+  })
+
+  it('ralph:get-config delegates to getConfig', async () => {
+    const { getConfig } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-config')!
+    await handler({}, 'models')
+    expect(getConfig).toHaveBeenCalledWith('models')
+  })
+
+  it('ralph:get-scripts-path delegates to getScriptsPath', async () => {
+    const { getScriptsPath } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-scripts-path')!
+    await handler({})
+    expect(getScriptsPath).toHaveBeenCalled()
+  })
+
+  it('ralph:list-templates delegates to listTemplateScripts', async () => {
+    const { listTemplateScripts } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:list-templates')!
+    await handler({})
+    expect(listTemplateScripts).toHaveBeenCalled()
+  })
 })

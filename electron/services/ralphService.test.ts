@@ -53,6 +53,8 @@ import {
 describe('ralphService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    shutdownRalphService()
+    setStatusChangeCallback(null)
   })
 
   describe('setStatusChangeCallback', () => {
@@ -396,8 +398,6 @@ describe('ralphService', () => {
       const status = getLoopStatus(runId)
       expect(status?.status).toBe('failed')
       expect(status?.error).toBe('spawn failed')
-
-      setStatusChangeCallback(null)
     })
 
     it('handles process close event with exit code 0', () => {

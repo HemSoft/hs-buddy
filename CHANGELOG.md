@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve merge conflicts with main
 - Raise coverage from 67% to 84% statements
 - Address PR review feedback
+- Add per-test teardown for service global state
 
 ## [0.1.751] - 2026-05-07
 

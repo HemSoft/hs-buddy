@@ -389,6 +389,20 @@ describe('configHandlers', () => {
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toBeNull()
     })
+
+    it('returns null when buffer exceeds max size despite small stat', async () => {
+      const { stat, readFile } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/alert.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => true,
+        size: 1024,
+      } as never)
+      // Buffer returned is larger than mocked MAX_NOTIFICATION_SOUND_BYTES (10MB)
+      vi.mocked(readFile).mockResolvedValueOnce(Buffer.alloc(11_000_000))
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
   })
 
   describe('config:get-store-path', () => {

@@ -437,5 +437,39 @@ describe('copilotSessionService', () => {
       expect(result!.results[1].prompt).toBe('second')
       expect(result!.results[2].prompt).toBe('third')
     })
+
+    it('uses empty string when prompt map has no entry for a result index', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+
+      mockProcessSessionLine.mockImplementation(
+        (_kind: number, _keyPath: unknown, _line: string, state: Record<string, unknown>) => {
+          if (!state.init) {
+            state.init = { sessionId: 'sess-2', creationDate: 2000, model: 'gpt-4' }
+            state.title = 'Missing prompt'
+            const resultsByIndex = state.resultsByIndex as Map<number, { prompt: string }>
+            resultsByIndex.set(0, { prompt: '' })
+            resultsByIndex.set(1, { prompt: '' })
+            // Only set prompt for index 0, leave index 1 without a prompt
+            const prompts = state.prompts as Map<number, string>
+            prompts.set(0, 'has prompt')
+            // index 1 has no prompt entry → should fall back to ''
+          }
+        }
+      )
+
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test2.jsonl')
+      rlEmitter.emit('line', '{"kind":1}')
+      rlEmitter.emit('close')
+
+      const result = await promise
+      expect(result).not.toBeNull()
+      expect(result!.results[0].prompt).toBe('has prompt')
+      expect(result!.results[1].prompt).toBe('')
+    })
   })
 })

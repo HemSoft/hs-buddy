@@ -840,6 +840,18 @@ describe('ralphService', () => {
       expect(result.error).toContain('Template script not found')
     })
 
+    it('returns error when template scriptType has no templateScript', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'template',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Cannot resolve script path')
+    })
+
     it('returns error for invalid provider', () => {
       const result = launchLoop({
         repoPath: '/valid/path',

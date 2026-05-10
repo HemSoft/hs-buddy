@@ -365,6 +365,7 @@ describe('ralphService', () => {
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
+      expect(result.success).toBe(true)
       const runId = result.runId!
       const stdoutOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.stdout.on
       const stdoutCallback = stdoutOn.mock.calls.find((c: unknown[]) => c[0] === 'data')?.[1]
@@ -385,6 +386,7 @@ describe('ralphService', () => {
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
+      expect(result.success).toBe(true)
       const runId = result.runId!
       const procOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.on
       const errorCallback = procOn.mock.calls.find((c: unknown[]) => c[0] === 'error')?.[1]
@@ -408,6 +410,7 @@ describe('ralphService', () => {
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
+      expect(result.success).toBe(true)
       const runId = result.runId!
       const procOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.on
       const closeCallback = procOn.mock.calls.find((c: unknown[]) => c[0] === 'close')?.[1]
@@ -427,6 +430,7 @@ describe('ralphService', () => {
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
+      expect(result.success).toBe(true)
       const runId = result.runId!
       const procOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.on
       const closeCallback = procOn.mock.calls.find((c: unknown[]) => c[0] === 'close')?.[1]
@@ -446,6 +450,7 @@ describe('ralphService', () => {
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
+      expect(result.success).toBe(true)
       const runId = result.runId!
       stopLoop(runId) // sets status to 'cancelled'
 
@@ -466,6 +471,7 @@ describe('ralphService', () => {
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
+      expect(result.success).toBe(true)
       const runId = result.runId!
       const stdoutOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.stdout.on
       const stdoutCallback = stdoutOn.mock.calls.find((c: unknown[]) => c[0] === 'data')?.[1]
@@ -485,6 +491,7 @@ describe('ralphService', () => {
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
 
+      expect(result.success).toBe(true)
       const runId = result.runId!
       const stderrOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.stderr.on
       const stderrCallback = stderrOn.mock.calls.find((c: unknown[]) => c[0] === 'data')?.[1]

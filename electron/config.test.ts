@@ -190,6 +190,10 @@ describe('config', () => {
   })
 
   describe('migrateFromEnv', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
     it('skips migration when accounts already exist', () => {
       configManager.addGitHubAccount({ username: 'existing', org: 'org' })
       // Should not throw
@@ -202,7 +206,6 @@ describe('config', () => {
       configManager.migrateFromEnv()
       const accounts = configManager.getGitHubAccounts()
       expect(accounts).toEqual([{ username: 'envuser', org: 'envorg' }])
-      vi.unstubAllEnvs()
     })
 
     it('handles missing env vars gracefully', () => {
@@ -211,7 +214,6 @@ describe('config', () => {
       configManager.migrateFromEnv()
       const accounts = configManager.getGitHubAccounts()
       expect(accounts).toEqual([])
-      vi.unstubAllEnvs()
     })
   })
 

@@ -45,13 +45,11 @@ function loadPendingReview(providerId: string, prUrl: string): PendingReview | n
     >
     return all[storageKey(providerId, prUrl)] ?? null
   } catch (_: unknown) {
-    /* v8 ignore next */
     return null
   }
 }
 
 export function clearPendingAIReview(providerId: string, prUrl: string) {
-  /* v8 ignore start — catch only triggers if sessionStorage throws */
   try {
     const all = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '{}') as Record<
       string,
@@ -62,7 +60,6 @@ export function clearPendingAIReview(providerId: string, prUrl: string) {
   } catch (_: unknown) {
     // sessionStorage may be unavailable
   }
-  /* v8 ignore stop */
 }
 
 /** Play the configured notification sound if enabled. Fire-and-forget. */

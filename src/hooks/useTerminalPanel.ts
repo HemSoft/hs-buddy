@@ -12,9 +12,7 @@ const MIN_PANEL_HEIGHT = 100
 const MAX_PANEL_HEIGHT = 1200
 
 function clampPanelHeight(value: number): number {
-  /* v8 ignore start */
   if (!Number.isFinite(value)) return DEFAULT_TERMINAL_PANEL_HEIGHT
-  /* v8 ignore stop */
   return Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, value))
 }
 
@@ -204,9 +202,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
 
       try {
         const result = await window.terminal.resolveRepoPath(repoContext.owner, repoContext.repo)
-        /* v8 ignore start */
         cwd = result.path || ''
-        /* v8 ignore stop */
       } catch (_: unknown) {
         // Fall back to empty cwd if path resolution fails
       }
@@ -370,9 +366,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       if (!trimmed) return
       applyTabsUpdate(prev => {
         const tab = prev.find(t => t.id === tabId)
-        /* v8 ignore start */
         if (!tab || tab.title === trimmed) return null
-        /* v8 ignore stop */
         return prev.map(t => (t.id === tabId ? { ...t, title: trimmed } : t))
       })
     },
@@ -406,9 +400,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     (tabId: string, cwd: string) => {
       applyTabsUpdate(prev => {
         const tab = prev.find(t => t.id === tabId)
-        /* v8 ignore start */
         if (!tab || tab.cwd === cwd) return null
-        /* v8 ignore stop */
         return prev.map(t => (t.id === tabId ? { ...t, cwd } : t))
       })
     },

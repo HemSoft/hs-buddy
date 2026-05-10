@@ -1,4 +1,3 @@
-/* v8 ignore start -- SFL status fetch; requires real API */
 import type { PRConfig } from '../../types/pullRequest'
 import {
   type SFLRepoStatus,
@@ -66,4 +65,3 @@ export async function fetchSFLStatus(
     workflows: workflowInfos,
   }
 }
-/* v8 ignore stop */

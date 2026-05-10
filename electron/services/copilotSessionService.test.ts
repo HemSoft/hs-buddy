@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
 
-const mockExistsSync = vi.fn(() => false)
-const mockReadFileSync = vi.fn((): string => {
+const mockExistsSync = vi.fn((_p: string) => false)
+const mockReadFileSync = vi.fn((_p: string, _enc?: string): string => {
   throw new Error('ENOENT')
 })
-const mockReaddirSync = vi.fn((): string[] => [])
-const mockStatSync = vi.fn(() => ({ size: 1024, mtimeMs: Date.now() }))
-const mockOpenSync = vi.fn(() => 42)
-const mockReadSync = vi.fn(() => 0)
-const mockCloseSync = vi.fn()
+const mockReaddirSync = vi.fn((_p: string): string[] => [])
+const mockStatSync = vi.fn((_p: string) => ({ size: 1024, mtimeMs: Date.now() }))
+const mockOpenSync = vi.fn((_p: string, _flags?: string) => 42)
+const mockReadSync = vi.fn(
+  (_fd: number, _buf: Buffer, _off: number, _len: number, _pos: number | null) => 0
+)
+const mockCloseSync = vi.fn((_fd: number): void => {})
 
 vi.mock('fs', () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...(args as [string])),
@@ -28,15 +30,17 @@ vi.mock('readline', () => ({
   createInterface: (...args: unknown[]) => mockCreateInterface(...args),
 }))
 
-const mockParseScanChunk = vi.fn(() => ({
+const mockParseScanChunk = vi.fn((..._args: unknown[]) => ({
   title: 'Test Session',
   firstPrompt: 'Hello',
   agent: 'copilot',
   createdAt: 1000,
   requestCount: 5,
 }))
-const mockResolveFolderOrWorkspaceName = vi.fn(() => 'test-workspace')
-const mockParseKeyPath = vi.fn(() => null)
+const mockResolveFolderOrWorkspaceName = vi.fn(
+  (..._args: unknown[]): string | null => 'test-workspace'
+)
+const mockParseKeyPath = vi.fn((..._args: unknown[]) => null)
 const mockProcessSessionLine = vi.fn()
 
 vi.mock('../../src/utils/copilotSessionParsing', () => ({
@@ -76,7 +80,8 @@ describe('copilotSessionService', () => {
       delete process.env.APPDATA
       const result = getVSCodeStoragePath()
       expect(result).toBe('')
-      process.env.APPDATA = origAppData
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
 
     it('returns Insiders path when it exists', () => {
@@ -134,7 +139,8 @@ describe('copilotSessionService', () => {
       delete process.env.APPDATA
       const result = scanCopilotSessions()
       expect(result).toEqual({ sessions: [], totalCount: 0 })
-      process.env.APPDATA = origAppData
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
 
     it('returns empty when workspaceStorage directory cannot be read', () => {

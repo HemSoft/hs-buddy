@@ -100,7 +100,8 @@ describe('telemetry', () => {
       await initTelemetry()
       // No SDK was initialized — no metric handles created
       expect(mockCreateCounter).not.toHaveBeenCalled()
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = orig
+      if (orig !== undefined) process.env.OTEL_EXPORTER_OTLP_ENDPOINT = orig
+      else delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
     })
 
     it('initializes SDK when endpoint is set', async () => {
@@ -109,7 +110,8 @@ describe('telemetry', () => {
       delete process.env.OTEL_LOG_LEVEL
       // Should not throw when all SDK mocks are in place
       await expect(initTelemetry()).resolves.toBeUndefined()
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = orig
+      if (orig !== undefined) process.env.OTEL_EXPORTER_OTLP_ENDPOINT = orig
+      else delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
     })
 
     it('enables debug diagnostics when OTEL_LOG_LEVEL is debug', async () => {
@@ -120,8 +122,10 @@ describe('telemetry', () => {
       process.env.OTEL_LOG_LEVEL = 'debug'
       await initTelemetry()
       expect(diag.setLogger).toHaveBeenCalled()
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = origEndpoint
-      process.env.OTEL_LOG_LEVEL = origLogLevel
+      if (origEndpoint !== undefined) process.env.OTEL_EXPORTER_OTLP_ENDPOINT = origEndpoint
+      else delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      if (origLogLevel !== undefined) process.env.OTEL_LOG_LEVEL = origLogLevel
+      else delete process.env.OTEL_LOG_LEVEL
     })
   })
 

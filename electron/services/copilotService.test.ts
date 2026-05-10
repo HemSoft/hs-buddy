@@ -244,4 +244,144 @@ describe('copilotService', () => {
       )
     })
   })
+
+  describe('executePrompt — PR review metadata', () => {
+    it('creates a PR review run when metadata has PR review fields', async () => {
+      const { hasPRReviewMetadata } = await import('../../src/utils/copilotPromptUtils')
+      vi.mocked(hasPRReviewMetadata).mockReturnValueOnce(true)
+
+      const service = getCopilotService()
+      await service.executePrompt({
+        prompt: 'Review this PR',
+        category: 'pr-review',
+        metadata: {
+          org: 'test-org',
+          repo: 'test-repo',
+          prNumber: 42,
+          prUrl: 'https://github.com/test-org/test-repo/pull/42',
+          prTitle: 'Fix bug',
+          ghAccount: 'pr-review-user',
+          reviewedHeadSha: 'abc123',
+          reviewedThreadStats: {},
+        },
+      })
+
+      expect(mockMutation).toHaveBeenCalledWith(
+        'prReviewRuns:create',
+        expect.objectContaining({
+          owner: 'test-org',
+          repo: 'test-repo',
+          prNumber: 42,
+        })
+      )
+    })
+  })
+
+  describe('executePrompt — account auto-resolution', () => {
+    it('auto-resolves account from GitHub URLs in prompt', async () => {
+      const { findAccountForOrgs } = await import('../../src/utils/copilotPromptUtils')
+      const { execAsync } = await import('../utils')
+
+      vi.mocked(findAccountForOrgs).mockReturnValueOnce('auto-user-from-url')
+      mockQuery.mockResolvedValueOnce([])
+
+      const service = getCopilotService()
+      await service.executePrompt({
+        prompt: 'Review https://github.com/MyOrg/myrepo/pull/5',
+        category: 'general',
+      })
+
+      expect(mockQuery).toHaveBeenCalledWith('githubAccounts:list', {})
+      expect(findAccountForOrgs).toHaveBeenCalledWith([], ['myorg'])
+      expect(execAsync).toHaveBeenCalledWith(
+        expect.stringContaining('gh auth switch --user auto-user-from-url'),
+        expect.anything()
+      )
+    })
+
+    it('continues when account lookup fails', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('accounts unavailable'))
+
+      const service = getCopilotService()
+      const result = await service.executePrompt({
+        prompt: 'Review https://github.com/failing-org/myrepo/pull/5',
+        category: 'general',
+      })
+
+      expect(result.success).toBe(true)
+      expect(mockQuery).toHaveBeenCalledWith('githubAccounts:list', {})
+    })
+  })
+
+  describe('executePrompt — failure paths', () => {
+    it('records failure in Convex when sendPrompt throws', async () => {
+      mockSendPrompt.mockRejectedValueOnce(new Error('SDK timeout'))
+
+      const service = getCopilotService()
+      await service.executePrompt({ prompt: 'fail me', category: 'general' })
+
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      expect(mockMutation).toHaveBeenCalledWith(
+        'copilotResults:fail',
+        expect.objectContaining({
+          id: 'result-id-123',
+          error: 'SDK timeout',
+        })
+      )
+      expect(mockMutation).toHaveBeenCalledWith(
+        'prReviewRuns:failByResult',
+        expect.objectContaining({
+          resultId: 'result-id-123',
+          error: 'SDK timeout',
+        })
+      )
+    })
+
+    it('logs error when Convex fail mutations themselves reject', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      mockSendPrompt.mockRejectedValueOnce(new Error('SDK error'))
+      mockMutation.mockImplementation((name: string) => {
+        if (name === 'copilotResults:create') return Promise.resolve('result-id-123')
+        if (name === 'copilotResults:fail') return Promise.reject(new Error('Convex down'))
+        if (name === 'prReviewRuns:failByResult') return Promise.reject(new Error('Convex down'))
+        return Promise.resolve(undefined)
+      })
+
+      try {
+        const service = getCopilotService()
+        await service.executePrompt({ prompt: 'double fail', category: 'general' })
+
+        await new Promise(resolve => setTimeout(resolve, 50))
+
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          '[CopilotService] Failed to record error in Convex'
+        )
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          '[CopilotService] Failed to record PR review run failure in Convex'
+        )
+      } finally {
+        consoleErrorSpy.mockRestore()
+      }
+    })
+
+    it('continues when gh auth switch fails', async () => {
+      const { execAsync } = await import('../utils')
+      vi.mocked(execAsync).mockRejectedValueOnce(new Error('switch failed'))
+
+      const service = getCopilotService()
+      const result = await service.executePrompt({
+        prompt: 'test',
+        category: 'general',
+        metadata: { ghAccount: 'failing-user-explicit' },
+      })
+
+      expect(result.success).toBe(true)
+      expect(execAsync).toHaveBeenCalledWith(
+        expect.stringContaining('gh auth switch --user failing-user-explicit'),
+        expect.anything()
+      )
+    })
+  })
 })

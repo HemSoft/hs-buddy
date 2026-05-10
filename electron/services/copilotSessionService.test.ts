@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { EventEmitter } from 'events'
 
 const mockExistsSync = vi.fn((_p: string): boolean => false)
@@ -88,10 +88,25 @@ import {
   getSessionDetail,
 } from './copilotSessionService'
 
+const savedAppData = process.env.APPDATA
+
 describe('copilotSessionService', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    process.env.APPDATA = '/fake/appdata'
     mockExistsSync.mockReturnValue(false)
+    mockParseScanChunk.mockReturnValue({
+      title: 'Test Title',
+      firstPrompt: 'What is X?',
+      agent: 'copilot',
+      createdAt: 1000,
+      requestCount: 2,
+    })
+  })
+
+  afterAll(() => {
+    if (savedAppData === undefined) delete process.env.APPDATA
+    else process.env.APPDATA = savedAppData
   })
 
   describe('getVSCodeStoragePath', () => {

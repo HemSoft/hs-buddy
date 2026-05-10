@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sync MockStore.store after clear() to prevent stale state
 - Resolve CI lint, typecheck, and test failures across electron tests
 - Address PR review feedback on test quality
+- Ensure copilotSessionService tests work on Linux CI
 
 ### Changed
 

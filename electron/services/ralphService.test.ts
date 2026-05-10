@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockSpawn = vi.fn().mockReturnValue({
+const createMockChildProcess = () => ({
   stdout: { on: vi.fn() },
   stderr: { on: vi.fn() },
   on: vi.fn(),
@@ -8,9 +8,13 @@ const mockSpawn = vi.fn().mockReturnValue({
   pid: 12345,
 })
 
+const mockSpawn = vi.fn(() => createMockChildProcess())
+const mockExecSync = vi.fn().mockReturnValue('')
+const mockRandomUUID = vi.fn(() => 'test-uuid-1234')
+
 vi.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
-  execSync: vi.fn().mockReturnValue(''),
+  execSync: (...args: unknown[]) => mockExecSync(...args),
 }))
 
 const mockExistsSync = vi.fn().mockReturnValue(false)
@@ -30,7 +34,7 @@ vi.mock('url', () => ({
 }))
 
 vi.mock('crypto', () => ({
-  randomUUID: vi.fn(() => 'test-uuid-1234'),
+  randomUUID: (...args: unknown[]) => mockRandomUUID(...args),
 }))
 
 vi.mock('os', () => ({
@@ -45,11 +49,29 @@ import {
   stopLoop,
   getLoopStatus,
   listTemplateScripts,
+  getConfig,
+  initRalphService,
+  shutdownRalphService,
 } from './ralphService'
 
 describe('ralphService', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+    shutdownRalphService()
+    setStatusChangeCallback(null)
+    mockSpawn.mockReset()
+    mockSpawn.mockImplementation(() => createMockChildProcess())
+    mockExecSync.mockReset()
+    mockExecSync.mockReturnValue('')
+    mockRandomUUID.mockReset()
+    mockRandomUUID.mockReturnValue('test-uuid-1234')
+    mockExistsSync.mockReset()
+    mockExistsSync.mockReturnValue(false)
+    mockReadFileSync.mockReset()
+    mockReadFileSync.mockReturnValue('{}')
+    mockReaddirSync.mockReset()
+    mockReaddirSync.mockReturnValue([])
+    mockWriteFileSync.mockReset()
   })
 
   describe('setStatusChangeCallback', () => {
@@ -254,6 +276,328 @@ describe('ralphService', () => {
       const scripts = listTemplateScripts()
 
       expect(scripts[0].description).toBe('Finds repository issues.')
+    })
+  })
+
+  describe('getConfig', () => {
+    it('reads models config from models.json', () => {
+      const modelsConfig = {
+        version: '1.0.0',
+        models: {
+          'gpt-5': {
+            label: 'GPT-5',
+            costMultiplier: 1,
+            provider: 'copilot',
+            reasoningEffort: 'high',
+          },
+        },
+        aliases: { fast: 'gpt-5' },
+        tiers: { default: { model: 'gpt-5', description: 'Default tier' } },
+        default: 'gpt-5',
+      }
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(modelsConfig))
+
+      expect(getConfig('models')).toEqual(modelsConfig)
+      expect(mockReadFileSync).toHaveBeenCalledWith(expect.stringContaining('models.json'), 'utf-8')
+    })
+
+    it('reads agents config from agents.json', () => {
+      const agentsConfig = {
+        version: '1.0.0',
+        defaults: { devAgent: 'anvil' },
+        roles: {
+          anvil: {
+            category: 'dev',
+            description: 'Default dev agent',
+            agent: { copilot: 'anvil' },
+            tier: 'default',
+            skills: ['debug'],
+          },
+        },
+      }
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(agentsConfig))
+
+      expect(getConfig('agents')).toEqual(agentsConfig)
+      expect(mockReadFileSync).toHaveBeenCalledWith(expect.stringContaining('agents.json'), 'utf-8')
+    })
+
+    it('reads providers config from providers.json', () => {
+      const providersConfig = {
+        version: '1.0.0',
+        providers: {
+          copilot: {
+            command: 'copilot',
+            description: 'GitHub Copilot',
+            promptStyle: 'flag',
+            flags: { prompt: '--prompt' },
+            modelTemplate: '{model}',
+            supportsNativePrReview: true,
+          },
+        },
+        default: 'copilot',
+      }
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(providersConfig))
+
+      expect(getConfig('providers')).toEqual(providersConfig)
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('providers.json'),
+        'utf-8'
+      )
+    })
+  })
+
+  describe('launchLoop - template scripts', () => {
+    it('resolves template scripts from the repo scripts directory', () => {
+      const repoPath = 'C:\\repo'
+      mockExistsSync.mockImplementation((filePath: string) => {
+        if (filePath.endsWith('scripts\\ralph-loops')) return true
+        if (filePath === repoPath) return true
+        if (filePath === `${repoPath}\\scripts\\ralph-review.ps1`) return true
+        return false
+      })
+
+      const result = launchLoop({
+        repoPath,
+        scriptType: 'template',
+        templateScript: 'ralph-review.ps1',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(true)
+      const [command, args, options] = mockSpawn.mock.calls[0]
+      expect(command).toBe('pwsh')
+      expect(args).toEqual(
+        expect.arrayContaining([
+          '-NoProfile',
+          '-File',
+          `${repoPath}\\scripts\\ralph-review.ps1`,
+          '-Autopilot',
+        ])
+      )
+      expect(options).toMatchObject({ cwd: repoPath, shell: false })
+    })
+
+    it('returns an error when a template script cannot be found', () => {
+      const repoPath = 'C:\\repo'
+      mockExistsSync.mockImplementation(
+        (filePath: string) => filePath.endsWith('scripts\\ralph-loops') || filePath === repoPath
+      )
+
+      const result = launchLoop({
+        repoPath,
+        scriptType: 'template',
+        templateScript: 'ralph-missing.ps1',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Template script not found')
+    })
+  })
+
+  describe('launchLoop - argument building', () => {
+    it('wraps repeated runs and forwards optional flags', () => {
+      const repoPath = 'C:\\repo'
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          version: '1.0.0',
+          models: {
+            'gpt-5': {
+              label: 'GPT-5',
+              costMultiplier: 1,
+              provider: 'copilot',
+              reasoningEffort: 'high',
+            },
+          },
+          aliases: {},
+          tiers: {},
+          default: 'gpt-5',
+        })
+      )
+
+      const result = launchLoop({
+        repoPath,
+        scriptType: 'ralph-pr',
+        model: 'gpt-5',
+        provider: 'copilot',
+        devAgent: 'anvil',
+        agents: ['reviewer@fast'],
+        iterations: 4,
+        repeats: 3,
+        workUntil: '18:30',
+        branch: 'feature/ralph-tests',
+        prompt: 'Review this pull request',
+        prNumber: 42,
+        labels: 'bug,ai',
+        dryRun: true,
+        noAudio: true,
+        skipReview: true,
+        autoApprove: true,
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(true)
+      expect(mockSpawn.mock.calls[0][1]).toEqual(
+        expect.arrayContaining([
+          '-NoProfile',
+          '-File',
+          expect.stringContaining('ralph-repeat.ps1'),
+          '-Script',
+          expect.stringContaining('ralph-pr.ps1'),
+          '-Times',
+          '3',
+          '-Model',
+          'gpt-5',
+          '-Provider',
+          'copilot',
+          '-DevAgent',
+          'anvil',
+          '-Agents',
+          'reviewer@fast',
+          '-Max',
+          '4',
+          '-WorkUntil',
+          '18:30',
+          '-Branch',
+          'feature/ralph-tests',
+          '-Prompt',
+          'Review this pull request',
+          '-PRNumber',
+          '42',
+          '-Labels',
+          'bug,ai',
+          '-DryRun',
+          '-NoAudio',
+          '-SkipReview',
+          '-AutoApprove',
+        ])
+      )
+      expect(mockSpawn.mock.calls[0][1]).not.toContain('-Autopilot')
+    })
+
+    it('writes multiline prompts to a temp file before spawning', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const result = launchLoop({
+        repoPath: 'C:\\repo',
+        scriptType: 'ralph-issues',
+        prompt: 'Line 1\nLine 2',
+        labels: 'triage,ai',
+        dryRun: true,
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(true)
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('ralph-prompt-test-uui.md'),
+        'Line 1\nLine 2',
+        'utf-8'
+      )
+      expect(mockSpawn.mock.calls[0][1]).toEqual(
+        expect.arrayContaining([
+          '-Prompt',
+          expect.stringContaining('ralph-prompt-test-uui.md'),
+          '-Labels',
+          'triage,ai',
+          '-DryRun',
+        ])
+      )
+    })
+  })
+
+  describe('stopLoop - running processes', () => {
+    it('uses taskkill for running Windows processes', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launched = launchLoop({
+        repoPath: 'C:\\repo',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+
+      const originalPlatform = process.platform
+      Object.defineProperty(process, 'platform', { value: 'win32' })
+
+      try {
+        const result = stopLoop(launched.runId!)
+
+        expect(result.success).toBe(true)
+        expect(mockExecSync).toHaveBeenCalledWith('taskkill /T /F /PID 12345', { timeout: 5_000 })
+        expect(getLoopStatus(launched.runId!)?.status).toBe('cancelled')
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform })
+      }
+    })
+
+    it('sends SIGTERM for running non-Windows processes', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launched = launchLoop({
+        repoPath: 'C:\\repo',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const spawnedProc = mockSpawn.mock.results[0]?.value as ReturnType<
+        typeof createMockChildProcess
+      >
+
+      const originalPlatform = process.platform
+      Object.defineProperty(process, 'platform', { value: 'linux' })
+
+      try {
+        const result = stopLoop(launched.runId!)
+
+        expect(result.success).toBe(true)
+        expect(spawnedProc.kill).toHaveBeenCalledWith('SIGTERM')
+        expect(mockExecSync).not.toHaveBeenCalled()
+        expect(getLoopStatus(launched.runId!)?.status).toBe('cancelled')
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform })
+      }
+    })
+  })
+
+  describe('initRalphService', () => {
+    it('marks running entries as orphaned', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launched = launchLoop({
+        repoPath: 'C:\\repo',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+
+      initRalphService()
+
+      const run = getLoopStatus(launched.runId!)
+      expect(run?.status).toBe('orphaned')
+      expect(run?.completedAt).not.toBeNull()
+      expect(stopLoop(launched.runId!)).toMatchObject({ success: false })
+    })
+  })
+
+  describe('shutdownRalphService', () => {
+    it('kills active processes and clears service state', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockRandomUUID.mockReturnValueOnce('run-1').mockReturnValueOnce('run-2')
+      const first = launchLoop({
+        repoPath: 'C:\\repo',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const second = launchLoop({
+        repoPath: 'C:\\repo',
+        scriptType: 'ralph-issues',
+      } as Parameters<typeof launchLoop>[0])
+
+      shutdownRalphService()
+
+      expect(listLoops()).toHaveLength(0)
+      expect(getLoopStatus(first.runId!)).toBeNull()
+      expect(getLoopStatus(second.runId!)).toBeNull()
+      if (process.platform === 'win32') {
+        expect(mockExecSync).toHaveBeenCalledTimes(2)
+      } else {
+        const spawnedProcesses = mockSpawn.mock.results.map(
+          result => result.value as ReturnType<typeof createMockChildProcess>
+        )
+        for (const spawnedProc of spawnedProcesses) {
+          expect(spawnedProc.kill).toHaveBeenCalledWith('SIGTERM')
+        }
+      }
     })
   })
 })

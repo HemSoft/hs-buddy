@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const { mockShowOpenDialog, mockExecFileAsync, mockParseGitRemote, mockIsGitHubHost } = vi.hoisted(
+  () => ({
+    mockShowOpenDialog: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
+    mockExecFileAsync: vi.fn().mockResolvedValue({ stdout: '' }),
+    mockParseGitRemote: vi.fn(() => null),
+    mockIsGitHubHost: vi.fn(() => false),
+  })
+)
+
 vi.mock('electron', () => ({
   app: { getPath: vi.fn(() => '/tmp/test-app') },
   BrowserWindow: class {},
-  dialog: { showOpenDialog: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }) },
+  dialog: { showOpenDialog: (...args: unknown[]) => mockShowOpenDialog(...args) },
 }))
 
 const mockExistsSync = vi.fn().mockReturnValue(false)
@@ -25,15 +34,16 @@ vi.mock('child_process', () => ({
 }))
 
 vi.mock('util', () => ({
-  promisify: vi.fn(_fn => vi.fn().mockResolvedValue({ stdout: '' })),
+  promisify: vi.fn(() => mockExecFileAsync),
 }))
 
 vi.mock('../../src/utils/githubUrl', () => ({
-  parseGitRemote: vi.fn(() => null),
-  isGitHubHost: vi.fn(() => false),
+  parseGitRemote: (...args: unknown[]) => mockParseGitRemote(...args),
+  isGitHubHost: (...args: unknown[]) => mockIsGitHubHost(...args),
 }))
 
 import {
+  addProjectFromPicker,
   listProjects,
   removeProject,
   getSession,
@@ -42,6 +52,7 @@ import {
   addMessageToSession,
   updateSessionStatus,
   updateSessionChangedFiles,
+  undoFile,
 } from './crewService'
 
 describe('crewService', () => {
@@ -49,6 +60,13 @@ describe('crewService', () => {
     vi.clearAllMocks()
     mockExistsSync.mockReturnValue(false)
     mockReadFileSync.mockReturnValue('[]')
+    mockShowOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
+    mockExecFileAsync.mockReset()
+    mockExecFileAsync.mockResolvedValue({ stdout: '' })
+    mockParseGitRemote.mockReset()
+    mockParseGitRemote.mockReturnValue(null)
+    mockIsGitHubHost.mockReset()
+    mockIsGitHubHost.mockReturnValue(false)
   })
 
   describe('listProjects', () => {
@@ -271,6 +289,181 @@ describe('crewService', () => {
       expect(mockWriteFileSync).toHaveBeenCalled()
       const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
       expect(written).toHaveLength(0)
+    })
+  })
+
+  describe('addProjectFromPicker', () => {
+    it('returns cancelled when the folder picker is cancelled', async () => {
+      const result = await addProjectFromPicker()
+
+      expect(result).toEqual({ success: false, error: 'Cancelled' })
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
+    it('returns a validation error for a non-git folder', async () => {
+      mockShowOpenDialog.mockResolvedValue({
+        canceled: false,
+        filePaths: ['D:\\repo'],
+      })
+
+      const result = await addProjectFromPicker()
+
+      expect(result).toEqual({ success: false, error: 'Not a git repository' })
+      expect(mockExecFileAsync).toHaveBeenCalledWith('git', ['rev-parse', '--show-toplevel'], {
+        cwd: 'D:\\repo',
+        timeout: 5000,
+      })
+    })
+
+    it('updates lastOpenedAt when the project already exists', async () => {
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1700000000000)
+      mockShowOpenDialog.mockResolvedValue({
+        canceled: false,
+        filePaths: ['D:\\repo'],
+      })
+      mockExistsSync.mockReturnValue(true)
+      mockParseGitRemote.mockReturnValue({
+        host: 'github.com',
+        slug: 'owner/repo',
+        scheme: 'https',
+      })
+      mockIsGitHubHost.mockReturnValue(true)
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'D:\\repo\n' })
+        .mockResolvedValueOnce({ stdout: 'https://github.com/owner/repo.git\n' })
+        .mockResolvedValueOnce({ stdout: 'origin/main\n' })
+
+      const existingProject = {
+        id: 'proj-1',
+        displayName: 'repo',
+        localPath: 'D:\\repo',
+        gitRoot: 'D:\\repo',
+        githubSlug: 'owner/repo',
+        defaultBranch: 'main',
+        lastOpenedAt: 1,
+        lastActiveAt: 2,
+      }
+      mockReadFileSync.mockReturnValue(JSON.stringify([existingProject]))
+
+      const result = await addProjectFromPicker()
+      const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
+
+      expect(result).toEqual({
+        success: true,
+        project: expect.objectContaining({
+          id: 'proj-1',
+          lastOpenedAt: 1700000000000,
+        }),
+      })
+      expect(written[0].lastOpenedAt).toBe(1700000000000)
+
+      nowSpy.mockRestore()
+    })
+
+    it('creates a new project when validation succeeds', async () => {
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1700000000001)
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.123456789)
+      mockShowOpenDialog.mockResolvedValue({
+        canceled: false,
+        filePaths: ['D:\\repo'],
+      })
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue('[]')
+      mockParseGitRemote.mockReturnValue({
+        host: 'github.com',
+        slug: 'owner/repo',
+        scheme: 'https',
+      })
+      mockIsGitHubHost.mockReturnValue(true)
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'D:\\repo\n' })
+        .mockResolvedValueOnce({ stdout: 'https://github.com/owner/repo.git\n' })
+        .mockResolvedValueOnce({ stdout: 'origin/main\n' })
+
+      const result = await addProjectFromPicker()
+      const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
+
+      expect(result).toEqual({
+        success: true,
+        project: expect.objectContaining({
+          displayName: 'repo',
+          localPath: 'D:\\repo',
+          gitRoot: 'D:\\repo',
+          githubSlug: 'owner/repo',
+          defaultBranch: 'main',
+          lastOpenedAt: 1700000000001,
+          lastActiveAt: 1700000000001,
+        }),
+      })
+      expect(written).toHaveLength(1)
+      expect(written[0]).toEqual(
+        expect.objectContaining({
+          id: 'crew-1700000000001-4fzzzx',
+          displayName: 'repo',
+          gitRoot: 'D:\\repo',
+        })
+      )
+
+      randomSpy.mockRestore()
+      nowSpy.mockRestore()
+    })
+  })
+
+  describe('undoFile', () => {
+    it('returns false when the project does not exist', async () => {
+      const result = await undoFile('missing', 'src/main.ts')
+
+      expect(result).toBe(false)
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
+    it('returns false when git checkout fails', async () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify([{ id: 'proj-1', gitRoot: 'D:\\repo' }]))
+      mockExecFileAsync.mockRejectedValueOnce(new Error('git failed'))
+
+      const result = await undoFile('proj-1', 'src/main.ts')
+
+      expect(result).toBe(false)
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'git',
+        ['checkout', 'HEAD', '--', 'src/main.ts'],
+        { cwd: 'D:\\repo', timeout: 5000 }
+      )
+      expect(mockWriteFileSync).not.toHaveBeenCalled()
+    })
+
+    it('removes the file from changedFiles after a successful checkout', async () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync
+        .mockReturnValueOnce(JSON.stringify([{ id: 'proj-1', gitRoot: 'D:\\repo' }]))
+        .mockReturnValueOnce(
+          JSON.stringify([
+            {
+              id: 'sess-1',
+              projectId: 'proj-1',
+              status: 'idle',
+              conversationHistory: [],
+              changedFiles: [
+                { filePath: 'src/main.ts', status: 'modified' },
+                { filePath: 'src/other.ts', status: 'modified' },
+              ],
+              createdAt: 1000,
+              updatedAt: 2000,
+            },
+          ])
+        )
+
+      const result = await undoFile('proj-1', 'src/main.ts')
+      const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
+
+      expect(result).toBe(true)
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'git',
+        ['checkout', 'HEAD', '--', 'src/main.ts'],
+        { cwd: 'D:\\repo', timeout: 5000 }
+      )
+      expect(written[0].changedFiles).toEqual([{ filePath: 'src/other.ts', status: 'modified' }])
     })
   })
 })

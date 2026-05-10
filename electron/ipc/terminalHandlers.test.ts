@@ -1,5 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const ptyState = vi.hoisted(() => {
+  const state = {
+    callbacks: {} as {
+      data?: (data: string) => void
+      exit?: (info: { exitCode: number }) => void
+    },
+    write: vi.fn(),
+    resize: vi.fn(),
+    kill: vi.fn(),
+    spawn: vi.fn(),
+  }
+
+  state.spawn.mockImplementation(() => {
+    state.callbacks = {}
+    state.write = vi.fn()
+    state.resize = vi.fn()
+    state.kill = vi.fn()
+
+    return {
+      onData: vi.fn((cb: (data: string) => void) => {
+        state.callbacks.data = cb
+        return { dispose: vi.fn() }
+      }),
+      onExit: vi.fn((cb: (info: { exitCode: number }) => void) => {
+        state.callbacks.exit = cb
+        return { dispose: vi.fn() }
+      }),
+      write: state.write,
+      resize: state.resize,
+      kill: state.kill,
+    }
+  })
+
+  return state
+})
+
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn() },
   app: { getPath: vi.fn(() => '/home/user'), quit: vi.fn(), on: vi.fn() },
@@ -19,13 +55,7 @@ vi.mock('node:module', () => ({
     const req = (mod: string) => {
       if (mod === 'node-pty') {
         return {
-          spawn: vi.fn(() => ({
-            onData: vi.fn(() => ({ dispose: vi.fn() })),
-            onExit: vi.fn(() => ({ dispose: vi.fn() })),
-            write: vi.fn(),
-            resize: vi.fn(),
-            kill: vi.fn(),
-          })),
+          spawn: ptyState.spawn,
         }
       }
       if (mod.includes('node-pty/lib/utils')) {
@@ -53,6 +83,7 @@ vi.mock('../../src/utils/errorUtils', () => ({
 }))
 
 import { ipcMain } from 'electron'
+import { IPC_PUSH } from '../../src/ipc/contracts'
 import { registerTerminalHandlers } from './terminalHandlers'
 
 describe('terminalHandlers', () => {
@@ -63,6 +94,11 @@ describe('terminalHandlers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    ptyState.callbacks = {}
+    ptyState.write = vi.fn()
+    ptyState.resize = vi.fn()
+    ptyState.kill = vi.fn()
+    ptyState.spawn.mockClear()
     handlers = new Map()
     listeners = new Map()
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
@@ -178,6 +214,7 @@ describe('terminalHandlers', () => {
     const killHandler = handlers.get('terminal:kill')!
     const result = await killHandler({}, spawnResult.sessionId)
     expect(result).toEqual({ success: true })
+    expect(ptyState.kill).toHaveBeenCalled()
 
     // Verify it's gone
     const attachResult = await handlers.get('terminal:attach')!(
@@ -199,6 +236,7 @@ describe('terminalHandlers', () => {
     // Then write to it (fire-and-forget, no error expected)
     const writeListener = listeners.get('terminal:write')!
     expect(() => writeListener({}, spawnResult.sessionId, 'hello')).not.toThrow()
+    expect(ptyState.write).toHaveBeenCalledWith('hello')
   })
 
   it('terminal:write ignores writes to non-existent sessions', () => {
@@ -218,10 +256,110 @@ describe('terminalHandlers', () => {
     // Then resize
     const resizeListener = listeners.get('terminal:resize')!
     expect(() => resizeListener({}, spawnResult.sessionId, 120, 40)).not.toThrow()
+    expect(ptyState.resize).toHaveBeenCalledWith(120, 40)
   })
 
   it('terminal:resize ignores non-existent sessions', () => {
     const resizeListener = listeners.get('terminal:resize')!
     expect(() => resizeListener({}, 'nonexistent', 120, 40)).not.toThrow()
+  })
+
+  it('processOsc7 updates cwd and notifies renderer when OSC 7 data is received', async () => {
+    const { processOsc7Buffer } = await import('../../src/utils/terminalPathUtils')
+    vi.mocked(processOsc7Buffer).mockReturnValueOnce({
+      cwd: 'C:\\workspace\\repo',
+      remainingBuffer: '',
+    })
+
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    expect(ptyState.callbacks.data).toBeTypeOf('function')
+    ptyState.callbacks.data!('\u001b]7;file:///C:/workspace/repo\u0007')
+
+    expect(mockSender.send).toHaveBeenCalledWith(
+      IPC_PUSH.TERMINAL_CWD_CHANGED,
+      spawnResult.sessionId,
+      'C:\\workspace\\repo'
+    )
+  })
+
+  it('createTerminalSession forwards PTY data to the renderer', async () => {
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    expect(ptyState.callbacks.data).toBeTypeOf('function')
+    ptyState.callbacks.data!('hello from pty')
+
+    expect(mockSender.send).toHaveBeenCalledWith(
+      IPC_PUSH.TERMINAL_DATA,
+      spawnResult.sessionId,
+      'hello from pty',
+      1
+    )
+  })
+
+  it('createTerminalSession forwards PTY exit to the renderer', async () => {
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    expect(ptyState.callbacks.exit).toBeTypeOf('function')
+    ptyState.callbacks.exit!({ exitCode: 23 })
+
+    expect(mockSender.send).toHaveBeenCalledWith(IPC_PUSH.TERMINAL_EXIT, spawnResult.sessionId, 23)
+  })
+
+  it('scheduleStartupCommand writes the startup command after 500ms', async () => {
+    vi.useFakeTimers()
+    try {
+      const spawnHandler = handlers.get('terminal:spawn')!
+      const mockSender = {
+        isDestroyed: vi.fn(() => false),
+        send: vi.fn(),
+      }
+
+      const spawnResult = await spawnHandler(
+        { sender: mockSender },
+        { cols: 80, rows: 24, startupCommand: 'echo hello' }
+      )
+
+      expect(spawnResult.success).toBe(true)
+      expect(ptyState.write).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(499)
+      expect(ptyState.write).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(ptyState.write).toHaveBeenCalledWith('echo hello\r')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('terminal:spawn returns an error when PTY spawn fails', async () => {
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    ptyState.spawn.mockImplementationOnce(() => {
+      throw new Error('spawn failed')
+    })
+
+    const result = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    expect(result).toEqual({ success: false, error: 'Failed to spawn terminal' })
   })
 })

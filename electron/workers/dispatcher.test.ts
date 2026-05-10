@@ -79,6 +79,8 @@ vi.mock('../../src/utils/billingParsers', () => ({
 import { getDispatcher } from './dispatcher'
 import { execWorker } from './execWorker'
 import { aiWorker } from './aiWorker'
+import { skillWorker } from './skillWorker'
+import { fetchCopilotMetrics } from '../ipc/githubHandlers'
 
 describe('dispatcher', () => {
   beforeEach(() => {
@@ -236,5 +238,288 @@ describe('dispatcher', () => {
     // isInBackoffWindow was called - on the second poll it should check,
     // but since the first error just happened, the backoff window is brief
     expect(isInBackoffWindow).toHaveBeenCalled()
+  })
+
+  it('dispatches skill worker when workerType is skill', async () => {
+    vi.useRealTimers()
+    let claimed = false
+    mockClient.mutation.mockImplementation(async (name: string) => {
+      if (name === 'runs:claimPending') {
+        if (claimed) return null
+        claimed = true
+        return {
+          run: { _id: 'run-skill' },
+          job: {
+            name: 'skill-job',
+            workerType: 'skill',
+            config: { skill: 'debug', prompt: 'hello' },
+          },
+        }
+      }
+
+      return undefined
+    })
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(skillWorker.execute).toHaveBeenCalledWith(
+      { skill: 'debug', prompt: 'hello' },
+      expect.any(AbortSignal)
+    )
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:complete', {
+      id: 'run-skill',
+      output: { stdout: 'skill done', exitCode: 0, duration: 75 },
+    })
+  })
+
+  it('reports worker execution rejection via runs.fail', async () => {
+    vi.useRealTimers()
+    vi.mocked(execWorker.execute).mockRejectedValueOnce(new Error('worker exploded'))
+
+    let claimed = false
+    mockClient.mutation.mockImplementation(async (name: string) => {
+      if (name === 'runs:claimPending') {
+        if (claimed) return null
+        claimed = true
+        return {
+          run: { _id: 'run-fail' },
+          job: { name: 'failing-job', workerType: 'exec', config: { command: 'echo hi' } },
+        }
+      }
+
+      return undefined
+    })
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-fail',
+      error: 'worker exploded',
+    })
+  })
+
+  it('runs snapshot collection for __copilot_snapshot__ commands', async () => {
+    vi.useRealTimers()
+    vi.mocked(fetchCopilotMetrics)
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          org: 'org-one',
+          billingYear: 2025,
+          billingMonth: 1,
+          premiumRequests: 11,
+          grossCost: 22,
+          discount: 3,
+          netCost: 19,
+          businessSeats: 4,
+          budgetAmount: 100,
+          spent: 19,
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          org: 'org-two',
+          billingYear: 2025,
+          billingMonth: 2,
+          premiumRequests: 12,
+          grossCost: 24,
+          discount: 4,
+          netCost: 20,
+          businessSeats: 5,
+          spent: 20,
+        },
+      })
+
+    let claimed = false
+    mockClient.mutation.mockImplementation(async (name: string) => {
+      if (name === 'runs:claimPending') {
+        if (claimed) return null
+        claimed = true
+        return {
+          run: {
+            _id: 'run-snapshot',
+            input: {
+              accounts: [
+                { username: 'user-one', org: 'org-one' },
+                { username: 'user-two', org: 'org-two' },
+              ],
+            },
+          },
+          job: {
+            name: 'snapshot-job',
+            workerType: 'exec',
+            config: { command: '__copilot_snapshot__' },
+          },
+        }
+      }
+
+      return undefined
+    })
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(execWorker.execute).not.toHaveBeenCalled()
+    expect(fetchCopilotMetrics).toHaveBeenNthCalledWith(1, 'org-one', 'user-one')
+    expect(fetchCopilotMetrics).toHaveBeenNthCalledWith(2, 'org-two', 'user-two')
+    expect(mockClient.mutation).toHaveBeenCalledWith('copilotUsageHistory:store', {
+      accountUsername: 'user-one',
+      org: 'org-one',
+      billingYear: 2025,
+      billingMonth: 1,
+      premiumRequests: 11,
+      grossCost: 22,
+      discount: 3,
+      netCost: 19,
+      businessSeats: 4,
+      budgetAmount: 100,
+      spent: 19,
+    })
+    expect(mockClient.mutation).toHaveBeenCalledWith('copilotUsageHistory:store', {
+      accountUsername: 'user-two',
+      org: 'org-two',
+      billingYear: 2025,
+      billingMonth: 2,
+      premiumRequests: 12,
+      grossCost: 24,
+      discount: 4,
+      netCost: 20,
+      businessSeats: 5,
+      spent: 20,
+    })
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:complete', {
+      id: 'run-snapshot',
+      output: expect.objectContaining({
+        stdout: 'Collected 2 snapshots, 0 failed',
+        exitCode: 0,
+        duration: expect.any(Number),
+      }),
+    })
+  })
+
+  it('fails snapshot collection when no accounts are provided', async () => {
+    vi.useRealTimers()
+    let claimed = false
+    mockClient.mutation.mockImplementation(async (name: string) => {
+      if (name === 'runs:claimPending') {
+        if (claimed) return null
+        claimed = true
+        return {
+          run: { _id: 'run-no-accounts', input: {} },
+          job: {
+            name: 'snapshot-job',
+            workerType: 'exec',
+            config: { command: '__copilot_snapshot__' },
+          },
+        }
+      }
+
+      return undefined
+    })
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    expect(fetchCopilotMetrics).not.toHaveBeenCalled()
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:fail', {
+      id: 'run-no-accounts',
+      error: 'No accounts provided for snapshot collection',
+    })
+  })
+
+  it('continues snapshot collection when storing an account fails', async () => {
+    vi.useRealTimers()
+    vi.mocked(fetchCopilotMetrics)
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          org: 'org-one',
+          billingYear: 2025,
+          billingMonth: 3,
+          premiumRequests: 13,
+          grossCost: 26,
+          discount: 5,
+          netCost: 21,
+          businessSeats: 6,
+          spent: 21,
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          org: 'org-two',
+          billingYear: 2025,
+          billingMonth: 4,
+          premiumRequests: 14,
+          grossCost: 28,
+          discount: 6,
+          netCost: 22,
+          businessSeats: 7,
+          spent: 22,
+        },
+      })
+
+    let claimed = false
+    mockClient.mutation.mockImplementation(
+      async (name: string, payload?: { accountUsername?: string }) => {
+        if (name === 'runs:claimPending') {
+          if (claimed) return null
+          claimed = true
+          return {
+            run: {
+              _id: 'run-store-fail',
+              input: {
+                accounts: [
+                  { username: 'user-one', org: 'org-one' },
+                  { username: 'user-two', org: 'org-two' },
+                ],
+              },
+            },
+            job: {
+              name: 'snapshot-job',
+              workerType: 'exec',
+              config: { command: '__copilot_snapshot__' },
+            },
+          }
+        }
+
+        if (name === 'copilotUsageHistory:store' && payload?.accountUsername === 'user-one') {
+          throw new Error('store failed')
+        }
+
+        return undefined
+      }
+    )
+
+    const dispatcher = getDispatcher()
+    dispatcher.start()
+    await new Promise(r => setTimeout(r, 50))
+    dispatcher.stop()
+
+    const storeCalls = mockClient.mutation.mock.calls.filter(
+      ([name]) => name === 'copilotUsageHistory:store'
+    )
+    expect(storeCalls).toHaveLength(2)
+    expect(fetchCopilotMetrics).toHaveBeenNthCalledWith(1, 'org-one', 'user-one')
+    expect(fetchCopilotMetrics).toHaveBeenNthCalledWith(2, 'org-two', 'user-two')
+    expect(mockClient.mutation).toHaveBeenCalledWith('runs:complete', {
+      id: 'run-store-fail',
+      output: expect.objectContaining({
+        stdout: 'Collected 1 snapshots, 1 failed',
+        exitCode: 1,
+        duration: expect.any(Number),
+      }),
+    })
   })
 })

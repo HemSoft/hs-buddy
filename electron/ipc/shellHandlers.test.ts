@@ -12,6 +12,27 @@ let mockIsDestroyed: ReturnType<typeof vi.fn>
 // the behavior of BrowserWindow.loadURL() in the handler under test.
 let loadURLResponse: Promise<void> = Promise.resolve()
 
+function createFetchResponse(
+  body: string,
+  status = 200,
+  headers: Record<string, string> = { 'content-type': 'text/html' }
+): Response {
+  const reader = {
+    read: vi
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: new TextEncoder().encode(body) })
+      .mockResolvedValueOnce({ done: true, value: undefined }),
+    cancel: vi.fn().mockResolvedValue(undefined),
+  }
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers(headers),
+    body: { getReader: () => reader },
+  } as unknown as Response
+}
+
 vi.mock('electron', () => ({
   BrowserWindow: class MockBrowserWindow {
     webContents = {
@@ -489,6 +510,112 @@ describe('shellHandlers', () => {
 
       // Should be blocked when the redirect target resolves to a private IP
       expect(result).toEqual({ success: false, error: 'Internal URLs not allowed' })
+    })
+
+    it('returns the page title for a public HTML response', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValueOnce([{ address: '93.184.216.34' }] as never)
+      vi.mocked(net.fetch).mockResolvedValueOnce(
+        createFetchResponse('<html><title>My Page</title></html>')
+      )
+
+      const result = await invoke('https://example.com')
+
+      expect(result).toEqual({ success: true, title: 'My Page' })
+    })
+
+    it('returns a DNS resolution error when lookup fails', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockRejectedValueOnce(new Error('ENOTFOUND'))
+
+      const result = await invoke('https://example.com')
+
+      expect(result).toEqual({ success: false, error: 'DNS resolution failed for example.com' })
+      expect(net.fetch).not.toHaveBeenCalled()
+    })
+
+    it('follows redirects and returns the title from the final page', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup)
+        .mockResolvedValueOnce([{ address: '93.184.216.34' }] as never)
+        .mockResolvedValueOnce([{ address: '93.184.216.35' }] as never)
+      vi.mocked(net.fetch)
+        .mockResolvedValueOnce(
+          createFetchResponse('', 302, { location: 'https://redirected.example/final' })
+        )
+        .mockResolvedValueOnce(createFetchResponse('<html><title>Redirected Page</title></html>'))
+
+      const result = await invoke('https://example.com/start')
+
+      expect(result).toEqual({ success: true, title: 'Redirected Page' })
+      expect(vi.mocked(net.fetch)).toHaveBeenNthCalledWith(
+        2,
+        'https://redirected.example/final',
+        expect.anything()
+      )
+    })
+
+    it('returns an error after too many redirects', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+      vi.mocked(net.fetch).mockResolvedValue(
+        createFetchResponse('', 302, { location: 'https://redirect.example/loop' })
+      )
+
+      const result = await invoke('https://example.com/start')
+
+      expect(result).toEqual({ success: false, error: 'Too many redirects' })
+    })
+
+    it('returns an error for non-HTML responses', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValueOnce([{ address: '93.184.216.34' }] as never)
+      vi.mocked(net.fetch).mockResolvedValueOnce(
+        createFetchResponse('{"ok":true}', 200, { 'content-type': 'application/json' })
+      )
+
+      const result = await invoke('https://example.com')
+
+      expect(result).toEqual({ success: false, error: 'Not an HTML page' })
+    })
+
+    it('checks every DNS result for private IPs', async () => {
+      const { validateUrl, isPrivateIP } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValueOnce([
+        { address: '93.184.216.34' },
+        { address: '10.0.0.5' },
+      ] as never)
+
+      const result = await invoke('https://example.com')
+
+      expect(result).toEqual({ success: false, error: 'Internal URLs not allowed' })
+      expect(vi.mocked(isPrivateIP)).toHaveBeenNthCalledWith(1, '93.184.216.34')
+      expect(vi.mocked(isPrivateIP)).toHaveBeenNthCalledWith(2, '10.0.0.5')
+      expect(net.fetch).not.toHaveBeenCalled()
     })
   })
 })

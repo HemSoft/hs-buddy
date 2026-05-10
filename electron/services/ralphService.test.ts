@@ -350,12 +350,11 @@ describe('ralphService', () => {
       const stdoutOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.stdout.on
       const stdoutCallback = stdoutOn.mock.calls.find((c: unknown[]) => c[0] === 'data')?.[1]
 
-      if (stdoutCallback) {
-        stdoutCallback(Buffer.from('=== ITERATION 3 ===\n'))
-        const status = getLoopStatus(runId)
-        expect(status?.currentIteration).toBe(3)
-        expect(status?.phase).toBe('iterating')
-      }
+      expect(stdoutCallback).toEqual(expect.any(Function))
+      stdoutCallback!(Buffer.from('=== ITERATION 3 ===\n'))
+      const status = getLoopStatus(runId)
+      expect(status?.currentIteration).toBe(3)
+      expect(status?.phase).toBe('iterating')
     })
 
     it('tracks check stats from stdout', () => {
@@ -370,11 +369,10 @@ describe('ralphService', () => {
       const stdoutOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.stdout.on
       const stdoutCallback = stdoutOn.mock.calls.find((c: unknown[]) => c[0] === 'data')?.[1]
 
-      if (stdoutCallback) {
-        stdoutCallback(Buffer.from('== Check 1 of 5\n'))
-        const status = getLoopStatus(runId)
-        expect(status?.stats.checks).toBe(1)
-      }
+      expect(stdoutCallback).toEqual(expect.any(Function))
+      stdoutCallback!(Buffer.from('== Check 1 of 5\n'))
+      const status = getLoopStatus(runId)
+      expect(status?.stats.checks).toBe(1)
     })
 
     it('handles process error event', () => {
@@ -391,12 +389,11 @@ describe('ralphService', () => {
       const procOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.on
       const errorCallback = procOn.mock.calls.find((c: unknown[]) => c[0] === 'error')?.[1]
 
-      if (errorCallback) {
-        errorCallback(new Error('spawn failed'))
-        const status = getLoopStatus(runId)
-        expect(status?.status).toBe('failed')
-        expect(status?.error).toBe('spawn failed')
-      }
+      expect(errorCallback).toEqual(expect.any(Function))
+      errorCallback!(new Error('spawn failed'))
+      const status = getLoopStatus(runId)
+      expect(status?.status).toBe('failed')
+      expect(status?.error).toBe('spawn failed')
 
       setStatusChangeCallback(null)
     })
@@ -415,14 +412,11 @@ describe('ralphService', () => {
       const procOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.on
       const closeCallback = procOn.mock.calls.find((c: unknown[]) => c[0] === 'close')?.[1]
 
-      if (closeCallback) {
-        closeCallback(0)
-        const status = getLoopStatus(runId)
-        expect(status?.status).toBe('completed')
-        expect(status?.exitCode).toBe(0)
-      }
-
-      setStatusChangeCallback(null)
+      expect(closeCallback).toEqual(expect.any(Function))
+      closeCallback!(0)
+      const status = getLoopStatus(runId)
+      expect(status?.status).toBe('completed')
+      expect(status?.exitCode).toBe(0)
     })
 
     it('handles process close event with non-zero exit code', () => {
@@ -437,12 +431,11 @@ describe('ralphService', () => {
       const procOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.on
       const closeCallback = procOn.mock.calls.find((c: unknown[]) => c[0] === 'close')?.[1]
 
-      if (closeCallback) {
-        closeCallback(1)
-        const status = getLoopStatus(runId)
-        expect(status?.status).toBe('failed')
-        expect(status?.exitCode).toBe(1)
-      }
+      expect(closeCallback).toEqual(expect.any(Function))
+      closeCallback!(1)
+      const status = getLoopStatus(runId)
+      expect(status?.status).toBe('failed')
+      expect(status?.exitCode).toBe(1)
     })
 
     it('does not overwrite cancelled status on close', () => {
@@ -459,11 +452,10 @@ describe('ralphService', () => {
       const procOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.on
       const closeCallback = procOn.mock.calls.find((c: unknown[]) => c[0] === 'close')?.[1]
 
-      if (closeCallback) {
-        closeCallback(1) // should NOT overwrite 'cancelled'
-        const status = getLoopStatus(runId)
-        expect(status?.status).toBe('cancelled')
-      }
+      expect(closeCallback).toEqual(expect.any(Function))
+      closeCallback!(1) // should NOT overwrite 'cancelled'
+      const status = getLoopStatus(runId)
+      expect(status?.status).toBe('cancelled')
     })
 
     it('tracks cost and premium stats', () => {
@@ -478,12 +470,11 @@ describe('ralphService', () => {
       const stdoutOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.stdout.on
       const stdoutCallback = stdoutOn.mock.calls.find((c: unknown[]) => c[0] === 'data')?.[1]
 
-      if (stdoutCallback) {
-        stdoutCallback(Buffer.from('   Cost  $1.23 (45 premium requests)\n'))
-        const status = getLoopStatus(runId)
-        expect(status?.stats.totalCost).toBe('$1.23')
-        expect(status?.stats.totalPremium).toBe(45)
-      }
+      expect(stdoutCallback).toEqual(expect.any(Function))
+      stdoutCallback!(Buffer.from('   Cost  $1.23 (45 premium requests)\n'))
+      const status = getLoopStatus(runId)
+      expect(status?.stats.totalCost).toBe('$1.23')
+      expect(status?.stats.totalPremium).toBe(45)
     })
 
     it('appends stderr lines to log buffer', () => {
@@ -498,11 +489,10 @@ describe('ralphService', () => {
       const stderrOn = mockSpawn.mock.results[mockSpawn.mock.results.length - 1].value.stderr.on
       const stderrCallback = stderrOn.mock.calls.find((c: unknown[]) => c[0] === 'data')?.[1]
 
-      if (stderrCallback) {
-        stderrCallback(Buffer.from('Warning: something happened\n'))
-        const status = getLoopStatus(runId)
-        expect(status?.logBuffer.some(l => l.includes('[stderr]'))).toBe(true)
-      }
+      expect(stderrCallback).toEqual(expect.any(Function))
+      stderrCallback!(Buffer.from('Warning: something happened\n'))
+      const status = getLoopStatus(runId)
+      expect(status?.logBuffer.some(l => l.includes('[stderr]'))).toBe(true)
     })
   })
 
@@ -518,6 +508,14 @@ describe('ralphService', () => {
     })
 
     it('clears all runs after shutdown', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launched = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(launched.success).toBe(true)
+      expect(listLoops()).toHaveLength(1)
+
       shutdownRalphService()
       const runs = listLoops()
       expect(runs).toHaveLength(0)

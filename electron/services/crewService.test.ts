@@ -371,77 +371,83 @@ describe('crewService', () => {
 
     it('returns the existing project and updates lastOpenedAt', async () => {
       const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
-      mockValidFolderSelection()
-      mockExistsSync.mockReturnValue(true)
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify([
-          {
+      try {
+        mockValidFolderSelection()
+        mockExistsSync.mockReturnValue(true)
+        mockReadFileSync.mockReturnValue(
+          JSON.stringify([
+            {
+              id: 'proj-1',
+              displayName: 'repo',
+              localPath: 'D:\\test\\repo',
+              gitRoot: 'D:\\test\\repo',
+              githubSlug: 'owner/repo',
+              defaultBranch: 'main',
+              lastOpenedAt: 123,
+              lastActiveAt: 456,
+            },
+          ])
+        )
+
+        const result = await addProjectFromPicker()
+
+        expect(result).toEqual({
+          success: true,
+          project: {
             id: 'proj-1',
             displayName: 'repo',
             localPath: 'D:\\test\\repo',
             gitRoot: 'D:\\test\\repo',
             githubSlug: 'owner/repo',
             defaultBranch: 'main',
-            lastOpenedAt: 123,
+            lastOpenedAt: 1_700_000_000_000,
             lastActiveAt: 456,
           },
-        ])
-      )
-
-      const result = await addProjectFromPicker()
-
-      expect(result).toEqual({
-        success: true,
-        project: {
-          id: 'proj-1',
-          displayName: 'repo',
-          localPath: 'D:\\test\\repo',
-          gitRoot: 'D:\\test\\repo',
-          githubSlug: 'owner/repo',
-          defaultBranch: 'main',
-          lastOpenedAt: 1_700_000_000_000,
-          lastActiveAt: 456,
-        },
-      })
-      expect(mockWriteFileSync).toHaveBeenCalledTimes(1)
-      const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
-      expect(written[0].lastOpenedAt).toBe(1_700_000_000_000)
-      nowSpy.mockRestore()
+        })
+        expect(mockWriteFileSync).toHaveBeenCalledTimes(1)
+        const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
+        expect(written[0].lastOpenedAt).toBe(1_700_000_000_000)
+      } finally {
+        nowSpy.mockRestore()
+      }
     })
 
     it('returns a new project when folder is valid and not already added', async () => {
       const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
       const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.123456)
-      mockValidFolderSelection()
+      try {
+        mockValidFolderSelection()
 
-      const result = await addProjectFromPicker()
+        const result = await addProjectFromPicker()
 
-      expect(result).toEqual({
-        success: true,
-        project: expect.objectContaining({
-          id: expect.stringMatching(/^crew-1700000000000-/),
-          displayName: 'repo',
-          localPath: 'D:\\test\\repo',
-          gitRoot: 'D:\\test\\repo',
-          githubSlug: 'owner/repo',
-          defaultBranch: 'main',
-          lastOpenedAt: 1_700_000_000_000,
-          lastActiveAt: 1_700_000_000_000,
-        }),
-      })
-      expect(mockWriteFileSync).toHaveBeenCalledTimes(1)
-      const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
-      expect(written).toHaveLength(1)
-      expect(written[0]).toEqual(
-        expect.objectContaining({
-          displayName: 'repo',
-          gitRoot: 'D:\\test\\repo',
-          githubSlug: 'owner/repo',
-          defaultBranch: 'main',
+        expect(result).toEqual({
+          success: true,
+          project: expect.objectContaining({
+            id: expect.stringMatching(/^crew-1700000000000-/),
+            displayName: 'repo',
+            localPath: 'D:\\test\\repo',
+            gitRoot: 'D:\\test\\repo',
+            githubSlug: 'owner/repo',
+            defaultBranch: 'main',
+            lastOpenedAt: 1_700_000_000_000,
+            lastActiveAt: 1_700_000_000_000,
+          }),
         })
-      )
-      nowSpy.mockRestore()
-      randomSpy.mockRestore()
+        expect(mockWriteFileSync).toHaveBeenCalledTimes(1)
+        const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
+        expect(written).toHaveLength(1)
+        expect(written[0]).toEqual(
+          expect.objectContaining({
+            displayName: 'repo',
+            gitRoot: 'D:\\test\\repo',
+            githubSlug: 'owner/repo',
+            defaultBranch: 'main',
+          })
+        )
+      } finally {
+        nowSpy.mockRestore()
+        randomSpy.mockRestore()
+      }
     })
   })
 

@@ -121,22 +121,22 @@ describe('ralphHandlers', () => {
 
   it('setStatusChangeCallback sends status updates when win is not destroyed', async () => {
     const { setStatusChangeCallback } = await import('../services/ralphService')
+    expect(setStatusChangeCallback).toHaveBeenCalledTimes(1)
     const cb = vi.mocked(setStatusChangeCallback).mock.calls[0]?.[0]
-    if (cb) {
-      const mockRun = { runId: 'run-1', status: 'running' }
-      cb(mockRun as Parameters<typeof cb>[0])
-      expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
-    }
+    expect(cb).toBeTypeOf('function')
+    const mockRun = { runId: 'run-1', status: 'running' }
+    cb!(mockRun as Parameters<NonNullable<typeof cb>>[0])
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
   })
 
   it('setStatusChangeCallback does not send when win is destroyed', async () => {
     const { setStatusChangeCallback } = await import('../services/ralphService')
     vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
+    expect(setStatusChangeCallback).toHaveBeenCalledTimes(1)
     const cb = vi.mocked(setStatusChangeCallback).mock.calls[0]?.[0]
-    if (cb) {
-      const mockRun = { runId: 'run-1', status: 'running' }
-      cb(mockRun as Parameters<typeof cb>[0])
-      expect(mockWin.webContents.send).not.toHaveBeenCalled()
-    }
+    expect(cb).toBeTypeOf('function')
+    const mockRun = { runId: 'run-1', status: 'running' }
+    cb!(mockRun as Parameters<NonNullable<typeof cb>>[0])
+    expect(mockWin.webContents.send).not.toHaveBeenCalled()
   })
 })

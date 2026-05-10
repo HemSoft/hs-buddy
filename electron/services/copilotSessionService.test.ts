@@ -36,8 +36,8 @@ const {
   mockAggregateResults: vi.fn(),
   mockComputeSessionDigest: vi.fn(),
   holders: {
-    stream: undefined as EventEmitter | undefined,
-    rl: undefined as (EventEmitter & { close: ReturnType<typeof vi.fn> }) | undefined,
+    stream: null as EventEmitter | null,
+    rl: null as (EventEmitter & { close: ReturnType<typeof vi.fn> }) | null,
   },
 }))
 

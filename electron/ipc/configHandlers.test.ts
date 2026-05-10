@@ -340,6 +340,55 @@ describe('configHandlers', () => {
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toBeNull()
     })
+
+    it('returns base64 audio data when valid sound file exists', async () => {
+      const { stat, readFile } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/alert.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => true,
+        size: 1024,
+      } as never)
+      vi.mocked(readFile).mockResolvedValueOnce(Buffer.from('fake-audio-data'))
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toEqual({
+        base64: Buffer.from('fake-audio-data').toString('base64'),
+        mimeType: 'audio/mpeg',
+      })
+    })
+
+    it('returns null when file is too large', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/alert.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => true,
+        size: 100_000_000,
+      } as never)
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('returns null when stat throws (file not found)', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/missing.mp3')
+      vi.mocked(stat).mockRejectedValueOnce(new Error('ENOENT'))
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('returns null when path is not a regular file', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/dir.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => false,
+        size: 1024,
+      } as never)
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
   })
 
   describe('config:get-store-path', () => {

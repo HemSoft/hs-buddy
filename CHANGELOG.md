@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve electron test coverage from 67% to 75%
 - Expand ralphService and tempoClient coverage
 - Add round 3 electron coverage tests (telemetry, shell, todoist, slack, terminal)
+- Add copilotSessionHandlers digest + configHandlers notification sound tests
 
 ### Changed
 

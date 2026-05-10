@@ -14,30 +14,115 @@ const mockCreateCounter = vi.fn(() => mockCounter)
 const mockCreateHistogram = vi.fn(() => mockHistogram)
 const mockEmit = vi.fn()
 
-vi.mock('@opentelemetry/api', () => ({
-  trace: { getTracer: vi.fn(() => ({ startActiveSpan: mockStartActiveSpan })) },
-  metrics: {
-    getMeter: vi.fn(() => ({
-      createCounter: mockCreateCounter,
-      createHistogram: mockCreateHistogram,
-    })),
-  },
-  SpanStatusCode: { OK: 1, ERROR: 2 },
-  diag: { setLogger: vi.fn() },
-  DiagConsoleLogger: vi.fn(),
-  DiagLogLevel: { DEBUG: 0 },
-}))
+vi.mock('@opentelemetry/api', () => {
+  const setLogger = vi.fn()
+  return {
+    trace: { getTracer: vi.fn(() => ({ startActiveSpan: mockStartActiveSpan })) },
+    metrics: {
+      getMeter: vi.fn(() => ({
+        createCounter: mockCreateCounter,
+        createHistogram: mockCreateHistogram,
+      })),
+    },
+    SpanStatusCode: { OK: 1, ERROR: 2 },
+    diag: { setLogger },
+    DiagConsoleLogger: vi.fn(),
+    DiagLogLevel: { DEBUG: 0 },
+  }
+})
 
 vi.mock('@opentelemetry/api-logs', () => ({
   logs: { getLogger: vi.fn(() => ({ emit: mockEmit })), setGlobalLoggerProvider: vi.fn() },
   SeverityNumber: { DEBUG: 5, INFO: 9, WARN: 13, ERROR: 17 },
 }))
 
-import { recordIpcCall, recordWindowOpen, emitLog, withSpan, shutdownTelemetry } from './telemetry'
+// Mock all the dynamic import SDK packages for initTelemetry testing
+vi.mock('@opentelemetry/sdk-node', () => ({
+  NodeSDK: vi.fn().mockImplementation(() => ({
+    start: vi.fn(),
+    shutdown: vi.fn().mockResolvedValue(undefined),
+  })),
+}))
+
+vi.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
+  OTLPTraceExporter: vi.fn(),
+}))
+
+vi.mock('@opentelemetry/exporter-metrics-otlp-proto', () => ({
+  OTLPMetricExporter: vi.fn(),
+}))
+
+vi.mock('@opentelemetry/exporter-logs-otlp-proto', () => ({
+  OTLPLogExporter: vi.fn(),
+}))
+
+vi.mock('@opentelemetry/sdk-metrics', () => ({
+  PeriodicExportingMetricReader: vi.fn(),
+}))
+
+vi.mock('@opentelemetry/sdk-logs', () => ({
+  BatchLogRecordProcessor: vi.fn(),
+  LoggerProvider: vi.fn().mockImplementation(() => ({
+    shutdown: vi.fn().mockResolvedValue(undefined),
+  })),
+}))
+
+vi.mock('@opentelemetry/instrumentation-http', () => ({
+  HttpInstrumentation: vi.fn(),
+}))
+
+vi.mock('@opentelemetry/instrumentation-dns', () => ({
+  DnsInstrumentation: vi.fn(),
+}))
+
+vi.mock('@opentelemetry/resources', () => ({
+  resourceFromAttributes: vi.fn(() => ({})),
+}))
+
+import {
+  recordIpcCall,
+  recordWindowOpen,
+  emitLog,
+  withSpan,
+  initTelemetry,
+  shutdownTelemetry,
+} from './telemetry'
 
 describe('telemetry', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  describe('initTelemetry', () => {
+    it('is a no-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set', async () => {
+      const orig = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      await initTelemetry()
+      // No SDK was initialized — no metric handles created
+      expect(mockCreateCounter).not.toHaveBeenCalled()
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = orig
+    })
+
+    it('initializes SDK when endpoint is set', async () => {
+      const orig = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
+      delete process.env.OTEL_LOG_LEVEL
+      // Should not throw when all SDK mocks are in place
+      await expect(initTelemetry()).resolves.toBeUndefined()
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = orig
+    })
+
+    it('enables debug diagnostics when OTEL_LOG_LEVEL is debug', async () => {
+      const { diag } = await import('@opentelemetry/api')
+      const origEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      const origLogLevel = process.env.OTEL_LOG_LEVEL
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4317'
+      process.env.OTEL_LOG_LEVEL = 'debug'
+      await initTelemetry()
+      expect(diag.setLogger).toHaveBeenCalled()
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = origEndpoint
+      process.env.OTEL_LOG_LEVEL = origLogLevel
+    })
   })
 
   describe('recordIpcCall', () => {

@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add dedicated test files for 4 modules (64 new tests)
 - Improve coverage from 57% to 70%
 - Improve electron test coverage from 67% to 75%
+- Expand ralphService and tempoClient coverage
 
 ### Changed
 

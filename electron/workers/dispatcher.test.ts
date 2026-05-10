@@ -229,6 +229,8 @@ describe('dispatcher', () => {
         netCost: 50,
         businessSeats: 5,
         spent: 25,
+        budgetAmount: null,
+        fetchedAt: Date.now(),
       },
     })
 
@@ -291,6 +293,8 @@ describe('dispatcher', () => {
         netCost: 50,
         businessSeats: 5,
         spent: 25,
+        budgetAmount: null,
+        fetchedAt: Date.now(),
       },
     })
 
@@ -334,6 +338,8 @@ describe('dispatcher', () => {
           netCost: 50,
           businessSeats: 5,
           spent: 25,
+          budgetAmount: null,
+          fetchedAt: Date.now(),
         },
       })
       .mockResolvedValueOnce({ success: false, error: 'Network error' })

@@ -36,8 +36,8 @@ const {
   mockAggregateResults: vi.fn(),
   mockComputeSessionDigest: vi.fn(),
   holders: {
-    stream: undefined,
-    rl: undefined,
+    stream: undefined as EventEmitter | undefined,
+    rl: undefined as (EventEmitter & { close: ReturnType<typeof vi.fn> }) | undefined,
   },
 }))
 
@@ -326,10 +326,10 @@ describe('getSessionDetail', () => {
     mockExistsSync.mockImplementation(target => target === filePath)
 
     const detailPromise = getSessionDetail(filePath)
-    holders.stream.emit('error', new Error('boom'))
+    holders.stream!.emit('error', new Error('boom'))
 
     await expect(detailPromise).resolves.toBeNull()
-    expect(holders.rl.close).toHaveBeenCalled()
+    expect(holders.rl!.close).toHaveBeenCalled()
   })
 
   it('returns null when no session init is parsed', async () => {
@@ -344,8 +344,8 @@ describe('getSessionDetail', () => {
     mockParseKeyPath.mockReturnValue(['root'])
 
     const detailPromise = getSessionDetail(filePath)
-    holders.rl.emit('line', '{"kind":0,"v":{}}')
-    holders.rl.emit('close')
+    holders.rl!.emit('line', '{"kind":0,"v":{}}')
+    holders.rl!.emit('close')
 
     await expect(detailPromise).resolves.toBeNull()
     expect(mockProcessSessionLine).toHaveBeenCalledWith(
@@ -407,9 +407,9 @@ describe('getSessionDetail', () => {
     })
 
     const detailPromise = getSessionDetail(filePath)
-    holders.rl.emit('line', '{"kind":0,"v":{}}')
-    holders.rl.emit('line', '{"kind":1,"v":{}}')
-    holders.rl.emit('close')
+    holders.rl!.emit('line', '{"kind":0,"v":{}}')
+    holders.rl!.emit('line', '{"kind":1,"v":{}}')
+    holders.rl!.emit('close')
 
     const result = await detailPromise
 

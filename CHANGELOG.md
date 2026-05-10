@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sync MockStore.store after clear() to prevent stale state
 - Resolve typecheck and coverage CI failures
 - Address PR review feedback for test reliability
+- Strengthen no-op assertion in scanCopilotSessions test
 
 ### Changed
 

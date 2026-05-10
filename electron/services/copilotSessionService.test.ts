@@ -151,9 +151,22 @@ describe('copilotSessionService', () => {
           return chunk.length
         })
         mockReadFileSync.mockReturnValue('{"folder":"file:///test/project"}')
+        mockParseScanChunk.mockReturnValue({
+          title: 'Test Session',
+          firstPrompt: 'hello',
+          agent: 'copilot',
+          createdAt: 1000,
+          requestCount: 3,
+        })
 
         const result = scanCopilotSessions()
-        expect(result.sessions.length).toBeGreaterThanOrEqual(0)
+        expect(result.totalCount).toBeGreaterThan(0)
+        expect(result.sessions.length).toBeGreaterThan(0)
+        expect(result.sessions[0]).toMatchObject({
+          sessionId: 'session1',
+          workspaceHash: 'hash1',
+          workspaceName: 'test-workspace',
+        })
       } finally {
         if (saved === undefined) delete process.env.APPDATA
         else process.env.APPDATA = saved

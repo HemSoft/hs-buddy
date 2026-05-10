@@ -60,6 +60,13 @@ describe('CommentCard', () => {
     expect(screen.getByText('Suggested change')).toBeInTheDocument()
   })
 
+  it('renders suggestion without trailing empty line', () => {
+    const body = '```suggestion\nconst y = 2;```'
+    render(<CommentCard comment={makeComment({ body, bodyHtml: null })} />)
+    expect(screen.getByText('Suggested change')).toBeInTheDocument()
+    expect(screen.getByText(/const y = 2;/)).toBeInTheDocument()
+  })
+
   it('applies first-comment class when isFirst is true', () => {
     const { container } = render(<CommentCard comment={makeComment()} isFirst />)
     expect(container.querySelector('.thread-comment-first')).toBeInTheDocument()
@@ -147,5 +154,20 @@ describe('CommentCard', () => {
     await waitFor(() => {
       expect(heartBtn).not.toBeDisabled()
     })
+  })
+
+  it('logs error when onReact throws', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onReact = vi.fn().mockRejectedValue(new Error('reaction failed'))
+    try {
+      render(<CommentCard comment={makeComment()} onReact={onReact} />)
+
+      fireEvent.click(screen.getByTitle('Thumbs up'))
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to add reaction:', expect.any(Error))
+      })
+    } finally {
+      consoleSpy.mockRestore()
+    }
   })
 })

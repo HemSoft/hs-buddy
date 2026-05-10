@@ -5,9 +5,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 
 /** Check if a string is a valid HTTP/HTTPS URL. */
 function isValidHttpUrl(text: string | undefined): text is string {
-  /* v8 ignore start -- text always non-empty when called from extractUrlFromDataTransfer */
   if (!text) return false
-  /* v8 ignore stop */
   try {
     return ['http:', 'https:'].includes(new URL(text).protocol)
   } catch (_: unknown) {

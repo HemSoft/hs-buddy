@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix stale-artifact false positive in bundle-size check
 - Fail fast when electron main.js is missing
 - Add cross-platform cleanup guidance for stale artifacts
+- Remove unnecessary soundPath dependency from useCallback
+- Format PRFilesChangedPanel and PullRequestList with Prettier
+- Wrap fake timers in try/finally to prevent test leaks
 - Improve batchProcess and cache detection tests
 - Add --disable-dev-shm-usage to lighthouse chrome flags
 - Move changelog entry to Unreleased section
@@ -28,12 +31,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Add 44 new tests and remove v8 ignore from sfl.ts
+- Remove 8 v8 ignore blocks and add formatDateKey tests
+- Remove 7 v8 ignore blocks and add 3 tests for full coverage
+- Remove 10 v8 ignore blocks, simplify dead branches, add 2 tests
+- Remove 3 more v8 ignore blocks from 3 files
+- Remove 5 v8 ignore blocks and add 4 tests
+- Remove 3 v8 ignore blocks from BrowserTabView and WeatherCard
+- Remove 3 v8 ignore blocks and add 3 tests
+- Remove 4 v8 ignore blocks, add 3 tests
+- Remove 3 v8 ignore blocks, add 3 tests
+- Remove 3 v8 ignore blocks, add 2 tests
+- Address 8 PR review comments for test quality
 - Add dedicated test files for 4 modules (64 new tests)
 - Improve coverage from 57% to 70%
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
-- Resolve CHANGELOG.md merge conflict with main
-- Resolve merge conflicts with main (CHANGELOG, orgRepoTreeUtils, useIsMounted)
+- Resolve merge conflicts with main
 
 ## [0.1.751] - 2026-05-07
 

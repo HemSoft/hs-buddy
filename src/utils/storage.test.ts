@@ -16,12 +16,11 @@ describe('safeGetItem', () => {
   })
 
   it('returns null when localStorage throws', () => {
-    const orig = localStorage.getItem
-    localStorage.getItem = () => {
+    vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
       throw new Error('SecurityError')
-    }
+    })
     expect(safeGetItem('key')).toBeNull()
-    localStorage.getItem = orig
+    vi.restoreAllMocks()
   })
 })
 

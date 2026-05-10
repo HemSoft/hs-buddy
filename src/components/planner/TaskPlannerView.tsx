@@ -91,9 +91,7 @@ function AddTaskInline({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    /* v8 ignore start */
     if (e.key === 'Escape') onCancel()
-    /* v8 ignore stop */
   }
 
   return (
@@ -253,9 +251,7 @@ function useTaskPlannerActions(
       setCompletingIds(prev => new Set(prev).add(taskId))
       try {
         const result = await complete(taskId)
-        /* v8 ignore start */
         if (!result.success) showActionError(result.error ?? 'Failed to complete task')
-        /* v8 ignore stop */
       } catch (err: unknown) {
         showActionError(getErrorMessageWithFallback(err, 'Failed to complete task'))
       }
@@ -267,9 +263,7 @@ function useTaskPlannerActions(
     async (content: string, date: string) => {
       try {
         const result = await create({ content, due_date: date })
-        /* v8 ignore start */
         if (!result.success) showActionError(result.error ?? 'Failed to create task')
-        /* v8 ignore stop */
       } catch (err: unknown) {
         showActionError(getErrorMessageWithFallback(err, 'Failed to create task'))
       }

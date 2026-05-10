@@ -56,10 +56,9 @@ function adjustLineCountersForSkipped(
   newLine: number
 ): { oldLine: number; newLine: number } {
   for (const sl of skippedLines) {
-    /* v8 ignore start */
     if (sl.startsWith('+')) newLine++
     else if (sl.startsWith('-')) oldLine++
-    /* v8 ignore stop */ else {
+    else {
       oldLine++
       newLine++
     }

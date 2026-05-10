@@ -124,6 +124,31 @@ describe('useMigrateToConvex', () => {
     expect(result.current.isComplete).toBe(true)
   })
 
+  it('timeout no-ops after migration already completed', async () => {
+    vi.useFakeTimers()
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([])
+    mockInitSettings.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useMigrateToConvex())
+
+    // Let migration promises resolve (microtasks) without advancing the 3s timeout
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10)
+    })
+
+    expect(result.current.isComplete).toBe(true)
+
+    // Effect re-runs with isComplete=true, creating a new 3s timeout.
+    // Advancing past it exercises the !isComplete false branch.
+    await act(async () => {
+      vi.advanceTimersByTime(3100)
+    })
+
+    expect(result.current.isComplete).toBe(true)
+  })
+
   it('handles migration error gracefully', async () => {
     mockExistingAccounts = []
     mockExistingSettings = {}
@@ -152,7 +177,8 @@ describe('useMigrateToConvex', () => {
 
     const callCount = mockBulkImportAccounts.mock.calls.length
 
-    // Re-render triggers the effect again, but migrationAttempted.current prevents re-run
+    // Change a dependency so the effect re-fires with migrationAttempted.current = true
+    mockExistingAccounts = [{ id: '1', username: 'user1' }]
     rerender()
 
     await waitFor(() => {

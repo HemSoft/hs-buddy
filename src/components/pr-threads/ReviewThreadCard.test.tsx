@@ -181,6 +181,15 @@ describe('ReviewThreadCard', () => {
     expect(screen.getByText('Reply')).toBeInTheDocument()
   })
 
+  it('ignores non-Enter/Space keys on header', () => {
+    renderCard(makeThread({ isResolved: true }))
+    const header = screen.getByRole('button', { name: /src\/app.ts/i })
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    header.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+    expect(screen.queryByText('Reply')).not.toBeInTheDocument()
+  })
+
   it('renders diff hunk when present', () => {
     renderCard()
     expect(screen.getByTestId('diff-hunk')).toBeInTheDocument()

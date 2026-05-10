@@ -103,9 +103,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       /* v8 ignore stop */
       await navigator.clipboard.writeText(result.result)
       setCopied(true)
-      /* v8 ignore start */
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
-      /* v8 ignore stop */
       copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     }
   }
@@ -130,9 +128,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     setPublishing(true)
     try {
       const client = new GitHubClient({ accounts }, 7)
-      /* v8 ignore start */
       const body = `## 🤖 AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy — ${result.model || 'AI'} review*`
-      /* v8 ignore stop */
       await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
       setPublished(true)
     } catch (err: unknown) {

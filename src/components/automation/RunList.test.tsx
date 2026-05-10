@@ -75,7 +75,7 @@ vi.mock('../shared/ViewModeToggle', () => ({
 }))
 
 vi.mock('../ConfirmDialog', () => ({
-  ConfirmDialog: () => null,
+  ConfirmDialog: ({ message }: { message: string }) => <div>{message}</div>,
 }))
 
 vi.mock('../shared/statusDisplay', () => ({
@@ -233,6 +233,21 @@ describe('RunList', () => {
     expect(mockCleanup).not.toHaveBeenCalled()
   })
 
+  it('logs error when cleanup fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      mockConfirmFn.mockResolvedValue(true)
+      mockCleanup.mockRejectedValue(new Error('cleanup failed'))
+      render(<RunList />)
+      fireEvent.click(screen.getByTitle('Cleanup old runs (7+ days)'))
+      await vi.waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to cleanup runs:', expect.any(Error))
+      })
+    } finally {
+      consoleSpy.mockRestore()
+    }
+  })
+
   it('renders list view mode with table when viewMode is list', () => {
     mockUseViewMode.mockReturnValue(['list', vi.fn()])
     render(<RunList />)
@@ -309,5 +324,18 @@ describe('RunList', () => {
       expect(consoleSpy).toHaveBeenCalledWith('Failed to cancel run:', expect.any(Error))
     })
     consoleSpy.mockRestore()
+  })
+
+  it('renders ConfirmDialog when confirmDialog is present', () => {
+    mockUseConfirm.mockReturnValue({
+      confirm: mockConfirmFn,
+      confirmDialog: {
+        message: 'Are you sure?',
+        onConfirm: vi.fn(),
+        onCancel: vi.fn(),
+      },
+    })
+    render(<RunList />)
+    expect(screen.getByText('Are you sure?')).toBeInTheDocument()
   })
 })

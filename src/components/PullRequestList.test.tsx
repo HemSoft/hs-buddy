@@ -229,6 +229,23 @@ describe('PullRequestList', () => {
     expect(screen.getByText('7 PRs found so far')).toBeTruthy()
   })
 
+  it('shows singular PR count when 1 PR found during loading', () => {
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      loading: true,
+      totalPrsFound: 1,
+      progress: {
+        currentAccount: 1,
+        totalAccounts: 2,
+        status: 'fetching',
+        accountName: 'alice',
+        org: 'myorg',
+      },
+    })
+    render(<PullRequestList mode="my-prs" />)
+    expect(screen.getByText('1 PR found so far')).toBeTruthy()
+  })
+
   it('shows error with no accounts hint', () => {
     mockUsePRListData.mockReturnValue({
       ...defaultData,
@@ -325,6 +342,27 @@ describe('PullRequestList', () => {
     render(<PullRequestList mode="my-prs" />)
     fireEvent.click(screen.getByTestId('pr-item'))
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://github.com/test/repo/pull/1')
+  })
+
+  it('calls onOpenPR callback when provided', () => {
+    const onOpenPR = vi.fn()
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [
+        {
+          source: 'gh',
+          id: 1,
+          repository: 'test/repo',
+          title: 'Click me',
+          url: 'https://github.com/test/repo/pull/1',
+        },
+      ],
+    })
+    render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
+    fireEvent.click(screen.getByTestId('pr-item'))
+    expect(onOpenPR).toHaveBeenCalledTimes(1)
+    expect(onOpenPR).toHaveBeenCalledWith(expect.stringContaining('pr-detail:'))
+    expect(window.shell.openExternal).not.toHaveBeenCalled()
   })
 
   it('shows approvals with mine class when iApproved in list mode', () => {

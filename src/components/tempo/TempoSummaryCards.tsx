@@ -31,9 +31,7 @@ function computeSummaryMetrics(
   capexMap: Record<string, boolean>
 ): SummaryMetrics {
   const remaining = Math.max(0, monthTarget - monthHours)
-  /* v8 ignore start */
   const pct = monthTarget > 0 ? Math.min(100, Math.round((monthHours / monthTarget) * 100)) : 0
-  /* v8 ignore stop */
   const isMonthComplete = monthTarget > 0 && monthHours >= monthTarget
   const now = new Date()
   const isPastMonth = !isCurrentMonth && viewMonth < new Date(now.getFullYear(), now.getMonth(), 1)
@@ -42,9 +40,7 @@ function computeSummaryMetrics(
     w => w.hours
   )
   const nonCapexHours = Math.round((monthHours - capexHours) * 100) / 100
-  /* v8 ignore start */
   const capexPct = monthHours > 0 ? Math.round((capexHours / monthHours) * 100) : 0
-  /* v8 ignore stop */
   return { remaining, pct, isMonthComplete, isPastMonth, capexHours, nonCapexHours, capexPct }
 }
 

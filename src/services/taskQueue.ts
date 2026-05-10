@@ -275,9 +275,7 @@ export class TaskQueue {
         this.callbacks.onTaskComplete?.(task.id, task.name)
       }
     } catch (error: unknown) {
-      /* v8 ignore start */
       if (isAbortError(error)) {
-        /* v8 ignore stop */
         task.status = 'cancelled'
         this.stats.cancelled++
         task.reject(error)

@@ -104,12 +104,10 @@ export function useGitHubData<T>({
 
       try {
         const result = await enqueueRef.current(
-          /* v8 ignore start */
           async signal => {
             throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             return await fetchFnRef.current(client, signal)
-            /* v8 ignore stop */
           },
           { name: taskName }
         )

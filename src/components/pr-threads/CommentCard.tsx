@@ -20,9 +20,7 @@ const REACTION_OPTIONS: Array<{ content: PRCommentReactionContent; emoji: string
 
 function SuggestionBlock({ content }: { content: string }) {
   const lines = content.split('\n')
-  /* v8 ignore start */
   if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-    /* v8 ignore stop */
     lines.pop()
   }
 
@@ -108,9 +106,7 @@ export function CommentCard({
       try {
         await onReact(comment.id, content)
       } catch (err: unknown) {
-        /* v8 ignore start */
         console.error('Failed to add reaction:', err)
-        /* v8 ignore stop */
       } finally {
         setReacting(null)
       }

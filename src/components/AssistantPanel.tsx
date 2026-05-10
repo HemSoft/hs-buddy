@@ -50,12 +50,9 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
 
   // Auto-resize textarea
   useEffect(() => {
-    /* v8 ignore start */
-    if (textareaRef.current) {
-      /* v8 ignore stop */
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
-    }
+    const el = textareaRef.current!
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }, [input])
 
   const handleSend = () => {

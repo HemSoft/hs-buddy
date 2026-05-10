@@ -31,9 +31,7 @@ function computeBudgetCardMetrics(
   quotaOverage: number
 ): BudgetCardMetrics {
   const effectiveBudget = resolveEffectiveBudget(d)
-  /* v8 ignore start */
   const displaySpent = d.useQuotaOverage ? quotaOverage : (d.spent ?? 0)
-  /* v8 ignore stop */
   const myShare = d.useQuotaOverage ? 0 : quotaOverage
   const barValue = Math.max(displaySpent, myShare)
 

@@ -10,6 +10,7 @@ import {
   formatTime,
   formatHour12,
   formatTime12,
+  formatDateKey,
 } from './dateUtils'
 
 describe('formatDistanceToNow', () => {
@@ -315,5 +316,22 @@ describe('formatTime12', () => {
   it('pads single-digit minutes', () => {
     expect(formatTime12(9, 5)).toBe('9:05 AM')
     expect(formatTime12(14, 0)).toBe('2:00 PM')
+  })
+})
+
+describe('formatDateKey', () => {
+  it('formats a date as YYYY-MM-DD using local timezone', () => {
+    const d = new Date(2026, 0, 5) // Jan 5, 2026 local
+    expect(formatDateKey(d)).toBe('2026-01-05')
+  })
+
+  it('pads single-digit month and day', () => {
+    const d = new Date(2026, 2, 3) // Mar 3, 2026 local
+    expect(formatDateKey(d)).toBe('2026-03-03')
+  })
+
+  it('handles double-digit month and day', () => {
+    const d = new Date(2026, 11, 25) // Dec 25, 2026 local
+    expect(formatDateKey(d)).toBe('2026-12-25')
   })
 })

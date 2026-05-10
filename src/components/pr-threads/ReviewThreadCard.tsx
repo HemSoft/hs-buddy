@@ -292,9 +292,7 @@ export function ReviewThreadCard({
   }, [ownerRepo, resolving, enqueue, accounts, thread.id, thread.isResolved, onResolveToggled])
 
   const handleHeaderKeyDown = useCallback((e: React.KeyboardEvent) => {
-    /* v8 ignore start */
     if (e.key === 'Enter' || e.key === ' ') {
-      /* v8 ignore stop */
       e.preventDefault()
       dispatch({ type: 'toggle_expand' })
     }

@@ -63,9 +63,6 @@ export function SettingsNotifications() {
   }
 
   const handlePreview = useCallback(() => {
-    /* v8 ignore start */
-    if (!soundPath) return
-    /* v8 ignore stop */
     setPreviewError(null)
 
     stopPreview()
@@ -103,7 +100,7 @@ export function SettingsNotifications() {
       .catch(() => {
         setPreviewError('Could not play this file.')
       })
-  }, [revokePreviewUrl, soundPath, stopPreview])
+  }, [revokePreviewUrl, stopPreview])
 
   if (loading) {
     return (

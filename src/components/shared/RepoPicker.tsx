@@ -51,7 +51,7 @@ function groupByFolder(sorted: RepoBookmarkList): { folder: string; repos: RepoB
     }
     currentGroup.push(bm)
   }
-  /* v8 ignore start */
+  /* v8 ignore start -- groupByFolder is only called with non-empty sorted arrays */
   if (currentGroup.length > 0) {
     /* v8 ignore stop */
     groups.push({ folder: currentFolder, repos: currentGroup })

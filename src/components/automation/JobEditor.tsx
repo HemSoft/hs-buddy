@@ -217,9 +217,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           </button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
             <Save size={16} />
-            {/* v8 ignore start */}
             {saving ? 'Saving...' : isEditing ? 'Update Job' : 'Create Job'}
-            {/* v8 ignore stop */}
           </button>
         </div>
       </div>

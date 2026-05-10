@@ -150,7 +150,7 @@ export function SettingsCopilot() {
 
   const handleCustomModelSave = async () => {
     const trimmed = customModel.trim()
-    /* v8 ignore start */
+    /* v8 ignore start -- button is disabled, but keyboard Enter can bypass */
     if (!trimmed) return
     /* v8 ignore stop */
 

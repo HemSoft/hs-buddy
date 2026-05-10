@@ -137,6 +137,26 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText(/overage/)).toBeInTheDocument()
   })
 
+  it('treats null spent as zero when useQuotaOverage is false', () => {
+    const orgs = new Map([['acme', 'token']])
+    const overages = new Map([['acme', 0]])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ useQuotaOverage: false, spent: null }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={overages} />
+    )
+    expect(screen.getByText('acme')).toBeInTheDocument()
+    expect(screen.getByText(/spent/i)).toBeInTheDocument()
+    expect(screen.queryByText(/NaN/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/overage/i)).not.toBeInTheDocument()
+  })
+
   it('shows "no budget set" for hemsoft org when budget amount is null', () => {
     const orgs = new Map([['Hemsoft', 'token']])
     const budgets: Record<string, OrgBudgetState> = {

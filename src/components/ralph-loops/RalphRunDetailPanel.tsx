@@ -83,7 +83,7 @@ function RunHeader({ run, onStop }: { run: RalphRunInfo; onStop: (id: string) =>
 }
 
 function ProgressBar({ current, total, label }: { current: number; total: number; label: string }) {
-  const pct = total > 0 ? Math.round((current / total) * 100) : /* v8 ignore next */ 0
+  const pct = Math.round((current / total) * 100)
   return (
     <div className="ralph-run-progress-row">
       <span className="ralph-run-progress-label">{label}</span>
@@ -292,7 +292,7 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
       <div className="ralph-run-detail">
         <div className="ralph-run-detail-empty">
           <AlertCircle size={32} />
-          <span>{/* v8 ignore start */ error || 'Run not found' /* v8 ignore stop */}</span>
+          <span>{error}</span>
           <span className="ralph-run-detail-runid">{runId}</span>
         </div>
       </div>

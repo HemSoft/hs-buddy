@@ -362,4 +362,21 @@ describe('useNewPRIndicator', () => {
     // May or may not call set depending on the internal logic, but at least verify no crash
     expect(result.current.newCounts['pr-needs-review']).toBe(0)
   })
+
+  it('seenUrlsFromCache returns empty set when seen entry exists but has no data', () => {
+    getSpy.mockImplementation((key: string) => {
+      if (key === 'my-prs') return { data: [makePR(1)], fetchedAt: Date.now() }
+      if (key === 'needs-review') return { data: [], fetchedAt: Date.now() }
+      // seen-prs entry exists (truthy) but has no data field
+      if (key === 'seen-prs:my-prs') return { fetchedAt: Date.now() }
+      if (key === 'seen-prs:needs-review') return { fetchedAt: Date.now() }
+      return null
+    })
+
+    const { result } = renderHook(() => useNewPRIndicator())
+
+    // All current PRs should be "new" since the seen set is empty (no data)
+    expect(result.current.newCounts['pr-my-prs']).toBe(1)
+    expect(result.current.totalNewCount).toBe(1)
+  })
 })

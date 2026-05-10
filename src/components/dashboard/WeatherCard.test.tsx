@@ -168,10 +168,27 @@ describe('WeatherCard', () => {
     expect(mockSetLocationBySearch).toHaveBeenCalledWith('NYC')
   })
 
+  it('ignores non-Enter keys in search input', () => {
+    mockWeatherData.data = makeWeatherData()
+    render(<WeatherCard />)
+    const input = screen.getByLabelText('Search location')
+    fireEvent.change(input, { target: { value: 'NYC' } })
+    fireEvent.keyDown(input, { key: 'a' })
+    expect(mockSetLocationBySearch).not.toHaveBeenCalled()
+  })
+
   it('does not search when query is empty', () => {
     mockWeatherData.data = makeWeatherData()
     render(<WeatherCard />)
     fireEvent.click(screen.getByText('Go'))
+    expect(mockSetLocationBySearch).not.toHaveBeenCalled()
+  })
+
+  it('does not search on Enter when query is empty', () => {
+    mockWeatherData.data = makeWeatherData()
+    render(<WeatherCard />)
+    const input = screen.getByLabelText('Search location')
+    fireEvent.keyDown(input, { key: 'Enter' })
     expect(mockSetLocationBySearch).not.toHaveBeenCalled()
   })
 

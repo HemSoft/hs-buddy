@@ -57,9 +57,7 @@ export function RunList() {
         const result = await cleanup({ olderThanDays: 7 })
         console.log(`Cleaned up ${result.deleted} old runs`)
       } catch (error: unknown) {
-        /* v8 ignore start */
         console.error('Failed to cleanup runs:', error)
-        /* v8 ignore stop */
       }
     }
   }
@@ -187,9 +185,7 @@ export function RunList() {
           )}
         </div>
       </div>
-      {/* v8 ignore start */}
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}
-      {/* v8 ignore stop */}
     </>
   )
 }

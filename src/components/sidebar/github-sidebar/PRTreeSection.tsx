@@ -244,7 +244,6 @@ export function PRTreeSection({
           {expandedPrGroups.has(item.id) && getPRsForItem(prTreeData, item.id).length > 0 && (
             <div className="sidebar-job-tree sidebar-pr-tree">
               <div className="sidebar-job-items">
-                {/* v8 ignore start */}
                 {getPRsForItem(prTreeData, item.id).map(pr => (
                   <PRItemNode
                     key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`}
@@ -258,7 +257,6 @@ export function PRTreeSection({
                     onContextMenu={onContextMenu}
                   />
                 ))}
-                {/* v8 ignore stop */}
               </div>
             </div>
           )}

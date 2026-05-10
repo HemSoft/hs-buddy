@@ -43,13 +43,11 @@ function ensurePathExists(
     }
     nodeMap.set(currentPath, node)
 
-    if (parentPath && nodeMap.has(parentPath)) {
-      nodeMap.get(parentPath)!.children.push(node)
-      /* v8 ignore start */
-    } else if (!parentPath) {
+    if (!parentPath) {
       root.push(node)
+    } else {
+      nodeMap.get(parentPath)!.children.push(node)
     }
-    /* v8 ignore stop */
   }
 }
 
@@ -61,21 +59,14 @@ function rollUpCounts(
   for (const cat of sorted) {
     const directCount = counts[cat] ?? 0
     const node = nodeMap.get(cat)
-    /* v8 ignore start */
     if (node) {
       node.directCount = directCount
     }
-    /* v8 ignore stop */
     const parts = cat.split('/')
     let path = ''
-    for (let i = 0; i < parts.length; i++) {
-      path = appendPathSegment(path, parts[i])
-      const ancestor = nodeMap.get(path)
-      /* v8 ignore start */
-      if (ancestor) {
-        ancestor.totalCount += directCount
-      }
-      /* v8 ignore stop */
+    for (const part of parts) {
+      path = appendPathSegment(path, part)
+      nodeMap.get(path)!.totalCount += directCount
     }
   }
 }

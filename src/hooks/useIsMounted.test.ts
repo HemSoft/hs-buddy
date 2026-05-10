@@ -16,4 +16,11 @@ describe('useIsMounted', () => {
     unmount()
     expect(ref.current).toBe(false)
   })
+
+  it('stays true across re-renders', () => {
+    const { result, rerender } = renderHook(() => useIsMounted())
+    rerender()
+    rerender()
+    expect(result.current.current).toBe(true)
+  })
 })

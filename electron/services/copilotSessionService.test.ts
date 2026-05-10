@@ -85,26 +85,38 @@ describe('copilotSessionService', () => {
     })
 
     it('returns Insiders path when it exists', () => {
+      const origAppData = process.env.APPDATA
+      process.env.APPDATA = '/fake/appdata'
       mockExistsSync.mockImplementation(
         (p: string) => typeof p === 'string' && p.includes('Code - Insiders')
       )
       const result = getVSCodeStoragePath()
       expect(result).toContain('Code - Insiders')
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
 
     it('returns stable path when Insiders does not exist', () => {
+      const origAppData = process.env.APPDATA
+      process.env.APPDATA = '/fake/appdata'
       mockExistsSync.mockImplementation(
         (p: string) => typeof p === 'string' && p.includes('Code') && !p.includes('Insiders')
       )
       const result = getVSCodeStoragePath()
       expect(result).toContain('Code')
       expect(result).not.toContain('Insiders')
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
 
     it('returns empty string when no VS Code installation found', () => {
+      const origAppData = process.env.APPDATA
+      process.env.APPDATA = '/fake/appdata'
       mockExistsSync.mockReturnValue(false)
       const result = getVSCodeStoragePath()
       expect(result).toBe('')
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
   })
 
@@ -156,6 +168,9 @@ describe('copilotSessionService', () => {
     })
 
     it('scans workspace directories and returns sorted sessions', () => {
+      const origAppData = process.env.APPDATA
+      process.env.APPDATA = '/fake/appdata'
+
       // getVSCodeStoragePath: return stable Code path
       mockExistsSync.mockImplementation((p: string) => {
         if (typeof p === 'string' && p.includes('Code') && !p.includes('Insiders')) return true
@@ -171,9 +186,10 @@ describe('copilotSessionService', () => {
         return []
       })
 
-      mockStatSync.mockImplementation(() => ({
+      // Return distinct mtimeMs per file so the sort is exercised
+      mockStatSync.mockImplementation((p: string) => ({
         size: 500,
-        mtimeMs: readdirCall <= 3 ? 2000 : 1000,
+        mtimeMs: typeof p === 'string' && p.includes('session1') ? 1000 : 2000,
       }))
 
       mockReadFileSync.mockImplementation(() => {
@@ -191,8 +207,13 @@ describe('copilotSessionService', () => {
       const result = scanCopilotSessions()
       expect(result.sessions.length).toBe(2)
       expect(result.totalCount).toBe(2)
-      // Sessions should be sorted by modifiedAt (descending)
-      expect(result.sessions[0].sessionId).toBeDefined()
+      // Sessions should be sorted by modifiedAt descending
+      expect(result.sessions[0].sessionId).toBe('session2')
+      expect(result.sessions[1].sessionId).toBe('session1')
+      expect(result.sessions[0].modifiedAt).toBeGreaterThan(result.sessions[1].modifiedAt)
+
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
 
     it('returns empty for workspace hashes with no chat session files', () => {
@@ -255,6 +276,9 @@ describe('copilotSessionService', () => {
     })
 
     it('handles extractScanInfo returning fallback for zero bytes read', () => {
+      const origAppData = process.env.APPDATA
+      process.env.APPDATA = '/fake/appdata'
+
       mockExistsSync.mockReturnValue(true)
 
       let readdirCall = 0
@@ -274,9 +298,15 @@ describe('copilotSessionService', () => {
       const result = scanCopilotSessions()
       expect(result.sessions.length).toBe(1)
       expect(result.sessions[0].title).toBe('')
+
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
 
     it('handles extractScanInfo openSync error gracefully', () => {
+      const origAppData = process.env.APPDATA
+      process.env.APPDATA = '/fake/appdata'
+
       mockExistsSync.mockReturnValue(true)
 
       let readdirCall = 0
@@ -297,6 +327,9 @@ describe('copilotSessionService', () => {
       const result = scanCopilotSessions()
       expect(result.sessions.length).toBe(1)
       expect(result.sessions[0].title).toBe('')
+
+      if (origAppData !== undefined) process.env.APPDATA = origAppData
+      else delete process.env.APPDATA
     })
   })
 

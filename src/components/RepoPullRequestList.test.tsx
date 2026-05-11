@@ -242,6 +242,17 @@ describe('RepoPullRequestList', () => {
     )
   })
 
+  it('fetchFn calls client.fetchRepoPRs with correct args', () => {
+    setupHook({ data: null, loading: false })
+    render(<RepoPullRequestList owner="acme" repo="web" prState="closed" />)
+
+    const config = mockUseGitHubData.mock.calls[0][0]
+    const mockClient = { fetchRepoPRs: vi.fn() }
+    config.fetchFn(mockClient)
+
+    expect(mockClient.fetchRepoPRs).toHaveBeenCalledWith('acme', 'web', 'closed')
+  })
+
   it('renders PR without avatar image in card view when authorAvatarUrl is null', () => {
     setupHook({ data: [makePR({ authorAvatarUrl: null })], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)

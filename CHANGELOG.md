@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main
+- Remove v8 ignore pragmas and add 7 tests
 - Remove 10 v8 ignore pragmas by adding genuine test coverage
 
 ## [0.1.751] - 2026-05-07

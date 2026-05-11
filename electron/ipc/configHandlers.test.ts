@@ -476,4 +476,67 @@ describe('configHandlers', () => {
       expect(result).toBe(300)
     })
   })
+
+  describe('config:play-notification-sound', () => {
+    it('returns null when sound path is not supported', async () => {
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/path/to/sound.ogg')
+      const handler = handlers.get('config:play-notification-sound')!
+      const result = await handler({})
+      expect(result).toBeNull()
+    })
+
+    it('returns base64 audio data for valid sound file', async () => {
+      const { stat, readFile } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/path/to/sound.mp3')
+      vi.mocked(stat).mockResolvedValue({
+        isFile: () => true,
+        size: 1024,
+      } as import('node:fs').Stats)
+      vi.mocked(readFile).mockResolvedValue(Buffer.from('audio-data'))
+
+      const handler = handlers.get('config:play-notification-sound')!
+      const result = await handler({})
+
+      expect(result).toEqual({
+        base64: Buffer.from('audio-data').toString('base64'),
+        mimeType: 'audio/mpeg',
+      })
+    })
+
+    it('returns null when file is too large', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/path/to/sound.mp3')
+      vi.mocked(stat).mockResolvedValue({
+        isFile: () => true,
+        size: 20_000_000,
+      } as import('node:fs').Stats)
+
+      const handler = handlers.get('config:play-notification-sound')!
+      const result = await handler({})
+      expect(result).toBeNull()
+    })
+
+    it('returns null when stat throws', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/path/to/sound.mp3')
+      vi.mocked(stat).mockRejectedValue(new Error('ENOENT'))
+
+      const handler = handlers.get('config:play-notification-sound')!
+      const result = await handler({})
+      expect(result).toBeNull()
+    })
+
+    it('returns null when path is a directory', async () => {
+      const { stat } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/path/to/sound.mp3')
+      vi.mocked(stat).mockResolvedValue({
+        isFile: () => false,
+        size: 1024,
+      } as import('node:fs').Stats)
+
+      const handler = handlers.get('config:play-notification-sound')!
+      const result = await handler({})
+      expect(result).toBeNull()
+    })
+  })
 })

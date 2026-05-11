@@ -33,6 +33,8 @@ describe('menu', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockMatchesShortcut.mockReset()
+    mockMatchesShortcut.mockImplementation((..._args: unknown[]) => false)
     vi.mocked(mockWin.webContents.getZoomFactor).mockReturnValue(1.0)
     vi.mocked(mockWin.isFullScreen).mockReturnValue(false)
   })
@@ -71,6 +73,71 @@ describe('menu', () => {
     const event = { preventDefault: vi.fn() }
     handler(event, { type: 'keyDown', key: '+' })
     expect(event.preventDefault).toHaveBeenCalled()
+  })
+
+  it('shortcut Ctrl+- triggers zoomOut', () => {
+    mockMatchesShortcut.mockImplementation(
+      (entry: unknown) =>
+        (entry as { key: string }).key === '-' &&
+        (entry as { ctrlOrCmd?: boolean }).ctrlOrCmd === true
+    )
+    registerKeyboardShortcuts(mockWin)
+    const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
+      string,
+      (...args: unknown[]) => unknown,
+    ][]
+    const handler = calls.find(c => c[0] === 'before-input-event')![1]
+    handler({ preventDefault: vi.fn() }, { type: 'keyDown', key: '-' })
+    expect(mockWin.webContents.setZoomFactor).toHaveBeenCalled()
+    expect(saveZoomLevel).toHaveBeenCalled()
+  })
+
+  it('shortcut Ctrl+Shift+A sends TOGGLE_ASSISTANT', () => {
+    mockMatchesShortcut.mockImplementation(
+      (entry: unknown) =>
+        (entry as { key: string; shift?: boolean }).key === 'A' &&
+        (entry as { shift?: boolean }).shift === true &&
+        (entry as { ctrlOrCmd?: boolean }).ctrlOrCmd === true
+    )
+    registerKeyboardShortcuts(mockWin)
+    const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
+      string,
+      (...args: unknown[]) => unknown,
+    ][]
+    const handler = calls.find(c => c[0] === 'before-input-event')![1]
+    handler({ preventDefault: vi.fn() }, { type: 'keyDown', key: 'A' })
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('toggle-assistant')
+  })
+
+  it('shortcut Ctrl+Tab sends TAB_NEXT', () => {
+    mockMatchesShortcut.mockImplementation(
+      (entry: unknown) =>
+        (entry as { key: string }).key === 'Tab' &&
+        !(entry as { shift?: boolean }).shift &&
+        (entry as { ctrlOrCmd?: boolean }).ctrlOrCmd === true
+    )
+    registerKeyboardShortcuts(mockWin)
+    const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
+      string,
+      (...args: unknown[]) => unknown,
+    ][]
+    const handler = calls.find(c => c[0] === 'before-input-event')![1]
+    handler({ preventDefault: vi.fn() }, { type: 'keyDown', key: 'Tab' })
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('tab-next')
+  })
+
+  it('shortcut F11 toggles full screen', () => {
+    mockMatchesShortcut.mockImplementation(
+      (entry: unknown) => (entry as { key: string }).key === 'F11'
+    )
+    registerKeyboardShortcuts(mockWin)
+    const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
+      string,
+      (...args: unknown[]) => unknown,
+    ][]
+    const handler = calls.find(c => c[0] === 'before-input-event')![1]
+    handler({ preventDefault: vi.fn() }, { type: 'keyDown', key: 'F11' })
+    expect(mockWin.setFullScreen).toHaveBeenCalledWith(true)
   })
 
   it('keyboard handler does nothing when no shortcut matches', () => {

@@ -9,12 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve TypeScript errors in electron test files
+- Address PR review comments for type safety and assertions
+- Align readSync tuple cast with Node.js API types
+- Increase function coverage to 86.7% and address review feedback
+
 ### Changed
 
 - Remove 14 v8 ignore pragmas and add 10 genuine tests
 - Improve assertions per review feedback
 
 - Add coverage for 5 untested source files
+- Improve coverage from 67/52/69/69 to 79/63/86/81
 
 ## [0.1.752] - 2026-05-08
 

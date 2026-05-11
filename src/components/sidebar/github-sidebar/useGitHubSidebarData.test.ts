@@ -109,28 +109,35 @@ vi.mock('../../../utils/errorUtils', () => ({
 
 import { useGitHubSidebarData } from './useGitHubSidebarData'
 
-/** Get the main sidebar subscription callback (not the PR tree one).
- * Selection is index-based: PR tree subscribes first (index 0), main second
- * (index 1). This is coupled to hook composition order, but the helpers throw
- * descriptive errors if the expected callbacks are missing, so any order
- * change will surface immediately as a test failure. */
+/**
+ * Subscribe-callback helpers use index-based selection: PR tree subscribes
+ * first (index 0), main second (index 1). This couples tests to hook
+ * composition order, but the alternative — content-based identification via
+ * invoking callbacks with probe keys — would trigger React state updates and
+ * corrupt test state. The index approach is acceptable because:
+ *   1. Both helpers throw descriptive errors when the expected callback is
+ *      missing, so any hook-order change surfaces immediately as a test failure.
+ *   2. The subscribe order is stable (set by useEffect declaration order in
+ *      useSidebarPRTree and useGitHubSidebarData).
+ */
+
+/** Get the main sidebar subscription callback (index 1, after PR tree). */
 function getMainSubscribeCb(): (key: string) => void {
   const calls = mockSubscribe.mock.calls as unknown[][]
   if (calls.length === 0) throw new Error('No dataCache.subscribe calls found')
   const idx = calls.length >= 2 ? 1 : 0
   const cb = calls[idx]?.[0] as (key: string) => void
-  if (!cb) throw new Error('Main subscribe callback not found')
+  if (!cb) throw new Error('Main subscribe callback not found at index ' + String(idx))
   return cb
 }
 
-/** Get the PR tree subscription callback. Throws if not found.
- * See getMainSubscribeCb for rationale on index-based selection. */
+/** Get the PR tree subscription callback (index 0, first subscriber). */
 function getPRTreeSubscribeCb(): (key: string) => void {
   const calls = mockSubscribe.mock.calls as unknown[][]
   if (calls.length < 2)
     throw new Error(`Expected 2+ dataCache.subscribe calls for PR tree, got ${calls.length}`)
   const cb = calls[0]?.[0] as (key: string) => void
-  if (!cb) throw new Error('PR tree subscribe callback not found')
+  if (!cb) throw new Error('PR tree subscribe callback not found at index 0')
   return cb
 }
 

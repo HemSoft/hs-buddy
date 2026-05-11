@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.754] - 2026-05-11
+
+### Fixed
+
+- Address PR review feedback and formatting
+
 ## [0.1.753] - 2026-05-12
 
 ### Fixed

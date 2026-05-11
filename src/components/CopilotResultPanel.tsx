@@ -98,9 +98,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const metadata = result.metadata as Record<string, unknown> | null
 
   const handleCopy = async () => {
-    /* v8 ignore start */
     if (result.result) {
-      /* v8 ignore stop */
       await navigator.clipboard.writeText(result.result)
       setCopied(true)
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)

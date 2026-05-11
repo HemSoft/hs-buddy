@@ -646,6 +646,55 @@ describe('useAppTabs', () => {
     expect(result.current.tabs).toBe(tabsBefore)
   })
 
+  it('closeTabsToRight is no-op when tab is the last one', async () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      await result.current.openTab('pr-my-prs')
+      await result.current.openTab('pr-needs-review')
+    })
+
+    const lastTab = result.current.tabs[result.current.tabs.length - 1]!
+    const tabsBefore = result.current.tabs
+
+    act(() => {
+      result.current.closeTabsToRight(lastTab.id)
+    })
+
+    expect(result.current.tabs).toHaveLength(tabsBefore.length)
+    expect(result.current.tabs.map(t => t.id)).toEqual(tabsBefore.map(t => t.id))
+    expect(result.current.activeTabId).toBe(lastTab.id)
+  })
+
+  it('closeTabsToRight preserves active tab when it is to the left', async () => {
+    const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+    await act(async () => {
+      await result.current.openTab('pr-my-prs')
+      await result.current.openTab('pr-needs-review')
+      await result.current.openTab('copilot-usage')
+    })
+
+    // Select pr-my-prs (2nd tab) which is to the left of pr-needs-review
+    const prMyPrsTab = findTab(result.current.tabs, 'pr-my-prs')!
+    const prNeedsReviewTab = findTab(result.current.tabs, 'pr-needs-review')!
+    act(() => {
+      result.current.setActiveTabId(prMyPrsTab.id)
+    })
+    expect(result.current.activeTabId).toBe(prMyPrsTab.id)
+
+    // Close tabs to the right of pr-needs-review (copilot-usage)
+    act(() => {
+      result.current.closeTabsToRight(prNeedsReviewTab.id)
+    })
+
+    // pr-my-prs should still be active since it's to the left
+    expect(result.current.activeTabId).toBe(prMyPrsTab.id)
+    expect(result.current.tabs).toHaveLength(3) // dashboard + pr-my-prs + pr-needs-review
+    expect(findTab(result.current.tabs, 'copilot-usage')).toBeUndefined()
+    expect(findTab(result.current.tabs, 'pr-needs-review')).toBeDefined()
+  })
+
   it('syncCrewTabLabels returns same state when no labels change', async () => {
     // First call for openTab's resolveCrewProjectLabel, second for syncCrewTabLabels
     mockListProjects.mockResolvedValue([{ id: 'proj-1', displayName: 'Stable Label' }])

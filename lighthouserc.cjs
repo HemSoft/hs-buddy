@@ -3,7 +3,7 @@
 module.exports = {
   ci: {
     collect: {
-      startServerCommand: 'npx vite --port 9222',
+      startServerCommand: 'npx vite --mode e2e --port 9222',
       startServerReadyPattern: 'Local:',
       url: ['http://localhost:9222/'],
       numberOfRuns: 3,

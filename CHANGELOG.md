@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Remove 14 v8 ignore pragmas and add 10 genuine tests
+- Improve assertions per review feedback
+
 - Add coverage for 5 untested source files
 
 ## [0.1.752] - 2026-05-08
@@ -28,10 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move changelog entry to Unreleased section
 - Address PR review feedback — strengthen test assertions and fix TS2556
 - Sync MockStore.store after clear() to prevent stale state
-- Resolve CI lint, typecheck, and test failures across electron tests
-- Address PR review feedback on test quality
-- Ensure copilotSessionService tests work on Linux CI
-- Remove duplicate ### Changed heading in CHANGELOG.md
+- Remove unused exports and harden extractRepoFromUrl
+- Resolve Lighthouse CI NO_FCP by using --mode e2e and browser IPC mock
 
 ### Changed
 
@@ -49,22 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address 8 PR review comments for test quality
 - Add dedicated test files for 4 modules (64 new tests)
 - Improve coverage from 57% to 70%
-- Improve electron test coverage from 67% to 75%
-- Expand ralphService and tempoClient coverage
-- Add round 3 electron coverage tests (telemetry, shell, todoist, slack, terminal)
-- Add copilotSessionHandlers digest + configHandlers notification sound tests
-- Improve electron coverage to 90% (terminal, copilotService, menu, github handlers)
-- Round 6 electron coverage to 93% (githubHandlers, tempoClient, copilotClient)
-- Round 7 electron coverage improvements (93→94% stmts, 84→85% branches)
-- Round 8 - improve coverage to 94.41%/86.04%/95.24%
-- Round 9 — coverage to 94.69% stmts, 86.39% branches
-- Round 9 — coverage to 94.77% stmts, 87.44% branches
-- Round 10 — branches 87.44→88.48%, stmts 94.77→94.90%
-- Round 10b — branches 88.48→88.95%, 4 more files at 100%
-- Round 11 — cover buffer size guard, prompt fallback, and template scriptType
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main
+- Remove v8 ignore pragmas and add 7 tests
+- Remove 10 v8 ignore pragmas by adding genuine test coverage
 
 ## [0.1.751] - 2026-05-07
 

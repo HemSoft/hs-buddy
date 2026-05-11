@@ -1,3 +1,4 @@
+import type { RalphRunInfo } from '../../src/types/ralph'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('electron', () => ({
@@ -17,7 +18,7 @@ vi.mock('../services/ralphService', () => ({
   launchLoop: vi.fn().mockResolvedValue({ runId: 'run-1', status: 'running' }),
   stopLoop: vi.fn().mockResolvedValue({ success: true }),
   listLoops: vi.fn().mockResolvedValue([{ runId: 'run-1', status: 'running' }]),
-  getLoopStatus: vi.fn().mockResolvedValue({ runId: 'run-1', status: 'complete' }),
+  getLoopStatus: vi.fn().mockResolvedValue({ runId: 'run-1', status: 'completed' }),
   getConfig: vi.fn().mockResolvedValue({ scripts: '/path/to/scripts' }),
   getScriptsPath: vi.fn().mockResolvedValue('/home/user/.ralph/scripts'),
   listTemplateScripts: vi.fn().mockResolvedValue(['audit.sh', 'deploy.sh']),
@@ -82,6 +83,60 @@ describe('ralphHandlers', () => {
     const result = await handler({}, '/default')
     expect(dialog.showOpenDialog).toHaveBeenCalled()
     expect(result).toBe('/repos/my-project')
+  })
+
+  it('ralph:get-status delegates to getLoopStatus', async () => {
+    const { getLoopStatus } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-status')!
+    const result = await handler({}, 'run-1')
+    expect(getLoopStatus).toHaveBeenCalledWith('run-1')
+    expect(result).toEqual({ runId: 'run-1', status: 'completed' })
+  })
+
+  it('ralph:get-config delegates to getConfig', async () => {
+    const { getConfig } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-config')!
+    const result = await handler({}, 'global')
+    expect(getConfig).toHaveBeenCalledWith('global')
+    expect(result).toEqual({ scripts: '/path/to/scripts' })
+  })
+
+  it('ralph:get-scripts-path delegates to getScriptsPath', async () => {
+    const { getScriptsPath } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:get-scripts-path')!
+    const result = await handler({})
+    expect(getScriptsPath).toHaveBeenCalled()
+    expect(result).toBe('/home/user/.ralph/scripts')
+  })
+
+  it('ralph:list-templates delegates to listTemplateScripts', async () => {
+    const { listTemplateScripts } = await import('../services/ralphService')
+    const handler = handlers.get('ralph:list-templates')!
+    const result = await handler({})
+    expect(listTemplateScripts).toHaveBeenCalled()
+    expect(result).toEqual(['audit.sh', 'deploy.sh'])
+  })
+
+  it('status change callback sends update to renderer', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls.at(0)?.[0]
+    if (typeof callback !== 'function') {
+      throw new Error('setStatusChangeCallback was not registered')
+    }
+    const run = { runId: 'run-1', status: 'completed' } as RalphRunInfo
+    callback(run)
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', run)
+  })
+
+  it('status change callback skips destroyed window', async () => {
+    const { setStatusChangeCallback } = await import('../services/ralphService')
+    const callback = vi.mocked(setStatusChangeCallback).mock.calls.at(0)?.[0]
+    if (typeof callback !== 'function') {
+      throw new Error('setStatusChangeCallback was not registered')
+    }
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
+    callback({ runId: 'run-1', status: 'completed' } as RalphRunInfo)
+    expect(mockWin.webContents.send).not.toHaveBeenCalled()
   })
 
   it('ralph:select-directory returns null when dialog is canceled', async () => {

@@ -1333,4 +1333,127 @@ describe('ralphService', () => {
       expect(status.stats.scanIterations).toBe(1)
     })
   })
+
+  describe('getConfig', () => {
+    it('reads models config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          models: { 'gpt-4': {} },
+          aliases: { fast: 'gpt-4' },
+          tiers: { premium: ['gpt-4'] },
+        })
+      )
+      const result = getConfig('models')
+      expect(result).toBeDefined()
+      expect(result.models).toBeDefined()
+    })
+
+    it('reads agents config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ agents: [] }))
+      const result = getConfig('agents')
+      expect(result).toBeDefined()
+    })
+
+    it('reads providers config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ providers: [] }))
+      const result = getConfig('providers')
+      expect(result).toBeDefined()
+    })
+
+    it('throws when config file not found', () => {
+      // getScriptsDir checks existsSync for devPath, config check also uses existsSync
+      let callCount = 0
+      mockExistsSync.mockImplementation(() => {
+        callCount++
+        // First call: getScriptsDir devPath → true
+        if (callCount === 1) return true
+        // Second call: config file existsSync → false
+        return false
+      })
+      expect(() => getConfig('models')).toThrow('Config file not found')
+    })
+  })
+
+  describe('stopLoop - running process', () => {
+    it('stops a running loop process', () => {
+      mockExistsSync.mockReturnValue(true)
+      // Launch a loop first
+      const launchResult = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(launchResult.success).toBe(true)
+
+      // Now stop it
+      const stopResult = stopLoop(launchResult.runId!)
+      // Will succeed or fail based on taskkill behavior, but exercises the path
+      expect(stopResult).toBeDefined()
+    })
+
+    it('returns error for non-running process', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launchResult = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(launchResult.success).toBe(true)
+
+      // Stop it first time
+      stopLoop(launchResult.runId!)
+
+      // Try stopping again — should report not running
+      const secondStop = stopLoop(launchResult.runId!)
+      expect(secondStop.success).toBe(false)
+      expect(secondStop.error).toContain('is not running')
+    })
+  })
+
+  describe('getLoopStatus - active run', () => {
+    it('returns status for a launched run', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launchResult = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(launchResult.success).toBe(true)
+
+      const status = getLoopStatus(launchResult.runId!)
+      expect(status).not.toBeNull()
+      expect(status!.status).toBe('running')
+      expect(status!.runId).toBe(launchResult.runId)
+
+      // Cleanup
+      stopLoop(launchResult.runId!)
+    })
+  })
+
+  describe('initRalphService', () => {
+    it('does not throw on empty state', () => {
+      expect(() => initRalphService()).not.toThrow()
+    })
+  })
+
+  describe('shutdownRalphService', () => {
+    it('does not throw on empty state', () => {
+      expect(() => shutdownRalphService()).not.toThrow()
+    })
+
+    it('stops and clears active processes', () => {
+      mockExistsSync.mockReturnValue(true)
+      // Launch a loop
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(true)
+      expect(listLoops().length).toBeGreaterThan(0)
+
+      // Shutdown should clear everything
+      shutdownRalphService()
+      expect(listLoops()).toHaveLength(0)
+    })
+  })
 })

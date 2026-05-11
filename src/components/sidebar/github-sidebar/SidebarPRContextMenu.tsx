@@ -5,7 +5,7 @@ interface SidebarPRContextMenuProps {
   pr: PullRequest
   x: number
   y: number
-  approvingPrKey: string | null
+  approvingPrKeys: Set<string>
   bookmarkedRepoKeys: Set<string>
   onOpen: () => void
   onCopyLink: () => void
@@ -24,7 +24,7 @@ export function SidebarPRContextMenu({
   pr,
   x,
   y,
-  approvingPrKey,
+  approvingPrKeys,
   bookmarkedRepoKeys,
   onOpen,
   onCopyLink,
@@ -34,7 +34,7 @@ export function SidebarPRContextMenu({
   onClose,
 }: SidebarPRContextMenuProps) {
   const prKey = `${pr.source}-${pr.repository}-${pr.id}`
-  const isApproving = approvingPrKey === prKey
+  const isApproving = approvingPrKeys.has(prKey)
   const isBookmarked = bookmarkedRepoKeys.has(`${pr.org || ''}/${pr.repository}`)
 
   return (

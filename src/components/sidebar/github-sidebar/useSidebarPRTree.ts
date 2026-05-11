@@ -56,7 +56,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     y: number
     pr: PullRequest
   } | null>(null)
-  const [approvingPrKey, setApprovingPrKey] = useState<string | null>(null)
+  const [approvingPrKeys, setApprovingPrKeys] = useState<Set<string>>(new Set())
 
   const prItems: SidebarItem[] = [
     { id: 'pr-my-prs', label: 'My PRs' },
@@ -173,7 +173,8 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       /* v8 ignore stop */
       const { owner, repo } = resolved
       const prKey = `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
-      setApprovingPrKey(prKey)
+      if (approvingPrKeys.has(prKey)) return
+      setApprovingPrKeys(prev => new Set(prev).add(prKey))
       try {
         await enqueueRef.current(
           async signal => {
@@ -191,16 +192,20 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
         /* v8 ignore stop */
         console.error('Failed to approve PR from sidebar:', error)
       } finally {
-        setApprovingPrKey(null)
+        setApprovingPrKeys(prev => {
+          const next = new Set(prev)
+          next.delete(prKey)
+          return next
+        })
       }
     },
-    [accounts, applyApproveToTree, enqueueRef]
+    [accounts, approvingPrKeys, applyApproveToTree, enqueueRef]
   )
 
   return {
     prContextMenu,
     setPrContextMenu,
-    approvingPrKey,
+    approvingPrKeys,
     prItems,
     prTreeData,
     expandedPrGroups: prGroups.set,

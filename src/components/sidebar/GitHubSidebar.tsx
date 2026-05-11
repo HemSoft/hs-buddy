@@ -15,7 +15,7 @@ function SidebarPRContextMenuWrapper(
   data: Pick<
     SidebarData,
     | 'prContextMenu'
-    | 'approvingPrKey'
+    | 'approvingPrKeys'
     | 'bookmarkedRepoKeys'
     | 'setPrContextMenu'
     | 'copyToClipboard'
@@ -26,7 +26,7 @@ function SidebarPRContextMenuWrapper(
 ) {
   const {
     prContextMenu,
-    approvingPrKey,
+    approvingPrKeys,
     bookmarkedRepoKeys,
     setPrContextMenu,
     copyToClipboard,
@@ -40,7 +40,7 @@ function SidebarPRContextMenuWrapper(
       pr={prContextMenu.pr}
       x={prContextMenu.x}
       y={prContextMenu.y}
-      approvingPrKey={approvingPrKey}
+      approvingPrKeys={approvingPrKeys}
       bookmarkedRepoKeys={bookmarkedRepoKeys}
       onOpen={() => {
         window.shell.openExternal(prContextMenu.pr.url)

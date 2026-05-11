@@ -188,7 +188,8 @@ describe('useGitHubSidebarData', () => {
     expect(data.showBookmarkedOnly).toBe(false)
     expect(data.uniqueOrgs).toEqual(['acme'])
     expect(data.prContextMenu).toBeNull()
-    expect(data.approvingPrKey).toBeNull()
+    expect(data.approvingPrKeys).toBeInstanceOf(Set)
+    expect(data.approvingPrKeys.size).toBe(0)
     expect(data.orgRepos).toEqual({})
     expect(data.orgMembers).toEqual({})
     expect(data.orgTeams).toEqual({})
@@ -882,10 +883,10 @@ describe('useGitHubSidebarData', () => {
         org: 'acme',
       })
     })
-    expect(result.current.approvingPrKey).toBeNull()
+    expect(result.current.approvingPrKeys.size).toBe(0)
   })
 
-  it('handleApprovePR sets approvingPrKey and approves', async () => {
+  it('handleApprovePR sets approvingPrKeys and approves', async () => {
     const { result } = renderHook(() => useGitHubSidebarData())
     await act(async () => {
       await result.current.handleApprovePR({
@@ -904,8 +905,52 @@ describe('useGitHubSidebarData', () => {
         org: 'acme',
       })
     })
-    // After approval, approvingPrKey is cleared
-    expect(result.current.approvingPrKey).toBeNull()
+    // After approval, approvingPrKeys is cleared
+    expect(result.current.approvingPrKeys.size).toBe(0)
+  })
+
+  it('handleApprovePR skips duplicate in-flight approval for the same PR', async () => {
+    let resolveApproval!: () => void
+    mockApprovePullRequest.mockImplementationOnce(
+      () =>
+        new Promise<void>(r => {
+          resolveApproval = r
+        })
+    )
+    const pr = {
+      source: 'GitHub' as const,
+      repository: 'my-repo',
+      id: 42,
+      title: 'Test',
+      author: 'alice',
+      url: 'https://github.com/acme/my-repo/pull/42',
+      state: 'open',
+      approvalCount: 0,
+      assigneeCount: 0,
+      iApproved: false,
+      created: null,
+      date: null,
+      org: 'acme',
+    }
+    const { result } = renderHook(() => useGitHubSidebarData())
+    let firstDone = false
+    // Start first approval (will hang on the deferred promise)
+    act(() => {
+      result.current.handleApprovePR(pr).then(() => {
+        firstDone = true
+      })
+    })
+    // Second call while first is in-flight should be a no-op
+    await act(async () => {
+      await result.current.handleApprovePR(pr)
+    })
+    expect(mockApprovePullRequest).toHaveBeenCalledTimes(1)
+    // Resolve the first approval
+    await act(async () => {
+      resolveApproval()
+    })
+    expect(firstDone).toBe(true)
+    expect(result.current.approvingPrKeys.size).toBe(0)
   })
 
   it('toggleFavoriteUser adds and removes favorites', () => {
@@ -1618,7 +1663,7 @@ describe('useGitHubSidebarData', () => {
     })
 
     expect(consoleSpy).toHaveBeenCalledWith('Failed to approve PR from sidebar:', expect.any(Error))
-    expect(result.current.approvingPrKey).toBeNull()
+    expect(result.current.approvingPrKeys.size).toBe(0)
     consoleSpy.mockRestore()
   })
 
